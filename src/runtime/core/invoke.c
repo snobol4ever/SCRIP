@@ -15,9 +15,9 @@ DESCR_t ARGVAL_fn(DESCR_t d)
 {
     if (d.v == DT_FAIL) return FAILDESCR;
     if (d.v == DT_N) {
-        if (d.slen == 0 && d.s && *d.s)
+        if (IS_NAMEVAL(d) && *d.s)
             return NV_GET_fn(d.s);
-        if (d.slen == 1 && d.ptr)
+        if (IS_NAMEPTR(d))
             return *(DESCR_t *)GET_PTR(d);
         return NULVCL;
     }

@@ -55,8 +55,8 @@ DESCR_t interp_eval_pat(tree_t *e)
             }
             DESCR_t _v = eval_node(e);
             if (_v.v == DT_N) {
-                if (_v.slen == 1 && _v.ptr) _v = *(DESCR_t *)_v.ptr;
-                else if (_v.slen == 0 && _v.s) _v = NV_GET_fn(_v.s);
+                if (IS_NAMEPTR(_v)) _v = NAME_DEREF_PTR(_v);
+                else if (IS_NAMEVAL(_v)) _v = NV_GET_fn(_v.s);
                 else _v = NULVCL;
             }
             if (_v.v == DT_E && !GET_PTR(_v)) return NULVCL;

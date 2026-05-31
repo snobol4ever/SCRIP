@@ -215,8 +215,8 @@ static PATND_t *pat_to_patnd(DESCR_t v) {
     }
     coerce:
     if (v.v == DT_N) {
-        if (v.slen == 1 && v.ptr) v = *(DESCR_t *)v.ptr;
-        else if (v.slen == 0 && v.s) v = NV_GET_fn(v.s);
+        if (IS_NAMEPTR(v)) v = NAME_DEREF_PTR(v);
+        else if (IS_NAMEVAL(v)) v = NV_GET_fn(v.s);
         else v = NULVCL;
     }
     PATND_t *p = spat_of(v);
@@ -281,8 +281,8 @@ DESCR_t pat_ref(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *_assign_varname_str(DESCR_t var) {
     if (var.v != DT_N) return "";
-    if (var.slen == 0 && var.s && *var.s) return GC_strdup(var.s);
-    if (var.slen == 1 && var.ptr) {
+    if (IS_NAMEVAL(var) && *var.s) return GC_strdup(var.s);
+    if (IS_NAMEPTR(var)) {
         const char *nm = NV_name_from_ptr((const DESCR_t *)GET_PTR(var));
         if (nm && *nm) return GC_strdup(nm);
     }
@@ -605,9 +605,9 @@ DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {
     const char *nm  = VARVAL_fn(newname);
     const char *old = NULL;
     if (oldname.v == DT_N) {
-        if (oldname.slen == 0 && oldname.s && *oldname.s)
+        if (IS_NAMEVAL(oldname) && *oldname.s)
             old = oldname.s;
-        else if (oldname.slen == 1 && oldname.ptr)
+        else if (IS_NAMEPTR(oldname))
             old = NV_name_from_ptr((const DESCR_t *)GET_PTR(oldname));
     }
     if (!old) old = VARVAL_fn(oldname);

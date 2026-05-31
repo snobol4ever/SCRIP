@@ -809,9 +809,9 @@ static DESCR_t _APPLY_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     const char *fname = NULL;
     if (a[0].v == DT_N) {
-        if (a[0].slen == 0 && a[0].s && *a[0].s)
+        if (IS_NAMEVAL(a[0]) && *a[0].s)
             fname = a[0].s;
-        else if (a[0].slen == 1 && a[0].ptr)
+        else if (IS_NAMEPTR(a[0]))
             fname = NV_name_from_ptr((const DESCR_t *)GET_PTR(a[0]));
     }
     if (!fname) fname = VARVAL_fn(a[0]);

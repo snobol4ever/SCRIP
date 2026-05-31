@@ -9,8 +9,8 @@ DESCR_t VARVAL_d_fn(DESCR_t d)
 {
     if (d.v == DT_FAIL) return FAILDESCR;
     if (d.v == DT_N) {
-        if (d.slen == 0 && d.s && *d.s) d = NV_GET_fn(d.s);
-        else if (d.slen == 1 && d.ptr)  d = *(DESCR_t *)d.ptr;
+        if (IS_NAMEVAL(d) && *d.s) d = NV_GET_fn(d.s);
+        else if (IS_NAMEPTR(d))    d = NAME_DEREF_PTR(d);
         else return NULVCL;
     }
     if (d.v == DT_K && d.s) d = NV_GET_fn(d.s);
@@ -33,8 +33,8 @@ DESCR_t INTVAL_fn(DESCR_t d)
 {
     if (d.v == DT_FAIL) return FAILDESCR;
     if (d.v == DT_N) {
-        if (d.slen == 0 && d.s && *d.s) d = NV_GET_fn(d.s);
-        else if (d.slen == 1 && d.ptr)  d = *(DESCR_t *)d.ptr;
+        if (IS_NAMEVAL(d) && *d.s) d = NV_GET_fn(d.s);
+        else if (IS_NAMEPTR(d))    d = NAME_DEREF_PTR(d);
         else return FAILDESCR;
     }
     if (d.v == DT_K && d.s) d = NV_GET_fn(d.s);
@@ -57,8 +57,8 @@ DESCR_t PATVAL_fn(DESCR_t d)
 {
     if (d.v == DT_FAIL) return FAILDESCR;
     if (d.v == DT_N) {
-        if (d.slen == 0 && d.s && *d.s) d = NV_GET_fn(d.s);
-        else if (d.slen == 1 && d.ptr)  d = *(DESCR_t *)d.ptr;
+        if (IS_NAMEVAL(d) && *d.s) d = NV_GET_fn(d.s);
+        else if (IS_NAMEPTR(d))    d = NAME_DEREF_PTR(d);
         else return FAILDESCR;
     }
     if (d.v == DT_K && d.s) d = NV_GET_fn(d.s);
