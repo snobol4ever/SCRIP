@@ -259,8 +259,8 @@ int descr_identical(DESCR_t a, DESCR_t b) {
         const char *s2 = b.s ? b.s : ""; size_t l2 = (b.slen > 0 && b.slen != 0xFFFFFFFFu) ? (size_t)b.slen : strlen(s2);
         return (l1 == l2 && memcmp(s1, s2, l1) == 0);
     }
-    int a_cset = (a.v == DT_S && a.slen == 0xFFFFFFFFu);
-    int b_cset = (b.v == DT_S && b.slen == 0xFFFFFFFFu);
+    int a_cset = IS_CSET(a);
+    int b_cset = IS_CSET(b);
     if (a_cset != b_cset) return 0;
     if (a.v != b.v) return 0;
     if (a.v == DT_I) return a.i == b.i;
