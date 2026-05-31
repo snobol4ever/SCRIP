@@ -77,7 +77,7 @@ IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
     if (!st || ns <= 0) return NULL;
     for (int i = 0; i < ns; i++)
         if (nfa_kind_to_bb(st[i].kind) == IR_OP_COUNT) return NULL;
-    IR_graph_t *bbg = BB_alloc(ns, BB_LANG_RKU);
+    IR_graph_t *bbg = BB_alloc(ns, IR_LANG_RKU);
     if (!bbg) return NULL;
     IR_t **node = (IR_t **)GC_malloc((size_t)ns * sizeof(IR_t *));
     for (int i = 0; i < ns; i++) {

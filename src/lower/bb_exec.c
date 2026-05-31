@@ -1611,7 +1611,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->ω;
     }
     case IR_SEQ: {
-        if (g_current_cfg && g_current_cfg->lang == BB_LANG_RKU && bb->α && bb->α->t == IR_SUSPEND) {
+        if (g_current_cfg && g_current_cfg->lang == IR_LANG_RKU && bb->α && bb->α->t == IR_SUSPEND) {
             IR_t * child = bb->α;
             for (int64_t k = 0; k < bb->counter && child; k++) child = child->γ;
             bb->counter++;

@@ -439,11 +439,11 @@ static IR_t *lower_pl_goal(IR_graph_t *bbg, const tree_t *e, IR_t *γ_in, IR_t *
         bb_catch_state_t *zc = (bb_catch_state_t *)GC_MALLOC_UNCOLLECTABLE(sizeof *zc); if (!zc) return NULL;
         IR_t *cα=NULL,*cβ=NULL; IR_t *c = lower_pl_term(bbg, e->c[1], NULL, NULL, &cα, &cβ); if (!c) return NULL;
         zc->catcher = cα;
-        IR_graph_t *gcfg = BB_alloc(128, BB_LANG_PL); if (!gcfg) return NULL;
+        IR_graph_t *gcfg = BB_alloc(128, IR_LANG_PL); if (!gcfg) return NULL;
         IR_t *gα=NULL,*gβ=NULL; IR_t *g = lower_pl_goal(gcfg, e->c[0], NULL, NULL, &gα, &gβ); if (!g) return NULL;
         gcfg->entry = gα ? gα : g;
         zc->goal_g = gcfg;
-        IR_graph_t *rcfg = BB_alloc(128, BB_LANG_PL); if (!rcfg) return NULL;
+        IR_graph_t *rcfg = BB_alloc(128, IR_LANG_PL); if (!rcfg) return NULL;
         IR_t *rα=NULL,*rβ=NULL; IR_t *r = lower_pl_goal(rcfg, e->c[2], NULL, NULL, &rα, &rβ); if (!r) return NULL;
         rcfg->entry = rα ? rα : r;
         zc->rec_g = rcfg;
@@ -458,7 +458,7 @@ static IR_t *lower_pl_goal(IR_graph_t *bbg, const tree_t *e, IR_t *γ_in, IR_t *
         bb_findall_state_t *fs = (bb_findall_state_t *)GC_MALLOC_UNCOLLECTABLE(sizeof *fs);
         IR_t *tα=NULL,*tβ=NULL; IR_t *t=lower_pl_term(bbg,e->c[0],NULL,NULL,&tα,&tβ); if(!t) return NULL; fs->tmpl=tα;
         IR_t *rα=NULL,*rβ=NULL; IR_t *r=lower_pl_term(bbg,e->c[2],NULL,NULL,&rα,&rβ); if(!r) return NULL; fs->result=rα;
-        IR_graph_t *gcfg = BB_alloc(128, BB_LANG_PL); if (!gcfg) return NULL;
+        IR_graph_t *gcfg = BB_alloc(128, IR_LANG_PL); if (!gcfg) return NULL;
         IR_t *gα=NULL,*gβ=NULL; IR_t *g=lower_pl_goal(gcfg,e->c[1],NULL,NULL,&gα,&gβ); if(!g) return NULL;
         gcfg->entry = gα ? gα : g;
         fs->gcfg = gcfg;
@@ -474,7 +474,7 @@ static IR_graph_t *lower_pl_clause_body(const tree_t *clause, int n_args) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     int n_body = clause->n - n_args;
     int n_total = n_args + (n_body > 0 ? n_body : 1);
-    IR_graph_t *bbg = BB_alloc(128, BB_LANG_PL); if (!bbg) return NULL;
+    IR_graph_t *bbg = BB_alloc(128, IR_LANG_PL); if (!bbg) return NULL;
     const tree_t **stmts = (const tree_t **)calloc((size_t)n_total, sizeof(tree_t *));
     if (!stmts) { BB_free(bbg); return NULL; }
     int n_stmts = 0;
@@ -563,7 +563,7 @@ IR_graph_t *lower_pl_predicate(tree_t *choice) {
     const char *_csl = choice->v.sval ? strrchr(choice->v.sval, '/') : NULL;
     int arity = _csl ? atoi(_csl+1) : 0;
     if (choice->n == 1) return lower_pl_clause_body(choice->c[0], arity);
-    IR_graph_t *bbg = BB_alloc(64, BB_LANG_PL); if (!bbg) return NULL;
+    IR_graph_t *bbg = BB_alloc(64, IR_LANG_PL); if (!bbg) return NULL;
     IR_t *bb = BB_node_alloc(bbg, IR_CHOICE); if (!bb) { BB_free(bbg); return NULL; }
     bb_choice_state_t *zc = (bb_choice_state_t *)GC_MALLOC_UNCOLLECTABLE(sizeof *zc);
     zc->bodies  = (IR_graph_t **)GC_MALLOC_UNCOLLECTABLE((size_t)choice->n * sizeof(IR_graph_t *));

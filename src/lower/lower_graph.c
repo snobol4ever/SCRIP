@@ -807,7 +807,7 @@ IR_t *lower_new_Return(IR_graph_t *bbg, struct tree_t *e) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Suspend(IR_graph_t *bbg, struct tree_t *e) {
-    if (bbg->lang != BB_LANG_RKU) return NULL;
+    if (bbg->lang != IR_LANG_RKU) return NULL;
     IR_t *bb = BB_node_alloc(bbg, IR_SUSPEND);
     if (!bb) return NULL;
     if (e->n >= 1 && e->c[0]) {
@@ -1218,7 +1218,7 @@ int fold_signed_lit(tree_t *n, int64_t *iv, double *dv, int *is_real) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t *lower_upto(const char *cset, const char *hay) {
     if (!cset || !hay) return NULL;
-    IR_graph_t *bbg = BB_alloc(4, BB_LANG_ICN);
+    IR_graph_t *bbg = BB_alloc(4, IR_LANG_ICN);
     if (!bbg) return NULL;
     IR_t *bb = BB_node_alloc(bbg, IR_UPTO);
     if (!bb) return NULL;
@@ -1234,7 +1234,7 @@ IR_graph_t *lower_upto(const char *cset, const char *hay) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t *lower_proc_gen(GeneratorState *gs) {
     if (!gs) return NULL;
-    IR_graph_t *bbg = BB_alloc(4, BB_LANG_ICN);
+    IR_graph_t *bbg = BB_alloc(4, IR_LANG_ICN);
     if (!bbg) return NULL;
     IR_t *bb = BB_node_alloc(bbg, IR_PROC_GEN);
     if (!bb) return NULL;
@@ -1332,7 +1332,7 @@ IR_graph_t *lower_proc_body(tree_t *proc) {
         return NULL;
     }
     if (n_stmts <= 0 || !body_arr) return NULL;
-    int _lang_tag = (proc->t == TT_SUB_DECL) ? BB_LANG_RKU : BB_LANG_ICN;
+    int _lang_tag = (proc->t == TT_SUB_DECL) ? IR_LANG_RKU : IR_LANG_ICN;
     IR_graph_t *bbg = BB_alloc(4096, _lang_tag);
     if (!bbg) return NULL;
     IR_t **stmt_nodes = calloc((size_t)n_stmts, sizeof(IR_t *));
@@ -1383,7 +1383,7 @@ IR_graph_t *lower_proc_body(tree_t *proc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t *lower_expr_top(struct tree_t *e) {
     if (!e) return NULL;
-    IR_graph_t *bbg = BB_alloc(256, BB_LANG_ICN);
+    IR_graph_t *bbg = BB_alloc(256, IR_LANG_ICN);
     if (!bbg) return NULL;
     IR_t *bb = lower_expr_node(bbg, e);
     if (!bb) { BB_free(bbg); return NULL; }

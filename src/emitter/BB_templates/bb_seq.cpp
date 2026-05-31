@@ -5,7 +5,7 @@
    proc-body wiring). Each child statement's γ AND ω point to the NEXT stmt's entry (Icon
    compound semantics — success or failure both advance, no backtracking across stmts).
 
-   For Raku gather-bodies (BB_LANG_RKU), this is the multi-yield driver. The body is a
+   For Raku gather-bodies (IR_LANG_RKU), this is the multi-yield driver. The body is a
    sequence of IR_SUSPEND nodes (one per take()). The SM_BB_SWITCH wrapping this SEQ pumps
    it: α drives stmt0, β resumes whichever stmt last yielded, ω terminates when drained.
 

@@ -16,12 +16,12 @@
 #ifndef STRVAL
 #  define STRVAL(s_)   ((DESCR_t){ .v = DT_S, .slen = 0, .s = (s_) })
 #endif
-#define BB_LANG_SNO  1
-#define BB_LANG_SCO  2
-#define BB_LANG_REB  3
-#define BB_LANG_ICN  4
-#define BB_LANG_PL   5
-#define BB_LANG_RKU  6
+#define IR_LANG_SNO  1
+#define IR_LANG_SCO  2
+#define IR_LANG_REB  3
+#define IR_LANG_ICN  4
+#define IR_LANG_PL   5
+#define IR_LANG_RKU  6
 typedef enum {
     IR_LIT_I,
     IR_LIT_S,
