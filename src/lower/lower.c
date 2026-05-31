@@ -362,15 +362,69 @@ static lcx_t bounded(lcx_t cx) { cx.bounded = 1; return cx; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static lcx_t with_loop(lcx_t cx, IR_t * lω, IR_t * lnext) { cx.loop_ω = lω; cx.loop_next = lnext; return cx; }
 /*====================================================================================================================================================================================================*/
-/* VALUE-ROLE — CONJUNCTION `E1 & E2` (jcon ir_conjunction). Identical to plus minus the value compute:
- *   conj.α = E1.α ; conj.β = E2.β ; E1.γ = E2.α ; E1.ω = conj.ω ; E2.γ = conj ; E2.ω = E1.β.
- * The IR_CONJ node forwards E2's value (Icon `e1 & e2` yields e2), sitting on E2's success edge.          */
+/* VALUE-ROLE — n-ary SEQUENCE. The per-language semantics live INSIDE this one case (FACT RULE):              */
+/*   Icon/Rebus `E1 & E2` (jcon ir_conjunction): IR_CONJ forwards the LAST operand's value (`e1 & e2` -> e2).   */
+/*   SNOBOL4 whitespace CONCATENATION `E1 E2 ...` (SPITBOL Manual ch.3): the value is the operands' strings      */
+/*     appended left-to-right. Lowered as a LEFT-ASSOCIATIVE BINARY IR_SEQ chain — `((E1 E2) E3) ...`. Each       */
+/*     binary IR_SEQ node lowers its TWO operands into their OWN isolated IR_graph_t sub-graphs (each with its    */
+/*     own IR_SUCCEED/IR_FAIL sentinels — the same isolation v_scan uses for its pattern and ARBNO uses for its   */
+/*     body), and stores the two sub-graph pointers on `counter` (left) and `ival` (right). The IR_SEQ exec arm   */
+/*     runs each sub-graph via bb_exec_once and concatenates the two results with binop_apply(BINOP_CONCAT). This  */
+/*     is robust for operands of ANY internal node count — bb_exec_once drives the whole operand chain and        */
+/*     returns its final value, so there is no AG-ring positional dependency (the positional peek that IR_BINOP   */
+/*     uses mis-counts a multi-node operand's intermediate pushes). Coercion via binop_apply matches the SNOBOL4  */
+/*     concatenation operator (which has no symbol — see ch.3).                                                   */
+/*   SNOBOL4 value-context operands do not backtrack (that is pattern context), so the node is BOUNDED: computed  */
+/*     once, resume(β-port) -> ω_in. Marker: dval=1.0 (Icon/Rebus IR_SEQ never sets it). The node is its own α    */
+/*     (the driver visits it; it drives its operand sub-graphs on demand).                                        */
 /*====================================================================================================================================================================================================*/
+static IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e) {
+    IR_graph_t * blk = IR_alloc(256, IR_LANG_SNO);
+    if (!blk) return NULL;
+    IR_t * vfail = IR_node_alloc(blk, IR_FAIL);
+    lcx_t vcx = cx; vcx.bbg = blk;
+    IR_t * eα = NULL, * eβ = NULL;
+    /* γ = NULL: the operand's value-producing node is TERMINAL. bb_exec_once returns the value of the node it
+       halts on (next==NULL), so leaving γ unset makes that node the value node — exactly what we want (an
+       IR_SUCCEED terminator would instead overwrite the value with NULVCL). ω -> IR_FAIL (operand failed). */
+    IR_t * en = lower2(vcx, e, NULL, vfail, &eα, &eβ);
+    if (!en) { IR_free(blk); return NULL; }
+    (void) eβ;
+    blk->entry = eα ? eα : en;
+    return blk;
+}
+static IR_t * v_seq_concat_pair(lcx_t cx, const tree_t * lhs, const tree_t * rhs, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    IR_t * node = nalloc(cx, IR_SEQ);
+    if (!node) return NULL;
+    node->dval = 1.0;       /* SNO-concat marker for the IR_SEQ exec arm */
+    IR_graph_t * lblk = lower_value_subgraph(cx, lhs);
+    if (!lblk) return NULL;
+    IR_graph_t * rblk = lower_value_subgraph(cx, rhs);
+    if (!rblk) { IR_free(lblk); return NULL; }
+    node->counter = (int64_t)(intptr_t) lblk;     /* left operand sub-graph (preserved across bb_reset) */
+    node->ival    = (int64_t)(intptr_t) rblk;     /* right operand sub-graph */
+    set_succ_fail(node, γ_in, ω_in);
+    return ret(node, α_out, β_out, node /* node is the chain entry */, ω_in /* bounded: resume -> fail */);
+}
 static IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     const tree_t * kids[64];
-    int nk = flatten_seq(e, e->t, kids, 64);     /* Icon `&` is associative: flatten so a middle generator backtracks */
+    int nk = flatten_seq(e, e->t, kids, 64);     /* associative: flatten nested same-kind SEQ into one operand list */
     if (nk < 1) return NULL;
-    return wire_seq(cx, IR_CONJ, kids, nk, γ_in, ω_in, α_out, β_out);
+    if (cx.lang != IR_LANG_SNO) return wire_seq(cx, IR_CONJ, kids, nk, γ_in, ω_in, α_out, β_out);
+    if (nk == 1) return lower2(cx, kids[0], γ_in, ω_in, α_out, β_out);   /* a lone operand: no concat node needed */
+    /* SNOBOL4: build the left-associative binary IR_SEQ chain over the flattened operands by synthesizing nested
+       TT_SEQ pairs (kids[0..i] folded left), then lowering the top pair once via v_seq_concat_pair. Synthesizing
+       nested TT_SEQ keeps lowering uniform (each pair is two real subtrees) and matches the parser's own
+       left-nesting; the whole chain's α = the top IR_SEQ node (which drives its operands on demand). */
+    tree_t * left = (tree_t *) kids[0];
+    for (int i = 1; i < nk; i++) {
+        tree_t * pair = ast_node_new(TT_SEQ);
+        if (!pair) return NULL;
+        ast_push(pair, left);
+        ast_push(pair, (tree_t *) kids[i]);
+        left = pair;
+    }
+    return v_seq_concat_pair(cx, left->c[0], left->c[1], γ_in, ω_in, α_out, β_out);
 }
 /*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — ALTERNATION `E1 | E2 | ... | Ek` (jcon ir_a_Alt; the SIBLING-backtrack box, runtime-gated
@@ -586,7 +640,7 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     /* L2-A: combinators */
     case TT_SEQ: case TT_SEQ_EXPR:
         return v_conj(cx, e, γ_in, ω_in, α_out, β_out);
-    case TT_ALTERNATE:
+    case TT_ALTERNATE: case TT_ALT:
         return v_alt(cx, e, γ_in, ω_in, α_out, β_out);
     /* L2-B: loops (core) */
     case TT_EVERY:

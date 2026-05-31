@@ -17,8 +17,12 @@ bad(){ printf 'VIOLATION: %s\n' "$*"; fail=1; }
 # once PER role. Split the file on the role-switch function headers and check each block for a dup label.
 if [ -f "$LOWER" ]; then
   ld=$(awk '
-    /static IR_t \* lower_(value|pattern|goal)\(/ { blk++; }
-    /case TT_[A-Z0-9_]+/ {
+    # Entering ANY static IR_t * function: a role dispatcher (lower_value/pattern/goal) opens a NEW block and
+    # turns counting ON; any OTHER static IR_t * helper (g_term, g_builtin, v_*, wire_*) turns counting OFF so
+    # its legitimate TT_QLIT/TT_VAR cases are NOT misattributed to the preceding role switch (a false positive).
+    /^static IR_t \* lower_(value|pattern|goal)\(/ { blk++; in_role=1; next; }
+    /^static IR_t \* [A-Za-z_]/                   { in_role=0; next; }
+    in_role && /case TT_[A-Z0-9_]+/ {
       if (match($0, /case TT_[A-Z0-9_]+/)) {
         lbl=substr($0, RSTART+5, RLENGTH-5); key=blk":"lbl;
         if (seen[key]++) print "  block#"blk" "lbl;
