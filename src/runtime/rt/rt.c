@@ -332,6 +332,18 @@ void rt_write_int_nl(int64_t v)
     fprintf(stdout, "%lld\n", (long long)v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_write_any_nl(DESCR_t d)
+{
+    if (d.v == DT_I)       fprintf(stdout, "%lld\n", (long long)d.i);
+    else if (d.v == DT_R)  fprintf(stdout, "%g\n", d.r);
+    else if (d.v == DT_FAIL) fputc('\n', stdout);
+    else {
+        char *s = VARVAL_fn(d);
+        if (s) fwrite(s, 1, strlen(s), stdout);
+        fputc('\n', stdout);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_write_strz_nl(const char *s)
 {
     if (s) fwrite(s, 1, strlen(s), stdout);

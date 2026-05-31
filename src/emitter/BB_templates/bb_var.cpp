@@ -22,6 +22,8 @@
 extern "C" {
 #include "bb_template_common.h"
 void rt_nv_get(const char *name);
+int  bb_slot_alloc(IR_t * nd);
+int  bb_varslot_peek(const char * name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_var_str(IR_t * pBB, bb_bin_t & bin) {
@@ -29,6 +31,43 @@ static std::string bb_var_str(IR_t * pBB, bb_bin_t & bin) {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_VAR");
     const char *name = (pBB && pBB->sval) ? pBB->sval : "";
+    /* GZ-7 (GROUND ZERO 3) flat-chain slot model: a variable read copies the named variable's ζ=r12     */
+    /* frame slot [r12+off_var] into this box's OWN slot [r12+off] so a consumer reads it by             */
+    /* bb_slot_get(this). The variable slot was written by an earlier IR_ASSIGN(name) (bb_varslot keyed   */
+    /* by name → both share one slot). 16-byte DESCR copy (v.lo + payload.hi). NO rt_nv_get, NO ring.    */
+    if (g_icn_flat_chain && pBB) {
+        int voff = bb_varslot_peek(name);
+        if (voff >= 0) {
+            int off = bb_slot_alloc(pBB);
+            if (MEDIUM_BINARY) {
+                /*   0    49 8B 84 24 <u32 voff>      mov rax,[r12+voff]      (read var slot lo eightbyte)    */
+                /*   8    49 89 84 24 <u32 off>       mov [r12+off],rax       (write own slot lo)             */
+                /*  16    49 8B 84 24 <u32 voff+8>    mov rax,[r12+voff+8]    (read var slot hi eightbyte)    */
+                /*  24    49 89 84 24 <u32 off+8>     mov [r12+off+8],rax     (write own slot hi)             */
+                /*  32    E9 <rel32 → γ>              jmp γ                   ← γ patch at 33                 */
+                /*  37    E9 <rel32 → ω>              β: jmp ω                ← β-def 37, ω patch 38          */
+                /*  42    end                                                                                 */
+                bin = { {33, 37, 38}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+                return bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)voff)
+                     + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)off)
+                     + bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)(voff + 8))
+                     + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)(off + 8))
+                     + bytes(1, "\xE9") + u32le(0)
+                     + bytes(1, "\xE9") + u32le(0);
+            }
+            if (MEDIUM_TEXT) {
+                return s_1asm(emit_fmt("%s:", _.lbl_α))
+                     + s_comment(emit_fmt("# BOX IR_VAR read(\"%s\") [GZ-7 flat-chain var slot → own slot]", name))
+                     + s_2asm("mov", emit_fmt("rax, [r12+%d]", voff))
+                     + s_2asm("mov", emit_fmt("[r12+%d], rax", off))
+                     + s_2asm("mov", emit_fmt("rax, [r12+%d]", voff + 8))
+                     + s_2asm("mov", emit_fmt("[r12+%d], rax", off + 8))
+                     + s_2asm("jmp", _.lbl_γ)
+                     + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                     + s_2asm("jmp", _.lbl_ω);
+            }
+        }
+    }
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
              + s_comment(emit_fmt("# BOX IR_VAR read(\"%s\") [IBB-7 rt_nv_get push]", name))

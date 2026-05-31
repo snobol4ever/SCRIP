@@ -24,7 +24,10 @@
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
+#include "descr.h"
 void rt_push_real_bits(uint64_t bits);
+int  bb_slot_alloc(IR_t * nd);
+int  bb_slot_alloc16(IR_t * nd);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_lit_scalar_str(IR_t * pBB, bb_bin_t & bin) {
@@ -32,6 +35,57 @@ static std::string bb_lit_scalar_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_LIT_scalar");
+    /* GZ-7 (GROUND ZERO 3) flat-chain slot model: a literal int is a producer box that writes its value */
+    /* into its OWN ζ=r12 frame slot as a 16-byte DESCR so a downstream consumer (ASSIGN / write / binop) */
+    /* reads it by bb_slot_get(this) — the test_sno_1.c named-slot model (`str_t POS0; ... = POS0`). The  */
+    /* DESCR layout (descr.h): eightbyte0 = {v:DT_I@+0, slen:0@+4}, eightbyte1 = the int value@+8. Both    */
+    /* eightbytes are sealed RO in-blob and copied to the slot (RO-IP-relative reads + two RW stores, no   */
+    /* value stack, no ring). Single-shot leaf: α stores+jmp γ; β jmp ω.                                  */
+    if (g_icn_flat_chain && pBB && pBB->t == IR_LIT_I) {
+        uint64_t eb0 = (uint64_t)DT_I;          /* v=DT_I (low 4 bytes), slen=0 (high 4 bytes) */
+        uint64_t eb1 = (uint64_t)pBB->ival;     /* the int value */
+        if (MEDIUM_BINARY) {
+            int off = bb_slot_alloc16(pBB);
+            /*   off  bytes                          asm                                                    */
+            /*   0    48 8B 05 <u32 d0=33>           mov rax,[rip+d0]    (rip-base=7; eb0@40; d0=40-7=33)    */
+            /*   7    49 89 84 24 <u32 off>          mov [r12+off],rax   (DESCR eightbyte0 → slot)           */
+            /*   15   48 8B 05 <u32 d1=34>           mov rax,[rip+d1]    (rip-base=22; eb1@48; d1=48-22=26)  */
+            /*   22   49 89 84 24 <u32 off+8>        mov [r12+off+8],rax (DESCR eightbyte1 → slot)           */
+            /*   30   E9 <rel32 → γ>                 jmp γ               ← γ patch at 31                     */
+            /*   35   E9 <rel32 → ω>                 β: jmp ω            ← β-def 35, ω patch 36              */
+            /*   40   <u64 eb0>                      sealed RO DESCR.lo  (reached only by [rip+33])          */
+            /*   48   <u64 eb1>                      sealed RO DESCR.hi  (reached only by [rip+26])          */
+            /*   56   end                                                                                   */
+            bin = { {31, 35, 36}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+            return bytes(3, "\x48\x8B\x05") + u32le(33u)
+                 + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)off)
+                 + bytes(3, "\x48\x8B\x05") + u32le(26u)
+                 + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)(off + 8))
+                 + bytes(1, "\xE9") + u32le(0)
+                 + bytes(1, "\xE9") + u32le(0)
+                 + u64le(eb0)
+                 + u64le(eb1);
+        }
+        if (MEDIUM_TEXT) {
+            int off = bb_slot_alloc16(pBB);
+            int nid = bb_node_id(pBB);
+            std::string l0 = emit_fmt(".Llit%d_eb0", nid);
+            std::string l1 = emit_fmt(".Llit%d_eb1", nid);
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment("# BOX IR_LIT_I [GZ-7 flat-chain → ζ slot, 16-byte DESCR]")
+                 + s_directive(".section .rodata")
+                 + s_directive(l0 + emit_fmt(": .quad %llu", (unsigned long long)eb0))
+                 + s_directive(l1 + emit_fmt(": .quad %llu", (unsigned long long)eb1))
+                 + s_directive(".section .text")
+                 + s_2asm("mov", emit_fmt("rax, [rip+%s]", l0.c_str()))
+                 + s_2asm("mov", emit_fmt("[r12+%d], rax", off))
+                 + s_2asm("mov", emit_fmt("rax, [rip+%s]", l1.c_str()))
+                 + s_2asm("mov", emit_fmt("[r12+%d], rax", off + 8))
+                 + s_2asm("jmp", _.lbl_γ)
+                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                 + s_2asm("jmp", _.lbl_ω);
+        }
+    }
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
              + s_comment("# BOX BB_LIT_scalar (pass-through; value carried via AG ring/sidecar)")

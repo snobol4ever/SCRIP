@@ -12,6 +12,11 @@ extern "C" {
 bb_box_fn bb_build_flat    (IR_t * nd);
 bb_box_fn bb_build_brokered(IR_t * nd);
 bb_box_fn bb_build_pure_mode(IR_t * nd);
+bb_box_fn icn_flat_chain_build(IR_t * entry);
+int  icn_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
+int  bb_varslot(const char * name);
+int  bb_varslot_peek(const char * name);
+extern int g_icn_flat_chain;
 int  codegen_flat_build        (IR_t * nd, FILE * out, const char * prefix);
 void lower_flat_set_intern_str(const char * (*fn)(const char *));
 const char * emit_intern_str(const char * s);

@@ -85,6 +85,37 @@ int bb_slot_get(IR_t *nd) {
     for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
     return -1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GZ-7 (GROUND ZERO 3) named-variable slot map. An Icon variable `x` is a NAMED storage location — the   */
+/* x86 analog of test_sno_1.c's named box slots (`str_t POS0; ... seq = cat(seq, POS0)`). All references  */
+/* to the SAME variable name resolve to ONE per-sequence frame slot [r12+off]: IR_ASSIGN(x) writes it,    */
+/* IR_VAR(x) reads it. Keyed by name (not node ptr) precisely because distinct ASSIGN and VAR nodes must  */
+/* share the slot. Lives in the SAME ζ=r12 frame as bb_slot_alloc's anonymous box slots; reset per        */
+/* sequence alongside g_flat_slot_count. NO value stack, NO ring — the variable IS its slot.              */
+#define BB_VARSLOT_MAX 256
+static struct { const char *name; int off; } g_bb_varslot[BB_VARSLOT_MAX];
+static int g_bb_varslot_n = 0;
+int bb_varslot(const char *name) {
+    if (!name) name = "";
+    for (int i = 0; i < g_bb_varslot_n; i++)
+        if (g_bb_varslot[i].name && strcmp(g_bb_varslot[i].name, name) == 0) return g_bb_varslot[i].off;
+    int off = g_flat_slot_count;
+    g_flat_slot_count += 16;
+    if (g_bb_varslot_n < BB_VARSLOT_MAX) { g_bb_varslot[g_bb_varslot_n].name = name; g_bb_varslot[g_bb_varslot_n].off = off; g_bb_varslot_n++; }
+    return off;
+}
+int bb_varslot_peek(const char *name) {
+    if (!name) name = "";
+    for (int i = 0; i < g_bb_varslot_n; i++)
+        if (g_bb_varslot[i].name && strcmp(g_bb_varslot[i].name, name) == 0) return g_bb_varslot[i].off;
+    return -1;
+}
+/* GZ-7 flat-chain mode flag. When set (Icon multi-statement / variable-bearing graph emitted as a flat   */
+/* goto-graph via icn_flat_chain_build), the per-box templates take their STACKLESS SLOT-LEAF arm: each   */
+/* box reads its operands from the producer box's slot (bb_slot_get) or a named variable slot (bb_varslot */
+/* _peek), computes, and writes its own result slot — exactly the test_sno_1.c named-slot model. Boxes    */
+/* are NEVER re-walked for operands (postfix order guarantees operands precede consumers in the chain).   */
+int g_icn_flat_chain = 0;
 int g_frame_active = 0;
 #define FLAT_DATA_BUF_MAX     (32 * 1024)
 #define FLAT_DATA_LBL_MAX     32
@@ -1348,6 +1379,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: {
         IR_t *a0 = nd->α;
+        if (g_icn_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
         int is_intexpr_shape = (a0 && (a0->t == IR_BINOP || a0->t == IR_LIT_I || a0->t == IR_TO || a0->t == IR_TO_BY || a0->t == IR_ALT || a0->t == IR_BINOP_GEN || a0->t == IR_VAR ||
                    a0->t == IR_NEG || a0->t == IR_POS || a0->t == IR_NONNULL || a0->t == IR_NULL_TEST || a0->t == IR_NOT || a0->t == IR_SIZE || a0->t == IR_CALL || a0->t == IR_CASE || a0->t == IR_FIELD_GET || a0->t == IR_LIST_BANG || a0->t == IR_LIMIT || a0->t == IR_IDX ));
         int is_write_fn   = (nd->sval && (!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes")));
@@ -1397,7 +1429,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_ASSIGN:     if (nd->sval && nd->α && nd->α->t == IR_LIT_S) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_LIT_S) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:     flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:
@@ -1429,6 +1461,78 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         emit_jmp_label(lbl_ω, JMP_JMP);
         break;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GZ-7 chain body: same prologue/epilogue shell as codegen_flat_body, but the body is the WHOLE Icon     */
+/* gamma-chain emitted as a flat goto-graph (every box once, wired by its native gamma/omega ports). BFS  */
+/* the reachable boxes from entry, give each a label, then emit each via walk_bb_flat with its real       */
+/* successor/failure labels resolved against the collected set (falling off to the sequence gamma/omega   */
+/* sentinels). g_icn_flat_chain is already set by the caller so the per-box slot-leaf arms fire.          */
+static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
+    bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
+    emit_label_initf(&lbl_α,      "%s_α",      prefix);
+    emit_label_initf(&lbl_α_body, "%s_α_body", prefix);
+    emit_label_initf(&lbl_γ,       "%s_γ",      prefix);
+    emit_label_initf(&lbl_ω,       "%s_ω",      prefix);
+    emit_label_initf(&lbl_β,       "%s_β",       prefix);
+    int text_externalise = g_is_text ? 1 : 0;
+    if (text_externalise) data_buf_reset();
+    g_emit.flat_lbl_α        = lbl_α.name;
+    g_emit.flat_lbl_α_body   = lbl_α_body.name;
+    g_emit.flat_lbl_γ         = lbl_γ.name;
+    g_emit.flat_lbl_ω         = lbl_ω.name;
+    g_emit.flat_lbl_β         = lbl_β.name;
+    g_emit.flat_β_p           = &lbl_β;
+    g_emit.flat_succ_p        = &lbl_γ;
+    g_emit.flat_fail_p        = &lbl_ω;
+    g_emit.flat_text_externalise = text_externalise;
+    if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
+    xa_dispatch(XA_FLAT_PROLOGUE);
+    if (g_is_text) g_emit_pos += 7;
+    emit_label_define_bb(&lbl_α_body);
+    enum { CH_MAX = 512 };
+    IR_t *nodes[CH_MAX]; int n = 0;
+    IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
+    queue[qt++] = entry;
+    while (qh < qt) {
+        IR_t *c = queue[qh++];
+        if (!c || c->t == IR_SUCCEED || c->t == IR_FAIL) continue;
+        int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
+        if (dup) continue;
+        if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
+        nodes[n++] = c;
+        if (c->γ && qt < CH_MAX) queue[qt++] = c->γ;
+        if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
+    }
+    bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    int id = g_flat_node_id++;
+    for (int i = 0; i < n; i++) {
+        lbls[i]  = emit_label_alloc("xchain%d_n%d_α", id, i);
+        betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
+    }
+    for (int i = 0; i < n; i++) {
+        emit_label_define_bb(lbls[i]);
+        bb_label_t *node_γ = &lbl_γ;
+        bb_label_t *node_ω = &lbl_ω;
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ) { node_γ = lbls[k]; break; }
+        if (nodes[i]->γ == NULL || nodes[i]->γ->t == IR_SUCCEED) node_γ = &lbl_γ;
+        int omega_resolved = 0;
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω) { node_ω = lbls[k]; omega_resolved = 1; break; }
+        if (!omega_resolved) node_ω = &lbl_ω;
+        walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
+    }
+    emit_label_define_bb(&lbl_β);
+    emit_jmp_label(&lbl_ω, JMP_JMP);
+    emit_label_define_bb(&lbl_γ);
+    xa_dispatch(XA_FLAT_EPILOGUE);
+    if (text_externalise && g_is_text) {
+        data_buf_flush_pending_label();
+        xa_dispatch(XA_FLAT_DATA_SECTION);
+        data_buf_reset();
+    }
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise, int brokered) {
@@ -1504,11 +1608,91 @@ static void pre_build_children(IR_t *nd) {
     for (int i = 0; i < bb_pat_nkids(nd); i++) pre_build_children(bb_pat_kid(nd, i));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GZ-7 (GROUND ZERO 3) ICON FLAT-CHAIN EMITTER. The unified lowerer emits an Icon procedure body as a    */
+/* postfix gamma-chain (operands precede their consumer; every node alpha=beta=NULL; branches diverge at  */
+/* a relop's omega and re-join). A multi-statement / variable-bearing graph (e.g. `x := 42; write(x)`) is */
+/* NOT a single expression tree, so icn_ring_to_tree (which un-flattens ONE tree) returns NULL for it.    */
+/* This builder emits the graph as a FLAT GOTO-GRAPH in the test_sno_*.c model: every box is emitted      */
+/* EXACTLY ONCE, wired by its native gamma/omega ports (jmp rel32), and every box reads its operands from  */
+/* the producer box's SLOT (bb_slot_get) or a named variable slot (bb_varslot) and writes its own result  */
+/* slot. NO value stack, NO ring (the ring is the mode-2 oracle's model only). Two passes:                 */
+/*   (1) postfix operand-ref pass — walk the gamma-chain; a stack tracks value-producing boxes; when a    */
+/*       consumer of arity k is reached, its k preceding producers are recorded on its alpha/beta as       */
+/*       OPERAND REFERENCES (so the slot-leaf template can bb_slot_get them) — the boxes are NOT re-walked.*/
+/*   (2) flat emission — BFS the chain from entry following gamma (and omega at branch nodes), assign each */
+/*       box a label, and emit each via walk_bb_flat with its real gamma/omega target labels.              */
+/* g_icn_flat_chain gates the per-box slot-leaf arms during emission.                                      */
+static int icn_chain_arity(const IR_t *n) {
+    switch (n->t) {
+    case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
+    case IR_VAR:   case IR_KEYWORD: return 0;
+    case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
+    case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
+    case IR_ASSIGN: return 1;
+    case IR_CALL:  return (int)n->ival;
+    default:       return -1;
+    }
+}
+static void icn_chain_operand_refs(IR_t *entry) {
+    IR_t *chain[512]; int nc = 0;
+    IR_t *seen[512]; int ns = 0;
+    IR_t *q[512]; int qh = 0, qt = 0;
+    q[qt++] = entry;
+    while (qh < qt && nc < 512) {
+        IR_t *c = q[qh++];
+        if (!c || c->t == IR_SUCCEED || c->t == IR_FAIL) continue;
+        int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
+        if (dup) continue;
+        seen[ns++] = c; chain[nc++] = c;
+        if (c->γ && qt < 512) q[qt++] = c->γ;
+        if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && qt < 512) q[qt++] = c->ω;
+    }
+    IR_t *stk[512]; int sp = 0;
+    for (int i = 0; i < nc; i++) {
+        IR_t *n = chain[i];
+        int ar = icn_chain_arity(n);
+        if (ar < 0) { sp = 0; continue; }
+        if (ar == 2 && sp >= 2) { n->β = stk[sp - 1]; n->α = stk[sp - 2]; sp -= 2; }
+        else if (ar == 1 && sp >= 1) { n->α = stk[sp - 1]; sp -= 1; }
+        else if (ar >= 1) { sp = 0; }
+        stk[sp++] = n;
+    }
+}
+bb_box_fn icn_flat_chain_build(IR_t *entry) {
+    if (!entry) return NULL;
+    icn_chain_operand_refs(entry);
+    bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
+    if (!buf) return NULL;
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_icn_flat_chain = 1;
+    emitter_init_binary(buf, FLAT_BUF_MAX);
+    codegen_flat_chain_body(entry, "pat_flat");
+    int nbytes = emitter_end();
+    g_icn_flat_chain = 0;
+    extern int bb_emit_overflow;
+    if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
+    bb_seal(buf, (size_t)nbytes);
+    bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
+    return (bb_box_fn)buf;
+}
+int icn_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
+    if (!entry) return 1;
+    icn_chain_operand_refs(entry);
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_icn_flat_chain = 1;
+    emitter_init_text(out, TEXT_MODE_INVOCATION);
+    int rc = codegen_flat_chain_body(entry, prefix);
+    emitter_end();
+    g_icn_flat_chain = 0;
+    return rc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn bb_build_flat(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
-    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0;
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_body(nd, "pat_flat", 0, 0);
     int nbytes = emitter_end();
@@ -1523,7 +1707,7 @@ bb_box_fn bb_build_brokered(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
-    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0;
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     emit_mode_set(EMIT_BINARY_BROKERED, NULL);
     emitter_init_binary(buf, FLAT_BUF_MAX);
     bb_emit_byte(0x55); bb_emit_byte(0x48); bb_emit_byte(0x89); bb_emit_byte(0xE5);

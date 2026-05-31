@@ -506,12 +506,9 @@ int main(int argc, char **argv)
                 return 1;
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
+            extern int icn_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
             IR_t *icn_root = icn_ring_to_tree(bbg);
-            if (!icn_root) {
-                fprintf(stderr, "[IBB] mode-4: ring->tree adapter could not linearize this graph (control-flow "
-                                "rung not yet rebuilt for mode-4); no asm emitted.\n");
-                return 1;
-            }
+            int use_chain = (icn_root == NULL);
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
             printf("  .globl main\n");
@@ -526,7 +523,8 @@ int main(int argc, char **argv)
             printf("  pop rbp\n");
             printf("  ret\n");
             g_frame_active = 1;
-            int rc = codegen_flat_build(icn_root, stdout, "main");
+            int rc = use_chain ? icn_flat_chain_build_text(bbg->entry, stdout, "main")
+                               : codegen_flat_build(icn_root, stdout, "main");
             g_frame_active = 0;
             fflush(stdout);
             return rc;
@@ -704,9 +702,19 @@ int main(int argc, char **argv)
             }
             extern int g_frame_active;
             extern void *rt_frame(void);
+            extern bb_box_fn icn_flat_chain_build(IR_t * entry);
             g_frame_active = 1;
             IR_t *icn_root = icn_ring_to_tree(bbg);
-            bb_box_fn fn = bb_build_flat(icn_root ? icn_root : bbg->entry);
+            bb_box_fn fn;
+            if (icn_root) {
+                fn = bb_build_flat(icn_root);
+            } else {
+                /* GZ-7 (GROUND ZERO 3): the single-expression-tree adapter could not linearize this graph */
+                /* (multi-statement, a variable read/assign, or branching control flow). Emit it as a FLAT  */
+                /* GOTO-GRAPH in the test_sno_*.c named-slot model — every box once, wired by its native    */
+                /* gamma/omega ports, operands read from producer slots. NO ring (mode-2 only), NO stack.   */
+                fn = icn_flat_chain_build(bbg->entry);
+            }
             g_frame_active = 0;
             if (!fn) {
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: bb_build_flat returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");

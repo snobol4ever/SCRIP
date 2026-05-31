@@ -24,12 +24,54 @@
 extern "C" {
 #include "bb_template_common.h"
 void rt_pop_nv_set(const char *name);
+int  bb_slot_get(IR_t * nd);
+int  bb_varslot(const char * name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_assign_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_ASSIGN");
+    /* GZ-7 (GROUND ZERO 3) flat-chain slot model: an Icon `x := E` assignment. The unified lowerer puts */
+    /* the target NAME in pBB->sval and threads the RHS via the γ-chain; icn_chain_operand_refs records   */
+    /* the RHS producer box on pBB->α (an OPERAND REFERENCE, not for re-walk). This box reads the RHS     */
+    /* producer's slot [r12+off_rhs] (bb_slot_get) and writes the named variable slot [r12+off_x]         */
+    /* (bb_varslot keyed by name, shared with IR_VAR readers). 16-byte DESCR copy. The variable IS its    */
+    /* slot — the test_sno_1.c named-slot model. NO rt_pop_nv_set, NO value stack, NO ring.              */
+    if (g_icn_flat_chain && pBB && pBB->sval && pBB->α
+        && (pBB->α->t == IR_LIT_I || pBB->α->t == IR_VAR)) {
+        int rhs_off = bb_slot_get(pBB->α);
+        if (rhs_off >= 0) {
+            int voff = bb_varslot(pBB->sval);
+            if (MEDIUM_BINARY) {
+                /*   0    49 8B 84 24 <u32 rhs_off>     mov rax,[r12+rhs_off]   (read RHS producer slot lo)    */
+                /*   8    49 89 84 24 <u32 voff>        mov [r12+voff],rax      (write var slot lo)            */
+                /*  16    49 8B 84 24 <u32 rhs_off+8>   mov rax,[r12+rhs_off+8] (read RHS producer slot hi)    */
+                /*  24    49 89 84 24 <u32 voff+8>      mov [r12+voff+8],rax    (write var slot hi)            */
+                /*  32    E9 <rel32 → γ>                jmp γ                   ← γ patch at 33               */
+                /*  37    E9 <rel32 → ω>                β: jmp ω                ← β-def 37, ω patch 38         */
+                /*  42    end                                                                                 */
+                bin = { {33, 37, 38}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+                return bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)rhs_off)
+                     + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)voff)
+                     + bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)(rhs_off + 8))
+                     + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)(voff + 8))
+                     + bytes(1, "\xE9") + u32le(0)
+                     + bytes(1, "\xE9") + u32le(0);
+            }
+            if (MEDIUM_TEXT) {
+                return s_1asm(emit_fmt("%s:", _.lbl_α))
+                     + s_comment(emit_fmt("# BOX IR_ASSIGN store(\"%s\") [GZ-7 flat-chain RHS slot → var slot]", pBB->sval))
+                     + s_2asm("mov", emit_fmt("rax, [r12+%d]", rhs_off))
+                     + s_2asm("mov", emit_fmt("[r12+%d], rax", voff))
+                     + s_2asm("mov", emit_fmt("rax, [r12+%d]", rhs_off + 8))
+                     + s_2asm("mov", emit_fmt("[r12+%d], rax", voff + 8))
+                     + s_2asm("jmp", _.lbl_γ)
+                     + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                     + s_2asm("jmp", _.lbl_ω);
+            }
+        }
+    }
     IR_t *lhs = pBB ? pBB->α : NULL;
     if (!lhs || lhs->t != IR_VAR || !lhs->sval) {
         fprintf(stderr, "[IBB] FATAL bb_assign: lhs (pBB->α) must be IR_VAR with sval (got kind=%d sval=%s)\n",

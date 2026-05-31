@@ -33,6 +33,7 @@ extern "C" {
 #include "../../runtime/interp/gen.h"
 void rt_write_str_nl(const char *s, uint32_t slen);
 void rt_write_int_nl(int64_t v);
+void rt_write_any_nl(DESCR_t d);
 void rt_write_strz_nl(const char *s);
 void rt_pop_write_int_nl(void);
 void rt_pop_write_any_nl(void);
@@ -51,6 +52,48 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     const char * fn   = pBB->sval ? pBB->sval : "";
     int64_t      narg = pBB->ival;
     IR_t       * a0   = pBB->α;
+
+    /* GZ-7 (GROUND ZERO 3) flat-chain slot model: write(E) where E is any single producer box already   */
+    /* emitted earlier in the chain (it wrote its 16-byte DESCR result into [r12+off_E]). This box reads  */
+    /* that slot by value into rdi:rsi (DESCR eightbyte0 + eightbyte1) and calls the by-value             */
+    /* rt_write_any_nl, which dispatches on the DESCR type tag (int/real/string). NO value stack, NO ring */
+    /* — the operand IS its slot (test_sno_1.c `write_str(out, seq)` reading seq's slot). The β port      */
+    /* re-pump target is recovered from the queued EMIT_PAIR (the arg generator's resume) as elsewhere.   */
+    if (g_icn_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
+        int off = bb_slot_get(a0);
+        if (off >= 0) {
+            bb_label_t *beta_tgt = _.lbl_ω_p;
+            for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++)
+                if (g_emit.xa_bb_emit_pair_define[i] == _.lbl_β_p && g_emit.xa_bb_emit_pair_jmp[i]) { beta_tgt = g_emit.xa_bb_emit_pair_jmp[i]; break; }
+            if (MEDIUM_BINARY) {
+                uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+                /*   0   49 8B BC 24 <u32 off>     mov rdi,[r12+off]    (DESCR eightbyte0: v|slen)            */
+                /*   8   49 8B B4 24 <u32 off+8>   mov rsi,[r12+off+8]  (DESCR eightbyte1: int/ptr)           */
+                /*  16   48 B8 <u64 fptr>          movabs rax,&rt_write_any_nl                                */
+                /*  26   FF D0                     call rax                                                   */
+                /*  28   E9 <rel32 → γ>            jmp γ                ← γ patch at 29                       */
+                /*  33   E9 <rel32 → β-tgt>        β: jmp β-tgt         ← β-def 33, tgt patch at 34           */
+                /*  38   end                                                                                  */
+                bin = { {29, 33, 34}, {_.lbl_γ_p, _.lbl_β_p, beta_tgt}, {false, true, false} };
+                return bytes(4, "\x49\x8B\xBC\x24") + u32le((uint32_t)off)
+                     + bytes(4, "\x49\x8B\xB4\x24") + u32le((uint32_t)(off + 8))
+                     + bytes(2, "\x48\xB8")         + u64le(fptr)
+                     + bytes(2, "\xFF\xD0")
+                     + bytes(1, "\xE9")             + u32le(0)
+                     + bytes(1, "\xE9")             + u32le(0);
+            }
+            if (MEDIUM_TEXT) {
+                return s_1asm(emit_fmt("%s:", _.lbl_α))
+                     + s_comment("# BOX IR_CALL write(operand) [GZ-7 flat-chain operand slot → rt_write_any_nl]")
+                     + s_2asm("mov", emit_fmt("rdi, [r12+%d]", off))
+                     + s_2asm("mov", emit_fmt("rsi, [r12+%d]", off + 8))
+                     + s_2asm("call", "rt_write_any_nl@PLT")
+                     + s_2asm("jmp", _.lbl_γ)
+                     + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                     + s_2asm("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
+            }
+        }
+    }
 
     int is_write_strlit  = (fn && !strcmp(fn, "write") && narg == 1 && a0 && a0->t == IR_LIT_S && a0->sval);
     /* IBB-3 (2026-05-28): write(int_expr) shape — arg0 was already evaluated by                    */
