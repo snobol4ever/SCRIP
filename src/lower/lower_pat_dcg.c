@@ -1,5 +1,5 @@
 #include "lower_pat_dcg.h"
-#include "BB.h"
+#include "IR.h"
 #include "../ast/ast.h"
 #include "core.h"
 #include <gc/gc.h>

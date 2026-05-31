@@ -6,7 +6,7 @@
 #include "../../frontend/prolog/term.h"
 #include "../../frontend/prolog/prolog_runtime.h"
 #include "bb_broker.h"
-#include "BB.h"
+#include "IR.h"
 #include "SM.h"
 #include "stage2.h"
 #define RESOLVE_PRED_TABLE_SIZE_FWD STAGE2_PL_PRED_TABLE_SIZE

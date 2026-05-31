@@ -309,7 +309,7 @@ void jvm_emit_ldc_string(FILE * out, const char * s) {
     fprintf(out, "\"\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#include "BB.h"
+#include "IR.h"
 #include "emit_ir.h"
 void net_escape_ldstr(FILE * out, const char * s) {
     fprintf(out, "    ldstr      \"");

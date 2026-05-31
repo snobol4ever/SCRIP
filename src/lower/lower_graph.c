@@ -1,5 +1,5 @@
 #include "lower_graph.h"
-#include "BB.h"
+#include "IR.h"
 #include "core.h"
 #include "coerce.h"
 #include "ast.h"

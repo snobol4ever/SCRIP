@@ -1,7 +1,7 @@
 #pragma once
 #ifndef SCRIP_BB_PROGRAM_H
 #define SCRIP_BB_PROGRAM_H
-#include "BB.h"
+#include "IR.h"
 typedef struct bb_program_t {
     IR_graph_t **table;
     int          count;

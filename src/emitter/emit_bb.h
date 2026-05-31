@@ -7,7 +7,7 @@ extern "C" {
 #include "bb_pool.h"
 #include "core.h"
 #include "bb_box.h"
-#include "BB.h"
+#include "IR.h"
 #include <stdio.h>
 bb_box_fn bb_build_flat    (IR_t * nd);
 bb_box_fn bb_build_brokered(IR_t * nd);

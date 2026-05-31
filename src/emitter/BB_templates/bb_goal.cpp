@@ -13,7 +13,7 @@ extern "C" {
 #include "emit.h"
 #include "emit_bb.h"
 #include "emit_core.h"
-#include "BB.h"
+#include "IR.h"
 }
 extern std::string emit_build_compound_term(const IR_t *nd);
 extern std::string emit_build_compound_term_bin(const IR_t *nd);

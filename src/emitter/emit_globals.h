@@ -1,7 +1,7 @@
 #ifndef EMIT_GLOBALS_H
 #define EMIT_GLOBALS_H
 #include "emit_core.h"
-#include "BB.h"
+#include "IR.h"
 struct SrcLines;
 typedef struct {
     int                          backend;

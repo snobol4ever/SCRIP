@@ -1,4 +1,4 @@
-#include "BB.h"
+#include "IR.h"
 #include "bb_program.h"
 #include <stdlib.h>
 #include <string.h>

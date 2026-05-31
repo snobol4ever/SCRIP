@@ -7,7 +7,7 @@ extern "C" {
 #define TEXT_MODE_DEFINITION  1
 #include "bb_pool.h"
 #include "x86_opcodes.h"
-#include "BB.h"
+#include "IR.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>

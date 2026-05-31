@@ -12,7 +12,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 #include "emit_bb.h"
-#include "BB.h"
+#include "IR.h"
 }
 /* PLR-J-5 (2026-05-29): runtime helpers the MEDIUM_BINARY alt arm calls via movabs+call rax.        */
 extern "C" {

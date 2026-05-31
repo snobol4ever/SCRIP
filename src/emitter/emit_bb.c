@@ -5,7 +5,7 @@
 #include "emit_globals.h"
 #include "XA.h"
 #include "../runtime/interp/gen.h"
-#include "BB.h"
+#include "IR.h"
 #include "../rt/rt.h"
 #include "../processor/bb_build.h"
 #include <string.h>

@@ -1,5 +1,5 @@
 #include "lower_clause.h"
-#include "BB.h"
+#include "IR.h"
 #include "ast.h"
 #include "../frontend/prolog/prolog_atom.h"
 #include <gc/gc.h>

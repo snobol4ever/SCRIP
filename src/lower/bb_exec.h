@@ -1,7 +1,7 @@
 #pragma once
 #ifndef BB_EXEC_H
 #define BB_EXEC_H
-#include "BB.h"
+#include "IR.h"
 typedef int (*bb_body_fn)(DESCR_t value, void * ctx);
 DESCR_t bb_exec_once(IR_graph_t * bbg);
 DESCR_t bb_exec_resume(IR_graph_t * bbg);

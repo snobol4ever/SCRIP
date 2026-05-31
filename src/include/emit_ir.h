@@ -2,7 +2,7 @@
 #ifndef EMIT_IR_H
 #define EMIT_IR_H
 #include <stdio.h>
-#include "BB.h"
+#include "IR.h"
 #include "../ast/ast.h"
 int  bb_node_id(IR_t * nd);
 int  bb_is_generator(IR_e k);

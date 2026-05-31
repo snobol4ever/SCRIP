@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <gc/gc.h>
 #include "raku_re.h"
-#include "BB.h"
+#include "IR.h"
 static int nfa_bt(const Nfa_state *st, int sid, const char *subj, int pos, int slen, int depth) {
     if (sid == NFA_NULL) return -1;
     if (depth > 100000) return -1;

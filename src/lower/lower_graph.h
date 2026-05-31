@@ -1,6 +1,6 @@
 #ifndef LOWER_GRAPH_H
 #define LOWER_GRAPH_H
-#include "BB.h"
+#include "IR.h"
 #include "../processor/bb_box.h"
 #include "../runtime/interp/gen.h"
 struct tree_t;

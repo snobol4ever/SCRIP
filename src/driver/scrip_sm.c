@@ -3,7 +3,7 @@
 #include "scrip_sm.h"
 #include "lower.h"
 #include "../frontend/snobol4/scrip_cc.h"
-#include "../include/BB.h"
+#include "../include/IR.h"
 #include "../include/bb_program.h"
 #include "../runtime/interp/gen_runtime.h"
 #include "../runtime/interp/resolve_runtime.h"
