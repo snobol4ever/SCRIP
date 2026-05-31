@@ -90,6 +90,26 @@ static void dump_sno_value(const char * title, tree_t * ast, int expect_nodes) {
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* dump_raku_value — VALUE role under IR_LANG_RKU (lang seeded from bbg->lang). For Raku-gated value arms
+ * (cx.lang==IR_LANG_RKU), e.g. say/print which route through the SHARED wire_det_builtin1; the lang-0 dump
+ * would route them loud. Mirrors dump_sno_value exactly but for the Raku lang seed (RK-LOWER-0). */
+static void dump_raku_value(const char * title, tree_t * ast, int expect_nodes) {
+    IR_graph_t * g = IR_alloc(64, IR_LANG_RKU);
+    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t * a = NULL, * b = NULL;
+    IR_t * top = lower2_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    printf("=== %s ===\n", title);
+    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
+    printf("idx  kind    α    β    γ    ω      ival  dval\n");
+    for (int i = 0; i < g->n; i++) {
+        IR_t * n = g->all[i];
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) n->ival, n->dval);
+    }
+    int real = g->n - 2;
+    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dump_goal(const char * title, tree_t * ast, int expect_nodes) {
     IR_graph_t * g = IR_alloc(64, 0);
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
@@ -288,5 +308,18 @@ int main(void) {
       dump_goal("Prolog:   catch(throw(e),C,true)   [g_catch: IR_CATCH + Catcher LOGICVAR in enclosing graph; Goal+Recovery in SUB-graphs]",
          ca, 2); }
     /* ===== END PROLOG SECTION ===== */
+
+    /* ===== RAKU SECTION — APPEND RAKU (VALUE-role, cx.lang==IR_LANG_RKU) CASES BELOW THIS LINE ===== */
+    /* RK-LOWER-0: say(STR)/print(STR) reuse the SHARED wire_det_builtin1 -> IR_CALL wirer (say->"write",
+       print->"writes"); 2 real nodes (IR_CALL + IR_LIT_S arg), identical topology to Icon write("hello"). */
+    dump_raku_value("RAKU:     say('hello world')   [RK-LOWER-0 wire_det_builtin1: arg.gamma->CALL, CALL.sval=write (say=newline), det; arg IR_LIT_S]",
+         un(TT_SAY, slit("hello world")), 2);
+    dump_raku_value("RAKU:     print('hi')   [RK-LOWER-0 wire_det_builtin1: CALL.sval=writes (print=no newline), det; arg IR_LIT_S]",
+         un(TT_PRINT, slit("hi")), 2);
+    /* RK-LOWER-1: `for 1..3 { say $_ }` => TT_EVERY(TT_ITERATE(TT_TO(1,3)), say $_); v_raku_for builds
+       bind(IR_ASSIGN _) + gen(IR_TO + 2 IR_LIT_I bounds) + body(IR_CALL + IR_VAR arg) = 6 real nodes. */
+    dump_raku_value("RAKU:     for 1..3 { say $_ }   [RK-LOWER-1 v_raku_for: gen.gamma->ASGN(_), bind.gamma->body, body.gamma->gen.beta (re-pump), gen.omega->done]",
+         bin(TT_EVERY, un(TT_ITERATE, bin(TT_TO, lit(1), lit(3))), un(TT_SAY, var("_"))), 6);
+    /* ===== END RAKU SECTION ===== */
     return 0;
 }

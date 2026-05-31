@@ -199,6 +199,44 @@ static int lower_icon_body(const tree_t *proc) {
     g->entry = next_a;
     return bb_program_add(&g_stage2.bbp, g);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* lower_raku_body — build ONE Raku sub's four-port BB graph (RK-LOWER-0). The Raku frontend emits a sub as     */
+/* TT_SUB_DECL(name=v.sval, v.ival=param_count): c[0]=TT_VAR(name), c[1..np]=params, c[np+1..n-1]=the body       */
+/* statements appended DIRECTLY (the parser flattens the block's TT_SEQ_EXPR children into the decl — there is   */
+/* no wrapping TT_PROGRAM the way Icon's TT_PROC_DECL has). Each body statement is lowered VALUE-role and thread- */
+/* ed in REVERSE (stmt[i].gamma -> stmt[i+1].alpha, stmt[i].omega -> PFAIL) into one graph, identical to the     */
+/* Icon/SNOBOL4 walker. The Raku frontend writes into the SHARED lower.c arms (cx.lang==IR_LANG_RKU): say/print  */
+/* via wire_det_builtin1, and assignment/arith/concat/var-read/while through the already-shared lang-agnostic    */
+/* value arms (v_assign/v_binop/v_literal/v_while). FAIL-LOUD: any unhandled statement sinks the whole body (-1)  */
+/* so the driver keeps its clean abort rather than running a graph with a silently-dropped statement. Returns    */
+/* the bb_program index, or -1.                                                                                  */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lower_raku_body(const tree_t *proc) {
+    if (!proc || proc->t != TT_SUB_DECL) return -1;
+    int np = (int) proc->v.ival;
+    int body_start = 1 + np;
+    if (proc->n <= body_start) return -1;
+    IR_graph_t *g = IR_alloc(256, IR_LANG_RKU);
+    if (!g) return -1;
+    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t *next_a = PSUCC;
+    int n_stmts = 0;
+    for (int i = proc->n - 1; i >= body_start; i--) {
+        const tree_t *s = proc->c[i];
+        if (!s) continue;
+        const tree_t *expr = s;
+        if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
+        n_stmts++;
+        IR_t *a = NULL, *b = NULL;
+        IR_t *top = lower2_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
+        if (!top || !a) return -1;
+        next_a = a;
+    }
+    if (n_stmts == 0) return -1;
+    g->entry = next_a;
+    return bb_program_add(&g_stage2.bbp, g);
+}
 /*====================================================================================================================================================================================================*/
 /* lower_pl_choice_graph — build an IR_CHOICE graph for a multi-clause predicate (PLG-3). Each clause in
  * the TT_CHOICE is lowered into its own GOAL graph; a bb_choice_state_t sidecar lists them so the IR_CHOICE
@@ -559,6 +597,24 @@ stage2_t *lower(const tree_t *prog) {
         /* PLG-3: register all remaining predicates so IR_GOAL's resolve_bb_lookup finds callee graphs. */
         lower_pl_register_all_preds();
         g_stage2.lang = IR_LANG_PL;
+        return &g_stage2;
+    }
+    if (mask & (1u << LANG_RAKU)) {
+        /* RK-LOWER-0 — Raku crosses onto Byrd Boxes (say/hello tier). polyglot_init registered each Raku sub
+           with proc -> TT_SUB_DECL and bb_idx = -1. Lower each body into a four-port graph and fill bb_idx; the
+           driver's generic (non-Icon, non-Prolog) mode-2 branch runs bb_exec_once on the proc named "main". A
+           sub with an unhandled statement keeps bb_idx = -1 (lower_raku_body fails loud) so the driver aborts
+           cleanly rather than running a partial graph. Raku reuses the SHARED value arms in lower.c — only the
+           cx.lang==IR_LANG_RKU say/print arm is Raku-specific; everything else (assign/arith/concat/while) rides
+           the lang-agnostic arms SNOBOL4 and Icon already built. */
+        for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+            const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+            if (!proc || proc->t != TT_SUB_DECL) continue;
+            if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
+            int bb_idx = lower_raku_body(proc);
+            if (bb_idx >= 0) g_stage2.proc_table[pi].bb_idx = bb_idx;
+        }
+        g_stage2.lang = IR_LANG_RKU;
         return &g_stage2;
     }
     g_stage2.lang = IR_LANG_SNO;

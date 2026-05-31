@@ -80,6 +80,7 @@ typedef struct {
 static IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_builtin(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
@@ -504,6 +505,35 @@ static IR_t * v_every(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     return ret(ev, α_out, β_out, g1α, ω_in /* every never generates: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
+/* v_raku_for (RK-LOWER-1) — Raku `for RANGE { ... $_ }` and `for RANGE -> $v { ... $v }`. Per docs.raku.org      */
+/* /type/Range an integer Range iterates lo..hi INCLUSIVE via .succ (+1), small->large, empty if lo>hi; the      */
+/* default for-topic is $_. Raku `for` over a Range is a generator-driven loop: pull each element, BIND it to    */
+/* the loop variable, run the body, re-pump. We REUSE Icon's resumable IR_TO generator (lowered via v_to) and    */
+/* wire the four ports directly — NOT via the shared v_assign, whose beta=omega_in (bounded) would stop the      */
+/* re-pump after the first element (this is exactly why `every i := 1 to 3 do write(i)` yields only 1). Topology: */
+/*   gen.alpha = loop entry ; gen.gamma -> bind ; bind.gamma -> body.alpha ; body.gamma & body.omega -> gen.beta  */
+/*   (re-pump: IR_TO is its OWN resume, so its counter advances on each re-entry) ; gen.omega -> gamma_in (Range  */
+/*   drained => the for STATEMENT completes and falls through to the next statement — unlike Icon `every`, which  */
+/*   fails on drain). The bind is re-entered fresh from gen.gamma each cycle (it has no resumable state), reading */
+/* the freshly-pushed element off the AG ring (IR_ASSIGN exec = ag_ring_peek(0)) and storing it to `var`; the     */
+/* body's IR_VAR(var) then reads it back. Raku-gated (only the cx.lang==IR_LANG_RKU arms call this), so Icon and  */
+/* SNOBOL4 generator semantics are untouched (FACT RULE: language variation inside the shared cases).            */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!range_t || !var) return NULL;
+    IR_t * bind = nalloc(cx, IR_ASSIGN);
+    if (!bind) return NULL;
+    bind->sval = var;
+    IR_t * gα = NULL, * gβ = NULL;
+    IR_t * gen = lower2(cx, range_t, bind /*gen.γ -> bind (each produced element)*/, γ_in /*gen.ω -> Range drained => for completes*/, &gα, &gβ);
+    if (!gen) return NULL;
+    IR_t * bα = NULL, * bβ = NULL;
+    IR_t * body = body_t ? lower2(bounded(cx), body_t, gβ /*body.γ -> re-pump gen*/, gβ /*body.ω -> re-pump gen*/, &bα, &bβ) : NULL;
+    if (body_t && !body) return NULL;
+    set_succ_fail(bind, body_t ? bα : gβ /*bind.γ -> body start (empty body: straight re-pump)*/, ω_in /*bind never fails*/);
+    return ret(gen, α_out, β_out, gα /*loop entry = generator start*/, ω_in /*for stmt is bounded*/);
+}
+/*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — `while E1 [do E2]` (jcon ir_a_While). Condition + body both bounded; each iteration
  * re-evaluates the condition FRESH (not resume): while.α = E1.α ; E1.γ = body.α ; E1.ω = while.ω ;
  * body.γ = body.ω = E1.α. while yields no value; fails when the condition fails.                          */
@@ -699,6 +729,16 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         return v_alt(cx, e, γ_in, ω_in, α_out, β_out);
     /* L2-B: loops (core) */
     case TT_EVERY:
+        /* RK-LOWER-1: Raku bare `for RANGE { ... $_ }` parses to TT_EVERY(TT_ITERATE(RANGE), body) with the
+           topic $_ implicit (no binding name) — see raku.y for_stmt. When the iterate child is a lazy Range
+           (TT_TO/TT_TO_BY), drive it as a Raku for-loop binding the element to the iterate's name or $_ by
+           default. Non-range iterate (arrays/Seqs) is a later rung (RK-LOWER-3); it stays on Icon's v_every. */
+        if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0] && e->c[0]->t == TT_ITERATE
+            && e->c[0]->n >= 1 && e->c[0]->c[0]
+            && (e->c[0]->c[0]->t == TT_TO || e->c[0]->c[0]->t == TT_TO_BY)) {
+            const char * v = (e->c[0]->v.sval && e->c[0]->v.sval[0]) ? e->c[0]->v.sval : "_";
+            return v_raku_for(cx, e->c[0]->c[0], v, (e->n >= 2 ? e->c[1] : NULL), γ_in, ω_in, α_out, β_out);
+        }
         return v_every(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_WHILE:
         return v_while(cx, e, γ_in, ω_in, α_out, β_out);
@@ -765,6 +805,23 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* multi-arg write / general call = L2-E */
     }
+    /* RAKU `say(x)` / `print(x)` 1-arg output (RK-LOWER-0). Per docs.raku.org/routine/say + /routine/print: say
+       coerces each arg with .gist then appends a newline (default nl-out = \n); print stringifies with .Str and
+       appends NO newline. For string/integer args .gist == .Str, so at this tier the ONLY behavioral difference
+       is the trailing newline — identical to the Icon write (newline) / writes (no newline) split. So the Raku arm
+       REUSES the SHARED wire_det_builtin1 -> IR_CALL wirer (the same role-agnostic deterministic-builtin path Icon
+       write and Prolog write ride), mapping say -> "write" and print -> "writes" so the proven Icon runtime arms in
+       try_call_builtin_by_name supply the bytes with ZERO runtime change. The .gist-vs-.Str divergence for composite
+       types (List truncation etc.) is deferred to RK-LOWER-5. FACT RULE: the Raku arm lives INSIDE this one case;
+       any non-Raku language hitting TT_SAY/TT_PRINT falls to lower_unhandled (loud), never a silent default. The
+       TT_SAY_FH / TT_PRINT_FH filehandle forms stay in the unhandled group (RK-LOWER-5). */
+    case TT_SAY:
+    case TT_PRINT:
+        if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0]) {
+            const char * fn = (e->t == TT_SAY) ? "write" : "writes";
+            return wire_det_builtin1(cx, e->c[0], fn, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     /* SNOBOL4 pattern-match statement SUBJECT ? PATTERN (LOWER2-EXEC). Icon scanning (TT_SMATCH / Icon ?) stays
        in the unhandled group below (L2-F). The per-language split lives inside v_scan (FACT RULE) via cx.lang. */
     case TT_SCAN:
@@ -780,10 +837,27 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_MAP: case TT_GREP: case TT_GATHER:
     case TT_HASH_GET: case TT_HASH_SET: case TT_HASH_DELETE: case TT_HASH_EXISTS:
     case TT_ARR_GET: case TT_ARR_SET:
-    case TT_PRINT: case TT_PRINT_FH: case TT_SAY: case TT_SAY_FH:
+    case TT_PRINT_FH: case TT_SAY_FH:
     case TT_GLOBAL: case TT_LOCAL: case TT_STATIC_DECL: case TT_DECL: case TT_INITIAL: case TT_OPSYN:
     case TT_GOTO_U: case TT_GOTO_S: case TT_GOTO_F:
-    case TT_TRY: case TT_DIE: case TT_UNLESS: case TT_DO_WHILE: case TT_FOR: case TT_FOR_RANGE:
+    case TT_TRY: case TT_DIE: case TT_UNLESS: case TT_DO_WHILE: case TT_FOR:
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    /* RK-LOWER-1: Raku explicit-var `for LO..HI -> $v { ... $v }` parses to TT_FOR_RANGE(var, lo, hi, body, ex)
+       — see raku.y for_stmt; ex=1 marks the `..^` endpoint-exclusive form. Synthesize the lo..hi Range as a
+       TT_TO subtree (for `..^`, lo..(hi-1) on the integer range, per docs.raku.org/type/Range) and drive it as
+       a Raku for-loop binding each element to the named loop variable. Non-Raku langs => loud unhandled. */
+    case TT_FOR_RANGE:
+        if (cx.lang == IR_LANG_RKU && e->n >= 4 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            const tree_t * lo = e->c[1]; const tree_t * hi = e->c[2]; const tree_t * body = e->c[3];
+            int ex = (e->n >= 5 && e->c[4] && e->c[4]->t == TT_ILIT) ? (int) e->c[4]->v.ival : 0;
+            tree_t * hi_eff = (tree_t *) hi;
+            if (ex) {
+                tree_t * one = ast_node_new(TT_ILIT); one->v.ival = 1;
+                hi_eff = ast_node_new(TT_SUB); ast_push(hi_eff, (tree_t *) hi); ast_push(hi_eff, one);
+            }
+            tree_t * rng = ast_node_new(TT_TO); ast_push(rng, (tree_t *) lo); ast_push(rng, hi_eff);
+            return v_raku_for(cx, rng, e->c[0]->v.sval, body, γ_in, ω_in, α_out, β_out);
+        }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     default:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
