@@ -46,6 +46,7 @@ static const char * kname(IR_e t) {
     case IR_PAT_ASSIGN_COND: return "PCAP"; case IR_PAT_ASSIGN_IMM: return "PCAPI"; case IR_PAT_ATP: return "PATP";
     case IR_PAT_DEFER: return "PDEF"; case IR_PAT_BAL: return "PBAL";
     case IR_GCONJ: return "GCONJ"; case IR_DISJ: return "DISJ"; case IR_UNIFY: return "UNIFY"; case IR_ARITH: return "ARITH"; case IR_CUT: return "CUT";
+    case IR_BUILTIN: return "BLTIN"; case IR_ATOM: return "ATOM"; case IR_STRUCT: return "STRCT"; case IR_LOGICVAR: return "LVAR";
     default: return "?";
     }
 }
@@ -197,6 +198,10 @@ int main(void) {
     /* ===== END ICON SECTION ===== */
 
     /* ===== PROLOG SECTION — APPEND PROLOG (GOAL-role) CASES BELOW THIS LINE ===== */
+    dump_goal("Prolog:   write('hi')   [PLG-1 g_builtin: IR_BUILTIN(sval=write,ival=1) + IR_ATOM arg on alpha; pl_write, no auto-nl]",
+         fnc1("write", slit("hi")), 2);
+    dump_goal("Prolog:   nl   [PLG-1 g_builtin: bare IR_BUILTIN(sval=nl,ival=0) leaf; EXEC = putchar('\\n')]",
+         slit("nl"), 1);
     dump_goal("Prolog:   (write(a) , write(b))   [GOAL conj = wire_seq(IR_GCONJ): same shape as Icon &/SNOBOL CAT]",
          gfnc2(",", fnc1("write", slit("a")), fnc1("write", slit("b"))), 5);
     dump_goal("Prolog:   (write(a) ; write(b))   [GOAL disj = wire_alt(IR_DISJ): same fail-chain as SNOBOL ALT]",
