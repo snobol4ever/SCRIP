@@ -33,13 +33,13 @@ static void patnd_append_child(PATND_t *p, PATND_t *ch) {
 static inline DESCR_t spat_val(PATND_t *p) {
     DESCR_t v;
     v.v = DT_P;
-    v.p    = (struct _PATND_t *)p;
+    SET_P(v, (struct _PATND_t *)p);
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline PATND_t *spat_of(DESCR_t v) {
     if (v.v != DT_P) return NULL;
-    return (PATND_t *)v.p;
+    return (PATND_t *)GET_P(v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_lit(const char *s) {
@@ -188,7 +188,7 @@ static PATND_t *pat_to_patnd(DESCR_t v) {
             v = EXPVAL_fn(v);
             goto coerce;
         }
-        tree_t *frozen = (tree_t *)v.ptr;
+        tree_t *frozen = (tree_t *)GET_PTR(v);
         if (!frozen) return NULL;
         if (frozen->t == TT_FNC) {
             int nargs = frozen->n;
@@ -283,7 +283,7 @@ static const char *_assign_varname_str(DESCR_t var) {
     if (var.v != DT_N) return "";
     if (var.slen == 0 && var.s && *var.s) return GC_strdup(var.s);
     if (var.slen == 1 && var.ptr) {
-        const char *nm = NV_name_from_ptr((const DESCR_t *)var.ptr);
+        const char *nm = NV_name_from_ptr((const DESCR_t *)GET_PTR(var));
         if (nm && *nm) return GC_strdup(nm);
     }
     return "";
@@ -373,25 +373,25 @@ DESCR_t pat_at_cursor(const char *varname) {
     p->args  = (DESCR_t *)GC_MALLOC(sizeof(DESCR_t));
     p->args[0].v    = DT_S;
     p->args[0].s    = varname ? GC_strdup(varname) : "";
-    p->args[0].slen = varname ? (uint32_t)strlen(varname) : 0;
+    SET_SLEN(p->args[0], varname ? (uint32_t)strlen(varname) : 0);
     return spat_val(p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
     if (arr.v == DT_A) {
-        return array_get(arr.arr, (int)to_int(idx));
+        return array_get(GET_ARR(arr), (int)to_int(idx));
     }
     if (arr.v == DT_T) {
         char kb[64]; const char *ks;
         if (IS_INT_fn(idx))       { snprintf(kb,sizeof kb,"%lld",(long long)idx.i); ks=kb; }
         else if (IS_REAL_fn(idx)) { snprintf(kb,sizeof kb,"%g",idx.r); ks=kb; }
         else                      { ks = VARVAL_fn(idx); if (!ks) ks=""; }
-        if (!table_has(arr.tbl, ks)) {
-            if (arr.tbl->dflt.v != DT_FAIL && arr.tbl->dflt.v != 0)
-                return arr.tbl->dflt;
+        if (!table_has(GET_TBL(arr), ks)) {
+            if (GET_TBL(arr)->dflt.v != DT_FAIL && GET_TBL(arr)->dflt.v != 0)
+                return GET_TBL(arr)->dflt;
             return NULVCL;
         }
-        return table_get(arr.tbl, ks);
+        return table_get(GET_TBL(arr), ks);
     }
     if (arr.v == DT_I) {
         char ibuf[32]; snprintf(ibuf, sizeof ibuf, "%lld", (long long)arr.i);
@@ -411,31 +411,31 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         if (tag.v == DT_S && tag.s && strcmp(tag.s,"list")==0) {
             int n = (int)FIELD_GET_fn(arr,"frame_size").i;
             DESCR_t ea = FIELD_GET_fn(arr,"frame_elems");
-            DESCR_t *elems = (ea.v==DT_DATA) ? (DESCR_t*)ea.ptr : NULL;
+            DESCR_t *elems = (ea.v==DT_DATA) ? (DESCR_t*)GET_PTR(ea) : NULL;
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
             return elems[i-1];
         }
-        if (arr.u && arr.u->type && arr.u->type->nfields > 0 && arr.u->fields) {
-            DATBLK_t *blk = arr.u->type;
+        if (GET_U(arr) && GET_U(arr)->type && GET_U(arr)->type->nfields > 0 && GET_U(arr)->fields) {
+            DATBLK_t *blk = GET_U(arr)->type;
             if (IS_INT_fn(idx)) {
                 int i = (int)idx.i;
                 if (i < 1 || i > blk->nfields) return FAILDESCR;
-                return arr.u->fields[i-1];
+                return GET_U(arr)->fields[i-1];
             }
             if (idx.v == DT_S || idx.v == DT_SNUL) {
                 const char *k = idx.s ? idx.s : "";
                 for (int i = 0; i < blk->nfields; i++)
                     if (blk->fields[i] && strcmp(blk->fields[i], k) == 0)
-                        return arr.u->fields[i];
+                        return GET_U(arr)->fields[i];
                 return FAILDESCR;
             }
         }
         int i = (int)to_int(idx);
         DESCR_t children = FIELD_GET_fn(arr, "c");
-        if (children.v == DT_A && children.arr)
-            return array_get(children.arr, i);
+        if (children.v == DT_A && GET_ARR(children))
+            return array_get(GET_ARR(children), i);
         return FAILDESCR;
     }
     core_runtime_error(3, NULL);
@@ -445,13 +445,13 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
     if (arr.v == DT_A) {
         int i = (int)to_int(idx);
-        if (i < arr.arr->lo || i > arr.arr->hi) return 0;
-        array_set(arr.arr, i, val);
+        if (i < GET_ARR(arr)->lo || i > GET_ARR(arr)->hi) return 0;
+        array_set(GET_ARR(arr), i, val);
         return 1;
     }
     if (arr.v == DT_T) {
         const char *k = VARVAL_fn(idx);
-        table_set_descr(arr.tbl, k ? k : "", idx, val);
+        table_set_descr(GET_TBL(arr), k ? k : "", idx, val);
         return 1;
     }
     if (arr.v == DT_DATA) {
@@ -459,26 +459,26 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
         if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
             int n = (int)FIELD_GET_fn(arr, "frame_size").i;
             DESCR_t ea = FIELD_GET_fn(arr, "frame_elems");
-            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)GET_PTR(ea) : NULL;
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return 0;
             elems[i - 1] = val;
             return 1;
         }
-        if (arr.u && arr.u->type && arr.u->fields) {
-            DATBLK_t *blk = arr.u->type;
+        if (GET_U(arr) && GET_U(arr)->type && GET_U(arr)->fields) {
+            DATBLK_t *blk = GET_U(arr)->type;
             if (IS_INT_fn(idx)) {
                 int i = (int)idx.i;
                 if (i < 1 || i > blk->nfields) return 0;
-                arr.u->fields[i - 1] = val;
+                GET_U(arr)->fields[i - 1] = val;
                 return 1;
             }
             if (idx.v == DT_S || idx.v == DT_SNUL) {
                 const char *k = idx.s ? idx.s : "";
                 for (int i = 0; i < blk->nfields; i++)
                     if (blk->fields[i] && strcmp(blk->fields[i], k) == 0) {
-                        arr.u->fields[i] = val;
+                        GET_U(arr)->fields[i] = val;
                         return 1;
                     }
                 return 0;
@@ -514,13 +514,13 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
     if (arr.v == DT_A)
-        return array_get2(arr.arr, (int)to_int(i), (int)to_int(j));
+        return array_get2(GET_ARR(arr), (int)to_int(i), (int)to_int(j));
     if (arr.v == DT_DATA) {
         DESCR_t tag = FIELD_GET_fn(arr, "gen_type");
         if (tag.v == DT_S && tag.s && strcmp(tag.s,"list")==0) {
             int n = (int)FIELD_GET_fn(arr,"frame_size").i;
             DESCR_t ea = FIELD_GET_fn(arr,"frame_elems");
-            DESCR_t *elems = (ea.v==DT_DATA) ? (DESCR_t*)ea.ptr : NULL;
+            DESCR_t *elems = (ea.v==DT_DATA) ? (DESCR_t*)GET_PTR(ea) : NULL;
             int ii = (int)to_int(i), jj = (int)to_int(j);
             if (ii == 0) ii = n + 1; else if (ii < 0) ii = n + ii + 1;
             if (jj == 0) jj = n + 1; else if (jj < 0) jj = n + jj + 1;
@@ -558,9 +558,9 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
 int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
     if (arr.v == DT_A) {
         int ii = (int)to_int(i), jj = (int)to_int(j);
-        if (ii < arr.arr->lo || ii > arr.arr->hi) return 0;
-        if (arr.arr->ndim >= 2 && (jj < arr.arr->lo2 || jj > arr.arr->hi2)) return 0;
-        array_set2(arr.arr, ii, jj, val);
+        if (ii < GET_ARR(arr)->lo || ii > GET_ARR(arr)->hi) return 0;
+        if (GET_ARR(arr)->ndim >= 2 && (jj < GET_ARR(arr)->lo2 || jj > GET_ARR(arr)->hi2)) return 0;
+        array_set2(GET_ARR(arr), ii, jj, val);
         return 1;
     }
     return 0;
@@ -608,7 +608,7 @@ DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {
         if (oldname.slen == 0 && oldname.s && *oldname.s)
             old = oldname.s;
         else if (oldname.slen == 1 && oldname.ptr)
-            old = NV_name_from_ptr((const DESCR_t *)oldname.ptr);
+            old = NV_name_from_ptr((const DESCR_t *)GET_PTR(oldname));
     }
     if (!old) old = VARVAL_fn(oldname);
     if (!nm || !old || !*old) return FAILDESCR;
@@ -647,7 +647,7 @@ static int _sort_cmp_descr(DESCR_t a, DESCR_t b, const char *sa, const char *sb)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t sort_fn(DESCR_t arr) {
     if (arr.v != DT_T) return arr;
-    TBBLK_t *tbl = arr.tbl;
+    TBBLK_t *tbl = GET_TBL(arr);
     if (!tbl) return FAILDESCR;
     int n = 0;
     for (int h = 0; h < TABLE_BUCKETS; h++)
@@ -690,7 +690,7 @@ DESCR_t sort_fn(DESCR_t arr) {
     }
     DESCR_t result = {0};
     result.v = DT_A;
-    result.arr    = a;
+    SET_ARR(result, a);
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -702,14 +702,14 @@ DESCR_t compile_to_expression(const char *src) {
     d.v    = DT_E;
     d.slen = 0;
     d.s    = NULL;
-    d.ptr  = tree;
+    SET_PTR(d, tree);
     return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rsort_fn(DESCR_t arr) {
     DESCR_t sorted = sort_fn(arr);
-    if (sorted.v != DT_A || !sorted.arr) return sorted;
-    ARBLK_t *a = sorted.arr;
+    if (sorted.v != DT_A || !GET_ARR(sorted)) return sorted;
+    ARBLK_t *a = GET_ARR(sorted);
     int n = a->hi - a->lo + 1;
     for (int lo = 0, hi = n - 1; lo < hi; lo++, hi--) {
         DESCR_t tmp0 = a->data[lo*2+0], tmp1 = a->data[lo*2+1];
