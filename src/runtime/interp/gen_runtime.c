@@ -7,7 +7,7 @@
 #include "coerce.h"
 #include "scan_builtins.h"
 #include "../../lower/bb_exec.h"
-#include "../../lower/lower_graph.h"
+#include "../../lower/lower.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

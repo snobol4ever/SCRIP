@@ -171,10 +171,6 @@ RT_PIC_SRCS := \
     $(SRC)/processor/smx_dead_stubs.c \
     $(SRC)/lower/sm_prog.c \
     $(SRC)/lower/lower.c \
-    $(SRC)/lower/lower_ctx.c \
-    $(SRC)/lower/lower_pat_dcg.c \
-    $(SRC)/lower/lower_graph.c \
-    $(SRC)/lower/lower_clause.c \
     $(SRC)/lower/lower_sno.c \
     $(SRC)/runtime/interp/gen_runtime.c \
     $(SRC)/runtime/interp/scan_builtins.c \
@@ -393,10 +389,6 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/bb_exec.c      -o $(OBJ)/bb_exec.o
 	$(CC) $(CRT)   -c $(SRC)/lower/sm_prog.c    -o $(OBJ)/sm_prog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower.c      -o $(OBJ)/lower.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_ctx.c  -o $(OBJ)/lower_ctx.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_pat_dcg.c -o $(OBJ)/lower_pat_dcg.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_graph.c     -o $(OBJ)/lower_graph.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_clause.c      -o $(OBJ)/lower_clause.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_sno.c     -o $(OBJ)/lower_sno.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_bb.c -o $(OBJ)/emit_bb.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o

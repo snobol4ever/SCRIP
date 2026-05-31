@@ -1,5 +1,5 @@
 #include "bb_exec.h"
-#include "lower_pat_dcg.h"
+#include "lower.h"
 #include "../../emitter/sil_macros.h"
 #include "../../frontend/prolog/term.h"
 #include "../../frontend/prolog/prolog_runtime.h"
@@ -46,7 +46,7 @@ static void bb_dcap_flush(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_dcap_clear(void) { g_dcap_n = 0; }
 #include "core.h"
-#include "lower_graph.h"
+#include "lower.h"
 #include "../runtime/interp/gen_runtime.h"
 #include "../runtime/interp/gen_value.h"
 #include "coerce.h"

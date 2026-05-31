@@ -30,7 +30,7 @@ extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs);
 #include "bb_build.h"
 #include "bb_pool.h"
 #include "emit_bb.h"
-#include "lower_pat_dcg.h"
+#include "lower.h"
 int rt_in_native_chunk(void) __attribute__((weak));
 int rt_in_native_chunk(void) { return 0; }
 #include "../ast/ast.h"
