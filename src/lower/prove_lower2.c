@@ -1,15 +1,13 @@
-/* prove_lower2.c — lower the paper's Figure-1 example through lower2() and dump port topology.
-   Links: lower2.c + scrip_ir.c only. Provides local kind_is_resumable + cset_try_fold so the old
-   lowerer is NOT linked. AST built by hand. Output: one line per IR node: idx kind α β γ ω.        */
-/* BUILD (cold session — links lower2.c + scrip_ir.c ONLY, NOT the old lowerer):
- *   gcc -std=c99 -include string.h -I src -I src/include -I src/lower -I src/processor \
- *       -I src/runtime/interp -I src/runtime/core -I src/runtime/rt -I src/runtime \
- *       -I src/frontend/snobol4 -I src/driver -I src/emitter \
- *       src/lower/lower2.c src/lower/scrip_ir.c src/lower/prove_lower2.c -lm -o /tmp/prove
- *   /tmp/prove          # dumps each IR node idx + α/β/γ/ω to diff against Proebsting Fig 1/2.
- * Swap the test expression in main() (lit/bin helpers) to prove other shapes.
- * Requires the lower2_value_entry shim in lower2.c (kept there on purpose).            */
-
+/*====================================================================================================================================================================================================*/
+/* prove_lower2.c — TOPOLOGY PROOF HARNESS for lower2.c.
+ * Builds Proebsting's Figure-1 AST by hand, lowers it through lower2_value_entry, and dumps every IR
+ * node's four ports (α/β/γ/ω) as graph indices so the wiring can be diffed against Figures 1 & 2.
+ * Links lower2.o + scrip_ir.o ONLY; supplies local kind_is_resumable + cset_try_fold so the production
+ * lower.c is NOT pulled in. Built + run by scripts/prove_lower2.sh. Cold-build without the script:
+ *   gcc -O0 -g -I src -I src/include -I src/lower -I src/processor -I src/emitter -I src/runtime/core \
+ *       -I src/runtime src/lower/lower2.c src/lower/scrip_ir.c src/lower/prove_lower2.c -lgc -lm -o /tmp/prove
+ * Requires the lower2_value_entry shim in lower2.c (kept there on purpose).                              */
+/*====================================================================================================================================================================================================*/
 #define BB_DEFINE_NAMES
 #include "IR.h"
 #include "ast.h"
@@ -18,55 +16,74 @@
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int kind_is_resumable(IR_e t) {
-    return t == IR_TO || t == IR_TO_BY || t == IR_UPTO || t == IR_ALT ||
-           t == IR_BINOP_GEN || t == IR_ITERATE || t == IR_LIMIT || t == IR_PROC_GEN ||
-           t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN ||
-           t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN ||
+    return t == IR_TO || t == IR_TO_BY || t == IR_UPTO || t == IR_ALT || t == IR_BINOP_GEN || t == IR_ITERATE || t == IR_LIMIT || t == IR_PROC_GEN ||
+           t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN || t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN ||
            t == IR_GEN_SCAN || t == IR_CONJ;
 }
 char * cset_try_fold(const tree_t * t) { (void) t; return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* the real entry we are proving (static in lower2.c; re-declared via a thin shim compiled WITH it) */
 extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * lit(long long v)            { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
+static tree_t * lit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * bin(tree_e op, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(op); ast_push(n, a); ast_push(n, b); return n; }
+static tree_t * un(tree_e op, tree_t * a) { tree_t * n = ast_node_new(op); ast_push(n, a); return n; }
+static tree_t * tri(tree_e op, tree_t * a, tree_t * b, tree_t * c) { tree_t * n = ast_node_new(op); ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int idx_of(IR_graph_t * g, IR_t * n) {
-    if (!n) return -1;
-    for (int i = 0; i < g->n; i++) if (g->all[i] == n) return i;
-    return -2;
-}
+static int idx_of(IR_graph_t * g, IR_t * n) { if (!n) return -1; for (int i = 0; i < g->n; i++) if (g->all[i] == n) return i; return -2; }
 static const char * kname(IR_e t) {
     switch (t) {
-    case IR_LIT_I: return "LIT_I"; case IR_BINOP: return "BINOP"; case IR_TO: return "TO";
-    case IR_TO_BY: return "TO_BY"; case IR_VAR: return "VAR"; case IR_UNOP: return "UNOP";
-    case IR_IF: return "IF"; case IR_SUCCEED: return "PSUCC"; case IR_FAIL: return "PFAIL"; default: return "?";
+    case IR_LIT_I: return "LIT_I"; case IR_BINOP: return "BINOP"; case IR_TO: return "TO"; case IR_TO_BY: return "TO_BY"; case IR_VAR: return "VAR";
+    case IR_UNOP: return "UNOP"; case IR_IF: return "IF"; case IR_SUCCEED: return "PSUCC"; case IR_FAIL: return "PFAIL";
+    case IR_CONJ: return "CONJ"; case IR_ALT: return "ALT"; case IR_EVERY: return "EVERY"; case IR_WHILE: return "WHILE";
+    case IR_UNTIL: return "UNTIL"; case IR_REPEAT: return "REPEAT"; case IR_NOT: return "NOT"; default: return "?";
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void dump(const char * title, tree_t * ast, int expect_nodes) {
+    IR_graph_t * g = IR_alloc(64, 0);
+    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t * a = NULL, * b = NULL;
+    IR_t * top = lower2_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    printf("=== %s ===\n", title);
+    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
+    printf("idx  kind    α    β    γ    ω      ival  dval\n");
+    for (int i = 0; i < g->n; i++) {
+        IR_t * n = g->all[i];
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) n->ival, n->dval);
+    }
+    int real = g->n - 2;
+    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
-    /* 5 > ((1 to 2) * (3 to 4)) */
-    tree_t * to1 = bin(TT_TO, lit(1), lit(2));
-    tree_t * to2 = bin(TT_TO, lit(3), lit(4));
-    tree_t * gt  = bin(TT_TO, to1, to2);   /* (1 to 2) to (3 to 4) — nested-generator bounds */
+    tree_t * a_to1 = bin(TT_TO, lit(1), lit(2));
+    tree_t * a_to2 = bin(TT_TO, lit(3), lit(4));
+    tree_t * a_mul = bin(TT_MUL, a_to1, a_to2);
+    tree_t * a_gt  = bin(TT_GT,  lit(5), a_mul);
+    dump("5 > ((1 to 2) * (3 to 4))   [Proebsting Fig 1: nine expanded templates]", a_gt, 9);
 
-    IR_graph_t * g = IR_alloc(64, 0 /*lang*/);
-    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); /* sentinel program-success */
-    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);    /* sentinel program-fail */
-    IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_value_entry(g, gt, PSUCC, PFAIL, &a, &b);
+    tree_t * b_to1 = bin(TT_TO, lit(1), lit(2));
+    tree_t * b_to2 = bin(TT_TO, lit(3), lit(4));
+    tree_t * b_nest = bin(TT_TO, b_to1, b_to2);
+    dump("(1 to 2) to (3 to 4)   [paper sec.2: outer-to initiated four times; to2.fail -> to1]", b_nest, 7);
 
-    printf("=== lower2((1 to 2) to (3 to 4)) ===\n");
-    printf("returned principal idx=%d ; α(start)=%d ; β(resume)=%d\n",
-           idx_of(g, top), idx_of(g, a), idx_of(g, b));
-    printf("graph node count=%d\n", g->n);
-    printf("idx  kind    α    β    γ    ω\n");
-    for (int i = 0; i < g->n; i++) {
-        IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d   (ival=%lld dval=%.1f)\n",
-               i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω),
-               (long long) n->ival, n->dval);
-    }
+    /* L2-A combinators */
+    dump("(1 to 2) & (3 to 4)   [ir_conjunction: c0.gamma->c1.alpha, c1.omega->c0.beta, resume=c1.beta]",
+         bin(TT_SEQ, bin(TT_TO, lit(1), lit(2)), bin(TT_TO, lit(3), lit(4))), 7);
+    dump("1 | 2 | 3   [ir_a_Alt: arm.gamma->alt, fail-chain arm[i].omega->arm[i+1].alpha, last->omega]",
+         tri(TT_ALTERNATE, lit(1), lit(2), lit(3)), 4);
+
+    /* L2-B loops (core) */
+    dump("every (1 to 3)   [ir_a_Every: E1.gamma->E1.resume (no body, drain); E1.omega->every.fail]",
+         un(TT_EVERY, bin(TT_TO, lit(1), lit(3))), 4);
+    dump("while (1 to 3)   [ir_a_While: cond bounded; E1.gamma->loop; E1.omega->while.fail]",
+         un(TT_WHILE, bin(TT_TO, lit(1), lit(3))), 4);
+    dump("until (1 to 3)   [ir_a_Until: E1.gamma->until.fail; E1.omega->body/loop]",
+         un(TT_UNTIL, bin(TT_TO, lit(1), lit(3))), 4);
+    dump("repeat (1 to 3)   [ir_a_Repeat: E.gamma=E.omega=repeat.start]",
+         un(TT_REPEAT, bin(TT_TO, lit(1), lit(3))), 4);
+    dump("not (1 to 3)   [ir_a_Not: E.gamma->not.fail; E.omega->not(null,succeed)]",
+         un(TT_NOT, bin(TT_TO, lit(1), lit(3))), 4);
     return 0;
 }

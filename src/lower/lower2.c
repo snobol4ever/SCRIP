@@ -208,6 +208,156 @@ static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
     set_succ_fail(node, γ_in, ω_in);
     return ret(node, α_out, β_out, c1α, node /* node.β dispatches via runtime gate */);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static lcx_t bounded(lcx_t cx) { cx.bounded = 1; return cx; }
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — CONJUNCTION `E1 & E2` (jcon ir_conjunction). Identical to plus minus the value compute:
+ *   conj.α = E1.α ; conj.β = E2.β ; E1.γ = E2.α ; E1.ω = conj.ω ; E2.γ = conj ; E2.ω = E1.β.
+ * The IR_CONJ node forwards E2's value (Icon `e1 & e2` yields e2), sitting on E2's success edge.          */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
+    IR_t * conj = nalloc(cx, IR_CONJ);
+    if (!conj) return NULL;
+    IR_t * e1α=NULL,*e1β=NULL,*e2α=NULL,*e2β=NULL;
+    IR_t * c1 = lower2(cx, e->c[0], NULL /*E1.γ patched below*/, ω_in, &e1α, &e1β);
+    if (!c1) return NULL;
+    IR_t * c2 = lower2(cx, e->c[1], conj /*E2.γ -> conj*/, e1β /*E2.ω -> E1.β*/, &e2α, &e2β);
+    if (!c2) return NULL;
+    if (!c1->γ) c1->γ = e2α;            /* E1.succeed -> E2.start */
+    set_succ_fail(conj, γ_in, ω_in);
+    return ret(conj, α_out, β_out, e1α, e2β);
+}
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — ALTERNATION `E1 | E2 | ... | Ek` (jcon ir_a_Alt; the SIBLING-backtrack box, runtime-gated
+ * like `if`). Each arm's success flows to the alt node (which records the active arm's resume in its gate
+ * then -> alt.γ); arms are fail-chained (Ei.ω -> E(i+1).α; last -> alt.ω); alt.β re-dispatches via the gate
+ * to the active arm's resume. The ordered arm resume ports live in operand_aux for the executor's gate.    */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_alt(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (e->n < 1) return NULL;
+    IR_t * alt = nalloc(cx, IR_ALT);
+    if (!alt) return NULL;
+    IR_t * entry[64]; IR_t * resume[64]; IR_t * apply[64];
+    int k = e->n;
+    if (k > 64) return NULL;
+    for (int j = 0; j < k; j++) {
+        if (!e->c[j]) return NULL;
+        IR_t * αj=NULL,*βj=NULL;
+        IR_t * arm = lower2(cx, e->c[j], alt /*arm.γ -> alt*/, NULL /*arm.ω chained below*/, &αj, &βj);
+        if (!arm) return NULL;
+        if (!arm->γ) arm->γ = alt;
+        apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
+    }
+    for (int j = 0; j < k; j++) {
+        IR_t * next = (j + 1 < k) ? entry[j + 1] : ω_in;   /* Ei.fail -> E(i+1).start ; last -> alt.fail */
+        if (!apply[j]->ω) apply[j]->ω = next;
+    }
+    bb_operand_aux_set(cx.bbg, alt, resume, k);
+    set_succ_fail(alt, γ_in, ω_in);
+    return ret(alt, α_out, β_out, entry[0], alt /* alt is its own resume; gate dispatches to active arm */);
+}
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — `every E1 [do E2]` (jcon ir_a_Every). Drives E1 as a generator, runs the (bounded) body
+ * once per E1 value, and on body success OR failure resumes E1. every yields no value and fails when E1 is
+ * exhausted: every.α = E1.α ; E1.γ = body.α ; E1.ω = every.ω ; body.γ = body.ω = E1.β. No body: E1.γ=E1.β.  */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_every(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (e->n < 1 || !e->c[0]) return NULL;
+    IR_t * ev = nalloc(cx, IR_EVERY);
+    if (!ev) return NULL;
+    IR_t * g1α=NULL,*g1β=NULL;
+    IR_t * gen = lower2(cx, e->c[0], NULL /*E1.γ patched*/, ev /*E1.ω -> every.fail*/, &g1α, &g1β);
+    if (!gen) return NULL;
+    if (e->n >= 2 && e->c[1]) {
+        IR_t * b2α=NULL,*b2β=NULL;
+        IR_t * body = lower2(bounded(cx), e->c[1], g1β /*body.γ -> E1.resume*/, g1β /*body.ω -> E1.resume*/, &b2α, &b2β);
+        if (!body) return NULL;
+        if (!gen->γ) gen->γ = b2α;       /* E1.succeed -> body.start */
+    } else {
+        if (!gen->γ) gen->γ = g1β;       /* no body: E1.succeed -> E1.resume (drain) */
+    }
+    ev->α = g1α;
+    set_succ_fail(ev, γ_in, ω_in);
+    return ret(ev, α_out, β_out, g1α, ω_in /* every never generates: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — `while E1 [do E2]` (jcon ir_a_While). Condition + body both bounded; each iteration
+ * re-evaluates the condition FRESH (not resume): while.α = E1.α ; E1.γ = body.α ; E1.ω = while.ω ;
+ * body.γ = body.ω = E1.α. while yields no value; fails when the condition fails.                          */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (e->n < 1 || !e->c[0]) return NULL;
+    IR_t * wh = nalloc(cx, IR_WHILE);
+    if (!wh) return NULL;
+    IR_t * c1α=NULL,*c1β=NULL;
+    IR_t * cond = lower2(bounded(cx), e->c[0], NULL /*E1.γ patched*/, wh /*E1.ω -> while.fail*/, &c1α, &c1β);
+    if (!cond) return NULL;
+    if (e->n >= 2 && e->c[1]) {
+        IR_t * b2α=NULL,*b2β=NULL;
+        IR_t * body = lower2(bounded(cx), e->c[1], c1α /*body.γ -> cond.start*/, c1α /*body.ω -> cond.start*/, &b2α, &b2β);
+        if (!body) return NULL;
+        if (!cond->γ) cond->γ = b2α;     /* E1.succeed -> body.start */
+    } else {
+        if (!cond->γ) cond->γ = c1α;     /* no body: loop re-evaluating the condition */
+    }
+    wh->α = c1α;
+    set_succ_fail(wh, γ_in, ω_in);
+    return ret(wh, α_out, β_out, c1α, ω_in);
+}
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — `until E1 [do E2]` (jcon ir_a_Until). Mirror of while with the condition sense flipped:
+ *   until.α = E1.α ; E1.γ = until.ω (cond true -> until fails) ; E1.ω = body.α ; body.γ = body.ω = E1.α.   */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_until(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (e->n < 1 || !e->c[0]) return NULL;
+    IR_t * un = nalloc(cx, IR_UNTIL);
+    if (!un) return NULL;
+    IR_t * c1α=NULL,*c1β=NULL;
+    IR_t * cond = lower2(bounded(cx), e->c[0], ω_in /*E1.succeed -> until.fail*/, un /*E1.fail -> until node -> body/loop*/, &c1α, &c1β);
+    if (!cond) return NULL;
+    if (e->n >= 2 && e->c[1]) {
+        IR_t * b2α=NULL,*b2β=NULL;
+        IR_t * body = lower2(bounded(cx), e->c[1], c1α /*body.γ -> cond.start*/, c1α /*body.ω -> cond.start*/, &b2α, &b2β);
+        if (!body) return NULL;
+        un->α = b2α;                     /* until node forwards E1-fail to body.start */
+    } else {
+        un->α = c1α;                     /* no body: forward to cond restart */
+    }
+    set_succ_fail(un, γ_in, ω_in);
+    return ret(un, α_out, β_out, c1α, ω_in);
+}
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — `repeat E` (jcon ir_a_Repeat). Unconditional infinite loop: repeat.α = E.α ;
+ * E.γ = E.ω = E.α (every outcome restarts E). Never fails on its own.                                      */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (e->n < 1 || !e->c[0]) return NULL;
+    IR_t * rp = nalloc(cx, IR_REPEAT);
+    if (!rp) return NULL;
+    IR_t * eα=NULL,*eβ=NULL;
+    IR_t * body = lower2(bounded(cx), e->c[0], rp /*E.succeed -> repeat (restart)*/, rp /*E.fail -> repeat (restart)*/, &eα, &eβ);
+    if (!body) return NULL;
+    rp->α = eα;                          /* repeat node re-enters E.start */
+    set_succ_fail(rp, γ_in, ω_in);
+    return ret(rp, α_out, β_out, eα, ω_in);
+}
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — `not E` (jcon ir_a_Not). Succeeds (yielding &null) exactly when E fails, else fails:
+ *   not.α = E.α ; E.γ = not.ω (E succeeds -> not fails) ; E.ω = not (E fails -> not produces null, succeeds);
+ *   not.γ = γ_in ; not.β = not.ω (at most one value). E lowered bounded.                                    */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_not(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (e->n < 1 || !e->c[0]) return NULL;
+    IR_t * nt = nalloc(cx, IR_NOT);
+    if (!nt) return NULL;
+    IR_t * eα=NULL,*eβ=NULL;
+    IR_t * ce = lower2(bounded(cx), e->c[0], ω_in /*E.succeed -> not.fail*/, nt /*E.fail -> not (succeed null)*/, &eα, &eβ);
+    if (!ce) return NULL;
+    nt->β = ce;                          /* operand ref to the negated value-node */
+    set_succ_fail(nt, γ_in, ω_in);
+    return ret(nt, α_out, β_out, eα, ω_in /* resume -> fail */);
+}
 /*====================================================================================================================================================================================================*/
 /* VALUE ROLE — master per-kind switch. Foundation boxes are wired; the rest route to lower_unhandled
  * (loud, never silent). Each TODO is one box to add onto the foundation, in the canonical signature.      */
@@ -234,17 +384,25 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     /* foundation: conditional */
     case TT_IF:
         return v_if(cx, e, γ_in, ω_in, α_out, β_out);
+    /* L2-A: combinators */
+    case TT_SEQ: case TT_SEQ_EXPR:
+        return v_conj(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_ALTERNATE:
+        return v_alt(cx, e, γ_in, ω_in, α_out, β_out);
+    /* L2-B: loops (core) */
+    case TT_EVERY:
+        return v_every(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_WHILE:
+        return v_while(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_UNTIL:
+        return v_until(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_REPEAT:
+        return v_repeat(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_NOT:
+        return v_not(cx, e, γ_in, ω_in, α_out, β_out);
 
     /* --- extension surface (each = one box onto the foundation, canonical signature) --- */
-    case TT_EVERY:      /* jcon ir_a_Every */
-    case TT_ALTERNATE:  /* jcon ir_a_Alt   */
     case TT_LIMIT:      /* jcon ir_a_Limitation */
-    case TT_REPEAT:     /* jcon ir_a_Repeat / ir_a_RepAlt */
-    case TT_NOT:        /* jcon ir_a_Not */
-    case TT_SEQ:        /* conjunction a & b */
-    case TT_SEQ_EXPR:
-    case TT_WHILE:      /* jcon ir_a_While */
-    case TT_UNTIL:      /* jcon ir_a_Until */
     case TT_CASE:       /* jcon ir_a_Case */
     case TT_RETURN:     /* jcon ir_a_Return */
     case TT_NRETURN:
@@ -357,11 +515,21 @@ static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * �
     return ret(NULL, α_out, β_out, NULL, NULL);
 }
 /*====================================================================================================================================================================================================*/
-/* PROOF SHIM — non-static VALUE-role entry so prove_lower2.c (the topology proof harness) can drive the
- * lowerer directly. Harmless to the eventual build (one tiny exported fn); KEEP IT so the proof stays
- * reproducible. prove_lower2.c calls exactly this symbol.                                                 */
+/* PUBLIC ROLE ENTRIES — the only externally-visible surface of lower2. Each seeds the cursor with a role
+ * (γ_in/ω_in are the program-level succeed/fail sentinels) and funnels into lower2. The proof harness and
+ * (eventually) the driver reach the per-role switches ONLY through these three; lower2 itself stays static. */
 /*====================================================================================================================================================================================================*/
 IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    lcx_t cx; cx.bbg = bbg; cx.role = ROLE_VALUE; cx.bounded = 0; cx.lang = 0;
+    lcx_t cx = { bbg, ROLE_VALUE, 0, 0 };
+    return lower2(cx, e, γ_in, ω_in, α_out, β_out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    lcx_t cx = { bbg, ROLE_PATTERN, 0, 0 };
+    return lower2(cx, e, γ_in, ω_in, α_out, β_out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
 }
