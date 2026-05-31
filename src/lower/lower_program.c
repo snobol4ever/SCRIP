@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
+#include <ctype.h>
 #include <gc/gc.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern uint32_t polyglot_lang_mask(const tree_t * prog);
@@ -216,6 +217,54 @@ static int lower_pl_clause_graph(const tree_t *clause) {
 /* "main" so the driver's bb_exec_once(main) path can run it. SNOBOL4 only this increment: Icon proc-body and Prolog clause graph-building belong to their own concurrent sessions (FACT RULE).          */
 /* Statements thread in reverse (each statement's gamma flows to the next; omega to PFAIL). An assignment (subj :eq repl, no :pat) becomes a synthesized TT_ASSIGN(subj, repl) lowered via the VALUE role. */
 /*====================================================================================================================================================================================================*/
+/* SNOBOL4 program-defined function helpers (SPITBOL ch.8).                                                                                                                                            */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *lp_strdup(const char *s) {
+    if (!s) return NULL;
+    size_t n = strlen(s) + 1;
+    char *c = (char *) GC_MALLOC(n);
+    if (c) memcpy(c, s, n);
+    return c;
+}
+/* Parse a DEFINE prototype "NAME(p1,p2,...)l1,l2,..." — the parameter list and the local list are both
+   optional; whitespace is ignored. On success returns 1 with the function name in fname, the dummy-argument
+   names in params[0..*np-1] and the local names in locals[0..*nl-1] (SPITBOL Manual ch.8 §8.1). */
+static int sno_parse_define_proto(const char *proto, char fname[64],
+                                  char params[STAGE2_FRAME_SLOT_MAX][64], int *np,
+                                  char locals[STAGE2_FRAME_SLOT_MAX][64], int *nl) {
+    *np = 0; *nl = 0; if (fname) fname[0] = '\0';
+    if (!proto || !fname) return 0;
+    const char *p = proto;
+    while (*p && isspace((unsigned char) *p)) p++;
+    int fi = 0;
+    while (*p && *p != '(' && !isspace((unsigned char) *p) && fi < 63) fname[fi++] = *p++;
+    fname[fi] = '\0';
+    if (fi == 0) return 0;
+    while (*p && isspace((unsigned char) *p)) p++;
+    if (*p == '(') {                                   /* dummy-argument list */
+        p++;
+        while (*p && *p != ')') {
+            while (*p && (isspace((unsigned char) *p) || *p == ',')) p++;
+            if (!*p || *p == ')') break;
+            int ci = 0; char buf[64];
+            while (*p && *p != ',' && *p != ')' && !isspace((unsigned char) *p) && ci < 63) buf[ci++] = *p++;
+            buf[ci] = '\0';
+            if (ci > 0 && *np < STAGE2_FRAME_SLOT_MAX) { memcpy(params[*np], buf, (size_t) ci + 1); (*np)++; }
+            while (*p && isspace((unsigned char) *p)) p++;
+        }
+        if (*p == ')') p++;
+    }
+    while (*p) {                                       /* local list */
+        while (*p && (isspace((unsigned char) *p) || *p == ',')) p++;
+        if (!*p) break;
+        int ci = 0; char buf[64];
+        while (*p && *p != ',' && !isspace((unsigned char) *p) && ci < 63) buf[ci++] = *p++;
+        buf[ci] = '\0';
+        if (ci > 0 && *nl < STAGE2_FRAME_SLOT_MAX) { memcpy(locals[*nl], buf, (size_t) ci + 1); (*nl)++; }
+    }
+    return 1;
+}
+/*====================================================================================================================================================================================================*/
 stage2_t *lower(const tree_t *prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     stage2_reset();
@@ -226,6 +275,12 @@ stage2_t *lower(const tree_t *prog) {
         if (g) {
             IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
             IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+            /* Shared return targets for program-defined function bodies (SPITBOL ch.8): a `:(RETURN)` or bare
+               RETURN statement transfers to RET (value = the function-named variable), `:(FRETURN)` to FRET
+               (the call fails). They are reached only inside a function call (frame_depth>0); during the main
+               program they are never targeted. NRETURN (return-by-name) is wired to RET as a placeholder. */
+            IR_t *RET  = IR_node_alloc(g, IR_RETURN); RET->dval  = 1.0; RET->α = NULL; RET->ω = PFAIL;
+            IR_t *FRET = IR_node_alloc(g, IR_RETURN); FRET->dval = 2.0; FRET->α = NULL; FRET->ω = PFAIL;
             /* PASS 1 — collect the SNOBOL4 statements in SOURCE order and give each a LANDING node (a
                pass-through IR_SUCCEED that returns its γ). A statement's label names its landing node, so a
                goto (forward OR backward) resolves to a landing that already exists. landing[i].γ is wired to
@@ -260,6 +315,10 @@ stage2_t *lower(const tree_t *prog) {
                 if (gu && !tgt_u && !strcmp(gu, "END")) tgt_u = PSUCC;
                 if (gs && !tgt_s && !strcmp(gs, "END")) tgt_s = PSUCC;
                 if (gf && !tgt_f && !strcmp(gf, "END")) tgt_f = PSUCC;
+                /* program-defined-function exits (SPITBOL ch.8): RETURN -> RET, FRETURN -> FRET, NRETURN -> RET (placeholder). */
+                if (gu && !tgt_u) { if (!strcmp(gu, "RETURN") || !strcmp(gu, "NRETURN")) tgt_u = RET; else if (!strcmp(gu, "FRETURN")) tgt_u = FRET; }
+                if (gs && !tgt_s) { if (!strcmp(gs, "RETURN") || !strcmp(gs, "NRETURN")) tgt_s = RET; else if (!strcmp(gs, "FRETURN")) tgt_s = FRET; }
+                if (gf && !tgt_f) { if (!strcmp(gf, "RETURN") || !strcmp(gf, "NRETURN")) tgt_f = RET; else if (!strcmp(gf, "FRETURN")) tgt_f = FRET; }
                 /* SPITBOL ch.4 goto precedence: an unconditional `:(L)` overrides S/F; otherwise `:S(L)` is the
                    success exit and `:F(L)` the failure exit; an unspecified exit falls through sequentially. */
                 IR_t *γ_tgt = tgt_u ? tgt_u : (tgt_s ? tgt_s : fall);
@@ -269,6 +328,14 @@ stage2_t *lower(const tree_t *prog) {
                     /* subject-less statement: a bare goto (`:(L)` / `L :(M)`) or the END line. Its landing just
                        transfers to the unconditional target (or falls through). No expr to lower. */
                     land[i]->γ = tgt_u ? tgt_u : fall;
+                    built = 1;
+                    continue;
+                }
+                /* A bare RETURN / FRETURN / NRETURN statement (subject is the keyword, no goto) returns from the
+                   enclosing program-defined function (SPITBOL ch.8): transfer the landing straight to RET/FRET. */
+                if (subj->t == TT_VAR && subj->v.sval &&
+                    (!strcmp(subj->v.sval, "RETURN") || !strcmp(subj->v.sval, "FRETURN") || !strcmp(subj->v.sval, "NRETURN"))) {
+                    land[i]->γ = (!strcmp(subj->v.sval, "FRETURN")) ? FRET : RET;
                     built = 1;
                     continue;
                 }
@@ -310,6 +377,42 @@ stage2_t *lower(const tree_t *prog) {
                 g_stage2.proc_table[pi].entry_pc = -1;
                 g_stage2.proc_table[pi].bb_idx   = bb_idx;
                 g_stage2.proc_table[pi].nparams  = 0;
+                /* SNOBOL4 program-defined functions (SPITBOL ch.8): for each DEFINE('proto') register a proc
+                   whose graph is a VIEW over g (shared node set; entry = the landing of the body label NAME).
+                   The call (IR_CALL dval==2.0 in bb_exec) saves the globals named by params+locals+NAME, binds
+                   the dummy args, runs the body to RETURN/FRETURN, then restores them and yields NAME's value.
+                   lower_sc carries the saved-name list (params, then locals, then NAME); nparams = #params. */
+                for (int di = 0; di < ns; di++) {
+                    tree_t *dsubj = lp_s_expr(stmts[di], ":subj");
+                    if (!dsubj || dsubj->t != TT_FNC || !dsubj->v.sval || strcmp(dsubj->v.sval, "DEFINE")) continue;
+                    if (dsubj->n < 1 || !dsubj->c[0] || dsubj->c[0]->t != TT_QLIT || !dsubj->c[0]->v.sval) continue;
+                    char fname[64];
+                    char params[STAGE2_FRAME_SLOT_MAX][64]; int np = 0;
+                    char locals[STAGE2_FRAME_SLOT_MAX][64]; int nl = 0;
+                    if (!sno_parse_define_proto(dsubj->c[0]->v.sval, fname, params, &np, locals, &nl)) continue;
+                    IR_t *body = NULL;
+                    for (int j = 0; j < ns; j++) {
+                        const char *lj = stmt_attr_str(stmt_attr_find(stmts[j], ":lbl"));
+                        if (lj && !strcmp(lj, fname)) { body = land[j]; break; }
+                    }
+                    if (!body) continue;                       /* no body label -> not lowerable here (documented) */
+                    IR_graph_t *fg = (IR_graph_t *) calloc(1, sizeof(IR_graph_t));
+                    if (!fg) continue;
+                    *fg = *g;                                  /* view: shares all/n/max; own AG ring; distinct entry */
+                    fg->entry = body;
+                    int fidx = bb_program_add(&g_stage2.bbp, fg);
+                    int fpi  = stage2_proc_grow(&g_stage2);
+                    g_stage2.proc_table[fpi].name     = lp_strdup(fname);
+                    g_stage2.proc_table[fpi].proc     = NULL;
+                    g_stage2.proc_table[fpi].entry_pc = -1;
+                    g_stage2.proc_table[fpi].bb_idx   = fidx;
+                    g_stage2.proc_table[fpi].nparams  = np;
+                    Scope *sc = &g_stage2.proc_table[fpi].lower_sc;
+                    sc->n = 0;
+                    for (int k = 0; k < np && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = lp_strdup(params[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
+                    for (int k = 0; k < nl && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = lp_strdup(locals[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
+                    if (sc->n < STAGE2_FRAME_SLOT_MAX) { sc->e[sc->n].name = lp_strdup(fname); sc->e[sc->n].slot = sc->n; sc->n++; }
+                }
             }
         }
     }

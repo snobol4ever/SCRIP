@@ -1796,6 +1796,25 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!strcmp(fn,">>=")) _STRREL(>=);
         if (!strcmp(fn,"=="))  _STRREL(==);
         if (!strcmp(fn,"~==")) _STRREL(!=);
+        /* SNOBOL4 comparison predicates (function names; SPITBOL Manual ch.7). Numeric EQ/NE/LT/LE/GT/GE and
+           lexical LGT/LLT/LGE/LLE/LEQ/LNE return the NULL STRING on success and FAIL otherwise (so they chain
+           with a following operand, e.g. `OUTPUT = GT(A,B) A`). Distinct from the relational OPERATORS above;
+           only SNOBOL4 reaches here by these names. */
+        if (!strcmp(fn,"EQ")||!strcmp(fn,"NE")||!strcmp(fn,"LT")||!strcmp(fn,"LE")||!strcmp(fn,"GT")||!strcmp(fn,"GE")) {
+            DESCR_t _l=args[0],_r=args[1]; _OPCOERCE(_l); _OPCOERCE(_r);
+            double a=IS_REAL_fn(_l)?_l.r:(double)_l.i, b=IS_REAL_fn(_r)?_r.r:(double)_r.i;
+            int ok = !strcmp(fn,"EQ")?(a==b):!strcmp(fn,"NE")?(a!=b):!strcmp(fn,"LT")?(a<b)
+                   : !strcmp(fn,"LE")?(a<=b):!strcmp(fn,"GT")?(a>b):(a>=b);
+            *out = ok ? NULVCL : FAILDESCR; return 1;
+        }
+        if (!strcmp(fn,"LGT")||!strcmp(fn,"LLT")||!strcmp(fn,"LGE")||!strcmp(fn,"LLE")||!strcmp(fn,"LEQ")||!strcmp(fn,"LNE")) {
+            const char *_ls=VARVAL_fn(args[0]); if(!_ls)_ls="";
+            const char *_rs=VARVAL_fn(args[1]); if(!_rs)_rs="";
+            int c=strcmp(_ls,_rs);
+            int ok = !strcmp(fn,"LGT")?(c>0):!strcmp(fn,"LLT")?(c<0):!strcmp(fn,"LGE")?(c>=0)
+                   : !strcmp(fn,"LLE")?(c<=0):!strcmp(fn,"LEQ")?(c==0):(c!=0);
+            *out = ok ? NULVCL : FAILDESCR; return 1;
+        }
         if (!strcmp(fn,"===")) {
             extern int descr_identical(DESCR_t, DESCR_t);
             *out=descr_identical(l,r)?r:FAILDESCR; return 1;
