@@ -409,6 +409,8 @@ int main(int argc, char **argv)
         ast_tree_free(ast_prog); ast_prog = NULL;
         return 1;
     } else if (mode_interp) {
+        extern int g_icn_postfix_resume;
+        if (is_icon) g_icn_postfix_resume = 1;   /* mode-2 port-walker: wire deterministic-builtin CALL resume to arg resume (re-pump generator args); Icon-only */
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
