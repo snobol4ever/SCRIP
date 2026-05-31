@@ -196,7 +196,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
                             if (IS_NAMEPTR(xv)) {
                                 const char *_rn = NV_name_from_ptr((const DESCR_t*)GET_PTR(xv));
                                 subj_name = _rn ? _rn : NULL;
-                            } else if (xv.v == DT_N && xv.slen == 0 && xv.s) {
+                            } else if (IS_NAMEVAL(xv)) {
                                 subj_name = xv.s;
                             } else {
                                 subj_name = VARVAL_fn(xv);
