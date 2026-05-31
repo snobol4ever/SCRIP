@@ -131,7 +131,13 @@ static IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nki
         if (!c) return NULL;
         apply[i] = c; entry[i] = αi ? αi : c; resume[i] = βi;
     }
-    for (int i = 1; i < nkids; i++) if (resume[i - 1]) apply[i]->ω = resume[i - 1];  /* child[i].fail -> child[i-1].resume */
+    for (int i = 1; i < nkids; i++) {                          /* child[i].fail -> nearest RESUMABLE predecessor's resume */
+        IR_t * tgt = ω_in;                                     /* a bounded element has resume == ω_in (no 2nd solution): skip it and keep */
+        for (int j = i - 1; j >= 0; j--) {                     /* walking back; stop at the first resumable element (resume[j] != ω_in, i.e. a */
+            if (resume[j] && resume[j] != ω_in) { tgt = resume[j]; break; }  /* node-self redo). If none, the whole sequence fails to ω_in. */
+        }
+        apply[i]->ω = tgt;
+    }
     set_succ_fail(node, γ_in, ω_in);
     return ret(node, α_out, β_out, entry[0], resume[nkids - 1]);
 }
@@ -149,17 +155,19 @@ static IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nki
     if (!node) return NULL;
     IR_t * entry[64]; IR_t * resume[64]; IR_t * apply[64];
     if (nkids > 64) return NULL;
-    for (int j = 0; j < nkids; j++) {
+    /* Lower arms RIGHT-TO-LEFT (mirrors wire_seq) so each arm's fail/exhaustion continuation IS the next
+     * arm's entry — already lowered — threaded through that arm's own deepest-fail wiring (wire_seq's
+     * child[0].ω / emit_leaf's leaf.ω). The last arm fails to ω_in. The previous left-to-right patch of
+     * apply[j]->ω only reached SINGLE-element arms: a conjunction arm's first element kept ω_in (NULL), so a
+     * generator-then-fail left arm (`(G, fail ; Else)`) terminated the whole graph instead of trying Else. */
+    for (int j = nkids - 1; j >= 0; j--) {
         if (!kids[j]) return NULL;
+        IR_t * ωj = (j + 1 < nkids) ? entry[j + 1] : ω_in;   /* arm[j] exhausted -> next arm's entry ; last -> ω_in */
         IR_t * αj = NULL, * βj = NULL;
-        IR_t * arm = lower2(cx, kids[j], node /*arm.γ -> node*/, NULL /*arm.ω fail-chained below*/, &αj, &βj);
+        IR_t * arm = lower2(cx, kids[j], node /*arm.γ -> node*/, ωj, &αj, &βj);
         if (!arm) return NULL;
         if (!arm->γ) arm->γ = node;
         apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
-    }
-    for (int j = 0; j < nkids; j++) {
-        IR_t * next = (j + 1 < nkids) ? entry[j + 1] : ω_in;   /* arm[j].fail -> arm[j+1].start ; last -> ω_in */
-        if (!apply[j]->ω) apply[j]->ω = next;
     }
     bb_operand_aux_set(cx.bbg, node, apply, nkids);
     set_succ_fail(node, γ_in, ω_in);
@@ -1059,8 +1067,18 @@ static IR_t * g_arith_expr(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
         set_succ_fail(nd, γ_in, ω_in);
         return ret(nd, α_out, β_out, nd, ω_in);
     }
-    /* TT_ADD/SUB/MUL/DIV/etc., TT_ILIT, TT_FLIT, TT_VAR, TT_QLIT (atoms like pi/e) → lower_value arms */
-    return lower2(tv, e, γ_in, ω_in, α_out, β_out);
+    /* A Prolog arithmetic leaf operand is a TERM, not an Icon/SNOBOL value: numbers (IR_LIT_I/IR_LIT_F),
+     * a variable (IR_LOGICVAR — a frame SLOT, read by resolve_arith_eval from g_resolve_env; NOT the IR_VAR
+     * named-variable kind, which resolve_arith_eval cannot read), or a constant atom pi/e (IR_ATOM). g_term
+     * emits exactly those kinds, so a bound variable inside arith (e.g. X in `Y is X*2`) resolves. The
+     * TT_ADD/TT_SUB/... PlClause-path kinds never appear as leaves in the live lower_clause_from_tree TT_FNC
+     * tree; route the recognized term leaves through g_term and keep lower2(VALUE) for any unrecognized leaf. */
+    switch (e->t) {
+    case TT_VAR: case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_NAME:
+        return g_term(cx, e, γ_in, ω_in, α_out, β_out);
+    default:
+        return lower2(tv, e, γ_in, ω_in, α_out, β_out);
+    }
 }
 /*====================================================================================================================================================================================================*/
 /* GOAL ROLE — arithmetic comparison goal (`</2 >/2 =</2 >=/2 =:=/2 =\=/2`). Both args are arithmetic
@@ -1376,7 +1394,13 @@ IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * 
         if (!top || !eα) return NULL;
         apply[idx] = top; entry[idx] = eα; resume[idx] = eβ;
     }
-    for (int i = 1; i < total; i++) if (resume[i - 1]) apply[i]->ω = resume[i - 1];   /* child[i].fail -> child[i-1].resume */
+    for (int i = 1; i < total; i++) {                          /* element i fails -> retry nearest RESUMABLE predecessor (skip bounded ones, */
+        IR_t * tgt = ω_in;                                     /* whose resume == ω_in). resume[j] for a resumable element (IR_GOAL/IR_CHOICE) */
+        for (int j = i - 1; j >= 0; j--) {                     /* is the node itself (redo on re-entry); a bounded head-unify/body goal returns */
+            if (resume[j] && resume[j] != ω_in) { tgt = resume[j]; break; }  /* resume == ω_in. Walk back; if none resumable, the clause body fails to ω_in. */
+        }
+        apply[i]->ω = tgt;
+    }
     set_succ_fail(node, γ_in, ω_in);
     if (bbg) bbg->nslots = pv.count;
     return ret(node, α_out, β_out, entry[0], resume[total - 1]);

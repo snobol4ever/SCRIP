@@ -1,52 +1,80 @@
 #!/usr/bin/env bash
-# test_smoke_prolog.sh — per-frontend smoke for Prolog  (FI-9)
-# Gate: exits 0 in < 2s on a clean build.
-# AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-14
+# test_smoke_prolog.sh — per-frontend smoke for Prolog, run in ALL THREE modes.
+#   mode 2 = --interp                   (BB port-graph oracle)  — HARD GATE: must be all-PASS.
+#   mode 3 = --run                      (stackless native)      — TRACKED: EXCISED until GZ regrows it.
+#   mode 4 = --compile --target=x86     (emit→assemble→link→run via run_prolog_via_x86_backend.sh)
+#                                                                — TRACKED: EXCISED until BB-native x86 emit returns.
+# GOAL-PROLOG-BB mandates running ALL modes on every smoke (see GOAL "Testing discipline").
+# A mode that prints the Stack-Machine-eXcision banner is reported EXCISED (expected mid-Ground-Zero), not FAIL,
+# and auto-starts counting PASS/FAIL the moment it emits real output. Exit 0 iff mode 2 is all-PASS.
+# AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6 · Claude Sonnet  DATE: 2026-05-31
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIP="${HERE}/../scrip"
-PASS=0; FAIL=0
+SCRIP="${SCRIP:-$HERE/../scrip}"
+SMX_SIG='\[SMX\]'                       # both excision banners begin with "[SMX]"
+P2=0; F2=0; P3=0; F3=0; X3=0; P4=0; F4=0; X4=0; N=0
 
-run_file() {
-    local label="$1" src="$2" expected="$3"
+pl() {
+    local label="$1" expected="$2"
     local tmp; tmp=$(mktemp /tmp/pl_XXXXXX.pl)
-    printf '%s' "$src" > "$tmp"
-    local actual; actual=$(timeout 8 "$SCRIP" --interp "$tmp" 2>/dev/null)
+    cat > "$tmp"
+    N=$((N+1))
+    local r2 r3 r4
+
+    # mode 2 — --interp (HARD GATE)
+    local a2; a2=$(timeout 8 "$SCRIP" --interp "$tmp" 2>/dev/null </dev/null)
+    if [ "$a2" = "$expected" ]; then r2="m2 PASS"; P2=$((P2+1)); else r2="m2 FAIL"; F2=$((F2+1)); fi
+
+    # mode 3 — --run (tracked; EXCISED until regrown)
+    local o3; o3=$(timeout 8 "$SCRIP" --run "$tmp" 2>&1 </dev/null)
+    if echo "$o3" | grep -qE "$SMX_SIG"; then r3="m3 EXCISED"; X3=$((X3+1))
+    elif [ "$o3" = "$expected" ];        then r3="m3 PASS";    P3=$((P3+1))
+    else                                       r3="m3 FAIL";    F3=$((F3+1)); fi
+
+    # mode 4 — --compile --target=x86 (tracked; emit→assemble→run when live)
+    local e4; e4=$(timeout 8 "$SCRIP" --compile --target=x86 "$tmp" 2>&1 </dev/null)
+    if echo "$e4" | grep -qE "$SMX_SIG"; then
+        r4="m4 EXCISED"; X4=$((X4+1))
+    else
+        local o4; o4=$(timeout 15 bash "$HERE/run_prolog_via_x86_backend.sh" "$tmp" 2>/dev/null </dev/null)
+        if [ "$o4" = "$expected" ]; then r4="m4 PASS"; P4=$((P4+1)); else r4="m4 FAIL"; F4=$((F4+1)); fi
+    fi
+
     rm -f "$tmp"
-    if [ "$actual" = "$expected" ]; then echo "  PASS $label"; PASS=$((PASS+1))
-    else echo "  FAIL $label (got: $(echo "$actual"|head -1))"; FAIL=$((FAIL+1)); fi
+    printf "  [%-10s] [%-10s] [%-10s] %s\n" "$r2" "$r3" "$r4" "$label"
 }
 
-echo "=== Prolog smoke ==="
-run_file "write_atom" \
-':- initialization(main).
-main :- write(hello), nl.' \
-"hello"
+echo "=== Prolog smoke (mode 2 = --interp · mode 3 = --run · mode 4 = --compile x86) ==="
 
-run_file "unify" \
-':- initialization(main).
-main :- X = world, write(X), nl.' \
-"world"
+pl "write_atom" "hello" << 'EOF'
+:- initialization(main).
+main :- write(hello), nl.
+EOF
 
-run_file "arith" \
-':- initialization(main).
-main :- X is 2 + 3, write(X), nl.' \
-"5"
+pl "unify" "world" << 'EOF'
+:- initialization(main).
+main :- X = world, write(X), nl.
+EOF
 
-run_file "clause" \
-':- initialization(main).
+pl "arith" "5" << 'EOF'
+:- initialization(main).
+main :- X is 2 + 3, write(X), nl.
+EOF
+
+pl "clause" "$(printf 'a\nb\nc')" << 'EOF'
+:- initialization(main).
 fact(a). fact(b). fact(c).
-main :- fact(X), write(X), nl, fail ; true.' \
-"a
-b
-c"
+main :- fact(X), write(X), nl, fail ; true.
+EOF
 
-run_file "recursion" \
-':- initialization(main).
+pl "recursion" "$(printf '3\n2\n1')" << 'EOF'
+:- initialization(main).
 count(0) :- !.
 count(N) :- N > 0, write(N), nl, N1 is N - 1, count(N1).
-main :- count(3).' \
-"3
-2
-1"
+main :- count(3).
+EOF
 
-echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
+echo ""
+echo "mode-2 (--interp):            PASS=$P2 FAIL=$F2                / $N   (HARD GATE)"
+echo "mode-3 (--run):               PASS=$P3 FAIL=$F3 EXCISED=$X3   / $N   (tracked)"
+echo "mode-4 (--compile x86):       PASS=$P4 FAIL=$F4 EXCISED=$X4   / $N   (tracked)"
+[ "$F2" -eq 0 ]

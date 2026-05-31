@@ -3,16 +3,17 @@
 # Self-contained. Run from anywhere with no env vars.
 # Usage: bash scripts/test_prolog_rung_suite.sh [--rung RUNG] [--mode MODE] [--scrip PATH] [--corpus PATH]
 #
-# Runs the Prolog rung corpus against scrip and reports PASS/FAIL vs .expected files.
-# MODE selects which engine path:
-#   interp  (Mode 2, --interp, default)  — reference path
-#   run     (Mode 3, --run)              — native codegen/linear
-#   compile (Mode 4, --compile x86)      — emit→assemble→link→exec via run_prolog_via_x86_backend.sh
-# Files with a matching .xfail marker are skipped (XFAIL).
+# GOAL-PROLOG-BB mandates running ALL modes on every gate run (see GOAL "Testing discipline").
+# With no --mode (or --mode all, the DEFAULT) the corpus is run in all three engine paths:
+#   interp  (Mode 2, --interp)            — reference path      — HARD GATE (PASS must be >= previous).
+#   run     (Mode 3, --run)               — native/stackless    — TRACKED (EXCISED until GZ regrows it).
+#   compile (Mode 4, --compile x86)       — emit→assemble→link→exec via run_prolog_via_x86_backend.sh
+#                                                                — TRACKED (EXCISED until BB-native x86 emit returns).
+# A mode whose probe prints the Stack-Machine-eXcision banner is reported EXCISED (expected mid-Ground-Zero)
+# and its per-file loop is skipped (no point running 100+ aborts); it auto-resumes the moment the mode regrows.
+# Pass --mode interp|run|compile to run a single mode. GATE-3 source of truth for the Prolog rung ladder.
 #
-# GATE-3 source of truth for the Prolog rung ladder. PASS must be >= previous.
-#
-# Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7
+# Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7 · Claude Sonnet
 
 set -uo pipefail
 
@@ -20,7 +21,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-/home/claude/corpus/programs/prolog}"
 RUNG=""
-MODE="interp"
+MODE="all"                              # DEFAULT: run all three modes
+SMX_SIG='\[SMX\]'                       # both excision banners begin with "[SMX]"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -28,7 +30,7 @@ while [[ $# -gt 0 ]]; do
         --mode)   MODE="$2";   shift 2 ;;
         --scrip)  SCRIP="$2";  shift 2 ;;
         --corpus) CORPUS="$2"; shift 2 ;;
-        *) echo "Usage: $0 [--rung RUNG] [--mode interp|run|compile] [--scrip PATH] [--corpus PATH]" >&2; exit 1 ;;
+        *) echo "Usage: $0 [--rung RUNG] [--mode all|interp|run|compile] [--scrip PATH] [--corpus PATH]" >&2; exit 1 ;;
     esac
 done
 
@@ -42,60 +44,105 @@ if [ ! -d "$CORPUS" ]; then
     exit 0
 fi
 
-PASS=0; FAIL=0; XFAIL=0
-
+# run a single program in a given mode, echoing its stdout
 run_prog() {
-    local pl="$1" tmo="$2"
-    case "$MODE" in
+    local mode="$1" pl="$2" tmo="$3"
+    case "$mode" in
         interp)  timeout "$tmo" "$SCRIP" --interp "$pl" < /dev/null 2>/dev/null ;;
-        run)     timeout "$tmo" "$SCRIP" --run "$pl" < /dev/null 2>/dev/null ;;
+        run)     timeout "$tmo" "$SCRIP" --run    "$pl" < /dev/null 2>/dev/null ;;
         compile) timeout "$tmo" bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null 2>/dev/null ;;
-        *) echo "bad mode $MODE" >&2; exit 1 ;;
+        *) echo "bad mode $mode" >&2; exit 1 ;;
     esac
 }
 
-run_one() {
-    local pl="$1"
-    local tmo="${2:-8}"
-    local exp="${pl%.pl}.expected"
-    [ -f "$exp" ] || return 0
-    local base="${pl%.pl}"
-    local name
-    name=$(basename "$pl" .pl)
-    if [ -f "${base}.xfail" ]; then
-        echo "XFAIL $name"
-        XFAIL=$((XFAIL+1))
-        return 0
-    fi
-    local got want
-    got=$(run_prog "$pl" "$tmo") || true
-    want=$(cat "$exp")
-    if [ "$got" = "$want" ]; then
-        echo "PASS $name"
-        PASS=$((PASS+1))
+# return 0 if MODE is currently Stack-Machine-eXcised (probe with a trivial program).
+# Capture output first, THEN grep: under `set -o pipefail` the aborting scrip (rc 134) would
+# otherwise dominate the pipeline status and mask the match.
+mode_is_excised() {
+    local mode="$1" out
+    case "$mode" in
+        interp)  return 1 ;;                              # the reference path is never excised
+        run)     out=$("$SCRIP" --run "$PROBE" </dev/null 2>&1 || true) ;;
+        compile) out=$("$SCRIP" --compile --target=x86 "$PROBE" </dev/null 2>&1 || true) ;;
+    esac
+    printf '%s' "$out" | grep -qE "$SMX_SIG"
+}
+
+# collect the corpus file list into the FILES array
+collect_files() {
+    FILES=()
+    if [ -n "$RUNG" ]; then
+        for pl in "$CORPUS"/${RUNG}_*.pl; do [ -f "$pl" ] && FILES+=("$pl"); done
     else
-        echo "FAIL $name"
-        echo "  want: $(echo "$want" | tr '\n' '|')"
-        echo "  got:  $(echo "$got"  | tr '\n' '|')"
-        FAIL=$((FAIL+1))
+        for pl in "$CORPUS"/rung0[1-9]_*.pl \
+                  "$CORPUS"/rung1[0-9]_*.pl \
+                  "$CORPUS"/rung2[0-9]_*.pl \
+                  "$CORPUS"/rung3[0-9]_*.pl \
+                  "$CORPUS"/rung4[0-9]_*.pl; do
+            [ -f "$pl" ] && FILES+=("$pl")
+        done
     fi
 }
 
-if [ -n "$RUNG" ]; then
-    for pl in "$CORPUS"/${RUNG}_*.pl; do
-        [ -f "$pl" ] || continue
-        run_one "$pl"
+# run the whole corpus in one mode; sets MODE_FAIL=1 on any FAIL
+run_corpus() {
+    local mode="$1"
+    local PASS=0 FAIL=0 XFAIL=0
+    MODE_FAIL=0
+    if mode_is_excised "$mode"; then
+        local pend=0 f
+        for f in "${FILES[@]}"; do [ -f "${f%.pl}.expected" ] && pend=$((pend+1)); done
+        echo "--- Prolog ($mode): EXCISED (Stack Machine excised) — $pend files pending regrow ---"
+        return 0
+    fi
+    local pl base name exp got want
+    for pl in "${FILES[@]}"; do
+        exp="${pl%.pl}.expected"
+        [ -f "$exp" ] || continue
+        base="${pl%.pl}"
+        name=$(basename "$pl" .pl)
+        if [ -f "${base}.xfail" ]; then
+            [ "$VERBOSE" = 1 ] && echo "XFAIL $name"
+            XFAIL=$((XFAIL+1)); continue
+        fi
+        got=$(run_prog "$mode" "$pl" 8) || true
+        want=$(cat "$exp")
+        if [ "$got" = "$want" ]; then
+            [ "$VERBOSE" = 1 ] && echo "PASS $name"
+            PASS=$((PASS+1))
+        else
+            if [ "$VERBOSE" = 1 ]; then
+                echo "FAIL $name"
+                echo "  want: $(echo "$want" | tr '\n' '|')"
+                echo "  got:  $(echo "$got"  | tr '\n' '|')"
+            fi
+            FAIL=$((FAIL+1)); MODE_FAIL=1
+        fi
     done
-else
-    for pl in "$CORPUS"/rung0[1-9]_*.pl \
-              "$CORPUS"/rung1[0-9]_*.pl \
-              "$CORPUS"/rung2[0-9]_*.pl \
-              "$CORPUS"/rung3[0-9]_*.pl \
-              "$CORPUS"/rung4[0-9]_*.pl; do
-        [ -f "$pl" ] || continue
-        run_one "$pl" 8
-    done
-fi
+    echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
+}
 
-echo "--- Prolog ($MODE): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
-[ "$FAIL" -eq 0 ]
+PROBE="$(mktemp /tmp/plprobe_XXXXXX.pl)"
+printf ':- initialization(main).\nmain :- write(ok), nl.\n' > "$PROBE"
+trap 'rm -f "$PROBE"' EXIT
+
+collect_files
+# verbose per-file output only for single-mode runs; the all-modes sweep prints summaries only
+VERBOSE=1; [ "$MODE" = "all" ] && VERBOSE=0
+
+HARD_FAIL=0
+case "$MODE" in
+    all)
+        for m in interp run compile; do
+            run_corpus "$m"
+            [ "$m" = interp ] && [ "$MODE_FAIL" -ne 0 ] && HARD_FAIL=1
+        done
+        ;;
+    interp|run|compile)
+        run_corpus "$MODE"
+        [ "$MODE" = interp ] && [ "$MODE_FAIL" -ne 0 ] && HARD_FAIL=1
+        ;;
+    *) echo "bad mode $MODE" >&2; exit 1 ;;
+esac
+
+[ "$HARD_FAIL" -eq 0 ]
