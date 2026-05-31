@@ -1846,6 +1846,30 @@ IR_t * bb_exec_node(IR_t * bb) {
         if (bb->ival == 0) {
             IR_t * start = bb->α;
             int safety = (g_current_cfg ? g_current_cfg->n : 64) * 256 + 1024;
+            if (start && start->ω && start->γ && start->ω->γ == start->γ) {
+                IR_t * funnel = start->γ;
+                int all_single = 1;
+                for (IR_t * a = start; a && a->γ == funnel; a = a->ω) if (!ir_is_single_shot(a)) { all_single = 0; break; }
+                if (all_single) {
+                    for (IR_t * arm = start->ω; arm && arm->γ == funnel && safety-- > 0; arm = arm->ω) {
+                        IR_t * cur = arm;
+                        int looped = 0;
+                        while (cur && safety-- > 0) {
+                            IR_t * next = bb_exec_node(cur);
+                            if (next == bb) { looped = 1; break; }
+                            if (!next) break;
+                            ag_ring_push(g_current_cfg, cur->value);
+                            cur = next;
+                        }
+                        if (!looped) break;
+                        if (frame_depth > 0 && (FRAME.loop_break || FRAME.returning)) break;
+                        if (frame_depth > 0) FRAME.loop_next = 0;
+                    }
+                    if (frame_depth > 0 && FRAME.loop_break) FRAME.loop_break = 0;
+                    bb->value = NULVCL;
+                    return bb->γ;
+                }
+            }
             while (safety-- > 0) {
                 IR_t * cur = start;
                 int looped = 0;

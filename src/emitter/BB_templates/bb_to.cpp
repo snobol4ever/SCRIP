@@ -60,22 +60,40 @@ static std::string bb_to_str(IR_t * pBB, bb_bin_t & bin) {
             int      off  = bb_slot_alloc(pBB);
             int64_t  lov  = pBB->α->ival;
             int64_t  hiv  = pBB->β->ival;
-            /*   off  bytes                       asm                                                          */
-            /*   0    48 8B 05 <u32 d_lo=31>      mov rax,[rip+d_lo]    (rip-base=7; lo@38; d_lo=38-7=31)       */
-            /*   7    48 3B 05 <u32 d_hi=32>      cmp rax,[rip+d_hi]    (rip-base=14; hi@46; d_hi=46-14=32)     */
-            /*   14   0F 8F <rel32 → ω>           jg ω                  (lo>hi → exhausted)  ← ω patch at 16    */
-            /*   20   49 89 84 24 <u32 off>       mov [r12+off],rax     (store first value = lo)                */
-            /*   28   E9 <rel32 → γ>              jmp γ                 ← γ patch at 29                         */
-            /*   33   E9 <rel32 → ω>              β: jmp ω              ← β-def 33, ω patch 34 (single-shot)    */
-            /*   38   <u64 lo>                    sealed RO lo          (reached only by [rip+31])              */
-            /*   46   <u64 hi>                    sealed RO hi          (reached only by [rip+32])              */
-            /*   54   end                                                                                       */
-            bin = { {16, 29, 33, 34}, {_.lbl_ω_p, _.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, false, true, false} };
-            return bytes(3, "\x48\x8B\x05") + u32le(31u)
-                 + bytes(3, "\x48\x3B\x05") + u32le(32u)
+            /*  STACKLESS PUMPING TO — grounded in test_icon.c to1 (Proebsting §4.4).               */
+            /*  α: cur=lo; if lo>hi → ω; [r12+off]=cur; jmp γ                                       */
+            /*  β: cur=[r12+off]; cur++; [r12+off]=cur; if cur>hi → ω; jmp γ                        */
+            /*  lo/hi are SEALED RO data adjacent to the blob (IP-relative, no abs immediate).       */
+            /*  cur lives in [r12+off] (ζ=r12 ONE-REGISTER FRAME). Zero rt_push/rt_pop.             */
+            /*  Byte layout (86 total):                                                              */
+            /*   α arm (offset 0..32):                                                               */
+            /*    0  48 8B 05 XX XX XX XX  mov rax,[rip+d_lo]   rip-base=7; lo@70; d_lo=63           */
+            /*    7  48 3B 05 XX XX XX XX  cmp rax,[rip+d_hi]   rip-base=14; hi@78; d_hi=64          */
+            /*   14  0F 8F XX XX XX XX     jg ω                  ← ω-patch at 16                     */
+            /*   20  49 89 84 24 XX XX XX XX  mov [r12+off],rax  store cur=lo                         */
+            /*   28  E9 XX XX XX XX         jmp γ                ← γ-patch at 29                      */
+            /*   β arm (offset 33..69):                                                               */
+            /*   33  49 8B 84 24 XX XX XX XX  mov rax,[r12+off]  load cur  ← β-def at 33             */
+            /*   41  48 FF C0                 inc rax             cur++                               */
+            /*   44  49 89 84 24 XX XX XX XX  mov [r12+off],rax  store cur                            */
+            /*   52  48 3B 05 XX XX XX XX  cmp rax,[rip+d_hi2]   rip-base=59; hi@78; d_hi2=19         */
+            /*   59  0F 8F XX XX XX XX     jg ω                  ← ω-patch at 61                     */
+            /*   65  E9 XX XX XX XX         jmp γ                ← γ-patch at 66                      */
+            /*  data (offset 70..85):                                                                 */
+            /*   70  <u64 lo>                sealed RO lo                                             */
+            /*   78  <u64 hi>                sealed RO hi                                             */
+            /*   86  end                                                                              */
+            bin = { {16, 29, 33, 61, 66}, {_.lbl_ω_p, _.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p, _.lbl_γ_p}, {false, false, true, false, false} };
+            return bytes(3, "\x48\x8B\x05") + u32le(63u)
+                 + bytes(3, "\x48\x3B\x05") + u32le(64u)
                  + bytes(2, "\x0F\x8F")     + u32le(0)
                  + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)off)
                  + bytes(1, "\xE9")         + u32le(0)
+                 + bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)off)
+                 + bytes(3, "\x48\xFF\xC0")
+                 + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)off)
+                 + bytes(3, "\x48\x3B\x05") + u32le(19u)
+                 + bytes(2, "\x0F\x8F")     + u32le(0)
                  + bytes(1, "\xE9")         + u32le(0)
                  + u64le((uint64_t)lov)
                  + u64le((uint64_t)hiv);
