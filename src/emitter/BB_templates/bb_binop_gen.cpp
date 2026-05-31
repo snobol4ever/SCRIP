@@ -62,7 +62,7 @@ static int binop_runtime_arg(int64_t op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Emit one child operand box inline, with caller-chosen γ/ω/β/α label names. Returns the box's x86   */
 /* (TEXT) as a string via walk_bb_node_str_c, after pointing g_emit.lbl_* at the four fresh labels.   */
-static std::string emit_child_box(BB_t * child,
+static std::string emit_child_box(IR_t * child,
                                   bb_label_t * la, bb_label_t * lg, bb_label_t * lo, bb_label_t * lb) {
     g_emit.lbl_α = la->name; g_emit.lbl_α_p = la;
     g_emit.lbl_γ = lg->name; g_emit.lbl_γ_p = lg;
@@ -76,7 +76,7 @@ static std::string emit_child_box(BB_t * child,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Is this operand a restartable generator box (emits four ports)? Mirrors bb_exec.c                  */
 /* bb_is_gen_kind_raw, seeing through a BB_ASSIGN wrapper.                                             */
-static int operand_is_gen(BB_t * e) {
+static int operand_is_gen(IR_t * e) {
     if (!e) return 0;
     if (e->t == BB_ASSIGN) return operand_is_gen(e->β);
     switch (e->t) {
@@ -93,10 +93,10 @@ static int operand_is_gen(BB_t * e) {
 /* (single-shot — exhausted after one value).  Only BB_LIT_I is handled inline today; other single-   */
 /* shot kinds (BB_VAR / BB_KEYWORD / non-int literals) are a documented ICN-M4 follow-on.  Returns ""  */
 /* (with *ok=0) if the operand kind is not yet inline-emittable, so the caller can stub the port.      */
-static std::string synth_single_shot_box(BB_t * e, int * ok,
+static std::string synth_single_shot_box(IR_t * e, int * ok,
                                          bb_label_t * la, bb_label_t * lg, bb_label_t * lo, bb_label_t * lb) {
     *ok = 0;
-    BB_t * inner = e;
+    IR_t * inner = e;
     while (inner && inner->t == BB_ASSIGN) inner = inner->β;
     if (!inner || inner->t != BB_LIT_I) return std::string();
     *ok = 1;
@@ -110,7 +110,7 @@ static std::string synth_single_shot_box(BB_t * e, int * ok,
          + s_2asm("jmp", lo->name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_binop_gen_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_binop_gen_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         const char * op = binop_op_name(pBB->ival);
@@ -215,8 +215,8 @@ static std::string bb_binop_gen_str(BB_t * pBB, bb_bin_t & bin) {
             return b;
         }
         if (MEDIUM_TEXT) {
-            BB_t * lhs = pBB->α;
-            BB_t * rhs = pBB->β;
+            IR_t * lhs = pBB->α;
+            IR_t * rhs = pBB->β;
             if (!lhs || !rhs) {
                 /* Degenerate — no operands. Wire α→γ, β→ω so the graph stays connected. */
                 return s_1asm(emit_fmt("%s:", _.lbl_α))
@@ -376,7 +376,7 @@ static std::string bb_binop_gen_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_binop_gen(BB_t * pBB) {
+extern "C" void bb_binop_gen(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_binop_gen_str(pBB, bin), bin);
 }

@@ -9,7 +9,7 @@ extern "C" {
 extern long rt_pl_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_arith_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_arith_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         const char *op = pBB->sval ? pBB->sval : "+";
@@ -28,7 +28,7 @@ static std::string bb_arith_str(BB_t * pBB, bb_bin_t & bin) {
                  + s_2asm("jmp", _.lbl_γ)
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
-        BB_t *lhs = pBB->α, *rhs = pBB->β;
+        IR_t *lhs = pBB->α, *rhs = pBB->β;
         if (MEDIUM_BINARY) {
             /* M3-PL-NOINTERP-1c (Opus 4.8, 2026-05-29): full 7-arg port of the TEXT arm's
                rt_pl_arith(lk,li,ls, rk,ri,rs, op) call. SysV: edi=lk rsi=li rdx=ls ecx=rk
@@ -92,7 +92,7 @@ static std::string bb_arith_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_arith(BB_t * pBB) {
+extern "C" void bb_arith(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_arith_str(pBB, bin), bin);
 }

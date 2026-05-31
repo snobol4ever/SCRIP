@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_fail_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_fail_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
     if (PLATFORM_X86) {
@@ -24,7 +24,7 @@ static std::string bb_fail_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_fail(BB_t * pBB) {
+extern "C" void bb_fail(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_fail_str(pBB, bin), bin);
 }

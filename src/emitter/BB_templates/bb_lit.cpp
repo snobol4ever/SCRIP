@@ -8,7 +8,7 @@ extern "C" {
 #include "emit.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_lit_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_lit_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     int nid = bb_node_id(pBB); int sid = 0;
     if (PLATFORM_X86) {
@@ -188,7 +188,7 @@ static std::string bb_lit_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_lit(BB_t * pBB) {
+extern "C" void bb_lit(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_lit_str(pBB, bin), bin);
     if (MEDIUM_TEXT) g_emit_pos += 7;

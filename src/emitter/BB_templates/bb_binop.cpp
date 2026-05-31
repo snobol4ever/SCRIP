@@ -59,7 +59,7 @@ static int gen_rel_to_tt(int64_t op) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_binop_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_BINOP");
@@ -147,7 +147,7 @@ static std::string bb_binop_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_binop(BB_t * pBB) {
+extern "C" void bb_binop(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_binop_str(pBB, bin), bin);
 }

@@ -15,8 +15,8 @@ extern "C" {
 #include "emit_core.h"
 #include "BB.h"
 }
-extern std::string emit_build_compound_term(const BB_t *nd);
-extern std::string emit_build_compound_term_bin(const BB_t *nd);
+extern std::string emit_build_compound_term(const IR_t *nd);
+extern std::string emit_build_compound_term_bin(const IR_t *nd);
 extern "C" {
 void  *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
 void **resolve_bb_env_save_push(int nslots);
@@ -31,7 +31,7 @@ void  *resolve_cp_current(void);
 /* PLR-J-4a (2026-05-29): MEDIUM_BINARY twin of the TEXT build_arg.  Leaves a Term* in rax.            */
 /* BB_STRUCT routes to emit_build_compound_term_bin (PLR-J-3); scalars use movabs+call to            */
 /* rt_pl_node_to_term (SysV edi=kind rsi=ival rdx=sval xmm0=dval; dval=0 → xorps).                      */
-static std::string build_arg_bin(BB_t *a) {
+static std::string build_arg_bin(IR_t *a) {
     if (!a) return bytes(2, "\x31\xC0");                  /* xor eax,eax → NULL Term* */
     if (a->t == BB_STRUCT) return emit_build_compound_term_bin(a);
     int  kind = (int)a->t;
@@ -47,7 +47,7 @@ static std::string build_arg_bin(BB_t *a) {
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string build_arg(BB_t *a) {
+static std::string build_arg(IR_t *a) {
     if (!a) return s_2asm("xor", "eax, eax");
     if (a->t == BB_STRUCT) return emit_build_compound_term(a);
     int kind = (int)a->t;
@@ -63,7 +63,7 @@ static std::string build_arg(BB_t *a) {
          + s_2asm("call", "rt_pl_node_to_term@PLT");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_goal_str(BB_t * pBB) {
+static std::string bb_goal_str(IR_t * pBB) {
     (void)pBB;
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — RESOLVE_CALL");
@@ -97,7 +97,7 @@ static std::string bb_goal_str(BB_t * pBB) {
             sites.push_back((int)b.size()); labels.push_back(_.lbl_α_p); is_def.push_back(true);
             /* Phase 1: build each arg Term (caller env), push rax. */
             for (int i = 0; i < n_args; i++) {
-                BB_t *a = (zc && zc->args) ? zc->args[i] : NULL;
+                IR_t *a = (zc && zc->args) ? zc->args[i] : NULL;
                 b += build_arg_bin(a);
                 b += bytes(1, "\x50");                                   /* push rax */
             }
@@ -195,7 +195,7 @@ static std::string bb_goal_str(BB_t * pBB) {
             /* push each on stack.  emit_build_compound_term may sub/add rsp internally but restores  */
             /* it; rax = Term* on exit from each build_arg call.                                       */
             for (int i = 0; i < n_args; i++) {
-                BB_t *a = (zc && zc->args) ? zc->args[i] : NULL;
+                IR_t *a = (zc && zc->args) ? zc->args[i] : NULL;
                 out += build_arg(a)
                      + s_2asm("push", "rax");
             }
@@ -258,7 +258,7 @@ static std::string bb_goal_str(BB_t * pBB) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_goal(BB_t * pBB) {
+extern "C" void bb_goal(IR_t * pBB) {
     std::string out = bb_goal_str(pBB);
     if (!out.empty()) emit_text_n(out.data(), out.size());
 }

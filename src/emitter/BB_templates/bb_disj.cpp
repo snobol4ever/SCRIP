@@ -20,7 +20,7 @@ void rt_pl_trail_mark_push(void);
 void rt_pl_trail_unwind_top(void);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_disj_str(BB_t * pBB) {
+static std::string bb_disj_str(IR_t * pBB) {
     (void)pBB;
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — RESOLVE_ALT");
@@ -101,7 +101,7 @@ static std::string bb_disj_str(BB_t * pBB) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_disj(BB_t * pBB) {
+extern "C" void bb_disj(IR_t * pBB) {
     std::string out = bb_disj_str(pBB);
     if (!out.empty()) emit_text_n(out.data(), out.size());
 }

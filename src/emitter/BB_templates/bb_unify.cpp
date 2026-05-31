@@ -41,13 +41,13 @@ static std::string resolve_unify_tail_text(void) {
 /* `scrip` target links all BB_templates/*.cpp into one binary); de-staticized so we can reuse the    */
 /* recursive Term* walker for BB_STRUCT operands instead of the broken default-arm-of-             */
 /* rt_pl_node_to_term path. Forward declaration matches the post-static signature in bb_builtin.cpp. */
-extern std::string emit_build_compound_term(const BB_t *nd);
-extern std::string emit_build_compound_term_bin(const BB_t *nd);
+extern std::string emit_build_compound_term(const IR_t *nd);
+extern std::string emit_build_compound_term_bin(const IR_t *nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Build one operand term into rax via rt_pl_node_to_term(kind, ival, sval, dval).
    SysV: edi=kind, rsi=ival, rdx=sval-ptr (0 if none), xmm0=dval (0 if none).
    `lbl` is the interned .S label for the operand's sval (NULL → pass 0). */
-static std::string build_term_text(const BB_t *nd, const char *lbl) {
+static std::string build_term_text(const IR_t *nd, const char *lbl) {
     std::string load_rdx = lbl
         ? s_2asm("lea", emit_fmt("rdx, [rip + %s]", lbl))
         : s_2asm("xor", "edx, edx");
@@ -64,12 +64,12 @@ static std::string build_term_text(const BB_t *nd, const char *lbl) {
    Term* tree (functor name + arity + recursively built args via rt_pl_compound_build_n). Closes
    CAT-B: f(X,a) = f(b,Y) no longer falls through rt_pl_node_to_term's default arm to
    term_new_int(arity) — the actual compound is constructed, so unify(L, R) binds X=b, Y=a. */
-static std::string build_operand_term(const BB_t *nd, const char *lbl) {
+static std::string build_operand_term(const IR_t *nd, const char *lbl) {
     if (nd && nd->t == BB_STRUCT) return emit_build_compound_term(nd);
     return build_term_text(nd, lbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_unify_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_unify_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) {
@@ -87,7 +87,7 @@ static std::string bb_unify_str(BB_t * pBB, bb_bin_t & bin) {
                  + s_2asm("jmp", _.lbl_γ)
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
-        BB_t *lhs = pBB->α, *rhs = pBB->β;
+        IR_t *lhs = pBB->α, *rhs = pBB->β;
         const char *ls = _.bb_ls;   /* interned .S label for lhs->sval (or NULL) */
         const char *rs = _.bb_rs;   /* interned .S label for rhs->sval (or NULL) */
 
@@ -119,7 +119,7 @@ static std::string bb_unify_str(BB_t * pBB, bb_bin_t & bin) {
                immediate path.  Uses the TEXT arm's 16-byte scratch-slot discipline (sub rsp,16 / mov
                [rsp],L / build R / add rsp,16) instead of `push rax`, so rsp stays 16-aligned across a
                compound R build's internal `call rt_pl_compound_build_n` (SysV).                        */
-            auto build_bin = [](const BB_t *nd, const char *lbl) -> std::string {
+            auto build_bin = [](const IR_t *nd, const char *lbl) -> std::string {
                 if (nd && nd->t == BB_STRUCT) return emit_build_compound_term_bin(nd);
                 std::string b;
                 b += bytes(1, "\xBF") + u32le((uint32_t)(int)nd->t);          /* mov edi, imm32        */
@@ -145,7 +145,7 @@ static std::string bb_unify_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_unify(BB_t * pBB) {
+extern "C" void bb_unify(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_unify_str(pBB, bin), bin);
 }

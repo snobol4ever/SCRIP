@@ -17,7 +17,7 @@ extern "C" {
 }
 extern "C" void rt_pl_cut_set(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_cut_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_cut_str(IR_t * pBB, bb_bin_t & bin) {
     (void)pBB; bin = {};
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — RESOLVE_CUT");
@@ -38,7 +38,7 @@ static std::string bb_cut_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_cut(BB_t * pBB) {
+extern "C" void bb_cut(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_cut_str(pBB, bin), bin);
 }

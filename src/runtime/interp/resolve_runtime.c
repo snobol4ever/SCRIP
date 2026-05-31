@@ -70,7 +70,7 @@ Resolve_PredEntry_BB *resolve_bb_lookup(const char *name, int arity) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *resolve_bb_entry_node(const char *name, int arity) {
+IR_t *resolve_bb_entry_node(const char *name, int arity) {
     Resolve_PredEntry_BB *e = resolve_bb_lookup(name, arity);
     if (!e) return NULL;
     IR_graph_t *cfg = bb_graph_of_pred(e);

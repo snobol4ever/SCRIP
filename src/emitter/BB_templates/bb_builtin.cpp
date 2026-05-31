@@ -61,7 +61,7 @@ extern "C" int  rt_pl_throw(void *alpha_ptr);}
    interleaving rt_pl_write_cstr("(" / "," / ")") between the functor and its children. Children
    of a struct hang off α then chase γ for arity-1 more hops (see lower_pl.c:131-136). All bytes
    originate from s_2asm/s_1asm inside this template per the FACT RULE — no caller-side emit. */
-static std::string emit_write_term(const BB_t *nd) {
+static std::string emit_write_term(const IR_t *nd) {
     if (!nd) return s_comment("# write_term: NULL");
     if (nd->t == BB_ATOM) {
         char lbl[64];
@@ -102,7 +102,7 @@ static std::string emit_write_term(const BB_t *nd) {
              + s_2asm("mov", "rdi, rcx")
              + s_2asm("call", "rt_pl_write_cstr@PLT");
         int arity = (int)nd->ival;
-        const BB_t *child = nd->α;
+        const IR_t *child = nd->α;
         for (int i = 0; i < arity && child; i++) {
             if (i > 0) {
                 out += s_2asm("lea rcx,", emit_fmt("[rip + %s]", comma_lbl))
@@ -121,7 +121,7 @@ static std::string emit_write_term(const BB_t *nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* CAT-D-9b (2026-05-27, Opus 4.7): emit_build_compound_term — post-order asm walker that constructs a   */
-/* real Term* tree from a BB_t subgraph. Mirrors emit_write_term's structure but CONSTRUCTIVE instead of */
+/* real Term* tree from a IR_t subgraph. Mirrors emit_write_term's structure but CONSTRUCTIVE instead of */
 /* destructive: each invocation emits asm that leaves the Term* for that subtree in rax. For BB_STRUCT */
 /* with arity N, we sub rsp by aligned(N*8) to reserve an args slot-array, recursively build each child   */
 /* into its slot, then call rt_pl_compound_build_n(functor_name, N, rsp). For leaves we route to          */
@@ -129,7 +129,7 @@ static std::string emit_write_term(const BB_t *nd) {
 /* ==/\==/@</@>/@=</@>= compound-arg path; the scalar-only CAT-D-9 fast path still handles                */
 /* leaf-leaf compares. Both paths use the same op string and rt_pl_term_cmp_terms decides the comparison. */
 /* CAT-B (2026-05-27, Opus 4.7): de-staticized so bb_unify.cpp can call it for compound-operand unify.    */
-std::string emit_build_compound_term(const BB_t *nd) {
+std::string emit_build_compound_term(const IR_t *nd) {
     if (!nd) {
         return s_2asm("xor", "eax, eax")
              + s_2asm("xor", "edi, edi")
@@ -161,7 +161,7 @@ std::string emit_build_compound_term(const BB_t *nd) {
         int slots_bytes = arity * 8;
         int frame = (slots_bytes + 15) & ~15;
         std::string out = s_2asm("sub rsp,", emit_fmt("%d", frame));
-        const BB_t *child = nd->α;
+        const IR_t *child = nd->α;
         for (int i = 0; i < arity && child; i++) {
             out += emit_build_compound_term(child);
             out += s_2asm("mov", emit_fmt("qword ptr [rsp + %d], rax", i * 8));
@@ -192,7 +192,7 @@ std::string emit_build_compound_term(const BB_t *nd) {
                  + s_2asm("xor", "ecx, ecx")
                  + s_2asm("call", "rt_pl_node_to_term@PLT");
         }
-        const BB_t *ops[2] = { nd->α, (arity >= 2) ? nd->β : NULL };
+        const IR_t *ops[2] = { nd->α, (arity >= 2) ? nd->β : NULL };
         int slots_bytes = arity * 8;
         int frame = (slots_bytes + 15) & ~15;
         std::string out = s_2asm("sub rsp,", emit_fmt("%d", frame));
@@ -221,7 +221,7 @@ std::string emit_build_compound_term(const BB_t *nd) {
 /* rt_pl_compound_build_n(const char *functor, int arity, void *args_ptr): rdi=functor esi=arity rdx=ptr. */
 /* Stack discipline: caller (the builtin arm) must enter with rsp 16-aligned; each STRUCT level subtracts */
 /* an aligned frame and restores it, so alignment is preserved across the recursion.                      */
-std::string emit_build_compound_term_bin(const BB_t *nd) {
+std::string emit_build_compound_term_bin(const IR_t *nd) {
     if (!nd) {
         std::string b;
         b += bytes(2, "\x31\xFF");
@@ -259,7 +259,7 @@ std::string emit_build_compound_term_bin(const BB_t *nd) {
         int frame = (slots_bytes + 15) & ~15;
         std::string b;
         b += bytes(3, "\x48\x81\xEC") + u32le((uint32_t)frame);
-        const BB_t *child = nd->α;
+        const IR_t *child = nd->α;
         for (int i = 0; i < arity && child; i++) {
             b += emit_build_compound_term_bin(child);
             int off = i * 8;
@@ -292,7 +292,7 @@ std::string emit_build_compound_term_bin(const BB_t *nd) {
             b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_pl_node_to_term) + bytes(2, "\xFF\xD0");
             return b;
         }
-        const BB_t *ops[2] = { nd->α, (arity >= 2) ? nd->β : NULL };
+        const IR_t *ops[2] = { nd->α, (arity >= 2) ? nd->β : NULL };
         int slots_bytes = arity * 8;
         int frame = (slots_bytes + 15) & ~15;
         std::string b;
@@ -315,7 +315,7 @@ std::string emit_build_compound_term_bin(const BB_t *nd) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         const char *fn = pBB->sval ? pBB->sval : "";
@@ -342,7 +342,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0) {
                 std::string b;
                 if (pBB->ival >= 1 && pBB->α) {
-                    BB_t *arg = pBB->α;
+                    IR_t *arg = pBB->α;
                     if (arg->t == BB_ATOM) {
                         const char *atom = arg->sval ? arg->sval : "";
                         /* mov rdi, imm64(atom)   48 BF [8] ; movabs rax,&rt_pl_write_atom ; call rax */
@@ -381,7 +381,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* sub rsp,8 keeps 16-alignment across the build's and writer's internal calls. Always    */
             /* succeeds → γ; β→γ (write-family arms never fail). No nl suffix (callers add nl).        */
             if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && pBB->α) {
-                BB_t *arg = pBB->α;
+                IR_t *arg = pBB->α;
                 void *writer = (strcmp(fn, "writeq") == 0)
                     ? (void *)rt_pl_writeq_term_ptr
                     : (void *)rt_pl_write_canonical_term_ptr;
@@ -396,7 +396,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
                 return b + bytes(1, "\xE9") + u32le(0) + bytes(1, "\xE9") + u32le(0);
             }
             /* PLR-K-12 (2026-05-29): `Var is Expr` native arm — calls rt_pl_is_eval(lhs_bb, rhs_bb)  */
-            /* with the actual in-process BB_t* pointers. The helper walks the whole RHS subtree via   */
+            /* with the actual in-process IR_t* pointers. The helper walks the whole RHS subtree via   */
             /* resolve_arith_eval (full float/gcd/pi/e/sqrt/sin/cos/nested support) and builds either a      */
             /* TERM_INT or TERM_FLOAT result. Supersedes the scalar rt_pl_is flatten, which was         */
             /* integer-only + single-op (floats → 0, gcd → wrong, nested → wrong). The RHS may be:      */
@@ -443,7 +443,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
               || strcmp(fn,"@=<")==0  || strcmp(fn,"@>=")==0
               || strcmp(fn,"=:=")==0  || strcmp(fn,"=\\=")==0 || strcmp(fn,"<")==0  || strcmp(fn,">")==0
               || strcmp(fn,"<=")==0   || strcmp(fn,">=")==0)) {
-                BB_t *a0 = pBB->α, *a1 = pBB->β;
+                IR_t *a0 = pBB->α, *a1 = pBB->β;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
@@ -494,7 +494,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
               || strcmp(fn,"atomic")==0   || strcmp(fn,"number")==0   || strcmp(fn,"integer")==0
               || strcmp(fn,"float")==0    || strcmp(fn,"compound")==0 || strcmp(fn,"callable")==0
               || strcmp(fn,"is_list")==0  || strcmp(fn,"ground")==0)) {
-                BB_t *a0 = pBB->α;
+                IR_t *a0 = pBB->α;
                 if (a0->t == BB_STRUCT || a0->t == BB_ARITH) {
                     /* PLR-K-5 (Opus 4.8, 2026-05-29): compound-literal arg, e.g. is_list([1,2,3]) /   */
                     /* compound(f(a)) / ground(g(X,Y)). Build the Term* via emit_build_compound_term_bin */
@@ -548,7 +548,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* functor(Term, Name, Arity) — a0 compound literal → rt_pl_functor_term(t0, k1,i1,s1, k2,i2,s2). */
             if (strcmp(fn,"functor")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ
                 && pBB->α->t == BB_STRUCT) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  k1 = (int)a1->t,  k2 = (int)a2->t;
                 long i1 = (long)a1->ival, i2 = (long)a2->ival;
                 const char *s1 = (k1 == BB_ATOM) ? a1->sval : NULL;
@@ -576,7 +576,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* arg(N, Term, Arg) — a1 compound literal → rt_pl_arg_term(k0,i0,s0, t1, k2,i2,s2). */
             if (strcmp(fn,"arg")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ
                 && pBB->α->γ->t == BB_STRUCT) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  k0 = (int)a0->t,  k2 = (int)a2->t;
                 long i0 = (long)a0->ival, i2 = (long)a2->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
@@ -604,7 +604,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* =..(Term, List) — compound-literal variants: term_term / term(a0) / term_list(a1) / scalar. */
             if (strcmp(fn,"=..")==0 && pBB->ival==2 && pBB->α && pBB->α->γ
                 && (pBB->α->t == BB_STRUCT || pBB->α->γ->t == BB_STRUCT)) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int compound0 = (a0->t == BB_STRUCT);
                 int compound1 = (a1->t == BB_STRUCT);
                 int  k0 = (int)a0->t,  k1 = (int)a1->t;
@@ -655,7 +655,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* all in regs: rdi=tmpl rsi=goal edx=kres rcx=ires r8=sres. sub rsp,16 (slot + align).     */
             if (strcmp(fn, "aggregate_all") == 0 && pBB->α && pBB->α->γ
                 && pBB->α->γ->γ && pBB->ival == 3) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  kres = (int)a2->t;
                 long ires = (long)a2->ival;
                 const char *sres = (kres == BB_ATOM) ? a2->sval : NULL;
@@ -690,7 +690,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             if ((strcmp(fn, "nb_setval") == 0 || strcmp(fn, "nb_getval") == 0)
                 && pBB->α && pBB->α->γ && pBB->ival == 2) {
                 int   is_set = (strcmp(fn, "nb_setval") == 0);
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
                 if (is_set) {
@@ -733,7 +733,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* CAT-D-1/3/4/5 arm. sub rsp,16 for the stack slot + 16B alignment across builder calls.    */
             if (strcmp(fn, "copy_term") == 0 && pBB->α && pBB->α->γ
                 && (pBB->α->t == BB_STRUCT || pBB->α->t == BB_ARITH)) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int  a1_compound = (a1->t == BB_STRUCT || a1->t == BB_ARITH);
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
@@ -777,7 +777,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
               || strcmp(fn,"string_length")==0 || strcmp(fn,"string_upper")==0  || strcmp(fn,"string_lower")==0
               || strcmp(fn,"atom_string")==0   || strcmp(fn,"string_to_atom")==0 || strcmp(fn,"copy_term")==0)
                 && pBB->α && pBB->α->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
@@ -824,7 +824,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* 16B alignment across the call. Std bin-patch tail.                                           */
             if ((strcmp(fn,"number_string")==0 || strcmp(fn,"atom_number")==0)
                 && pBB->α && pBB->α->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int  num_first = (strcmp(fn,"number_string")==0) ? 1 : 0;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival;
@@ -869,7 +869,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* (k2,i2,s2) on the stack. SysV: sub rsp,32 (3*8 data + 8 pad for 16B alignment at call).     */
             if ((strcmp(fn,"atom_concat")==0 || strcmp(fn,"string_concat")==0)
                 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t,    k2 = (int)a2->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival, i2 = (long)a2->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
@@ -920,7 +920,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             if ((strcmp(fn,"atom_chars")==0 || strcmp(fn,"atom_codes")==0
               || strcmp(fn,"string_chars")==0 || strcmp(fn,"string_codes")==0)
                 && pBB->α && pBB->α->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int  k0 = (int)a0->t;
                 long i0 = (long)a0->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
@@ -981,13 +981,13 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* inner var → its (k,i,s) triplet. rt_pl_char_type(k0,i0,s0, ty, is_compound, ki,ii,si):    */
             /* SysV rdi=k0 rsi=i0 rdx=s0 rcx=ty r8=is_compound r9=ki, [rsp+0]=ii [rsp+8]=si → sub rsp,16. */
             if (strcmp(fn,"char_type")==0 && pBB->ival==2 && pBB->α && pBB->α->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int  k0 = (int)a0->t;
                 long i0 = (long)a0->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
                 int  is_compound = ((a1->t == BB_STRUCT || a1->t == BB_ARITH) && a1->sval) ? 1 : 0;
                 const char *ty = a1->sval;
-                BB_t *inner = is_compound ? a1->α : NULL;
+                IR_t *inner = is_compound ? a1->α : NULL;
                 int  ki = inner ? (int)inner->t : 0;
                 long ii = inner ? (long)inner->ival : 0;
                 const char *si = (inner && inner->t == BB_ATOM) ? inner->sval : NULL;
@@ -1033,7 +1033,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* shows in a later write), keep it in rdi across the start/End loads, then call            */
             /* rt_pl_numbervars_term(t0=rdi, start=rsi, k2=edx, i2=rcx, s2=r8). Std bin-patch tail.      */
             if (strcmp(fn, "numbervars") == 0 && pBB->ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 long start = (long)a1->ival;
                 int  k2 = (int)a2->t;
                 long i2 = (long)a2->ival;
@@ -1076,7 +1076,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* calls open_memstream (SSE-alignment-sensitive) so rsp must be 16-aligned. Std tail.      */
             if ((strcmp(fn, "term_to_atom") == 0 || strcmp(fn, "term_string") == 0)
                 && pBB->α && pBB->α->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int   k1 = (int)a1->t;
                 long  i1 = (long)a1->ival;
                 const char *s1 = (k1 == BB_ATOM) ? a1->sval : NULL;
@@ -1109,8 +1109,8 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* build's and helper's internal calls. movabs absolute pointers (in-process). Std tail.    */
             if (strcmp(fn, "format") == 0 && pBB->α && (pBB->ival == 1 || pBB->ival == 2)) {
                 int   arity = (int)pBB->ival;
-                BB_t *a0 = pBB->α;
-                BB_t *a1 = (arity == 2) ? a0->γ : NULL;
+                IR_t *a0 = pBB->α;
+                IR_t *a1 = (arity == 2) ? a0->γ : NULL;
                 int   k0 = (int)a0->t;
                 long  i0 = (long)a0->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
@@ -1183,7 +1183,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* mode-3 native the asm strings emitted as raw bytes → result var never bound (succ(4,B)     */
             /* printed "_"). Atom sval loaded absolute (movabs), not lea[rip+strtab].                     */
             if (strcmp(fn, "succ") == 0 && pBB->ival == 2 && pBB->α && pBB->β) {
-                BB_t *a0 = pBB->α, *a1 = pBB->β;
+                IR_t *a0 = pBB->α, *a1 = pBB->β;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
@@ -1213,7 +1213,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* stack (k2 dword [rsp+0], i2 [rsp+8], s2 [rsp+16]). sub rsp,32 (3*8 data + 8 pad for 16B    */
             /* alignment at the call). Was TEXT-only → mode-3 native printed "_" for the unbound arg.     */
             if (strcmp(fn, "plus") == 0 && pBB->ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t,    k2 = (int)a2->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival, i2 = (long)a2->ival;
                 const char *s0 = (k0 == BB_ATOM) ? a0->sval : NULL;
@@ -1257,9 +1257,9 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0)
                 && pBB->α && (pBB->ival == 2 || pBB->ival == 3)) {
                 int   arity = (int)pBB->ival;
-                BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1 ? a1->γ : NULL;
-                BB_t *sepN = (arity == 3) ? a1 : NULL;
-                BB_t *resN = (arity == 3) ? a2 : a1;
+                IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1 ? a1->γ : NULL;
+                IR_t *sepN = (arity == 3) ? a1 : NULL;
+                IR_t *resN = (arity == 3) ? a2 : a1;
                 int   ksep = sepN ? (int)sepN->t : 0;
                 long  isep = sepN ? (long)sepN->ival : 0;
                 const char *ssep = (sepN && ksep == BB_ATOM) ? sepN->sval : NULL;
@@ -1307,7 +1307,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             /* the builder's / helper's internal calls (sort allocs + unify). movabs absolute pointers */
             /* (in-process); s* from BB_ATOM sval. Std bin-patch tail (test/je-ω/jmp-γ/β→ω).           */
             if ((strcmp(fn, "sort") == 0 || strcmp(fn, "msort") == 0) && pBB->α && pBB->α->γ) {
-                BB_t *a0 = pBB->α, *a1 = a0->γ;
+                IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int   do_msort = (strcmp(fn, "msort") == 0) ? 1 : 0;
                 int   k1 = (int)a1->t;
                 long  i1 = (long)a1->ival;
@@ -1408,7 +1408,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0) {
             std::string write_body;
             if (pBB->ival >= 1 && pBB->α) {
-                BB_t *arg = pBB->α;
+                IR_t *arg = pBB->α;
                 if (arg->t == BB_ATOM) {
                     write_body = _.bb_ls
                         ? s_2asm("lea rcx,", emit_fmt("[rip + %s]", _.bb_ls)) + s_2asm("mov", "rdi, rcx")
@@ -1434,12 +1434,12 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == BB_ARITH
             && pBB->α->t == BB_LOGICVAR && pBB->β->α && pBB->β->β) {
             /* V-2 (2026-05-27): `Var is L op R` for the common binary-arith RHS. Flatten operands at  */
-            /* emit time into serializable scalars (kind+value) — NO cross-process BB_t pointers. The  */
+            /* emit time into serializable scalars (kind+value) — NO cross-process IR_t pointers. The  */
             /* op string was interned by bb_prepare_pl into _.bb_op_lbl. Call rt_pl_is(dst_slot,     */
             /* op, lk, li, rk, ri) which evaluates + unifies; branch eax → γ (ok) / ω (fail). The       */
             /* template owns ALL bytes incl. both four-port jmps; rt_pl_is carries no port logic.       */
             int   dst_slot = (int)pBB->α->ival;
-            BB_t *L = pBB->β->α, *R = pBB->β->β;
+            IR_t *L = pBB->β->α, *R = pBB->β->β;
             int   lk = (int)L->t, rk = (int)R->t;
             long  li = (long)L->ival, ri = (long)R->ival;
             std::string load_op = _.bb_op_lbl
@@ -1467,7 +1467,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == BB_ARITH
             && pBB->α->t == BB_LOGICVAR && pBB->β->α && !pBB->β->β) {
             int   dst_slot = (int)pBB->α->ival;
-            BB_t *L = pBB->β->α;
+            IR_t *L = pBB->β->α;
             int   lk = (int)L->t;
             long  li = (long)L->ival;
             std::string load_op = _.bb_op_lbl
@@ -1499,7 +1499,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         if ((strcmp(fn,"atom_length")==0   || strcmp(fn,"upcase_atom")==0   || strcmp(fn,"downcase_atom")==0
           || strcmp(fn,"string_length")==0 || strcmp(fn,"string_upper")==0  || strcmp(fn,"string_lower")==0)
             && pBB->α && pBB->α->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
             int  k0 = (int)a0->t,    k1 = (int)a1->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival;
             /* CAT-D-1 (2026-05-27): strtab_label only for nodes that genuinely carry an atom string.   */
@@ -1545,7 +1545,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         /* unifies the result into arg1. Mode-2 oracle bb_exec.c:2904-2908.                               */
         if ((strcmp(fn,"atom_string")==0 || strcmp(fn,"string_to_atom")==0 || strcmp(fn,"copy_term")==0)
             && pBB->α && pBB->α->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
             int  k0 = (int)a0->t,    k1 = (int)a1->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival;
             char s0lbl[64]; s0lbl[0] = 0;
@@ -1575,7 +1575,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         /* 16B alignment at the call. Mode-2 oracle: bb_exec.c number_string/atom_number block.            */
         if ((strcmp(fn,"number_string")==0 || strcmp(fn,"atom_number")==0)
             && pBB->α && pBB->α->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
             int  num_first = (strcmp(fn,"number_string")==0) ? 1 : 0;
             int  k0 = (int)a0->t,    k1 = (int)a1->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival;
@@ -1618,7 +1618,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         /* open_memstream (SSE-alignment-sensitive) so rsp must be 16-aligned at the call.          */
         if ((strcmp(fn, "term_to_atom") == 0 || strcmp(fn, "term_string") == 0)
             && pBB->α && pBB->α->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
             int   k1 = (int)a1->t;
             long  i1 = (long)a1->ival;
             char s1lbl[64]; s1lbl[0] = 0;
@@ -1646,7 +1646,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         /* atom-table represents both forms (see CAT-D-3 note on the 2-arg arm above).                  */
         if ((strcmp(fn,"atom_concat")==0 || strcmp(fn,"string_concat")==0)
             && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             int  k0 = (int)a0->t,    k1 = (int)a1->t,    k2 = (int)a2->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival, i2 = (long)a2->ival;
             char s0lbl[64]; s0lbl[0] = 0;
@@ -1686,7 +1686,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         if ((strcmp(fn,"atom_chars")==0 || strcmp(fn,"atom_codes")==0
           || strcmp(fn,"string_chars")==0 || strcmp(fn,"string_codes")==0)
             && pBB->α && pBB->α->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
             int  k0 = (int)a0->t;
             long i0 = (long)a0->ival;
             int  as_codes = (strcmp(fn,"atom_codes")==0 || strcmp(fn,"string_codes")==0) ? 1 : 0;
@@ -1742,7 +1742,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
           || strcmp(fn,"float")==0    || strcmp(fn,"compound")==0 || strcmp(fn,"callable")==0
           || strcmp(fn,"is_list")==0  || strcmp(fn,"ground")==0)) {
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
-            BB_t *a0 = pBB->α;
+            IR_t *a0 = pBB->α;
             if (a0->t == BB_STRUCT) {
                 return hdr
                      + s_2asm("sub", "rsp, 16")
@@ -1776,7 +1776,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         /* a1->α = inner var. rt_pl_char_type(k0,i0,s0, ty, is_compound, ki,ii,si): rdi=k0 rsi=i0 rdx=s0  */
         /* rcx=ty r8=is_compound r9=ki, [rsp+0]=ii [rsp+8]=si → sub rsp,16. String ptrs via strtab_label. */
         if (strcmp(fn,"char_type")==0 && pBB->ival==2 && pBB->α && pBB->α->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
             int  k0 = (int)a0->t;
             long i0 = (long)a0->ival;
             char s0lbl[64]; s0lbl[0] = 0;
@@ -1784,7 +1784,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
             int  is_compound = ((a1->t == BB_STRUCT || a1->t == BB_ARITH) && a1->sval) ? 1 : 0;
             char tylbl[64]; tylbl[0] = 0;
             if (a1->sval) strtab_label(tylbl, sizeof tylbl, a1->sval);
-            BB_t *inner = is_compound ? a1->α : NULL;
+            IR_t *inner = is_compound ? a1->α : NULL;
             int  ki = inner ? (int)inner->t : 0;
             long ii = inner ? (long)inner->ival : 0;
             char silbl[64]; silbl[0] = 0;
@@ -1819,7 +1819,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         /*     16-aligned rsp on entry for its recursive sub rsp,frame inside).                          */
         /* do_msort = 0 (sort) or 1 (msort). Selected by fn-name match. Helper owns trail discipline.    */
         if ((strcmp(fn,"sort")==0 || strcmp(fn,"msort")==0) && pBB->α && pBB->α->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
             int  do_msort = (strcmp(fn,"msort")==0) ? 1 : 0;
             int  k1 = (int)a1->t;
             long i1 = (long)a1->ival;
@@ -1902,7 +1902,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
           || strcmp(fn,"@=<")==0  || strcmp(fn,"@>=")==0
           || strcmp(fn,"=:=")==0  || strcmp(fn,"=\\=")==0 || strcmp(fn,"<")==0  || strcmp(fn,">")==0
           || strcmp(fn,"<=")==0   || strcmp(fn,">=")==0)) {
-            BB_t *a0 = pBB->α, *a1 = pBB->β;
+            IR_t *a0 = pBB->α, *a1 = pBB->β;
             int  k0 = (int)a0->t,    k1 = (int)a1->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival;
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
@@ -1945,7 +1945,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
         /* rt_pl_univ_term / rt_pl_univ_term_list: 5 args = all in registers = sub rsp,8.                  */
         /* rt_pl_univ_term_term: 2 args = all in registers = sub rsp,8.                                     */
         if (strcmp(fn,"functor")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             /* Name/Arity (a1/a2) are by Prolog semantics never compound literals (atom + int). Only a0    */
             /* may be a compound literal (e.g. `functor(foo(a,b), N, A)`). */
             int  k1 = (int)a1->t,  k2 = (int)a2->t;
@@ -2000,7 +2000,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (strcmp(fn,"arg")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             /* arg(N, Term, Arg): N is int, Term is the compound-literal candidate (a1), Arg is var.       */
             int  k0 = (int)a0->t,  k2 = (int)a2->t;
             long i0 = (long)a0->ival, i2 = (long)a2->ival;
@@ -2054,7 +2054,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (strcmp(fn,"=..")==0 && pBB->ival==2 && pBB->α && pBB->α->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
             int compound0 = (a0->t == BB_STRUCT);
             int compound1 = (a1->t == BB_STRUCT);
             char s0lbl[64]; s0lbl[0] = 0;
@@ -2132,7 +2132,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
            mode-2 bb_exec.c:3247 logic (binds whichever arg is unbound, fails on negative).
            Template owns γ/ω jmps; helper has no port logic. */
         if (strcmp(fn, "succ") == 0 && pBB->ival == 2 && pBB->α && pBB->β) {
-            BB_t *a0 = pBB->α, *a1 = pBB->β;
+            IR_t *a0 = pBB->α, *a1 = pBB->β;
             int  k0 = (int)a0->t,    k1 = (int)a1->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival;
             char s0lbl[64]; s0lbl[0] = 0;
@@ -2157,7 +2157,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
            of the three args may be unbound; bind it from the other two by add/sub. System V AMD64
            ABI: 9 scalars total = first 6 in regs, remaining 3 on stack (24B; pad to 32B). */
         if (strcmp(fn, "plus") == 0 && pBB->ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            BB_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             int  k0 = (int)a0->t,    k1 = (int)a1->t,    k2 = (int)a2->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival, i2 = (long)a2->ival;
             char s0lbl[64]; s0lbl[0] = 0;
@@ -2196,8 +2196,8 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
              is a literal list like [world] — built via emit_build_compound_term post-order. */
         if (strcmp(fn, "format") == 0 && pBB->α && (pBB->ival == 1 || pBB->ival == 2)) {
             int arity = (int)pBB->ival;
-            BB_t *a0 = pBB->α;
-            BB_t *a1 = (arity == 2) ? a0->γ : NULL;
+            IR_t *a0 = pBB->α;
+            IR_t *a1 = (arity == 2) ? a0->γ : NULL;
             int  k0 = (int)a0->t;
             long i0 = (long)a0->ival;
             char s0lbl[64]; s0lbl[0] = 0;
@@ -2250,7 +2250,7 @@ static std::string bb_builtin_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_builtin(BB_t * pBB) {
+extern "C" void bb_builtin(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_builtin_str(pBB, bin), bin);
 }

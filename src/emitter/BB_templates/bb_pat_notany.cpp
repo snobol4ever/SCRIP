@@ -11,7 +11,7 @@ void *rt_cs_new(const char *chars);
 #include "emit.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_notany_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_pat_notany_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         const char *cs = pBB->sval ? pBB->sval : "";
@@ -206,7 +206,7 @@ static std::string bb_pat_notany_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_notany(BB_t * pBB) {
+extern "C" void bb_pat_notany(IR_t * pBB) {
     if (MEDIUM_TEXT)   g_emit.bb_cs_id = g_flat_node_id++;
     if (MEDIUM_BINARY) g_emit.bb_cs_zeta = rt_cs_new(pBB->sval ? pBB->sval : "");
     bb_bin_t bin;

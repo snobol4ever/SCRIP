@@ -29,7 +29,7 @@ extern "C" {
 void rt_push_null(void);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_return_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_return_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_RETURN");
@@ -59,4 +59,4 @@ static std::string bb_return_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_return(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_return_str(pBB, bin), bin); }
+extern "C" void bb_return(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_return_str(pBB, bin), bin); }

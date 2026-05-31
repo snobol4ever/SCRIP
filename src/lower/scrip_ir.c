@@ -123,7 +123,7 @@ const char * bb_op_name(BB_op_t k) {
 IR_graph_t * BB_alloc(int max_nodes, int lang) {
     IR_graph_t * bbg = calloc(1, sizeof(IR_graph_t));
     if (!bbg) return NULL;
-    bbg->all  = calloc((size_t)max_nodes, sizeof(BB_t *));
+    bbg->all  = calloc((size_t)max_nodes, sizeof(IR_t *));
     if (!bbg->all) { free(bbg); return NULL; }
     bbg->n    = 0;
     bbg->max  = max_nodes;
@@ -132,8 +132,8 @@ IR_graph_t * BB_alloc(int max_nodes, int lang) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t * BB_node_alloc(IR_graph_t * bbg, BB_op_t t) {
-    BB_t * bb = calloc(1, sizeof(BB_t));
+IR_t * BB_node_alloc(IR_graph_t * bbg, BB_op_t t) {
+    IR_t * bb = calloc(1, sizeof(IR_t));
     if (!bb) return NULL;
     bb->t       = t;
     bb->α       = NULL;
@@ -148,7 +148,7 @@ BB_t * BB_node_alloc(IR_graph_t * bbg, BB_op_t t) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_operand_aux_set(IR_graph_t * bbg, BB_t * bb, BB_t * const * src, int n) {
+int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n) {
     if (!bbg || !bb) return -1;
     int slot = -1;
     for (int i = 0; i < bbg->operand_aux_n; i++) {
@@ -173,14 +173,14 @@ int bb_operand_aux_set(IR_graph_t * bbg, BB_t * bb, BB_t * const * src, int n) {
         bbg->operand_aux[slot].n = 0;
     }
     if (n <= 0) return 0;
-    bbg->operand_aux[slot].operands = (BB_t **)calloc((size_t)n, sizeof(BB_t *));
+    bbg->operand_aux[slot].operands = (IR_t **)calloc((size_t)n, sizeof(IR_t *));
     if (!bbg->operand_aux[slot].operands) return -1;
     if (src) for (int i = 0; i < n; i++) bbg->operand_aux[slot].operands[i] = src[i];
     bbg->operand_aux[slot].n = n;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t * const * bb_operand_aux_get(const IR_graph_t * bbg, const BB_t * bb, int * out_n) {
+IR_t * const * bb_operand_aux_get(const IR_graph_t * bbg, const IR_t * bb, int * out_n) {
     if (out_n) *out_n = 0;
     if (!bbg || !bb) return NULL;
     for (int i = 0; i < bbg->operand_aux_n; i++) {
@@ -195,7 +195,7 @@ BB_t * const * bb_operand_aux_get(const IR_graph_t * bbg, const BB_t * bb, int *
 void bb_reset(IR_graph_t * bbg) {
     if (!bbg) return;
     for (int i = 0; i < bbg->n; i++) {
-        BB_t * bb = bbg->all[i];
+        IR_t * bb = bbg->all[i];
         if (!bb) continue;
         bb->value   = FAILDESCR;
         if (bb->t != BB_PAT_ARBNO) bb->counter = 0;
@@ -209,7 +209,7 @@ bb_node_state_t * bb_snapshot_state(IR_graph_t * bbg) {
     bb_node_state_t * snap = (bb_node_state_t *)malloc((size_t)bbg->n * sizeof(bb_node_state_t));
     if (!snap) return NULL;
     for (int i = 0; i < bbg->n; i++) {
-        BB_t * bb = bbg->all[i];
+        IR_t * bb = bbg->all[i];
         if (!bb) { memset(&snap[i], 0, sizeof snap[i]); snap[i].value = FAILDESCR; continue; }
         snap[i].value   = bb->value;
         snap[i].counter = bb->counter;
@@ -241,7 +241,7 @@ bb_node_state_t * bb_snapshot_state(IR_graph_t * bbg) {
 void bb_restore_state(IR_graph_t * bbg, bb_node_state_t * snap) {
     if (!bbg || !snap) { free(snap); return; }
     for (int i = 0; i < bbg->n; i++) {
-        BB_t * bb = bbg->all[i];
+        IR_t * bb = bbg->all[i];
         if (!bb) continue;
         bb->value   = snap[i].value;
         bb->counter = snap[i].counter;
@@ -270,7 +270,7 @@ void bb_restore_state(IR_graph_t * bbg, bb_node_state_t * snap) {
 void BB_free(IR_graph_t * bbg) {
     if (!bbg) return;
     for (int i = 0; i < bbg->n; i++) {
-        BB_t * bb = bbg->all[i];
+        IR_t * bb = bbg->all[i];
         if (!bb) continue;
         free(bb);
     }
@@ -303,7 +303,7 @@ void bb_program_free(bb_program_t * p) {
     p->table = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void print_port(FILE * fp, const char * label, const BB_t * bb) {
+static void print_port(FILE * fp, const char * label, const IR_t * bb) {
     fprintf(fp, " %s=%s", label, bb ? "set" : "NULL");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -313,7 +313,7 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
     const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
     fprintf(fp, "IR_graph_t lang=%s n=%d entry=%s\n", lname, bbg->n, bbg->entry ? "set" : "NULL");
     for (int i = 0; i < bbg->n; i++) {
-        const BB_t * bb = bbg->all[i];
+        const IR_t * bb = bbg->all[i];
         if (!bb) continue;
         fprintf(fp, "  [%d] %s", i, bb_op_name(bb->t));
         print_port(fp, "α", bb->α);

@@ -27,7 +27,7 @@ extern "C" {
 void rt_push_real_bits(uint64_t bits);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_lit_scalar_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_lit_scalar_str(IR_t * pBB, bb_bin_t & bin) {
     (void)pBB;
     bin = {};
     if (!PLATFORM_X86) return std::string();
@@ -85,4 +85,4 @@ static std::string bb_lit_scalar_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_lit_scalar(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_lit_scalar_str(pBB, bin), bin); }
+extern "C" void bb_lit_scalar(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_lit_scalar_str(pBB, bin), bin); }

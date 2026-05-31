@@ -32,7 +32,7 @@ extern "C" {
 void rt_push_int(int64_t v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_to_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_to_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         int id = bb_node_id(pBB);
@@ -142,7 +142,7 @@ static std::string bb_to_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_to(BB_t * pBB) {
+extern "C" void bb_to(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_to_str(pBB, bin), bin);
 }

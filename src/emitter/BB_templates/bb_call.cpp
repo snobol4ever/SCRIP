@@ -40,14 +40,14 @@ void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_CALL");
 
     const char * fn   = pBB->sval ? pBB->sval : "";
     int64_t      narg = pBB->ival;
-    BB_t       * a0   = pBB->α;
+    IR_t       * a0   = pBB->α;
 
     int is_write_strlit  = (fn && !strcmp(fn, "write") && narg == 1 && a0 && a0->t == BB_LIT_S && a0->sval);
     /* IBB-3 (2026-05-28): write(int_expr) shape — arg0 was already evaluated by                    */
@@ -304,4 +304,4 @@ static std::string bb_call_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_call(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_call_str(pBB, bin), bin); }
+extern "C" void bb_call(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_call_str(pBB, bin), bin); }

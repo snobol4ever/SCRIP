@@ -10,7 +10,7 @@ extern "C" {
 #include "emit.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_upto_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_upto_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         int id = bb_node_id(pBB);
@@ -134,7 +134,7 @@ static std::string bb_upto_str(BB_t * pBB, bb_bin_t & bin) {
     }
     return std::string();
 }
-extern "C" void bb_upto(BB_t * pBB) {
+extern "C" void bb_upto(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_upto_str(pBB, bin), bin);
 }

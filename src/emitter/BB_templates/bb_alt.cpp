@@ -25,7 +25,7 @@ extern "C" {
 #include "emit_bb.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_alt_str(BB_t *pBB, bb_bin_t &bin) {
+static std::string bb_alt_str(IR_t *pBB, bb_bin_t &bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_ALT");
@@ -85,4 +85,4 @@ static std::string bb_alt_str(BB_t *pBB, bb_bin_t &bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_alt(BB_t *pBB) { bb_bin_t bin; bb_emit_asm_result(bb_alt_str(pBB,bin),bin); }
+extern "C" void bb_alt(IR_t *pBB) { bb_bin_t bin; bb_emit_asm_result(bb_alt_str(pBB,bin),bin); }

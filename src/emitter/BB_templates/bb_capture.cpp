@@ -27,7 +27,7 @@ static int * cap_alloc_saved_delta_slot(void) {
     return &pool.back();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_capture_str(BB_t * pBB, int imm, bb_bin_t & bin) {
+static std::string bb_capture_str(IR_t * pBB, int imm, bb_bin_t & bin) {
     bin = {};
     int nid = bb_node_id(pBB); int sid = 0;
     if (PLATFORM_X86) {
@@ -223,4 +223,4 @@ static std::string bb_capture_str(BB_t * pBB, int imm, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_capture(BB_t * pBB, int imm) { bb_bin_t bin; bb_emit_asm_result(bb_capture_str(pBB, imm, bin), bin); }
+extern "C" void bb_capture(IR_t * pBB, int imm) { bb_bin_t bin; bb_emit_asm_result(bb_capture_str(pBB, imm, bin), bin); }

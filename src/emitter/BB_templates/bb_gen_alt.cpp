@@ -6,6 +6,6 @@ extern "C" {
 #include "bb_template_common.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gen_alt_str(BB_t * pBB, bb_bin_t & bin) { (void)pBB; bin = {}; return std::string(); }
+static std::string bb_gen_alt_str(IR_t * pBB, bb_bin_t & bin) { (void)pBB; bin = {}; return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gen_alt(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_gen_alt_str(pBB, bin), bin); }
+extern "C" void bb_gen_alt(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_gen_alt_str(pBB, bin), bin); }

@@ -9,24 +9,24 @@ extern "C" {
 #include "bb_box.h"
 #include "BB.h"
 #include <stdio.h>
-bb_box_fn bb_build_flat    (BB_t * nd);
-bb_box_fn bb_build_brokered(BB_t * nd);
-bb_box_fn bb_build_pure_mode(BB_t * nd);
-int  codegen_flat_build        (BB_t * nd, FILE * out, const char * prefix);
+bb_box_fn bb_build_flat    (IR_t * nd);
+bb_box_fn bb_build_brokered(IR_t * nd);
+bb_box_fn bb_build_pure_mode(IR_t * nd);
+int  codegen_flat_build        (IR_t * nd, FILE * out, const char * prefix);
 void lower_flat_set_intern_str(const char * (*fn)(const char *));
 const char * emit_intern_str(const char * s);
 void lower_flat_reset        (void);
 void lower_flat_set_cap_fixup(void (*cb)(void * cap_ptr, const char * child_alpha_label));
-void walk_bb_register_child_label(BB_t * nd, const char * alpha_label);
+void walk_bb_register_child_label(IR_t * nd, const char * alpha_label);
 extern int g_flat_node_id;
-void walk_bb_flat(BB_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 void resolve_call_block_label(char *dst, size_t dsz, const char *name, int arity);
 void sub_label(char *dst, size_t dsz, const char *name);
 void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const char *suffix);
 int resolve_emit_callee_block_body(const char *name, int arity, bb_label_t *bγ, bb_label_t *bω, bb_label_t *bβ);
-extern BB_t *resolve_bb_entry_node(const char *name, int arity);
+extern IR_t *resolve_bb_entry_node(const char *name, int arity);
 int  bb_kind_is_driver_owned(int t);
-void bb_prepare_capture_arbno(BB_t *nd, int imm);
+void bb_prepare_capture_arbno(IR_t *nd, int imm);
 const char * child_cache_get_lbl   (bb_box_fn fn);
 extern void (*g_cap_fixup_cb)      (void *cap_ptr, const char *child_alpha_label);
 extern char   g_flat_data_buf[];

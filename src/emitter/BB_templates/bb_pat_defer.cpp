@@ -12,7 +12,7 @@ extern "C" {
 }
 extern "C" int rt_defer_match(const char *varname, int ival_flag, int cur_delta);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_defer_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_pat_defer_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         const char *vname = pBB->sval ? pBB->sval : "";
@@ -88,7 +88,7 @@ static std::string bb_pat_defer_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_defer(BB_t * pBB) {
+extern "C" void bb_pat_defer(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_pat_defer_str(pBB, bin), bin);
 }

@@ -281,7 +281,7 @@ int exec_stmt(const char  *subj_name,
         if (pat.v == DT_S || pat.v == DT_SNUL) {
             const char *lit = pat.s ? pat.s : "";
             PATND_t *lp = patnd_make_xchr(lit);
-            bb_box_fn bfn2 = bb_build_pure_mode((BB_t *)lp);
+            bb_box_fn bfn2 = bb_build_pure_mode((IR_t *)lp);
             root.fn = bfn2; root.ζ = NULL; root.ζ_size = 0;
         } else if (pat.v == DT_P && pat.p) {
         int bin_done = 0;
@@ -299,8 +299,8 @@ int exec_stmt(const char  *subj_name,
                 IR_graph_t *pp_cfg = NULL;
                 if (is_combinator)      pp_cfg = patnd_to_bb_tree(pp);
                 else if (needs_xlate)   pp_cfg = patnd_to_bb_graph(pp);
-                BB_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (BB_t *)pp;
-                int is_cap = pp_bb && (((BB_t*)pp_bb)->t == BB_PAT_ASSIGN_COND || ((BB_t*)pp_bb)->t == BB_PAT_ASSIGN_IMM);
+                IR_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (IR_t *)pp;
+                int is_cap = pp_bb && (((IR_t*)pp_bb)->t == BB_PAT_ASSIGN_COND || ((IR_t*)pp_bb)->t == BB_PAT_ASSIGN_IMM);
                 bb_box_fn bfn = is_cap ? bb_build_brokered(pp_bb) : bb_build_flat(pp_bb);
                 if (bfn) {
                     root.fn     = bfn;
@@ -322,7 +322,7 @@ int exec_stmt(const char  *subj_name,
             IR_graph_t *pp_cfg = NULL;
             if (defer_combinator || pure_altcat || arbno_combinator) pp_cfg = patnd_to_bb_tree(pp);
             else if (needs_xlate)   pp_cfg = patnd_to_bb_graph(pp);
-            BB_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (BB_t *)pp;
+            IR_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (IR_t *)pp;
             bb_box_fn bfn = bb_build_brokered(pp_bb);
             if (bfn) {
                 root.fn     = bfn;
@@ -341,7 +341,7 @@ int exec_stmt(const char  *subj_name,
         }
     } else if (pat.v == DT_S && pat.s) {
         PATND_t *lp = patnd_make_xchr(pat.s);
-        bb_box_fn bfn = bb_build_pure_mode((BB_t *)lp);
+        bb_box_fn bfn = bb_build_pure_mode((IR_t *)lp);
         if (bfn) {
             root.fn  = bfn;
             root.ζ   = NULL;

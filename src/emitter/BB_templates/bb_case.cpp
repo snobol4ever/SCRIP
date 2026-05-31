@@ -33,7 +33,7 @@ void rt_case_eq(const void *slot);
 int  rt_last_ok(void);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_case_store(BB_t * pBB) {
+extern "C" void bb_case_store(IR_t * pBB) {
     if (!PLATFORM_X86 || !pBB) return;
     uint64_t slot = (uint64_t)(uintptr_t)&pBB->value;
     uint64_t fn;  { void (*fp)(void *) = rt_pop_store_descr; fn = (uint64_t)(uintptr_t)(void*)fp; }
@@ -54,7 +54,7 @@ extern "C" void bb_case_store(BB_t * pBB) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_case_gate(BB_t * pBB) {
+extern "C" void bb_case_gate(IR_t * pBB) {
     if (!PLATFORM_X86 || !pBB) return;
     bb_label_t *val_entry = g_emit.xa_bb_emit_pair_n > 0 ? g_emit.xa_bb_emit_pair_jmp[0] : NULL;
     uint64_t slot = (uint64_t)(uintptr_t)&pBB->value;

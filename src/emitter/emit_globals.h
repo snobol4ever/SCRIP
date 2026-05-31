@@ -8,7 +8,7 @@ typedef struct {
     int                          is_binary;
     int                          i;
     int                          n;
-    BB_t *                       node;
+    IR_t *                       node;
     int                          sid;
     int                          nid;
     const char *                 lbl_α;

@@ -369,9 +369,9 @@ void net_push_i4(FILE * out, int v) {
     else                            { fprintf(out, "    ldc.i4     %d\n", v); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int walk_bb_node(BB_t * nd, FILE * out) {
-    extern void bb_prepare_capture_arbno(BB_t *nd, int imm);
-    extern void bb_prepare_pl(BB_t *nd);
+int walk_bb_node(IR_t * nd, FILE * out) {
+    extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
+    extern void bb_prepare_pl(IR_t *nd);
     if (!nd) return 1;
     g_emit.node = nd;
     emit_io_set_sink(out);
@@ -494,7 +494,7 @@ int walk_bb_node(BB_t * nd, FILE * out) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char * walk_bb_node_str_c(BB_t * nd) {
+char * walk_bb_node_str_c(IR_t * nd) {
     if (!nd) { char * e = (char *)malloc(1); if (e) e[0] = '\0'; return e; }
     char *   buf   = NULL;
     size_t   len   = 0;
@@ -645,7 +645,7 @@ static char ** net_parse_define_proto(const char * proto, char ** out_fname, int
     params[count] = NULL; *out_n = count; return params;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_node_id(BB_t * nd) { return (int)((uintptr_t)nd % 100000u); }
+int bb_node_id(IR_t * nd) { return (int)((uintptr_t)nd % 100000u); }
 int bb_is_generator(BB_op_t k) {
     if (k >= BB_PAT_LIT   && k <= BB_PAT_DEFER)  return 1;
     if (k >= BB_CHOICE && k <= BB_GOAL)      return 1;
@@ -658,7 +658,7 @@ int bb_is_generator(BB_op_t k) {
 #define IR_WALK_MAX 4096
 static int g_visited[IR_WALK_MAX];
 static int g_vcount = 0;
-static void bb_walk_rec(BB_t * nd, void (*visit)(BB_t *, void *), void * ctx) {
+static void bb_walk_rec(IR_t * nd, void (*visit)(IR_t *, void *), void * ctx) {
     if (!nd) return;
     int id = bb_node_id(nd);
     for (int i = 0; i < g_vcount; i++) if (g_visited[i] == id) return;
@@ -668,7 +668,7 @@ static void bb_walk_rec(BB_t * nd, void (*visit)(BB_t *, void *), void * ctx) {
     bb_walk_rec(nd->γ, visit, ctx); bb_walk_rec(nd->ω, visit, ctx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_walk(IR_graph_t * cfg, void (*visit)(BB_t *, void *), void * ctx) {
+void bb_walk(IR_graph_t * cfg, void (*visit)(IR_t *, void *), void * ctx) {
     if (!cfg || !cfg->entry) return;
     g_vcount = 0;
     bb_walk_rec(cfg->entry, visit, ctx);

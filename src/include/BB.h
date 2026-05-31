@@ -136,13 +136,13 @@ typedef enum {
     BB_OP_COUNT
 } BB_op_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct BB_t BB_t;
-struct BB_t {
+typedef struct IR_t IR_t;
+struct IR_t {
     BB_op_t      t;
-    BB_t       * α;
-    BB_t       * β;
-    BB_t       * γ;
-    BB_t       * ω;
+    IR_t       * α;
+    IR_t       * β;
+    IR_t       * γ;
+    IR_t       * ω;
     const char * sval;
     int64_t      ival;
     double       dval;
@@ -152,14 +152,14 @@ struct BB_t {
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
-    BB_t      *node;
-    BB_t     **operands;
+    IR_t      *node;
+    IR_t     **operands;
     int        n;
 } bb_operand_aux_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct IR_graph_t {
-    BB_t    * entry;
-    BB_t   ** all;
+    IR_t    * entry;
+    IR_t   ** all;
     int            n;
     int            max;
     int            lang;
@@ -192,9 +192,9 @@ static inline void ag_ring_clear(IR_graph_t * cfg) {
     cfg->ring_depth = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t       * BB_node_alloc(IR_graph_t * cfg, BB_op_t t);
-int          bb_operand_aux_set(IR_graph_t * cfg, BB_t * nd, BB_t * const * src, int n);
-BB_t * const * bb_operand_aux_get(const IR_graph_t * cfg, const BB_t * nd, int * out_n);
+IR_t       * BB_node_alloc(IR_graph_t * cfg, BB_op_t t);
+int          bb_operand_aux_set(IR_graph_t * cfg, IR_t * nd, IR_t * const * src, int n);
+IR_t * const * bb_operand_aux_get(const IR_graph_t * cfg, const IR_t * nd, int * out_n);
 void         bb_reset(IR_graph_t * cfg);
 typedef struct {
     DESCR_t value; int64_t counter; int state;
@@ -210,10 +210,10 @@ typedef struct {
     int     ch_nbodies;
 } bb_node_state_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { BB_t ** kids; int nkids; IR_graph_t * inner; int * pos_stack; int cap; int saved_delta; } bb_arbno_state_t;
-typedef struct { BB_t ** goals; int ngoals; } bb_conj_state_t;
-typedef struct { BB_t * cond; BB_t * then_; BB_t * else_; } bb_ite_state_t;
-typedef struct { IR_graph_t * goal_g; BB_t * catcher; IR_graph_t * rec_g; } bb_catch_state_t;
+typedef struct { IR_t ** kids; int nkids; IR_graph_t * inner; int * pos_stack; int cap; int saved_delta; } bb_arbno_state_t;
+typedef struct { IR_t ** goals; int ngoals; } bb_conj_state_t;
+typedef struct { IR_t * cond; IR_t * then_; IR_t * else_; } bb_ite_state_t;
+typedef struct { IR_graph_t * goal_g; IR_t * catcher; IR_graph_t * rec_g; } bb_catch_state_t;
 typedef struct { IR_graph_t ** bodies; int nbodies; int cur; int mark; void * saved_env;
                  IR_graph_t * last_body; void * last_act;
                  void * cp;
@@ -232,19 +232,19 @@ typedef struct { IR_graph_t ** bodies; int nbodies; int cur; int mark; void * sa
 #define RESOLVE_IDX_INT(v)          (RESOLVE_IDX_CLS_INT  | ((long)(v)  & RESOLVE_IDX_PAYLOAD_MASK))
 #define RESOLVE_IDX_FLT             (RESOLVE_IDX_CLS_FLT)
 #define RESOLVE_IDX_CMP(fn,ar)      (RESOLVE_IDX_CLS_CMP  | ((((long)(fn) << 16) | ((long)(ar) & 0xFFFF)) & RESOLVE_IDX_PAYLOAD_MASK))
-typedef struct { BB_t ** args; int nargs; const char * callee; int arity; void * cs; } bb_goal_state_t;
-typedef struct { IR_graph_t * gcfg; BB_t * tmpl; BB_t * result; } bb_findall_state_t;
-typedef struct { BB_t ** kids; int nkids; } bb_pat_kids_state_t;
-static inline int bb_pat_nkids(const BB_t * nd) {
+typedef struct { IR_t ** args; int nargs; const char * callee; int arity; void * cs; } bb_goal_state_t;
+typedef struct { IR_graph_t * gcfg; IR_t * tmpl; IR_t * result; } bb_findall_state_t;
+typedef struct { IR_t ** kids; int nkids; } bb_pat_kids_state_t;
+static inline int bb_pat_nkids(const IR_t * nd) {
     if (!nd) return 0;
     bb_pat_kids_state_t * zk = (bb_pat_kids_state_t *)(intptr_t)nd->counter;
     return zk ? zk->nkids : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline BB_t * bb_pat_kid(const BB_t * nd, int i) {
-    if (!nd) return (BB_t *)0;
+static inline IR_t * bb_pat_kid(const IR_t * nd, int i) {
+    if (!nd) return (IR_t *)0;
     bb_pat_kids_state_t * zk = (bb_pat_kids_state_t *)(intptr_t)nd->counter;
-    if (!zk || i < 0 || i >= zk->nkids) return (BB_t *)0;
+    if (!zk || i < 0 || i >= zk->nkids) return (IR_t *)0;
     return zk->kids[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

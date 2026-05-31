@@ -34,7 +34,7 @@ int rt_limit_more(DESCR_t *max_slot, int64_t *count_slot);
 int rt_limit_inc(int64_t *count_slot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_limit_begin(BB_t * pBB) {
+extern "C" void bb_limit_begin(IR_t * pBB) {
     if (!PLATFORM_X86 || !pBB) return;
     bb_label_t *lbl_ω = g_emit.xa_bb_emit_pair_n > 0 ? g_emit.xa_bb_emit_pair_jmp[0] : NULL;
     uint64_t max_slot   = (uint64_t)(uintptr_t)&pBB->value;
@@ -70,7 +70,7 @@ extern "C" void bb_limit_begin(BB_t * pBB) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_limit_inc(BB_t * pBB) {
+extern "C" void bb_limit_inc(IR_t * pBB) {
     if (!PLATFORM_X86 || !pBB) return;
     bb_label_t *lbl_γ = g_emit.xa_bb_emit_pair_n > 0 ? g_emit.xa_bb_emit_pair_jmp[0] : NULL;
     uint64_t count_slot = (uint64_t)(uintptr_t)&pBB->counter;
@@ -98,7 +98,7 @@ extern "C" void bb_limit_inc(BB_t * pBB) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_limit_more(BB_t * pBB) {
+extern "C" void bb_limit_more(IR_t * pBB) {
     if (!PLATFORM_X86 || !pBB) return;
     bb_label_t *lbl_ω      = g_emit.xa_bb_emit_pair_n > 0 ? g_emit.xa_bb_emit_pair_jmp[0] : NULL;
     bb_label_t *gen_resume = g_emit.xa_bb_emit_pair_n > 1 ? g_emit.xa_bb_emit_pair_jmp[1] : NULL;
@@ -140,7 +140,7 @@ extern "C" void bb_limit_more(BB_t * pBB) {
 /* Legacy node-entry symbol (BB_LIMIT was previously a stub routed from emit_core.c). The flat driver  */
 /* now owns all control flow; this remains only so the emit_core dispatch table links. It must never   */
 /* be reached for an Icon limit (the driver handles it) — abort loudly if it is.                        */
-extern "C" void bb_limit(BB_t * pBB) {
+extern "C" void bb_limit(IR_t * pBB) {
     (void)pBB;
     fprintf(stderr, "[IBB] FATAL bb_limit: node-entry template reached — BB_LIMIT must route through flat_drive_limit\n");
     abort();

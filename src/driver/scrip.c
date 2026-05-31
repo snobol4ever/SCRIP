@@ -383,7 +383,7 @@ int main(int argc, char **argv)
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (is_icon) {
-            extern bb_box_fn bb_build_flat(BB_t * nd);
+            extern bb_box_fn bb_build_flat(IR_t * nd);
             extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
             extern void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
             extern void rt_proc_reset(void);
@@ -411,7 +411,7 @@ int main(int argc, char **argv)
                     IR_graph_t *g = s2->bbp.table[_gi];
                     if (!g || !g->all) continue;
                     for (int _ni = 0; _ni < g->n; _ni++) {
-                        BB_t *nd = g->all[_ni];
+                        IR_t *nd = g->all[_ni];
                         if (nd && nd->t == BB_RECORD_DEF && nd->sval) dat_register(nd->sval);
                     }
                 }

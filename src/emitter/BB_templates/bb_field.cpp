@@ -34,7 +34,7 @@ int rt_field_get(const char *fname);
 int rt_field_set(const char *fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_field_emit(BB_t * pBB, bb_bin_t & bin, int is_set) {
+static std::string bb_field_emit(IR_t * pBB, bb_bin_t & bin, int is_set) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_FIELD");
@@ -67,5 +67,5 @@ static std::string bb_field_emit(BB_t * pBB, bb_bin_t & bin, int is_set) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_field_get(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_field_emit(pBB, bin, 0), bin); }
-extern "C" void bb_field_set(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_field_emit(pBB, bin, 1), bin); }
+extern "C" void bb_field_get(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_field_emit(pBB, bin, 0), bin); }
+extern "C" void bb_field_set(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_field_emit(pBB, bin, 1), bin); }

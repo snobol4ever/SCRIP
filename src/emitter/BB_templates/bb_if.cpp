@@ -20,7 +20,7 @@ void rt_pop_void(void);
 int  rt_last_ok(void);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_if_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_if_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_IF");
@@ -64,7 +64,7 @@ static std::string bb_if_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_if(BB_t * pBB) {
+extern "C" void bb_if(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_if_str(pBB, bin), bin);
 }

@@ -6,6 +6,6 @@ extern "C" {
 #include "bb_template_common.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gen_scan_str(BB_t * pBB, bb_bin_t & bin) { (void)pBB; bin = {}; return std::string(); }
+static std::string bb_gen_scan_str(IR_t * pBB, bb_bin_t & bin) { (void)pBB; bin = {}; return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gen_scan(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_gen_scan_str(pBB, bin), bin); }
+extern "C" void bb_gen_scan(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_gen_scan_str(pBB, bin), bin); }

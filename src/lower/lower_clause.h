@@ -3,5 +3,5 @@
 #include "BB.h"
 struct tree_t;
 IR_graph_t *lower_pl_predicate(struct tree_t *choice);
-BB_t *lower_pl_threaded(IR_graph_t *bbg, const struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+IR_t *lower_pl_threaded(IR_graph_t *bbg, const struct tree_t *e, IR_t *γ_in, IR_t *ω_in, IR_t **α_out, IR_t **β_out);
 #endif

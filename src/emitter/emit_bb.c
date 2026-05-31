@@ -68,9 +68,9 @@ char   g_flat_data_buf[FLAT_DATA_BUF_MAX];
 size_t g_flat_data_len    = 0;
 static int    g_flat_data_active = 0;
 #define CHILD_CACHE_MAX 64
-static struct { BB_t *key; bb_box_fn fn; char text_lbl[80]; } g_child_cache[CHILD_CACHE_MAX];
+static struct { IR_t *key; bb_box_fn fn; char text_lbl[80]; } g_child_cache[CHILD_CACHE_MAX];
 static int g_child_cache_n = 0;
-static bb_box_fn child_cache_get(BB_t *p) {
+static bb_box_fn child_cache_get(IR_t *p) {
     for (int i = 0; i < g_child_cache_n; i++) if (g_child_cache[i].key == p) return g_child_cache[i].fn;
     return NULL;
 }
@@ -80,7 +80,7 @@ const char *child_cache_get_lbl(bb_box_fn fn) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void child_cache_put(BB_t *p, bb_box_fn fn) {
+static void child_cache_put(IR_t *p, bb_box_fn fn) {
     if (g_child_cache_n < CHILD_CACHE_MAX) { g_child_cache[g_child_cache_n].key = p; g_child_cache[g_child_cache_n].fn = fn; g_child_cache[g_child_cache_n].text_lbl[0] = '\0'; g_child_cache_n++; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -161,11 +161,11 @@ static void data_buf_remember_label(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_emit_block_comment(void) { g_flat_data_block_nlbls = 0; }
-void walk_bb_flat(BB_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
-static void bb_fill_alpha(BB_t *nd) {
+static void bb_fill_alpha(IR_t *nd) {
     bb_label_t *a = &g_α_ring[g_α_ring_i++ & 7];
     emit_label_initf(a, "bb%d_α", nd ? bb_node_id(nd) : 0);
     g_emit.lbl_α   = a->name;
@@ -186,7 +186,7 @@ static void bb_fill_alpha(BB_t *nd) {
     g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
-static void flat_drive_cat(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int id = g_flat_node_id++;
     bb_label_t *mid_γ   = emit_label_alloc("xcat%d_γ",       id);
     bb_label_t *right_ω = emit_label_alloc("xcat%d_right_ω", id);
@@ -238,7 +238,7 @@ static void flat_drive_cat(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_alt(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int id = g_flat_node_id++;
     int nc = pBB ? bb_pat_nkids(pBB) : 0;
     EMIT_PAIR_RESET();
@@ -262,7 +262,7 @@ static void flat_drive_alt(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_fence(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || bb_pat_nkids(pBB) == 0) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(lbl_γ);
@@ -281,7 +281,7 @@ static void flat_drive_fence(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int resolve_seq_goals_em(const BB_t *nd, BB_t **out, int max) {
+int resolve_seq_goals_em(const IR_t *nd, IR_t **out, int max) {
     if (!nd || nd->t != BB_GCONJ) return 0;
     bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)nd->ival;
     if (!zs || !zs->goals) return 0;
@@ -290,7 +290,7 @@ int resolve_seq_goals_em(const BB_t *nd, BB_t **out, int max) {
     return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int resolve_choice_bodies_em(const BB_t *nd, BB_t **out, int max) {
+int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
     if (!nd || nd->t != BB_CHOICE) return 0;
     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)nd->ival;
     if (!zc || !zc->bodies) return 0;
@@ -299,8 +299,8 @@ int resolve_choice_bodies_em(const BB_t *nd, BB_t **out, int max) {
     return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_pl_seq(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    BB_t *goals[256];
+static void flat_drive_pl_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_t *goals[256];
     int n = pBB ? resolve_seq_goals_em(pBB, goals, 256) : 0;
     if (n <= 0) { EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return; }
     if (n == 1) { walk_bb_flat(goals[0], lbl_γ, lbl_ω, lbl_β); return; }
@@ -337,8 +337,8 @@ void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const ch
     snprintf(dst, dsz, ".Lplch%d_c%d_%s", id, ci, suffix);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_pl_choice(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    BB_t *bodies[256];
+static void flat_drive_pl_choice(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_t *bodies[256];
     int n = pBB ? resolve_choice_bodies_em(pBB, bodies, 256) : 0;
     if (n <= 0) { EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return; }
     int id = g_flat_node_id++;
@@ -365,9 +365,9 @@ static void flat_drive_pl_choice(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     (void)exit_γ_lbl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_pl_alt(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_pl_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) { EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return; }
-    BB_t *branches[2]; int n = 0;
+    IR_t *branches[2]; int n = 0;
     if (pBB->α) branches[n++] = pBB->α;
     if (pBB->β) branches[n++] = pBB->β;
     int id = g_flat_node_id++;
@@ -392,7 +392,7 @@ static void flat_drive_pl_alt(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int resolve_ite_entries_em(const BB_t *nd, BB_t **out_cond, BB_t **out_then, BB_t **out_else) {
+static int resolve_ite_entries_em(const IR_t *nd, IR_t **out_cond, IR_t **out_then, IR_t **out_else) {
     if (!nd || nd->t != BB_ITE) return 0;
     bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)nd->ival;
     if (!zi) return 0;
@@ -402,8 +402,8 @@ static int resolve_ite_entries_em(const BB_t *nd, BB_t **out_cond, BB_t **out_th
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_pl_ite(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    BB_t *cond = NULL, *thn = NULL, *els = NULL;
+static void flat_drive_pl_ite(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_t *cond = NULL, *thn = NULL, *els = NULL;
     if (!resolve_ite_entries_em(pBB, &cond, &thn, &els) || !cond) {
         EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return;
     }
@@ -446,7 +446,7 @@ void sub_label(char *dst, size_t dsz, const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int resolve_emit_callee_block_body(const char *name, int arity, bb_label_t *bγ, bb_label_t *bω, bb_label_t *bβ) {
-    BB_t *pentry = resolve_bb_entry_node(name, arity);
+    IR_t *pentry = resolve_bb_entry_node(name, arity);
     if (!pentry) return 0;
     walk_bb_flat(pentry, bγ, bω, bβ);
     return 1;
@@ -456,7 +456,7 @@ int bb_kind_is_driver_owned(int t) {
     return t == BB_PAT_CAT || t == BB_PAT_ALT || t == BB_PAT_FENCE || t == BB_GCONJ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_prepare_capture_arbno(BB_t *nd, int imm) {
+void bb_prepare_capture_arbno(IR_t *nd, int imm) {
     if (!PLATFORM_X86) return;
     bb_box_fn   child_fn = (bb_box_fn)g_emit.child_fn;
     const char *name     = g_emit.op_name1;
@@ -521,7 +521,7 @@ static const char *bb_intern_into(char *buf, const char *sval) {
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_prepare_pl(BB_t *nd) {
+void bb_prepare_pl(IR_t *nd) {
     if (!PLATFORM_X86) return;
     g_emit.bb_ls = NULL;
     g_emit.bb_rs = NULL;
@@ -561,14 +561,14 @@ void bb_prepare_pl(BB_t *nd) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static bb_label_t *seq_node_label(BB_t **nodes, bb_label_t **lbls, int n, BB_t *tgt, bb_label_t *falloff) {
+static bb_label_t *seq_node_label(IR_t **nodes, bb_label_t **lbls, int n, IR_t *tgt, bb_label_t *falloff) {
     if (!tgt) return falloff;
     for (int i = 0; i < n; i++) if (nodes[i] == tgt) return lbls[i];
     return falloff;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_seq(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    BB_t *first = pBB ? pBB->α : NULL;
+static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_t *first = pBB ? pBB->α : NULL;
     if (!first) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(lbl_γ);
@@ -577,13 +577,13 @@ static void flat_drive_seq(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
         return;
     }
     enum { SEQ_MAX = 512 };
-    BB_t *nodes[SEQ_MAX];
+    IR_t *nodes[SEQ_MAX];
     int n = 0;
-    BB_t *queue[SEQ_MAX];
+    IR_t *queue[SEQ_MAX];
     int qh = 0, qt = 0;
     queue[qt++] = first;
     while (qh < qt) {
-        BB_t *c = queue[qh++];
+        IR_t *c = queue[qh++];
         if (!c) continue;
         int seen = 0;
         for (int i = 0; i < n; i++) if (nodes[i] == c) { seen = 1; break; }
@@ -619,7 +619,7 @@ static void flat_drive_seq(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_binop_tree(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_binop_tree: missing α or β child\n");
         abort();
@@ -652,7 +652,7 @@ static void flat_drive_binop_tree(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int binop_operand_streams(BB_t *e) {
+static int binop_operand_streams(IR_t *e) {
     if (!e) return 0;
     if (e->t == BB_ASSIGN) return binop_operand_streams(e->β);
     switch (e->t) {
@@ -668,7 +668,7 @@ static int binop_operand_streams(BB_t *e) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_binop_gen_tree(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_binop_gen_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_binop_gen_tree: missing α or β child\n");
         abort();
@@ -691,7 +691,7 @@ static void flat_drive_binop_gen_tree(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t 
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_call_intexpr(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_call_intexpr: missing arg0\n");
         abort();
@@ -708,7 +708,7 @@ static void flat_drive_call_intexpr(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_unop(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_unop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_unop: missing operand (α)\n");
         abort();
@@ -723,7 +723,7 @@ static void flat_drive_unop(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_list_bang(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_list_bang(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_list_bang: missing iterable (α)\n");
         abort();
@@ -736,7 +736,7 @@ static void flat_drive_list_bang(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_field_get(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->sval) {
         fprintf(stderr, "[IBB] FATAL flat_drive_field_get: BB_FIELD_GET needs α (object) and sval (field)\n");
         abort();
@@ -751,7 +751,7 @@ static void flat_drive_field_get(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_field_set(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β || !pBB->sval) {
         fprintf(stderr, "[IBB] FATAL flat_drive_field_set: BB_FIELD_SET needs α (object), β (rhs), sval (field)\n");
         abort();
@@ -770,7 +770,7 @@ static void flat_drive_field_set(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_idx_get(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (pBB && pBB->α && pBB->β) {
         int id = g_flat_node_id++;
         bb_label_t *base_done = emit_label_alloc("xidx%d_base_done", id);
@@ -787,10 +787,10 @@ static void flat_drive_idx_get(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_idx_set(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (pBB && pBB->α && pBB->β) {
         int id = g_flat_node_id++;
-        BB_t *rhs_box = pBB->β ? pBB->β->γ : NULL;
+        IR_t *rhs_box = pBB->β ? pBB->β->γ : NULL;
         bb_label_t *base_done = emit_label_alloc("xidxs%d_base_done", id);
         bb_label_t *base_β    = emit_label_alloc("xidxs%d_base_b",    id);
         bb_label_t *idx_done  = emit_label_alloc("xidxs%d_idx_done",  id);
@@ -811,7 +811,7 @@ static void flat_drive_idx_set(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_initial(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_initial(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         emit_label_define_bb(lbl_β);
         emit_jmp_label(lbl_γ, JMP_JMP);
@@ -829,16 +829,16 @@ static void flat_drive_initial(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     walk_bb_flat(pBB->α, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_case(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         emit_label_define_bb(lbl_β);
         emit_jmp_label(lbl_γ, JMP_JMP);
         emit_jmp_label(lbl_ω, JMP_JMP);
         return;
     }
-    BB_t *chain[256];
+    IR_t *chain[256];
     int nchain = 0;
-    for (BB_t *c = pBB->α->γ; c && nchain < 256; c = c->γ) chain[nchain++] = c;
+    for (IR_t *c = pBB->α->γ; c && nchain < 256; c = c->γ) chain[nchain++] = c;
     int npair      = nchain / 2;
     int has_default = (nchain & 1) != 0;
     int id = g_flat_node_id++;
@@ -873,13 +873,13 @@ static void flat_drive_case(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_limit(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_limit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_limit: BB_LIMIT requires α (generator) and β (count expr)\n");
         abort();
     }
     {
-        BB_t *g = pBB->α;
+        IR_t *g = pBB->α;
         while (g && g->t == BB_ASSIGN) g = g->β;
         int ok = g && (g->t == BB_TO || g->t == BB_TO_BY || g->t == BB_ALT ||
                        g->t == BB_BINOP_GEN || g->t == BB_LIST_BANG);
@@ -911,7 +911,7 @@ static void flat_drive_limit(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     bb_limit_more(pBB);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_return(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_return(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     (void)lbl_γ;
     bb_label_t *slab_exit = g_emit.flat_succ_p ? g_emit.flat_succ_p : lbl_γ;
     if (pBB && pBB->α) {
@@ -926,9 +926,9 @@ static void flat_drive_return(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     EMIT_PAIR_FILL(pBB, slab_exit, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_call_userproc(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int nargs = (int)(pBB ? pBB->ival : 0);
-    BB_t *ax = pBB ? pBB->α : NULL;
+    IR_t *ax = pBB ? pBB->α : NULL;
     bb_label_t *prev_done = NULL;
     for (int j = 0; j < nargs && ax; j++) {
         int id = g_flat_node_id++;
@@ -945,7 +945,7 @@ static void flat_drive_call_userproc(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int gen_bb_is_gen_arg(BB_t *e) {
+static int gen_bb_is_gen_arg(IR_t *e) {
     if (!e) return 0;
     if (e->t == BB_ASSIGN) return gen_bb_is_gen_arg(e->β);
     switch (e->t) {
@@ -957,17 +957,17 @@ static int gen_bb_is_gen_arg(BB_t *e) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int call_args_single_shot(BB_t *pBB) {
+static int call_args_single_shot(IR_t *pBB) {
     int nargs = (int)(pBB ? pBB->ival : 0);
-    BB_t *ax = pBB ? pBB->α : NULL;
+    IR_t *ax = pBB ? pBB->α : NULL;
     for (int j = 0; j < nargs && ax; j++, ax = ax->γ)
         if (gen_bb_is_gen_arg(ax)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_call_builtin(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int nargs = (int)(pBB ? pBB->ival : 0);
-    BB_t *ax = pBB ? pBB->α : NULL;
+    IR_t *ax = pBB ? pBB->α : NULL;
     bb_label_t *prev_done = NULL;
     for (int j = 0; j < nargs && ax; j++) {
         int id = g_flat_node_id++;
@@ -984,7 +984,7 @@ static void flat_drive_call_builtin(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_assign(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_assign: missing α (lhs BB_VAR)\n");
         abort();
@@ -1009,7 +1009,7 @@ static void flat_drive_assign(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_every(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     (void)lbl_ω;
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_every: missing body (bb->α)\n");
@@ -1019,8 +1019,8 @@ static void flat_drive_every(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         if (pBB->ival == 0 && pBB->β &&
             (pBB->α->t == BB_FIELD_SET || pBB->α->t == BB_IDX_SET) &&
             gen_bb_is_gen_arg(pBB->α->β)) {
-            BB_t *lval_node = pBB->α;
-            BB_t *inner_gen = lval_node->β;
+            IR_t *lval_node = pBB->α;
+            IR_t *inner_gen = lval_node->β;
             int id0 = g_flat_node_id++;
             bb_label_t *gen_resume  = emit_label_alloc("xev0%d_gen_resume",  id0);
             bb_label_t *store_α     = emit_label_alloc("xev0%d_store_α",     id0);
@@ -1054,8 +1054,8 @@ static void flat_drive_every(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         }
         if (pBB->ival == 2 && pBB->α && pBB->α->t == BB_ASSIGN &&
             pBB->α->α && pBB->α->α->t == BB_VAR && pBB->α->β && gen_bb_is_gen_arg(pBB->α->β)) {
-            BB_t *gen_assign = pBB->α;
-            BB_t *gen        = gen_assign->β;
+            IR_t *gen_assign = pBB->α;
+            IR_t *gen        = gen_assign->β;
             int idw = g_flat_node_id++;
             bb_label_t *gen_resume = emit_label_alloc("xevery%d_gen_resume", idw);
             bb_label_t *store_α    = emit_label_alloc("xevery%d_store_α",    idw);
@@ -1108,7 +1108,7 @@ static void flat_drive_every(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_swap(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β ||
         pBB->α->t != BB_VAR || !pBB->α->sval ||
         pBB->β->t != BB_VAR || !pBB->β->sval) {
@@ -1129,7 +1129,7 @@ static void flat_drive_swap(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int while_operand_simple(BB_t *o) {
+static int while_operand_simple(IR_t *o) {
     if (!o) return 0;
     switch (o->t) {
     case BB_VAR: case BB_LIT_I: case BB_LIT_S: case BB_LIT_F: case BB_LIT_NUL:
@@ -1143,18 +1143,18 @@ static int while_operand_simple(BB_t *o) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int while_cond_emittable(BB_t *cond) {
+static int while_cond_emittable(IR_t *cond) {
     return cond && cond->t == BB_BINOP && cond->state >= 1 &&
            while_operand_simple(cond->α) && while_operand_simple(cond->β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_while(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_while(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_while: missing cond (bb->α)\n");
         abort();
     }
-    BB_t *cond = pBB->α;
-    BB_t *body = pBB->β;
+    IR_t *cond = pBB->α;
+    IR_t *body = pBB->β;
     int is_until = (pBB->t == BB_UNTIL);
     int cond_is_relop = (cond->t == BB_BINOP && cond->state >= 1);
     int id = g_flat_node_id++;
@@ -1182,10 +1182,10 @@ static void flat_drive_while(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_alt_icn(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    BB_t *arms[64];
+static void flat_drive_alt_icn(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_t *arms[64];
     int n = 0;
-    for (BB_t *a = pBB ? pBB->α : NULL; a && n < 64; a = a->ω) arms[n++] = a;
+    for (IR_t *a = pBB ? pBB->α : NULL; a && n < 64; a = a->ω) arms[n++] = a;
     if (n == 0) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -1208,7 +1208,7 @@ static void flat_drive_alt_icn(BB_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void walk_bb_flat(BB_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) {
         bb_fill_alpha(nd);
         g_emit.lbl_γ = lbl_γ->name;
@@ -1236,20 +1236,20 @@ void walk_bb_flat(BB_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case BB_PAT_CAT:    flat_drive_cat(nd, lbl_γ, lbl_ω, lbl_β); break;
     case BB_PAT_ALT:    flat_drive_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case BB_PAT_ARBNO: {
-        BB_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
         g_emit.child_fn = (void *)cfn;
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case BB_PAT_ASSIGN_IMM: {
-        BB_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
         const char *vn = nd->sval ? nd->sval : "";
         g_emit.child_fn = (void *)cfn; g_emit.op_name1 = vn; g_emit.op_name2 = NULL;
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case BB_PAT_ASSIGN_COND: {
-        BB_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
         const char *vn = nd->sval ? nd->sval : "";
         g_emit.child_fn = (void *)cfn; g_emit.op_name1 = vn; g_emit.op_name2 = NULL;
@@ -1285,7 +1285,7 @@ void walk_bb_flat(BB_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case BB_LIT_F:
     case BB_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case BB_CALL: {
-        BB_t *a0 = nd->α;
+        IR_t *a0 = nd->α;
         int is_intexpr_shape = (a0 && (a0->t == BB_BINOP || a0->t == BB_LIT_I || a0->t == BB_TO || a0->t == BB_TO_BY || a0->t == BB_ALT || a0->t == BB_BINOP_GEN || a0->t == BB_VAR ||
                    a0->t == BB_NEG || a0->t == BB_POS || a0->t == BB_NONNULL || a0->t == BB_NULL_TEST || a0->t == BB_NOT || a0->t == BB_SIZE || a0->t == BB_CALL || a0->t == BB_CASE || a0->t == BB_FIELD_GET || a0->t == BB_LIST_BANG || a0->t == BB_LIMIT || a0->t == BB_IDX ));
         int is_write_fn   = (nd->sval && (!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes")));
@@ -1369,7 +1369,7 @@ void walk_bb_flat(BB_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int codegen_flat_body(BB_t *nd, const char *prefix, int text_externalise, int brokered) {
+static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise, int brokered) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
     emit_label_initf(&lbl_α_body, "%s_α_body", prefix);
@@ -1404,10 +1404,10 @@ static int codegen_flat_body(BB_t *nd, const char *prefix, int text_externalise,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_in_prebuild = 0;
 static int g_text_child_counter = 0;
-static void pre_build_children_text(BB_t *nd, FILE *out, const char *base_prefix) {
+static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix) {
     if (!nd) return;
     if (nd->t == BB_PAT_ARBNO || nd->t == BB_PAT_ASSIGN_COND || nd->t == BB_PAT_ASSIGN_IMM || nd->t == BB_PAT_CALLOUT) {
-        BB_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
             pre_build_children_text(ch, out, base_prefix);
             char child_prefix[120];
@@ -1427,10 +1427,10 @@ static void pre_build_children_text(BB_t *nd, FILE *out, const char *base_prefix
     for (int i = 0; i < bb_pat_nkids(nd); i++) pre_build_children_text(bb_pat_kid(nd, i), out, base_prefix);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pre_build_children(BB_t *nd) {
+static void pre_build_children(IR_t *nd) {
     if (!nd) return;
     if (nd->t == BB_PAT_ARBNO || nd->t == BB_PAT_ASSIGN_COND || nd->t == BB_PAT_ASSIGN_IMM || nd->t == BB_PAT_CALLOUT) {
-        BB_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
             pre_build_children(ch);
             bb_box_fn fn = (nd->t == BB_PAT_ARBNO || nd->t == BB_PAT_ASSIGN_COND || nd->t == BB_PAT_ASSIGN_IMM) ? bb_build_brokered(ch) : bb_build_flat(ch);
@@ -1442,7 +1442,7 @@ static void pre_build_children(BB_t *nd) {
     for (int i = 0; i < bb_pat_nkids(nd); i++) pre_build_children(bb_pat_kid(nd, i));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-bb_box_fn bb_build_flat(BB_t *nd) {
+bb_box_fn bb_build_flat(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
@@ -1457,7 +1457,7 @@ bb_box_fn bb_build_flat(BB_t *nd) {
     return (bb_box_fn)buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-bb_box_fn bb_build_brokered(BB_t *nd) {
+bb_box_fn bb_build_brokered(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
@@ -1475,7 +1475,7 @@ bb_box_fn bb_build_brokered(BB_t *nd) {
     return (bb_box_fn)buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int codegen_flat_build(BB_t *nd, FILE *out, const char *prefix) {
+int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) {
     g_child_cache_n = 0;
     g_text_child_counter = 0;
     pre_build_children_text(nd, out, prefix);
@@ -1485,13 +1485,13 @@ int codegen_flat_build(BB_t *nd, FILE *out, const char *prefix) {
     return rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void walk_bb_register_child_label(BB_t *nd, const char *α_label) {
+void walk_bb_register_child_label(IR_t *nd, const char *α_label) {
     bb_box_fn fn = child_cache_get(nd);
     if (fn) child_cache_set_lbl(fn, α_label);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern bb_mode_t g_bb_mode;
-bb_box_fn bb_build_pure_mode(BB_t *nd) {
+bb_box_fn bb_build_pure_mode(IR_t *nd) {
     if (g_bb_mode == BB_MODE_LIVE) return bb_build_flat(nd);
     return bb_build_brokered(nd);
 }

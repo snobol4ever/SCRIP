@@ -12,7 +12,7 @@ extern "C" {
 #include "emit.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_abort_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_pat_abort_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     int nid = bb_node_id(pBB); (void)nid;
     if (PLATFORM_X86) {
@@ -72,7 +72,7 @@ static std::string bb_pat_abort_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_abort(BB_t * pBB) {
+extern "C" void bb_pat_abort(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_pat_abort_str(pBB, bin), bin);
 }

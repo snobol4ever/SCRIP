@@ -48,7 +48,7 @@ void   rt_pl_choice_cut_unwind(void *cp);
 int    rt_pl_get_cut_flag(void);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_choice_str(BB_t * pBB) {
+static std::string bb_choice_str(IR_t * pBB) {
     (void)pBB;
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — RESOLVE_CHOICE");
@@ -312,7 +312,7 @@ static std::string bb_choice_str(BB_t * pBB) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_choice(BB_t * pBB) {
+extern "C" void bb_choice(IR_t * pBB) {
     std::string out = bb_choice_str(pBB);
     if (!out.empty()) emit_text_n(out.data(), out.size());
 }

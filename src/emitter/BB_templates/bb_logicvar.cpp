@@ -8,7 +8,7 @@ extern "C" {
 }
 extern "C" void rt_pl_var_push(int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_logicvar_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_logicvar_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         bin = { {18, 22, 23}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_γ_p}, {false, true, false} };
@@ -30,7 +30,7 @@ static std::string bb_logicvar_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_logicvar(BB_t * pBB) {
+extern "C" void bb_logicvar(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_logicvar_str(pBB, bin), bin);
 }

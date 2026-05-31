@@ -26,11 +26,11 @@ extern "C" {
 void rt_pop_nv_set(const char *name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_assign_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_assign_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_ASSIGN");
-    BB_t *lhs = pBB ? pBB->α : NULL;
+    IR_t *lhs = pBB ? pBB->α : NULL;
     if (!lhs || lhs->t != BB_VAR || !lhs->sval) {
         fprintf(stderr, "[IBB] FATAL bb_assign: lhs (pBB->α) must be BB_VAR with sval (got kind=%d sval=%s)\n",
                 lhs ? (int)lhs->t : -1, (lhs && lhs->sval) ? lhs->sval : "(null)");
@@ -58,4 +58,4 @@ static std::string bb_assign_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_assign(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_assign_str(pBB, bin), bin); }
+extern "C" void bb_assign(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_assign_str(pBB, bin), bin); }

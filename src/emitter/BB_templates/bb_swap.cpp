@@ -26,12 +26,12 @@ extern "C" {
 void rt_pop_nv_set(const char *name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_swap_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_swap_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_SWAP");
-    BB_t *lhs = pBB ? pBB->α : NULL;
-    BB_t *rhs = pBB ? pBB->β : NULL;
+    IR_t *lhs = pBB ? pBB->α : NULL;
+    IR_t *rhs = pBB ? pBB->β : NULL;
     if (!lhs || lhs->t != BB_VAR || !lhs->sval || !rhs || rhs->t != BB_VAR || !rhs->sval) {
         fprintf(stderr, "[IBB] FATAL bb_swap: x:=:y requires two BB_VAR operands with sval "
                 "(lhs kind=%d rhs kind=%d)\n", lhs ? (int)lhs->t : -1, rhs ? (int)rhs->t : -1);
@@ -65,4 +65,4 @@ static std::string bb_swap_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_swap(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_swap_str(pBB, bin), bin); }
+extern "C" void bb_swap(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_swap_str(pBB, bin), bin); }

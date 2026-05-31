@@ -10,7 +10,7 @@ extern "C" {
 }
 extern "C" int g_flat_node_id;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_fence_str(BB_t * pBB) {
+static std::string bb_pat_fence_str(IR_t * pBB) {
     int nid = bb_node_id(pBB); (void)nid;
     if (PLATFORM_X86) {
         return IF(MEDIUM_MACRO_DEF, s_comment("# no macro form — FENCE"))
@@ -80,7 +80,7 @@ static std::string bb_pat_fence_str(BB_t * pBB) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_fence(BB_t * pBB) {
+extern "C" void bb_pat_fence(IR_t * pBB) {
     std::string s = bb_pat_fence_str(pBB);
     if (MEDIUM_BINARY) bb_emit_asm_result_pairs(s);
     else if (!s.empty()) emit_text_n(s.data(), s.size());

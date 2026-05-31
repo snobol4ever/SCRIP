@@ -11,7 +11,7 @@ extern "C" {
 extern int g_flat_node_id;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_arb_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_pat_arb_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         bin = { {}, {}, {} };
@@ -176,7 +176,7 @@ static std::string bb_pat_arb_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_arb(BB_t * pBB) {
+extern "C" void bb_pat_arb(IR_t * pBB) {
     if (MEDIUM_TEXT) g_emit.bb_cs_id = g_flat_node_id++;
     bb_bin_t bin;
     bb_emit_asm_result(bb_pat_arb_str(pBB, bin), bin);

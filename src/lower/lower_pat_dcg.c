@@ -66,10 +66,10 @@ static int flatten_cat_fill(const tree_t * t, const tree_t ** out, int idx) {
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB_t * fp);
-static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB_t * fp) {
+static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR_t * fp);
+static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR_t * fp) {
     if (!t) return sp;
-    BB_t * bb = NULL;
+    IR_t * bb = NULL;
     switch (t->t) {
     case TT_QLIT: {
         bb = BB_node_alloc(bbg, BB_PAT_LIT);
@@ -155,7 +155,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB
         return bb;
     }
     case TT_FENCE: {
-        BB_t * inner = (t->n > 0 && t->c[0]) ? build_node(bbg, t->c[0], sp, fp) : sp;
+        IR_t * inner = (t->n > 0 && t->c[0]) ? build_node(bbg, t->c[0], sp, fp) : sp;
         if (t->n > 0 && !inner) return NULL;
         bb = BB_node_alloc(bbg, BB_PAT_FENCE);
         bb->α = bb; bb->β = bb;
@@ -167,7 +167,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB
         int inner_cap = count_tree(t->c[0]) * 8 + 16;
         IR_graph_t * inner_blk = BB_alloc(inner_cap, BB_LANG_SNO);
         if (!inner_blk) return NULL;
-        BB_t * inner_entry = build_node(inner_blk, t->c[0], NULL, NULL);
+        IR_t * inner_entry = build_node(inner_blk, t->c[0], NULL, NULL);
         if (!inner_entry) { BB_free(inner_blk); return NULL; }
         inner_blk->entry = inner_entry;
         bb = BB_node_alloc(bbg, BB_PAT_ARBNO);
@@ -188,16 +188,16 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB
         const tree_t ** leaves = (const tree_t **)GC_malloc(nflat * sizeof(const tree_t *));
         flatten_cat_fill(t, leaves, 0);
         if (nflat == 1) return build_node(bbg, leaves[0], sp, fp);
-        BB_t * chain = sp;
-        BB_t ** entries = (BB_t **)GC_malloc(nflat * sizeof(BB_t *));
+        IR_t * chain = sp;
+        IR_t ** entries = (IR_t **)GC_malloc(nflat * sizeof(IR_t *));
         for (int i = nflat - 1; i >= 0; i--) {
-            BB_t * e = build_node(bbg, leaves[i], chain, fp);
+            IR_t * e = build_node(bbg, leaves[i], chain, fp);
             if (!e) return NULL;
             entries[i] = e;
             chain = e;
         }
         for (int i = 0; i < nflat - 1; i++) {
-            BB_t * a = entries[i], * b = entries[i+1];
+            IR_t * a = entries[i], * b = entries[i+1];
             if (a && b && b->ω == fp) b->ω = a->β ? a->β : fp;
         }
         return entries[0];
@@ -205,10 +205,10 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB
     case TT_ALT: {
         if (t->n == 0) return fp;
         if (t->n == 1) return build_node(bbg, t->c[0], sp, fp);
-        BB_t * alt_fail = fp;
-        BB_t * first    = NULL;
+        IR_t * alt_fail = fp;
+        IR_t * first    = NULL;
         for (int i = t->n - 1; i >= 0; i--) {
-            BB_t * e = build_node(bbg, t->c[i], sp, alt_fail);
+            IR_t * e = build_node(bbg, t->c[i], sp, alt_fail);
             if (!e) return NULL;
             first    = e;
             alt_fail = e;
@@ -221,7 +221,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB
         bb->sval = (t->n > 1 && t->c[1] && t->c[1]->v.sval) ? t->c[1]->v.sval : NULL;
         bb->γ = sp;
         bb->ω = fp;
-        BB_t * inner = build_node(bbg, t->c[0], bb, fp);
+        IR_t * inner = build_node(bbg, t->c[0], bb, fp);
         if (!inner) return NULL;
         bb->α = inner;
         bb->β = inner->β;
@@ -233,7 +233,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB
         bb->sval = (t->n > 1 && t->c[1] && t->c[1]->v.sval) ? t->c[1]->v.sval : NULL;
         bb->γ = sp;
         bb->ω = fp;
-        BB_t * inner = build_node(bbg, t->c[0], bb, fp);
+        IR_t * inner = build_node(bbg, t->c[0], bb, fp);
         if (!inner) return NULL;
         bb->α = inner;
         bb->β = inner->β;
@@ -350,7 +350,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, BB_t * sp, BB
         if (!strcmp(fn, "ARBNO") && t->n == 1) {
             IR_graph_t *inner_blk = BB_alloc(count_tree(arg) * 8 + 32, BB_LANG_SNO);
             if (!inner_blk) return NULL;
-            BB_t *inner_entry = build_node(inner_blk, arg, NULL, NULL);
+            IR_t *inner_entry = build_node(inner_blk, arg, NULL, NULL);
             if (!inner_entry) { BB_free(inner_blk); return NULL; }
             inner_blk->entry = inner_entry;
             bb = BB_node_alloc(bbg, BB_PAT_ARBNO);
@@ -390,7 +390,7 @@ IR_graph_t * BB_lower_pat(const tree_t * pat_tree) {
     int cap = count_tree(pat_tree) * 8 + 32;
     IR_graph_t * bbg = BB_alloc(cap, BB_LANG_SNO);
     if (!bbg) return NULL;
-    BB_t * entry = build_node(bbg, pat_tree, NULL, NULL);
+    IR_t * entry = build_node(bbg, pat_tree, NULL, NULL);
     if (!entry) { BB_free(bbg); return NULL; }
     bbg->entry = entry;
     return bbg;
@@ -403,9 +403,9 @@ static int count_patnd(const PATND_t * p) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, BB_t * sp, BB_t * fp) {
+static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) {
     if (!pp) return sp;
-    BB_t * bb = NULL;
+    IR_t * bb = NULL;
     switch (pp->kind) {
     case XCHR: {
         bb = BB_node_alloc(bbg, BB_PAT_LIT);
@@ -502,7 +502,7 @@ static BB_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, BB_t * sp, BB_t * fp) 
         return bb;
     }
     case XFNCE: {
-        BB_t * inner = sp;
+        IR_t * inner = sp;
         if (pp->nchildren > 0 && pp->children && pp->children[0]) {
             inner = build_patnd(bbg, pp->children[0], sp, fp);
             if (!inner) return NULL;
@@ -515,16 +515,16 @@ static BB_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, BB_t * sp, BB_t * fp) 
     case XCAT: {
         if (pp->nchildren == 0) return sp;
         if (pp->nchildren == 1) return build_patnd(bbg, pp->children[0], sp, fp);
-        BB_t * chain = sp;
-        BB_t ** entries = (BB_t **)GC_malloc(pp->nchildren * sizeof(BB_t *));
+        IR_t * chain = sp;
+        IR_t ** entries = (IR_t **)GC_malloc(pp->nchildren * sizeof(IR_t *));
         for (int i = pp->nchildren - 1; i >= 0; i--) {
-            BB_t * e = build_patnd(bbg, pp->children[i], chain, fp);
+            IR_t * e = build_patnd(bbg, pp->children[i], chain, fp);
             if (!e) return NULL;
             entries[i] = e;
             chain = e;
         }
         for (int i = 0; i < pp->nchildren - 1; i++) {
-            BB_t * a = entries[i], * b = entries[i+1];
+            IR_t * a = entries[i], * b = entries[i+1];
             if (a && b && b->ω == fp) b->ω = a->β ? a->β : fp;
         }
         return entries[0];
@@ -532,10 +532,10 @@ static BB_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, BB_t * sp, BB_t * fp) 
     case XOR: {
         if (pp->nchildren == 0) return fp;
         if (pp->nchildren == 1) return build_patnd(bbg, pp->children[0], sp, fp);
-        BB_t * alt_fail = fp;
-        BB_t * first    = NULL;
+        IR_t * alt_fail = fp;
+        IR_t * first    = NULL;
         for (int i = pp->nchildren - 1; i >= 0; i--) {
-            BB_t * e = build_patnd(bbg, pp->children[i], sp, alt_fail);
+            IR_t * e = build_patnd(bbg, pp->children[i], sp, alt_fail);
             if (!e) return NULL;
             first    = e;
             alt_fail = e;
@@ -547,7 +547,7 @@ static BB_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, BB_t * sp, BB_t * fp) 
         int inner_cap = count_patnd(pp->children[0]) * 8 + 16;
         IR_graph_t * inner_blk = BB_alloc(inner_cap, BB_LANG_SNO);
         if (!inner_blk) return NULL;
-        BB_t * inner_entry = build_patnd(inner_blk, pp->children[0], NULL, NULL);
+        IR_t * inner_entry = build_patnd(inner_blk, pp->children[0], NULL, NULL);
         if (!inner_entry) { BB_free(inner_blk); return NULL; }
         inner_blk->entry = inner_entry;
         bb = BB_node_alloc(bbg, BB_PAT_ARBNO);
@@ -574,7 +574,7 @@ static BB_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, BB_t * sp, BB_t * fp) 
                    ((pp->var.v == DT_N && pp->var.s) ? pp->var.s : NULL);
         bb->γ = sp;
         bb->ω = fp;
-        BB_t * inner = build_patnd(bbg, pp->children[0], bb, fp);
+        IR_t * inner = build_patnd(bbg, pp->children[0], bb, fp);
         if (!inner) return NULL;
         bb->α = inner;
         bb->β = inner->β;
@@ -587,7 +587,7 @@ static BB_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, BB_t * sp, BB_t * fp) 
                    ((pp->var.v == DT_N && pp->var.s) ? pp->var.s : NULL);
         bb->γ = sp;
         bb->ω = fp;
-        BB_t * inner = build_patnd(bbg, pp->children[0], bb, fp);
+        IR_t * inner = build_patnd(bbg, pp->children[0], bb, fp);
         if (!inner) return NULL;
         bb->α = inner;
         bb->β = inner->β;
@@ -611,32 +611,32 @@ IR_graph_t * patnd_to_bb_graph(PATND_t * pp) {
     int cap = count_patnd(pp) * 8 + 32;
     IR_graph_t * bbg = BB_alloc(cap, BB_LANG_SNO);
     if (!bbg) return NULL;
-    BB_t * entry = build_patnd(bbg, pp, NULL, NULL);
+    IR_t * entry = build_patnd(bbg, pp, NULL, NULL);
     if (!entry) { BB_free(bbg); return NULL; }
     bbg->entry = entry;
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void tree_set_kids(BB_t * nd, BB_t ** ch, int n) {
+static void tree_set_kids(IR_t * nd, IR_t ** ch, int n) {
     if (!nd || n <= 0) return;
     bb_pat_kids_state_t * zk = (bb_pat_kids_state_t *)GC_MALLOC(sizeof *zk);
     if (!zk) return;
-    zk->kids = (BB_t **)GC_MALLOC((size_t)n * sizeof(BB_t *));
+    zk->kids = (IR_t **)GC_MALLOC((size_t)n * sizeof(IR_t *));
     if (!zk->kids) return;
     for (int i = 0; i < n; i++) zk->kids[i] = ch[i];
     zk->nkids = n;
     nd->counter = (int64_t)(intptr_t)zk;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
+static IR_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
     if (!pp) return NULL;
     switch (pp->kind) {
     case XCAT: {
         if (pp->nchildren == 0) return NULL;
         if (pp->nchildren == 1) return build_patnd_tree(bbg, pp->children[0]);
-        BB_t * nd = BB_node_alloc(bbg, BB_PAT_CAT);
+        IR_t * nd = BB_node_alloc(bbg, BB_PAT_CAT);
         if (!nd) return NULL;
-        BB_t ** kids = (BB_t **)GC_MALLOC((size_t)pp->nchildren * sizeof(BB_t *));
+        IR_t ** kids = (IR_t **)GC_MALLOC((size_t)pp->nchildren * sizeof(IR_t *));
         if (!kids) return NULL;
         for (int i = 0; i < pp->nchildren; i++) {
             kids[i] = build_patnd_tree(bbg, pp->children[i]);
@@ -649,9 +649,9 @@ static BB_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
     case XOR: {
         if (pp->nchildren == 0) return NULL;
         if (pp->nchildren == 1) return build_patnd_tree(bbg, pp->children[0]);
-        BB_t * nd = BB_node_alloc(bbg, BB_PAT_ALT);
+        IR_t * nd = BB_node_alloc(bbg, BB_PAT_ALT);
         if (!nd) return NULL;
-        BB_t ** kids = (BB_t **)GC_MALLOC((size_t)pp->nchildren * sizeof(BB_t *));
+        IR_t ** kids = (IR_t **)GC_MALLOC((size_t)pp->nchildren * sizeof(IR_t *));
         if (!kids) return NULL;
         for (int i = 0; i < pp->nchildren; i++) {
             kids[i] = build_patnd_tree(bbg, pp->children[i]);
@@ -662,40 +662,40 @@ static BB_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
         return nd;
     }
     case XFNCE: {
-        BB_t * nd = BB_node_alloc(bbg, BB_PAT_FENCE);
+        IR_t * nd = BB_node_alloc(bbg, BB_PAT_FENCE);
         if (!nd) return NULL;
         nd->α = nd; nd->β = nd; nd->γ = NULL; nd->ω = NULL;
         if (pp->nchildren > 0 && pp->children && pp->children[0]) {
-            BB_t * inner = build_patnd_tree(bbg, pp->children[0]);
+            IR_t * inner = build_patnd_tree(bbg, pp->children[0]);
             if (!inner) return NULL;
-            BB_t * one[1] = { inner };
+            IR_t * one[1] = { inner };
             tree_set_kids(nd, one, 1);
         }
         return nd;
     }
     case XFNME: {
         if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return NULL;
-        BB_t * inner = build_patnd_tree(bbg, pp->children[0]);
+        IR_t * inner = build_patnd_tree(bbg, pp->children[0]);
         if (!inner) return NULL;
-        BB_t * nd = BB_node_alloc(bbg, BB_PAT_ASSIGN_IMM);
+        IR_t * nd = BB_node_alloc(bbg, BB_PAT_ASSIGN_IMM);
         if (!nd) return NULL;
         nd->sval = (pp->STRVAL_fn && pp->STRVAL_fn[0]) ? pp->STRVAL_fn :
                    ((pp->var.v == DT_N && pp->var.s) ? pp->var.s : NULL);
         nd->α = nd; nd->β = nd; nd->γ = NULL; nd->ω = NULL;
-        BB_t * one[1] = { inner };
+        IR_t * one[1] = { inner };
         tree_set_kids(nd, one, 1);
         return nd;
     }
     case XNME: {
         if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return NULL;
-        BB_t * inner = build_patnd_tree(bbg, pp->children[0]);
+        IR_t * inner = build_patnd_tree(bbg, pp->children[0]);
         if (!inner) return NULL;
-        BB_t * nd = BB_node_alloc(bbg, BB_PAT_ASSIGN_COND);
+        IR_t * nd = BB_node_alloc(bbg, BB_PAT_ASSIGN_COND);
         if (!nd) return NULL;
         nd->sval = (pp->STRVAL_fn && pp->STRVAL_fn[0]) ? pp->STRVAL_fn :
                    ((pp->var.v == DT_N && pp->var.s) ? pp->var.s : NULL);
         nd->α = nd; nd->β = nd; nd->γ = NULL; nd->ω = NULL;
-        BB_t * one[1] = { inner };
+        IR_t * one[1] = { inner };
         tree_set_kids(nd, one, 1);
         return nd;
     }
@@ -704,14 +704,14 @@ static BB_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
         int inner_cap = count_patnd(pp->children[0]) * 8 + 16;
         IR_graph_t * inner_blk = BB_alloc(inner_cap, BB_LANG_SNO);
         if (!inner_blk) return NULL;
-        BB_t * inner_entry = build_patnd_tree(inner_blk, pp->children[0]);
+        IR_t * inner_entry = build_patnd_tree(inner_blk, pp->children[0]);
         if (!inner_entry) { BB_free(inner_blk); return NULL; }
         inner_blk->entry = inner_entry;
-        BB_t * nd = BB_node_alloc(bbg, BB_PAT_ARBNO);
+        IR_t * nd = BB_node_alloc(bbg, BB_PAT_ARBNO);
         if (!nd) return NULL;
         bb_arbno_state_t * az = (bb_arbno_state_t *)GC_MALLOC(sizeof *az);
         if (!az) return NULL;
-        az->kids = (BB_t **)GC_MALLOC(sizeof(BB_t *));
+        az->kids = (IR_t **)GC_MALLOC(sizeof(IR_t *));
         if (!az->kids) return NULL;
         az->kids[0] = inner_entry;
         az->nkids = 1;
@@ -733,7 +733,7 @@ IR_graph_t * patnd_to_bb_tree(PATND_t * pp) {
     int cap = count_patnd(pp) * 8 + 32;
     IR_graph_t * bbg = BB_alloc(cap, BB_LANG_SNO);
     if (!bbg) return NULL;
-    BB_t * entry = build_patnd_tree(bbg, pp);
+    IR_t * entry = build_patnd_tree(bbg, pp);
     if (!entry) { BB_free(bbg); return NULL; }
     bbg->entry = entry;
     return bbg;

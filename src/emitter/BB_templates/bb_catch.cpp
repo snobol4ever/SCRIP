@@ -14,7 +14,7 @@ extern "C" {
 /* PLR-K-18: rt_pl_catch effect helper — in-process absolute address for MEDIUM_BINARY. */
 extern "C" { int rt_pl_catch(void *zc_ptr); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_catch_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_catch_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — RESOLVE_CATCH");
@@ -57,7 +57,7 @@ static std::string bb_catch_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_catch(BB_t * pBB) {
+extern "C" void bb_catch(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_catch_str(pBB, bin), bin);
 }

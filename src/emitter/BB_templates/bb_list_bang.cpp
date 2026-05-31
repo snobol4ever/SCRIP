@@ -29,7 +29,7 @@ extern "C" {
 int rt_list_bang(DESCR_t *obj_slot, int64_t *idx_slot, int *state_slot, int reset);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_list_bang_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_list_bang_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_LIST_BANG");
@@ -89,4 +89,4 @@ static std::string bb_list_bang_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_list_bang(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_list_bang_str(pBB, bin), bin); }
+extern "C" void bb_list_bang(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_list_bang_str(pBB, bin), bin); }

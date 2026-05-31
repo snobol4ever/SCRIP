@@ -11,7 +11,7 @@ extern "C" {
 #include "emit.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_conj_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_conj_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         return IF(MEDIUM_MACRO_DEF, s_comment("# no macro form — RESOLVE_SEQ"))
@@ -41,7 +41,7 @@ static std::string bb_conj_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_conj(BB_t * pBB) {
+extern "C" void bb_conj(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_conj_str(pBB, bin), bin);
 }

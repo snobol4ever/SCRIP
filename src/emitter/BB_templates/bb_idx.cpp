@@ -34,7 +34,7 @@ int rt_idx_get(void);
 int rt_idx_set(void);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_idx_emit(BB_t * pBB, bb_bin_t & bin, int is_set) {
+static std::string bb_idx_emit(IR_t * pBB, bb_bin_t & bin, int is_set) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_IDX");
@@ -60,5 +60,5 @@ static std::string bb_idx_emit(BB_t * pBB, bb_bin_t & bin, int is_set) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_idx(BB_t * pBB)     { bb_bin_t bin; bb_emit_asm_result(bb_idx_emit(pBB, bin, 0), bin); }
-extern "C" void bb_idx_set(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_idx_emit(pBB, bin, 1), bin); }
+extern "C" void bb_idx(IR_t * pBB)     { bb_bin_t bin; bb_emit_asm_result(bb_idx_emit(pBB, bin, 0), bin); }
+extern "C" void bb_idx_set(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_idx_emit(pBB, bin, 1), bin); }

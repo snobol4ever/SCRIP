@@ -33,7 +33,7 @@
 
    FACT RULE: every byte emitted via s_* helpers — no seg_byte, SL_B,
    sl_emit_one, or emit_standard_blob. PEERS RULE: discriminator is sval
-   presence (no new BB_t fields). */
+   presence (no new IR_t fields). */
 #include <string>
 #include <stdint.h>
 #include <string.h>
@@ -49,7 +49,7 @@ extern void *  GC_malloc(size_t n);
 extern size_t  strlen(const char *);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_iterate_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_iterate_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     int id = bb_node_id(pBB);
@@ -451,7 +451,7 @@ static std::string bb_iterate_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_iterate(BB_t * pBB) {
+extern "C" void bb_iterate(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_iterate_str(pBB, bin), bin);
 }

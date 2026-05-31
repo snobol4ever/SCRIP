@@ -9,7 +9,7 @@ extern "C" {
 }
 extern "C" void rt_pl_atom_push(const char *s);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_atom_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_atom_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         const char *atom = pBB->sval ? pBB->sval : "";
@@ -40,7 +40,7 @@ static std::string bb_atom_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_atom(BB_t * pBB) {
+extern "C" void bb_atom(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_atom_str(pBB, bin), bin);
 }

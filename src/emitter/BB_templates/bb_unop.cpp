@@ -34,7 +34,7 @@ int rt_unop_not(void);
 int rt_unop_size(void);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *bb_unop_helper_name(BB_t * pBB) {
+static const char *bb_unop_helper_name(IR_t * pBB) {
     if (!pBB) return "rt_unop_not";
     switch (pBB->t) {
     case BB_NEG:        return "rt_unop_neg";
@@ -47,7 +47,7 @@ static const char *bb_unop_helper_name(BB_t * pBB) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static uint64_t bb_unop_helper_ptr(BB_t * pBB) {
+static uint64_t bb_unop_helper_ptr(IR_t * pBB) {
     int (*fp)(void) = rt_unop_not;
     if (pBB) switch (pBB->t) {
         case BB_NEG:        fp = rt_unop_neg;        break;
@@ -61,7 +61,7 @@ static uint64_t bb_unop_helper_ptr(BB_t * pBB) {
     return (uint64_t)(uintptr_t)(void*)fp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_unop_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_unop_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_UNOP");
@@ -87,4 +87,4 @@ static std::string bb_unop_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_unop(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_unop_str(pBB, bin), bin); }
+extern "C" void bb_unop(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_unop_str(pBB, bin), bin); }

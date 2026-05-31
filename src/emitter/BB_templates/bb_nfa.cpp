@@ -17,7 +17,7 @@ extern "C" {
 /* Shared passthrough body: γ on out1, β→ω (no retry). Byte-identical to bb_eps — the EPS/CAP_* nodes  */
 /* are pure epsilon joins in nfa_bt (tail to s->out1; captures record pos as a side effect handled by  */
 /* the capture-block writer added in the follow-up step, not by control flow). */
-static std::string bb_nfa_passthrough_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_nfa_passthrough_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
     if (PLATFORM_X86) {
@@ -36,17 +36,17 @@ static std::string bb_nfa_passthrough_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_nfa_eps(BB_t * pBB) {
+extern "C" void bb_nfa_eps(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_passthrough_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_nfa_cap_open(BB_t * pBB) {
+extern "C" void bb_nfa_cap_open(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_passthrough_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_nfa_cap_close(BB_t * pBB) {
+extern "C" void bb_nfa_cap_close(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_passthrough_str(pBB, bin), bin);
 }
@@ -58,7 +58,7 @@ extern "C" void bb_nfa_cap_close(BB_t * pBB) {
 /* from g_emit.lbl_* set per-node by the walker. MEDIUM_BINARY (mode-3 native) is deferred to RK-NFA-5  */
 /* — mode-3 ~~ still runs via the proven C matcher + byname dispatch, so the BINARY arm is a comment.   */
 /* BB_NFA_CHAR: match one literal char (pBB->ival) at pos; advance + γ on hit, ω on miss/end-of-input.  */
-static std::string bb_nfa_char_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_nfa_char_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         return IF(MEDIUM_MACRO_DEF, s_comment("# no macro form — NFA CHAR"))
@@ -78,14 +78,14 @@ static std::string bb_nfa_char_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_nfa_char(BB_t * pBB) {
+extern "C" void bb_nfa_char(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_char_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB_NFA_ACCEPT: terminal success — γ is the walker's matched-epilogue label (which restores the saved */
 /* regs, pushes the verdict, sets last_ok). Pure jmp γ; β→ω like the passthrough leaves.                */
-static std::string bb_nfa_accept_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_nfa_accept_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
     if (PLATFORM_X86) {
@@ -100,13 +100,13 @@ static std::string bb_nfa_accept_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_nfa_accept(BB_t * pBB) {
+extern "C" void bb_nfa_accept(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_accept_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB_NFA_ANY: Raku `.` — match any char except '\n' at pos; advance + γ on hit, ω on end/newline.     */
-static std::string bb_nfa_any_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_nfa_any_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
     if (PLATFORM_X86) {
@@ -126,13 +126,13 @@ static std::string bb_nfa_any_str(BB_t * pBB, bb_bin_t & bin) {
     }
     return std::string();
 }
-extern "C" void bb_nfa_any(BB_t * pBB) {
+extern "C" void bb_nfa_any(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_any_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB_NFA_BOL: Raku `^` — zero-width; γ iff pos==0, else ω. No advance.                                */
-static std::string bb_nfa_bol_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_nfa_bol_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
     if (PLATFORM_X86) {
@@ -148,13 +148,13 @@ static std::string bb_nfa_bol_str(BB_t * pBB, bb_bin_t & bin) {
     }
     return std::string();
 }
-extern "C" void bb_nfa_bol(BB_t * pBB) {
+extern "C" void bb_nfa_bol(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_bol_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB_NFA_EOL: Raku `$` — zero-width; γ iff pos==slen, else ω. No advance.                             */
-static std::string bb_nfa_eol_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_nfa_eol_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
     if (PLATFORM_X86) {
@@ -170,7 +170,7 @@ static std::string bb_nfa_eol_str(BB_t * pBB, bb_bin_t & bin) {
     }
     return std::string();
 }
-extern "C" void bb_nfa_eol(BB_t * pBB) {
+extern "C" void bb_nfa_eol(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_eol_str(pBB, bin), bin);
 }
@@ -181,7 +181,7 @@ extern "C" void bb_nfa_eol(BB_t * pBB) {
 /* native binary, so the cset must travel as emitted bytes). Membership test mirrors raku_cc_test:     */
 /* byte = bits[c>>3], bit = c&7 → `bt edx, eax`. Scratch regs eax/ecx/edx only (caller-saved; the       */
 /* walker's r12-r15 and callee-saved rbx untouched).                                                   */
-static std::string bb_nfa_class_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_nfa_class_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     int id = bb_node_id(pBB);
     if (PLATFORM_X86) {
@@ -216,7 +216,7 @@ static std::string bb_nfa_class_str(BB_t * pBB, bb_bin_t & bin) {
     }
     return std::string();
 }
-extern "C" void bb_nfa_class(BB_t * pBB) {
+extern "C" void bb_nfa_class(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_nfa_class_str(pBB, bin), bin);
 }

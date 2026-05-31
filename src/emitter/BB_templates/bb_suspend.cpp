@@ -20,7 +20,7 @@
    BB_SUSPEND nodes inside a BB_SEQ, NOT from looping inside one node.
 
    FACT RULE: every byte emitted goes through s_* / bytes() — no seg_byte, no SL_B, no
-   sl_emit_one, no emit_standard_blob. PEERS RULE: no fields added to BB_t. */
+   sl_emit_one, no emit_standard_blob. PEERS RULE: no fields added to IR_t. */
 #include <string>
 #include <string.h>
 #include "emit_str.h"
@@ -31,7 +31,7 @@ extern "C" {
 void rt_push_int(int64_t v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_suspend_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_suspend_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         /* Literal fast-path detection: operand is BB_LIT_I. */
@@ -105,7 +105,7 @@ static std::string bb_suspend_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_suspend(BB_t * pBB) {
+extern "C" void bb_suspend(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_suspend_str(pBB, bin), bin);
 }

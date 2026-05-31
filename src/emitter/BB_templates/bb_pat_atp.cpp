@@ -15,7 +15,7 @@ extern "C" {
    integer DESCR to the variable. Declared here so the BINARY arm can bake &rt_at_cursor as imm64. */
 extern "C" void rt_at_cursor(const char *varname, int cur_delta);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_atp_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_pat_atp_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     int nid = bb_node_id(pBB); int sid = 0;
     const char *varname = (g_emit.op_name1 && g_emit.op_name1[0]) ? g_emit.op_name1
@@ -83,7 +83,7 @@ static std::string bb_pat_atp_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_atp(BB_t * pBB) {
+extern "C" void bb_pat_atp(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_pat_atp_str(pBB, bin), bin);
 }

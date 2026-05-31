@@ -27,7 +27,7 @@ void rt_push_int(int64_t v);
 int  rt_toby_real(DESCR_t *cur_slot, int64_t lo_bits, int64_t hi_bits, int64_t step_bits, int reset);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_to_by_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_to_by_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         int id = bb_node_id(pBB);
@@ -201,7 +201,7 @@ static std::string bb_to_by_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_to_by(BB_t * pBB) {
+extern "C" void bb_to_by(IR_t * pBB) {
     bb_bin_t bin;
     bb_emit_asm_result(bb_to_by_str(pBB, bin), bin);
 }

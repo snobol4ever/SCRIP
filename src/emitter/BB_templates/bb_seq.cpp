@@ -43,7 +43,7 @@
    is reached only when emit_core peels BB_SEQ off — see step 5).
 
    FACT RULE: every byte emitted via s_* / bytes() — no seg_byte, SL_B, sl_emit_one, or
-   emit_standard_blob. PEERS RULE: no fields added to BB_t. */
+   emit_standard_blob. PEERS RULE: no fields added to IR_t. */
 #include <string>
 #include <string.h>
 #include "emit_str.h"
@@ -54,15 +54,15 @@ extern "C" {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Count the γ-chain length rooted at α. */
-static int seq_chain_len(BB_t * head) {
+static int seq_chain_len(IR_t * head) {
     int n = 0;
-    for (BB_t * c = head; c; c = c->γ) n++;
+    for (IR_t * c = head; c; c = c->γ) n++;
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Emit one child's four-port x86 inline with caller-chosen labels. Returns the box's emitted */
 /* TEXT as a string. Mirrors bb_binop_gen.cpp emit_child_box.                                  */
-static std::string emit_child_box_seq(BB_t * child,
+static std::string emit_child_box_seq(IR_t * child,
                                       bb_label_t * la, bb_label_t * lg,
                                       bb_label_t * lo, bb_label_t * lb) {
     g_emit.lbl_α = la->name; g_emit.lbl_α_p = la;
@@ -75,7 +75,7 @@ static std::string emit_child_box_seq(BB_t * child,
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_seq_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_seq_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
         int id   = bb_node_id(pBB);
@@ -135,7 +135,7 @@ static std::string bb_seq_str(BB_t * pBB, bb_bin_t & bin) {
             /* children; if ANY child is BB_SUSPEND we're in gather-driver territory. Otherwise    */
             /* we're a flat in-order sequence.                                                     */
             int has_suspend = 0;
-            for (BB_t * c = pBB->α; c; c = c->γ) {
+            for (IR_t * c = pBB->α; c; c = c->γ) {
                 if (c->t == BB_SUSPEND) { has_suspend = 1; break; }
             }
 
@@ -161,7 +161,7 @@ static std::string bb_seq_str(BB_t * pBB, bb_bin_t & bin) {
                     + s_1asm(emit_fmt("jmp .Lseq%d_s0_α", id));
 
                 std::string body;
-                BB_t * cur = pBB->α;
+                IR_t * cur = pBB->α;
                 for (int k = 0; k < n && cur; k++, cur = cur->γ) {
                     bb_label_t * child_γ_target = (k + 1 < n) ? &Lα[k + 1] : outer_γ_p;
                     body += emit_child_box_seq(cur, &Lα[k], child_γ_target, outer_ω_p, &Lβ[k]);
@@ -200,7 +200,7 @@ static std::string bb_seq_str(BB_t * pBB, bb_bin_t & bin) {
                 + s_2asm("jmp",      "rax");
 
             std::string body;
-            BB_t * cur = pBB->α;
+            IR_t * cur = pBB->α;
             for (int k = 0; k < n && cur; k++, cur = cur->γ) {
                 /* Each child uses its own α/γ/ω/β labels. Note: child's ω becomes the NEXT child's    */
                 /* α (or outer ω if last) by SUBSTITUTING the ω-label PASSED into the child template.   */
@@ -298,12 +298,12 @@ static std::string bb_seq_str(BB_t * pBB, bb_bin_t & bin) {
 /* into the wrapper's bb_emit_end (which resolves all patches after bb_seq returns). The wrapper-  */
 /* owned outer ports γ/ω/β are referenced via _.lbl_*_p (stack-stable across that bb_emit_end).   */
 /* Returns 1 if it handled emission, 0 to fall through to the bb_seq_str path. FACT/PEERS clean.  */
-static int bb_seq_gather_binary(BB_t * pBB) {
+static int bb_seq_gather_binary(IR_t * pBB) {
     if (!(PLATFORM_X86 && MEDIUM_BINARY)) return 0;
     int n = seq_chain_len(pBB->α);
     if (n == 0) return 0;
     int has_suspend = 0;
-    for (BB_t * c = pBB->α; c; c = c->γ) if (c->t == BB_SUSPEND) { has_suspend = 1; break; }
+    for (IR_t * c = pBB->α; c; c = c->γ) if (c->t == BB_SUSPEND) { has_suspend = 1; break; }
     if (!has_suspend) return 0;
     int id = bb_node_id(pBB);
     uint64_t * resume_slot = (uint64_t *)calloc(1, sizeof(uint64_t));
@@ -329,7 +329,7 @@ static int bb_seq_gather_binary(BB_t * pBB) {
     bb_emit_byte(0x48); bb_emit_byte(0xB8); bb_emit_u64((uint64_t)(uintptr_t)resume_slot);
     bb_emit_byte(0x48); bb_emit_byte(0x8B); bb_emit_byte(0x00);
     bb_emit_byte(0xFF); bb_emit_byte(0xE0);
-    BB_t * cur = pBB->α;
+    IR_t * cur = pBB->α;
     for (int k = 0; k < n && cur; k++, cur = cur->γ) {
         bb_label_t * child_ω = (k + 1 < n) ? &Lα[k + 1] : outer_ω_p;
         bb_label_define(&Lα[k]);
@@ -351,7 +351,7 @@ static int bb_seq_gather_binary(BB_t * pBB) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_seq(BB_t * pBB) {
+extern "C" void bb_seq(IR_t * pBB) {
     if (bb_seq_gather_binary(pBB)) return;
     bb_bin_t bin;
     bb_emit_asm_result(bb_seq_str(pBB, bin), bin);

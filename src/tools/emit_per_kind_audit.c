@@ -11,12 +11,12 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-static BB_t g_audit_nodes[BB_OP_COUNT];
-static BB_t  g_audit_child_lit_i;
-static BB_t  g_audit_child_lit_s;
-static BB_t  g_audit_child_var;
-static BB_t *g_audit_child2[2];
-static BB_t *g_audit_child3[3];
+static IR_t g_audit_nodes[BB_OP_COUNT];
+static IR_t  g_audit_child_lit_i;
+static IR_t  g_audit_child_lit_s;
+static IR_t  g_audit_child_var;
+static IR_t *g_audit_child2[2];
+static IR_t *g_audit_child3[3];
 static bb_pat_kids_state_t g_audit_kids1;
 static bb_pat_kids_state_t g_audit_kids2;
 static bb_pat_kids_state_t g_audit_kids3;
@@ -254,7 +254,7 @@ static void prime_child_nodes(void) {
     g_audit_kids3.kids = g_audit_child3; g_audit_kids3.nkids = 3;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void prime_node_for_kind(BB_t *nd, BB_op_t kind) {
+static void prime_node_for_kind(IR_t *nd, BB_op_t kind) {
     memset(nd, 0, sizeof *nd);
     nd->t = kind;
     nd->α = nd;
@@ -343,7 +343,7 @@ static int mkdir_p(const char *path) {
 static int emit_one_cell(const char *out_dir,
                          const backend_entry_t *be,
                          const kind_entry_t   *ke,
-                         BB_t                 *nd,
+                         IR_t                 *nd,
                          int                  *out_zero_bytes)
 {
     char dir_path[1024], file_path[1024];
@@ -390,7 +390,7 @@ static int emit_one_cell(const char *out_dir,
     g_emit.op_kind  = NULL;
     int rc;
     if (bb_kind_is_driver_owned((int)nd->t) && be->mode != EMIT_JVM && be->mode != EMIT_JS && be->mode != EMIT_NET && be->mode != EMIT_WASM) {
-        extern void walk_bb_flat(BB_t *, bb_label_t *, bb_label_t *, bb_label_t *);
+        extern void walk_bb_flat(IR_t *, bb_label_t *, bb_label_t *, bb_label_t *);
         walk_bb_flat(nd, &s_audit_succ, &s_audit_fail, &s_audit_back);
         rc = 0;
     } else {
@@ -517,7 +517,7 @@ int emit_per_kind_audit_run(const char *out_dir) {
         const backend_entry_t *be = &g_backends[b];
         for (int k = 0; k < g_kind_count; k++) {
             const kind_entry_t *ke = &g_kinds[k];
-            BB_t *nd = &g_audit_nodes[(int)ke->kind];
+            IR_t *nd = &g_audit_nodes[(int)ke->kind];
             prime_node_for_kind(nd, ke->kind);
             int zero_before = zero_cells;
             int rc = emit_one_cell(out_dir, be, ke, nd, &zero_cells);

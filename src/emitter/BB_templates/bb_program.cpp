@@ -14,6 +14,6 @@ extern "C" {
 #include "emit_bb.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_program_str(BB_t * pBB, bb_bin_t & bin) { (void)pBB; bin = {}; return std::string(); }
+static std::string bb_program_str(IR_t * pBB, bb_bin_t & bin) { (void)pBB; bin = {}; return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_program(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_program_str(pBB, bin), bin); }
+extern "C" void bb_program(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_program_str(pBB, bin), bin); }

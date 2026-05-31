@@ -20,14 +20,14 @@ extern "C" {
 #include "emit.h"
 #include "emit_bb.h"
 }
-extern "C" char * walk_bb_node_str_c(BB_t *);
+extern "C" char * walk_bb_node_str_c(IR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_every_str(BB_t * pBB, bb_bin_t & bin) {
+static std::string bb_every_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_EVERY");
     if (MEDIUM_TEXT) {
-        BB_t * body = pBB->α;
+        IR_t * body = pBB->α;
         if (!body) {
             fprintf(stderr, "[IBB] FATAL bb_every: body (pBB->α) is NULL\n");
             abort();
@@ -111,4 +111,4 @@ static std::string bb_every_str(BB_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_every(BB_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_every_str(pBB, bin), bin); }
+extern "C" void bb_every(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_every_str(pBB, bin), bin); }

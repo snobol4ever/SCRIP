@@ -76,10 +76,10 @@ static Term *resolve_nb_get(int aid) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * g_current_cfg = NULL;
 static IR_graph_t * g_resolve_tail_redirect_cfg   = NULL;
-static BB_t       * g_resolve_tail_redirect_entry = NULL;
+static IR_t       * g_resolve_tail_redirect_entry = NULL;
 int g_resolve_b3_call_mark = -1;
 DESCR_t bb_exec_once(IR_graph_t * bbg);
-static int ir_is_single_shot(BB_t * e) {
+static int ir_is_single_shot(IR_t * e) {
     if (!e) return 1;
     switch (e->t) {
     case BB_TO: case BB_TO_BY: case BB_UPTO: case BB_ITERATE:
@@ -94,13 +94,13 @@ static int ir_is_single_shot(BB_t * e) {
             if (!g_stage2.proc_table[_pi].name || strcmp(g_stage2.proc_table[_pi].name, e->sval) != 0) continue;
             if (!bb_graph_of_proc(&g_stage2.proc_table[_pi])) return 0;
             if (g_stage2.proc_table[_pi].is_generator) return 0;
-            for (BB_t * a = e->α; a; a = a->γ) if (!ir_is_single_shot(a)) return 0;
+            for (IR_t * a = e->α; a; a = a->γ) if (!ir_is_single_shot(a)) return 0;
             return 1;
         }
         if (!strcmp(e->sval, "find") || !strcmp(e->sval, "upto") || !strcmp(e->sval, "any")
             || !strcmp(e->sval, "many") || !strcmp(e->sval, "bal") || !strcmp(e->sval, "key")
             || !strcmp(e->sval, "seq")) return 0;
-        for (BB_t * a = e->α; a; a = a->γ) if (!ir_is_single_shot(a)) return 0;
+        for (IR_t * a = e->α; a; a = a->γ) if (!ir_is_single_shot(a)) return 0;
         return 1;
     }
     default: {
@@ -111,20 +111,20 @@ static int ir_is_single_shot(BB_t * e) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bb_is_gen_node(BB_t * e);
+static int bb_is_gen_node(IR_t * e);
 static int bb_is_gen_kind_raw(BB_op_t k) {
     return k == BB_TO || k == BB_TO_BY || k == BB_UPTO || k == BB_ALT ||
            k == BB_BINOP_GEN || k == BB_ITERATE || k == BB_LIMIT || k == BB_PROC_GEN ||
            k == BB_LIST_BANG || k == BB_KEY_GEN || k == BB_FIND_GEN || k == BB_SEQ_GEN;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bb_is_gen_node(BB_t * e) {
+static int bb_is_gen_node(IR_t * e) {
     if (!e) return 0;
     if (e->t == BB_ASSIGN) return bb_is_gen_node(e->β);
     return bb_is_gen_kind_raw(e->t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Term *resolve_node_to_term(BB_t *bb) {
+static Term *resolve_node_to_term(IR_t *bb) {
     extern Term **g_resolve_env;
     if (!bb) return NULL;
     switch (bb->t) {
@@ -141,7 +141,7 @@ static Term *resolve_node_to_term(BB_t *bb) {
         int arity = (int)bb->ival;
         if (arity <= 0) return term_new_atom(prolog_atom_intern(bb->sval ? bb->sval : "[]"));
         Term **args = (Term **)GC_MALLOC((size_t)arity * sizeof(Term *));
-        BB_t *a = bb->α;
+        IR_t *a = bb->α;
         for (int i = 0; i < arity && a; i++) { args[i] = resolve_node_to_term(a); a = a->γ; }
         return term_new_compound(prolog_atom_intern(bb->sval ? bb->sval : "[]"), arity, args);
     }
@@ -260,7 +260,7 @@ static int resolve_term_is_proper_list(Term *t) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t resolve_arith_eval(BB_t *bb) {
+static DESCR_t resolve_arith_eval(IR_t *bb) {
     extern Term **g_resolve_env;
     if (!bb) return FAILDESCR;
     switch (bb->t) {
@@ -375,8 +375,8 @@ int rt_pl_is(int dst_slot, const char *op, int lk, long li, int rk, long ri) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_eval(void *lhs_bb, void *rhs_bb) {
     extern Term **g_resolve_env; extern Trail g_resolve_trail;
-    BB_t *lhs = (BB_t *)lhs_bb;
-    BB_t *rhs = (BB_t *)rhs_bb;
+    IR_t *lhs = (IR_t *)lhs_bb;
+    IR_t *rhs = (IR_t *)rhs_bb;
     if (!lhs || !rhs || !g_resolve_env) return 0;
     int dst_slot = (int)lhs->ival;
     if (dst_slot < 0) return 0;
@@ -748,7 +748,7 @@ int rt_pl_findall(void *fs_ptr) {
     int          outer_cut_flag     = g_resolve_cut_flag;
     int          outer_b3_mark      = g_resolve_b3_call_mark;
     IR_graph_t  *outer_redirect_cfg = g_resolve_tail_redirect_cfg;
-    BB_t        *outer_redirect_ent = g_resolve_tail_redirect_entry;
+    IR_t        *outer_redirect_ent = g_resolve_tail_redirect_entry;
     int mark = trail_mark(&g_resolve_trail);
     g_resolve_bfr              = NULL;
     g_resolve_cut_barrier      = NULL;
@@ -828,7 +828,7 @@ int rt_pl_catch(void *zc_ptr) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_throw(void *alpha_ptr) {
-    BB_t *alpha = (BB_t *)alpha_ptr;
+    IR_t *alpha = (IR_t *)alpha_ptr;
     Term *ball = alpha ? resolve_node_to_term(alpha) : term_new_atom(prolog_atom_intern("error"));
     resolve_throw_term(ball);
     return 0;
@@ -1284,7 +1284,7 @@ static void resolve_format_float(char *buf, size_t bufsz, double d) {
 static int bb_body_has_live_choice(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
-        BB_t *bb = bbg->all[i];
+        IR_t *bb = bbg->all[i];
         if (!bb) continue;
         if ((bb->t == BB_GOAL || bb->t == BB_CHOICE || bb->t == BB_DISJ) && bb->state > 0)
             return 1;
@@ -1295,7 +1295,7 @@ static int bb_body_has_live_choice(IR_graph_t *bbg) {
 static int bb_body_cp_free_except_tail(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
-        BB_t *bb = bbg->all[i];
+        IR_t *bb = bbg->all[i];
         if (!bb) continue;
         if (bb->t == BB_CHOICE || bb->t == BB_DISJ) return 0;
         if (bb->t == BB_GOAL && bb->γ != NULL)     return 0;
@@ -1321,7 +1321,7 @@ static long resolve_term_first_arg_key(Term *t) {
 static int bb_body_single_solution(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
-        BB_t *bb = bbg->all[i];
+        IR_t *bb = bbg->all[i];
         if (!bb) continue;
         if (bb->t == BB_CHOICE || bb->t == BB_DISJ || bb->t == BB_GOAL) return 0;
     }
@@ -1411,7 +1411,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t * bb_exec_node(BB_t * bb) {
+IR_t * bb_exec_node(IR_t * bb) {
     switch (bb->t) {
     case BB_LIT_I:
         bb->value = INTVAL(bb->ival);
@@ -1442,7 +1442,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             val = bb->β->value;
         }
         if (IS_FAIL_fn(val)) { bb->value = FAILDESCR; return bb->ω; }
-        BB_t *lhs = bb->α;
+        IR_t *lhs = bb->α;
         if (lhs->t == BB_VAR && lhs->sval) {
             if (frame_depth > 0) {
                 int slot = scope_get(&FRAME.sc, lhs->sval);
@@ -1461,8 +1461,8 @@ BB_t * bb_exec_node(BB_t * bb) {
     }
     case BB_SWAP: {
         if (!bb->α || !bb->β) { bb->value = FAILDESCR; return bb->ω; }
-        BB_t *l_var = bb->α;
-        BB_t *r_var = bb->β;
+        IR_t *l_var = bb->α;
+        IR_t *r_var = bb->β;
         if (l_var->t != BB_VAR || r_var->t != BB_VAR || !l_var->sval || !r_var->sval) {
             bb->value = FAILDESCR; return bb->ω;
         }
@@ -1501,7 +1501,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         int nargs   = (int)bb->ival;
         int has_gen_arg = 0;
         if (nargs > 0 && !is_deep) {
-            BB_t *gx = bb->α; for (int j = 0; j < nargs && gx; j++, gx = gx->γ) if (!ir_is_single_shot(gx)) { has_gen_arg = 1; break; }
+            IR_t *gx = bb->α; for (int j = 0; j < nargs && gx; j++, gx = gx->γ) if (!ir_is_single_shot(gx)) { has_gen_arg = 1; break; }
         }
         int is_plain_builtin = 0;
         if (has_gen_arg) {
@@ -1513,8 +1513,8 @@ BB_t * bb_exec_node(BB_t * bb) {
         if (has_gen_arg && is_plain_builtin) {
             DESCR_t *oargs = (DESCR_t *)GC_malloc((size_t)nargs * sizeof(DESCR_t));
             if (bb->state == 2) {
-                BB_t **argv = (BB_t **)GC_malloc((size_t)nargs * sizeof(BB_t *));
-                { BB_t *ax = bb->α; for (int j = 0; j < nargs && ax; j++, ax = ax->γ) argv[j] = ax; }
+                IR_t **argv = (IR_t **)GC_malloc((size_t)nargs * sizeof(IR_t *));
+                { IR_t *ax = bb->α; for (int j = 0; j < nargs && ax; j++, ax = ax->γ) argv[j] = ax; }
                 int advanced = 0;
                 for (int j = nargs - 1; j >= 0; j--) {
                     if (ir_is_single_shot(argv[j])) continue;
@@ -1529,7 +1529,7 @@ BB_t * bb_exec_node(BB_t * bb) {
                     if (IS_FAIL_fn(oargs[j])) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
                 }
             } else {
-                BB_t *ax = bb->α;
+                IR_t *ax = bb->α;
                 for (int j = 0; j < nargs; j++) {
                     if (!ax) { bb->value = FAILDESCR; return bb->ω; }
                     ax->state = 0; bb_exec_node(ax);
@@ -1555,7 +1555,7 @@ BB_t * bb_exec_node(BB_t * bb) {
                     if (IS_FAIL_fn(args[j])) { bb->value = FAILDESCR; return bb->ω; }
                 }
             } else {
-                BB_t *ax = bb->α;
+                IR_t *ax = bb->α;
                 for (int j = 0; j < nargs; j++) {
                     if (!ax) { bb->value = FAILDESCR; return bb->ω; }
                     bb_exec_node(ax);
@@ -1612,7 +1612,7 @@ BB_t * bb_exec_node(BB_t * bb) {
     }
     case BB_SEQ: {
         if (g_current_cfg && g_current_cfg->lang == BB_LANG_RKU && bb->α && bb->α->t == BB_SUSPEND) {
-            BB_t * child = bb->α;
+            IR_t * child = bb->α;
             for (int64_t k = 0; k < bb->counter && child; k++) child = child->γ;
             bb->counter++;
             if (!child || child->t != BB_SUSPEND) { bb->value = FAILDESCR; return NULL; }
@@ -1625,10 +1625,10 @@ BB_t * bb_exec_node(BB_t * bb) {
     }
     case BB_SEQ_EXPR: {
         if (!bb->α) { bb->value = NULVCL; return bb->γ; }
-        BB_t *last_child = bb->α;
+        IR_t *last_child = bb->α;
         while (last_child->γ) last_child = last_child->γ;
         if (bb->state == 0) {
-            for (BB_t *st = bb->α; st && st != last_child; st = st->γ) {
+            for (IR_t *st = bb->α; st && st != last_child; st = st->γ) {
                 bb_exec_node(st);
                 if (frame_depth > 0 && FRAME.returning) {
                     bb->value = st->value;
@@ -1810,7 +1810,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             return bb->γ;
         }
         if (bb->ω) {
-            BB_t *else_box = bb->ω;
+            IR_t *else_box = bb->ω;
             else_box->state = 0;
             bb_exec_node(else_box);
             bb->value = else_box->value;
@@ -1982,7 +1982,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }
         if (bb->state == 0) {
             int i = 0;
-            for (BB_t * arm = bb->α; arm; arm = arm->ω, i++) {
+            for (IR_t * arm = bb->α; arm; arm = arm->ω, i++) {
                 arm->state = 0;
                 bb_exec_node(arm);
                 if (!IS_FAIL_fn(arm->value)) {
@@ -1996,14 +1996,14 @@ BB_t * bb_exec_node(BB_t * bb) {
             return bb->ω;
         }
         int ci = (int)bb->counter;
-        BB_t * cur = bb->α;
+        IR_t * cur = bb->α;
         for (int j = 0; j < ci && cur; j++) cur = cur->ω;
         if (cur && ALT_IS_GEN(cur->t)) {
             bb_exec_node(cur);
             if (!IS_FAIL_fn(cur->value)) { bb->value = cur->value; return bb->γ; }
         }
         int i = ci + 1;
-        for (BB_t * arm = (cur ? cur->ω : NULL); arm; arm = arm->ω, i++) {
+        for (IR_t * arm = (cur ? cur->ω : NULL); arm; arm = arm->ω, i++) {
             arm->state = 0;
             bb_exec_node(arm);
             if (!IS_FAIL_fn(arm->value)) {
@@ -2370,7 +2370,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             bb->value = r;
             return bb->γ;
         }
-        BB_t *i2_box = bb->β ? bb->β->γ : NULL;
+        IR_t *i2_box = bb->β ? bb->β->γ : NULL;
         if (!bb->α || !bb->β || !i2_box) { bb->value = FAILDESCR; return bb->ω; }
         bb_exec_node(bb->α);
         DESCR_t base = bb->α->value;
@@ -2454,7 +2454,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             bb->value = rhs;
             return bb->γ;
         }
-        BB_t *rhs_box = bb->β ? bb->β->γ : NULL;
+        IR_t *rhs_box = bb->β ? bb->β->γ : NULL;
         if (!bb->α || !bb->β || !rhs_box) { bb->value = FAILDESCR; return bb->ω; }
         bb_exec_node(bb->α);
         DESCR_t base = bb->α->value;
@@ -2596,10 +2596,10 @@ BB_t * bb_exec_node(BB_t * bb) {
         bb_exec_node(bb->α);
         DESCR_t sel = bb->α->value;
         if (IS_FAIL_fn(sel)) { bb->value = FAILDESCR; return bb->ω; }
-        BB_t *cur = bb->α->γ;
+        IR_t *cur = bb->α->γ;
         while (cur) {
-            BB_t *key_nd = cur;
-            BB_t *val_nd = cur->γ;
+            IR_t *key_nd = cur;
+            IR_t *val_nd = cur->γ;
             if (!val_nd) {
                 bb_exec_node(key_nd);
                 bb->value = key_nd->value;
@@ -3330,7 +3330,7 @@ BB_t * bb_exec_node(BB_t * bb) {
                 int n_extra = carity - 1;
                 Term **extras = (Term **)malloc((size_t)n_extra * sizeof(Term *));
                 for (int i = 0; i < n_extra; i++) {
-                    BB_t *ab = (zc->nargs > i + 1) ? zc->args[i + 1] : NULL;
+                    IR_t *ab = (zc->nargs > i + 1) ? zc->args[i + 1] : NULL;
                     extras[i] = ab ? term_deref(resolve_node_to_term(ab)) : NULL;
                 }
                 ok = resolve_call_term_n(gt, n_extra, extras);
@@ -3587,7 +3587,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         }
         if (strcmp(fn,"plus")==0 && bb->ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
             if (!a0||!a1||!a2) { bb->value=FAILDESCR; return bb->ω; }
             Term *t0=resolve_node_to_term(a0); Term *t1=resolve_node_to_term(a1); Term *t2=resolve_node_to_term(a2);
             Term *d0=t0?term_deref(t0):NULL; Term *d1=t1?term_deref(t1):NULL; Term *d2=t2?term_deref(t2):NULL;
@@ -3602,7 +3602,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         }
         if ((strcmp(fn,"nb_setval")==0||strcmp(fn,"nb_getval")==0) && bb->ival==2) {
             extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL;
             if (!a0||!a1) { bb->value=FAILDESCR; return bb->ω; }
             Term *kt=resolve_node_to_term(a0); Term *kd=kt?term_deref(kt):NULL;
             if (!kd||kd->tag!=TERM_ATOM) { bb->value=FAILDESCR; return bb->ω; }
@@ -3622,12 +3622,12 @@ BB_t * bb_exec_node(BB_t * bb) {
         }
         if (strcmp(fn,"aggregate_all")==0 && bb->ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
             if (!a0||!a1||!a2) { bb->value=FAILDESCR; return bb->ω; }
             Term *tmpl_t=resolve_node_to_term(a0); Term *tmpl_d=tmpl_t?term_deref(tmpl_t):NULL;
             if (!tmpl_d) { bb->value=FAILDESCR; return bb->ω; }
             int mode_count=0, mode_sum=0, mode_max=0, mode_min=0;
-            BB_t *agg_arg=NULL;
+            IR_t *agg_arg=NULL;
             if (tmpl_d->tag==TERM_ATOM) {
                 const char *fn2=prolog_atom_name(tmpl_d->atom_id);
                 if (fn2 && strcmp(fn2,"count")==0) mode_count=1;
@@ -3711,7 +3711,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         }
         if (strcmp(fn,"functor")==0 && bb->ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
             Term *t0 = resolve_node_to_term(a0); Term *d0 = t0?term_deref(t0):NULL;
             int mark = trail_mark(&g_resolve_trail);
             if (d0 && d0->tag!=TERM_VAR) {
@@ -3743,7 +3743,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         }
         if (strcmp(fn,"arg")==0 && bb->ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
             Term *nT=resolve_node_to_term(a0); Term *nd0=nT?term_deref(nT):NULL;
             Term *tT=resolve_node_to_term(a1); Term *td=tT?term_deref(tT):NULL;
             if (!nd0||nd0->tag!=TERM_INT||!td||td->tag!=TERM_COMPOUND) { bb->value=FAILDESCR; return bb->ω; }
@@ -3756,7 +3756,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         }
         if (strcmp(fn,"=..")==0 && bb->ival==2) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL;
             Term *t0=resolve_node_to_term(a0); Term *d0=t0?term_deref(t0):NULL;
             int mark = trail_mark(&g_resolve_trail);
             if (d0 && d0->tag!=TERM_VAR) {
@@ -3800,13 +3800,13 @@ BB_t * bb_exec_node(BB_t * bb) {
         }
         if (strcmp(fn,"char_type")==0 && bb->ival==2 && bb->α) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL;
             char b0[256]; const char *cs = resolve_atomic_text(resolve_node_to_term(a0), b0, sizeof b0);
             if (!cs || !cs[0]) { bb->value=FAILDESCR; return bb->ω; }
             unsigned char ch = (unsigned char)cs[0];
             int mark = trail_mark(&g_resolve_trail);
             if (a1 && (a1->t==BB_STRUCT || a1->t==BB_ARITH) && a1->sval) {
-                const char *ty = a1->sval; BB_t *inner = a1->α;
+                const char *ty = a1->sval; IR_t *inner = a1->α;
                 Term *out = NULL;
                 if (strcmp(ty,"digit")==0)         { if (!isdigit(ch)) { bb->value=FAILDESCR; return bb->ω; } out=term_new_int((long)(ch-'0')); }
                 else if (strcmp(ty,"to_lower")==0) { char c2[2]={(char)tolower(ch),0}; out=term_new_atom(prolog_atom_intern(c2)); }
@@ -3844,7 +3844,7 @@ BB_t * bb_exec_node(BB_t * bb) {
              ||strcmp(fn,"atom_number")==0||strcmp(fn,"copy_term")==0||strcmp(fn,"atomic_list_concat")==0
              ||strcmp(fn,"concat_atom")==0||strcmp(fn,"string_to_atom")==0) && bb->α) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
             int mark = trail_mark(&g_resolve_trail);
             if (strcmp(fn,"string_length")==0) {
                 char b[256]; const char *s=resolve_atomic_text(resolve_node_to_term(a0),b,sizeof b);
@@ -3893,7 +3893,7 @@ BB_t * bb_exec_node(BB_t * bb) {
                     cur=term_deref(cur->compound.args[1]);
                 }
                 out[oi]='\0';
-                BB_t *rb = sep3 ? a2 : a1;
+                IR_t *rb = sep3 ? a2 : a1;
                 if (!unify(resolve_node_to_term(rb), term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); bb->value=FAILDESCR; return bb->ω; }
                 bb->value=INTVAL(1); return bb->γ;
             }
@@ -3948,7 +3948,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             if (strcmp(fn,"number_string")==0 || strcmp(fn,"atom_number")==0) {
                 int num_first = (strcmp(fn,"number_string")==0);
                 Term *numNode = num_first ? d0 : d1; Term *txtNode = num_first ? d1 : d0;
-                BB_t *numBB = num_first ? a0 : a1;   BB_t *txtBB = num_first ? a1 : a0;
+                IR_t *numBB = num_first ? a0 : a1;   IR_t *txtBB = num_first ? a1 : a0;
                 if (numNode && numNode->tag!=TERM_VAR) {
                     char b[256]; const char *s=resolve_atomic_text(numNode,b,sizeof b);
                     if (!s) { bb->value=FAILDESCR; return bb->ω; }
@@ -3983,7 +3983,7 @@ BB_t * bb_exec_node(BB_t * bb) {
              ||strcmp(fn,"atom_codes")==0||strcmp(fn,"upcase_atom")==0||strcmp(fn,"downcase_atom")==0)
             && bb->α) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            BB_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
             int mark = trail_mark(&g_resolve_trail);
             if (strcmp(fn,"atom_length")==0) {
                 char buf[256]; const char *s = resolve_atomic_text(resolve_node_to_term(a0), buf, sizeof buf);
@@ -4095,7 +4095,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             }
             Term *result = term_new_atom(ATOM_NIL);
             for (int i=m-1;i>=0;i--) { Term **args=(Term**)GC_MALLOC(2*sizeof(Term*)); args[0]=elems[out_idx[i]]; args[1]=result; result=term_new_compound(ATOM_DOT,2,args); }
-            BB_t *a1 = bb->α ? bb->α->γ : NULL;
+            IR_t *a1 = bb->α ? bb->α->γ : NULL;
             Term *out_var = a1 ? resolve_node_to_term(a1) : NULL;
             if (!out_var) { bb->value=FAILDESCR; return bb->ω; }
             int mark = trail_mark(&g_resolve_trail);
@@ -4153,8 +4153,8 @@ BB_t * bb_exec_node(BB_t * bb) {
         if (strcmp(fn,"numbervars")==0 && bb->α) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             Term *term_arg = resolve_node_to_term(bb->α);
-            BB_t *a1_nd = bb->α->γ;
-            BB_t *a2_nd = a1_nd ? a1_nd->γ : NULL;
+            IR_t *a1_nd = bb->α->γ;
+            IR_t *a2_nd = a1_nd ? a1_nd->γ : NULL;
             if (!a1_nd || !a2_nd) { bb->value=FAILDESCR; return bb->ω; }
             Term *start_t = term_deref(resolve_node_to_term(a1_nd));
             if (!start_t || start_t->tag!=TERM_INT) { bb->value=FAILDESCR; return bb->ω; }
@@ -4200,7 +4200,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             Resolve_PredEntry_BB *entry = resolve_bb_lookup(key, pred_arity);
             IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
             if (!pred_cfg || !pred_cfg->entry) { bb->value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
-            BB_t *choice_nd = pred_cfg->entry;
+            IR_t *choice_nd = pred_cfg->entry;
             if (choice_nd->t != BB_CHOICE) { bb->value=FAILDESCR; return bb->ω; }
             bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)choice_nd->ival;
             if (!zc) { bb->value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
@@ -4276,14 +4276,14 @@ DESCR_t bb_exec_once(IR_graph_t * bbg) {
     bb_reset(bbg);
     IR_graph_t * saved_cfg = g_current_cfg;
     g_current_cfg = bbg;
-    BB_t * cur = bbg->entry;
+    IR_t * cur = bbg->entry;
     int safety = bbg->n * 64 + 256;
     DESCR_t result = FAILDESCR;
     while (cur && safety-- > 0) {
-        BB_t * next = bb_exec_node(cur);
+        IR_t * next = bb_exec_node(cur);
         if (g_resolve_tail_redirect_cfg) {
             IR_graph_t * tgt = g_resolve_tail_redirect_cfg;
-            BB_t       * te  = g_resolve_tail_redirect_entry;
+            IR_t       * te  = g_resolve_tail_redirect_entry;
             g_resolve_tail_redirect_cfg   = NULL;
             g_resolve_tail_redirect_entry = NULL;
             g_current_cfg = tgt;
@@ -4313,14 +4313,14 @@ DESCR_t bb_exec_resume(IR_graph_t * bbg) {
     if (!bbg || !bbg->entry) return FAILDESCR;
     IR_graph_t * saved_cfg = g_current_cfg;
     g_current_cfg = bbg;
-    BB_t * cur = bbg->entry;
+    IR_t * cur = bbg->entry;
     int safety = bbg->n * 64 + 256;
     DESCR_t result = FAILDESCR;
     while (cur && safety-- > 0) {
-        BB_t * next = bb_exec_node(cur);
+        IR_t * next = bb_exec_node(cur);
         if (g_resolve_tail_redirect_cfg) {
             IR_graph_t * tgt = g_resolve_tail_redirect_cfg;
-            BB_t       * te  = g_resolve_tail_redirect_entry;
+            IR_t       * te  = g_resolve_tail_redirect_entry;
             g_resolve_tail_redirect_cfg   = NULL;
             g_resolve_tail_redirect_entry = NULL;
             g_current_cfg = tgt;
@@ -4353,9 +4353,9 @@ int bb_exec_pump(IR_graph_t * bbg, bb_body_fn body_fn, void * ctx) {
     g_current_cfg = bbg;
     int ticks  = 0;
     int safety = bbg->n * 256 + 1024;
-    BB_t * cur = bbg->entry;
+    IR_t * cur = bbg->entry;
     while (cur && safety-- > 0) {
-        BB_t * next = bb_exec_node(cur);
+        IR_t * next = bb_exec_node(cur);
         if (!next) {
             if (!IS_FAIL_fn(cur->value)) {
                 ag_ring_push(bbg, cur->value);
