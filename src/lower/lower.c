@@ -331,11 +331,34 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
  * counter. Mirrors the proven lower_new_ToBy_ag wiring:
  *   from.γ = to ; from.ω = ω_in ; to.γ = node ; to.ω = ω_in ; node.β = node (resumable).                  */
 /*====================================================================================================================================================================================================*/
+static int to_by_const_step(const tree_t * s, int64_t * out_bits, int * is_real) {
+    if (!s) return 0;
+    if (s->t == TT_ILIT) { *out_bits = s->v.ival; *is_real = 0; return 1; }
+    if (s->t == TT_FLIT) { double d = s->v.dval; memcpy(out_bits, &d, sizeof(double)); *is_real = 1; return 1; }
+    if ((s->t == TT_MNS || s->t == TT_PLS) && s->n >= 1 && s->c[0]) {
+        if (!to_by_const_step(s->c[0], out_bits, is_real)) return 0;
+        if (s->t == TT_MNS) {
+            if (*is_real) { double d; memcpy(&d, out_bits, sizeof(double)); d = -d; memcpy(out_bits, &d, sizeof(double)); }
+            else *out_bits = -(*out_bits);
+        }
+        return 1;
+    }
+    return 0;
+}
 static IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * node = nalloc(cx, (e->t == TT_TO_BY) ? IR_TO_BY : IR_TO);
     if (!node) return NULL;
     node->sval = "ag";
+    /* BY step (jcon ir_a_ToBy byexpr; default 1). The IR_TO_BY exec reads the step from node->ival
+       (int) or its raw double bits (real-AG, sval[1]=='r'). v_to previously dropped c[2] entirely, so
+       every `to by` ran with step 1. Bake a CONSTANT step here (int/real, incl. a signed -/+ literal
+       like `by -1` which parses as TT_MNS(TT_ILIT)). A variable/expression step is not yet threaded
+       (stays default 1). */
+    if (e->t == TT_TO_BY && e->n >= 3 && e->c[2]) {
+        int64_t bits = 0; int isr = 0;
+        if (to_by_const_step(e->c[2], &bits, &isr)) { node->ival = bits; if (isr) node->sval = "ar"; }
+    }
     IR_t * fα=NULL,*fβ=NULL,*tα=NULL,*tβ=NULL;
     /* from-child: fail propagates outward (from.failure -> to.failure == ω_in); succeed patched below. */
     IR_t * lo = lower2(cx, e->c[0], NULL /*from.γ patched*/, ω_in, &fα, &fβ);
