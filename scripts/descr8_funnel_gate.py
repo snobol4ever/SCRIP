@@ -34,12 +34,6 @@ ROOT = os.path.dirname(HERE)
 # file:line  ->  reason  (confirmed NOT a DESCR_t field access, or a
 # foundation-layer constructor/builder definition that must stay raw).
 ALLOW = {
-    "runtime/interp/gen_runtime.c:1895": "g_kw_cset_names[].ptr — cset-names table struct, not DESCR",
-    "runtime/interp/gen_runtime.c:1900": "g_kw_cset_names[].ptr — table struct write",
-    "runtime/interp/gen_runtime.c:1910": "g_kw_cset_names[].ptr — table struct read",
-    "runtime/interp/gen_runtime.c:1916": "g_kw_cset_names[].ptr — table struct read",
-    "runtime/interp/gen_runtime.c:1941": "g_kw_cset_names[].ptr — table struct write",
-    "runtime/interp/gen_runtime.c:1960": "g_kw_cset_names[].ptr — table struct write",
     "runtime/core/core.c:2320":  "_var_reg[].ptr — variable-registry struct, not DESCR",
     "runtime/core/core.c:2449":  "_var_reg[].ptr — variable-registry struct",
     "runtime/core/core.c:2460":  "_var_reg[].ptr — variable-registry struct",
@@ -70,6 +64,10 @@ ALLOW = {
 # Symbolic allows: (relpath, substring, reason). Used where the line number
 # drifts but the text is stable — matched by content, not position.
 SYMBOLIC = [
+    ("runtime/interp/gen_runtime.c", "g_kw_cset_names[i].ptr",
+     "g_kw_cset_names[].ptr — cset-names table struct, not DESCR (line drifts post-merge)"),
+    ("runtime/interp/gen_runtime.c", "g_kw_cset_names[g_kw_cset_count].ptr",
+     "g_kw_cset_names[].ptr — table struct write, not DESCR (line drifts post-merge)"),
     ("runtime/core/eval_code.c", "expr_d.slen == 2",
      "DT_E subexpression arity discriminator (2) — not a name/payload field"),
     ("runtime/core/eval_code.c", "expr_d.slen == 1",

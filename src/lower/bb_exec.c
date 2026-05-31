@@ -2245,7 +2245,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         DESCR_t subj_d = is_repl ? NV_GET_fn(bb->sval ? bb->sval : "") : ag_ring_peek(g_current_cfg, 0);
         DESCR_t sv = VARVAL_d_fn(subj_d);
         const char *subj_str = ""; int subj_len = 0;
-        if (sv.v == DT_S || sv.v == DT_SNUL) { subj_str = sv.s ? sv.s : ""; subj_len = sv.slen ? (int)sv.slen : (int)strlen(subj_str); }
+        if (sv.v == DT_S || sv.v == DT_SNUL) { subj_str = GET_S(sv) ? GET_S(sv) : ""; subj_len = GET_SLEN(sv) ? (int)GET_SLEN(sv) : (int)strlen(subj_str); }
         const char *save_Σ = Σ; int save_Σlen = Σlen; int save_Ω = Ω; int save_Δ = Δ; int save_dca = g_dcap_active; int save_dcn = g_dcap_n;
         extern int64_t kw_anchor;
         Σ = subj_str; Σlen = subj_len; Ω = subj_len;
@@ -2261,15 +2261,15 @@ IR_t * bb_exec_node(IR_t * bb) {
         if (matched && is_repl) {
             DESCR_t repl_d = VARVAL_d_fn(ag_ring_peek(g_current_cfg, 0));
             if (IS_INT_fn(repl_d) || IS_REAL_fn(repl_d)) repl_d = descr_to_str_icn(repl_d);
-            const char *repl_str = (repl_d.v == DT_S || repl_d.v == DT_SNUL) ? (repl_d.s ? repl_d.s : "") : "";
-            int repl_len = (repl_d.v == DT_S || repl_d.v == DT_SNUL) ? (repl_d.slen ? (int)repl_d.slen : (int)strlen(repl_str)) : 0;
+            const char *repl_str = (repl_d.v == DT_S || repl_d.v == DT_SNUL) ? (GET_S(repl_d) ? GET_S(repl_d) : "") : "";
+            int repl_len = (repl_d.v == DT_S || repl_d.v == DT_SNUL) ? (GET_SLEN(repl_d) ? (int)GET_SLEN(repl_d) : (int)strlen(repl_str)) : 0;
             int new_len = m_start + repl_len + (subj_len - m_end);
             char *new_s = (char *)GC_MALLOC((size_t)new_len + 1);
             memcpy(new_s, subj_str, (size_t)m_start);
             memcpy(new_s + m_start, repl_str, (size_t)repl_len);
             memcpy(new_s + m_start + repl_len, subj_str + m_end, (size_t)(subj_len - m_end));
             new_s[new_len] = '\0';
-            DESCR_t nv = { .v = DT_S, .slen = (uint32_t)new_len, .s = new_s };
+            DESCR_t nv; SET_V(nv, DT_S); SET_SLEN(nv, (uint32_t)new_len); SET_S(nv, new_s);
             NV_SET_fn(bb->sval, nv);
         }
         Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ; g_dcap_active = save_dca; g_dcap_n = save_dcn;
