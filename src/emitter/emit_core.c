@@ -646,7 +646,7 @@ static char ** net_parse_define_proto(const char * proto, char ** out_fname, int
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_node_id(IR_t * nd) { return (int)((uintptr_t)nd % 100000u); }
-int bb_is_generator(BB_op_t k) {
+int bb_is_generator(IR_e k) {
     if (k >= BB_PAT_LIT   && k <= BB_PAT_DEFER)  return 1;
     if (k >= BB_CHOICE && k <= BB_GOAL)      return 1;
     if (k >= BB_TO    && k <= BB_PROC_GEN) return 1;

@@ -417,7 +417,7 @@ IR_t *lower_new_Every(IR_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int lic_gen_kind_raw(BB_op_t k) {
+static int lic_gen_kind_raw(IR_e k) {
     return k == BB_ALT || k == BB_BINOP_GEN || k == BB_ITERATE || k == BB_LIMIT ||
            k == BB_PROC_GEN || k == BB_LIST_BANG || k == BB_KEY_GEN || k == BB_FIND_GEN || k == BB_SEQ_GEN;
 }
@@ -849,7 +849,7 @@ IR_t *lower_new_Unop(IR_graph_t *bbg, struct tree_t *e) {
     }
     IR_t *inner = lower_expr_node(bbg, e->c[0]);
     if (!inner) return NULL;
-    BB_op_t kind;
+    IR_e kind;
     switch (e->t) {
     case TT_MNS:         kind = BB_NEG;         break;
     case TT_PLS:         kind = BB_POS;         break;
@@ -1088,7 +1088,7 @@ IR_t *lower_new_CsetBinop(IR_graph_t *bbg, struct tree_t *e) {
     if (!lhs) return NULL;
     IR_t *rhs = lower_expr_node(bbg, e->c[1]);
     if (!rhs) return NULL;
-    BB_op_t kind = (e->t == TT_CSET_UNION) ? BB_CSET_UNION
+    IR_e kind = (e->t == TT_CSET_UNION) ? BB_CSET_UNION
                  : (e->t == TT_CSET_DIFF)  ? BB_CSET_DIFF
                                            : BB_CSET_INTER;
     IR_t *bb = BB_node_alloc(bbg, kind);
@@ -1391,7 +1391,7 @@ IR_graph_t *lower_expr_top(struct tree_t *e) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int kind_is_resumable(BB_op_t t) {
+int kind_is_resumable(IR_e t) {
     return t == BB_TO || t == BB_TO_BY || t == BB_UPTO || t == BB_ALT ||
            t == BB_BINOP_GEN || t == BB_ITERATE || t == BB_LIMIT || t == BB_PROC_GEN ||
            t == BB_EVERY || t == BB_REPEAT || t == BB_SUSPEND || t == BB_SCAN ||

@@ -313,11 +313,11 @@ static void flat_drive_pl_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
         gβ[i] = emit_label_alloc("plseq%d_g%d_β", id, i);
     }
     {
-        BB_op_t t0 = goals[0]->t;
+        IR_e t0 = goals[0]->t;
         int r0 = (t0==BB_GOAL || t0==BB_CHOICE || t0==BB_DISJ);
         eff_β[0] = r0 ? gβ[0] : lbl_ω;
         for (int i = 1; i < n; i++) {
-            BB_op_t ti = goals[i]->t;
+            IR_e ti = goals[i]->t;
             int ri = (ti==BB_GOAL || ti==BB_CHOICE || ti==BB_DISJ);
             eff_β[i] = ri ? gβ[i] : eff_β[i-1];
         }
@@ -1319,7 +1319,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     }
     case BB_BINOP_GEN:
         if (nd->α && nd->β && !binop_operand_streams(nd->α) && !binop_operand_streams(nd->β)) {
-            BB_op_t saved_kind = nd->t;
+            IR_e saved_kind = nd->t;
             nd->t = BB_BINOP;
             flat_drive_binop_tree(nd, lbl_γ, lbl_ω, lbl_β);
             nd->t = saved_kind;

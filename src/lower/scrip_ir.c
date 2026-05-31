@@ -115,7 +115,7 @@ static const char * kind_names[BB_OP_COUNT] = {
     [BB_NFA_ACCEPT] = "BB_NFA_ACCEPT",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char * bb_op_name(BB_op_t k) {
+const char * bb_op_name(IR_e k) {
     if (k >= 0 && k < BB_OP_COUNT) return kind_names[k];
     return "BB_UNKNOWN";
 }
@@ -132,7 +132,7 @@ IR_graph_t * BB_alloc(int max_nodes, int lang) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_t * BB_node_alloc(IR_graph_t * bbg, BB_op_t t) {
+IR_t * BB_node_alloc(IR_graph_t * bbg, IR_e t) {
     IR_t * bb = calloc(1, sizeof(IR_t));
     if (!bb) return NULL;
     bb->t       = t;

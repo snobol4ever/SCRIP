@@ -20,7 +20,7 @@ static IR_t *g_audit_child3[3];
 static bb_pat_kids_state_t g_audit_kids1;
 static bb_pat_kids_state_t g_audit_kids2;
 static bb_pat_kids_state_t g_audit_kids3;
-typedef struct { BB_op_t kind; const char *name; } kind_entry_t;
+typedef struct { IR_e kind; const char *name; } kind_entry_t;
 static const kind_entry_t g_kinds[] = {
     { BB_LIT_I,           "BB_LIT_I" },
     { BB_LIT_S,           "BB_LIT_S" },
@@ -254,7 +254,7 @@ static void prime_child_nodes(void) {
     g_audit_kids3.kids = g_audit_child3; g_audit_kids3.nkids = 3;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void prime_node_for_kind(IR_t *nd, BB_op_t kind) {
+static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     memset(nd, 0, sizeof *nd);
     nd->t = kind;
     nd->α = nd;

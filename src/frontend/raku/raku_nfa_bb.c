@@ -54,7 +54,7 @@ int raku_nfa_bb_match(const Raku_nfa *nfa, const char *subject) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_op_t nfa_kind_to_bb(Nfa_kind k) {
+static IR_e nfa_kind_to_bb(Nfa_kind k) {
     switch (k) {
         case NK_CHAR:       return BB_NFA_CHAR;
         case NK_ANY:        return BB_NFA_ANY;

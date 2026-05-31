@@ -7,7 +7,7 @@
    in emit_core.c already discriminates the opcode; every Prolog arm routes here
    and the emitted text is identical (empty), so no per-op branch is needed.
    Phase B will fill these arms when frontends start emitting Prolog BB graphs as
-   native code. This template slot keeps the BB layer total over BB_op_t. */
+   native code. This template slot keeps the BB layer total over IR_e. */
 #include <string>
 #include "emit_str.h"
 extern "C" {

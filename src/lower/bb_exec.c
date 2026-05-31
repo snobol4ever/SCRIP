@@ -112,7 +112,7 @@ static int ir_is_single_shot(IR_t * e) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e);
-static int bb_is_gen_kind_raw(BB_op_t k) {
+static int bb_is_gen_kind_raw(IR_e k) {
     return k == BB_TO || k == BB_TO_BY || k == BB_UPTO || k == BB_ALT ||
            k == BB_BINOP_GEN || k == BB_ITERATE || k == BB_LIMIT || k == BB_PROC_GEN ||
            k == BB_LIST_BANG || k == BB_KEY_GEN || k == BB_FIND_GEN || k == BB_SEQ_GEN;

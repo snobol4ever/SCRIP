@@ -8,7 +8,7 @@
    needed inside the template.
    These kinds are handled today by the AST/runtime path in src/lower/bb_exec.c
    and src/lower/lower_*.c; this template slot keeps the BB layer total over
-   BB_op_t so future native-codegen work has a place to land. Phase B fills the
+   IR_e so future native-codegen work has a place to land. Phase B fills the
    arms when a frontend lowers directly to native code for these ops. */
 #include <string>
 #include "emit_str.h"

@@ -9,7 +9,7 @@
      POS / BINOP_GEN / SWAP / SEQ_EXPR / INITIAL / IF / SCAN.
    These kinds are handled today by the AST/runtime path in src/lower/bb_exec.c
    and src/lower/lower_*.c; this template slot keeps the BB layer total over
-   BB_op_t so future native-codegen work has a place to land. Phase B splits
+   IR_e so future native-codegen work has a place to land. Phase B splits
    individual ops back out when their arms get real bodies. */
 #include <string>
 #include "emit_str.h"

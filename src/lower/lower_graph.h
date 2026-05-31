@@ -20,7 +20,7 @@ struct GeneratorState;
 IR_graph_t *lower_proc_gen(struct GeneratorState *gs);
 IR_graph_t *lower_proc_body(struct tree_t *proc);
 IR_graph_t *lower_expr_top(struct tree_t *e);
-int  kind_is_resumable(BB_op_t t);
+int  kind_is_resumable(IR_e t);
 struct IR_t *lower_expr_threaded(struct IR_graph_t *bbg, struct tree_t *e,
                                      struct IR_t *γ_in, struct IR_t *ω_in,
                                      struct IR_t **α_out, struct IR_t **β_out);

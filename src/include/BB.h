@@ -134,11 +134,11 @@ typedef enum {
     BB_NFA_ACCEPT,
     BB_PAT_ATP,
     BB_OP_COUNT
-} BB_op_t;
+} IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct IR_t IR_t;
 struct IR_t {
-    BB_op_t      t;
+    IR_e      t;
     IR_t       * α;
     IR_t       * β;
     IR_t       * γ;
@@ -192,7 +192,7 @@ static inline void ag_ring_clear(IR_graph_t * cfg) {
     cfg->ring_depth = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_t       * BB_node_alloc(IR_graph_t * cfg, BB_op_t t);
+IR_t       * BB_node_alloc(IR_graph_t * cfg, IR_e t);
 int          bb_operand_aux_set(IR_graph_t * cfg, IR_t * nd, IR_t * const * src, int n);
 IR_t * const * bb_operand_aux_get(const IR_graph_t * cfg, const IR_t * nd, int * out_n);
 void         bb_reset(IR_graph_t * cfg);
@@ -252,5 +252,5 @@ bb_node_state_t * bb_snapshot_state(IR_graph_t * cfg);
 void              bb_restore_state(IR_graph_t * cfg, bb_node_state_t * snap);
 void         BB_free(IR_graph_t * cfg);
 void         bb_print(const IR_graph_t * cfg, FILE * fp);
-const char * bb_op_name(BB_op_t k);
+const char * bb_op_name(IR_e k);
 #endif
