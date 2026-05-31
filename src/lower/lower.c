@@ -499,6 +499,57 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     set_succ_fail(as, γ_in, ω_in);
     return ret(as, α_out, β_out, rα, ω_in /* bounded: resume -> fail */);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* v_scan — SNOBOL4 pattern-match statement SUBJECT ? PATTERN (whitespace and ? forms both parse to TT_SCAN;
+ * c[0]=subject value-expr, c[1]=pattern; an optional c[2]=replacement makes it SUBJECT ? PATTERN = REPLACEMENT,
+ * synthesized by the program walker from a STMT carrying :eq+:repl over a TT_SCAN subject). SPITBOL Manual ch.6:
+ * the match succeeds if PATTERN is found in SUBJECT (unanchored unless &ANCHOR nonzero), else fails; the value
+ * of the construct is the matched substring. For the plain form the subject is lowered VALUE-role with its
+ * gamma -> the IR_SCAN node, so the subject string is on the AG ring when IR_SCAN executes. For the replacement
+ * form the subject MUST be a variable ("a variable must be the subject of replacement"); its name rides on sval
+ * (fetched by name at exec — robust regardless of replacement complexity), ival=1 marks replacement mode, and
+ * the replacement value-expr is threaded (replacement.gamma -> IR_SCAN) so the replacement value is on the AG
+ * ring. The pattern is always lowered PATTERN-role into ITS OWN sub-graph (own IR_SUCCEED/IR_FAIL sentinels),
+ * the same isolation ARBNO uses; the sub-graph pointer rides on counter (preserved across bb_reset like ARBNO)
+ * and the IR_SCAN exec arm drives it with anchored start-iteration + deferred-capture commit + the splice.
+ * IR_SCAN is bounded (one match per statement attempt): resume -> ω_in. Icon scanning (s ? expr) is L2-F. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (cx.lang == IR_LANG_ICN) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    const tree_t * subj_t = NULL, * pat_t = NULL;
+    if (!tm(e, TT_SCAN, 2, &subj_t, &pat_t) || !subj_t || !pat_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    const tree_t * repl_t = (e->n >= 3) ? e->c[2] : NULL;
+    if (repl_t && subj_t->t != TT_VAR) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    IR_t * sc = nalloc(cx, IR_SCAN);
+    if (!sc) return NULL;
+    IR_graph_t * pat_blk = IR_alloc(256, IR_LANG_SNO);
+    if (!pat_blk) return NULL;
+    IR_t * psucc = IR_node_alloc(pat_blk, IR_SUCCEED);
+    IR_t * pfail = IR_node_alloc(pat_blk, IR_FAIL);
+    IR_t * pα = NULL, * pβ = NULL;
+    lcx_t pcx = { pat_blk, ROLE_PATTERN, 0, IR_LANG_SNO, NULL, NULL };
+    IR_t * pat_entry = lower2(pcx, pat_t, psucc, pfail, &pα, &pβ);
+    if (!pat_entry) { IR_free(pat_blk); return NULL; }
+    (void) pβ;
+    pat_blk->entry = pα ? pα : pat_entry;
+    sc->counter = (int64_t)(intptr_t)pat_blk;
+    if (repl_t) {
+        sc->sval = subj_t->v.sval ? subj_t->v.sval : "";
+        sc->ival = 1;
+        IR_t * rα = NULL, * rβ = NULL;
+        IR_t * repln = lower2(cx, repl_t, sc, ω_in, &rα, &rβ);
+        if (!repln) { IR_free(pat_blk); return NULL; }
+        (void) rβ;
+        set_succ_fail(sc, γ_in, ω_in);
+        return ret(sc, α_out, β_out, rα ? rα : sc, ω_in);
+    }
+    IR_t * sα = NULL, * sβ = NULL;
+    IR_t * subj = lower2(cx, subj_t, sc, ω_in, &sα, &sβ);
+    if (!subj) { IR_free(pat_blk); return NULL; }
+    (void) sβ;
+    set_succ_fail(sc, γ_in, ω_in);
+    return ret(sc, α_out, β_out, sα ? sα : sc, ω_in);
+}
 /*====================================================================================================================================================================================================*/
 /* VALUE ROLE — master per-kind switch. Foundation boxes are wired; the rest route to lower_unhandled
  * (loud, never silent). Each TODO is one box to add onto the foundation, in the canonical signature.      */
@@ -569,11 +620,15 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* multi-arg write / general call = L2-E */
     }
+    /* SNOBOL4 pattern-match statement SUBJECT ? PATTERN (LOWER2-EXEC). Icon scanning (TT_SMATCH / Icon ?) stays
+       in the unhandled group below (L2-F). The per-language split lives inside v_scan (FACT RULE) via cx.lang. */
+    case TT_SCAN:
+        return v_scan(cx, e, γ_in, ω_in, α_out, β_out);
+
     case TT_FIELD:      /* jcon ir_a_Field */
     case TT_IDX:
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS:  /* jcon ir_a_Sectionop */
     case TT_INDIRECT: case TT_IDENTICAL:
-    case TT_SCAN:       /* jcon ir_a_Scan */
     case TT_SMATCH:     /* subj ? pat — flips cx.role = ROLE_PATTERN */
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER:
     case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW: case TT_SORT:
@@ -790,12 +845,31 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
         n->ival = 1;    /* indirect deref flag (oracle bb_exec.c IR_PAT_DEFER state-0 ival check) */
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
-    /* TT_VAR in pattern context — bare variable reference, resolved as a string literal match at runtime.
-       Uses IR_PAT_DEFER with ival=0 (no extra indirection — `var` not `*var`). */
+    /* TT_VAR in pattern context. Bare pattern-primitive keywords (ARB/REM/BAL/FAIL/SUCCEED/FENCE/ABORT) lex as
+       plain identifiers — pat_prim_kind is consulted only for the parenthesized T_FUNCTION form (snobol4.y) — so
+       a bare keyword arrives here as TT_VAR. SPITBOL predefines these as pattern values; lower each to its
+       primitive leaf (case-sensitive per RULES). A non-keyword name is a real variable reference, resolved as a
+       string-literal match at runtime via IR_PAT_DEFER ival=0. (Reassigning one of these names to a different
+       pattern is the DEFER-runtime edge case, deferred to Track B.) */
     case TT_VAR: {
         if (!e->v.sval) return NULL;
+        const char * nm = e->v.sval;
+        IR_e pk = (IR_e) 0; int is_prim = 1; int bnd = 0;
+        if      (!strcmp(nm, "ARB"))     pk = IR_PAT_ARB;
+        else if (!strcmp(nm, "REM"))     pk = IR_PAT_REM;
+        else if (!strcmp(nm, "BAL"))     pk = IR_PAT_BAL;
+        else if (!strcmp(nm, "ABORT"))   { pk = IR_PAT_ABORT; bnd = 1; }
+        else if (!strcmp(nm, "FAIL"))    { pk = IR_FAIL;      bnd = 1; }
+        else if (!strcmp(nm, "SUCCEED")) pk = IR_SUCCEED;
+        else if (!strcmp(nm, "FENCE"))   { pk = IR_PAT_FENCE; bnd = 1; }
+        else is_prim = 0;
+        if (is_prim) {
+            n = nalloc(cx, pk); if (!n) return NULL;
+            lcx_t bx = cx; if (bnd) bx.bounded = 1;
+            return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
+        }
         n = nalloc(cx, IR_PAT_DEFER); if (!n) return NULL;
-        n->sval = e->v.sval;
+        n->sval = nm;
         n->ival = 0;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
@@ -1023,17 +1097,17 @@ static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * �
  * (eventually) the driver reach the per-role switches ONLY through these three; lower2 itself stays static. */
 /*====================================================================================================================================================================================================*/
 IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    lcx_t cx = { bbg, ROLE_VALUE, 0, 0 };
+    lcx_t cx = { bbg, ROLE_VALUE, 0, bbg ? bbg->lang : 0, NULL, NULL };
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    lcx_t cx = { bbg, ROLE_PATTERN, 0, 0 };
+    lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
+    lcx_t cx = { bbg, ROLE_GOAL, 0, bbg ? bbg->lang : 0, NULL, NULL };
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
