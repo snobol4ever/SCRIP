@@ -31,6 +31,7 @@ static PredKey key_of_head(Term *head) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *lower_term(Term *t);
 static tree_t *lower_clause(PlClause *cl, PredKey key);
+static void pl_clause_assign_dense_slots(tree_t *ec, int arity);
 static void assign_clause_anon_slots(PlClause *cl) {
     if (!cl) return;
     Term *hd = cl->head ? term_deref(cl->head) : NULL;
@@ -231,6 +232,7 @@ static tree_t *lower_clause(PlClause *cl, PredKey key) {
     }
     for (int i = 0; i < cl->nbody; i++)
         expr_add_child(ec, lower_term(cl->body[i]));
+    pl_clause_assign_dense_slots(ec, key.arity);
     return ec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -300,6 +302,27 @@ static void tr_assign_slots(tree_t *t, TRSlotMap *m) {
     }
     for (int i = 0; i < t->n; i++)
         tr_assign_slots(t->c[i], m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* pl_clause_assign_dense_slots — repair the Term-based clause path (lower_clause via lower_term, used by DCG
+ * `-->` expansion and runtime pl_assert_term). lower_term encodes each var's identity in v.sval (_V<slot>),
+ * but the live lowerer g_term reads the dense slot from v.ival, and the IR_GOAL head-unify convention requires
+ * head var position i -> slot i. Re-derive slots positionally exactly as lower_clause_from_tree does: pre-seed
+ * head-arg vars (ec->c[0..arity-1]) to their positional slot, then tr_assign_slots fills v.ival for every
+ * TT_VAR (body + compound-inner vars get fresh slots >= arity), preserving variable sharing by name.        */
+static void pl_clause_assign_dense_slots(tree_t *ec, int arity) {
+    if (!ec) return;
+    TRSlotMap sm; trslot_reset(&sm);
+    for (int i = 0; i < arity && i < ec->n && sm.n < TR_SLOT_MAX; i++) {
+        tree_t *a = ec->c[i];
+        if (a && a->t == TT_VAR && a->v.sval && strcmp(a->v.sval, "_") != 0) {
+            int dup = 0;
+            for (int j = 0; j < sm.n; j++) if (sm.e[j].name && strcmp(sm.e[j].name, a->v.sval) == 0) { dup = 1; break; }
+            if (!dup) { sm.e[sm.n].name = a->v.sval; sm.e[sm.n].slot = i; sm.n++; }
+        }
+    }
+    sm.next = arity;
+    for (int i = 0; i < ec->n; i++) tr_assign_slots(ec->c[i], &sm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void tr_head_key(tree_t *head, const char **fn_out, int *arity_out) {

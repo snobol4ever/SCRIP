@@ -3344,7 +3344,7 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_GCONJ: {
         bb->value = INTVAL(1);
-        return bb->α;
+        return bb->γ;
     }
     case IR_ITE: {
         bb->value = INTVAL(1);

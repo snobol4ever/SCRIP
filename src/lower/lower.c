@@ -140,6 +140,17 @@ static IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nki
         }
         apply[i]->ω = tgt;
     }
+    if (kind == IR_GCONJ) {                         /* PLG-9 prereq: the TEXT emitter's flat_drive_pl_seq reads the
+                                                       conjunction's element entries from a bb_conj_state_t sidecar on
+                                                       node->ival (resolve_seq_goals_em). The interpreter walks GCONJ by
+                                                       port wiring and ignores ival, so this is additive. Prolog-only —
+                                                       Icon IR_CONJ / SNOBOL IR_PAT_CAT carry no such sidecar. */
+        bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
+        if (zs) {
+            zs->goals = (IR_t **)GC_MALLOC((size_t)nkids * sizeof(IR_t *));
+            if (zs->goals) { for (int i = 0; i < nkids; i++) zs->goals[i] = entry[i]; zs->ngoals = nkids; node->ival = (int64_t)(intptr_t)zs; }
+        }
+    }
     set_succ_fail(node, γ_in, ω_in);
     return ret(node, α_out, β_out, entry[0], resume[nkids - 1]);
 }
@@ -1466,6 +1477,42 @@ static IR_t * g_findall(lcx_t cx, const tree_t * tmpl_t, const tree_t * goal_t, 
     return ret(bb, α_out, β_out, bb, ω_in /* bounded: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
+/* GOAL ROLE — phrase/2 and phrase/3 (DCG invocation). SWI boot/dcg.pl: phrase(RuleSet, Input) :-
+ * phrase(RuleSet, Input, []); phrase(RuleSet, Input, Rest) :- call(RuleSet, Input, Rest). The `-->` rule
+ * translation (prolog_parse.c dcg_expand_clause) already extends every nonterminal HEAD with two
+ * difference-list args (S0, S), so calling RuleSet/(N+2) with (Input, Rest) appended runs the grammar. So
+ * phrase lowers to an IR_GOAL whose callee is RuleSet's name and whose args are RuleSet's own args followed
+ * by Input then Rest (Rest = the nil atom "[]" for phrase/2). The grammar may have multiple parses, so β=self
+ * (re-enter for more solutions), matching g_goal's user-call topology. FACT-RULE clean: Prolog-only IR_GOAL. */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_phrase(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    const tree_t * rs   = (e->n >= 1) ? e->c[0] : NULL;
+    const tree_t * inp  = (e->n >= 2) ? e->c[1] : NULL;
+    const tree_t * rest = (e->n >= 3) ? e->c[2] : NULL;
+    if (!rs || !inp) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    const char * callee = NULL; int orig_ar = 0; tree_t * const * orig_args = NULL;
+    if (rs->t == TT_QLIT || rs->t == TT_NAME) { callee = rs->v.sval; orig_ar = 0; }
+    else if (rs->t == TT_FNC)                  { callee = rs->v.sval; orig_ar = rs->n; orig_args = rs->c; }
+    else return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    if (!callee) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    int ar = orig_ar + 2;
+    IR_t * nd = nalloc(cx, IR_GOAL); if (!nd) return NULL;
+    bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc); if (!zc) return NULL;
+    zc->callee = callee; zc->arity = ar; zc->nargs = ar; zc->cs = NULL;
+    zc->args = (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *));
+    for (int ai = 0; ai < orig_ar; ai++) {
+        IR_t * aaα = NULL, * aaβ = NULL;
+        if (orig_args[ai]) g_term(cx, orig_args[ai], NULL, NULL, &aaα, &aaβ);
+        zc->args[ai] = aaα;
+    }
+    { IR_t * aaα = NULL, * aaβ = NULL; g_term(cx, inp, NULL, NULL, &aaα, &aaβ); zc->args[orig_ar] = aaα; }
+    if (rest) { IR_t * aaα = NULL, * aaβ = NULL; g_term(cx, rest, NULL, NULL, &aaα, &aaβ); zc->args[orig_ar + 1] = aaα; }
+    else      { IR_t * nil = nalloc(cx, IR_ATOM); if (!nil) return NULL; nil->sval = "[]"; zc->args[orig_ar + 1] = nil; }
+    nd->ival = (int64_t)(intptr_t)zc;
+    set_succ_fail(nd, γ_in, ω_in);
+    return ret(nd, α_out, β_out, nd, nd /* β=self: grammar may backtrack to more parses */);
+}
+/*====================================================================================================================================================================================================*/
 /* GOAL ROLE — Prolog goals. Kind selects the arm; the sval/arity guards live INSIDE the TT_FNC arm
  * (they pick the control construct/builtin, not the kind). Foundation: cut, true/fail leaves. Extension:
  * Conj/Alt/Ite/Unify/Compare/Call/Builtin/phrase/catch/findall.                                           */
@@ -1496,6 +1543,16 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
     }
     case TT_VAR:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_PROGRAM: {
+        /* A goal-position TT_PROGRAM is a sequence of goals (e.g. a multi-goal then/else branch that
+           pl_maybe_ifthenelse wrapped, or a folded clause body). Lower as one IR_GCONJ conjunction — the
+           same four-port sequence as the `,`-spine; wire_seq lowers each child via lower2 so nested goals
+           recurse. A single child needs no wrapper; an empty program succeeds once.                       */
+        if (e->n == 0) return emit_leaf(cx, nalloc(cx, IR_SUCCEED), γ_in, ω_in, α_out, β_out);
+        if (e->n == 1) return lower_goal(cx, e->c[0], γ_in, ω_in, α_out, β_out);
+        if (e->n > 64) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+        return wire_seq(cx, IR_GCONJ, (const tree_t * const *)e->c, e->n, γ_in, ω_in, α_out, β_out);
+    }
     case TT_FNC: {
         const tree_t * A = NULL, * B = NULL, * arg = NULL;
         /* Prolog write-family — Prolog-correct IR_BUILTIN (pl_write, NO auto-newline), NOT the shared
@@ -1543,6 +1600,11 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
             return g_catch(cx, e->c[0], e->c[1], e->c[2], γ_in, ω_in, α_out, β_out);
         if (e->t == TT_FNC && e->v.sval && !strcmp(e->v.sval, "findall") && e->n == 3)
             return g_findall(cx, e->c[0], e->c[1], e->c[2], γ_in, ω_in, α_out, β_out);
+        /* phrase/2 + phrase/3 — DCG invocation. The `-->` translation already extended grammar heads with two
+           difference-list args, so phrase(RS, In[, Rest]) lowers to a call of RS extended with In and Rest
+           (Rest defaults to the nil atom for phrase/2). Recognized here so it never falls to a user call. */
+        if (e->t == TT_FNC && e->v.sval && !strcmp(e->v.sval, "phrase") && (e->n == 2 || e->n == 3))
+            return g_phrase(cx, e, γ_in, ω_in, α_out, β_out);
         /* standard-order-of-terms comparisons — operands compared as TERMS (resolve_term_compare), not
            arith-evaluated. Both sides via g_term onto bb->α/bb->β; the bb_exec.c IR_BUILTIN arm handles the op. */
         if (tm_g(e, TT_FNC, "==",  2, &A, &B)) return g_term_compare(cx, A, B, "==",  γ_in, ω_in, α_out, β_out);
@@ -1585,6 +1647,11 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
                 {"copy_term",2},{"plus",3},
                 /* globals */
                 {"nb_setval",2},{"nb_getval",2},{"aggregate_all",3},
+                /* dynamic database — retract/1, retractall/1, abolish/1. Exec arms in bb_exec.c IR_BUILTIN
+                   (retract/retractall :4391, abolish :4446) walk the callee predicate's IR_CHOICE bodies[],
+                   pattern-match the head term read from bb->α, and splice out matched clauses. Pure lowering
+                   recognition: without these names they fall to g_goal (user-pred call) and never resolve. */
+                {"retract",1},{"retractall",1},{"abolish",1},
                 /* exception throw — the bb_exec.c IR_BUILTIN throw arm reads the ball from bb->alpha and calls
                    resolve_throw_term (longjmp to nearest catch). One arg on bb->alpha; g_builtin wires it. */
                 {"throw",1},
@@ -1728,6 +1795,15 @@ IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * 
             if (resume[j] && resume[j] != ω_in) { tgt = resume[j]; break; }  /* resume == ω_in. Walk back; if none resumable, the clause body fails to ω_in. */
         }
         apply[i]->ω = tgt;
+    }
+    {                                               /* PLG-9 prereq (see wire_seq): expose the clause-body conjunction's
+                                                       element entries to the TEXT emitter via a bb_conj_state_t sidecar.
+                                                       Additive — the interpreter ignores GCONJ ival. */
+        bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
+        if (zs) {
+            zs->goals = (IR_t **)GC_MALLOC((size_t)total * sizeof(IR_t *));
+            if (zs->goals) { for (int i = 0; i < total; i++) zs->goals[i] = entry[i]; zs->ngoals = total; node->ival = (int64_t)(intptr_t)zs; }
+        }
     }
     set_succ_fail(node, γ_in, ω_in);
     if (bbg) bbg->nslots = pv.count;
