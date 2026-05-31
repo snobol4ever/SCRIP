@@ -289,3 +289,34 @@ std::string net_ctor_none_str(int sid, int nid) {
 std::string net_spec_zw_str() {
     return "    call       valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::ZeroWidth(int32)\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string s_descr_push(const char * stackreg, int v_imm, int slen_imm,
+                         const char * payreg) {
+    /* Emit, for the ACTIVE layout, the store of a built descriptor at      */
+    /* [stackreg] followed by stackreg += DESCR_STRIDE.  In DESCR_LAYOUT_16  */
+    /* this reproduces the historical quartet exactly (offsets 0/4/8,        */
+    /* stride 16).  In DESCR_LAYOUT_8 it stores the packed form and, for a   */
+    /* pointer payload, bases off RBP (payload is RBP-relative offset).      */
+    const char * sr = stackreg ? stackreg : "r12";
+    const char * pr = payreg   ? payreg   : "rax";
+    int off_v    = DESCR_OFF_V;
+    int off_slen = DESCR_OFF_SLEN;
+    int off_pay  = DESCR_OFF_PAYLOAD;
+    int stride   = DESCR_STRIDE;
+    std::string s;
+    std::string m_v    = (off_v    ? emit_fmt("dword ptr [%s+%d], %d", sr, off_v,    v_imm)
+                                   : emit_fmt("dword ptr [%s], %d",     sr,          v_imm));
+    std::string m_slen = (off_slen ? emit_fmt("dword ptr [%s+%d], %d", sr, off_slen, slen_imm)
+                                   : emit_fmt("dword ptr [%s], %d",     sr,          slen_imm));
+    s += s_2asm("mov", m_v);
+    s += s_2asm("mov", m_slen);
+    if (g_descr_layout == DESCR_LAYOUT_8) {
+        s += s_2asm("mov", (off_pay ? emit_fmt("dword ptr [%s+%d], %s", sr, off_pay, pr)
+                                    : emit_fmt("dword ptr [%s], %s",     sr,          pr)));
+    } else {
+        s += s_2asm("mov", (off_pay ? emit_fmt("[%s+%d], %s", sr, off_pay, pr)
+                                    : emit_fmt("[%s], %s",     sr,          pr)));
+    }
+    s += s_2asm("add", emit_fmt("%s, %d", sr, stride));
+    return s;
+}

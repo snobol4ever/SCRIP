@@ -23,6 +23,14 @@ std::string s_L1asm (const std::string & l, const std::string & a);
 std::string s_L2asm (const std::string & l, const std::string & a, const std::string & b);
 std::string s_directive (const std::string & line);
 std::string s_comment   (const std::string & line);
+/* Layout-aware inline descriptor PUSH: stores a freshly-built descriptor   */
+/* {v, slen, payload-in 'payreg'} at [stackreg] using the field offsets and */
+/* stride of the active g_descr_layout, then advances stackreg by the       */
+/* stride.  Replaces hand-encoded [reg+4]/[reg+8]/add reg,16 quartets so a  */
+/* layout switch needs no edit at the call site.  stackreg/payreg are bare  */
+/* register names ("r12","rdi", ...).  v_imm/slen_imm are the immediates.   */
+std::string s_descr_push(const char * stackreg, int v_imm, int slen_imm,
+                         const char * payreg);
 inline std::string s_1asm_c  (const char * a)                                              { return s_1asm(std::string(a ? a : "")); }
 inline std::string s_2asm_c  (const char * a, const char * b)                              { return s_2asm(std::string(a ? a : ""), std::string(b ? b : "")); }
 inline std::string s_3asm_c  (const char * a, const char * b, const char * c)              { return s_3asm(std::string(a ? a : ""), std::string(b ? b : ""), std::string(c ? c : "")); }

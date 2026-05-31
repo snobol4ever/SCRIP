@@ -38,7 +38,25 @@ typedef struct DESCR_t {
     };
 } DESCR_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* DESCR ACCESSOR FUNNEL (Path A).  Every raw DESCR_t field touch in the   */
+/* DESCR LAYOUT MODE.  A single global drives x86 emission of the inline   */
+/* descriptor-store quartet (mov [reg],v / [reg+SLEN],slen / [reg+PAY],    */
+/* payload / add reg,STRIDE) and pointer-payload basing.  The C struct is  */
+/* the source of truth for offsets via offsetof/sizeof, so the symbolic    */
+/* constants below stay correct automatically when the struct changes.     */
+/* The emitter reads g_descr_layout to choose stride/offsets and whether   */
+/* to base pointer payloads off RBP.  Default DESCR_LAYOUT_16 == today.     */
+typedef enum {
+    DESCR_LAYOUT_16 = 0,   /* current: 4(v) + 4(slen) + 8(payload) = 16, raw 64-bit pointers */
+    DESCR_LAYOUT_8  = 1,    /* packed:  1(v) + 3(slen) + 4(off) = 8, RBP-based 32-bit payload */
+} descr_layout_t;
+/* Symbolic field offsets / stride for the CURRENT (16-byte) C struct.     */
+/* These come straight from the struct so the C side can never drift.      */
+#include <stddef.h>
+#define DESCR_OFF_V        ((int)offsetof(DESCR_t, v))      /* = 0  */
+#define DESCR_OFF_SLEN     ((int)offsetof(DESCR_t, slen))   /* = 4  */
+#define DESCR_OFF_PAYLOAD  ((int)offsetof(DESCR_t, s))      /* = 8  */
+#define DESCR_STRIDE       ((int)sizeof(DESCR_t))           /* = 16 */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* codebase routes through these GET_ and SET_ accessors plus the sentinel */
 /* and constructor macros below.  In the current 16-byte layout each       */
 /* expands to the identical field access it replaces, so the build stays   */

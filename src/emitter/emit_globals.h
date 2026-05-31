@@ -89,6 +89,9 @@ extern sm_emit_t g_emit;
 extern const char *Σ;
 extern int         Σlen;
 extern int         Δ;
+/* DESCR layout mode driving inline-descriptor x86 emission (see descr.h). */
+#include "descr.h"
+extern descr_layout_t g_descr_layout;
 #define TEMPLATE_ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 #define TEMPLATE_ADDR_SIGLEN  ((uint64_t)(uintptr_t)&Σlen)
 #define TEMPLATE_ADDR_DELTA   ((uint64_t)(uintptr_t)&Δ)

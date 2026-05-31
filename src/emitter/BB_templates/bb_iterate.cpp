@@ -440,10 +440,7 @@ static std::string bb_iterate_str(IR_t * pBB, bb_bin_t & bin) {
                 + s_2asm("lea rax,", emit_fmt("[rip + .Liter%d_slots]", id))
                 + s_2asm("lea rdi,", "[rax + rcx*2]")
                 + s_2asm("mov eax,", "0x00010001")
-                + s_2asm("mov dword ptr [r12],", "1")
-                + s_2asm("mov dword ptr [r12+4],", "1")
-                + s_2asm("mov [r12+8],", "rdi")
-                + s_2asm("add", "r12, 16")
+                + s_descr_push("r12", 1, 1, "rdi")
                 + s_2asm("jmp", _.lbl_γ);
             return slots + alpha + beta + body;
         }
