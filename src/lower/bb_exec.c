@@ -1900,6 +1900,23 @@ IR_t * bb_exec_node(IR_t * bb) {
     case IR_FAIL:
         bb->value = FAILDESCR;
         return bb->ω;
+    case IR_GOTO: {
+        /* Computed/indirect goto (SPITBOL ch.4: `:($X)` / `:S($X)` / `:F($X)`). The goto expression was lowered
+           into an isolated value sub-graph (pointer on counter). Run it, coerce the value to a label-name
+           string, resolve it to a landing node via bb_label_landing, and transfer there. An unresolved label
+           (or a failing expr) takes bb->ω (the fall-through path the lowerer wired). */
+        extern IR_t * bb_label_landing(const char * name);
+        IR_graph_t * sub = (IR_graph_t *)(intptr_t) bb->counter;
+        if (!sub || !sub->entry) { bb->value = FAILDESCR; return bb->ω; }
+        bb_reset(sub);
+        DESCR_t lv = bb_exec_once(sub);
+        if (IS_FAIL_fn(lv)) { bb->value = FAILDESCR; return bb->ω; }
+        char * lname = VARVAL_fn(lv);
+        IR_t * land = lname ? bb_label_landing(lname) : NULL;
+        if (!land) { bb->value = FAILDESCR; return bb->ω; }
+        bb->value = NULVCL;
+        return land;
+    }
     case IR_IF: {
         if (!bb->α && !bb->β) {
             DESCR_t cv = ag_ring_peek(g_current_cfg, 0);

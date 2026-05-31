@@ -563,12 +563,19 @@ static IR_t * v_not(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t
  * `:=` is a future cx.lang arm under this same case (FACT RULE: language variation lives INSIDE the case).
  * The target var name is carried in as->sval; EXEC recognizes a reserved name (SNOBOL4 `OUTPUT`) and prints
  * — that recognition is an EXEC concern, NOT a lowering fork. Complex lhs (FIELD/IDX) = a later arm.
+ * SNOBOL4-only (cx.lang==IR_LANG_SNO): a TT_KEYWORD lhs `&NAME = expr` is also accepted (SPITBOL Manual ch.16
+ * "Unprotected Keywords": &ANCHOR/&TRIM/&FULLSCAN/&MAXLNGTH/&STLIMIT/&CODE/&ERRLIMIT/&FTRACE/&TRACE etc. are
+ * set with a statement like `&ANCHOR = 1`). The lexer strips the leading `&`, so as->sval is the bare keyword
+ * name; NV_SET_fn already dispatches it to the kw_* runtime globals (and rejects protected keywords like &CASE).
  *   rhs.γ -> as ; rhs.ω -> ω_in ; as.γ -> γ_in ; as.ω -> ω_in ; as.α = rhs.α ; as.β = ω_in.                */
 /*====================================================================================================================================================================================================*/
 static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     const tree_t * lhs_t = NULL, * rhs_t = NULL;
     if (!tm(e, TT_ASSIGN, 2, &lhs_t, &rhs_t)) return NULL;
-    if (!lhs_t || lhs_t->t != TT_VAR || !rhs_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    if (!lhs_t || !rhs_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    int lhs_is_var = (lhs_t->t == TT_VAR);
+    int lhs_is_kw  = (cx.lang == IR_LANG_SNO && lhs_t->t == TT_KEYWORD);
+    if (!lhs_is_var && !lhs_is_kw) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     IR_t * as = nalloc(cx, IR_ASSIGN);
     if (!as) return NULL;
     as->sval = lhs_t->v.sval ? lhs_t->v.sval : "";

@@ -20,6 +20,67 @@ extern uint32_t polyglot_lang_mask(const tree_t * prog);
 extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask);
 extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 /*====================================================================================================================================================================================================*/
+/* Computed/indirect goto label registry (SPITBOL ch.4: `:($X)` / `:S($X)` / `:F($X)` transfer to the label */
+/* named by an expression evaluated at run time). The two-pass walker resolves STATIC labels to landing nodes */
+/* at lower time; a COMPUTED goto cannot be — the target string is unknown until the goto fires. So lower()    */
+/* records (label-name -> landing IR_t*) here, and the IR_GOTO exec arm (bb_exec.c) evaluates the goto expr,   */
+/* looks the resulting string up, and returns that landing. One global table suffices: the SNOBOL4 program is  */
+/* one graph (mirrors the single proc_table). Rebuilt on each lower() of a SNOBOL4 program.                    */
+/*====================================================================================================================================================================================================*/
+typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
+static bb_label_entry_t g_bb_labels[1024];
+static int              g_bb_label_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void bb_label_registry_reset(void) { g_bb_label_n = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void bb_label_registry_add(const char * name, IR_t * landing) {
+    if (!name || !landing || g_bb_label_n >= 1024) return;
+    g_bb_labels[g_bb_label_n].name = name; g_bb_labels[g_bb_label_n].landing = landing; g_bb_label_n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t * bb_label_landing(const char * name) {
+    if (!name) return NULL;
+    for (int i = 0; i < g_bb_label_n; i++)
+        if (g_bb_labels[i].name && !strcmp(g_bb_labels[i].name, name)) return g_bb_labels[i].landing;
+    if (!strcmp(name, "END")) return NULL;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* make_computed_goto — build an IR_GOTO resolver for a COMPUTED goto branch. The goto expression is lowered  */
+/* into its OWN isolated value sub-graph (γ=NULL terminal, like IR_SCAN/IR_CALL operands) whose pointer rides */
+/* on the node's `counter`; the exec arm runs it, coerces the value to a label-name string, resolves it via   */
+/* bb_label_landing, and returns the landing node. node->ω = fall (failure path if the label is unresolved).  */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * make_computed_goto(IR_graph_t * g, const tree_t * gexpr, IR_t * fall) {
+    if (!g || !gexpr) return NULL;
+    IR_graph_t * sub = IR_alloc(64, IR_LANG_SNO);
+    if (!sub) return NULL;
+    IR_t * vfail = IR_node_alloc(sub, IR_FAIL);
+    IR_t * eα = NULL, * eβ = NULL;
+    IR_t * en = lower2_value_entry(sub, gexpr, NULL /* terminal value */, vfail, &eα, &eβ);
+    if (!en) { IR_free(sub); return NULL; }
+    (void) eβ;
+    sub->entry = eα ? eα : en;
+    IR_t * gt = IR_node_alloc(g, IR_GOTO);
+    if (!gt) { IR_free(sub); return NULL; }
+    gt->counter = (int64_t)(intptr_t) sub;
+    gt->ω = fall;
+    return gt;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* make_indirect_goto — the common `:($X)` form. The parser folds `$IDENT` into a TT_QLIT label string with a */
+/* leading '$' (snobol4.y goto_label_expr): a label name starting with '$' means "resolve the variable named  */
+/* by the suffix at run time, its string value names the label". Synthesize a TT_VAR for the suffix and build  */
+/* a computed-goto resolver over it. Returns NULL for a non-'$' string (caller keeps the static-label path).   */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * make_indirect_goto(IR_graph_t * g, const char * gstr, IR_t * fall) {
+    if (!gstr || gstr[0] != '$' || gstr[1] == '\0') return NULL;
+    tree_t * v = ast_stmt_new(TT_VAR);
+    if (!v) return NULL;
+    v->v.sval = (char *) (gstr + 1);
+    return make_computed_goto(g, v, fall);
+}
+/*====================================================================================================================================================================================================*/
 /* binop_apply — apply a binary operator to two runtime descriptors. Numeric ops promote to real when either side is real; relationals return the right value or fail (rel_fail set); concat and the   */
 /* string-relationals coerce via descr_to_str_icn. Ported verbatim from the pre-cut lower.c (blob d2d8c8e1); bb_exec.c calls it from every BINOP execution arm, hence the executable needs the symbol.  */
 /*====================================================================================================================================================================================================*/
@@ -295,13 +356,19 @@ stage2_t *lower(const tree_t *prog) {
                 land[ns]  = IR_node_alloc(g, IR_SUCCEED);
                 ns++;
             }
+            /* Register every labeled statement's landing for run-time computed-goto resolution (bb_label_landing). */
+            bb_label_registry_reset();
+            for (int i = 0; i < ns; i++) {
+                const char *li = stmt_attr_str(stmt_attr_find(stmts[i], ":lbl"));
+                if (li) bb_label_registry_add(li, land[i]);
+            }
             /* label -> landing-node resolver (case-sensitive — RULES.md). END's landing falls to PSUCC. */
             int built = 0;
             for (int i = 0; i < ns; i++) {
                 const tree_t *s = stmts[i];
                 IR_t *fall = (i + 1 < ns) ? land[i + 1] : PSUCC;   /* default sequential successor */
                 /* resolve the three goto targets to landing nodes (static label form: goto_node_str). A
-                   computed/indirect goto (goto_node_expr) is not yet wired — falls through (documented). */
+                   computed/indirect goto (goto_node_expr) is resolved at run time via an IR_GOTO resolver. */
                 IR_t *tgt_u = NULL, *tgt_s = NULL, *tgt_f = NULL;
                 const char *gu = goto_node_str(stmt_goto_find(s, TT_GOTO_U));
                 const char *gs = goto_node_str(stmt_goto_find(s, TT_GOTO_S));
@@ -313,6 +380,19 @@ stage2_t *lower(const tree_t *prog) {
                     if (gs && !strcmp(gs, lj)) tgt_s = land[j];
                     if (gf && !strcmp(gf, lj)) tgt_f = land[j];
                 }
+                /* COMPUTED goto (`:($X)` etc.): build an IR_GOTO resolver per branch. The resolver returns the
+                   landing for the run-time label string, or `fall` if unresolved (failure path). Two forms: the
+                   `:($IDENT)` form is a TT_QLIT label string with a leading '$' (make_indirect_goto); the rarer
+                   `:($(expr))` form carries a real expr node (goto_node_expr → make_computed_goto). */
+                if (gu && !tgt_u) tgt_u = make_indirect_goto(g, gu, fall);
+                if (gs && !tgt_s) tgt_s = make_indirect_goto(g, gs, fall);
+                if (gf && !tgt_f) tgt_f = make_indirect_goto(g, gf, fall);
+                const tree_t *eu = goto_node_expr(stmt_goto_find(s, TT_GOTO_U));
+                const tree_t *es = goto_node_expr(stmt_goto_find(s, TT_GOTO_S));
+                const tree_t *ef = goto_node_expr(stmt_goto_find(s, TT_GOTO_F));
+                if (eu && !tgt_u) tgt_u = make_computed_goto(g, eu, fall);
+                if (es && !tgt_s) tgt_s = make_computed_goto(g, es, fall);
+                if (ef && !tgt_f) tgt_f = make_computed_goto(g, ef, fall);
                 if (gu && !tgt_u && !strcmp(gu, "END")) tgt_u = PSUCC;
                 if (gs && !tgt_s && !strcmp(gs, "END")) tgt_s = PSUCC;
                 if (gf && !tgt_f && !strcmp(gf, "END")) tgt_f = PSUCC;
