@@ -194,7 +194,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
                         } else if (ic->t == TT_VAR && ic->v.sval) {
                             DESCR_t xv = NV_GET_fn(ic->v.sval);
                             if (IS_NAMEPTR(xv)) {
-                                const char *_rn = NV_name_from_ptr((const DESCR_t*)xv.ptr);
+                                const char *_rn = NV_name_from_ptr((const DESCR_t*)GET_PTR(xv));
                                 subj_name = _rn ? _rn : NULL;
                             } else if (xv.v == DT_N && xv.slen == 0 && xv.s) {
                                 subj_name = xv.s;
@@ -315,8 +315,8 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
                     else {
                         DESCR_t ind_val = ichild ? FAILDESCR : NULVCL;
                         if (IS_NAMEPTR(ind_val)) {
-                            *(DESCR_t*)ind_val.ptr = repl_val;
-                            { const char *_rn = NV_name_from_ptr((const DESCR_t*)ind_val.ptr);
+                            *(DESCR_t*)GET_PTR(ind_val) = repl_val;
+                            { const char *_rn = NV_name_from_ptr((const DESCR_t*)GET_PTR(ind_val));
                               comm_var(_rn ? _rn : "<lval>", repl_val); }
                             succeeded = 1;
                         } else {

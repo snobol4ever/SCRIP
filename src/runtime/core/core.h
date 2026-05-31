@@ -10,7 +10,7 @@
 #include "patnd.h"
 static inline size_t descr_slen(DESCR_t d) {
     if (d.v == DT_S) {
-        if (d.slen) return (size_t)d.slen;
+        if (GET_SLEN(d)) return (size_t)GET_SLEN(d);
         return d.s ? strlen(d.s) : 0;
     }
     return 0;

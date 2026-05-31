@@ -14,10 +14,10 @@ DESCR_t *interp_eval_ref(tree_t *e)
         DESCR_t idx  = FAILDESCR;
         if (IS_FAIL_fn(idx)) return NULL;
         if (IS_ARR(base)) {
-            return array_ptr(base.arr, (int)to_int(idx));
+            return array_ptr(GET_ARR(base), (int)to_int(idx));
         }
         if (IS_TBL(base)) {
-            return table_ptr(base.tbl, idx);
+            return table_ptr(GET_TBL(base), idx);
         }
         return NULL;
     }

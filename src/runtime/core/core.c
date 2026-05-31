@@ -812,7 +812,7 @@ static DESCR_t _APPLY_(DESCR_t *a, int n) {
         if (a[0].slen == 0 && a[0].s && *a[0].s)
             fname = a[0].s;
         else if (a[0].slen == 1 && a[0].ptr)
-            fname = NV_name_from_ptr((const DESCR_t *)a[0].ptr);
+            fname = NV_name_from_ptr((const DESCR_t *)GET_PTR(a[0]));
     }
     if (!fname) fname = VARVAL_fn(a[0]);
     return APPLY_fn(fname, a + 1, n - 1);

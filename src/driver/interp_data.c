@@ -73,7 +73,7 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
     DESCR_t r;
     r.v    = DT_DATA;
     r.slen = 0;
-    r.u    = inst;
+    SET_U(r, inst);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -115,12 +115,12 @@ DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *data_field_ptr(const char *fname, DESCR_t inst) {
-    if (inst.v < DT_DATA || !inst.u) return NULL;
-    DATBLK_t *blk = inst.u->type;
+    if (inst.v < DT_DATA || !GET_U(inst)) return NULL;
+    DATBLK_t *blk = GET_U(inst)->type;
     if (!blk) return NULL;
     for (int i = 0; i < blk->nfields; i++)
         if (blk->fields[i] && strcmp(blk->fields[i], fname) == 0)
-            return &inst.u->fields[i];
+            return &GET_U(inst)->fields[i];
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

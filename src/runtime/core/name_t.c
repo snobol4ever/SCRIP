@@ -91,8 +91,8 @@ int name_commit_value(const NAME_t *nm, DESCR_t value)
                         k, raw_kind, kind, str, numbuf);
             }
         }
-        DESCR_t *cell  = (name_d.v == DT_N && name_d.ptr)
-                         ? (DESCR_t *)name_d.ptr : NULL;
+        DESCR_t *cell  = (name_d.v == DT_N && GET_PTR(name_d))
+                         ? (DESCR_t *)GET_PTR(name_d) : NULL;
         if (!cell) return -1;
         *cell = value;
         {

@@ -118,8 +118,7 @@ void NAME_commit(void)
             }
             if (superseded) continue;
         }
-        DESCR_t val = { .v = DT_S, .slen = (uint32_t)e->slen,
-                        .s = (char *)e->substr };
+        DESCR_t val = BSTRVAL((char *)e->substr, (uint32_t)e->slen);
         name_commit_value(&e->name, val);
     }
     ctx->top = 0;

@@ -45,13 +45,13 @@ static inline DESCR_t _aref_impl(DESCR_t arr, DESCR_t *keys, int n) {
     if (n <= 0) return FAILDESCR;
     if (arr.v == DT_T) {
         const char *k = VARVAL_fn(keys[0]);
-        return table_get(arr.tbl, k ? k : "");
+        return table_get(GET_TBL(arr), k ? k : "");
     }
     if (arr.v == DT_A) {
         int i = (int)to_int(keys[0]);
-        if (n == 1) return array_get(arr.arr, i);
+        if (n == 1) return array_get(GET_ARR(arr), i);
         int j = (int)to_int(keys[1]);
-        return array_get2(arr.arr, i, j);
+        return array_get2(GET_ARR(arr), i, j);
     }
     return FAILDESCR;
 }
@@ -60,14 +60,14 @@ static inline void _aset_impl(DESCR_t arr, DESCR_t *keys, int n, DESCR_t v) {
     if (n <= 0) return;
     if (arr.v == DT_T) {
         const char *k = VARVAL_fn(keys[0]);
-        table_set_descr(arr.tbl, k ? k : "", keys[0], v);
+        table_set_descr(GET_TBL(arr), k ? k : "", keys[0], v);
         return;
     }
     if (arr.v == DT_A) {
         int i = (int)to_int(keys[0]);
-        if (n == 1) { array_set(arr.arr, i, v); return; }
+        if (n == 1) { array_set(GET_ARR(arr), i, v); return; }
         int j = (int)to_int(keys[1]);
-        array_set2(arr.arr, i, j, v);
+        array_set2(GET_ARR(arr), i, j, v);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

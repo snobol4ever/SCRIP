@@ -50,8 +50,8 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             if (IS_FAIL_fn(ls_d) || IS_FAIL_fn(rs_d)) return FAILDESCR;
             const char *ls = ls_d.s ? ls_d.s : "";
             const char *rs = rs_d.s ? rs_d.s : "";
-            size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
-            size_t rl = rs_d.slen > 0 ? (size_t)rs_d.slen : strlen(rs);
+            size_t ll = GET_SLEN(ls_d) > 0 ? (size_t)GET_SLEN(ls_d) : strlen(ls);
+            size_t rl = GET_SLEN(rs_d) > 0 ? (size_t)GET_SLEN(rs_d) : strlen(rs);
             char *buf = GC_malloc(ll + rl + 1);
             memcpy(buf, ls, ll); memcpy(buf + ll, rs, rl); buf[ll + rl] = '\0';
             { DESCR_t r2; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }

@@ -18,7 +18,7 @@ DESCR_t ARGVAL_fn(DESCR_t d)
         if (d.slen == 0 && d.s && *d.s)
             return NV_GET_fn(d.s);
         if (d.slen == 1 && d.ptr)
-            return *(DESCR_t *)d.ptr;
+            return *(DESCR_t *)GET_PTR(d);
         return NULVCL;
     }
     if (d.v == DT_K && d.s)
