@@ -196,7 +196,12 @@ static int tm_g(const tree_t * e, tree_e kind, const char * tag, int nargs, ...)
 int kind_is_resumable(IR_e t) {
     return t == IR_TO || t == IR_TO_BY || t == IR_UPTO || t == IR_ALT || t == IR_BINOP_GEN || t == IR_ITERATE || t == IR_LIMIT || t == IR_PROC_GEN ||
            t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN || t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN ||
-           t == IR_GEN_SCAN || t == IR_CONJ;
+           t == IR_GEN_SCAN || t == IR_CONJ ||
+           /* SNOBOL4 PATTERN generators — bb->β=self (retry to backtrack/shrink/grow): */
+           t == IR_PAT_LIT || t == IR_PAT_ARB || t == IR_PAT_REM || t == IR_PAT_SPAN || t == IR_PAT_ANY || t == IR_PAT_NOTANY ||
+           t == IR_PAT_BREAK || t == IR_PAT_LEN || t == IR_PAT_TAB || t == IR_PAT_ARBNO || t == IR_PAT_DEFER ||
+           t == IR_PAT_ASSIGN_COND || t == IR_PAT_ASSIGN_IMM || t == IR_PAT_ATP;
+           /* SINGLE-SHOT pattern nodes (POS, RPOS, FENCE, ABORT) get β=ω_in via the bounded path. */
 }
 static IR_t * emit_leaf(lcx_t cx, IR_t * n, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!n) return NULL;
@@ -628,8 +633,165 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
     case TT_ALT:
         if (e->n < 1) return NULL;
         return wire_alt(cx, IR_PAT_ALT, (const tree_t * const *) e->c, e->n, γ_in, ω_in, α_out, β_out);
-    /* extension: LEN POS RPOS TAB RTAB FENCE ARBNO CAT/SEQ ALT
-       CAPT_COND_ASGN CAPT_IMMED_ASGN CAPT_CURSOR DEFER VAR(*var) BAL, and FNC(SPAN/ANY/.../ARBNO). */
+    /* LEN(n) — match exactly n chars. n is TT_ILIT (→ ival) or TT_VAR (→ sval+dval=1.0). Generator
+       (retry undoes the advance): α=β=self. SPITBOL ch.6 "LEN(I) matches exactly I characters". */
+    case TT_LEN: {
+        if (e->n < 1 || !e->c[0]) return NULL;
+        n = nalloc(cx, IR_PAT_LEN); if (!n) return NULL;
+        if (e->c[0]->t == TT_VAR) { n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : ""; n->dval = 1.0; }
+        else { n->ival = e->c[0]->v.ival; n->dval = 0.0; }
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* POS(I) — cursor-position test from left (single-shot: never alters cursor, just checks it).
+       RPOS(I) — cursor-position test from right (Σlen - I). Neither consumes chars; β=ω_in (bounded).
+       SPITBOL ch.6 "POS(I) succeeds iff cursor == I; RPOS(I) succeeds iff cursor == N-I". */
+    case TT_POS: case TT_RPOS: {
+        if (e->n < 1 || !e->c[0]) return NULL;
+        n = nalloc(cx, IR_PAT_POS); if (!n) return NULL;
+        int is_rpos = (e->t == TT_RPOS);
+        if (e->c[0]->t == TT_VAR) {
+            n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
+            n->dval = is_rpos ? 1.0 : 2.0;   /* 1.0=RPOS-var, 2.0=POS-var (matches oracle dval check) */
+        } else {
+            n->ival = e->c[0]->v.ival;
+            n->sval = is_rpos ? "r" : NULL;   /* "r" triggers from-end in oracle */
+            n->dval = 0.0;
+        }
+        /* Single-shot: cursor check never retries — treat as bounded so β=ω_in. */
+        lcx_t bx = cx; bx.bounded = 1;
+        return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* TAB(I) — match chars from cursor to absolute position I (RTAB: from right). Generator (retry
+       undoes the TAB-advance): α=β=self. SPITBOL ch.6 "TAB(I) matches up to cursor I". */
+    case TT_TAB: case TT_RTAB: {
+        if (e->n < 1 || !e->c[0]) return NULL;
+        n = nalloc(cx, IR_PAT_TAB); if (!n) return NULL;
+        int is_rtab = (e->t == TT_RTAB);
+        if (e->c[0]->t == TT_VAR) {
+            n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
+            n->dval = is_rtab ? 1.0 : 2.0;
+        } else {
+            n->ival = e->c[0]->v.ival;
+            n->sval = is_rtab ? "r" : NULL;
+            n->dval = 0.0;
+        }
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* FENCE — commits the match at this point; if backtracking reaches it, the whole match fails.
+       FENCE(pat) variant: pat is lowered first, FENCE follows. Single-shot: β=ω_in (bounded).
+       SPITBOL ch.9 "FENCE matches null; on backtrack, fails the entire match". */
+    case TT_FENCE: {
+        n = nalloc(cx, IR_PAT_FENCE); if (!n) return NULL;
+        if (e->n > 0 && e->c[0]) {
+            /* FENCE(inner) — lower inner pattern, FENCE is its successor */
+            IR_t * fα = NULL, * fβ = NULL;
+            lcx_t bx = cx; bx.bounded = 1;
+            set_succ_fail(n, γ_in, ω_in);
+            IR_t * inner = lower2(cx, e->c[0], n, ω_in, &fα, &fβ);
+            if (!inner) return NULL;
+            return ret(n, α_out, β_out, fα, ω_in /* FENCE is single-shot: β=ω_in */);
+        }
+        lcx_t bx = cx; bx.bounded = 1;
+        return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* ABORT — immediately fails the entire pattern match (no alternatives tried).
+       SPITBOL ch.9 "ABORT causes immediate failure of the entire pattern match". */
+    case TT_ABORT: {
+        n = nalloc(cx, IR_PAT_ABORT); if (!n) return NULL;
+        lcx_t bx = cx; bx.bounded = 1;
+        return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* FAIL — forces the pattern matcher to backtrack and seek alternatives.
+       SPITBOL ch.9 "FAIL signals failure of this portion, causing backtrack". */
+    case TT_FAIL: {
+        n = nalloc(cx, IR_FAIL); if (!n) return NULL;
+        lcx_t bx = cx; bx.bounded = 1;
+        return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* SUCCEED — always succeeds; if backtracking reaches it, reverses direction.
+       SPITBOL ch.9 "SUCCEED matches null string, always succeeds". */
+    case TT_SUCCEED: {
+        n = nalloc(cx, IR_SUCCEED); if (!n) return NULL;
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* ARBNO(pat) — zero or more occurrences of pat (shy: starts empty, grows on retry).
+       Inner pat is lowered into its own sub-graph referenced via bb_arbno_state_t.
+       SPITBOL ch.9 "ARBNO(PAT) behaves like ('' | PAT | PAT PAT | …)". */
+    case TT_ARBNO: {
+        if (e->n < 1 || !e->c[0]) return NULL;
+        int inner_cap = 64;
+        IR_graph_t * inner_blk = IR_alloc(inner_cap, IR_LANG_SNO);
+        if (!inner_blk) return NULL;
+        IR_t * isucc = IR_node_alloc(inner_blk, IR_SUCCEED);
+        IR_t * ifail = IR_node_alloc(inner_blk, IR_FAIL);
+        IR_t * iα = NULL, * iβ = NULL;
+        lcx_t icx = { inner_blk, ROLE_PATTERN, 0, 0 };
+        IR_t * inner_entry = lower2(icx, e->c[0], isucc, ifail, &iα, &iβ);
+        if (!inner_entry) { IR_free(inner_blk); return NULL; }
+        inner_blk->entry = iα;
+        n = nalloc(cx, IR_PAT_ARBNO); if (!n) { IR_free(inner_blk); return NULL; }
+        int stack_cap = 64;
+        bb_arbno_state_t * az = (bb_arbno_state_t *)GC_MALLOC(sizeof *az);
+        az->inner = inner_blk;
+        az->pos_stack = (int *)GC_MALLOC((size_t)stack_cap * sizeof(int));
+        az->cap = stack_cap;
+        az->saved_delta = 0;
+        n->counter = (int64_t)(intptr_t)az;
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* Conditional capture `pat . var` (deferred: commits once on full match success).
+       TT_CAPT_COND_ASGN: c[0]=inner pattern, c[1]=TT_VAR (varname). Generator (retry re-enters inner). */
+    case TT_CAPT_COND_ASGN: {
+        if (e->n < 1 || !e->c[0]) return NULL;
+        n = nalloc(cx, IR_PAT_ASSIGN_COND); if (!n) return NULL;
+        n->sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
+        set_succ_fail(n, γ_in, ω_in);
+        IR_t * iα = NULL, * iβ = NULL;
+        IR_t * inner = lower2(cx, e->c[0], n, ω_in, &iα, &iβ);
+        if (!inner) return NULL;
+        n->α = iα;
+        return ret(n, α_out, β_out, n, iβ ? iβ : ω_in);
+    }
+    /* Immediate capture `pat $ var` — same topology as COND but fires assignment immediately.
+       TT_CAPT_IMMED_ASGN: c[0]=inner pattern, c[1]=TT_VAR (varname). */
+    case TT_CAPT_IMMED_ASGN: {
+        if (e->n < 1 || !e->c[0]) return NULL;
+        n = nalloc(cx, IR_PAT_ASSIGN_IMM); if (!n) return NULL;
+        n->sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
+        set_succ_fail(n, γ_in, ω_in);
+        IR_t * iα = NULL, * iβ = NULL;
+        IR_t * inner = lower2(cx, e->c[0], n, ω_in, &iα, &iβ);
+        if (!inner) return NULL;
+        n->α = iα;
+        return ret(n, α_out, β_out, n, iβ ? iβ : ω_in);
+    }
+    /* Cursor capture `@var` — records current cursor position in var; zero-width.
+       TT_CAPT_CURSOR: c[0]=TT_VAR (varname). Generator (retry re-records). */
+    case TT_CAPT_CURSOR: {
+        if (e->n < 1 || !e->c[0] || !e->c[0]->v.sval) return NULL;
+        n = nalloc(cx, IR_PAT_ATP); if (!n) return NULL;
+        n->sval = e->c[0]->v.sval;
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* Deferred `*var` — var holds a pattern (DT_P) or string; resolved at match time.
+       TT_DEFER: c[0]=TT_VAR (varname); ival=1 = apply indirect deref. Generator. */
+    case TT_DEFER: {
+        if (e->n < 1 || !e->c[0] || !e->c[0]->v.sval) return NULL;
+        n = nalloc(cx, IR_PAT_DEFER); if (!n) return NULL;
+        n->sval = e->c[0]->v.sval;
+        n->ival = 1;    /* indirect deref flag (oracle bb_exec.c IR_PAT_DEFER state-0 ival check) */
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* TT_VAR in pattern context — bare variable reference, resolved as a string literal match at runtime.
+       Uses IR_PAT_DEFER with ival=0 (no extra indirection — `var` not `*var`). */
+    case TT_VAR: {
+        if (!e->v.sval) return NULL;
+        n = nalloc(cx, IR_PAT_DEFER); if (!n) return NULL;
+        n->sval = e->v.sval;
+        n->ival = 0;
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    /* extension: FNC(SPAN/ANY/etc.) calls, BAL (future). */
     default:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     }
