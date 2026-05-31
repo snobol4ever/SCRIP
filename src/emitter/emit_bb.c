@@ -61,6 +61,24 @@ const char *child_cache_get_lbl(bb_box_fn fn);
 #define FLAT_BUF_MAX  (256 * 1024)
 int g_flat_node_id   = 0;
 static int g_flat_slot_count = 0;
+/* GZ-3 (GROUND ZERO 3) node->slot-offset map. A box that produces a READ-WRITE result (e.g. the     */
+/* stackless integer binop) claims a per-sequence frame slot via bb_slot_alloc and records it keyed by */
+/* its IR_t*; a consumer box (write reading the binop's result) recovers the offset via bb_slot_get on */
+/* its operand node. Both live in the ONE-REGISTER FRAME addressed by ζ=r12 ([r12+off]). Reset per     */
+/* sequence alongside g_flat_slot_count in bb_build_flat/bb_build_brokered.                             */
+#define BB_SLOTMAP_MAX 512
+static struct { IR_t *key; int off; } g_bb_slotmap[BB_SLOTMAP_MAX];
+static int g_bb_slotmap_n = 0;
+int bb_slot_alloc(IR_t *nd) {
+    int off = g_flat_slot_count;
+    g_flat_slot_count += 8;
+    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    return off;
+}
+int bb_slot_get(IR_t *nd) {
+    for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
+    return -1;
+}
 int g_frame_active = 0;
 #define FLAT_DATA_BUF_MAX     (32 * 1024)
 #define FLAT_DATA_LBL_MAX     32
@@ -623,6 +641,16 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_binop_tree: missing α or β child\n");
         abort();
+    }
+    if (pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I) {
+        /* GZ-3 (GROUND ZERO 3): both operands are READ-ONLY integer constants. The stackless binop box   */
+        /* (bb_binop.cpp RO-int arm) bakes their values as sealed RO data in its OWN blob and reads them   */
+        /* [rip+disp] directly, computing into its frame slot [r12+off]. The operands are therefore NOT    */
+        /* walked as separate pushing boxes (there is no value stack). Emit only the binop box.            */
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        return;
     }
     int id = g_flat_node_id++;
     bb_label_t *lhs_done = emit_label_alloc("xbinop%d_lhs_done", id);
@@ -1446,7 +1474,7 @@ bb_box_fn bb_build_flat(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
-    g_flat_slot_count = 0; g_flat_node_id = 0;
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_body(nd, "pat_flat", 0, 0);
     int nbytes = emitter_end();
@@ -1461,7 +1489,7 @@ bb_box_fn bb_build_brokered(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
-    g_flat_slot_count = 0; g_flat_node_id = 0;
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0;
     emit_mode_set(EMIT_BINARY_BROKERED, NULL);
     emitter_init_binary(buf, FLAT_BUF_MAX);
     bb_emit_byte(0x55); bb_emit_byte(0x48); bb_emit_byte(0x89); bb_emit_byte(0xE5);

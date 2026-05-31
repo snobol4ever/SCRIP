@@ -52,6 +52,58 @@ extern int         Δ;
 #include "../runtime/interp/resolve_runtime.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
+/*====================================================================================================================================================================================================*/
+/* ICON MODE-3 RING->TREE ADAPTER (Path 1-lite, Icon --run only). The unified lower2 emits a postfix      */
+/* gamma-chain for Icon expressions: operands precede their operator in gamma-order, every node has       */
+/* alpha=beta=NULL, and operands are read from the AG ring at exec time (the mode-2 oracle's model). The  */
+/* mode-3 flat emitter (emit_bb.c walk_bb_flat / flat_drive_*) and the GROUND-ZERO templates expect the   */
+/* OLD tree-shape (operands in alpha/beta children, as the deleted lower_icn.c blob d2d8c8e1 built them:  */
+/* bb->alpha=lhs; bb->beta=rhs / bb->alpha=args[0]). This adapter un-flattens the straight-line chain     */
+/* into that tree by postfix evaluation (each kind's operand arity drives how many preceding nodes become */
+/* its children), relinks alpha/beta, and returns the root for bb_build_flat. Fails SOFT (returns NULL)   */
+/* on any shape outside the GZ-1/2/3 straight-line subset so the caller falls back to the prior behavior  */
+/* (no regression for control-flow rungs not yet rebuilt). Postfix order verified empirically via         */
+/* --dump-bb (write(2+3): LIT_I 2 -> LIT_I 3 -> IR_BINOP -> IR_CALL). lower.c and the templates are        */
+/* UNTOUCHED; this is a mode-3 Icon emitter-input adapter, not a lowerer change.                          */
+/*====================================================================================================================================================================================================*/
+static int icn_rt_arity(const IR_t *n) {
+    switch (n->t) {
+    case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
+    case IR_VAR:   case IR_KEYWORD: return 0;
+    case IR_BINOP: case IR_BINOP_GEN: return 2;
+    case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
+    case IR_CALL:  return (int)n->ival;
+    default:       return -1;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * icn_ring_to_tree(IR_graph_t *g) {
+    if (!g || !g->entry) return NULL;
+    IR_t *chain[256]; int nc = 0;
+    for (IR_t *cur = g->entry; cur && cur->t != IR_SUCCEED && cur->t != IR_FAIL && nc < 256; cur = cur->γ) chain[nc++] = cur;
+    if (nc == 0 || nc >= 256) return NULL;
+    IR_t *stk[256]; int sp = 0;
+    for (int i = 0; i < nc; i++) {
+        IR_t *n = chain[i];
+        int ar = icn_rt_arity(n);
+        if (ar < 0 || ar > sp) return NULL;
+        if (n->t == IR_CALL) {
+            if (ar != 1) return NULL;
+            n->α = stk[sp - 1]; sp -= 1;
+            n->dval = 0.0;
+        } else if (ar == 2) {
+            n->β = stk[sp - 1];
+            n->α = stk[sp - 2];
+            sp -= 2;
+        } else if (ar == 1) {
+            n->α = stk[sp - 1]; sp -= 1;
+        }
+        stk[sp++] = n;
+    }
+    if (sp != 1) return NULL;
+    return stk[0];
+}
+/*====================================================================================================================================================================================================*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -463,7 +515,8 @@ int main(int argc, char **argv)
             extern int g_frame_active;
             extern void *rt_frame(void);
             g_frame_active = 1;
-            bb_box_fn fn = bb_build_flat(bbg->entry);
+            IR_t *icn_root = icn_ring_to_tree(bbg);
+            bb_box_fn fn = bb_build_flat(icn_root ? icn_root : bbg->entry);
             g_frame_active = 0;
             if (!fn) {
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: bb_build_flat returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");

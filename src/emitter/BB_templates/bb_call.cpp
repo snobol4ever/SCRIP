@@ -38,6 +38,7 @@ void rt_call_proc(const char *name, int nargs);
 int  rt_proc_is_registered(const char *name);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
+int  bb_slot_get(IR_t * nd);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
@@ -200,6 +201,38 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
                  + bytes(1, "\xE9")         + u32le(0)
                  + bytes(1, "\xE9")         + u32le(0)
                  + u64le((uint64_t)val);
+        }
+        /* GZ-3 (GROUND ZERO 3, 2026-05-31): arg0 is the stackless RO-int binop. Its result was stored    */
+        /* into a per-sequence frame slot [r12+off] (ζ=r12) by bb_binop.cpp; recover off via bb_slot_get   */
+        /* on the binop node and read the value directly into rdi, then call the by-value rt_write_int_nl.  */
+        /* No value stack. β-target taken from the driver's queued lbl_β pair (else ω), like GZ-2.          */
+        int arg_is_ro_binop = (a0 && a0->t == IR_BINOP);
+        if (arg_is_ro_binop && MEDIUM_BINARY) {
+            int off = bb_slot_get(a0);
+            if (off < 0) {
+                fprintf(stderr, "[GZ-3] FATAL bb_call: write(binop) — binop result slot not allocated (bb_slot_get miss)\n");
+                abort();
+            }
+            bb_label_t *beta_jmp_target = _.lbl_ω_p;
+            for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
+                if (g_emit.xa_bb_emit_pair_define[i] == _.lbl_β_p && g_emit.xa_bb_emit_pair_jmp[i]) {
+                    beta_jmp_target = g_emit.xa_bb_emit_pair_jmp[i];
+                    break;
+                }
+            }
+            /*   0  : 49 8B BC 24 <u32 off>   mov rdi, [r12+off]   (read binop result from the ζ frame slot)*/
+            /*   8  : 48 B8 + u64le fptr      movabs rax, &rt_write_int_nl                                  */
+            /*  18  : FF D0                   call rax                                                      */
+            /*  20  : E9 + u32le γ_rel32      jmp γ               ← γ patch at 21                           */
+            /*  25  : E9 + u32le β_tgt_rel32  β: jmp β-target     ← β-def 25, tgt patch at 26               */
+            /*  30  : end                                                                                   */
+            uint64_t fptr; { void (*fp)(int64_t) = rt_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            bin = { {21, 25, 26}, {_.lbl_γ_p, _.lbl_β_p, beta_jmp_target}, {false, true, false} };
+            return bytes(4, "\x49\x8B\xBC\x24") + u32le((uint32_t)off)
+                 + bytes(2, "\x48\xB8")         + u64le(fptr)
+                 + bytes(2, "\xFF\xD0")
+                 + bytes(1, "\xE9")             + u32le(0)
+                 + bytes(1, "\xE9")             + u32le(0);
         }
         const char *trailer_sym = arg_is_any ? "rt_pop_write_any_nl@PLT" : "rt_pop_write_int_nl@PLT";
         if (MEDIUM_TEXT) {

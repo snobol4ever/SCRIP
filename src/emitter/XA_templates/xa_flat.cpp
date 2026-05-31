@@ -103,16 +103,30 @@ static std::string xa_flat_epilogue_str(bb_bin_t & bin) {
             /* fail-label bin-site stays correct.                                                          */
             extern int g_frame_active;
             std::string unwind = g_frame_active ? bytes(2, "\x41\x5C") : bytes(4, "\x48\x83\xC4\x08");
-            std::string succ_half =
-                   bytes(2, "\x48\xB9") + u64le(ADDR_SIGMA)
-                 + bytes(3, "\x48\x8B\x01")
-                 + bytes(3, "\x49\x63\x0A")
-                 + bytes(4, "\x48\x8D\x04\x08")
-                 + bytes(3, "\x48\x89\xC2")
-                 + bytes(1, "\xB8") + u32le(1)
-                 + unwind
-                 + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
-                 + bytes(1, "\xC3");
+            /* ICON STACKLESS EPILOGUE (GROUND ZERO 3, g_frame_active): the original success path below   */
+            /* dereferences r10 (movsxd rcx,[r10], expecting r10 to still hold Δ from the prologue) and Σ */
+            /* to build an SM-style return DESCR. r10 is SysV CALLER-saved, so any box that calls a        */
+            /* runtime fn that clobbers it (e.g. rt_write_int_nl -> fprintf("%lld")) leaves r10 garbage →  */
+            /* the epilogue then segfaults on [r10]. The driver IGNORES the Icon slab's return value (it    */
+            /* does `(void)fn(rt_frame(),0)`), so this Σ/r10 computation is vestigial for Icon. Return a    */
+            /* constant success (eax=1, edx=0) with NO dereference — crash-proof against any clobber, and   */
+            /* symmetric with the fail-half below. NON-ICON (g_frame_active==0) keeps the original Σ/r10    */
+            /* bytes verbatim → SNOBOL4/Prolog output byte-identical.                                       */
+            std::string succ_half = g_frame_active
+                 ? ( bytes(1, "\xB8") + u32le(1)
+                   + bytes(2, "\x31\xD2")
+                   + unwind
+                   + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
+                   + bytes(1, "\xC3") )
+                 : ( bytes(2, "\x48\xB9") + u64le(ADDR_SIGMA)
+                   + bytes(3, "\x48\x8B\x01")
+                   + bytes(3, "\x49\x63\x0A")
+                   + bytes(4, "\x48\x8D\x04\x08")
+                   + bytes(3, "\x48\x89\xC2")
+                   + bytes(1, "\xB8") + u32le(1)
+                   + unwind
+                   + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
+                   + bytes(1, "\xC3") );
             std::string fail_half =
                    bytes(1, "\xB8") + u32le(99)
                  + bytes(2, "\x31\xD2")
