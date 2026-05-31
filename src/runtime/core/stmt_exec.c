@@ -143,8 +143,8 @@ static void scan_body_fn_u9(DESCR_t val, void *arg) {
     r->end = Δ;
     if (g_scan_pre_delta >= 0)
         r->start = g_scan_pre_delta;
-    else if (val.v == DT_S && val.slen)
-        r->start = Δ - (int)val.slen;
+    else if (val.v == DT_S && GET_SLEN(val))
+        r->start = Δ - (int)GET_SLEN(val);
     else
         r->start = Δ;
     g_scan_pre_delta = -1;
@@ -266,13 +266,13 @@ int exec_stmt(const char  *subj_name,
     Ω = subj_len;
     Σlen = subj_len;
     bb_node_t root;
-    if (pat.v == DT_E && pat.ptr) {
-        root.fn     = (bb_box_fn)pat.ptr;
+    if (pat.v == DT_E && GET_PTR(pat)) {
+        root.fn     = (bb_box_fn)GET_PTR(pat);
         root.ζ      = NULL;
         root.ζ_size = 0;
-    } else if (pat.v == DT_P && pat.p) {
+    } else if (pat.v == DT_P && GET_P(pat)) {
         {
-            PATND_t *pp0 = (PATND_t *)pat.p;
+            PATND_t *pp0 = (PATND_t *)GET_P(pat);
             if (pp0->kind == XDSAR && pp0->STRVAL_fn && pp0->STRVAL_fn[0]) {
                 DESCR_t resolved = NV_GET_fn(pp0->STRVAL_fn);
                 if (resolved.v == DT_P || resolved.v == DT_S || resolved.v == DT_SNUL) pat = resolved;
@@ -283,10 +283,10 @@ int exec_stmt(const char  *subj_name,
             PATND_t *lp = patnd_make_xchr(lit);
             bb_box_fn bfn2 = bb_build_pure_mode((IR_t *)lp);
             root.fn = bfn2; root.ζ = NULL; root.ζ_size = 0;
-        } else if (pat.v == DT_P && pat.p) {
+        } else if (pat.v == DT_P && GET_P(pat)) {
         int bin_done = 0;
         if (g_bb_mode == BB_MODE_LIVE) {
-            PATND_t *pp = (PATND_t *)pat.p;
+            PATND_t *pp = (PATND_t *)GET_P(pat);
             cache_slot_t *bslot = cache_find(pp);
             if (bslot && bslot->key == pp && bslot->template.fn) {
                 root     = bslot->template;
@@ -316,7 +316,7 @@ int exec_stmt(const char  *subj_name,
                 }
             }
         } else if (g_bb_mode == BB_MODE_BROKERED || g_bb_mode == BB_MODE_DRIVER) {
-            PATND_t *pp = (PATND_t *)pat.p;
+            PATND_t *pp = (PATND_t *)GET_P(pat);
             int defer_combinator = patnd_contains_defer(pp) && patnd_is_combinator_root(pp);
             int pure_altcat      = patnd_is_pure_altcat(pp) && patnd_is_combinator_root(pp);
             int arbno_combinator = patnd_contains_arbno(pp) && patnd_is_combinator_root(pp);
@@ -410,7 +410,7 @@ Phase4:
         new_s[new_len] = '\0';
         DESCR_t new_val;
         new_val.v    = DT_S;
-        new_val.slen = (uint32_t)new_len;
+        SET_SLEN(new_val, (uint32_t)new_len);
         new_val.s    = new_s;
         if (subj_name && *subj_name) {
             NV_SET_fn(subj_name, new_val);
@@ -431,6 +431,6 @@ int exec_stmt_blob(const char  *subj_name,
     DESCR_t pat;
     pat.v    = DT_E;
     pat.slen = 0;
-    pat.ptr  = (void *)root_fn;
+    SET_PTR(pat, (void *)root_fn);
     return exec_stmt(subj_name, subj_var, pat, repl, has_repl);
 }

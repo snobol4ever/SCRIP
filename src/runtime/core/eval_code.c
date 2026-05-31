@@ -24,7 +24,7 @@ DESCR_t eval_node(tree_t *e)
             d.v    = DT_E;
             d.slen = 0;
             d.s    = NULL;
-            d.ptr  = e->c[0];
+            SET_PTR(d, e->c[0]);
             return d;
         }
     case TT_ILIT:
@@ -326,15 +326,15 @@ DESCR_t code(const char *src)
     if (!ast || ast->n == 0) return FAILDESCR;
     DESCR_t d;
     d.v   = DT_C;
-    d.ptr = ast;
+    SET_PTR(d, ast);
     d.slen = 0;
     return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *exec_code(DESCR_t code_block)
 {
-    if (code_block.v != DT_C || !code_block.ptr) return NULL;
-    const tree_t *prog = (const tree_t *)code_block.ptr;
+    if (code_block.v != DT_C || !GET_PTR(code_block)) return NULL;
+    const tree_t *prog = (const tree_t *)GET_PTR(code_block);
     for (int _ci = 0; _ci < prog->n; _ci++) {
         const tree_t *s = prog->c[_ci];
         if (!s) continue;
@@ -435,13 +435,13 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
             if (sp1 > sp0) return rt_vstack_pop();
             return FAILDESCR;
         }
-        if (!expr_d.ptr) return FAILDESCR;
+        if (!GET_PTR(expr_d)) return FAILDESCR;
         const char *save_Σ = Σ;
         int         save_Ω = Ω;
         int         save_Δ = Δ;
         NAME_ctx_t eval_ctx;
         NAME_ctx_enter(&eval_ctx);
-        DESCR_t result = eval_node((tree_t *)expr_d.ptr);
+        DESCR_t result = eval_node((tree_t *)GET_PTR(expr_d));
         NAME_ctx_leave();
         Σ = save_Σ;
         Ω = save_Ω;
@@ -467,7 +467,7 @@ DESCR_t CONVE_fn(DESCR_t str_d)
     d.v    = DT_E;
     d.slen = 0;
     d.s    = NULL;
-    d.ptr  = tree;
+    SET_PTR(d, tree);
     return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
