@@ -76,8 +76,16 @@ int     ASGNIC_fn(const char *kw, DESCR_t v);
 DESCR_t EXPVAL_fn(DESCR_t expr_d);
 DESCR_t EXPEVL_fn(DESCR_t expr_d);
 DESCR_t CONVE_fn(DESCR_t str_d);
+/* IS_NAMEPTR / IS_NAMEVAL / NAME_DEREF_PTR now live in descr.h (universal */
+/* scope, guarded #ifndef there); kept here only if descr.h was not seen.  */
+#ifndef IS_NAMEPTR
 #define IS_NAMEPTR(d)  ((d).v == DT_N && (d).slen == 1 && (d).ptr)
+#endif
+#ifndef IS_NAMEVAL
 #define IS_NAMEVAL(d)  ((d).v == DT_N && (d).slen == 0 && (d).s)
+#endif
+#ifndef NAME_DEREF_PTR
 #define NAME_DEREF_PTR(d)  (*(DESCR_t *)(d).ptr)
+#endif
 #define NAME_DEREF_VAL(d, nv_get)  ((nv_get)((d).s))
 #endif

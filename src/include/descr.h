@@ -91,6 +91,23 @@ typedef enum {
 #define MK_DATA(ptr_)   ((DESCR_t){ .v = DT_DATA, .slen = 0, .ptr = (void *)(ptr_) })
 #define MK_TBL(tbl_)    ((DESCR_t){ .v = DT_T,    .slen = 0, .tbl = (tbl_) })
 #define MK_ARR(arr_)    ((DESCR_t){ .v = DT_A,    .slen = 0, .arr = (arr_) })
+/* Name discriminators — a DT_N descriptor is a name-by-PTR (slen == 1,    */
+/* payload is a DESCR_t*) or a name-by-VAL (slen == 0, payload is the      */
+/* variable-name string).  Mirrored here from sil_macros.h so they are in  */
+/* scope across the whole runtime (descr.h is pulled in via core.h), same  */
+/* rationale as the GET_/SET_ accessors above.  When the 8-byte layout     */
+/* lands only these expansions change.                                     */
+#ifndef IS_NAMEPTR
+#define IS_NAMEPTR(d)  ((d).v == DT_N && (d).slen == 1 && (d).ptr)
+#endif
+#ifndef IS_NAMEVAL
+#define IS_NAMEVAL(d)  ((d).v == DT_N && (d).slen == 0 && (d).s)
+#endif
+#ifndef NAME_DEREF_PTR
+#define NAME_DEREF_PTR(d)  (*(DESCR_t *)(d).ptr)
+#endif
+#define MK_NAMEPTR(dp_)  ((DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)(dp_) })
+#define MK_NAMEVAL(s_)   ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 static inline int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
