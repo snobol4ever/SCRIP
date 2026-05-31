@@ -114,7 +114,11 @@ static int tm_g(const tree_t * e, tree_e kind, const char * tag, int nargs, ...)
  * resumable & unbounded) its own β; bounded or non-resumable kinds collapse β to ω (resume -> fail).
  * `kind_is_resumable` (shared, in lower.c) classifies which IR kinds can produce a second value.          */
 /*====================================================================================================================================================================================================*/
-extern int kind_is_resumable(IR_e t);
+int kind_is_resumable(IR_e t) {
+    return t == IR_TO || t == IR_TO_BY || t == IR_UPTO || t == IR_ALT || t == IR_BINOP_GEN || t == IR_ITERATE || t == IR_LIMIT || t == IR_PROC_GEN ||
+           t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN || t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN ||
+           t == IR_GEN_SCAN || t == IR_CONJ;
+}
 static IR_t * emit_leaf(lcx_t cx, IR_t * n, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!n) return NULL;
     set_succ_fail(n, γ_in, ω_in);
@@ -501,7 +505,8 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
  * (CAT chain, ALT fail-chain, FENCE, ARBNO, captures) wire children with the same canonical signature.
  * Foundation: the leaf primitives. Extension: the combinators + remaining primitives.                     */
 /*====================================================================================================================================================================================================*/
-extern char * cset_try_fold(const tree_t * t);
+/* cset_try_fold — charset-expression constant folder. STUB (NULL = not foldable) until the PATTERN role (L2-P) lands; the real folder plus its cset_fold_* helper tail return then. No hello path uses it. */
+char * cset_try_fold(const tree_t * t) { (void) t; return NULL; }
 static int pat_cset_arg(const tree_t * arg, const char ** sval_out, double * varflag_out) {
     if (!arg) return 0;
     if (arg->t == TT_QLIT) { *sval_out = arg->v.sval ? arg->v.sval : ""; *varflag_out = 0.0; return 1; }

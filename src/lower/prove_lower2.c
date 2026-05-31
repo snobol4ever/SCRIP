@@ -15,12 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int kind_is_resumable(IR_e t) {
-    return t == IR_TO || t == IR_TO_BY || t == IR_UPTO || t == IR_ALT || t == IR_BINOP_GEN || t == IR_ITERATE || t == IR_LIMIT || t == IR_PROC_GEN ||
-           t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN || t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN ||
-           t == IR_GEN_SCAN || t == IR_CONJ;
-}
-char * cset_try_fold(const tree_t * t) { (void) t; return NULL; }
+/* kind_is_resumable + cset_try_fold now come from lower.o (the production lowerer defines them); the harness no longer supplies local copies, which would otherwise be duplicate symbols at link. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);

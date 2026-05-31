@@ -1433,31 +1433,19 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_ASSIGN: {
-        if (!bb->α || !bb->β) { bb->value = FAILDESCR; return bb->ω; }
-        DESCR_t val;
-        if (bb->ival == 1) {
-            val = ag_ring_peek(g_current_cfg, 0);
-        } else {
-            bb_exec_node(bb->β);
-            val = bb->β->value;
-        }
+        /* Threaded four-port assignment (unified lowerer): the RHS ran first and pushed its value onto the AG ring; the target name is carried in bb->sval (bb->alpha/beta are unused in this form).        */
+        /* SPITBOL OUTPUT semantics are handled by NV_SET_fn: assigning to OUTPUT routes through the runtime's associated-variable hook (output_val), which writes one record to stdout on assignment.       */
+        DESCR_t val = ag_ring_peek(g_current_cfg, 0);
         if (IS_FAIL_fn(val)) { bb->value = FAILDESCR; return bb->ω; }
-        IR_t *lhs = bb->α;
-        if (lhs->t == IR_VAR && lhs->sval) {
-            if (frame_depth > 0) {
-                int slot = scope_get(&FRAME.sc, lhs->sval);
-                if (slot >= 0 && slot < FRAME.env_n) {
-                    FRAME.env[slot] = val;
-                    bb->value = val;
-                    return bb->γ;
-                }
-            }
-            NV_SET_fn(lhs->sval, val);
-            bb->value = val;
-            return bb->γ;
+        const char *name = bb->sval ? bb->sval : "";
+        int stored = 0;
+        if (frame_depth > 0) {
+            int slot = scope_get(&FRAME.sc, name);
+            if (slot >= 0 && slot < FRAME.env_n) { FRAME.env[slot] = val; stored = 1; }
         }
-        bb->value = FAILDESCR;
-        return bb->ω;
+        if (!stored) NV_SET_fn(name, val);
+        bb->value = val;
+        return bb->γ;
     }
     case IR_SWAP: {
         if (!bb->α || !bb->β) { bb->value = FAILDESCR; return bb->ω; }
