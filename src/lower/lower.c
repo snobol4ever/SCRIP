@@ -674,6 +674,35 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
        functor in sval and emits a Prolog-OWNED IR_BUILTIN (g_builtin) instead — pl_write, NO auto-newline —
        so the two languages' write semantics never collide. Multi-arg write + general call = a later L2-E arm. */
     case TT_FNC: {
+        /* SNOBOL4 function/builtin CALL (FACT RULE: the per-language TT_FNC SHAPE lives inside this one case).
+           SNOBOL4 — like Prolog — carries the callee NAME in e->v.sval with args as c[0..n-1] (Icon instead
+           carries the callee as child c[0] and routes write through the Icon arm below, so the two never
+           overlap). Lowers to a four-port IR_CALL dispatched BY NAME at exec: a user DEFINE'd function (in the
+           proc_table) runs through the SNOBOL4 global save/restore frame (IR_CALL exec arm, dval==2.0), and
+           any other name falls to try_call_builtin_by_name (DEFINE, SIZE, REPLACE, ...). Each argument is
+           lowered into its OWN isolated value sub-graph (the v_scan / IR_SEQ-concat idiom — robust for an
+           operand of any internal node count, no AG-ring positional dependency); the sub-graph pointer array
+           rides on `counter` (preserved across bb_reset, like IR_SCAN/ARBNO). SPITBOL Manual ch.4 & ch.8: a
+           call evaluates its arguments, transfers to the function (dummy args take the actual values; locals
+           and the function-named result variable are saved then nulled), and the value of the call is the
+           function-named variable on RETURN, or failure on FRETURN. */
+        if (cx.lang == IR_LANG_SNO) {
+            IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
+            call->sval = e->v.sval ? e->v.sval : "";
+            call->ival = e->n;
+            call->dval = 2.0;                                      /* SNOBOL4 subgraph-arg call marker */
+            if (e->n > 0) {
+                IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) e->n, sizeof(IR_graph_t *));
+                if (!blks) return NULL;
+                for (int i = 0; i < e->n; i++) {
+                    blks[i] = lower_value_subgraph(cx, e->c[i]);
+                    if (!blks[i]) { free(blks); return NULL; }
+                }
+                call->counter = (int64_t)(intptr_t) blks;          /* array of arg value sub-graphs */
+            }
+            set_succ_fail(call, γ_in, ω_in);
+            return ret(call, α_out, β_out, call /* call node is the chain entry */, ω_in /* bounded */);
+        }
         if (e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
             const char * fn = e->c[0]->v.sval;
             if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))

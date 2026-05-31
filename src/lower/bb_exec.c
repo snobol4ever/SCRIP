@@ -60,6 +60,15 @@ extern int exec_stmt(const char *subj_name, DESCR_t *subj_var, DESCR_t pat, DESC
 #include "bb_box.h"
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 static DESCR_t g_ir_return_val;
+/* SNOBOL4 program-defined function call state (SPITBOL ch.8). A SNOBOL4 call saves the globals named by the
+ * function's dummy args + locals + result variable, binds the dummy args, runs the body, then restores them
+ * (dynamic scoping by save/restore on a pushdown stack). g_sno_cur_func names the function whose body is
+ * executing so a bare RETURN can yield the function-named variable's value. */
+#define SNO_SAVE_MAX 4096
+typedef struct { const char * name; DESCR_t old; } SnoSaveEnt;
+static SnoSaveEnt   g_sno_save[SNO_SAVE_MAX];
+static int          g_sno_save_top = 0;
+static const char * g_sno_cur_func = NULL;
 #define RESOLVE_NB_SIZE 64
 typedef struct { int atom_id; Term *val; } PlNbSlot;
 static PlNbSlot g_resolve_nb[RESOLVE_NB_SIZE];
@@ -1477,6 +1486,79 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_CALL: {
         if (!bb->sval) { bb->value = FAILDESCR; return bb->ω; }
+        /* SNOBOL4 call (dval==2.0): arguments are isolated value sub-graphs whose pointer array rides on
+           `counter`. Evaluate each (a failing argument fails the call). A user DEFINE'd function (in the
+           proc_table) runs through the SNOBOL4 global save/restore frame; any other name falls to a builtin. */
+        if (bb->dval == 2.0) {
+            int nargs = (int) bb->ival;
+            DESCR_t * args = NULL;
+            if (nargs > 0) {
+                IR_graph_t ** blks = (IR_graph_t **)(intptr_t) bb->counter;
+                args = (DESCR_t *) GC_malloc((size_t) nargs * sizeof(DESCR_t));
+                for (int j = 0; j < nargs; j++) {
+                    IR_graph_t * ab = blks ? blks[j] : NULL;
+                    if (!ab) { bb->value = FAILDESCR; return bb->ω; }
+                    bb_reset(ab);
+                    DESCR_t av = bb_exec_once(ab);
+                    if (IS_FAIL_fn(av)) { bb->value = FAILDESCR; return bb->ω; }
+                    args[j] = av;
+                }
+            }
+            int upi = -1;
+            for (int _pi = 0; _pi < g_stage2.proc_count; _pi++)
+                if (g_stage2.proc_table[_pi].name && strcmp(g_stage2.proc_table[_pi].name, bb->sval) == 0
+                    && g_stage2.proc_table[_pi].bb_idx >= 0) { upi = _pi; break; }
+            if (upi >= 0) {
+                IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
+                Scope * sc = &g_stage2.proc_table[upi].lower_sc;
+                int np = g_stage2.proc_table[upi].nparams;
+                if (!fg || frame_depth >= FRAME_STACK_MAX || g_sno_save_top + sc->n > SNO_SAVE_MAX) {
+                    bb->value = FAILDESCR; return bb->ω;
+                }
+                /* save the globals named in sc (dummy args, then locals, then the result variable);
+                   bind the dummy args to the actual arg values; null the locals + the result variable. */
+                int save_base = g_sno_save_top;
+                for (int k = 0; k < sc->n; k++) {
+                    const char * nm = sc->e[k].name; if (!nm) continue;
+                    g_sno_save[g_sno_save_top].name = nm;
+                    g_sno_save[g_sno_save_top].old  = NV_GET_fn(nm);
+                    g_sno_save_top++;
+                    NV_SET_fn(nm, (k < np && k < nargs) ? args[k] : NULVCL);
+                }
+                const char * saved_func = g_sno_cur_func;
+                g_sno_cur_func = bb->sval;
+                GenFrame * _f = &frame_stack[frame_depth++];
+                memset(_f, 0, sizeof *_f);              /* empty scope -> the body's vars route through globals */
+                /* The four-port AG ring is graph-level state that bb_snapshot/restore_state do NOT cover, and
+                   the nested bb_exec_once (recursion re-enters the SAME view graph) calls bb_reset ->
+                   ag_ring_clear on entry. Save and restore the ring around the call so an in-flight operand
+                   (e.g. the N of `N * FACT(N - 1)`) survives the recursive descent. */
+                DESCR_t _ring_save[AG_RING];
+                int _ring_head = fg->ring_head, _ring_depth = fg->ring_depth;
+                memcpy(_ring_save, fg->ring, sizeof _ring_save);
+                bb_node_state_t * _snap = bb_snapshot_state(fg);
+                bb_reset(fg);
+                DESCR_t out = bb_exec_once(fg);
+                if (frame_depth > 0 && FRAME.returning) { out = g_ir_return_val; FRAME.returning = 0; }
+                frame_depth--;
+                bb_restore_state(fg, _snap);
+                memcpy(fg->ring, _ring_save, sizeof _ring_save);
+                fg->ring_head = _ring_head; fg->ring_depth = _ring_depth;
+                g_sno_cur_func = saved_func;
+                for (int k = g_sno_save_top - 1; k >= save_base; k--)
+                    NV_SET_fn(g_sno_save[k].name, g_sno_save[k].old);
+                g_sno_save_top = save_base;
+                bb->value = out;
+                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+            }
+            DESCR_t out = FAILDESCR;
+            if (try_call_builtin_by_name(bb->sval, args, nargs, &out)) {
+                bb->value = out;
+                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+            }
+            bb->value = FAILDESCR;
+            return bb->ω;
+        }
         if (bb->state == 1 && bb->counter) {
             GeneratorState *gs = (GeneratorState *)(intptr_t)bb->counter;
             DESCR_t v;
@@ -1791,9 +1873,18 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_RETURN: {
-        DESCR_t rv = NULVCL;
-        if (bb->α) { bb_exec_node(bb->α); rv = bb->α->value; }
-        g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
+        DESCR_t rv;
+        if (bb->dval == 2.0) {                              /* SNOBOL4 FRETURN — the call fails */
+            rv = FAILDESCR;
+            g_ir_return_val = FAILDESCR;
+        } else if (bb->dval == 1.0) {                       /* SNOBOL4 RETURN / NRETURN — value = function-named variable */
+            rv = g_sno_cur_func ? NV_GET_fn(g_sno_cur_func) : NULVCL;
+            g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
+        } else {                                            /* generic (Icon/Prolog) value return via the alpha child */
+            rv = NULVCL;
+            if (bb->α) { bb_exec_node(bb->α); rv = bb->α->value; }
+            g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
+        }
         if (frame_depth > 0) FRAME.returning = 1;
         bb->value = g_ir_return_val;
         return bb->ω;
