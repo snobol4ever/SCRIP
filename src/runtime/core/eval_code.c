@@ -22,7 +22,7 @@ DESCR_t eval_node(tree_t *e)
         {
             DESCR_t d;
             d.v    = DT_E;
-            d.slen = 0;
+            SET_SLEN(d, 0);
             d.s    = NULL;
             SET_PTR(d, e->c[0]);
             return d;
@@ -327,7 +327,7 @@ DESCR_t code(const char *src)
     DESCR_t d;
     d.v   = DT_C;
     SET_PTR(d, ast);
-    d.slen = 0;
+    SET_SLEN(d, 0);
     return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -465,7 +465,7 @@ DESCR_t CONVE_fn(DESCR_t str_d)
     if (!tree) return FAILDESCR;
     DESCR_t d;
     d.v    = DT_E;
-    d.slen = 0;
+    SET_SLEN(d, 0);
     d.s    = NULL;
     SET_PTR(d, tree);
     return d;

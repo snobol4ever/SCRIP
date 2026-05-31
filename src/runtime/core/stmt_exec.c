@@ -430,7 +430,7 @@ int exec_stmt_blob(const char  *subj_name,
 {
     DESCR_t pat;
     pat.v    = DT_E;
-    pat.slen = 0;
+    SET_SLEN(pat, 0);
     SET_PTR(pat, (void *)root_fn);
     return exec_stmt(subj_name, subj_var, pat, repl, has_repl);
 }

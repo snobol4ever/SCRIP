@@ -406,7 +406,7 @@ DESCR_t lconcat_d(DESCR_t a, DESCR_t b) {
             DESCR_t *be = (bptr.v == DT_DATA) ? (DESCR_t *)GET_PTR(bptr) : NULL;
             for (int i = 0; i < an; i++) celems[i]      = ae ? ae[i] : NULVCL;
             for (int i = 0; i < bn; i++) celems[an + i] = be ? be[i] : NULVCL;
-            DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)celems;
+            DESCR_t eptr = MK_DATA(celems);
             static int icnlist_lcat_d = 0;
             if (!icnlist_lcat_d) { DEFDAT_fn("icnlist(frame_elems,frame_size,gen_type)"); icnlist_lcat_d = 1; }
             return DATCON_fn("icnlist", eptr, INTVAL(cn), STRVAL("list"));
@@ -1156,7 +1156,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 DESCR_t *src_elems = (ea.v == DT_DATA) ? (DESCR_t *)GET_PTR(ea) : NULL;
                 DESCR_t *new_elems = (DESCR_t *)GC_malloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
                 if (src_elems && n > 0) memcpy(new_elems, src_elems, (size_t)n * sizeof(DESCR_t));
-                DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)new_elems;
+                DESCR_t eptr = MK_DATA(new_elems);
                 *out = DATCON_fn("icnlist", eptr, INTVAL(n), STRVAL("list"));
                 return 1;
             }
@@ -1183,7 +1183,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!icnlist_reg2) { DEFDAT_fn("icnlist(frame_elems,frame_size,gen_type)"); icnlist_reg2 = 1; }
         DESCR_t *elems = GC_malloc((n>0?n:1)*sizeof(DESCR_t));
         for (int i = 0; i < n; i++) elems[i] = init;
-        DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
+        DESCR_t eptr = MK_DATA(elems);
         *out = DATCON_fn("icnlist", eptr, INTVAL(n), STRVAL("list"));
         return 1;
     }
@@ -1589,7 +1589,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!icnlist_reg3) { DEFDAT_fn("icnlist(frame_elems,frame_size,gen_type)"); icnlist_reg3 = 1; }
         DESCR_t *elems = GC_malloc((nargs>0?nargs:1)*sizeof(DESCR_t));
         for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
-        DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
+        DESCR_t eptr = MK_DATA(elems);
         *out = DATCON_fn("icnlist", eptr, INTVAL(nargs), STRVAL("list")); return 1;
     }
     if (!strcmp(fn,"RECORD_REGISTER") && nargs >= 1) {

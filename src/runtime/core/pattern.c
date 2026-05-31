@@ -529,12 +529,12 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
             if (rlen <= 0) {
                 static int icnlist_empty_reg = 0;
                 if (!icnlist_empty_reg) { DEFDAT_fn("icnlist(frame_elems,frame_size,gen_type)"); icnlist_empty_reg=1; }
-                DESCR_t empty_ptr; empty_ptr.v=DT_DATA; empty_ptr.slen=0; empty_ptr.ptr=NULL;
+                DESCR_t empty_ptr = MK_DATA(NULL);
                 return DATCON_fn("icnlist", empty_ptr, INTVAL(0), STRVAL("list"));
             }
             DESCR_t *rbuf = GC_malloc(rlen * sizeof(DESCR_t));
             for (int k = 0; k < rlen; k++) rbuf[k] = (elems && ii+k-1 >= 0 && ii+k-1 < n) ? elems[ii+k-1] : NULVCL;
-            DESCR_t rptr; rptr.v=DT_DATA; rptr.slen=0; rptr.ptr=(void*)rbuf;
+            DESCR_t rptr = MK_DATA(rbuf);
             static int icnlist_slice_reg = 0;
             if (!icnlist_slice_reg) { DEFDAT_fn("icnlist(frame_elems,frame_size,gen_type)"); icnlist_slice_reg=1; }
             return DATCON_fn("icnlist", rptr, INTVAL(rlen), STRVAL("list"));
@@ -700,7 +700,7 @@ DESCR_t compile_to_expression(const char *src) {
     if (!tree) return FAILDESCR;
     DESCR_t d;
     d.v    = DT_E;
-    d.slen = 0;
+    SET_SLEN(d, 0);
     d.s    = NULL;
     SET_PTR(d, tree);
     return d;

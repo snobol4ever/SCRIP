@@ -78,7 +78,7 @@ DESCR_t interp_eval_pat(tree_t *e)
                         if (arg && (arg->t == TT_FNC || arg->t == TT_VAR)) {
                             av[i].v = DT_E;
                             SET_PTR(av[i], arg);
-                            av[i].slen = 0;
+                            SET_SLEN(av[i], 0);
                         } else {
                             av[i] = eval_node(arg);
                         }
@@ -93,7 +93,7 @@ DESCR_t interp_eval_pat(tree_t *e)
             if (child->t == TT_VAR && child->v.sval)
                 return pat_ref(child->v.sval);
             if (!_expr_is_pat(child)) {
-                DESCR_t d; d.v = DT_E; d.ptr = child; d.slen = 0;
+                DESCR_t d; d.v = DT_E; SET_PTR(d, child); SET_SLEN(d, 0);
                 return d;
             }
             DESCR_t r = interp_eval_pat(child);

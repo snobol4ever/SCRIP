@@ -72,7 +72,7 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
         inst->fields[i] = (i < nargs) ? args[i] : NULVCL;
     DESCR_t r;
     r.v    = DT_DATA;
-    r.slen = 0;
+    SET_SLEN(r, 0);
     SET_U(r, inst);
     return r;
 }
