@@ -66,6 +66,8 @@ typedef struct {
 static IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * g_builtin(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 /*====================================================================================================================================================================================================*/
 /* PORT PRIMITIVES — the only place α/β/γ/ω are assigned in bulk. `nalloc` allocates a node of a kind.
  * `set_succ_fail` fills the two inherited ports iff still unset (the "/x := y" default-only idiom from
@@ -553,11 +555,12 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_LOOP_BREAK: /* jcon ir_a_Break */
     case TT_LOOP_NEXT:  /* jcon ir_a_Next */
     case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP:
-    /* SHARED — Icon `write(x)`/`writes(x)` deterministic output builtin (1-arg), via the same
-       wire_det_builtin1 the Prolog GOAL role uses. NOTE the per-language TT_FNC shape (FACT RULE: variation
-       lives inside the case): Icon carries the callee as child c[0] (a TT_VAR) with args c[1..]; Prolog
-       carries it in sval. Icon `write` adds a newline, `writes` does not — both handled at EXEC by
-       try_call_builtin_by_name. Multi-arg write + general call = a later L2-E arm. */
+    /* SHARED — Icon `write(x)`/`writes(x)` deterministic output builtin (1-arg), via wire_det_builtin1 ->
+       IR_CALL. NOTE the per-language TT_FNC shape (FACT RULE: variation lives inside the case): Icon carries
+       the callee as child c[0] (a TT_VAR) with args c[1..] and routes write through the SHARED IR_CALL (Icon
+       `write` adds a newline at EXEC via try_call_builtin_by_name; `writes` does not). Prolog carries the
+       functor in sval and emits a Prolog-OWNED IR_BUILTIN (g_builtin) instead — pl_write, NO auto-newline —
+       so the two languages' write semantics never collide. Multi-arg write + general call = a later L2-E arm. */
     case TT_FNC: {
         if (e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
             const char * fn = e->c[0]->v.sval;
@@ -872,6 +875,62 @@ static IR_t * g_compare(lcx_t cx, const tree_t * l_t, const tree_t * r_t, int op
     return ret(cmp, α_out, β_out, lα, ω_in /* semidet: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
+/* GOAL ROLE — Prolog TERM in argument position. A term is DATA, not a goal: it lowers to the node kinds the
+ * Prolog EXEC (bb_exec.c resolve_node_to_term) materializes into a Term* — IR_ATOM (atom/functor name),
+ * IR_LOGICVAR (variable, slot in ival), IR_LIT_I/IR_LIT_F (number), IR_STRUCT (compound functor=sval, args on
+ * the α-γ chain). This is the new-tree successor to the deleted lower_pl_term (blob d2d8c8e1). A term box is a
+ * BOUNDED LEAF: α produces the term once -> γ; β -> ω. Children of a compound chain on prev->γ = next.α.        */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!e) return NULL;
+    switch (e->t) {
+    case TT_ILIT: { IR_t * n = nalloc(cx, IR_LIT_I); if (!n) return NULL; n->ival = e->v.ival; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_FLIT: { IR_t * n = nalloc(cx, IR_LIT_F); if (!n) return NULL; n->dval = e->v.dval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_QLIT: case TT_NAME: { IR_t * n = nalloc(cx, IR_ATOM); if (!n) return NULL; n->sval = e->v.sval ? e->v.sval : "[]"; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_VAR:  { IR_t * n = nalloc(cx, IR_LOGICVAR); if (!n) return NULL; n->ival = e->v.ival; n->sval = NULL; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_FNC: {
+        IR_t * st = nalloc(cx, IR_STRUCT); if (!st) return NULL;
+        st->sval = e->v.sval ? e->v.sval : "[]"; st->ival = e->n;
+        IR_t * prev = NULL, * α0 = NULL;
+        for (int i = 0; i < e->n; i++) {
+            IR_t * cα = NULL, * cβ = NULL;
+            IR_t * c = g_term(cx, e->c[i], NULL, NULL, &cα, &cβ);
+            if (!c) return NULL;
+            if (i == 0) { st->α = cα; α0 = cα; } else prev->γ = cα;
+            prev = cα;
+        }
+        (void) α0;
+        set_succ_fail(st, γ_in, ω_in);
+        return ret(st, α_out, β_out, st, ω_in);
+    }
+    default:
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    }
+}
+/*====================================================================================================================================================================================================*/
+/* GOAL ROLE — deterministic Prolog builtin (write/writeln/print/nl, and the broader CHAIN family). Emits an
+ * IR_BUILTIN node whose Prolog-correct execution lives in bb_exec.c's IR_BUILTIN case (pl_write — NO auto
+ * newline; nl = putchar). This is DISTINCT from the SHARED wire_det_builtin1/IR_CALL path (which carries Icon
+ * write semantics: arg via the AG ring + a trailing newline). The GOAL role is Prolog-exclusive, so emitting a
+ * Prolog-owned kind here is FACT-RULE clean (language variation inside the role; no peer arm touched). Args
+ * lower as TERMS (g_term) chained on bb->α (prev->γ = next.α); sval=fn, ival=arity. nl is a bare leaf (0 args).
+ * Topology: BOUNDED — α=self, γ=γ_in, ω=ω_in, resume(β) -> ω_in. Successor to deleted lower_pl_new_Builtin.     */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_builtin(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    IR_t * bb = nalloc(cx, IR_BUILTIN); if (!bb) return NULL;
+    bb->sval = fn; bb->ival = e ? e->n : 0;
+    IR_t * prev = NULL;
+    if (e) for (int i = 0; i < e->n; i++) {
+        IR_t * aα = NULL, * aβ = NULL;
+        IR_t * a = g_term(cx, e->c[i], NULL, NULL, &aα, &aβ);
+        if (!a) return NULL;
+        if (i == 0) bb->α = aα; else prev->γ = aα;
+        prev = aα;
+    }
+    set_succ_fail(bb, γ_in, ω_in);
+    return ret(bb, α_out, β_out, bb, ω_in /* deterministic: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
 /* GOAL ROLE — Prolog goals. Kind selects the arm; the sval/arity guards live INSIDE the TT_FNC arm
  * (they pick the control construct/builtin, not the kind). Foundation: cut, true/fail leaves. Extension:
  * Conj/Alt/Ite/Unify/Compare/Call/Builtin/phrase/catch/findall.                                           */
@@ -883,7 +942,8 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         const char * fn = e->v.sval;
         if (fn && (!strcmp(fn,"true")||!strcmp(fn,"otherwise"))) return emit_leaf(cx, nalloc(cx, IR_SUCCEED), γ_in, ω_in, α_out, β_out);
         if (fn && (!strcmp(fn,"fail")||!strcmp(fn,"false")))     return emit_leaf(cx, nalloc(cx, IR_FAIL), γ_in, ω_in, α_out, β_out);
-        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* nl builtin; bare-atom Call */
+        if (fn && !strcmp(fn,"nl")) return g_builtin(cx, "nl", NULL, γ_in, ω_in, α_out, β_out);
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* bare-atom Call (user pred) = later arm */
     }
     case TT_UNIFY: {
         const tree_t * l = NULL, * r = NULL;
@@ -894,10 +954,12 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_FNC: {
         const tree_t * A = NULL, * B = NULL, * arg = NULL;
-        /* SHARED TABLE — deterministic write-family builtins (write/writeln/print). */
-        if (tm_g(e, TT_FNC, "write",   1, &arg)) return wire_det_builtin1(cx, arg, "write",   γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, "writeln", 1, &arg)) return wire_det_builtin1(cx, arg, "writeln", γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, "print",   1, &arg)) return wire_det_builtin1(cx, arg, "print",   γ_in, ω_in, α_out, β_out);
+        /* Prolog write-family — Prolog-correct IR_BUILTIN (pl_write, NO auto-newline), NOT the shared
+           wire_det_builtin1/IR_CALL Icon path (which appends a newline). g_builtin takes the whole FNC so its
+           e->n/e->c[] supply arity+args. (void)arg keeps the tm_g detector available for the user-call arm.) */
+        if (tm_g(e, TT_FNC, "write",   1, &arg)) return g_builtin(cx, "write",   e, γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "writeln", 1, &arg)) return g_builtin(cx, "writeln", e, γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "print",   1, &arg)) return g_builtin(cx, "print",   e, γ_in, ω_in, α_out, β_out);
         /* conjunction `,/2` — SAME four-port sequence as Icon `&` / SNOBOL CAT (wire_seq, IR_GCONJ kind).
            flatten_seq matches by tree-KIND only and every Prolog operator is TT_FNC, so the `,`-spine is
            collected by walking right-nested `,`-tagged FNCs explicitly (sval guard distinguishes from `;`). */
@@ -973,4 +1035,28 @@ IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR
 IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* lower2_clause_body_entry — lower one Prolog clause's BODY (a TT_CLAUSE) into a four-port GOAL graph. The
+ * clause carries arity in v.dval; its first `arity` children are head-arg term patterns (PLG-1 covers only
+ * arity-0 facts/rules, so head matching is deferred), the remaining children are the body goals. The body is
+ * a conjunction: wire the body-goal children as an IR_GCONJ sequence (the same wire_seq Icon `&`/SNOBOL CAT
+ * use). γ_in/ω_in are the clause's success/failure sentinels. A 0-goal body (a bare fact, e.g. `color(red).`)
+ * succeeds immediately -> γ_in. Successor to the deleted lower_pl_clause_body.                                */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!clause || clause->t != TT_CLAUSE) return NULL;
+    int arity = (int) clause->v.dval;
+    if (arity < 0) arity = 0;
+    int nbody = clause->n - arity;
+    if (nbody <= 0) {                                   /* bare fact: no body goals -> succeed once */
+        lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
+        IR_t * s = nalloc(cx, IR_SUCCEED);
+        return emit_leaf(cx, s, γ_in, ω_in, α_out, β_out);
+    }
+    const tree_t * goals[64];
+    if (nbody > 64) return NULL;
+    for (int i = 0; i < nbody; i++) goals[i] = clause->c[arity + i];
+    lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
+    return wire_seq(cx, IR_GCONJ, goals, nbody, γ_in, ω_in, α_out, β_out);
 }

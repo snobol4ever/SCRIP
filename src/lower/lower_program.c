@@ -136,7 +136,25 @@ static int lower_icon_body(const tree_t *proc) {
     return bb_program_add(&g_stage2.bbp, g);
 }
 /*====================================================================================================================================================================================================*/
-/* lower — minimal program walker. Resets stage2, runs polyglot_init (label/proc/clause prescan), then for SNOBOL4 threads the top-level statements into ONE four-port BB graph and registers it as     */
+/* lower_pl_clause_graph — build ONE Prolog clause's four-port GOAL graph (PLG-1: single-clause, body-only).   */
+/* `clause` is a TT_CLAUSE; its body goals lower (via lower2_clause_body_entry) into a conjunction graph whose  */
+/* success -> PSUCC and failure -> PFAIL. FAIL-LOUD: an unhandled goal sinks the whole clause (-1) so the       */
+/* driver keeps its clean abort. Returns the bb_program index, or -1. Successor to lower_pl's clause walker.    */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
+static int lower_pl_clause_graph(const tree_t *clause) {
+    if (!clause || clause->t != TT_CLAUSE) return -1;
+    IR_graph_t *g = IR_alloc(256, IR_LANG_PL);
+    if (!g) return -1;
+    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t *α = NULL, *β = NULL;
+    IR_t *top = lower2_clause_body_entry(g, clause, PSUCC, PFAIL, &α, &β);
+    if (!top || !α) return -1;
+    g->entry = α;
+    return bb_program_add(&g_stage2.bbp, g);
+}
 /* "main" so the driver's bb_exec_once(main) path can run it. SNOBOL4 only this increment: Icon proc-body and Prolog clause graph-building belong to their own concurrent sessions (FACT RULE).          */
 /* Statements thread in reverse (each statement's gamma flows to the next; omega to PFAIL). An assignment (subj :eq repl, no :pat) becomes a synthesized TT_ASSIGN(subj, repl) lowered via the VALUE role. */
 /*====================================================================================================================================================================================================*/
@@ -199,6 +217,54 @@ stage2_t *lower(const tree_t *prog) {
             if (bb_idx >= 0) g_stage2.proc_table[pi].bb_idx = bb_idx;
         }
         g_stage2.lang = IR_LANG_ICN;
+        return &g_stage2;
+    }
+    if (mask & (1u << LANG_PL)) {
+        /* PLG-1 — Prolog crosses onto Byrd Boxes (hello-world tier). polyglot_init already inserted every
+           clause subject (TT_CHOICE/TT_CLAUSE) into s2->resolve_pred_table keyed by "name/arity". The
+           `:- initialization(G, main).` directive names the goal predicate G to run; for PLG-1 (single
+           non-recursive predicate, no clause choice) we resolve G's clause, lower its body into one GOAL
+           graph, and register it as proc "main" so the driver's bb_exec_once(main) path runs it. Multi-clause
+           dispatch (BB_CHOICE), user-predicate calls, recursion, and head unification are the later PLG rungs.
+           The directive's goal atom is read from the TT_FNC initialization subject; absent it, default main/0. */
+        const char *goal_key = NULL;
+        char keybuf[128];
+        for (int i = 0; i < prog->n; i++) {
+            const tree_t *s = prog->c[i];
+            if (!s || s->t != TT_STMT) continue;
+            if (lp_s_int(s, ":lang") != LANG_PL) continue;
+            const tree_t *subj = lp_s_expr(s, ":subj");
+            if (!subj) continue;
+            if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "initialization") && subj->n >= 1) {
+                const tree_t *gt = subj->c[0];
+                if (gt && (gt->t == TT_QLIT || gt->t == TT_NAME) && gt->v.sval) {
+                    snprintf(keybuf, sizeof keybuf, "%s/0", gt->v.sval);
+                    goal_key = keybuf;
+                } else if (gt && gt->t == TT_FNC && gt->v.sval) {
+                    snprintf(keybuf, sizeof keybuf, "%s/%d", gt->v.sval, gt->n);
+                    goal_key = keybuf;
+                }
+            }
+        }
+        if (!goal_key) goal_key = "main/0";
+        const tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, goal_key);
+        const tree_t *clause = NULL;
+        if (choice) {
+            if (choice->t == TT_CLAUSE) clause = choice;
+            else if (choice->t == TT_CHOICE && choice->n >= 1) clause = choice->c[0];
+        }
+        if (clause) {
+            int bb_idx = lower_pl_clause_graph(clause);
+            if (bb_idx >= 0) {
+                int pi = stage2_proc_grow(&g_stage2);
+                g_stage2.proc_table[pi].name     = "main";
+                g_stage2.proc_table[pi].proc     = NULL;
+                g_stage2.proc_table[pi].entry_pc = -1;
+                g_stage2.proc_table[pi].bb_idx   = bb_idx;
+                g_stage2.proc_table[pi].nparams  = 0;
+            }
+        }
+        g_stage2.lang = IR_LANG_PL;
         return &g_stage2;
     }
     g_stage2.lang = IR_LANG_SNO;
