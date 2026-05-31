@@ -200,6 +200,7 @@ int kind_is_resumable(IR_e t) {
            /* SNOBOL4 PATTERN generators — bb->β=self (retry to backtrack/shrink/grow): */
            t == IR_PAT_LIT || t == IR_PAT_ARB || t == IR_PAT_REM || t == IR_PAT_SPAN || t == IR_PAT_ANY || t == IR_PAT_NOTANY ||
            t == IR_PAT_BREAK || t == IR_PAT_LEN || t == IR_PAT_TAB || t == IR_PAT_ARBNO || t == IR_PAT_DEFER ||
+           t == IR_PAT_BAL ||
            t == IR_PAT_ASSIGN_COND || t == IR_PAT_ASSIGN_IMM || t == IR_PAT_ATP;
            /* SINGLE-SHOT pattern nodes (POS, RPOS, FENCE, ABORT) get β=ω_in via the bounded path. */
 }
@@ -606,6 +607,10 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
     case TT_QLIT: n = nalloc(cx, IR_PAT_LIT); if (n) n->sval = e->v.sval ? e->v.sval : ""; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     case TT_ARB:  return emit_leaf(cx, nalloc(cx, IR_PAT_ARB), γ_in, ω_in, α_out, β_out);
     case TT_REM:  return emit_leaf(cx, nalloc(cx, IR_PAT_REM), γ_in, ω_in, α_out, β_out);
+    /* BAL — matches the shortest non-null parenthesis-balanced substring; grows on retry (generator,
+       β=self), like ARB but constrained to balance. SPITBOL ch.18 "BAL matches any non-null string
+       balanced w.r.t. parentheses; a string without parens is balanced; matches the shortest possible". */
+    case TT_BAL:  return emit_leaf(cx, nalloc(cx, IR_PAT_BAL), γ_in, ω_in, α_out, β_out);
     case TT_SPAN: case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_BREAKX: {
         if (e->n < 1 || !e->c[0]) return NULL;
         const char * sv = NULL; double vf = 0.0;

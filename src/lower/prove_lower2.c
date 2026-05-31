@@ -44,7 +44,7 @@ static const char * kname(IR_e t) {
     case IR_PAT_LEN: return "PLEN"; case IR_PAT_POS: return "PPOS"; case IR_PAT_TAB: return "PTAB";
     case IR_PAT_FENCE: return "PFNC"; case IR_PAT_ABORT: return "PABT"; case IR_PAT_ARBNO: return "PARBN";
     case IR_PAT_ASSIGN_COND: return "PCAP"; case IR_PAT_ASSIGN_IMM: return "PCAPI"; case IR_PAT_ATP: return "PATP";
-    case IR_PAT_DEFER: return "PDEF";
+    case IR_PAT_DEFER: return "PDEF"; case IR_PAT_BAL: return "PBAL";
     case IR_GCONJ: return "GCONJ"; case IR_DISJ: return "DISJ"; case IR_UNIFY: return "UNIFY"; case IR_ARITH: return "ARITH"; case IR_CUT: return "CUT";
     default: return "?";
     }
@@ -188,6 +188,8 @@ int main(void) {
     /* bare var in pattern context (TT_VAR, ival=0): 1 IR_PAT_DEFER */
     dump_pat("SNOBOL4:  VAR(token)  [IR_PAT_DEFER ival=0: bare var ref, resolved as string match at runtime]",
          var("token"), 1);
+    dump_pat("SNOBOL4:  BAL  [IR_PAT_BAL: generator(resumable) β=self; shortest paren-balanced non-null (SPITBOL ch.18)]",
+         ast_node_new(TT_BAL), 1);
     /* ===== END SNOBOL4 SECTION ===== */
 
     /* ===== ICON SECTION — APPEND ICON (VALUE-role) CASES BELOW THIS LINE ===== */
