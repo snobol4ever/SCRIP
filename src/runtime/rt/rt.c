@@ -253,9 +253,9 @@ static DESCR_t _rt_usercall(const char *name, DESCR_t *args, int nargs)
     void *fn = chunk_reg_lookup(name);
     if (fn) return call_native_chunk(name, fn, args, nargs);
     DESCR_t nv = NV_GET_fn(name);
-    if (!IS_FAIL_fn(nv) && nv.v == DT_E && nv.ptr) {
+    if (!IS_FAIL_fn(nv) && nv.v == DT_E && GET_PTR(nv)) {
         typedef DESCR_t (*cfn_t)(DESCR_t *, int);
-        cfn_t cfn = (cfn_t)nv.ptr;
+        cfn_t cfn = (cfn_t)GET_PTR(nv);
         return cfn(args, nargs);
     }
     return FAILDESCR;
@@ -316,7 +316,7 @@ void rt_push_str(const char *s, uint32_t slen)
 {
     DESCR_t d;
     d.v    = DT_S;
-    d.slen = slen ? slen : (uint32_t)(s ? strlen(s) : 0);
+    SET_SLEN(d, slen ? slen : (uint32_t)(s ? strlen(s) : 0));
     d.s    = (char *)s;
     vstack_push(d);
 }
@@ -555,7 +555,7 @@ void rt_push_expression_descr(int64_t entry_pc, int64_t arity)
 {
     DESCR_t d;
     d.v    = DT_E;
-    d.slen = (uint32_t)arity;
+    SET_SLEN(d, (uint32_t)arity);
     d.i    = entry_pc;
     vstack_push(d);
 }
@@ -658,7 +658,7 @@ void rt_dcap_flush(void) {
         int len = g_rt_dcap[i].len < 0 ? 0 : g_rt_dcap[i].len;
         char *copy = (char *)GC_MALLOC((size_t)len + 1);
         if (copy) { if (len > 0 && g_rt_dcap[i].base) memcpy(copy, g_rt_dcap[i].base, (size_t)len); copy[len] = '\0'; }
-        DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+        DESCR_t d = BSTRVAL(copy ? copy : "", (uint32_t)len);
         NV_SET_fn(g_rt_dcap[i].varname, d);
     }
     g_rt_dcap_n = 0;
@@ -672,7 +672,7 @@ void rt_cap_assign(const char *varname, const char *base, int len)
     if (g_rt_dcap_active) { rt_dcap_record(varname, base, len); return; }
     char *copy = (char *)GC_MALLOC((size_t)len + 1);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
-    DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+    DESCR_t matched = BSTRVAL(copy ? copy : "", (uint32_t)len);
     NV_SET_fn(varname, matched);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -686,7 +686,7 @@ void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, i
     if (g_rt_dcap_active) { rt_dcap_record(varname, base, len); return; }
     char *copy = (char *)GC_MALLOC((size_t)len + 1);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
-    DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+    DESCR_t matched = BSTRVAL(copy ? copy : "", (uint32_t)len);
     NV_SET_fn(varname, matched);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -709,18 +709,18 @@ int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
     }
     if (val.v == DT_S || val.v == DT_SNUL) {
         const char *lit = val.s ? val.s : "";
-        int llen = val.slen ? (int)val.slen : (int)strlen(lit);
+        int llen = GET_SLEN(val) ? (int)GET_SLEN(val) : (int)strlen(lit);
         if (cur_delta + llen > Σlen) return -1;
         if (llen > 0 && strncmp(Σ + cur_delta, lit, (size_t)llen) != 0) return -1;
         return cur_delta + llen;
     }
-    if (val.v == DT_P && val.p) {
+    if (val.v == DT_P && GET_P(val)) {
         const char *save_Σ = Σ; int save_Σlen = Σlen;
         extern int Ω; int save_Ω = Ω;
         extern int Δ; int save_Δ = Δ;
         const char *sub = Σ + cur_delta; int sublen = Σlen - cur_delta;
         Σ = sub; Σlen = sublen; Ω = sublen; Δ = 0;
-        DESCR_t sub_d = { .v = DT_S, .slen = (uint32_t)sublen, .s = (char *)sub };
+        DESCR_t sub_d = BSTRVAL((char *)sub, (uint32_t)sublen);
         int ok = exec_stmt(NULL, &sub_d, val, NULL, 0);
         int matched = ok ? Δ : 0;
         Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ;
@@ -787,8 +787,8 @@ void rt_pat_capture(const char *varname, int kind)
         return;
     } else
         result = pat_assign_cond(child, var);
-    if (result.v == DT_P && result.p && varname && varname[0]) {
-        PATND_t *pp = (PATND_t *)result.p;
+    if (result.v == DT_P && GET_P(result) && varname && varname[0]) {
+        PATND_t *pp = (PATND_t *)GET_P(result);
         if (!pp->STRVAL_fn || !pp->STRVAL_fn[0])
             pp->STRVAL_fn = GC_strdup(varname);
     }
@@ -936,8 +936,8 @@ void rt_push_expr(void *ptr)
 {
     DESCR_t d;
     d.v    = DT_E;
-    d.slen = 0;
-    d.ptr  = ptr;
+    SET_SLEN(d, 0);
+    SET_PTR(d, ptr);
     vstack_push(d);
     LAST_OK_SET(1);
 }
@@ -1473,7 +1473,7 @@ void rt_call(const char *name, int nargs)
         DESCR_t name_d = args[1];
         DESCR_t val    = args[0];
         int ok = 0;
-        if (IS_NAMEPTR(name_d)) { *(DESCR_t*)name_d.ptr = val; ok = 1; }
+        if (IS_NAMEPTR(name_d)) { *(DESCR_t*)GET_PTR(name_d) = val; ok = 1; }
         else if (IS_NAMEVAL(name_d)) { _rt_nv_fold_set(name_d.s, val); ok = 1; }
         else {
             const char *vname0 = VARVAL_fn(name_d);
@@ -1565,7 +1565,7 @@ void rt_call(const char *name, int nargs)
         return;
     }
     if (name && strcmp(name, "SIZE") == 0 && nargs == 1 && args[0].v == DT_A) {
-        DESCR_t r = INTVAL(args[0].arr ? (args[0].arr->hi - args[0].arr->lo + 1) : 0);
+        DESCR_t r = INTVAL(GET_ARR(args[0]) ? (GET_ARR(args[0])->hi - GET_ARR(args[0])->lo + 1) : 0);
         vstack_push(r); LAST_OK_SET(1); return;
     }
     if (name) {
