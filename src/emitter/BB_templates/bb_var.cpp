@@ -1,9 +1,9 @@
-/* bb_var.cpp — BB template for BB_VAR (Icon variable read).
+/* bb_var.cpp — BB template for IR_VAR (Icon variable read).
    IBB-7 (2026-05-29). Leaf node: pBB->sval = variable name. On α-entry, push the
    variable's value onto the runtime vstack via rt_nv_get(name); on success jmp γ;
-   on β re-entry jmp ω (BB_VAR is a non-resumable leaf — single value, no retry).
+   on β re-entry jmp ω (IR_VAR is a non-resumable leaf — single value, no retry).
 
-   Mirrors bb_lit_scalar.cpp BB_LIT_I arm (32-byte push-via-runtime-call), with
+   Mirrors bb_lit_scalar.cpp IR_LIT_I arm (32-byte push-via-runtime-call), with
    movabs of the name pointer (stable in AST pool) instead of an int64 literal,
    and rt_nv_get instead of rt_push_int.
 
@@ -27,11 +27,11 @@ void rt_nv_get(const char *name);
 static std::string bb_var_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_VAR");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_VAR");
     const char *name = (pBB && pBB->sval) ? pBB->sval : "";
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment(emit_fmt("# BOX BB_VAR read(\"%s\") [IBB-7 rt_nv_get push]", name))
+             + s_comment(emit_fmt("# BOX IR_VAR read(\"%s\") [IBB-7 rt_nv_get push]", name))
              + s_2asm("call",     "rt_nv_get@PLT")
              + s_2asm("jmp",      _.lbl_γ)
              + s_L1asm(emit_fmt("%s:", _.lbl_β), "")

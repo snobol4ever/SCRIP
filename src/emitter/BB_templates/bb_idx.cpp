@@ -1,5 +1,5 @@
 /* bb_idx.cpp — BB templates for Icon subscript get/set (IBB-IDX, 2026-05-30).
-   BB_IDX (base[idx]) and BB_IDX_SET (base[idx] := rhs).
+   IR_IDX (base[idx]) and IR_IDX_SET (base[idx] := rhs).
 
    The flat drivers (flat_drive_idx_get / flat_drive_idx_set in emit_bb.c) walk the operand
    subgraph(s) FIRST so the runtime vstack holds the operand value(s), then define lbl_α at this
@@ -37,11 +37,11 @@ int rt_idx_set(void);
 static std::string bb_idx_emit(IR_t * pBB, bb_bin_t & bin, int is_set) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_IDX");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_IDX");
     const char *hn = is_set ? "rt_idx_set" : "rt_idx_get";
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment(emit_fmt("# BOX BB_IDX%s (%s: pop operands, apply, set LAST_OK, jmp γ) [IBB-IDX]", is_set ? "_SET" : "", hn))
+             + s_comment(emit_fmt("# BOX IR_IDX%s (%s: pop operands, apply, set LAST_OK, jmp γ) [IBB-IDX]", is_set ? "_SET" : "", hn))
              + s_2asm("call",     emit_fmt("%s@PLT", hn))
              + s_2asm("jmp",      _.lbl_γ)
              + s_L1asm(emit_fmt("%s:", _.lbl_β), "")

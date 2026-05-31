@@ -1,4 +1,4 @@
-/* bb_if.cpp — BB template for BB_IF (Icon if/while condition router).
+/* bb_if.cpp — BB template for IR_IF (Icon if/while condition router).
    IBB-8b (Opus 4.8, 2026-05-29). AG-pure shape only (α==β==NULL; γ=then-entry, ω=else-entry).
 
    The condition expression ran ahead in the chain; its tail relop (bb_binop.cpp relop arm) called
@@ -23,11 +23,11 @@ int  rt_last_ok(void);
 static std::string bb_if_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_IF");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_IF");
     (void)pBB;
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment("# BOX BB_IF (discard cond value, read LAST_OK, branch then/else)")
+             + s_comment("# BOX IR_IF (discard cond value, read LAST_OK, branch then/else)")
              + s_2asm("call", "rt_pop_void@PLT")
              + s_2asm("call", "rt_last_ok@PLT")
              + s_2asm("test", "eax, eax")

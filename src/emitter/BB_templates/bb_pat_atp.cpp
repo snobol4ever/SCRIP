@@ -1,7 +1,7 @@
 /* bb_pat_atp.cpp — BB template for @var cursor capture (SBL-ATP).
    @var is a zero-width single-shot leaf: α writes the current 0-based cursor Δ to var as an
    integer (via rt_at_cursor), then succeeds to γ; β fails to ω (single attempt, like a leaf
-   POS). Mirrors the mode-2 oracle bb_exec.c case BB_PAT_ATP and lower.c TT_CAPT_CURSOR n==1.
+   POS). Mirrors the mode-2 oracle bb_exec.c case IR_PAT_ATP and lower.c TT_CAPT_CURSOR n==1.
    One file per Byrd Box per RULES.md (BB_templates folder rule). X86 ONLY — other backends stub. */
 #include <string>
 #include "emit_str.h"

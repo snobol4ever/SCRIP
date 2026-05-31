@@ -3,120 +3,120 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-static const char * kind_names[BB_OP_COUNT] = {
-    [BB_LIT_I] = "BB_LIT_I",
-    [BB_LIT_S] = "BB_LIT_S",
-    [BB_LIT_F] = "BB_LIT_F",
-    [BB_LIT_NUL] = "BB_LIT_NUL",
-    [BB_VAR] = "BB_VAR",
-    [BB_ASSIGN] = "BB_ASSIGN",
-    [BB_AUGOP] = "BB_AUGOP",
-    [BB_BINOP] = "BB_BINOP",
-    [BB_UNOP] = "BB_UNOP",
-    [BB_CALL] = "BB_CALL",
-    [BB_SEQ] = "BB_SEQ",
-    [BB_FAIL] = "BB_FAIL",
-    [BB_SUCCEED] = "BB_SUCCEED",
-    [BB_GOTO] = "BB_GOTO",
-    [BB_RETURN] = "BB_RETURN",
-    [BB_IF] = "BB_IF",
-    [BB_CONJ] = "BB_CONJ",
-    [BB_TO_BY] = "BB_TO_BY",
-    [BB_EVERY] = "BB_EVERY",
-    [BB_WHILE] = "BB_WHILE",
-    [BB_UNTIL] = "BB_UNTIL",
-    [BB_REPEAT] = "BB_REPEAT",
-    [BB_ALT] = "BB_ALT",
-    [BB_SIZE] = "BB_SIZE",
-    [BB_CASE] = "BB_CASE",
-    [BB_LIMIT] = "BB_LIMIT",
-    [BB_SUSPEND] = "BB_SUSPEND",
-    [BB_PROC] = "BB_PROC",
-    [BB_SCAN] = "BB_SCAN",
-    [BB_NONNULL] = "BB_NONNULL",
-    [BB_INTERROGATE] = "BB_INTERROGATE",
-    [BB_NOT] = "BB_NOT",
-    [BB_PAT_LIT] = "BB_PAT_LIT",
-    [BB_PAT_ANY] = "BB_PAT_ANY",
-    [BB_PAT_SPAN] = "BB_PAT_SPAN",
-    [BB_PAT_BREAK] = "BB_PAT_BREAK",
-    [BB_PAT_ARB] = "BB_PAT_ARB",
-    [BB_PAT_ARBNO] = "BB_PAT_ARBNO",
-    [BB_PAT_CAT] = "BB_PAT_CAT",
-    [BB_PAT_ALT] = "BB_PAT_ALT",
-    [BB_PAT_ASSIGN_IMM] = "BB_PAT_ASSIGN_IMM",
-    [BB_PAT_ASSIGN_COND] = "BB_PAT_ASSIGN_COND",
-    [BB_PAT_LEN] = "BB_PAT_LEN",
-    [BB_PAT_NOTANY] = "BB_PAT_NOTANY",
-    [BB_PAT_POS] = "BB_PAT_POS",
-    [BB_PAT_TAB] = "BB_PAT_TAB",
-    [BB_PAT_REM] = "BB_PAT_REM",
-    [BB_PAT_FENCE] = "BB_PAT_FENCE",
-    [BB_PAT_ABORT] = "BB_PAT_ABORT",
-    [BB_PAT_CALLOUT] = "BB_PAT_CALLOUT",
-    [BB_PAT_DEFER] = "BB_PAT_DEFER",
-    [BB_CHOICE] = "BB_CHOICE",
-    [BB_UNIFY] = "BB_UNIFY",
-    [BB_CUT] = "BB_CUT",
-    [BB_GOAL] = "BB_GOAL",
-    [BB_BUILTIN] = "BB_BUILTIN",
-    [BB_LOGICVAR] = "BB_LOGICVAR",
-    [BB_ATOM] = "BB_ATOM",
-    [BB_STRUCT] = "BB_STRUCT",
-    [BB_ARITH] = "BB_ARITH",
-    [BB_DISJ] = "BB_DISJ",
-    [BB_GCONJ] = "BB_GCONJ",
-    [BB_ITE] = "BB_ITE",
-    [BB_CATCH] = "BB_CATCH",
-    [BB_TO] = "BB_TO",
-    [BB_UPTO] = "BB_UPTO",
-    [BB_ITERATE] = "BB_ITERATE",
-    [BB_GEN_ALT] = "BB_GEN_ALT",
-    [BB_GEN_BINOP] = "BB_GEN_BINOP",
-    [BB_TO_NESTED] = "BB_TO_NESTED",
-    [BB_PROC_GEN] = "BB_PROC_GEN",
-    [BB_BREAK] = "BB_BREAK",
-    [BB_NEXT] = "BB_NEXT",
-    [BB_IDENTICAL] = "BB_IDENTICAL",
-    [BB_NULL_TEST] = "BB_NULL_TEST",
-    [BB_RANDOM] = "BB_RANDOM",
-    [BB_NEG] = "BB_NEG",
-    [BB_POS] = "BB_POS",
-    [BB_CSET_COMPL] = "BB_CSET_COMPL",
-    [BB_CSET_UNION] = "BB_CSET_UNION",
-    [BB_CSET_DIFF] = "BB_CSET_DIFF",
-    [BB_CSET_INTER] = "BB_CSET_INTER",
-    [BB_GEN_SCAN] = "BB_GEN_SCAN",
-    [BB_KEYWORD] = "BB_KEYWORD",
-    [BB_BINOP_GEN] = "BB_BINOP_GEN",
-    [BB_IDX] = "BB_IDX",
-    [BB_SECTION] = "BB_SECTION",
-    [BB_LIST_BANG] = "BB_LIST_BANG",
-    [BB_RECORD_DEF] = "BB_RECORD_DEF",
-    [BB_FIELD_GET] = "BB_FIELD_GET",
-    [BB_FIELD_SET] = "BB_FIELD_SET",
-    [BB_IDX_SET] = "BB_IDX_SET",
-    [BB_KEY_GEN] = "BB_KEY_GEN",
-    [BB_SWAP] = "BB_SWAP",
-    [BB_SEQ_EXPR] = "BB_SEQ_EXPR",
-    [BB_INITIAL] = "BB_INITIAL",
-    [BB_LCONCAT] = "BB_LCONCAT",
-    [BB_FIND_GEN] = "BB_FIND_GEN",
-    [BB_SEQ_GEN] = "BB_SEQ_GEN",
-    [BB_NFA_CHAR] = "BB_NFA_CHAR",
-    [BB_NFA_ANY] = "BB_NFA_ANY",
-    [BB_NFA_CLASS] = "BB_NFA_CLASS",
-    [BB_NFA_SPLIT] = "BB_NFA_SPLIT",
-    [BB_NFA_EPS] = "BB_NFA_EPS",
-    [BB_NFA_BOL] = "BB_NFA_BOL",
-    [BB_NFA_EOL] = "BB_NFA_EOL",
-    [BB_NFA_CAP_OPEN] = "BB_NFA_CAP_OPEN",
-    [BB_NFA_CAP_CLOSE] = "BB_NFA_CAP_CLOSE",
-    [BB_NFA_ACCEPT] = "BB_NFA_ACCEPT",
+static const char * kind_names[IR_OP_COUNT] = {
+    [IR_LIT_I] = "IR_LIT_I",
+    [IR_LIT_S] = "IR_LIT_S",
+    [IR_LIT_F] = "IR_LIT_F",
+    [IR_LIT_NUL] = "IR_LIT_NUL",
+    [IR_VAR] = "IR_VAR",
+    [IR_ASSIGN] = "IR_ASSIGN",
+    [IR_AUGOP] = "IR_AUGOP",
+    [IR_BINOP] = "IR_BINOP",
+    [IR_UNOP] = "IR_UNOP",
+    [IR_CALL] = "IR_CALL",
+    [IR_SEQ] = "IR_SEQ",
+    [IR_FAIL] = "IR_FAIL",
+    [IR_SUCCEED] = "IR_SUCCEED",
+    [IR_GOTO] = "IR_GOTO",
+    [IR_RETURN] = "IR_RETURN",
+    [IR_IF] = "IR_IF",
+    [IR_CONJ] = "IR_CONJ",
+    [IR_TO_BY] = "IR_TO_BY",
+    [IR_EVERY] = "IR_EVERY",
+    [IR_WHILE] = "IR_WHILE",
+    [IR_UNTIL] = "IR_UNTIL",
+    [IR_REPEAT] = "IR_REPEAT",
+    [IR_ALT] = "IR_ALT",
+    [IR_SIZE] = "IR_SIZE",
+    [IR_CASE] = "IR_CASE",
+    [IR_LIMIT] = "IR_LIMIT",
+    [IR_SUSPEND] = "IR_SUSPEND",
+    [IR_PROC] = "IR_PROC",
+    [IR_SCAN] = "IR_SCAN",
+    [IR_NONNULL] = "IR_NONNULL",
+    [IR_INTERROGATE] = "IR_INTERROGATE",
+    [IR_NOT] = "IR_NOT",
+    [IR_PAT_LIT] = "IR_PAT_LIT",
+    [IR_PAT_ANY] = "IR_PAT_ANY",
+    [IR_PAT_SPAN] = "IR_PAT_SPAN",
+    [IR_PAT_BREAK] = "IR_PAT_BREAK",
+    [IR_PAT_ARB] = "IR_PAT_ARB",
+    [IR_PAT_ARBNO] = "IR_PAT_ARBNO",
+    [IR_PAT_CAT] = "IR_PAT_CAT",
+    [IR_PAT_ALT] = "IR_PAT_ALT",
+    [IR_PAT_ASSIGN_IMM] = "IR_PAT_ASSIGN_IMM",
+    [IR_PAT_ASSIGN_COND] = "IR_PAT_ASSIGN_COND",
+    [IR_PAT_LEN] = "IR_PAT_LEN",
+    [IR_PAT_NOTANY] = "IR_PAT_NOTANY",
+    [IR_PAT_POS] = "IR_PAT_POS",
+    [IR_PAT_TAB] = "IR_PAT_TAB",
+    [IR_PAT_REM] = "IR_PAT_REM",
+    [IR_PAT_FENCE] = "IR_PAT_FENCE",
+    [IR_PAT_ABORT] = "IR_PAT_ABORT",
+    [IR_PAT_CALLOUT] = "IR_PAT_CALLOUT",
+    [IR_PAT_DEFER] = "IR_PAT_DEFER",
+    [IR_CHOICE] = "IR_CHOICE",
+    [IR_UNIFY] = "IR_UNIFY",
+    [IR_CUT] = "IR_CUT",
+    [IR_GOAL] = "IR_GOAL",
+    [IR_BUILTIN] = "IR_BUILTIN",
+    [IR_LOGICVAR] = "IR_LOGICVAR",
+    [IR_ATOM] = "IR_ATOM",
+    [IR_STRUCT] = "IR_STRUCT",
+    [IR_ARITH] = "IR_ARITH",
+    [IR_DISJ] = "IR_DISJ",
+    [IR_GCONJ] = "IR_GCONJ",
+    [IR_ITE] = "IR_ITE",
+    [IR_CATCH] = "IR_CATCH",
+    [IR_TO] = "IR_TO",
+    [IR_UPTO] = "IR_UPTO",
+    [IR_ITERATE] = "IR_ITERATE",
+    [IR_GEN_ALT] = "IR_GEN_ALT",
+    [IR_GEN_BINOP] = "IR_GEN_BINOP",
+    [IR_TO_NESTED] = "IR_TO_NESTED",
+    [IR_PROC_GEN] = "IR_PROC_GEN",
+    [IR_BREAK] = "IR_BREAK",
+    [IR_NEXT] = "IR_NEXT",
+    [IR_IDENTICAL] = "IR_IDENTICAL",
+    [IR_NULL_TEST] = "IR_NULL_TEST",
+    [IR_RANDOM] = "IR_RANDOM",
+    [IR_NEG] = "IR_NEG",
+    [IR_POS] = "IR_POS",
+    [IR_CSET_COMPL] = "IR_CSET_COMPL",
+    [IR_CSET_UNION] = "IR_CSET_UNION",
+    [IR_CSET_DIFF] = "IR_CSET_DIFF",
+    [IR_CSET_INTER] = "IR_CSET_INTER",
+    [IR_GEN_SCAN] = "IR_GEN_SCAN",
+    [IR_KEYWORD] = "IR_KEYWORD",
+    [IR_BINOP_GEN] = "IR_BINOP_GEN",
+    [IR_IDX] = "IR_IDX",
+    [IR_SECTION] = "IR_SECTION",
+    [IR_LIST_BANG] = "IR_LIST_BANG",
+    [IR_RECORD_DEF] = "IR_RECORD_DEF",
+    [IR_FIELD_GET] = "IR_FIELD_GET",
+    [IR_FIELD_SET] = "IR_FIELD_SET",
+    [IR_IDX_SET] = "IR_IDX_SET",
+    [IR_KEY_GEN] = "IR_KEY_GEN",
+    [IR_SWAP] = "IR_SWAP",
+    [IR_SEQ_EXPR] = "IR_SEQ_EXPR",
+    [IR_INITIAL] = "IR_INITIAL",
+    [IR_LCONCAT] = "IR_LCONCAT",
+    [IR_FIND_GEN] = "IR_FIND_GEN",
+    [IR_SEQ_GEN] = "IR_SEQ_GEN",
+    [IR_NFA_CHAR] = "IR_NFA_CHAR",
+    [IR_NFA_ANY] = "IR_NFA_ANY",
+    [IR_NFA_CLASS] = "IR_NFA_CLASS",
+    [IR_NFA_SPLIT] = "IR_NFA_SPLIT",
+    [IR_NFA_EPS] = "IR_NFA_EPS",
+    [IR_NFA_BOL] = "IR_NFA_BOL",
+    [IR_NFA_EOL] = "IR_NFA_EOL",
+    [IR_NFA_CAP_OPEN] = "IR_NFA_CAP_OPEN",
+    [IR_NFA_CAP_CLOSE] = "IR_NFA_CAP_CLOSE",
+    [IR_NFA_ACCEPT] = "IR_NFA_ACCEPT",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
-    if (k >= 0 && k < BB_OP_COUNT) return kind_names[k];
+    if (k >= 0 && k < IR_OP_COUNT) return kind_names[k];
     return "BB_UNKNOWN";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -198,7 +198,7 @@ void bb_reset(IR_graph_t * bbg) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
         bb->value   = FAILDESCR;
-        if (bb->t != BB_PAT_ARBNO) bb->counter = 0;
+        if (bb->t != IR_PAT_ARBNO) bb->counter = 0;
         bb->state   = 0;
     }
     ag_ring_clear(bbg);
@@ -218,10 +218,10 @@ bb_node_state_t * bb_snapshot_state(IR_graph_t * bbg) {
         snap[i].ch_last_body = NULL; snap[i].ch_last_act = NULL;
         snap[i].ch_cp = NULL; snap[i].ch_cut_barrier = NULL;
         snap[i].ch_body_snaps = NULL; snap[i].ch_nbodies = 0;
-        if (bb->t == BB_GOAL) {
+        if (bb->t == IR_GOAL) {
             bb_goal_state_t * zc = (bb_goal_state_t *)(intptr_t)bb->ival;
             if (zc) snap[i].resolve_cs = zc->cs;
-        } else if (bb->t == BB_CHOICE) {
+        } else if (bb->t == IR_CHOICE) {
             bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)bb->ival;
             if (zc) { snap[i].ch_cur = zc->cur; snap[i].ch_mark = zc->mark; snap[i].ch_saved_env = zc->saved_env;
                       snap[i].ch_last_body = zc->last_body; snap[i].ch_last_act = zc->last_act;
@@ -246,10 +246,10 @@ void bb_restore_state(IR_graph_t * bbg, bb_node_state_t * snap) {
         bb->value   = snap[i].value;
         bb->counter = snap[i].counter;
         bb->state   = snap[i].state;
-        if (bb->t == BB_GOAL) {
+        if (bb->t == IR_GOAL) {
             bb_goal_state_t * zc = (bb_goal_state_t *)(intptr_t)bb->ival;
             if (zc) zc->cs = snap[i].resolve_cs;
-        } else if (bb->t == BB_CHOICE) {
+        } else if (bb->t == IR_CHOICE) {
             bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)bb->ival;
             if (zc) { zc->cur = snap[i].ch_cur; zc->mark = snap[i].ch_mark; zc->saved_env = snap[i].ch_saved_env;
                       zc->last_body = (IR_graph_t *)snap[i].ch_last_body; zc->last_act = snap[i].ch_last_act;
@@ -321,12 +321,12 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
         print_port(fp, "γ", bb->γ);
         print_port(fp, "ω", bb->ω);
         switch (bb->t) {
-            case BB_LIT_I: fprintf(fp, " ival=%lld", (long long)bb->ival); break;
-            case BB_LIT_F: fprintf(fp, " dval=%g",   bb->dval);             break;
-            case BB_LIT_S: fprintf(fp, " sval=\"%s\"", bb->sval ? bb->sval : ""); break;
-            case BB_VAR:   fprintf(fp, " var=\"%s\"",  bb->sval ? bb->sval : ""); break;
-            case BB_FIELD_GET:
-            case BB_FIELD_SET: fprintf(fp, " field=\"%s\"", bb->sval ? bb->sval : ""); break;
+            case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)bb->ival); break;
+            case IR_LIT_F: fprintf(fp, " dval=%g",   bb->dval);             break;
+            case IR_LIT_S: fprintf(fp, " sval=\"%s\"", bb->sval ? bb->sval : ""); break;
+            case IR_VAR:   fprintf(fp, " var=\"%s\"",  bb->sval ? bb->sval : ""); break;
+            case IR_FIELD_GET:
+            case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", bb->sval ? bb->sval : ""); break;
             default: break;
         }
         fprintf(fp, "\n");

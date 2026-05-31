@@ -1,4 +1,4 @@
-/* bb_atom.cpp — BB template for BB_ATOM: Prolog atom literal.
+/* bb_atom.cpp — BB template for IR_ATOM: Prolog atom literal.
    PL-T-2 (GOAL-BB-TEMPLATE-LADDER.md). x86 only per Invariant #14 (2026-05-22). */
 #include <string>
 #include "emit_str.h"

@@ -1,5 +1,5 @@
-/* bb_every.cpp — BB template for BB_EVERY (generic generator pump driver).
-   LANGUAGE-IGNORANT: BB_EVERY pumps its body generator to exhaustion.
+/* bb_every.cpp — BB template for IR_EVERY (generic generator pump driver).
+   LANGUAGE-IGNORANT: IR_EVERY pumps its body generator to exhaustion.
    IBB ground-zero (Opus 4.7, 2026-05-28).
 
    Wire:
@@ -12,7 +12,7 @@
    first iteration only; per the generator's own loop the body is re-entered via its β port
    on retry). For now, the simplest correct shape: body.γ jumps back to body.β if body has
    a β label, else to body.α. We use body.β here because every generator BB template
-   (BB_TO etc.) emits a real β label that resumes the generator.                          */
+   (IR_TO etc.) emits a real β label that resumes the generator.                          */
 #include <string>
 #include "emit_str.h"
 extern "C" {
@@ -25,7 +25,7 @@ extern "C" char * walk_bb_node_str_c(IR_t *);
 static std::string bb_every_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_EVERY");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_EVERY");
     if (MEDIUM_TEXT) {
         IR_t * body = pBB->α;
         if (!body) {
@@ -64,7 +64,7 @@ static std::string bb_every_str(IR_t * pBB, bb_bin_t & bin) {
         std::string head =
               s_directive(".intel_syntax noprefix")
             + s_1asm(std::string(outer_α) + ":")
-            + s_comment(emit_fmt("# BOX BB_EVERY id=%d — pump body to exhaustion", id));
+            + s_comment(emit_fmt("# BOX IR_EVERY id=%d — pump body to exhaustion", id));
 
         /* After body's own text is laid down, body.γ landed here defines the loop-back point.   */
         /* body's text emits `jmp .Levery_body_γ` on yield. We define .Levery_body_γ as a label   */

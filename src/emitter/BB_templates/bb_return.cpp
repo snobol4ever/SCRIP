@@ -1,7 +1,7 @@
-/* bb_return.cpp — BB template for BB_RETURN (Icon `return [E]`).
+/* bb_return.cpp — BB template for IR_RETURN (Icon `return [E]`).
    IBB-9-6 (Opus 4.8, 2026-05-29, GOAL-ICON-BB). Transcribes JCON ir_a_Return (irgen.icn:867-903):
    `Succeed(t)` on the success path — the return value flows out to the caller. In the SCRIP flat
-   slab model a procedure is one self-contained slab; BB_RETURN leaves the value on the value-stack
+   slab model a procedure is one self-contained slab; IR_RETURN leaves the value on the value-stack
    and jumps to lbl_γ (the slab's XA_FLAT_EPILOGUE `ret`). rt_call_proc reads that value back off
    the vstack after the slab returns.
 
@@ -32,12 +32,12 @@ void rt_push_null(void);
 static std::string bb_return_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_RETURN");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_RETURN");
     int has_expr = (pBB && pBB->α) ? 1 : 0;
     if (MEDIUM_TEXT) {
         std::string head = s_1asm(emit_fmt("%s:", _.lbl_α))
-                         + s_comment(has_expr ? "# BOX BB_RETURN value-on-vstack [IBB-9-6]"
-                                              : "# BOX BB_RETURN bare (push null) [IBB-9-6]");
+                         + s_comment(has_expr ? "# BOX IR_RETURN value-on-vstack [IBB-9-6]"
+                                              : "# BOX IR_RETURN bare (push null) [IBB-9-6]");
         if (!has_expr) head = head + s_2asm("call", "rt_push_null@PLT");
         return head + s_2asm("jmp", _.lbl_γ)
              + s_L1asm(emit_fmt("%s:", _.lbl_β), "")

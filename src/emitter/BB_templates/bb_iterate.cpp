@@ -1,4 +1,4 @@
-/* bb_iterate.cpp — BB template for BB_ITERATE.
+/* bb_iterate.cpp — BB template for IR_ITERATE.
 
    ⛔ TWO PATHS, discriminated by pBB->sval at emit time:
 
@@ -23,12 +23,12 @@
         The mode-4 path therefore is structurally correct but blocked on some
         wrapper-level issue (label resolution, section-switch fall-through, or
         scope mismatch between var stores and the BB body's NV_GET). Mode-2
-        polymorphism is GREEN — see bb_exec.c BB_ITERATE.
+        polymorphism is GREEN — see bb_exec.c IR_ITERATE.
 
    2. ICON !string char-by-char (legacy, sval == NULL):
         Compile-time hay/slen baked in; uses a static slots table; writes DT_S
-        to r12 directly. DEAD CODE: Icon's !E now lowers via BB_LIST_BANG (not
-        BB_ITERATE). Preserved verbatim for regression-safety only. NOT reached
+        to r12 directly. DEAD CODE: Icon's !E now lowers via IR_LIST_BANG (not
+        IR_ITERATE). Preserved verbatim for regression-safety only. NOT reached
         by any current frontend.
 
    FACT RULE: every byte emitted via s_* helpers — no seg_byte, SL_B,
@@ -370,7 +370,7 @@ static std::string bb_iterate_str(IR_t * pBB, bb_bin_t & bin) {
 
     /* ── LEGACY ICON PATH (sval == NULL) ── compile-time hay/slen.   */
     /* DEAD CODE: kept verbatim for shape compatibility; Icon !E lowers via      */
-    /* BB_LIST_BANG. The MEDIUM_TEXT "inc qword ptr [rax]," and MEDIUM_BINARY     */
+    /* IR_LIST_BANG. The MEDIUM_TEXT "inc qword ptr [rax]," and MEDIUM_BINARY     */
     /* r12-writes are known broken — preserved for now. See file header. */
     {
         const char *hay = "";  /* TODO: read from runtime scan subject */

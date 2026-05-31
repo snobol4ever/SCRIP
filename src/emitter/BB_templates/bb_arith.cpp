@@ -1,4 +1,4 @@
-/* bb_arith.cpp — BB template for BB_ARITH: Prolog arithmetic (Y is X+2).
+/* bb_arith.cpp — BB template for IR_ARITH: Prolog arithmetic (Y is X+2).
    PL-T-3 (GOAL-BB-TEMPLATE-LADDER.md). x86 only per Invariant #14 (2026-05-22). */
 #include <string>
 #include "emit_str.h"

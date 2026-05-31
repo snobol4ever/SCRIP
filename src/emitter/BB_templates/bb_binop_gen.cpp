@@ -1,10 +1,10 @@
-/* bb_binop_gen.cpp — BB template for BB_BINOP_GEN (generative arith/relop, cross-product).
+/* bb_binop_gen.cpp — BB template for IR_BINOP_GEN (generative arith/relop, cross-product).
    ICN-T-3 / ICN-M4 (2026-05-27), GOAL-ICON-BB. One file per BB kind per RULES.md.
    x86 only — IS_JVM/JS/NET/WASM arms stub (RULES.md: x86 only for now).
 
-   BB_BINOP_GEN: nd->ival = BinopKind; nd->α = lhs operand box, nd->β = rhs operand box.
+   IR_BINOP_GEN: nd->ival = BinopKind; nd->α = lhs operand box, nd->β = rhs operand box.
    Both operands may be generators; this box yields the full cross-product (mode-2 oracle:
-   bb_exec.c case BB_BINOP_GEN, lines ~688-762). The odometer:
+   bb_exec.c case IR_BINOP_GEN, lines ~688-762). The odometer:
      state 0 (fresh, α): seed lhs (α-entry) → hold lv; seed rhs (α-entry) → hold rv; apply.
      state 1 (active, β): advance rhs (β-entry); on rhs.ω → advance lhs (β), reset rhs (α-entry),
                           re-seed rv; on lhs.ω → parent ω. Then apply.
@@ -75,14 +75,14 @@ static std::string emit_child_box(IR_t * child,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Is this operand a restartable generator box (emits four ports)? Mirrors bb_exec.c                  */
-/* bb_is_gen_kind_raw, seeing through a BB_ASSIGN wrapper.                                             */
+/* bb_is_gen_kind_raw, seeing through a IR_ASSIGN wrapper.                                             */
 static int operand_is_gen(IR_t * e) {
     if (!e) return 0;
-    if (e->t == BB_ASSIGN) return operand_is_gen(e->β);
+    if (e->t == IR_ASSIGN) return operand_is_gen(e->β);
     switch (e->t) {
-    case BB_TO: case BB_TO_BY: case BB_UPTO: case BB_ALT:
-    case BB_BINOP_GEN: case BB_ITERATE: case BB_LIMIT: case BB_PROC_GEN:
-    case BB_LIST_BANG: case BB_KEY_GEN: case BB_FIND_GEN: case BB_SEQ_GEN:
+    case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT:
+    case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
+    case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
         return 1;
     default: return 0;
     }
@@ -90,15 +90,15 @@ static int operand_is_gen(IR_t * e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Single-shot (non-generator) integer operand: synthesize a four-port box with the SAME label names  */
 /* the odometer expects (la/lg/lo/lb).  α: push the literal int via rt_push_int, jmp γ.  β: jmp ω      */
-/* (single-shot — exhausted after one value).  Only BB_LIT_I is handled inline today; other single-   */
-/* shot kinds (BB_VAR / BB_KEYWORD / non-int literals) are a documented ICN-M4 follow-on.  Returns ""  */
+/* (single-shot — exhausted after one value).  Only IR_LIT_I is handled inline today; other single-   */
+/* shot kinds (IR_VAR / IR_KEYWORD / non-int literals) are a documented ICN-M4 follow-on.  Returns ""  */
 /* (with *ok=0) if the operand kind is not yet inline-emittable, so the caller can stub the port.      */
 static std::string synth_single_shot_box(IR_t * e, int * ok,
                                          bb_label_t * la, bb_label_t * lg, bb_label_t * lo, bb_label_t * lb) {
     *ok = 0;
     IR_t * inner = e;
-    while (inner && inner->t == BB_ASSIGN) inner = inner->β;
-    if (!inner || inner->t != BB_LIT_I) return std::string();
+    while (inner && inner->t == IR_ASSIGN) inner = inner->β;
+    if (!inner || inner->t != IR_LIT_I) return std::string();
     *ok = 1;
     long v = (long)inner->ival;
     return s_1asm(emit_fmt("%s:", la->name))
@@ -117,7 +117,7 @@ static std::string bb_binop_gen_str(IR_t * pBB, bb_bin_t & bin) {
         if (MEDIUM_MACRO_DEF)
             return s_comment("# no macro form — BINOP_GEN");
         if (MEDIUM_BINARY) {
-            /* IBB-6 (Sonnet 4.6, 2026-05-28): store/restore/apply slab for BB_BINOP_GEN odometer.  */
+            /* IBB-6 (Sonnet 4.6, 2026-05-28): store/restore/apply slab for IR_BINOP_GEN odometer.  */
             /* Receives five EMIT_PAIR entries from flat_drive_binop_gen_tree:                         */
             /*   pair[0] = DEF_JMP(lhs_store, lhs_seeded)  — defines lhs_store; saves lhs; jmps     */
             /*             lhs_seeded (= rhs slab α-entry) to re-seed rhs after lhs advances         */

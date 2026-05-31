@@ -56,17 +56,17 @@ int raku_nfa_bb_match(const Raku_nfa *nfa, const char *subject) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_e nfa_kind_to_bb(Nfa_kind k) {
     switch (k) {
-        case NK_CHAR:       return BB_NFA_CHAR;
-        case NK_ANY:        return BB_NFA_ANY;
-        case NK_CLASS:      return BB_NFA_CLASS;
-        case NK_SPLIT:      return BB_NFA_SPLIT;
-        case NK_EPS:        return BB_NFA_EPS;
-        case NK_ANCHOR_BOL: return BB_NFA_BOL;
-        case NK_ANCHOR_EOL: return BB_NFA_EOL;
-        case NK_CAP_OPEN:   return BB_NFA_CAP_OPEN;
-        case NK_CAP_CLOSE:  return BB_NFA_CAP_CLOSE;
-        case NK_ACCEPT:     return BB_NFA_ACCEPT;
-        default:            return BB_OP_COUNT;
+        case NK_CHAR:       return IR_NFA_CHAR;
+        case NK_ANY:        return IR_NFA_ANY;
+        case NK_CLASS:      return IR_NFA_CLASS;
+        case NK_SPLIT:      return IR_NFA_SPLIT;
+        case NK_EPS:        return IR_NFA_EPS;
+        case NK_ANCHOR_BOL: return IR_NFA_BOL;
+        case NK_ANCHOR_EOL: return IR_NFA_EOL;
+        case NK_CAP_OPEN:   return IR_NFA_CAP_OPEN;
+        case NK_CAP_CLOSE:  return IR_NFA_CAP_CLOSE;
+        case NK_ACCEPT:     return IR_NFA_ACCEPT;
+        default:            return IR_OP_COUNT;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -76,7 +76,7 @@ IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
     int ns = raku_nfa_state_count(nfa);
     if (!st || ns <= 0) return NULL;
     for (int i = 0; i < ns; i++)
-        if (nfa_kind_to_bb(st[i].kind) == BB_OP_COUNT) return NULL;
+        if (nfa_kind_to_bb(st[i].kind) == IR_OP_COUNT) return NULL;
     IR_graph_t *bbg = BB_alloc(ns, BB_LANG_RKU);
     if (!bbg) return NULL;
     IR_t **node = (IR_t **)GC_malloc((size_t)ns * sizeof(IR_t *));

@@ -1,12 +1,12 @@
-/* bb_seq.cpp — BB template for BB_SEQ (Icon/Raku compound-stmt sequence).
+/* bb_seq.cpp — BB template for IR_SEQ (Icon/Raku compound-stmt sequence).
    RK-BB-2 step 6, GOAL-RAKU-BB. One file per BB kind per RULES.md. x86 only.
 
-   BB_SEQ children form a γ-chain rooted at seq->α (per bb_exec.c BB_SEQ case + lower_icn.c
+   IR_SEQ children form a γ-chain rooted at seq->α (per bb_exec.c IR_SEQ case + lower_icn.c
    proc-body wiring). Each child statement's γ AND ω point to the NEXT stmt's entry (Icon
    compound semantics — success or failure both advance, no backtracking across stmts).
 
    For Raku gather-bodies (BB_LANG_RKU), this is the multi-yield driver. The body is a
-   sequence of BB_SUSPEND nodes (one per take()). The SM_BB_SWITCH wrapping this SEQ pumps
+   sequence of IR_SUSPEND nodes (one per take()). The SM_BB_SWITCH wrapping this SEQ pumps
    it: α drives stmt0, β resumes whichever stmt last yielded, ω terminates when drained.
 
    ⛔ MULTI-YIELD STATE: a single SM_BB_SWITCH β-entry label has to know which child
@@ -23,12 +23,12 @@
      stmt_k.γ  =  .Lseq{id}_s{k}_γ   (success yield — fixup writes resume_addr for the
                                        NEXT child, then jmps to _.lbl_γ outer)
      stmt_k.ω  =  next stmt α  if k<last  else  _.lbl_ω outer
-                                       (BB_SUSPEND's β does jmp-ω, so on resume we slide
+                                       (IR_SUSPEND's β does jmp-ω, so on resume we slide
                                        to the NEXT child's α — its first-yield path)
 
    ⛔ ENTRY DISPATCH: stmt_k.α is reached two ways:
      (1) from the outer SEQ.α on fresh entry (resume_addr==0) — but only stmt0
-     (2) from stmt_{k-1}.ω after stmt_{k-1}'s β fired (BB_SUSPEND β→ω)
+     (2) from stmt_{k-1}.ω after stmt_{k-1}'s β fired (IR_SUSPEND β→ω)
 
    So the outer α-entry needs ONE-TIME path-to-stmt0_α (resume_addr is 0 initially); after
    stmt0 yields, resume_addr is set to whatever the fixup needs. On β-entry we always do
@@ -37,10 +37,10 @@
    .byte flag (fresh→fall through to α here; β-loop→jmp _.lbl_β). So our outer β path is
    only reached AFTER our outer α has fired and a child has set resume_addr.
 
-   LITERAL FAST-PATH ONLY: this implementation handles BB_SEQ children that are BB_SUSPEND
+   LITERAL FAST-PATH ONLY: this implementation handles IR_SEQ children that are IR_SUSPEND
    nodes (i.e. Raku gather bodies). Other compositions (Icon/Snocone proc bodies with mixed
    stmt kinds) currently fall through to bb_stub via emit_core's group case (this template
-   is reached only when emit_core peels BB_SEQ off — see step 5).
+   is reached only when emit_core peels IR_SEQ off — see step 5).
 
    FACT RULE: every byte emitted via s_* / bytes() — no seg_byte, SL_B, sl_emit_one, or
    emit_standard_blob. PEERS RULE: no fields added to IR_t. */
@@ -81,9 +81,9 @@ static std::string bb_seq_str(IR_t * pBB, bb_bin_t & bin) {
         int id   = bb_node_id(pBB);
         int n    = seq_chain_len(pBB->α);
 
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_SEQ");
+        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_SEQ");
 
-        /* Non-Raku-gather BB_SEQ (n==0, or any context other than Raku gather body): fall back to     */
+        /* Non-Raku-gather IR_SEQ (n==0, or any context other than Raku gather body): fall back to     */
         /* the passthrough shape — α→γ, β→ω. Walk g_emit.xa_bb_emit_pair_* populated by               */
         /* flat_drive_seq's n==0 branch (EMIT_PAIR_JMP(γ) + EMIT_PAIR_DEF_JMP(β, ω)). Same FACT-clean  */
         /* shape as bb_conj.cpp — each byte literally produced here, bin sites/labels registered    */
@@ -127,16 +127,16 @@ static std::string bb_seq_str(IR_t * pBB, bb_bin_t & bin) {
             bb_label_t * outer_ω_p = _.lbl_ω_p;
 
             /* IBB GROUND-ZERO RESET (Opus 4.7, 2026-05-28): structural shape detection.            */
-            /* The original BB_SEQ template was the Raku-gather multi-yield driver — every child  */
+            /* The original IR_SEQ template was the Raku-gather multi-yield driver — every child  */
             /* γ yields out through outer γ, awaiting outer β to resume the next child. That       */
             /* semantics is wrong for non-yielding sequences (Icon proc body, SNOBOL4 stmt list):  */
             /* each statement's γ should fall through to the NEXT statement's α, only the LAST    */
             /* statement's γ goes to outer γ. Detect the case structurally: walk the γ-chain of   */
-            /* children; if ANY child is BB_SUSPEND we're in gather-driver territory. Otherwise    */
+            /* children; if ANY child is IR_SUSPEND we're in gather-driver territory. Otherwise    */
             /* we're a flat in-order sequence.                                                     */
             int has_suspend = 0;
             for (IR_t * c = pBB->α; c; c = c->γ) {
-                if (c->t == BB_SUSPEND) { has_suspend = 1; break; }
+                if (c->t == IR_SUSPEND) { has_suspend = 1; break; }
             }
 
             /* Pre-build the per-child label structs so we can chain γ/ω. */
@@ -157,7 +157,7 @@ static std::string bb_seq_str(IR_t * pBB, bb_bin_t & bin) {
                 std::string head =
                       s_directive(".intel_syntax noprefix")
                     + s_1asm(std::string(outer_α) + ":")
-                    + s_comment(emit_fmt("# BOX BB_SEQ(n=%d, flat in-order sequence — no SUSPEND children)", n))
+                    + s_comment(emit_fmt("# BOX IR_SEQ(n=%d, flat in-order sequence — no SUSPEND children)", n))
                     + s_1asm(emit_fmt("jmp .Lseq%d_s0_α", id));
 
                 std::string body;
@@ -180,7 +180,7 @@ static std::string bb_seq_str(IR_t * pBB, bb_bin_t & bin) {
                 return head + body + tail;
             }
 
-            /* ─── GATHER-DRIVER shape (legacy, Raku-gather; reached when any child is BB_SUSPEND) */
+            /* ─── GATHER-DRIVER shape (legacy, Raku-gather; reached when any child is IR_SUSPEND) */
             std::string resume_slot = emit_fmt(".Lseq%d_resume", id);
             std::string seq_α       = std::string(outer_α);
             std::string seq_β       = std::string(outer_β);
@@ -191,7 +191,7 @@ static std::string bb_seq_str(IR_t * pBB, bb_bin_t & bin) {
                 + s_directive(".section .text")
                 + s_directive(".intel_syntax noprefix")
                 + s_1asm(seq_α + ":")
-                + s_comment(emit_fmt("# BOX BB_SEQ(n=%d, gather multi-yield driver)", n))
+                + s_comment(emit_fmt("# BOX IR_SEQ(n=%d, gather multi-yield driver)", n))
                 + s_1asm(emit_fmt("jmp .Lseq%d_s0_α", id))
                 + s_L1asm(seq_β + ":", "")
                 + s_comment("# β-resume: indirect-jmp to resume_addr (set by last yielder)")
@@ -289,7 +289,7 @@ static std::string bb_seq_str(IR_t * pBB, bb_bin_t & bin) {
 /* SM_BB_INVOKE → walk_bb_node path, where g_emit.xa_bb_emit_pair_*[] is UNPOPULATED (no         */
 /* flat_drive_seq ran) and the MEDIUM_BINARY pair-loop above would emit nothing — leaving the    */
 /* wrapper's outer β label (.Lbbinv%d_β) unresolved. This is the raw-bytes mirror of the         */
-/* MEDIUM_TEXT gather-driver (the has_suspend branch above). Children (BB_SUSPEND/BB_FAIL) carry  */
+/* MEDIUM_TEXT gather-driver (the has_suspend branch above). Children (IR_SUSPEND/IR_FAIL) carry  */
 /* their own working MEDIUM_BINARY arms; we emit only the seq spine (α fan-out, β resume          */
 /* indirect-jump, per-child γ fixups, done trampoline) directly into the shared bb_emit_buf,      */
 /* interleaving walk_bb_node(child, NULL) calls — the same emit-in-place idiom the SM_BB_INVOKE    */
@@ -303,7 +303,7 @@ static int bb_seq_gather_binary(IR_t * pBB) {
     int n = seq_chain_len(pBB->α);
     if (n == 0) return 0;
     int has_suspend = 0;
-    for (IR_t * c = pBB->α; c; c = c->γ) if (c->t == BB_SUSPEND) { has_suspend = 1; break; }
+    for (IR_t * c = pBB->α; c; c = c->γ) if (c->t == IR_SUSPEND) { has_suspend = 1; break; }
     if (!has_suspend) return 0;
     int id = bb_node_id(pBB);
     uint64_t * resume_slot = (uint64_t *)calloc(1, sizeof(uint64_t));

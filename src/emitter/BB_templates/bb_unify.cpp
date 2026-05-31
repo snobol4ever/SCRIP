@@ -1,4 +1,4 @@
-/* bb_unify.cpp — BB template for BB_UNIFY: Prolog unification (X = Y).
+/* bb_unify.cpp — BB template for IR_UNIFY: Prolog unification (X = Y).
    PA-1 (GOAL-PROLOG-BB.md): the four-port (γ/ω) decision is emitted INLINE here,
    not delegated to a C port-logic helper. The three former rt_pl_unify_var_atom/
    _var_var/_generic functions (which encapsulated the γ/ω choice in C — INVARIANT 9)
@@ -39,7 +39,7 @@ static std::string resolve_unify_tail_text(void) {
 }
 /* CAT-B (2026-05-27, Opus 4.7): defined in bb_builtin.cpp (BB_templates/). Same TU set (Makefile      */
 /* `scrip` target links all BB_templates/*.cpp into one binary); de-staticized so we can reuse the    */
-/* recursive Term* walker for BB_STRUCT operands instead of the broken default-arm-of-             */
+/* recursive Term* walker for IR_STRUCT operands instead of the broken default-arm-of-             */
 /* rt_pl_node_to_term path. Forward declaration matches the post-static signature in bb_builtin.cpp. */
 extern std::string emit_build_compound_term(const IR_t *nd);
 extern std::string emit_build_compound_term_bin(const IR_t *nd);
@@ -58,14 +58,14 @@ static std::string build_term_text(const IR_t *nd, const char *lbl) {
          + s_2asm("call", "rt_pl_node_to_term@PLT");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* CAT-B (2026-05-27, Opus 4.7): build one operand term into rax. For scalar leaves (BB_LOGICVAR, BB_ATOM,
-   BB_LIT_I, BB_LIT_F) → build_term_text → rt_pl_node_to_term, same as before. For BB_STRUCT →
+/* CAT-B (2026-05-27, Opus 4.7): build one operand term into rax. For scalar leaves (IR_LOGICVAR, IR_ATOM,
+   IR_LIT_I, IR_LIT_F) → build_term_text → rt_pl_node_to_term, same as before. For IR_STRUCT →
    emit_build_compound_term (declared in bb_builtin.cpp), which post-order materializes the full
    Term* tree (functor name + arity + recursively built args via rt_pl_compound_build_n). Closes
    CAT-B: f(X,a) = f(b,Y) no longer falls through rt_pl_node_to_term's default arm to
    term_new_int(arity) — the actual compound is constructed, so unify(L, R) binds X=b, Y=a. */
 static std::string build_operand_term(const IR_t *nd, const char *lbl) {
-    if (nd && nd->t == BB_STRUCT) return emit_build_compound_term(nd);
+    if (nd && nd->t == IR_STRUCT) return emit_build_compound_term(nd);
     return build_term_text(nd, lbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -113,14 +113,14 @@ static std::string bb_unify_str(IR_t * pBB, bb_bin_t & bin) {
         }
         if (MEDIUM_BINARY) {
             /* PLR-J-5 (2026-05-29): COMPOUND operands now wired.  Was honest-abort-guarded (the TEXT
-               arm routes BB_STRUCT through emit_build_compound_term; the binary twin
+               arm routes IR_STRUCT through emit_build_compound_term; the binary twin
                emit_build_compound_term_bin landed in PLR-J-3 and leaves a Term* in rax, balancing its
-               own rsp frame).  build_bin routes BB_STRUCT to it; scalars keep the rt_pl_node_to_term
+               own rsp frame).  build_bin routes IR_STRUCT to it; scalars keep the rt_pl_node_to_term
                immediate path.  Uses the TEXT arm's 16-byte scratch-slot discipline (sub rsp,16 / mov
                [rsp],L / build R / add rsp,16) instead of `push rax`, so rsp stays 16-aligned across a
                compound R build's internal `call rt_pl_compound_build_n` (SysV).                        */
             auto build_bin = [](const IR_t *nd, const char *lbl) -> std::string {
-                if (nd && nd->t == BB_STRUCT) return emit_build_compound_term_bin(nd);
+                if (nd && nd->t == IR_STRUCT) return emit_build_compound_term_bin(nd);
                 std::string b;
                 b += bytes(1, "\xBF") + u32le((uint32_t)(int)nd->t);          /* mov edi, imm32        */
                 b += bytes(2, "\x48\xBE") + u64le((uint64_t)(long)nd->ival);  /* movabs rsi, imm64     */

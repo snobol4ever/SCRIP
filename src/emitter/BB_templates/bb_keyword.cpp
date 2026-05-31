@@ -1,4 +1,4 @@
-/* bb_keyword.cpp — BB template for BB_KEYWORD (ICN-T ladder).
+/* bb_keyword.cpp — BB template for IR_KEYWORD (ICN-T ladder).
    STUB — x86 Byrd-box inline asm not yet written. RULES.md: one file per BB kind. */
 #include <string>
 #include "emit_str.h"

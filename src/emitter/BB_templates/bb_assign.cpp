@@ -1,5 +1,5 @@
-/* bb_assign.cpp — BB template for BB_ASSIGN (Icon variable assign).
-   IBB-7 (2026-05-29). Composite: α = lhs (BB_VAR — sval is the slot name), β = rhs subgraph.
+/* bb_assign.cpp — BB template for IR_ASSIGN (Icon variable assign).
+   IBB-7 (2026-05-29). Composite: α = lhs (IR_VAR — sval is the slot name), β = rhs subgraph.
    The flat-driver walks β first (pushing the value onto vstack), then defines lbl_α at this
    template's location; the template emits the trailer `rt_pop_nv_set(name); jmp γ; β: jmp ω`.
 
@@ -14,7 +14,7 @@
        27 : E9 + u32le ω_rel32          β: jmp ω           (β-def at 27, ω patch at 28)
        32 : end
 
-   The driver (flat_drive_assign in emit_bb.c) is responsible for walking β before the BB_ASSIGN
+   The driver (flat_drive_assign in emit_bb.c) is responsible for walking β before the IR_ASSIGN
    template label is defined. The template assumes the value is on the vstack at entry.
 */
 #include <string>
@@ -29,17 +29,17 @@ void rt_pop_nv_set(const char *name);
 static std::string bb_assign_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_ASSIGN");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_ASSIGN");
     IR_t *lhs = pBB ? pBB->α : NULL;
-    if (!lhs || lhs->t != BB_VAR || !lhs->sval) {
-        fprintf(stderr, "[IBB] FATAL bb_assign: lhs (pBB->α) must be BB_VAR with sval (got kind=%d sval=%s)\n",
+    if (!lhs || lhs->t != IR_VAR || !lhs->sval) {
+        fprintf(stderr, "[IBB] FATAL bb_assign: lhs (pBB->α) must be IR_VAR with sval (got kind=%d sval=%s)\n",
                 lhs ? (int)lhs->t : -1, (lhs && lhs->sval) ? lhs->sval : "(null)");
         abort();
     }
     const char *name = lhs->sval;
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment(emit_fmt("# BOX BB_ASSIGN store(\"%s\") [IBB-7 rt_pop_nv_set]", name))
+             + s_comment(emit_fmt("# BOX IR_ASSIGN store(\"%s\") [IBB-7 rt_pop_nv_set]", name))
              + s_2asm("call",     "rt_pop_nv_set@PLT")
              + s_2asm("jmp",      _.lbl_γ)
              + s_L1asm(emit_fmt("%s:", _.lbl_β), "")

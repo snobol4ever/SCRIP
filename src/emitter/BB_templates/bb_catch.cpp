@@ -1,5 +1,5 @@
-/* bb_catch.cpp — BB template for BB_CATCH: Prolog catch/3.
-   WAM-CP-10 (2026-05-28, Opus 4.7): MODE-2 owns this construct via bb_exec.c BB_CATCH executor.
+/* bb_catch.cpp — BB template for IR_CATCH: Prolog catch/3.
+   WAM-CP-10 (2026-05-28, Opus 4.7): MODE-2 owns this construct via bb_exec.c IR_CATCH executor.
    PLR-K-18 (2026-05-29): MEDIUM_BINARY arm — calls rt_pl_catch(zc_ptr) which mirrors the mode-2
    executor end-to-end (setjmp/Resolve_CatchFrame, goal_g run, longjmp recovery, rethrow on mismatch).
    Mode-4 TEXT stub deferred to WAM-CP-13.
@@ -21,7 +21,7 @@ static std::string bb_catch_str(IR_t * pBB, bb_bin_t & bin) {
         if (MEDIUM_BINARY) {
             /* PLR-K-18 (2026-05-29): catch/3 MEDIUM_BINARY arm.  pBB->ival holds the                  */
             /* bb_catch_state_t* sidecar (goal_g/catcher/rec_g).  Pass it as rdi; rt_pl_catch       */
-            /* mirrors the mode-2 BB_CATCH executor: setjmp/Resolve_CatchFrame, runs goal_g, on          */
+            /* mirrors the mode-2 IR_CATCH executor: setjmp/Resolve_CatchFrame, runs goal_g, on          */
             /* longjmp from throw/1 restores g_resolve_env, unwinds trail, unifies catcher, runs rec_g,     */
             /* rethrows if catcher does not match.  Returns 1=γ / 0=ω.                                 */
             /* sub rsp,16 keeps rsp 16-aligned: rt_pl_catch → setjmp → glibc SSE-sensitive (cf.        */

@@ -1,11 +1,11 @@
 /* bb_field.cpp — BB templates for Icon record field access (IBB-11, 2026-05-29).
-   BB_FIELD_GET (obj.field) and BB_FIELD_SET (obj.field := rhs). pBB->sval is the field name.
+   IR_FIELD_GET (obj.field) and IR_FIELD_SET (obj.field := rhs). pBB->sval is the field name.
 
    The flat drivers (flat_drive_field_get / flat_drive_field_set in emit_bb.c) walk the operand
    subgraph(s) FIRST so the runtime vstack holds the operand value(s), then define lbl_α at this
    template's location. The template is the apply node: it loads the field-name pointer into rdi
    (SysV arg0), calls the rt helper, then jmps γ. Re-entry (β) jmps ω — field access is a
-   non-resumable leaf (single value, no retry), like BB_VAR / BB_ASSIGN.
+   non-resumable leaf (single value, no retry), like IR_VAR / IR_ASSIGN.
 
    GET driver leaves [obj] on the vstack; rt_field_get pops obj, pushes the field value.
    SET driver leaves [rhs, obj] on the vstack (rhs deepest); rt_field_set pops obj then rhs,

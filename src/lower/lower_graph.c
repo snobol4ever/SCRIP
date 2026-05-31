@@ -9,28 +9,28 @@
 #include <stdlib.h>
 #include <math.h>
 IR_t *lower_new_Intlit(IR_graph_t *bbg, struct tree_t *e) {
-    IR_t *bb = BB_node_alloc(bbg, BB_LIT_I);
+    IR_t *bb = BB_node_alloc(bbg, IR_LIT_I);
     if (!bb) return NULL;
     bb->ival = e->v.ival;
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Reallit(IR_graph_t *bbg, struct tree_t *e) {
-    IR_t *bb = BB_node_alloc(bbg, BB_LIT_F);
+    IR_t *bb = BB_node_alloc(bbg, IR_LIT_F);
     if (!bb) return NULL;
     bb->dval = e->v.dval;
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Stringlit(IR_graph_t *bbg, struct tree_t *e) {
-    IR_t *bb = BB_node_alloc(bbg, BB_LIT_S);
+    IR_t *bb = BB_node_alloc(bbg, IR_LIT_S);
     if (!bb) return NULL;
     bb->sval = e->v.sval ? e->v.sval : "";
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Csetlit(IR_graph_t *bbg, struct tree_t *e) {
-    IR_t *bb = BB_node_alloc(bbg, BB_LIT_S);
+    IR_t *bb = BB_node_alloc(bbg, IR_LIT_S);
     if (!bb) return NULL;
     bb->sval = e->v.sval ? e->v.sval : "";
     return bb;
@@ -38,7 +38,7 @@ IR_t *lower_new_Csetlit(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Global(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
-    return BB_node_alloc(bbg, BB_SUCCEED);
+    return BB_node_alloc(bbg, IR_SUCCEED);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int is_suspendable(struct tree_t *e);
@@ -50,7 +50,7 @@ IR_t *lower_new_Binop(IR_graph_t *bbg, struct tree_t *e) {
     IR_t *rhs = lower_expr_node(bbg, e->c[1]);
     if (!rhs) return NULL;
     if (e->t == TT_LCONCAT) {
-        IR_t *bb = BB_node_alloc(bbg, BB_LCONCAT);
+        IR_t *bb = BB_node_alloc(bbg, IR_LCONCAT);
         if (!bb) return NULL;
         bb->α = lhs; bb->β = rhs;
         return bb;
@@ -81,7 +81,7 @@ IR_t *lower_new_Binop(IR_graph_t *bbg, struct tree_t *e) {
     default: return NULL;
     }
     int is_gen = is_strrel ? 0 : (is_suspendable(e->c[0]) || is_suspendable(e->c[1]));
-    IR_t *bb = BB_node_alloc(bbg, is_gen ? BB_BINOP_GEN : BB_BINOP);
+    IR_t *bb = BB_node_alloc(bbg, is_gen ? IR_BINOP_GEN : IR_BINOP);
     if (!bb) return NULL;
     bb->α     = lhs;
     bb->β     = rhs;
@@ -127,7 +127,7 @@ IR_t *lower_new_Binop_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t *�
     IR_t *rhs = lower_expr_threaded_b(bbg, e->c[1], NULL, ω_in, &r_αo, &r_βo, 0);
     if (!rhs) return NULL;
     IR_t *rhs_entry = r_αo ? r_αo : rhs;
-    IR_t *bb = BB_node_alloc(bbg, BB_BINOP);
+    IR_t *bb = BB_node_alloc(bbg, IR_BINOP);
     if (!bb) return NULL;
     bb->ival  = (int64_t)op;
     bb->state = is_strrel ? 1 : is_relop;
@@ -152,7 +152,7 @@ IR_t *lower_new_Lconcat_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t 
     IR_t *rhs = lower_expr_threaded_b(bbg, e->c[1], NULL, ω_in, &r_αo, &r_βo, 0);
     if (!rhs) return NULL;
     IR_t *rhs_entry = r_αo ? r_αo : rhs;
-    IR_t *bb = BB_node_alloc(bbg, BB_LCONCAT);
+    IR_t *bb = BB_node_alloc(bbg, IR_LCONCAT);
     if (!bb) return NULL;
     if (!lhs->γ) lhs->γ = rhs_entry;
     if (!lhs->ω) lhs->ω = ω_in;
@@ -179,7 +179,7 @@ IR_t *lower_new_Sectionop_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_
     IR_t *i2 = lower_expr_threaded_b(bbg, e->c[2], NULL, ω_in, &i2_αo, &i2_βo, 0);
     if (!i2) return NULL;
     IR_t *i2_entry = i2_αo ? i2_αo : i2;
-    IR_t *bb = BB_node_alloc(bbg, BB_SECTION);
+    IR_t *bb = BB_node_alloc(bbg, IR_SECTION);
     if (!bb) return NULL;
     bb->ival = (e->t == TT_SECTION) ? 0 : (e->t == TT_SECTION_PLUS) ? 1 : 2;
     if (!base->γ) base->γ = i1_entry;
@@ -205,7 +205,7 @@ IR_t *lower_new_Idx_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t *ω_
     IR_t *idx = lower_expr_threaded_b(bbg, e->c[1], NULL, ω_in, &x_αo, &x_βo, 0);
     if (!idx) return NULL;
     IR_t *idx_entry = x_αo ? x_αo : idx;
-    IR_t *bb = BB_node_alloc(bbg, BB_IDX);
+    IR_t *bb = BB_node_alloc(bbg, IR_IDX);
     if (!bb) return NULL;
     if (!base->γ) base->γ = idx_entry;
     if (!base->ω) base->ω = ω_in;
@@ -234,7 +234,7 @@ IR_t *lower_new_Idx_set_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t 
     IR_t *rhs = lower_expr_threaded_b(bbg, e->c[1], NULL, ω_in, &r_αo, &r_βo, 0);
     if (!rhs) return NULL;
     IR_t *rhs_entry = r_αo ? r_αo : rhs;
-    IR_t *bb = BB_node_alloc(bbg, BB_IDX_SET);
+    IR_t *bb = BB_node_alloc(bbg, IR_IDX_SET);
     if (!bb) return NULL;
     if (!base->γ) base->γ = idx_entry;
     if (!base->ω) base->ω = ω_in;
@@ -263,7 +263,7 @@ IR_t *lower_new_If(IR_graph_t *bbg, struct tree_t *e) {
         else_nd = lower_expr_node(bbg, e->c[2]);
         if (!else_nd) return NULL;
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_IF);
+    IR_t *bb = BB_node_alloc(bbg, IR_IF);
     if (!bb) return NULL;
     bb->α = cond;
     if (then_nd) bb->β = then_nd;
@@ -273,7 +273,7 @@ IR_t *lower_new_If(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_If_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t *ω_in, IR_t **α_out, IR_t **β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_IF);
+    IR_t *bb = BB_node_alloc(bbg, IR_IF);
     if (!bb) return NULL;
     IR_t *cond_αo = NULL, *cond_βo = NULL;
     IR_t *cond = lower_expr_threaded_b(bbg, e->c[0], bb, bb, &cond_αo, &cond_βo, 0);
@@ -310,7 +310,7 @@ extern int fold_signed_lit(struct tree_t *n, int64_t *iv, double *dv, int *is_re
 IR_t *lower_new_ToBy(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     if (e->t == TT_TO) {
-        IR_t *bb = BB_node_alloc(bbg, BB_TO);
+        IR_t *bb = BB_node_alloc(bbg, IR_TO);
         if (!bb) return NULL;
         int lo_lit = (e->c[0]->t == TT_ILIT);
         int hi_lit = (e->c[1]->t == TT_ILIT);
@@ -338,7 +338,7 @@ IR_t *lower_new_ToBy(IR_graph_t *bbg, struct tree_t *e) {
     IR_t *lo = lower_expr_node(bbg, lo_n);
     IR_t *hi = lower_expr_node(bbg, hi_n);
     if (!lo || !hi) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_TO_BY);
+    IR_t *bb = BB_node_alloc(bbg, IR_TO_BY);
     if (!bb) return NULL;
     bb->α = lo;
     bb->β = hi;
@@ -400,7 +400,7 @@ IR_t *lower_new_Every(IR_graph_t *bbg, struct tree_t *e) {
         body = lower_expr_node(bbg, e->c[1]);
         if (!body) return NULL;
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_EVERY);
+    IR_t *bb = BB_node_alloc(bbg, IR_EVERY);
     if (!bb) return NULL;
     bb->α = gen_chain_entry;
     bb->β = body;
@@ -418,20 +418,20 @@ IR_t *lower_new_Every(IR_graph_t *bbg, struct tree_t *e) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lic_gen_kind_raw(IR_e k) {
-    return k == BB_ALT || k == BB_BINOP_GEN || k == BB_ITERATE || k == BB_LIMIT ||
-           k == BB_PROC_GEN || k == BB_LIST_BANG || k == BB_KEY_GEN || k == BB_FIND_GEN || k == BB_SEQ_GEN;
+    return k == IR_ALT || k == IR_BINOP_GEN || k == IR_ITERATE || k == IR_LIMIT ||
+           k == IR_PROC_GEN || k == IR_LIST_BANG || k == IR_KEY_GEN || k == IR_FIND_GEN || k == IR_SEQ_GEN;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lic_is_gen_node(IR_t *e) {
     if (!e) return 0;
-    if (e->t == BB_ASSIGN) return lic_is_gen_node(e->β);
+    if (e->t == IR_ASSIGN) return lic_is_gen_node(e->β);
     return lic_gen_kind_raw(e->t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lic_body_bears_gen(IR_t *e, int depth) {
     if (!e || depth > 64) return 0;
     if (lic_gen_kind_raw(e->t)) return 1;
-    if (e->t == BB_ASSIGN) return lic_body_bears_gen(e->β, depth + 1);
+    if (e->t == IR_ASSIGN) return lic_body_bears_gen(e->β, depth + 1);
     for (IR_t *a = e->α; a; a = a->γ) if (lic_body_bears_gen(a, depth + 1)) return 1;
     if (e->β && lic_body_bears_gen(e->β, depth + 1)) return 1;
     return 0;
@@ -448,15 +448,15 @@ IR_t *lower_new_Every_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t *�
         IR_t *togen = lower_new_ToBy_ag(bbg, e->c[0]->c[1], NULL, NULL, &αo, &βo);
         if (togen && togen->α == NULL && togen->β == NULL) {
             IR_t *lhs = lower_expr_node(bbg, e->c[0]->c[0]);
-            if (!lhs || lhs->t != BB_VAR || !lhs->sval) return NULL;
-            IR_t *store = BB_node_alloc(bbg, BB_ASSIGN);
+            if (!lhs || lhs->t != IR_VAR || !lhs->sval) return NULL;
+            IR_t *store = BB_node_alloc(bbg, IR_ASSIGN);
             if (!store) return NULL;
             store->α   = lhs;
             store->β   = togen;
             store->ival = 1;
             IR_t *do_body = NULL;
             if (e->n >= 2 && e->c[1]) { do_body = lower_expr_node(bbg, e->c[1]); if (!do_body) return NULL; }
-            IR_t *bb = BB_node_alloc(bbg, BB_EVERY);
+            IR_t *bb = BB_node_alloc(bbg, IR_EVERY);
             if (!bb) return NULL;
             gen_chain_entry = αo ? αo : togen;
             bb->α = gen_chain_entry;
@@ -483,7 +483,7 @@ IR_t *lower_new_Every_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t *�
     if (!gen) return NULL;
     IR_t *body = NULL;
     if (e->n >= 2 && e->c[1]) { body = lower_expr_node(bbg, e->c[1]); if (!body) return NULL; }
-    IR_t *bb = BB_node_alloc(bbg, BB_EVERY);
+    IR_t *bb = BB_node_alloc(bbg, IR_EVERY);
     if (!bb) return NULL;
     bb->α = gen_chain_entry;
     bb->β = body;
@@ -491,7 +491,7 @@ IR_t *lower_new_Every_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t *�
         if (body) { gen->γ = body; body->γ = gen; body->ω = gen; } else { gen->γ = gen; }
         gen->ω = bb;
         bb->ival = 1;
-    } else if (lic_is_gen_node(gen) && body && body->t == BB_SEQ_EXPR) {
+    } else if (lic_is_gen_node(gen) && body && body->t == IR_SEQ_EXPR) {
         gen->γ = bb; gen->ω = bb;
         body->γ = bb; body->ω = bb;
         bb->ival = 3;
@@ -523,7 +523,7 @@ IR_t *lower_new_Call(IR_graph_t *bbg, struct tree_t *e) {
     if (nargs == 1 && strcmp(e->c[0]->v.sval, "key") == 0 && e->c[1]) {
         IR_t *tbl = lower_expr_node(bbg, e->c[1]);
         if (!tbl) return NULL;
-        IR_t *bb = BB_node_alloc(bbg, BB_KEY_GEN);
+        IR_t *bb = BB_node_alloc(bbg, IR_KEY_GEN);
         if (!bb) return NULL;
         bb->α = tbl;
         return bb;
@@ -537,7 +537,7 @@ IR_t *lower_new_Call(IR_graph_t *bbg, struct tree_t *e) {
             args2[j] = lower_expr_node(bbg, e->c[1+j]);
             if (!args2[j]) { free(args2); return NULL; }
         }
-        IR_t *bb = BB_node_alloc(bbg, BB_FIND_GEN);
+        IR_t *bb = BB_node_alloc(bbg, IR_FIND_GEN);
         if (!bb) { free(args2); return NULL; }
         if (nargs >= 1) bb->α = args2[0];
         if (nargs >= 2) bb->β = args2[1];
@@ -558,7 +558,7 @@ IR_t *lower_new_Call(IR_graph_t *bbg, struct tree_t *e) {
                 if (!args2[j]) { free(args2); return NULL; }
             }
         }
-        IR_t *bb = BB_node_alloc(bbg, BB_SEQ_GEN);
+        IR_t *bb = BB_node_alloc(bbg, IR_SEQ_GEN);
         if (!bb) { free(args2); return NULL; }
         if (args2 && nargs >= 1) bb->α = args2[0];
         if (args2 && nargs >= 2) bb->β = args2[1];
@@ -575,7 +575,7 @@ IR_t *lower_new_Call(IR_graph_t *bbg, struct tree_t *e) {
             if (!args[j]) { free(args); return NULL; }
         }
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_CALL);
+    IR_t *bb = BB_node_alloc(bbg, IR_CALL);
     if (!bb) { if (args) free(args); return NULL; }
     bb->sval = e->c[0]->v.sval;
     bb->ival = nargs;
@@ -592,7 +592,7 @@ IR_t *lower_new_Field(IR_graph_t *bbg, struct tree_t *e) {
     if (!fname || e->n < 1 || !e->c[0]) return NULL;
     IR_t *obj = lower_expr_node(bbg, e->c[0]);
     if (!obj) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_FIELD_GET);
+    IR_t *bb = BB_node_alloc(bbg, IR_FIELD_GET);
     if (!bb) return NULL;
     bb->sval = fname;
     bb->α = obj;
@@ -607,7 +607,7 @@ IR_t *lower_new_Sectionop(IR_graph_t *bbg, struct tree_t *e) {
     if (!i1) return NULL;
     IR_t *i2 = lower_expr_node(bbg, e->c[2]);
     if (!i2) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_SECTION);
+    IR_t *bb = BB_node_alloc(bbg, IR_SECTION);
     if (!bb) return NULL;
     bb->α = base;
     bb->β = i1;
@@ -618,7 +618,7 @@ IR_t *lower_new_Sectionop(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Alt(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_ALT);
+    IR_t *bb = BB_node_alloc(bbg, IR_ALT);
     if (!bb) return NULL;
     IR_t *prev = NULL;
     for (int j = 0; j < e->n; j++) {
@@ -635,7 +635,7 @@ IR_t *lower_new_Alt(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Alt_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t *ω_in, IR_t **α_out, IR_t **β_out) {
     if (e->n < 1) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_ALT);
+    IR_t *bb = BB_node_alloc(bbg, IR_ALT);
     if (!bb) return NULL;
     IR_t *arm_apply[64];
     IR_t *arm_entry[64];
@@ -667,7 +667,7 @@ IR_t *lower_new_Conjunction(IR_graph_t *bbg, struct tree_t *e) {
     if (!e1) return NULL;
     IR_t *e2 = lower_expr_node(bbg, e->c[1]);
     if (!e2) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_CONJ);
+    IR_t *bb = BB_node_alloc(bbg, IR_CONJ);
     if (!bb) return NULL;
     bb->α = e1;
     bb->β = e2;
@@ -676,7 +676,7 @@ IR_t *lower_new_Conjunction(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Conjunction_ag(IR_graph_t *bbg, struct tree_t *e, IR_t *γ_in, IR_t *ω_in, IR_t **α_out, IR_t **β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_CONJ);
+    IR_t *bb = BB_node_alloc(bbg, IR_CONJ);
     if (!bb) return NULL;
     IR_t *l_αo = NULL, *l_βo = NULL;
     IR_t *left = lower_expr_threaded_b(bbg, e->c[0], NULL, ω_in, &l_αo, &l_βo, 0);
@@ -701,7 +701,7 @@ IR_t *lower_new_Not(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t *inner = lower_expr_node(bbg, e->c[0]);
     if (!inner) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_NOT);
+    IR_t *bb = BB_node_alloc(bbg, IR_NOT);
     if (!bb) return NULL;
     bb->α = inner;
     return bb;
@@ -716,7 +716,7 @@ IR_t *lower_new_While(IR_graph_t *bbg, struct tree_t *e) {
         body = lower_expr_node(bbg, e->c[1]);
         if (!body) return NULL;
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_WHILE);
+    IR_t *bb = BB_node_alloc(bbg, IR_WHILE);
     if (!bb) return NULL;
     bb->α = cond;
     bb->β = body;
@@ -732,7 +732,7 @@ IR_t *lower_new_Until(IR_graph_t *bbg, struct tree_t *e) {
         body = lower_expr_node(bbg, e->c[1]);
         if (!body) return NULL;
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_UNTIL);
+    IR_t *bb = BB_node_alloc(bbg, IR_UNTIL);
     if (!bb) return NULL;
     bb->α = cond;
     bb->β = body;
@@ -743,7 +743,7 @@ IR_t *lower_new_Repeat(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t *body = lower_expr_node(bbg, e->c[0]);
     if (!body) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_REPEAT);
+    IR_t *bb = BB_node_alloc(bbg, IR_REPEAT);
     if (!bb) return NULL;
     bb->α = body;
     return bb;
@@ -755,7 +755,7 @@ IR_t *lower_new_Limitation(IR_graph_t *bbg, struct tree_t *e) {
     if (!gen) return NULL;
     IR_t *lim = lower_expr_node(bbg, e->c[1]);
     if (!lim) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_LIMIT);
+    IR_t *bb = BB_node_alloc(bbg, IR_LIMIT);
     if (!bb) return NULL;
     bb->α = gen;
     bb->β = lim;
@@ -771,7 +771,7 @@ IR_t *lower_new_Scan(IR_graph_t *bbg, struct tree_t *e) {
         body = lower_expr_node(bbg, e->c[1]);
         if (!body) return NULL;
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_GEN_SCAN);
+    IR_t *bb = BB_node_alloc(bbg, IR_GEN_SCAN);
     if (!bb) return NULL;
     bb->α = subj;
     if (body) bb->β = body;
@@ -787,7 +787,7 @@ IR_t *lower_new_Case(IR_graph_t *bbg, struct tree_t *e) {
         children[j] = lower_expr_node(bbg, e->c[j]);
         if (!children[j]) { free(children); return NULL; }
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_CASE);
+    IR_t *bb = BB_node_alloc(bbg, IR_CASE);
     if (!bb) { free(children); return NULL; }
     if (e->n > 0) bb->α = children[0];
     for (int j = 1; j < e->n; j++) children[j-1]->γ = children[j];
@@ -796,7 +796,7 @@ IR_t *lower_new_Case(IR_graph_t *bbg, struct tree_t *e) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Return(IR_graph_t *bbg, struct tree_t *e) {
-    IR_t *bb = BB_node_alloc(bbg, BB_RETURN);
+    IR_t *bb = BB_node_alloc(bbg, IR_RETURN);
     if (!bb) return NULL;
     if (e->n >= 1 && e->c[0]) {
         IR_t *retval = lower_expr_node(bbg, e->c[0]);
@@ -808,7 +808,7 @@ IR_t *lower_new_Return(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Suspend(IR_graph_t *bbg, struct tree_t *e) {
     if (bbg->lang != BB_LANG_RKU) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_SUSPEND);
+    IR_t *bb = BB_node_alloc(bbg, IR_SUSPEND);
     if (!bb) return NULL;
     if (e->n >= 1 && e->c[0]) {
         IR_t *val = lower_expr_node(bbg, e->c[0]);
@@ -820,22 +820,22 @@ IR_t *lower_new_Suspend(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Break(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
-    return BB_node_alloc(bbg, BB_BREAK);
+    return BB_node_alloc(bbg, IR_BREAK);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Next(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
-    return BB_node_alloc(bbg, BB_NEXT);
+    return BB_node_alloc(bbg, IR_NEXT);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Initial(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) {
-        IR_t *bb = BB_node_alloc(bbg, BB_SUCCEED);
+        IR_t *bb = BB_node_alloc(bbg, IR_SUCCEED);
         return bb;
     }
     IR_t *body = lower_expr_node(bbg, e->c[0]);
     if (!body) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_INITIAL);
+    IR_t *bb = BB_node_alloc(bbg, IR_INITIAL);
     if (!bb) return NULL;
     bb->α = body;
     bb->ival = 0;
@@ -844,23 +844,23 @@ IR_t *lower_new_Initial(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Unop(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) {
-        if (e->t == TT_NULL) return BB_node_alloc(bbg, BB_LIT_NUL);
+        if (e->t == TT_NULL) return BB_node_alloc(bbg, IR_LIT_NUL);
         return NULL;
     }
     IR_t *inner = lower_expr_node(bbg, e->c[0]);
     if (!inner) return NULL;
     IR_e kind;
     switch (e->t) {
-    case TT_MNS:         kind = BB_NEG;         break;
-    case TT_PLS:         kind = BB_POS;         break;
-    case TT_SIZE:        kind = BB_SIZE;        break;
-    case TT_NULL:        kind = BB_NULL_TEST;   break;
-    case TT_NONNULL:     kind = BB_NONNULL;     break;
-    case TT_RANDOM:      kind = BB_RANDOM;      break;
-    case TT_CSET_COMPL:  kind = BB_CSET_COMPL;  break;
-    case TT_ITERATE:     kind = BB_LIST_BANG;   break;
+    case TT_MNS:         kind = IR_NEG;         break;
+    case TT_PLS:         kind = IR_POS;         break;
+    case TT_SIZE:        kind = IR_SIZE;        break;
+    case TT_NULL:        kind = IR_NULL_TEST;   break;
+    case TT_NONNULL:     kind = IR_NONNULL;     break;
+    case TT_RANDOM:      kind = IR_RANDOM;      break;
+    case TT_CSET_COMPL:  kind = IR_CSET_COMPL;  break;
+    case TT_ITERATE:     kind = IR_LIST_BANG;   break;
     case TT_MATCH_UNARY: {
-        IR_t *bb = BB_node_alloc(bbg, BB_CALL);
+        IR_t *bb = BB_node_alloc(bbg, IR_CALL);
         if (!bb) return NULL;
         bb->sval = "match";
         bb->α = inner;
@@ -897,12 +897,12 @@ IR_t *lower_new_AugOp(IR_graph_t *bbg, struct tree_t *e) {
     case AUGOP_NE:     op = BINOP_NE;     break;
     default:           return NULL;
     }
-    IR_t *binop = BB_node_alloc(bbg, BB_BINOP);
+    IR_t *binop = BB_node_alloc(bbg, IR_BINOP);
     if (!binop) return NULL;
     binop->α = lhs;
     binop->β = rhs;
     binop->ival = (int64_t)op;
-    IR_t *asgn = BB_node_alloc(bbg, BB_ASSIGN);
+    IR_t *asgn = BB_node_alloc(bbg, IR_ASSIGN);
     if (!asgn) return NULL;
     IR_t *lhs2 = lower_expr_node(bbg, e->c[0]);
     if (!lhs2) return NULL;
@@ -949,12 +949,12 @@ IR_t *lower_new_CoexpList(IR_graph_t *bbg, struct tree_t *e) {
 IR_t *lower_new_Var(IR_graph_t *bbg, struct tree_t *e) {
     if (!e->v.sval) return NULL;
     if (e->v.sval[0] == '&') {
-        IR_t *bb = BB_node_alloc(bbg, BB_KEYWORD);
+        IR_t *bb = BB_node_alloc(bbg, IR_KEYWORD);
         if (!bb) return NULL;
         bb->sval = e->v.sval;
         return bb;
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_VAR);
+    IR_t *bb = BB_node_alloc(bbg, IR_VAR);
     if (!bb) return NULL;
     bb->sval = e->v.sval;
     return bb;
@@ -962,7 +962,7 @@ IR_t *lower_new_Var(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Keyword(IR_graph_t *bbg, struct tree_t *e) {
     if (!e->v.sval) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_KEYWORD);
+    IR_t *bb = BB_node_alloc(bbg, IR_KEYWORD);
     if (!bb) return NULL;
     bb->sval = e->v.sval;
     return bb;
@@ -977,7 +977,7 @@ IR_t *lower_new_Assign(IR_graph_t *bbg, struct tree_t *e) {
         if (!obj) return NULL;
         IR_t *rhs = lower_expr_node(bbg, e->c[1]);
         if (!rhs) return NULL;
-        IR_t *bb = BB_node_alloc(bbg, BB_FIELD_SET);
+        IR_t *bb = BB_node_alloc(bbg, IR_FIELD_SET);
         if (!bb) return NULL;
         bb->sval = fname;
         bb->α = obj;
@@ -992,7 +992,7 @@ IR_t *lower_new_Assign(IR_graph_t *bbg, struct tree_t *e) {
         if (!idx) return NULL;
         IR_t *rhs  = lower_expr_node(bbg, e->c[1]);
         if (!rhs) return NULL;
-        IR_t *bb = BB_node_alloc(bbg, BB_IDX_SET);
+        IR_t *bb = BB_node_alloc(bbg, IR_IDX_SET);
         if (!bb) return NULL;
         bb->α = base;
         bb->β = idx;
@@ -1005,7 +1005,7 @@ IR_t *lower_new_Assign(IR_graph_t *bbg, struct tree_t *e) {
     if (!lhs) return NULL;
     IR_t *rhs = lower_expr_node(bbg, e->c[1]);
     if (!rhs) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_ASSIGN);
+    IR_t *bb = BB_node_alloc(bbg, IR_ASSIGN);
     if (!bb) return NULL;
     bb->α = lhs;
     bb->β = rhs;
@@ -1021,7 +1021,7 @@ IR_t *lower_new_Swap(IR_graph_t *bbg, struct tree_t *e) {
     if (!lhs) return NULL;
     IR_t *rhs = lower_expr_node(bbg, e->c[1]);
     if (!rhs) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_SWAP);
+    IR_t *bb = BB_node_alloc(bbg, IR_SWAP);
     if (!bb) return NULL;
     bb->α = lhs;
     bb->β = rhs;
@@ -1037,7 +1037,7 @@ IR_t *lower_new_SeqExpr(IR_graph_t *bbg, struct tree_t *e) {
         stmts[j] = lower_expr_node(bbg, e->c[j]);
         if (!stmts[j]) { free(stmts); return NULL; }
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_SEQ_EXPR);
+    IR_t *bb = BB_node_alloc(bbg, IR_SEQ_EXPR);
     if (!bb) { free(stmts); return NULL; }
     if (e->n > 0) bb->α = stmts[0];
     for (int j = 1; j < e->n; j++) stmts[j-1]->γ = stmts[j];
@@ -1048,7 +1048,7 @@ IR_t *lower_new_SeqExpr(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Decl(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
-    return BB_node_alloc(bbg, BB_SUCCEED);
+    return BB_node_alloc(bbg, IR_SUCCEED);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_Idx(IR_graph_t *bbg, struct tree_t *e) {
@@ -1057,7 +1057,7 @@ IR_t *lower_new_Idx(IR_graph_t *bbg, struct tree_t *e) {
     if (!base) return NULL;
     IR_t *idx  = lower_expr_node(bbg, e->c[1]);
     if (!idx) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_IDX);
+    IR_t *bb = BB_node_alloc(bbg, IR_IDX);
     if (!bb) return NULL;
     bb->α = base;
     bb->β = idx;
@@ -1070,7 +1070,7 @@ IR_t *lower_new_Identical(IR_graph_t *bbg, struct tree_t *e) {
     if (!lhs) return NULL;
     IR_t *rhs = lower_expr_node(bbg, e->c[1]);
     if (!rhs) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_IDENTICAL);
+    IR_t *bb = BB_node_alloc(bbg, IR_IDENTICAL);
     if (!bb) return NULL;
     bb->α = lhs;
     bb->β = rhs;
@@ -1079,7 +1079,7 @@ IR_t *lower_new_Identical(IR_graph_t *bbg, struct tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_ProcFail(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
-    return BB_node_alloc(bbg, BB_FAIL);
+    return BB_node_alloc(bbg, IR_FAIL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *lower_new_CsetBinop(IR_graph_t *bbg, struct tree_t *e) {
@@ -1088,9 +1088,9 @@ IR_t *lower_new_CsetBinop(IR_graph_t *bbg, struct tree_t *e) {
     if (!lhs) return NULL;
     IR_t *rhs = lower_expr_node(bbg, e->c[1]);
     if (!rhs) return NULL;
-    IR_e kind = (e->t == TT_CSET_UNION) ? BB_CSET_UNION
-                 : (e->t == TT_CSET_DIFF)  ? BB_CSET_DIFF
-                                           : BB_CSET_INTER;
+    IR_e kind = (e->t == TT_CSET_UNION) ? IR_CSET_UNION
+                 : (e->t == TT_CSET_DIFF)  ? IR_CSET_DIFF
+                                           : IR_CSET_INTER;
     IR_t *bb = BB_node_alloc(bbg, kind);
     if (!bb) return NULL;
     bb->α = lhs;
@@ -1109,7 +1109,7 @@ IR_t *lower_new_Record(IR_graph_t *bbg, struct tree_t *e) {
     }
     if (pos < (int)sizeof(spec)-1) spec[pos++] = ')';
     spec[pos] = '\0';
-    IR_t *bb = BB_node_alloc(bbg, BB_RECORD_DEF);
+    IR_t *bb = BB_node_alloc(bbg, IR_RECORD_DEF);
     if (!bb) return NULL;
     bb->sval = GC_strdup(spec);
     return bb;
@@ -1123,7 +1123,7 @@ IR_t *lower_new_Makelist(IR_graph_t *bbg, struct tree_t *e) {
         args[j] = lower_expr_node(bbg, e->c[j]);
         if (!args[j]) { free(args); return NULL; }
     }
-    IR_t *bb = BB_node_alloc(bbg, BB_CALL);
+    IR_t *bb = BB_node_alloc(bbg, IR_CALL);
     if (!bb) { if (args) free(args); return NULL; }
     bb->sval = "MAKELIST";
     bb->ival = n;
@@ -1220,7 +1220,7 @@ IR_graph_t *lower_upto(const char *cset, const char *hay) {
     if (!cset || !hay) return NULL;
     IR_graph_t *bbg = BB_alloc(4, BB_LANG_ICN);
     if (!bbg) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_UPTO);
+    IR_t *bb = BB_node_alloc(bbg, IR_UPTO);
     if (!bb) return NULL;
     bb->sval    = cset;
     bb->counter = 0;
@@ -1236,7 +1236,7 @@ IR_graph_t *lower_proc_gen(GeneratorState *gs) {
     if (!gs) return NULL;
     IR_graph_t *bbg = BB_alloc(4, BB_LANG_ICN);
     if (!bbg) return NULL;
-    IR_t *bb = BB_node_alloc(bbg, BB_PROC_GEN);
+    IR_t *bb = BB_node_alloc(bbg, IR_PROC_GEN);
     if (!bb) return NULL;
     bb->counter = (int64_t)(uintptr_t)gs;
     bb->α      = bb;
@@ -1340,7 +1340,7 @@ IR_graph_t *lower_proc_body(tree_t *proc) {
     IR_t **stmt_entries = calloc((size_t)n_stmts, sizeof(IR_t *));
     if (!stmt_entries) { free(stmt_nodes); BB_free(bbg); return NULL; }
     int built = 0;
-    IR_t *fail_term = BB_node_alloc(bbg, BB_FAIL);
+    IR_t *fail_term = BB_node_alloc(bbg, IR_FAIL);
     if (!fail_term) { free(stmt_nodes); free(stmt_entries); BB_free(bbg); return NULL; }
     IR_t *succ = fail_term;
     for (int i = n_stmts - 1; i >= 0; i--) {
@@ -1354,7 +1354,7 @@ IR_graph_t *lower_proc_body(tree_t *proc) {
         succ = stmt_entries[i];
         built++;
     }
-    IR_t *seq = BB_node_alloc(bbg, BB_SEQ);
+    IR_t *seq = BB_node_alloc(bbg, IR_SEQ);
     if (!seq) { free(stmt_nodes); free(stmt_entries); BB_free(bbg); return NULL; }
     { IR_t *head = NULL; for (int i = 0; i < n_stmts; i++) if (stmt_entries[i]) { head = stmt_entries[i]; break; } seq->α = head; }
     seq->ival = built;
@@ -1363,14 +1363,14 @@ IR_graph_t *lower_proc_body(tree_t *proc) {
         for (int i = 0; i < n_stmts; i++) {
             IR_t *cur_entry = stmt_entries[i];
             if (!cur_entry) continue;
-            int prev_terminal_kind = prev && (prev->t == BB_RETURN || prev->t == BB_FAIL ||
-                                              prev->t == BB_BREAK  || prev->t == BB_NEXT);
+            int prev_terminal_kind = prev && (prev->t == IR_RETURN || prev->t == IR_FAIL ||
+                                              prev->t == IR_BREAK  || prev->t == IR_NEXT);
             if (prev && !prev->ω && !prev_terminal_kind) prev->ω = cur_entry;
             prev = stmt_nodes[i];
         }
         if (prev) {
-            int prev_terminal = (prev->t == BB_RETURN || prev->t == BB_FAIL ||
-                                 prev->t == BB_BREAK  || prev->t == BB_NEXT);
+            int prev_terminal = (prev->t == IR_RETURN || prev->t == IR_FAIL ||
+                                 prev->t == IR_BREAK  || prev->t == IR_NEXT);
             if (!prev->γ && !prev_terminal) prev->γ = fail_term;
             if (!prev->ω && !prev_terminal) prev->ω = fail_term;
         }
@@ -1392,11 +1392,11 @@ IR_graph_t *lower_expr_top(struct tree_t *e) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int kind_is_resumable(IR_e t) {
-    return t == BB_TO || t == BB_TO_BY || t == BB_UPTO || t == BB_ALT ||
-           t == BB_BINOP_GEN || t == BB_ITERATE || t == BB_LIMIT || t == BB_PROC_GEN ||
-           t == BB_EVERY || t == BB_REPEAT || t == BB_SUSPEND || t == BB_SCAN ||
-           t == BB_LIST_BANG || t == BB_KEY_GEN || t == BB_FIND_GEN || t == BB_SEQ_GEN ||
-           t == BB_GEN_SCAN || t == BB_CONJ;
+    return t == IR_TO || t == IR_TO_BY || t == IR_UPTO || t == IR_ALT ||
+           t == IR_BINOP_GEN || t == IR_ITERATE || t == IR_LIMIT || t == IR_PROC_GEN ||
+           t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN ||
+           t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN ||
+           t == IR_GEN_SCAN || t == IR_CONJ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t *gen_leaf(IR_t *bb, IR_t *γ_in, IR_t *ω_in, IR_t **α_out, IR_t **β_out, int bounded) {
@@ -1477,7 +1477,7 @@ IR_t *lower_expr_threaded_b(IR_graph_t *bbg, tree_t *e,
     if (!bb) return NULL;
     if (e->t == TT_ASSIGN && e->n >= 2 && e->c[0] && e->c[1] && e->c[0]->t == TT_VAR &&
         e->c[0]->v.sval && e->c[0]->v.sval[0] != '&' &&
-        bb->t == BB_ASSIGN && bb->α && bb->β) {
+        bb->t == IR_ASSIGN && bb->α && bb->β) {
         IR_t *rhs = bb->β;
         if (!rhs->γ) rhs->γ = bb;
         if (!rhs->ω) rhs->ω = ω_in;
@@ -1489,7 +1489,7 @@ IR_t *lower_expr_threaded_b(IR_graph_t *bbg, tree_t *e,
         return bb;
     }
     if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval &&
-        bb->t == BB_CALL && (int)bb->ival >= 0) {
+        bb->t == IR_CALL && (int)bb->ival >= 0) {
         int nargs = e->n - 1;
         int any_gen = 0;
         for (int j = 0; j < nargs; j++) {

@@ -1,6 +1,6 @@
 /* bb_clause.c — grouped BB template for the Prolog BB family.
    Per HQ Invariant #10 (grouped templates): the ten Prolog BB ops
-   (BB_ARITH / ATOM / BUILTIN / CALL / CHOICE / UNIFY / CUT / VAR / ALT / SEQ)
+   (IR_ARITH / ATOM / BUILTIN / CALL / CHOICE / UNIFY / CUT / VAR / ALT / SEQ)
    share an identical emit shape — an honest no-op stub across all five backends.
    No frontend lowers a Prolog BB graph to native today; Prolog execution is
    handled at runtime by bb_exec_node in src/lower/bb_exec.c. The dispatch switch

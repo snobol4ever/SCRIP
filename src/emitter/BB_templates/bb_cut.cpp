@@ -1,7 +1,7 @@
-/* bb_cut.cpp — BB template for BB_CUT: Prolog cut (!).
+/* bb_cut.cpp — BB template for IR_CUT: Prolog cut (!).
    AGW-9 (GOAL-PROLOG-BB.md). x86 only per Invariant #14 / RULES.md "X86 ONLY FOR NOW".
-   WAM-CP-9 (2026-05-28, Opus 4.7): in mode-4 BB_CUT sets `g_resolve_cut_flag` only and does NOT call
-   resolve_cp_truncate.  The actual CP-chain truncate is deferred to the enclosing BB_CHOICE template
+   WAM-CP-9 (2026-05-28, Opus 4.7): in mode-4 IR_CUT sets `g_resolve_cut_flag` only and does NOT call
+   resolve_cp_truncate.  The actual CP-chain truncate is deferred to the enclosing IR_CHOICE template
    (bb_choice.cpp), which checks the flag at β / exit_γ entries and calls
    rt_pl_choice_cut_unwind(cp) — restoring the outer cut state from cp->saved_cut_{flag,barrier}
    AND truncating to cp->parent in one step.  The defer is required because if CUT truncated

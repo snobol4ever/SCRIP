@@ -139,7 +139,7 @@ static void lower_proc_skeletons(void)
             g_stage2.proc_table[pi].is_generator = 0;
             if (_irb) {
                 for (int _k = 0; _k < _irb->n; _k++) {
-                    if (_irb->all[_k] && _irb->all[_k]->t == BB_SUSPEND) { g_stage2.proc_table[pi].is_generator = 1; break; }
+                    if (_irb->all[_k] && _irb->all[_k]->t == IR_SUSPEND) { g_stage2.proc_table[pi].is_generator = 1; break; }
                 }
             }
             continue;
@@ -153,7 +153,7 @@ static void lower_proc_skeletons(void)
             g_stage2.proc_table[pi].is_generator = 0;
             if (_irb) {
                 for (int _k = 0; _k < _irb->n; _k++) {
-                    if (_irb->all[_k] && _irb->all[_k]->t == BB_SUSPEND) { g_stage2.proc_table[pi].is_generator = 1; break; }
+                    if (_irb->all[_k] && _irb->all[_k]->t == IR_SUSPEND) { g_stage2.proc_table[pi].is_generator = 1; break; }
                 }
             }
             if (!g_stage2.proc_table[pi].is_generator) {

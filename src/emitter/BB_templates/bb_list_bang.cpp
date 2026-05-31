@@ -1,4 +1,4 @@
-/* bb_list_bang.cpp — BB template for Icon `!E` (BB_LIST_BANG, IBB-12, 2026-05-29).
+/* bb_list_bang.cpp — BB template for Icon `!E` (IR_LIST_BANG, IBB-12, 2026-05-29).
    The list/table/record/string element generator. pBB->α is the iterable expr.
 
    The flat driver (flat_drive_list_bang in emit_bb.c) walks pBB->α FIRST, so on the α (fresh)
@@ -32,7 +32,7 @@ int rt_list_bang(DESCR_t *obj_slot, int64_t *idx_slot, int *state_slot, int rese
 static std::string bb_list_bang_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_LIST_BANG");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_LIST_BANG");
     if (!pBB) { fprintf(stderr, "[IBB] FATAL bb_list_bang: null node\n"); abort(); }
     uint64_t obj_slot   = (uint64_t)(uintptr_t)&pBB->value;
     uint64_t idx_slot   = (uint64_t)(uintptr_t)&pBB->counter;
@@ -40,7 +40,7 @@ static std::string bb_list_bang_str(IR_t * pBB, bb_bin_t & bin) {
     uint64_t fptr; { int (*fp)(DESCR_t*, int64_t*, int*, int) = rt_list_bang; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment("# BOX BB_LIST_BANG (!E) [IBB-12 rt_list_bang]")
+             + s_comment("# BOX IR_LIST_BANG (!E) [IBB-12 rt_list_bang]")
              + s_2asm("mov rdi,", emit_fmt("0x%lx", (unsigned long)obj_slot))
              + s_2asm("mov rsi,", emit_fmt("0x%lx", (unsigned long)idx_slot))
              + s_2asm("mov rdx,", emit_fmt("0x%lx", (unsigned long)state_slot))

@@ -1,4 +1,4 @@
-/* bb_choice.cpp — BB template for BB_CHOICE: Prolog multi-clause predicate.
+/* bb_choice.cpp — BB template for IR_CHOICE: Prolog multi-clause predicate.
    WAM-CP-5 (2026-05-28, Sonnet 4.6): migrated from 16-byte rsp stack frame to heap resolve_choice
    record via resolve_cp_push/pop.  The cursor (next clause to try) lives in cp->cursor (offset 48);
    the trail mark lives in cp->trail_mark (offset 16, int).  This makes the cursor survive across
@@ -11,7 +11,7 @@
    so the outer cut state lives in cp->saved_cut_flag (+56) and cp->saved_cut_barrier (+64).
    rt_pl_choice_cut_enter saves and clears at α / β entry; rt_pl_choice_cut_exit restores at the
    normal γ / exhausted exit; rt_pl_choice_cut_unwind restores AND truncates the CP chain when the
-   body fired `!` (g_resolve_cut_flag observed at dispatch top or at exit_γ).  BB_CUT itself only sets
+   body fired `!` (g_resolve_cut_flag observed at dispatch top or at exit_γ).  IR_CUT itself only sets
    the flag (no truncate); the CHOICE owns the truncate so cp stays alive long enough to read its
    saved slots on the cut path.
    Control flow:
@@ -290,7 +290,7 @@ static std::string bb_choice_str(IR_t * pBB) {
                  + s_2asm("call", "rt_pl_trail_unwind@PLT")
                  + s_2asm("call", "resolve_cp_pop@PLT")
                  + s_2asm("jmp",  _.lbl_ω);
-            /* β: re-entry. Body[i].ω chains here on failure AND caller's BB_GOAL β chains here on  */
+            /* β: re-entry. Body[i].ω chains here on failure AND caller's IR_GOAL β chains here on  */
             /* redo. Distinguishing them is the cut flag's job: if the body just executed fired `!`, the */
             /* flag is set (cut_set was called inside; we haven't called _enter since), and we unwind to */
             /* ω_in. Otherwise (flag==0): if cp is NULL the outer cut truncated us → ω_in; else re-save */

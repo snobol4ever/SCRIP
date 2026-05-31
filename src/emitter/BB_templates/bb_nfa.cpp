@@ -57,7 +57,7 @@ extern "C" void bb_nfa_cap_close(IR_t * pBB) {
 /* (all callee-saved, saved by the walker). These leaves emit only their own four-port body; γ/ω/β come */
 /* from g_emit.lbl_* set per-node by the walker. MEDIUM_BINARY (mode-3 native) is deferred to RK-NFA-5  */
 /* — mode-3 ~~ still runs via the proven C matcher + byname dispatch, so the BINARY arm is a comment.   */
-/* BB_NFA_CHAR: match one literal char (pBB->ival) at pos; advance + γ on hit, ω on miss/end-of-input.  */
+/* IR_NFA_CHAR: match one literal char (pBB->ival) at pos; advance + γ on hit, ω on miss/end-of-input.  */
 static std::string bb_nfa_char_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
@@ -83,7 +83,7 @@ extern "C" void bb_nfa_char(IR_t * pBB) {
     bb_emit_asm_result(bb_nfa_char_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* BB_NFA_ACCEPT: terminal success — γ is the walker's matched-epilogue label (which restores the saved */
+/* IR_NFA_ACCEPT: terminal success — γ is the walker's matched-epilogue label (which restores the saved */
 /* regs, pushes the verdict, sets last_ok). Pure jmp γ; β→ω like the passthrough leaves.                */
 static std::string bb_nfa_accept_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
@@ -105,7 +105,7 @@ extern "C" void bb_nfa_accept(IR_t * pBB) {
     bb_emit_asm_result(bb_nfa_accept_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* BB_NFA_ANY: Raku `.` — match any char except '\n' at pos; advance + γ on hit, ω on end/newline.     */
+/* IR_NFA_ANY: Raku `.` — match any char except '\n' at pos; advance + γ on hit, ω on end/newline.     */
 static std::string bb_nfa_any_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
@@ -131,7 +131,7 @@ extern "C" void bb_nfa_any(IR_t * pBB) {
     bb_emit_asm_result(bb_nfa_any_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* BB_NFA_BOL: Raku `^` — zero-width; γ iff pos==0, else ω. No advance.                                */
+/* IR_NFA_BOL: Raku `^` — zero-width; γ iff pos==0, else ω. No advance.                                */
 static std::string bb_nfa_bol_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
@@ -153,7 +153,7 @@ extern "C" void bb_nfa_bol(IR_t * pBB) {
     bb_emit_asm_result(bb_nfa_bol_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* BB_NFA_EOL: Raku `$` — zero-width; γ iff pos==slen, else ω. No advance.                             */
+/* IR_NFA_EOL: Raku `$` — zero-width; γ iff pos==slen, else ω. No advance.                             */
 static std::string bb_nfa_eol_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     (void)pBB;
@@ -175,7 +175,7 @@ extern "C" void bb_nfa_eol(IR_t * pBB) {
     bb_emit_asm_result(bb_nfa_eol_str(pBB, bin), bin);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* BB_NFA_CLASS: match one char in a 32-byte cset bitset (pBB->sval, blob from raku_nfa_to_bb). γ on    */
+/* IR_NFA_CLASS: match one char in a 32-byte cset bitset (pBB->sval, blob from raku_nfa_to_bb). γ on    */
 /* hit + advance, ω on miss/end. The bitset is emitted INLINE as 32 .byte rodata (NOT a movabs of      */
 /* pBB->sval — that pointer is valid only inside the compiler process; mode-4 TEXT assembles a SEPARATE */
 /* native binary, so the cset must travel as emitted bytes). Membership test mirrors raku_cc_test:     */

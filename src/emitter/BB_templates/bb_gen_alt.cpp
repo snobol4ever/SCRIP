@@ -1,4 +1,4 @@
-/* bb_gen_alt.cpp — BB template for BB_GEN_ALT (ICN-T ladder).
+/* bb_gen_alt.cpp — BB template for IR_GEN_ALT (ICN-T ladder).
    STUB — x86 Byrd-box inline asm not yet written. RULES.md: one file per BB kind. */
 #include <string>
 #include "emit_str.h"

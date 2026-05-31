@@ -1,4 +1,4 @@
-/* bb_pat_defer.cpp — BB_PAT_DEFER: runtime-resolved pattern-valued variable.
+/* bb_pat_defer.cpp — IR_PAT_DEFER: runtime-resolved pattern-valued variable.
  * sval = varname; ival = 0 for direct (PAT in pattern pos), 1 for *V deref form.
  * α: call rt_defer_match(varname, ival, Δ) → new_Δ (≥0) or -1 (fail).
  * β: → ω directly (no retry — single-attempt like LIT).

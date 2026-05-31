@@ -1,4 +1,4 @@
-/* bb_alt.cpp — BB_ALT: Icon n-ary alternation (A|B|C...).
+/* bb_alt.cpp — IR_ALT: Icon n-ary alternation (A|B|C...).
    GOAL-ICON-BB. x86 only. RULES: no emission outside templates.
    Mode-2 path: bb_exec.c:1720 walks the ω-chain from pBB->α and uses pBB->counter as the active
    arm index across α/β re-entry.
@@ -28,10 +28,10 @@ extern "C" {
 static std::string bb_alt_str(IR_t *pBB, bb_bin_t &bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_ALT");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_ALT");
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment("# BOX BB_ALT [TEXT path port-wired; BINARY path is the real dispatcher]")
+             + s_comment("# BOX IR_ALT [TEXT path port-wired; BINARY path is the real dispatcher]")
              + s_2asm("jmp",  _.lbl_γ)
              + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
              + s_2asm("jmp",  _.lbl_ω);

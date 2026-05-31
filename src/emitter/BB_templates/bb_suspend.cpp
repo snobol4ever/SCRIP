@@ -1,23 +1,23 @@
-/* bb_suspend.cpp — BB template for BB_SUSPEND (Raku `take(E)` yield-one in a gather block).
+/* bb_suspend.cpp — BB template for IR_SUSPEND (Raku `take(E)` yield-one in a gather block).
    RK-BB-2 step 4, GOAL-RAKU-BB. One file per BB kind per RULES.md. x86 only.
 
-   Four-port yield-one protocol. The consumer (BB_EVERY pump driving SM_BB_SWITCH(SM_BBSW_RK_GEN))
-   re-enters this node's β to advance past the yield; the surrounding BB_SEQ's port-follower then
-   transfers control to the NEXT statement (which is typically another BB_SUSPEND or the SEQ's ω
+   Four-port yield-one protocol. The consumer (IR_EVERY pump driving SM_BB_SWITCH(SM_BBSW_RK_GEN))
+   re-enters this node's β to advance past the yield; the surrounding IR_SEQ's port-follower then
+   transfers control to the NEXT statement (which is typically another IR_SUSPEND or the SEQ's ω
    when the gather body is drained):
      α (fresh-pull   ): evaluate operand E, push DESCR_t onto r12 value-stack, jmp γ
      β (resume-after-): this suspend already yielded; jmp ω so the SEQ-follower advances
      γ (yield path   ): consumer takes value, will re-enter via β
      ω (exhaustion   ): unreachable in body context; SEQ's ω-edge carries exhaustion
 
-   LITERAL FAST-PATH: when the operand is a BB_LIT_I leaf (the only shape produced by today's
+   LITERAL FAST-PATH: when the operand is a IR_LIT_I leaf (the only shape produced by today's
    `take(<integer-literal>)`), the integer is read off pBB->α->ival at emit time. No operand-box
-   value read, no C Byrd box, no rt_* port-logic helper. Dynamic operands (BB_LIT_S, BB_VAR,
+   value read, no C Byrd box, no rt_* port-logic helper. Dynamic operands (IR_LIT_S, IR_VAR,
    expressions) are a documented follow-on (mirror bb_to_by's H-3 TODO).
 
    State: none. Unlike bb_to_by/bb_upto/bb_iterate (which carry a counter for multi-yield), a
-   single BB_SUSPEND yields exactly once per α; multi-yield comes from chaining several
-   BB_SUSPEND nodes inside a BB_SEQ, NOT from looping inside one node.
+   single IR_SUSPEND yields exactly once per α; multi-yield comes from chaining several
+   IR_SUSPEND nodes inside a IR_SEQ, NOT from looping inside one node.
 
    FACT RULE: every byte emitted goes through s_* / bytes() — no seg_byte, no SL_B, no
    sl_emit_one, no emit_standard_blob. PEERS RULE: no fields added to IR_t. */
@@ -34,8 +34,8 @@ void rt_push_int(int64_t v);
 static std::string bb_suspend_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (PLATFORM_X86) {
-        /* Literal fast-path detection: operand is BB_LIT_I. */
-        int      lit_i = (pBB->α && pBB->α->t == BB_LIT_I);
+        /* Literal fast-path detection: operand is IR_LIT_I. */
+        int      lit_i = (pBB->α && pBB->α->t == IR_LIT_I);
         int64_t  val_i = lit_i ? pBB->α->ival : 0;
 
         if (MEDIUM_MACRO_DEF)
@@ -76,7 +76,7 @@ static std::string bb_suspend_str(IR_t * pBB, bb_bin_t & bin) {
         if (MEDIUM_BINARY) {
             /* M3-RK-NOINTERP-1d (Opus 4.8, 2026-05-29): yield DT_I(val_i) via rt_push_int — the      */
             /* SM value-stack ABI used by sm_run_native (mode-3 native), the only consumer of this     */
-            /* BB_SUSPEND MEDIUM_BINARY arm today (Raku gather bodies driven by bb_seq's gather         */
+            /* IR_SUSPEND MEDIUM_BINARY arm today (Raku gather bodies driven by bb_seq's gather         */
             /* multi-yield driver). The prior raw `mov [r12], …` push SEGFAULTED here: neither          */
             /* sm_run_native nor the SM_BB_INVOKE wrapper initialises r12 as a value-stack pointer (it  */
             /* holds an arbitrary callee-saved value), so the r12-relative stores wrote to garbage.     */

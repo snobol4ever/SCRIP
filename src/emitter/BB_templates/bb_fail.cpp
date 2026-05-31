@@ -1,4 +1,4 @@
-/* bb_fail.cpp — BB template for BB_FAIL. */
+/* bb_fail.cpp — BB template for IR_FAIL. */
 #include <string>
 #include "emit_str.h"
 extern "C" {

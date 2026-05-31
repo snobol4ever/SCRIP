@@ -1,4 +1,4 @@
-/* bb_proc_gen.cpp — BB template for BB_PROC_GEN (ICN-T ladder).
+/* bb_proc_gen.cpp — BB template for IR_PROC_GEN (ICN-T ladder).
    STUB — x86 Byrd-box inline asm not yet written. RULES.md: one file per BB kind. */
 #include <string>
 #include "emit_str.h"

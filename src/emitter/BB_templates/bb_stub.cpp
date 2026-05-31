@@ -2,7 +2,7 @@
    Per HQ Invariant #10 (grouped templates): the 42 generic BB ops that share an
    identical emit shape — an honest no-op stub across all five backends — are
    handled by this single template fn.
-   Ops (42): BB_VAR / ASSIGN / AUGOP / BINOP / UNOP / CALL / SEQ / SUCCEED /
+   Ops (42): IR_VAR / ASSIGN / AUGOP / BINOP / UNOP / CALL / SEQ / SUCCEED /
      GOTO / RETURN / IF / ALTERNATE / TO_BY / EVERY / WHILE / UNTIL / REPEAT /
      ALT / SIZE / CASE / LIMIT / SUSPEND / PROC / SCAN / NONNULL / INTERROGATE /
      NOT / PAT_CALLOUT / BREAK / NEXT / IDENTICAL / NULL_TEST / RANDOM / NEG /

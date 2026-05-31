@@ -1,4 +1,4 @@
-/* bb_logicvar.cpp — BB template for BB_LOGICVAR: Prolog variable slot read.
+/* bb_logicvar.cpp — BB template for IR_LOGICVAR: Prolog variable slot read.
    PL-T-2 (GOAL-BB-TEMPLATE-LADDER.md). x86 only per Invariant #14 (2026-05-22). */
 #include <string>
 #include "emit_str.h"

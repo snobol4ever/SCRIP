@@ -1,5 +1,5 @@
-/* bb_succeed.cpp — BB template for BB_SUCCEED (the Prolog `true` / `otherwise` leaf).
-   AGW-9B-3 (2026-05-27). Walk_bb_flat's BB_SUCCEED case populates g_emit.xa_bb_emit_pair_* with a
+/* bb_succeed.cpp — BB template for IR_SUCCEED (the Prolog `true` / `otherwise` leaf).
+   AGW-9B-3 (2026-05-27). Walk_bb_flat's IR_SUCCEED case populates g_emit.xa_bb_emit_pair_* with a
    `jmp γ_in` glue entry and the β-fail entry; this template replays them, mirroring bb_conj.
    Pure leaf — no per-node state, no effect helpers, just two label-defs/jmps. */
 #include <string>

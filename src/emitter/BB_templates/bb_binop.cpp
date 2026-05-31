@@ -1,4 +1,4 @@
-/* bb_binop.cpp — BB template for BB_BINOP (Icon arithmetic + relop apply).
+/* bb_binop.cpp — BB template for IR_BINOP (Icon arithmetic + relop apply).
    IBB-3 (Opus 4.7, 2026-05-28): arithmetic apply. IBB-8b (Opus 4.8, 2026-05-29): relop + strrel apply.
 
    Two apply shapes, both AG-pure (operands already on the vstack, pushed by chain predecessors):
@@ -10,9 +10,9 @@
    RELOP / STRREL (BINOP_LT..NE numeric, BINOP_SLT..SNE string): the condition of an Icon
      if/while.  rt_acomp(tt_op) (numeric) or rt_lcomp(tt_op) (string) pops 2, pushes the result
      (value on success, FAIL on relop-false) and sets the LAST_OK flag.  The relop then jmps γ
-     UNCONDITIONALLY — both ports of an AG-pure relop point at the BB_IF router (mode-2 bb_exec.c
-     BB_BINOP AG-pure arm returns γ on success and ω on fail, but lower_new_If_ag wires γ==ω==
-     BB_IF, so the single jmp γ here lands at the router regardless).  BB_IF (bb_if.cpp) reads
+     UNCONDITIONALLY — both ports of an AG-pure relop point at the IR_IF router (mode-2 bb_exec.c
+     IR_BINOP AG-pure arm returns γ on success and ω on fail, but lower_new_If_ag wires γ==ω==
+     IR_IF, so the single jmp γ here lands at the router regardless).  IR_IF (bb_if.cpp) reads
      LAST_OK and branches then/else.
        movabs rdi, tt_op ; movabs rax, &rt_acomp|&rt_lcomp ; call rax ; jmp γ ; β: jmp ω   (32 bytes)
 
@@ -62,7 +62,7 @@ static int gen_rel_to_tt(int64_t op) {
 static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_BINOP");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_BINOP");
     int64_t op = pBB ? pBB->ival : -1;
     int is_rel = pBB && (gen_is_numrel(op) || gen_is_strrel(op));
     if (is_rel) {
@@ -70,7 +70,7 @@ static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
         int strr = gen_is_strrel(op);
         if (MEDIUM_TEXT) {
             return s_1asm(emit_fmt("%s:", _.lbl_α))
-                 + s_comment(emit_fmt("# BOX BB_BINOP relop tt=%d (%s: pop 2, push result, set LAST_OK)", tt, strr ? "rt_lcomp" : "rt_acomp"))
+                 + s_comment(emit_fmt("# BOX IR_BINOP relop tt=%d (%s: pop 2, push result, set LAST_OK)", tt, strr ? "rt_lcomp" : "rt_acomp"))
                  + s_2asm("mov edi,", emit_fmt("%d", tt))
                  + s_2asm("call",     strr ? "rt_lcomp@PLT" : "rt_acomp@PLT")
                  + s_2asm("jmp",      _.lbl_γ)
@@ -96,7 +96,7 @@ static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
     if (op == BINOP_CONCAT) {
         if (MEDIUM_TEXT) {
             return s_1asm(emit_fmt("%s:", _.lbl_α))
-                 + s_comment("# BOX BB_BINOP concat (rt_gen_concat: pop 2, push CONCAT result, set LAST_OK)")
+                 + s_comment("# BOX IR_BINOP concat (rt_gen_concat: pop 2, push CONCAT result, set LAST_OK)")
                  + s_2asm("call", "rt_gen_concat@PLT")
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
@@ -126,7 +126,7 @@ static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
     }
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment(emit_fmt("# BOX BB_BINOP op=%d (apply: rt_arith pops 2, pushes result)", sm_op))
+             + s_comment(emit_fmt("# BOX IR_BINOP op=%d (apply: rt_arith pops 2, pushes result)", sm_op))
              + s_2asm("mov edi,", emit_fmt("%d", sm_op))
              + s_2asm("call",     "rt_arith@PLT")
              + s_2asm("jmp",      _.lbl_γ)
@@ -135,7 +135,7 @@ static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
     }
     if (MEDIUM_BINARY) {
         /* movabs rdi, sm_op (10) ; movabs rax, &rt_arith (10) ; call rax (2) ; jmp γ (5) ; β: jmp ω (5). */
-        /* Total 32. Patch: 23 → γ, 27 → β-def, 28 → ω. Same layout as bb_lit_scalar BB_LIT_I path.     */
+        /* Total 32. Patch: 23 → γ, 27 → β-def, 28 → ω. Same layout as bb_lit_scalar IR_LIT_I path.     */
         uint64_t fptr; { void (*fp)(int) = rt_arith; fptr = (uint64_t)(uintptr_t)(void*)fp; }
         bin = { {23, 27, 28}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
         return bytes(2, "\x48\xBF") + u64le((uint64_t)(uint32_t)sm_op)

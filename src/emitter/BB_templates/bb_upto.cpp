@@ -1,4 +1,4 @@
-/* bb_upto.cpp — BB template for BB_UPTO (Icon upto(cset) position generator).
+/* bb_upto.cpp — BB template for IR_UPTO (Icon upto(cset) position generator).
    ICN-T-5, GOAL-BB-TEMPLATE-LADDER Invariant 8: ALL logic inline x86, NO RT calls.
    sval=cset string. hay/slen come from runtime scan context (not compile-time BB payload).
    State in .data: one quad counter (0-based pos). α resets to 0, β advances by 1.
@@ -53,7 +53,7 @@ static std::string bb_upto_str(IR_t * pBB, bb_bin_t & bin) {
                  + s_2asm("test", "rax, rax")
                  + s_2asm("jz", scan)   /* not in cset: advance counter, loop */
                  /* match: yield counter+1 (1-based Icon position) */
-                 /* result goes... BB_UPTO yields an integer. Push it onto the SM stack. */
+                 /* result goes... IR_UPTO yields an integer. Push it onto the SM stack. */
                  /* Load counter, add 1, store as integer result in the SM value register */
                  + s_1asm("jmp " + done)
                  /* advance counter inline before looping back */

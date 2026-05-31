@@ -1,4 +1,4 @@
-/* bb_call.cpp — BB template for BB_CALL (generic call/builtin BB, language-ignorant).
+/* bb_call.cpp — BB template for IR_CALL (generic call/builtin BB, language-ignorant).
    IBB GROUND-ZERO RESET (Opus 4.7, 2026-05-28, Lon directive).
 
    Supported shape only: write(string_literal). Everything else ABORTs.
@@ -43,43 +43,43 @@ int  rt_builtin_is_known(const char *name);
 static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_CALL");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_CALL");
 
     const char * fn   = pBB->sval ? pBB->sval : "";
     int64_t      narg = pBB->ival;
     IR_t       * a0   = pBB->α;
 
-    int is_write_strlit  = (fn && !strcmp(fn, "write") && narg == 1 && a0 && a0->t == BB_LIT_S && a0->sval);
+    int is_write_strlit  = (fn && !strcmp(fn, "write") && narg == 1 && a0 && a0->t == IR_LIT_S && a0->sval);
     /* IBB-3 (2026-05-28): write(int_expr) shape — arg0 was already evaluated by                    */
     /* flat_drive_call_intexpr (which walked it before defining this template's α). The expected     */
     /* runtime state: an int DESCR_t is on top of the vstack. Trailer: rt_pop_write_int_nl + jmp γ.   */
-    /* IBB-4 (2026-05-28): extended to generator-leaf arg0 kinds BB_TO and BB_ALT, which          */
+    /* IBB-4 (2026-05-28): extended to generator-leaf arg0 kinds IR_TO and IR_ALT, which          */
     /* push int values onto the vstack the same way under their MEDIUM_BINARY arms (rt_push_int).    */
-    /* IBB-6 (2026-05-28): extended to BB_BINOP_GEN (cross-product generator; driver walks both     */
+    /* IBB-6 (2026-05-28): extended to IR_BINOP_GEN (cross-product generator; driver walks both     */
     /* operand sub-trees, applies rt_arith/rt_acomp, pushes result onto vstack before trailer).     */
-    /* IBB-7 (2026-05-29): extended to BB_VAR (variable read; bb_var.cpp pushes value via         */
+    /* IBB-7 (2026-05-29): extended to IR_VAR (variable read; bb_var.cpp pushes value via         */
     /* rt_nv_get). Variables can hold strings/reals, so the trailer below switches to             */
-    /* rt_pop_write_any_nl when arg0 is BB_VAR.                                                     */
+    /* rt_pop_write_any_nl when arg0 is IR_VAR.                                                     */
     /* IBB-9-UNOP (2026-05-29, Opus 4.8): value-producing unary ops as write arg0 — write(-x),        */
     /* write(\x), write(/x), write(not E).  flat_drive_call_intexpr walks the unop (which walks its    */
     /* own operand, applies rt_unop_*, leaves the result on the vstack) before this trailer.  These    */
     /* yield any DESCR kind (int/real/string/null), so they route through rt_pop_write_any_nl below.   */
     int is_write_intexpr = (fn && !strcmp(fn, "write") && narg == 1 && a0 &&
-                            (a0->t == BB_BINOP || a0->t == BB_LIT_I || a0->t == BB_TO || a0->t == BB_TO_BY || a0->t == BB_ALT || a0->t == BB_BINOP_GEN || a0->t == BB_VAR ||
-                             a0->t == BB_NEG || a0->t == BB_POS || a0->t == BB_NONNULL || a0->t == BB_NULL_TEST || a0->t == BB_NOT || a0->t == BB_SIZE || a0->t == BB_CALL || a0->t == BB_CASE || a0->t == BB_FIELD_GET || a0->t == BB_LIST_BANG || a0->t == BB_LIMIT || a0->t == BB_IDX));
-    /* IBB-8 (2026-05-29): BB_BINOP and BB_BINOP_GEN can yield DT_R (e.g. Icon `^` always reals,    */
+                            (a0->t == IR_BINOP || a0->t == IR_LIT_I || a0->t == IR_TO || a0->t == IR_TO_BY || a0->t == IR_ALT || a0->t == IR_BINOP_GEN || a0->t == IR_VAR ||
+                             a0->t == IR_NEG || a0->t == IR_POS || a0->t == IR_NONNULL || a0->t == IR_NULL_TEST || a0->t == IR_NOT || a0->t == IR_SIZE || a0->t == IR_CALL || a0->t == IR_CASE || a0->t == IR_FIELD_GET || a0->t == IR_LIST_BANG || a0->t == IR_LIMIT || a0->t == IR_IDX));
+    /* IBB-8 (2026-05-29): IR_BINOP and IR_BINOP_GEN can yield DT_R (e.g. Icon `^` always reals,    */
     /* mixed int/real arith). The int-write trailer prints raw IEEE bits for a double, so route them */
     /* through rt_pop_write_any_nl which inspects the DESCR_t kind at runtime (DT_I via %lld exactly */
     /* as before, DT_R via canonical real_str, DT_S via %.*s). Pure-int producers are unaffected     */
-    /* except for one extra runtime type-tag compare. BB_TO/BB_ALT/BB_LIT_I stay int-only.           */
-    /* IBB (2026-05-29, Opus 4.8): BB_ALT can yield non-int values (alt of string/real literals, e.g.   */
+    /* except for one extra runtime type-tag compare. IR_TO/IR_ALT/IR_LIT_I stay int-only.           */
+    /* IBB (2026-05-29, Opus 4.8): IR_ALT can yield non-int values (alt of string/real literals, e.g.   */
     /* `write("a"|"b"|"c")`).  The int-write trailer prints a string descriptor's raw pointer bits as   */
     /* an integer (garbage); route alts through rt_pop_write_any_nl, which dispatches on the DESCR kind  */
     /* at runtime (DT_I → %lld exactly as before, so int-alts are unaffected).                            */
-    int arg_is_any = (a0 && (a0->t == BB_VAR || a0->t == BB_BINOP || a0->t == BB_BINOP_GEN || a0->t == BB_ALT ||
-                             a0->t == BB_NEG || a0->t == BB_POS || a0->t == BB_NONNULL || a0->t == BB_NULL_TEST || a0->t == BB_NOT || a0->t == BB_SIZE ||
-                             a0->t == BB_CALL || a0->t == BB_CASE || a0->t == BB_FIELD_GET || a0->t == BB_LIST_BANG || a0->t == BB_LIMIT || a0->t == BB_IDX ||
-                             (a0->t == BB_TO_BY && a0->sval && a0->sval[0] == 'r')));
+    int arg_is_any = (a0 && (a0->t == IR_VAR || a0->t == IR_BINOP || a0->t == IR_BINOP_GEN || a0->t == IR_ALT ||
+                             a0->t == IR_NEG || a0->t == IR_POS || a0->t == IR_NONNULL || a0->t == IR_NULL_TEST || a0->t == IR_NOT || a0->t == IR_SIZE ||
+                             a0->t == IR_CALL || a0->t == IR_CASE || a0->t == IR_FIELD_GET || a0->t == IR_LIST_BANG || a0->t == IR_LIMIT || a0->t == IR_IDX ||
+                             (a0->t == IR_TO_BY && a0->sval && a0->sval[0] == 'r')));
 
     /* IBB-9-6 (Opus 4.8, 2026-05-29): user-procedure call. fn names a procedure registered by the   */
     /* mode-3 driver (rt_proc_register). The flat driver (flat_drive_call_userproc) walked the    */
@@ -87,13 +87,13 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     /* the SysV arg registers and call rt_call_proc, which binds params, invokes the callee slab,  */
     /* and leaves the return value on the vstack. Then jmp γ. This is the JCON ir_a_Call invoke step.  */
     /* Checked BEFORE the write-shape arms only matters for a bare `proc(...)` statement; write(proc())*/
-    /* routes here too because the inner BB_CALL is a0 (handled via the userproc arm of arg_is_any +    */
+    /* routes here too because the inner IR_CALL is a0 (handled via the userproc arm of arg_is_any +    */
     /* the write trailer reading the pushed return value).                                             */
     int is_userproc = (fn && rt_proc_is_registered(fn) && !is_write_strlit && !is_write_intexpr);
     if (is_userproc) {
         if (MEDIUM_TEXT) {
             return s_1asm(emit_fmt("%s:", _.lbl_α))
-                 + s_comment(emit_fmt("# BOX BB_CALL %s(...) [IBB-9-6 user-proc dispatch]", fn))
+                 + s_comment(emit_fmt("# BOX IR_CALL %s(...) [IBB-9-6 user-proc dispatch]", fn))
                  + s_2asm("call", "rt_call_proc@PLT")
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
@@ -134,7 +134,7 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     if (is_builtin) {
         if (MEDIUM_TEXT) {
             return s_1asm(emit_fmt("%s:", _.lbl_α))
-                 + s_comment(emit_fmt("# BOX BB_CALL %s(...) [IBB-10 builtin dispatch]", fn))
+                 + s_comment(emit_fmt("# BOX IR_CALL %s(...) [IBB-10 builtin dispatch]", fn))
                  + s_2asm("call", "rt_call_builtin@PLT")
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
@@ -175,7 +175,7 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
         /* emit-time constant (data and access share the blob — NO patch, NO absolute address, NO stack).   */
         /* Then call the by-value rt_write_int_nl. Other arg0 kinds still route through rt_pop_write_* below */
         /* (they ABORT until their own rung). Mirrors the write(strlit) one-blob shape.                      */
-        int arg_is_ro_int = (a0 && a0->t == BB_LIT_I);
+        int arg_is_ro_int = (a0 && a0->t == IR_LIT_I);
         if (arg_is_ro_int && MEDIUM_BINARY) {
             bb_label_t *beta_jmp_target = _.lbl_ω_p;
             for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
@@ -204,8 +204,8 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
         const char *trailer_sym = arg_is_any ? "rt_pop_write_any_nl@PLT" : "rt_pop_write_int_nl@PLT";
         if (MEDIUM_TEXT) {
             return s_1asm(emit_fmt("%s:", _.lbl_α))
-                 + s_comment(arg_is_any ? "# BOX BB_CALL write(BB_VAR) [IBB-7 any-write trailer]"
-                                         : "# BOX BB_CALL write(int_expr) [IBB-3 vstack pop+write trailer]")
+                 + s_comment(arg_is_any ? "# BOX IR_CALL write(IR_VAR) [IBB-7 any-write trailer]"
+                                         : "# BOX IR_CALL write(int_expr) [IBB-3 vstack pop+write trailer]")
                  + s_2asm("call", trailer_sym)
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
@@ -221,7 +221,7 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
             /* IBB-4 (2026-05-28): β-stub destination is the driver's queued lbl_β jmp target (set    */
             /* by flat_drive_call_intexpr via EMIT_PAIR_DEF_JMP(lbl_β, arg_β)). For the prior strlit  */
             /* path / IBB-3 add.icn shape, the driver queues (lbl_β, lbl_ω) so behavior is unchanged. */
-            /* This lets BB_EVERY drive a re-pump: every wires call.γ→call.β, call.β chains to arg.β. */
+            /* This lets IR_EVERY drive a re-pump: every wires call.γ→call.β, call.β chains to arg.β. */
             bb_label_t *beta_jmp_target = _.lbl_ω_p;
             for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
                 if (g_emit.xa_bb_emit_pair_define[i] == _.lbl_β_p && g_emit.xa_bb_emit_pair_jmp[i]) {
@@ -253,7 +253,7 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
         uint32_t     len = (uint32_t)strlen(lit);
         std::string  sl  = emit_fmt(".Lcall%d_str", id);
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment(emit_fmt("# BOX BB_CALL write(\"%s\") [GROUND-ZERO bb_call literal-string shape]", lit))
+             + s_comment(emit_fmt("# BOX IR_CALL write(\"%s\") [GROUND-ZERO bb_call literal-string shape]", lit))
              + s_directive(".section .rodata")
              + s_directive(sl + ": .ascii \"" + lit + "\"")
              + s_directive(".section .text")

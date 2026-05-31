@@ -1,6 +1,6 @@
 /* bb_cset.c — grouped BB template for the BB_CSET_* family.
    Per HQ Invariant #10 (grouped templates): the four character-set ops
-   (BB_CSET_COMPL / BB_CSET_UNION / BB_CSET_DIFF / BB_CSET_INTER) share an
+   (IR_CSET_COMPL / IR_CSET_UNION / IR_CSET_DIFF / IR_CSET_INTER) share an
    identical emit shape — an honest no-op stub across all five backends — so a
    single grouped template fn handles all of them. The dispatch switch in
    emit_core.c already discriminates the opcode; every CSET arm routes here and

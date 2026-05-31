@@ -1,4 +1,4 @@
-/* bb_ite.cpp — BB template for BB_ITE: Prolog (Cond -> Then ; Else).
+/* bb_ite.cpp — BB template for IR_ITE: Prolog (Cond -> Then ; Else).
    CAT-D-8 (2026-05-27, Opus 4.7). The driver flat_drive_pl_ite (emit_bb.c) is byte-free: it
    mints Then/Else region labels and recursively walks each sub-region. This template emits the
    wrapper's α prologue and the β-tombstone (β: jmp ω — ITE is non-resumable from caller's view;

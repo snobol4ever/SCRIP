@@ -378,116 +378,116 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
     switch (nd->t) {
-    case BB_PAT_LIT:         bb_lit(nd);               return 0;
-    case BB_PAT_ANY:         bb_pat_any(nd);           return 0;
-    case BB_PAT_NOTANY:      bb_pat_notany(nd);        return 0;
-    case BB_PAT_SPAN:        bb_pat_span(nd);          return 0;
-    case BB_PAT_BREAK:       bb_pat_break(nd);         return 0;
-    case BB_PAT_ARB:         bb_pat_arb(nd);           return 0;
-    case BB_PAT_ARBNO:       bb_prepare_capture_arbno(nd, 0); bb_arbno(nd);             return 0;
-    case BB_PAT_CAT:         bb_pat_cat(nd);           return 0;
-    case BB_PAT_ALT:         bb_pat_alt(nd);           return 0;
-    case BB_PAT_LEN:         bb_pat_len(nd);           return 0;
-    case BB_PAT_POS:         bb_pat_pos(nd);           return 0;
-    case BB_PAT_TAB:         bb_pat_tab(nd);           return 0;
-    case BB_PAT_ATP:         bb_pat_atp(nd);           return 0;
-    case BB_PAT_REM:         bb_pat_rem(nd);           return 0;
-    case BB_PAT_FENCE:       bb_pat_fence(nd);         return 0;
-    case BB_PAT_ABORT:       bb_pat_abort(nd);         return 0;
-    case BB_PAT_ASSIGN_IMM:  bb_prepare_capture_arbno(nd, 1); bb_capture(nd, 1);        return 0;
-    case BB_PAT_ASSIGN_COND: bb_prepare_capture_arbno(nd, 0); bb_capture(nd, 0);        return 0;
-    case BB_GOAL:         bb_prepare_pl(nd); bb_goal(nd);          return 0;
-    case BB_ARITH:           bb_prepare_pl(nd); bb_arith(nd);         return 0;
-    case BB_BUILTIN:         bb_prepare_pl(nd); bb_builtin(nd);       return 0;
-    case BB_LOGICVAR:          bb_logicvar(nd);            return 0;
-    case BB_ATOM:         bb_prepare_pl(nd); bb_atom(nd);           return 0;
-    case BB_LIT_I:
-    case BB_LIT_S:
-    case BB_LIT_F:
-    case BB_LIT_NUL:              bb_lit_scalar(nd);         return 0;
-    case BB_VAR:                  bb_var(nd);          return 0;
-    case BB_ASSIGN:               bb_assign(nd);       return 0;
-    case BB_AUGOP:
-    case BB_UNOP:
-    case BB_CALL:                 bb_call(nd);         return 0;
-    case BB_BINOP:                bb_binop(nd);        return 0;
-    case BB_SEQ:                  bb_seq(nd);          return 0;
-    case BB_FAIL:                 bb_fail(nd);         return 0;
-    case BB_SUCCEED:              bb_succeed(nd);      return 0;
-    case BB_EVERY:                bb_every(nd);        return 0;
-    case BB_GOTO:
+    case IR_PAT_LIT:         bb_lit(nd);               return 0;
+    case IR_PAT_ANY:         bb_pat_any(nd);           return 0;
+    case IR_PAT_NOTANY:      bb_pat_notany(nd);        return 0;
+    case IR_PAT_SPAN:        bb_pat_span(nd);          return 0;
+    case IR_PAT_BREAK:       bb_pat_break(nd);         return 0;
+    case IR_PAT_ARB:         bb_pat_arb(nd);           return 0;
+    case IR_PAT_ARBNO:       bb_prepare_capture_arbno(nd, 0); bb_arbno(nd);             return 0;
+    case IR_PAT_CAT:         bb_pat_cat(nd);           return 0;
+    case IR_PAT_ALT:         bb_pat_alt(nd);           return 0;
+    case IR_PAT_LEN:         bb_pat_len(nd);           return 0;
+    case IR_PAT_POS:         bb_pat_pos(nd);           return 0;
+    case IR_PAT_TAB:         bb_pat_tab(nd);           return 0;
+    case IR_PAT_ATP:         bb_pat_atp(nd);           return 0;
+    case IR_PAT_REM:         bb_pat_rem(nd);           return 0;
+    case IR_PAT_FENCE:       bb_pat_fence(nd);         return 0;
+    case IR_PAT_ABORT:       bb_pat_abort(nd);         return 0;
+    case IR_PAT_ASSIGN_IMM:  bb_prepare_capture_arbno(nd, 1); bb_capture(nd, 1);        return 0;
+    case IR_PAT_ASSIGN_COND: bb_prepare_capture_arbno(nd, 0); bb_capture(nd, 0);        return 0;
+    case IR_GOAL:         bb_prepare_pl(nd); bb_goal(nd);          return 0;
+    case IR_ARITH:           bb_prepare_pl(nd); bb_arith(nd);         return 0;
+    case IR_BUILTIN:         bb_prepare_pl(nd); bb_builtin(nd);       return 0;
+    case IR_LOGICVAR:          bb_logicvar(nd);            return 0;
+    case IR_ATOM:         bb_prepare_pl(nd); bb_atom(nd);           return 0;
+    case IR_LIT_I:
+    case IR_LIT_S:
+    case IR_LIT_F:
+    case IR_LIT_NUL:              bb_lit_scalar(nd);         return 0;
+    case IR_VAR:                  bb_var(nd);          return 0;
+    case IR_ASSIGN:               bb_assign(nd);       return 0;
+    case IR_AUGOP:
+    case IR_UNOP:
+    case IR_CALL:                 bb_call(nd);         return 0;
+    case IR_BINOP:                bb_binop(nd);        return 0;
+    case IR_SEQ:                  bb_seq(nd);          return 0;
+    case IR_FAIL:                 bb_fail(nd);         return 0;
+    case IR_SUCCEED:              bb_succeed(nd);      return 0;
+    case IR_EVERY:                bb_every(nd);        return 0;
+    case IR_GOTO:
                                   bb_alt(nd);          return 0;
-    case BB_RETURN:               bb_return(nd);       return 0;
-    case BB_IF:                   bb_if(nd);           return 0;
-    case BB_SWAP:                 bb_swap(nd);         return 0;
-    case BB_WHILE:
-    case BB_UNTIL:                bb_if(nd);           return 0;
-    case BB_REPEAT:
-    case BB_ALT:                  bb_alt(nd);          return 0;
-    case BB_SIZE:                 bb_unop(nd);      return 0;
-    case BB_CASE:
-    case BB_LIMIT:                bb_limit(nd);     return 0;
-    case BB_SUSPEND:              bb_suspend(nd);      return 0;
-    case BB_PROC:
-    case BB_SCAN:
-    case BB_INTERROGATE:
-    case BB_PAT_CALLOUT:
+    case IR_RETURN:               bb_return(nd);       return 0;
+    case IR_IF:                   bb_if(nd);           return 0;
+    case IR_SWAP:                 bb_swap(nd);         return 0;
+    case IR_WHILE:
+    case IR_UNTIL:                bb_if(nd);           return 0;
+    case IR_REPEAT:
+    case IR_ALT:                  bb_alt(nd);          return 0;
+    case IR_SIZE:                 bb_unop(nd);      return 0;
+    case IR_CASE:
+    case IR_LIMIT:                bb_limit(nd);     return 0;
+    case IR_SUSPEND:              bb_suspend(nd);      return 0;
+    case IR_PROC:
+    case IR_SCAN:
+    case IR_INTERROGATE:
+    case IR_PAT_CALLOUT:
                                   bb_stub(nd);         return 0;
-    case BB_PAT_DEFER:            bb_pat_defer(nd);    return 0;
-    case BB_CHOICE:          bb_choice(nd);                            return 0;
-    case BB_CUT:             bb_cut(nd);                               return 0;
-    case BB_DISJ:          bb_disj(nd);                               return 0;
-    case BB_GCONJ:          bb_conj(nd);                               return 0;
-    case BB_ITE:          bb_ite(nd);                               return 0;
-    case BB_CATCH:        bb_catch(nd);                             return 0;
-    case BB_UNIFY:           bb_prepare_pl(nd); bb_unify(nd);         return 0;
-    case BB_TO_BY:                    bb_to_by(nd);        return 0;
-    case BB_TO:                   bb_to(nd);           return 0;
-    case BB_UPTO:                bb_upto(nd);     return 0;
-    case BB_ITERATE:                bb_iterate(nd);     return 0;
-    case BB_GEN_ALT:                bb_gen_alt(nd);     return 0;
-    case BB_GEN_BINOP:
-    case BB_TO_NESTED:
-    case BB_PROC_GEN:                bb_proc_gen(nd);     return 0;
-    case BB_BREAK:
-    case BB_NEXT:
-    case BB_IDENTICAL:
-    case BB_RANDOM:
-    case BB_CSET_COMPL:
-    case BB_CSET_UNION:
-    case BB_CSET_DIFF:
-    case BB_CSET_INTER:           bb_cset(nd);         return 0;
-    case BB_NEG:
-    case BB_POS:
-    case BB_NONNULL:
-    case BB_NULL_TEST:
-    case BB_NOT:                  bb_unop(nd);         return 0;
-    case BB_GEN_SCAN:                bb_gen_scan(nd);     return 0;
-    case BB_KEYWORD:                bb_keyword(nd);     return 0;
-    case BB_BINOP_GEN:                bb_binop_gen(nd);    return 0;
-    case BB_IDX:                 bb_idx(nd);          return 0;
-    case BB_IDX_SET:             bb_idx_set(nd);      return 0;
-    case BB_SECTION:
-    case BB_RECORD_DEF:
-    case BB_KEY_GEN:
-    case BB_SEQ_EXPR:
-    case BB_LCONCAT:
-    case BB_FIND_GEN:
-    case BB_SEQ_GEN:          bb_stub(nd);             return 0;
-    case BB_LIST_BANG:            bb_list_bang(nd);    return 0;
-    case BB_FIELD_GET:            bb_field_get(nd);    return 0;
-    case BB_FIELD_SET:            bb_field_set(nd);    return 0;
-    case BB_INITIAL:              bb_initial(nd);      return 0;
-    case BB_NFA_EPS:              bb_nfa_eps(nd);      return 0;
-    case BB_NFA_CAP_OPEN:         bb_nfa_cap_open(nd); return 0;
-    case BB_NFA_CAP_CLOSE:        bb_nfa_cap_close(nd);return 0;
-    case BB_NFA_CHAR:             bb_nfa_char(nd);     return 0;
-    case BB_NFA_ACCEPT:           bb_nfa_accept(nd);   return 0;
-    case BB_NFA_ANY:              bb_nfa_any(nd);      return 0;
-    case BB_NFA_BOL:              bb_nfa_bol(nd);      return 0;
-    case BB_NFA_EOL:              bb_nfa_eol(nd);      return 0;
-    case BB_NFA_CLASS:            bb_nfa_class(nd);    return 0;
-    case BB_NFA_SPLIT:            bb_stub(nd);         return 0;
+    case IR_PAT_DEFER:            bb_pat_defer(nd);    return 0;
+    case IR_CHOICE:          bb_choice(nd);                            return 0;
+    case IR_CUT:             bb_cut(nd);                               return 0;
+    case IR_DISJ:          bb_disj(nd);                               return 0;
+    case IR_GCONJ:          bb_conj(nd);                               return 0;
+    case IR_ITE:          bb_ite(nd);                               return 0;
+    case IR_CATCH:        bb_catch(nd);                             return 0;
+    case IR_UNIFY:           bb_prepare_pl(nd); bb_unify(nd);         return 0;
+    case IR_TO_BY:                    bb_to_by(nd);        return 0;
+    case IR_TO:                   bb_to(nd);           return 0;
+    case IR_UPTO:                bb_upto(nd);     return 0;
+    case IR_ITERATE:                bb_iterate(nd);     return 0;
+    case IR_GEN_ALT:                bb_gen_alt(nd);     return 0;
+    case IR_GEN_BINOP:
+    case IR_TO_NESTED:
+    case IR_PROC_GEN:                bb_proc_gen(nd);     return 0;
+    case IR_BREAK:
+    case IR_NEXT:
+    case IR_IDENTICAL:
+    case IR_RANDOM:
+    case IR_CSET_COMPL:
+    case IR_CSET_UNION:
+    case IR_CSET_DIFF:
+    case IR_CSET_INTER:           bb_cset(nd);         return 0;
+    case IR_NEG:
+    case IR_POS:
+    case IR_NONNULL:
+    case IR_NULL_TEST:
+    case IR_NOT:                  bb_unop(nd);         return 0;
+    case IR_GEN_SCAN:                bb_gen_scan(nd);     return 0;
+    case IR_KEYWORD:                bb_keyword(nd);     return 0;
+    case IR_BINOP_GEN:                bb_binop_gen(nd);    return 0;
+    case IR_IDX:                 bb_idx(nd);          return 0;
+    case IR_IDX_SET:             bb_idx_set(nd);      return 0;
+    case IR_SECTION:
+    case IR_RECORD_DEF:
+    case IR_KEY_GEN:
+    case IR_SEQ_EXPR:
+    case IR_LCONCAT:
+    case IR_FIND_GEN:
+    case IR_SEQ_GEN:          bb_stub(nd);             return 0;
+    case IR_LIST_BANG:            bb_list_bang(nd);    return 0;
+    case IR_FIELD_GET:            bb_field_get(nd);    return 0;
+    case IR_FIELD_SET:            bb_field_set(nd);    return 0;
+    case IR_INITIAL:              bb_initial(nd);      return 0;
+    case IR_NFA_EPS:              bb_nfa_eps(nd);      return 0;
+    case IR_NFA_CAP_OPEN:         bb_nfa_cap_open(nd); return 0;
+    case IR_NFA_CAP_CLOSE:        bb_nfa_cap_close(nd);return 0;
+    case IR_NFA_CHAR:             bb_nfa_char(nd);     return 0;
+    case IR_NFA_ACCEPT:           bb_nfa_accept(nd);   return 0;
+    case IR_NFA_ANY:              bb_nfa_any(nd);      return 0;
+    case IR_NFA_BOL:              bb_nfa_bol(nd);      return 0;
+    case IR_NFA_EOL:              bb_nfa_eol(nd);      return 0;
+    case IR_NFA_CLASS:            bb_nfa_class(nd);    return 0;
+    case IR_NFA_SPLIT:            bb_stub(nd);         return 0;
     default:
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t);
         return 1;
@@ -647,11 +647,11 @@ static char ** net_parse_define_proto(const char * proto, char ** out_fname, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_node_id(IR_t * nd) { return (int)((uintptr_t)nd % 100000u); }
 int bb_is_generator(IR_e k) {
-    if (k >= BB_PAT_LIT   && k <= BB_PAT_DEFER)  return 1;
-    if (k >= BB_CHOICE && k <= BB_GOAL)      return 1;
-    if (k >= BB_TO    && k <= BB_PROC_GEN) return 1;
-    if (k == BB_SCAN || k == BB_TO_BY ||
-        k == BB_EVERY || k == BB_WHILE    || k == BB_LIMIT || k == BB_SUSPEND) return 1;
+    if (k >= IR_PAT_LIT   && k <= IR_PAT_DEFER)  return 1;
+    if (k >= IR_CHOICE && k <= IR_GOAL)      return 1;
+    if (k >= IR_TO    && k <= IR_PROC_GEN) return 1;
+    if (k == IR_SCAN || k == IR_TO_BY ||
+        k == IR_EVERY || k == IR_WHILE    || k == IR_LIMIT || k == IR_SUSPEND) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

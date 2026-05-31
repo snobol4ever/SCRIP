@@ -282,7 +282,7 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int resolve_seq_goals_em(const IR_t *nd, IR_t **out, int max) {
-    if (!nd || nd->t != BB_GCONJ) return 0;
+    if (!nd || nd->t != IR_GCONJ) return 0;
     bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)nd->ival;
     if (!zs || !zs->goals) return 0;
     int k = zs->ngoals < max ? zs->ngoals : max;
@@ -291,7 +291,7 @@ int resolve_seq_goals_em(const IR_t *nd, IR_t **out, int max) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
-    if (!nd || nd->t != BB_CHOICE) return 0;
+    if (!nd || nd->t != IR_CHOICE) return 0;
     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)nd->ival;
     if (!zc || !zc->bodies) return 0;
     int k = zc->nbodies < max ? zc->nbodies : max;
@@ -314,11 +314,11 @@ static void flat_drive_pl_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     }
     {
         IR_e t0 = goals[0]->t;
-        int r0 = (t0==BB_GOAL || t0==BB_CHOICE || t0==BB_DISJ);
+        int r0 = (t0==IR_GOAL || t0==IR_CHOICE || t0==IR_DISJ);
         eff_β[0] = r0 ? gβ[0] : lbl_ω;
         for (int i = 1; i < n; i++) {
             IR_e ti = goals[i]->t;
-            int ri = (ti==BB_GOAL || ti==BB_CHOICE || ti==BB_DISJ);
+            int ri = (ti==IR_GOAL || ti==IR_CHOICE || ti==IR_DISJ);
             eff_β[i] = ri ? gβ[i] : eff_β[i-1];
         }
     }
@@ -393,7 +393,7 @@ static void flat_drive_pl_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int resolve_ite_entries_em(const IR_t *nd, IR_t **out_cond, IR_t **out_then, IR_t **out_else) {
-    if (!nd || nd->t != BB_ITE) return 0;
+    if (!nd || nd->t != IR_ITE) return 0;
     bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)nd->ival;
     if (!zi) return 0;
     if (out_cond) *out_cond = zi->cond;
@@ -453,7 +453,7 @@ int resolve_emit_callee_block_body(const char *name, int arity, bb_label_t *bγ,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_kind_is_driver_owned(int t) {
-    return t == BB_PAT_CAT || t == BB_PAT_ALT || t == BB_PAT_FENCE || t == BB_GCONJ;
+    return t == IR_PAT_CAT || t == IR_PAT_ALT || t == IR_PAT_FENCE || t == IR_GCONJ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare_capture_arbno(IR_t *nd, int imm) {
@@ -464,7 +464,7 @@ void bb_prepare_capture_arbno(IR_t *nd, int imm) {
     g_emit.bb_rt_obj   = NULL;
     g_emit.bb_child_lbl = NULL;
     g_emit.bb_child_fn  = (void *)child_fn;
-    if (nd->t == BB_PAT_ARBNO) {
+    if (nd->t == IR_PAT_ARBNO) {
         g_emit.bb_rt_obj = NULL;
         if (MEDIUM_TEXT) {
             emit_comment("# BOX ARBNO()");
@@ -526,36 +526,36 @@ void bb_prepare_pl(IR_t *nd) {
     g_emit.bb_ls = NULL;
     g_emit.bb_rs = NULL;
     g_emit.bb_op_lbl = NULL;
-    if (nd->t == BB_ATOM) {
+    if (nd->t == IR_ATOM) {
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->sval ? nd->sval : "");
         return;
     }
-    if (nd->t == BB_ARITH) {
+    if (nd->t == IR_ARITH) {
         if (!nd->α || !nd->β) return;
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->α->sval);
         g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, nd->β->sval);
         g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, nd->sval ? nd->sval : "+");
         return;
     }
-    if (nd->t == BB_UNIFY) {
+    if (nd->t == IR_UNIFY) {
         if (!nd->α || !nd->β) return;
-        if (nd->α->t == BB_LOGICVAR && nd->β->t == BB_ATOM) {
+        if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_ATOM) {
             g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, nd->β->sval ? nd->β->sval : "");
             return;
         }
-        if (nd->α->t == BB_LOGICVAR && nd->β->t == BB_LOGICVAR) return;
+        if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_LOGICVAR) return;
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->α->sval);
         g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, nd->β->sval);
         return;
     }
-    if (nd->t == BB_BUILTIN) {
-        if (nd->α && nd->α->t == BB_ATOM)
+    if (nd->t == IR_BUILTIN) {
+        if (nd->α && nd->α->t == IR_ATOM)
             g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->α->sval ? nd->α->sval : "");
-        if (nd->sval && strcmp(nd->sval, "is") == 0 && nd->β && nd->β->t == BB_ARITH)
+        if (nd->sval && strcmp(nd->sval, "is") == 0 && nd->β && nd->β->t == IR_ARITH)
             g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, nd->β->sval ? nd->β->sval : "+");
         return;
     }
-    if (nd->t == BB_GOAL) {
+    if (nd->t == IR_GOAL) {
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->sval ? nd->sval : "");
         return;
     }
@@ -593,12 +593,12 @@ static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
             abort();
         }
         nodes[n++] = c;
-        if (c->t == BB_SUSPEND) {
-            fprintf(stderr, "[IBB] FATAL flat_drive_seq: gather-multi-yield (BB_SUSPEND child) not yet flat-wired\n");
+        if (c->t == IR_SUSPEND) {
+            fprintf(stderr, "[IBB] FATAL flat_drive_seq: gather-multi-yield (IR_SUSPEND child) not yet flat-wired\n");
             abort();
         }
         if (c->γ && qt < SEQ_MAX) queue[qt++] = c->γ;
-        if (c->t == BB_IF && c->ω && qt < SEQ_MAX) queue[qt++] = c->ω;
+        if (c->t == IR_IF && c->ω && qt < SEQ_MAX) queue[qt++] = c->ω;
     }
     int id = g_flat_node_id++;
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -610,7 +610,7 @@ static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = seq_node_label(nodes, lbls, n, nodes[i]->γ, lbl_γ);
-        bb_label_t *node_ω = (nodes[i]->t == BB_IF)
+        bb_label_t *node_ω = (nodes[i]->t == IR_IF)
             ? seq_node_label(nodes, lbls, n, nodes[i]->ω, lbl_γ)
             : lbl_ω;
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
@@ -629,7 +629,7 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     bb_label_t *rhs_done = emit_label_alloc("xbinop%d_rhs_done", id);
     bb_label_t *lhs_β    = emit_label_alloc("xbinop%d_lhs_b",    id);
     bb_label_t *rhs_β    = emit_label_alloc("xbinop%d_rhs_b",    id);
-    if (pBB->α->t == BB_ASSIGN && pBB->α->α && pBB->α->α->t == BB_VAR) {
+    if (pBB->α->t == IR_ASSIGN && pBB->α->α && pBB->α->α->t == IR_VAR) {
         bb_label_t *lhs_stored = emit_label_alloc("xbinop%d_lhs_st", id);
         walk_bb_flat(pBB->α, lhs_stored, lbl_ω, lhs_β);
         emit_label_define_bb(lhs_stored);
@@ -638,7 +638,7 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
         walk_bb_flat(pBB->α, lhs_done, lbl_ω, lhs_β);
     }
     emit_label_define_bb(lhs_done);
-    if (pBB->β->t == BB_ASSIGN && pBB->β->α && pBB->β->α->t == BB_VAR) {
+    if (pBB->β->t == IR_ASSIGN && pBB->β->α && pBB->β->α->t == IR_VAR) {
         bb_label_t *rhs_stored = emit_label_alloc("xbinop%d_rhs_st", id);
         walk_bb_flat(pBB->β, rhs_stored, lbl_ω, rhs_β);
         emit_label_define_bb(rhs_stored);
@@ -654,13 +654,13 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int binop_operand_streams(IR_t *e) {
     if (!e) return 0;
-    if (e->t == BB_ASSIGN) return binop_operand_streams(e->β);
+    if (e->t == IR_ASSIGN) return binop_operand_streams(e->β);
     switch (e->t) {
-        case BB_ALT: case BB_TO: case BB_TO_BY: case BB_BINOP_GEN: case BB_ITERATE:
-        case BB_LIMIT: case BB_PROC_GEN: case BB_LIST_BANG: case BB_KEY_GEN:
-        case BB_FIND_GEN: case BB_SEQ_GEN: case BB_SUSPEND: case BB_REPEAT:
+        case IR_ALT: case IR_TO: case IR_TO_BY: case IR_BINOP_GEN: case IR_ITERATE:
+        case IR_LIMIT: case IR_PROC_GEN: case IR_LIST_BANG: case IR_KEY_GEN:
+        case IR_FIND_GEN: case IR_SEQ_GEN: case IR_SUSPEND: case IR_REPEAT:
             return 1;
-        case BB_CALL:
+        case IR_CALL:
             if (e->sval && rt_proc_is_registered(e->sval)) return 0;
             return 1;
         default:
@@ -738,7 +738,7 @@ static void flat_drive_list_bang(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->sval) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_field_get: BB_FIELD_GET needs α (object) and sval (field)\n");
+        fprintf(stderr, "[IBB] FATAL flat_drive_field_get: IR_FIELD_GET needs α (object) and sval (field)\n");
         abort();
     }
     int id = g_flat_node_id++;
@@ -753,7 +753,7 @@ static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β || !pBB->sval) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_field_set: BB_FIELD_SET needs α (object), β (rhs), sval (field)\n");
+        fprintf(stderr, "[IBB] FATAL flat_drive_field_set: IR_FIELD_SET needs α (object), β (rhs), sval (field)\n");
         abort();
     }
     int id = g_flat_node_id++;
@@ -875,14 +875,14 @@ static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_limit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_limit: BB_LIMIT requires α (generator) and β (count expr)\n");
+        fprintf(stderr, "[IBB] FATAL flat_drive_limit: IR_LIMIT requires α (generator) and β (count expr)\n");
         abort();
     }
     {
         IR_t *g = pBB->α;
-        while (g && g->t == BB_ASSIGN) g = g->β;
-        int ok = g && (g->t == BB_TO || g->t == BB_TO_BY || g->t == BB_ALT ||
-                       g->t == BB_BINOP_GEN || g->t == BB_LIST_BANG);
+        while (g && g->t == IR_ASSIGN) g = g->β;
+        int ok = g && (g->t == IR_TO || g->t == IR_TO_BY || g->t == IR_ALT ||
+                       g->t == IR_BINOP_GEN || g->t == IR_LIST_BANG);
         if (!ok) {
             fprintf(stderr, "[IBB] FATAL flat_drive_limit: generator kind=%d has no mode-3 two-port emission (limit deferred)\n",
                     (int)(g ? g->t : -1));
@@ -947,11 +947,11 @@ static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gen_bb_is_gen_arg(IR_t *e) {
     if (!e) return 0;
-    if (e->t == BB_ASSIGN) return gen_bb_is_gen_arg(e->β);
+    if (e->t == IR_ASSIGN) return gen_bb_is_gen_arg(e->β);
     switch (e->t) {
-        case BB_TO: case BB_TO_BY: case BB_UPTO: case BB_ALT:
-        case BB_BINOP_GEN: case BB_ITERATE: case BB_LIMIT: case BB_PROC_GEN:
-        case BB_LIST_BANG: case BB_KEY_GEN: case BB_FIND_GEN: case BB_SEQ_GEN:
+        case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT:
+        case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
+        case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
             return 1;
         default: return 0;
     }
@@ -986,11 +986,11 @@ static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_assign: missing α (lhs BB_VAR)\n");
+        fprintf(stderr, "[IBB] FATAL flat_drive_assign: missing α (lhs IR_VAR)\n");
         abort();
     }
-    if (pBB->α->t != BB_VAR || !pBB->α->sval) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_assign: lhs (α) must be BB_VAR with sval (got kind=%d)\n", (int)pBB->α->t);
+    if (pBB->α->t != IR_VAR || !pBB->α->sval) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_assign: lhs (α) must be IR_VAR with sval (got kind=%d)\n", (int)pBB->α->t);
         abort();
     }
     if (pBB->ival != 1) {
@@ -1017,7 +1017,7 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     }
     if (pBB->β) {
         if (pBB->ival == 0 && pBB->β &&
-            (pBB->α->t == BB_FIELD_SET || pBB->α->t == BB_IDX_SET) &&
+            (pBB->α->t == IR_FIELD_SET || pBB->α->t == IR_IDX_SET) &&
             gen_bb_is_gen_arg(pBB->α->β)) {
             IR_t *lval_node = pBB->α;
             IR_t *inner_gen = lval_node->β;
@@ -1029,7 +1029,7 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
             bb_label_t *body_βw     = emit_label_alloc("xev0%d_body_β",      id0);
             walk_bb_flat(inner_gen, store_α, lbl_γ, gen_resume);
             emit_label_define_bb(store_α);
-            if (lval_node->t == BB_FIELD_SET) {
+            if (lval_node->t == IR_FIELD_SET) {
                 bb_label_t *obj_done = emit_label_alloc("xev0%d_obj_done", id0);
                 bb_label_t *obj_β    = emit_label_alloc("xev0%d_obj_β",    id0);
                 walk_bb_flat(lval_node->α, obj_done, lbl_γ, obj_β);
@@ -1052,8 +1052,8 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
             fprintf(stderr, "[IBB] FATAL flat_drive_every: do-body ival=%lld not yet flat-wired (only ival=1/2)\n", (long long)pBB->ival);
             abort();
         }
-        if (pBB->ival == 2 && pBB->α && pBB->α->t == BB_ASSIGN &&
-            pBB->α->α && pBB->α->α->t == BB_VAR && pBB->α->β && gen_bb_is_gen_arg(pBB->α->β)) {
+        if (pBB->ival == 2 && pBB->α && pBB->α->t == IR_ASSIGN &&
+            pBB->α->α && pBB->α->α->t == IR_VAR && pBB->α->β && gen_bb_is_gen_arg(pBB->α->β)) {
             IR_t *gen_assign = pBB->α;
             IR_t *gen        = gen_assign->β;
             int idw = g_flat_node_id++;
@@ -1082,7 +1082,7 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         bb_label_t *body_β = emit_label_alloc("xevery%d_body_β", id2);
         walk_bb_flat(pBB->α, body_α, lbl_γ, β);
         emit_label_define_bb(body_α);
-        if (pBB->β && pBB->β->t == BB_ASSIGN && pBB->β->ival == 1 && pBB->β->γ) {
+        if (pBB->β && pBB->β->t == IR_ASSIGN && pBB->β->ival == 1 && pBB->β->γ) {
             bb_label_t *actual_body_α = emit_label_alloc("xevery%d_abody_α", id2);
             bb_label_t *store_ω       = emit_label_alloc("xevery%d_store_ω",  id2);
             walk_bb_flat(pBB->β, actual_body_α, lbl_γ, store_ω);
@@ -1110,9 +1110,9 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β ||
-        pBB->α->t != BB_VAR || !pBB->α->sval ||
-        pBB->β->t != BB_VAR || !pBB->β->sval) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_swap: x:=:y requires two BB_VAR operands\n");
+        pBB->α->t != IR_VAR || !pBB->α->sval ||
+        pBB->β->t != IR_VAR || !pBB->β->sval) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_swap: x:=:y requires two IR_VAR operands\n");
         abort();
     }
     int id = g_flat_node_id++;
@@ -1132,19 +1132,19 @@ static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
 static int while_operand_simple(IR_t *o) {
     if (!o) return 0;
     switch (o->t) {
-    case BB_VAR: case BB_LIT_I: case BB_LIT_S: case BB_LIT_F: case BB_LIT_NUL:
+    case IR_VAR: case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
         return 1;
-    case BB_BINOP:
+    case IR_BINOP:
         return o->state == 0 && while_operand_simple(o->α) && while_operand_simple(o->β);
-    case BB_ASSIGN:
-        return o->α && o->α->t == BB_VAR && (!o->β || while_operand_simple(o->β));
+    case IR_ASSIGN:
+        return o->α && o->α->t == IR_VAR && (!o->β || while_operand_simple(o->β));
     default:
         return 0;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int while_cond_emittable(IR_t *cond) {
-    return cond && cond->t == BB_BINOP && cond->state >= 1 &&
+    return cond && cond->t == IR_BINOP && cond->state >= 1 &&
            while_operand_simple(cond->α) && while_operand_simple(cond->β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1155,8 +1155,8 @@ static void flat_drive_while(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     }
     IR_t *cond = pBB->α;
     IR_t *body = pBB->β;
-    int is_until = (pBB->t == BB_UNTIL);
-    int cond_is_relop = (cond->t == BB_BINOP && cond->state >= 1);
+    int is_until = (pBB->t == IR_UNTIL);
+    int cond_is_relop = (cond->t == IR_BINOP && cond->state >= 1);
     int id = g_flat_node_id++;
     bb_label_t *cond_entry = emit_label_alloc("xwhile%d_cond", id);
     bb_label_t *gate       = emit_label_alloc("xwhile%d_gate", id);
@@ -1219,77 +1219,77 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         return;
     }
     switch (nd->t) {
-    case BB_PAT_LIT:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_ARB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_REM:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_SPAN:   g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_span";   g_emit.op_kind = "SPAN";   FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_ANY:    g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_any";    g_emit.op_kind = "ANY";    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_BREAK:  g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_brk";    g_emit.op_kind = "BREAK";  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_NOTANY: g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_notany"; g_emit.op_kind = "NOTANY"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_LEN:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_POS:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_ATP:    g_emit.op_name1 = nd->sval ? nd->sval : ""; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_DEFER:  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_TAB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_FENCE:  flat_drive_fence(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_ABORT:  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_CAT:    flat_drive_cat(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_ALT:    flat_drive_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_PAT_ARBNO: {
+    case IR_PAT_LIT:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_ARB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_REM:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_SPAN:   g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_span";   g_emit.op_kind = "SPAN";   FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_ANY:    g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_any";    g_emit.op_kind = "ANY";    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_BREAK:  g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_brk";    g_emit.op_kind = "BREAK";  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_NOTANY: g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_notany"; g_emit.op_kind = "NOTANY"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_LEN:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_POS:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_ATP:    g_emit.op_name1 = nd->sval ? nd->sval : ""; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_DEFER:  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_TAB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_FENCE:  flat_drive_fence(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_ABORT:  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_CAT:    flat_drive_cat(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_ALT:    flat_drive_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_ARBNO: {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
         g_emit.child_fn = (void *)cfn;
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case BB_PAT_ASSIGN_IMM: {
+    case IR_PAT_ASSIGN_IMM: {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
         const char *vn = nd->sval ? nd->sval : "";
         g_emit.child_fn = (void *)cfn; g_emit.op_name1 = vn; g_emit.op_name2 = NULL;
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case BB_PAT_ASSIGN_COND: {
+    case IR_PAT_ASSIGN_COND: {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
         const char *vn = nd->sval ? nd->sval : "";
         g_emit.child_fn = (void *)cfn; g_emit.op_name1 = vn; g_emit.op_name2 = NULL;
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case BB_GCONJ:     flat_drive_pl_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_GOAL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_CHOICE:     flat_drive_pl_choice(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_DISJ:     flat_drive_pl_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_ITE:     flat_drive_pl_ite(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_CATCH: {
+    case IR_GCONJ:     flat_drive_pl_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_GOAL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_CHOICE:     flat_drive_pl_choice(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_DISJ:     flat_drive_pl_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ITE:     flat_drive_pl_ite(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_CATCH: {
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(lbl_ω);
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
         break;
     }
-    case BB_ARITH:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_BUILTIN:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_UNIFY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_ATOM:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_SUCCEED: {
+    case IR_ARITH:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_BUILTIN:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_UNIFY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ATOM:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SUCCEED: {
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(lbl_γ);
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
         break;
     }
-    case BB_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_LIT_I:
-    case BB_LIT_S:
-    case BB_LIT_F:
-    case BB_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_CALL: {
+    case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_I:
+    case IR_LIT_S:
+    case IR_LIT_F:
+    case IR_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_CALL: {
         IR_t *a0 = nd->α;
-        int is_intexpr_shape = (a0 && (a0->t == BB_BINOP || a0->t == BB_LIT_I || a0->t == BB_TO || a0->t == BB_TO_BY || a0->t == BB_ALT || a0->t == BB_BINOP_GEN || a0->t == BB_VAR ||
-                   a0->t == BB_NEG || a0->t == BB_POS || a0->t == BB_NONNULL || a0->t == BB_NULL_TEST || a0->t == BB_NOT || a0->t == BB_SIZE || a0->t == BB_CALL || a0->t == BB_CASE || a0->t == BB_FIELD_GET || a0->t == BB_LIST_BANG || a0->t == BB_LIMIT || a0->t == BB_IDX ));
+        int is_intexpr_shape = (a0 && (a0->t == IR_BINOP || a0->t == IR_LIT_I || a0->t == IR_TO || a0->t == IR_TO_BY || a0->t == IR_ALT || a0->t == IR_BINOP_GEN || a0->t == IR_VAR ||
+                   a0->t == IR_NEG || a0->t == IR_POS || a0->t == IR_NONNULL || a0->t == IR_NULL_TEST || a0->t == IR_NOT || a0->t == IR_SIZE || a0->t == IR_CALL || a0->t == IR_CASE || a0->t == IR_FIELD_GET || a0->t == IR_LIST_BANG || a0->t == IR_LIMIT || a0->t == IR_IDX ));
         int is_write_fn   = (nd->sval && (!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes")));
-        int write_str_simple1 = (nd->sval && !strcmp(nd->sval, "write") && (int)nd->ival == 1 && a0 && a0->t == BB_LIT_S && a0->sval);
+        int write_str_simple1 = (nd->sval && !strcmp(nd->sval, "write") && (int)nd->ival == 1 && a0 && a0->t == IR_LIT_S && a0->sval);
         int write_simple1 = ((is_write_fn && (int)nd->ival == 1 && is_intexpr_shape) || write_str_simple1);
         int builtin_ok    = (nd->sval && rt_builtin_is_known(nd->sval) && call_args_single_shot(nd) && !write_simple1);
         if (nd->sval && rt_proc_is_registered(nd->sval))
@@ -1302,7 +1302,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             FILL(nd, lbl_γ, lbl_ω, lbl_β);
         break;
     }
-    case BB_BINOP:
+    case IR_BINOP:
         if (!nd->α && !nd->β) {
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -1311,35 +1311,35 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             flat_drive_binop_tree(nd, lbl_γ, lbl_ω, lbl_β);
         }
         break;
-    case BB_IF: {
+    case IR_IF: {
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
         break;
     }
-    case BB_BINOP_GEN:
+    case IR_BINOP_GEN:
         if (nd->α && nd->β && !binop_operand_streams(nd->α) && !binop_operand_streams(nd->β)) {
             IR_e saved_kind = nd->t;
-            nd->t = BB_BINOP;
+            nd->t = IR_BINOP;
             flat_drive_binop_tree(nd, lbl_γ, lbl_ω, lbl_β);
             nd->t = saved_kind;
         } else {
             flat_drive_binop_gen_tree(nd, lbl_γ, lbl_ω, lbl_β);
         }
         break;
-    case BB_SEQ:        flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_SEQ_EXPR:   flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_EVERY:      flat_drive_every(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_LIMIT:      flat_drive_limit(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_TO:         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_VAR:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_ASSIGN:     flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_RETURN:     flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_WHILE:
-    case BB_UNTIL:
+    case IR_SEQ:        flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SEQ_EXPR:   flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_EVERY:      flat_drive_every(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIMIT:      flat_drive_limit(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_TO:         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_VAR:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ASSIGN:     flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_RETURN:     flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_WHILE:
+    case IR_UNTIL:
         if (while_cond_emittable(nd->α)) {
             flat_drive_while(nd, lbl_γ, lbl_ω, lbl_β);
         } else {
@@ -1348,19 +1348,19 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             emit_jmp_label(lbl_ω, JMP_JMP);
         }
         break;
-    case BB_NEG:
-    case BB_POS:
-    case BB_NONNULL:
-    case BB_NULL_TEST:
-    case BB_SIZE:
-    case BB_NOT:        flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_INITIAL:    flat_drive_initial(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_CASE:       flat_drive_case(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_FIELD_GET:  flat_drive_field_get(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_FIELD_SET:  flat_drive_field_set(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_IDX:        flat_drive_idx_get(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_IDX_SET:    flat_drive_idx_set(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case BB_LIST_BANG:  flat_drive_list_bang(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_NEG:
+    case IR_POS:
+    case IR_NONNULL:
+    case IR_NULL_TEST:
+    case IR_SIZE:
+    case IR_NOT:        flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_INITIAL:    flat_drive_initial(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_CASE:       flat_drive_case(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_FIELD_GET:  flat_drive_field_get(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_FIELD_SET:  flat_drive_field_set(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_IDX:        flat_drive_idx_get(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_IDX_SET:    flat_drive_idx_set(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIST_BANG:  flat_drive_list_bang(nd, lbl_γ, lbl_ω, lbl_β); break;
     default:
         emit_label_define_bb(lbl_β);
         emit_jmp_label(lbl_ω, JMP_JMP);
@@ -1406,7 +1406,7 @@ static int g_in_prebuild = 0;
 static int g_text_child_counter = 0;
 static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix) {
     if (!nd) return;
-    if (nd->t == BB_PAT_ARBNO || nd->t == BB_PAT_ASSIGN_COND || nd->t == BB_PAT_ASSIGN_IMM || nd->t == BB_PAT_CALLOUT) {
+    if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM || nd->t == IR_PAT_CALLOUT) {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
             pre_build_children_text(ch, out, base_prefix);
@@ -1429,11 +1429,11 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pre_build_children(IR_t *nd) {
     if (!nd) return;
-    if (nd->t == BB_PAT_ARBNO || nd->t == BB_PAT_ASSIGN_COND || nd->t == BB_PAT_ASSIGN_IMM || nd->t == BB_PAT_CALLOUT) {
+    if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM || nd->t == IR_PAT_CALLOUT) {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
             pre_build_children(ch);
-            bb_box_fn fn = (nd->t == BB_PAT_ARBNO || nd->t == BB_PAT_ASSIGN_COND || nd->t == BB_PAT_ASSIGN_IMM) ? bb_build_brokered(ch) : bb_build_flat(ch);
+            bb_box_fn fn = (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM) ? bb_build_brokered(ch) : bb_build_flat(ch);
             child_cache_put(ch, fn);
         }
         return;

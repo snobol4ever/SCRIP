@@ -1,14 +1,14 @@
-/* bb_to_by.cpp — BB template for BB_TO_BY (Icon `lo to hi by step`, int + real).
+/* bb_to_by.cpp — BB template for IR_TO_BY (Icon `lo to hi by step`, int + real).
    ICN-T-2 / JA-2, GOAL-BB-TEMPLATE-LADDER. One file per BB kind per RULES.md.
    x86 only — IS_JVM/JS/NET/WASM arms stub (RULES.md: x86 only for now).
 
    Lowering (lower_icn.c TT_TO_BY): α=lo operand box, β=hi operand box, ival=step,
-   sval="i"/"r". The four-port generator mirrors bb_exec.c BB_TO_BY (mode-2 reference):
+   sval="i"/"r". The four-port generator mirrors bb_exec.c IR_TO_BY (mode-2 reference):
      α (fresh): cur = lo;            then fall into check
      β (retry): cur += by;           then fall into check
      check    : (by>=0 ? cur>hi : cur<hi) → ω (exhausted); else yield cur via γ.
 
-   LITERAL FAST-PATH (JA-2 step 1): when both bound operands are BB_LIT_I, lo/hi are
+   LITERAL FAST-PATH (JA-2 step 1): when both bound operands are IR_LIT_I, lo/hi are
    compile-time constants read off the operand nodes (α->ival / β->ival) — fully
    self-contained inline x86, no operand-box value read, no C Byrd box. Mirrors
    bb_iterate / bb_upto counter idiom. State (cur) lives in a per-node .data quad
@@ -33,16 +33,16 @@ static std::string bb_to_by_str(IR_t * pBB, bb_bin_t & bin) {
         int id = bb_node_id(pBB);
         int is_real = (pBB->sval != NULL && pBB->sval[0] == 'r');
         int64_t by_i = pBB->ival ? pBB->ival : 1;
-        /* Literal fast-path detection: both bounds are BB_LIT_I operand boxes. */
+        /* Literal fast-path detection: both bounds are IR_LIT_I operand boxes. */
         int lit_bounds = (!is_real && pBB->α && pBB->β &&
-                          pBB->α->t == BB_LIT_I && pBB->β->t == BB_LIT_I);
+                          pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I);
         int64_t lo_i = lit_bounds ? pBB->α->ival : 0;
         int64_t hi_i = lit_bounds ? pBB->β->ival : 0;
-        /* IBB-TOBY-REAL: literal-real bounds (`1.0 to 2.0 by 0.5`) — α/β are BB_LIT_F, step bit-cast  */
+        /* IBB-TOBY-REAL: literal-real bounds (`1.0 to 2.0 by 0.5`) — α/β are IR_LIT_F, step bit-cast  */
         /* in pBB->ival. Read lo/hi/step as doubles (bit-cast to u64 for the call) and emit a generator */
         /* driven by rt_toby_real (mirrors the mode-2 real arm → m2==m3 by construction).           */
         int lit_real = (is_real && pBB->α && pBB->β &&
-                        pBB->α->t == BB_LIT_F && pBB->β->t == BB_LIT_F);
+                        pBB->α->t == IR_LIT_F && pBB->β->t == IR_LIT_F);
 
         if (MEDIUM_MACRO_DEF)
             return s_comment("# no macro form — TO_BY");
@@ -174,7 +174,7 @@ static std::string bb_to_by_str(IR_t * pBB, bb_bin_t & bin) {
             /* M3-RK-NOINTERP-1a (Sonnet 4.6, 2026-05-28): yield DT_I(cur) via rt_push_int — matches      */
             /* bb_to.cpp MEDIUM_BINARY (IBB-3 e612d519) and the MEDIUM_TEXT arm above (line ~89-90).      */
             /* The prior r12-write path is incompatible with sm_run_native (mode-3 native), which is     */
-            /* the only consumer of BB_TO_BY MEDIUM_BINARY today: neither sm_run_native nor XA_FLAT_     */
+            /* the only consumer of IR_TO_BY MEDIUM_BINARY today: neither sm_run_native nor XA_FLAT_     */
             /* PROLOGUE initialises r12, so the four `r12`-relative writes that followed segfaulted or   */
             /* corrupted memory, then the SM rt-vstack hit underflow. Convention: cur is in rcx; SysV    */
             /* puts arg0 in rdi.                                                                          */

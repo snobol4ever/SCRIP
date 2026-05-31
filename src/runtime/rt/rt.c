@@ -1260,15 +1260,15 @@ void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval)
 {
     extern Term **g_resolve_env;
     switch (kind) {
-    case BB_LOGICVAR: {
+    case IR_LOGICVAR: {
         int slot = (int)ival;
         Term *t = (g_resolve_env && slot >= 0 && g_resolve_env[slot]) ? term_deref(g_resolve_env[slot]) : NULL;
         if (!t) { t = term_new_var(slot); if (g_resolve_env && slot >= 0) g_resolve_env[slot] = t; }
         return t;
     }
-    case BB_ATOM:  return term_new_atom(prolog_atom_intern(sval ? sval : "[]"));
-    case BB_LIT_F: return term_new_float(dval);
-    case BB_LIT_I: return term_new_int(ival);
+    case IR_ATOM:  return term_new_atom(prolog_atom_intern(sval ? sval : "[]"));
+    case IR_LIT_F: return term_new_float(dval);
+    case IR_LIT_I: return term_new_int(ival);
     default:       return term_new_int(ival);
     }
 }
@@ -1367,12 +1367,12 @@ long rt_pl_arith(int lk, long li, const char *ls,
     extern Term **g_resolve_env;
     (void)ls; (void)rs;
     long lv = li;
-    if (lk == BB_LOGICVAR && g_resolve_env && li >= 0) {
+    if (lk == IR_LOGICVAR && g_resolve_env && li >= 0) {
         Term *t = g_resolve_env[li] ? term_deref(g_resolve_env[li]) : NULL;
         if (t && t->tag == TERM_INT) lv = t->ival;
     }
     long rv = ri;
-    if (rk == BB_LOGICVAR && g_resolve_env && ri >= 0) {
+    if (rk == IR_LOGICVAR && g_resolve_env && ri >= 0) {
         Term *t = g_resolve_env[ri] ? term_deref(g_resolve_env[ri]) : NULL;
         if (t && t->tag == TERM_INT) rv = t->ival;
     }

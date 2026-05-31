@@ -1,7 +1,7 @@
-/* bb_limit.cpp — BB template glue for BB_LIMIT (Icon `gen \ N` generator limitation).
+/* bb_limit.cpp — BB template glue for IR_LIMIT (Icon `gen \ N` generator limitation).
    IBB-LIMIT (2026-05-29). x86 only — IS_JVM/JS/NET/WASM stub (RULES.md).
 
-   JCON ir_a_Limit + mode-2 reference (bb_exec.c BB_LIMIT): the limit count is evaluated ONCE and
+   JCON ir_a_Limit + mode-2 reference (bb_exec.c IR_LIMIT): the limit count is evaluated ONCE and
    cached; the wrapped generator (pBB->α) is pumped up to N times, each yield bumping a counter; when
    the counter reaches N OR the generator fails, the limitation fails. No value is produced by this
    node directly — the yielded value flows from the wrapped generator.
@@ -41,7 +41,7 @@ extern "C" void bb_limit_begin(IR_t * pBB) {
     uint64_t count_slot = (uint64_t)(uintptr_t)&pBB->counter;
     uint64_t fn; { int (*fp)(DESCR_t*, int64_t*) = rt_limit_begin; fn = (uint64_t)(uintptr_t)(void*)fp; }
     if (MEDIUM_TEXT) {
-        std::string s = s_comment("# BOX BB_LIMIT begin (rt_limit_begin: cache max, count=0)")
+        std::string s = s_comment("# BOX IR_LIMIT begin (rt_limit_begin: cache max, count=0)")
              + s_2asm("movabs rdi,", emit_fmt("%llu", (unsigned long long)max_slot))
              + s_2asm("movabs rsi,", emit_fmt("%llu", (unsigned long long)count_slot))
              + s_2asm("movabs rax,", emit_fmt("%llu", (unsigned long long)fn))
@@ -76,7 +76,7 @@ extern "C" void bb_limit_inc(IR_t * pBB) {
     uint64_t count_slot = (uint64_t)(uintptr_t)&pBB->counter;
     uint64_t fn; { int (*fp)(int64_t*) = rt_limit_inc; fn = (uint64_t)(uintptr_t)(void*)fp; }
     if (MEDIUM_TEXT) {
-        std::string s = s_comment("# BOX BB_LIMIT inc (rt_limit_inc: count++) + jmp γ")
+        std::string s = s_comment("# BOX IR_LIMIT inc (rt_limit_inc: count++) + jmp γ")
              + s_2asm("movabs rdi,", emit_fmt("%llu", (unsigned long long)count_slot))
              + s_2asm("movabs rax,", emit_fmt("%llu", (unsigned long long)fn))
              + s_2asm("call", "rax")
@@ -106,7 +106,7 @@ extern "C" void bb_limit_more(IR_t * pBB) {
     uint64_t count_slot = (uint64_t)(uintptr_t)&pBB->counter;
     uint64_t fn; { int (*fp)(DESCR_t*, int64_t*) = rt_limit_more; fn = (uint64_t)(uintptr_t)(void*)fp; }
     if (MEDIUM_TEXT) {
-        std::string s = s_comment("# BOX BB_LIMIT more (rt_limit_more: counter<max?) jz ω; jmp gen_resume")
+        std::string s = s_comment("# BOX IR_LIMIT more (rt_limit_more: counter<max?) jz ω; jmp gen_resume")
              + s_2asm("movabs rdi,", emit_fmt("%llu", (unsigned long long)max_slot))
              + s_2asm("movabs rsi,", emit_fmt("%llu", (unsigned long long)count_slot))
              + s_2asm("movabs rax,", emit_fmt("%llu", (unsigned long long)fn))
@@ -137,11 +137,11 @@ extern "C" void bb_limit_more(IR_t * pBB) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Legacy node-entry symbol (BB_LIMIT was previously a stub routed from emit_core.c). The flat driver  */
+/* Legacy node-entry symbol (IR_LIMIT was previously a stub routed from emit_core.c). The flat driver  */
 /* now owns all control flow; this remains only so the emit_core dispatch table links. It must never   */
 /* be reached for an Icon limit (the driver handles it) — abort loudly if it is.                        */
 extern "C" void bb_limit(IR_t * pBB) {
     (void)pBB;
-    fprintf(stderr, "[IBB] FATAL bb_limit: node-entry template reached — BB_LIMIT must route through flat_drive_limit\n");
+    fprintf(stderr, "[IBB] FATAL bb_limit: node-entry template reached — IR_LIMIT must route through flat_drive_limit\n");
     abort();
 }

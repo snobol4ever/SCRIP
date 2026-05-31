@@ -1,9 +1,9 @@
-/* bb_initial.cpp — BB template for BB_INITIAL (Icon `initial expr` one-shot at procedure entry).
+/* bb_initial.cpp — BB template for IR_INITIAL (Icon `initial expr` one-shot at procedure entry).
    IBB-9-INITIAL (Opus 4.8, 2026-05-29). One file per BB kind per RULES.md. x86 only.
 
    JCON ir_a_Initial (irgen.icn:621-639): run the initial-clause expression on the FIRST entry to the
    procedure body, no-op on every subsequent entry; the clause never fails (expr.failure → p.success).
-   Mode-2 reference (bb_exec.c BB_INITIAL): a has-run flag in bb->ival gates the body; first entry sets
+   Mode-2 reference (bb_exec.c IR_INITIAL): a has-run flag in bb->ival gates the body; first entry sets
    the flag and runs bb->α, then returns bb->γ with value NULVCL.
 
    Mode-3 transcription: the has-run flag is a RUNTIME slot — &pBB->counter (calloc-zeroed at node
@@ -40,7 +40,7 @@ extern "C" {
 static std::string bb_initial_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — BB_INITIAL");
+    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_INITIAL");
     int n = g_emit.xa_bb_emit_pair_n;
     if (n < 3 || !pBB) {
         bin = { {1, 5, 6}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
@@ -54,7 +54,7 @@ static std::string bb_initial_str(IR_t * pBB, bb_bin_t & bin) {
 
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment("# BOX BB_INITIAL (once-guard: skip body if flag set, else set + run)")
+             + s_comment("# BOX IR_INITIAL (once-guard: skip body if flag set, else set + run)")
              + s_2asm("movabs rax,", emit_fmt("%llu", (unsigned long long)slot))
              + s_2asm("mov rcx,", "[rax]")
              + s_2asm("test", "rcx, rcx")

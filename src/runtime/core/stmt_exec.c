@@ -300,7 +300,7 @@ int exec_stmt(const char  *subj_name,
                 if (is_combinator)      pp_cfg = patnd_to_bb_tree(pp);
                 else if (needs_xlate)   pp_cfg = patnd_to_bb_graph(pp);
                 IR_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (IR_t *)pp;
-                int is_cap = pp_bb && (((IR_t*)pp_bb)->t == BB_PAT_ASSIGN_COND || ((IR_t*)pp_bb)->t == BB_PAT_ASSIGN_IMM);
+                int is_cap = pp_bb && (((IR_t*)pp_bb)->t == IR_PAT_ASSIGN_COND || ((IR_t*)pp_bb)->t == IR_PAT_ASSIGN_IMM);
                 bb_box_fn bfn = is_cap ? bb_build_brokered(pp_bb) : bb_build_flat(pp_bb);
                 if (bfn) {
                     root.fn     = bfn;

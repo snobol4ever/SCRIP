@@ -1,8 +1,8 @@
-/* bb_to.cpp — BB template for BB_TO (`lo to hi`, implicit step +1).
+/* bb_to.cpp — BB template for IR_TO (`lo to hi`, implicit step +1).
    IBB-3 / JA-2b, GOAL-ICON-BB. One file per BB kind per RULES.md.
    x86 only — IS_JVM/JS/NET/WASM arms stub (RULES.md: x86 only for now).
 
-   BB_TO is the language-ignorant counted-integer generator. Today the only frontend
+   IR_TO is the language-ignorant counted-integer generator. Today the only frontend
    producing it is Icon (`lower_icn.c` TT_TO) but the opcode and template carry no
    language identity (per Lon directive 2026-05-28: BB_* / SM_* opcodes and templates
    are language-independent operations).
@@ -10,7 +10,7 @@
    Lowering (lower_icn.c TT_TO): two shapes.
      LITERAL  : both bounds TT_ILIT → α/β NULL; lo in ival, hi bit-cast in dval.
      DYNAMIC  : non-literal bound(s) → α=lo operand box, β=hi operand box.
-   The four-port generator mirrors bb_exec.c BB_TO (mode-2 reference) with step +1:
+   The four-port generator mirrors bb_exec.c IR_TO (mode-2 reference) with step +1:
      α (fresh): cur = lo;            then fall into check
      β (retry): cur += 1;            then fall into check
      check    : cur > hi → ω (exhausted); else yield DT_I(cur) via γ.

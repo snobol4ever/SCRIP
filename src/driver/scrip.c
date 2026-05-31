@@ -412,7 +412,7 @@ int main(int argc, char **argv)
                     if (!g || !g->all) continue;
                     for (int _ni = 0; _ni < g->n; _ni++) {
                         IR_t *nd = g->all[_ni];
-                        if (nd && nd->t == BB_RECORD_DEF && nd->sval) dat_register(nd->sval);
+                        if (nd && nd->t == IR_RECORD_DEF && nd->sval) dat_register(nd->sval);
                     }
                 }
             }

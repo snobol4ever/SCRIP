@@ -86,7 +86,7 @@ static std::string bb_pat_break_str(IR_t * pBB, bb_bin_t & bin) {
              * cset char (Δ += z, jmp γ); β recovers z_orig = Δ - z, steps past (z++), rescans to
              * the NEXT cset char (jmp γ on found, jmp ω on exhausted). z lives in [zeta+8]; z_orig
              * is recovered arithmetically (no second slot). Sites: γ(139)/ω(144)/β-DEF(148)/γ(293)/
-             * ω(298), all assembled+verified via `as`. Mirrors bb_exec.c BB_PAT_BREAK ival==1 arm. */
+             * ω(298), all assembled+verified via `as`. Mirrors bb_exec.c IR_PAT_BREAK ival==1 arm. */
             bin = { {139, 144, 148, 293, 298},
                     {_.lbl_γ_p, _.lbl_ω_p, _.lbl_β_p, _.lbl_γ_p, _.lbl_ω_p},
                     {false, false, true, false, false} };

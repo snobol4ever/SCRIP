@@ -1,7 +1,7 @@
-/* bb_case.cpp — BB template glue for BB_CASE (Icon `case E of { K: V; ...; default: VD }`).
+/* bb_case.cpp — BB template glue for IR_CASE (Icon `case E of { K: V; ...; default: VD }`).
    IBB-9-CASE (Opus 4.8, 2026-05-29). x86 only — IS_JVM/JS/NET/WASM stub (RULES.md).
 
-   JCON ir_a_Case + mode-2 reference (bb_exec.c BB_CASE): the selector is evaluated ONCE; each clause
+   JCON ir_a_Case + mode-2 reference (bb_exec.c IR_CASE): the selector is evaluated ONCE; each clause
    key is compared to it (numeric equality iff both are integers, else string equality); on the first
    match the clause value is evaluated and becomes the case result. A trailing lone clause body is the
    default. No backtracking — case is a bounded selector.
@@ -38,7 +38,7 @@ extern "C" void bb_case_store(IR_t * pBB) {
     uint64_t slot = (uint64_t)(uintptr_t)&pBB->value;
     uint64_t fn;  { void (*fp)(void *) = rt_pop_store_descr; fn = (uint64_t)(uintptr_t)(void*)fp; }
     if (MEDIUM_TEXT) {
-        std::string s = s_comment("# BOX BB_CASE store selector (rt_pop_store_descr)")
+        std::string s = s_comment("# BOX IR_CASE store selector (rt_pop_store_descr)")
              + s_2asm("movabs rdi,", emit_fmt("%llu", (unsigned long long)slot))
              + s_2asm("movabs rax,", emit_fmt("%llu", (unsigned long long)fn))
              + s_2asm("call", "rax");
@@ -61,7 +61,7 @@ extern "C" void bb_case_gate(IR_t * pBB) {
     uint64_t fn_eq;  { void (*fp)(const void *) = rt_case_eq; fn_eq  = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t fn_lok; { int  (*fp)(void)         = rt_last_ok; fn_lok = (uint64_t)(uintptr_t)(void*)fp; }
     if (MEDIUM_TEXT) {
-        std::string s = s_comment("# BOX BB_CASE clause gate (rt_case_eq + LAST_OK branch)")
+        std::string s = s_comment("# BOX IR_CASE clause gate (rt_case_eq + LAST_OK branch)")
              + s_2asm("movabs rdi,", emit_fmt("%llu", (unsigned long long)slot))
              + s_2asm("movabs rax,", emit_fmt("%llu", (unsigned long long)fn_eq))
              + s_2asm("call", "rax")

@@ -1,4 +1,4 @@
-/* bb_conj.cpp — BB template for BB_GCONJ: Prolog conjunction (a, b, c).
+/* bb_conj.cpp — BB template for IR_GCONJ: Prolog conjunction (a, b, c).
    AGW-9A (2026-05-27). Mirrors bb_pat_cat.cpp: the driver flat_drive_pl_seq in emit_bb.c
    owns all recursion + label minting (byte-free) and populates g_emit.xa_bb_emit_pair_* with the
    conjunction glue (the β-chain jmp into the last goal's β). This template is the leaf that

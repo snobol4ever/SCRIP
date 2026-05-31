@@ -1,4 +1,4 @@
-/* bb_disj.cpp — BB template for BB_DISJ: Prolog `;` disjunction (`( A ; B )`).
+/* bb_disj.cpp — BB template for IR_DISJ: Prolog `;` disjunction (`( A ; B )`).
    AGW-9B-3 (2026-05-27). Same dispatcher structure as bb_choice but n is always 2 (the two
    branches stored as nd->α / nd->β by lower_pl). The branches were ALREADY wired by lower_pl
    (a.γ=γ_in, a.ω=b.α; b.γ=γ_in, b.ω=ω_in), so the bodies self-chain through their own node-pointer
