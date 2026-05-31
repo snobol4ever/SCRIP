@@ -1746,8 +1746,16 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_BINOP: {
         if (!bb->α && !bb->β) {
-            DESCR_t rv = ag_ring_peek(g_current_cfg, 0);
-            DESCR_t lv = ag_ring_peek(g_current_cfg, 1);
+            int n_aux = 0;
+            IR_t * const * aux = bb_operand_aux_get(g_current_cfg, bb, &n_aux);
+            DESCR_t lv, rv;
+            if (aux && n_aux == 2 && aux[0] && aux[1]) {
+                lv = aux[0]->value;     /* named operand slots (jcon ir_a_Binop: opfn reads [lv,rv]); robust for nested generators */
+                rv = aux[1]->value;
+            } else {
+                rv = ag_ring_peek(g_current_cfg, 0);
+                lv = ag_ring_peek(g_current_cfg, 1);
+            }
             if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { bb->value = FAILDESCR; return bb->ω; }
             int rel_fail = 0;
             DESCR_t result = binop_apply((BinopKind)bb->ival, lv, rv, &rel_fail);
@@ -1935,49 +1943,12 @@ IR_t * bb_exec_node(IR_t * bb) {
     case IR_EVERY: {
         if (!bb->α) { bb->value = NULVCL; return bb->γ; }
         if (bb->ival == 0) {
-            IR_t * start = bb->α;
-            int safety = (g_current_cfg ? g_current_cfg->n : 64) * 256 + 1024;
-            if (start && start->ω && start->γ && start->ω->γ == start->γ) {
-                IR_t * funnel = start->γ;
-                int all_single = 1;
-                for (IR_t * a = start; a && a->γ == funnel; a = a->ω) if (!ir_is_single_shot(a)) { all_single = 0; break; }
-                if (all_single) {
-                    for (IR_t * arm = start->ω; arm && arm->γ == funnel && safety-- > 0; arm = arm->ω) {
-                        IR_t * cur = arm;
-                        int looped = 0;
-                        while (cur && safety-- > 0) {
-                            IR_t * next = bb_exec_node(cur);
-                            if (next == bb) { looped = 1; break; }
-                            if (!next) break;
-                            ag_ring_push(g_current_cfg, cur->value);
-                            cur = next;
-                        }
-                        if (!looped) break;
-                        if (frame_depth > 0 && (FRAME.loop_break || FRAME.returning)) break;
-                        if (frame_depth > 0) FRAME.loop_next = 0;
-                    }
-                    if (frame_depth > 0 && FRAME.loop_break) FRAME.loop_break = 0;
-                    bb->value = NULVCL;
-                    return bb->γ;
-                }
-            }
-            while (safety-- > 0) {
-                IR_t * cur = start;
-                int looped = 0;
-                DESCR_t lastv = FAILDESCR;
-                while (cur && safety-- > 0) {
-                    IR_t * next = bb_exec_node(cur);
-                    lastv = cur->value;
-                    if (next == bb) { looped = 1; break; }
-                    if (!next) break;
-                    ag_ring_push(g_current_cfg, cur->value);
-                    cur = next;
-                }
-                if (!looped) break;
-                if (IS_FAIL_fn(lastv)) break;
-                if (frame_depth > 0 && (FRAME.loop_break || FRAME.returning)) break;
-                if (frame_depth > 0) FRAME.loop_next = 0;
-            }
+            /* jcon ir_a_Every: iterations 2+ resume the generator via expr.resume (the ω-backtrack chain).
+               With the resume ports wired (write/call.resume -> last-arg.resume; binop/to/alt resume -> inner),
+               the generator chain SELF-DRIVES under the top-level port follower (bb_exec_once enters at the
+               generator start, runs the body on each value, and re-pumps the innermost generator). The EVERY
+               node sits only on the generator's failure edge (E1.ω = ev), so it is reached EXACTLY ONCE, after
+               the whole sequence is exhausted. Re-driving here would double the output, so we just succeed. */
             if (frame_depth > 0 && FRAME.loop_break) FRAME.loop_break = 0;
             bb->value = NULVCL;
             return bb->γ;
@@ -2114,10 +2085,47 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_ALT: {
         if (!bb->α) {
-            DESCR_t v = ag_ring_peek(g_current_cfg, 0);
-            if (IS_FAIL_fn(v)) { bb->value = FAILDESCR; return bb->ω; }
-            bb->value = v;
-            return bb->γ;
+            int n_arm = 0;
+            IR_t * const * arms = bb_operand_aux_get(g_current_cfg, bb, &n_arm);
+            if (!arms || n_arm <= 0) {
+                DESCR_t v = ag_ring_peek(g_current_cfg, 0);
+                if (IS_FAIL_fn(v)) { bb->value = FAILDESCR; return bb->ω; }
+                bb->value = v;
+                return bb->γ;
+            }
+            if (bb->state == 0) {
+                /* forward entry: the chain driver entered at entry[0] and drove arm[0] to its first value
+                   (now on ring[0]). Emit it and arm the resume cursor at arm 0. */
+                DESCR_t v = ag_ring_peek(g_current_cfg, 0);
+                if (IS_FAIL_fn(v)) { bb->value = FAILDESCR; return bb->ω; }
+                bb->value   = v;
+                bb->counter = 0;
+                bb->state   = 1;
+                return bb->γ;
+            }
+            int ci = (int)bb->counter;
+            IR_t * cur;
+            if (ci >= 0 && ci < n_arm && arms[ci] && bb_is_gen_node(arms[ci])) {
+                bb_exec_node(arms[ci]);
+                if (!IS_FAIL_fn(arms[ci]->value)) { bb->value = arms[ci]->value; return bb->γ; }
+                cur = arms[ci]->ω;
+            } else {
+                cur = (ci >= 0 && ci < n_arm && arms[ci]) ? arms[ci]->ω : NULL;
+            }
+            int safety2 = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
+            while (cur && safety2-- > 0) {
+                if (cur == bb->ω) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+                IR_t * nxt = bb_exec_node(cur);
+                if (nxt == bb) {
+                    bb->value = cur->value;
+                    for (int j = 0; j < n_arm; j++) if (arms[j] == cur) { bb->counter = j; break; }
+                    return bb->γ;
+                }
+                if (!nxt) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+                ag_ring_push(g_current_cfg, cur->value);
+                cur = nxt;
+            }
+            bb->state = 0; bb->value = FAILDESCR; return bb->ω;
         }
         #define ALT_IS_GEN(k) ( \
             (k) == IR_TO || (k) == IR_TO_BY || (k) == IR_UPTO || \

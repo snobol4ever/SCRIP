@@ -48,6 +48,13 @@
 #include <string.h>
 #include <stdarg.h>
 #include <gc/gc.h>
+/* GZ-6 mode-2/mode-3 SEAM. The deterministic-builtin CALL's resume port is wired to its argument's resume
+   (aβ) so the mode-2 port-walker (bb_exec.c) re-pumps a generator argument — jcon ir_a_Call's
+   call.resume -> last-arg.resume. The mode-3 ring->tree adapter (driver/scrip.c icn_ring_to_tree) does not
+   yet model that re-pump cycle (Lon's Path-1/Path-2 fork), so for mode-3 the CALL stays deterministic
+   (resume -> ω_in), byte-identical to the pre-GZ6 graph. The driver sets this to 1 only for the in-process
+   Icon mode-2 (--interp) path before lowering. Default 0 keeps every other path on the old wiring. */
+int g_icn_postfix_resume = 0;
 /*====================================================================================================================================================================================================*/
 /* CURSOR — threaded through the descent. `role` selects the rule family; `bbg` is the graph populated;
  * `bounded` is the inherited single-value flag (jcon's `bounded`): when set, generator boxes may collapse
@@ -131,8 +138,10 @@ static IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nki
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* wire_alt — n-ary alternation, wrapped by a `kind` node (jcon ir_a_Alt). Each arm's success funnels to
  * the node; the fail-chain threads arm[i].ω -> arm[i+1].α (try the next alternative), the last arm's fail
- * -> ω_in. The node is its own resume (the runtime alt-gate dispatches β to the currently-active arm,
- * whose resume pointer lives in the operand_aux sidecar — PEERS rule, no fields added to IR_t).           */
+ * -> ω_in. The node is its own resume; on resume the IR_ALT collector re-pumps the active arm (if it is a
+ * generator) or fail-chains to the next arm (single-shot). The ordered arm VALUE-nodes live in the
+ * operand_aux sidecar (PEERS rule, no fields added to IR_t): operand_aux[i] is arm[i]'s apply node, from
+ * which the executor reads arm[i].value and follows arm[i].ω to the next alternative.                      */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (nkids < 1) return NULL;
@@ -152,9 +161,9 @@ static IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nki
         IR_t * next = (j + 1 < nkids) ? entry[j + 1] : ω_in;   /* arm[j].fail -> arm[j+1].start ; last -> ω_in */
         if (!apply[j]->ω) apply[j]->ω = next;
     }
-    bb_operand_aux_set(cx.bbg, node, resume, nkids);
+    bb_operand_aux_set(cx.bbg, node, apply, nkids);
     set_succ_fail(node, γ_in, ω_in);
-    return ret(node, α_out, β_out, entry[0], node /* node is its own resume; gate dispatches to active arm */);
+    return ret(node, α_out, β_out, entry[0], node /* node is its own resume; collector dispatches to active arm */);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* flatten_seq — collapse a right/left-nested chain of `kind` tree nodes into a flat kids[] array (concat
@@ -303,6 +312,8 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     IR_t * c2 = lower2(cx, e->c[1], bin /*E2.γ -> bin*/, e1β /*E2.ω -> E1.β*/, &e2α, &e2β);
     if (!c2) return NULL;
     if (!c1->γ) c1->γ = e2α;            /* patch E1.succeed -> E2.start */
+    IR_t * binops[2] = { c1, c2 };
+    bb_operand_aux_set(cx.bbg, bin, binops, 2);
     set_succ_fail(bin, γ_in, ω_in);
     return ret(bin, α_out, β_out, e1α, e2β);
 }
@@ -988,9 +999,9 @@ static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn,
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * a = lower2(av, arg_t, call /*arg.γ -> call*/, ω_in, &aα, &aβ);
     if (!a) return NULL;
-    (void) aβ;
     set_succ_fail(call, γ_in, ω_in);
-    return ret(call, α_out, β_out, aα, ω_in /* deterministic: resume -> fail */);
+    IR_t * call_resume = g_icn_postfix_resume ? aβ : ω_in;
+    return ret(call, α_out, β_out, aα, call_resume);
 }
 /*====================================================================================================================================================================================================*/
 /* GOAL ROLE — `=/2` unification (Prolog). A deterministic-at-most-once goal: bind LHS≈RHS, succeed once,
