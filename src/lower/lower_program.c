@@ -181,14 +181,26 @@ stage2_t *lower(const tree_t *prog) {
                     if (stmt_attr_find(s, ":pat")) continue;
                     tree_t *repl = lp_s_expr(s, ":repl");
                     if (!repl) continue;
-                    tree_t *asn = ast_stmt_new(TT_ASSIGN);
-                    if (!asn) continue;
-                    ast_push(asn, subj);
-                    ast_push(asn, repl);
-                    expr = asn;
+                    if (subj->t == TT_SCAN && subj->n >= 2) {
+                        tree_t *scn = ast_stmt_new(TT_SCAN);
+                        if (!scn) continue;
+                        ast_push(scn, subj->c[0]);
+                        ast_push(scn, subj->c[1]);
+                        ast_push(scn, repl);
+                        expr = scn;
+                    } else {
+                        tree_t *asn = ast_stmt_new(TT_ASSIGN);
+                        if (!asn) continue;
+                        ast_push(asn, subj);
+                        ast_push(asn, repl);
+                        expr = asn;
+                    }
                 }
                 IR_t *α = NULL, *β = NULL;
-                IR_t *top = lower2_value_entry(g, expr, next_α, PFAIL, &α, &β);
+                /* SNOBOL4 default control flow (SPITBOL ch.5): a statement that SUCCEEDS or FAILS — absent an
+                   explicit :S()/:F() goto — falls through to the NEXT statement. So both the success (γ_in) and
+                   failure (ω_in) exits thread to next_α. (Explicit goto wiring is a separate spine piece.) */
+                IR_t *top = lower2_value_entry(g, expr, next_α, next_α, &α, &β);
                 if (!top || !α) continue;
                 next_α = α;
                 built = 1;
