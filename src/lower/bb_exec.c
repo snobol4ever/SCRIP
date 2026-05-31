@@ -2904,31 +2904,8 @@ IR_t * bb_exec_node(IR_t * bb) {
             return bb->γ;
         }
         if (val.v == DT_P && val.p) {
-            const char *save_Σ = Σ; int save_Σlen = Σlen; int save_Ω = Ω; int save_Δ = Δ;
-            const char *sub = Σ + Δ; int sublen = Σlen - Δ;
-            IR_graph_t *sub_bb = patnd_to_bb_graph((PATND_t *)val.p);
-            if (sub_bb && sub_bb->entry) {
-                Σ = sub; Σlen = sublen; Ω = sublen; Δ = 0;
-                DESCR_t result = bb_exec_once(sub_bb);
-                int ok = !IS_FAIL_fn(result);
-                int matched = ok ? Δ : 0;
-                Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ;
-                if (!ok) { bb->value = FAILDESCR; return bb->ω; }
-                memcpy(&bb->dval, &sub_bb, sizeof sub_bb);
-                bb->counter = (int64_t)save_Δ;
-                Δ += matched;
-                bb->state = 1; bb->value = NULVCL;
-                return bb->γ;
-            }
-            Σ = sub; Σlen = sublen; Ω = sublen; Δ = 0;
-            DESCR_t sub_d = { .v = DT_S, .slen = (uint32_t)sublen, .s = (char *)sub };
-            int ok = exec_stmt(NULL, &sub_d, val, NULL, 0);
-            int matched = ok ? Δ : 0;
-            Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ;
-            if (!ok) { bb->value = FAILDESCR; return bb->ω; }
-            Δ += matched;
-            bb->state = 2; bb->value = NULVCL;
-            return bb->γ;
+            fprintf(stderr, "[PATND] IR_PAT_DEFER pattern-valued *var deref used the removed PATND->IR bridge; SNOBOL4 patterns are not yet BB-native (Track B). Aborting.\n");
+            abort();
         }
         bb->value = FAILDESCR;
         return bb->ω;

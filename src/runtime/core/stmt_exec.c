@@ -297,8 +297,10 @@ int exec_stmt(const char  *subj_name,
                 int is_combinator = patnd_is_combinator_root(pp);
                 int needs_xlate   = is_combinator || patnd_needs_xlate(pp);
                 IR_graph_t *pp_cfg = NULL;
-                if (is_combinator)      pp_cfg = patnd_to_bb_tree(pp);
-                else if (needs_xlate)   pp_cfg = patnd_to_bb_graph(pp);
+                if (is_combinator || needs_xlate) {
+                    fprintf(stderr, "[PATND] exec_stmt(LIVE): PATND->IR bridge removed; SNOBOL4 pattern match not yet BB-native (Track B). Aborting.\n");
+                    abort();
+                }
                 IR_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (IR_t *)pp;
                 int is_cap = pp_bb && (((IR_t*)pp_bb)->t == IR_PAT_ASSIGN_COND || ((IR_t*)pp_bb)->t == IR_PAT_ASSIGN_IMM);
                 bb_box_fn bfn = is_cap ? bb_build_brokered(pp_bb) : bb_build_flat(pp_bb);
@@ -320,8 +322,10 @@ int exec_stmt(const char  *subj_name,
             int arbno_combinator = patnd_contains_arbno(pp) && patnd_is_combinator_root(pp);
             int needs_xlate = patnd_needs_xlate(pp);
             IR_graph_t *pp_cfg = NULL;
-            if (defer_combinator || pure_altcat || arbno_combinator) pp_cfg = patnd_to_bb_tree(pp);
-            else if (needs_xlate)   pp_cfg = patnd_to_bb_graph(pp);
+            if (defer_combinator || pure_altcat || arbno_combinator || needs_xlate) {
+                fprintf(stderr, "[PATND] exec_stmt(BROKERED): PATND->IR bridge removed; SNOBOL4 pattern match not yet BB-native (Track B). Aborting.\n");
+                abort();
+            }
             IR_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (IR_t *)pp;
             bb_box_fn bfn = bb_build_brokered(pp_bb);
             if (bfn) {

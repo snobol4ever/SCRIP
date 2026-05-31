@@ -23,10 +23,7 @@ struct tree_t;
 IR_graph_t *lower_pl_predicate(struct tree_t *choice);
 IR_t *lower_pl_threaded(IR_graph_t *bbg, const struct tree_t *e, IR_t *γ_in, IR_t *ω_in, IR_t **α_out, IR_t **β_out);
 /*====================================================================================================================================================================================================*/
-struct _PATND_t;
 IR_graph_t * IR_lower_pat(const tree_t * pat_tree);
-IR_graph_t * patnd_to_bb_graph(struct _PATND_t * pp);
-IR_graph_t * patnd_to_bb_tree(struct _PATND_t * pp);
 /*====================================================================================================================================================================================================*/
 struct tree_t;
 typedef struct { bb_node_t gen[2]; int which; } alt_dcg_t;
