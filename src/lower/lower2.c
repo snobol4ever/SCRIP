@@ -356,3 +356,12 @@ static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * �
     fprintf(stderr, "[lower2] UNHANDLED role=%d kind=%d\n", (int)cx.role, e ? (int)e->t : -1);
     return ret(NULL, α_out, β_out, NULL, NULL);
 }
+/*====================================================================================================================================================================================================*/
+/* PROOF SHIM — non-static VALUE-role entry so prove_lower2.c (the topology proof harness) can drive the
+ * lowerer directly. Harmless to the eventual build (one tiny exported fn); KEEP IT so the proof stays
+ * reproducible. prove_lower2.c calls exactly this symbol.                                                 */
+/*====================================================================================================================================================================================================*/
+IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    lcx_t cx; cx.bbg = bbg; cx.role = ROLE_VALUE; cx.bounded = 0; cx.lang = 0;
+    return lower2(cx, e, γ_in, ω_in, α_out, β_out);
+}

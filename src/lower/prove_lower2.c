@@ -1,6 +1,15 @@
 /* prove_lower2.c — lower the paper's Figure-1 example through lower2() and dump port topology.
    Links: lower2.c + scrip_ir.c only. Provides local kind_is_resumable + cset_try_fold so the old
    lowerer is NOT linked. AST built by hand. Output: one line per IR node: idx kind α β γ ω.        */
+/* BUILD (cold session — links lower2.c + scrip_ir.c ONLY, NOT the old lowerer):
+ *   gcc -std=c99 -include string.h -I src -I src/include -I src/lower -I src/processor \
+ *       -I src/runtime/interp -I src/runtime/core -I src/runtime/rt -I src/runtime \
+ *       -I src/frontend/snobol4 -I src/driver -I src/emitter \
+ *       src/lower/lower2.c src/lower/scrip_ir.c src/lower/prove_lower2.c -lm -o /tmp/prove
+ *   /tmp/prove          # dumps each IR node idx + α/β/γ/ω to diff against Proebsting Fig 1/2.
+ * Swap the test expression in main() (lit/bin helpers) to prove other shapes.
+ * Requires the lower2_value_entry shim in lower2.c (kept there on purpose).            */
+
 #define BB_DEFINE_NAMES
 #include "IR.h"
 #include "ast.h"
