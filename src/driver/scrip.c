@@ -143,6 +143,44 @@ static IR_t * sno_ring_to_tree(IR_graph_t *g) {
     return NULL;
 }
 /*====================================================================================================================================================================================================*/
+/* PROLOG MODE-3 NATIVE FLAT-WALK ROOT RECOGNIZER (PLG-8-native, 2026-05-31). The interim mode-3 route (PLG-8) ran Prolog --run through bb_exec_once (the mode-2 interpreter + the AG ring on IR_graph_t) */
+/* — correct output, but that is the RING path, which is the mode-2 idiom only (Lon directive: rings are for mode-2 interp; WRONG for mode-3). Mode-3 must EMIT code+data INSIDE the boxes with values    */
+/* flowing UP the BB graph chain via per-box slots, exactly as test_sno_1.c / test_icon.c do (POS0/BIRD/mult_V live in the box and the consumer reads the producer's slot — no ring, no value stack). This  */
+/* recognizer returns the flat-walk ROOT (the principal IR_GCONJ in the main graph) for the shapes whose BB templates already emit a correct stackless box with NO ring traffic — today the ground          */
+/* hello-world tier: a single-clause body that is a conjunction of constant-arg builtins (write/writeln/print/nl/halt) and/or IR_SUCCEED/IR_CUT, with NO logic-variable slots (nslots==0) and NO             */
+/* user-proc call / choice / disjunction / ite / unify / arith goal. For every richer shape it returns NULL and the driver keeps the proven interim bb_exec_once route (zero regression) — the same          */
+/* widen-as-you-go gate sno_ring_to_tree uses for SNOBOL4. The GCONJ carries its goal entries in the bb_conj_state_t sidecar (node->ival); bb_builtin reads each arg from the goal's own alpha at emit time   */
+/* (write of an IR_ATOM -> mov rdi, imm64(atom); call rt_pl_write_atom), so the value is a sealed read-only constant read directly by its consumer — no rt_pl_atom_push ring push. Widens rung by rung.       */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_flat_goal_is_simple(const IR_t *g) {
+    if (!g) return 0;
+    switch (g->t) {
+    case IR_SUCCEED: case IR_CUT: case IR_ATOM: return 1;
+    case IR_BUILTIN: {
+        const char *fn = g->sval ? g->sval : "";
+        int is_io = (!strcmp(fn, "write") || !strcmp(fn, "writeln") || !strcmp(fn, "print") || !strcmp(fn, "nl") || !strcmp(fn, "halt"));
+        if (!is_io) return 0;
+        if (g->ival >= 1) { const IR_t *a = g->α; if (!a || (a->t != IR_ATOM && a->t != IR_LIT_I)) return 0; }
+        return 1;
+    }
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_flat_body_root(IR_graph_t *g) {
+    if (!g || !g->all || g->nslots > 0) return NULL;
+    IR_t *gconj = NULL;
+    for (int i = 0; i < g->n; i++) {
+        IR_t *nd = g->all[i];
+        if (nd && nd->t == IR_GCONJ) { if (gconj) return NULL; gconj = nd; }
+    }
+    if (!gconj) return (g->entry && g->entry->t == IR_SUCCEED) ? g->entry : NULL;
+    bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)gconj->ival;
+    if (!zs || !zs->goals || zs->ngoals <= 0) return NULL;
+    for (int i = 0; i < zs->ngoals; i++) if (!pl_flat_goal_is_simple(zs->goals[i])) return NULL;
+    return gconj;
+}
+/*====================================================================================================================================================================================================*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -680,6 +718,9 @@ int main(int argc, char **argv)
         if (is_prolog) {
             extern DESCR_t bb_exec_once(IR_graph_t * bbg);
             extern Term **g_resolve_env;
+            extern bb_box_fn bb_build_flat(IR_t * nd);
+            extern void *rt_frame(void);
+            extern int g_frame_active;
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) {
@@ -695,6 +736,18 @@ int main(int argc, char **argv)
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
             int nslots = pl_main->nslots > 0 ? pl_main->nslots : 1;
             g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 8) * sizeof(Term *));
+            /* PLG-8-native (2026-05-31): for the proven hello-world shape, EMIT the boxes natively via    */
+            /* bb_build_flat (code+data in the boxes; values up the chain in per-box slots; NO ring) and    */
+            /* run the JIT'd box, exactly as Icon/SNOBOL4 mode-3 do. Every richer shape -> pl_flat_body_root */
+            /* returns NULL and we keep the proven interim bb_exec_once route (no regression). Widen rung-   */
+            /* by-rung as the flat templates are verified for choice/unify/arith/user-call.                 */
+            IR_t *flat_root = pl_flat_body_root(pl_main);
+            if (flat_root) {
+                g_frame_active = 1;
+                bb_box_fn pfn = bb_build_flat(flat_root);
+                g_frame_active = 0;
+                if (pfn) { (void)pfn(rt_frame(), 0); goto run_done; }
+            }
             (void)bb_exec_once(pl_main);
             goto run_done;
         }
