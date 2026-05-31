@@ -41,6 +41,10 @@ static const char * kname(IR_e t) {
     case IR_PAT_LIT: return "PLIT"; case IR_PAT_REM: return "PREM"; case IR_PAT_ARB: return "PARB";
     case IR_PAT_SPAN: return "PSPAN"; case IR_PAT_ANY: return "PANY"; case IR_PAT_NOTANY: return "PNANY"; case IR_PAT_BREAK: return "PBRK";
     case IR_PAT_CAT: return "PCAT"; case IR_PAT_ALT: return "PALT";
+    case IR_PAT_LEN: return "PLEN"; case IR_PAT_POS: return "PPOS"; case IR_PAT_TAB: return "PTAB";
+    case IR_PAT_FENCE: return "PFNC"; case IR_PAT_ABORT: return "PABT"; case IR_PAT_ARBNO: return "PARBN";
+    case IR_PAT_ASSIGN_COND: return "PCAP"; case IR_PAT_ASSIGN_IMM: return "PCAPI"; case IR_PAT_ATP: return "PATP";
+    case IR_PAT_DEFER: return "PDEF";
     case IR_GCONJ: return "GCONJ"; case IR_DISJ: return "DISJ"; case IR_UNIFY: return "UNIFY"; case IR_ARITH: return "ARITH"; case IR_CUT: return "CUT";
     default: return "?";
     }
@@ -145,6 +149,45 @@ int main(void) {
          bin(TT_CAT, slit("WIN"), ast_node_new(TT_REM)), 3);
     dump_pat("SNOBOL4:  'A' | 'B' | 'C'   [PATTERN ALT = wire_alt(IR_PAT_ALT): fail-chain]",
          tri(TT_ALT, slit("A"), slit("B"), slit("C")), 4);
+    /* L2-P leaves — each case was wired 2026-05-31; proven here via node-count + port dump */
+    dump_pat("SNOBOL4:  LEN(3)   [IR_PAT_LEN: generator(resumable) β=self, single-choice match 3 chars]",
+         un(TT_LEN, lit(3)), 1);
+    dump_pat("SNOBOL4:  POS(2)   [IR_PAT_POS: bounded β=omega, cursor-check from left (SPITBOL ch.19)]",
+         un(TT_POS, lit(2)), 1);
+    dump_pat("SNOBOL4:  RPOS(1)  [IR_PAT_POS sval=r: bounded, cursor check from right (RPOS(1)=cursor==N-1)]",
+         un(TT_RPOS, lit(1)), 1);
+    dump_pat("SNOBOL4:  TAB(5)   [IR_PAT_TAB: generator, match chars up to cursor 5]",
+         un(TT_TAB, lit(5)), 1);
+    dump_pat("SNOBOL4:  RTAB(2)  [IR_PAT_TAB sval=r: generator, match to N-2 from end]",
+         un(TT_RTAB, lit(2)), 1);
+    dump_pat("SNOBOL4:  FENCE(bare)  [IR_PAT_FENCE: bounded; commits match, backtrack => fail (SPITBOL ch.9)]",
+         ast_node_new(TT_FENCE), 1);
+    /* FENCE(inner): inner lit is lowered first, FENCE is its successor; 2 real nodes */
+    { tree_t * fence_with = un(TT_FENCE, slit("if")); dump_pat("SNOBOL4:  FENCE('if')  [IR_PAT_LIT + IR_PAT_FENCE: inner.gamma->FENCE, FENCE bounded successor]", fence_with, 2); }
+    dump_pat("SNOBOL4:  ABORT    [IR_PAT_ABORT: bounded, immediately fails entire match (SPITBOL ch.9)]",
+         ast_node_new(TT_ABORT), 1);
+    /* SUCCEED in pattern context: nalloc(IR_SUCCEED) + emit_leaf — same IR kind as the sentinel but a
+       distinct newly-allocated node; resumable (kind_is_resumable returns 0 for IR_SUCCEED — NOT in the list)
+       → bounded path: β=ω_in. So 1 real node, like any other bounded leaf. */
+    dump_pat("SNOBOL4:  SUCCEED  [IR_SUCCEED: always succeeds; β=ω_in (not in kind_is_resumable)]",
+         ast_node_new(TT_SUCCEED), 1);
+    dump_pat("SNOBOL4:  FAIL(pat) [IR_FAIL: bounded, forces backtrack to seek alternatives (SPITBOL ch.9)]",
+         ast_node_new(TT_FAIL), 1);
+    /* ARBNO('ab'): outer graph has 1 IR_PAT_ARBNO; inner graph is a separate IR_alloc not counted here */
+    dump_pat("SNOBOL4:  ARBNO('ab')  [IR_PAT_ARBNO: shy generator; inner sub-graph in separate IR_alloc]",
+         un(TT_ARBNO, slit("ab")), 1);
+    /* Conditional capture 'abc' . X: inner LIT + ASSIGN_COND capture node = 2 real nodes */
+    { tree_t * cc = ast_node_new(TT_CAPT_COND_ASGN); ast_push(cc, slit("abc")); ast_push(cc, var("X"));
+      dump_pat("SNOBOL4:  'abc' . X  [IR_PAT_LIT + IR_PAT_ASSIGN_COND: inner.gamma->CAP, CAP.sval=X]", cc, 2); }
+    /* @P cursor capture: 1 IR_PAT_ATP node, resumable, sval=varname */
+    { tree_t * atp = ast_node_new(TT_CAPT_CURSOR); ast_push(atp, var("P"));
+      dump_pat("SNOBOL4:  @P  [IR_PAT_ATP: resumable cursor-capture; sval='P' (SPITBOL ch.9 @var)]", atp, 1); }
+    /* *var deferred pattern (TT_DEFER, ival=1): 1 IR_PAT_DEFER, resumable */
+    { tree_t * df = un(TT_DEFER, var("pat"));
+      dump_pat("SNOBOL4:  *pat  [IR_PAT_DEFER ival=1: resumable; var holds pattern resolved at match time]", df, 1); }
+    /* bare var in pattern context (TT_VAR, ival=0): 1 IR_PAT_DEFER */
+    dump_pat("SNOBOL4:  VAR(token)  [IR_PAT_DEFER ival=0: bare var ref, resolved as string match at runtime]",
+         var("token"), 1);
     /* ===== END SNOBOL4 SECTION ===== */
 
     /* ===== ICON SECTION — APPEND ICON (VALUE-role) CASES BELOW THIS LINE ===== */
