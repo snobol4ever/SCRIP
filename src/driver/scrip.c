@@ -106,6 +106,31 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     return stk[0];
 }
 /*====================================================================================================================================================================================================*/
+/* SNOBOL4 MODE-3 RING->TREE ADAPTER (SBL-M3-STACKLESS, 2026-05-31). The SNOBOL4 program graph is a       */
+/* gamma/omega-threaded CFG: leading landing IR_SUCCEED node(s) at statement boundaries, each statement a */
+/* postfix gamma-chain of its sub-expressions ending at the next landing / PSUCC. This adapter recognizes */
+/* ONLY the shapes for which a STACKLESS box exists today — currently the single-statement literal assign */
+/* `name = 'literal'` (landing -> IR_LIT_S -> IR_ASSIGN -> PSUCC): it folds the lit onto the assign's      */
+/* alpha (postfix) and returns the assign as root. EVERY other shape (multi-statement, IR_SCAN, IR_GOTO,  */
+/* IR_SEQ concat via isolated sub-graphs, arith, user-proc) returns NULL — the caller then SOFT-fails     */
+/* (honest stderr, clean exit, NO abort). No value stack is created anywhere (Lon directive). As more     */
+/* stackless boxes land, widen this adapter; it is the shared front-end both A-was-rejected and B use.    */
+/*====================================================================================================================================================================================================*/
+static IR_t * sno_ring_to_tree(IR_graph_t *g) {
+    if (!g || !g->entry) return NULL;
+    IR_t *start = g->entry;
+    int guard = 0;
+    while (start && start->t == IR_SUCCEED && start->γ && guard++ < 64) start = start->γ;
+    if (!start) return NULL;
+    IR_t *chain[64]; int nc = 0;
+    for (IR_t *cur = start; cur && cur->t != IR_SUCCEED && cur->t != IR_FAIL && nc < 64; cur = cur->γ) chain[nc++] = cur;
+    if (nc == 2 && chain[0]->t == IR_LIT_S && chain[1]->t == IR_ASSIGN && chain[1]->sval) {
+        chain[1]->α = chain[0];
+        return chain[1];
+    }
+    return NULL;
+}
+/*====================================================================================================================================================================================================*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -553,11 +578,40 @@ int main(int argc, char **argv)
             goto run_done;
         }
         {
-            fprintf(stderr, "[SMX] FATAL: Stack Machine excised. Non-Icon mode-3 (--run) "
-                            "native SM execution is gone. This language has not yet crossed "
-                            "onto Byrd Boxes. Aborting (by design).\n");
-            (void)s2;
-            abort();
+            if (is_prolog) {
+                fprintf(stderr, "[SMX] FATAL: Stack Machine excised. Prolog mode-3 (--run) "
+                                "native execution is gone. This language has not yet crossed "
+                                "onto Byrd Boxes. Aborting (by design).\n");
+                (void)s2;
+                abort();
+            }
+            /* SBL-M3-STACKLESS (2026-05-31): SNOBOL4 mode-3 via bb_build_flat over a STACKLESS box graph.
+               NO value stack (Lon directive). sno_ring_to_tree returns a root only for shapes with a
+               working stackless box (today: single-statement literal assign); NULL otherwise -> honest
+               soft-fail (no abort), so the gap is loud but the process stays clean. */
+            extern bb_box_fn bb_build_flat(IR_t * nd);
+            extern void *rt_frame(void);
+            extern int g_frame_active;
+            int main_bb_idx = -1;
+            for (int _pi = 0; _pi < s2->proc_count; _pi++)
+                if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
+            IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
+            IR_t *sroot = sbbg ? sno_ring_to_tree(sbbg) : NULL;
+            if (!sroot) {
+                fprintf(stderr, "[SBB] mode-3: SNOBOL4 program shape not yet flat-emittable "
+                                "(stackless boxes pending; only single-statement literal assign wired). "
+                                "No native run; use --interp.\n");
+                goto run_done;
+            }
+            g_frame_active = 1;
+            bb_box_fn sfn = bb_build_flat(sroot);
+            g_frame_active = 0;
+            if (!sfn) {
+                fprintf(stderr, "[SBB] mode-3: bb_build_flat returned NULL (stackless template lacks BINARY arm)\n");
+                goto run_done;
+            }
+            (void)sfn(rt_frame(), 0);
+            goto run_done;
         }
     } else if (has_non_sno) {
         (void)sm_preamble;
