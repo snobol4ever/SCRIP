@@ -1,0 +1,148 @@
+/* A Bison parser, made by GNU Bison 3.8.2.  */
+
+/* Bison interface for Yacc-like parsers in C
+
+   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2021 Free Software Foundation,
+   Inc.
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
+/* As a special exception, you may create a larger work that contains
+   part or all of the Bison parser skeleton and distribute that work
+   under terms of your choice, so long as that work isn't itself a
+   parser generator using the skeleton or a modified version thereof
+   as a parser skeleton.  Alternatively, if you modify or redistribute
+   the parser skeleton itself, you may (at your option) remove this
+   special exception, which will cause the skeleton and the resulting
+   Bison output files to be licensed under the GNU General Public
+   License without this special exception.
+
+   This special exception was added by the Free Software Foundation in
+   version 2.2 of Bison.  */
+
+/* DO NOT RELY ON FEATURES THAT ARE NOT DOCUMENTED in the manual,
+   especially those whose name start with YY_ or yy_.  They are
+   private implementation details that can be changed or removed.  */
+
+#ifndef YY_SNOBOL4_SNOBOL4_TAB_H_INCLUDED
+# define YY_SNOBOL4_SNOBOL4_TAB_H_INCLUDED
+/* Debug traces.  */
+#ifndef SNOBOL4_DEBUG
+# if defined YYDEBUG
+#if YYDEBUG
+#   define SNOBOL4_DEBUG 1
+#  else
+#   define SNOBOL4_DEBUG 0
+#  endif
+# else /* ! defined YYDEBUG */
+#  define SNOBOL4_DEBUG 0
+# endif /* ! defined YYDEBUG */
+#endif  /* ! defined SNOBOL4_DEBUG */
+#if SNOBOL4_DEBUG
+extern int snobol4_debug;
+#endif
+/* "%code requires" blocks.  */
+#line 1 "snobol4.y"
+
+#include "scrip_cc.h"
+#include "snobol4.h"
+
+#line 62 "snobol4.tab.h"
+
+/* Token kinds.  */
+#ifndef SNOBOL4_TOKENTYPE
+# define SNOBOL4_TOKENTYPE
+  enum snobol4_tokentype
+  {
+    SNOBOL4_EMPTY = -2,
+    SNOBOL4_EOF = 0,               /* "end of file"  */
+    SNOBOL4_error = 256,           /* error  */
+    SNOBOL4_UNDEF = 257,           /* "invalid token"  */
+    T_IDENT = 258,                 /* T_IDENT  */
+    T_FUNCTION = 259,              /* T_FUNCTION  */
+    T_KEYWORD = 260,               /* T_KEYWORD  */
+    T_END = 261,                   /* T_END  */
+    T_INT = 262,                   /* T_INT  */
+    T_REAL = 263,                  /* T_REAL  */
+    T_STR = 264,                   /* T_STR  */
+    T_LABEL = 265,                 /* T_LABEL  */
+    T_GOTO_S = 266,                /* T_GOTO_S  */
+    T_GOTO_F = 267,                /* T_GOTO_F  */
+    T_GOTO_LPAREN = 268,           /* T_GOTO_LPAREN  */
+    T_GOTO_RPAREN = 269,           /* T_GOTO_RPAREN  */
+    T_STMT_END = 270,              /* T_STMT_END  */
+    T_2EQUAL = 271,                /* T_2EQUAL  */
+    T_2QUEST = 272,                /* T_2QUEST  */
+    T_2PIPE = 273,                 /* T_2PIPE  */
+    T_2PLUS = 274,                 /* T_2PLUS  */
+    T_2MINUS = 275,                /* T_2MINUS  */
+    T_2STAR = 276,                 /* T_2STAR  */
+    T_2SLASH = 277,                /* T_2SLASH  */
+    T_2CARET = 278,                /* T_2CARET  */
+    T_2DOLLAR = 279,               /* T_2DOLLAR  */
+    T_2DOT = 280,                  /* T_2DOT  */
+    T_2AMP = 281,                  /* T_2AMP  */
+    T_2AT = 282,                   /* T_2AT  */
+    T_2POUND = 283,                /* T_2POUND  */
+    T_2PERCENT = 284,              /* T_2PERCENT  */
+    T_2TILDE = 285,                /* T_2TILDE  */
+    T_1AT = 286,                   /* T_1AT  */
+    T_1TILDE = 287,                /* T_1TILDE  */
+    T_1QUEST = 288,                /* T_1QUEST  */
+    T_1AMP = 289,                  /* T_1AMP  */
+    T_1PLUS = 290,                 /* T_1PLUS  */
+    T_1MINUS = 291,                /* T_1MINUS  */
+    T_1STAR = 292,                 /* T_1STAR  */
+    T_1DOLLAR = 293,               /* T_1DOLLAR  */
+    T_1DOT = 294,                  /* T_1DOT  */
+    T_1BANG = 295,                 /* T_1BANG  */
+    T_1PERCENT = 296,              /* T_1PERCENT  */
+    T_1SLASH = 297,                /* T_1SLASH  */
+    T_1POUND = 298,                /* T_1POUND  */
+    T_1EQUAL = 299,                /* T_1EQUAL  */
+    T_1PIPE = 300,                 /* T_1PIPE  */
+    T_CONCAT = 301,                /* T_CONCAT  */
+    T_COMMA = 302,                 /* T_COMMA  */
+    T_LPAREN = 303,                /* T_LPAREN  */
+    T_RPAREN = 304,                /* T_RPAREN  */
+    T_LBRACK = 305,                /* T_LBRACK  */
+    T_RBRACK = 306,                /* T_RBRACK  */
+    T_LANGLE = 307,                /* T_LANGLE  */
+    T_RANGLE = 308                 /* T_RANGLE  */
+  };
+  typedef enum snobol4_tokentype snobol4_token_kind_t;
+#endif
+
+/* Value type.  */
+#if ! defined SNOBOL4_STYPE && ! defined SNOBOL4_STYPE_IS_DECLARED
+union SNOBOL4_STYPE
+{
+#line 59 "snobol4.y"
+ tree_t *expr; Token tok; 
+
+#line 135 "snobol4.tab.h"
+
+};
+typedef union SNOBOL4_STYPE SNOBOL4_STYPE;
+# define SNOBOL4_STYPE_IS_TRIVIAL 1
+# define SNOBOL4_STYPE_IS_DECLARED 1
+#endif
+
+
+
+
+int snobol4_parse (void *yyparse_param);
+
+
+#endif /* !YY_SNOBOL4_SNOBOL4_TAB_H_INCLUDED  */

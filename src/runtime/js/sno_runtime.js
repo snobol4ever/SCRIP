@@ -1,0 +1,1379 @@
+'use strict';
+/*
+ * sno_runtime.js — SNOBOL4 JavaScript runtime
+ *
+ * Provides the primitive operations used by emit_js.c output.
+ *
+ * Design decisions (SJ-1, do not re-debate):
+ *   - _vars: Proxy — set trap for OUTPUT writes to process.stdout
+ *   - _FAIL: sentinel object (not null, which is valid SNOBOL4 null/empty)
+ *   - All values are JS strings, numbers, or null (SNOBOL4 null)
+ *   - Arithmetic coerces via _num(); concatenation via _str()
+ *
+ * Sprint: SJ-2  Milestone: M-SJ-A01
+ * Authors: Lon Jones Cherryholmes (arch), Claude Sonnet 4.6 (impl)
+ */
+
+/* -----------------------------------------------------------------------
+ * Failure sentinel
+ * ----------------------------------------------------------------------- */
+const _FAIL = Object.freeze({ _sno_fail: true });
+
+function _is_fail(v) { return v === _FAIL; }
+
+/* -----------------------------------------------------------------------
+ * Byte-oriented stdout — SNOBOL4 strings are byte sequences. JS strings
+ * are UTF-16 code units. For strings containing only chars 0..127, plain
+ * stdout.write is fine. For chars 128..255 (e.g. &ALPHABET tail), we need
+ * raw byte output via Buffer to avoid UTF-8 re-encoding.
+ * ----------------------------------------------------------------------- */
+function _write_raw(s) {
+    /* Fast path: pure 7-bit. */
+    let high = false;
+    for (let i = 0; i < s.length; i++) {
+        if (s.charCodeAt(i) > 0x7f) { high = true; break; }
+    }
+    if (!high) { process.stdout.write(s); return; }
+    /* Slow path: latin-1 byte encoding. */
+    const buf = Buffer.alloc(s.length);
+    for (let i = 0; i < s.length; i++) {
+        buf[i] = s.charCodeAt(i) & 0xff;
+    }
+    process.stdout.write(buf);
+}
+function _write_line(s) { _write_raw(s); process.stdout.write('\n'); }
+
+/* -----------------------------------------------------------------------
+ * _vars — SNOBOL4 variable store with IO trapping
+ * ----------------------------------------------------------------------- */
+const _store = {};
+
+const _vars = new Proxy(_store, {
+    set(o, k, v) {
+        /* SNOBOL4 identifiers are case-insensitive — normalize to uppercase.
+         * Symbol keys (JS internals) pass through via the typeof guard. */
+        if (typeof k === 'string') k = k.toUpperCase();
+        o[k] = v;
+        if (k === 'OUTPUT') {
+            _write_line(_str(v));
+        }
+        return true;
+    },
+    get(o, k) {
+        if (typeof k === 'string') k = k.toUpperCase();
+        if (k in o) return o[k];
+        if (k === 'INPUT') {
+            /* Synchronous line-at-a-time read from stdin — Node.js only.
+             * Read one byte at a time to avoid consuming beyond the newline.
+             * Distinguish blank line (return '') from true EOF (return _FAIL).
+             * EOF = first readSync returns 0 with no bytes consumed.
+             * Honor &TRIM: when nonzero, trim trailing whitespace. */
+            try {
+                const fs = require('fs');
+                const oneByte = Buffer.alloc(1);
+                const chars = [];
+                let saw_any = false;
+                while (true) {
+                    const n = fs.readSync(0, oneByte, 0, 1, null);
+                    if (n <= 0) break;              // EOF
+                    saw_any = true;
+                    const ch = oneByte[0];
+                    if (ch === 10) break;           // newline — end of line
+                    if (ch !== 13) chars.push(ch);  // skip CR
+                }
+                if (!saw_any) return _FAIL;  // true EOF — no bytes at all
+                let line = Buffer.from(chars).toString();
+                if (_kw_store.TRIM) line = line.replace(/[ \t]+$/, '');
+                return line;
+            } catch(e) { return _FAIL; }
+        }
+        return null; /* unset variable = SNOBOL4 null */
+    }
+});
+
+/* -----------------------------------------------------------------------
+ * Type coercion
+ * ----------------------------------------------------------------------- */
+
+/** Coerce to SNOBOL4 string (null → empty string) */
+function _str(v) {
+    if (v === null || v === undefined) return '';
+    if (v === _FAIL) return '';
+    if (typeof v === 'number') {
+        if (Number.isInteger(v)) return String(v);
+        /* SNOBOL4 real format: always has decimal point; 1.0→"1.", 0.001→"0.001" */
+        let s = String(v);
+        if (s.indexOf('.') < 0 && s.indexOf('e') < 0) s += '.';
+        s = s.replace(/(\.\d*?)0+$/, '$1');
+        return s;
+    }
+    if (_is_real(v)) {
+        /* tagged real — format as SNOBOL4 real: 1.0→"1.", 0.001→"0.001" */
+        let s = String(v.v);
+        if (s.indexOf('.') < 0 && s.indexOf('e') < 0) s += '.';
+        s = s.replace(/(\.\d*?)0+$/, '$1');
+        return s;
+    }
+    if (typeof v === 'object') return '';  /* DATA/ARRAY/TABLE objects stringify as '' */
+    return String(v);  /* plain strings (including '1.0' quoted literals) unchanged */
+}
+
+/** Coerce to number; returns NaN if not numeric (caller checks isFinite). */
+function _num(v) {
+    if (v === null || v === undefined || v === '') return 0;
+    if (v === _FAIL) return NaN;
+    if (_is_real(v)) return v.v;
+    const n = Number(v);
+    return n;
+}
+/* Return true if value can be coerced to a finite number. */
+function _num_ok(v) {
+    if (v === null || v === undefined || v === '') return true;
+    if (v === _FAIL) return false;
+    if (_is_real(v)) return isFinite(v.v);
+    return isFinite(Number(v));
+}
+
+/* Return true if value is an integer (not real) */
+function _is_int(v) {
+    if (v === null || v === undefined) return true;   /* SNOBOL4 null = integer 0 */
+    if (_is_real(v)) return false;                    /* tagged real object */
+    if (typeof v === 'string') return true;           /* plain strings are integer-convertible */
+    return typeof v === 'number' && Number.isInteger(v);
+}
+
+/* Return true if value looks numeric */
+function _is_numeric(v) {
+    if (v === null || v === undefined || v === '') return false;
+    if (_is_real(v)) return true;
+    return isFinite(Number(v));
+}
+
+/* -----------------------------------------------------------------------
+ * Arithmetic — match SNOBOL4 semantics (integer if both integer-valued)
+ * ----------------------------------------------------------------------- */
+
+function _int_if_possible(n) {
+    return Number.isInteger(n) ? n : n;
+}
+
+/* When either operand is real, tag result as real string so _str() formats it with '.'.
+ * This preserves SNOBOL4 real type through whole-number results (e.g. 2.0+3.0=5.) */
+/* Real-typed value wrapper — produced only by arithmetic, never by quoted literals.
+ * Keeps real type visible to _is_int/_str/_num without dot-sniffing quoted strings. */
+function _mkreal(r) { return Object.freeze({ _r: 1, v: r }); }
+function _is_real(v) { return v !== null && typeof v === 'object' && v._r === 1; }
+function _real_result(r) { return _mkreal(typeof r === 'number' ? r : Number(r)); }
+
+function _add(a, b) {
+    if (a === _FAIL || b === _FAIL) return _FAIL;
+    if (!_num_ok(a) || !_num_ok(b)) return _FAIL;
+    const an = _num(a), bn = _num(b);
+    const r = an + bn;
+    return (_is_int(a) && _is_int(b)) ? Math.trunc(r) : _real_result(r);
+}
+function _sub(a, b) {
+    if (a === _FAIL || b === _FAIL) return _FAIL;
+    if (!_num_ok(a) || !_num_ok(b)) return _FAIL;
+    const an = _num(a), bn = _num(b);
+    const r = an - bn;
+    return (_is_int(a) && _is_int(b)) ? Math.trunc(r) : _real_result(r);
+}
+function _mul(a, b) {
+    if (a === _FAIL || b === _FAIL) return _FAIL;
+    if (!_num_ok(a) || !_num_ok(b)) return _FAIL;
+    const an = _num(a), bn = _num(b);
+    const r = an * bn;
+    return (_is_int(a) && _is_int(b)) ? Math.trunc(r) : _real_result(r);
+}
+function _div(a, b) {
+    if (a === _FAIL || b === _FAIL) return _FAIL;
+    if (!_num_ok(a) || !_num_ok(b)) return _FAIL;
+    const an = _num(a), bn = _num(b);
+    if (bn === 0) return _FAIL;  /* SNOBOL4: division by zero fails, doesn't throw */
+    if (_is_int(a) && _is_int(b)) return Math.trunc(an / bn);
+    return _real_result(an / bn);
+}
+function _pow(a, b) {
+    if (a === _FAIL || b === _FAIL) return _FAIL;
+    if (!_num_ok(a) || !_num_ok(b)) return _FAIL;
+    const r = Math.pow(_num(a), _num(b));
+    if (_is_int(a) && _is_int(b)) return r;  /* int ** int → int (may be non-integer JS num) */
+    return _real_result(r);  /* real base or real exponent → real result */
+}
+function _uplus(a)  { return _num_ok(a) ? _num(a) : _FAIL; }
+
+/* -----------------------------------------------------------------------
+ * String concatenation (n-ary)
+ * ----------------------------------------------------------------------- */
+
+function _cat(...args) {
+    for (const a of args) if (a === _FAIL) return _FAIL;
+    return args.map(_str).join('');
+}
+
+/* -----------------------------------------------------------------------
+ * Keyword access (&STCOUNT etc.)
+ * ----------------------------------------------------------------------- */
+
+const _kw_store = {
+    STCOUNT: 0,
+    STNO: 0,
+    STLIMIT: -1,
+    ANCHOR: 0,
+    ALPHABET: (function() { let s=''; for(let i=0;i<256;i++) s+=String.fromCharCode(i); return s; })(),
+    DIGITS: '0123456789',
+    MAXINT: 2147483647,
+    MAXLNGTH: 5000,
+    TRIM: 0,
+    FTRACE: 0,
+    DUMP: 0,
+    CODE: 0,
+    FULLSCAN: 0,
+    ABEND: 0,
+    /* ABORT/ARB/BAL/FAIL/REM/SUCCEED/FENCE are NOT keywords — they are
+     * pre-bound pattern globals.  Resolved in push_var via the
+     * _builtin_pat_global() fallback, not via &kw lookup.  Listing them
+     * here as zero-length strings was masking them with '' on every
+     * push_var, defeating capture (BAL .  B bound an empty BAL pattern). */
+    RTNTYPE: '',
+    ERRTEXT: '',
+    ERRTYPE: 0,
+    ERRLIMIT: 0,
+    FNAME: '',
+    FNCLEVEL: 0,
+    FNNAME: '',
+    LASTNO: 0,
+    PARM: '',
+    LCASE: (function() { let s=''; for(let i=97;i<=122;i++) s+=String.fromCharCode(i); return s; })(),
+    UCASE: (function() { let s=''; for(let i=65;i<=90;i++) s+=String.fromCharCode(i); return s; })(),
+};
+
+function _kw(name) {
+    const k = name.replace(/^&/, '');
+    if (k in _kw_store) return _kw_store[k];
+    return null;
+}
+
+/* -----------------------------------------------------------------------
+ * Function application — builtin dispatch
+ * ----------------------------------------------------------------------- */
+
+const _builtins = {
+    SIZE(args)    { return _str(args[0]).length; },
+    TRIM(args)    { return _str(args[0]).trimEnd(); },
+    DUPL(args)    { const s=_str(args[0]), n=_num(args[1]); return s.repeat(Math.max(0,n)); },
+    SUBSTR(args)  { const s=_str(args[0]),i=_num(args[1])-1,n=args[2]!=null?_num(args[2]):s.length-i; return s.substr(i,n); },
+    IDENT(args)   {
+        const a = args[0], b = args[1];
+        const eq = (_is_numeric(a) && _is_numeric(b))
+            ? _num(a) === _num(b)
+            : _str(a) === _str(b);
+        return eq ? '' : _FAIL;
+    },
+    DIFFER(args)  {
+        const a = args[0], b = args[1];
+        const eq = (_is_numeric(a) && _is_numeric(b))
+            ? _num(a) === _num(b)
+            : _str(a) === _str(b);
+        return eq ? _FAIL : '';
+    },
+    LT(args)      { return _num(args[0])<_num(args[1])    ? '' : _FAIL; },
+    LE(args)      { return _num(args[0])<=_num(args[1])   ? '' : _FAIL; },
+    GT(args)      { return _num(args[0])>_num(args[1])    ? '' : _FAIL; },
+    GE(args)      { return _num(args[0])>=_num(args[1])   ? '' : _FAIL; },
+    EQ(args)      { return _num(args[0])===_num(args[1])  ? '' : _FAIL; },
+    NE(args)      { return _num(args[0])!==_num(args[1])  ? '' : _FAIL; },
+    LGT(args)     { return _str(args[0]) >  _str(args[1]) ? '' : _FAIL; },
+    LLT(args)     { return _str(args[0]) <  _str(args[1]) ? '' : _FAIL; },
+    LGE(args)     { return _str(args[0]) >= _str(args[1]) ? '' : _FAIL; },
+    LLE(args)     { return _str(args[0]) <= _str(args[1]) ? '' : _FAIL; },
+    LEQ(args)     { return _str(args[0]) === _str(args[1]) ? '' : _FAIL; },
+    LNE(args)     { return _str(args[0]) !== _str(args[1]) ? '' : _FAIL; },
+    INTEGER(args) { const n=Number(args[0]); return Number.isInteger(n) ? n : _FAIL; },
+    REAL(args)    { const n=Number(args[0]); return isFinite(n) ? n : _FAIL; },
+    CONVERT(args) {
+        /* CONVERT(value, type) — convert value to the named type.
+         * type is a string like 'INTEGER', 'REAL', 'STRING', 'NUMERIC',
+         * 'EXPRESSION', 'PATTERN', 'ARRAY', 'TABLE' (latter four stubbed).
+         * On failure returns _FAIL so :F branches work. */
+        const v = args[0];
+        const t = (args[1] !== null && args[1] !== undefined) ? _str(args[1]).toUpperCase() : 'STRING';
+        if (v === _FAIL) return _FAIL;
+        switch (t) {
+            case 'INTEGER': {
+                if (v === null || v === undefined || v === '') return 0;
+                if (_is_real(v)) return Math.trunc(v.v);
+                const n = Number(v);
+                if (!isFinite(n)) return _FAIL;
+                return Math.trunc(n);
+            }
+            case 'REAL': {
+                if (v === null || v === undefined || v === '') return _real_result(0);
+                if (_is_real(v)) return v;
+                const n = Number(v);
+                if (!isFinite(n)) return _FAIL;
+                return _real_result(n);
+            }
+            case 'NUMERIC': {
+                if (v === null || v === undefined || v === '') return 0;
+                if (_is_real(v)) return v;
+                const n = Number(v);
+                if (!isFinite(n)) return _FAIL;
+                return Number.isInteger(n) ? n : _real_result(n);
+            }
+            case 'STRING': return _str(v);
+            case 'EXPRESSION':
+            case 'PATTERN':
+            case 'ARRAY':
+            case 'TABLE':
+                return v;  /* stubbed — return as-is */
+            default:
+                return v;
+        }
+    },
+    DATATYPE(args){ const v=args[0]; if(_is_real(v)) return 'REAL'; if(typeof v==='number'||(_is_int(v)&&v!==null&&v!=='')) return 'INTEGER'; return 'STRING'; },
+    INPUT(args)   { return _vars['INPUT']; },
+    OUTPUT(args)  { if(args[0]!==undefined) _vars['OUTPUT']=args[0]; return args[0]; },
+    CHAR(args)    { return String.fromCharCode(_num(args[0])); },
+    CODE(args)    { const s=_str(args[0]); return s.length ? s.charCodeAt(0) : _FAIL; },
+    ORD(args)     { const s=_str(args[0]); return s.length ? s.charCodeAt(0) : _FAIL; },
+    LABEL(args)   {
+        const name = _str(args[0]);
+        if (name in _label_pcs || name.toUpperCase() in _user_fns) return name;
+        return _FAIL;
+    },
+    VDIFFER(args) {
+        const a = args[0], b = args[1];
+        if (b === undefined) return a;
+        const eq = (_is_numeric(a) && _is_numeric(b))
+            ? _num(a) === _num(b)
+            : _str(a) === _str(b);
+        return eq ? _FAIL : a;
+    },
+    LPAD(args)    { const s=_str(args[0]),n=_num(args[1]),c=args[2]!=null?_str(args[2]):''; return s.padStart(n,c[0]||' '); },
+    RPAD(args)    { const s=_str(args[0]),n=_num(args[1]),c=args[2]!=null?_str(args[2]):''; return s.padEnd(n,c[0]||' '); },
+    REPLACE(args) { /* REPLACE(s, from, to) */ const s=_str(args[0]),f=_str(args[1]),t=_str(args[2]); let r=''; for(let i=0;i<s.length;i++){const fi=f.indexOf(s[i]);r+=fi>=0?(t[fi]??''):s[i];}return r; },
+    REVERSE(args) { return _str(args[0]).split('').reverse().join(''); },
+    UPPER(args)   { return _str(args[0]).toUpperCase(); },
+    LOWER(args)   { return _str(args[0]).toLowerCase(); },
+    ABORT(args)   { process.exit(1); },
+    TIME(args)    { return Date.now(); },
+    FENCE(args)   { return args[0] !== undefined ? args[0] : ''; },
+    FAIL(args)    { return _FAIL; },
+    SUCCEED(args) { return args[0] !== undefined ? args[0] : ''; },
+    APPLY(args)   { return _apply(_str(args[0]), args.slice(1)); },
+    REMDR(args)   { const a=_num(args[0]),b=_num(args[1]); if(b===0) throw new Error('SNOBOL4: remdr by zero'); return Math.trunc(a)%Math.trunc(b); },
+    DEFINE(args)  {
+        /* SNOBOL4 DEFINE(proto, entry).
+         * proto: "NAME(p1,p2,...)" or "NAME(p1,p2,...)l1,l2,..." with locals after ')'.
+         * entry: optional alternate entry label (defaults to NAME).
+         * Parse proto, look up entry_pc from emitted _label_pcs map, register user fn. */
+        const proto = _str(args[0]);
+        const entry_override = args[1] != null ? _str(args[1]) : null;
+        const m = proto.match(/^([A-Za-z_][A-Za-z_0-9]*)\s*(?:\(([^)]*)\))?\s*(.*)$/);
+        if (!m) return null;
+        const name = m[1];
+        const params = m[2] ? m[2].split(',').map(s => s.trim()).filter(s => s) : [];
+        const locals = m[3] ? m[3].split(',').map(s => s.trim()).filter(s => s) : [];
+        const entry_name = entry_override || name;
+        /* Case-insensitive entry-PC lookup. */
+        let entry_pc = _label_pcs[entry_name];
+        if (entry_pc === undefined) {
+            const un = entry_name.toUpperCase();
+            for (const k in _label_pcs) {
+                if (k.toUpperCase() === un) { entry_pc = _label_pcs[k]; break; }
+            }
+        }
+        if (entry_pc === undefined) return null;
+        _user_fns[name] = { entry_pc, params, locals, retname: name };
+        return name;
+    },
+    ARRAY(args)   { /* stub */ return []; },
+    TABLE(args)   { /* stub */ return {}; },
+    PROTOTYPE(args){ return null; },
+    ARB(args)     { return ''; /* zero-width succeed in value context */ },
+    REM(args)     { return ''; },
+    ANY(args)     { return _str(args[0])[0] || _FAIL; },
+    NOTANY(args)  { return _FAIL; /* stub */ },
+    SPAN(args)    { return _FAIL; /* stub */ },
+    BREAK(args)   { return _FAIL; /* stub */ },
+    LEN(args)     { return ''; /* stub zero-width */ },
+    POS(args)     { return ''; /* stub */ },
+    RPOS(args)    { return ''; /* stub */ },
+    TAB(args)     { return ''; /* stub */ },
+    RTAB(args)    { return ''; /* stub */ },
+    ARBNO(args)   { return ''; /* stub */ },
+    /* SM-internal dispatches via SM_CALL_FN — these are not user-callable but
+     * the emitter emits rt.call("NAME_PUSH", ...) etc. for indirection ops. */
+    NAME_PUSH(args)  { /* push variable name as NAME — stub returns name string */
+        const v = args[0];
+        if (v === null || v === undefined) return '';
+        return _str(v);
+    },
+    INDIR_GET(args)  { /* dereference name → value */
+        const nm = _str(args[0]);
+        if (!nm) return null;
+        return _vars[nm];
+    },
+    ASGN_INDIR(args) { /* indirect assignment: ASGN_INDIR(value, name) → store value at name */
+        const val = args[0], nm = _str(args[1]);
+        if (nm) _vars[nm] = val;
+        return val;
+    },
+    IDX(args)        { /* array/table index — stub */
+        const obj = args[0];
+        if (!obj || typeof obj !== 'object') return _FAIL;
+        const key = args.length > 1 ? args[1] : 0;
+        if (Array.isArray(obj)) return obj[_num(key)] != null ? obj[_num(key)] : null;
+        return obj[_str(key)] != null ? obj[_str(key)] : null;
+    },
+    IDX_SET(args)    { /* array/table index set — stub: (val, obj, key) */
+        const val = args[0], obj = args[1], key = args[2];
+        if (obj && typeof obj === 'object') {
+            if (Array.isArray(obj)) obj[_num(key)] = val;
+            else obj[_str(key)] = val;
+        }
+        return val;
+    },
+    PL_BUILTIN(args) { return _FAIL; /* prolog builtin, not used here */ },
+    /* Tracing — stubs */
+    TRACE(args)      { return null; },
+    STOPTR(args)     { return null; },
+    /* SETEXIT / OPSYN — error handling, stubs */
+    SETEXIT(args)    { return null; },
+    OPSYN(args)      { return null; },
+    /* I/O — stubs */
+    ENDFILE(args)    { return null; },
+    EJECT(args)      { return null; },
+    REWIND(args)     { return null; },
+    OPEN(args)       { return null; },
+    CLOSE(args)      { return null; },
+    LOAD(args)       { return _FAIL; /* dynamic load — fail */ },
+    UNLOAD(args)     { return null; },
+    HOST(args)       { return null; },
+    DUMP(args)       { return null; },
+    DATE(args)       { const d = new Date(); return d.toString(); },
+    CLOCK(args)      { return Date.now(); },
+    /* DATA / table — partial */
+    DATA(args)       { return null; /* prototype-style DATA() — stub */ },
+    FIELD(args)      { return null; },
+    PROTOTYPE(args)  { return null; },
+    COPY(args)       { return args[0]; },
+    ITEM(args)       { return _FAIL; },
+    ITEM_SET(args)   { return _FAIL; },
+};
+
+/* Builtins that propagate _FAIL — if any arg is _FAIL, the result is _FAIL.
+ * Excludes IDENT/DIFFER/the *EQ/*NE/*LT/etc. relational ops, FAIL itself,
+ * APPLY (which forwards to user dispatch), and DATATYPE (which classifies). */
+const _fail_propagate = new Set([
+    'SIZE','TRIM','DUPL','SUBSTR','CHAR','CODE','LPAD','RPAD',
+    'REPLACE','REVERSE','UPPER','LOWER','INTEGER','REAL','CONVERT',
+    'REMDR','FENCE','SUCCEED'
+]);
+function _apply(name, args) {
+    if (!name) return _FAIL;  /* empty name (e.g. SM_PAT_* emitted without builder) — fail */
+    const uname = name.toUpperCase();
+    if (uname in _builtins) {
+        if (_fail_propagate.has(uname)) {
+            for (const a of args) if (a === _FAIL) return _FAIL;
+        }
+        return _builtins[uname](args);
+    }
+    /* User-defined: should normally be invoked via call_or_jump (sets up frame + jumps to body).
+     * If somehow reached via _apply (e.g. APPLY builtin), we can't synchronously run the body
+     * here since the entire program is one switch loop. Return FAIL. */
+    if (name in _user_fns || uname in _user_fns) return _FAIL;
+    /* Don't throw — fail gracefully so the program can use :S/:F to recover. */
+    return _FAIL;
+}
+
+const _user_fns = {};
+
+/* -----------------------------------------------------------------------
+ * Pattern matching — DELETED (SJ4-JS-BB0)
+ *
+ * All interpreter code and references removed.
+ * See GOAL-SN4-JS-EMIT-BB-REWRITE.md for Byrd-box pattern factory implementation.
+ * ----------------------------------------------------------------------- */
+
+/* Inject vars hook — DELETED */
+/* _engine._set_vars_hook(...) removed */
+
+/**
+ * _match(subject, pat_node) — DELETED
+ * Stub for compatibility.
+ */
+function _match(subject, pat_node) {
+    throw new Error('_match: pattern matching not implemented (use Byrd-box factories via SJ4-JS-BB1+)');
+}
+
+/**
+ * _match_anchored(subject, pat_node) — DELETED
+ * Stub for compatibility.
+ */
+function _match_anchored(subject, pat_node) {
+    throw new Error('_match_anchored: pattern matching not implemented (use Byrd-box factories via SJ4-JS-BB1+)');
+}
+
+/* -----------------------------------------------------------------------
+ * Stack machine state (for scalar IR emission — SJ4-JS-2)
+ * ----------------------------------------------------------------------- */
+
+let _stack = [];              /* Value stack for scalar operations */
+let _last_ok = true;          /* Last pattern match success flag */
+let _stno = 0;                /* Statement number for debugging */
+
+function _init() {
+    _stack = [];
+    _last_ok = true;
+    _stno = 0;
+}
+
+function _finalize() {
+    _stack = [];
+    _last_ok = true;
+}
+
+/* Stack operations */
+function push_int(n)         { _stack.push(n); }
+function push_str(s, len)    { _stack.push(_str(s)); }
+function push_real_bits(bits){ _stack.push(_mkreal(bits)); }
+function push_null()         { _stack.push(null); }
+/* SNOBOL4 predefined pattern globals — DELETED (stub below) */
+function _builtin_pat_global(uname) {
+    /* Pattern globals require Byrd-box factories — not yet implemented */
+    throw new Error(`Pattern global ${uname} not implemented (use SJ4-JS-BB1+ Byrd-box factories)`);
+}
+function push_var(name) {
+    const uname = name.toUpperCase();
+    if (uname in _kw_store) {
+        _stack.push(_kw(uname));
+        return;
+    }
+    if (name in _vars) {
+        _stack.push(_vars[name]);
+        return;
+    }
+    /* Predefined SNOBOL4 pattern globals (FAIL, ARB, REM, BAL, etc.).
+     * Pre-bound by all SNOBOL4 oracles.  Resolved case-insensitively so
+     * scrip's case-sensitive name space still finds them when source uses
+     * lowercase (which SPITBOL's default folding mode silently allows). */
+    const pg = _builtin_pat_global(uname);
+    if (pg !== undefined) { _stack.push(pg); return; }
+    _stack.push(_vars[name]);  /* yields null/undefined, the SNOBOL4 null */
+}
+function pop_void()          { _stack.pop(); }
+
+function store_var(name) {
+    const v = _stack[_stack.length - 1];
+    if (v === _FAIL) {
+        _stack.pop();
+        _stack.push(_FAIL);
+        _last_ok = false;
+        return;
+    }
+    /* Keyword assignment: bare names like ANCHOR, TRIM, etc. (without &) when
+     * those names match a keyword. SNOBOL4 conventionally writes &ANCHOR = 0
+     * but the parser strips the &. */
+    const uk = (name || '').toUpperCase();
+    if (uk in _kw_store) _kw_store[uk] = v;
+    _vars[name] = v;
+    _last_ok = true;
+}
+
+function concat() {
+    if (_stack.length < 2) throw new Error('SNOBOL4: concat underflow');
+    const b = _stack.pop();
+    const a = _stack.pop();
+    _stack.push(_cat(a, b));
+}
+
+function neg() {
+    const v = _stack.pop();
+    _stack.push(_num(v) * -1);
+}
+
+function exp_op() {
+    const e = _stack.pop();
+    const b = _stack.pop();
+    _stack.push(_pow(b, e));
+}
+
+function coerce_num() {
+    const v = _stack.pop();
+    if (_is_real(v)) {
+        _stack.push(v);  /* Already a real; keep it */
+    } else {
+        const n = _num(v);
+        if (!Number.isInteger(n)) {
+            _stack.push(_mkreal(n));  /* Non-integer numeric → real */
+        } else {
+            _stack.push(n);  /* Integer stays as plain number */
+        }
+    }
+}
+
+function arith(op) {
+    if (_stack.length < 2) throw new Error('SNOBOL4: arith underflow');
+    const b = _stack.pop();
+    const a = _stack.pop();
+    let r;
+    switch(op) {
+        case 'add': r = _add(a, b); break;
+        case 'sub': r = _sub(a, b); break;
+        case 'mul': r = _mul(a, b); break;
+        case 'div': r = _div(a, b); break;
+        case 'mod':
+            if (a === _FAIL || b === _FAIL || !_num_ok(a) || !_num_ok(b)) { r = _FAIL; break; }
+            { const bn = _num(b); r = (bn === 0) ? _FAIL : (_num(a) % bn); }
+            break;
+        default: throw new Error('SNOBOL4: unknown arith op: ' + op);
+    }
+    _stack.push(r);
+    _last_ok = (r !== _FAIL);
+}
+
+function acomp(op) {
+    if (_stack.length < 2) throw new Error('SNOBOL4: acomp underflow');
+    const b = _stack.pop();
+    const a = _stack.pop();
+    let r;
+    switch(op) {
+        case 'lt': r = _num(a) < _num(b); break;
+        case 'le': r = _num(a) <= _num(b); break;
+        case 'eq': r = _num(a) === _num(b); break;
+        case 'ne': r = _num(a) !== _num(b); break;
+        case 'ge': r = _num(a) >= _num(b); break;
+        case 'gt': r = _num(a) > _num(b); break;
+        default: throw new Error('SNOBOL4: unknown acomp op: ' + op);
+    }
+    _last_ok = r ? true : false;
+}
+
+function lcomp(op) {
+    if (_stack.length < 2) throw new Error('SNOBOL4: lcomp underflow');
+    const b = _stack.pop();
+    const a = _stack.pop();
+    let r;
+    switch(op) {
+        case 'lt': r = _str(a) < _str(b); break;
+        case 'le': r = _str(a) <= _str(b); break;
+        case 'eq': r = _str(a) === _str(b); break;
+        case 'ne': r = _str(a) !== _str(b); break;
+        case 'ge': r = _str(a) >= _str(b); break;
+        case 'gt': r = _str(a) > _str(b); break;
+        default: throw new Error('SNOBOL4: unknown lcomp op: ' + op);
+    }
+    _last_ok = r ? true : false;
+}
+
+function last_ok()    { return _last_ok; }
+function set_last_ok(v) { _last_ok = v ? true : false; }
+function set_stno(n)  { _stno = n; _kw_store.STNO = n; _kw_store.STCOUNT = (_kw_store.STCOUNT|0) + 1; }
+function halt_tos()   { if (_stack.length > 0) { const v = _stack.pop(); if (v !== _FAIL) _write_line(_str(v)); } }
+
+function call(name, nargs) {
+    if (_stack.length < nargs) throw new Error('SNOBOL4: call underflow');
+    const args = _stack.splice(_stack.length - nargs, nargs);
+    const result = _apply(name, args);
+    _stack.push(result);
+    _last_ok = (result !== _FAIL);
+}
+
+/* -----------------------------------------------------------------------
+ * User-defined function support (SJ4-JS-4c)
+ *
+ * Architecture: the entire emitted program is one switch loop with PCs.
+ * User functions live as cases within that same loop, identified by their
+ * SM_LABEL with define_entry=1.  call_or_jump and fn_return manipulate
+ * _pc to enter/exit function bodies and save/restore parameter & retval
+ * variable bindings.
+ * ----------------------------------------------------------------------- */
+
+const _label_pcs = {};       /* label name → PC of SM_LABEL with define_entry=1 */
+const _call_stack = [];      /* frames: {ret_pc, retname, saved: [[name,val]...]} */
+
+function _register_label_pcs(map) {
+    for (const k in map) _label_pcs[k] = map[k];
+}
+
+/* call_or_jump — used by emitted code for SM_CALL_FN / SM_SUSPEND_VALUE.
+ * Returns >= 0 if emitted code should set _pc to that value (user function call).
+ * Returns -1 if call was a builtin and result is already on stack. */
+function call_or_jump(name, nargs, ret_pc) {
+    if (_stack.length < nargs) throw new Error('SNOBOL4: call_or_jump underflow: ' + name);
+    /* Case-insensitive user-fn lookup (SNOBOL4 / SPITBOL fold names). */
+    let fn = null;
+    if (name) {
+        if (_user_fns.hasOwnProperty(name)) fn = _user_fns[name];
+        else {
+            const un = name.toUpperCase();
+            for (const k in _user_fns) {
+                if (k.toUpperCase() === un) { fn = _user_fns[k]; break; }
+            }
+        }
+    }
+    if (fn) {
+        const args = _stack.splice(_stack.length - nargs, nargs);
+        const saved = [];
+        /* Save and clear the return-value variable (retname). */
+        saved.push([fn.retname, _store[fn.retname.toUpperCase()]]);
+        _vars[fn.retname] = '';
+        /* Save and bind formals. */
+        for (let k = 0; k < fn.params.length; k++) {
+            const p = fn.params[k];
+            saved.push([p, _store[p.toUpperCase()]]);
+            _vars[p] = (k < args.length) ? args[k] : null;
+        }
+        /* Save and clear locals. */
+        for (const l of fn.locals) {
+            saved.push([l, _store[l.toUpperCase()]]);
+            _vars[l] = null;
+        }
+        /* Save the caller's value stack and start the callee with an empty one. */
+        const caller_stack = _stack;
+        _stack = [];
+        _call_stack.push({ ret_pc, retname: fn.retname, saved, caller_stack });
+        return fn.entry_pc;
+    }
+    const args = _stack.splice(_stack.length - nargs, nargs);
+    const result = _apply(name || '', args);
+    _stack.push(result);
+    _last_ok = (result !== _FAIL);
+    return -1;
+}
+
+/* fn_return — used by emitted code for SM_RETURN / SM_NRETURN / SM_FRETURN
+ * and conditional _S/_F variants. kind: 0=RETURN, 1=FRETURN, 2=NRETURN.
+ * cond: 0=plain, 1=if last_ok true, 2=if last_ok false.
+ * Returns >= 0 if a return actually fired (emitted code sets _pc),
+ * or -1 to indicate the condition was not met (fall through to next pc). */
+function fn_return(kind, cond) {
+    if (cond === 1 && !_last_ok) return -1;
+    if (cond === 2 &&  _last_ok) return -1;
+    if (_call_stack.length === 0) {
+        /* Top-level RETURN — treat as HALT. */
+        return -2;
+    }
+    const fr = _call_stack.pop();
+    let retval;
+    if (kind === 1) {
+        retval = _FAIL;
+    } else {
+        retval = _store[fr.retname.toUpperCase()];
+        if (retval === undefined) retval = null;
+        if (kind === 2) {
+            /* NRETURN: return a NAME — for now, just dereference current value. */
+        }
+    }
+    /* Restore saved bindings (in reverse order to handle duplicates correctly). */
+    for (let i = fr.saved.length - 1; i >= 0; i--) {
+        const [n, v] = fr.saved[i];
+        const uk = n.toUpperCase();
+        if (v === undefined) delete _store[uk];
+        else _store[uk] = v;
+    }
+    /* Restore the caller's value stack and push the return value. */
+    _stack = fr.caller_stack;
+    _stack.push(retval);
+    _last_ok = (retval !== _FAIL);
+    if (kind === 1) _last_ok = false;
+    return fr.ret_pc;
+}
+
+function do_return(kind, cond) {
+    /* Stub — full return semantics deferred to SJ4-JS-3 */
+}
+
+/* -----------------------------------------------------------------------
+ * MatchState factory for pattern matching (for emitted pattern factories)
+ * ----------------------------------------------------------------------- */
+
+function MatchState(subject) {
+    return {
+        sigma: subject,
+        delta: 0,
+        omega: subject.length,
+        _do_capture(varname, text, immediate) {
+            if (immediate) {
+                _vars[varname] = text;
+            } else {
+                if (!this._pending) this._pending = [];
+                this._pending.push({ varname, text });
+            }
+        },
+        _commit_caps() {
+            if (this._pending) {
+                for (const cap of this._pending) {
+                    _vars[cap.varname] = cap.text;
+                }
+                this._pending = [];
+            }
+        },
+        _discard_caps() {
+            if (this._pending) this._pending = [];
+        },
+        _pending: []
+    };
+}
+
+/* -----------------------------------------------------------------------
+ * Pattern Execution Harness (SJ4-JS-BB1a)
+ *
+ * Byrd-box-driven pattern matching: factories return {α, β} ports.
+ * Reference: bb_boxes.js — inlined here for now.
+ * ----------------------------------------------------------------------- */
+
+/* Match state — module-level, shared across pattern operations */
+let _bb_Σ = '';   /* subject string */
+let _bb_Δ = 0;    /* cursor position */
+let _bb_Ω = 0;    /* subject length */
+let _bb_pending = [];  /* [{varname, value}] conditional captures */
+
+function bb_set_subject(subj) {
+    _bb_Σ = subj;
+    _bb_Δ = 0;
+    _bb_Ω = subj.length;
+}
+
+function bb_reset_captures() {
+    _bb_pending = [];
+}
+
+function bb_get_pending() {
+    return _bb_pending;
+}
+
+/**
+ * search_pattern(pat) — try to match pattern at every position.
+ * Returns {start, end} on match, null on failure.
+ * pat.α() mutates _bb_Δ internally.
+ */
+function search_pattern(pat) {
+    /* &ANCHOR = 1: match only at position 0 */
+    if (_kw_store.ANCHOR) {
+        _bb_Δ = 0;
+        const result = pat.α();
+        if (result !== null) {
+            return { start: 0, end: _bb_Δ };
+        }
+        return null;
+    }
+    
+    /* Otherwise: search from position 0 to len */
+    for (_bb_Δ = 0; _bb_Δ <= _bb_Ω; _bb_Δ++) {
+        const start = _bb_Δ;
+        const result = pat.α();
+        if (result !== null) {
+            return { start: start, end: _bb_Δ };
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * exec_pattern_stmt — execute a pattern match ± replacement.
+ * Stack: [..., pattern_factory, subject, replacement]
+ */
+function exec_pattern_stmt(subj_name, has_repl) {
+    const replacement = has_repl ? _stack.pop() : 0;
+    const subject = _stack.pop();
+    const pat_factory = _stack.pop();
+    
+    if (!pat_factory || typeof pat_factory !== 'function') {
+        _last_ok = false;
+        return;
+    }
+    
+    const pat = pat_factory();
+    const subj = _str(subject);
+    
+    bb_set_subject(subj);
+    bb_reset_captures();
+    
+    const result = search_pattern(pat);
+    if (!result) {
+        _last_ok = false;
+        return;
+    }
+    
+    /* Commit captures */
+    const caps = bb_get_pending();
+    for (const cap of caps) {
+        _vars[cap.varname] = cap.value;
+    }
+    
+    /* Replacement */
+    if (has_repl && subj_name) {
+        const repl = _str(replacement);
+        const newsubj = subj.slice(0, result.start) + repl + subj.slice(result.end);
+        _vars[subj_name] = newsubj;
+    }
+    
+    _last_ok = true;
+}
+
+/* -----------------------------------------------------------------------
+ * Exports
+ * ----------------------------------------------------------------------- */
+
+/* Re-export PAT_* builders — DELETED with sno_engine.js
+ * Stubs only — real implementation via emitted Byrd-box factories (SJ4-JS-BB1+)
+ */
+
+function _stub_not_implemented(name) {
+    throw new Error(`SNOBOL4 pattern operation NOT IMPLEMENTED: ${name} (Byrd-box pattern factories not yet emitted by emit_js.c).`);
+}
+
+/* -----------------------------------------------------------------------
+ * Pattern Factory Builders (SJ4-JS-BB2a)
+ *
+ * Each pat_* function pops operands, builds a factory, pushes it on stack.
+ * Factory is a function returning {α, β} port pair.
+ * ----------------------------------------------------------------------- */
+
+/**
+ * bb_lit_factory(lit) — returns {α, β} port pair for literal matching.
+ * α: if Σ[Δ..Δ+len] == lit → advance Δ, return matched text; else null
+ * β: backtrack — decrement Δ, return null
+ */
+function bb_lit_factory(lit) {
+    const len = lit.length;
+    return {
+        α() {
+            if (_bb_Δ + len > _bb_Ω) return null;
+            if (_bb_Σ.slice(_bb_Δ, _bb_Δ + len) !== lit) return null;
+            const r = (len === 0) ? '' : _bb_Σ.slice(_bb_Δ, _bb_Δ + len);
+            _bb_Δ += len;
+            return r;
+        },
+        β() { _bb_Δ -= len; return null; }
+    };
+}
+
+/**
+ * bb_any_factory(chars) — match one char from charset.
+ */
+function bb_any_factory(chars) {
+    return {
+        α() {
+            if (_bb_Δ >= _bb_Ω || chars.indexOf(_bb_Σ[_bb_Δ]) < 0) return null;
+            const r = _bb_Σ[_bb_Δ];
+            _bb_Δ++;
+            return r;
+        },
+        β() { _bb_Δ--; return null; }
+    };
+}
+
+/**
+ * bb_notany_factory(chars) — match one char NOT in charset.
+ */
+function bb_notany_factory(chars) {
+    return {
+        α() {
+            if (_bb_Δ >= _bb_Ω || chars.indexOf(_bb_Σ[_bb_Δ]) >= 0) return null;
+            const r = _bb_Σ[_bb_Δ];
+            _bb_Δ++;
+            return r;
+        },
+        β() { _bb_Δ--; return null; }
+    };
+}
+
+/**
+ * bb_span_factory(chars) — match zero or more chars from charset (greedy).
+ */
+function bb_span_factory(chars) {
+    return {
+        α() {
+            const start = _bb_Δ;
+            while (_bb_Δ < _bb_Ω && chars.indexOf(_bb_Σ[_bb_Δ]) >= 0) {
+                _bb_Δ++;
+            }
+            return (_bb_Δ === start) ? '' : _bb_Σ.slice(start, _bb_Δ);
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_break_factory(chars) — match until char from charset found.
+ */
+function bb_break_factory(chars) {
+    return {
+        α() {
+            const start = _bb_Δ;
+            while (_bb_Δ < _bb_Ω && chars.indexOf(_bb_Σ[_bb_Δ]) < 0) {
+                _bb_Δ++;
+            }
+            return (_bb_Δ === start) ? '' : _bb_Σ.slice(start, _bb_Δ);
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_len_factory(n) — match exactly n chars.
+ */
+function bb_len_factory(n) {
+    return {
+        α() {
+            if (_bb_Δ + n > _bb_Ω) return null;
+            const r = (n === 0) ? '' : _bb_Σ.slice(_bb_Δ, _bb_Δ + n);
+            _bb_Δ += n;
+            return r;
+        },
+        β() { _bb_Δ -= n; return null; }
+    };
+}
+
+/**
+ * bb_pos_factory(n) — match if cursor is at position n, zero-width.
+ */
+function bb_pos_factory(n) {
+    return {
+        α() {
+            if (_bb_Δ !== n) return null;
+            return '';  /* zero-width match */
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_rpos_factory(n) — match if cursor is n chars from end, zero-width.
+ */
+function bb_rpos_factory(n) {
+    return {
+        α() {
+            if (_bb_Δ !== _bb_Ω - n) return null;
+            return '';
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_tab_factory(n) — match from current pos to position n.
+ */
+function bb_tab_factory(n) {
+    return {
+        α() {
+            if (n < _bb_Δ || n > _bb_Ω) return null;
+            const len = n - _bb_Δ;
+            const r = (len === 0) ? '' : _bb_Σ.slice(_bb_Δ, n);
+            _bb_Δ = n;
+            return r;
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_rtab_factory(n) — match from current pos to n chars from end.
+ */
+function bb_rtab_factory(n) {
+    return {
+        α() {
+            const target = _bb_Ω - n;
+            if (target < _bb_Δ || target > _bb_Ω) return null;
+            const len = target - _bb_Δ;
+            const r = (len === 0) ? '' : _bb_Σ.slice(_bb_Δ, target);
+            _bb_Δ = target;
+            return r;
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_rem_factory() — match rest of string (REM).
+ */
+function bb_rem_factory() {
+    return {
+        α() {
+            const start = _bb_Δ;
+            const r = _bb_Σ.slice(start);
+            _bb_Δ = _bb_Ω;
+            return r;
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_seq_factory(left_factory, right_factory) — concatenation.
+ * Try left; if succeeds, try right starting at new cursor.
+ */
+function bb_seq_factory(left_factory, right_factory) {
+    return {
+        α() {
+            const left = left_factory();
+            const lr = left.α();
+            if (lr === null) return null;  /* left failed */
+            
+            const right = right_factory();
+            const rr = right.α();
+            if (rr === null) {
+                left.β();  /* backtrack left */
+                return null;
+            }
+            
+            return lr + rr;  /* concatenate matches */
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_alt_factory(children) — alternation (choice).
+ * Try each child in order; backtrack on failure.
+ */
+function bb_alt_factory(children) {
+    let choice_idx = 0;
+    const children_list = Array.isArray(children) ? children : [children];
+    
+    return {
+        α() {
+            for (choice_idx = 0; choice_idx < children_list.length; choice_idx++) {
+                const child = children_list[choice_idx]();
+                const r = child.α();
+                if (r !== null) return r;
+            }
+            return null;
+        },
+        β() {
+            if (choice_idx > 0) choice_idx--;
+            return null;
+        }
+    };
+}
+
+/**
+ * bb_arb_factory() — match zero or more of anything (arbitrary).
+ */
+function bb_arb_factory() {
+    return {
+        α() {
+            /* Greedy: try to match as much as possible */
+            const start = _bb_Δ;
+            _bb_Δ = _bb_Ω;
+            return _bb_Σ.slice(start);
+        },
+        β() {
+            /* Backtrack one char on β */
+            if (_bb_Δ > 0) _bb_Δ--;
+            return null;
+        }
+    };
+}
+
+/**
+ * bb_arbno_factory(body_factory) — zero or more repetitions of body.
+ */
+function bb_arbno_factory(body_factory) {
+    return {
+        α() {
+            let result = '';
+            while (true) {
+                const body = body_factory();
+                const br = body.α();
+                if (br === null) break;
+                result += br;
+            }
+            return result;
+        },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_fail_factory() — always fails.
+ */
+function bb_fail_factory() {
+    return {
+        α() { return null; },
+        β() { return null; }
+    };
+}
+
+/**
+ * bb_succeed_factory() — always succeeds, zero-width.
+ */
+function bb_succeed_factory() {
+    return {
+        α() { return ''; },
+        β() { return null; }
+    };
+}
+
+/* -----------------------------------------------------------------------
+ * Stack-Machine Pattern Operations (SJ4-JS-BB2)
+ *
+ * Each SM_PAT_* opcode handler:
+ * - Pops operands from _stack (if needed)
+ * - Creates a factory function
+ * - Pushes factory back onto _stack
+ * ----------------------------------------------------------------------- */
+
+function pat_lit(s) {
+    _stack.push(function() { return bb_lit_factory(s); });
+}
+
+function pat_span() {
+    const chars = _str(_stack.pop());
+    _stack.push(function() { return bb_span_factory(chars); });
+}
+
+function pat_break() {
+    const chars = _str(_stack.pop());
+    _stack.push(function() { return bb_break_factory(chars); });
+}
+
+function pat_any() {
+    const chars = _str(_stack.pop());
+    _stack.push(function() { return bb_any_factory(chars); });
+}
+
+function pat_notany() {
+    const chars = _str(_stack.pop());
+    _stack.push(function() { return bb_notany_factory(chars); });
+}
+
+function pat_len() {
+    const n = _num(_stack.pop());
+    _stack.push(function() { return bb_len_factory(n); });
+}
+
+function pat_pos() {
+    const n = _num(_stack.pop());
+    _stack.push(function() { return bb_pos_factory(n); });
+}
+
+function pat_rpos() {
+    const n = _num(_stack.pop());
+    _stack.push(function() { return bb_rpos_factory(n); });
+}
+
+function pat_tab() {
+    const n = _num(_stack.pop());
+    _stack.push(function() { return bb_tab_factory(n); });
+}
+
+function pat_rtab() {
+    const n = _num(_stack.pop());
+    _stack.push(function() { return bb_rtab_factory(n); });
+}
+
+function pat_rem() {
+    _stack.push(function() { return bb_rem_factory(); });
+}
+
+function pat_arb() {
+    _stack.push(function() { return bb_arb_factory(); });
+}
+
+function pat_arbno() {
+    const body = _stack.pop();
+    _stack.push(function() { return bb_arbno_factory(body); });
+}
+
+function pat_cat() {
+    const right = _stack.pop();
+    const left = _stack.pop();
+    _stack.push(function() { return bb_seq_factory(left, right); });
+}
+
+function pat_alt() {
+    const right = _stack.pop();
+    const left = _stack.pop();
+    _stack.push(function() { return bb_alt_factory([left, right]); });
+}
+
+function pat_fail() {
+    _stack.push(function() { return bb_fail_factory(); });
+}
+
+function pat_succeed() {
+    _stack.push(function() { return bb_succeed_factory(); });
+}
+
+/* Stubs for unimplemented pattern ops */
+function pat_abort() { _stub_not_implemented('pat_abort'); }
+function pat_fence() { _stub_not_implemented('pat_fence'); }
+function pat_eps() { _stack.push(function() { return bb_succeed_factory(); }); }  /* epsilon = empty match */
+function pat_bal() { _stub_not_implemented('pat_bal'); }
+function pat_deref() { _stub_not_implemented('pat_deref'); }
+function pat_refname(name) { _stub_not_implemented('pat_refname'); }
+/**
+ * bb_capture_factory(child_factory, varname, immediate) — wrap pattern with capture.
+ * child_factory is a function that returns {α, β} when called.
+ */
+function bb_capture_factory(child_factory, varname, immediate) {
+    return {
+        α() {
+            const child = child_factory();  /* instantiate child to get {α, β} */
+            const cr = child.α();
+            if (cr === null) return null;
+            
+            if (immediate) {
+                _vars[varname] = cr;
+            } else {
+                _bb_pending.push({ varname, value: cr });
+            }
+            
+            return cr;
+        },
+        β() {
+            const child = child_factory();
+            return child.β();
+        }
+    };
+}
+
+function pat_capture(vname, kind) {
+    const child = _stack.pop();
+    /* kind: 0 = conditional (.), 1 = immediate ($) */
+    _stack.push(function() {
+        return bb_capture_factory(child, vname, kind === 1);
+    });
+}
+function pat_capture_fn(fname, kind, namelist) { _stub_not_implemented('pat_capture_fn'); }
+function pat_capture_fn_args(fname, kind, nargs) { _stub_not_implemented('pat_capture_fn_args'); }
+function pat_usercall(fname) { _stub_not_implemented('pat_usercall'); }
+function pat_usercall_args(fname, nargs) { _stub_not_implemented('pat_usercall_args'); }
+function exec_stmt(subj_name, has_repl) {
+    exec_pattern_stmt(subj_name, has_repl);
+}
+
+function _peek() { throw new Error('_peek deleted'); }
+
+module.exports = {
+    /* Core runtime */
+    _vars, _FAIL, _is_fail, _str, _num, _cat,
+    _add, _sub, _mul, _div, _pow, _apply, _kw, _is_int, _is_real, _real_result,
+    _match, _match_anchored, _user_fns,
+    /* Stack machine API (SJ4-JS-2) */
+    _init, _finalize,
+    push_int, push_str, push_real_bits, push_null, push_var,
+    store_var, pop_void, concat, neg, exp_op, coerce_num,
+    arith, acomp, lcomp, last_ok, set_last_ok, set_stno,
+    halt_tos, call, do_return,
+    /* User-fn dispatch (SJ4-JS-4c) */
+    _register_label_pcs, call_or_jump, fn_return,
+    /* Pattern execution (SJ4-JS-BB1a) */
+    exec_pattern_stmt, search_pattern,
+    /* SM-level pattern stack ops — STUBS ONLY (see SJ4-JS-BB1 for real impl) */
+    pat_lit, pat_span, pat_break, pat_any, pat_notany,
+    pat_len, pat_pos, pat_rpos, pat_tab, pat_rtab,
+    pat_rem, pat_arb, pat_arbno, pat_bal,
+    pat_fail, pat_succeed, pat_abort, pat_fence, pat_eps,
+    pat_cat, pat_alt, pat_deref, pat_refname,
+    pat_capture, pat_capture_fn, pat_capture_fn_args,
+    pat_usercall, pat_usercall_args,
+    exec_stmt,
+};

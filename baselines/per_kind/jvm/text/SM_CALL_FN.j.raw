@@ -1,0 +1,1 @@
+ldc "audit_fn" iconst_1 invokestatic rt/SnoRt/call(Ljava/lang/String;I)V

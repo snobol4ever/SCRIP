@@ -1,0 +1,1 @@
+ldc.i4 ADDR call void SnoRt::lcomp(int32)

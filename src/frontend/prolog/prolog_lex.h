@@ -1,0 +1,51 @@
+#ifndef PL_LEX_H
+#define PL_LEX_H
+typedef enum {
+    TK_EOF = 0,
+    TK_ATOM,
+    TK_VAR,
+    TK_ANON,
+    TK_INT,
+    TK_FLOAT,
+    TK_STRING,
+    TK_LPAREN,
+    TK_RPAREN,
+    TK_LBRACKET,
+    TK_RBRACKET,
+    TK_PIPE,
+    TK_COMMA,
+    TK_DOT,
+    TK_LBRACE,
+    TK_RBRACE,
+    TK_DOTDOT,
+    TK_OP,
+    TK_NECK,
+    TK_QUERY,
+    TK_CUT,
+    TK_SEMI,
+    TK_ERROR
+} TkKind;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    TkKind  kind;
+    char   *text;
+    long    ival;
+    double  fval;
+    int     line;
+} Token;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    const char *src;
+    int         pos;
+    int         line;
+    Token       peek;
+    int         has_peek;
+} Lexer;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void lexer_init(Lexer *lx, const char *src);
+Token lexer_next(Lexer *lx);
+Token lexer_peek(Lexer *lx);
+Token lexer_expect(Lexer *lx, TkKind kind, const char *context);
+void token_free(Token *t);
+const char *tk_name(TkKind kind);
+#endif

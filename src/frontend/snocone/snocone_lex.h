@@ -1,0 +1,16 @@
+#ifndef SNOCONE_LEX_H
+#define SNOCONE_LEX_H
+#include <stddef.h>
+typedef struct LexCtx {
+    const char *p;
+    int         line;
+    int         last_kind;
+    char        text[65536];
+    char        strbuf[65536];
+    int         strpos;
+} LexCtx;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int         sc_kind_is_value   (int kind);
+int         sc_kind_has_payload(int kind);
+const char *sc2_kind_name      (int kind);
+#endif

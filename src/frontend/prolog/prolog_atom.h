@@ -1,0 +1,7 @@
+#ifndef PL_ATOM_H
+#define PL_ATOM_H
+void prolog_atom_init(void);
+int prolog_atom_intern(const char *name);
+const char *prolog_atom_name(int id);
+int prolog_atom_count(void);
+#endif

@@ -1,0 +1,45 @@
+#include "BB.h"
+#include "bb_program.h"
+#include "stage2.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+stage2_t g_stage2;
+void stage2_reset(void)
+{
+    bb_program_free(&g_stage2.bbp);
+    free(g_stage2.label_table); g_stage2.label_table = NULL;
+    free(g_stage2.proc_table);  g_stage2.proc_table  = NULL;
+    g_stage2.label_cap   = STAGE2_LABEL_MAX;
+    g_stage2.label_count = 0;
+    g_stage2.label_table = calloc((size_t)g_stage2.label_cap, sizeof(LabelEntry));
+    g_stage2.proc_cap    = STAGE2_PROC_TABLE_MAX;
+    g_stage2.proc_count  = 0;
+    g_stage2.proc_table  = calloc((size_t)g_stage2.proc_cap,  sizeof(ProcEntry));
+    memset(&g_stage2.resolve_pred_table,   0, sizeof g_stage2.resolve_pred_table);
+    memset(&g_stage2.module_registry, 0, sizeof g_stage2.module_registry);
+    g_stage2.module_registry.main_mod = -1;
+    g_stage2.lang = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int stage2_label_grow(stage2_t *s2)
+{
+    if (s2->label_count >= s2->label_cap) {
+        s2->label_cap *= 2;
+        s2->label_table = realloc(s2->label_table, (size_t)s2->label_cap * sizeof(LabelEntry));
+    }
+    int idx = s2->label_count++;
+    memset(&s2->label_table[idx], 0, sizeof(LabelEntry));
+    return idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int stage2_proc_grow(stage2_t *s2)
+{
+    if (s2->proc_count >= s2->proc_cap) {
+        s2->proc_cap *= 2;
+        s2->proc_table = realloc(s2->proc_table, (size_t)s2->proc_cap * sizeof(ProcEntry));
+    }
+    int idx = s2->proc_count++;
+    memset(&s2->proc_table[idx], 0, sizeof(ProcEntry));
+    return idx;
+}

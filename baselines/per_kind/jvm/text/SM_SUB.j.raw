@@ -1,0 +1,1 @@
+bipush 1 invokestatic rt/SnoRt/arith(I)V

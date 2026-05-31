@@ -1,0 +1,7 @@
+#ifndef BB_BUILD_BIN_H
+#define BB_BUILD_BIN_H
+#include "bb_box.h"
+#include "patnd.h"
+typedef enum { BB_MODE_DRIVER = 0, BB_MODE_LIVE = 1, BB_MODE_BROKERED = 2 } bb_mode_t;
+extern bb_mode_t g_bb_mode;
+#endif

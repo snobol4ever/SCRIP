@@ -1,0 +1,1 @@
+ldstr "audit_fn" ldc.i4.1 call void SnoRt::sno_call(string, int32)

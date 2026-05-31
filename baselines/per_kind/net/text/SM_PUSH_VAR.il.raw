@@ -1,0 +1,1 @@
+ldstr "audit_arg" call void SnoRt::push_var(string)

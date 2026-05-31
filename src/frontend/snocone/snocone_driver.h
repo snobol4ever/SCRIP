@@ -1,0 +1,3 @@
+#pragma once
+#include "../../ast/ast.h"
+void snocone_compile(const char *source, const char *filename, tree_t **out_ast);

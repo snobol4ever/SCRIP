@@ -1,0 +1,63 @@
+#ifndef RAKU_RE_H
+#define RAKU_RE_H
+typedef struct { unsigned char bits[32]; } Raku_cc;
+int raku_cc_test(const Raku_cc *cc, unsigned char c);
+typedef enum {
+    NK_EPS,
+    NK_SPLIT,
+    NK_CHAR,
+    NK_ANY,
+    NK_CLASS,
+    NK_ANCHOR_BOL,
+    NK_ANCHOR_EOL,
+    NK_CAP_OPEN,
+    NK_CAP_CLOSE,
+    NK_CODE_ASSERT,
+    NK_CODE_PRED,
+    NK_SUB_CALL,
+    NK_ACCEPT
+} Nfa_kind;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define NFA_NULL   (-1)
+#define MAX_GROUPS  16
+typedef struct {
+    int       id;
+    Nfa_kind  kind;
+    unsigned char ch;
+    Raku_cc   cc;
+    int       out1;
+    int       out2;
+    int       cap_idx;
+    char     *code_str;
+    int       pred_neg;
+    int       bb_id;
+} Nfa_state;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    int matched;
+    int full_start;
+    int full_end;
+    int  group_start[MAX_GROUPS];
+    int  group_end[MAX_GROUPS];
+    char group_name[MAX_GROUPS][64];
+    int  ngroups;
+} Raku_match;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct Raku_nfa Raku_nfa;
+Raku_nfa  *raku_nfa_build(const char *pattern);
+int        raku_nfa_state_count(const Raku_nfa *nfa);
+int        raku_nfa_start(const Raku_nfa *nfa);
+int        raku_nfa_accept(const Raku_nfa *nfa);
+int        raku_nfa_ngroups(const Raku_nfa *nfa);
+int        raku_nfa_match(const Raku_nfa *nfa, const char *subject);
+void       raku_nfa_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result);
+void       raku_nfa_free(Raku_nfa *nfa);
+Nfa_state *raku_nfa_states(Raku_nfa *nfa);
+int        raku_nfa_group_by_name(const Raku_nfa *nfa, const char *name);
+struct BB_graph_t;
+struct BB_graph_t *raku_nfa_to_bb(Raku_nfa *nfa);
+#endif
+typedef int (*Raku_code_fn)(const char *code, int pos, const char *subject,
+                            void *userdata);
+void raku_nfa_set_code_fn(Raku_nfa *nfa, Raku_code_fn fn, void *userdata);
+int  raku_nfa_has_code(const Raku_nfa *nfa);

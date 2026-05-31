@@ -1,0 +1,1 @@
+ldc.r8 3.ADDR call void SnoRt::push_real(float64)

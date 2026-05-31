@@ -1,0 +1,35 @@
+#ifndef SNOBOL4_H
+#define SNOBOL4_H
+#include <stdio.h>
+typedef struct {
+    int         kind;
+    const char *sval;
+    long        ival;
+    double      dval;
+    int         lineno;
+} Token;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct Lex {
+    int    lineno;
+    Token  peek;
+    int    peeked;
+    void  *_scanner;
+    void  *_extra;
+} Lex;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void  lex_open_str(Lex *lx, const char *s, int len, int lineno);
+void  lex_open_str_initial(Lex *lx, const char *s, int len, int lineno);
+Token lex_next    (Lex *lx);
+Token lex_peek    (Lex *lx);
+int   lex_at_end  (Lex *lx);
+void  lex_destroy (Lex *lx);
+int   snobol4_get_stmt_lineno(void);
+void  flex_lex_open   (Lex *lx, FILE *f, const char *fname);
+Token flex_lex_next   (Lex *lx);
+void  flex_lex_destroy(Lex *lx);
+typedef struct SnoLine {
+    char *label; char *body; char *goto_str; int lineno; int is_end;
+} SnoLine;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { SnoLine *a; int n, cap; } LineArray;
+#endif

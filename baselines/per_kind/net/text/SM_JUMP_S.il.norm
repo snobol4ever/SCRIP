@@ -1,0 +1,1 @@
+call bool SnoRt::last_ok() brfalse NET_L1 ldc.i4 0 stloc _pc br NET_DISPATCH

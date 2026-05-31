@@ -1,0 +1,182 @@
+#include "interp_private.h"
+DESCR_t _eval_str_impl_fn(const char *s) {
+    tree_t *tree = parse_expr_pat_from_str(s);
+    if (!tree) return FAILDESCR;
+    return interp_eval_pat(tree);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t _eval_pat_impl_fn(DESCR_t pat) {
+    extern int exec_stmt(const char *, DESCR_t *, DESCR_t, DESCR_t *, int);
+    DESCR_t subj = STRVAL("");
+    int ok = exec_stmt("", &subj, pat, NULL, 0);
+    return ok ? NULVCL : FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int _label_exists_fn(const char *name) {
+    return label_lookup(name) != NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t _builtin_IDENT(DESCR_t *args, int nargs);
+DESCR_t _builtin_DIFFER(DESCR_t *args, int nargs);
+DESCR_t _builtin_DATA(DESCR_t *args, int nargs);
+DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
+    if (strcmp(name, "IDENT") == 0)  return _builtin_IDENT(args, nargs);
+    if (strcmp(name, "DIFFER") == 0) return _builtin_DIFFER(args, nargs);
+    if (strcmp(name, "DATA") == 0)   return _builtin_DATA(args, nargs);
+    if (strcmp(name, "ITEM") == 0 && nargs >= 2) {
+        if (nargs >= 3) return subscript_get2(args[0], args[1], args[2]);
+        return subscript_get(args[0], args[1]);
+    }
+    if (strcmp(name, "ITEM_SET") == 0 && nargs >= 3) {
+        DESCR_t rhs = args[0], arr = args[1], idx = args[2];
+        if (nargs >= 4) { subscript_set2(arr, idx, args[3], rhs); }
+        else            { subscript_set(arr, idx, rhs); }
+        return rhs;
+    }
+    {
+        DatType *_dt = dat_find_type(name);
+        if (_dt) return dat_construct(_dt, args, nargs);
+        int _fi = 0;
+        DatType *_ft = dat_find_field(name, &_fi);
+        if (_ft && nargs >= 1) return dat_field_get(name, args[0]);
+        size_t _nlen = strlen(name);
+        if (_nlen > 4 && strcmp(name + _nlen - 4, "_SET") == 0 && nargs >= 2) {
+            char _fname[128];
+            size_t _flen = _nlen - 4;
+            if (_flen >= sizeof(_fname)) _flen = sizeof(_fname) - 1;
+            memcpy(_fname, name, _flen); _fname[_flen] = '\0';
+            DESCR_t *_cell = data_field_ptr(_fname, args[1]);
+            if (_cell) { *_cell = args[0]; return args[0]; }
+        }
+    }
+    const tree_t *_body = NULL;
+    if (!_body) {
+        for (int _i = 0; _i < g_stage2.proc_count; _i++) {
+            if (g_stage2.proc_table[_i].name && strcmp(g_stage2.proc_table[_i].name, name) == 0) {
+                return proc_table_call(_i, args, nargs);
+            }
+        }
+        if (g_resolve_active) {
+            char resolve_key[256];
+            snprintf(resolve_key, sizeof resolve_key, "%s/%d", name, nargs);
+            tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, resolve_key);
+            if (choice) {
+                Term **resolve_args = (nargs > 0) ? resolve_env_new(nargs) : NULL;
+                for (int _i = 0; _i < nargs; _i++)
+                    resolve_args[_i] = resolve_unified_term_from_expr(
+                        (args[_i].v == DT_S)
+                            ? &(tree_t){ .t = TT_QLIT, .v.sval = (char*)args[_i].s }
+                            : &(tree_t){ .t = TT_ILIT, .v.ival = (long)args[_i].s },
+                        NULL);
+                Term **saved_env = g_resolve_env;
+                g_resolve_env = resolve_args;
+                Resolve_PredEntry *_hpe = resolve_pred_entry_lookup(resolve_key);
+                extern stage2_t g_stage2;
+                bb_node_t root = (_hpe && _hpe->entry_pc >= 0 && 1)
+                    ? pl_box_choice_pc(_hpe->entry_pc, g_resolve_env, nargs)
+                    : pl_box_choice(choice, g_resolve_env, nargs);
+                int ok = bb_broker(root, bb_once, NULL, NULL);
+                g_resolve_env = saved_env;
+                return ok ? INTVAL(1) : FAILDESCR;
+            }
+        }
+    }
+    if (FNCEX_fn(name)) return APPLY_fn(name, args, nargs);
+    return call_user_function(name, args, nargs);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void ir_dump_program(const tree_t *prog, FILE *f) {
+    if (!prog) { fprintf(f, "(NULL-PROGRAM)\n"); return; }
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t *s = prog->c[i];
+        if (!s) continue;
+        fprintf(f, "(STMT");
+        const char *lbl  = stmt_attr_str(stmt_attr_find(s, ":lbl"));
+        int has_eq = stmt_attr_find(s, ":eq") != NULL;
+        if (lbl)         fprintf(f, " :lbl %s", lbl);
+        if (has_eq)      fprintf(f, " :eq");
+        if (s->t == TT_END) fprintf(f, " :end");
+        tree_t *subj = stmt_attr_expr(stmt_attr_find(s, ":subj"));
+        tree_t *pat  = stmt_attr_expr(stmt_attr_find(s, ":pat"));
+        tree_t *repl = stmt_attr_expr(stmt_attr_find(s, ":repl"));
+        if (subj) { fprintf(f, " :subj "); ir_print_node(subj, f); }
+        if (pat)  { fprintf(f, " :pat ");  ir_print_node(pat, f);  }
+        if (repl) { fprintf(f, " :repl "); ir_print_node(repl, f); }
+        const char *go  = goto_node_str(stmt_goto_find(s, TT_GOTO_U));
+        const char *goS = goto_node_str(stmt_goto_find(s, TT_GOTO_S));
+        const char *goF = goto_node_str(stmt_goto_find(s, TT_GOTO_F));
+        if (go)  fprintf(f, " :go %s",  go);
+        if (goS) fprintf(f, " :goS %s", goS);
+        if (goF) fprintf(f, " :goF %s", goF);
+        fprintf(f, ")\n");
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t _builtin_IDENT(DESCR_t *args, int nargs) {
+    if (nargs == 1) return IS_NULL_fn(args[0]) ? NULVCL : FAILDESCR;
+    if (nargs >= 2) {
+        int a_null = IS_NULL_fn(args[0]), b_null = IS_NULL_fn(args[1]);
+        if (a_null && b_null) return NULVCL;
+        if (a_null || b_null) return FAILDESCR;
+        if (args[0].v != args[1].v) return FAILDESCR;
+        const char *sa = VARVAL_fn(args[0]), *sb = VARVAL_fn(args[1]);
+        if (!sa) sa = ""; if (!sb) sb = "";
+        return strcmp(sa, sb) == 0 ? NULVCL : FAILDESCR;
+    }
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t _builtin_DIFFER(DESCR_t *args, int nargs) {
+    if (nargs == 1) return IS_NULL_fn(args[0]) ? FAILDESCR : NULVCL;
+    if (nargs >= 2) {
+        int a_null = IS_NULL_fn(args[0]), b_null = IS_NULL_fn(args[1]);
+        if (a_null && b_null) return FAILDESCR;
+        if (a_null || b_null) return NULVCL;
+        if (args[0].v != args[1].v) return NULVCL;
+        const char *sa = VARVAL_fn(args[0]), *sb = VARVAL_fn(args[1]);
+        if (!sa) sa = ""; if (!sb) sb = "";
+        return strcmp(sa, sb) != 0 ? NULVCL : FAILDESCR;
+    }
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern DESCR_t EVAL_fn(DESCR_t);
+extern DESCR_t code(const char *);
+DESCR_t _builtin_EVAL(DESCR_t *args, int nargs) {
+    if (nargs < 1) return FAILDESCR;
+    return EVAL_fn(args[0]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t _builtin_CODE(DESCR_t *args, int nargs) {
+    if (nargs < 1) return FAILDESCR;
+    const char *s = VARVAL_fn(args[0]);
+    if (!s || !*s) return FAILDESCR;
+    return code(s);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *PAT_FNC_NAMES[] = {
+    "ANY","NOTANY","SPAN","BREAK","BREAKX","LEN","POS","RPOS","TAB","RTAB",
+    "ARB","ARBNO","REM","FAIL","SUCCEED","FENCE","ABORT","BAL","CALL", NULL
+};
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int _is_pat_fnc_name(const char *s) {
+    if (!s) return 0;
+    for (int i = 0; PAT_FNC_NAMES[i]; i++)
+        if (strcmp(s, PAT_FNC_NAMES[i]) == 0) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int _expr_is_pat(tree_t *e) {
+    if (!e) return 0;
+    switch (e->t) {
+        case TT_ARB: case TT_ARBNO: case TT_CAPT_COND_ASGN:
+        case TT_CAPT_IMMED_ASGN: case TT_CAPT_CURSOR: case TT_DEFER:
+            return 1;
+        default: break;
+    }
+    if (e->t == TT_FNC && _is_pat_fnc_name(e->v.sval)) return 1;
+    if (e->t == TT_VAR && _is_pat_fnc_name(e->v.sval)) return 1;
+    for (int i = 0; i < e->n; i++)
+        if (_expr_is_pat(e->c[i])) return 1;
+    return 0;
+}

@@ -1,0 +1,743 @@
+#include "emit_core.h"
+#include "emit_globals.h"
+#include "emit_io.h"
+#include <string>
+#include "emit_str.h"
+#include "stage2.h"
+#include "BB_templates/bb_templates.h"
+#include "XA_templates/xa_templates.h"
+#include "emit_form.h"
+#include <string.h>
+#include <stdlib.h>
+#include <assert.h>
+bb_emit_mode_t  bb_emit_mode = EMIT_BINARY_WIRED;
+int             g_sm_native_unsupported = 0;
+FILE           *bb_emit_out  = NULL;
+bb_platform_t   g_platform      = BB_PLATFORM_X86;
+bb_medium_t     g_medium        = BB_MEDIUM_BINARY;
+int             g_bb_brokered   = 0;
+int             g_use_sm_macros = 0;
+int             g_use_bb_macros = 0;
+void emit_mode_set(bb_emit_mode_t m, FILE *out)
+{
+    bb_emit_mode = m;
+    bb_emit_out  = out;
+    switch (m) {
+    case EMIT_TEXT:             g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
+    case EMIT_TEXT_INLINE:      g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=1; break;
+    case EMIT_MACRO_DEF:        g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_MACRO_DEF; g_bb_brokered=0; g_use_sm_macros=0; break;
+    case EMIT_BINARY_WIRED:     g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_BINARY;    g_bb_brokered=0; g_use_sm_macros=0; break;
+    case EMIT_BINARY_BROKERED:  g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_BINARY;    g_bb_brokered=1; g_use_sm_macros=0; break;
+    case EMIT_JVM:              g_platform=BB_PLATFORM_JVM;  g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
+    case EMIT_JS:               g_platform=BB_PLATFORM_JS;   g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
+    case EMIT_NET:              g_platform=BB_PLATFORM_NET;  g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
+    case EMIT_WASM:             g_platform=BB_PLATFORM_WASM; g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+FILE *emit_outf(void) { return bb_emit_out ? bb_emit_out : stdout; }
+#include <string.h>
+bb_buf_t   bb_emit_buf   = NULL;
+int        bb_emit_pos   = 0;
+int        bb_emit_size  = 0;
+bb_patch_t bb_patch_list[BB_PATCH_MAX];
+int        bb_patch_count = 0;
+static bb_label_t ** g_label_pool      = NULL;
+static int           g_label_pool_n    = 0;
+static int           g_label_pool_max  = 0;
+void emit_label_pool_reset(void)
+{
+    for (int i = 0; i < g_label_pool_n; i++) free(g_label_pool[i]);
+    g_label_pool_n = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+bb_label_t *emit_label_alloc(const char *fmt, ...)
+{
+    if (g_label_pool_n >= g_label_pool_max) {
+        int new_max = g_label_pool_max ? g_label_pool_max * 2 : 64;
+        bb_label_t **g = (bb_label_t **)realloc(g_label_pool, (size_t)new_max * sizeof(bb_label_t *));
+        if (!g) return NULL;
+        g_label_pool     = g;
+        g_label_pool_max = new_max;
+    }
+    bb_label_t *lbl = (bb_label_t *)calloc(1, sizeof(bb_label_t));
+    if (!lbl) return NULL;
+    va_list ap; va_start(ap, fmt);
+    vsnprintf(lbl->name, BB_LABEL_NAME_MAX, fmt, ap);
+    va_end(ap);
+    lbl->offset = BB_LABEL_UNRESOLVED;
+    g_label_pool[g_label_pool_n++] = lbl;
+    return lbl;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+bb_label_t *emit_label_intern(const char *name)
+{
+    if (!name) return NULL;
+    for (int i = 0; i < g_label_pool_n; i++)
+        if (g_label_pool[i] && strcmp(g_label_pool[i]->name, name) == 0) return g_label_pool[i];
+    return emit_label_alloc("%s", name);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void bb_emit_begin(bb_buf_t buf, int size)
+{
+    bb_emit_buf    = buf;
+    bb_emit_pos    = 0;
+    bb_emit_size   = size;
+    bb_patch_count = 0;
+    emit_label_pool_reset();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int bb_emit_overflow;
+int bb_emit_end(void)
+{
+    if (bb_emit_overflow) {
+        bb_patch_count = 0;
+        return -1;
+    }
+    if (bb_patch_count > 0) {
+        fprintf(stderr, "bb_emit_end: %d unresolved forward reference(s):\n",
+                bb_patch_count);
+        for (int i = 0; i < bb_patch_count; i++)
+            fprintf(stderr, "  site=%d label='%s'\n",
+                    bb_patch_list[i].site,
+                    bb_patch_list[i].label->name);
+        abort();
+    }
+    return bb_emit_pos;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void bb_emit_patch_rel32(bb_label_t *lbl)
+{
+    if (!MEDIUM_BINARY) {
+        fprintf(stderr,
+                "bb_emit_patch_rel32: TEXT-mode reach (target='%s') — "
+                "use bb_insn_*_rel32 mnemonic helpers\n",
+                lbl->name);
+        abort();
+    }
+    if (bb_label_defined(lbl)) {
+        int disp = lbl->offset - (bb_emit_pos + 4);
+        bb_emit_i32(disp);
+        return;
+    }
+    if (bb_patch_count >= BB_PATCH_MAX) {
+        bb_emit_overflow = 1;
+        return;
+    }
+    bb_patch_list[bb_patch_count].site  = bb_emit_pos;
+    bb_patch_list[bb_patch_count].label = lbl;
+    bb_patch_list[bb_patch_count].kind  = PATCH_REL32;
+    bb_patch_count++;
+    bb_emit_u32(0x00000000);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int bb_emit_overflow = 0;
+void bb_emit_byte(uint8_t b)
+{
+    if (bb_emit_mode != EMIT_BINARY_WIRED) {
+        fprintf(stderr,
+                "bb_emit_byte: non-BINARY-mode reach (mode=%d, b=0x%02x) — "
+                "convert caller to a named bb_insn_* helper\n",
+                (int)bb_emit_mode, (unsigned)b);
+        abort();
+    }
+    if (bb_emit_pos >= bb_emit_size) {
+        bb_emit_overflow = 1;
+        return;
+    }
+    bb_emit_buf[bb_emit_pos++] = b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void  bb_emit_u32(uint32_t v)  { bb_emit_byte((uint8_t)(v)); bb_emit_byte((uint8_t)(v>>8)); bb_emit_byte((uint8_t)(v>>16)); bb_emit_byte((uint8_t)(v>>24)); }
+void  bb_emit_u64(uint64_t v)  { bb_emit_u32((uint32_t)(v)); bb_emit_u32((uint32_t)(v >> 32)); }
+void  bb_emit_i32(int32_t v)   { uint32_t u; memcpy(&u, &v, 4); bb_emit_u32(u); }
+int  g_is_text        = 0;
+int  g_emit_text_mode = TEXT_MODE_INVOCATION;
+int  g_emit_pos       = 0;
+void emitter_init_binary(bb_buf_t buf, int size)
+{
+    g_is_text = 0; g_emit_text_mode = TEXT_MODE_INVOCATION; g_emit_pos = 0;
+    bb_emit_overflow = 0;
+    bb_emit_mode = EMIT_BINARY_WIRED;
+    bb_emit_begin(buf, size);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emitter_init_text(FILE *out, int mode)
+{
+    g_is_text = 1; g_emit_text_mode = mode; g_emit_pos = 0;
+    bb_emit_mode = EMIT_TEXT;
+    bb_emit_out  = out ? out : stdout;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int  emitter_end(void)        { return g_is_text ? g_emit_pos : bb_emit_end(); }
+void  emitter_init_macro_def(FILE *out) { emitter_init_text(out, TEXT_MODE_DEFINITION); }
+static void  ef_b1 (uint8_t a)                                   { bb_emit_byte(a); }
+static void  ef_b2 (uint8_t a, uint8_t b)                        { bb_emit_byte(a); bb_emit_byte(b); }
+static void  ef_b3 (uint8_t a, uint8_t b, uint8_t c)             { bb_emit_byte(a); bb_emit_byte(b); bb_emit_byte(c); }
+static void  ef_b4 (uint8_t a, uint8_t b, uint8_t c, uint8_t d)  { bb_emit_byte(a); bb_emit_byte(b); bb_emit_byte(c); bb_emit_byte(d); }
+static void  ef_u32(uint32_t v)                                  { bb_emit_u32(v); }
+static void  ef_u64(uint64_t v)                                  { bb_emit_u64(v); }
+static void ef_t3c(const char *mnem, const char *fmt, ...)
+{
+    char buf[256]; buf[0] = '\0';
+    if (fmt) { va_list ap; va_start(ap,fmt); vsnprintf(buf,sizeof(buf),fmt,ap); va_end(ap); }
+    fprintf(bb_emit_out, "%s %s\n", mnem ? mnem : "", buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ef_t3c_jmp(const char *mnem, const char *target)
+{ fprintf(bb_emit_out, "%s %s\n", mnem ? mnem : "", target ? target : ""); }
+void emit_label_define_bb(bb_label_t *lbl)
+{
+    if (g_is_text) {
+        char buf[256]; snprintf(buf, sizeof(buf), "%s:", lbl->name);
+        fprintf(bb_emit_out, "%s\n", buf);
+    } else {
+        bb_emit_mode_t s = bb_emit_mode; bb_emit_mode = EMIT_BINARY_WIRED;
+        bb_label_define(lbl);
+        bb_emit_mode = s;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_jmp_label(bb_label_t *target, jmp_kind_t kind)
+{
+    static const char    *mn[]    = {"jmp","je","jne","jl","jge","jg"};
+    static const uint8_t  ops[6][2] = {{0xE9,0x00},{0x0F,0x84},{0x0F,0x85},{0x0F,0x8C},{0x0F,0x8D},{0x0F,0x8F}};
+    int k = (int)kind < 6 ? (int)kind : 0;
+    if (g_is_text) { ef_t3c_jmp(mn[k], target->name); g_emit_pos += 6; }
+    else { if (k==0) ef_b1(0xE9); else ef_b2(ops[k][0], ops[k][1]); bb_emit_patch_rel32(target); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_call_label(bb_label_t *target)
+{
+    if (g_is_text) { ef_t3c_jmp("call", target->name); g_emit_pos += 5; }
+    else { ef_b1(0xE8); bb_emit_patch_rel32(target); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void bb_label_define(bb_label_t *lbl)
+{
+    if (!MEDIUM_BINARY) {
+        FILE *f = bb_emit_out ? bb_emit_out : stdout;
+        char lbuf[256]; snprintf(lbuf, sizeof(lbuf), "%s:", lbl->name);
+        fprintf(f, "%s\n", lbuf);
+        return;
+    }
+    if (bb_emit_overflow) return;
+    lbl->offset = bb_emit_pos;
+    for (int i = 0; i < bb_patch_count; i++) {
+        bb_patch_t *p = &bb_patch_list[i];
+        if (p->label != lbl) continue;
+        int target = lbl->offset;
+        if (p->kind == PATCH_REL8) {
+            int disp = target - (p->site + 1);
+            if (disp < -128 || disp > 127) {
+                fprintf(stderr, "bb_label_define: rel8 overflow for '%s': disp=%d\n",
+                        lbl->name, disp);
+                abort();
+            }
+            bb_emit_buf[p->site] = (uint8_t)(int8_t)disp;
+        } else {
+            int disp = target - (p->site + 4);
+            uint32_t u;
+            memcpy(&u, &disp, 4);
+            bb_emit_buf[p->site + 0] = (uint8_t)(u      );
+            bb_emit_buf[p->site + 1] = (uint8_t)(u >>  8);
+            bb_emit_buf[p->site + 2] = (uint8_t)(u >> 16);
+            bb_emit_buf[p->site + 3] = (uint8_t)(u >> 24);
+        }
+        bb_patch_list[i] = bb_patch_list[--bb_patch_count];
+        i--;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
+{
+    va_list ap; va_start(ap, fmt);
+    vsnprintf(lbl->name, BB_LABEL_NAME_MAX, fmt, ap);
+    va_end(ap);
+    lbl->offset = BB_LABEL_UNRESOLVED;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_text_stno_banner(int stno, int lineno, const char *src_text)
+{
+#define STNO_RULE \
+    "#=======================================================================================================================\n"
+    switch (bb_emit_mode) {
+    case EMIT_BINARY_WIRED:
+    case EMIT_BINARY_BROKERED:
+        return;
+    case EMIT_TEXT_INLINE:
+    case EMIT_TEXT:
+    case EMIT_MACRO_DEF: {
+        FILE *f = bb_emit_out ? bb_emit_out : stdout;
+        fputs(STNO_RULE, f);
+        if (src_text && *src_text)
+            fprintf(f, "# stmt %d  (line %d):  %s\n", stno, lineno, src_text);
+        else if (lineno > 0)
+            fprintf(f, "# stmt %d  (line %d)\n", stno, lineno);
+        else
+            fprintf(f, "# stmt %d\n", stno);
+        fputs(STNO_RULE, f);
+        return;
+    }
+    }
+#undef STNO_RULE
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_text_rawf(const char *fmt, ...) {
+    if (bb_emit_mode != EMIT_TEXT) return;
+    va_list ap; va_start(ap, fmt); vfprintf(emit_outf(), fmt, ap); va_end(ap);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void jvm_push_int2(FILE * out, long v) {
+    if (v == -1) { fprintf(out, "    iconst_m1\n"); return; }
+    if (v >= 0 && v <= 5) { fprintf(out, "    iconst_%ld\n", v); return; }
+    if (v >= -128 && v <= 127) { fprintf(out, "    bipush %ld\n", v); return; }
+    if (v >= -32768 && v <= 32767) { fprintf(out, "    sipush %ld\n", v); return; }
+    fprintf(out, "    ldc %ld\n", v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void jvm_emit_ldc_string(FILE * out, const char * s) {
+    fprintf(out, "    ldc \"");
+    for (const char * p = s; *p; p++) {
+        if      (*p == '"')  fprintf(out, "\\\"");
+        else if (*p == '\\') fprintf(out, "\\\\");
+        else if (*p == '\n') fprintf(out, "\\n");
+        else if (*p == '\r') fprintf(out, "\\r");
+        else if (*p == '\t') fprintf(out, "\\t");
+        else                 fputc(*p, out);
+    }
+    fprintf(out, "\"\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include "BB.h"
+#include "emit_ir.h"
+void net_escape_ldstr(FILE * out, const char * s) {
+    fprintf(out, "    ldstr      \"");
+    if (!s) { fprintf(out, "\"\n"); return; }
+    for (const unsigned char * p = (const unsigned char *)s; *p; p++) {
+        if (*p == '"')       fprintf(out, "\\\"");
+        else if (*p == '\\') fprintf(out, "\\\\");
+        else if (*p < 0x20 || *p == 0x7f) fprintf(out, "\\u%04X", (unsigned)*p);
+        else fputc(*p, out);
+    }
+    fprintf(out, "\"\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void net_class_hdr(FILE * out, int sid, int nid) {
+    fprintf(out, ".class nested public auto ansi beforefieldinit pat_%d_%d\n", sid, nid);
+    fprintf(out, "       extends [mscorlib]System.Object\n");
+    fprintf(out, "       implements [boxes]Snobol4.Runtime.Boxes.IByrdBox\n{\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void net_α_hdr(FILE * out) {
+    fprintf(out, "  .method public virtual instance valuetype [boxes]Snobol4.Runtime.Boxes.Spec\n");
+    fprintf(out, "          Alpha(class [boxes]Snobol4.Runtime.Boxes.MatchState ms) cil managed\n  {\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void net_β_hdr(FILE * out) {
+    fprintf(out, "  .method public virtual instance valuetype [boxes]Snobol4.Runtime.Boxes.Spec\n");
+    fprintf(out, "          Beta(class [boxes]Snobol4.Runtime.Boxes.MatchState ms) cil managed\n  {\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void net_fail_ret(FILE * out) {
+    fprintf(out, "    ldsfld     valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::Fail\n");
+    fprintf(out, "    ret\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void net_cursor_load(FILE * out) {
+    fprintf(out, "    ldarg.1\n");
+    fprintf(out, "    ldfld      int32 [boxes]Snobol4.Runtime.Boxes.MatchState::Cursor\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void net_spec_of(FILE * out) {
+    fprintf(out, "    call       valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::Of(int32, int32)\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void net_charset_class(FILE * out, int sid, int nid, const char * tag) {
+    net_class_hdr(out, sid, nid);
+    fprintf(out, "  .field private string _chars\n");
+    fprintf(out, "  .method public specialname rtspecialname instance void .ctor(string chars) cil managed\n  {\n");
+    fprintf(out, "    .maxstack 3\n    ldarg.0\n    call       instance void [mscorlib]System.Object::.ctor()\n");
+    fprintf(out, "    ldarg.0\n    ldarg.1\n    dup\n    brtrue     %s_%d_%d_NN\n    pop\n    ldstr      \"\"\n", tag, sid, nid);
+    fprintf(out, "  %s_%d_%d_NN:\n    stfld      string pat_%d_%d::_chars\n    ret\n  }\n", tag, sid, nid, sid, nid);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void net_push_i4(FILE * out, int v) {
+    if (v >= 0 && v <= 8)          { fprintf(out, "    ldc.i4.%d\n", v); }
+    else if (v == -1)               { fprintf(out, "    ldc.i4.m1\n"); }
+    else if (v >= -128 && v <= 127) { fprintf(out, "    ldc.i4.s   %d\n", v); }
+    else                            { fprintf(out, "    ldc.i4     %d\n", v); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int walk_bb_node(BB_t * nd, FILE * out) {
+    extern void bb_prepare_capture_arbno(BB_t *nd, int imm);
+    extern void bb_prepare_pl(BB_t *nd);
+    if (!nd) return 1;
+    g_emit.node = nd;
+    emit_io_set_sink(out);
+    g_emit.sid  = 0;
+    g_emit.nid  = bb_node_id(nd);
+    switch (nd->t) {
+    case BB_PAT_LIT:         bb_lit(nd);               return 0;
+    case BB_PAT_ANY:         bb_pat_any(nd);           return 0;
+    case BB_PAT_NOTANY:      bb_pat_notany(nd);        return 0;
+    case BB_PAT_SPAN:        bb_pat_span(nd);          return 0;
+    case BB_PAT_BREAK:       bb_pat_break(nd);         return 0;
+    case BB_PAT_ARB:         bb_pat_arb(nd);           return 0;
+    case BB_PAT_ARBNO:       bb_prepare_capture_arbno(nd, 0); bb_arbno(nd);             return 0;
+    case BB_PAT_CAT:         bb_pat_cat(nd);           return 0;
+    case BB_PAT_ALT:         bb_pat_alt(nd);           return 0;
+    case BB_PAT_LEN:         bb_pat_len(nd);           return 0;
+    case BB_PAT_POS:         bb_pat_pos(nd);           return 0;
+    case BB_PAT_TAB:         bb_pat_tab(nd);           return 0;
+    case BB_PAT_ATP:         bb_pat_atp(nd);           return 0;
+    case BB_PAT_REM:         bb_pat_rem(nd);           return 0;
+    case BB_PAT_FENCE:       bb_pat_fence(nd);         return 0;
+    case BB_PAT_ABORT:       bb_pat_abort(nd);         return 0;
+    case BB_PAT_ASSIGN_IMM:  bb_prepare_capture_arbno(nd, 1); bb_capture(nd, 1);        return 0;
+    case BB_PAT_ASSIGN_COND: bb_prepare_capture_arbno(nd, 0); bb_capture(nd, 0);        return 0;
+    case BB_GOAL:         bb_prepare_pl(nd); bb_goal(nd);          return 0;
+    case BB_ARITH:           bb_prepare_pl(nd); bb_arith(nd);         return 0;
+    case BB_BUILTIN:         bb_prepare_pl(nd); bb_builtin(nd);       return 0;
+    case BB_LOGICVAR:          bb_logicvar(nd);            return 0;
+    case BB_ATOM:         bb_prepare_pl(nd); bb_atom(nd);           return 0;
+    case BB_LIT_I:
+    case BB_LIT_S:
+    case BB_LIT_F:
+    case BB_LIT_NUL:              bb_lit_scalar(nd);         return 0;
+    case BB_VAR:                  bb_var(nd);          return 0;
+    case BB_ASSIGN:               bb_assign(nd);       return 0;
+    case BB_AUGOP:
+    case BB_UNOP:
+    case BB_CALL:                 bb_call(nd);         return 0;
+    case BB_BINOP:                bb_binop(nd);        return 0;
+    case BB_SEQ:                  bb_seq(nd);          return 0;
+    case BB_FAIL:                 bb_fail(nd);         return 0;
+    case BB_SUCCEED:              bb_succeed(nd);      return 0;
+    case BB_EVERY:                bb_every(nd);        return 0;
+    case BB_GOTO:
+                                  bb_alt(nd);          return 0;
+    case BB_RETURN:               bb_return(nd);       return 0;
+    case BB_IF:                   bb_if(nd);           return 0;
+    case BB_SWAP:                 bb_swap(nd);         return 0;
+    case BB_WHILE:
+    case BB_UNTIL:                bb_if(nd);           return 0;
+    case BB_REPEAT:
+    case BB_ALT:                  bb_alt(nd);          return 0;
+    case BB_SIZE:                 bb_unop(nd);      return 0;
+    case BB_CASE:
+    case BB_LIMIT:                bb_limit(nd);     return 0;
+    case BB_SUSPEND:              bb_suspend(nd);      return 0;
+    case BB_PROC:
+    case BB_SCAN:
+    case BB_INTERROGATE:
+    case BB_PAT_CALLOUT:
+                                  bb_stub(nd);         return 0;
+    case BB_PAT_DEFER:            bb_pat_defer(nd);    return 0;
+    case BB_CHOICE:          bb_choice(nd);                            return 0;
+    case BB_CUT:             bb_cut(nd);                               return 0;
+    case BB_DISJ:          bb_disj(nd);                               return 0;
+    case BB_GCONJ:          bb_conj(nd);                               return 0;
+    case BB_ITE:          bb_ite(nd);                               return 0;
+    case BB_CATCH:        bb_catch(nd);                             return 0;
+    case BB_UNIFY:           bb_prepare_pl(nd); bb_unify(nd);         return 0;
+    case BB_TO_BY:                    bb_to_by(nd);        return 0;
+    case BB_TO:                   bb_to(nd);           return 0;
+    case BB_UPTO:                bb_upto(nd);     return 0;
+    case BB_ITERATE:                bb_iterate(nd);     return 0;
+    case BB_GEN_ALT:                bb_gen_alt(nd);     return 0;
+    case BB_GEN_BINOP:
+    case BB_TO_NESTED:
+    case BB_PROC_GEN:                bb_proc_gen(nd);     return 0;
+    case BB_BREAK:
+    case BB_NEXT:
+    case BB_IDENTICAL:
+    case BB_RANDOM:
+    case BB_CSET_COMPL:
+    case BB_CSET_UNION:
+    case BB_CSET_DIFF:
+    case BB_CSET_INTER:           bb_cset(nd);         return 0;
+    case BB_NEG:
+    case BB_POS:
+    case BB_NONNULL:
+    case BB_NULL_TEST:
+    case BB_NOT:                  bb_unop(nd);         return 0;
+    case BB_GEN_SCAN:                bb_gen_scan(nd);     return 0;
+    case BB_KEYWORD:                bb_keyword(nd);     return 0;
+    case BB_BINOP_GEN:                bb_binop_gen(nd);    return 0;
+    case BB_IDX:                 bb_idx(nd);          return 0;
+    case BB_IDX_SET:             bb_idx_set(nd);      return 0;
+    case BB_SECTION:
+    case BB_RECORD_DEF:
+    case BB_KEY_GEN:
+    case BB_SEQ_EXPR:
+    case BB_LCONCAT:
+    case BB_FIND_GEN:
+    case BB_SEQ_GEN:          bb_stub(nd);             return 0;
+    case BB_LIST_BANG:            bb_list_bang(nd);    return 0;
+    case BB_FIELD_GET:            bb_field_get(nd);    return 0;
+    case BB_FIELD_SET:            bb_field_set(nd);    return 0;
+    case BB_INITIAL:              bb_initial(nd);      return 0;
+    case BB_NFA_EPS:              bb_nfa_eps(nd);      return 0;
+    case BB_NFA_CAP_OPEN:         bb_nfa_cap_open(nd); return 0;
+    case BB_NFA_CAP_CLOSE:        bb_nfa_cap_close(nd);return 0;
+    case BB_NFA_CHAR:             bb_nfa_char(nd);     return 0;
+    case BB_NFA_ACCEPT:           bb_nfa_accept(nd);   return 0;
+    case BB_NFA_ANY:              bb_nfa_any(nd);      return 0;
+    case BB_NFA_BOL:              bb_nfa_bol(nd);      return 0;
+    case BB_NFA_EOL:              bb_nfa_eol(nd);      return 0;
+    case BB_NFA_CLASS:            bb_nfa_class(nd);    return 0;
+    case BB_NFA_SPLIT:            bb_stub(nd);         return 0;
+    default:
+        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t);
+        return 1;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char * walk_bb_node_str_c(BB_t * nd) {
+    if (!nd) { char * e = (char *)malloc(1); if (e) e[0] = '\0'; return e; }
+    char *   buf   = NULL;
+    size_t   len   = 0;
+    FILE *   mem   = open_memstream(&buf, &len);
+    if (!mem) { char * e = (char *)malloc(1); if (e) e[0] = '\0'; return e; }
+    FILE *   sv_bb = bb_emit_out;
+    bb_emit_out    = mem;
+    walk_bb_node(nd, mem);
+    fflush(mem);
+    fclose(mem);
+    bb_emit_out    = sv_bb;
+    emit_io_set_sink(sv_bb);
+    if (!buf) { char * e = (char *)malloc(1); if (e) e[0] = '\0'; return e; }
+    return buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define WASM_STRTAB_MAX 4096
+#define WASM_STR_DATA_BASE 0x100000
+typedef struct { const char * s; int addr; int len; } WasmStrEntry;
+static WasmStrEntry g_wasm_strtab[WASM_STRTAB_MAX];
+static int g_wasm_strtab_n = 0;
+static int g_wasm_str_next = WASM_STR_DATA_BASE;
+static void wasm_strtab_reset(void) { g_wasm_strtab_n = 0; g_wasm_str_next = WASM_STR_DATA_BASE; }
+int wasm_intern_str(const char * s) {
+    int len = s ? (int)strlen(s) : 0;
+    for (int i = 0; i < g_wasm_strtab_n; i++)
+        if (g_wasm_strtab[i].len == len && (len == 0 || memcmp(g_wasm_strtab[i].s, s, len) == 0)) return g_wasm_strtab[i].addr;
+    if (g_wasm_strtab_n >= WASM_STRTAB_MAX) return WASM_STR_DATA_BASE;
+    int addr = g_wasm_str_next;
+    g_wasm_strtab[g_wasm_strtab_n].s    = s;
+    g_wasm_strtab[g_wasm_strtab_n].addr = addr;
+    g_wasm_strtab[g_wasm_strtab_n].len  = len;
+    g_wasm_strtab_n++;
+    g_wasm_str_next += len + 1;
+    return addr;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int wasm_intern_name(const char * s) {
+    if (!s) return wasm_intern_str(s);
+    int len = (int)strlen(s);
+    static char buf[256];
+    if (len >= (int)sizeof(buf)) len = (int)sizeof(buf) - 1;
+    for (int i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)s[i];
+        buf[i] = (c >= 'a' && c <= 'z') ? (char)(c - 32) : (char)c;
+    }
+    buf[len] = '\0';
+    return wasm_intern_str(buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#ifdef __cplusplus
+extern "C++" {
+#endif
+std::string wasm_emit_data_segments_str(void) {
+    std::string r;
+    for (int i = 0; i < g_wasm_strtab_n; i++) {
+        const char * s   = g_wasm_strtab[i].s;
+        int          len = g_wasm_strtab[i].len;
+        int          adr = g_wasm_strtab[i].addr;
+        r += emit_fmt("  (data (i32.const 0x%x) \"", adr);
+        for (int j = 0; j < len; j++) {
+            unsigned char c = (unsigned char)s[j];
+            if (c == '"' || c == '\\') r += emit_fmt("\\%02x", (unsigned)c);
+            else if (c < 32 || c > 126) r += emit_fmt("\\%02x", (unsigned)c);
+            else r += emit_fmt("%c", (int)c);
+        }
+        r += emit_fmt("\\00\")  ;; len=%d\n", len);
+    }
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#ifdef __cplusplus
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#endif
+#define WASM_USERFNS_MAX 256
+#define WASM_MAX_PARAMS  16
+typedef struct { char name[128]; int entry_pc; int nparams; char params[WASM_MAX_PARAMS][128]; } WasmUserFn;
+static WasmUserFn g_wasm_userfns[WASM_USERFNS_MAX];
+static int        g_wasm_userfns_n = 0;
+static void wasm_userfns_reset(void) { g_wasm_userfns_n = 0; }
+WasmUserFn * wasm_userfn_find(const char * name) {
+    if (!name) return NULL;
+    for (int i = 0; i < g_wasm_userfns_n; i++) if (strcmp(g_wasm_userfns[i].name, name) == 0) return &g_wasm_userfns[i];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int wasm_parse_define_signature(WasmUserFn * fn, const char * sig) {
+    if (!sig) return 0;
+    const char * lp = strchr(sig, '(');
+    const char * rp = lp ? strchr(lp + 1, ')') : NULL;
+    if (!lp) { snprintf(fn->name, sizeof(fn->name), "%s", sig); fn->nparams = 0; return 1; }
+    int nlen = (int)(lp - sig); if (nlen >= (int)sizeof(fn->name)) nlen = (int)sizeof(fn->name) - 1;
+    memcpy(fn->name, sig, (size_t)nlen); fn->name[nlen] = '\0';
+    fn->nparams = 0;
+    if (!rp || rp <= lp + 1) return 1;
+    const char * s = lp + 1;
+    while (s < rp && fn->nparams < WASM_MAX_PARAMS) {
+        while (s < rp && (*s == ' ' || *s == '\t' || *s == ',')) s++;
+        const char * ps = s;
+        while (s < rp && *s != ',' && *s != ' ' && *s != '\t') s++;
+        int plen = (int)(s - ps); if (plen <= 0) continue;
+        if (plen >= (int)sizeof(fn->params[0])) plen = (int)sizeof(fn->params[0]) - 1;
+        memcpy(fn->params[fn->nparams], ps, (size_t)plen); fn->params[fn->nparams][plen] = '\0';
+        fn->nparams++;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void jvm_sanitize_name(char * dst, size_t dsz, const char * src) {
+    size_t j = 0;
+    for (size_t i = 0; src[i] && j + 1 < dsz; i++) {
+        char c = src[i];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') dst[j++] = c;
+        else dst[j++] = '_';
+    }
+    if (j == 0 && j + 4 < dsz) { dst[j++] = 's'; dst[j++] = 'n'; dst[j++] = 'o'; }
+    dst[j] = '\0';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char ** net_parse_define_proto(const char * proto, char ** out_fname, int * out_n) {
+    *out_fname = NULL; *out_n = 0;
+    if (!proto) return NULL;
+    const char * lp = strchr(proto, '(');
+    const char * rp = lp ? strchr(lp, ')') : NULL;
+    if (!lp) {
+        size_t flen = strlen(proto); char * fn = (char *)malloc(flen + 1);
+        memcpy(fn, proto, flen); fn[flen] = '\0'; *out_fname = fn; return NULL;
+    }
+    size_t flen = (size_t)(lp - proto); char * fn = (char *)malloc(flen + 1);
+    memcpy(fn, proto, flen); fn[flen] = '\0'; *out_fname = fn;
+    if (!rp || rp <= lp + 1) return NULL;
+    int cap = 4, count = 0;
+    char ** params = (char **)malloc((size_t)(cap + 1) * sizeof(char *));
+    const char * s = lp + 1;
+    while (s < rp) {
+        while (s < rp && (*s == ' ' || *s == '\t')) s++;
+        const char * pstart = s;
+        while (s < rp && *s != ',' && *s != ' ' && *s != '\t') s++;
+        size_t plen = (size_t)(s - pstart);
+        if (plen > 0) {
+            if (count >= cap) { cap *= 2; params = (char **)realloc(params, (size_t)(cap + 1) * sizeof(char *)); }
+            char * p = (char *)malloc(plen + 1); memcpy(p, pstart, plen); p[plen] = '\0'; params[count++] = p;
+        }
+        while (s < rp && (*s == ' ' || *s == '\t')) s++;
+        if (s < rp && *s == ',') s++;
+    }
+    params[count] = NULL; *out_n = count; return params;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int bb_node_id(BB_t * nd) { return (int)((uintptr_t)nd % 100000u); }
+int bb_is_generator(BB_op_t k) {
+    if (k >= BB_PAT_LIT   && k <= BB_PAT_DEFER)  return 1;
+    if (k >= BB_CHOICE && k <= BB_GOAL)      return 1;
+    if (k >= BB_TO    && k <= BB_PROC_GEN) return 1;
+    if (k == BB_SCAN || k == BB_TO_BY ||
+        k == BB_EVERY || k == BB_WHILE    || k == BB_LIMIT || k == BB_SUSPEND) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define IR_WALK_MAX 4096
+static int g_visited[IR_WALK_MAX];
+static int g_vcount = 0;
+static void bb_walk_rec(BB_t * nd, void (*visit)(BB_t *, void *), void * ctx) {
+    if (!nd) return;
+    int id = bb_node_id(nd);
+    for (int i = 0; i < g_vcount; i++) if (g_visited[i] == id) return;
+    if (g_vcount < IR_WALK_MAX) g_visited[g_vcount++] = id;
+    visit(nd, ctx);
+    bb_walk_rec(nd->α, visit, ctx); bb_walk_rec(nd->β, visit, ctx);
+    bb_walk_rec(nd->γ, visit, ctx); bb_walk_rec(nd->ω, visit, ctx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void bb_walk(BB_graph_t * cfg, void (*visit)(BB_t *, void *), void * ctx) {
+    if (!cfg || !cfg->entry) return;
+    g_vcount = 0;
+    bb_walk_rec(cfg->entry, visit, ctx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void js_escape_string(FILE * out, const char * s) {
+    fprintf(out, "\"");
+    for (; s && *s; s++) {
+        unsigned char c = (unsigned char)*s;
+        if      (c == '"')  fprintf(out, "\\\"");
+        else if (c == '\\') fprintf(out, "\\\\");
+        else if (c == '\n') fprintf(out, "\\n");
+        else if (c == '\r') fprintf(out, "\\r");
+        else if (c == '\t') fprintf(out, "\\t");
+        else if (c < 0x20 || c > 0x7e) fprintf(out, "\\x%02x", c);
+        else fprintf(out, "%c", c);
+    }
+    fprintf(out, "\"");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void xa_dispatch(XA_op_t op)
+{
+    switch (op) {
+    case XA_MACRO_LIBRARY_OPEN:    xa_macro_library_open();    return;
+    case XA_MACRO_LIBRARY_CLOSE:   xa_macro_library_close();   return;
+    case XA_BB_MACRO_LIBRARY:      xa_bb_macro_library();      return;
+    case XA_EXEC_STMT_BLOB:        xa_exec_stmt_blob();        return;
+    case XA_FILE_HEADER:           xa_file_header();           return;
+    case XA_FILE_FOOTER:           xa_file_footer();           return;
+    case XA_BB_PTR_SLOT:           xa_bb_ptr_slot();           return;
+    case XA_ENTRY_DISPATCH:        xa_entry_dispatch();        return;
+    case XA_FLAT_PROLOGUE:         xa_flat_prologue();         return;
+    case XA_FLAT_EPILOGUE:         xa_flat_epilogue();         return;
+    case XA_FLAT_DATA_SECTION:     xa_flat_data_section();     return;
+    case XA_PROLOGUE:              xa_prologue();              return;
+    case XA_EPILOGUE:              xa_epilogue();              return;
+    case XA_WASM_MAIN_OPEN:        xa_wasm_main_open();        return;
+    case XA_WASM_MAIN_CLOSE:       xa_wasm_main_close();       return;
+    case XA_JS_LABEL_REGISTER:     xa_js_label_register();     return;
+    case XA_EXPRESSION_REGISTRY:   xa_expression_registry();   return;
+    case XA_PL_KIDS_RODATA:                                    return;
+    case XA_PL_SUB_BUILDER:                                    return;
+    case XA_PL_BUILDER:                                        return;
+    case XA_PL_REGISTRY_TABLE:                                 return;
+    case XA_STRTAB_RODATA:         xa_strtab_rodata();         return;
+    case XA_CAP_FIXUP:             xa_cap_fixup();             return;
+    case XA_PATTERN_BLOBS:         xa_pattern_blobs();         return;
+    default: return;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define SMX_STRTAB_CAP 8192
+static struct { const char *s; int idx; } g_strtab[SMX_STRTAB_CAP];
+static int g_strtab_n = 0;
+void strtab_reset(void) { g_strtab_n = 0; }
+int strtab_intern(const char *s)
+{
+    if (!s) s = "";
+    for (int i = 0; i < g_strtab_n; i++)
+        if (g_strtab[i].s == s || strcmp(g_strtab[i].s, s) == 0) return g_strtab[i].idx;
+    if (g_strtab_n >= SMX_STRTAB_CAP) { fprintf(stderr, "strtab overflow\n"); abort(); }
+    int idx = g_strtab_n;
+    g_strtab[g_strtab_n].s = s; g_strtab[g_strtab_n].idx = idx; g_strtab_n++;
+    return idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void strtab_label(char *buf, size_t bufsz, const char *s)
+{
+    if (!s) s = "";
+    int idx = strtab_intern(s);
+    snprintf(buf, bufsz, ".S%d", idx);
+}

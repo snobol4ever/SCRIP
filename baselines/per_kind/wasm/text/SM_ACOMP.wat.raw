@@ -1,0 +1,1 @@
+(call $sno_acomp (i32.const ADDR))

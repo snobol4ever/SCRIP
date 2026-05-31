@@ -1,0 +1,1 @@
+(call $sno_set_stno (i32.const 1))

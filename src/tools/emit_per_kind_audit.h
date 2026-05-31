@@ -1,0 +1,4 @@
+#ifndef EMIT_PER_KIND_AUDIT_H
+#define EMIT_PER_KIND_AUDIT_H
+int emit_per_kind_audit_run(const char *out_dir);
+#endif

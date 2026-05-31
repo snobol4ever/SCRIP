@@ -1,0 +1,116 @@
+#ifndef SCRIP_CC_H
+#define SCRIP_CC_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include "ast/ast.h"
+#define expr_left(e)     ((e) && (e)->n >= 1 ? (e)->c[0] : NULL)
+#define expr_right(e)    ((e) && (e)->n >= 2 ? (e)->c[1] : NULL)
+#define expr_arg(e, i)   ((e) && (i) >= 0 && (i) < (e)->n ? (e)->c[(i)] : NULL)
+#define expr_nargs(e)    ((e) ? (e)->n : 0)
+#define LANG_SNO   0
+#define LANG_ICN   1
+#define LANG_PL    2
+#define LANG_RAKU  3
+#define LANG_SCRIP 4
+#define LANG_REB   5
+typedef struct STMT_t STMT_t;
+struct STMT_t {
+    char    *label;
+    tree_t  *subject;
+    tree_t  *pattern;
+    tree_t  *replacement;
+    char    *goto_s, *goto_f, *goto_u;
+    tree_t  *goto_s_expr, *goto_f_expr, *goto_u_expr;
+    int      lineno, stno, is_end, has_eq, lang;
+    STMT_t  *next;
+};
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct ExportEntry {
+    char              *name;
+    struct ExportEntry *next;
+} ExportEntry;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct ImportEntry {
+    char              *lang;
+    char              *name;
+    char              *method;
+    struct ImportEntry *next;
+} ImportEntry;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+struct CODE_t_opaque {
+    STMT_t      *head;
+    STMT_t      *tail;
+    int          nstmts;
+    ExportEntry *exports;
+    ImportEntry *imports;
+};
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct CODE_t_opaque CODE_t;
+static inline STMT_t *stmt_new(void) { return calloc(1, sizeof(STMT_t)); }
+static inline void expr_add_child(tree_t *e, tree_t *child) {
+    ast_push(e, child);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline tree_t *expr_unary(tree_e k, tree_t *operand) {
+    tree_t *e = ast_node_new(k); ast_push(e, operand); return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline tree_t *expr_binary(tree_e k, tree_t *left, tree_t *right) {
+    tree_t *e = ast_node_new(k); ast_push(e, left); ast_push(e, right); return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline char *intern(const char *s) { return s ? strdup(s) : NULL; }
+static inline char *intern_n(const char *s, int n) {
+    char *p = malloc(n+1); memcpy(p,s,n); p[n]='\0'; return p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void     sno_add_include_dir(const char *d);
+void     sno_reset(void);
+CODE_t *sno_parse(FILE *f, const char *filename);
+tree_t  *parse_expr_from_str(const char *src);
+tree_t  *parse_expr_pat_from_str(const char *src);
+CODE_t *sno_parse_string(const char *src);
+tree_t  *sno_parse_string_ast(const char *src, CODE_t **code_out);
+void     c_emit(CODE_t *prog, FILE *out);
+tree_t       *stmt_to_ast(const STMT_t *s);
+tree_t       *code_to_ast(const CODE_t *prog);
+tree_t       *stmt_attr_find(const tree_t *stmt, const char *tag);
+static inline tree_t *stmt_goto_find(const tree_t *stmt, tree_e kind)
+{
+    for (int i = 0; i < stmt->n; i++) {
+        tree_t *ch = stmt->c[i];
+        if (ch && ch->t == kind) return ch;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline const char *goto_node_str(const tree_t *gnode)
+{
+    if (!gnode || gnode->n == 0) return NULL;
+    tree_t *ch = gnode->c[0];
+    if (ch && ch->t == TT_QLIT) return ch->v.sval;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline tree_t *goto_node_expr(const tree_t *gnode)
+{
+    if (!gnode || gnode->n == 0) return NULL;
+    tree_t *ch = gnode->c[0];
+    if (ch && ch->t != TT_QLIT) return ch;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t       *stmt_attr_expr(const tree_t *attr);
+const char  *stmt_attr_str(const tree_t *attr);
+tree_t       *ast_stmt_new(tree_e kind);
+tree_t       *ast_attr_leaf(const char *tag, const char *val);
+tree_t       *ast_attr_int(const char *tag, int ival);
+tree_t       *ast_attr_expr(const char *tag, tree_t *expr);
+tree_t       *sno_parse_ast(FILE *f, const char *filename, CODE_t **code_out);
+void sno_error(int lineno, const char *fmt, ...);
+extern int   sno_nerrors;
+extern char *yyfilename;
+extern int   lineno_stmt;
+#endif

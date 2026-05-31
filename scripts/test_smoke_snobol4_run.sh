@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# scripts/test_smoke_snobol4_run.sh — SN-9c-e gate:
+# three-mode sweep across the crosscheck corpus; every program that passes
+# under --interp and --interp must also pass under --run.  Target state
+# for SN-9: full three-mode parity on broad corpus, i.e. --run reaches
+# the same PASS/FAIL set as the other two modes.
+#
+# Gate semantics:
+#   * --interp PASS count is the reference (what the tree-walk interpreter
+#     manages on this corpus).
+#   * --interp and --run must MATCH that PASS count — any mode-specific
+#     regression fails the gate.
+#   * The baked-in .ref files come from SPITBOL oracle; a program that fails
+#     in all three modes is a real (non-native codegen-specific) bug and is reported
+#     but does not regress the gate (same treatment as test_interp_broad_*
+#     gives demo_claws5 etc.).
+#
+# Self-contained per RULES.md: paths derived from $0; no env deps required.
+# Usage: bash scripts/test_smoke_snobol4_run.sh
+
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIP="${SCRIP:-$HERE/../scrip}"
+CORPUS="${CORPUS:-/home/claude/corpus}"
+INC="$CORPUS/programs/snobol4/demo/inc"
+TIMEOUT="${TIMEOUT:-10}"
+
+if [ ! -x "$SCRIP" ]; then
+    echo "SKIP scrip not built at $SCRIP"
+    exit 0
+fi
+if [ ! -d "$CORPUS/crosscheck" ]; then
+    echo "SKIP corpus not populated at $CORPUS"
+    exit 0
+fi
+
+# Run every crosscheck .sno under one mode, write "PASS FAIL" to stdout
+# and the full failure list to file $2.
+run_mode() {
+    local mode="$1"
+    local fails_out="$2"
+    local pass=0 fail=0
+    : > "$fails_out"
+    while IFS= read -r sno; do
+        local ref="${sno%.sno}.ref"
+        local input="${sno%.sno}.input"
+        [ ! -f "$ref" ] && continue
+        local got exp
+        if [ -f "$input" ]; then
+            got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" $mode "$sno" < "$input" 2>/dev/null || true)
+        else
+            got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" $mode "$sno" < /dev/null 2>/dev/null || true)
+        fi
+        exp=$(cat "$ref")
+        if [ "$got" = "$exp" ]; then
+            pass=$((pass + 1))
+        else
+            fail=$((fail + 1))
+            printf ' %s' "$(basename "${sno%.sno}")" >> "$fails_out"
+        fi
+    done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
+    printf '%d %d\n' "$pass" "$fail"
+}
+
+echo "=== SN-9c-e: three-mode crosscheck sweep ==="
+
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+read IR_PASS  IR_FAIL  <<< "$(run_mode --interp  "$TMPDIR/ir")"
+read SM_PASS  SM_FAIL  <<< "$(run_mode --interp  "$TMPDIR/sm")"
+read JIT_PASS JIT_FAIL <<< "$(run_mode --run "$TMPDIR/native codegen")"
+
+IR_FAILS_FULL=$(cat "$TMPDIR/ir")
+SM_FAILS_FULL=$(cat "$TMPDIR/sm")
+JIT_FAILS_FULL=$(cat "$TMPDIR/native codegen")
+
+printf '  --interp  PASS=%-3d FAIL=%d\n' "$IR_PASS" "$IR_FAIL"
+printf '  --interp  PASS=%-3d FAIL=%d\n' "$SM_PASS" "$SM_FAIL"
+printf '  --run PASS=%-3d FAIL=%d\n' "$JIT_PASS" "$JIT_FAIL"
+echo ""
+
+# Gate: --interp and --run must match --interp PASS count.
+# Mode-specific regressions (failures that pass in --interp but fail in the
+# other modes) are the real signal; shared failures are orthogonal bugs.
+GATE_FAIL=0
+
+if [ "$SM_PASS" -lt "$IR_PASS" ]; then
+    echo "FAIL  --interp PASS ($SM_PASS) < --interp PASS ($IR_PASS)"
+    GATE_FAIL=1
+fi
+if [ "$JIT_PASS" -lt "$IR_PASS" ]; then
+    echo "FAIL  --run PASS ($JIT_PASS) < --interp PASS ($IR_PASS)"
+    GATE_FAIL=1
+fi
+
+if [ "$GATE_FAIL" -eq 0 ]; then
+    echo "PASS  three-mode parity on crosscheck: $IR_PASS programs"
+    # Report shared failures (same failing set across all three modes) as info only.
+    if [ "$IR_FAIL" -gt 0 ]; then
+        echo "  shared failures (same in all three modes):$IR_FAILS_FULL"
+    fi
+    exit 0
+else
+    echo ""
+    echo "  --interp  failures:$IR_FAILS_FULL"
+    echo "  --interp  failures:$SM_FAILS_FULL"
+    echo "  --run failures:$JIT_FAILS_FULL"
+    exit 1
+fi

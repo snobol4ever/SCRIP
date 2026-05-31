@@ -1,0 +1,1 @@
+ldc.i4.1 call void SnoRt::set_stno(int32)

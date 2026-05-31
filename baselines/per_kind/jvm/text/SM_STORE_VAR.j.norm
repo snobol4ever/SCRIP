@@ -1,0 +1,1 @@
+ldc "audit_arg" invokestatic rt/SnoRt/store_var(Ljava/lang/String;)V

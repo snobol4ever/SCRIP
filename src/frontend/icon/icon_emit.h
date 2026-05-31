@@ -1,0 +1,22 @@
+#ifndef ICON_EMIT_H
+#define ICON_EMIT_H
+#include <stdio.h>
+typedef struct {
+    char γ[64];
+    char ω[64];
+} IcnPorts;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    FILE *out;
+    int   uid;
+    int   bounded;
+    char  errmsg[256];
+    int   had_error;
+} IcnEmitter;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include "ast/ast.h"
+void icn_emit_file(tree_t **nodes, int count, FILE *out);
+void icn_emit_expr(tree_t *n, const char *γ, const char *ω, char *oa, char *ob);
+void icn_label_α  (int id, char *buf, size_t sz);
+void icn_label_β  (int id, char *buf, size_t sz);
+#endif

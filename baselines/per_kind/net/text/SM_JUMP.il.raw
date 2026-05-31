@@ -1,0 +1,1 @@
+ldc.i4 0 stloc _pc br NET_DISPATCH

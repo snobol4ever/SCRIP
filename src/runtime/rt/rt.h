@@ -1,0 +1,154 @@
+#ifndef RT_H
+#define RT_H
+#include <stdint.h>
+struct BB_graph_t;
+#ifndef DESCR_T_DEFINED
+#define DESCR_T_DEFINED
+typedef struct DESCR_t DESCR_t;
+#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
+void rt_init(int argc, char **argv);
+int  rt_finalize(void);
+void    rt_push_int(int64_t v);
+void    rt_halt_tos(void);
+void    rt_unhandled_op(int op);
+void    rt_bomb(const char *msg);
+void rt_push_str(const char *s, uint32_t slen);
+void rt_arith(int op);
+void rt_nv_get(const char *name);
+void rt_nv_set(const char *name);
+void rt_pop_void(void);
+void rt_pop_store_i64(int64_t *slot);
+void rt_push_stored_i64(const int64_t *slot);
+void rt_pop_store_descr(DESCR_t *slot);
+void rt_case_eq(const DESCR_t *slot);
+void rt_frame_enter(int nparams);
+void rt_frame_leave(void);
+void rt_load_frame(int slot);
+void rt_store_frame(int slot);
+int  rt_last_ok(void);
+void rt_set_last_ok(int ok);
+void rt_push_expression_descr(int64_t entry_pc, int64_t arity);
+void rt_exec_stmt_pat(void *blob_α, const char *subj_name, int has_repl);
+void rt_match_blob(void *blob_α,
+                         const char *subj_name,
+                         int has_repl);
+void rt_pat_lit     (const char *s);
+void rt_pat_refname (const char *name);
+void rt_pat_span    (void);
+void rt_pat_break   (void);
+void rt_pat_breakx  (void);
+void rt_pat_any     (void);
+void rt_pat_notany  (void);
+void rt_pat_len     (void);
+void rt_pat_pos     (void);
+void rt_pat_rpos    (void);
+void rt_pat_tab     (void);
+void rt_pat_rtab    (void);
+void rt_pat_arb     (void);
+void rt_pat_arbno   (void);
+void rt_pat_rem     (void);
+void rt_pat_fence   (void);
+void rt_pat_fence1  (void);
+void rt_pat_fail    (void);
+void rt_pat_abort   (void);
+void rt_pat_succeed (void);
+void rt_pat_bal     (void);
+void rt_pat_eps     (void);
+void rt_pat_cat     (void);
+void rt_pat_alt     (void);
+void rt_pat_deref   (void);
+void rt_pat_capture (const char *varname, int kind);
+void rt_pat_capture_fn     (const char *fname, int is_imm, const char *namelist);
+void rt_pat_capture_fn_args(const char *fname, int is_imm, int nargs);
+void rt_pat_usercall       (const char *fname);
+void rt_pat_usercall_args  (const char *fname, int nargs);
+void rt_match_variant(const char *subj_name, int has_repl);
+void rt_concat(void);
+void rt_set_stno(int64_t stno);
+void rt_push_null(void);
+void rt_coerce_num(void);
+void rt_push_real_bits(uint64_t bits);
+void rt_push_null_noflip(void);
+void rt_push_expr(void *ptr);
+void rt_exp(void);
+void rt_neg(void);
+void rt_incr(int64_t n);
+void rt_decr(int64_t n);
+void rt_acomp(int op);
+void rt_lcomp(int op);
+void rt_define_entry(void);
+void rt_define(void);
+void rt_unhandled_sm(int op);
+void rt_call(const char *name, int nargs);
+int rt_do_return(int kind, int cond);
+int rt_do_nreturn(const char *fname, int cond);
+typedef struct {
+    const char *name;
+    void       *fn;
+} rt_expression_entry;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_register_expressions(const rt_expression_entry *tbl);
+void rt_pl_write_atom(const char *s);
+void rt_pl_cut_set(void);
+void rt_pl_write_var(int slot);
+void rt_pl_write_term_ptr(void *t);
+void rt_pl_writeq_term_ptr(void *t);
+void rt_pl_write_canonical_term_ptr(void *t);
+void rt_pl_var_push(int slot);
+void rt_pl_atom_push(const char *s);
+struct Term;
+void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
+int   rt_pl_unify_terms(void *l, void *r);
+int   rt_pl_trail_mark(void);
+void  rt_pl_trail_unwind(int mark);
+void  rt_pl_trail_mark_push(void);
+void  rt_pl_trail_unwind_top(void);
+void  rt_pl_trail_mark_pop(void);
+void  rt_pl_cp_save_caller_env(void *caller_env);
+void  rt_pl_choice_cut_enter(void *cp);
+void  rt_pl_choice_cut_exit(void *cp);
+void  rt_pl_choice_cut_unwind(void *cp);
+int   rt_pl_get_cut_flag(void);
+long rt_pl_arith(int lk, long li, const char *ls,
+                  int rk, long ri, const char *rs, const char *op);
+void rt_init_arbno(void **slot_ptr, void *child_fn);
+typedef struct {
+    void (*push)       (const DESCR_t *d);
+    void (*pop)        (DESCR_t *out);
+    void (*peek)       (DESCR_t *out);
+    int  (*depth)      (void);
+    void (*set_depth)  (int n);
+    int  (*get_last_ok)(void);
+    void (*set_last_ok)(int x);
+} rt_vstack_ops_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_in_native_chunk(void);
+#include "bb_box.h"
+void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
+void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
+void rt_proc_reset(void);
+void rt_call_proc(const char *name, int nargs);
+int  rt_proc_is_registered(const char *name);
+void rt_call_builtin(const char *name, int nargs);
+int  rt_builtin_is_known(const char *name);
+int  rt_field_get(const char *fname);
+int  rt_field_set(const char *fname);
+int  rt_idx_get(void);
+int  rt_idx_set(void);
+int  rt_list_bang(DESCR_t *obj_slot, int64_t *idx_slot, int *state_slot, int reset);
+int  rt_limit_begin(DESCR_t *max_slot, int64_t *count_slot);
+int  rt_limit_more(DESCR_t *max_slot, int64_t *count_slot);
+int  rt_limit_inc(int64_t *count_slot);
+int  rt_toby_real(DESCR_t *cur_slot, int64_t lo_bits, int64_t hi_bits, int64_t step_bits, int reset);
+void *  rt_cs_new    (const char *chars);
+void rt_cap_assign(const char *varname, const char *base, int len);
+void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm);
+int  rt_defer_match(const char *varname, int ival_flag, int cur_delta);
+#ifdef __cplusplus
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#endif
+#endif
