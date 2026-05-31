@@ -607,7 +607,12 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (!rhs) return NULL;
     (void) rβ;
     set_succ_fail(as, γ_in, ω_in);
-    return ret(as, α_out, β_out, rα, ω_in /* bounded: resume -> fail */);
+    /* Icon `:=` is generator-transparent (jcon ir_binary, := in funcs): when NOT bounded, the assign's
+       resume threads to the RHS resume, so `every i := (1 to 3) do …` re-pumps the generator (i=1,2,3).
+       rhs.γ already -> as (re-store on each value). Icon-only + guarded: SNOBOL4/Rebus and any bounded
+       or non-generator rhs (e.g. x := 42, where rβ == ω_in) keep the bounded resume -> ω_in unchanged. */
+    IR_t * resume = (cx.lang == IR_LANG_ICN && !cx.bounded && rβ && rβ != ω_in) ? rβ : ω_in;
+    return ret(as, α_out, β_out, rα, resume);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* v_scan — SNOBOL4 pattern-match statement SUBJECT ? PATTERN (whitespace and ? forms both parse to TT_SCAN;

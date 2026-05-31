@@ -64,5 +64,10 @@ check_multi "to by 3"          'every write(1 to 6 by 3)'  '1 4'
 check_multi "to by -1 (desc)"  'every write(3 to 1 by -1)' '3 2 1'
 check_multi "to by -2 (desc)"  'every write(10 to 2 by -2)' '10 8 6 4 2'
 check_multi "plain to (step 1)" 'every write(1 to 3)'      '1 2 3'
+# Icon := is generator-transparent: `every i := gen do …` re-pumps (jcon ir_binary, := in funcs)
+check_multi "every i:=to"      'every i := 1 to 3 do write(i)'      '1 2 3'
+check_multi "every i:=to by"   'every i := 1 to 5 by 2 do write(i)' '1 3 5'
+check_multi "every i:=alt"     'every j := (10 | 20 | 30) do write(j)' '10 20 30'
+check "bounded := unchanged"   'x := 42; write(x)'  '42'
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
