@@ -47,6 +47,13 @@ ALLOW = {
     "runtime/core/core.h:21":    "BSTRVAL ctor definition — foundation layer",
     "runtime/core/core.h:318":   "TABLE_VAL ctor definition — foundation layer",
     "runtime/core/core.h:319":   "ARRAY_VAL ctor definition — foundation layer",
+    "runtime/core/core.h:19":    "NULVCL ctor definition — foundation layer",
+    "runtime/core/core.h:20":    "STRVAL ctor definition — foundation layer",
+    "runtime/core/core.h:24":    "CSETVAL ctor definition — foundation layer",
+    "runtime/core/core.h:25":    "NAMEPTR ctor definition — foundation layer",
+    "runtime/core/core.h:26":    "NAMEVAL ctor definition — foundation layer",
+    "runtime/core/core.h:28":    "IS_NULL_fn predicate definition — foundation layer",
+    "runtime/core/core.h:32":    "IS_CSET_fn predicate definition — foundation layer",
     "include/IR.h:8":            "NULVCL ctor definition — foundation layer",
     "include/IR.h:17":           "STRVAL ctor definition — foundation layer",
     "include/bb_box.h:8":        "descr_match_span signature/body — builder, foundation",
@@ -64,7 +71,11 @@ ALLOW = {
 # drifts but the text is stable — matched by content, not position.
 SYMBOLIC = [
     ("runtime/core/eval_code.c", "expr_d.slen == 2",
-     "DT_E subexpression arity discriminator — not a name/payload field"),
+     "DT_E subexpression arity discriminator (2) — not a name/payload field"),
+    ("runtime/core/eval_code.c", "expr_d.slen == 1",
+     "DT_E subexpression arity discriminator (1) — not a name/payload field"),
+    ("runtime/core/pattern.c", "v.slen == 1",
+     "DT_E subexpression arity discriminator (1), pat_to_patnd — not a name field"),
 ]
 
 
