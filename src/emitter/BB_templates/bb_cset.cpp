@@ -1,4 +1,4 @@
-/* bb_cset.c — grouped BB template for the BB_CSET_* family.
+/* bb_cset.c — grouped BB template for the IR_CSET_* family.
    Per HQ Invariant #10 (grouped templates): the four character-set ops
    (IR_CSET_COMPL / IR_CSET_UNION / IR_CSET_DIFF / IR_CSET_INTER) share an
    identical emit shape — an honest no-op stub across all five backends — so a

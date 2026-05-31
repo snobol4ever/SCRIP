@@ -1,11 +1,11 @@
-/* bb_nfa.cpp — RK-NFA-4 mode-4 templates for the ISOLATED BB_NFA_* family (GOAL-RAKU-BB). */
+/* bb_nfa.cpp — RK-NFA-4 mode-4 templates for the ISOLATED IR_NFA_* family (GOAL-RAKU-BB). */
 /* NOT shared with SNOBOL4's pattern opcodes — a Raku regex bug must never touch SNOBOL4's hot path. */
 /* Opcode names derive 1:1 from Nfa_kind. This file currently lands the TRIVIAL passthrough nodes      */
 /* (EPS / CAP_OPEN / CAP_CLOSE) that are pure `jmp γ` with no runtime helper and no backtracking — the */
 /* exact bb_eps shape. The consuming/branching nodes (CHAR/ANY/CLASS/SPLIT/BOL/EOL/ACCEPT) carry the   */
 /* register model + char/cset tests + the SPLIT γ/β backtrack and land in a follow-up step (they need  */
 /* the pos/subject/slen register convention + capture block + cset rodata — see GOAL-RAKU-BB RK-NFA-4  */
-/* DESIGN). Nothing invokes a BB_NFA_* graph yet (the `~~` path stays on the proven C matcher across    */
+/* DESIGN). Nothing invokes a IR_NFA_* graph yet (the `~~` path stays on the proven C matcher across    */
 /* all three modes), so these are reached only once RK-NFA-4 rewires `~~`→SM_BB_INVOKE behind a flag.   */
 #include <string>
 #include "emit_str.h"
@@ -52,7 +52,7 @@ extern "C" void bb_nfa_cap_close(IR_t * pBB) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* RK-NFA-4 G1-1 S3 (mode-4 TEXT): consuming + terminal leaves against the walker's register model.    */
-/* The NFA walker (sm_bb_invoke.cpp, gated on gen->t in BB_NFA_*) owns the subject preamble + leftmost  */
+/* The NFA walker (sm_bb_invoke.cpp, gated on gen->t in IR_NFA_*) owns the subject preamble + leftmost  */
 /* sweep + reg save/restore and holds r13=pos, r14=subject base ptr, r15d=slen across the node chain    */
 /* (all callee-saved, saved by the walker). These leaves emit only their own four-port body; γ/ω/β come */
 /* from g_emit.lbl_* set per-node by the walker. MEDIUM_BINARY (mode-3 native) is deferred to RK-NFA-5  */
