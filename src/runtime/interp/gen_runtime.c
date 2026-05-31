@@ -255,8 +255,8 @@ int descr_identical(DESCR_t a, DESCR_t b) {
     int as_str = (a.v == DT_S || a.v == DT_SNUL);
     int bs_str = (b.v == DT_S || b.v == DT_SNUL);
     if (as_str && bs_str) {
-        const char *s1 = a.s ? a.s : ""; size_t l1 = (a.slen > 0 && a.slen != 0xFFFFFFFFu) ? (size_t)a.slen : strlen(s1);
-        const char *s2 = b.s ? b.s : ""; size_t l2 = (b.slen > 0 && b.slen != 0xFFFFFFFFu) ? (size_t)b.slen : strlen(s2);
+        const char *s1 = a.s ? a.s : ""; size_t l1 = (GET_SLEN(a) > 0 && !IS_CSET(a)) ? (size_t)GET_SLEN(a) : strlen(s1);
+        const char *s2 = b.s ? b.s : ""; size_t l2 = (GET_SLEN(b) > 0 && !IS_CSET(b)) ? (size_t)GET_SLEN(b) : strlen(s2);
         return (l1 == l2 && memcmp(s1, s2, l1) == 0);
     }
     int a_cset = IS_CSET(a);

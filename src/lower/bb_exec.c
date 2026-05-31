@@ -1406,7 +1406,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         char *ch = GC_malloc(2);
         ch[0] = s[idx];
         ch[1] = '\0';
-        *out = (DESCR_t){ .v = DT_S, .slen = 1, .s = ch };
+        *out = BSTRVAL(ch, 1);
         return 1;
     }
 }
@@ -3023,7 +3023,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         char *ch = GC_malloc(2);
         ch[0] = str[bb->counter];
         ch[1] = '\0';
-        bb->value = (DESCR_t){ .v = DT_S, .slen = 1, .s = ch };
+        bb->value = BSTRVAL(ch, 1);
         return bb->γ;
     }
     case IR_GEN_ALT: {

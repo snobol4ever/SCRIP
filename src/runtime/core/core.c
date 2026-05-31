@@ -862,7 +862,7 @@ static DESCR_t _TRIM_(DESCR_t *a, int n) {
 static DESCR_t _SUBSTR_(DESCR_t *a, int n) {
     if (n < 2) return NULVCL;
     if (n < 3) {
-        DESCR_t big = { .v = DT_I, .slen = 0, .i = 999999999 };
+        DESCR_t big = INTVAL(999999999);
         return SUBSTR_fn(a[0], a[1], big);
     }
     return SUBSTR_fn(a[0], a[1], a[2]);
