@@ -78,7 +78,10 @@ static std::string xa_flat_prologue_str(bb_bin_t & bin) {
                        + "    .global " + (g_emit.flat_lbl_γ ? g_emit.flat_lbl_γ : "") + "\n"
                        + "    .global " + (g_emit.flat_lbl_ω ? g_emit.flat_lbl_ω : "") + "\n";
             }
+            extern int g_frame_active;
+            std::string frame_setup = g_frame_active ? std::string("push r12\nmov r12, rdi\n") : std::string();
             return banner
+                 + frame_setup
                  + "lea r10, [rip + Δ]\n"
                  + "  cmp esi, 0\n"
                  + "  je "  + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
@@ -135,6 +138,28 @@ static std::string xa_flat_epilogue_str(bb_bin_t & bin) {
                  + bytes(1, "\xC3");
             bin = { {(int)succ_half.size()}, {g_emit.flat_fail_p}, {true} };
             return succ_half + fail_half;
+        }
+        {
+            /* ICON/SNOBOL4 STACKLESS EPILOGUE (g_frame_active, MEDIUM_TEXT): mirror the BINARY arm above —
+               return a constant success (eax=1, edx=0) with NO Σ/r10 dereference, then `pop r12` (paired with
+               the prologue's `push r12`). The legacy Σ/[r10] deref below is the non-frame Icon path ONLY; r10 is
+               SysV caller-saved, so any box that calls a runtime fn (e.g. rt_sno_assign_lit_s@PLT) leaves r10
+               clobbered → the deref segfaults. The driver ignores the slab's return value, so the deref is
+               vestigial for a frame-active statement BB. */
+            extern int g_frame_active;
+            if (g_frame_active) {
+                return std::string("mov eax, 1\n")
+                     + "xor edx, edx\n"
+                     + (g_emit.flat_brokered ? std::string("pop rbp\n") : std::string())
+                     + "pop r12\n"
+                     + "ret\n"
+                     + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                     + "mov eax, 99\n"
+                     + "xor edx, edx\n"
+                     + (g_emit.flat_brokered ? std::string("pop rbp\n") : std::string())
+                     + "pop r12\n"
+                     + "ret\n";
+            }
         }
         return std::string("lea rcx, [rip + Σ]\n")
              + "mov rax, [rcx]\n"

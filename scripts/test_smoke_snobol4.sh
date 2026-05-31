@@ -31,7 +31,7 @@ run_file() {
         s=$(mktemp /tmp/sno_XXXXXX.s); o="${s%.s}.o"; bin="${s%.s}.bin"
         if timeout 8 "$SCRIP" --compile --target=x86 "$tmp" < /dev/null > "$s" 2>/dev/null \
            && as "$s" -o "$o" 2>/dev/null \
-           && gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>/dev/null; then
+           && gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -Wl,--allow-shlib-undefined -lm -o "$bin" 2>/dev/null; then
             actual=$(timeout 8 "$bin" < /dev/null 2>/dev/null)
         else
             actual="<mode4-build-failed>"

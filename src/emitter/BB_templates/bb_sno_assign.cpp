@@ -34,9 +34,33 @@ static std::string bb_sno_assign_str(IR_t * pBB, bb_bin_t & bin) {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — SNO IR_ASSIGN(lit_s)");
     if (MEDIUM_TEXT) {
-        const char *nm = (pBB && pBB->sval) ? pBB->sval : "?";
-        return bomb_text(emit_fmt("SNO IR_ASSIGN(lit_s) store(\"%s\") — mode-4 TEXT arm not built "
-                                  "(--compile excised); stackless BINARY arm is the live mode-3 path", nm).c_str());
+        /* SBL-M4-STACKLESS (2026-05-31, Opus 4.8): mode-4 GAS arm — same four-port stackless shape as the
+           BINARY arm, but the name/str are RO `.L` labels reached via `lea [rip+label]` (PIC-safe) and the
+           store is `call rt_sno_assign_lit_s@PLT`. NO value stack. The two .asciz strings live in a
+           self-contained `.section .rodata` block emitted just before the box's α-body, then `.section .text`
+           restores the code section so the next box lands in .text. Unique labels keyed on flat node id. */
+        IR_t *rhs = pBB ? pBB->α : NULL;
+        if (!pBB || !pBB->sval || !rhs || rhs->t != IR_LIT_S || !rhs->sval) {
+            return bomb_text(emit_fmt("SNO IR_ASSIGN(lit_s): need sval(name)+alpha IR_LIT_S sval(str) (got name=%s alpha=%d)",
+                                      (pBB && pBB->sval) ? pBB->sval : "(null)", rhs ? (int)rhs->t : -1).c_str());
+        }
+        const char *name = pBB->sval;
+        const char *str  = rhs->sval;
+        int id = g_flat_node_id++;
+        std::string nlbl = emit_fmt(".Lsno_name_%d", id);
+        std::string slbl = emit_fmt(".Lsno_str_%d",  id);
+        return s_directive(".section .rodata")
+             + s_L1asm(nlbl + ":", emit_fmt(".asciz \"%s\"", name))
+             + s_L1asm(slbl + ":", emit_fmt(".asciz \"%s\"", str))
+             + s_directive(".section .text")
+             + s_1asm(emit_fmt("%s:", _.lbl_α))
+             + s_comment(emit_fmt("# BOX SNO IR_ASSIGN(lit_s) store(\"%s\") = '%s' [stackless, @PLT]", name, str))
+             + s_2asm("lea",  emit_fmt("rdi, [rip + %s]", nlbl.c_str()))
+             + s_2asm("lea",  emit_fmt("rsi, [rip + %s]", slbl.c_str()))
+             + s_2asm("call", "rt_sno_assign_lit_s@PLT")
+             + s_2asm("jmp",  _.lbl_γ)
+             + s_1asm(std::string(_.lbl_β) + ":")
+             + s_2asm("jmp",  _.lbl_ω);
     }
     if (MEDIUM_BINARY) {
         IR_t *rhs = pBB ? pBB->α : NULL;

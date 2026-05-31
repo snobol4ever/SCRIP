@@ -34,6 +34,7 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "bb_build.h"
 #include "emit.h"
 #include "emit_bb.h"
+#include "emit_core.h"
 #include "scrip_sm.h"
 #include "sync_monitor.h"
 extern DESCR_t pat_at_cursor(const char *varname);
@@ -418,10 +419,59 @@ int main(int argc, char **argv)
         return 0;
     }
     if (mode_compile_x86) {
-        fprintf(stderr, "[SMX] --compile --target=x86 removed (Stack-Machine codegen excised). "
-                        "BB-native x86 emission not yet rebuilt.\n");
+        /* SBL-M4-STACKLESS (2026-05-31, Opus 4.8): SNOBOL4 mode-4 BB-native x86 emission, REBUILT.
+           The mode-4 emission scaffolding (codegen_flat_build + the XA wrap templates xa_file_header/
+           xa_file_footer/xa_flat_*) was never deleted by SMX-4 — only THIS driver stitch was. Re-stitched
+           for SNOBOL4: lower → find main BB graph → sno_ring_to_tree (the same stackless statement-BB
+           adapter mode-3 uses) → emit a complete .intel_syntax assembly program to stdout:
+             xa_file_header  (.globl main; rt_gc_init; rt_set_lang; rt_register_expressions)
+             glue            (xor esi,esi  [fresh-entry dispatch]; call <prefix>_α)
+             xa_file_footer  (rt_finalize; pop rbp; ret)
+             codegen_flat_build(root)  (the statement BB as a standalone <prefix>_α function — same
+                                        four-port stackless body as mode-3, via the TEXT arms)
+           The assembled+linked binary (as → gcc -no-pie -lscrip_rt --allow-shlib-undefined) runs the box.
+           SNOBOL4-only; any shape sno_ring_to_tree can't flatten yet → honest soft-fail (no abort). NO
+           value stack (Lon directive). Other languages keep the abort below until their BB graph is wired. */
+        if (is_icon || is_prolog) {
+            fprintf(stderr, "[SMX] --compile --target=x86: only SNOBOL4 BB-native emission is rebuilt so far "
+                            "(Icon/Prolog mode-4 pending).\n");
+            ast_tree_free(ast_prog); ast_prog = NULL;
+            return 1;
+        }
+        extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
+        extern void xa_file_header(void);
+        extern void emit_io_set_sink(FILE * out);
+        extern void emitter_init_text(FILE * out, int mode);
+        extern int g_frame_active;
+        stage2_t *s2 = sm_preamble(ast_prog);
+        if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
-        return 1;
+        int main_bb_idx = -1;
+        for (int _pi = 0; _pi < s2->proc_count; _pi++)
+            if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
+        IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
+        IR_t *sroot = sbbg ? sno_ring_to_tree(sbbg) : NULL;
+        if (!sroot) {
+            fprintf(stderr, "[SBB] mode-4: SNOBOL4 program shape not yet flat-emittable "
+                            "(stackless boxes pending; only single-statement literal assign wired). No native emit.\n");
+            return 1;
+        }
+        FILE *out = stdout;
+        emit_mode_set(EMIT_TEXT, out);
+        emit_io_set_sink(out);
+        emitter_init_text(out, 0);
+        xa_file_header();
+        fprintf(out, "  xor esi, esi\n  call stmt0_\xCE\xB1\n");
+        /* Close main HERE (rt_finalize; pop rbp; ret; .size) but do NOT emit the .note.GNU-stack yet —
+           xa_file_footer bundles the note WITH the ret, which would strand the statement-BB body (emitted
+           after) in the linker-discarded .note.GNU-stack section. Emit the body in .text, THEN the note last. */
+        fprintf(out, "call rt_finalize@PLT\npop rbp\nret\n.size main, .-main\n");
+        g_frame_active = 1;
+        int rc = codegen_flat_build(sroot, out, "stmt0");
+        g_frame_active = 0;
+        fprintf(out, ".section .note.GNU-stack\n");
+        fflush(out);
+        return rc == 0 ? 0 : 1;
     }
     if (mode_compile && target_name && strcmp(target_name, "x86") != 0) {
         fprintf(stderr, "[SMX] --target=%s removed (Stack-Machine codegen excised).\n",
