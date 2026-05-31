@@ -506,8 +506,8 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 const char *mname = VARVAL_fn(mnameD);
                 if (!mname || !*mname) { *__rk_out = FAILDESCR; return 1; }
                 const char *cname = NULL;
-                if (obj.v == DT_DATA && obj.u) {
-                    DATINST_t *inst = (DATINST_t *)obj.u;
+                if (GET_V(obj) == DT_DATA && GET_U(obj)) {
+                    DATINST_t *inst = (DATINST_t *)GET_U(obj);
                     if (inst->type) cname = inst->type->name;
                 }
                 if (!cname) { *__rk_out = FAILDESCR; return 1; }

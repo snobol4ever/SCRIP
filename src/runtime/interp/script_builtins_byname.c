@@ -560,8 +560,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = dat_construct(dt, fvals, dt->nfields); return 1;
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
-        if (args[0].v != DT_DATA || !args[0].u) { *out = FAILDESCR; return 1; }
-        DATINST_t *inst = (DATINST_t *)args[0].u;
+        if (GET_V(args[0]) != DT_DATA || !GET_U(args[0])) { *out = FAILDESCR; return 1; }
+        DATINST_t *inst = (DATINST_t *)GET_U(args[0]);
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;
         if (!cname) { *out = FAILDESCR; return 1; }
         const char *mname = VARVAL_fn(args[1]); if (!mname || !*mname) { *out = FAILDESCR; return 1; }

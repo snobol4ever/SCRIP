@@ -38,6 +38,42 @@ typedef struct DESCR_t {
     };
 } DESCR_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* DESCR ACCESSOR FUNNEL (Path A).  Every raw DESCR_t field touch in the   */
+/* codebase routes through these GET_ and SET_ accessors plus the sentinel */
+/* and constructor macros below.  In the current 16-byte layout each       */
+/* expands to the identical field access it replaces, so the build stays   */
+/* byte-for-byte behavior-identical.  When the 8-byte layout lands, only    */
+/* these definitions change; no call site moves.  Lives in descr.h so it   */
+/* is in scope wherever DESCR_t is (descr.h is pulled in via core.h).       */
+#define GET_V(d)        ((d).v)
+#define SET_V(d, val)   ((d).v = (DTYPE_t)(val))
+#define GET_SLEN(d)     ((d).slen)
+#define SET_SLEN(d, n)  ((d).slen = (uint32_t)(n))
+#define GET_I(d)        ((d).i)
+#define SET_I(d, val)   ((d).i = (int64_t)(val))
+#define GET_R(d)        ((d).r)
+#define SET_R(d, val)   ((d).r = (double)(val))
+#define GET_S(d)        ((d).s)
+#define SET_S(d, val)   ((d).s = (char *)(val))
+#define GET_PTR(d)      ((d).ptr)
+#define SET_PTR(d, val) ((d).ptr = (void *)(val))
+#define GET_P(d)        ((d).p)
+#define SET_P(d, val)   ((d).p = (struct _PATND_t *)(val))
+#define GET_ARR(d)      ((d).arr)
+#define SET_ARR(d, val) ((d).arr = (struct _ARBLK_t *)(val))
+#define GET_TBL(d)      ((d).tbl)
+#define SET_TBL(d, val) ((d).tbl = (struct _TBBLK_t *)(val))
+#define GET_U(d)        ((d).u)
+#define SET_U(d, val)   ((d).u = (struct _DATINST_t *)(val))
+/* CSET sentinel — currently slen == 0xFFFFFFFF on a DT_S string.          */
+#define CSET_SENTINEL   (0xFFFFFFFFu)
+#define IS_CSET(d)      ((d).v == DT_S && (d).slen == CSET_SENTINEL)
+#define MK_CSET_SLEN(d) ((d).slen = CSET_SENTINEL)
+/* Constructors for the field-by-field DT_DATA / DT_T / DT_A builds.       */
+#define MK_DATA(ptr_)   ((DESCR_t){ .v = DT_DATA, .slen = 0, .ptr = (void *)(ptr_) })
+#define MK_TBL(tbl_)    ((DESCR_t){ .v = DT_T,    .slen = 0, .tbl = (tbl_) })
+#define MK_ARR(arr_)    ((DESCR_t){ .v = DT_A,    .slen = 0, .arr = (arr_) })
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 static inline int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })
