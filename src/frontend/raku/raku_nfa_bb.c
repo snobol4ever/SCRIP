@@ -70,14 +70,14 @@ static BB_op_t nfa_kind_to_bb(Nfa_kind k) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
+IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
     if (!nfa) return NULL;
     const Nfa_state *st = raku_nfa_states(nfa);
     int ns = raku_nfa_state_count(nfa);
     if (!st || ns <= 0) return NULL;
     for (int i = 0; i < ns; i++)
         if (nfa_kind_to_bb(st[i].kind) == BB_OP_COUNT) return NULL;
-    BB_graph_t *bbg = BB_alloc(ns, BB_LANG_RKU);
+    IR_graph_t *bbg = BB_alloc(ns, BB_LANG_RKU);
     if (!bbg) return NULL;
     BB_t **node = (BB_t **)GC_malloc((size_t)ns * sizeof(BB_t *));
     for (int i = 0; i < ns; i++) {

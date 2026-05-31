@@ -6,5 +6,5 @@
 #include "../ast/ast.h"
 int  bb_node_id(BB_t * nd);
 int  bb_is_generator(BB_op_t k);
-void bb_walk(BB_graph_t * cfg, void (*visit)(BB_t * nd, void * ctx), void * ctx);
+void bb_walk(IR_graph_t * cfg, void (*visit)(BB_t * nd, void * ctx), void * ctx);
 #endif

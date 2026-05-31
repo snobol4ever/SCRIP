@@ -134,7 +134,7 @@ static void lower_proc_skeletons(void)
             int body_start = 0;
             Scope sc; build_proc_scope(&sc, proc, body_start);
             g_stage2.proc_table[pi].lower_sc = sc;
-            BB_graph_t *_irb = lower_proc_body(proc);
+            IR_graph_t *_irb = lower_proc_body(proc);
             g_stage2.proc_table[pi].bb_idx = _irb ? bb_program_add(&g_stage2.bbp, _irb) : -1;
             g_stage2.proc_table[pi].is_generator = 0;
             if (_irb) {
@@ -148,7 +148,7 @@ static void lower_proc_skeletons(void)
             int body_start = 0;
             Scope sc; build_proc_scope(&sc, proc, body_start);
             g_stage2.proc_table[pi].lower_sc = sc;
-            BB_graph_t *_irb = lower_proc_body(proc);
+            IR_graph_t *_irb = lower_proc_body(proc);
             g_stage2.proc_table[pi].bb_idx = _irb ? bb_program_add(&g_stage2.bbp, _irb) : -1;
             g_stage2.proc_table[pi].is_generator = 0;
             if (_irb) {
@@ -173,7 +173,7 @@ static void lower_proc_skeletons(void)
             if (!e->key || !*e->key) continue;
             const char *slash = strrchr(e->key, '/');
             int arity = slash ? atoi(slash + 1) : 0;
-            BB_graph_t *ir_body = lower_pl_predicate(e->choice);
+            IR_graph_t *ir_body = lower_pl_predicate(e->choice);
             int resolve_bb_idx = ir_body ? bb_program_add(&g_stage2.bbp, ir_body) : -1;
             Resolve_PredEntry_BB *bb = resolve_bb_register(e->key, arity, resolve_bb_idx);
             if (bb && e->choice) {

@@ -3,11 +3,11 @@
 #define BB_EXEC_H
 #include "BB.h"
 typedef int (*bb_body_fn)(DESCR_t value, void * ctx);
-DESCR_t bb_exec_once(BB_graph_t * bbg);
-DESCR_t bb_exec_resume(BB_graph_t * bbg);
-int bb_exec_pump(BB_graph_t * bbg, bb_body_fn body_fn, void * ctx);
+DESCR_t bb_exec_once(IR_graph_t * bbg);
+DESCR_t bb_exec_resume(IR_graph_t * bbg);
+int bb_exec_pump(IR_graph_t * bbg, bb_body_fn body_fn, void * ctx);
 BB_t * bb_exec_node(BB_t * bb);
-int bb_exec_pat(BB_graph_t *bbg,
+int bb_exec_pat(IR_graph_t *bbg,
                 const char *subj_name,
                 DESCR_t    *subj_var,
                 DESCR_t    *repl,

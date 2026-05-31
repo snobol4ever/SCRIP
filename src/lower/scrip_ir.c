@@ -120,8 +120,8 @@ const char * bb_op_name(BB_op_t k) {
     return "BB_UNKNOWN";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_graph_t * BB_alloc(int max_nodes, int lang) {
-    BB_graph_t * bbg = calloc(1, sizeof(BB_graph_t));
+IR_graph_t * BB_alloc(int max_nodes, int lang) {
+    IR_graph_t * bbg = calloc(1, sizeof(IR_graph_t));
     if (!bbg) return NULL;
     bbg->all  = calloc((size_t)max_nodes, sizeof(BB_t *));
     if (!bbg->all) { free(bbg); return NULL; }
@@ -132,7 +132,7 @@ BB_graph_t * BB_alloc(int max_nodes, int lang) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t * BB_node_alloc(BB_graph_t * bbg, BB_op_t t) {
+BB_t * BB_node_alloc(IR_graph_t * bbg, BB_op_t t) {
     BB_t * bb = calloc(1, sizeof(BB_t));
     if (!bb) return NULL;
     bb->t       = t;
@@ -148,7 +148,7 @@ BB_t * BB_node_alloc(BB_graph_t * bbg, BB_op_t t) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_operand_aux_set(BB_graph_t * bbg, BB_t * bb, BB_t * const * src, int n) {
+int bb_operand_aux_set(IR_graph_t * bbg, BB_t * bb, BB_t * const * src, int n) {
     if (!bbg || !bb) return -1;
     int slot = -1;
     for (int i = 0; i < bbg->operand_aux_n; i++) {
@@ -180,7 +180,7 @@ int bb_operand_aux_set(BB_graph_t * bbg, BB_t * bb, BB_t * const * src, int n) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t * const * bb_operand_aux_get(const BB_graph_t * bbg, const BB_t * bb, int * out_n) {
+BB_t * const * bb_operand_aux_get(const IR_graph_t * bbg, const BB_t * bb, int * out_n) {
     if (out_n) *out_n = 0;
     if (!bbg || !bb) return NULL;
     for (int i = 0; i < bbg->operand_aux_n; i++) {
@@ -192,7 +192,7 @@ BB_t * const * bb_operand_aux_get(const BB_graph_t * bbg, const BB_t * bb, int *
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_reset(BB_graph_t * bbg) {
+void bb_reset(IR_graph_t * bbg) {
     if (!bbg) return;
     for (int i = 0; i < bbg->n; i++) {
         BB_t * bb = bbg->all[i];
@@ -204,7 +204,7 @@ void bb_reset(BB_graph_t * bbg) {
     ag_ring_clear(bbg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-bb_node_state_t * bb_snapshot_state(BB_graph_t * bbg) {
+bb_node_state_t * bb_snapshot_state(IR_graph_t * bbg) {
     if (!bbg || bbg->n <= 0) return NULL;
     bb_node_state_t * snap = (bb_node_state_t *)malloc((size_t)bbg->n * sizeof(bb_node_state_t));
     if (!snap) return NULL;
@@ -238,7 +238,7 @@ bb_node_state_t * bb_snapshot_state(BB_graph_t * bbg) {
     return snap;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_restore_state(BB_graph_t * bbg, bb_node_state_t * snap) {
+void bb_restore_state(IR_graph_t * bbg, bb_node_state_t * snap) {
     if (!bbg || !snap) { free(snap); return; }
     for (int i = 0; i < bbg->n; i++) {
         BB_t * bb = bbg->all[i];
@@ -252,7 +252,7 @@ void bb_restore_state(BB_graph_t * bbg, bb_node_state_t * snap) {
         } else if (bb->t == BB_CHOICE) {
             bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)bb->ival;
             if (zc) { zc->cur = snap[i].ch_cur; zc->mark = snap[i].ch_mark; zc->saved_env = snap[i].ch_saved_env;
-                      zc->last_body = (BB_graph_t *)snap[i].ch_last_body; zc->last_act = snap[i].ch_last_act;
+                      zc->last_body = (IR_graph_t *)snap[i].ch_last_body; zc->last_act = snap[i].ch_last_act;
                       zc->cp = snap[i].ch_cp; zc->cut_barrier = snap[i].ch_cut_barrier;
                       if (snap[i].ch_body_snaps) {
                           for (int b = 0; b < snap[i].ch_nbodies; b++)
@@ -267,7 +267,7 @@ void bb_restore_state(BB_graph_t * bbg, bb_node_state_t * snap) {
     free(snap);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void BB_free(BB_graph_t * bbg) {
+void BB_free(IR_graph_t * bbg) {
     if (!bbg) return;
     for (int i = 0; i < bbg->n; i++) {
         BB_t * bb = bbg->all[i];
@@ -278,16 +278,16 @@ void BB_free(BB_graph_t * bbg) {
     free(bbg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_program_add(bb_program_t * p, BB_graph_t * bbg) {
+int bb_program_add(bb_program_t * p, IR_graph_t * bbg) {
     if (!bbg) return -1;
     if (p->cap == 0) {
         p->cap   = 16;
         p->count = 0;
-        p->table = (BB_graph_t **)calloc((size_t)p->cap, sizeof(BB_graph_t *));
+        p->table = (IR_graph_t **)calloc((size_t)p->cap, sizeof(IR_graph_t *));
     }
     if (p->count >= p->cap) {
         p->cap  *= 2;
-        p->table = (BB_graph_t **)realloc(p->table, (size_t)p->cap * sizeof(BB_graph_t *));
+        p->table = (IR_graph_t **)realloc(p->table, (size_t)p->cap * sizeof(IR_graph_t *));
     }
     int idx = p->count++;
     p->table[idx] = bbg;
@@ -307,11 +307,11 @@ static void print_port(FILE * fp, const char * label, const BB_t * bb) {
     fprintf(fp, " %s=%s", label, bb ? "set" : "NULL");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_print(const BB_graph_t * bbg, FILE * fp) {
-    if (!bbg) { fprintf(fp, "(null BB_graph_t)\n"); return; }
+void bb_print(const IR_graph_t * bbg, FILE * fp) {
+    if (!bbg) { fprintf(fp, "(null IR_graph_t)\n"); return; }
     static const char * lang_names[] = { "?", "SNO", "SCO", "REB", "ICN", "PL", "RKU" };
     const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
-    fprintf(fp, "BB_graph_t lang=%s n=%d entry=%s\n", lname, bbg->n, bbg->entry ? "set" : "NULL");
+    fprintf(fp, "IR_graph_t lang=%s n=%d entry=%s\n", lname, bbg->n, bbg->entry ? "set" : "NULL");
     for (int i = 0; i < bbg->n; i++) {
         const BB_t * bb = bbg->all[i];
         if (!bb) continue;

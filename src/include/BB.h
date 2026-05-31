@@ -157,7 +157,7 @@ typedef struct {
     int        n;
 } bb_operand_aux_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct BB_graph_t {
+typedef struct IR_graph_t {
     BB_t    * entry;
     BB_t   ** all;
     int            n;
@@ -170,32 +170,32 @@ typedef struct BB_graph_t {
     DESCR_t        ring[AG_RING];
     int            ring_head;
     int            ring_depth;
-} BB_graph_t;
+} IR_graph_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_graph_t * BB_alloc(int max_nodes, int lang);
-static inline void ag_ring_push(BB_graph_t * cfg, DESCR_t v) {
+IR_graph_t * BB_alloc(int max_nodes, int lang);
+static inline void ag_ring_push(IR_graph_t * cfg, DESCR_t v) {
     if (!cfg) return;
     cfg->ring_head = (cfg->ring_head + 1) % AG_RING;
     cfg->ring[cfg->ring_head] = v;
     if (cfg->ring_depth < AG_RING) cfg->ring_depth++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t ag_ring_peek(const BB_graph_t * cfg, int k) {
+static inline DESCR_t ag_ring_peek(const IR_graph_t * cfg, int k) {
     if (!cfg || k < 0 || k >= cfg->ring_depth) return FAILDESCR;
     int idx = (cfg->ring_head - k + AG_RING) % AG_RING;
     return cfg->ring[idx];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void ag_ring_clear(BB_graph_t * cfg) {
+static inline void ag_ring_clear(IR_graph_t * cfg) {
     if (!cfg) return;
     cfg->ring_head  = -1;
     cfg->ring_depth = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t       * BB_node_alloc(BB_graph_t * cfg, BB_op_t t);
-int          bb_operand_aux_set(BB_graph_t * cfg, BB_t * nd, BB_t * const * src, int n);
-BB_t * const * bb_operand_aux_get(const BB_graph_t * cfg, const BB_t * nd, int * out_n);
-void         bb_reset(BB_graph_t * cfg);
+BB_t       * BB_node_alloc(IR_graph_t * cfg, BB_op_t t);
+int          bb_operand_aux_set(IR_graph_t * cfg, BB_t * nd, BB_t * const * src, int n);
+BB_t * const * bb_operand_aux_get(const IR_graph_t * cfg, const BB_t * nd, int * out_n);
+void         bb_reset(IR_graph_t * cfg);
 typedef struct {
     DESCR_t value; int64_t counter; int state;
     void   *resolve_cs;
@@ -210,12 +210,12 @@ typedef struct {
     int     ch_nbodies;
 } bb_node_state_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { BB_t ** kids; int nkids; BB_graph_t * inner; int * pos_stack; int cap; int saved_delta; } bb_arbno_state_t;
+typedef struct { BB_t ** kids; int nkids; IR_graph_t * inner; int * pos_stack; int cap; int saved_delta; } bb_arbno_state_t;
 typedef struct { BB_t ** goals; int ngoals; } bb_conj_state_t;
 typedef struct { BB_t * cond; BB_t * then_; BB_t * else_; } bb_ite_state_t;
-typedef struct { BB_graph_t * goal_g; BB_t * catcher; BB_graph_t * rec_g; } bb_catch_state_t;
-typedef struct { BB_graph_t ** bodies; int nbodies; int cur; int mark; void * saved_env;
-                 BB_graph_t * last_body; void * last_act;
+typedef struct { IR_graph_t * goal_g; BB_t * catcher; IR_graph_t * rec_g; } bb_catch_state_t;
+typedef struct { IR_graph_t ** bodies; int nbodies; int cur; int mark; void * saved_env;
+                 IR_graph_t * last_body; void * last_act;
                  void * cp;
                  void * cut_barrier;
                  long * idx_key;
@@ -233,7 +233,7 @@ typedef struct { BB_graph_t ** bodies; int nbodies; int cur; int mark; void * sa
 #define RESOLVE_IDX_FLT             (RESOLVE_IDX_CLS_FLT)
 #define RESOLVE_IDX_CMP(fn,ar)      (RESOLVE_IDX_CLS_CMP  | ((((long)(fn) << 16) | ((long)(ar) & 0xFFFF)) & RESOLVE_IDX_PAYLOAD_MASK))
 typedef struct { BB_t ** args; int nargs; const char * callee; int arity; void * cs; } bb_goal_state_t;
-typedef struct { BB_graph_t * gcfg; BB_t * tmpl; BB_t * result; } bb_findall_state_t;
+typedef struct { IR_graph_t * gcfg; BB_t * tmpl; BB_t * result; } bb_findall_state_t;
 typedef struct { BB_t ** kids; int nkids; } bb_pat_kids_state_t;
 static inline int bb_pat_nkids(const BB_t * nd) {
     if (!nd) return 0;
@@ -248,9 +248,9 @@ static inline BB_t * bb_pat_kid(const BB_t * nd, int i) {
     return zk->kids[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-bb_node_state_t * bb_snapshot_state(BB_graph_t * cfg);
-void              bb_restore_state(BB_graph_t * cfg, bb_node_state_t * snap);
-void         BB_free(BB_graph_t * cfg);
-void         bb_print(const BB_graph_t * cfg, FILE * fp);
+bb_node_state_t * bb_snapshot_state(IR_graph_t * cfg);
+void              bb_restore_state(IR_graph_t * cfg, bb_node_state_t * snap);
+void         BB_free(IR_graph_t * cfg);
+void         bb_print(const IR_graph_t * cfg, FILE * fp);
 const char * bb_op_name(BB_op_t k);
 #endif

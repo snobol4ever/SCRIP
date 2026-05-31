@@ -22,7 +22,7 @@ typedef struct { PlScopeEnt e[RESOLVE_SCOPE_SLOT_MAX]; int n; } PlScope;
 typedef struct { const char *name; int arity; int bb_idx; PlScope lower_sc; } Resolve_PredEntry_BB;
 extern Resolve_PredEntry_BB g_resolve_bb_table[RESOLVE_BB_TABLE_MAX];
 extern int             g_resolve_bb_count;
-static inline BB_graph_t *bb_graph_of_pred(const Resolve_PredEntry_BB *e)
+static inline IR_graph_t *bb_graph_of_pred(const Resolve_PredEntry_BB *e)
 {
     if (!e) return NULL;
     if (e->bb_idx >= 0 && e->bb_idx < g_stage2.bbp.count)

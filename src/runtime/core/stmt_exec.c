@@ -296,7 +296,7 @@ int exec_stmt(const char  *subj_name,
             } else {
                 int is_combinator = patnd_is_combinator_root(pp);
                 int needs_xlate   = is_combinator || patnd_needs_xlate(pp);
-                BB_graph_t *pp_cfg = NULL;
+                IR_graph_t *pp_cfg = NULL;
                 if (is_combinator)      pp_cfg = patnd_to_bb_tree(pp);
                 else if (needs_xlate)   pp_cfg = patnd_to_bb_graph(pp);
                 BB_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (BB_t *)pp;
@@ -319,7 +319,7 @@ int exec_stmt(const char  *subj_name,
             int pure_altcat      = patnd_is_pure_altcat(pp) && patnd_is_combinator_root(pp);
             int arbno_combinator = patnd_contains_arbno(pp) && patnd_is_combinator_root(pp);
             int needs_xlate = patnd_needs_xlate(pp);
-            BB_graph_t *pp_cfg = NULL;
+            IR_graph_t *pp_cfg = NULL;
             if (defer_combinator || pure_altcat || arbno_combinator) pp_cfg = patnd_to_bb_tree(pp);
             else if (needs_xlate)   pp_cfg = patnd_to_bb_graph(pp);
             BB_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (BB_t *)pp;

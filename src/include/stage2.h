@@ -16,7 +16,7 @@ typedef struct LabelEntry {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct ScopeEnt { const char *name; int slot; } ScopeEnt;
 typedef struct Scope    { ScopeEnt e[STAGE2_FRAME_SLOT_MAX]; int n; } Scope;
-struct BB_graph_t;
+struct IR_graph_t;
 typedef struct ProcEntry {
     const char         *name;
     tree_t             *proc;

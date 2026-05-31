@@ -322,7 +322,7 @@ static DESCR_t gen_bb_oneshot(void *zeta, int entry) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { BB_graph_t *cfg; int first; } dcg_state_t;
+typedef struct { IR_graph_t *cfg; int first; } dcg_state_t;
 DESCR_t gen_bb_dcg(void *zeta, int entry) {
     dcg_state_t *z = (dcg_state_t *)zeta;
     if (!z || !z->cfg) return FAILDESCR;
@@ -335,7 +335,7 @@ bb_node_t gen_bb_pump_proc_by_name(const char *name, DESCR_t *args, int nargs) {
     if (!name) return (bb_node_t){ NULL, NULL, 0 };
     for (int i = 0; i < g_stage2.proc_count; i++) {
         if (strcmp(g_stage2.proc_table[i].name, name) != 0) continue;
-        BB_graph_t *_cfg_i = bb_graph_of_proc(&g_stage2.proc_table[i]);
+        IR_graph_t *_cfg_i = bb_graph_of_proc(&g_stage2.proc_table[i]);
         if (_cfg_i) {
             if (frame_depth < FRAME_STACK_MAX) {
                 GenFrame *f = &frame_stack[frame_depth++];
@@ -356,7 +356,7 @@ bb_node_t gen_bb_pump_proc_by_name(const char *name, DESCR_t *args, int nargs) {
         if (g_stage2.proc_table[i].is_generator && g_stage2.proc_table[i].entry_pc >= 0 && 1) {
             GeneratorState *pgs = generator_state_new_proc(i, args, nargs);
             if (pgs) {
-                BB_graph_t *pcfg = lower_proc_gen(pgs);
+                IR_graph_t *pcfg = lower_proc_gen(pgs);
                 if (pcfg) {
                     dcg_state_t *pdz = calloc(1, sizeof(*pdz));
                     pdz->cfg = pcfg; pdz->first = 1;

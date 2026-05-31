@@ -34,7 +34,7 @@ typedef struct {
     struct GeneratorState *every_gen[EVERY_GEN_SLOT_MAX];
 } GenFrame;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline BB_graph_t *bb_graph_of_proc(const ProcEntry *e)
+static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e)
 {
     if (!e) return NULL;
     if (e->bb_idx >= 0 && e->bb_idx < g_stage2.bbp.count)

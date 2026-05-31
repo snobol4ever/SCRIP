@@ -325,7 +325,7 @@ int main(int argc, char **argv)
         return 0;
     }
     if (dump_bb) {
-        extern void bb_print(const BB_graph_t * bbg, FILE * fp);
+        extern void bb_print(const IR_graph_t * bbg, FILE * fp);
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
@@ -359,7 +359,7 @@ int main(int argc, char **argv)
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (is_icon) {
-            extern DESCR_t bb_exec_once(BB_graph_t * bbg);
+            extern DESCR_t bb_exec_once(IR_graph_t * bbg);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) {
@@ -408,7 +408,7 @@ int main(int argc, char **argv)
             {
                 extern void *dat_register(const char *spec);
                 for (int _gi = 0; _gi < s2->bbp.count; _gi++) {
-                    BB_graph_t *g = s2->bbp.table[_gi];
+                    IR_graph_t *g = s2->bbp.table[_gi];
                     if (!g || !g->all) continue;
                     for (int _ni = 0; _ni < g->n; _ni++) {
                         BB_t *nd = g->all[_ni];
@@ -420,7 +420,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph not found\n");
                 abort();
             }
-            BB_graph_t * bbg = s2->bbp.table[main_bb_idx];
+            IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             if (!bbg->entry) {
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph has no entry\n");
                 abort();

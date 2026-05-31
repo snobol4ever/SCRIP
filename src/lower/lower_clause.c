@@ -6,16 +6,16 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
-static BB_t *lower_pl_term(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
-static BB_t *lower_pl_goal(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_term(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_goal(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
 static int   resolve_goal_is_bounded(const tree_t *e);
-static BB_t *lower_pl_new_Alt(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
-static BB_t *lower_pl_new_Ite(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
-static BB_t *lower_pl_new_Unify(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
-static BB_t *lower_pl_new_Compare(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
-static BB_t *lower_pl_new_Conj(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
-static BB_t *lower_pl_new_Call(BB_graph_t *bbg, const char *fn, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
-static BB_t *lower_pl_new_Builtin(BB_graph_t *bbg, const char *fn, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_new_Alt(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_new_Ite(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_new_Unify(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_new_Compare(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_new_Conj(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_new_Call(IR_graph_t *bbg, const char *fn, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
+static BB_t *lower_pl_new_Builtin(IR_graph_t *bbg, const char *fn, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out);
 static int flatten_comma(const tree_t *e, const tree_t **out, int cap);
 static BB_t *resolve_leaf(BB_t *bb, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (!bb) return NULL;
@@ -25,7 +25,7 @@ static BB_t *resolve_leaf(BB_t *bb, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_new_Alt(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_new_Alt(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     BB_t *bα = NULL, *bβ = NULL;
     BB_t *b = lower_pl_goal(bbg, e->c[1], γ_in, ω_in, &bα, &bβ); if (!b) return NULL;
     BB_t *aα = NULL, *aβ = NULL;
@@ -37,7 +37,7 @@ static BB_t *lower_pl_new_Alt(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_new_Ite(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_new_Ite(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     const tree_t *cond = e->c[0];
     const tree_t *then_ = e->c[1];
     const tree_t *else_ = (e->n >= 3) ? e->c[2] : NULL;
@@ -58,7 +58,7 @@ static BB_t *lower_pl_new_Ite(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_
     return ite;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_new_Unify(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_new_Unify(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     BB_t *lα = NULL, *lβ = NULL, *rα = NULL, *rβ = NULL;
     BB_t *lhs = lower_pl_term(bbg, e->c[0], γ_in, ω_in, &lα, &lβ); if (!lhs) return NULL;
     BB_t *rhs = lower_pl_term(bbg, e->c[1], γ_in, ω_in, &rα, &rβ); if (!rhs) return NULL;
@@ -68,7 +68,7 @@ static BB_t *lower_pl_new_Unify(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, B
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_new_Compare(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_new_Compare(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 2) return NULL;
     BB_t *lα=NULL,*lβ=NULL,*rα=NULL,*rβ=NULL;
     BB_t *lhs = lower_pl_term(bbg,e->c[0],γ_in,ω_in,&lα,&lβ); if(!lhs) return NULL;
@@ -85,7 +85,7 @@ static int resolve_node_is_resumable(const BB_t *nd) {
     return nd->t == BB_GOAL || nd->t == BB_CHOICE || nd->t == BB_DISJ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_new_Conj(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_new_Conj(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     const tree_t *flat[256];
     int n = flatten_comma(e, flat, 256);
     if (n <= 0) return NULL;
@@ -124,7 +124,7 @@ static BB_t *lower_pl_new_Conj(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB
     return seq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_new_Call(BB_graph_t *bbg, const char *fn, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_new_Call(IR_graph_t *bbg, const char *fn, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     int n = e ? e->n : 0;
     BB_t *bb = BB_node_alloc(bbg, BB_GOAL); if (!bb) return NULL;
     bb_goal_state_t *zc = (bb_goal_state_t *)GC_MALLOC_UNCOLLECTABLE(sizeof *zc);
@@ -181,7 +181,7 @@ static int resolve_builtin_style(const char *fn, int n) {
     return RESOLVE_BI_NONE;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_new_Builtin(BB_graph_t *bbg, const char *fn, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_new_Builtin(IR_graph_t *bbg, const char *fn, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     int style = resolve_builtin_style(fn, e->n);
     if (style == RESOLVE_BI_NONE) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_BUILTIN); if (!bb) return NULL;
@@ -235,7 +235,7 @@ static int resolve_is_arith_functor(const char *fn, int arity) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_term(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_term(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (!e) return NULL;
     switch (e->t) {
     case TT_ILIT: { BB_t *bb = BB_node_alloc(bbg, BB_LIT_I); if (!bb) return NULL; bb->ival = e->v.ival; return resolve_leaf(bb, γ_in, ω_in, α_out, β_out); }
@@ -349,7 +349,7 @@ static int resolve_goal_is_bounded(const tree_t *e) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_t *lower_pl_goal(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+static BB_t *lower_pl_goal(IR_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (!e) return NULL;
     if (getenv("SCRIP_PL_BOUNDED_TRACE")) {
         const char *gn = (e->t==TT_FNC && e->v.sval) ? e->v.sval : (e->t==TT_QLIT && e->v.sval) ? e->v.sval : (e->t==TT_CUT) ? "!" : (e->t==TT_VAR) ? "<var>" : "<op>";
@@ -439,11 +439,11 @@ static BB_t *lower_pl_goal(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *
         bb_catch_state_t *zc = (bb_catch_state_t *)GC_MALLOC_UNCOLLECTABLE(sizeof *zc); if (!zc) return NULL;
         BB_t *cα=NULL,*cβ=NULL; BB_t *c = lower_pl_term(bbg, e->c[1], NULL, NULL, &cα, &cβ); if (!c) return NULL;
         zc->catcher = cα;
-        BB_graph_t *gcfg = BB_alloc(128, BB_LANG_PL); if (!gcfg) return NULL;
+        IR_graph_t *gcfg = BB_alloc(128, BB_LANG_PL); if (!gcfg) return NULL;
         BB_t *gα=NULL,*gβ=NULL; BB_t *g = lower_pl_goal(gcfg, e->c[0], NULL, NULL, &gα, &gβ); if (!g) return NULL;
         gcfg->entry = gα ? gα : g;
         zc->goal_g = gcfg;
-        BB_graph_t *rcfg = BB_alloc(128, BB_LANG_PL); if (!rcfg) return NULL;
+        IR_graph_t *rcfg = BB_alloc(128, BB_LANG_PL); if (!rcfg) return NULL;
         BB_t *rα=NULL,*rβ=NULL; BB_t *r = lower_pl_goal(rcfg, e->c[2], NULL, NULL, &rα, &rβ); if (!r) return NULL;
         rcfg->entry = rα ? rα : r;
         zc->rec_g = rcfg;
@@ -458,7 +458,7 @@ static BB_t *lower_pl_goal(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *
         bb_findall_state_t *fs = (bb_findall_state_t *)GC_MALLOC_UNCOLLECTABLE(sizeof *fs);
         BB_t *tα=NULL,*tβ=NULL; BB_t *t=lower_pl_term(bbg,e->c[0],NULL,NULL,&tα,&tβ); if(!t) return NULL; fs->tmpl=tα;
         BB_t *rα=NULL,*rβ=NULL; BB_t *r=lower_pl_term(bbg,e->c[2],NULL,NULL,&rα,&rβ); if(!r) return NULL; fs->result=rα;
-        BB_graph_t *gcfg = BB_alloc(128, BB_LANG_PL); if (!gcfg) return NULL;
+        IR_graph_t *gcfg = BB_alloc(128, BB_LANG_PL); if (!gcfg) return NULL;
         BB_t *gα=NULL,*gβ=NULL; BB_t *g=lower_pl_goal(gcfg,e->c[1],NULL,NULL,&gα,&gβ); if(!g) return NULL;
         gcfg->entry = gα ? gα : g;
         fs->gcfg = gcfg;
@@ -470,11 +470,11 @@ static BB_t *lower_pl_goal(BB_graph_t *bbg, const tree_t *e, BB_t *γ_in, BB_t *
     return lower_pl_new_Call(bbg, fn, e, γ_in, ω_in, α_out, β_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_graph_t *lower_pl_clause_body(const tree_t *clause, int n_args) {
+static IR_graph_t *lower_pl_clause_body(const tree_t *clause, int n_args) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     int n_body = clause->n - n_args;
     int n_total = n_args + (n_body > 0 ? n_body : 1);
-    BB_graph_t *bbg = BB_alloc(128, BB_LANG_PL); if (!bbg) return NULL;
+    IR_graph_t *bbg = BB_alloc(128, BB_LANG_PL); if (!bbg) return NULL;
     const tree_t **stmts = (const tree_t **)calloc((size_t)n_total, sizeof(tree_t *));
     if (!stmts) { BB_free(bbg); return NULL; }
     int n_stmts = 0;
@@ -558,20 +558,20 @@ static long resolve_clause_first_arg_key(const tree_t *clause, int n_args) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_graph_t *lower_pl_predicate(tree_t *choice) {
+IR_graph_t *lower_pl_predicate(tree_t *choice) {
     if (!choice || choice->t != TT_CHOICE || choice->n < 1) return NULL;
     const char *_csl = choice->v.sval ? strrchr(choice->v.sval, '/') : NULL;
     int arity = _csl ? atoi(_csl+1) : 0;
     if (choice->n == 1) return lower_pl_clause_body(choice->c[0], arity);
-    BB_graph_t *bbg = BB_alloc(64, BB_LANG_PL); if (!bbg) return NULL;
+    IR_graph_t *bbg = BB_alloc(64, BB_LANG_PL); if (!bbg) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_CHOICE); if (!bb) { BB_free(bbg); return NULL; }
     bb_choice_state_t *zc = (bb_choice_state_t *)GC_MALLOC_UNCOLLECTABLE(sizeof *zc);
-    zc->bodies  = (BB_graph_t **)GC_MALLOC_UNCOLLECTABLE((size_t)choice->n * sizeof(BB_graph_t *));
+    zc->bodies  = (IR_graph_t **)GC_MALLOC_UNCOLLECTABLE((size_t)choice->n * sizeof(IR_graph_t *));
     zc->nbodies = 0; zc->cur = 0; zc->mark = 0; zc->saved_env = NULL;
     zc->idx_key = (long *)GC_MALLOC_UNCOLLECTABLE((size_t)choice->n * sizeof(long));
     zc->idx_ok = 0;
     for (int i=0; i<choice->n; i++) {
-        BB_graph_t *body = lower_pl_clause_body(choice->c[i], arity);
+        IR_graph_t *body = lower_pl_clause_body(choice->c[i], arity);
         if (!body) { BB_free(bbg); return NULL; }
         zc->idx_key[zc->nbodies] = resolve_clause_first_arg_key(choice->c[i], arity);
         zc->bodies[zc->nbodies++] = body;
@@ -583,6 +583,6 @@ BB_graph_t *lower_pl_predicate(tree_t *choice) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_pl_threaded(BB_graph_t *bbg, const struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_pl_threaded(IR_graph_t *bbg, const struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     return lower_pl_goal(bbg, e, γ_in, ω_in, α_out, β_out);
 }

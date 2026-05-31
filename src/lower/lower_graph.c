@@ -8,42 +8,42 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-BB_t *lower_new_Intlit(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Intlit(IR_graph_t *bbg, struct tree_t *e) {
     BB_t *bb = BB_node_alloc(bbg, BB_LIT_I);
     if (!bb) return NULL;
     bb->ival = e->v.ival;
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Reallit(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Reallit(IR_graph_t *bbg, struct tree_t *e) {
     BB_t *bb = BB_node_alloc(bbg, BB_LIT_F);
     if (!bb) return NULL;
     bb->dval = e->v.dval;
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Stringlit(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Stringlit(IR_graph_t *bbg, struct tree_t *e) {
     BB_t *bb = BB_node_alloc(bbg, BB_LIT_S);
     if (!bb) return NULL;
     bb->sval = e->v.sval ? e->v.sval : "";
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Csetlit(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Csetlit(IR_graph_t *bbg, struct tree_t *e) {
     BB_t *bb = BB_node_alloc(bbg, BB_LIT_S);
     if (!bb) return NULL;
     bb->sval = e->v.sval ? e->v.sval : "";
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Global(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Global(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
     return BB_node_alloc(bbg, BB_SUCCEED);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int is_suspendable(struct tree_t *e);
-extern BB_t *lower_expr_node(BB_graph_t *bbg, struct tree_t *e);
-BB_t *lower_new_Binop(BB_graph_t *bbg, struct tree_t *e) {
+extern BB_t *lower_expr_node(IR_graph_t *bbg, struct tree_t *e);
+BB_t *lower_new_Binop(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *lhs = lower_expr_node(bbg, e->c[0]);
     if (!lhs) return NULL;
@@ -90,7 +90,7 @@ BB_t *lower_new_Binop(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Binop_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_Binop_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BinopKind op = BINOP_ADD;
     int is_relop  = 0;
@@ -142,7 +142,7 @@ BB_t *lower_new_Binop_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *�
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Lconcat_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_Lconcat_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *l_αo = NULL, *l_βo = NULL;
     BB_t *lhs = lower_expr_threaded_b(bbg, e->c[0], NULL, ω_in, &l_αo, &l_βo, 0);
@@ -165,7 +165,7 @@ BB_t *lower_new_Lconcat_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t 
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Sectionop_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_Sectionop_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 3 || !e->c[0] || !e->c[1] || !e->c[2]) return NULL;
     BB_t *b_αo = NULL, *b_βo = NULL;
     BB_t *base = lower_expr_threaded_b(bbg, e->c[0], NULL, ω_in, &b_αo, &b_βo, 0);
@@ -195,7 +195,7 @@ BB_t *lower_new_Sectionop_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Idx_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_Idx_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *b_αo = NULL, *b_βo = NULL;
     BB_t *base = lower_expr_threaded_b(bbg, e->c[0], NULL, ω_in, &b_αo, &b_βo, 0);
@@ -218,7 +218,7 @@ BB_t *lower_new_Idx_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Idx_set_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_Idx_set_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     if (e->c[0]->t != TT_IDX) return NULL;
     if (e->c[0]->n < 2 || !e->c[0]->c[0] || !e->c[0]->c[1]) return NULL;
@@ -249,7 +249,7 @@ BB_t *lower_new_Idx_set_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t 
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_If(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_If(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *cond = lower_expr_node(bbg, e->c[0]);
     if (!cond) return NULL;
@@ -271,7 +271,7 @@ BB_t *lower_new_If(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_If_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_If_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_IF);
     if (!bb) return NULL;
@@ -307,7 +307,7 @@ BB_t *lower_new_If_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_i
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int fold_signed_lit(struct tree_t *n, int64_t *iv, double *dv, int *is_real);
-BB_t *lower_new_ToBy(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_ToBy(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     if (e->t == TT_TO) {
         BB_t *bb = BB_node_alloc(bbg, BB_TO);
@@ -354,7 +354,7 @@ BB_t *lower_new_ToBy(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_ToBy_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_ToBy_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     BB_t *bb = lower_new_ToBy(bbg, e);
     if (!bb) return NULL;
     if (bb->α && bb->β) {
@@ -381,8 +381,8 @@ BB_t *lower_new_ToBy_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern BB_t *lower_expr_threaded_b(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out, int bounded);
-BB_t *lower_new_Every(BB_graph_t *bbg, struct tree_t *e) {
+extern BB_t *lower_expr_threaded_b(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out, int bounded);
+BB_t *lower_new_Every(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *gen = NULL;
     BB_t *gen_chain_entry = NULL;
@@ -437,7 +437,7 @@ static int lic_body_bears_gen(BB_t *e, int depth) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Every_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_Every_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *gen = NULL;
     BB_t *gen_chain_entry = NULL;
@@ -507,17 +507,17 @@ BB_t *lower_new_Every_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *�
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Compound(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Compound(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_ProcBody(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_ProcBody(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Call(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Call(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0] || e->c[0]->t != TT_VAR || !e->c[0]->v.sval) return NULL;
     int nargs = e->n - 1;
     if (nargs == 1 && strcmp(e->c[0]->v.sval, "key") == 0 && e->c[1]) {
@@ -587,7 +587,7 @@ BB_t *lower_new_Call(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Field(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Field(IR_graph_t *bbg, struct tree_t *e) {
     const char *fname = FIELD_NAME(e);
     if (!fname || e->n < 1 || !e->c[0]) return NULL;
     BB_t *obj = lower_expr_node(bbg, e->c[0]);
@@ -599,7 +599,7 @@ BB_t *lower_new_Field(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Sectionop(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Sectionop(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 3 || !e->c[0] || !e->c[1] || !e->c[2]) return NULL;
     BB_t *base = lower_expr_node(bbg, e->c[0]);
     if (!base) return NULL;
@@ -616,7 +616,7 @@ BB_t *lower_new_Sectionop(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Alt(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Alt(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_ALT);
     if (!bb) return NULL;
@@ -633,7 +633,7 @@ BB_t *lower_new_Alt(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Alt_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_Alt_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 1) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_ALT);
     if (!bb) return NULL;
@@ -661,7 +661,7 @@ BB_t *lower_new_Alt_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Conjunction(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Conjunction(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *e1 = lower_expr_node(bbg, e->c[0]);
     if (!e1) return NULL;
@@ -674,7 +674,7 @@ BB_t *lower_new_Conjunction(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Conjunction_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
+BB_t *lower_new_Conjunction_ag(IR_graph_t *bbg, struct tree_t *e, BB_t *γ_in, BB_t *ω_in, BB_t **α_out, BB_t **β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_CONJ);
     if (!bb) return NULL;
@@ -697,7 +697,7 @@ BB_t *lower_new_Conjunction_ag(BB_graph_t *bbg, struct tree_t *e, BB_t *γ_in, B
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Not(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Not(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *inner = lower_expr_node(bbg, e->c[0]);
     if (!inner) return NULL;
@@ -707,7 +707,7 @@ BB_t *lower_new_Not(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_While(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_While(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *cond = lower_expr_node(bbg, e->c[0]);
     if (!cond) return NULL;
@@ -723,7 +723,7 @@ BB_t *lower_new_While(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Until(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Until(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *cond = lower_expr_node(bbg, e->c[0]);
     if (!cond) return NULL;
@@ -739,7 +739,7 @@ BB_t *lower_new_Until(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Repeat(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Repeat(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *body = lower_expr_node(bbg, e->c[0]);
     if (!body) return NULL;
@@ -749,7 +749,7 @@ BB_t *lower_new_Repeat(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Limitation(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Limitation(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *gen = lower_expr_node(bbg, e->c[0]);
     if (!gen) return NULL;
@@ -762,7 +762,7 @@ BB_t *lower_new_Limitation(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Scan(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Scan(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t *subj = lower_expr_node(bbg, e->c[0]);
     if (!subj) return NULL;
@@ -778,7 +778,7 @@ BB_t *lower_new_Scan(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Case(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Case(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) return NULL;
     BB_t **children = calloc((size_t)e->n, sizeof(BB_t *));
     if (!children) return NULL;
@@ -795,7 +795,7 @@ BB_t *lower_new_Case(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Return(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Return(IR_graph_t *bbg, struct tree_t *e) {
     BB_t *bb = BB_node_alloc(bbg, BB_RETURN);
     if (!bb) return NULL;
     if (e->n >= 1 && e->c[0]) {
@@ -806,7 +806,7 @@ BB_t *lower_new_Return(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Suspend(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Suspend(IR_graph_t *bbg, struct tree_t *e) {
     if (bbg->lang != BB_LANG_RKU) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_SUSPEND);
     if (!bb) return NULL;
@@ -818,17 +818,17 @@ BB_t *lower_new_Suspend(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Break(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Break(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
     return BB_node_alloc(bbg, BB_BREAK);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Next(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Next(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
     return BB_node_alloc(bbg, BB_NEXT);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Initial(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Initial(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) {
         BB_t *bb = BB_node_alloc(bbg, BB_SUCCEED);
         return bb;
@@ -842,7 +842,7 @@ BB_t *lower_new_Initial(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Unop(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Unop(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1 || !e->c[0]) {
         if (e->t == TT_NULL) return BB_node_alloc(bbg, BB_LIT_NUL);
         return NULL;
@@ -874,7 +874,7 @@ BB_t *lower_new_Unop(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_AugOp(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_AugOp(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *lhs = lower_expr_node(bbg, e->c[0]);
     if (!lhs) return NULL;
@@ -911,42 +911,42 @@ BB_t *lower_new_AugOp(BB_graph_t *bbg, struct tree_t *e) {
     return asgn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Create(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Create(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Mutual(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Mutual(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Key(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Key(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Invocable(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Invocable(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Link(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Link(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_RepAlt(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_RepAlt(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_CoexpList(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_CoexpList(IR_graph_t *bbg, struct tree_t *e) {
     (void)bbg; (void)e;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Var(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Var(IR_graph_t *bbg, struct tree_t *e) {
     if (!e->v.sval) return NULL;
     if (e->v.sval[0] == '&') {
         BB_t *bb = BB_node_alloc(bbg, BB_KEYWORD);
@@ -960,7 +960,7 @@ BB_t *lower_new_Var(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Keyword(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Keyword(IR_graph_t *bbg, struct tree_t *e) {
     if (!e->v.sval) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_KEYWORD);
     if (!bb) return NULL;
@@ -968,7 +968,7 @@ BB_t *lower_new_Keyword(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Assign(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Assign(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     if (e->c[0]->t == TT_FIELD) {
         const char *fname = FIELD_NAME(e->c[0]);
@@ -1012,7 +1012,7 @@ BB_t *lower_new_Assign(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Swap(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Swap(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     if (e->c[0]->t != TT_VAR || e->c[1]->t != TT_VAR) return NULL;
     if (!e->c[0]->v.sval || !e->c[1]->v.sval) return NULL;
@@ -1028,7 +1028,7 @@ BB_t *lower_new_Swap(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_SeqExpr(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_SeqExpr(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 1) return NULL;
     BB_t **stmts = calloc((size_t)e->n, sizeof(BB_t *));
     if (!stmts) return NULL;
@@ -1046,12 +1046,12 @@ BB_t *lower_new_SeqExpr(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Decl(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Decl(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
     return BB_node_alloc(bbg, BB_SUCCEED);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Idx(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Idx(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *base = lower_expr_node(bbg, e->c[0]);
     if (!base) return NULL;
@@ -1064,7 +1064,7 @@ BB_t *lower_new_Idx(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Identical(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Identical(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *lhs = lower_expr_node(bbg, e->c[0]);
     if (!lhs) return NULL;
@@ -1077,12 +1077,12 @@ BB_t *lower_new_Identical(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_ProcFail(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_ProcFail(IR_graph_t *bbg, struct tree_t *e) {
     (void)e;
     return BB_node_alloc(bbg, BB_FAIL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_CsetBinop(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_CsetBinop(IR_graph_t *bbg, struct tree_t *e) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     BB_t *lhs = lower_expr_node(bbg, e->c[0]);
     if (!lhs) return NULL;
@@ -1098,7 +1098,7 @@ BB_t *lower_new_CsetBinop(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Record(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Record(IR_graph_t *bbg, struct tree_t *e) {
     if (!e->v.sval) return NULL;
     char spec[512]; int pos = 0;
     pos += snprintf(spec+pos, sizeof(spec)-pos, "%s(", e->v.sval);
@@ -1115,7 +1115,7 @@ BB_t *lower_new_Record(BB_graph_t *bbg, struct tree_t *e) {
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_new_Makelist(BB_graph_t *bbg, struct tree_t *e) {
+BB_t *lower_new_Makelist(IR_graph_t *bbg, struct tree_t *e) {
     int n = e->n;
     BB_t **args = (n > 0) ? calloc((size_t)n, sizeof(BB_t *)) : NULL;
     for (int j = 0; j < n; j++) {
@@ -1216,9 +1216,9 @@ int fold_signed_lit(tree_t *n, int64_t *iv, double *dv, int *is_real) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_graph_t *lower_upto(const char *cset, const char *hay) {
+IR_graph_t *lower_upto(const char *cset, const char *hay) {
     if (!cset || !hay) return NULL;
-    BB_graph_t *bbg = BB_alloc(4, BB_LANG_ICN);
+    IR_graph_t *bbg = BB_alloc(4, BB_LANG_ICN);
     if (!bbg) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_UPTO);
     if (!bb) return NULL;
@@ -1232,9 +1232,9 @@ BB_graph_t *lower_upto(const char *cset, const char *hay) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_graph_t *lower_proc_gen(GeneratorState *gs) {
+IR_graph_t *lower_proc_gen(GeneratorState *gs) {
     if (!gs) return NULL;
-    BB_graph_t *bbg = BB_alloc(4, BB_LANG_ICN);
+    IR_graph_t *bbg = BB_alloc(4, BB_LANG_ICN);
     if (!bbg) return NULL;
     BB_t *bb = BB_node_alloc(bbg, BB_PROC_GEN);
     if (!bb) return NULL;
@@ -1247,7 +1247,7 @@ BB_graph_t *lower_proc_gen(GeneratorState *gs) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_expr_node(BB_graph_t *bbg, tree_t *e) {
+BB_t *lower_expr_node(IR_graph_t *bbg, tree_t *e) {
     if (!bbg || !e) return NULL;
     switch (e->t) {
     case TT_ILIT:           return lower_new_Intlit(bbg, e);
@@ -1312,7 +1312,7 @@ BB_t *lower_expr_node(BB_graph_t *bbg, tree_t *e) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_graph_t *lower_proc_body(tree_t *proc) {
+IR_graph_t *lower_proc_body(tree_t *proc) {
     if (!proc) return NULL;
     tree_t **body_arr = NULL;
     int body_off = 0;
@@ -1333,7 +1333,7 @@ BB_graph_t *lower_proc_body(tree_t *proc) {
     }
     if (n_stmts <= 0 || !body_arr) return NULL;
     int _lang_tag = (proc->t == TT_SUB_DECL) ? BB_LANG_RKU : BB_LANG_ICN;
-    BB_graph_t *bbg = BB_alloc(4096, _lang_tag);
+    IR_graph_t *bbg = BB_alloc(4096, _lang_tag);
     if (!bbg) return NULL;
     BB_t **stmt_nodes = calloc((size_t)n_stmts, sizeof(BB_t *));
     if (!stmt_nodes) { BB_free(bbg); return NULL; }
@@ -1381,9 +1381,9 @@ BB_graph_t *lower_proc_body(tree_t *proc) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_graph_t *lower_expr_top(struct tree_t *e) {
+IR_graph_t *lower_expr_top(struct tree_t *e) {
     if (!e) return NULL;
-    BB_graph_t *bbg = BB_alloc(256, BB_LANG_ICN);
+    IR_graph_t *bbg = BB_alloc(256, BB_LANG_ICN);
     if (!bbg) return NULL;
     BB_t *bb = lower_expr_node(bbg, e);
     if (!bb) { BB_free(bbg); return NULL; }
@@ -1420,7 +1420,7 @@ static int tree_is_leaf(const tree_t *e) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_expr_threaded_b(BB_graph_t *bbg, tree_t *e,
+BB_t *lower_expr_threaded_b(IR_graph_t *bbg, tree_t *e,
                                  BB_t *γ_in, BB_t *ω_in,
                                  BB_t **α_out, BB_t **β_out, int bounded) {
     if (!bbg || !e) return NULL;
@@ -1519,7 +1519,7 @@ BB_t *lower_expr_threaded_b(BB_graph_t *bbg, tree_t *e,
     return gen_leaf(bb, γ_in, ω_in, α_out, β_out, is_leaf ? 1 : bounded);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-BB_t *lower_expr_threaded(BB_graph_t *bbg, tree_t *e,
+BB_t *lower_expr_threaded(IR_graph_t *bbg, tree_t *e,
                                BB_t *γ_in, BB_t *ω_in,
                                BB_t **α_out, BB_t **β_out) {
     return lower_expr_threaded_b(bbg, e, γ_in, ω_in, α_out, β_out, 0);

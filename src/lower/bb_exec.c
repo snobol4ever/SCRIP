@@ -74,11 +74,11 @@ static Term *resolve_nb_get(int aid) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_graph_t * g_current_cfg = NULL;
-static BB_graph_t * g_resolve_tail_redirect_cfg   = NULL;
+static IR_graph_t * g_current_cfg = NULL;
+static IR_graph_t * g_resolve_tail_redirect_cfg   = NULL;
 static BB_t       * g_resolve_tail_redirect_entry = NULL;
 int g_resolve_b3_call_mark = -1;
-DESCR_t bb_exec_once(BB_graph_t * bbg);
+DESCR_t bb_exec_once(IR_graph_t * bbg);
 static int ir_is_single_shot(BB_t * e) {
     if (!e) return 1;
     switch (e->t) {
@@ -731,7 +731,7 @@ int rt_pl_atomic_list_concat_term(void *list, int arity,
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bb_body_has_live_choice(BB_graph_t *bbg);
+static int bb_body_has_live_choice(IR_graph_t *bbg);
 int rt_pl_findall(void *fs_ptr) {
     extern Trail g_resolve_trail;
     extern Term **g_resolve_env;
@@ -747,7 +747,7 @@ int rt_pl_findall(void *fs_ptr) {
     resolve_choice   *outer_barrier      = g_resolve_cut_barrier;
     int          outer_cut_flag     = g_resolve_cut_flag;
     int          outer_b3_mark      = g_resolve_b3_call_mark;
-    BB_graph_t  *outer_redirect_cfg = g_resolve_tail_redirect_cfg;
+    IR_graph_t  *outer_redirect_cfg = g_resolve_tail_redirect_cfg;
     BB_t        *outer_redirect_ent = g_resolve_tail_redirect_entry;
     int mark = trail_mark(&g_resolve_trail);
     g_resolve_bfr              = NULL;
@@ -905,7 +905,7 @@ int rt_pl_aggregate_all_term(void *tmpl, void *goal, int kres, long ires, const 
     int garity = (goal_d->tag == TERM_COMPOUND) ? goal_d->compound.arity : 0;
     char gkey[128]; snprintf(gkey, sizeof gkey, "%s/%d", gfn, garity);
     Resolve_PredEntry_BB *gpe = resolve_bb_lookup(gkey, garity);
-    BB_graph_t *gcfg = bb_graph_of_pred(gpe);
+    IR_graph_t *gcfg = bb_graph_of_pred(gpe);
     if (!gcfg) return 0;
     int mark0 = trail_mark(&g_resolve_trail);
     int gnslots = garity + 16;
@@ -1281,7 +1281,7 @@ static void resolve_format_float(char *buf, size_t bufsz, double d) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bb_body_has_live_choice(BB_graph_t *bbg) {
+static int bb_body_has_live_choice(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
         BB_t *bb = bbg->all[i];
@@ -1292,7 +1292,7 @@ static int bb_body_has_live_choice(BB_graph_t *bbg) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bb_body_cp_free_except_tail(BB_graph_t *bbg) {
+static int bb_body_cp_free_except_tail(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
         BB_t *bb = bbg->all[i];
@@ -1318,7 +1318,7 @@ static long resolve_term_first_arg_key(Term *t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bb_body_single_solution(BB_graph_t *bbg) {
+static int bb_body_single_solution(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
         BB_t *bb = bbg->all[i];
@@ -1328,7 +1328,7 @@ static int bb_body_single_solution(BB_graph_t *bbg) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BB_graph_t * resolve_choice_unique_indexed_body(BB_graph_t *callee, Term *first_arg) {
+static IR_graph_t * resolve_choice_unique_indexed_body(IR_graph_t *callee, Term *first_arg) {
     if (!callee || !callee->entry || callee->entry->t != BB_CHOICE) return NULL;
     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)callee->entry->ival;
     if (!zc || !zc->idx_ok || !zc->idx_key || zc->nbodies == 0) return NULL;
@@ -1340,7 +1340,7 @@ static BB_graph_t * resolve_choice_unique_indexed_body(BB_graph_t *callee, Term 
         if (k == RESOLVE_IDX_VAR || k == ckey) { ncand++; if (ncand == 1) cand = ci; else break; }
     }
     if (ncand != 1) return NULL;
-    BB_graph_t *body = zc->bodies[cand];
+    IR_graph_t *body = zc->bodies[cand];
     if (!bb_body_cp_free_except_tail(body)) return NULL;
     return body;
 }
@@ -1587,7 +1587,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         }
         for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) {
             if (!g_stage2.proc_table[_pi].name || strcmp(g_stage2.proc_table[_pi].name, bb->sval) != 0) continue;
-            BB_graph_t *_cfg = bb_graph_of_proc(&g_stage2.proc_table[_pi]);
+            IR_graph_t *_cfg = bb_graph_of_proc(&g_stage2.proc_table[_pi]);
             if (!_cfg) break;
             if (frame_depth >= FRAME_STACK_MAX) break;
             GenFrame *_f = &frame_stack[frame_depth++];
@@ -2846,7 +2846,7 @@ BB_t * bb_exec_node(BB_t * bb) {
     }
     case BB_PAT_ARBNO: {
         bb_arbno_state_t * az = (bb_arbno_state_t *)(intptr_t)bb->counter;
-        BB_graph_t * inner_blk = az ? az->inner : NULL;
+        IR_graph_t * inner_blk = az ? az->inner : NULL;
         int       * pos_stack = az ? az->pos_stack : NULL;
         if (!inner_blk || !pos_stack) { bb->value = FAILDESCR; return bb->ω; }
         if (bb->state == 0) {
@@ -2871,7 +2871,7 @@ BB_t * bb_exec_node(BB_t * bb) {
     }
     case BB_PAT_DEFER: {
         if (bb->state == 1) {
-            BB_graph_t *sub_bb = NULL;
+            IR_graph_t *sub_bb = NULL;
             memcpy(&sub_bb, &bb->dval, sizeof sub_bb);
             int origin = (int)bb->counter;
             if (!sub_bb || !sub_bb->entry) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
@@ -2906,7 +2906,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         if (val.v == DT_P && val.p) {
             const char *save_Σ = Σ; int save_Σlen = Σlen; int save_Ω = Ω; int save_Δ = Δ;
             const char *sub = Σ + Δ; int sublen = Σlen - Δ;
-            BB_graph_t *sub_bb = patnd_to_bb_graph((PATND_t *)val.p);
+            IR_graph_t *sub_bb = patnd_to_bb_graph((PATND_t *)val.p);
             if (sub_bb && sub_bb->entry) {
                 Σ = sub; Σlen = sublen; Ω = sublen; Δ = 0;
                 DESCR_t result = bb_exec_once(sub_bb);
@@ -3234,7 +3234,7 @@ BB_t * bb_exec_node(BB_t * bb) {
                     g_resolve_cut_barrier = g_resolve_bfr;
                     int mark = trail_mark(&g_resolve_trail);
                     Term **saved_env_idx = g_resolve_env;
-                    BB_graph_t *body = zc->bodies[cand];
+                    IR_graph_t *body = zc->bodies[cand];
                     DESCR_t res = body ? bb_exec_once(body) : FAILDESCR;
                     if (!IS_FAIL_fn(res)) {
                         g_resolve_cut_flag = idx_saved_cut; g_resolve_cut_barrier = idx_saved_barrier;
@@ -3262,7 +3262,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         int inner_live = spine_says_live
                          || (bb->state > 0 && zc->last_body && bb_body_has_live_choice(zc->last_body));
         if (inner_live) {
-            BB_graph_t *lb = zc->last_body;
+            IR_graph_t *lb = zc->last_body;
             DESCR_t res = bb_exec_resume(lb);
             if (!IS_FAIL_fn(res)) {
                 g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
@@ -3284,7 +3284,7 @@ BB_t * bb_exec_node(BB_t * bb) {
         int start = bb->state;
         for (int ci = start; ci < zc->nbodies; ci++) {
             int mark = trail_mark(&g_resolve_trail);
-            BB_graph_t *body = zc->bodies[ci];
+            IR_graph_t *body = zc->bodies[ci];
             Term **saved_for_retry = g_resolve_env;
             DESCR_t res = body ? bb_exec_once(body) : FAILDESCR;
             if (!IS_FAIL_fn(res)) {
@@ -3340,7 +3340,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             bb->state = 1; bb->value = INTVAL(1); return bb->γ;
         }
         Resolve_PredEntry_BB *pe = resolve_bb_lookup(key, carity);
-        BB_graph_t *_bcfg = bb_graph_of_pred(pe);
+        IR_graph_t *_bcfg = bb_graph_of_pred(pe);
         if (!_bcfg) { bb->value = FAILDESCR; return bb->ω; }
         typedef struct { Term **callee_env; Term **saved_env; int trail_mark; int nslots;
                          bb_node_state_t *act; } PlCallSt;
@@ -3349,7 +3349,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             int lco_tail_pos = (bb->γ == NULL);
             if (lco_tail_pos && g_resolve_bfr == NULL) {
                 int redirect_ready = 0;
-                BB_graph_t *redirect_body = NULL;
+                IR_graph_t *redirect_body = NULL;
                 int nslots_lco = carity + 16;
                 Term **callee_env_lco = NULL;
                 int b3_base = g_resolve_trail.top;
@@ -3372,7 +3372,7 @@ BB_t * bb_exec_node(BB_t * bb) {
                         Term *caller_term = resolve_node_to_term(zc->args[ai]);
                         if (caller_term) unify(at, caller_term, &g_resolve_trail);
                     }
-                    BB_graph_t *ub = resolve_choice_unique_indexed_body(_bcfg, callee_env_lco[0]);
+                    IR_graph_t *ub = resolve_choice_unique_indexed_body(_bcfg, callee_env_lco[0]);
                     if (ub) { redirect_body = ub; redirect_ready = 1; }
                     else    { free(callee_env_lco); callee_env_lco = NULL; }
                 }
@@ -3645,7 +3645,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             int garity=(goal_d->tag==TERM_COMPOUND)?goal_d->compound.arity:0;
             char gkey[128]; snprintf(gkey,sizeof gkey,"%s/%d",gfn,garity);
             Resolve_PredEntry_BB *gpe=resolve_bb_lookup(gkey,garity);
-            BB_graph_t *gcfg=bb_graph_of_pred(gpe);
+            IR_graph_t *gcfg=bb_graph_of_pred(gpe);
             if (!gcfg) { bb->value=FAILDESCR; return bb->ω; }
             int mark0=trail_mark(&g_resolve_trail);
             int gnslots=garity+16;
@@ -4198,7 +4198,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             if (!pred_name) { bb->value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
             char key[128]; snprintf(key,sizeof key,"%s/%d",pred_name,pred_arity);
             Resolve_PredEntry_BB *entry = resolve_bb_lookup(key, pred_arity);
-            BB_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
+            IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
             if (!pred_cfg || !pred_cfg->entry) { bb->value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
             BB_t *choice_nd = pred_cfg->entry;
             if (choice_nd->t != BB_CHOICE) { bb->value=FAILDESCR; return bb->ω; }
@@ -4206,7 +4206,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             if (!zc) { bb->value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
             int removed=0;
             for (int ci=0; ci<zc->nbodies; ) {
-                BB_graph_t *body = zc->bodies[ci];
+                IR_graph_t *body = zc->bodies[ci];
                 int nslots = pred_arity + 8;
                 Term **clause_env = (Term**)calloc((size_t)nslots, sizeof(Term*));
                 for (int ai=0; ai<pred_arity; ai++) {
@@ -4255,7 +4255,7 @@ BB_t * bb_exec_node(BB_t * bb) {
             if (pred_name) {
                 char key[128]; snprintf(key,sizeof key,"%s/%d",pred_name,pred_arity);
                 Resolve_PredEntry_BB *entry = resolve_bb_lookup(key, pred_arity);
-                BB_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
+                IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
                 if (pred_cfg && pred_cfg->entry && pred_cfg->entry->t==BB_CHOICE) {
                     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)pred_cfg->entry->ival;
                     if (zc) zc->nbodies = 0;
@@ -4271,10 +4271,10 @@ BB_t * bb_exec_node(BB_t * bb) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bb_exec_once(BB_graph_t * bbg) {
+DESCR_t bb_exec_once(IR_graph_t * bbg) {
     if (!bbg || !bbg->entry) return FAILDESCR;
     bb_reset(bbg);
-    BB_graph_t * saved_cfg = g_current_cfg;
+    IR_graph_t * saved_cfg = g_current_cfg;
     g_current_cfg = bbg;
     BB_t * cur = bbg->entry;
     int safety = bbg->n * 64 + 256;
@@ -4282,7 +4282,7 @@ DESCR_t bb_exec_once(BB_graph_t * bbg) {
     while (cur && safety-- > 0) {
         BB_t * next = bb_exec_node(cur);
         if (g_resolve_tail_redirect_cfg) {
-            BB_graph_t * tgt = g_resolve_tail_redirect_cfg;
+            IR_graph_t * tgt = g_resolve_tail_redirect_cfg;
             BB_t       * te  = g_resolve_tail_redirect_entry;
             g_resolve_tail_redirect_cfg   = NULL;
             g_resolve_tail_redirect_entry = NULL;
@@ -4309,9 +4309,9 @@ DESCR_t bb_exec_once(BB_graph_t * bbg) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bb_exec_resume(BB_graph_t * bbg) {
+DESCR_t bb_exec_resume(IR_graph_t * bbg) {
     if (!bbg || !bbg->entry) return FAILDESCR;
-    BB_graph_t * saved_cfg = g_current_cfg;
+    IR_graph_t * saved_cfg = g_current_cfg;
     g_current_cfg = bbg;
     BB_t * cur = bbg->entry;
     int safety = bbg->n * 64 + 256;
@@ -4319,7 +4319,7 @@ DESCR_t bb_exec_resume(BB_graph_t * bbg) {
     while (cur && safety-- > 0) {
         BB_t * next = bb_exec_node(cur);
         if (g_resolve_tail_redirect_cfg) {
-            BB_graph_t * tgt = g_resolve_tail_redirect_cfg;
+            IR_graph_t * tgt = g_resolve_tail_redirect_cfg;
             BB_t       * te  = g_resolve_tail_redirect_entry;
             g_resolve_tail_redirect_cfg   = NULL;
             g_resolve_tail_redirect_entry = NULL;
@@ -4346,10 +4346,10 @@ DESCR_t bb_exec_resume(BB_graph_t * bbg) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_exec_pump(BB_graph_t * bbg, bb_body_fn body_fn, void * ctx) {
+int bb_exec_pump(IR_graph_t * bbg, bb_body_fn body_fn, void * ctx) {
     if (!bbg || !bbg->entry) return 0;
     bb_reset(bbg);
-    BB_graph_t * saved_cfg = g_current_cfg;
+    IR_graph_t * saved_cfg = g_current_cfg;
     g_current_cfg = bbg;
     int ticks  = 0;
     int safety = bbg->n * 256 + 1024;
@@ -4377,7 +4377,7 @@ int bb_exec_pump(BB_graph_t * bbg, bb_body_fn body_fn, void * ctx) {
     return ticks;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_exec_pat(BB_graph_t *bbg,
+int bb_exec_pat(IR_graph_t *bbg,
                 const char *subj_name,
                 DESCR_t    *subj_var,
                 DESCR_t    *repl,

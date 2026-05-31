@@ -54,8 +54,8 @@ void       raku_nfa_exec(const Raku_nfa *nfa, const char *subject, Raku_match *r
 void       raku_nfa_free(Raku_nfa *nfa);
 Nfa_state *raku_nfa_states(Raku_nfa *nfa);
 int        raku_nfa_group_by_name(const Raku_nfa *nfa, const char *name);
-struct BB_graph_t;
-struct BB_graph_t *raku_nfa_to_bb(Raku_nfa *nfa);
+struct IR_graph_t;
+struct IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa);
 #endif
 typedef int (*Raku_code_fn)(const char *code, int pos, const char *subject,
                             void *userdata);

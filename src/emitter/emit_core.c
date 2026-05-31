@@ -668,7 +668,7 @@ static void bb_walk_rec(BB_t * nd, void (*visit)(BB_t *, void *), void * ctx) {
     bb_walk_rec(nd->γ, visit, ctx); bb_walk_rec(nd->ω, visit, ctx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_walk(BB_graph_t * cfg, void (*visit)(BB_t *, void *), void * ctx) {
+void bb_walk(IR_graph_t * cfg, void (*visit)(BB_t *, void *), void * ctx) {
     if (!cfg || !cfg->entry) return;
     g_vcount = 0;
     bb_walk_rec(cfg->entry, visit, ctx);

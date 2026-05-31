@@ -1,7 +1,7 @@
 #ifndef RT_H
 #define RT_H
 #include <stdint.h>
-struct BB_graph_t;
+struct IR_graph_t;
 #ifndef DESCR_T_DEFINED
 #define DESCR_T_DEFINED
 typedef struct DESCR_t DESCR_t;

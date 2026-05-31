@@ -53,7 +53,7 @@ void resolve_cp_truncate(resolve_choice *barrier)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Resolve_PredEntry_BB g_resolve_bb_table[RESOLVE_BB_TABLE_MAX];
 int             g_resolve_bb_count = 0;
-typedef struct { BB_graph_t *cfg; int first; } resolve_dcg_state_t;
+typedef struct { IR_graph_t *cfg; int first; } resolve_dcg_state_t;
 DESCR_t resolve_bb_dcg(void *zeta, int entry) {
     resolve_dcg_state_t *z = (resolve_dcg_state_t *)zeta;
     if (!z || !z->cfg) return FAILDESCR;
@@ -73,7 +73,7 @@ Resolve_PredEntry_BB *resolve_bb_lookup(const char *name, int arity) {
 BB_t *resolve_bb_entry_node(const char *name, int arity) {
     Resolve_PredEntry_BB *e = resolve_bb_lookup(name, arity);
     if (!e) return NULL;
-    BB_graph_t *cfg = bb_graph_of_pred(e);
+    IR_graph_t *cfg = bb_graph_of_pred(e);
     return cfg ? cfg->entry : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -106,7 +106,7 @@ bb_node_t resolve_bb_once_proc_by_name(const char *name, int arity) {
     const char *sl = strrchr(name, '/');
     if (sl && arity == 0) arity = atoi(sl + 1);
     Resolve_PredEntry_BB *bb = resolve_bb_lookup(name, arity);
-    BB_graph_t *_cfg = bb_graph_of_pred(bb);
+    IR_graph_t *_cfg = bb_graph_of_pred(bb);
     if (!_cfg) return (bb_node_t){ NULL, NULL, 0 };
     resolve_dcg_state_t *dz = calloc(1, sizeof(*dz));
     dz->cfg   = _cfg;
@@ -854,7 +854,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                     char key[256]; snprintf(key, sizeof key, "%s/%d", fn, arity);
                     pe = resolve_bb_lookup(key, arity);
                 }
-                BB_graph_t *_bcfg = bb_graph_of_pred(pe);
+                IR_graph_t *_bcfg = bb_graph_of_pred(pe);
                 if (!_bcfg) {
                     fprintf(stderr, "prolog: undefined predicate %s/%d\n", fn ? fn : "", arity);
                     return resolve_throw_existence_error_procedure(fn ? fn : "", arity);
