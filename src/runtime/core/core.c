@@ -267,7 +267,7 @@ void mon_emit_label_bin(int64_t stno) {
 static void _arg_str(DESCR_t a, const char **out_p, int *out_len) {
     if (a.v == DT_S && a.s) {
         *out_p   = a.s;
-        *out_len = a.slen ? (int)a.slen : (int)strlen(a.s);
+        *out_len = GET_SLEN(a) ? (int)GET_SLEN(a) : (int)strlen(GET_S(a));
     } else {
         *out_p = NULL; *out_len = 0;
     }
@@ -305,8 +305,8 @@ static DESCR_t _mon_put_helper(DESCR_t *args, int nargs, uint32_t kind, int opaq
             case MWT_STRING:
             case MWT_NAME:
                 if (args[1].s) {
-                    vlen = args[1].slen ? (uint32_t)args[1].slen : (uint32_t)strlen(args[1].s);
-                    vp   = (vlen > 0) ? (const void *)args[1].s : NULL;
+                    vlen = GET_SLEN(args[1]) ? (uint32_t)GET_SLEN(args[1]) : (uint32_t)strlen(GET_S(args[1]));
+                    vp   = (vlen > 0) ? (const void *)GET_S(args[1]) : NULL;
                 }
                 break;
             case MWT_INTEGER: {
@@ -421,8 +421,8 @@ void comm_var(const char *name, DESCR_t val) {
             case MWT_STRING:
             case MWT_NAME:
                 if (val.s) {
-                    vlen = val.slen ? (uint32_t)val.slen : (uint32_t)strlen(val.s);
-                    vp   = (vlen > 0) ? (const void *)val.s : NULL;
+                    vlen = GET_SLEN(val) ? (uint32_t)GET_SLEN(val) : (uint32_t)strlen(GET_S(val));
+                    vp   = (vlen > 0) ? (const void *)GET_S(val) : NULL;
                 }
                 break;
             case MWT_INTEGER: {
@@ -633,7 +633,7 @@ static DESCR_t _REAL_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _SIZE_(DESCR_t *a, int n) {
     if (n < 1) return INTVAL(0);
-    if (IS_STR(a[0]) && a[0].slen) return INTVAL((int64_t)a[0].slen);
+    if (IS_STR(a[0]) && GET_SLEN(a[0])) return INTVAL((int64_t)GET_SLEN(a[0]));
     const char *s = VARVAL_fn(a[0]);
     return INTVAL((int64_t)(s ? utf8_strlen(s) : 0));
 }
@@ -993,8 +993,8 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     }
     if (strcasecmp(type, "ARRAY")   == 0) {
         if (IS_ARR(val)) return val;
-        if (IS_TBL(val) && val.tbl) {
-            TBBLK_t *tbl = val.tbl;
+        if (IS_TBL(val) && GET_TBL(val)) {
+            TBBLK_t *tbl = GET_TBL(val);
             int n = tbl->size;
             if (n == 0) return FAILDESCR;
             ARBLK_t *a = array_new2d(1, n, 1, 2);
@@ -1016,8 +1016,8 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     }
     if (strcasecmp(type, "TABLE")   == 0) {
         if (IS_TBL(val)) return val;
-        if (IS_ARR(val) && val.arr) {
-            ARBLK_t *a = val.arr;
+        if (IS_ARR(val) && GET_ARR(val)) {
+            ARBLK_t *a = GET_ARR(val);
             int rows = a->hi - a->lo + 1;
             int cols = a->hi2 - a->lo2 + 1;
             if (cols != 2) return FAILDESCR;
@@ -1080,11 +1080,11 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     DESCR_t v = a[0];
     if (IS_ARR(v)) {
-        if (!v.arr) return v;
-        int sz = v.arr->hi - v.arr->lo + 1;
-        ARBLK_t *copy = array_new(v.arr->lo, v.arr->hi);
-        copy->proto_bare = v.arr->proto_bare;
-        for (int i = 0; i < sz; i++) copy->data[i] = v.arr->data[i];
+        if (!GET_ARR(v)) return v;
+        int sz = GET_ARR(v)->hi - GET_ARR(v)->lo + 1;
+        ARBLK_t *copy = array_new(GET_ARR(v)->lo, GET_ARR(v)->hi);
+        copy->proto_bare = GET_ARR(v)->proto_bare;
+        for (int i = 0; i < sz; i++) copy->data[i] = GET_ARR(v)->data[i];
         return ARRAY_VAL(copy);
     }
     return v;
@@ -1259,7 +1259,7 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     u->fields = GC_malloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++)
         u->fields[i] = (i < nargs) ? args[i] : NULVCL;
-    return (DESCR_t){ .v = DT_DATA, .u = u };
+    return MK_DATA(u);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CTOR_FN(idx) \
@@ -1306,17 +1306,17 @@ static DESCR_t _make_fget(int slot, DESCR_t obj) {
     if (slot < 0 || slot >= _facc_n) return FAILDESCR;
     int tidx = _facc_slots[slot].tidx;
     int fidx = _facc_slots[slot].fidx;
-    if (!IS_DATA(obj) || !obj.u) return FAILDESCR;
-    if (fidx < 0 || fidx >= obj.u->type->nfields) return FAILDESCR;
-    return obj.u->fields[fidx];
+    if (!IS_DATA(obj) || !GET_U(obj)) return FAILDESCR;
+    if (fidx < 0 || fidx >= GET_U(obj)->type->nfields) return FAILDESCR;
+    return GET_U(obj)->fields[fidx];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _make_fset(int slot, DESCR_t obj, DESCR_t val) {
     if (slot < 0 || slot >= _facc_n) return;
     int fidx = _facc_slots[slot].fidx;
-    if (!IS_DATA(obj) || !obj.u) return;
-    if (fidx < 0 || fidx >= obj.u->type->nfields) return;
-    obj.u->fields[fidx] = val;
+    if (!IS_DATA(obj) || !GET_U(obj)) return;
+    if (fidx < 0 || fidx >= GET_U(obj)->type->nfields) return;
+    GET_U(obj)->fields[fidx] = val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define FACC_FN(idx) \
@@ -1553,8 +1553,8 @@ static DESCR_t _PAT_CONCAT_(DESCR_t *a, int n)  { return n>=2 ? pat_cat(a[0], a[
 static DESCR_t _PROTOTYPE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     DESCR_t v = a[0];
-    if (IS_ARR(v) && v.arr) {
-        ARBLK_t *arr = v.arr;
+    if (IS_ARR(v) && GET_ARR(v)) {
+        ARBLK_t *arr = GET_ARR(v);
         char buf[128];
         if (arr->ndim > 1) {
             int cols = arr->hi2 - arr->lo2 + 1;
@@ -1583,13 +1583,13 @@ static DESCR_t _ITEM_(DESCR_t *a, int n) {
     DESCR_t arr = a[0];
     if (IS_TBL(arr)) {
         const char *k = VARVAL_fn(a[1]);
-        return table_get(arr.tbl, k ? k : "");
+        return table_get(GET_TBL(arr), k ? k : "");
     }
     if (IS_ARR(arr)) {
         int i = (int)to_int(a[1]);
-        if (n == 2) return array_get(arr.arr, i);
+        if (n == 2) return array_get(GET_ARR(arr), i);
         int j = (int)to_int(a[2]);
-        return array_get2(arr.arr, i, j);
+        return array_get2(GET_ARR(arr), i, j);
     }
     return FAILDESCR;
 }
@@ -1854,12 +1854,12 @@ char *VARVAL_fn(DESCR_t v) {
             return GC_strdup(buf);
         }
         case DT_DATA:
-            return v.u ? GC_strdup(v.u->type->name) : GC_strdup("");
+            return GET_U(v) ? GC_strdup(GET_U(v)->type->name) : GC_strdup("");
         case DT_P:
             return GC_strdup("PATTERN");
         case DT_A: {
-            if (!v.arr) return GC_strdup("ARRAY");
-            ARBLK_t *arr = v.arr;
+            if (!GET_ARR(v)) return GC_strdup("ARRAY");
+            ARBLK_t *arr = GET_ARR(v);
             char buf[128];
             if (arr->ndim > 1) {
                 int cols = arr->hi2 - arr->lo2 + 1;
@@ -1878,17 +1878,17 @@ char *VARVAL_fn(DESCR_t v) {
             return GC_strdup(buf);
         }
         case DT_T: {
-            if (!v.tbl) return GC_strdup("TABLE");
+            if (!GET_TBL(v)) return GC_strdup("TABLE");
             char buf[64];
-            snprintf(buf, sizeof(buf), "TABLE(%d,%d)", v.tbl->init, v.tbl->inc);
+            snprintf(buf, sizeof(buf), "TABLE(%d,%d)", GET_TBL(v)->init, GET_TBL(v)->inc);
             return GC_strdup(buf);
         }
         case DT_N:
             if (v.s) return GC_strdup(v.s);
-            if (v.ptr) {
-                const char *nm = NV_name_from_ptr((const DESCR_t *)v.ptr);
+            if (GET_PTR(v)) {
+                const char *nm = NV_name_from_ptr((const DESCR_t *)GET_PTR(v));
                 if (nm) return GC_strdup(nm);
-                return VARVAL_fn(*(DESCR_t *)v.ptr);
+                return VARVAL_fn(*(DESCR_t *)GET_PTR(v));
             }
             return GC_strdup("");
         case DT_K:
@@ -2004,7 +2004,7 @@ const char *datatype(DESCR_t v) {
         case DT_S:       return "STRING";
         case DT_I:       return "INTEGER";
         case DT_R:       return "REAL";
-        case DT_DATA:    return v.u ? v.u->type->name : "DATA";
+        case DT_DATA:    return GET_U(v) ? GET_U(v)->type->name : "DATA";
         case DT_P:       return "PATTERN";
         case DT_A:       return "ARRAY";
         case DT_T:       return "TABLE";
@@ -2279,24 +2279,24 @@ DESCR_t DATCON_fn(const char *typename, ...) {
         u->fields[i] = v;
     }
     va_end(ap);
-    return (DESCR_t){ .v = DT_DATA, .u = u };
+    return MK_DATA(u);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t FIELD_GET_fn(DESCR_t obj, const char *field) {
-    if (!IS_DATA(obj) || !obj.u) return NULVCL;
-    DATBLK_t *t = obj.u->type;
+    if (!IS_DATA(obj) || !GET_U(obj)) return NULVCL;
+    DATBLK_t *t = GET_U(obj)->type;
     for (int i = 0; i < t->nfields; i++)
         if (strcasecmp(t->fields[i], field) == 0)
-            return obj.u->fields[i];
+            return GET_U(obj)->fields[i];
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val) {
-    if (!IS_DATA(obj) || !obj.u) return;
-    DATBLK_t *t = obj.u->type;
+    if (!IS_DATA(obj) || !GET_U(obj)) return;
+    DATBLK_t *t = GET_U(obj)->type;
     for (int i = 0; i < t->nfields; i++)
         if (strcasecmp(t->fields[i], field) == 0) {
-            obj.u->fields[i] = val;
+            GET_U(obj)->fields[i] = val;
             return;
         }
 }
@@ -3072,8 +3072,8 @@ DESCR_t REPLACE_fn(DESCR_t s, DESCR_t from, DESCR_t to) {
         unsigned char tc = (i < tlen) ? (unsigned char)tp[i] : 0;
         xlat[fc] = tc;
     }
-    int binary_mode = (IS_STR(from) && from.slen) || (IS_STR(to) && to.slen)
-                   || (IS_STR(s) && s.slen);
+    int binary_mode = (IS_STR(from) && GET_SLEN(from)) || (IS_STR(to) && GET_SLEN(to))
+                   || (IS_STR(s) && GET_SLEN(s));
     char *r = GC_malloc(slen_val + 1);
     size_t rlen = 0;
     for (size_t i = 0; i < slen_val; i++) {
@@ -3325,8 +3325,8 @@ int ident(DESCR_t a, DESCR_t b) {
         }
         case DT_I:  return a.i == b.i;
         case DT_R: return a.r == b.r;
-        case DT_DATA: return a.u == b.u;
-        default:       return a.ptr == b.ptr;
+        case DT_DATA: return GET_U(a) == GET_U(b);
+        default:       return GET_PTR(a) == GET_PTR(b);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
