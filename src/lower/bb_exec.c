@@ -2408,6 +2408,21 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb->value = FAILDESCR;
         return bb->ω;
     }
+    case IR_UNOP: {
+        DESCR_t v;
+        if (bb->α) { bb_exec_node(bb->α); v = bb->α->value; }
+        else       { v = ag_ring_peek(g_current_cfg, 0); }
+        if (IS_FAIL_fn(v)) { bb->value = FAILDESCR; return bb->ω; }
+        int rel_fail = 0;
+        switch ((tree_e) bb->ival) {
+        case TT_MNS: { DESCR_t r = binop_apply(BINOP_SUB, INTVAL(0), v, &rel_fail); if (IS_FAIL_fn(r)) { bb->value = FAILDESCR; return bb->ω; } bb->value = r; return bb->γ; }
+        case TT_PLS: { DESCR_t r = binop_apply(BINOP_ADD, INTVAL(0), v, &rel_fail); if (IS_FAIL_fn(r)) { bb->value = FAILDESCR; return bb->ω; } bb->value = r; return bb->γ; }
+        case TT_SIZE: { int failed = 0; long len = size_value(v, &failed); if (failed) { bb->value = FAILDESCR; return bb->ω; } bb->value = INTVAL(len); return bb->γ; }
+        case TT_NONNULL: { if (v.v == DT_SNUL) { bb->value = FAILDESCR; return bb->ω; } bb->value = v; return bb->γ; }
+        case TT_CSET_COMPL: { if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str_icn(v); const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v); bb->value = CSETVAL(icn_cset_complement(cs ? cs : "")); return bb->γ; }
+        default: bb->value = FAILDESCR; return bb->ω;
+        }
+    }
     case IR_NEG: {
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }
         bb_exec_node(bb->α);
