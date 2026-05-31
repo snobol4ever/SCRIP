@@ -265,8 +265,8 @@ int descr_identical(DESCR_t a, DESCR_t b) {
     if (a.v != b.v) return 0;
     if (a.v == DT_I) return a.i == b.i;
     if (a.v == DT_R) return a.r == b.r;
-    if (a.v == DT_T) return a.tbl == b.tbl;
-    if (a.v == DT_DATA) return a.ptr == b.ptr;
+    if (a.v == DT_T) return GET_TBL(a) == GET_TBL(b);
+    if (a.v == DT_DATA) return GET_PTR(a) == GET_PTR(b);
     return memcmp(&a, &b, sizeof(DESCR_t)) == 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -402,8 +402,8 @@ DESCR_t lconcat_d(DESCR_t a, DESCR_t b) {
             DESCR_t *celems = GC_malloc((cn > 0 ? cn : 1) * sizeof(DESCR_t));
             DESCR_t aptr = FIELD_GET_fn(a, "frame_elems");
             DESCR_t bptr = FIELD_GET_fn(b, "frame_elems");
-            DESCR_t *ae = (aptr.v == DT_DATA) ? (DESCR_t *)aptr.ptr : NULL;
-            DESCR_t *be = (bptr.v == DT_DATA) ? (DESCR_t *)bptr.ptr : NULL;
+            DESCR_t *ae = (aptr.v == DT_DATA) ? (DESCR_t *)GET_PTR(aptr) : NULL;
+            DESCR_t *be = (bptr.v == DT_DATA) ? (DESCR_t *)GET_PTR(bptr) : NULL;
             for (int i = 0; i < an; i++) celems[i]      = ae ? ae[i] : NULVCL;
             for (int i = 0; i < bn; i++) celems[an + i] = be ? be[i] : NULVCL;
             DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)celems;
@@ -420,7 +420,7 @@ DESCR_t proc_as_value(const char *name) {
     for (int i = 0; i < g_stage2.proc_count; i++) {
         if (g_stage2.proc_table[i].name && strcmp(g_stage2.proc_table[i].name, name) == 0) {
             DESCR_t pv; pv.v = DT_E;
-            pv.slen = (uint32_t)i;
+            SET_SLEN(pv, (uint32_t)i);
             pv.i    = g_stage2.proc_table[i].entry_pc;
             return pv;
         }
@@ -738,7 +738,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             if (g_stage2.proc_table[i].name && strcmp(g_stage2.proc_table[i].name, pname) == 0) {
                 if (arity < 0 || g_stage2.proc_table[i].nparams == arity || g_stage2.proc_table[i].nparams <= 0) {
                     DESCR_t pv; pv.v = DT_E;
-                    pv.slen = (uint32_t)(arity >= 0 ? arity : 0);
+                    SET_SLEN(pv, (uint32_t)(arity >= 0 ? arity : 0));
                     pv.i    = g_stage2.proc_table[i].entry_pc;
                     *out = pv; return 1;
                 }
@@ -783,12 +783,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             snprintf(buf,256,"%lld",(long long)av.i); *out = STRVAL(buf); return 1;
         }
         if (IS_REAL_fn(av))      { real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }
-        if (av.v==DT_T)          { snprintf(buf,128,"table(%d)",av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
-        if (av.v==DT_DATA && av.u) {
-            const char *tname = av.u->type ? av.u->type->name : "record";
+        if (av.v==DT_T)          { snprintf(buf,128,"table(%d)",GET_TBL(av)?GET_TBL(av)->size:0); *out = STRVAL(buf); return 1; }
+        if (av.v==DT_DATA && GET_U(av)) {
+            const char *tname = GET_U(av)->type ? GET_U(av)->type->name : "record";
             if (strcmp(tname,"icnlist")==0) {
-                int cnt = (av.u->type && av.u->type->nfields>=2 && av.u->fields)
-                          ? (int)av.u->fields[1].i : 0;
+                int cnt = (GET_U(av)->type && GET_U(av)->type->nfields>=2 && GET_U(av)->fields)
+                          ? (int)GET_U(av)->fields[1].i : 0;
                 snprintf(buf,128,"list(%d)",cnt); *out = STRVAL(buf); return 1;
             }
             snprintf(buf,256,"record(%s)",tname); *out = STRVAL(buf); return 1;
@@ -1137,15 +1137,15 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
 #undef TONUM
     if (!strcmp(fn,"copy") && nargs == 1) {
         DESCR_t src = args[0];
-        if (src.v == DT_T && src.tbl) {
+        if (src.v == DT_T && GET_TBL(src)) {
             TBBLK_t *nt = table_new();
-            nt->dflt = src.tbl->dflt;
-            nt->init = src.tbl->init;
-            nt->inc  = src.tbl->inc;
+            nt->dflt = GET_TBL(src)->dflt;
+            nt->init = GET_TBL(src)->init;
+            nt->inc  = GET_TBL(src)->inc;
             for (int b = 0; b < TABLE_BUCKETS; b++)
-                for (TBPAIR_t *p = src.tbl->buckets[b]; p; p = p->next)
+                for (TBPAIR_t *p = GET_TBL(src)->buckets[b]; p; p = p->next)
                     table_set_descr(nt, p->key, p->key_descr, p->val);
-            DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = nt;
+            DESCR_t d = MK_TBL(nt);
             *out = d; return 1;
         }
         if (src.v == DT_DATA) {
@@ -1153,7 +1153,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
                 DESCR_t ea = FIELD_GET_fn(src, "frame_elems");
                 int n = (int)FIELD_GET_fn(src, "frame_size").i;
-                DESCR_t *src_elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+                DESCR_t *src_elems = (ea.v == DT_DATA) ? (DESCR_t *)GET_PTR(ea) : NULL;
                 DESCR_t *new_elems = (DESCR_t *)GC_malloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
                 if (src_elems && n > 0) memcpy(new_elems, src_elems, (size_t)n * sizeof(DESCR_t));
                 DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)new_elems;
@@ -1194,7 +1194,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         } else {
             tbl->dflt = NULVCL;
         }
-        DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = tbl;
+        DESCR_t d = MK_TBL(tbl);
         *out = d; return 1;
     }
     if (!strcmp(fn,"read") && nargs == 0) {
@@ -1214,7 +1214,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         int got = (int)fread(buf, 1, (size_t)n, stdin);
         if (got <= 0) { *out = FAILDESCR; return 1; }
         buf[got] = '\0';
-        DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = buf;
+        DESCR_t r = BSTRVAL(buf, (uint32_t)got);
         *out = r; return 1;
     }
     if (!strcmp(fn,"stop")) { exit(0); }
@@ -1347,8 +1347,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if (!strcmp(fn,"SIZE") && nargs == 1) {
         DESCR_t v = args[0];
         if (IS_FAIL_fn(v)) { *out = FAILDESCR; return 1; }
-        if (v.v == DT_T)   { *out = INTVAL(v.tbl ? v.tbl->size : 0); return 1; }
-        if (v.v == DT_A)   { *out = INTVAL(v.arr ? (v.arr->hi - v.arr->lo + 1) : 0); return 1; }
+        if (v.v == DT_T)   { *out = INTVAL(GET_TBL(v) ? GET_TBL(v)->size : 0); return 1; }
+        if (v.v == DT_A)   { *out = INTVAL(GET_ARR(v) ? (GET_ARR(v)->hi - GET_ARR(v)->lo + 1) : 0); return 1; }
         if (v.v == DT_DATA) {
             DESCR_t tag = FIELD_GET_fn(v,"gen_type");
             if (tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0) {
@@ -1366,7 +1366,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             long n=1; for(const char *p=s;*p;p++) if(*p=='\x01') n++;
             *out = INTVAL(n); return 1;
         }
-        long len = IS_CSET_fn(v) ? (long)strlen(s) : (v.slen > 0 ? v.slen : (long)strlen(s));
+        long len = IS_CSET_fn(v) ? (long)strlen(s) : (GET_SLEN(v) > 0 ? GET_SLEN(v) : (long)strlen(s));
         *out = INTVAL(len); return 1;
     }
     if (!strcmp(fn,"NONNULL") && nargs == 1) {
@@ -1412,7 +1412,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_INT_fn(kd))       { snprintf(kb,sizeof kb,"%lld",(long long)kd.i); ks=kb; }
         else if (IS_REAL_fn(kd)) { snprintf(kb,sizeof kb,"%g",kd.r); ks=kb; }
         else                     { ks=VARVAL_fn(kd); if(!ks) ks=""; }
-        table_set_descr(td.tbl, ks, kd, vd);
+        table_set_descr(GET_TBL(td), ks, kd, vd);
         *out = td; return 1;
     }
     if (!strcmp(fn,"delete") && nargs >= 1) {
@@ -1425,7 +1425,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         else                     { ks=VARVAL_fn(kd); if(!ks) ks=""; }
         unsigned h=0x1505;
         { const char *p=ks; while(*p){h=(h<<5)+h^(unsigned char)*p++;} h&=0xFF; }
-        TBPAIR_t **pp=&td.tbl->buckets[h];
+        TBPAIR_t **pp=&GET_TBL(td)->buckets[h];
         while(*pp) {
             if(strcmp((*pp)->key,ks)==0){TBPAIR_t *del=*pp;*pp=del->next;td.tbl->size--;break;}
             pp=&(*pp)->next;
@@ -1440,15 +1440,15 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_INT_fn(kd))       { snprintf(kb,sizeof kb,"%lld",(long long)kd.i); ks=kb; }
         else if (IS_REAL_fn(kd)) { snprintf(kb,sizeof kb,"%g",kd.r); ks=kb; }
         else                     { ks=VARVAL_fn(kd); if(!ks) ks=""; }
-        if (!table_has(td.tbl,ks)) { *out=FAILDESCR; return 1; }
-        *out = table_get(td.tbl,ks); return 1;
+        if (!table_has(GET_TBL(td),ks)) { *out=FAILDESCR; return 1; }
+        *out = table_get(GET_TBL(td),ks); return 1;
     }
     if (!strcmp(fn,"key") && nargs == 1) {
         DESCR_t td = args[0];
-        if (td.v != DT_T || !td.tbl) { *out=FAILDESCR; return 1; }
+        if (td.v != DT_T || !GET_TBL(td)) { *out=FAILDESCR; return 1; }
         for (int _bi=0;_bi<TABLE_BUCKETS;_bi++)
-            if (td.tbl->buckets[_bi]) {
-                *out = td.tbl->buckets[_bi]->key_descr; return 1;
+            if (GET_TBL(td)->buckets[_bi]) {
+                *out = GET_TBL(td)->buckets[_bi]->key_descr; return 1;
             }
         *out = FAILDESCR; return 1;
     }
@@ -1462,11 +1462,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             DESCR_t vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
             int n=(int)FIELD_GET_fn(ld,"frame_size").i;
             DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
-            DESCR_t *old=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+            DESCR_t *old=(ea.v==DT_DATA)?(DESCR_t*)GET_PTR(ea):NULL;
             DESCR_t *nb=GC_malloc((n+1)*sizeof(DESCR_t));
             nb[0]=vd;
             if(old&&n>0) memcpy(nb+1,old,n*sizeof(DESCR_t));
-            FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=nb});
+            FIELD_SET_fn(ld,"frame_elems",MK_DATA(nb));
             FIELD_SET_fn(ld,"frame_size",INTVAL(n+1));
         }
         *out = ld; return 1;
@@ -1481,11 +1481,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             DESCR_t vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
             int n=(int)FIELD_GET_fn(ld,"frame_size").i;
             DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
-            DESCR_t *old=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+            DESCR_t *old=(ea.v==DT_DATA)?(DESCR_t*)GET_PTR(ea):NULL;
             DESCR_t *nb=GC_malloc((n+1)*sizeof(DESCR_t));
             if(old&&n>0) memcpy(nb,old,n*sizeof(DESCR_t));
             nb[n]=vd;
-            FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=nb});
+            FIELD_SET_fn(ld,"frame_elems",MK_DATA(nb));
             FIELD_SET_fn(ld,"frame_size",INTVAL(n+1));
         }
         *out = ld; return 1;
@@ -1497,10 +1497,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
-        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)GET_PTR(ea):NULL;
         if(!arr||n<=0) { *out=FAILDESCR; return 1; }
         DESCR_t ret=arr[0];
-        FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=arr+1});
+        FIELD_SET_fn(ld,"frame_elems",MK_DATA(arr+1));
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
         *out = ret; return 1;
     }
@@ -1511,10 +1511,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
-        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)GET_PTR(ea):NULL;
         if(!arr||n<=0) { *out=FAILDESCR; return 1; }
         DESCR_t ret=arr[0];
-        FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=arr+1});
+        FIELD_SET_fn(ld,"frame_elems",MK_DATA(arr+1));
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
         *out = ret; return 1;
     }
@@ -1525,7 +1525,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
-        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)GET_PTR(ea):NULL;
         if(!arr||n<=0) { *out=FAILDESCR; return 1; }
         DESCR_t ret=arr[n-1];
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
@@ -1539,7 +1539,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
         if (n<=0) { *out=ld; return 1; }
-        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)GET_PTR(ea):NULL;
         if(!arr) { *out=ld; return 1; }
         DESCR_t *sorted=GC_malloc(n*sizeof(DESCR_t));
         memcpy(sorted,arr,n*sizeof(DESCR_t));
@@ -1549,8 +1549,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             while(_j>=0){
                 DESCR_t a=sorted[_j],b=key;
                 if(field_idx>=0){
-                    if(a.v==DT_DATA&&a.u){DATINST_t*_ia=(DATINST_t*)a.u;if(_ia->type&&field_idx<_ia->type->nfields)a=_ia->fields[field_idx];}
-                    if(b.v==DT_DATA&&b.u){DATINST_t*_ib=(DATINST_t*)b.u;if(_ib->type&&field_idx<_ib->type->nfields)b=_ib->fields[field_idx];}
+                    if(a.v==DT_DATA&&GET_U(a)){DATINST_t*_ia=(DATINST_t*)GET_U(a);if(_ia->type&&field_idx<_ia->type->nfields)a=_ia->fields[field_idx];}
+                    if(b.v==DT_DATA&&GET_U(b)){DATINST_t*_ib=(DATINST_t*)GET_U(b);if(_ib->type&&field_idx<_ib->type->nfields)b=_ib->fields[field_idx];}
                 }
                 int cmp;
                 if(IS_INT_fn(a)&&IS_INT_fn(b)) cmp=(a.i>b.i)?1:(a.i<b.i)?-1:0;
@@ -1561,7 +1561,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             sorted[_j+1]=key;
         }
         DESCR_t res=ld;
-        FIELD_SET_fn(res,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=sorted});
+        FIELD_SET_fn(res,"frame_elems",MK_DATA(sorted));
         FIELD_SET_fn(res,"frame_size",INTVAL(n));
         *out=res; return 1;
     }
@@ -1650,7 +1650,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         int got = (int)fread(buf, 1, (size_t)n, fp);
         if (got <= 0) { *out = FAILDESCR; return 1; }
         buf[got] = '\0';
-        DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = buf;
+        DESCR_t r = BSTRVAL(buf, (uint32_t)got);
         *out = r; return 1;
     }
     if (!strcmp(fn,"IDENTICAL") && nargs == 2) {
@@ -1661,7 +1661,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             else if (a.v == DT_R)               same = (a.r == b.r);
             else if (a.v == DT_S || a.v == DT_SNUL)
                 same = (a.s == b.s || (a.s && b.s && strcmp(a.s,b.s)==0));
-            else                                same = (a.ptr == b.ptr);
+            else                                same = (GET_PTR(a) == GET_PTR(b));
         }
         *out = same ? b : FAILDESCR; return 1;
     }
@@ -1672,7 +1672,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             if (tag.v == DT_S && tag.s && strcmp(tag.s,"list")==0) {
                 DESCR_t ea = FIELD_GET_fn(args[0], "frame_elems");
                 int n = (int)FIELD_GET_fn(args[0], "frame_size").i;
-                DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+                DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)GET_PTR(ea) : NULL;
                 if (elems) for (int _i = 0; _i < n; _i++)
                     table_set_descr(tbl, NULL, elems[_i], INTVAL(1));
             }
@@ -1723,7 +1723,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         if (fn[0]=='*' && fn[1]=='\0') {
             if (IS_INT_fn(a)||IS_REAL_fn(a)) { *out=INTVAL(1); return 1; }
-            if (a.v==DT_DATA && a.u && a.u->type) { *out=INTVAL(a.u->type->nfields); return 1; }
+            if (a.v==DT_DATA && GET_U(a) && GET_U(a)->type) { *out=INTVAL(GET_U(a)->type->nfields); return 1; }
             const char *s=VARVAL_fn(a); *out=INTVAL(s?(long long)strlen(s):0LL); return 1;
         }
         if (fn[0]=='!' && fn[1]=='\0') {
