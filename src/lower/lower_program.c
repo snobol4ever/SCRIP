@@ -164,49 +164,87 @@ stage2_t *lower(const tree_t *prog) {
     uint32_t mask = polyglot_lang_mask(prog);
     polyglot_init(&g_stage2, prog, mask);
     if (mask & (1u << LANG_SNO)) {
-        IR_graph_t *g = IR_alloc(256, IR_LANG_SNO);
+        IR_graph_t *g = IR_alloc(1024, IR_LANG_SNO);
         if (g) {
             IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
             IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-            IR_t *next_α = PSUCC;
-            int built = 0;
-            for (int i = prog->n - 1; i >= 0; i--) {
+            /* PASS 1 — collect the SNOBOL4 statements in SOURCE order and give each a LANDING node (a
+               pass-through IR_SUCCEED that returns its γ). A statement's label names its landing node, so a
+               goto (forward OR backward) resolves to a landing that already exists. landing[i].γ is wired to
+               statement i's lowered entry (or, for a subject-less statement, straight to its goto target). */
+            const tree_t *stmts[1024]; IR_t *land[1024]; int ns = 0;
+            for (int i = 0; i < prog->n && ns < 1024; i++) {
                 const tree_t *s = prog->c[i];
                 if (!s || s->t != TT_STMT) continue;
                 if (lp_s_int(s, ":lang") != LANG_SNO) continue;
+                stmts[ns] = s;
+                land[ns]  = IR_node_alloc(g, IR_SUCCEED);
+                ns++;
+            }
+            /* label -> landing-node resolver (case-sensitive — RULES.md). END's landing falls to PSUCC. */
+            int built = 0;
+            for (int i = 0; i < ns; i++) {
+                const tree_t *s = stmts[i];
+                IR_t *fall = (i + 1 < ns) ? land[i + 1] : PSUCC;   /* default sequential successor */
+                /* resolve the three goto targets to landing nodes (static label form: goto_node_str). A
+                   computed/indirect goto (goto_node_expr) is not yet wired — falls through (documented). */
+                IR_t *tgt_u = NULL, *tgt_s = NULL, *tgt_f = NULL;
+                const char *gu = goto_node_str(stmt_goto_find(s, TT_GOTO_U));
+                const char *gs = goto_node_str(stmt_goto_find(s, TT_GOTO_S));
+                const char *gf = goto_node_str(stmt_goto_find(s, TT_GOTO_F));
+                for (int j = 0; j < ns; j++) {
+                    const char *lj = stmt_attr_str(stmt_attr_find(stmts[j], ":lbl"));
+                    if (!lj) continue;
+                    if (gu && !strcmp(gu, lj)) tgt_u = land[j];
+                    if (gs && !strcmp(gs, lj)) tgt_s = land[j];
+                    if (gf && !strcmp(gf, lj)) tgt_f = land[j];
+                }
+                if (gu && !tgt_u && !strcmp(gu, "END")) tgt_u = PSUCC;
+                if (gs && !tgt_s && !strcmp(gs, "END")) tgt_s = PSUCC;
+                if (gf && !tgt_f && !strcmp(gf, "END")) tgt_f = PSUCC;
+                /* SPITBOL ch.4 goto precedence: an unconditional `:(L)` overrides S/F; otherwise `:S(L)` is the
+                   success exit and `:F(L)` the failure exit; an unspecified exit falls through sequentially. */
+                IR_t *γ_tgt = tgt_u ? tgt_u : (tgt_s ? tgt_s : fall);
+                IR_t *ω_tgt = tgt_u ? tgt_u : (tgt_f ? tgt_f : fall);
                 tree_t *subj = lp_s_expr(s, ":subj");
-                if (!subj) continue;
+                if (!subj) {
+                    /* subject-less statement: a bare goto (`:(L)` / `L :(M)`) or the END line. Its landing just
+                       transfers to the unconditional target (or falls through). No expr to lower. */
+                    land[i]->γ = tgt_u ? tgt_u : fall;
+                    built = 1;
+                    continue;
+                }
                 tree_t *expr = subj;
                 if (stmt_attr_find(s, ":eq")) {
-                    if (stmt_attr_find(s, ":pat")) continue;
+                    if (stmt_attr_find(s, ":pat")) { land[i]->γ = fall; continue; }
                     tree_t *repl = lp_s_expr(s, ":repl");
-                    if (!repl) continue;
+                    if (!repl) { land[i]->γ = fall; continue; }
                     if (subj->t == TT_SCAN && subj->n >= 2) {
                         tree_t *scn = ast_stmt_new(TT_SCAN);
-                        if (!scn) continue;
+                        if (!scn) { land[i]->γ = fall; continue; }
                         ast_push(scn, subj->c[0]);
                         ast_push(scn, subj->c[1]);
                         ast_push(scn, repl);
                         expr = scn;
                     } else {
                         tree_t *asn = ast_stmt_new(TT_ASSIGN);
-                        if (!asn) continue;
+                        if (!asn) { land[i]->γ = fall; continue; }
                         ast_push(asn, subj);
                         ast_push(asn, repl);
                         expr = asn;
                     }
                 }
                 IR_t *α = NULL, *β = NULL;
-                /* SNOBOL4 default control flow (SPITBOL ch.5): a statement that SUCCEEDS or FAILS — absent an
-                   explicit :S()/:F() goto — falls through to the NEXT statement. So both the success (γ_in) and
-                   failure (ω_in) exits thread to next_α. (Explicit goto wiring is a separate spine piece.) */
-                IR_t *top = lower2_value_entry(g, expr, next_α, next_α, &α, &β);
-                if (!top || !α) continue;
-                next_α = α;
+                /* SNOBOL4 control flow (SPITBOL ch.5): success exits to γ_tgt, failure to ω_tgt — both default
+                   to the next statement when no explicit goto applies. */
+                IR_t *top = lower2_value_entry(g, expr, γ_tgt, ω_tgt, &α, &β);
+                if (!top || !α) { land[i]->γ = fall; continue; }
+                land[i]->γ = α;       /* landing falls through into the statement's lowered entry */
                 built = 1;
             }
             if (built) {
-                g->entry = next_α;
+                g->entry = (ns > 0) ? land[0] : PSUCC;
+                (void) PFAIL;
                 int bb_idx = bb_program_add(&g_stage2.bbp, g);
                 int pi = stage2_proc_grow(&g_stage2);
                 g_stage2.proc_table[pi].name     = "main";

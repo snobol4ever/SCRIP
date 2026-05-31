@@ -1608,6 +1608,24 @@ IR_t * bb_exec_node(IR_t * bb) {
             else bb->value = NULVCL;
             return NULL;
         }
+        /* SNOBOL4 whitespace concatenation (v_conj SNO branch sets dval=1.0). The two operands are isolated
+           IR_graph_t sub-graphs stored on counter (left) and ival (right); run each via bb_exec_once (drives the
+           whole operand chain -> final value, robust for any operand node count, no AG-ring dependency) and
+           concatenate via binop_apply(BINOP_CONCAT). bb_exec_once saves/restores g_current_cfg around the call. */
+        if (bb->dval == 1.0) {
+            IR_graph_t * lblk = (IR_graph_t *)(intptr_t) bb->counter;
+            IR_graph_t * rblk = (IR_graph_t *)(intptr_t) bb->ival;
+            if (!lblk || !rblk) { bb->value = FAILDESCR; return bb->ω; }
+            bb_reset(lblk); DESCR_t lv = bb_exec_once(lblk);
+            if (IS_FAIL_fn(lv)) { bb->value = FAILDESCR; return bb->ω; }
+            bb_reset(rblk); DESCR_t rv = bb_exec_once(rblk);
+            if (IS_FAIL_fn(rv)) { bb->value = FAILDESCR; return bb->ω; }
+            int rel_fail = 0;
+            DESCR_t result = binop_apply(BINOP_CONCAT, lv, rv, &rel_fail);
+            if (IS_FAIL_fn(result)) { bb->value = FAILDESCR; return bb->ω; }
+            bb->value = result;
+            return bb->γ;
+        }
         bb->value = NULVCL;
         return bb->α;
     }
