@@ -30,8 +30,10 @@ extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 #include "emit_bb.h"
+#include "../../runtime/interp/gen.h"
 void rt_write_str_nl(const char *s, uint32_t slen);
 void rt_write_int_nl(int64_t v);
+void rt_write_strz_nl(const char *s);
 void rt_pop_write_int_nl(void);
 void rt_pop_write_any_nl(void);
 void rt_call_proc(const char *name, int nargs);
@@ -206,7 +208,7 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
         /* into a per-sequence frame slot [r12+off] (ζ=r12) by bb_binop.cpp; recover off via bb_slot_get   */
         /* on the binop node and read the value directly into rdi, then call the by-value rt_write_int_nl.  */
         /* No value stack. β-target taken from the driver's queued lbl_β pair (else ω), like GZ-2.          */
-        int arg_is_ro_binop = (a0 && a0->t == IR_BINOP);
+        int arg_is_ro_binop = (a0 && (a0->t == IR_BINOP || a0->t == IR_TO || a0->t == IR_TO_BY));
         if (arg_is_ro_binop && MEDIUM_BINARY) {
             int off = bb_slot_get(a0);
             if (off < 0) {
@@ -220,6 +222,28 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
                     break;
                 }
             }
+            /* GZ-4-string (this session): arg0 is the stackless RO-string CONCAT binop. Its 16-byte result */
+            /* DESCR was stored at [r12+off] (eightbyte0=v+slen) / [r12+off+8] (eightbyte1=payload ptr) by  */
+            /* bb_binop.cpp's str_concat_d arm. The joined buffer is NUL-terminated, so write reads the     */
+            /* payload ptr at [r12+off+8] into rdi and calls the by-value rt_write_strz_nl (fwrite+strlen). */
+            /* No value stack. Same {γ,β,ω} patch layout as the int arm, one byte longer at the read.       */
+            if (a0->t == IR_BINOP && a0->ival == BINOP_CONCAT) {
+                uint64_t fptr; { void (*fp)(const char *) = rt_write_strz_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+                /*   0  : 49 8B BC 24 <u32 off+8> mov rdi, [r12+off+8]  (payload ptr of the concat DESCR)     */
+                /*   8  : 48 B8 + u64le fptr      movabs rax, &rt_write_strz_nl                               */
+                /*  18  : FF D0                   call rax                                                    */
+                /*  20  : E9 + u32le γ_rel32      jmp γ               ← γ patch at 21                         */
+                /*  25  : E9 + u32le β_tgt_rel32  β: jmp β-target     ← β-def 25, tgt patch at 26             */
+                /*  30  : end                                                                                */
+                bin = { {21, 25, 26}, {_.lbl_γ_p, _.lbl_β_p, beta_jmp_target}, {false, true, false} };
+                return bytes(4, "\x49\x8B\xBC\x24") + u32le((uint32_t)(off + 8))
+                     + bytes(2, "\x48\xB8")         + u64le(fptr)
+                     + bytes(2, "\xFF\xD0")
+                     + bytes(1, "\xE9")             + u32le(0)
+                     + bytes(1, "\xE9")             + u32le(0);
+            }
+            /* GZ-3: arg0 is the stackless RO-int binop — result int64 at [r12+off]; read into rdi, call    */
+            /* the by-value rt_write_int_nl. No value stack.                                                 */
             /*   0  : 49 8B BC 24 <u32 off>   mov rdi, [r12+off]   (read binop result from the ζ frame slot)*/
             /*   8  : 48 B8 + u64le fptr      movabs rax, &rt_write_int_nl                                  */
             /*  18  : FF D0                   call rax                                                      */
