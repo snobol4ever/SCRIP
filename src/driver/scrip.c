@@ -444,6 +444,7 @@ int main(int argc, char **argv)
         }
         if (is_prolog) {
             extern DESCR_t bb_exec_once(IR_graph_t * bbg);
+            extern Term **g_resolve_env;
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) {
@@ -456,7 +457,10 @@ int main(int argc, char **argv)
                                 "(no initialization goal lowered, or predicate unhandled by PLG-1)\n");
                 abort();
             }
-            (void)bb_exec_once(s2->bbp.table[main_bb_idx]);
+            IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
+            int nslots = pl_main->nslots > 0 ? pl_main->nslots : 1;
+            g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 8) * sizeof(Term *));
+            (void)bb_exec_once(pl_main);
             goto run_done;
         }
         fprintf(stderr, "[SMX] FATAL: Stack Machine excised. Non-Icon mode-2 (--interp) "

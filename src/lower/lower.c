@@ -54,6 +54,12 @@
  * their resume port to ω. `lang` is the source language for the rare language-specific arm.              */
 /*====================================================================================================================================================================================================*/
 typedef enum { ROLE_VALUE = 0, ROLE_PATTERN = 1, ROLE_GOAL = 2 } lower_role_e;
+/* PL_VARS — per-clause frame-size tracker. The Prolog frontend (prolog_lower.c tr_assign_slots /
+ * lower_clause) already assigns every clause variable a dense slot index, written into the TT_VAR node's
+ * v.ival (the SWI analyseVariables2 / gprolog clause-var numbering: pl-comp.c:874 `index = ci->arity +
+ * nvars++`). The lowerer reads that slot directly for IR_LOGICVAR; this tracker records the max slot seen so
+ * the driver allocates a per-activation env (g_resolve_env) of exactly count = max_slot + 1 cells.            */
+typedef struct { int count; } pl_vars_t;
 typedef struct {
     IR_graph_t * bbg;
     lower_role_e role;
@@ -61,6 +67,7 @@ typedef struct {
     int          lang;
     IR_t       * loop_ω;          /* enclosing loop's exit (BREAK jumps here); NULL = no loop */
     IR_t       * loop_next;       /* enclosing loop's re-entry (NEXT jumps here); NULL = no loop */
+    pl_vars_t  * pl_vars;         /* per-clause var->slot table (GOAL role); NULL outside a clause body */
 } lcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
@@ -912,18 +919,16 @@ static IR_t * g_unify(lcx_t cx, const tree_t * l_t, const tree_t * r_t, IR_t * �
     if (!l_t || !r_t) return NULL;
     IR_t * uni = nalloc(cx, IR_UNIFY);
     if (!uni) return NULL;
-    lcx_t tv = cx; tv.role = ROLE_VALUE;            /* operands are terms */
-    IR_t * rα = NULL, * rβ = NULL;
-    IR_t * r = lower2(tv, r_t, uni /*rhs.γ -> unify*/, ω_in, &rα, &rβ);
-    if (!r) return NULL;
-    IR_t * lα = NULL, * lβ = NULL;
-    IR_t * l = lower2(tv, l_t, rα /*lhs.γ -> rhs.α*/, ω_in, &lα, &lβ);
+    IR_t * lα = NULL, * lβ = NULL, * rα = NULL, * rβ = NULL;
+    IR_t * l = g_term(cx, l_t, NULL, NULL, &lα, &lβ);
     if (!l) return NULL;
+    IR_t * r = g_term(cx, r_t, NULL, NULL, &rα, &rβ);
+    if (!r) return NULL;
     (void) lβ; (void) rβ;
-    IR_t * ops[2] = { l, r };
-    bb_operand_aux_set(cx.bbg, uni, ops, 2);
+    uni->α = lα;                                    /* lhs term-tree (read by resolve_node_to_term) */
+    uni->β = rα;                                    /* rhs term-tree (read by resolve_node_to_term) */
     set_succ_fail(uni, γ_in, ω_in);
-    return ret(uni, α_out, β_out, lα, ω_in /* unify is semidet: resume -> fail */);
+    return ret(uni, α_out, β_out, uni, ω_in /* unify is semidet: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
 /* GOAL ROLE — arithmetic comparison goal (`</2 >/2 =</2 >=/2 =:=/2 =\=/2`). Both args are arithmetic
@@ -961,7 +966,7 @@ static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     case TT_ILIT: { IR_t * n = nalloc(cx, IR_LIT_I); if (!n) return NULL; n->ival = e->v.ival; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_FLIT: { IR_t * n = nalloc(cx, IR_LIT_F); if (!n) return NULL; n->dval = e->v.dval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_QLIT: case TT_NAME: { IR_t * n = nalloc(cx, IR_ATOM); if (!n) return NULL; n->sval = e->v.sval ? e->v.sval : "[]"; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_VAR:  { IR_t * n = nalloc(cx, IR_LOGICVAR); if (!n) return NULL; n->ival = e->v.ival; n->sval = NULL; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_VAR:  { IR_t * n = nalloc(cx, IR_LOGICVAR); if (!n) return NULL; int slot = (int) e->v.ival; n->ival = slot; n->sval = NULL; if (cx.pl_vars && slot + 1 > cx.pl_vars->count) cx.pl_vars->count = slot + 1; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_FNC: {
         IR_t * st = nalloc(cx, IR_STRUCT); if (!st) return NULL;
         st->sval = e->v.sval ? e->v.sval : "[]"; st->ival = e->n;
@@ -1123,14 +1128,19 @@ IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * 
     int arity = (int) clause->v.dval;
     if (arity < 0) arity = 0;
     int nbody = clause->n - arity;
+    pl_vars_t pv; pv.count = 0;
     if (nbody <= 0) {                                   /* bare fact: no body goals -> succeed once */
         lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
         IR_t * s = nalloc(cx, IR_SUCCEED);
+        if (bbg) bbg->nslots = 0;
         return emit_leaf(cx, s, γ_in, ω_in, α_out, β_out);
     }
     const tree_t * goals[64];
     if (nbody > 64) return NULL;
     for (int i = 0; i < nbody; i++) goals[i] = clause->c[arity + i];
     lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
-    return wire_seq(cx, IR_GCONJ, goals, nbody, γ_in, ω_in, α_out, β_out);
+    cx.pl_vars = &pv;
+    IR_t * top = wire_seq(cx, IR_GCONJ, goals, nbody, γ_in, ω_in, α_out, β_out);
+    if (bbg) bbg->nslots = pv.count;
+    return top;
 }

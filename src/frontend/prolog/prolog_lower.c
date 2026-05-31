@@ -96,12 +96,11 @@ static tree_t *lower_term(Term *t) {
             int slot = t->saved_slot;
             char buf[32];
             if (slot < 0) {
-                snprintf(buf, sizeof buf, "_anon");
+                snprintf(buf, sizeof buf, "_anon%p", (void *)t);
             } else {
                 snprintf(buf, sizeof buf, "_V%d", slot);
             }
             e->v.sval = strdup(buf);
-            e->v.ival = slot;
             return e;
         }
         case TERM_COMPOUND: {
@@ -222,8 +221,8 @@ static tree_t *lower_clause(PlClause *cl, PredKey key) {
     for (int i = 0; i < cl->nbody; i++)
         if (cl->body[i]) ASSIGN_ANON(cl->body[i]);
     int n_vars = next_anon;
+    (void) n_vars;
     ec->v.dval = (double)key.arity;
-    ec->v.ival = n_vars;
     if (cl->head) {
         Term *h = term_deref(cl->head);
         if (h && h->tag == TERM_COMPOUND)
@@ -334,10 +333,10 @@ static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key) {
     sm.next = key.arity;
     tr_assign_slots(tr, &sm);
     int n_vars = sm.next;
+    (void) n_vars;
     tree_t *ec = ast_node_new(TT_CLAUSE);
     ec->v.sval = pred_str(key.functor, key.arity);
     ec->v.dval = (double)key.arity;
-    ec->v.ival = n_vars;
     tree_t *head = (tr->n > 0) ? tr->c[0] : NULL;
     tree_t *raw_body = (tr->n > 1) ? tr->c[1] : NULL;
     if (head && head->t == TT_FNC) {
