@@ -354,7 +354,7 @@ static IR_t * v_not(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t
     IR_t * eα=NULL,*eβ=NULL;
     IR_t * ce = lower2(bounded(cx), e->c[0], ω_in /*E.succeed -> not.fail*/, nt /*E.fail -> not (succeed null)*/, &eα, &eβ);
     if (!ce) return NULL;
-    nt->β = ce;                          /* operand ref to the negated value-node */
+    bb_operand_aux_set(cx.bbg, nt, &ce, 1);  /* operand ref via sidecar (PEERS rule) — NOT the β port */
     set_succ_fail(nt, γ_in, ω_in);
     return ret(nt, α_out, β_out, eα, ω_in /* resume -> fail */);
 }
