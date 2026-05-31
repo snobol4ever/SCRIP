@@ -120,7 +120,7 @@ const char * bb_op_name(IR_e k) {
     return "BB_UNKNOWN";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * BB_alloc(int max_nodes, int lang) {
+IR_graph_t * IR_alloc(int max_nodes, int lang) {
     IR_graph_t * bbg = calloc(1, sizeof(IR_graph_t));
     if (!bbg) return NULL;
     bbg->all  = calloc((size_t)max_nodes, sizeof(IR_t *));
@@ -132,7 +132,7 @@ IR_graph_t * BB_alloc(int max_nodes, int lang) {
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_t * BB_node_alloc(IR_graph_t * bbg, IR_e t) {
+IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     IR_t * bb = calloc(1, sizeof(IR_t));
     if (!bb) return NULL;
     bb->t       = t;
@@ -267,7 +267,7 @@ void bb_restore_state(IR_graph_t * bbg, bb_node_state_t * snap) {
     free(snap);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void BB_free(IR_graph_t * bbg) {
+void IR_free(IR_graph_t * bbg) {
     if (!bbg) return;
     for (int i = 0; i < bbg->n; i++) {
         IR_t * bb = bbg->all[i];
@@ -296,7 +296,7 @@ int bb_program_add(bb_program_t * p, IR_graph_t * bbg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_program_free(bb_program_t * p) {
     if (!p) return;
-    for (int i = 0; i < p->count; i++) { BB_free(p->table[i]); p->table[i] = NULL; }
+    for (int i = 0; i < p->count; i++) { IR_free(p->table[i]); p->table[i] = NULL; }
     p->count = 0;
     p->cap   = 0;
     free(p->table);

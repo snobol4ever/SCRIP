@@ -72,23 +72,23 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     IR_t * bb = NULL;
     switch (t->t) {
     case TT_QLIT: {
-        bb = BB_node_alloc(bbg, IR_PAT_LIT);
+        bb = IR_node_alloc(bbg, IR_PAT_LIT);
         bb->sval = t->v.sval ? t->v.sval : "";
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case TT_ARB: {
-        bb = BB_node_alloc(bbg, IR_PAT_ARB);
+        bb = IR_node_alloc(bbg, IR_PAT_ARB);
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case TT_REM: {
-        bb = BB_node_alloc(bbg, IR_PAT_REM);
+        bb = IR_node_alloc(bbg, IR_PAT_REM);
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case TT_ABORT: {
-        bb = BB_node_alloc(bbg, IR_PAT_ABORT);
+        bb = IR_node_alloc(bbg, IR_PAT_ABORT);
         bb->α = bb; bb->β = fp; bb->γ = fp; bb->ω = fp;
         return bb;
     }
@@ -96,12 +96,12 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_QLIT && t->c[0]->t != TT_VAR) {
             char * cs = cset_try_fold(t->c[0]); if (!cs) return NULL;
-            bb = BB_node_alloc(bbg, IR_PAT_SPAN);
+            bb = IR_node_alloc(bbg, IR_PAT_SPAN);
             bb->sval = cs; bb->ival = 0;
             bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
             return bb;
         }
-        bb = BB_node_alloc(bbg, IR_PAT_SPAN);
+        bb = IR_node_alloc(bbg, IR_PAT_SPAN);
         bb->sval = t->c[0]->v.sval ? t->c[0]->v.sval : "";
         bb->ival = (t->c[0]->t == TT_VAR) ? 1 : 0;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
@@ -111,12 +111,12 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_QLIT && t->c[0]->t != TT_VAR) {
             char * cs = cset_try_fold(t->c[0]); if (!cs) return NULL;
-            bb = BB_node_alloc(bbg, IR_PAT_ANY);
+            bb = IR_node_alloc(bbg, IR_PAT_ANY);
             bb->sval = cs; bb->dval = 0.0;
             bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
             return bb;
         }
-        bb = BB_node_alloc(bbg, IR_PAT_ANY);
+        bb = IR_node_alloc(bbg, IR_PAT_ANY);
         bb->sval = t->c[0]->v.sval ? t->c[0]->v.sval : "";
         bb->dval = (t->c[0]->t == TT_VAR) ? 1.0 : 0.0;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
@@ -126,12 +126,12 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_QLIT && t->c[0]->t != TT_VAR) {
             char * cs = cset_try_fold(t->c[0]); if (!cs) return NULL;
-            bb = BB_node_alloc(bbg, IR_PAT_BREAK);
+            bb = IR_node_alloc(bbg, IR_PAT_BREAK);
             bb->sval = cs; bb->ival = 0; bb->dval = 0.0;
             bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
             return bb;
         }
-        bb = BB_node_alloc(bbg, IR_PAT_BREAK);
+        bb = IR_node_alloc(bbg, IR_PAT_BREAK);
         bb->sval = t->c[0]->v.sval ? t->c[0]->v.sval : "";
         bb->ival = 0;
         bb->dval = (t->c[0]->t == TT_VAR) ? 1.0 : 0.0;
@@ -142,12 +142,12 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_QLIT && t->c[0]->t != TT_VAR) {
             char * cs = cset_try_fold(t->c[0]); if (!cs) return NULL;
-            bb = BB_node_alloc(bbg, IR_PAT_BREAK);
+            bb = IR_node_alloc(bbg, IR_PAT_BREAK);
             bb->sval = cs; bb->ival = 1; bb->dval = 0.0;
             bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
             return bb;
         }
-        bb = BB_node_alloc(bbg, IR_PAT_BREAK);
+        bb = IR_node_alloc(bbg, IR_PAT_BREAK);
         bb->sval = t->c[0]->v.sval ? t->c[0]->v.sval : "";
         bb->ival = 1;
         bb->dval = (t->c[0]->t == TT_VAR) ? 1.0 : 0.0;
@@ -157,7 +157,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     case TT_FENCE: {
         IR_t * inner = (t->n > 0 && t->c[0]) ? build_node(bbg, t->c[0], sp, fp) : sp;
         if (t->n > 0 && !inner) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_FENCE);
+        bb = IR_node_alloc(bbg, IR_PAT_FENCE);
         bb->α = bb; bb->β = bb;
         bb->γ = inner ? inner : sp; bb->ω = fp;
         return bb;
@@ -165,12 +165,12 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     case TT_ARBNO: {
         if (t->n < 1 || !t->c[0]) return NULL;
         int inner_cap = count_tree(t->c[0]) * 8 + 16;
-        IR_graph_t * inner_blk = BB_alloc(inner_cap, IR_LANG_SNO);
+        IR_graph_t * inner_blk = IR_alloc(inner_cap, IR_LANG_SNO);
         if (!inner_blk) return NULL;
         IR_t * inner_entry = build_node(inner_blk, t->c[0], NULL, NULL);
-        if (!inner_entry) { BB_free(inner_blk); return NULL; }
+        if (!inner_entry) { IR_free(inner_blk); return NULL; }
         inner_blk->entry = inner_entry;
-        bb = BB_node_alloc(bbg, IR_PAT_ARBNO);
+        bb = IR_node_alloc(bbg, IR_PAT_ARBNO);
         int stack_cap = 64;
         bb_arbno_state_t * az = (bb_arbno_state_t *)GC_MALLOC(sizeof *az);
         az->inner = inner_blk;
@@ -217,7 +217,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     }
     case TT_CAPT_COND_ASGN: {
         if (t->n < 1) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_ASSIGN_COND);
+        bb = IR_node_alloc(bbg, IR_PAT_ASSIGN_COND);
         bb->sval = (t->n > 1 && t->c[1] && t->c[1]->v.sval) ? t->c[1]->v.sval : NULL;
         bb->γ = sp;
         bb->ω = fp;
@@ -229,7 +229,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     }
     case TT_CAPT_IMMED_ASGN: {
         if (t->n < 1) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_ASSIGN_IMM);
+        bb = IR_node_alloc(bbg, IR_PAT_ASSIGN_IMM);
         bb->sval = (t->n > 1 && t->c[1] && t->c[1]->v.sval) ? t->c[1]->v.sval : NULL;
         bb->γ = sp;
         bb->ω = fp;
@@ -241,7 +241,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     }
     case TT_CAPT_CURSOR: {
         if (t->n < 1 || !t->c[0] || !t->c[0]->v.sval) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_ATP);
+        bb = IR_node_alloc(bbg, IR_PAT_ATP);
         bb->sval = t->c[0]->v.sval;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
@@ -249,7 +249,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     case TT_LEN: {
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_ILIT && t->c[0]->t != TT_VAR) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_LEN);
+        bb = IR_node_alloc(bbg, IR_PAT_LEN);
         if (t->c[0]->t == TT_VAR) { bb->sval = t->c[0]->v.sval; bb->dval = 1.0; }
         else { bb->ival = t->c[0]->v.ival; bb->dval = 0.0; }
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
@@ -259,12 +259,12 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_QLIT && t->c[0]->t != TT_VAR) {
             char * cs = cset_try_fold(t->c[0]); if (!cs) return NULL;
-            bb = BB_node_alloc(bbg, IR_PAT_NOTANY);
+            bb = IR_node_alloc(bbg, IR_PAT_NOTANY);
             bb->sval = cs; bb->dval = 0.0;
             bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
             return bb;
         }
-        bb = BB_node_alloc(bbg, IR_PAT_NOTANY);
+        bb = IR_node_alloc(bbg, IR_PAT_NOTANY);
         bb->sval = t->c[0]->v.sval ? t->c[0]->v.sval : "";
         bb->dval = (t->c[0]->t == TT_VAR) ? 1.0 : 0.0;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
@@ -273,7 +273,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     case TT_POS: {
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_ILIT && t->c[0]->t != TT_VAR) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_POS);
+        bb = IR_node_alloc(bbg, IR_PAT_POS);
         if (t->c[0]->t == TT_VAR) { bb->sval = t->c[0]->v.sval; bb->dval = 2.0; }
         else { bb->ival = t->c[0]->v.ival; bb->sval = NULL; bb->dval = 0.0; }
         bb->α = bb; bb->β = fp; bb->γ = sp; bb->ω = fp;
@@ -282,7 +282,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     case TT_RPOS: {
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_ILIT && t->c[0]->t != TT_VAR) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_POS);
+        bb = IR_node_alloc(bbg, IR_PAT_POS);
         if (t->c[0]->t == TT_VAR) { bb->sval = t->c[0]->v.sval; bb->dval = 1.0; }
         else { bb->ival = t->c[0]->v.ival; bb->sval = "r"; bb->dval = 0.0; }
         bb->α = bb; bb->β = fp; bb->γ = sp; bb->ω = fp;
@@ -291,7 +291,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     case TT_TAB: {
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_ILIT && t->c[0]->t != TT_VAR) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_TAB);
+        bb = IR_node_alloc(bbg, IR_PAT_TAB);
         if (t->c[0]->t == TT_VAR) { bb->sval = t->c[0]->v.sval; bb->dval = 2.0; }
         else { bb->ival = t->c[0]->v.ival; bb->sval = NULL; bb->dval = 0.0; }
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
@@ -300,7 +300,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     case TT_RTAB: {
         if (t->n < 1 || !t->c[0]) return NULL;
         if (t->c[0]->t != TT_ILIT && t->c[0]->t != TT_VAR) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_TAB);
+        bb = IR_node_alloc(bbg, IR_PAT_TAB);
         if (t->c[0]->t == TT_VAR) { bb->sval = t->c[0]->v.sval; bb->dval = 1.0; }
         else { bb->ival = t->c[0]->v.ival; bb->sval = "r"; bb->dval = 0.0; }
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
@@ -313,47 +313,47 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
         const char *sarg = (arg->t == TT_QLIT && arg->v.sval) ? arg->v.sval : NULL;
         int64_t iarg = (arg->t == TT_ILIT) ? arg->v.ival : 0;
         if (!strcmp(fn, "SPAN") && sarg) {
-            bb = BB_node_alloc(bbg, IR_PAT_SPAN);
+            bb = IR_node_alloc(bbg, IR_PAT_SPAN);
             bb->sval = sarg; bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp; return bb;
         }
         if (!strcmp(fn, "ANY") && sarg) {
-            bb = BB_node_alloc(bbg, IR_PAT_ANY);
+            bb = IR_node_alloc(bbg, IR_PAT_ANY);
             bb->sval = sarg; bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp; return bb;
         }
         if (!strcmp(fn, "BREAK") && sarg) {
-            bb = BB_node_alloc(bbg, IR_PAT_BREAK);
+            bb = IR_node_alloc(bbg, IR_PAT_BREAK);
             bb->sval = sarg; bb->ival = 0; bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp; return bb;
         }
         if (!strcmp(fn, "BREAKX") && sarg) {
-            bb = BB_node_alloc(bbg, IR_PAT_BREAK);
+            bb = IR_node_alloc(bbg, IR_PAT_BREAK);
             bb->sval = sarg; bb->ival = 1; bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp; return bb;
         }
         if (!strcmp(fn, "NOTANY") && sarg) {
-            bb = BB_node_alloc(bbg, IR_PAT_NOTANY);
+            bb = IR_node_alloc(bbg, IR_PAT_NOTANY);
             bb->sval = sarg; bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp; return bb;
         }
         if (!strcmp(fn, "LEN")) {
-            bb = BB_node_alloc(bbg, IR_PAT_LEN);
+            bb = IR_node_alloc(bbg, IR_PAT_LEN);
             bb->ival = (arg->t == TT_ILIT) ? iarg : 0;
             bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp; return bb;
         }
         if (!strcmp(fn, "POS")) {
-            bb = BB_node_alloc(bbg, IR_PAT_POS);
+            bb = IR_node_alloc(bbg, IR_PAT_POS);
             bb->ival = iarg; bb->sval = NULL;
             bb->α = bb; bb->β = fp; bb->γ = sp; bb->ω = fp; return bb;
         }
         if (!strcmp(fn, "TAB")) {
-            bb = BB_node_alloc(bbg, IR_PAT_TAB);
+            bb = IR_node_alloc(bbg, IR_PAT_TAB);
             bb->ival = iarg; bb->sval = NULL;
             bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp; return bb;
         }
         if (!strcmp(fn, "ARBNO") && t->n == 1) {
-            IR_graph_t *inner_blk = BB_alloc(count_tree(arg) * 8 + 32, IR_LANG_SNO);
+            IR_graph_t *inner_blk = IR_alloc(count_tree(arg) * 8 + 32, IR_LANG_SNO);
             if (!inner_blk) return NULL;
             IR_t *inner_entry = build_node(inner_blk, arg, NULL, NULL);
-            if (!inner_entry) { BB_free(inner_blk); return NULL; }
+            if (!inner_entry) { IR_free(inner_blk); return NULL; }
             inner_blk->entry = inner_entry;
-            bb = BB_node_alloc(bbg, IR_PAT_ARBNO);
+            bb = IR_node_alloc(bbg, IR_PAT_ARBNO);
             bb_arbno_state_t * az = (bb_arbno_state_t *)GC_MALLOC(sizeof *az);
             az->inner = inner_blk;
             az->pos_stack = (int *)GC_MALLOC(64 * sizeof(int));
@@ -366,7 +366,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     }
     case TT_VAR: {
         if (!t->v.sval || !t->v.sval[0]) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_DEFER);
+        bb = IR_node_alloc(bbg, IR_PAT_DEFER);
         bb->sval = t->v.sval;
         bb->ival = 0;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
@@ -374,7 +374,7 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     }
     case TT_DEFER: {
         if (t->n < 1 || !t->c[0] || !t->c[0]->v.sval) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_DEFER);
+        bb = IR_node_alloc(bbg, IR_PAT_DEFER);
         bb->sval = t->c[0]->v.sval;
         bb->ival = 1;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
@@ -385,13 +385,13 @@ static IR_graph_t * build_node(IR_graph_t * bbg, const tree_t * t, IR_t * sp, IR
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * BB_lower_pat(const tree_t * pat_tree) {
+IR_graph_t * IR_lower_pat(const tree_t * pat_tree) {
     if (!pat_tree) return NULL;
     int cap = count_tree(pat_tree) * 8 + 32;
-    IR_graph_t * bbg = BB_alloc(cap, IR_LANG_SNO);
+    IR_graph_t * bbg = IR_alloc(cap, IR_LANG_SNO);
     if (!bbg) return NULL;
     IR_t * entry = build_node(bbg, pat_tree, NULL, NULL);
-    if (!entry) { BB_free(bbg); return NULL; }
+    if (!entry) { IR_free(bbg); return NULL; }
     bbg->entry = entry;
     return bbg;
 }
@@ -408,96 +408,96 @@ static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) 
     IR_t * bb = NULL;
     switch (pp->kind) {
     case XCHR: {
-        bb = BB_node_alloc(bbg, IR_PAT_LIT);
+        bb = IR_node_alloc(bbg, IR_PAT_LIT);
         bb->sval = pp->STRVAL_fn ? pp->STRVAL_fn : "";
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XSPNC: {
-        bb = BB_node_alloc(bbg, IR_PAT_SPAN);
+        bb = IR_node_alloc(bbg, IR_PAT_SPAN);
         bb->sval = pp->STRVAL_fn ? pp->STRVAL_fn : "";
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XBRKC: {
-        bb = BB_node_alloc(bbg, IR_PAT_BREAK);
+        bb = IR_node_alloc(bbg, IR_PAT_BREAK);
         bb->sval = pp->STRVAL_fn ? pp->STRVAL_fn : "";
         bb->ival = 0;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XBRKX: {
-        bb = BB_node_alloc(bbg, IR_PAT_BREAK);
+        bb = IR_node_alloc(bbg, IR_PAT_BREAK);
         bb->sval = pp->STRVAL_fn ? pp->STRVAL_fn : "";
         bb->ival = 1;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XANYC: {
-        bb = BB_node_alloc(bbg, IR_PAT_ANY);
+        bb = IR_node_alloc(bbg, IR_PAT_ANY);
         bb->sval = pp->STRVAL_fn ? pp->STRVAL_fn : "";
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XNNYC: {
-        bb = BB_node_alloc(bbg, IR_PAT_NOTANY);
+        bb = IR_node_alloc(bbg, IR_PAT_NOTANY);
         bb->sval = pp->STRVAL_fn ? pp->STRVAL_fn : "";
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XLNTH: {
-        bb = BB_node_alloc(bbg, IR_PAT_LEN);
+        bb = IR_node_alloc(bbg, IR_PAT_LEN);
         bb->ival = pp->num;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XPOSI: {
-        bb = BB_node_alloc(bbg, IR_PAT_POS);
+        bb = IR_node_alloc(bbg, IR_PAT_POS);
         bb->ival = pp->num; bb->sval = NULL;
         bb->α = bb; bb->β = fp; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XRPSI: {
-        bb = BB_node_alloc(bbg, IR_PAT_POS);
+        bb = IR_node_alloc(bbg, IR_PAT_POS);
         bb->ival = pp->num; bb->sval = "r";
         bb->α = bb; bb->β = fp; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XTB: {
-        bb = BB_node_alloc(bbg, IR_PAT_TAB);
+        bb = IR_node_alloc(bbg, IR_PAT_TAB);
         bb->ival = pp->num; bb->sval = NULL;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XRTB: {
-        bb = BB_node_alloc(bbg, IR_PAT_TAB);
+        bb = IR_node_alloc(bbg, IR_PAT_TAB);
         bb->ival = pp->num; bb->sval = "r";
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XFARB: {
-        bb = BB_node_alloc(bbg, IR_PAT_ARB);
+        bb = IR_node_alloc(bbg, IR_PAT_ARB);
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XSTAR: {
-        bb = BB_node_alloc(bbg, IR_PAT_REM);
+        bb = IR_node_alloc(bbg, IR_PAT_REM);
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XEPS: {
-        bb = BB_node_alloc(bbg, IR_PAT_LIT);
+        bb = IR_node_alloc(bbg, IR_PAT_LIT);
         bb->sval = "";
         bb->α = bb; bb->β = fp; bb->γ = sp; bb->ω = fp;
         return bb;
     }
     case XFAIL: {
-        bb = BB_node_alloc(bbg, IR_FAIL);
+        bb = IR_node_alloc(bbg, IR_FAIL);
         bb->α = bb; bb->β = fp; bb->γ = fp; bb->ω = fp;
         return bb;
     }
     case XABRT: {
-        bb = BB_node_alloc(bbg, IR_PAT_ABORT);
+        bb = IR_node_alloc(bbg, IR_PAT_ABORT);
         bb->α = bb; bb->β = fp; bb->γ = fp; bb->ω = fp;
         return bb;
     }
@@ -507,7 +507,7 @@ static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) 
             inner = build_patnd(bbg, pp->children[0], sp, fp);
             if (!inner) return NULL;
         }
-        bb = BB_node_alloc(bbg, IR_PAT_FENCE);
+        bb = IR_node_alloc(bbg, IR_PAT_FENCE);
         bb->α = bb; bb->β = bb;
         bb->γ = inner ? inner : sp; bb->ω = fp;
         return bb;
@@ -545,12 +545,12 @@ static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) 
     case XARBN: {
         if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return NULL;
         int inner_cap = count_patnd(pp->children[0]) * 8 + 16;
-        IR_graph_t * inner_blk = BB_alloc(inner_cap, IR_LANG_SNO);
+        IR_graph_t * inner_blk = IR_alloc(inner_cap, IR_LANG_SNO);
         if (!inner_blk) return NULL;
         IR_t * inner_entry = build_patnd(inner_blk, pp->children[0], NULL, NULL);
-        if (!inner_entry) { BB_free(inner_blk); return NULL; }
+        if (!inner_entry) { IR_free(inner_blk); return NULL; }
         inner_blk->entry = inner_entry;
-        bb = BB_node_alloc(bbg, IR_PAT_ARBNO);
+        bb = IR_node_alloc(bbg, IR_PAT_ARBNO);
         bb_arbno_state_t * az = (bb_arbno_state_t *)GC_MALLOC(sizeof *az);
         az->inner = inner_blk;
         az->pos_stack = (int *)GC_MALLOC(64 * sizeof(int));
@@ -561,7 +561,7 @@ static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) 
         return bb;
     }
     case XDSAR: {
-        bb = BB_node_alloc(bbg, IR_PAT_DEFER);
+        bb = IR_node_alloc(bbg, IR_PAT_DEFER);
         bb->sval = pp->STRVAL_fn ? pp->STRVAL_fn : "";
         bb->ival = 0;
         bb->α = bb; bb->β = fp; bb->γ = sp; bb->ω = fp;
@@ -569,7 +569,7 @@ static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) 
     }
     case XFNME: {
         if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_ASSIGN_IMM);
+        bb = IR_node_alloc(bbg, IR_PAT_ASSIGN_IMM);
         bb->sval = (pp->STRVAL_fn && pp->STRVAL_fn[0]) ? pp->STRVAL_fn :
                    ((pp->var.v == DT_N && pp->var.s) ? pp->var.s : NULL);
         bb->γ = sp;
@@ -582,7 +582,7 @@ static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) 
     }
     case XNME: {
         if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_ASSIGN_COND);
+        bb = IR_node_alloc(bbg, IR_PAT_ASSIGN_COND);
         bb->sval = (pp->STRVAL_fn && pp->STRVAL_fn[0]) ? pp->STRVAL_fn :
                    ((pp->var.v == DT_N && pp->var.s) ? pp->var.s : NULL);
         bb->γ = sp;
@@ -596,7 +596,7 @@ static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) 
     case XATP: {
         if (!pp->STRVAL_fn || pp->STRVAL_fn[0] != '@') return NULL;
         if (pp->nargs < 1 || !pp->args || !pp->args[0].s || !pp->args[0].s[0]) return NULL;
-        bb = BB_node_alloc(bbg, IR_PAT_ATP);
+        bb = IR_node_alloc(bbg, IR_PAT_ATP);
         bb->sval = pp->args[0].s;
         bb->α = bb; bb->β = bb; bb->γ = sp; bb->ω = fp;
         return bb;
@@ -609,10 +609,10 @@ static IR_t * build_patnd(IR_graph_t * bbg, PATND_t * pp, IR_t * sp, IR_t * fp) 
 IR_graph_t * patnd_to_bb_graph(PATND_t * pp) {
     if (!pp) return NULL;
     int cap = count_patnd(pp) * 8 + 32;
-    IR_graph_t * bbg = BB_alloc(cap, IR_LANG_SNO);
+    IR_graph_t * bbg = IR_alloc(cap, IR_LANG_SNO);
     if (!bbg) return NULL;
     IR_t * entry = build_patnd(bbg, pp, NULL, NULL);
-    if (!entry) { BB_free(bbg); return NULL; }
+    if (!entry) { IR_free(bbg); return NULL; }
     bbg->entry = entry;
     return bbg;
 }
@@ -634,7 +634,7 @@ static IR_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
     case XCAT: {
         if (pp->nchildren == 0) return NULL;
         if (pp->nchildren == 1) return build_patnd_tree(bbg, pp->children[0]);
-        IR_t * nd = BB_node_alloc(bbg, IR_PAT_CAT);
+        IR_t * nd = IR_node_alloc(bbg, IR_PAT_CAT);
         if (!nd) return NULL;
         IR_t ** kids = (IR_t **)GC_MALLOC((size_t)pp->nchildren * sizeof(IR_t *));
         if (!kids) return NULL;
@@ -649,7 +649,7 @@ static IR_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
     case XOR: {
         if (pp->nchildren == 0) return NULL;
         if (pp->nchildren == 1) return build_patnd_tree(bbg, pp->children[0]);
-        IR_t * nd = BB_node_alloc(bbg, IR_PAT_ALT);
+        IR_t * nd = IR_node_alloc(bbg, IR_PAT_ALT);
         if (!nd) return NULL;
         IR_t ** kids = (IR_t **)GC_MALLOC((size_t)pp->nchildren * sizeof(IR_t *));
         if (!kids) return NULL;
@@ -662,7 +662,7 @@ static IR_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
         return nd;
     }
     case XFNCE: {
-        IR_t * nd = BB_node_alloc(bbg, IR_PAT_FENCE);
+        IR_t * nd = IR_node_alloc(bbg, IR_PAT_FENCE);
         if (!nd) return NULL;
         nd->α = nd; nd->β = nd; nd->γ = NULL; nd->ω = NULL;
         if (pp->nchildren > 0 && pp->children && pp->children[0]) {
@@ -677,7 +677,7 @@ static IR_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
         if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return NULL;
         IR_t * inner = build_patnd_tree(bbg, pp->children[0]);
         if (!inner) return NULL;
-        IR_t * nd = BB_node_alloc(bbg, IR_PAT_ASSIGN_IMM);
+        IR_t * nd = IR_node_alloc(bbg, IR_PAT_ASSIGN_IMM);
         if (!nd) return NULL;
         nd->sval = (pp->STRVAL_fn && pp->STRVAL_fn[0]) ? pp->STRVAL_fn :
                    ((pp->var.v == DT_N && pp->var.s) ? pp->var.s : NULL);
@@ -690,7 +690,7 @@ static IR_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
         if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return NULL;
         IR_t * inner = build_patnd_tree(bbg, pp->children[0]);
         if (!inner) return NULL;
-        IR_t * nd = BB_node_alloc(bbg, IR_PAT_ASSIGN_COND);
+        IR_t * nd = IR_node_alloc(bbg, IR_PAT_ASSIGN_COND);
         if (!nd) return NULL;
         nd->sval = (pp->STRVAL_fn && pp->STRVAL_fn[0]) ? pp->STRVAL_fn :
                    ((pp->var.v == DT_N && pp->var.s) ? pp->var.s : NULL);
@@ -702,12 +702,12 @@ static IR_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
     case XARBN: {
         if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return NULL;
         int inner_cap = count_patnd(pp->children[0]) * 8 + 16;
-        IR_graph_t * inner_blk = BB_alloc(inner_cap, IR_LANG_SNO);
+        IR_graph_t * inner_blk = IR_alloc(inner_cap, IR_LANG_SNO);
         if (!inner_blk) return NULL;
         IR_t * inner_entry = build_patnd_tree(inner_blk, pp->children[0]);
-        if (!inner_entry) { BB_free(inner_blk); return NULL; }
+        if (!inner_entry) { IR_free(inner_blk); return NULL; }
         inner_blk->entry = inner_entry;
-        IR_t * nd = BB_node_alloc(bbg, IR_PAT_ARBNO);
+        IR_t * nd = IR_node_alloc(bbg, IR_PAT_ARBNO);
         if (!nd) return NULL;
         bb_arbno_state_t * az = (bb_arbno_state_t *)GC_MALLOC(sizeof *az);
         if (!az) return NULL;
@@ -731,10 +731,10 @@ static IR_t * build_patnd_tree(IR_graph_t * bbg, PATND_t * pp) {
 IR_graph_t * patnd_to_bb_tree(PATND_t * pp) {
     if (!pp) return NULL;
     int cap = count_patnd(pp) * 8 + 32;
-    IR_graph_t * bbg = BB_alloc(cap, IR_LANG_SNO);
+    IR_graph_t * bbg = IR_alloc(cap, IR_LANG_SNO);
     if (!bbg) return NULL;
     IR_t * entry = build_patnd_tree(bbg, pp);
-    if (!entry) { BB_free(bbg); return NULL; }
+    if (!entry) { IR_free(bbg); return NULL; }
     bbg->entry = entry;
     return bbg;
 }
