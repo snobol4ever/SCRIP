@@ -65,6 +65,7 @@ typedef struct {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 /*====================================================================================================================================================================================================*/
 /* PORT PRIMITIVES — the only place α/β/γ/ω are assigned in bulk. `nalloc` allocates a node of a kind.
  * `set_succ_fail` fills the two inherited ports iff still unset (the "/x := y" default-only idiom from
@@ -257,12 +258,29 @@ static int tt_is_relational(tree_e t) {
          ||t==TT_LLT||t==TT_LLE||t==TT_LGT||t==TT_LGE||t==TT_LEQ||t==TT_LNE;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* tt_to_binop — map an arithmetic/relational/concat tree kind to its BinopKind (what the IR_BINOP exec arm
+ * passes to binop_apply). The IR carries the BinopKind in ival, NOT the raw tree_e — they are different
+ * enumerations (TT_ADD=13 vs BINOP_ADD=0), so storing the tree kind made binop_apply compute the wrong op. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int tt_to_binop(tree_e t) {
+    switch (t) {
+    case TT_ADD: return BINOP_ADD; case TT_SUB: return BINOP_SUB; case TT_MUL: return BINOP_MUL;
+    case TT_DIV: return BINOP_DIV; case TT_MOD: return BINOP_MOD; case TT_POW: return BINOP_POW;
+    case TT_LT:  return BINOP_LT;  case TT_LE:  return BINOP_LE;  case TT_GT:  return BINOP_GT;
+    case TT_GE:  return BINOP_GE;  case TT_EQ:  return BINOP_EQ;  case TT_NE:  return BINOP_NE;
+    case TT_CAT: case TT_LCONCAT: return BINOP_CONCAT;
+    case TT_LLT: return BINOP_SLT; case TT_LLE: return BINOP_SLE; case TT_LGT: return BINOP_SGT;
+    case TT_LGE: return BINOP_SGE; case TT_LEQ: return BINOP_SEQ; case TT_LNE: return BINOP_SNE;
+    default:     return BINOP_ADD;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * bin = nalloc(cx, IR_BINOP);
     if (!bin) return NULL;
     bin->sval = e->v.sval;
-    bin->ival = (int64_t) e->t;
+    bin->ival = (int64_t) tt_to_binop(e->t);        /* BinopKind, NOT the raw tree_e */
     bin->dval = tt_is_relational(e->t) ? 1.0 : 0.0;
     IR_t * e1α=NULL, * e1β=NULL, * e2α=NULL, * e2β=NULL;
     IR_t * c1 = lower2(cx, e->c[0], NULL /*E1.γ patched below*/, ω_in, &e1α, &e1β);
@@ -529,8 +547,19 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_LOOP_BREAK: /* jcon ir_a_Break */
     case TT_LOOP_NEXT:  /* jcon ir_a_Next */
     case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP:
-    case TT_FNC:        /* jcon ir_a_Call (+ SNOBOL builtin folds when role flips) */
-    case TT_METHCALL:
+    /* SHARED — Icon `write(x)`/`writes(x)` deterministic output builtin (1-arg), via the same
+       wire_det_builtin1 the Prolog GOAL role uses. NOTE the per-language TT_FNC shape (FACT RULE: variation
+       lives inside the case): Icon carries the callee as child c[0] (a TT_VAR) with args c[1..]; Prolog
+       carries it in sval. Icon `write` adds a newline, `writes` does not — both handled at EXEC by
+       try_call_builtin_by_name. Multi-arg write + general call = a later L2-E arm. */
+    case TT_FNC: {
+        if (e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            const char * fn = e->c[0]->v.sval;
+            if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))
+                return wire_det_builtin1(cx, e->c[1], fn, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* multi-arg write / general call = L2-E */
+    }
     case TT_FIELD:      /* jcon ir_a_Field */
     case TT_IDX:
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS:  /* jcon ir_a_Sectionop */
@@ -606,17 +635,21 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
     }
 }
 /*====================================================================================================================================================================================================*/
-/* GOAL ROLE — deterministic 1-arg builtin goal (the SHARED-TABLE Prolog arm; write/1, writeln/1, print/1).
- * The arg is lowered as a VALUE (a term to hand the builtin), threaded so it is produced then the call
- * fires; the call succeeds once (deterministic) then resume -> fail. EXEC performs the actual write.
- *   arg.γ -> call ; arg.ω -> ω_in ; call.γ -> γ_in ; call.ω -> ω_in ; call.α = arg.α ; call.β = ω_in.      */
+/* SHARED — deterministic 1-arg builtin call (write/writeln/print). Used by BOTH the Prolog GOAL role and
+ * the Icon VALUE role (Icon `write(x)` and Prolog `write(x)` are the same deterministic output builtin —
+ * another sharing seam). The arg is lowered VALUE-role and threaded (arg.γ -> call) so it is produced
+ * first, pushing its value onto the AG ring; `dval=1.0` (is_deep) tells the IR_CALL exec arm to read the
+ * arg from the ring (ag_ring_peek) rather than the legacy bb->α arg-chain. Deterministic: succeed once,
+ * resume -> fail. `try_call_builtin_by_name` performs the actual write.
+ *   arg.γ -> call ; arg.ω -> ω_in ; call.γ -> γ_in ; call.ω -> ω_in ; α = arg.α ; β = ω_in.               */
 /*====================================================================================================================================================================================================*/
-static IR_t * g_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!arg_t) return NULL;
     IR_t * call = nalloc(cx, IR_CALL);
     if (!call) return NULL;
     call->sval = fn;
     call->ival = 1;
+    call->dval = 1.0;                               /* is_deep: EXEC reads the arg from the AG ring */
     lcx_t av = cx; av.role = ROLE_VALUE;            /* the builtin's argument is a term/value */
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * a = lower2(av, arg_t, call /*arg.γ -> call*/, ω_in, &aα, &aβ);
@@ -695,9 +728,9 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
     case TT_FNC: {
         const tree_t * A = NULL, * B = NULL, * arg = NULL;
         /* SHARED TABLE — deterministic write-family builtins (write/writeln/print). */
-        if (tm_g(e, TT_FNC, "write",   1, &arg)) return g_det_builtin1(cx, arg, "write",   γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, "writeln", 1, &arg)) return g_det_builtin1(cx, arg, "writeln", γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, "print",   1, &arg)) return g_det_builtin1(cx, arg, "print",   γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "write",   1, &arg)) return wire_det_builtin1(cx, arg, "write",   γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "writeln", 1, &arg)) return wire_det_builtin1(cx, arg, "writeln", γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "print",   1, &arg)) return wire_det_builtin1(cx, arg, "print",   γ_in, ω_in, α_out, β_out);
         /* conjunction `,/2` — SAME four-port sequence as Icon `&` / SNOBOL CAT (wire_seq, IR_GCONJ kind).
            flatten_seq matches by tree-KIND only and every Prolog operator is TT_FNC, so the `,`-spine is
            collected by walking right-nested `,`-tagged FNCs explicitly (sval guard distinguishes from `;`). */

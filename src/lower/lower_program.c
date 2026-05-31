@@ -102,6 +102,40 @@ IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
 static int lp_s_int(const tree_t *s, const char *tag) { const char *v = stmt_attr_str(stmt_attr_find(s, tag)); return v ? atoi(v) : 0; }
 static tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt_attr_find(s, tag)); }
 /*====================================================================================================================================================================================================*/
+/* lower_icon_body — build ONE Icon proc's four-port BB graph. The proc decl is TT_PROC_DECL(name, params,  */
+/* body) with body = c[2], a TT_PROGRAM of statements. Each statement's expr is lowered VALUE-role and       */
+/* threaded in REVERSE (stmt[i].γ -> stmt[i+1].α, stmt[i].ω -> PFAIL) into one graph — the same reverse-      */
+/* threading the SNOBOL4 walker uses. FAIL-LOUD: if ANY statement fails to lower (an unhandled kind), the     */
+/* whole body returns -1 so the driver keeps its clean [IBB] FATAL abort rather than running a partial graph  */
+/* with a silently-dropped statement. Returns the bb_program index, or -1.                                    */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+static int lower_icon_body(const tree_t *proc) {
+    if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
+    const tree_t *body = proc->c[2];
+    if (!body || body->t != TT_PROGRAM) return -1;
+    IR_graph_t *g = IR_alloc(256, IR_LANG_ICN);
+    if (!g) return -1;
+    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t *next_a = PSUCC;
+    int n_stmts = 0;
+    for (int i = body->n - 1; i >= 0; i--) {
+        const tree_t *s = body->c[i];
+        if (!s) continue;
+        const tree_t *expr = s;
+        if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
+        n_stmts++;
+        IR_t *a = NULL, *b = NULL;
+        IR_t *top = lower2_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
+        if (!top || !a) return -1;       /* fail-loud: an unhandled statement sinks the whole body */
+        next_a = a;
+    }
+    if (n_stmts == 0) return -1;
+    g->entry = next_a;
+    return bb_program_add(&g_stage2.bbp, g);
+}
+/*====================================================================================================================================================================================================*/
 /* lower — minimal program walker. Resets stage2, runs polyglot_init (label/proc/clause prescan), then for SNOBOL4 threads the top-level statements into ONE four-port BB graph and registers it as     */
 /* "main" so the driver's bb_exec_once(main) path can run it. SNOBOL4 only this increment: Icon proc-body and Prolog clause graph-building belong to their own concurrent sessions (FACT RULE).          */
 /* Statements thread in reverse (each statement's gamma flows to the next; omega to PFAIL). An assignment (subj :eq repl, no :pat) becomes a synthesized TT_ASSIGN(subj, repl) lowered via the VALUE role. */
@@ -152,6 +186,20 @@ stage2_t *lower(const tree_t *prog) {
                 g_stage2.proc_table[pi].nparams  = 0;
             }
         }
+    }
+    if (mask & (1u << LANG_ICN)) {
+        /* Icon procs were registered by polyglot_init with proc -> TT_PROC_DECL and bb_idx = -1. Lower each
+           body into a four-port graph and fill bb_idx; the driver runs bb_exec_once(main). A proc whose body
+           has an unhandled statement keeps bb_idx = -1 (lower_icon_body fails loud) -> driver aborts cleanly. */
+        for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+            const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+            if (!proc || proc->t != TT_PROC_DECL) continue;
+            if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
+            int bb_idx = lower_icon_body(proc);
+            if (bb_idx >= 0) g_stage2.proc_table[pi].bb_idx = bb_idx;
+        }
+        g_stage2.lang = IR_LANG_ICN;
+        return &g_stage2;
     }
     g_stage2.lang = IR_LANG_SNO;
     return &g_stage2;
