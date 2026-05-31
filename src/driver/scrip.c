@@ -78,6 +78,8 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--run")           == 0) { mode_run           = 1; argi++; }
         else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile       = 1; if (!target_name) target_name = "x86"; argi++; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { mode_monitor       = 1; argi++; }
+        else if (strcmp(argv[argi], "--descr8")        == 0) { extern int g_descr_layout; g_descr_layout = 1; fprintf(stderr, "[descr] layout = 8-byte (32-bit mode)\n"); argi++; }
+        else if (strcmp(argv[argi], "--descr16")       == 0) { extern int g_descr_layout; g_descr_layout = 0; fprintf(stderr, "[descr] layout = 16-byte (64-bit mode)\n"); argi++; }
         else if (strncmp(argv[argi], "--target=", 9)   == 0) { target_name = argv[argi] + 9; mode_compile = 1; argi++; }
         else if (strcmp(argv[argi], "--bb=brokered")   == 0) { bb_driver          = 1; argi++; }
         else if (strcmp(argv[argi], "--bb=wired")      == 0) { bb_live            = 1; argi++; }
