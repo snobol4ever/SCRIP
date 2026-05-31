@@ -30,6 +30,7 @@ void rt_arith(int op);
 void rt_acomp(int op);
 void rt_lcomp(int op);
 void rt_gen_concat(void);
+int  bb_slot_alloc(IR_t * nd);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gen_to_sm(int64_t op) {
@@ -64,6 +65,39 @@ static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_BINOP");
     int64_t op = pBB ? pBB->ival : -1;
+    /* GZ-3 (GROUND ZERO 3, 2026-05-31): stackless integer binop over two READ-ONLY constant operands.   */
+    /* Both operands are IR_LIT_I — compile-time constants. Per the RO-IP-relative + ONE-REGISTER FRAME   */
+    /* FACT RULES: the two int64 values are sealed as RO data INSIDE this box's own blob (after the jmps, */
+    /* never executed) and read `[rip+disp]` (disp = emit-time constant, data+access share the blob — NO  */
+    /* patch, NO absolute address, NO value stack). The result is the box's first READ-WRITE state, so it */
+    /* is stored into a per-sequence frame slot `[r12+off]` (ζ=r12), off claimed via bb_slot_alloc; the    */
+    /* consumer (write) recovers off via bb_slot_get(pBB). Deterministic single-shot (both operands const) */
+    /* → α computes+stores+jmp γ ; β jmp ω (no resume). Grounded in test_icon.c mult (mult_V=a*b). Only    */
+    /* ADD/SUB share the `48 0x 05` second-operand encoding; other ops fall through to the rt_arith arm.   */
+    if (MEDIUM_BINARY && pBB && pBB->α && pBB->β && pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I
+        && (op == BINOP_ADD || op == BINOP_SUB)) {
+        int     off = bb_slot_alloc(pBB);
+        int64_t v1  = pBB->α->ival;
+        int64_t v2  = pBB->β->ival;
+        const char *op2 = (op == BINOP_ADD) ? "\x48\x03\x05" : "\x48\x2B\x05";
+        /*   off  bytes                       asm                                                          */
+        /*   0    48 8B 05 <u32 d1=25>        mov rax,[rip+d1]      (rip-base=7; v1@32; d1=32-7=25)        */
+        /*   7    48 0X 05 <u32 d2=26>        add|sub rax,[rip+d2]  (rip-base=14; v2@40; d2=40-14=26)      */
+        /*   14   49 89 84 24 <u32 off>       mov [r12+off],rax     (store result into the ζ frame slot)   */
+        /*   22   E9 <rel32 → γ>              jmp γ                 ← γ patch at 23                         */
+        /*   27   (β defined) E9 <rel32 → ω>  β: jmp ω              ← β-def 27, ω patch 28                  */
+        /*   32   <u64 v1>                    sealed RO operand 1   (reached only by [rip+25])              */
+        /*   40   <u64 v2>                    sealed RO operand 2   (reached only by [rip+26])              */
+        /*   48   end                                                                                       */
+        bin = { {23, 27, 28}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+        return bytes(3, "\x48\x8B\x05") + u32le(25u)
+             + bytes(3, op2)            + u32le(26u)
+             + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)off)
+             + bytes(1, "\xE9")         + u32le(0)
+             + bytes(1, "\xE9")         + u32le(0)
+             + u64le((uint64_t)v1)
+             + u64le((uint64_t)v2);
+    }
     int is_rel = pBB && (gen_is_numrel(op) || gen_is_strrel(op));
     if (is_rel) {
         int tt   = gen_rel_to_tt(op);
