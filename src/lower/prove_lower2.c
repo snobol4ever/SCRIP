@@ -208,8 +208,12 @@ int main(void) {
          gfnc2(";", fnc1("write", slit("a")), fnc1("write", slit("b"))), 5);
     dump_goal("Prolog:   X = Y   [g_unify: lhs.gamma->rhs.alpha->UNIFY, semidet resume->fail]",
          gfnc2("=", var("X"), var("Y")), 3);
-    dump_goal("Prolog:   X < 5   [g_compare: ARITH ival=BINOP_LT, lhs.gamma->rhs.alpha->ARITH]",
+    dump_goal("Prolog:   X < 5   [g_compare: IR_BUILTIN(sval=\"<\") bb->alpha=LOGICVAR(X) bb->beta=LIT_I(5); exec resolve_arith_eval both sides]",
          gfnc2("<", var("X"), lit(5)), 3);
+    dump_goal("Prolog:   X is 5   [g_is: IR_BUILTIN(sval=is) bb->alpha=LOGICVAR(X) bb->beta=LIT_I(5); exec eval(rhs)->unify lhs]",
+         gfnc2("is", var("X"), lit(5)), 3);
+    dump_goal("Prolog:   X is 2+3   [g_is: IR_BUILTIN bb->alpha=LOGICVAR bb->beta=IR_BINOP(ADD,LIT_I,LIT_I); 5 nodes]",
+         gfnc2("is", var("X"), bin(TT_ADD, lit(2), lit(3))), 5);
     /* ===== END PROLOG SECTION ===== */
     return 0;
 }

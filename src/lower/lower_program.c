@@ -7,6 +7,7 @@
 #include "lower.h"
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
+#include "../runtime/interp/resolve_runtime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -136,7 +137,64 @@ static int lower_icon_body(const tree_t *proc) {
     return bb_program_add(&g_stage2.bbp, g);
 }
 /*====================================================================================================================================================================================================*/
-/* lower_pl_clause_graph — build ONE Prolog clause's four-port GOAL graph (PLG-1: single-clause, body-only).   */
+/* lower_pl_choice_graph — build an IR_CHOICE graph for a multi-clause predicate (PLG-3). Each clause in
+ * the TT_CHOICE is lowered into its own GOAL graph; a bb_choice_state_t sidecar lists them so the IR_CHOICE
+ * exec arm (bb_exec.c:3216) can try them in order, backtracking between clauses via trail_unwind.            */
+static int lower_pl_clause_graph(const tree_t *clause);   /* forward — defined below */
+static int lower_pl_choice_graph(const tree_t *choice) {
+    if (!choice || choice->t != TT_CHOICE || choice->n < 1) return -1;
+    int n = choice->n;
+    IR_graph_t **bodies = (IR_graph_t **)GC_MALLOC((size_t)n * sizeof(IR_graph_t *));
+    if (!bodies) return -1;
+    int any = 0;
+    for (int ci = 0; ci < n; ci++) {
+        const tree_t *cl = choice->c[ci];
+        int bidx = lower_pl_clause_graph(cl);
+        bodies[ci] = (bidx >= 0) ? g_stage2.bbp.table[bidx] : NULL;
+        if (bodies[ci]) any = 1;
+    }
+    if (!any) return -1;
+    IR_graph_t *g = IR_alloc(8, IR_LANG_PL);
+    if (!g) return -1;
+    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t *nd = IR_node_alloc(g, IR_CHOICE);
+    if (!nd) return -1;
+    bb_choice_state_t *zc = (bb_choice_state_t *)GC_MALLOC(sizeof *zc);
+    if (!zc) return -1;
+    memset(zc, 0, sizeof *zc);
+    zc->bodies = bodies; zc->nbodies = n; zc->last_body = NULL; zc->cp = NULL; zc->cut_barrier = NULL;
+    zc->idx_ok = 0; zc->idx_key = NULL;
+    nd->ival = (int64_t)(intptr_t)zc;
+    nd->γ = PSUCC; nd->ω = PFAIL;
+    g->entry = nd;
+    return bb_program_add(&g_stage2.bbp, g);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* lower_pl_register_all_preds — PLG-3: iterate resolve_pred_table, lower and register every predicate so
+ * IR_GOAL's resolve_bb_lookup finds them. Called after lowering main/0. Skips already-registered entries. */
+static void lower_pl_register_all_preds(void) {
+    for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++) {
+        for (Resolve_PredEntry *pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
+            if (!pe->key || !pe->choice) continue;
+            const char *key = pe->key;
+            const tree_t *ch = pe->choice;
+            const char *slash = key ? strrchr(key, '/') : NULL;
+            int ar = slash ? atoi(slash + 1) : 0;
+            /* IMPORTANT: bb_exec.c IR_GOAL looks up resolve_bb_lookup(key, arity) where key = "name/arity"
+               (the FULL key, NOT the bare name). So we register under the full key string to match. */
+            if (resolve_bb_lookup(key, ar)) continue;   /* already registered */
+            int bb_idx = -1;
+            if (ch->t == TT_CLAUSE) {
+                bb_idx = lower_pl_clause_graph(ch);
+            } else if (ch->t == TT_CHOICE) {
+                if (ch->n == 1) bb_idx = lower_pl_clause_graph(ch->c[0]);
+                else            bb_idx = lower_pl_choice_graph(ch);
+            }
+            if (bb_idx >= 0) resolve_bb_register(key, ar, bb_idx);
+        }
+    }
+}
 /* `clause` is a TT_CLAUSE; its body goals lower (via lower2_clause_body_entry) into a conjunction graph whose  */
 /* success -> PSUCC and failure -> PFAIL. FAIL-LOUD: an unhandled goal sinks the whole clause (-1) so the       */
 /* driver keeps its clean abort. Returns the bb_program index, or -1. Successor to lower_pl's clause walker.    */
@@ -314,6 +372,8 @@ stage2_t *lower(const tree_t *prog) {
                 g_stage2.proc_table[pi].nparams  = 0;
             }
         }
+        /* PLG-3: register all remaining predicates so IR_GOAL's resolve_bb_lookup finds callee graphs. */
+        lower_pl_register_all_preds();
         g_stage2.lang = IR_LANG_PL;
         return &g_stage2;
     }

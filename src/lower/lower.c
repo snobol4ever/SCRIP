@@ -985,27 +985,85 @@ static IR_t * g_unify(lcx_t cx, const tree_t * l_t, const tree_t * r_t, IR_t * �
     return ret(uni, α_out, β_out, uni, ω_in /* unify is semidet: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
-/* GOAL ROLE — arithmetic comparison goal (`</2 >/2 =</2 >=/2 =:=/2 =\=/2`). Both args are arithmetic
- * EXPRESSIONS (VALUE-role: evaluated to numbers). The comparison succeeds-once-or-fails; `ival` carries the
- * comparison code (a BinopKind reused) so EXEC dispatches the right test. Topology mirrors g_unify.         */
+/* GOAL ROLE — Prolog arith expression in a VALUE position (rhs of `is/2`, both sides of `</2` etc.).
+ * The Prolog tree-builder (lower_clause_from_tree) emits arithmetic ops as TT_FNC(op_name, ...)
+ * rather than TT_ADD/TT_SUB/etc., since those kinds only appear from lower_clause (the PlClause path).
+ * We emit IR_ARITH(sval=op, ival=arity, α=left, β=right) whose resolve_arith_eval traversal handles:
+ * IR_ARITH (recursion), IR_LIT_I/F (constant), IR_LOGICVAR (slot lookup), and default (bb_exec_node).
+ * For TT_ADD/TT_SUB/etc. (from lower_clause path) and TT_ILIT/TT_FLIT/TT_VAR we fall through to
+ * lower2(VALUE) which already has the correct arms (v_binop, emit_leaf paths). Prolog-ONLY path —
+ * FACT RULE clean (only called from g_compare and g_is; no peer language arm touched).               */
 /*====================================================================================================================================================================================================*/
-static IR_t * g_compare(lcx_t cx, const tree_t * l_t, const tree_t * r_t, int op_code, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    if (!l_t || !r_t) return NULL;
-    IR_t * cmp = nalloc(cx, IR_ARITH);
-    if (!cmp) return NULL;
-    cmp->ival = op_code;
+static IR_t * g_arith_expr(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * g_arith_expr(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!e) return NULL;
     lcx_t tv = cx; tv.role = ROLE_VALUE;
-    IR_t * rα = NULL, * rβ = NULL;
-    IR_t * r = lower2(tv, r_t, cmp /*rhs.γ -> cmp*/, ω_in, &rα, &rβ);
-    if (!r) return NULL;
+    if (e->t == TT_FNC) {
+        const char * op = e->v.sval;
+        if (!op) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+        int ar = e->n;
+        IR_t * nd = nalloc(cx, IR_ARITH); if (!nd) return NULL;
+        nd->sval = op; nd->ival = ar;
+        if (ar >= 1 && e->c[0]) {
+            IR_t * aα = NULL, * aβ = NULL;
+            IR_t * a = g_arith_expr(cx, e->c[0], NULL, ω_in, &aα, &aβ);
+            if (!a) return NULL; (void) aβ;
+            nd->α = aα;
+        }
+        if (ar >= 2 && e->c[1]) {
+            IR_t * bα = NULL, * bβ = NULL;
+            IR_t * b = g_arith_expr(cx, e->c[1], NULL, ω_in, &bα, &bβ);
+            if (!b) return NULL; (void) bβ;
+            nd->β = bα;
+        }
+        set_succ_fail(nd, γ_in, ω_in);
+        return ret(nd, α_out, β_out, nd, ω_in);
+    }
+    /* TT_ADD/SUB/MUL/DIV/etc., TT_ILIT, TT_FLIT, TT_VAR, TT_QLIT (atoms like pi/e) → lower_value arms */
+    return lower2(tv, e, γ_in, ω_in, α_out, β_out);
+}
+/*====================================================================================================================================================================================================*/
+/* GOAL ROLE — arithmetic comparison goal (`</2 >/2 =</2 >=/2 =:=/2 =\=/2`). Both args are arithmetic
+ * EXPRESSIONS (via g_arith_expr to handle both TT_FNC-op and TT_ADD styles). Emits IR_BUILTIN(sval=op_str)
+ * with LHS on bb->α and RHS on bb->β so the bb_exec.c IR_BUILTIN arm (resolve_arith_eval both sides) fires.
+ * Previously emitted IR_ARITH with ival=BinopKind — wrong: resolve_arith_eval reads sval as op name.        */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_compare(lcx_t cx, const tree_t * l_t, const tree_t * r_t, const char * op_str, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!l_t || !r_t) return NULL;
+    IR_t * cmp = nalloc(cx, IR_BUILTIN);
+    if (!cmp) return NULL;
+    cmp->sval = op_str; cmp->ival = 2;
     IR_t * lα = NULL, * lβ = NULL;
-    IR_t * l = lower2(tv, l_t, rα /*lhs.γ -> rhs.α*/, ω_in, &lα, &lβ);
+    IR_t * l = g_arith_expr(cx, l_t, NULL, ω_in, &lα, &lβ);
     if (!l) return NULL;
+    IR_t * rα = NULL, * rβ = NULL;
+    IR_t * r = g_arith_expr(cx, r_t, NULL, ω_in, &rα, &rβ);
+    if (!r) return NULL;
     (void) lβ; (void) rβ;
-    IR_t * ops[2] = { l, r };
-    bb_operand_aux_set(cx.bbg, cmp, ops, 2);
+    cmp->α = lα; cmp->β = rα;
     set_succ_fail(cmp, γ_in, ω_in);
-    return ret(cmp, α_out, β_out, lα, ω_in /* semidet: resume -> fail */);
+    return ret(cmp, α_out, β_out, cmp, ω_in /* semidet: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
+/* GOAL ROLE — `is/2` arithmetic evaluation. LHS is a Prolog TERM (variable or number); RHS is an arith
+ * EXPRESSION (via g_arith_expr). Emits IR_BUILTIN(sval="is") with LHS on bb->α (resolve_node_to_term)
+ * and RHS on bb->β (resolve_arith_eval). The bb_exec.c IR_BUILTIN "is" arm matches exactly.             */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_is(lcx_t cx, const tree_t * lhs_t, const tree_t * rhs_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!lhs_t || !rhs_t) return NULL;
+    IR_t * bb = nalloc(cx, IR_BUILTIN);
+    if (!bb) return NULL;
+    bb->sval = "is"; bb->ival = 2;
+    IR_t * laα = NULL, * laβ = NULL;
+    IR_t * l = g_term(cx, lhs_t, NULL, ω_in, &laα, &laβ);
+    if (!l) return NULL;
+    IR_t * raα = NULL, * raβ = NULL;
+    IR_t * r = g_arith_expr(cx, rhs_t, NULL, ω_in, &raα, &raβ);
+    if (!r) return NULL;
+    (void) laβ; (void) raβ;
+    bb->α = laα; bb->β = raα;
+    set_succ_fail(bb, γ_in, ω_in);
+    return ret(bb, α_out, β_out, bb, ω_in /* semidet: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
 /* GOAL ROLE — Prolog TERM in argument position. A term is DATA, not a goal: it lowers to the node kinds the
@@ -1064,6 +1122,30 @@ static IR_t * g_builtin(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_i
     return ret(bb, α_out, β_out, bb, ω_in /* deterministic: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
+/* GOAL ROLE — user-predicate call (bare atom `foo` arity 0, or compound `foo(a,b)`). Emits IR_GOAL with a
+ * bb_goal_state_t sidecar (callee name, arity, arg term-trees). IR_GOAL exec (bb_exec.c:3317) looks up
+ * callee/arity via resolve_bb_lookup, allocates a per-activation env, binds args, runs the callee body graph,
+ * restores on fail, retries via bb->state. β=self so the conjunction's backtrack re-enters for more solutions.
+ * Args lower as g_term term-trees (read by resolve_node_to_term). FACT-RULE clean: Prolog-only IR kind.       */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_goal(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    int ar = e ? e->n : 0;
+    IR_t * nd = nalloc(cx, IR_GOAL); if (!nd) return NULL;
+    bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc);
+    if (!zc) return NULL;
+    zc->callee = fn; zc->arity = ar; zc->nargs = ar; zc->cs = NULL;
+    zc->args = ar > 0 ? (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *)) : NULL;
+    for (int ai = 0; ai < ar; ai++) {
+        if (!e->c[ai]) { zc->args[ai] = NULL; continue; }
+        IR_t * aaα = NULL, * aaβ = NULL;
+        g_term(cx, e->c[ai], NULL, NULL, &aaα, &aaβ);
+        zc->args[ai] = aaα;
+    }
+    nd->ival = (int64_t)(intptr_t)zc;
+    set_succ_fail(nd, γ_in, ω_in);
+    return ret(nd, α_out, β_out, nd, nd /* β=self: exec re-enters on retry with bb->state advanced */);
+}
+/*====================================================================================================================================================================================================*/
 /* GOAL ROLE — Prolog goals. Kind selects the arm; the sval/arity guards live INSIDE the TT_FNC arm
  * (they pick the control construct/builtin, not the kind). Foundation: cut, true/fail leaves. Extension:
  * Conj/Alt/Ite/Unify/Compare/Call/Builtin/phrase/catch/findall.                                           */
@@ -1076,7 +1158,8 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         if (fn && (!strcmp(fn,"true")||!strcmp(fn,"otherwise"))) return emit_leaf(cx, nalloc(cx, IR_SUCCEED), γ_in, ω_in, α_out, β_out);
         if (fn && (!strcmp(fn,"fail")||!strcmp(fn,"false")))     return emit_leaf(cx, nalloc(cx, IR_FAIL), γ_in, ω_in, α_out, β_out);
         if (fn && !strcmp(fn,"nl")) return g_builtin(cx, "nl", NULL, γ_in, ω_in, α_out, β_out);
-        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* bare-atom Call (user pred) = later arm */
+        if (fn) return g_goal(cx, fn, e, γ_in, ω_in, α_out, β_out);   /* bare-atom user-pred call (arity 0) */
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     }
     case TT_UNIFY: {
         const tree_t * l = NULL, * r = NULL;
@@ -1117,14 +1200,37 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         }
         /* unification as an operator FNC `=/2`. */
         if (tm_g(e, TT_FNC, "=", 2, &A, &B)) return g_unify(cx, A, B, γ_in, ω_in, α_out, β_out);
-        /* arithmetic comparison goals — op string -> BinopKind code reused by EXEC. */
-        if (tm_g(e, TT_FNC, "<",   2, &A, &B)) return g_compare(cx, A, B, BINOP_LT, γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, ">",   2, &A, &B)) return g_compare(cx, A, B, BINOP_GT, γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, "=<",  2, &A, &B)) return g_compare(cx, A, B, BINOP_LE, γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, ">=",  2, &A, &B)) return g_compare(cx, A, B, BINOP_GE, γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, "=:=", 2, &A, &B)) return g_compare(cx, A, B, BINOP_EQ, γ_in, ω_in, α_out, β_out);
-        if (tm_g(e, TT_FNC, "=\\=",2, &A, &B)) return g_compare(cx, A, B, BINOP_NE, γ_in, ω_in, α_out, β_out);
-        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* other builtins / user-pred Call = later arms */
+        /* arithmetic comparison goals — op string passed directly to IR_BUILTIN sval (exec reads sval, not ival). */
+        if (tm_g(e, TT_FNC, "<",   2, &A, &B)) return g_compare(cx, A, B, "<",   γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, ">",   2, &A, &B)) return g_compare(cx, A, B, ">",   γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "=<",  2, &A, &B)) return g_compare(cx, A, B, "=<",  γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, ">=",  2, &A, &B)) return g_compare(cx, A, B, ">=",  γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "=:=", 2, &A, &B)) return g_compare(cx, A, B, "=:=", γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "=\\=",2, &A, &B)) return g_compare(cx, A, B, "=\\=",γ_in, ω_in, α_out, β_out);
+        /* is/2 — arith evaluation: LHS via g_term (->bb->α for resolve_node_to_term), RHS VALUE role (->bb->β for resolve_arith_eval). */
+        if (tm_g(e, TT_FNC, "is",  2, &A, &B)) return g_is(cx, A, B, γ_in, ω_in, α_out, β_out);
+        /* user-predicate call: TT_FNC(name, arg0..argN-1) → IR_GOAL with bb_goal_state_t sidecar.
+           IR_GOAL exec (bb_exec.c:3317) looks up callee/arity in resolve_bb_lookup, allocates per-activation
+           env, runs the body graph, restores on fail, retries via bb->state. FACT-RULE clean: Prolog-only IR kind. */
+        { const char * fn = e->v.sval; int ar = e->n;
+          if (fn && ar >= 0) {
+              IR_t * nd = nalloc(cx, IR_GOAL); if (!nd) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+              bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc);
+              if (!zc) return NULL;
+              zc->callee = fn; zc->arity = ar; zc->nargs = ar; zc->cs = NULL;
+              zc->args = ar > 0 ? (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *)) : NULL;
+              for (int ai = 0; ai < ar; ai++) {
+                  if (!e->c[ai]) { zc->args[ai] = NULL; continue; }
+                  IR_t * aaα = NULL, * aaβ = NULL;
+                  g_term(cx, e->c[ai], NULL, NULL, &aaα, &aaβ);
+                  zc->args[ai] = aaα;
+              }
+              nd->ival = (int64_t)(intptr_t)zc;
+              set_succ_fail(nd, γ_in, ω_in);
+              return ret(nd, α_out, β_out, nd, nd /* β=self: exec re-enters on retry with bb->state advanced */);
+          }
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     }
     default:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
@@ -1170,31 +1276,68 @@ IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t 
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* lower2_clause_body_entry — lower one Prolog clause's BODY (a TT_CLAUSE) into a four-port GOAL graph. The
- * clause carries arity in v.dval; its first `arity` children are head-arg term patterns (PLG-1 covers only
- * arity-0 facts/rules, so head matching is deferred), the remaining children are the body goals. The body is
- * a conjunction: wire the body-goal children as an IR_GCONJ sequence (the same wire_seq Icon `&`/SNOBOL CAT
- * use). γ_in/ω_in are the clause's success/failure sentinels. A 0-goal body (a bare fact, e.g. `color(red).`)
- * succeeds immediately -> γ_in. Successor to the deleted lower_pl_clause_body.                                */
+/* lower2_clause_body_entry — lower one Prolog clause (TT_CLAUSE) into a four-port GOAL graph. The clause
+ * carries arity in v.dval; its first `arity` children are head-arg term patterns, the rest are body goals.
+ * PLG-3 adds HEAD UNIFICATION: the IR_GOAL caller binds callee env slot i to the caller's i-th argument
+ * (term_new_var(i)), so each head arg position i must unify with LOGICVAR(i). For a head VAR at slot i this
+ * is a trivial self-unify (frontend assigns head var position i -> slot i); for a head atom/number/compound
+ * it binds slot i to that term. We emit, in order: g_head_unify(0..arity-1) then the body goals, all wired
+ * as ONE IR_GCONJ. A 0-arg, 0-body bare fact succeeds immediately. γ_in/ω_in = clause succ/fail sentinels.   */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* g_head_unify — emit IR_UNIFY(LOGICVAR(slot), head_arg_term). LHS is a synthetic logicvar referencing the
+ * callee env slot the IR_GOAL arm bound; RHS is the head-arg tree lowered as a term. Semidet (resume->ω).   */
+static IR_t * g_head_unify(lcx_t cx, int slot, const tree_t * head_arg, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!head_arg) return NULL;
+    IR_t * uni = nalloc(cx, IR_UNIFY); if (!uni) return NULL;
+    IR_t * lv = nalloc(cx, IR_LOGICVAR); if (!lv) return NULL;
+    lv->ival = slot; lv->sval = NULL;
+    if (cx.pl_vars && slot + 1 > cx.pl_vars->count) cx.pl_vars->count = slot + 1;
+    IR_t * rα = NULL, * rβ = NULL;
+    IR_t * r = g_term(cx, head_arg, NULL, NULL, &rα, &rβ);
+    if (!r) return NULL; (void) rβ;
+    uni->α = lv;                                    /* lhs = callee env slot (resolve_node_to_term reads it) */
+    uni->β = rα;                                    /* rhs = head-arg term-tree */
+    set_succ_fail(uni, γ_in, ω_in);
+    return ret(uni, α_out, β_out, uni, ω_in /* semidet */);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     int arity = (int) clause->v.dval;
     if (arity < 0) arity = 0;
     int nbody = clause->n - arity;
+    if (nbody < 0) nbody = 0;
     pl_vars_t pv; pv.count = 0;
-    if (nbody <= 0) {                                   /* bare fact: no body goals -> succeed once */
-        lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
+    lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
+    cx.pl_vars = &pv;
+    /* count head args that need a real unify goal: a head VAR at its own positional slot is a self-unify we
+       still emit (harmless, keeps slot count correct); atoms/numbers/compounds bind. We emit one per arg. */
+    if (arity == 0 && nbody == 0) {                 /* bare 0-arg fact: succeed once */
         IR_t * s = nalloc(cx, IR_SUCCEED);
         if (bbg) bbg->nslots = 0;
         return emit_leaf(cx, s, γ_in, ω_in, α_out, β_out);
     }
-    const tree_t * goals[64];
-    if (nbody > 64) return NULL;
-    for (int i = 0; i < nbody; i++) goals[i] = clause->c[arity + i];
-    lcx_t cx = { bbg, ROLE_GOAL, 0, 0 };
-    cx.pl_vars = &pv;
-    IR_t * top = wire_seq(cx, IR_GCONJ, goals, nbody, γ_in, ω_in, α_out, β_out);
+    /* Build the head-unify + body goal spine. We can't synthesize tree nodes for head unifies, so we wire
+       the IR directly: lower each piece NULL/NULL (unthreaded), collect their α nodes, then fail-chain them
+       like wire_seq does for IR_GCONJ. To reuse wire_seq's exact topology we instead lower head-unifies and
+       body goals into a single GCONJ by hand-threading: simplest correct form is a left-to-right γ-chain
+       with each element's ω -> previous element's β (the conjunction backtrack), matching wire_seq.        */
+    int total = arity + nbody;
+    if (total > 128) return NULL;
+    IR_t * entry[128]; IR_t * resume[128]; IR_t * apply[128];
+    IR_t * node = nalloc(cx, IR_GCONJ); if (!node) return NULL;
+    /* Lower each element right-to-left (last element's γ -> the wrapper node; mirrors wire_seq). Head-unify
+       elements (idx < arity) and body-goal elements (idx >= arity) share the same fail-chain threading. */
+    for (int idx = total - 1; idx >= 0; idx--) {
+        IR_t * γi = (idx + 1 < total) ? entry[idx + 1] : node;
+        IR_t * eα = NULL, * eβ = NULL; IR_t * top = NULL;
+        if (idx < arity) top = g_head_unify(cx, idx, clause->c[idx], γi, ω_in, &eα, &eβ);
+        else             top = lower2(cx, clause->c[idx], γi, ω_in, &eα, &eβ);
+        if (!top || !eα) return NULL;
+        apply[idx] = top; entry[idx] = eα; resume[idx] = eβ;
+    }
+    for (int i = 1; i < total; i++) if (resume[i - 1]) apply[i]->ω = resume[i - 1];   /* child[i].fail -> child[i-1].resume */
+    set_succ_fail(node, γ_in, ω_in);
     if (bbg) bbg->nslots = pv.count;
-    return top;
+    return ret(node, α_out, β_out, entry[0], resume[total - 1]);
 }
