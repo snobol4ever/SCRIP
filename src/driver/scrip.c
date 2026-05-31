@@ -129,6 +129,17 @@ static IR_t * sno_ring_to_tree(IR_graph_t *g) {
         chain[1]->α = chain[0];
         return chain[1];
     }
+    /* SBL-M3-ARITH (2026-05-31): `name = lit op lit` — the postfix chain is LIT_I -> LIT_I -> BINOP ->     */
+    /* ASSIGN. Fold the two ints onto the binop (α=first, β=second — postfix order), then the binop onto    */
+    /* the assign's α, and return the assign as root. The binop is the GZ-3 RO-int stackless box; the       */
+    /* assign reads its ζ-frame slot (bb_sno_assign IR_BINOP arm). Bounded single-shot, NO value stack.     */
+    if (nc == 4 && chain[0]->t == IR_LIT_I && chain[1]->t == IR_LIT_I
+        && chain[2]->t == IR_BINOP && chain[3]->t == IR_ASSIGN && chain[3]->sval) {
+        chain[2]->α = chain[0];
+        chain[2]->β = chain[1];
+        chain[3]->α = chain[2];
+        return chain[3];
+    }
     return NULL;
 }
 /*====================================================================================================================================================================================================*/

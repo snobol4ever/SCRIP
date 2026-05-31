@@ -27,12 +27,63 @@
 extern "C" {
 #include "bb_template_common.h"
 void rt_sno_assign_lit_s(const char *name, const char *str);
+void rt_sno_assign_int(const char *name, int64_t val);
+int  bb_slot_get(IR_t * nd);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SBL-M3-ARITH (2026-05-31): SNOBOL4 `name = <int binop>` assign. The rhs is the GZ-3 stackless RO-int binop box, which has already stored its raw int64 result into a ζ-frame slot [r12+off]; recover off via bb_slot_get(rhs).  */
+/* This box reads the int64 by value into rsi and the target name (RO immediate / .L label) into rdi, then calls rt_sno_assign_int (builds a DT_I DESCR + NV_SET_fn — OUTPUT prints via the same hook as lit_s). NO value stack.   */
+static std::string bb_sno_assign_int_str(IR_t * pBB, IR_t * rhs, bb_bin_t & bin) {
+    int off = bb_slot_get(rhs);
+    if (off < 0) {
+        if (MEDIUM_BINARY) {
+            fprintf(stderr, "[SBB] FATAL bb_sno_assign(binop): result slot not allocated (bb_slot_get miss) for '%s'\n", pBB->sval ? pBB->sval : "(null)");
+            abort();
+        }
+        return bomb_text(emit_fmt("SNO IR_ASSIGN(binop): result slot not allocated for '%s'", pBB->sval ? pBB->sval : "(null)").c_str());
+    }
+    const char *name = pBB->sval;
+    if (MEDIUM_TEXT) {
+        int id = g_flat_node_id++;
+        std::string nlbl = emit_fmt(".Lsno_iname_%d", id);
+        return s_directive(".section .rodata")
+             + s_L1asm(nlbl + ":", emit_fmt(".asciz \"%s\"", name))
+             + s_directive(".section .text")
+             + s_1asm(emit_fmt("%s:", _.lbl_α))
+             + s_comment(emit_fmt("# BOX SNO IR_ASSIGN(int binop) store(\"%s\") = [r12+%d] [stackless, @PLT]", name, off))
+             + s_2asm("mov",  emit_fmt("rsi, [r12 + %d]", off))
+             + s_2asm("lea",  emit_fmt("rdi, [rip + %s]", nlbl.c_str()))
+             + s_2asm("call", "rt_sno_assign_int@PLT")
+             + s_2asm("jmp",  _.lbl_γ)
+             + s_1asm(std::string(_.lbl_β) + ":")
+             + s_2asm("jmp",  _.lbl_ω);
+    }
+    if (MEDIUM_BINARY) {
+        uint64_t nptr = (uint64_t)(uintptr_t)name;
+        uint64_t fptr; { void (*fp)(const char *, int64_t) = rt_sno_assign_int; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        /*   0  : 49 8B B4 24 <u32 off>   mov rsi, [r12+off]   (read the binop's int64 result from the ζ slot)*/
+        /*   8  : 48 BF + u64le name_ptr  movabs rdi, name_ptr                                                */
+        /*  18  : 48 B8 + u64le fn_ptr    movabs rax, &rt_sno_assign_int                                      */
+        /*  28  : FF D0                   call rax                                                            */
+        /*  30  : E9 + u32le γ_rel32      jmp γ               ← γ patch at 31                                 */
+        /*  35  : E9 + u32le ω_rel32      β: jmp ω            ← β-def 35, ω patch 36                          */
+        /*  40  : end                                                                                         */
+        bin = { {31, 35, 36}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+        return bytes(4, "\x49\x8B\xB4\x24") + u32le((uint32_t)off)
+             + bytes(2, "\x48\xBF")         + u64le(nptr)
+             + bytes(2, "\x48\xB8")         + u64le(fptr)
+             + bytes(2, "\xFF\xD0")
+             + bytes(1, "\xE9")             + u32le(0)
+             + bytes(1, "\xE9")             + u32le(0);
+    }
+    return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_sno_assign_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — SNO IR_ASSIGN(lit_s)");
+    if (pBB && pBB->sval && pBB->α && pBB->α->t == IR_BINOP) return bb_sno_assign_int_str(pBB, pBB->α, bin);
     if (MEDIUM_TEXT) {
         /* SBL-M4-STACKLESS (2026-05-31, Opus 4.8): mode-4 GAS arm — same four-port stackless shape as the
            BINARY arm, but the name/str are RO `.L` labels reached via `lea [rip+label]` (PIC-safe) and the

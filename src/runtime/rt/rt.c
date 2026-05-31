@@ -402,6 +402,17 @@ void rt_sno_assign_lit_s(const char *name, const char *str)
     NV_SET_fn(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SBL-M3-ARITH (2026-05-31): integer analog of rt_sno_assign_lit_s. The stackless RO-int binop box (GZ-3 bb_binop.cpp) computed its raw int64 result into a ζ-frame slot; the SNOBOL4 assign box reads that slot by value     */
+/* and hands it here with the target name. Build a DT_I integer DESCR and store via NV_SET_fn — the same associated-variable hook (output_val) that handles OUTPUT assignment in rt_sno_assign_lit_s, so `OUTPUT = 2 + 3` prints. */
+void rt_sno_assign_int(const char *name, int64_t val)
+{
+    DESCR_t d;
+    d.v    = DT_I;
+    d.slen = 0;
+    d.i    = val;
+    NV_SET_fn(name ? name : "", d);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pop_void(void)
 {
     (void)vstack_pop();

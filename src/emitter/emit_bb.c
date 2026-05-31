@@ -1027,6 +1027,25 @@ static void flat_drive_sno_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_sno_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    /* SBL-M3-ARITH (2026-05-31): SNOBOL4 `name = lit op lit`. Mirrors flat_drive_call_intexpr: walk the rhs
+       binop FIRST (it allocates its ζ-frame result slot via bb_slot_alloc during emission), then emit the
+       assign box, which recovers the slot offset via bb_slot_get(rhs) and reads [r12+off]. Bounded single-
+       shot, NO value stack. β of the assign jumps ω (an assign does not resume). */
+    if (!pBB || !pBB->α || pBB->α->t != IR_BINOP) {
+        fprintf(stderr, "[SBB] FATAL flat_drive_sno_assign_binop: rhs is not IR_BINOP\n");
+        abort();
+    }
+    int id = g_flat_node_id++;
+    bb_label_t *rhs_done = emit_label_alloc("xsasg%d_rhs_done", id);
+    bb_label_t *rhs_β    = emit_label_alloc("xsasg%d_rhs_β",    id);
+    walk_bb_flat(pBB->α, rhs_done, lbl_ω, rhs_β);
+    emit_label_define_bb(rhs_done);
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_assign: missing α (lhs IR_VAR)\n");
@@ -1378,7 +1397,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_ASSIGN:     if (nd->α && nd->α->t == IR_LIT_S && nd->sval) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ASSIGN:     if (nd->sval && nd->α && nd->α->t == IR_LIT_S) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:     flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:
