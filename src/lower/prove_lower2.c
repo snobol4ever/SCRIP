@@ -133,24 +133,33 @@ int main(void) {
     dump_goal("Prolog:   write('hello world')   [g_det_builtin1: arg.gamma->CALL, CALL.sval=write, det]",
          fnc1("write", slit("hello world")), 2);
 
-    /* SHARED COMBINATORS — the same wire_seq / wire_alt shapes across all three roles. */
-    /* SNOBOL4 PATTERN CAT: 'WIN' REM  (P1.gamma->P2.alpha; P2.omega->P1.beta; last->PCAT node). 3 nodes (PLIT,PREM,PCAT). */
+    /* ============================================================================================ */
+    /* SHARED COMBINATORS + PER-LANGUAGE PROOF CASES. The three concurrent sessions APPEND their own    */
+    /* cases to their OWN section below (between the BEGIN/END markers) so the inserts land in different  */
+    /* hunks and git auto-merges — never add a case outside your language's section. (FACT RULE: the      */
+    /* proof gate is the shared green signal; cases are additive.)                                        */
+    /* ============================================================================================ */
+
+    /* ===== SNOBOL4 SECTION — APPEND SNOBOL4 (PATTERN-role) CASES BELOW THIS LINE ===== */
     dump_pat("SNOBOL4:  'WIN' REM   [PATTERN CAT = wire_seq(IR_PAT_CAT): subsequent, P1.gamma->P2.alpha]",
          bin(TT_CAT, slit("WIN"), ast_node_new(TT_REM)), 3);
-    /* SNOBOL4 PATTERN ALT: 'A' | 'B' | 'C'  (arm.gamma->PALT; fail-chain; 4 nodes: 3 PLIT + PALT). */
     dump_pat("SNOBOL4:  'A' | 'B' | 'C'   [PATTERN ALT = wire_alt(IR_PAT_ALT): fail-chain]",
          tri(TT_ALT, slit("A"), slit("B"), slit("C")), 4);
-    /* Prolog conjunction g1 , g2 , g3  (write/1 each) — wire_seq(IR_GCONJ): 3 CALL + GCONJ = 7 nodes. */
+    /* ===== END SNOBOL4 SECTION ===== */
+
+    /* ===== ICON SECTION — APPEND ICON (VALUE-role) CASES BELOW THIS LINE ===== */
+    /* (Icon's foundation/L2-A/B cases live above in the Proebsting block; new Icon proofs go here.) */
+    /* ===== END ICON SECTION ===== */
+
+    /* ===== PROLOG SECTION — APPEND PROLOG (GOAL-role) CASES BELOW THIS LINE ===== */
     dump_goal("Prolog:   (write(a) , write(b))   [GOAL conj = wire_seq(IR_GCONJ): same shape as Icon &/SNOBOL CAT]",
          gfnc2(",", fnc1("write", slit("a")), fnc1("write", slit("b"))), 5);
-    /* Prolog disjunction g1 ; g2  — wire_alt(IR_DISJ): same fail-chain as Icon alt / SNOBOL ALT. */
     dump_goal("Prolog:   (write(a) ; write(b))   [GOAL disj = wire_alt(IR_DISJ): same fail-chain as SNOBOL ALT]",
          gfnc2(";", fnc1("write", slit("a")), fnc1("write", slit("b"))), 5);
-    /* Prolog unify X = Y  — g_unify: lhs.gamma->rhs.alpha->UNIFY. 3 nodes (2 VAR + UNIFY). */
     dump_goal("Prolog:   X = Y   [g_unify: lhs.gamma->rhs.alpha->UNIFY, semidet resume->fail]",
          gfnc2("=", var("X"), var("Y")), 3);
-    /* Prolog comparison X < 5  — g_compare: ARITH node, ival=BINOP_LT(5). 3 nodes (VAR, LIT_I, ARITH). */
     dump_goal("Prolog:   X < 5   [g_compare: ARITH ival=BINOP_LT, lhs.gamma->rhs.alpha->ARITH]",
          gfnc2("<", var("X"), lit(5)), 3);
+    /* ===== END PROLOG SECTION ===== */
     return 0;
 }
