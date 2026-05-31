@@ -1,7 +1,7 @@
 # EM-XVAL-DESCR EXVAL-1 — bb_box_fn Return Value Audit
 
 **Date:** sess 2026-05-12 (Claude Sonnet 4.6)
-**One4all HEAD:** a2b65fb9
+**SCRIP HEAD:** a2b65fb9
 **Goal:** Identify every `bb_box_fn` call site that assumes SNOBOL4 σ/δ layout
 (i.e., reads `.s` / `.slen` from the returned `DESCR_t` without checking `.v`).
 

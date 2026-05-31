@@ -8,11 +8,11 @@
 # Usage: bash dyn89_sweep.sh [corpus_dir]
 # Default: ~/corpus/programs/snobol4
 #
-# Placed in one4all/csnobol4/ alongside the CSNOBOL4 patch files.
+# Placed in SCRIP/csnobol4/ alongside the CSNOBOL4 patch files.
 
 set -uo pipefail
 
-SNO4=/home/claude/one4all/sno4parse
+SNO4=/home/claude/SCRIP/sno4parse
 CORPUS="${1:-/home/claude/corpus/programs/snobol4}"
 TIMEOUT=10
 

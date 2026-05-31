@@ -1,7 +1,7 @@
 # HANDOFF — PLR-J-3: compound-term builder in raw bytes (functor/arg/=.. MEDIUM_BINARY arms)
 
 **Date:** 2026-05-29
-**one4all commit:** `bbf60667` (parent `40c17ecb`)
+**SCRIP commit:** `bbf60667` (parent `40c17ecb`)
 **Goal:** GOAL-PROLOG-BB.md → PL-LOWER-REVAMP → PLR-J rung ladder
 **Scope:** `src/emitter/BB_templates/bb_builtin.cpp` only, +180 lines, one template file, FACT-clean.
 

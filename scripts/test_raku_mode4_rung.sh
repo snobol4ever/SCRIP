@@ -10,11 +10,11 @@
 # measures the generative-path gap, mirroring Prolog GATE-4.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$(cd "$HERE/.." && pwd)"
-SCRIP="${SCRIP:-$ONE4ALL/scrip}"
-LIBRT="${LIBRT:-$ONE4ALL/out/libscrip_rt.so}"
+SCRIP="$(cd "$HERE/.." && pwd)"
+SCRIP="${SCRIP:-$SCRIP/scrip}"
+LIBRT="${LIBRT:-$SCRIP/out/libscrip_rt.so}"
 RUNNER="$HERE/run_raku_via_x86_backend.sh"
-TESTDIR="$ONE4ALL/test/raku"
+TESTDIR="$SCRIP/test/raku"
 [ -x "$SCRIP" ] || { echo "FAIL scrip not built: $SCRIP"; exit 1; }
 [ -f "$LIBRT" ] || { echo "FAIL libscrip_rt.so not built: $LIBRT (run 'make libscrip_rt')"; exit 1; }
 [ -d "$TESTDIR" ] || { echo "SKIP no test/raku dir"; exit 0; }

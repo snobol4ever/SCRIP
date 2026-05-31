@@ -117,8 +117,8 @@ src/lower/bb_exec.c
 ## Next session quick start
 
 ```bash
-git clone https://TOKEN@github.com/snobol4ever/one4all
-cd one4all
+git clone https://TOKEN@github.com/snobol4ever/SCRIP
+cd SCRIP
 git checkout ag-pure-icn
 bash scripts/build_scrip.sh
 bash scripts/test_smoke_icon.sh        # expect 5/5

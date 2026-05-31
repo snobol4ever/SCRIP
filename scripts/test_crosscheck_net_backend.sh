@@ -14,7 +14,7 @@
 #   CORPUS       — crosscheck corpus dir (default: /home/claude/corpus/crosscheck)
 #   HARNESS_REPO — path to harness  (default: /home/claude/harness)
 #   STOP_ON_FAIL — 1 = stop at first failure (default: 0)
-#   NET_CACHE    — ilasm cache dir (default: /tmp/one4all_net_cache)
+#   NET_CACHE    — ilasm cache dir (default: /tmp/SCRIP_net_cache)
 #
 # Speed: first run is slow (~400ms/test for ilasm). Repeat runs skip unchanged
 # .exe files via md5 cache — only mono startup (~110ms) per test.
@@ -28,7 +28,7 @@ TINY="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CORPUS="${CORPUS:-$(cd "$TINY/../corpus/crosscheck" && pwd)}"
 HARNESS_REPO="${HARNESS_REPO:-$TINY/../harness}"
 STOP_ON_FAIL="${STOP_ON_FAIL:-0}"
-export NET_CACHE="${NET_CACHE:-/tmp/one4all_net_cache}"
+export NET_CACHE="${NET_CACHE:-/tmp/SCRIP_net_cache}"
 export TINY_REPO="$TINY"
 
 ADAPTER="$HARNESS_REPO/adapters/tiny_net/run.sh"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test/regression.sh — scrip regression: full corpus vs .ref, all modes
 # Usage: CORPUS=/home/claude/corpus bash test/regression.sh [--mode MODE]
-# From:  /home/claude/one4all/
+# From:  /home/claude/SCRIP/
 #
 # Modes: --run (default), --interp, x86, jvm, net, wasm
 # With no --mode flag runs --run only. Specify --mode to test other backends.

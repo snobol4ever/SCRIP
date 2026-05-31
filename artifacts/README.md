@@ -145,7 +145,7 @@ done
 
 ```bash
 export JAVA_TOOL_OPTIONS=""
-cd /home/claude/one4all
+cd /home/claude/SCRIP
 JASMIN=src/backend/jasmin.jar
 INC=demo/inc
 mkdir -p /tmp/art_out

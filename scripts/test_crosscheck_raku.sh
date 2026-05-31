@@ -73,7 +73,7 @@ xcheck "concat" "$T"
 rm -f "$T"
 
 # Raku corpus rung files
-RUNGS=/home/claude/one4all/test/raku
+RUNGS=/home/claude/SCRIP/test/raku
 for f in "$RUNGS"/*.raku; do
     [ -f "$f" ] || continue
     ref="${f%.raku}.ref"

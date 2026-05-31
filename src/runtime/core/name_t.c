@@ -55,7 +55,7 @@ int name_commit_value(const NAME_t *nm, DESCR_t value)
             }
         }
         DESCR_t name_d = g_user_call_hook(nm->fnc_name, call_args, call_n);
-        if (getenv("ONE4ALL_USERCALL_TRACE")) {
+        if (getenv("SCRIP_USERCALL_TRACE")) {
             fprintf(stderr, "NM_CALL name=%s nargs=%d arg_names=%s\n",
                     nm->fnc_name ? nm->fnc_name : "(null)",
                     call_n,

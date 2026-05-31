@@ -2,7 +2,7 @@
 # test_monitor_beauty_smoke.sh — GOAL-INPROC-MONITOR IM-16
 #
 # Runs scrip-monitor --monitor on a curated set of SNOBOL4 programs and
-# reports the first diverging statement between one4all (IR/SM/native codegen) and
+# reports the first diverging statement between SCRIP (IR/SM/native codegen) and
 # CSNOBOL4.  This is a diagnostic tool — the script always exits 0.
 # Divergences are expected and informative, not failures.
 #
@@ -67,7 +67,7 @@ run_program() {
     fi
 }
 
-echo "=== --monitor beauty smoke: one4all vs CSNOBOL4 (IM-16) ==="
+echo "=== --monitor beauty smoke: SCRIP vs CSNOBOL4 (IM-16) ==="
 echo "    scrip-monitor: $SCRIP_MONITOR"
 echo ""
 
@@ -86,7 +86,7 @@ run_program "control: both branches"   "$TEST/control_new/035_goto_both_branches
 run_program "control: loop count"      "$TEST/control_new/032_goto_loop_count.sno"
 
 # ── Data structures: TABLE and ARRAY ─────────────────────────────────────────
-# These are known divergence points between one4all and CSNOBOL4.
+# These are known divergence points between SCRIP and CSNOBOL4.
 run_program "data: TABLE create/access"  "$TEST/data/093_table_create_access.sno"
 run_program "data: DATA define/access"   "$TEST/data/094_data_define_access.sno"
 run_program "rung11: ARRAY 1-D"          "$TEST/rung11/1110_array_1d.sno"
@@ -97,7 +97,7 @@ run_program "string: REPLACE"          "$TEST/strings/067_builtin_replace.sno"
 run_program "string: DUPL"             "$TEST/strings/069_builtin_dupl.sno"
 
 # ── Advanced: OPSYN, APPLY, indirect ─────────────────────────────────────────
-# OPSYN/indirect may SKIP due to pre-existing CSNOBOL4 gaps (not one4all bugs).
+# OPSYN/indirect may SKIP due to pre-existing CSNOBOL4 gaps (not SCRIP bugs).
 run_program "rung10: OPSYN"            "$TEST/rung10/1015_opsyn.sno"
 run_program "rung10: APPLY"            "$TEST/rung10/1018_apply.sno"
 run_program "rung2: indirect ref"      "$TEST/rung2/210_indirect_ref.sno"
@@ -105,7 +105,7 @@ run_program "rung2: indirect ref"      "$TEST/rung2/210_indirect_ref.sno"
 echo ""
 echo "AGREE=$AGREE DIVERGE=$DIVERGE SKIP=$SKIP"
 echo ""
-echo "Note: DIVERGE = first stmt where one4all IR/SM/native codegen diverges from CSNOBOL4."
+echo "Note: DIVERGE = first stmt where SCRIP IR/SM/native codegen diverges from CSNOBOL4."
 echo "      SKIP    = pre-existing CSNOBOL4 gap or file not present."
 echo "      This script is a diagnostic tool — exit 0 always."
 

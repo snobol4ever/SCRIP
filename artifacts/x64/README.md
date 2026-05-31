@@ -1,4 +1,4 @@
-# artifacts/x64/ -- Mode-4 x86-64 Generated Assembly (one4all mirror)
+# artifacts/x64/ -- Mode-4 x86-64 Generated Assembly (SCRIP mirror)
 
 ## Canonical location
 
@@ -11,7 +11,7 @@ the corpus repo:
 Those two are the inspection targets. Git history there is the emitter
 evolution record.
 
-## This directory (one4all/artifacts/x64/)
+## This directory (SCRIP/artifacts/x64/)
 
     beauty_prog.s    Generated from beauty.sno (4700+ SM instructions).
                      Not for line-by-line inspection -- used for:
@@ -28,7 +28,7 @@ the definitive regen + commit procedure.
 
 Short form: at end of every session touching the emitter --
 
-    cd /home/claude/one4all
+    cd /home/claude/SCRIP
     DEMO=/home/claude/corpus/programs/snobol4/demo
     ./scrip --compile $DEMO/roman.sno    > $DEMO/roman.s    2>/dev/null
     ./scrip --compile $DEMO/wordcount.sno > $DEMO/wordcount.s 2>/dev/null

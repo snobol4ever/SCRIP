@@ -24,9 +24,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$(cd "$HERE/.." && pwd)"
-TEST="$ONE4ALL/test/frontend/snocone/test_snocone_parse_f.c"
-SRCDIR="$ONE4ALL/src/frontend/snocone"
+SCRIP="$(cd "$HERE/.." && pwd)"
+TEST="$SCRIP/test/frontend/snocone/test_snocone_parse_f.c"
+SRCDIR="$SCRIP/src/frontend/snocone"
 BIN="/tmp/test_snocone_parse_f"
 
 cc -Wall -o "$BIN" \
@@ -34,7 +34,7 @@ cc -Wall -o "$BIN" \
     "$SRCDIR/snocone_parse.tab.c" \
     "$SRCDIR/snocone_lex.c" \
     -I "$SRCDIR" \
-    -I "$ONE4ALL/src/frontend/snobol4" \
-    -I "$ONE4ALL/src"
+    -I "$SCRIP/src/frontend/snobol4" \
+    -I "$SCRIP/src"
 
 "$BIN"

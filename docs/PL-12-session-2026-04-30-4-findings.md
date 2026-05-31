@@ -2,7 +2,7 @@
 
 ## Baseline at session start
 
-- one4all `75d5775b`, corpus `2a69e92`, .github `94e86ca`.
+- SCRIP `75d5775b`, corpus `2a69e92`, .github `94e86ca`.
 - smoke 5/5, broker 49/49, SWI suite **43/57 = 75%** (gate ≥ 80%).
 - Previous session #3 landed the directive-cenv fix in polyglot.c (per-directive
   pl_env_new for var-binding propagation).
@@ -199,7 +199,7 @@ Per RULES.md "regression-in-error-class": **NOT COMMITTED.**
 
 | | start | end |
 |---|---|---|
-| one4all HEAD | 75d5775b | 75d5775b + docs commit |
+| SCRIP HEAD | 75d5775b | 75d5775b + docs commit |
 | corpus HEAD | 2a69e92 | 2a69e92 |
 | .github HEAD | 94e86ca | 94e86ca + goal-file update |
 | smoke_prolog | 5/5 | 5/5 |

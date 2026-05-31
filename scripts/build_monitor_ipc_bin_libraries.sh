@@ -6,7 +6,7 @@
 # is newer than its .c source AND its monitor_wire.h dependency.
 #
 # Outputs:
-#   one4all/scripts/monitor/monitor_ipc_bin_csn.so   — CSNOBOL4 LOAD()able
+#   SCRIP/scripts/monitor/monitor_ipc_bin_csn.so   — CSNOBOL4 LOAD()able
 #   x64/monitor_ipc_bin_spl.so                       — SPITBOL LOAD()able
 #
 # Per RULES.md:

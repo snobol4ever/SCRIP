@@ -73,7 +73,7 @@ fi
 # <lval> on either side.
 python3 - << 'PY' || FAIL=$((FAIL+1))
 import sys, os
-sys.path.insert(0, '/home/claude/one4all/scripts/monitor')
+sys.path.insert(0, '/home/claude/SCRIP/scripts/monitor')
 import monitor_sync_bin as m
 
 # Construct two events: one with name 'UTF', one with '<lval>'
@@ -110,7 +110,7 @@ if [ $? -eq 0 ]; then PASS=$((PASS+1)); else echo "FAIL Check 2: keys_match wild
 # UNKNOWN logic still working in the new code).
 python3 - << 'PY' || FAIL=$((FAIL+1))
 import sys
-sys.path.insert(0, '/home/claude/one4all/scripts/monitor')
+sys.path.insert(0, '/home/claude/SCRIP/scripts/monitor')
 import monitor_sync_bin as m
 
 # Aggregate-element store: spl emits UNKNOWN type + junk name; dot emits

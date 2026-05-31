@@ -1,6 +1,6 @@
 # CH-17g-irrun-execution — empirical survey of Step 2 attempt
 
-**Session: 2026-05-09.  one4all HEAD `0c72978d` (CH-17g-final-SURVEY-2).**
+**Session: 2026-05-09.  SCRIP HEAD `0c72978d` (CH-17g-final-SURVEY-2).**
 
 ## Summary
 
@@ -139,7 +139,7 @@ capture).
 
 | Item                            | Value |
 |---------------------------------|-------|
-| one4all HEAD                    | `0c72978d` |
+| SCRIP HEAD                    | `0c72978d` |
 | Icon corpus `----interp`          | PASS=177 FAIL=56 XFAIL=30 TOTAL=263 |
 | Prolog corpus (`test/prolog/*.pl`) `----interp` PASS subset | hello, palindrome, roman, sentences, wordcount (5/6) |
 | Prolog corpus `----interp` FAIL   | queens.pl (kind 59 / E_CHOICE) |

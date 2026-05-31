@@ -12,8 +12,8 @@
 # explicit timeout on every scrip call, < /dev/null for safety.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$(cd "$HERE/.." && pwd)"
-SCRIP="${SCRIP:-$ONE4ALL/scrip}"
+SCRIP="$(cd "$HERE/.." && pwd)"
+SCRIP="${SCRIP:-$SCRIP/scrip}"
 CORPUS="/home/claude/corpus"
 SCRIP_DIR="$CORPUS/SCRIP"
 

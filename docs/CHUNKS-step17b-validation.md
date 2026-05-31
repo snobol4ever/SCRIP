@@ -1,7 +1,7 @@
 # CHUNKS-step17b-validation — sm_lower emits named-chunk SKELETONS
 
 **Session #75 (continued), 2026-05-07.  Watermark: post-CH-17a
-(one4all `0cb31ca4`).**
+(SCRIP `0cb31ca4`).**
 
 CH-17b is the second rung of `GOAL-CHUNKS-STEP17.md`.  Spec was
 scope-reduced from "skeleton + body" to "skeleton only" mid-session,
@@ -139,4 +139,4 @@ CH-17b closes.  Next inline: **CH-17b'** — lower Icon/Raku proc
 bodies into the chunks (replace the immediate `SM_RETURN` with
 real lowered SM ops).
 
-one4all @ HEAD pre-rung: `0cb31ca4`.  Session #75, 2026-05-07.
+SCRIP @ HEAD pre-rung: `0cb31ca4`.  Session #75, 2026-05-07.

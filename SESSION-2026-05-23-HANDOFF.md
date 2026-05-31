@@ -1,6 +1,6 @@
 # SESSION HANDOFF — 2026-05-23 (Sonnet 4.6)
 
-**one4all HEAD: `3604d252`** ✅ GATE GREEN 442/0/612
+**SCRIP HEAD: `3604d252`** ✅ GATE GREEN 442/0/612
 **.github HEAD: `dc27e998`**
 
 ---
@@ -70,12 +70,12 @@ PASS=442 FAIL=0 STUB=612 NEW=0 GONE=0
 
 ```bash
 git clone https://TOKEN@github.com/snobol4ever/.github /home/claude/.github
-git clone https://TOKEN@github.com/snobol4ever/one4all /home/claude/one4all
+git clone https://TOKEN@github.com/snobol4ever/SCRIP /home/claude/SCRIP
 git clone https://TOKEN@github.com/snobol4ever/corpus  /home/claude/corpus
 cat /home/claude/.github/PLAN.md
 cat /home/claude/.github/GOAL-HEADQUARTERS.md
-bash /home/claude/one4all/scripts/install_system_packages.sh
-cd /home/claude/one4all && make -j4 scrip
-bash /home/claude/one4all/scripts/test_per_kind_diff.sh
+bash /home/claude/SCRIP/scripts/install_system_packages.sh
+cd /home/claude/SCRIP && make -j4 scrip
+bash /home/claude/SCRIP/scripts/test_per_kind_diff.sh
 # Expect: PASS=442 FAIL=0 STUB=612
 ```

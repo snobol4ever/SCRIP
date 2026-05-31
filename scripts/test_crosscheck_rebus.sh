@@ -68,7 +68,7 @@ xcheck "concat" "$T"
 rm -f "$T"
 
 # Rebus corpus files
-RUNGS=/home/claude/one4all/test/rebus
+RUNGS=/home/claude/SCRIP/test/rebus
 for f in "$RUNGS"/*.reb; do
     [ -f "$f" ] || continue
     ref="${f%.reb}.ref"

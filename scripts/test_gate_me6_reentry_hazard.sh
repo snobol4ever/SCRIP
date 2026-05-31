@@ -11,7 +11,7 @@
 #   No segfault. Exit 0.
 
 set -e
-SCRIP="${SCRIP:-/home/claude/one4all/scrip}"
+SCRIP="${SCRIP:-/home/claude/SCRIP/scrip}"
 PASS=0; FAIL=0
 
 run_test() {

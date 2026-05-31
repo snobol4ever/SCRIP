@@ -1,6 +1,6 @@
 # CHUNKS-step16-survey — Prolog cluster (sm_lower.c:1213) reachability + consumer-side blocker
 
-**Session #75, 2026-05-07.  Watermark: post-CH-15-SURVEY (one4all `5d240d10`).**
+**Session #75, 2026-05-07.  Watermark: post-CH-15-SURVEY (SCRIP `5d240d10`).**
 
 This is a survey rung, not a producer migration.  It records two
 empirical findings about the Step 16 territory (E_CHOICE, E_CLAUSE,
@@ -223,4 +223,4 @@ abort under `--interp` before atexit fires; FATAL is
 `bb_eval_value: unhandled kind 59 (RS-23e isolation breach)`
 where 59 = E_CHOICE in the runtime enum.
 
-one4all @ HEAD pre-rung: `5d240d10`.  Session #75, 2026-05-07.
+SCRIP @ HEAD pre-rung: `5d240d10`.  Session #75, 2026-05-07.

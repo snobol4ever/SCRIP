@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * bench_engine.js — one4all sno_engine vs spipatjs head-to-head benchmark
+ * bench_engine.js — SCRIP sno_engine vs spipatjs head-to-head benchmark
  *
  * Usage:
  *   node --experimental-vm-modules test/js/bench_engine.js
@@ -21,12 +21,12 @@ const SPIPAT_PATH = path.join(__dirname, '../../../spipatjs/spipat.mjs');
 const WARMUP  = 2000;
 const MEASURE = 20000;
 
-/* ── Load one4all engine (CJS) ─────────────────────────────────────────── */
+/* ── Load SCRIP engine (CJS) ─────────────────────────────────────────── */
 const E = require(path.join(RUNTIME_DIR, 'sno_engine.js'));
 
 /* ── Benchmark cases ────────────────────────────────────────────────────── */
 // Each case: { id, desc, subject, our_pat_fn, spipat_fn }
-// our_pat_fn()  → one4all pattern node (built fresh once)
+// our_pat_fn()  → SCRIP pattern node (built fresh once)
 // spipat_fn(sp) → spipatjs pattern object (built once after import)
 
 const CASES = [
@@ -108,10 +108,10 @@ async function main() {
         process.exit(1);
     }
 
-    // Silence one4all capture writes during bench
+    // Silence SCRIP capture writes during bench
     E._set_vars_hook(() => {});
 
-    console.log(`\none4all sno_engine vs spipatjs — ${MEASURE} iterations each`);
+    console.log(`\nSCRIP sno_engine vs spipatjs — ${MEASURE} iterations each`);
     console.log('='.repeat(65));
     console.log(`${'Benchmark'.padEnd(28)} ${'ops/sec'.padStart(12)}   elapsed`);
     console.log('-'.repeat(65));
@@ -122,19 +122,19 @@ async function main() {
         const ourPat  = c.our();
         const spipPat = c.spip(sp);
 
-        const ourOps  = bench(`${c.id} one4all  ${c.desc}`.slice(0,27), MEASURE,
+        const ourOps  = bench(`${c.id} SCRIP  ${c.desc}`.slice(0,27), MEASURE,
                               () => E.sno_search(c.subject, ourPat));
         const spipOps = bench(`${c.id} spipatjs ${c.desc}`.slice(0,27), MEASURE,
                               () => spipPat.umatch(c.subject));
         const ratio = (ourOps / spipOps).toFixed(2);
-        console.log(`    → one4all/spipatjs ratio: ${ratio}x  (>1 = one4all faster)`);
+        console.log(`    → SCRIP/spipatjs ratio: ${ratio}x  (>1 = SCRIP faster)`);
         console.log();
         results.push({ id: c.id, desc: c.desc, ourOps, spipOps, ratio });
     }
 
     console.log('='.repeat(65));
     console.log('SUMMARY');
-    console.log(`${'ID'.padEnd(5)} ${'one4all'.padStart(12)} ${'spipatjs'.padStart(12)} ${'ratio'.padStart(7)}  desc`);
+    console.log(`${'ID'.padEnd(5)} ${'SCRIP'.padStart(12)} ${'spipatjs'.padStart(12)} ${'ratio'.padStart(7)}  desc`);
     for (const r of results) {
         const flag = parseFloat(r.ratio) >= 1 ? '✓' : ' ';
         console.log(`${r.id.padEnd(5)} ${String(r.ourOps).padStart(12)} ${String(r.spipOps).padStart(12)} ${String(r.ratio).padStart(7)}x ${flag} ${r.desc}`);
@@ -147,7 +147,7 @@ async function main() {
         `bench_engine results — ${new Date().toISOString()}`,
         `node ${process.version}  WARMUP=${WARMUP}  MEASURE=${MEASURE}`,
         '',
-        'ID     one4all    spipatjs   ratio  desc',
+        'ID     SCRIP    spipatjs   ratio  desc',
         ...results.map(r =>
             `${r.id.padEnd(6)} ${String(r.ourOps).padStart(10)} ${String(r.spipOps).padStart(10)}  ${String(r.ratio).padStart(6)}x  ${r.desc}`
         ),

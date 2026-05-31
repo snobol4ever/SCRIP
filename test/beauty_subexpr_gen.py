@@ -20,7 +20,7 @@ import re, sys, os, subprocess, tempfile, argparse, random
 from pathlib import Path
 
 SBL   = '/home/claude/x64/bin/sbl'
-SCRIP = '/home/claude/one4all/scrip'
+SCRIP = '/home/claude/SCRIP/scrip'
 BEAUTY = Path('/home/claude/corpus/programs/snobol4/beauty_suite')
 OUT    = Path('/home/claude/corpus/programs/snobol4/subexpr')
 
@@ -233,7 +233,7 @@ def run_scrip(prog_text, timeout=15):
         f.write(prog_text); fname = f.name
     try:
         r = subprocess.run([SCRIP, '--interp', fname], capture_output=True,
-                           timeout=timeout, cwd='/home/claude/one4all')
+                           timeout=timeout, cwd='/home/claude/SCRIP')
         return r.stdout.decode('utf-8', errors='replace') if r.stdout else ''
     except subprocess.TimeoutExpired:
         return None

@@ -3,7 +3,7 @@
 **Date:** 2026-05-29
 **Model:** Opus 4.8
 **Goal:** GOAL-PROLOG-BB.md — PLR-J-4
-**one4all parent:** `1aa0b3c5`
+**SCRIP parent:** `1aa0b3c5`
 
 ## Summary
 

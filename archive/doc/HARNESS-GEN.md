@@ -1,6 +1,6 @@
 # HARNESS-GEN.md — Grammar-Driven Semantic Test Generator
 
-*Session G-10 s1, 2026-03-31. Lives in `one4all/doc/`. Code spans `harness/` and `one4all/`.*
+*Session G-10 s1, 2026-03-31. Lives in `SCRIP/doc/`. Code spans `harness/` and `SCRIP/`.*
 
 ---
 
@@ -22,7 +22,7 @@ This replaces hand-written corpus entries for the arithmetic/assignment fragment
 - **Statement forms:** assignment (`I = expr`) and output (`OUTPUT = expr`)
 - **Fragment:** 4-operator grammar — `+`, `-`, `*`, `/` with unary `+`/`-`
 - **Repos:** generator in `harness/adapters/tiny/Expressions.py` (done);
-  oracle IPC and suite runner in `harness/gen/`; test output to `one4all/test/generated/`
+  oracle IPC and suite runner in `harness/gen/`; test output to `SCRIP/test/generated/`
 
 ---
 
@@ -182,7 +182,7 @@ exhaust_expressions(max_size=N)        # Expressions.py — yields (str, tree) p
     if sh in catalog: continue        # already have this shape
     catalog.add(sh, expr_str, preamble, dump)
 
-emit_test_files(catalog, outdir='one4all/test/generated/')
+emit_test_files(catalog, outdir='SCRIP/test/generated/')
 ```
 
 Each emitted test is a `.sno` file + `.ref` file:
@@ -212,9 +212,9 @@ These drop directly into `crosscheck/crosscheck.sh`.
 | **M-H2** | Shape extractor + catalog | `harness/oracle/shape.py` | `i+j` and `k+l` collapse to same shape; `3+j` distinct |
 | **M-H3** | Preamble generator | `harness/gen/preamble.py` | Correct SNOBOL4 for `i..n` pool; nulls for `u..z` |
 | **M-H4** | `exhaust_expressions` yields `(str, tree)` pairs | update `Expressions.py` | Smoke test: size=2 yields 30k pairs with trees |
-| **M-H5** | Full pipeline `gen_suite.py` | `harness/gen/gen_suite.py` | Runs end-to-end for `max_size=2`; emits files to `one4all/test/generated/` |
+| **M-H5** | Full pipeline `gen_suite.py` | `harness/gen/gen_suite.py` | Runs end-to-end for `max_size=2`; emits files to `SCRIP/test/generated/` |
 | **M-H6** | Integration with crosscheck | no new code | `crosscheck.sh --engine spitbol` passes all generated tests |
-| **M-H7** | Run against one4all x86 | no new code | zero failures at `max_size=2`; divergences logged with shape |
+| **M-H7** | Run against SCRIP x86 | no new code | zero failures at `max_size=2`; divergences logged with shape |
 
 **Phase 2 (deferred):** extend to `p..r` pattern pool and `s,t` string pool.
 **Phase 2 (deferred):** random engine (`rand_expressions`) feeds same pipeline for larger coverage beyond exhaustive depth.

@@ -4,7 +4,7 @@
 # Usage: bash build/build_java.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-ONE4ALL="$ROOT/one4all"
+SCRIP="$ROOT/SCRIP"
 
 # Java
 if which javac &>/dev/null; then
@@ -16,6 +16,6 @@ else
 fi
 
 # Jasmin
-JASMIN="$ONE4ALL/src/backend/jasmin.jar"
+JASMIN="$SCRIP/src/backend/jasmin.jar"
 [ -f "$JASMIN" ] || { echo "FAIL jasmin.jar missing at $JASMIN"; exit 1; }
 echo "OK  jasmin.jar present: $JASMIN"

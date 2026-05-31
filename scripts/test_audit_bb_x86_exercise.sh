@@ -2,7 +2,7 @@
 # test_audit_bb_x86_exercise.sh — empirical audit: which BB pat-kinds actually
 # reach emit_bb_xstar/xlnth/etc. via --compile across the SNOBOL4 corpus?
 #
-# Motivation: the 7 BB-side LIFT slices (one4all 045baf4a) moved 17 emit_bb_x*
+# Motivation: the 7 BB-side LIFT slices (SCRIP 045baf4a) moved 17 emit_bb_x*
 # bodies into BB_templates/.  But the EC-UNI-REWIRE investigation
 # (2026-05-21) found that beauty.sno --compile output contains only ONE
 # `# BOX POS(0)` banner in 882901 bytes — the other 16 BB kinds are

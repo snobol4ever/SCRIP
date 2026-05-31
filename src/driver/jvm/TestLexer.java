@@ -10,7 +10,7 @@ import java.util.*;
  * Mirrors the TDD approach from dotnet TestLexer.
  *
  * Run:
- *   cd /home/claude/one4all/src/driver/jvm
+ *   cd /home/claude/SCRIP/src/driver/jvm
  *   javac -d /tmp/jvm_cls driver/jvm/Lexer.java driver/jvm/TestLexer.java
  *   java -cp /tmp/jvm_cls driver.jvm.TestLexer /home/claude/corpus
  */
@@ -76,7 +76,7 @@ public class TestLexer {
 
     public static void main(String[] args) throws IOException {
         String corpusRoot = args.length > 0 ? args[0] : "/home/claude/corpus";
-        String frontendRoot = args.length > 1 ? args[1] : "/home/claude/one4all/test/frontend";
+        String frontendRoot = args.length > 1 ? args[1] : "/home/claude/SCRIP/test/frontend";
 
         System.out.println("=== TestLexer — M-JVM-INTERP-A01 gate ===\n");
 

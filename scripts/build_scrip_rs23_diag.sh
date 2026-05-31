@@ -12,7 +12,7 @@
 # aggregate the unique (kind, caller, via) tuples.
 #
 # This is a diagnostic — never commit a build using this binary.
-# Run from one4all/.
+# Run from SCRIP/.
 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

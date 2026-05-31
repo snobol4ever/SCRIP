@@ -4,9 +4,9 @@
 # Built for PJ-9d (predicate-registry emit) — feeds rt_register_predicates_pl + rt_pl_once (post IJ-HELLO-4).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$(cd "$HERE/.." && pwd)"
-SCRIP="${SCRIP:-$ONE4ALL/scrip}"
-LIBRT="${LIBRT:-$ONE4ALL/out/libscrip_rt.so}"
+SCRIP="$(cd "$HERE/.." && pwd)"
+SCRIP="${SCRIP:-$SCRIP/scrip}"
+LIBRT="${LIBRT:-$SCRIP/out/libscrip_rt.so}"
 PL="${1:?Usage: run_prolog_via_x86_backend.sh <file.pl>}"
 [ -x "$SCRIP" ] || { echo "FAIL scrip not built: $SCRIP"; exit 1; }
 [ -f "$LIBRT" ] || { echo "FAIL libscrip_rt.so not built: $LIBRT (run 'make libscrip_rt' first)"; exit 1; }

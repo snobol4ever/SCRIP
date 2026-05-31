@@ -14,7 +14,7 @@
 #   TIMING   — reports wall time (target: <5s for all three backends)
 #
 # Usage:
-#   cd /home/claude/one4all
+#   cd /home/claude/SCRIP
 #   bash test/g8_session.sh [--skip-verify] [--skip-fix] [--only-baseline]
 #
 # After this script completes successfully, commit:

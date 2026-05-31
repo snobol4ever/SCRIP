@@ -11,7 +11,7 @@
  *   - statement executed via exec_stmt()
  *   - OUTPUT observed via captured output_lines[]
  *
- * Build (from one4all/):
+ * Build (from SCRIP/):
  *   gcc -Wall -Wno-unused-label -Wno-unused-variable -g -O0 \
  *       -I src/runtime/dyn \
  *       -I src/runtime/snobol4 \

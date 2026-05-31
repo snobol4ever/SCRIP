@@ -2,7 +2,7 @@
 
 **Session:** #82, 2026-05-07
 **Rung:** CH-17c — flip coro_call consumers via entry_pc; add sm_call_proc
-**one4all HEAD after landing:** (see git log)
+**SCRIP HEAD after landing:** (see git log)
 
 ---
 

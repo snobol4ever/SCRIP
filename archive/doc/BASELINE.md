@@ -1,7 +1,7 @@
 # BASELINE.md — Pre-Reorg Freeze Baseline
 
 **Tag:** `pre-reorg-freeze`
-**one4all HEAD:** `a051367`
+**SCRIP HEAD:** `a051367`
 **Date:** 2026-03-28
 **Recorded by:** Claude Sonnet 4.6 (G-7 session)
 

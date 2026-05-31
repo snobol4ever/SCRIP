@@ -2,7 +2,7 @@
 
 **Rung:** CH-17i-survey-mode3  
 **Date:** 2026-05-09  
-**one4all HEAD:** `b19f75ba` (pre-survey; no source touched)
+**SCRIP HEAD:** `b19f75ba` (pre-survey; no source touched)
 
 ---
 

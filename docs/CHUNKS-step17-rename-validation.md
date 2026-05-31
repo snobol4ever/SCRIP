@@ -52,7 +52,7 @@ All byte-identical to baseline:
 - unified_broker: PASS=49
 - scrip_all_modes: PASS=2
 - Icon corpus: PASS=186 FAIL=47 XFAIL=30 (unchanged)
-- one4all @ `4c96e9e7`, corpus @ `734bb92`
+- SCRIP @ `4c96e9e7`, corpus @ `734bb92`
 
 ---
 
@@ -107,7 +107,7 @@ Two sub-rungs carved from CH-17-RENAME-g spec:
 | `emit_sm_call_chunk` | `emit_sm_call_expression` | static function (`sm_codegen_x64_emit.c`) |
 | `PUSH_CHUNK` / `CALL_CHUNK` macros | `PUSH_EXPRESSION` / `CALL_EXPRESSION` macros | `sm_macros.s` (corpus artifact) |
 
-**Files touched (one4all):** 32 files across `src/` + `scripts/`.  
+**Files touched (SCRIP):** 32 files across `src/` + `scripts/`.  
 **Files touched (corpus):** `programs/snobol4/demo/sm_macros.s`.
 
 ### Zero-chunk invariant gate

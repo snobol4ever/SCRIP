@@ -119,7 +119,7 @@ window, recovers by sub-step end.
 ## What is preserved at the end of this session
 
 - `snocone.l`, `snocone.lex.c`, `snocone_lex2.h`, `test_snocone_lex2.c` —
-  unchanged from session #9 (one4all `02db637d`).  LS-1.b 31/31 test gate
+  unchanged from session #9 (SCRIP `02db637d`).  LS-1.b 31/31 test gate
   still passes.
 - `snocone_control.c`, `snocone_parse.c`, `snocone_lower.c`, `snocone_lex.c`
   — unchanged.  Smoke-test gate 5/5 still passes (verified at session start
@@ -134,7 +134,7 @@ The two-pass design (lex into buffer, then parse from buffer) felt natural
 for testing in LS-3.c but creates an unnecessary impedance mismatch at
 LS-4 — a thunk that translates one enum to another, plus a `ScParseState`
 that owns a buffer cursor instead of letting Flex own its scanner state.
-**Single-pass Flex→Bison via the standard `yylex` API is one4all's
+**Single-pass Flex→Bison via the standard `yylex` API is SCRIP's
 established convention** (snobol4, raku, rebus all do this).  Snocone
 should match.
 
@@ -142,7 +142,7 @@ should match.
 
 | Repo      | Branch | HEAD     | Working tree | Notes |
 |-----------|--------|----------|--------------|-------|
-| one4all   | main   | `02db637d` | clean (after this commit) | new file: `docs/LS-4-session-2026-04-30-1-attempt.snocone.y`, `docs/LS-4-session-2026-04-30-1-findings.md` |
+| SCRIP   | main   | `02db637d` | clean (after this commit) | new file: `docs/LS-4-session-2026-04-30-1-attempt.snocone.y`, `docs/LS-4-session-2026-04-30-1-findings.md` |
 | corpus    | main   | (untouched) | clean | no work this session |
 | .github   | main   | (this commit) | dirty during handoff, clean after | PLAN.md pointer + goal file step-update |
 

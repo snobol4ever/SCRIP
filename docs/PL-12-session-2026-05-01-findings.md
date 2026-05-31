@@ -2,16 +2,16 @@
 
 ## Outcome
 
-Four landings (one corpus, three one4all). One held back as committed doc.
+Four landings (one corpus, three SCRIP). One held back as committed doc.
 SWI baseline 43/57 unchanged on every commit — clean bisectable foundation.
 
 | # | Repo | Commit | Effect |
 |---|------|--------|--------|
 | Step A | corpus | `dfc26da` | plunit stdlib enrichment (~25 stubs) |
 | Step A patch | corpus | `80ce2f2` | numbervars/4 stub direction fix |
-| Step B.1 | one4all | `ff4e1933` | copy_term_rec slot fix (1<<20 + nmap) |
-| Step B.2 | one4all | `8decc35e` | findall snapshots use pl_copy_term |
-| **Step C** | **one4all** | **`de0fff7a`** | **arith INT_MIN/-1 SIGFPE guard (NEW)** |
+| Step B.1 | SCRIP | `ff4e1933` | copy_term_rec slot fix (1<<20 + nmap) |
+| Step B.2 | SCRIP | `8decc35e` | findall snapshots use pl_copy_term |
+| **Step C** | **SCRIP** | **`de0fff7a`** | **arith INT_MIN/-1 SIGFPE guard (NEW)** |
 
 ## Step C — discovered this session
 
@@ -116,8 +116,8 @@ For PL-12 to legitimately gate at ≥80%, either:
 ## Files committed this session
 
 - `corpus/programs/prolog/plunit.pl` — numbervars/4 stub direction fix
-- `one4all/src/runtime/interp/pl_runtime.c` — INT_MIN/-1 guard (Step C)
-- `one4all/docs/PL-12-session-2026-05-01-bridge.diff` — saved bridge diff
-- `one4all/docs/PL-12-session-2026-05-01-findings.md` — this narrative
+- `SCRIP/src/runtime/interp/pl_runtime.c` — INT_MIN/-1 guard (Step C)
+- `SCRIP/docs/PL-12-session-2026-05-01-bridge.diff` — saved bridge diff
+- `SCRIP/docs/PL-12-session-2026-05-01-findings.md` — this narrative
 
 Working trees clean at handoff. SWI baseline 43/57 preserved.

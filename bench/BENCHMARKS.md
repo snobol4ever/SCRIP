@@ -1,4 +1,4 @@
-# one4all Benchmark Suite
+# SCRIP Benchmark Suite
 
 Two contests. Two verdicts. One engine wins both — and then keeps going where
 the competition cannot follow.
@@ -31,14 +31,14 @@ make run
 PCRE2 is the gold standard for regular expression performance. It ships with
 JIT compilation enabled. It is what the world uses.
 
-| Test | one4all | PCRE2 JIT | Faster by |
+| Test | SCRIP | PCRE2 JIT | Faster by |
 |------|:------------:|:---------:|:---------:|
 | Normal `(a|b)*abb` | 5.49 ns | 55.55 ns | **10×** |
 | Pathological len=20 | 0.7 ns | 21.7 ns | **31×** |
 | Pathological len=28 | 0.7 ns | 23.0 ns | **33×** |
 
 The pathological result is the key one. PCRE2 backtracks through O(2^n)
-configurations on adversarial input. one4all detects failure in O(1) —
+configurations on adversarial input. SCRIP detects failure in O(1) —
 structural failure, not exhaustive search. The gap only grows with input length.
 
 **Source**: `bench_re_vs_tiny.c`
@@ -51,18 +51,18 @@ structural failure, not exhaustive search. The gap only grows with input length.
 
 Bison generates LALR(1) table-driven pushdown automata — the industry standard
 for context-free parsing. Used to build compilers for C, Python, Ruby, PHP.
-Both Bison and one4all compile to C. No VM. No JIT. Native code only.
+Both Bison and SCRIP compile to C. No VM. No JIT. Native code only.
 
-| Test | one4all | Bison LALR(1) | Faster by |
+| Test | SCRIP | Bison LALR(1) | Faster by |
 |------|:------------:|:-------------:|:---------:|
 | `{a^n b^n}` | 11.54 ns | 158.45 ns | **14×** |
 | Dyck language | 7.50 ns | 113.89 ns | **15×** |
 
 Bison generates state-table lookups and explicit stack operations per token.
-one4all generates static gotos — the control flow *is* the grammar.
+SCRIP generates static gotos — the control flow *is* the grammar.
 Zero table lookup. Zero dispatch overhead.
 
-**Bison's ceiling**: Type 2 (context-free). one4all has no ceiling.
+**Bison's ceiling**: Type 2 (context-free). SCRIP has no ceiling.
 
 **Source**: `pda/bench_pda.c`, `pda/anbn.y`, `pda/dyck.y`
 
@@ -70,12 +70,12 @@ Zero table lookup. Zero dispatch overhead.
 
 ## The Full Picture
 
-| Competitor | Their tier | one4all advantage | Their ceiling |
+| Competitor | Their tier | SCRIP advantage | Their ceiling |
 |------------|:----------:|:----------------------:|:-------------:|
 | PCRE2 JIT | Type 3 — Regular | **10–33×** faster | Cannot count |
 | Bison LALR(1) | Type 2 — Context-Free | **14–15×** faster | Cannot triple-count |
-| *(none)* | Type 1 — Context-Sensitive | — | one4all only |
-| *(none)* | Type 0 — Turing | — | one4all only |
+| *(none)* | Type 1 — Context-Sensitive | — | SCRIP only |
+| *(none)* | Type 0 — Turing | — | SCRIP only |
 
 **One engine. All four tiers of the Chomsky hierarchy. Faster than every
 tier's champion on that tier's own ground.**

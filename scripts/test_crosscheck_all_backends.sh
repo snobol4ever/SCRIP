@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test/crosscheck.sh — scrip crosscheck: same programs, all backends, outputs must agree
 # Usage: CORPUS=/home/claude/corpus bash test/crosscheck.sh
-# From:  /home/claude/one4all/
+# From:  /home/claude/SCRIP/
 #
 # Backends: x86 (nasm), JVM (jasmin+java), NET (ilasm+mono), WASM (wabt)
 # Each backend skipped gracefully if tools not present.

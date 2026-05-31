@@ -18,9 +18,9 @@
 #   6. Leave sm_interp_*/sm_jit_*/sm_push/sm_pop/sm_peek etc. ALONE — runtime
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$HERE/.."
+SCRIP="$HERE/.."
 CORPUS="${CORPUS:-/home/claude/corpus}"
-roots=("$ONE4ALL/src" "$ONE4ALL/include")
+roots=("$SCRIP/src" "$SCRIP/include")
 [ -d "$CORPUS" ] && roots+=("$CORPUS")
 files=$(find "${roots[@]}" -type f \( -name '*.c' -o -name '*.h' -o -name '*.inc' \) \
         ! -name '*.tab.c' ! -name '*.tab.h' ! -name '*.lex.c' ! -name 'snobol4.c' 2>/dev/null)
@@ -181,8 +181,8 @@ echo "Phase 2 sed done."
 # The Group A sed renamed all bb_free → BB_free indiscriminately, including the
 # three pool sites in emit_bb.c that take (bb_buf_t, size_t).  Restore those by
 # hand using context: pool sites are recognizable by `bb_buf_t buf = ...` patterns.
-POOL_H="$ONE4ALL/src/processor/bb_pool.h"
-POOL_C="$ONE4ALL/src/processor/bb_pool.c"
+POOL_H="$SCRIP/src/processor/bb_pool.h"
+POOL_C="$SCRIP/src/processor/bb_pool.c"
 if [ -f "$POOL_H" ]; then
     # bb_pool.h declares the three pool functions — Group A turned them to BB_*. Undo.
     sed -i 's/\bBB_alloc\b/bb_alloc/g; s/\bBB_free\b/bb_free/g' "$POOL_H"
@@ -193,7 +193,7 @@ if [ -f "$POOL_C" ]; then
     echo "  restored: bb_pool.c"
 fi
 # Restore emit_bb.c pool-using sites — they hold bb_buf_t.
-EMIT_BB="$ONE4ALL/src/emitter/emit_bb.c"
+EMIT_BB="$SCRIP/src/emitter/emit_bb.c"
 if [ -f "$EMIT_BB" ]; then
     # Lines like "bb_buf_t buf = BB_alloc(FLAT_BUF_MAX)" — pool call (single size arg).
     # Lines like "BB_free(buf, FLAT_BUF_MAX)" — pool call (two args buf + size).

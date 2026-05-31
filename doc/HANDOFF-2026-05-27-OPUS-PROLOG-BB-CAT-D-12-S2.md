@@ -150,14 +150,14 @@ gates. Documented in the GOAL file under the S2 section.
 
 ## Files touched (committed by this handoff)
 
-**one4all repo:**
+**SCRIP repo:**
 - `src/lower/bb_exec.c` — +144 lines (CAT-D-12-S2 block).
 - `src/emitter/BB_templates/bb_builtin.cpp` — +197 lines (three dispatcher blocks).
 
 **.github repo:**
 - `PLAN.md` — Prolog BB row bumped (CAT-D-12-S2 ✅, gate deltas, next step = CAT-B).
 - `GOAL-PROLOG-BB.md` — full CAT-D-12-S2 section inserted above CAT-D-12-S1.
-- `doc/HANDOFF-2026-05-27-OPUS-PROLOG-BB-CAT-D-12-S2.md` — this file (or sibling location in one4all/doc/).
+- `doc/HANDOFF-2026-05-27-OPUS-PROLOG-BB-CAT-D-12-S2.md` — this file (or sibling location in SCRIP/doc/).
 
 ## Recommended next session priority
 

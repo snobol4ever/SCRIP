@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # rename_ir_to_bb_and_sm.sh — bulk rename for IR Rename rung (IR-RN-0).
-# Applies word-boundary sed across one4all + corpus C/H/INC sources.
+# Applies word-boundary sed across SCRIP + corpus C/H/INC sources.
 # Per-identifier explicit rules.  Idempotent.  Longer needles before shorter.
 # Usage: bash scripts/rename_ir_to_bb_and_sm.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$HERE/.."
+SCRIP="$HERE/.."
 CORPUS="${CORPUS:-/home/claude/corpus}"
-roots=("$ONE4ALL/src" "$ONE4ALL/include")
+roots=("$SCRIP/src" "$SCRIP/include")
 [ -d "$CORPUS" ] && roots+=("$CORPUS")
 echo "Rename roots:"
 for r in "${roots[@]}"; do echo "  $r"; done
@@ -122,14 +122,14 @@ echo "$files" | while read -r f; do
     fi
 done
 # Rename the two header files.
-IR_H="$ONE4ALL/src/include/IR.h"
-SM_PROG_H="$ONE4ALL/src/include/sm_prog.h"
+IR_H="$SCRIP/src/include/IR.h"
+SM_PROG_H="$SCRIP/src/include/sm_prog.h"
 if [ -f "$IR_H" ]; then
-    mv "$IR_H" "$ONE4ALL/src/include/BB.h"
+    mv "$IR_H" "$SCRIP/src/include/BB.h"
     echo "  renamed: $IR_H -> BB.h"
 fi
 if [ -f "$SM_PROG_H" ]; then
-    mv "$SM_PROG_H" "$ONE4ALL/src/include/SM.h"
+    mv "$SM_PROG_H" "$SCRIP/src/include/SM.h"
     echo "  renamed: $SM_PROG_H -> SM.h"
 fi
 echo "Done."

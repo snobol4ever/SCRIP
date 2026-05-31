@@ -1,7 +1,7 @@
 # HANDOFF 2026-05-29 Opus 4.8 — PROLOG-BB PLR-K-3/4/5/6
 
-**Commits:** one4all `f6223d74` · corpus `4a7d2dd` · .github (watermark + this handoff)
-**Parent:** one4all `28a720f2`, corpus `0f692c3`
+**Commits:** SCRIP `f6223d74` · corpus `4a7d2dd` · .github (watermark + this handoff)
+**Parent:** SCRIP `28a720f2`, corpus `0f692c3`
 
 ## Summary
 
@@ -91,7 +91,7 @@ silent wrong-answers; GATE-2 stays 61 (no false progress). **Mode-2 oracle untou
 
 ## Files touched
 
-**one4all** (`f6223d74`):
+**SCRIP** (`f6223d74`):
 - `src/lower/bb_exec.c` — `rt_pl_numbervars_term` effect helper (+30).
 - `src/lower/bb_exec.h` — numbervars decl (+1).
 - `src/runtime/rt/rt.c` — `rt_pl_write_term_ptr` / `rt_pl_writeq_term_ptr` /

@@ -11,9 +11,9 @@
 # Usage: bash build/build_regenerate.sh
 set -euo pipefail
 
-ONE4ALL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SNO="$ONE4ALL/src/frontend/snobol4"
-REBUS="$ONE4ALL/src/frontend/rebus"
+SCRIP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SNO="$SCRIP/src/frontend/snobol4"
+REBUS="$SCRIP/src/frontend/rebus"
 
 # ── prerequisite check ───────────────────────────────────────────────────────
 for tool in bison flex; do
@@ -42,7 +42,7 @@ echo "OK  snobol4.lex.c"
 # LS-4.cn (session-#7) renamed snocone.y → snocone_parse.y for symmetry
 # with snocone_lex.{c,h}; generated artifacts also picked up the _parse
 # infix.
-SNOCONE="$ONE4ALL/src/frontend/snocone"
+SNOCONE="$SCRIP/src/frontend/snocone"
 echo "GEN snocone_parse.tab.c from snocone_parse.y"
 cd "$SNOCONE"
 bison -d -o snocone_parse.tab.c snocone_parse.y
@@ -60,7 +60,7 @@ flex --noline -o lex.rebus.c rebus.l
 echo "OK  lex.rebus.c"
 
 # ── raku parser: raku.y → raku.tab.c + raku.tab.h ───────────────────────────
-RAKU="$ONE4ALL/src/frontend/raku"
+RAKU="$SCRIP/src/frontend/raku"
 echo "GEN raku.tab.c from raku.y"
 cd "$RAKU"
 bison -d --warnings=none -Wno-yacc -o raku.tab.c raku.y

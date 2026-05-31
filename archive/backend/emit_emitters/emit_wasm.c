@@ -2132,8 +2132,8 @@ void emit_wasm(Program *prog, FILE *out, const char *filename) {
  *   ByrdBox/byrd_box.py  genc()       — flat-goto C template per node
  *   ByrdBox/test_icon-4.py            — return-function Python = direct WAT map
  *   jcon-master/tran/irgen.icn        — authoritative four-port wiring per AST node
- *   one4all/src/backend/emit_jvm_icon.c — JVM encoding reference (8k lines)
- *   one4all/src/backend/emit_x64_icon.c — x64 encoding reference
+ *   SCRIP/src/backend/emit_jvm_icon.c — JVM encoding reference (8k lines)
+ *   SCRIP/src/backend/emit_x64_icon.c — x64 encoding reference
  *
  * Translation principle (BACKEND-WASM.md §Control Flow Model):
  *   x64/JVM encode each Byrd port as a flat label + jmp/goto.

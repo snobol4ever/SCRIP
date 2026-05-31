@@ -69,7 +69,7 @@ xcheck "every_to" "$T"
 rm -f "$T"
 
 # Rung files — if present
-RUNGS=/home/claude/one4all/test/icon
+RUNGS=/home/claude/SCRIP/test/icon
 for rung in rung01 rung02 rung03; do
     f="$RUNGS/${rung}.icn"
     ref="$RUNGS/${rung}.ref"

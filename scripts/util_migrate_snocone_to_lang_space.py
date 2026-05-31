@@ -626,8 +626,8 @@ def migrate_text(src: str) -> str:
 
 def find_default_root() -> Path:
     here = Path(__file__).resolve()
-    # one4all/scripts/util_migrate_snocone_to_lang_space.py
-    # repo parent is one4all/.. which has corpus/ alongside
+    # SCRIP/scripts/util_migrate_snocone_to_lang_space.py
+    # repo parent is SCRIP/.. which has corpus/ alongside
     repo_parent = here.parent.parent.parent
     corpus = repo_parent / "corpus"
     return corpus

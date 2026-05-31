@@ -11,11 +11,11 @@
 # paths hardcoded; SKIP cleanly if dependencies missing.
 set -e
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="${ONE4ALL:-$(cd "$HERE/.." && pwd)}"
+SCRIP="${SCRIP:-$(cd "$HERE/.." && pwd)}"
 CORPUS="${CORPUS:-/home/claude/corpus}"
 SBL="${SBL:-/home/claude/x64/bin/sbl}"
 CSN="${CSN:-/home/claude/csnobol4/snobol4}"
-SCRIP="${SCRIP:-$ONE4ALL/scrip}"
+SCRIP="${SCRIP:-$SCRIP/scrip}"
 MONITOR_DIR="${MONITOR_DIR:-$HERE/monitor}"
 PROBE="$CORPUS/programs/snobol4/demo/label_flow/probe_label.sno"
 

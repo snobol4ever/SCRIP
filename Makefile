@@ -1,4 +1,4 @@
-# Makefile — one4all unified build
+# Makefile — SCRIP unified build
 #
 # Primary targets:
 #   make scrip        — build the unified scrip x86 executable

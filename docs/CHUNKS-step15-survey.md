@@ -1,6 +1,6 @@
 # CHUNKS-step15-survey — empirical reachability of remaining Step 15 kinds
 
-**Session #74, 2026-05-07.  Watermark: post-CH-15a (one4all `dd673da1`).**
+**Session #74, 2026-05-07.  Watermark: post-CH-15a (SCRIP `dd673da1`).**
 
 This is a survey rung, not a producer migration.  It records an
 empirical finding that shapes how the remaining CHUNKS Step 15
@@ -147,4 +147,4 @@ programs (200 Icon + 47 snocone + 39 Raku + 21 scrip + 6 SNOBOL4
 + 4 Prolog) = **363 audited programs, zero `SM_PUSH_EXPR` fires**
 in `--interp`.
 
-one4all @ HEAD pre-rung: `dd673da1`.  Session #74, 2026-05-07.
+SCRIP @ HEAD pre-rung: `dd673da1`.  Session #74, 2026-05-07.

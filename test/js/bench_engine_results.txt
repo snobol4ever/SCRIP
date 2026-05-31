@@ -1,7 +1,7 @@
 bench_engine results — 2026-04-01T15:53:35.799Z
 node v22.22.0  WARMUP=2000  MEASURE=20000
 
-ID     one4all    spipatjs   ratio  desc
+ID     SCRIP    spipatjs   ratio  desc
 B01        207510       6354   32.66x  Literal match
 B02         23578       6072    3.88x  BREAK+SPAN word scan
 B03         28602       6418    4.46x  ARB backtrack depth 12

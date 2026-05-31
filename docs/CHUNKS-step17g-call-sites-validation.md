@@ -142,7 +142,7 @@ semantics as `coro_call`'s FAIL-on-failure shape, so the existing
 
 ## Gates
 
-Pre-flip baseline (one4all @ `92b922ca`, this session):
+Pre-flip baseline (SCRIP @ `92b922ca`, this session):
 
 | Gate | Result |
 |------|--------|

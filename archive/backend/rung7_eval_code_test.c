@@ -13,7 +13,7 @@
  *   T5: CODE with goto label → jump works            (:<C> dispatch)
  *   T6: EVAL of concat expr  → string 'ab'           (E_CAT path)
  *
- * Build (from one4all/):
+ * Build (from SCRIP/):
  *   gcc -Wall -Wno-unused-label -Wno-unused-variable -g -O0 \
  *       -I src/runtime/dyn \
  *       -I src/runtime/snobol4 \

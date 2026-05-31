@@ -6,8 +6,8 @@
 # or Category C (icn_bb_dcg, pl_bb_dcg, *_dcg_state_t, lower_pat_dcg).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$(cd "$HERE/.." && pwd)"
-cd "$ONE4ALL"
+SCRIP="$(cd "$HERE/.." && pwd)"
+cd "$SCRIP"
 
 # Order: longest / most-prefix-specific first.
 # Whole-word boundaries (\b) ensure no substring captures.

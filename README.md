@@ -1,4 +1,4 @@
-# one4all
+# SCRIP
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
@@ -10,7 +10,7 @@ Part of the [snobol4ever](https://github.com/snobol4ever) organization.
 
 ## What This Is
 
-`one4all` (the **scrip-cc** compiler) is a from-scratch SNOBOL4 compiler: one frontend
+`SCRIP` (the **scrip-cc** compiler) is a from-scratch SNOBOL4 compiler: one frontend
 pipeline (`scrip-cc`) feeding five independent backend emitters. Write SNOBOL4 once.
 Run it anywhere.
 
@@ -238,9 +238,9 @@ streams event-by-event via named FIFOs.
 |---|-------------|------|
 | 1 | CSNOBOL4 2.3.3 | Primary oracle |
 | 2 | SPITBOL x64 4.0f | Secondary oracle |
-| 3 | one4all ASM backend | Compiled target |
-| 4 | one4all JVM backend | Compiled target |
-| 5 | one4all NET backend | Compiled target |
+| 3 | SCRIP ASM backend | Compiled target |
+| 4 | SCRIP JVM backend | Compiled target |
+| 5 | SCRIP NET backend | Compiled target |
 
 `monitor_ipc.so` — a LOAD'd C shared library — writes trace events to a per-participant
 named FIFO, bypassing stdio entirely. The collector reads all five FIFOs in parallel.
@@ -299,14 +299,14 @@ Frames are **immutable plain JS arrays** — transitions create new arrays,
 old ones are GC'd. No `memcpy`, no snapshot/restore, no arena. The GC *is*
 the stack allocator.
 
-### Benchmark: one4all vs spipatjs
+### Benchmark: SCRIP vs spipatjs
 
 Head-to-head against Phil Budne's
 [spipatjs](https://github.com/philbudne/spipatjs) (3,090 lines, GNAT PE
 node-graph model) — same Node.js v22 process, same JIT warmup, 20,000
-iterations each. **one4all wins all 8 benchmarks.**
+iterations each. **SCRIP wins all 8 benchmarks.**
 
-| ID | Pattern | one4all | spipatjs | ratio |
+| ID | Pattern | SCRIP | spipatjs | ratio |
 |----|---------|--------:|--------:|------:|
 | B01 | Literal match | 207,510 | 6,354 | **32.7×** |
 | B02 | BREAK+SPAN word scan | 23,578 | 6,072 | **3.9×** |
@@ -321,7 +321,7 @@ iterations each. **one4all wins all 8 benchmarks.**
 
 spipatjs's throughput is nearly flat (~6,000–6,900 ops/sec) regardless of
 pattern complexity — `Object.freeze()` on every match result dominates.
-one4all's immutable-frame design avoids all post-match allocation.
+SCRIP's immutable-frame design avoids all post-match allocation.
 
 
 ## The Bootstrap Goal
@@ -342,7 +342,7 @@ output byte-for-byte identical to the CSNOBOL4 oracle (M-JVM-BEAUTY ✅, commit
 
 ## The Development Story
 
-one4all is co-authored by **Lon Jones Cherryholmes** and **Claude Sonnet 4.6**.
+SCRIP is co-authored by **Lon Jones Cherryholmes** and **Claude Sonnet 4.6**.
 
 The sessions run like a buddy comedy: Lon arrives with an architectural insight or an
 inconvenient bug, Claude writes the code, they argue about the right abstraction, one
@@ -372,7 +372,7 @@ Sprint state lives in [snobol4ever/.github](https://github.com/snobol4ever/.gith
 
 ## Collaborators
 
-- **Lon Jones Cherryholmes** — compiler architecture, all backends, one4all lead
+- **Lon Jones Cherryholmes** — compiler architecture, all backends, SCRIP lead
 - **Jeffrey Cooper, M.D.** — snobol4dotnet, .NET MSIL target
 - **Claude Sonnet 4.6** — scrip-cc co-author; every sprint, every Byrd box,
   every labeled goto — written in session, committed, pushed
@@ -383,7 +383,7 @@ Sprint state lives in [snobol4ever/.github](https://github.com/snobol4ever/.gith
 ## Source Volume (G-VOLUME · M-VOL-X ✅ · 2026-03-22)
 
 > `wc -l` scan of `src/`. Generated artifacts (`.s` files, 36,890 lines across 28 files) excluded.
-> Categories are logical function — comparable across one4all, snobol4jvm, snobol4dotnet.
+> Categories are logical function — comparable across SCRIP, snobol4jvm, snobol4dotnet.
 > % of total = % of `src/` lines only.
 
 | Category | Files | Lines | Blank-stripped | % total |

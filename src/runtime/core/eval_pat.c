@@ -84,7 +84,7 @@ DESCR_t interp_eval_pat(tree_t *e)
                         }
                     }
                 }
-                if (getenv("ONE4ALL_USERCALL_TRACE")) {
+                if (getenv("SCRIP_USERCALL_TRACE")) {
                     fprintf(stderr, "PAT_USER_CALL_BUILD name=%s nargs=%d\n",
                             child->v.sval, na);
                 }

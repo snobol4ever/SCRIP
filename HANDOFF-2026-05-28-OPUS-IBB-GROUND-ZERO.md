@@ -1,6 +1,6 @@
 # HANDOFF — 2026-05-28 — Opus 4.7 — IBB ground-zero reset
 
-**Repo:** snobol4ever/one4all HEAD `f2c4058e` (pushed)
+**Repo:** snobol4ever/SCRIP HEAD `f2c4058e` (pushed)
 **Goal:** GOAL-ICON-BB.md
 **Authors:** Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Opus 4.7
 

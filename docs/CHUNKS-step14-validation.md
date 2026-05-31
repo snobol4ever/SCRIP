@@ -1,7 +1,7 @@
 # CHUNKS-step14 validation — Generator infrastructure (SM_SUSPEND / SM_RESUME)
 
 **Session:** #70, 2026-05-06
-**one4all HEAD before:** `4afb18c8`
+**SCRIP HEAD before:** `4afb18c8`
 
 ## What landed
 

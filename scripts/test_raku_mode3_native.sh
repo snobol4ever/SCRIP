@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # GATE-RK3 — Raku mode-3 honest native (SCRIP_M3_NATIVE=1 ./scrip --run).
 # Mirrors test_raku_mode4_rung.sh's corpus loop; compares native stdout vs .expected.
-ONE4ALL="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
-[ -d "$ONE4ALL/test/raku" ] || ONE4ALL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIP="${SCRIP:-$ONE4ALL/scrip}"
-TESTDIR="$ONE4ALL/test/raku"
+SCRIP="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+[ -d "$SCRIP/test/raku" ] || SCRIP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIP="${SCRIP:-$SCRIP/scrip}"
+TESTDIR="$SCRIP/test/raku"
 [ -x "$SCRIP" ] || { echo "FAIL scrip not built"; exit 1; }
 PASS=0; FAIL=0; SKIP=0; CRASH=0
 for rk in "$TESTDIR"/*.raku; do

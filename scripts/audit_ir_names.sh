@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # audit_ir_names.sh — count every identifier the IR rename will touch.
-# Self-contained. Reports per-needle counts across one4all + corpus.
+# Self-contained. Reports per-needle counts across SCRIP + corpus.
 # Usage: bash scripts/audit_ir_names.sh
 #
 # Reads source from both repos.  Writes a sorted summary to stdout.
 # Exits 0 always — this is a measurement, not a gate.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$HERE/.."
+SCRIP="$HERE/.."
 CORPUS="${CORPUS:-/home/claude/corpus}"
-roots=("$ONE4ALL/src" "$ONE4ALL/include")
+roots=("$SCRIP/src" "$SCRIP/include")
 [ -d "$CORPUS" ] && roots+=("$CORPUS")
 echo "Audit roots:"
 for r in "${roots[@]}"; do echo "  $r"; done

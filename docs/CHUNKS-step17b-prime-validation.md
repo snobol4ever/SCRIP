@@ -1,7 +1,7 @@
 # CHUNKS-step17b-prime-validation — proc-body lowering into the chunks
 
 **Session #76, 2026-05-07.  Watermark: post-CH-17b
-(one4all `6b129465`).  Authors: Lon Jones Cherryholmes · Claude Sonnet.**
+(SCRIP `6b129465`).  Authors: Lon Jones Cherryholmes · Claude Sonnet.**
 
 CH-17b' is the third rung of `GOAL-CHUNKS-STEP17.md`.  CH-17b laid
 down empty-body skeletons; this rung fills them with lowered SM ops

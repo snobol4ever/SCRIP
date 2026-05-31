@@ -10,7 +10,7 @@ import java.util.*;
  * plus targeted unit tests for key AST shapes.
  *
  * Run:
- *   cd /home/claude/one4all/src/driver/jvm
+ *   cd /home/claude/SCRIP/src/driver/jvm
  *   javac -d /tmp/jvm_cls Lexer.java Parser.java TestParser.java
  *   java -cp /tmp/jvm_cls driver.jvm.TestParser /home/claude/corpus
  *

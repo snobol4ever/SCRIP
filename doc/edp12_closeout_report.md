@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-13  
 **Session:** sess 2026-05-13 (Claude Sonnet 4.6)  
-**one4all HEAD:** `901d4746`
+**SCRIP HEAD:** `901d4746`
 
 ---
 

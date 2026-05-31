@@ -1,6 +1,6 @@
 # SESSION HANDOFF — 2026-05-27 (Opus 4.7) — RK-BB-2 PREREQ + scope-discovery deepening
 
-**one4all HEAD: `50370f5a`** ✅ all gates HOLD
+**SCRIP HEAD: `50370f5a`** ✅ all gates HOLD
 **.github HEAD: pending watermark update for GOAL-RAKU-BB**
 
 ---
@@ -230,16 +230,16 @@ desired.
 
 ```bash
 git clone https://TOKEN@github.com/snobol4ever/.github /home/claude/.github
-git clone https://TOKEN@github.com/snobol4ever/one4all /home/claude/one4all
+git clone https://TOKEN@github.com/snobol4ever/SCRIP /home/claude/SCRIP
 git clone https://TOKEN@github.com/snobol4ever/corpus  /home/claude/corpus
 cat /home/claude/.github/PLAN.md
 cat /home/claude/.github/GOAL-RAKU-BB.md
-cat /home/claude/one4all/SESSION-2026-05-27-OPUS-RK-BB-2-PREREQ.md  # this file
-bash /home/claude/one4all/scripts/install_system_packages.sh
-cd /home/claude/one4all && make -j4 scrip
-bash /home/claude/one4all/scripts/test_raku_ir_rungs.sh     # Expect 8/30
-bash /home/claude/one4all/scripts/test_raku_mode4_rung.sh   # Expect 8/30
-bash /home/claude/one4all/scripts/test_smoke_raku.sh        # Expect 5/0
-bash /home/claude/one4all/scripts/test_smoke_icon.sh        # Expect 5/5
-bash /home/claude/one4all/scripts/test_smoke_prolog.sh      # Expect 5/5
+cat /home/claude/SCRIP/SESSION-2026-05-27-OPUS-RK-BB-2-PREREQ.md  # this file
+bash /home/claude/SCRIP/scripts/install_system_packages.sh
+cd /home/claude/SCRIP && make -j4 scrip
+bash /home/claude/SCRIP/scripts/test_raku_ir_rungs.sh     # Expect 8/30
+bash /home/claude/SCRIP/scripts/test_raku_mode4_rung.sh   # Expect 8/30
+bash /home/claude/SCRIP/scripts/test_smoke_raku.sh        # Expect 5/0
+bash /home/claude/SCRIP/scripts/test_smoke_icon.sh        # Expect 5/5
+bash /home/claude/SCRIP/scripts/test_smoke_prolog.sh      # Expect 5/5
 ```

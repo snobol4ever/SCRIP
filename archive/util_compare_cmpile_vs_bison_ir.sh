@@ -2,7 +2,7 @@
 # cmpile_vs_bison.sh — compare CMPILE IR vs Bison IR across all corpus .sno files
 #
 # Usage:
-#   CORPUS=/home/claude/corpus bash one4all/test/cmpile_vs_bison.sh
+#   CORPUS=/home/claude/corpus bash SCRIP/test/cmpile_vs_bison.sh
 #
 # Output:
 #   - Per-file .diff in /tmp/cmpile_vs_bison/ for every divergence
@@ -22,7 +22,7 @@
 
 set -uo pipefail
 
-INTERP="${INTERP:-/home/claude/one4all/scrip}"
+INTERP="${INTERP:-/home/claude/SCRIP/scrip}"
 CORPUS="${CORPUS:-/home/claude/corpus}"
 SNO_LIB="${SNO_LIB:-${CORPUS}/lib}"
 OUT=/tmp/cmpile_vs_bison

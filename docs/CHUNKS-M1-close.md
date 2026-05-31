@@ -8,7 +8,7 @@
 
 ## What landed in M1
 
-| Step | What | one4all hash |
+| Step | What | SCRIP hash |
 |------|------|--------------|
 | 1 | Survey + scaffolding (SmChunk_t, SM_PUSH_CHUNK, SM_CALL_CHUNK opcodes, FATAL stubs, `docs/CHUNKS-step01-audit.md`) | `a79b09f0` |
 | 2 | Migrate `sm_lower.c:573` (E_DEFER `*expr` in value context) + SM_CALL_CHUNK implementation | `1b42498f` |

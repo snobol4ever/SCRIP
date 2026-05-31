@@ -5,14 +5,14 @@
 #   bash snobol4ever_clone.sh [--token TOKEN] [--ssh] PROFILE_OR_REPOS...
 #
 # Profiles:
-#   interp     — .github one4all harness corpus
+#   interp     — .github SCRIP harness corpus
 #   jvm        — .github snobol4jvm harness corpus
 #   dotnet     — .github snobol4dotnet harness corpus
-#   spitbol    — .github one4all harness corpus x64
+#   spitbol    — .github SCRIP harness corpus x64
 #   all        — every repo in the org
 #
 # Or list repos explicitly:
-#   bash snobol4ever_clone.sh one4all corpus harness
+#   bash snobol4ever_clone.sh SCRIP corpus harness
 #
 # Options:
 #   --token TOKEN   GitHub PAT (or set GH_TOKEN env var)
@@ -28,7 +28,7 @@ ALL_REPOS=(
     .github
     corpus
     harness
-    one4all
+    SCRIP
     snobol4artifact
     snobol4csharp
     snobol4dotnet
@@ -39,10 +39,10 @@ ALL_REPOS=(
 )
 
 # ── Profiles ──────────────────────────────────────────────────────────────────
-profile_interp()  { echo ".github one4all harness corpus"; }
+profile_interp()  { echo ".github SCRIP harness corpus"; }
 profile_jvm()     { echo ".github snobol4jvm harness corpus"; }
 profile_dotnet()  { echo ".github snobol4dotnet harness corpus"; }
-profile_spitbol() { echo ".github one4all harness corpus x64"; }
+profile_spitbol() { echo ".github SCRIP harness corpus x64"; }
 profile_all()     { echo "${ALL_REPOS[*]}"; }
 
 # ── Argument parsing ──────────────────────────────────────────────────────────

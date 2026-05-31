@@ -72,7 +72,7 @@ arithmetic test inputs.
 
 ## Combined-state changes (in saved diffs)
 
-**one4all/src/runtime/interp/pl_runtime.c** (252 lines diff):
+**SCRIP/src/runtime/interp/pl_runtime.c** (252 lines diff):
 
 1. **v3 bridge** — `pl_term_to_synth_expr` + `pl_invoke_var_goal` +
    wired into catch/3 E_VAR else-branch (211 lines, same as session #6
@@ -103,11 +103,11 @@ $current_prolog_flag/5 stub.
 ## Path to PL-12 ≥80% gate — REVISED 3-step plan (supersedes session #6's 2-step)
 
 **Step A — corpus plunit.pl stdlib enrichment** (corpus repo).
-Diff at `one4all/docs/PL-12-session-2026-04-30-7-plunit.diff`. Apply
+Diff at `SCRIP/docs/PL-12-session-2026-04-30-7-plunit.diff`. Apply
 to `corpus/programs/prolog/plunit.pl`. Re-measure baseline (without
 bridge, gate-neutral expected).
 
-**Step B — runtime fixes (one4all `pl_runtime.c`)** — apply in this order
+**Step B — runtime fixes (SCRIP `pl_runtime.c`)** — apply in this order
 to bisect cleanly:
 
   B.1. **`copy_term_rec` slot fix** (8 lines). Standalone, independent.
@@ -131,10 +131,10 @@ plunit. If runtime, that's a separate runtime bug.
 
 ## Files committed this session
 
-- `one4all/docs/PL-12-session-2026-04-30-7-attempt.diff` — full 252-line
+- `SCRIP/docs/PL-12-session-2026-04-30-7-attempt.diff` — full 252-line
   pl_runtime.c diff (bridge + Change C + slot fix combined).
-- `one4all/docs/PL-12-session-2026-04-30-7-plunit.diff` — 93-line
+- `SCRIP/docs/PL-12-session-2026-04-30-7-plunit.diff` — 93-line
   corpus plunit.pl stdlib enrichment.
-- `one4all/docs/PL-12-session-2026-04-30-7-findings.md` — this narrative.
-- one4all/src/runtime/interp/pl_runtime.c — REVERTED to pre-session.
+- `SCRIP/docs/PL-12-session-2026-04-30-7-findings.md` — this narrative.
+- SCRIP/src/runtime/interp/pl_runtime.c — REVERTED to pre-session.
 - corpus/programs/prolog/plunit.pl — REVERTED to pre-session.

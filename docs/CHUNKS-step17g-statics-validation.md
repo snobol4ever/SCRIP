@@ -2,7 +2,7 @@
 
 **Rung:** CH-17g-statics  
 **Session:** 2026-05-09  
-**One4all commit:** (this commit)
+**SCRIP commit:** (this commit)
 
 ## What landed
 

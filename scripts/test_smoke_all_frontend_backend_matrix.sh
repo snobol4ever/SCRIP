@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# test/run_matrix_smoke.sh — one4all matrix smoke test
+# test/run_matrix_smoke.sh — SCRIP matrix smoke test
 #
 # Exercises every locally testable frontend × backend combination.
 # Does NOT require corpus (uses tests bundled in this repo).
-# Always run from the one4all root:
+# Always run from the SCRIP root:
 #
 #   bash test/run_matrix_smoke.sh
 #

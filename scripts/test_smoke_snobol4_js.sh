@@ -5,7 +5,7 @@
 
 set -e
 
-SCRIP=${SCRIP:-/home/claude/one4all/scrip}
+SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
 CORPUS=${CORPUS:-/home/claude/corpus}
 SMOKE_DIR="$CORPUS/programs/snobol4/smoke"
 TEMP_DIR=${TEMP_DIR:-/tmp/sno_js_tests}
@@ -59,7 +59,7 @@ for test_file in "$SMOKE_DIR"/*.sno; do
     # Replace relative require with absolute path to sno_runtime.js
     RT_PATH="$SCRIP/../src/runtime/js/sno_runtime.js"
     if [ ! -f "$RT_PATH" ]; then
-        RT_PATH="/home/claude/one4all/src/runtime/js/sno_runtime.js"
+        RT_PATH="/home/claude/SCRIP/src/runtime/js/sno_runtime.js"
     fi
     
     if ! node "$js_file" 2>/dev/null; then

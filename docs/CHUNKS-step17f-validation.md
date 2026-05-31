@@ -2,7 +2,7 @@
 
 **Rung:** CH-17f — Migrate Step 16 (Prolog clause kinds at sm_lower.c)
 **Session:** sess #85, 2026-05-07
-**one4all HEAD before:** `7cfa0a96`
+**SCRIP HEAD before:** `7cfa0a96`
 
 ---
 

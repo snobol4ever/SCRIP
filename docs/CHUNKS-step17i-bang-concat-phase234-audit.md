@@ -331,7 +331,7 @@ result is the empirical anchor that unblocks the corresponding phase.
 For future sessions, the canonical audit invocation is:
 
 ```bash
-cd /home/claude/one4all
+cd /home/claude/SCRIP
 for f in /home/claude/corpus/programs/icon/*.icn \
          /home/claude/corpus/programs/raku/**/*.raku \
          /home/claude/corpus/programs/snocone/**/*.sc \

@@ -5,9 +5,9 @@
 # Also renames runtime broker modes BB_SCAN/PUMP/ONCE to lowercase (consumer constants).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONE4ALL="$HERE/.."
+SCRIP="$HERE/.."
 CORPUS="${CORPUS:-/home/claude/corpus}"
-roots=("$ONE4ALL/src" "$ONE4ALL/include")
+roots=("$SCRIP/src" "$SCRIP/include")
 [ -d "$CORPUS" ] && roots+=("$CORPUS")
 files=$(find "${roots[@]}" -type f \( -name '*.c' -o -name '*.h' -o -name '*.inc' \) \
         ! -name '*.tab.c' ! -name '*.tab.h' ! -name '*.lex.c' ! -name 'snobol4.c' 2>/dev/null)

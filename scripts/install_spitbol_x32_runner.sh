@@ -34,7 +34,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$HERE/.." && pwd)"         # /home/claude/one4all
+ROOT="$(cd "$HERE/.." && pwd)"         # /home/claude/SCRIP
 HOME_ROOT="$(cd "$ROOT/.." && pwd)"    # /home/claude
 
 X32_DIR="$HOME_ROOT/x32"

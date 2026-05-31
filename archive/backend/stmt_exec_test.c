@@ -4,7 +4,7 @@
  * Standalone build: no GC, no snobol4 runtime, no NASM.
  * Uses STMT_EXEC_STANDALONE to compile stmt_exec.c without snobol4.h.
  *
- * Build (from one4all/):
+ * Build (from SCRIP/):
  *   gcc -Wall -Wno-unused-label -Wno-unused-variable -Wno-misleading-indentation -g -O0 \
  *       -DSTMT_EXEC_STANDALONE \
  *       -I src/runtime/dyn \

@@ -1,7 +1,7 @@
 # PL-12 — `pl_invoke_term` attempt findings (session 2026-04-30 #2)
 
 ## Baseline at session start
-- one4all `f71d9dec`, corpus `2a69e92`, .github `6f24875`.
+- SCRIP `f71d9dec`, corpus `2a69e92`, .github `6f24875`.
 - smoke 5/5, broker 49/49, SWI suite **43/57 = 75%** (gate ≥ 80%).
 - 14 MISS suites: rem, float_zero, float_special, float_compare,
   max_integer_size, moded_int (test_arith); bips, arg, is_most_general_term
@@ -149,7 +149,7 @@ plunit.pl, no runtime change required, and gives `string` +1.
 
 | | start | end |
 |---|---|---|
-| one4all HEAD | f71d9dec | f71d9dec |
+| SCRIP HEAD | f71d9dec | f71d9dec |
 | corpus HEAD | 2a69e92 | 2a69e92 |
 | .github HEAD | 6f24875 | 6f24875 |
 | smoke_prolog | 5/5 | 5/5 |

@@ -1,7 +1,7 @@
 # CHUNKS Step 13 — Raku CASE migrated to chunk dispatch
 
 **Date:** 2026-05-06 · **Session:** continuing CH-13 after CH-12 close
-**HEAD before:** one4all @ `0a38d055` (post-CH-12)
+**HEAD before:** SCRIP @ `0a38d055` (post-CH-12)
 
 ## Scope
 

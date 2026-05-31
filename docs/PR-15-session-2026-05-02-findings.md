@@ -55,7 +55,7 @@ dispatched as a user predicate via E_CLAUSE/E_CHOICE.
 
 ## Diff location
 
-`one4all/docs/PR-15-session-2026-05-02-attempt.diff` — 100 lines, applies
+`SCRIP/docs/PR-15-session-2026-05-02-attempt.diff` — 100 lines, applies
 clean to HEAD `e72c900f`.
 
 Verified gates WITH this diff applied:

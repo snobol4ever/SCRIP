@@ -178,7 +178,7 @@ Next-session candidates, in rough order of leverage:
 - `corpus/programs/prolog/plunit.pl` — suite-skip fix (28 lines net,
   3 logical edits: pj_suite/2, pj_run_suite skip-clause,
   pj_cond_fails dispatcher).
-- `one4all/docs/PL-12-session-2026-05-01-2-findings.md` — this doc.
-- `one4all/docs/PL-12-session-2026-05-01-bridge.diff` — unchanged (still held back).
+- `SCRIP/docs/PL-12-session-2026-05-01-2-findings.md` — this doc.
+- `SCRIP/docs/PL-12-session-2026-05-01-bridge.diff` — unchanged (still held back).
 
 Working trees clean at handoff. SWI baseline 43/57 preserved.

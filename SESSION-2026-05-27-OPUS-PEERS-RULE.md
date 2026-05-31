@@ -1,6 +1,6 @@
 # SESSION HANDOFF — 2026-05-27 (Opus 4.7) — PEERS RULE + ICN-Z-ATOMIC Families 1-2
 
-**one4all HEAD: `78e4c067`** ✅ all gates green
+**SCRIP HEAD: `78e4c067`** ✅ all gates green
 **.github HEAD: pending watermark update**
 
 ---
@@ -148,12 +148,12 @@ populate `operand_aux` in the lowering branch, read it in `bb_exec` via
 
 ```bash
 git clone https://TOKEN@github.com/snobol4ever/.github /home/claude/.github
-git clone https://TOKEN@github.com/snobol4ever/one4all /home/claude/one4all
+git clone https://TOKEN@github.com/snobol4ever/SCRIP /home/claude/SCRIP
 git clone https://TOKEN@github.com/snobol4ever/corpus  /home/claude/corpus
 cat /home/claude/.github/PLAN.md
 cat /home/claude/.github/GOAL-ICON-BB.md  # ICN-Z-ATOMIC; read "PEERS RULE" section
-bash /home/claude/one4all/scripts/install_system_packages.sh
-cd /home/claude/one4all && make -j4 scrip
-bash /home/claude/one4all/scripts/test_smoke_icon.sh   # Expect PASS=5
-bash /home/claude/one4all/scripts/test_smoke_prolog.sh # Expect PASS=5
+bash /home/claude/SCRIP/scripts/install_system_packages.sh
+cd /home/claude/SCRIP && make -j4 scrip
+bash /home/claude/SCRIP/scripts/test_smoke_icon.sh   # Expect PASS=5
+bash /home/claude/SCRIP/scripts/test_smoke_prolog.sh # Expect PASS=5
 ```

@@ -1046,7 +1046,7 @@
     ret
   }
 
-  //    DATATYPE(x) -> uppercase name of x's type (one4all convention)          
+  //    DATATYPE(x) -> uppercase name of x's type (SCRIP convention)          
   .method private static void builtin_DATATYPE() cil managed
   {
     .maxstack 2

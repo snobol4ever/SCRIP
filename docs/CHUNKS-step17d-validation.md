@@ -2,7 +2,7 @@
 
 **Session:** #83, 2026-05-07
 **Rung:** CH-17d — producer-side: named-chunk skeletons for every Prolog predicate in g_pl_pred_table
-**one4all HEAD after landing:** (see git log)
+**SCRIP HEAD after landing:** (see git log)
 
 ---
 

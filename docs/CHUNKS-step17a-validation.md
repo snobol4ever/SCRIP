@@ -1,7 +1,7 @@
 # CHUNKS-step17a-validation — entry_pc scaffolding
 
 **Session #75 (continued), 2026-05-07.  Watermark: post-CH-16-SURVEY
-(one4all `86167095`).**
+(SCRIP `86167095`).**
 
 CH-17a is the first rung of the Step 17 sub-goal carved out into
 `GOAL-CHUNKS-STEP17.md`.  Pure addition: no producer flips, no
@@ -139,4 +139,4 @@ struct definitions every time.
 CH-17a closes.  Next inline: **CH-17b** — sm_lower emits named
 proc-body chunks for Icon/Raku procs.
 
-one4all @ HEAD pre-rung: `86167095`.  Session #75, 2026-05-07.
+SCRIP @ HEAD pre-rung: `86167095`.  Session #75, 2026-05-07.
