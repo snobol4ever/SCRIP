@@ -71,6 +71,7 @@ static int icn_rt_arity(const IR_t *n) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: return 0;
     case IR_BINOP: case IR_BINOP_GEN: return 2;
+    case IR_TO:    case IR_TO_BY:     return 2;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_CALL:  return (int)n->ival;
     default:       return -1;

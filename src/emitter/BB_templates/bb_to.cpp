@@ -30,6 +30,7 @@ extern "C" {
 #include "emit.h"
 #include "emit_bb.h"
 void rt_push_int(int64_t v);
+int  bb_slot_alloc(IR_t * nd);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_to_str(IR_t * pBB, bb_bin_t & bin) {
@@ -44,6 +45,41 @@ static std::string bb_to_str(IR_t * pBB, bb_bin_t & bin) {
 
         if (MEDIUM_MACRO_DEF)
             return s_comment("# no macro form — TO");
+
+        /* GZ-4 (GROUND ZERO 3, this session): stackless SINGLE-SHOT `lo to hi` over two READ-ONLY integer */
+        /* literal bounds — the generator analog of GZ-3's RO-int binop. After the mode-3 ring→tree adapter */
+        /* (icn_rt_arity now gives IR_TO arity 2) the bounds arrive as α/β IR_LIT_I children. Per the RO-IP- */
+        /* relative + ONE-REGISTER FRAME FACT RULES: lo/hi are sealed RO data INSIDE this box's own blob and */
+        /* read `[rip+disp]` (disp emit-time const); the first value (= lo, when lo<=hi) is the box's RW     */
+        /* state → stored at [r12+off] (ζ=r12), off via bb_slot_alloc; the consumer (write) reads it via    */
+        /* bb_slot_get. This is the α-port ONLY: `α: rax=lo; if lo>hi → ω; [r12+off]=rax; → γ`. The β-resume */
+        /* PUMP (`I++; recheck`) that `every` needs is fork-blocked (the adapter NULLs iterate/branch), so   */
+        /* β → ω here (single-shot: a bare `write(1 to 3)` consumes only the first value). Grounded in       */
+        /* test_icon.c `to1` (the α arm: `to1_I = x1_V; if (to1_I > x2_V) goto …fail; else to1_V = to1_I`).  */
+        if (MEDIUM_BINARY && pBB->α && pBB->β && pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I) {
+            int      off  = bb_slot_alloc(pBB);
+            int64_t  lov  = pBB->α->ival;
+            int64_t  hiv  = pBB->β->ival;
+            /*   off  bytes                       asm                                                          */
+            /*   0    48 8B 05 <u32 d_lo=31>      mov rax,[rip+d_lo]    (rip-base=7; lo@38; d_lo=38-7=31)       */
+            /*   7    48 3B 05 <u32 d_hi=32>      cmp rax,[rip+d_hi]    (rip-base=14; hi@46; d_hi=46-14=32)     */
+            /*   14   0F 8F <rel32 → ω>           jg ω                  (lo>hi → exhausted)  ← ω patch at 16    */
+            /*   20   49 89 84 24 <u32 off>       mov [r12+off],rax     (store first value = lo)                */
+            /*   28   E9 <rel32 → γ>              jmp γ                 ← γ patch at 29                         */
+            /*   33   E9 <rel32 → ω>              β: jmp ω              ← β-def 33, ω patch 34 (single-shot)    */
+            /*   38   <u64 lo>                    sealed RO lo          (reached only by [rip+31])              */
+            /*   46   <u64 hi>                    sealed RO hi          (reached only by [rip+32])              */
+            /*   54   end                                                                                       */
+            bin = { {16, 29, 33, 34}, {_.lbl_ω_p, _.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, false, true, false} };
+            return bytes(3, "\x48\x8B\x05") + u32le(31u)
+                 + bytes(3, "\x48\x3B\x05") + u32le(32u)
+                 + bytes(2, "\x0F\x8F")     + u32le(0)
+                 + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)off)
+                 + bytes(1, "\xE9")         + u32le(0)
+                 + bytes(1, "\xE9")         + u32le(0)
+                 + u64le((uint64_t)lov)
+                 + u64le((uint64_t)hiv);
+        }
 
         if (!lit_bounds) {
             /* DYNAMIC operands — not yet emitted inline (H-3 value-field read; blocked

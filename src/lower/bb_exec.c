@@ -1825,6 +1825,30 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_EVERY: {
         if (!bb->α) { bb->value = NULVCL; return bb->γ; }
+        if (bb->ival == 0) {
+            IR_t * start = bb->α;
+            int safety = (g_current_cfg ? g_current_cfg->n : 64) * 256 + 1024;
+            while (safety-- > 0) {
+                IR_t * cur = start;
+                int looped = 0;
+                DESCR_t lastv = FAILDESCR;
+                while (cur && safety-- > 0) {
+                    IR_t * next = bb_exec_node(cur);
+                    lastv = cur->value;
+                    if (next == bb) { looped = 1; break; }
+                    if (!next) break;
+                    ag_ring_push(g_current_cfg, cur->value);
+                    cur = next;
+                }
+                if (!looped) break;
+                if (IS_FAIL_fn(lastv)) break;
+                if (frame_depth > 0 && (FRAME.loop_break || FRAME.returning)) break;
+                if (frame_depth > 0) FRAME.loop_next = 0;
+            }
+            if (frame_depth > 0 && FRAME.loop_break) FRAME.loop_break = 0;
+            bb->value = NULVCL;
+            return bb->γ;
+        }
         if (bb->ival == 1 || bb->ival == 2) {
             if (bb->state == 0) {
                 bb->state = 1;

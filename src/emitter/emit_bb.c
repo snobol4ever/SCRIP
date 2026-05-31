@@ -75,6 +75,12 @@ int bb_slot_alloc(IR_t *nd) {
     if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
     return off;
 }
+int bb_slot_alloc16(IR_t *nd) {
+    int off = g_flat_slot_count;
+    g_flat_slot_count += 16;
+    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    return off;
+}
 int bb_slot_get(IR_t *nd) {
     for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
     return -1;

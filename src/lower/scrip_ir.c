@@ -303,23 +303,32 @@ void bb_program_free(bb_program_t * p) {
     p->table = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void print_port(FILE * fp, const char * label, const IR_t * bb) {
-    fprintf(fp, " %s=%s", label, bb ? "set" : "NULL");
+static int bb_index_of(const IR_graph_t * bbg, const IR_t * bb) {
+    if (!bbg || !bb) return -1;
+    for (int i = 0; i < bbg->n; i++) if (bbg->all[i] == bb) return i;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void print_port(FILE * fp, const IR_graph_t * bbg, const char * label, const IR_t * bb) {
+    int idx = bb_index_of(bbg, bb);
+    if (!bb) fprintf(fp, " %s=.", label);
+    else if (idx >= 0) fprintf(fp, " %s=%d", label, idx);
+    else fprintf(fp, " %s=set", label);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_print(const IR_graph_t * bbg, FILE * fp) {
     if (!bbg) { fprintf(fp, "(null IR_graph_t)\n"); return; }
     static const char * lang_names[] = { "?", "SNO", "SCO", "REB", "ICN", "PL", "RKU" };
     const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
-    fprintf(fp, "IR_graph_t lang=%s n=%d entry=%s\n", lname, bbg->n, bbg->entry ? "set" : "NULL");
+    fprintf(fp, "IR_graph_t lang=%s n=%d entry=%d\n", lname, bbg->n, bb_index_of(bbg, bbg->entry));
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         if (!bb) continue;
         fprintf(fp, "  [%d] %s", i, bb_op_name(bb->t));
-        print_port(fp, "α", bb->α);
-        print_port(fp, "β", bb->β);
-        print_port(fp, "γ", bb->γ);
-        print_port(fp, "ω", bb->ω);
+        print_port(fp, bbg, "α", bb->α);
+        print_port(fp, bbg, "β", bb->β);
+        print_port(fp, bbg, "γ", bb->γ);
+        print_port(fp, bbg, "ω", bb->ω);
         switch (bb->t) {
             case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)bb->ival); break;
             case IR_LIT_F: fprintf(fp, " dval=%g",   bb->dval);             break;
