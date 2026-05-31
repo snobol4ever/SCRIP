@@ -85,6 +85,84 @@ static IR_t * ret(IR_t * n, IR_t ** α_out, IR_t ** β_out, IR_t * α, IR_t * β
     return n;
 }
 /*====================================================================================================================================================================================================*/
+/* SHARED COMBINATOR SCAFFOLDING — the two control shapes every role reuses. This is the "sharing" the
+ * three concurrent language sessions ride: SNOBOL4 CAT (P1 P2), Icon conjunction (e1 & e2), and Prolog
+ * conjunction (g1 , g2) are the SAME four-port sequence; SNOBOL4 ALT (P1 | P2), Icon alternation, and
+ * Prolog disjunction (g1 ; g2) are the SAME four-port fail-chain. Each role's arm allocates its own node
+ * KIND and hands it to these helpers; the wiring (the port equations from Proebsting / jcon ir_a_Alt) is
+ * written ONCE here. Adding a role's call is free (additive); changing a helper's signature is lockstep.  */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* wire_seq — n-ary left-to-right sequence with backtracking, wrapped by a `kind` node. Children flatten
+ * (any nested same-tree-kind SEQ/CAT is collapsed by the caller before calling, or handled n-ary here).
+ *   child[i].γ -> child[i+1].α        (succeed -> next element's start)
+ *   child[i+1].ω -> child[i].β         (next element fails -> retry the preceding element = backtrack)
+ *   child[last].γ -> node              (whole sequence produced a value -> the wrapper node, then γ_in)
+ *   child[0].ω -> ω_in                 (first element exhausted -> the sequence fails)
+ *   node.α = child[0].α ; node.β = child[last].β   (re-enter the last element to make the next value)    */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (nkids < 1) return NULL;
+    IR_t * node = nalloc(cx, kind);
+    if (!node) return NULL;
+    IR_t * entry[64]; IR_t * resume[64]; IR_t * apply[64];
+    if (nkids > 64) return NULL;
+    for (int i = nkids - 1; i >= 0; i--) {
+        if (!kids[i]) return NULL;
+        IR_t * γi = (i + 1 < nkids) ? entry[i + 1] : node;   /* last element's success -> the wrapper node */
+        IR_t * αi = NULL, * βi = NULL;
+        IR_t * c = lower2(cx, kids[i], γi, ω_in /*provisional; preceding-element retry patched below*/, &αi, &βi);
+        if (!c) return NULL;
+        apply[i] = c; entry[i] = αi ? αi : c; resume[i] = βi;
+    }
+    for (int i = 1; i < nkids; i++) if (resume[i - 1]) apply[i]->ω = resume[i - 1];  /* child[i].fail -> child[i-1].resume */
+    set_succ_fail(node, γ_in, ω_in);
+    return ret(node, α_out, β_out, entry[0], resume[nkids - 1]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* wire_alt — n-ary alternation, wrapped by a `kind` node (jcon ir_a_Alt). Each arm's success funnels to
+ * the node; the fail-chain threads arm[i].ω -> arm[i+1].α (try the next alternative), the last arm's fail
+ * -> ω_in. The node is its own resume (the runtime alt-gate dispatches β to the currently-active arm,
+ * whose resume pointer lives in the operand_aux sidecar — PEERS rule, no fields added to IR_t).           */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (nkids < 1) return NULL;
+    IR_t * node = nalloc(cx, kind);
+    if (!node) return NULL;
+    IR_t * entry[64]; IR_t * resume[64]; IR_t * apply[64];
+    if (nkids > 64) return NULL;
+    for (int j = 0; j < nkids; j++) {
+        if (!kids[j]) return NULL;
+        IR_t * αj = NULL, * βj = NULL;
+        IR_t * arm = lower2(cx, kids[j], node /*arm.γ -> node*/, NULL /*arm.ω fail-chained below*/, &αj, &βj);
+        if (!arm) return NULL;
+        if (!arm->γ) arm->γ = node;
+        apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
+    }
+    for (int j = 0; j < nkids; j++) {
+        IR_t * next = (j + 1 < nkids) ? entry[j + 1] : ω_in;   /* arm[j].fail -> arm[j+1].start ; last -> ω_in */
+        if (!apply[j]->ω) apply[j]->ω = next;
+    }
+    bb_operand_aux_set(cx.bbg, node, resume, nkids);
+    set_succ_fail(node, γ_in, ω_in);
+    return ret(node, α_out, β_out, entry[0], node /* node is its own resume; gate dispatches to active arm */);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* flatten_seq — collapse a right/left-nested chain of `kind` tree nodes into a flat kids[] array (concat
+ * and conjunction are associative, so `a (b c)` and `(a b) c` flatten to the same 3-element sequence).
+ * Returns the count; writes up to `cap` leaf pointers. Used by SNOBOL CAT and Prolog `,` so a deep parse
+ * tree lowers as one flat sequence (the flat fail-chain is what lets a middle generator backtrack).        */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int flatten_seq(const tree_t * e, tree_e kind, const tree_t ** out, int cap) {
+    int n = 0;
+    if (!e) return 0;
+    if (e->t == kind) {
+        for (int i = 0; i < e->n; i++) { int got = flatten_seq(e->c[i], kind, out + n, cap - n); n += got; if (n >= cap) break; }
+        return n;
+    }
+    if (n < cap) out[n++] = e;
+    return n;
+}
+/*====================================================================================================================================================================================================*/
 /* TREE-PATTERN MATCH-AND-COLLECT (the shared little library; tmatch_proto.c was the design exhibit).
  * A lowering arm is "if the AST node looks like SHAPE, bind its parts and wire them." `tm` tests a node's
  * SHALLOW shape (kind + arity) and CAPTURES the first nargs children into (const tree_t **) out-params;
@@ -256,17 +334,10 @@ static lcx_t with_loop(lcx_t cx, IR_t * lω, IR_t * lnext) { cx.loop_ω = lω; c
  * The IR_CONJ node forwards E2's value (Icon `e1 & e2` yields e2), sitting on E2's success edge.          */
 /*====================================================================================================================================================================================================*/
 static IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
-    IR_t * conj = nalloc(cx, IR_CONJ);
-    if (!conj) return NULL;
-    IR_t * e1α=NULL,*e1β=NULL,*e2α=NULL,*e2β=NULL;
-    IR_t * c1 = lower2(cx, e->c[0], NULL /*E1.γ patched below*/, ω_in, &e1α, &e1β);
-    if (!c1) return NULL;
-    IR_t * c2 = lower2(cx, e->c[1], conj /*E2.γ -> conj*/, e1β /*E2.ω -> E1.β*/, &e2α, &e2β);
-    if (!c2) return NULL;
-    if (!c1->γ) c1->γ = e2α;            /* E1.succeed -> E2.start */
-    set_succ_fail(conj, γ_in, ω_in);
-    return ret(conj, α_out, β_out, e1α, e2β);
+    const tree_t * kids[64];
+    int nk = flatten_seq(e, e->t, kids, 64);     /* Icon `&` is associative: flatten so a middle generator backtracks */
+    if (nk < 1) return NULL;
+    return wire_seq(cx, IR_CONJ, kids, nk, γ_in, ω_in, α_out, β_out);
 }
 /*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — ALTERNATION `E1 | E2 | ... | Ek` (jcon ir_a_Alt; the SIBLING-backtrack box, runtime-gated
@@ -276,26 +347,7 @@ static IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 /*====================================================================================================================================================================================================*/
 static IR_t * v_alt(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1) return NULL;
-    IR_t * alt = nalloc(cx, IR_ALT);
-    if (!alt) return NULL;
-    IR_t * entry[64]; IR_t * resume[64]; IR_t * apply[64];
-    int k = e->n;
-    if (k > 64) return NULL;
-    for (int j = 0; j < k; j++) {
-        if (!e->c[j]) return NULL;
-        IR_t * αj=NULL,*βj=NULL;
-        IR_t * arm = lower2(cx, e->c[j], alt /*arm.γ -> alt*/, NULL /*arm.ω chained below*/, &αj, &βj);
-        if (!arm) return NULL;
-        if (!arm->γ) arm->γ = alt;
-        apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
-    }
-    for (int j = 0; j < k; j++) {
-        IR_t * next = (j + 1 < k) ? entry[j + 1] : ω_in;   /* Ei.fail -> E(i+1).start ; last -> alt.fail */
-        if (!apply[j]->ω) apply[j]->ω = next;
-    }
-    bb_operand_aux_set(cx.bbg, alt, resume, k);
-    set_succ_fail(alt, γ_in, ω_in);
-    return ret(alt, α_out, β_out, entry[0], alt /* alt is its own resume; gate dispatches to active arm */);
+    return wire_alt(cx, IR_ALT, (const tree_t * const *) e->c, e->n, γ_in, ω_in, α_out, β_out);
 }
 /*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — `every E1 [do E2]` (jcon ir_a_Every). Drives E1 as a generator, runs the (bounded) body
@@ -533,6 +585,20 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
         if (e->t==TT_BREAKX) n->ival = 1; else if (e->t==TT_BREAK) n->ival = 0;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
+    /* CAT — pattern subsequent `P1 P2` (SPITBOL ch.6 "P2 is subsequent to P1"). SAME shape as Icon
+       conjunction / Prolog `,`: P1.γ -> P2.α, P2.ω -> P1.β (backtrack to grow the preceding element). */
+    case TT_SEQ: case TT_CAT: {
+        const tree_t * kids[64];
+        int nk = flatten_seq(e, e->t, kids, 64);
+        if (nk < 1) return NULL;
+        if (nk == 1) return lower2(cx, kids[0], γ_in, ω_in, α_out, β_out);
+        return wire_seq(cx, IR_PAT_CAT, kids, nk, γ_in, ω_in, α_out, β_out);
+    }
+    /* ALT — pattern alternation `P1 | P2` (SPITBOL ch.6). SAME fail-chain as Icon alternation /
+       Prolog `;`: arm.γ -> alt, arm[i].ω -> arm[i+1].α, last arm fail -> ω_in. */
+    case TT_ALT:
+        if (e->n < 1) return NULL;
+        return wire_alt(cx, IR_PAT_ALT, (const tree_t * const *) e->c, e->n, γ_in, ω_in, α_out, β_out);
     /* extension: LEN POS RPOS TAB RTAB FENCE ARBNO CAT/SEQ ALT
        CAPT_COND_ASGN CAPT_IMMED_ASGN CAPT_CURSOR DEFER VAR(*var) BAL, and FNC(SPAN/ANY/.../ARBNO). */
     default:
@@ -560,6 +626,52 @@ static IR_t * g_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR
     return ret(call, α_out, β_out, aα, ω_in /* deterministic: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
+/* GOAL ROLE — `=/2` unification (Prolog). A deterministic-at-most-once goal: bind LHS≈RHS, succeed once,
+ * then resume -> fail. Both sides are TERMS (lowered VALUE-role so they materialize as descriptors the
+ * unifier consumes). The two operand refs go in the operand_aux sidecar (PEERS rule); EXEC performs the
+ * actual unify + trail. Topology: lhs.γ -> rhs.α ; rhs.γ -> unify ; either operand exhausts -> ω_in.       */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_unify(lcx_t cx, const tree_t * l_t, const tree_t * r_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!l_t || !r_t) return NULL;
+    IR_t * uni = nalloc(cx, IR_UNIFY);
+    if (!uni) return NULL;
+    lcx_t tv = cx; tv.role = ROLE_VALUE;            /* operands are terms */
+    IR_t * rα = NULL, * rβ = NULL;
+    IR_t * r = lower2(tv, r_t, uni /*rhs.γ -> unify*/, ω_in, &rα, &rβ);
+    if (!r) return NULL;
+    IR_t * lα = NULL, * lβ = NULL;
+    IR_t * l = lower2(tv, l_t, rα /*lhs.γ -> rhs.α*/, ω_in, &lα, &lβ);
+    if (!l) return NULL;
+    (void) lβ; (void) rβ;
+    IR_t * ops[2] = { l, r };
+    bb_operand_aux_set(cx.bbg, uni, ops, 2);
+    set_succ_fail(uni, γ_in, ω_in);
+    return ret(uni, α_out, β_out, lα, ω_in /* unify is semidet: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
+/* GOAL ROLE — arithmetic comparison goal (`</2 >/2 =</2 >=/2 =:=/2 =\=/2`). Both args are arithmetic
+ * EXPRESSIONS (VALUE-role: evaluated to numbers). The comparison succeeds-once-or-fails; `ival` carries the
+ * comparison code (a BinopKind reused) so EXEC dispatches the right test. Topology mirrors g_unify.         */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_compare(lcx_t cx, const tree_t * l_t, const tree_t * r_t, int op_code, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!l_t || !r_t) return NULL;
+    IR_t * cmp = nalloc(cx, IR_ARITH);
+    if (!cmp) return NULL;
+    cmp->ival = op_code;
+    lcx_t tv = cx; tv.role = ROLE_VALUE;
+    IR_t * rα = NULL, * rβ = NULL;
+    IR_t * r = lower2(tv, r_t, cmp /*rhs.γ -> cmp*/, ω_in, &rα, &rβ);
+    if (!r) return NULL;
+    IR_t * lα = NULL, * lβ = NULL;
+    IR_t * l = lower2(tv, l_t, rα /*lhs.γ -> rhs.α*/, ω_in, &lα, &lβ);
+    if (!l) return NULL;
+    (void) lβ; (void) rβ;
+    IR_t * ops[2] = { l, r };
+    bb_operand_aux_set(cx.bbg, cmp, ops, 2);
+    set_succ_fail(cmp, γ_in, ω_in);
+    return ret(cmp, α_out, β_out, lα, ω_in /* semidet: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
 /* GOAL ROLE — Prolog goals. Kind selects the arm; the sval/arity guards live INSIDE the TT_FNC arm
  * (they pick the control construct/builtin, not the kind). Foundation: cut, true/fail leaves. Extension:
  * Conj/Alt/Ite/Unify/Compare/Call/Builtin/phrase/catch/findall.                                           */
@@ -573,16 +685,50 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         if (fn && (!strcmp(fn,"fail")||!strcmp(fn,"false")))     return emit_leaf(cx, nalloc(cx, IR_FAIL), γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* nl builtin; bare-atom Call */
     }
-    case TT_UNIFY:
-    case TT_GT: case TT_LT: case TT_GE: case TT_LE: case TT_EQ: case TT_NE:
+    case TT_UNIFY: {
+        const tree_t * l = NULL, * r = NULL;
+        if (!tm(e, TT_UNIFY, 2, &l, &r)) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+        return g_unify(cx, l, r, γ_in, ω_in, α_out, β_out);
+    }
     case TT_IF: case TT_VAR:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_FNC: {
-        /* SHARED TABLE — first Prolog goal arm: deterministic write-family builtins (write/writeln/print). */
-        const tree_t * arg = NULL;
+        const tree_t * A = NULL, * B = NULL, * arg = NULL;
+        /* SHARED TABLE — deterministic write-family builtins (write/writeln/print). */
         if (tm_g(e, TT_FNC, "write",   1, &arg)) return g_det_builtin1(cx, arg, "write",   γ_in, ω_in, α_out, β_out);
         if (tm_g(e, TT_FNC, "writeln", 1, &arg)) return g_det_builtin1(cx, arg, "writeln", γ_in, ω_in, α_out, β_out);
         if (tm_g(e, TT_FNC, "print",   1, &arg)) return g_det_builtin1(cx, arg, "print",   γ_in, ω_in, α_out, β_out);
+        /* conjunction `,/2` — SAME four-port sequence as Icon `&` / SNOBOL CAT (wire_seq, IR_GCONJ kind).
+           flatten_seq matches by tree-KIND only and every Prolog operator is TT_FNC, so the `,`-spine is
+           collected by walking right-nested `,`-tagged FNCs explicitly (sval guard distinguishes from `;`). */
+        if (tm_g(e, TT_FNC, ",", 2, &A, &B)) {
+            const tree_t * spine[64]; int sn = 0;
+            const tree_t * cur = e;
+            while (cur && cur->t == TT_FNC && cur->v.sval && !strcmp(cur->v.sval, ",") && cur->n == 2 && sn < 63) {
+                spine[sn++] = cur->c[0]; cur = cur->c[1];
+            }
+            if (cur && sn < 64) spine[sn++] = cur;
+            return wire_seq(cx, IR_GCONJ, spine, sn, γ_in, ω_in, α_out, β_out);
+        }
+        /* disjunction `;/2` — SAME fail-chain as Icon alternation / SNOBOL ALT (wire_alt, IR_DISJ kind). */
+        if (tm_g(e, TT_FNC, ";", 2, &A, &B)) {
+            const tree_t * spine[64]; int sn = 0;
+            const tree_t * cur = e;
+            while (cur && cur->t == TT_FNC && cur->v.sval && !strcmp(cur->v.sval, ";") && cur->n == 2 && sn < 63) {
+                spine[sn++] = cur->c[0]; cur = cur->c[1];
+            }
+            if (cur && sn < 64) spine[sn++] = cur;
+            return wire_alt(cx, IR_DISJ, spine, sn, γ_in, ω_in, α_out, β_out);
+        }
+        /* unification as an operator FNC `=/2`. */
+        if (tm_g(e, TT_FNC, "=", 2, &A, &B)) return g_unify(cx, A, B, γ_in, ω_in, α_out, β_out);
+        /* arithmetic comparison goals — op string -> BinopKind code reused by EXEC. */
+        if (tm_g(e, TT_FNC, "<",   2, &A, &B)) return g_compare(cx, A, B, BINOP_LT, γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, ">",   2, &A, &B)) return g_compare(cx, A, B, BINOP_GT, γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "=<",  2, &A, &B)) return g_compare(cx, A, B, BINOP_LE, γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, ">=",  2, &A, &B)) return g_compare(cx, A, B, BINOP_GE, γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "=:=", 2, &A, &B)) return g_compare(cx, A, B, BINOP_EQ, γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "=\\=",2, &A, &B)) return g_compare(cx, A, B, BINOP_NE, γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* other builtins / user-pred Call = later arms */
     }
     default:
