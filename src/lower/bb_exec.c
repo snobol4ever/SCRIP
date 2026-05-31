@@ -38,7 +38,7 @@ static void bb_dcap_flush(void) {
         int len = g_dcap[i].len;
         char *copy = (char *)GC_MALLOC((size_t)len + 1);
         if (copy) { memcpy(copy, Σ + g_dcap[i].start, (size_t)len); copy[len] = '\0'; }
-        DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+        DESCR_t d = BSTRVAL(copy ? copy : "", (uint32_t)len);
         NV_SET_fn(g_dcap[i].varname, d);
     }
     g_dcap_n = 0;
@@ -1352,12 +1352,12 @@ long size_value(DESCR_t v, int * failed) {
     if (v.v == DT_DATA) {
         DESCR_t tag = FIELD_GET_fn(v, "gen_type");
         if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) return (long)(int)FIELD_GET_fn(v, "frame_size").i;
-        if (v.u && v.u->type) return (long)v.u->type->nfields;
+        if (GET_U(v) && GET_U(v)->type) return (long)GET_U(v)->type->nfields;
         return 0;
     }
-    if (v.v == DT_T && v.tbl) {
+    if (v.v == DT_T && GET_TBL(v)) {
         long cnt = 0;
-        for (int b = 0; b < TABLE_BUCKETS; b++) for (TBPAIR_t * ep = v.tbl->buckets[b]; ep; ep = ep->next) cnt++;
+        for (int b = 0; b < TABLE_BUCKETS; b++) for (TBPAIR_t * ep = GET_TBL(v)->buckets[b]; ep; ep = ep->next) cnt++;
         return cnt;
     }
     if (IS_CSET_fn(v)) {
@@ -1376,20 +1376,20 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
             int n          = (int)FIELD_GET_fn(obj, "frame_size").i;
             DESCR_t ea     = FIELD_GET_fn(obj, "frame_elems");
-            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)GET_PTR(ea) : NULL;
             if (!elems || idx >= n) return 0;
             *out = elems[idx];
             return 1;
         }
-        if (obj.u && obj.u->type && obj.u->type->nfields > 0) {
-            int nf = obj.u->type->nfields;
+        if (GET_U(obj) && GET_U(obj)->type && GET_U(obj)->type->nfields > 0) {
+            int nf = GET_U(obj)->type->nfields;
             if (idx >= nf) return 0;
-            *out = obj.u->fields[idx];
+            *out = GET_U(obj)->fields[idx];
             return 1;
         }
     }
-    if (obj.v == DT_T && obj.tbl) {
-        TBBLK_t *tbl   = obj.tbl;
+    if (obj.v == DT_T && GET_TBL(obj)) {
+        TBBLK_t *tbl   = GET_TBL(obj);
         int64_t  seen  = 0;
         for (int b = 0; b < TABLE_BUCKETS; b++) {
             for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
@@ -1401,7 +1401,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     }
     {
         const char *s   = (obj.v == DT_S) ? obj.s : NULL;
-        int64_t     slen = s ? (int64_t)(obj.slen > 0 ? obj.slen : strlen(s)) : 0;
+        int64_t     slen = s ? (int64_t)(GET_SLEN(obj) > 0 ? GET_SLEN(obj) : strlen(s)) : 0;
         if (!s || idx >= slen) return 0;
         char *ch = GC_malloc(2);
         ch[0] = s[idx];
@@ -2149,8 +2149,8 @@ IR_t * bb_exec_node(IR_t * bb) {
             if (lv.v == DT_SNUL) ident = 1;
             else if (lv.v == DT_I) ident = (lv.i == rv.i);
             else if (lv.v == DT_S || lv.v == DT_K) ident = (lv.s == rv.s) || (lv.s && rv.s && strcmp(lv.s, rv.s) == 0);
-            else if (lv.v == DT_DATA) ident = (lv.ptr == rv.ptr);
-            else if (lv.v == DT_T) ident = (lv.tbl == rv.tbl);
+            else if (lv.v == DT_DATA) ident = (GET_PTR(lv) == GET_PTR(rv));
+            else if (lv.v == DT_T) ident = (GET_TBL(lv) == GET_TBL(rv));
             else ident = (lv.i == rv.i);
         }
         if (!ident) { bb->value = FAILDESCR; return bb->ω; }
@@ -2181,11 +2181,11 @@ IR_t * bb_exec_node(IR_t * bb) {
             return bb->γ;
         }
         if (v.v == DT_T) {
-            if (!v.tbl || v.tbl->size <= 0) { bb->value = FAILDESCR; return bb->ω; }
-            int target = (int)(rnd % (unsigned long)v.tbl->size);
+            if (!GET_TBL(v) || GET_TBL(v)->size <= 0) { bb->value = FAILDESCR; return bb->ω; }
+            int target = (int)(rnd % (unsigned long)GET_TBL(v)->size);
             int seen = 0;
             for (int b = 0; b < TABLE_BUCKETS; b++) {
-                for (TBPAIR_t *p = v.tbl->buckets[b]; p; p = p->next) {
+                for (TBPAIR_t *p = GET_TBL(v)->buckets[b]; p; p = p->next) {
                     if (seen == target) { bb->value = p->val; return bb->γ; }
                     seen++;
                 }
@@ -2194,7 +2194,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         }
         const char *s = VARVAL_fn(v);
         if (s) {
-            long slen = v.slen > 0 ? v.slen : (long)strlen(s);
+            long slen = GET_SLEN(v) > 0 ? GET_SLEN(v) : (long)strlen(s);
             if (slen <= 0) { bb->value = FAILDESCR; return bb->ω; }
             int idx = (int)(rnd % (unsigned long)slen);
             char buf[2] = { s[idx], '\0' };
@@ -2462,14 +2462,14 @@ IR_t * bb_exec_node(IR_t * bb) {
         if (bb->state == 0) {
             bb_exec_node(bb->α);
             DESCR_t tv = bb->α->value;
-            if (IS_FAIL_fn(tv) || tv.v != DT_T || !tv.tbl) { bb->value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(tv) || tv.v != DT_T || !GET_TBL(tv)) { bb->value = FAILDESCR; return bb->ω; }
             bb->counter = 0;
             bb->state   = 1;
         } else {
             bb->counter++;
         }
         DESCR_t tvc = bb->α->value;
-        TBBLK_t *tbl = (tvc.v == DT_T) ? tvc.tbl : NULL;
+        TBBLK_t *tbl = (tvc.v == DT_T) ? GET_TBL(tvc) : NULL;
         if (!tbl) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
         int64_t target = bb->counter, seen = 0;
         for (int b = 0; b < TABLE_BUCKETS; b++) {
@@ -2800,7 +2800,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             } else {
                 char *copy = (char *)GC_MALLOC((size_t)matched_len + 1);
                 if (copy) { memcpy(copy, Σ + (int)bb->counter, (size_t)matched_len); copy[matched_len] = '\0'; }
-                DESCR_t matched = { .v = DT_S, .slen = (uint32_t)matched_len, .s = copy ? copy : "" };
+                DESCR_t matched = BSTRVAL(copy ? copy : "", (uint32_t)matched_len);
                 NV_SET_fn(bb->sval, matched);
             }
         }
@@ -2824,7 +2824,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             } else {
                 char *copy = (char *)GC_MALLOC((size_t)matched_len + 1);
                 if (copy) { memcpy(copy, Σ + (int)bb->counter, (size_t)matched_len); copy[matched_len] = '\0'; }
-                DESCR_t matched = { .v = DT_S, .slen = (uint32_t)matched_len, .s = copy ? copy : "" };
+                DESCR_t matched = BSTRVAL(copy ? copy : "", (uint32_t)matched_len);
                 NV_SET_fn(bb->sval, matched);
             }
         }
@@ -2884,14 +2884,14 @@ IR_t * bb_exec_node(IR_t * bb) {
         }
         if (val.v == DT_S || val.v == DT_SNUL) {
             const char *lit = val.s ? val.s : "";
-            int llen = val.slen ? (int)val.slen : (int)strlen(lit);
+            int llen = GET_SLEN(val) ? (int)GET_SLEN(val) : (int)strlen(lit);
             if (Δ + llen > Σlen) { bb->value = FAILDESCR; return bb->ω; }
             if (llen > 0 && strncmp(Σ + Δ, lit, (size_t)llen) != 0) { bb->value = FAILDESCR; return bb->ω; }
             Δ += llen;
             bb->state = 2; bb->value = NULVCL;
             return bb->γ;
         }
-        if (val.v == DT_P && val.p) {
+        if (val.v == DT_P && GET_P(val)) {
             fprintf(stderr, "[PATND] IR_PAT_DEFER pattern-valued *var deref used the removed PATND->IR bridge; SNOBOL4 patterns are not yet BB-native (Track B). Aborting.\n");
             abort();
         }
@@ -2994,7 +2994,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             DESCR_t src = NV_GET_fn(bb->sval);
             if (src.v != DT_S || !src.s) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
             if (bb->state == 0) { bb->counter = 0; bb->state = 1; }
-            int64_t total = (int64_t)(src.slen > 0 ? src.slen : (int64_t)strlen(src.s));
+            int64_t total = (int64_t)(GET_SLEN(src) > 0 ? GET_SLEN(src) : (int64_t)strlen(GET_S(src)));
             if (bb->counter >= total) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
             int64_t end = bb->counter;
             while (end < total && src.s[end] != '\x01') end++;
@@ -3002,7 +3002,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             char *seg = GC_malloc(seg_len + 1);
             memcpy(seg, src.s + bb->counter, seg_len);
             seg[seg_len] = '\0';
-            DESCR_t out = (DESCR_t){ .v = DT_S, .slen = (uint32_t)seg_len, .s = seg };
+            DESCR_t out = BSTRVAL(seg, (uint32_t)seg_len);
             bb->counter = end + 1;
             bb->value = out;
             return bb->γ;
@@ -3018,7 +3018,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb->state = 1;
         DESCR_t sv = bb->α->value;
         const char *str = (sv.v == DT_S && sv.s) ? sv.s : "";
-        int64_t len = (sv.v == DT_S) ? (int64_t)(sv.slen > 0 ? sv.slen : (int64_t)strlen(str)) : 0;
+        int64_t len = (sv.v == DT_S) ? (int64_t)(GET_SLEN(sv) > 0 ? GET_SLEN(sv) : (int64_t)strlen(str)) : 0;
         if (bb->counter >= len) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
         char *ch = GC_malloc(2);
         ch[0] = str[bb->counter];
@@ -3443,7 +3443,7 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_STRUCT: {
         Term *t = resolve_node_to_term(bb);
-        bb->value = (DESCR_t){ .v = DT_DATA, .ptr = t };
+        bb->value = MK_DATA(t);
         return bb->γ;
     }
     case IR_LOGICVAR: {
@@ -3455,7 +3455,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         if (t->tag == TERM_INT)   { bb->value = INTVAL(t->ival);  return bb->γ; }
         if (t->tag == TERM_FLOAT) { bb->value = REALVAL(t->fval); return bb->γ; }
         if (t->tag == TERM_ATOM)  { const char *nm = prolog_atom_name(t->atom_id); bb->value = nm ? STRVAL(nm) : NULVCL; return bb->γ; }
-        if (t->tag == TERM_COMPOUND) { bb->value = (DESCR_t){ .v = DT_DATA, .ptr = t }; return bb->γ; }
+        if (t->tag == TERM_COMPOUND) { bb->value = MK_DATA(t); return bb->γ; }
         bb->value = NULVCL;
         return bb->γ;
     }
@@ -4024,7 +4024,7 @@ IR_t * bb_exec_node(IR_t * bb) {
                     if (av.v == DT_I) printf("%ld", (long)av.i);
                     else if (av.v == DT_R) { char fb[64]; resolve_format_float(fb, sizeof fb, av.r); fputs(fb, stdout); }
                     else if ((av.v == DT_S || av.v == DT_SNUL) && av.s) fputs(av.s, stdout);
-                    else if (av.v == DT_DATA && av.ptr) pl_write((Term *)av.ptr);
+                    else if (av.v == DT_DATA && GET_PTR(av)) pl_write((Term *)GET_PTR(av));
                 }
                 if (strcmp(fn, "writeln") == 0) putchar('\n');
                 bb->value = INTVAL(1); return bb->γ;
@@ -4360,7 +4360,7 @@ int bb_exec_pat(IR_graph_t *bbg,
         DESCR_t sv = VARVAL_d_fn(*subj_var);
         if (sv.v == DT_S || sv.v == DT_SNUL) {
             subj_str = sv.s ? sv.s : "";
-            subj_len = sv.slen ? (int)sv.slen : (int)strlen(subj_str);
+            subj_len = GET_SLEN(sv) ? (int)GET_SLEN(sv) : (int)strlen(subj_str);
         }
     }
     Σ    = subj_str;
@@ -4407,7 +4407,7 @@ int bb_exec_pat(IR_graph_t *bbg,
     memcpy(new_s + match_start,            repl_str,                (size_t)repl_len);
     memcpy(new_s + match_start + repl_len, subj_str + match_end,    (size_t)(subj_len - match_end));
     new_s[new_len] = '\0';
-    DESCR_t new_val = { .v = DT_S, .slen = (uint32_t)new_len, .s = new_s };
+    DESCR_t new_val = BSTRVAL(new_s, (uint32_t)new_len);
     if (subj_name && *subj_name) {
         NV_SET_fn(subj_name, new_val);
     } else if (subj_var) {
