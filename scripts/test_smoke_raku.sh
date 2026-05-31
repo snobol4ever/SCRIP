@@ -55,4 +55,13 @@ sub main() {
 }
 EOF
 
+raku "gather_take" "$(printf '10\n20\n30\ndone')" << 'EOF'
+sub main() {
+    for gather { take(10); take(20); take(30); } -> $v {
+        say($v);
+    }
+    say('done');
+}
+EOF
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

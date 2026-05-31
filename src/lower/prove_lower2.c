@@ -50,6 +50,7 @@ static const char * kname(IR_e t) {
     case IR_GCONJ: return "GCONJ"; case IR_DISJ: return "DISJ"; case IR_UNIFY: return "UNIFY"; case IR_ARITH: return "ARITH"; case IR_CUT: return "CUT";
     case IR_BUILTIN: return "BLTIN"; case IR_ATOM: return "ATOM"; case IR_STRUCT: return "STRCT"; case IR_LOGICVAR: return "LVAR";
     case IR_ITE: return "ITE";
+    case IR_GATHER: return "GTHR";
     default: return "?";
     }
 }
@@ -320,6 +321,20 @@ int main(void) {
        bind(IR_ASSIGN _) + gen(IR_TO + 2 IR_LIT_I bounds) + body(IR_CALL + IR_VAR arg) = 6 real nodes. */
     dump_raku_value("RAKU:     for 1..3 { say $_ }   [RK-LOWER-1 v_raku_for: gen.gamma->ASGN(_), bind.gamma->body, body.gamma->gen.beta (re-pump), gen.omega->done]",
          bin(TT_EVERY, un(TT_ITERATE, bin(TT_TO, lit(1), lit(3))), un(TT_SAY, var("_"))), 6);
+    /* RK-LOWER-2 (KEYSTONE): `for gather { take 10; take 20; take 30 } -> $v { say $v }` =>
+       TT_EVERY(TT_ITERATE(v, TT_GATHER(TT_SEQ_EXPR(TT_SUSPEND(10),TT_SUSPEND(20),TT_SUSPEND(30)))), say $v).
+       v_raku_for drives a v_raku_gather producer: bind(IR_ASSIGN v) + gen(IR_GATHER, its own resume β=self)
+       + body(IR_CALL + IR_VAR v) = 4 real PRINCIPAL nodes. The 3 take payloads lower into SEPARATE value
+       sub-graphs (lower_value_subgraph) so they are NOT counted here — exactly the SNOBOL4 call-arg idiom. */
+    {
+        tree_t * sq = ast_node_new(TT_SEQ_EXPR);
+        ast_push(sq, un(TT_SUSPEND, lit(10)));
+        ast_push(sq, un(TT_SUSPEND, lit(20)));
+        ast_push(sq, un(TT_SUSPEND, lit(30)));
+        tree_t * it = ast_node_new(TT_ITERATE); it->v.sval = "v"; ast_push(it, un(TT_GATHER, sq));
+        dump_raku_value("RAKU:     for gather { take 10; take 20; take 30 } -> $v { say $v }   [RK-LOWER-2 v_raku_gather: IR_GATHER β=self (own resume), gen.gamma->ASGN(v), gen.omega->done; takes in sub-graphs]",
+             bin(TT_EVERY, it, un(TT_SAY, var("v"))), 4);
+    }
     /* ===== END RAKU SECTION ===== */
     return 0;
 }

@@ -81,6 +81,7 @@ static IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_builtin(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
@@ -234,7 +235,7 @@ static int tm_g(const tree_t * e, tree_e kind, const char * tag, int nargs, ...)
 /*====================================================================================================================================================================================================*/
 int kind_is_resumable(IR_e t) {
     return t == IR_TO || t == IR_TO_BY || t == IR_UPTO || t == IR_ALT || t == IR_BINOP_GEN || t == IR_ITERATE || t == IR_LIMIT || t == IR_PROC_GEN ||
-           t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN || t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN ||
+           t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN || t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN || t == IR_GATHER ||
            t == IR_GEN_SCAN || t == IR_CONJ ||
            /* SNOBOL4 PATTERN generators — bb->β=self (retry to backtrack/shrink/grow): */
            t == IR_PAT_LIT || t == IR_PAT_ARB || t == IR_PAT_REM || t == IR_PAT_SPAN || t == IR_PAT_ANY || t == IR_PAT_NOTANY ||
@@ -545,6 +546,60 @@ static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, con
     return ret(gen, α_out, β_out, gα /*loop entry = generator start*/, ω_in /*for stmt is bounded*/);
 }
 /*====================================================================================================================================================================================================*/
+/* v_raku_gather (RK-LOWER-2, KEYSTONE) — Raku `gather { take E1; take E2; ... }` -> a resumable Seq PRODUCER.   */
+/* Per docs.raku.org/syntax/gather%20take: gather is a block prefix returning a Seq of values; the values come   */
+/* from `take` calls in the dynamic scope, generated lazily — one value delivered per pull, the body resuming    */
+/* between pulls (the doc's `take 1; say ...; take 2` example proves @vals[0]=1 BEFORE the say, @vals[1]=2 after).*/
+/* At this rung we realize the FLAT-take model — the keystone spec from APPENDIX-A RK-M2-GATHER: counter-as-      */
+/* resume-cursor, yield ONE take per (re)entry, walking past the last take => FAIL (Seq drained). The parser      */
+/* hands gather a TT_SEQ_EXPR (or a lone TT_SUSPEND) whose children are TT_SUSPEND(payload) (raku.y `take`->      */
+/* TT_SUSPEND); each payload is lowered into its OWN isolated value sub-graph (the SNOBOL4 call-arg idiom — the   */
+/* cursor carries cx.lang=IR_LANG_RKU so payloads lower as Raku values; robust for any payload node count, no     */
+/* AG-ring positional dependency). The sub-graph pointer array rides on IR_GATHER.counter; the take COUNT on      */
+/* .ival; the resume cursor on .state (0 = fresh: yield take[0]; k>=1 = k takes yielded: yield take[k]). The      */
+/* IR_GATHER node is its OWN resume (beta=self, exactly like IR_TO) so the v_raku_for / generator PUMP re-pump    */
+/* (body.gamma -> gen.beta) advances the cursor on each cycle; on drain it FAILs to omega (the for STATEMENT      */
+/* completes, unlike Icon `every` which fails outward). Dynamic-scope takes (inside loops/conditionals, the       */
+/* docs.raku.org factors() example) are a later refinement on this same node. Raku-gated; non-Raku langs never    */
+/* reach this (TT_GATHER case below routes only IR_LANG_RKU here, else lower_unhandled).                          */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!body_t) return NULL;
+    int n = 0;
+    if (body_t->t == TT_SEQ_EXPR) {
+        for (int i = 0; i < body_t->n; i++) if (body_t->c[i] && body_t->c[i]->t == TT_SUSPEND) n++;
+    } else if (body_t->t == TT_SUSPEND) {
+        n = 1;
+    }
+    IR_t * g = nalloc(cx, IR_GATHER);
+    if (!g) return NULL;
+    g->ival = n;
+    if (n > 0) {
+        IR_graph_t ** subs = (IR_graph_t **) calloc((size_t) n, sizeof(IR_graph_t *));
+        if (!subs) return NULL;
+        int k = 0;
+        if (body_t->t == TT_SEQ_EXPR) {
+            for (int i = 0; i < body_t->n; i++) {
+                const tree_t * s = body_t->c[i];
+                if (!s || s->t != TT_SUSPEND) continue;
+                const tree_t * payload = (s->n >= 1) ? s->c[0] : NULL;
+                if (!payload) { free(subs); return NULL; }
+                subs[k] = lower_value_subgraph(cx, payload);
+                if (!subs[k]) { free(subs); return NULL; }
+                k++;
+            }
+        } else {
+            const tree_t * payload = (body_t->n >= 1) ? body_t->c[0] : NULL;
+            if (!payload) { free(subs); return NULL; }
+            subs[0] = lower_value_subgraph(cx, payload);
+            if (!subs[0]) { free(subs); return NULL; }
+        }
+        g->counter = (int64_t)(intptr_t) subs;       /* array of take-payload value sub-graphs */
+    }
+    set_succ_fail(g, γ_in, ω_in);
+    return ret(g, α_out, β_out, g /*gather entry = its own start*/, g /*IR_GATHER is its own resume*/);
+}
+/*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — `while E1 [do E2]` (jcon ir_a_While). Condition + body both bounded; each iteration
  * re-evaluates the condition FRESH (not resume): while.α = E1.α ; E1.γ = body.α ; E1.ω = while.ω ;
  * body.γ = body.ω = E1.α. while yields no value; fails when the condition fails.                          */
@@ -743,10 +798,13 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         /* RK-LOWER-1: Raku bare `for RANGE { ... $_ }` parses to TT_EVERY(TT_ITERATE(RANGE), body) with the
            topic $_ implicit (no binding name) — see raku.y for_stmt. When the iterate child is a lazy Range
            (TT_TO/TT_TO_BY), drive it as a Raku for-loop binding the element to the iterate's name or $_ by
-           default. Non-range iterate (arrays/Seqs) is a later rung (RK-LOWER-3); it stays on Icon's v_every. */
+           default. RK-LOWER-2: the iterate child may also be a TT_GATHER producer (`for gather { take .. } -> $v`);
+           v_raku_for's lower2(range_t) dispatches it to v_raku_gather (a resumable Seq, beta=self) and the
+           generator PUMP re-pump pulls one take per cycle. Other non-range iterate sources (arrays) are a later
+           rung (RK-LOWER-3); they stay on Icon's v_every. */
         if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0] && e->c[0]->t == TT_ITERATE
             && e->c[0]->n >= 1 && e->c[0]->c[0]
-            && (e->c[0]->c[0]->t == TT_TO || e->c[0]->c[0]->t == TT_TO_BY)) {
+            && (e->c[0]->c[0]->t == TT_TO || e->c[0]->c[0]->t == TT_TO_BY || e->c[0]->c[0]->t == TT_GATHER)) {
             const char * v = (e->c[0]->v.sval && e->c[0]->v.sval[0]) ? e->c[0]->v.sval : "_";
             return v_raku_for(cx, e->c[0]->c[0], v, (e->n >= 2 ? e->c[1] : NULL), γ_in, ω_in, α_out, β_out);
         }
@@ -833,6 +891,15 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             return wire_det_builtin1(cx, e->c[0], fn, γ_in, ω_in, α_out, β_out);
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    /* RK-LOWER-2 (KEYSTONE): Raku `gather { take .. }` -> resumable Seq producer (v_raku_gather). docs.raku.org/
+       syntax/gather%20take: gather returns a Seq whose values come from take calls, generated lazily one-per-pull.
+       The producer is reached BOTH as the iterate source of a `for gather {..} -> $v` loop (via v_raku_for's
+       lower2(range_t) — the TT_EVERY arm above admits TT_GATHER) AND as a bare value expression here. FACT RULE:
+       the Raku arm lives INSIDE this one case; a non-Raku language hitting TT_GATHER falls to lower_unhandled. */
+    case TT_GATHER:
+        if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0])
+            return v_raku_gather(cx, e->c[0], γ_in, ω_in, α_out, β_out);
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     /* SNOBOL4 pattern-match statement SUBJECT ? PATTERN (LOWER2-EXEC). Icon scanning (TT_SMATCH / Icon ?) stays
        in the unhandled group below (L2-F). The per-language split lives inside v_scan (FACT RULE) via cx.lang. */
     case TT_SCAN:
@@ -845,7 +912,7 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_SMATCH:     /* subj ? pat — flips cx.role = ROLE_PATTERN */
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER:
     case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW: case TT_SORT:
-    case TT_MAP: case TT_GREP: case TT_GATHER:
+    case TT_MAP: case TT_GREP:
     case TT_HASH_GET: case TT_HASH_SET: case TT_HASH_DELETE: case TT_HASH_EXISTS:
     case TT_ARR_GET: case TT_ARR_SET:
     case TT_PRINT_FH: case TT_SAY_FH:

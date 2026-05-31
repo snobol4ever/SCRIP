@@ -96,6 +96,7 @@ static int ir_is_single_shot(IR_t * e) {
     case IR_PROC_GEN: case IR_BINOP_GEN: case IR_ALT:
     case IR_SUSPEND: case IR_REPEAT: case IR_GEN_SCAN:
     case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
+    case IR_GATHER:
         return 0;
     case IR_CALL: {
         if (!e->sval) return 1;
@@ -124,7 +125,7 @@ static int bb_is_gen_node(IR_t * e);
 static int bb_is_gen_kind_raw(IR_e k) {
     return k == IR_TO || k == IR_TO_BY || k == IR_UPTO || k == IR_ALT ||
            k == IR_BINOP_GEN || k == IR_ITERATE || k == IR_LIMIT || k == IR_PROC_GEN ||
-           k == IR_LIST_BANG || k == IR_KEY_GEN || k == IR_FIND_GEN || k == IR_SEQ_GEN;
+           k == IR_LIST_BANG || k == IR_KEY_GEN || k == IR_FIND_GEN || k == IR_SEQ_GEN || k == IR_GATHER;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e) {
@@ -2148,7 +2149,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             (k) == IR_TO || (k) == IR_TO_BY || (k) == IR_UPTO || \
             (k) == IR_ALT    || (k) == IR_BINOP_GEN || \
             (k) == IR_ITERATE || (k) == IR_LIMIT || (k) == IR_PROC_GEN || \
-            (k) == IR_LIST_BANG || (k) == IR_KEY_GEN || (k) == IR_FIND_GEN || (k) == IR_SEQ_GEN || (k) == IR_TO_BY  || (k) == IR_GEN_ALT)
+            (k) == IR_LIST_BANG || (k) == IR_KEY_GEN || (k) == IR_FIND_GEN || (k) == IR_SEQ_GEN || (k) == IR_TO_BY  || (k) == IR_GEN_ALT || (k) == IR_GATHER)
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }
         if (bb->state == 0) {
             int i = 0;
@@ -2813,6 +2814,28 @@ IR_t * bb_exec_node(IR_t * bb) {
             bb->counter += step;
         }
         bb->value    = INTVAL(bb->counter);
+        return bb->γ;
+    }
+    case IR_GATHER: {
+        /* RK-LOWER-2 (KEYSTONE) — Raku `gather { take E0; take E1; ... }` resumable Seq producer. Realizes the
+           FLAT-take model (docs.raku.org/syntax/gather%20take: take calls yield values one-per-pull; the keystone
+           spec APPENDIX-A RK-M2-GATHER = counter-as-resume-cursor). Layout (set by v_raku_gather): .counter = the
+           IR_graph_t* array of take-payload value sub-graphs, .ival = take COUNT, .state = takes already yielded
+           (0 = fresh: yield take[0]; k>=1: yield take[k]). Mirrors the IR_TO resumable contract: yield ONE value
+           to γ per (re)entry, advancing the cursor; walking past the last take (or empty gather) resets the cursor
+           and FAILs to ω (Seq drained). The node is its own resume (β=self), so the generator PUMP / v_raku_for
+           re-pump re-enters here and the cursor advances. Each yield lands in bb->value; the port-follower pushes
+           it onto the AG ring for the consumer (the for-loop bind / Seq consumer) to peek. */
+        int n = (int) bb->ival;
+        IR_graph_t ** subs = (IR_graph_t **)(intptr_t) bb->counter;
+        int idx = bb->state;
+        if (idx >= n || !subs) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+        IR_graph_t * sg = subs[idx];
+        DESCR_t tv = NULVCL;
+        if (sg) { bb_reset(sg); tv = bb_exec_once(sg); }
+        if (IS_FAIL_fn(tv)) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+        bb->state = idx + 1;
+        bb->value = tv;
         return bb->γ;
     }
     case IR_CASE: {
