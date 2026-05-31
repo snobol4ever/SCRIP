@@ -82,6 +82,7 @@ static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * �
 static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_builtin(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 /*====================================================================================================================================================================================================*/
 /* PORT PRIMITIVES — the only place α/β/γ/ω are assigned in bulk. `nalloc` allocates a node of a kind.
  * `set_succ_fail` fills the two inherited ports iff still unset (the "/x := y" default-only idiom from
@@ -1138,6 +1139,30 @@ static IR_t * g_compare(lcx_t cx, const tree_t * l_t, const tree_t * r_t, const 
     return ret(cmp, α_out, β_out, cmp, ω_in /* semidet: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
+/* GOAL ROLE — standard-order-of-terms comparison goal (==/2, term-not-equal, and the @ family @< @> @=< @>=).
+ * UNLIKE the arithmetic comparisons (g_compare), both operands are compared as TERMS in the standard order
+ * (SWI pl-prims.c:1788 Var before Number before String before Atom before Compound), NOT arith-evaluated. So
+ * both sides lower via g_term (to IR_LOGICVAR/IR_ATOM/IR_LIT_x/IR_STRUCT, read by resolve_node_to_term) onto
+ * bb->alpha and bb->beta. The bb_exec.c IR_BUILTIN arm standard-order case (resolve_term_compare both sides)
+ * fires. Prolog-only path, FACT-RULE clean. Semidet: resume -> fail.                                           */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_term_compare(lcx_t cx, const tree_t * l_t, const tree_t * r_t, const char * op_str, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!l_t || !r_t) return NULL;
+    IR_t * cmp = nalloc(cx, IR_BUILTIN);
+    if (!cmp) return NULL;
+    cmp->sval = op_str; cmp->ival = 2;
+    IR_t * lα = NULL, * lβ = NULL;
+    IR_t * l = g_term(cx, l_t, NULL, NULL, &lα, &lβ);
+    if (!l) return NULL;
+    IR_t * rα = NULL, * rβ = NULL;
+    IR_t * r = g_term(cx, r_t, NULL, NULL, &rα, &rβ);
+    if (!r) return NULL;
+    (void) lβ; (void) rβ;
+    cmp->α = lα; cmp->β = rα;
+    set_succ_fail(cmp, γ_in, ω_in);
+    return ret(cmp, α_out, β_out, cmp, ω_in /* semidet: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
 /* GOAL ROLE — `is/2` arithmetic evaluation. LHS is a Prolog TERM (variable or number); RHS is an arith
  * EXPRESSION (via g_arith_expr). Emits IR_BUILTIN(sval="is") with LHS on bb->α (resolve_node_to_term)
  * and RHS on bb->β (resolve_arith_eval). The bb_exec.c IR_BUILTIN "is" arm matches exactly.             */
@@ -1186,6 +1211,45 @@ static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         (void) α0;
         set_succ_fail(st, γ_in, ω_in);
         return ret(st, α_out, β_out, st, ω_in);
+    }
+    /* TT_MAKELIST — Prolog list term `[E0,..,Ek-1]` (v.ival=0, n elems) or `[E0,..|T]` (v.ival=1, last
+       child is the explicit tail). The empty list `[]` (n==0) is the atom `[]` (SWI ATOM_nil; SCRIP interns
+       ATOM_NIL="[]"). A non-empty list is a right-fold of cons cells: each cell is IR_STRUCT("." ,2) whose
+       arg-chain (read by resolve_node_to_term as `a=bb->α; ...; a=a->γ`) is [head, tail]. We fold the
+       elements right-to-left onto the tail, so prepending Ei wraps the already-built suffix. The cons functor
+       is "." / nil "[]" — verified canonical against SCRIP frontend prolog_atom.c (ATOM_DOT=".", ATOM_NIL=
+       "[]") and SWI src/ATOMS (`F dot 2`, `A nil "[]"`); pl_write already sugars ATOM_DOT/2 chains to [a,b,..]. */
+    case TT_MAKELIST: {
+        int improper = (e->v.ival == 1);
+        int nelem = e->n - (improper ? 1 : 0);
+        if (nelem < 0) nelem = 0;
+        /* tail = explicit tail term (improper) else the nil atom */
+        IR_t * tail = NULL;
+        if (improper) {
+            IR_t * tα = NULL, * tβ = NULL;
+            tail = g_term(cx, e->c[e->n - 1], NULL, NULL, &tα, &tβ);
+            if (!tail) return NULL; (void) tβ; tail = tα;
+        } else {
+            tail = nalloc(cx, IR_ATOM); if (!tail) return NULL; tail->sval = "[]";
+        }
+        if (nelem == 0) {
+            /* `[]` or `[|T]` degenerate: just the tail/nil term. Make it the leaf the caller threads. */
+            return emit_leaf(cx, tail, γ_in, ω_in, α_out, β_out);
+        }
+        /* Fold right-to-left: suffix starts as the tail; each Ei prepends a cons cell. */
+        IR_t * suffix = tail;
+        for (int i = nelem - 1; i >= 0; i--) {
+            IR_t * hα = NULL, * hβ = NULL;
+            IR_t * h = g_term(cx, e->c[i], NULL, NULL, &hα, &hβ);
+            if (!h) return NULL; (void) hβ;
+            IR_t * cell = nalloc(cx, IR_STRUCT); if (!cell) return NULL;
+            cell->sval = "."; cell->ival = 2;
+            cell->α = hα;                               /* head term (resolve_node_to_term reads bb->α) */
+            hα->γ = suffix;                             /* tail term (the arg-walk steps a->γ to reach it) */
+            suffix = cell;
+        }
+        set_succ_fail(suffix, γ_in, ω_in);
+        return ret(suffix, α_out, β_out, suffix, ω_in);
     }
     default:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
@@ -1239,6 +1303,95 @@ static IR_t * g_goal(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, 
     return ret(nd, α_out, β_out, nd, nd /* β=self: exec re-enters on retry with bb->state advanced */);
 }
 /*====================================================================================================================================================================================================*/
+/* GOAL ROLE — if-then-else `(Cond -> Then ; Else)` and bare if-then `(Cond -> Then)`. The Prolog parser emits
+ * this as TT_IF(cond, then[, else]). SEMANTICS (authoritative: SWI boot/init.pl '$meta_call'((I->T;E)) — a
+ * LOCAL CUT): solve Cond; on its FIRST solution COMMIT (discard Cond's choicepoints AND the Else alternative)
+ * then run Then; if Cond has NO solution run Else. Then/Else stay fully backtrackable (they inherit the outer
+ * γ/ω). Bare `(C->T)` = `(C->T;fail)`. TOPOLOGY (transliterated from the deleted lower_pl_new_Ite, blob
+ * d2d8c8e1, which the IR_ITE exec arm at bb_exec.c:3317 consumes — it returns bb->α = Cond entry, so the
+ * commit is realized purely by WIRING, not state): lower Else with (γ_in,ω_in)->bα (or an IR_FAIL leaf when
+ * no Else); lower Then with (γ_in,ω_in)->tα; lower Cond with γ=tα (success flows to Then, NO β back into
+ * Cond = the commit) and ω=bα (failure flows to Else). The IR_ITE node carries bb_ite_state_t{cond,then_,
+ * else_} on ival and is the construct's α; β=ω_in (semidet to the enclosing seq, owns its internal commit). */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_ite(lcx_t cx, const tree_t * cond, const tree_t * then_, const tree_t * else_, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!cond || !then_) return NULL;
+    IR_t * bα = NULL, * bβ = NULL, * b = NULL;
+    if (else_) { b = lower_goal(cx, else_, γ_in, ω_in, &bα, &bβ); if (!b) return NULL; }
+    else       { b = nalloc(cx, IR_FAIL); if (!b) return NULL; b = emit_leaf(cx, b, γ_in, ω_in, &bα, &bβ); if (!b) return NULL; }
+    IR_t * tα = NULL, * tβ = NULL;
+    IR_t * t = lower_goal(cx, then_, γ_in, ω_in, &tα, &tβ); if (!t) return NULL; (void) tβ;
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * c = lower_goal(cx, cond, tα /* cond.γ -> Then (commit) */, bα /* cond.ω -> Else */, &cα, &cβ); if (!c) return NULL; (void) cβ;
+    IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
+    ite->α = cα;
+    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
+    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; ite->ival = (int64_t)(intptr_t)zi; }
+    set_succ_fail(ite, γ_in, ω_in);
+    return ret(ite, α_out, β_out, ite, ω_in /* semidet to enclosing seq: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
+/* GOAL ROLE — catch/3: catch(Goal, Catcher, Recovery). The bb_exec.c IR_CATCH arm (bb_exec.c:3321) setjmps a
+ * Pl_CatchFrame, runs Goal as a SUB-GRAPH; if Goal throws a ball that unifies with Catcher it runs Recovery as
+ * a SUB-GRAPH (else rethrows). So Goal and Recovery are each lowered into their OWN fresh IR_graph_t (NOT nodes
+ * in the enclosing graph) — transliterated from the deleted lower_pl catch arm (blob d2d8c8e1:2267). Catcher is
+ * a TERM lowered in the ENCLOSING graph (resolve_node_to_term reads it). State {goal_g,catcher,rec_g} on ival.
+ * The IR_CATCH node is the construct's α; γ/ω inherited; β = ω_in (semidet to enclosing seq). FACT-RULE clean. */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_catch(lcx_t cx, const tree_t * goal_t, const tree_t * catcher_t, const tree_t * rec_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!goal_t || !catcher_t || !rec_t) return NULL;
+    IR_t * bb = nalloc(cx, IR_CATCH); if (!bb) return NULL;
+    bb_catch_state_t * zc = (bb_catch_state_t *)GC_MALLOC(sizeof *zc); if (!zc) return NULL;
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * c = g_term(cx, catcher_t, NULL, NULL, &cα, &cβ); if (!c) return NULL; (void) cβ;
+    zc->catcher = cα;
+    /* Goal sub-graph — fresh PL graph, share the per-activation var slots via the SAME pl_vars tracker so the
+       driver's env allocation covers Goal's logic vars too (Goal runs in the same activation env as the body). */
+    IR_graph_t * gcfg = IR_alloc(128, IR_LANG_PL); if (!gcfg) return NULL;
+    lcx_t gx = cx; gx.bbg = gcfg;
+    IR_t * gα = NULL, * gβ = NULL;
+    IR_t * g = lower_goal(gx, goal_t, NULL, NULL, &gα, &gβ); if (!g) return NULL; (void) gβ;
+    gcfg->entry = gα ? gα : g;
+    zc->goal_g = gcfg;
+    /* Recovery sub-graph — same treatment. */
+    IR_graph_t * rcfg = IR_alloc(128, IR_LANG_PL); if (!rcfg) return NULL;
+    lcx_t rx = cx; rx.bbg = rcfg;
+    IR_t * rα = NULL, * rβ = NULL;
+    IR_t * r = lower_goal(rx, rec_t, NULL, NULL, &rα, &rβ); if (!r) return NULL; (void) rβ;
+    rcfg->entry = rα ? rα : r;
+    zc->rec_g = rcfg;
+    bb->ival = (int64_t)(intptr_t)zc;
+    bb->α = cα;
+    set_succ_fail(bb, γ_in, ω_in);
+    return ret(bb, α_out, β_out, bb, ω_in /* semidet to enclosing seq: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
+/* GOAL ROLE — findall/3: findall(Template, Goal, Result). The bb_exec.c IR_BUILTIN findall arm (bb_exec.c:3690)
+ * runs Goal as a SUB-GRAPH, collecting a copy of Template per solution, then unifies the cons-list of copies
+ * with Result. Template and Result are TERMS in the ENCLOSING graph; Goal is its OWN fresh IR_graph_t.
+ * Transliterated from the deleted lower_pl findall arm (blob d2d8c8e1:2286). State {gcfg,tmpl,result} on the
+ * IR_BUILTIN node's ival (sval="findall"). FACT-RULE clean (Prolog-only). Bounded: resume -> fail.            */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_findall(lcx_t cx, const tree_t * tmpl_t, const tree_t * goal_t, const tree_t * result_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!tmpl_t || !goal_t || !result_t) return NULL;
+    IR_t * bb = nalloc(cx, IR_BUILTIN); if (!bb) return NULL;
+    bb->sval = "findall"; bb->ival = 0;
+    bb_findall_state_t * fs = (bb_findall_state_t *)GC_MALLOC(sizeof *fs); if (!fs) return NULL;
+    IR_t * tα = NULL, * tβ = NULL;
+    IR_t * t = g_term(cx, tmpl_t, NULL, NULL, &tα, &tβ); if (!t) return NULL; (void) tβ; fs->tmpl = tα;
+    IR_t * rα = NULL, * rβ = NULL;
+    IR_t * r = g_term(cx, result_t, NULL, NULL, &rα, &rβ); if (!r) return NULL; (void) rβ; fs->result = rα;
+    IR_graph_t * gcfg = IR_alloc(128, IR_LANG_PL); if (!gcfg) return NULL;
+    lcx_t gx = cx; gx.bbg = gcfg;
+    IR_t * gα = NULL, * gβ = NULL;
+    IR_t * g = lower_goal(gx, goal_t, NULL, NULL, &gα, &gβ); if (!g) return NULL; (void) gβ;
+    gcfg->entry = gα ? gα : g;
+    fs->gcfg = gcfg;
+    bb->ival = (int64_t)(intptr_t)fs;
+    set_succ_fail(bb, γ_in, ω_in);
+    return ret(bb, α_out, β_out, bb, ω_in /* bounded: resume -> fail */);
+}
+/*====================================================================================================================================================================================================*/
 /* GOAL ROLE — Prolog goals. Kind selects the arm; the sval/arity guards live INSIDE the TT_FNC arm
  * (they pick the control construct/builtin, not the kind). Foundation: cut, true/fail leaves. Extension:
  * Conj/Alt/Ite/Unify/Compare/Call/Builtin/phrase/catch/findall.                                           */
@@ -1259,7 +1412,15 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         if (!tm(e, TT_UNIFY, 2, &l, &r)) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
         return g_unify(cx, l, r, γ_in, ω_in, α_out, β_out);
     }
-    case TT_IF: case TT_VAR:
+    case TT_IF: {
+        /* (Cond -> Then ; Else)  ->  TT_IF(cond, then, else?). c[2] absent = bare (Cond -> Then). */
+        const tree_t * cond  = (e->n >= 1) ? e->c[0] : NULL;
+        const tree_t * then_ = (e->n >= 2) ? e->c[1] : NULL;
+        const tree_t * else_ = (e->n >= 3) ? e->c[2] : NULL;
+        if (!cond || !then_) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+        return g_ite(cx, cond, then_, else_, γ_in, ω_in, α_out, β_out);
+    }
+    case TT_VAR:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_FNC: {
         const tree_t * A = NULL, * B = NULL, * arg = NULL;
@@ -1302,6 +1463,64 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         if (tm_g(e, TT_FNC, "=\\=",2, &A, &B)) return g_compare(cx, A, B, "=\\=",γ_in, ω_in, α_out, β_out);
         /* is/2 — arith evaluation: LHS via g_term (->bb->α for resolve_node_to_term), RHS VALUE role (->bb->β for resolve_arith_eval). */
         if (tm_g(e, TT_FNC, "is",  2, &A, &B)) return g_is(cx, A, B, γ_in, ω_in, α_out, β_out);
+        /* catch/3 + findall/3 — control constructs with SUB-GRAPHs (Goal/Recovery lowered into their own
+           IR_graph_t). Recognized before the flat builtin table because they are not flat-arg builtins. */
+        if (e->t == TT_FNC && e->v.sval && !strcmp(e->v.sval, "catch") && e->n == 3)
+            return g_catch(cx, e->c[0], e->c[1], e->c[2], γ_in, ω_in, α_out, β_out);
+        if (e->t == TT_FNC && e->v.sval && !strcmp(e->v.sval, "findall") && e->n == 3)
+            return g_findall(cx, e->c[0], e->c[1], e->c[2], γ_in, ω_in, α_out, β_out);
+        /* standard-order-of-terms comparisons — operands compared as TERMS (resolve_term_compare), not
+           arith-evaluated. Both sides via g_term onto bb->α/bb->β; the bb_exec.c IR_BUILTIN arm handles the op. */
+        if (tm_g(e, TT_FNC, "==",  2, &A, &B)) return g_term_compare(cx, A, B, "==",  γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "\\==",2, &A, &B)) return g_term_compare(cx, A, B, "\\==",γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "@<",  2, &A, &B)) return g_term_compare(cx, A, B, "@<",  γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "@>",  2, &A, &B)) return g_term_compare(cx, A, B, "@>",  γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "@=<", 2, &A, &B)) return g_term_compare(cx, A, B, "@=<", γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "@>=", 2, &A, &B)) return g_term_compare(cx, A, B, "@>=", γ_in, ω_in, α_out, β_out);
+        /* succ/2 — the bb_exec.c IR_BUILTIN succ arm reads its two args from bb->alpha and bb->beta (two-port
+           shape, NOT the arg-chain), so route it through g_term_compare which wires both terms there. Bidirectional
+           (succ(X,Y): Y=X+1 if X bound, X=Y-1 if Y bound) is handled in the exec arm. Semidet. (SWI library(arithmetic)) */
+        if (tm_g(e, TT_FNC, "succ", 2, &A, &B)) return g_term_compare(cx, A, B, "succ", γ_in, ω_in, α_out, β_out);
+        /* DETERMINISTIC BUILTIN TABLE — each entry's exec lives in the bb_exec.c IR_BUILTIN arm (type-tests,
+           term inspection functor/arg/=.., atom/string ops, sort/msort, char_type, copy_term, the var-binding
+           helpers succ/plus, the global nb_*). g_builtin emits IR_BUILTIN(sval=fn, ival=arity) and chains every
+           arg as a TERM on bb->α / ->γ — exactly the arg-walk (`a=bb->α; ...; a=a->γ`) those exec cases use.
+           All are bounded (det/semidet): resume -> ω_in. The guard matches FNC name + arity so a user predicate
+           of the same name but different arity still routes to the user-call path below. FACT-RULE clean
+           (Prolog-only IR_BUILTIN; no peer arm). Semantics verified against SWI pl-prims.c / pl-arith.c. */
+        {
+            static const struct { const char * name; int arity; } det_builtins[] = {
+                /* type tests (arity 1) — SWI: var/nonvar/atom/atomic/number/integer/float/compound/callable/is_list/ground */
+                {"var",1},{"nonvar",1},{"atom",1},{"atomic",1},{"number",1},{"integer",1},
+                {"float",1},{"compound",1},{"callable",1},{"is_list",1},{"ground",1},
+                /* term inspection — functor/3, arg/3, =../2 (SWI pl-prims.c) */
+                {"functor",3},{"arg",3},{"=..",2},
+                /* atom/text builtins (SWI pl-text/pl-prims) */
+                {"atom_length",2},{"atom_concat",3},{"atom_chars",2},{"atom_codes",2},
+                {"upcase_atom",2},{"downcase_atom",2},{"char_type",2},
+                {"atom_string",2},{"atom_number",2},{"number_string",2},{"string_to_atom",2},
+                {"string_concat",3},{"string_length",2},{"string_chars",2},{"string_codes",2},
+                {"string_upper",2},{"string_lower",2},{"term_to_atom",2},{"term_string",2},
+                {"atomic_list_concat",2},{"atomic_list_concat",3},{"concat_atom",2},{"concat_atom",3},
+                /* sort family — sort/2, msort/2 (SWI pl-list/sort) */
+                {"sort",2},{"msort",2},
+                /* output formatting + term naming (SWI pl-write / pl-prims numbervars) */
+                {"format",1},{"format",2},{"numbervars",3},
+                {"writeq",1},{"write_canonical",1},
+                /* term copy + arithmetic var-binding helpers */
+                {"copy_term",2},{"plus",3},
+                /* globals */
+                {"nb_setval",2},{"nb_getval",2},{"aggregate_all",3},
+                /* exception throw — the bb_exec.c IR_BUILTIN throw arm reads the ball from bb->alpha and calls
+                   resolve_throw_term (longjmp to nearest catch). One arg on bb->alpha; g_builtin wires it. */
+                {"throw",1},
+            };
+            const char * fn = e->v.sval; int ar = e->n;
+            if (fn) for (size_t bi = 0; bi < sizeof det_builtins / sizeof det_builtins[0]; bi++) {
+                if (ar == det_builtins[bi].arity && !strcmp(fn, det_builtins[bi].name))
+                    return g_builtin(cx, det_builtins[bi].name, e, γ_in, ω_in, α_out, β_out);
+            }
+        }
         /* user-predicate call: TT_FNC(name, arg0..argN-1) → IR_GOAL with bb_goal_state_t sidecar.
            IR_GOAL exec (bb_exec.c:3317) looks up callee/arity in resolve_bb_lookup, allocates per-activation
            env, runs the body graph, restores on fail, retries via bb->state. FACT-RULE clean: Prolog-only IR kind. */

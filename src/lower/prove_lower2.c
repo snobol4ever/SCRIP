@@ -30,6 +30,7 @@ static tree_t * var(const char * s) { tree_t * n = ast_node_new(TT_VAR); n->v.sv
 static tree_t * kw(const char * s) { tree_t * n = ast_node_new(TT_KEYWORD); n->v.sval = (char *) s; return n; }
 static tree_t * fnc1(const char * name, tree_t * a) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); return n; }
 static tree_t * gfnc2(const char * name, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); ast_push(n, b); return n; }
+static tree_t * gfnc3(const char * name, tree_t * a, tree_t * b, tree_t * c) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int idx_of(IR_graph_t * g, IR_t * n) { if (!n) return -1; for (int i = 0; i < g->n; i++) if (g->all[i] == n) return i; return -2; }
 static const char * kname(IR_e t) {
@@ -48,6 +49,7 @@ static const char * kname(IR_e t) {
     case IR_PAT_DEFER: return "PDEF"; case IR_PAT_BAL: return "PBAL";
     case IR_GCONJ: return "GCONJ"; case IR_DISJ: return "DISJ"; case IR_UNIFY: return "UNIFY"; case IR_ARITH: return "ARITH"; case IR_CUT: return "CUT";
     case IR_BUILTIN: return "BLTIN"; case IR_ATOM: return "ATOM"; case IR_STRUCT: return "STRCT"; case IR_LOGICVAR: return "LVAR";
+    case IR_ITE: return "ITE";
     default: return "?";
     }
 }
@@ -236,6 +238,55 @@ int main(void) {
          gfnc2("is", var("X"), lit(5)), 3);
     dump_goal("Prolog:   X is 2+3   [g_is: IR_BUILTIN bb->alpha=LOGICVAR bb->beta=IR_BINOP(ADD,LIT_I,LIT_I); 5 nodes]",
          gfnc2("is", var("X"), bin(TT_ADD, lit(2), lit(3))), 5);
+    /* PLG-5 lists: write([a,b,c]) — list is a right-fold of cons cells IR_STRUCT(".",2). [a,b,c] =
+       3 cons + 3 atom elems + 1 nil atom = 7; +1 BLTIN(write) = 8. Cons functor "." / nil "[]" (SWI ATOMS). */
+    { tree_t * lst = ast_node_new(TT_MAKELIST); lst->v.ival = 0;
+      ast_push(lst, slit("a")); ast_push(lst, slit("b")); ast_push(lst, slit("c"));
+      dump_goal("Prolog:   write([a,b,c])   [TT_MAKELIST: right-fold IR_STRUCT(\".\",2) cells, nil IR_ATOM(\"[]\"); 3 cons+3 atom+1 nil+1 BLTIN]",
+         fnc1("write", lst), 8); }
+    /* PLG-5 empty list: write([]) — degenerate to the nil atom IR_ATOM("[]"); +1 BLTIN = 2. */
+    { tree_t * nil = ast_node_new(TT_MAKELIST); nil->v.ival = 0;
+      dump_goal("Prolog:   write([])   [TT_MAKELIST n=0: bare nil IR_ATOM(\"[]\") leaf; +1 BLTIN]",
+         fnc1("write", nil), 2); }
+    /* PLG-5 improper list: write([a|T]) — head cons + tail LOGICVAR; 1 cons+1 atom+1 lvar+1 BLTIN = 4. */
+    { tree_t * lst = ast_node_new(TT_MAKELIST); lst->v.ival = 1;
+      ast_push(lst, slit("a")); ast_push(lst, var("T"));
+      dump_goal("Prolog:   write([a|T])   [TT_MAKELIST improper: 1 cons IR_STRUCT(\".\",2) head=ATOM tail=LOGICVAR; +1 BLTIN]",
+         fnc1("write", lst), 4); }
+    /* PLG-5 if-then-else: (X<5 -> write(a) ; write(b)) — IR_ITE + cond BLTIN(<)+LVAR+LIT + then BLTIN+ATOM
+       + else BLTIN+ATOM = 1+3+2+2 = 8 (transliterated from deleted lower_pl_new_Ite; commit by wiring). */
+    { tree_t * cond = gfnc2("<", var("X"), lit(5));
+      tree_t * ite = tri(TT_IF, cond, fnc1("write", slit("a")), fnc1("write", slit("b")));
+      dump_goal("Prolog:   (X<5 -> write(a) ; write(b))   [TT_IF g_ite: IR_ITE, cond.gamma->Then (commit), cond.omega->Else; SWI '$meta_call' local-cut]",
+         ite, 8); }
+    /* PLG-5 bare if-then: (X<5 -> write(a)) — no Else => IR_FAIL leaf; IR_ITE+cond(3)+then(2)+FAIL = 7. */
+    { tree_t * cond = gfnc2("<", var("X"), lit(5));
+      tree_t * ite = bin(TT_IF, cond, fnc1("write", slit("a")));
+      dump_goal("Prolog:   (X<5 -> write(a))   [TT_IF bare if-then: missing Else => IR_FAIL leaf; IR_ITE+cond+then+FAIL]",
+         ite, 7); }
+    /* PLG-6 standard-order compare: X @< Y — g_term_compare: IR_BUILTIN(sval=\"@<\") alpha=LOGICVAR beta=LOGICVAR;
+       exec resolve_term_compare both sides. 1 BLTIN + 2 LVAR = 3 (same shape as arith X<5 but TERM operands). */
+    dump_goal("Prolog:   X @< Y   [g_term_compare: IR_BUILTIN(\"@<\") alpha=LOGICVAR beta=LOGICVAR; resolve_term_compare standard order]",
+         gfnc2("@<", var("X"), var("Y")), 3);
+    /* PLG-6 succ/2: succ(X,Y) — g_term_compare wiring (alpha/beta), exec reads both ports. 1 BLTIN + 2 LVAR = 3. */
+    dump_goal("Prolog:   succ(X,Y)   [succ via g_term_compare: IR_BUILTIN(\"succ\") alpha=LOGICVAR beta=LOGICVAR; bidirectional in exec]",
+         gfnc2("succ", var("X"), var("Y")), 3);
+    /* PLG-6 type test: atom(X) — det builtin table -> g_builtin: IR_BUILTIN(sval=\"atom\",ival=1) + LOGICVAR arg. 2 nodes. */
+    dump_goal("Prolog:   atom(X)   [det builtin table -> g_builtin: IR_BUILTIN(\"atom\",1) + LOGICVAR on alpha; resolve type test]",
+         fnc1("atom", var("X")), 2);
+    /* PLG-6 functor/3: functor(T,N,A) — g_builtin chains 3 term args on alpha->gamma. 1 BLTIN + 3 LVAR = 4. */
+    dump_goal("Prolog:   functor(T,N,A)   [det builtin table -> g_builtin: IR_BUILTIN(\"functor\",3), 3 LOGICVAR args chained alpha->gamma]",
+         gfnc3("functor", var("T"), var("N"), var("A")), 4);
+    /* PLG-6 findall/3: findall(X, foo(X), L) — IR_BUILTIN(sval=findall) in ENCLOSING graph carries tmpl(LOGICVAR)
+       + result(LOGICVAR); Goal foo(X) lowered into a SEPARATE sub-graph (NOT counted here). Enclosing: BLTIN + 2 LVAR = 3. */
+    { tree_t * fa = gfnc3("findall", var("X"), fnc1("foo", var("X")), var("L"));
+      dump_goal("Prolog:   findall(X,foo(X),L)   [g_findall: IR_BUILTIN(\"findall\") tmpl+result LOGICVAR in enclosing graph; Goal in SUB-graph]",
+         fa, 3); }
+    /* PLG-6 catch/3: catch(throw(e), C, true) — IR_CATCH in ENCLOSING graph carries Catcher(LOGICVAR); Goal+Recovery
+       lowered into SEPARATE sub-graphs (NOT counted). Enclosing: CATCH node + Catcher LOGICVAR = 2. */
+    { tree_t * ca = gfnc3("catch", fnc1("throw", slit("e")), var("C"), slit("true"));
+      dump_goal("Prolog:   catch(throw(e),C,true)   [g_catch: IR_CATCH + Catcher LOGICVAR in enclosing graph; Goal+Recovery in SUB-graphs]",
+         ca, 2); }
     /* ===== END PROLOG SECTION ===== */
     return 0;
 }
