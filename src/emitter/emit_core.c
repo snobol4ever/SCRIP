@@ -409,7 +409,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_LIT_F:
     case IR_LIT_NUL:              bb_lit_scalar(nd);         return 0;
     case IR_VAR:                  bb_var(nd);          return 0;
-    case IR_ASSIGN:               if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_BINOP)) { extern void bb_sno_assign(IR_t *); bb_sno_assign(nd); } else bb_assign(nd); return 0;
+    case IR_ASSIGN:               if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_BINOP || nd->α->t == IR_VAR)) { extern void bb_sno_assign(IR_t *); bb_sno_assign(nd); } else bb_assign(nd); return 0;
+    case IR_SCAN:                 { extern void bb_sno_scan(IR_t *); bb_sno_scan(nd); } return 0;
     case IR_AUGOP:
     case IR_UNOP:
     case IR_CALL:                 bb_call(nd);         return 0;
@@ -432,7 +433,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_LIMIT:                bb_limit(nd);     return 0;
     case IR_SUSPEND:              bb_suspend(nd);      return 0;
     case IR_PROC:
-    case IR_SCAN:
     case IR_INTERROGATE:
     case IR_PAT_CALLOUT:
                                   bb_stub(nd);         return 0;

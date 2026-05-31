@@ -28,6 +28,7 @@ extern "C" {
 #include "bb_template_common.h"
 void rt_sno_assign_lit_s(const char *name, const char *str);
 void rt_sno_assign_int(const char *name, int64_t val);
+void rt_sno_assign_var(const char *dst, const char *src);
 int  bb_slot_get(IR_t * nd);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -79,11 +80,59 @@ static std::string bb_sno_assign_int_str(IR_t * pBB, IR_t * rhs, bb_bin_t & bin)
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SBL-M3-VAR (2026-05-31): SNOBOL4 `dst = src` where the rhs is a bare variable read (`OUTPUT = S`). Stackless: dst name in rdi, src name in rsi, both RO immediates (BINARY) / `.L` labels via lea (TEXT), one call to       */
+/* rt_sno_assign_var (NV_SET(dst, NV_GET(src))). NO value stack. Same four-port 42-byte shape as the lit_s arm (two name pointers instead of name+str). Bounded single-shot: β = jmp ω.                                        */
+static std::string bb_sno_assign_var_str(IR_t * pBB, bb_bin_t & bin) {
+    IR_t *rhs = pBB ? pBB->α : NULL;
+    if (!pBB || !pBB->sval || !rhs || rhs->t != IR_VAR || !rhs->sval) {
+        if (MEDIUM_BINARY) {
+            fprintf(stderr, "[SBB] FATAL bb_sno_assign(var): need IR_ASSIGN sval(dst) + alpha IR_VAR sval(src) (got dst=%s alpha=%d)\n",
+                    (pBB && pBB->sval) ? pBB->sval : "(null)", rhs ? (int)rhs->t : -1);
+            abort();
+        }
+        return bomb_text(emit_fmt("SNO IR_ASSIGN(var): need sval(dst)+alpha IR_VAR sval(src) (got dst=%s alpha=%d)",
+                                  (pBB && pBB->sval) ? pBB->sval : "(null)", rhs ? (int)rhs->t : -1).c_str());
+    }
+    const char *dst = pBB->sval;
+    const char *src = rhs->sval;
+    if (MEDIUM_TEXT) {
+        int id = g_flat_node_id++;
+        std::string dlbl = emit_fmt(".Lsno_dst_%d", id);
+        std::string slbl = emit_fmt(".Lsno_src_%d", id);
+        return s_directive(".section .rodata")
+             + s_L1asm(dlbl + ":", emit_fmt(".asciz \"%s\"", dst))
+             + s_L1asm(slbl + ":", emit_fmt(".asciz \"%s\"", src))
+             + s_directive(".section .text")
+             + s_1asm(emit_fmt("%s:", _.lbl_α))
+             + s_comment(emit_fmt("# BOX SNO IR_ASSIGN(var) store(\"%s\") = read(\"%s\") [stackless, @PLT]", dst, src))
+             + s_2asm("lea",  emit_fmt("rdi, [rip + %s]", dlbl.c_str()))
+             + s_2asm("lea",  emit_fmt("rsi, [rip + %s]", slbl.c_str()))
+             + s_2asm("call", "rt_sno_assign_var@PLT")
+             + s_2asm("jmp",  _.lbl_γ)
+             + s_1asm(std::string(_.lbl_β) + ":")
+             + s_2asm("jmp",  _.lbl_ω);
+    }
+    if (MEDIUM_BINARY) {
+        uint64_t dptr = (uint64_t)(uintptr_t)dst;
+        uint64_t sptr = (uint64_t)(uintptr_t)src;
+        uint64_t fptr; { void (*fp)(const char *, const char *) = rt_sno_assign_var; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        bin = { {33, 37, 38}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+        return bytes(2, "\x48\xBF") + u64le(dptr)
+             + bytes(2, "\x48\xBE") + u64le(sptr)
+             + bytes(2, "\x48\xB8") + u64le(fptr)
+             + bytes(2, "\xFF\xD0")
+             + bytes(1, "\xE9")     + u32le(0)
+             + bytes(1, "\xE9")     + u32le(0);
+    }
+    return std::string();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_sno_assign_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — SNO IR_ASSIGN(lit_s)");
     if (pBB && pBB->sval && pBB->α && pBB->α->t == IR_BINOP) return bb_sno_assign_int_str(pBB, pBB->α, bin);
+    if (pBB && pBB->sval && pBB->α && pBB->α->t == IR_VAR)   return bb_sno_assign_var_str(pBB, bin);
     if (MEDIUM_TEXT) {
         /* SBL-M4-STACKLESS (2026-05-31, Opus 4.8): mode-4 GAS arm — same four-port stackless shape as the
            BINARY arm, but the name/str are RO `.L` labels reached via `lea [rip+label]` (PIC-safe) and the

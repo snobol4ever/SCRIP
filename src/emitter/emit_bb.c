@@ -1077,6 +1077,56 @@ static void flat_drive_sno_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_sno_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    /* SBL-M3-SCAN (2026-05-31): SNOBOL4 pattern-match statement — single-shot bounded, NO value stack. The
+       subject name, replacement literal, and pattern sub-graph pointer are baked as RO immediates inside
+       bb_sno_scan (reached via emit_core IR_SCAN branch); the box tests rt_sno_exec_scan's result and jmps
+       γ (match) or ω (fail). No operand subtree to walk here (the replacement/subject literal are folded
+       onto pBB->α and consumed inside the box); β = jmp ω. */
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_sno_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    /* SBL-M3-MULTISTMT (2026-05-31): the whole SNOBOL4 program as a sequence of four-port statement BBs.
+       sno_ring_to_tree (scrip.c) folded each statement into a tree root and recorded its success/failure
+       target statement index (the SPITBOL :S/:F/:(L) goto field). Here we allocate one label per statement,
+       then emit each statement's body threading its γ→succ-statement-label and ω→fail-statement-label, so
+       both ports flow to the next statement (or a goto target) exactly as SNOBOL4 control flow requires.
+       A terminal landing (END / fall-off / RETURN) jumps to the program success label. Stackless. */
+    sno_prog_t *prog = (sno_prog_t *)(intptr_t)pBB->ival;
+    if (!prog || prog->n <= 0) {
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_JMP(lbl_γ);
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        return;
+    }
+    int id = g_flat_node_id++;
+    int n  = prog->n;
+    bb_label_t **slbl  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **sbeta = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    for (int i = 0; i < n; i++) {
+        slbl[i]  = emit_label_alloc("xsprog%d_s%d_α", id, i);
+        sbeta[i] = emit_label_alloc("xsprog%d_s%d_β", id, i);
+    }
+    if (prog->entry_idx > 0 && prog->entry_idx < n) emit_jmp_label(slbl[prog->entry_idx], JMP_JMP);
+    for (int i = 0; i < n; i++) {
+        emit_label_define_bb(slbl[i]);
+        sno_stmt_t *st = &prog->stmts[i];
+        if (st->is_terminal || !st->root) {
+            emit_jmp_label(lbl_γ, JMP_JMP);
+            continue;
+        }
+        bb_label_t *succ = (st->succ_idx >= 0 && st->succ_idx < n) ? slbl[st->succ_idx] : lbl_γ;
+        bb_label_t *fail = (st->fail_idx >= 0 && st->fail_idx < n) ? slbl[st->fail_idx] : lbl_ω;
+        walk_bb_flat(st->root, succ, fail, sbeta[i]);
+    }
+    emit_label_define_bb(lbl_β);
+    emit_jmp_label(lbl_ω, JMP_JMP);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_assign: missing α (lhs IR_VAR)\n");
@@ -1429,7 +1479,9 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_LIT_S) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR)) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SCAN:       flat_drive_sno_scan(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SNO_PROG:   flat_drive_sno_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:     flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:

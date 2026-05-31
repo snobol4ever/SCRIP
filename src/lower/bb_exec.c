@@ -88,6 +88,53 @@ static IR_graph_t * g_resolve_tail_redirect_cfg   = NULL;
 static IR_t       * g_resolve_tail_redirect_entry = NULL;
 int g_resolve_b3_call_mark = -1;
 DESCR_t bb_exec_once(IR_graph_t * bbg);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SBL-M3-SCAN (2026-05-31): stackless mode-3/4 entry for a SNOBOL4 pattern-match statement. It is the IR_SCAN  */
+/* exec arm (bb_exec.c case IR_SCAN) re-expressed with EXPLICIT operands so a native box (bb_sno_scan.cpp) can  */
+/* drive it with NO value stack and NO AG ring: subj_name = the subject variable (the replacement form requires */
+/* a variable per SPITBOL ch.6; for a literal/expr subject the caller passes subj_lit instead), has_repl/repl   */
+/* = the replacement literal, pat_graph = the IR_SCAN.counter pattern sub-graph (a process-valid IR_graph_t* in */
+/* mode-3). The pattern is driven through the proven 19-arm IR_PAT_* oracle via bb_exec_once with anchored      */
+/* start-iteration + deferred-capture flush + the replacement splice — IDENTICAL semantics to the mode-2 arm.   */
+/* Returns 1 on match (box jmps γ), 0 on failure (box jmps ω). NO value stack (Lon directive).                  */
+extern int rt_sno_exec_scan(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
+int rt_sno_exec_scan(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph) {
+    IR_graph_t *pat = (IR_graph_t *)pat_graph;
+    if (!pat || !pat->entry) return 0;
+    const char *subj_str = ""; int subj_len = 0;
+    if (subj_name) {
+        DESCR_t sv = VARVAL_d_fn(NV_GET_fn(subj_name));
+        if (sv.v == DT_S || sv.v == DT_SNUL) { subj_str = sv.s ? sv.s : ""; subj_len = sv.slen ? (int)sv.slen : (int)strlen(subj_str); }
+        else if (IS_INT_fn(sv) || IS_REAL_fn(sv)) { DESCR_t ss = descr_to_str_icn(sv); subj_str = ss.s ? ss.s : ""; subj_len = (int)strlen(subj_str); }
+    } else if (subj_lit) {
+        subj_str = subj_lit; subj_len = (int)strlen(subj_lit);
+    }
+    const char *save_Σ = Σ; int save_Σlen = Σlen; int save_Ω = Ω; int save_Δ = Δ; int save_dca = g_dcap_active; int save_dcn = g_dcap_n;
+    extern int64_t kw_anchor;
+    Σ = subj_str; Σlen = subj_len; Ω = subj_len;
+    int max_start = kw_anchor ? 0 : subj_len; int matched = 0; int m_start = -1; int m_end = -1;
+    g_dcap_active = 1;
+    for (int start = 0; start <= max_start; start++) {
+        Δ = start; g_dcap_n = 0;
+        DESCR_t r = bb_exec_once(pat);
+        if (!IS_FAIL_fn(r)) { matched = 1; m_start = start; m_end = Δ; break; }
+    }
+    if (matched) bb_dcap_flush(); else g_dcap_n = 0;
+    if (matched && has_repl && subj_name) {
+        const char *repl = repl_str ? repl_str : "";
+        int repl_len = (int)strlen(repl);
+        int new_len = m_start + repl_len + (subj_len - m_end);
+        char *new_s = (char *)GC_MALLOC((size_t)new_len + 1);
+        memcpy(new_s, subj_str, (size_t)m_start);
+        memcpy(new_s + m_start, repl, (size_t)repl_len);
+        memcpy(new_s + m_start + repl_len, subj_str + m_end, (size_t)(subj_len - m_end));
+        new_s[new_len] = '\0';
+        DESCR_t nv = { .v = DT_S, .slen = (uint32_t)new_len, .s = new_s };
+        NV_SET_fn(subj_name, nv);
+    }
+    Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ; g_dcap_active = save_dca; g_dcap_n = save_dcn;
+    return matched;
+}
 static int ir_is_single_shot(IR_t * e) {
     if (!e) return 1;
     switch (e->t) {

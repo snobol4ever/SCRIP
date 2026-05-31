@@ -107,40 +107,100 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     return stk[0];
 }
 /*====================================================================================================================================================================================================*/
-/* SNOBOL4 MODE-3 RING->TREE ADAPTER (SBL-M3-STACKLESS, 2026-05-31). The SNOBOL4 program graph is a       */
-/* gamma/omega-threaded CFG: leading landing IR_SUCCEED node(s) at statement boundaries, each statement a */
-/* postfix gamma-chain of its sub-expressions ending at the next landing / PSUCC. This adapter recognizes */
-/* ONLY the shapes for which a STACKLESS box exists today — currently the single-statement literal assign */
-/* `name = 'literal'` (landing -> IR_LIT_S -> IR_ASSIGN -> PSUCC): it folds the lit onto the assign's      */
-/* alpha (postfix) and returns the assign as root. EVERY other shape (multi-statement, IR_SCAN, IR_GOTO,  */
-/* IR_SEQ concat via isolated sub-graphs, arith, user-proc) returns NULL — the caller then SOFT-fails     */
-/* (honest stderr, clean exit, NO abort). No value stack is created anywhere (Lon directive). As more     */
-/* stackless boxes land, widen this adapter; it is the shared front-end both A-was-rejected and B use.    */
+/* SNOBOL4 MODE-3/4 RING->PROGRAM ADAPTER (SBL-M3-MULTISTMT, 2026-05-31). The SNOBOL4 program graph is a   */
+/* gamma/omega-threaded CFG of LANDING nodes (one IR_SUCCEED per statement boundary, plus terminal         */
+/* IR_SUCCEED/IR_FAIL/IR_RETURN). Each statement is a postfix gamma-chain of its sub-expressions running   */
+/* from a landing's gamma to the next landing; the chain's LAST node carries the statement's success       */
+/* (->gamma) and failure (->omega) exits, both pointing at landings (SPITBOL ch.4 goto field). This        */
+/* adapter walks every reachable landing, folds each statement's chain into a four-port tree (postfix by   */
+/* SNOBOL4 arities), records each statement's success/failure target landing index, and returns ONE        */
+/* synthetic IR_SNO_PROG node carrying the ordered statement list (sno_prog_t* on counter). The emitter's  */
+/* flat_drive_sno_program threads the statements by label at emit time. EVERY statement must fold cleanly  */
+/* (recognized node kinds + matching arities); any shape it cannot fold (user-proc CALL, unhandled kind)   */
+/* makes the whole adapter return NULL and the caller SOFT-fails (honest stderr, clean exit, NO abort). NO */
+/* value stack is created anywhere (Lon directive). Subsumes the old single-statement literal/arith path.  */
 /*====================================================================================================================================================================================================*/
+static int sno_node_is_landing(const IR_t *n) {
+    return n && (n->t == IR_SUCCEED || n->t == IR_FAIL || n->t == IR_RETURN);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_stmt_arity(const IR_t *n) {
+    switch (n->t) {
+    case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
+    case IR_VAR:   case IR_KEYWORD:                 return 0;
+    case IR_BINOP: case IR_BINOP_GEN: case IR_SEQ:  return 2;
+    case IR_ASSIGN:                                 return 1;
+    case IR_SCAN:                                   return (n->ival != 0) ? 1 : 1; /* repl: replacement operand; plain: subject operand */
+    default:                                        return -1;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Fold one statement's postfix gamma-chain (from `start`, exclusive of the trailing landing) into a tree. */
+/* Returns the folded root and writes the last chain node (whose gamma/omega are the statement exits).     */
+static IR_t * sno_fold_stmt(IR_t *start, IR_t **out_last) {
+    IR_t *chain[256]; int nc = 0;
+    for (IR_t *cur = start; cur && !sno_node_is_landing(cur) && nc < 256; cur = cur->γ) chain[nc++] = cur;
+    if (nc == 0 || nc >= 256) return NULL;
+    *out_last = chain[nc - 1];
+    IR_t *stk[256]; int sp = 0;
+    for (int i = 0; i < nc; i++) {
+        IR_t *n = chain[i];
+        int ar = sno_stmt_arity(n);
+        if (ar < 0 || ar > sp) return NULL;
+        if (ar == 2)      { n->β = stk[sp - 1]; n->α = stk[sp - 2]; sp -= 2; }
+        else if (ar == 1) { n->α = stk[sp - 1]; sp -= 1; }
+        stk[sp++] = n;
+    }
+    if (sp != 1) return NULL;
+    return stk[0];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_ring_to_tree(IR_graph_t *g) {
     if (!g || !g->entry) return NULL;
-    IR_t *start = g->entry;
-    int guard = 0;
-    while (start && start->t == IR_SUCCEED && start->γ && guard++ < 64) start = start->γ;
-    if (!start) return NULL;
-    IR_t *chain[64]; int nc = 0;
-    for (IR_t *cur = start; cur && cur->t != IR_SUCCEED && cur->t != IR_FAIL && nc < 64; cur = cur->γ) chain[nc++] = cur;
-    if (nc == 2 && chain[0]->t == IR_LIT_S && chain[1]->t == IR_ASSIGN && chain[1]->sval) {
-        chain[1]->α = chain[0];
-        return chain[1];
+    enum { MAXL = 512 };
+    IR_t *land[MAXL]; int nl = 0;
+    IR_t *queue[MAXL]; int qh = 0, qt = 0;
+    queue[qt++] = g->entry;
+    while (qh < qt) {
+        IR_t *L = queue[qh++];
+        if (!L || !sno_node_is_landing(L)) continue;
+        int seen = 0;
+        for (int i = 0; i < nl; i++) if (land[i] == L) { seen = 1; break; }
+        if (seen) continue;
+        if (nl >= MAXL) return NULL;
+        land[nl++] = L;
+        if (L->t == IR_SUCCEED && L->γ) {
+            IR_t *last = NULL;
+            IR_t *root = sno_fold_stmt(L->γ, &last);
+            if (!root || !last) return NULL;
+            if (last->γ && qt < MAXL) queue[qt++] = last->γ;
+            if (last->ω && qt < MAXL) queue[qt++] = last->ω;
+        }
     }
-    /* SBL-M3-ARITH (2026-05-31): `name = lit op lit` — the postfix chain is LIT_I -> LIT_I -> BINOP ->     */
-    /* ASSIGN. Fold the two ints onto the binop (α=first, β=second — postfix order), then the binop onto    */
-    /* the assign's α, and return the assign as root. The binop is the GZ-3 RO-int stackless box; the       */
-    /* assign reads its ζ-frame slot (bb_sno_assign IR_BINOP arm). Bounded single-shot, NO value stack.     */
-    if (nc == 4 && chain[0]->t == IR_LIT_I && chain[1]->t == IR_LIT_I
-        && chain[2]->t == IR_BINOP && chain[3]->t == IR_ASSIGN && chain[3]->sval) {
-        chain[2]->α = chain[0];
-        chain[2]->β = chain[1];
-        chain[3]->α = chain[2];
-        return chain[3];
+    sno_prog_t *prog = (sno_prog_t *)GC_MALLOC(sizeof(sno_prog_t));
+    prog->stmts = (sno_stmt_t *)GC_MALLOC(sizeof(sno_stmt_t) * (size_t)nl);
+    prog->n = nl;
+    prog->entry_idx = 0;
+    for (int i = 0; i < nl; i++) {
+        IR_t *L = land[i];
+        sno_stmt_t *st = &prog->stmts[i];
+        st->root = NULL; st->succ_idx = -1; st->fail_idx = -1; st->is_terminal = 1;
+        if (L->t == IR_SUCCEED && L->γ) {
+            IR_t *last = NULL;
+            IR_t *root = sno_fold_stmt(L->γ, &last);
+            if (!root) return NULL;
+            st->root = root; st->is_terminal = 0;
+            st->succ_idx = -1; st->fail_idx = -1;
+            for (int j = 0; j < nl; j++) {
+                if (land[j] == last->γ) st->succ_idx = j;
+                if (land[j] == last->ω) st->fail_idx = j;
+            }
+        }
     }
-    return NULL;
+    IR_t *progn = IR_node_alloc(g, IR_SNO_PROG);
+    if (!progn) return NULL;
+    progn->ival = (int64_t)(intptr_t)prog;
+    return progn;
 }
 /*====================================================================================================================================================================================================*/
 /* PROLOG MODE-3 NATIVE FLAT-WALK ROOT RECOGNIZER (PLG-8-native, 2026-05-31). The interim mode-3 route (PLG-8) ran Prolog --run through bb_exec_once (the mode-2 interpreter + the AG ring on IR_graph_t) */

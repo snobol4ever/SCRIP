@@ -136,6 +136,7 @@ typedef enum {
     IR_DO_WHILE,
     IR_PAT_BAL,
     IR_GATHER,
+    IR_SNO_PROG,
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -214,6 +215,9 @@ typedef struct {
     int     ch_nbodies;
 } bb_node_state_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { IR_t * root; int succ_idx; int fail_idx; int is_terminal; } sno_stmt_t;
+typedef struct { sno_stmt_t * stmts; int n; int entry_idx; } sno_prog_t;
 typedef struct { IR_t ** kids; int nkids; IR_graph_t * inner; int * pos_stack; int cap; int saved_delta; } bb_arbno_state_t;
 typedef struct { IR_t ** goals; int ngoals; } bb_conj_state_t;
 typedef struct { IR_t * cond; IR_t * then_; IR_t * else_; } bb_ite_state_t;

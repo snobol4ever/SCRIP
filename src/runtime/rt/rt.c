@@ -425,6 +425,13 @@ void rt_sno_assign_int(const char *name, int64_t val)
     NV_SET_fn(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SBL-M3-VAR (2026-05-31): SNOBOL4 `dst = src` where src is a bare variable reference (`OUTPUT = S`). Fully stackless — the dst and src names are RO immediates baked by the bb_sno_assign IR_VAR arm; this fetches src's value */
+/* via NV_GET_fn and stores it under dst via NV_SET_fn (the same associated-variable hook, so OUTPUT prints, S round-trips). VARVAL is resolved by NV_GET_fn (handles NAME indirection). NO value stack (Lon directive).        */
+void rt_sno_assign_var(const char *dst, const char *src)
+{
+    NV_SET_fn(dst ? dst : "", NV_GET_fn(src ? src : ""));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pop_void(void)
 {
     (void)vstack_pop();

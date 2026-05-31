@@ -10,6 +10,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_LIT_NUL] = "IR_LIT_NUL",
     [IR_VAR] = "IR_VAR",
     [IR_ASSIGN] = "IR_ASSIGN",
+    [IR_SNO_PROG] = "IR_SNO_PROG",
     [IR_AUGOP] = "IR_AUGOP",
     [IR_BINOP] = "IR_BINOP",
     [IR_UNOP] = "IR_UNOP",
@@ -199,7 +200,7 @@ void bb_reset(IR_graph_t * bbg) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
         bb->value   = FAILDESCR;
-        if (bb->t != IR_PAT_ARBNO && bb->t != IR_SCAN && bb->t != IR_GOTO && bb->t != IR_GATHER && !(bb->t == IR_SEQ && bb->dval == 1.0) && !(bb->t == IR_CALL && bb->dval == 2.0)) bb->counter = 0;
+        if (bb->t != IR_PAT_ARBNO && bb->t != IR_SCAN && bb->t != IR_GOTO && bb->t != IR_GATHER && bb->t != IR_SNO_PROG && !(bb->t == IR_SEQ && bb->dval == 1.0) && !(bb->t == IR_CALL && bb->dval == 2.0)) bb->counter = 0;
         bb->state   = 0;
     }
     ag_ring_clear(bbg);
