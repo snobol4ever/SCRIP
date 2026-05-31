@@ -1427,7 +1427,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         { const char *p=ks; while(*p){h=(h<<5)+h^(unsigned char)*p++;} h&=0xFF; }
         TBPAIR_t **pp=&GET_TBL(td)->buckets[h];
         while(*pp) {
-            if(strcmp((*pp)->key,ks)==0){TBPAIR_t *del=*pp;*pp=del->next;td.tbl->size--;break;}
+            if(strcmp((*pp)->key,ks)==0){TBPAIR_t *del=*pp;*pp=del->next;GET_TBL(td)->size--;break;}
             pp=&(*pp)->next;
         }
         *out = td; return 1;

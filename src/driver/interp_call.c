@@ -327,7 +327,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
                                 DESCR_t named = NV_GET_fn(nm);
                                 if (IS_NAMEPTR(named)) {
                                     NAME_DEREF_PTR(named) = repl_val;
-                                    { const char *_rn = NV_name_from_ptr((const DESCR_t*)named.ptr);
+                                    { const char *_rn = NV_name_from_ptr((const DESCR_t*)GET_PTR(named));
                                       comm_var(_rn ? _rn : "<lval>", repl_val); }
                                     succeeded = 1;
                                 } else {

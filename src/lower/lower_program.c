@@ -54,7 +54,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             size_t rl = GET_SLEN(rs_d) > 0 ? (size_t)GET_SLEN(rs_d) : strlen(rs);
             char *buf = GC_malloc(ll + rl + 1);
             memcpy(buf, ls, ll); memcpy(buf + ll, rs, rl); buf[ll + rl] = '\0';
-            { DESCR_t r2; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }
+            { DESCR_t r2 = BSTRVAL(buf, (uint32_t)(ll + rl)); return r2; }
         }
         case BINOP_SLT: case BINOP_SLE: case BINOP_SGT:
         case BINOP_SGE: case BINOP_SEQ: case BINOP_SNE: {
