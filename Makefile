@@ -172,6 +172,7 @@ RT_PIC_SRCS := \
     $(SRC)/processor/smx_dead_stubs.c \
     $(SRC)/lower/sm_prog.c \
     $(SRC)/lower/lower.c \
+    $(SRC)/lower/lower_program.c \
     $(SRC)/lower/lower_sno.c \
     $(SRC)/runtime/interp/gen_runtime.c \
     $(SRC)/runtime/interp/scan_builtins.c \

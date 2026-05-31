@@ -209,6 +209,22 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
         /* on the binop node and read the value directly into rdi, then call the by-value rt_write_int_nl.  */
         /* No value stack. β-target taken from the driver's queued lbl_β pair (else ω), like GZ-2.          */
         int arg_is_ro_binop = (a0 && (a0->t == IR_BINOP || a0->t == IR_TO || a0->t == IR_TO_BY));
+        /* GZ-2 (ICON RO-LOCALS IP-RELATIVE), mode-4 TEXT: the string analog's int twin — the literal     */
+        /* int64 is a READ-ONLY constant emitted to .rodata with a unique label, read `mov rdi,[rip+lbl]` */
+        /* (IP-relative, no value stack, no movabs-immediate), then the by-value rt_write_int_nl. Mirrors  */
+        /* the MEDIUM_BINARY arm above (which seals the int in-blob and reads [rip+22]).                    */
+        if (arg_is_ro_int && MEDIUM_TEXT) {
+            std::string sl = emit_fmt(".Lwrite_int%d", bb_node_id(pBB));
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment(emit_fmt("# BOX IR_CALL write(%lld) [GZ-2 RO-int IP-relative]", (long long)a0->ival))
+                 + s_directive(".section .rodata")
+                 + s_directive(sl + emit_fmt(": .quad %lld", (long long)a0->ival))
+                 + s_directive(".section .text")
+                 + s_directive(".intel_syntax noprefix")
+                 + s_2asm("mov rdi,", "[rip + " + sl + "]")
+                 + s_2asm("call",     "rt_write_int_nl@PLT")
+                 + s_2asm("jmp",      _.lbl_γ);
+        }
         if (arg_is_ro_binop && MEDIUM_BINARY) {
             int off = bb_slot_get(a0);
             if (off < 0) {
@@ -259,6 +275,39 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
                  + bytes(1, "\xE9")             + u32le(0);
         }
         const char *trailer_sym = arg_is_any ? "rt_pop_write_any_nl@PLT" : "rt_pop_write_int_nl@PLT";
+        /* GZ-3 (GROUND ZERO 3), mode-4 TEXT: arg0 is the stackless binop/to whose result the binop/to    */
+        /* template stored at [r12+off] (ζ=r12, off via bb_slot_get). Read it directly into rdi and call   */
+        /* the by-value writer — no value stack. The CONCAT sub-arm reads the 16-byte DESCR payload ptr at */
+        /* [r12+off+8] (NUL-terminated buffer) and calls rt_write_strz_nl. Mirrors the MEDIUM_BINARY arms. */
+        if (arg_is_ro_binop && MEDIUM_TEXT) {
+            int off = bb_slot_get(a0);
+            if (off < 0) {
+                fprintf(stderr, "[GZ-3] FATAL bb_call(text): write(binop) — result slot not allocated (bb_slot_get miss)\n");
+                abort();
+            }
+            /* β re-pump target: mirror the BINARY arm — scan the queued EMIT_PAIR for lbl_β's jmp target */
+            /* (the arg generator's β resume when EVERY drives a re-pump; else ω). Define β inline + jmp.  */
+            bb_label_t *beta_tgt = _.lbl_ω_p;
+            for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
+                if (g_emit.xa_bb_emit_pair_define[i] == _.lbl_β_p && g_emit.xa_bb_emit_pair_jmp[i]) { beta_tgt = g_emit.xa_bb_emit_pair_jmp[i]; break; }
+            }
+            std::string tail = s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                             + s_2asm("jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
+            if (a0->t == IR_BINOP && a0->ival == BINOP_CONCAT) {
+                return s_1asm(emit_fmt("%s:", _.lbl_α))
+                     + s_comment("# BOX IR_CALL write(concat) [GZ-4 stackless ζ-slot payload]")
+                     + s_2asm("mov rdi,", emit_fmt("[r12 + %d]", off + 8))
+                     + s_2asm("call",     "rt_write_strz_nl@PLT")
+                     + s_2asm("jmp",      _.lbl_γ)
+                     + tail;
+            }
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment("# BOX IR_CALL write(int-binop/to) [GZ-3 stackless ζ-slot]")
+                 + s_2asm("mov rdi,", emit_fmt("[r12 + %d]", off))
+                 + s_2asm("call",     "rt_write_int_nl@PLT")
+                 + s_2asm("jmp",      _.lbl_γ)
+                 + tail;
+        }
         if (MEDIUM_TEXT) {
             return s_1asm(emit_fmt("%s:", _.lbl_α))
                  + s_comment(arg_is_any ? "# BOX IR_CALL write(IR_VAR) [IBB-7 any-write trailer]"

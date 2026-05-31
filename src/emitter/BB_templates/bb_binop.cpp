@@ -101,6 +101,31 @@ static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
              + u64le((uint64_t)v1)
              + u64le((uint64_t)v2);
     }
+    if (MEDIUM_TEXT && pBB && pBB->α && pBB->β && pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I
+        && (op == BINOP_ADD || op == BINOP_SUB)) {
+        /* GZ-3 (GROUND ZERO 3), mode-4 TEXT twin of the BINARY int ADD/SUB arm below: both operands are */
+        /* READ-ONLY int constants → emit them to .rodata, read IP-relative, compute, and store the      */
+        /* result into the per-sequence ζ frame slot [r12+off] (off claimed via bb_slot_alloc, so the    */
+        /* consumer's bb_slot_get hits). No value stack. Single-shot (β→ω).                               */
+        int     off = bb_slot_alloc(pBB);
+        int     nid = bb_node_id(pBB);
+        std::string la = emit_fmt(".Lbinop%d_a", nid);
+        std::string lb = emit_fmt(".Lbinop%d_b", nid);
+        const char *mn = (op == BINOP_ADD) ? "add rax," : "sub rax,";
+        return s_1asm(emit_fmt("%s:", _.lbl_α))
+             + s_comment(emit_fmt("# BOX IR_BINOP %s [GZ-3 stackless RO-int → ζ slot]", op == BINOP_ADD ? "ADD" : "SUB"))
+             + s_directive(".section .rodata")
+             + s_directive(la + emit_fmt(": .quad %lld", (long long)pBB->α->ival))
+             + s_directive(lb + emit_fmt(": .quad %lld", (long long)pBB->β->ival))
+             + s_directive(".section .text")
+             + s_directive(".intel_syntax noprefix")
+             + s_2asm("mov rax,", "[rip + " + la + "]")
+             + s_2asm(mn,         "[rip + " + lb + "]")
+             + s_2asm("mov",      emit_fmt("[r12 + %d], rax", off))
+             + s_2asm("jmp",      _.lbl_γ)
+             + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+             + s_2asm("jmp",      _.lbl_ω);
+    }
     int is_rel = pBB && (gen_is_numrel(op) || gen_is_strrel(op));
     if (is_rel) {
         int tt   = gen_rel_to_tt(op);
@@ -176,6 +201,35 @@ static std::string bb_binop_str(IR_t * pBB, bb_bin_t & bin) {
                  + bytes(1, "\xE9") + u32le(0)
                  + std::string(sa, (size_t)la)
                  + std::string(sb, (size_t)(strlen(sb) + 1));
+        }
+        if (MEDIUM_TEXT && pBB && pBB->α && pBB->β && pBB->α->t == IR_LIT_S && pBB->β->t == IR_LIT_S
+            && pBB->α->sval && pBB->β->sval) {
+            /* GZ-4 (GROUND ZERO 3), mode-4 TEXT twin of the BINARY str_concat_d arm above: both operands */
+            /* are READ-ONLY string literals → emit them NUL-terminated to .rodata, pass each as a 16-byte */
+            /* DESCR in the SysV register pair (a={edi=DT_S:rsi=ptr}, b={edx=DT_S:rcx=ptr}), call          */
+            /* str_concat_d, and store the returned DESCR (rax:rdx) into the ζ frame slot [r12+off]/[+8]   */
+            /* (16 bytes via bb_slot_alloc16). The consumer (write) reads the payload ptr at [r12+off+8].  */
+            int          off = bb_slot_alloc16(pBB);
+            int          nid = bb_node_id(pBB);
+            std::string  la  = emit_fmt(".Lconcat%d_a", nid);
+            std::string  lb  = emit_fmt(".Lconcat%d_b", nid);
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment("# BOX IR_BINOP concat [GZ-4 stackless RO-str → ζ slot DESCR]")
+                 + s_directive(".section .rodata")
+                 + s_directive(la + ": .string \"" + pBB->α->sval + "\"")
+                 + s_directive(lb + ": .string \"" + pBB->β->sval + "\"")
+                 + s_directive(".section .text")
+                 + s_directive(".intel_syntax noprefix")
+                 + s_2asm("mov edi,", "1")
+                 + s_2asm("lea rsi,", "[rip + " + la + "]")
+                 + s_2asm("mov edx,", "1")
+                 + s_2asm("lea rcx,", "[rip + " + lb + "]")
+                 + s_2asm("call",     "str_concat_d@PLT")
+                 + s_2asm("mov",      emit_fmt("[r12 + %d], rax", off))
+                 + s_2asm("mov",      emit_fmt("[r12 + %d], rdx", off + 8))
+                 + s_2asm("jmp",      _.lbl_γ)
+                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                 + s_2asm("jmp",      _.lbl_ω);
         }
         if (MEDIUM_TEXT) {
             return s_1asm(emit_fmt("%s:", _.lbl_α))

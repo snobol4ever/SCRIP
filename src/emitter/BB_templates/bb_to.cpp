@@ -99,6 +99,37 @@ static std::string bb_to_str(IR_t * pBB, bb_bin_t & bin) {
                  + u64le((uint64_t)hiv);
         }
 
+        if (MEDIUM_TEXT && pBB->α && pBB->β && pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I) {
+            /* GZ-4 (GROUND ZERO 3), mode-4 TEXT twin of the BINARY pump above: lo/hi are READ-ONLY ints  */
+            /* in .rodata (IP-relative), the moving cursor lives in the ζ frame slot [r12+off] (off via    */
+            /* bb_slot_alloc so the consumer's bb_slot_get hits). α seeds cur=lo (guard lo>hi→ω) and       */
+            /* yields via γ; β increments and re-yields until cur>hi→ω — the full stackless pump `every`    */
+            /* re-drives. Grounded in test_icon.c `to1` (Proebsting §4.4). Zero rt_push/rt_pop.            */
+            int      off = bb_slot_alloc(pBB);
+            int      nid = bb_node_id(pBB);
+            std::string lo = emit_fmt(".Lto%d_lo", nid);
+            std::string hi = emit_fmt(".Lto%d_hi", nid);
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment(emit_fmt("# BOX TO(lo=%lld hi=%lld) [GZ-4 stackless ζ-slot pump]", (long long)pBB->α->ival, (long long)pBB->β->ival))
+                 + s_directive(".section .rodata")
+                 + s_directive(lo + emit_fmt(": .quad %lld", (long long)pBB->α->ival))
+                 + s_directive(hi + emit_fmt(": .quad %lld", (long long)pBB->β->ival))
+                 + s_directive(".section .text")
+                 + s_directive(".intel_syntax noprefix")
+                 + s_2asm("mov rax,", "[rip + " + lo + "]")
+                 + s_2asm("cmp rax,", "[rip + " + hi + "]")
+                 + s_2asm("jg",       _.lbl_ω)
+                 + s_2asm("mov",      emit_fmt("[r12 + %d], rax", off))
+                 + s_2asm("jmp",      _.lbl_γ)
+                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                 + s_2asm("mov rax,", emit_fmt("[r12 + %d]", off))
+                 + s_1asm("inc rax")
+                 + s_2asm("mov",      emit_fmt("[r12 + %d], rax", off))
+                 + s_2asm("cmp rax,", "[rip + " + hi + "]")
+                 + s_2asm("jg",       _.lbl_ω)
+                 + s_2asm("jmp",      _.lbl_γ);
+        }
+
         if (!lit_bounds) {
             /* DYNAMIC operands — not yet emitted inline (H-3 value-field read; blocked
                behind Phase J flat-BB reachability). Wire ports passthrough (α→γ, β→ω)

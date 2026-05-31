@@ -159,6 +159,7 @@ void emitter_init_binary(bb_buf_t buf, int size)
     g_is_text = 0; g_emit_text_mode = TEXT_MODE_INVOCATION; g_emit_pos = 0;
     bb_emit_overflow = 0;
     bb_emit_mode = EMIT_BINARY_WIRED;
+    g_platform = BB_PLATFORM_X86; g_medium = BB_MEDIUM_BINARY;
     bb_emit_begin(buf, size);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -166,7 +167,9 @@ void emitter_init_text(FILE *out, int mode)
 {
     g_is_text = 1; g_emit_text_mode = mode; g_emit_pos = 0;
     bb_emit_mode = EMIT_TEXT;
+    g_platform = BB_PLATFORM_X86; g_medium = BB_MEDIUM_TEXT;
     bb_emit_out  = out ? out : stdout;
+    emit_io_set_sink(out ? out : stdout);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int  emitter_end(void)        { return g_is_text ? g_emit_pos : bb_emit_end(); }

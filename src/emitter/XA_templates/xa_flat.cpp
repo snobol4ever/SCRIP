@@ -78,10 +78,21 @@ static std::string xa_flat_prologue_str(bb_bin_t & bin) {
                        + "    .global " + (g_emit.flat_lbl_γ ? g_emit.flat_lbl_γ : "") + "\n"
                        + "    .global " + (g_emit.flat_lbl_ω ? g_emit.flat_lbl_ω : "") + "\n";
             }
+            /* ICON/SNOBOL4 ONE-REGISTER FRAME (FACT RULE), mode-4 TEXT: when the driver set g_frame_active */
+            /* (Icon OR SNOBOL4 mode-4), establish the BB-frame register ζ=r12 from rdi (the frame ptr the  */
+            /* C `main` wrapper passes), mirroring the proven MEDIUM_BINARY frame-active arm. `push r12`     */
+            /* also supplies the same 8-byte rsp adjustment the legacy `sub rsp,8` did (call alignment       */
+            /* unchanged); paired `pop r12` before each ret in the epilogue. `lea r10,[rip+Δ]` is kept       */
+            /* (harmless for Icon — its stackless body uses r12+rip-relative — and available for SNOBOL4).   */
+            /* The C wrapper always enters fresh (esi=0), so the esi-dispatch and the `jmp β` are dead at    */
+            /* the top-level boundary → fall straight through to α_body, avoiding an undefined-β reference   */
+            /* for shapes whose body never defines main_β. NON-ICON-frame (g_frame_active==0) keeps the      */
+            /* original `lea r10,[rip+Δ]` esi-dispatch verbatim → byte-identical for the non-mode-4 path.    */
             extern int g_frame_active;
-            std::string frame_setup = g_frame_active ? std::string("push r12\nmov r12, rdi\n") : std::string();
+            if (g_frame_active) {
+                return banner + "push r12\n  mov r12, rdi\n  lea r10, [rip + Δ]\n";
+            }
             return banner
-                 + frame_setup
                  + "lea r10, [rip + Δ]\n"
                  + "  cmp esi, 0\n"
                  + "  je "  + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
@@ -143,9 +154,9 @@ static std::string xa_flat_epilogue_str(bb_bin_t & bin) {
             /* ICON/SNOBOL4 STACKLESS EPILOGUE (g_frame_active, MEDIUM_TEXT): mirror the BINARY arm above —
                return a constant success (eax=1, edx=0) with NO Σ/r10 dereference, then `pop r12` (paired with
                the prologue's `push r12`). The legacy Σ/[r10] deref below is the non-frame Icon path ONLY; r10 is
-               SysV caller-saved, so any box that calls a runtime fn (e.g. rt_sno_assign_lit_s@PLT) leaves r10
-               clobbered → the deref segfaults. The driver ignores the slab's return value, so the deref is
-               vestigial for a frame-active statement BB. */
+               SysV caller-saved, so any box that calls a runtime fn (e.g. rt_sno_assign_lit_s@PLT / rt_write_*)
+               leaves r10 clobbered → the deref segfaults. The driver ignores the slab's return value, so the
+               deref is vestigial for a frame-active statement BB. */
             extern int g_frame_active;
             if (g_frame_active) {
                 return std::string("mov eax, 1\n")
