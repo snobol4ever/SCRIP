@@ -52,17 +52,19 @@ fi
 
 # --- (d) FACT RULE blocks byte-identical across the 3 GOAL files (awk first-match, not the buggy sed) ---
 goalfiles="GOAL-SNOBOL4-BB.md GOAL-ICON-BB.md GOAL-PROLOG-BB.md"
-check_block(){ # $1=start-regex $2=end-regex $3=label
-  local m="" first="" g
+check_block(){ # $1=start-regex $2=end-regex $3=label  (ASCII-only anchors: a multi-byte em-dash defeats awk '.')
+  local m="" first="" g h n
   for g in $goalfiles; do
     [ -f "$HQ/$g" ] || { bad "$3: $HQ/$g missing"; return; }
-    local h; h=$(awk -v s="$1" -v e="$2" '$0~s{p=1} p{print} $0~e{if(p)exit}' "$HQ/$g" | md5sum | cut -d' ' -f1)
+    n=$(awk -v s="$1" -v e="$2" '$0~s{p=1} p{print} $0~e{if(p)exit}' "$HQ/$g" | wc -l)
+    [ "$n" -eq 0 ] && { bad "$3: extraction EMPTY in $g (anchor '$1' or '$2' not found — check anchors)"; continue; }
+    h=$(awk -v s="$1" -v e="$2" '$0~s{p=1} p{print} $0~e{if(p)exit}' "$HQ/$g" | md5sum | cut -d' ' -f1)
     [ -z "$first" ] && first="$h"
     [ "$h" != "$first" ] && bad "$3: block md5 differs in $g ($h != $first)"
   done
 }
 check_block 'SHARED-LOWERER ONE-FILE' 'prove_lower2.sh green' 'LOWER FACT RULE'
-check_block 'TEMPLATE-ONLY EMISSION . ONE-DISPATCH' 'util_template_purity_audit.sh clean' 'EMITTER FACT RULE'
+check_block 'ONE-DISPATCH CONCURRENCY .FACT RULE' 'util_template_purity_audit.sh clean' 'EMITTER FACT RULE'
 
 [ "$fail" -eq 0 ] && say "OK: concurrency invariants hold (LOWER one-per-role, EMITTER one-dispatch, no stray bytes, FACT RULES byte-identical x3)."
 exit "$fail"
