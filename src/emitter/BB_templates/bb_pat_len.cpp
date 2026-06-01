@@ -13,31 +13,45 @@ static std::string bb_pat_len_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     int nid = bb_node_id(pBB); int sid = 0;
     if (PLATFORM_X86) {
-        bin = { {22, 38, 42, 43},
+        /* REG-2 (GOAL-SNOBOL4-BB REG ladder, 2026-06-01): cursor δ=R14d, length Δ=R15d (ratified regs,
+           bb_regs.h). The legacy cursor-cell reads/writes and the &Σlen bake are gone — δ lives in r14d,
+           the subject length in r15d (both established by BB_MATCH α per REG-0). LEN(n) is a bounded
+           single-shot leaf (SPITBOL Manual ch.18: "LEN(I) produces a pattern which matches a string exactly
+           I characters long"): it succeeds once advancing δ by n, or fails; on β it has no alternative and
+           jmps ω (cursor restore on backtrack is the combinator's job — REG-4 — not the leaf's). LITERAL
+           byte map, hand-coded offsets (FACT RULE TWO LITERAL FORMS — no b.size()):
+               0  : 44 89 F0              mov eax, r14d            ; eax = δ
+               3  : 05 + u32 n            add eax, n               ; eax = δ + n
+               8  : 44 39 F8              cmp eax, r15d            ; vs Δ (length)
+               11 : 0F 8F + u32 ω_rel32   jg ω                     ; rel32 @13  (δ+n > Δ → fail)
+               17 : 41 81 C6 + u32 n      add r14d, n              ; advance cursor δ += n
+               24 : E9 + u32 γ_rel32      jmp γ                    ; rel32 @25
+               29 : E9 + u32 ω_rel32      β: jmp ω                 ; β-def @29, rel32 @30
+               34 : end                                                                                    */
+        bin = { {13, 25, 29, 30},
                 {_.lbl_ω_p, _.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p},
                 {false, false, true, false} };
         return IF(MEDIUM_MACRO_DEF,
                    s_comment("# no macro form — LEN"))
              + IF(MEDIUM_BINARY,
-                   bytes(3, "\x41\x8B\x02")
+                   bytes(3, "\x44\x89\xF0")
                  + bytes(1, "\x05") + u32le((uint32_t)(int)pBB->ival)
-                 + bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN)
-                 + bytes(2, "\x3B\x01")
+                 + bytes(3, "\x44\x39\xF8")
                  + bytes(2, "\x0F\x8F") + u32le(0)
-                 + bytes(3, "\x41\x8B\x02")
-                 + bytes(1, "\x05") + u32le((uint32_t)(int)pBB->ival)
-                 + bytes(3, "\x41\x89\x02")
+                 + bytes(3, "\x41\x81\xC6") + u32le((uint32_t)(int)pBB->ival)
                  + bytes(1, "\xE9") + u32le(0)
                  + bytes(1, "\xE9") + u32le(0))
              + IF(MEDIUM_TEXT,
                    s_1asm(emit_fmt("%s:", _.lbl_α))
-                   + s_1asm(emit_fmt("# BOX LEN(%d)", (int)pBB->ival))
-                 + s_directive(".intel_syntax noprefix")
-                 + s_2asm("lea", "rax, [rip + Δ]") + s_2asm("mov", "eax, dword ptr [rax]") + s_1asm(emit_fmt("add eax, %d", (int)pBB->ival))
-                 + s_2asm("lea", "rcx, [rip + Σlen]") + s_2asm("cmp", "eax, dword ptr [rcx]") + s_1asm(emit_fmt("jg %s", _.lbl_ω))
-                 + s_2asm("lea", "rax, [rip + Δ]") + s_2asm("mov", "ecx, dword ptr [rax]") + s_1asm(emit_fmt("add ecx, %d", (int)pBB->ival)) + s_2asm("mov", "dword ptr [rax], ecx")
-                 + s_1asm(emit_fmt("jmp %s", _.lbl_γ))
-                 + s_1asm(emit_fmt("%s: jmp %s", _.lbl_β, _.lbl_ω)));
+                   + s_comment(emit_fmt("# BOX LEN(%d)  [REG-2 δ=r14 Δ=r15]", (int)pBB->ival))
+                 + s_2asm("mov", "eax, r14d")
+                 + s_2asm("add", emit_fmt("eax, %d", (int)pBB->ival))
+                 + s_2asm("cmp", "eax, r15d")
+                 + s_2asm("jg", _.lbl_ω)
+                 + s_2asm("add", emit_fmt("r14d, %d", (int)pBB->ival))
+                 + s_2asm("jmp", _.lbl_γ)
+                 + s_1asm(std::string(_.lbl_β) + ":")
+                 + s_2asm("jmp", _.lbl_ω));
     }
     if (PLATFORM_JVM) {
         std::string tag_s = emit_fmt("len_%d_%d", sid, nid);
