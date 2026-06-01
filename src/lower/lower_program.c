@@ -17,6 +17,8 @@
 #include <math.h>
 #include <ctype.h>
 #include <gc/gc.h>
+extern int junction_is(DESCR_t v);
+extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern uint32_t polyglot_lang_mask(const tree_t * prog);
 extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask);
@@ -89,6 +91,35 @@ static IR_t * make_indirect_goto(IR_graph_t * g, const char * gstr, IR_t * fall)
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
     *rel_fail = 0;
     if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) return FAILDESCR;
+    /* RK-LOWER-4: Raku junction collapse in a relational op. A junction value is an ETX(\x03)-tagged string
+       (built by __rk_jct_{any,all,one,none} in script_builtins_byname.c); junction_is() recognizes it. Per
+       docs.raku.org/type/Junction, when a junction meets a scalar under a comparison the op autothreads over
+       members and the junction collapses to a Boolean by flavor (any=OR, all=AND, one=XOR1, none=NONE). The
+       ETX prefix is unused by any SNOBOL4 / Icon / Prolog value, so this guard never fires for a peer language
+       — FACT-RULE-safe in shared C. We map BOTH relop families to the TT_* code junction_collapse expects:
+       the numeric relops (BINOP_EQ..GE) compare members numerically; the string relops (BINOP_SEQ..SGE, Raku
+       `eq`/`ne`/`lt`/… and SNOBOL `==`/`~=` on strings) compare members as strings (numeric=0 -> jct_one_cmp_str).
+       junction_collapse returns the collapsed truth; a relop yields rv on success (Icon/SNOBOL relational-
+       success-value model) and FAILDESCR + rel_fail on failure. Arithmetic on a junction stays out of scope
+       (the tagged string would mis-coerce, so it falls to the scalar arms unchanged). */
+    {
+        int lj = junction_is(lv), rj = junction_is(rv);
+        int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT ||
+                       op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
+        int str_rel = (op == BINOP_SEQ || op == BINOP_SNE || op == BINOP_SLT ||
+                       op == BINOP_SLE || op == BINOP_SGT || op == BINOP_SGE);
+        if ((lj || rj) && (num_rel || str_rel)) {
+            DESCR_t jct    = lj ? lv : rv;
+            DESCR_t scalar = lj ? rv : lv;
+            int tt_op = (op == BINOP_EQ || op == BINOP_SEQ) ? TT_EQ : (op == BINOP_NE || op == BINOP_SNE) ? TT_NE :
+                        (op == BINOP_LT || op == BINOP_SLT) ? TT_LT : (op == BINOP_LE || op == BINOP_SLE) ? TT_LE :
+                        (op == BINOP_GT || op == BINOP_SGT) ? TT_GT : TT_GE;
+            int numeric = str_rel ? 0 : (IS_INT_fn(scalar) || IS_REAL_fn(scalar));
+            int truth = junction_collapse(scalar, jct, tt_op, numeric);
+            *rel_fail = !truth;
+            return truth ? rv : FAILDESCR;
+        }
+    }
     int either_real = (IS_REAL_fn(lv) || IS_REAL_fn(rv));
     double ld = IS_REAL_fn(lv) ? lv.r : (double)(IS_INT_fn(lv) ? lv.i : 0);
     double rd = IS_REAL_fn(rv) ? rv.r : (double)(IS_INT_fn(rv) ? rv.i : 0);

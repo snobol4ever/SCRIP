@@ -406,7 +406,14 @@ static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
         if (!c3) return NULL;
         elseα = c3α;
     } else {
-        elseα = ω_in;                                            /* no else: E1-fail -> if.fail */
+        /* No else-branch. FACT RULE: per-language variation lives inside this one case.
+           Icon/SNOBOL/Prolog (goal-directed): a false condition FAILS the if-expression -> ω_in (the value of
+           `if c then e` with c false is failure, jcon ir_a_If). Raku (docs.raku.org/language/control#if): an
+           `if` with no else whose condition is false yields Empty and execution CONTINUES to the next statement
+           — it does NOT fail. So for Raku route E1-fail to γ_in (the success/continue port wired to the next
+           statement's α), making a missed-condition `if` a no-op that falls through rather than aborting the
+           enclosing statement sequence. */
+        elseα = (cx.lang == IR_LANG_RKU) ? γ_in : ω_in;          /* Raku: skip-and-continue; others: fail */
     }
     IR_t * c1 = lower2(cb, e->c[0], thenα /*E1.succ -> then.start*/, elseα /*E1.fail -> else.start*/, &c1α, &c1β);
     if (!c1) return NULL;
@@ -901,6 +908,47 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             }
             set_succ_fail(call, γ_in, ω_in);
             return ret(call, α_out, β_out, call /* call node is the chain entry */, ω_in /* bounded */);
+        }
+        /* RK-LOWER-4: Raku junction constructors any(m1,..,mn) / all(..) / one(..) / none(..).
+           Per docs.raku.org/type/Junction: any() collapses TRUE if >= 1 member matches; all() if ALL match;
+           one() if EXACTLY 1 matches; none() if 0 match. The parser hands these as TT_FNC(sval=flavor,
+           c[0]=TT_VAR(flavor), c[1..n-1]=members) — mk_junction flattens same-flavor infix `|`/`&` chains
+           into the same TT_FNC at parse time, so both constructor and infix forms share ONE lowering here.
+           Lowering: deterministic n-arg IR_CALL to runtime builtin "__rk_jct_{any,all,one,none}"
+           (implemented in script_builtins_byname.c: builds the ETX+flavor+SOH-separated tagged string value
+           that junction_collapse / junction_is operate on; junction_collapse threads the relop across members
+           at comparison time: any=OR, all=AND, one=XOR1, none=NONE, recursing on nested-junction members via
+           EOT-depth spans). Each member is lowered into its OWN isolated value sub-graph (the SNOBOL4 call-arg
+           idiom — lower_value_subgraph; the sub-graph pointer array rides on `counter`, dval=2.0) so a member
+           that is ITSELF a mixed-flavor nested junction (e.g. `10 | (50 & 60)`) evaluates as ONE opaque tagged
+           value rather than being flattened into the outer member chain. The cursor carries IR_LANG_RKU into
+           each sub-graph so a nested TT_FNC(any/all/one/none) re-enters this same arm. dval=2.0 routes the exec
+           arm to drain each sub-graph (bb_reset + bb_exec_once) into an args[] array; __rk_jct_* matches no user
+           proc so it falls straight to try_call_builtin_by_name -> the junction builder. FACT RULE: the Raku arm
+           lives INSIDE this one TT_FNC case; a non-Raku language hitting any/all/one/none names falls through to
+           the Icon arm or unhandled (loud), never a silent default. Any member failure propagates to ω_in.       */
+        if (cx.lang == IR_LANG_RKU && e->v.sval && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR) {
+            const char * flav = e->v.sval;
+            if (!strcmp(flav, "any") || !strcmp(flav, "all") || !strcmp(flav, "one") || !strcmp(flav, "none")) {
+                char jfn[32];
+                snprintf(jfn, sizeof jfn, "__rk_jct_%s", flav);
+                int nmembers = e->n - 1;                             /* skip c[0] (TT_VAR name sentinel) */
+                IR_t * call = nalloc(cx, IR_CALL);
+                if (!call) return NULL;
+                call->sval = GC_strdup(jfn);                         /* GC-stable builtin name for exec dispatch */
+                call->ival = nmembers;
+                call->dval = 2.0;                                    /* isolated-subgraph args (SNOBOL4 call idiom) */
+                IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nmembers, sizeof(IR_graph_t *));
+                if (!blks) return NULL;
+                lcx_t mv = cx; mv.role = ROLE_VALUE;                 /* cursor keeps cx.lang=IR_LANG_RKU for nesting */
+                for (int i = 1; i <= nmembers; i++) {
+                    blks[i - 1] = lower_value_subgraph(mv, e->c[i]);
+                    if (!blks[i - 1]) { free(blks); return NULL; }
+                }
+                call->counter = (int64_t)(intptr_t) blks;            /* array of member value sub-graphs */
+                set_succ_fail(call, γ_in, ω_in);
+                return ret(call, α_out, β_out, call /* call node is the chain entry */, ω_in /* det */);
+            }
         }
         if (e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
             const char * fn = e->c[0]->v.sval;

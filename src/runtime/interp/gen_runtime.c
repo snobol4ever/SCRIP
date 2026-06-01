@@ -6,6 +6,7 @@
 #include "gen.h"
 #include "coerce.h"
 #include "scan_builtins.h"
+#include "script_builtins.h"
 #include "../../lower/bb_exec.h"
 #include "../../lower/lower.h"
 #include <stdlib.h>
@@ -1848,6 +1849,15 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DatType *_rdt = dat_find_type(fn);
         if (_rdt) { *out = dat_construct(_rdt, args, nargs); return 1; }
     }
+    /* RK-LOWER-4 dispatch-gap fix: names this dispatcher does not handle fall through to the script-builtin
+       dispatcher (script_builtins_byname.c) — the SM-era arm that was orphaned by SMX-4 (no live call site)
+       yet still holds the proven Raku script-builtin implementations: junction constructors __rk_jct_{any,all,
+       one,none} (this rung), plus the hash/IO/regex/array families (RK-LOWER-5 / RK-NFA territory). Placed at
+       the very tail AFTER every gen_runtime arm has had its chance, so the six overlapping names (close/open/
+       pop/push/reverse/trim) keep gen_runtime's semantics (it matched and returned first) and no live path is
+       disturbed — only names gen_runtime previously REJECTED (returned 0) are newly served. Mirrors the
+       APPENDIX-A "SM dispatch-gap fix" that lit the regex cluster via the raku_try_call_builtin_by_name twins. */
+    if (script_try_call_builtin_by_name(fn, args, nargs, out)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -100,4 +100,60 @@ sub main() {
 }
 EOF
 
+raku "jct_any" "any-hit" << 'EOF'
+sub main() {
+    my $x = 3;
+    if ($x == any(1, 2, 3)) { say('any-hit'); }
+    if ($x == any(7, 8, 9)) { say('any-miss-BAD'); }
+}
+EOF
+
+raku "jct_all" "all-hit" << 'EOF'
+sub main() {
+    my $x = 3;
+    if ($x == all(3, 3, 3)) { say('all-hit'); }
+    if ($x == all(3, 3, 4)) { say('all-miss-BAD'); }
+}
+EOF
+
+raku "jct_one" "one-hit" << 'EOF'
+sub main() {
+    my $x = 3;
+    if ($x == one(1, 3, 5)) { say('one-hit'); }
+    if ($x == one(3, 3, 5)) { say('one-miss-BAD'); }
+}
+EOF
+
+raku "jct_none" "none-hit" << 'EOF'
+sub main() {
+    my $x = 3;
+    if ($x == none(7, 8, 9)) { say('none-hit'); }
+    if ($x == none(1, 3, 5)) { say('none-miss-BAD'); }
+}
+EOF
+
+raku "jct_infix" "$(printf 'pipe\namp')" << 'EOF'
+sub main() {
+    my $x = 3;
+    if ($x == (1 | 2 | 3)) { say('pipe'); }
+    if ($x == (3 & 3 & 3)) { say('amp'); }
+}
+EOF
+
+raku "jct_str" "str-hit" << 'EOF'
+sub main() {
+    my $s = 'b';
+    if ($s eq any('a', 'b')) { say('str-hit'); }
+}
+EOF
+
+raku "jct_nested" "$(printf 'all-wraps-any\nany-first-in-all')" << 'EOF'
+sub main() {
+    my $x = 50;
+    if ($x == (50 & (50 | 60)))  { say('all-wraps-any'); }
+    if ($x == (10 | (50 & 60)))  { say('nest-miss-BAD'); }
+    if ($x == ((50 | 60) & 50))  { say('any-first-in-all'); }
+}
+EOF
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
