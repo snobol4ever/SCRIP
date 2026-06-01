@@ -11,22 +11,28 @@ static std::string bb_pat_rem_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     int nid = bb_node_id(pBB); (void)nid;
     if (PLATFORM_X86) {
-        bin = { {16, 20, 21}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+        /* REG-2 (GOAL-SNOBOL4-BB REG ladder, 2026-06-01): cursor δ=R14d, length Δ=R15d. REM matches the
+           REST of the subject (SPITBOL Manual ch.18: RTAB(0) ≡ REM), so it sets δ ← Δ and succeeds; β has
+           no alternative → jmp ω. The &Σlen bake is gone (length is r15d). LITERAL byte map, hand-coded
+           offsets (FACT RULE TWO LITERAL FORMS — no b.size()):
+               0  : 45 89 FE              mov r14d, r15d           ; δ = Δ (consume to end)
+               3  : E9 + u32 γ_rel32      jmp γ                    ; rel32 @4
+               8  : E9 + u32 ω_rel32      β: jmp ω                 ; β-def @8, rel32 @9
+               13 : end                                                                                    */
+        bin = { {4, 8, 9}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
         return IF(MEDIUM_MACRO_DEF,
                s_comment("# no macro form — REM"))
              + IF(MEDIUM_BINARY,
-               bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN)
-                 + bytes(2, "\x8B\x01")
-                 + bytes(3, "\x41\x89\x02")
+               bytes(3, "\x45\x89\xFE")
                  + bytes(1, "\xE9") + u32le(0)
                  + bytes(1, "\xE9") + u32le(0))
              + IF(MEDIUM_TEXT,
                s_1asm(emit_fmt("%s:", _.lbl_α))
-               + s_comment("# BOX REM()") + s_directive(".intel_syntax noprefix")
-                 + s_2asm("lea", "rax, [rip + \u03a3len]") + s_2asm("mov", "ecx, dword ptr [rax]")
-                 + s_2asm("lea", "rax, [rip + \u0394]") + s_2asm("mov", "dword ptr [rax], ecx")
-                 + s_1asm(emit_fmt("jmp %s", _.lbl_γ))
-                 + s_1asm(emit_fmt("%s: jmp %s", _.lbl_β, _.lbl_ω)));
+               + s_comment("# BOX REM()  [REG-2 δ=r14 Δ=r15]")
+                 + s_2asm("mov", "r14d, r15d")
+                 + s_2asm("jmp", _.lbl_γ)
+                 + s_1asm(std::string(_.lbl_β) + ":")
+                 + s_2asm("jmp", _.lbl_ω));
     }
     if (PLATFORM_JVM) {
         int sid = 0;

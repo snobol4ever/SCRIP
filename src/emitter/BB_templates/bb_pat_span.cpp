@@ -21,12 +21,64 @@ static std::string bb_pat_span_str(IR_t * pBB, bb_bin_t & bin) {
         bin = { {}, {}, {} };
         return IF(MEDIUM_MACRO_DEF, s_comment("# no macro form — SPAN"))
              + IF(MEDIUM_BINARY, [&]() -> std::string {
-                   /* SPAN BINARY arm (SBL-SPAN-2). Two process-lifetime deque-int scratch slots:
-                      z_slot (matched len @active), zo_slot (origin Δ for β undo).
-                      cs_addr = charset string ptr (from pBB->sval via rt_cs_new caller).
-                      strchr(cs,ch)!=NULL → char in set → keep spanning.
-                      Internal pre-patches: jge@58→+65, je@105→+18, jmp@123→-98.
-                      External sites: {143→ω, 168→γ, 172→β(def), 192→ω, 216→γ}. 220 bytes. */
+                   /* REG-2 (GOAL-SNOBOL4-BB REG ladder, 2026-06-01): cursor δ=R14d, subject base Σ=R13,
+                      length Δ=R15d (ratified regs; established by BB_MATCH α per REG-0). The &Σ / &Σlen movabs
+                      bakes are GONE, the cursor-cell reads/writes become r14d, and Σ=r13 is used DIRECTLY in
+                      the loop's indexed byte load (so the old r11 base-copy and its push/pop r11 also vanish).
+                      SPAN(S) matches ONE OR MORE subject chars from the set in S, longest possible (SPITBOL
+                      Manual ch.18: "SPAN must match at least one subject character, and will match the longest
+                      subject string possible"); on β it gives back one char at a time (z -= 1) and fails when
+                      z would drop below 1. Two process-lifetime deque-int scratch slots remain (NOT a value
+                      stack — per-box local match state, the REG-4/5 ζ-slot migration is a later rung):
+                      z_slot = matched len @active, zo_slot = origin δ for the β undo. strchr(cs,ch) != NULL ⇒
+                      char in set. r10 is caller-saved → push/pop around the call; r13/r14/r15 are callee-saved
+                      and survive. LITERAL byte map, hand-coded offsets (FACT RULE TWO LITERAL FORMS — no
+                      byte-counting function). Internal rel32 deltas (LITERAL): jge done = +62, je done = +18,
+                      jmp loop = -86. External sites {118 ω, 143 γ, 147 β-def, 167 ω, 191 γ}. 195 bytes:
+                        0   : 48 B9 + z(8)            movabs rcx, z_slot
+                        10  : C7 01 00 00 00 00       mov dword[rcx], 0          ; z = 0
+                        loop@16:
+                        16  : 44 89 F0                mov eax, r14d              ; eax = δ
+                        19  : 48 B9 + z(8)            movabs rcx, z_slot
+                        29  : 03 01                   add eax, [rcx]             ; eax = δ + z
+                        31  : 44 39 F8                cmp eax, r15d              ; cmp (δ+z), Δ
+                        34  : 0F 8D + (+62)           jge done                   ; (δ+z) >= Δ → stop
+                        40  : 48 63 C8                movsxd rcx, eax
+                        43  : 41 0F B6 74 0D 00       movzx esi, byte [r13+rcx]  ; esi = Σ[δ+z]
+                        49  : 48 BF + cs(8)           movabs rdi, &cset
+                        59  : 41 52                   push r10
+                        61  : 48 B8 + strchr(8)       movabs rax, &strchr
+                        71  : FF D0                   call rax
+                        73  : 41 5A                   pop r10
+                        75  : 48 85 C0                test rax, rax
+                        78  : 0F 84 + (+18)           je done                    ; not in set → stop
+                        84  : 48 B9 + z(8)            movabs rcx, z_slot
+                        94  : 83 01 01                add dword[rcx], 1          ; z += 1
+                        97  : E9 + (-86)              jmp loop
+                        done@102:
+                        102 : 48 B9 + z(8)            movabs rcx, z_slot
+                        112 : 8B 01                   mov eax, [rcx]             ; eax = z
+                        114 : 85 C0                   test eax, eax
+                        116 : 0F 8E + ω_rel32         jle ω                      ; site 118 (z==0 → fail)
+                        122 : 44 89 F2                mov edx, r14d              ; edx = δ
+                        125 : 48 B9 + zo(8)           movabs rcx, zo_slot
+                        135 : 89 11                   mov [rcx], edx             ; zo = δ (origin)
+                        137 : 01 C2                   add edx, eax               ; edx = δ + z
+                        139 : 41 89 D6                mov r14d, edx              ; δ = δ + z
+                        142 : E9 + γ_rel32            jmp γ                      ; site 143
+                        β@147:
+                        147 : 48 B9 + z(8)            movabs rcx, z_slot
+                        157 : 8B 01                   mov eax, [rcx]             ; eax = z
+                        159 : 83 E8 01                sub eax, 1                 ; z - 1
+                        162 : 83 F8 01                cmp eax, 1
+                        165 : 0F 8C + ω_rel32         jl ω                       ; site 167 (z-1 < 1 → fail)
+                        171 : 89 01                   mov [rcx], eax             ; z = z-1
+                        173 : 48 B9 + zo(8)           movabs rcx, zo_slot
+                        183 : 8B 11                   mov edx, [rcx]             ; edx = zo
+                        185 : 01 C2                   add edx, eax               ; edx = zo + (z-1)
+                        187 : 41 89 D6                mov r14d, edx              ; δ = zo + (z-1)
+                        190 : E9 + γ_rel32            jmp γ                      ; site 191
+                        195 : end                                                                            */
                    static std::deque<int> _pool;
                    _pool.emplace_back(0); int *z_slot  = &_pool.back();
                    _pool.emplace_back(0); int *zo_slot = &_pool.back();
@@ -36,85 +88,70 @@ static std::string bb_pat_span_str(IR_t * pBB, bb_bin_t & bin) {
                    uint64_t strchr_addr;
                    { const char *(*fp)(const char *, int) = strchr; strchr_addr = (uint64_t)(uintptr_t)(void *)fp; }
                    std::string b;
-                   /* α: z=0; load Σ into r11 */
                    b += bytes(2,"\x48\xB9") + u64le(za);                  /* [0]   movabs rcx, z_slot */
-                   b += bytes(6,"\xC7\x01\x00\x00\x00\x00");                /* [10]  mov dword[rcx], 0 */
-                   b += bytes(2,"\x48\xB8") + u64le(TEMPLATE_ADDR_SIGMA);  /* [16]  movabs rax, &Σ */
-                   b += bytes(3,"\x4C\x8B\x18");                            /* [26]  mov r11, [rax] */
-                   /* loop at [29] */
-                   b += bytes(3,"\x41\x8B\x02");                            /* [29]  mov eax, [r10] */
-                   b += bytes(2,"\x48\xB9") + u64le(za);                  /* [32]  movabs rcx, z_slot */
-                   b += bytes(2,"\x03\x01");                                /* [42]  add eax, [rcx] */
-                   b += bytes(2,"\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN);/* [44]  movabs rcx, &Σlen */
-                   b += bytes(2,"\x3B\x01");                                /* [54]  cmp eax, [rcx] */
-                   b += bytes(2,"\x0F\x8D") + u32le(65u);                 /* [56]  jge done (+65→127) */
-                   b += bytes(3,"\x48\x63\xC8");                            /* [62]  movsxd rcx, eax */
-                   b += bytes(5,"\x41\x0F\xB6\x34\x0B");                    /* [65]  movzx esi, byte[r11+rcx] */
-                   b += bytes(2,"\x48\xBF") + u64le(csa);                 /* [70]  movabs rdi, cs_addr */
-                   b += bytes(2,"\x41\x52");                                /* [80]  push r10 */
-                   b += bytes(2,"\x41\x53");                                /* [82]  push r11 */
-                   b += bytes(2,"\x48\xB8") + u64le(strchr_addr);         /* [84]  movabs rax, strchr */
-                   b += bytes(2,"\xFF\xD0");                                /* [94]  call rax */
-                   b += bytes(2,"\x41\x5B");                                /* [96]  pop r11 */
-                   b += bytes(2,"\x41\x5A");                                /* [98]  pop r10 */
-                   b += bytes(3,"\x48\x85\xC0");                            /* [100] test rax, rax */
-                   b += bytes(2,"\x0F\x84") + u32le(18u);                 /* [103] je done (+18→127) */
-                   b += bytes(2,"\x48\xB9") + u64le(za);                  /* [109] movabs rcx, z_slot */
-                   b += bytes(3,"\x83\x01\x01");                            /* [119] add dword[rcx], 1 */
-                   b += bytes(1,"\xE9") + u32le((uint32_t)(int32_t)-98);   /* [122] jmp loop (-98→29) */
-                   /* done at [127] */
-                   b += bytes(2,"\x48\xB9") + u64le(za);                  /* [127] movabs rcx, z_slot */
-                   b += bytes(2,"\x8B\x01");                                /* [137] mov eax, [rcx] */
-                   b += bytes(2,"\x85\xC0");                                /* [139] test eax, eax */
-                   b += bytes(2,"\x0F\x8E") + u32le(0);                   /* [141] jle ω  site[0]@143 */
-                   b += bytes(3,"\x41\x8B\x12");                            /* [147] mov edx, [r10] */
-                   b += bytes(2,"\x48\xB9") + u64le(zoa);                 /* [150] movabs rcx, zo_slot */
-                   b += bytes(2,"\x89\x11");                                /* [160] mov [rcx], edx */
-                   b += bytes(2,"\x01\xC2");                                /* [162] add edx, eax */
-                   b += bytes(3,"\x41\x89\x12");                            /* [164] mov [r10], edx */
-                   b += bytes(1,"\xE9") + u32le(0);                        /* [167] jmp γ  site[1]@168 */
-                   /* lbl_β at [172] */
-                   b += bytes(2,"\x48\xB9") + u64le(za);                  /* [172] movabs rcx, z_slot */
-                   b += bytes(2,"\x8B\x01");                                /* [182] mov eax, [rcx] */
-                   b += bytes(3,"\x83\xE8\x01");                            /* [184] sub eax, 1 */
-                   b += bytes(3,"\x83\xF8\x01");                            /* [187] cmp eax, 1 */
-                   b += bytes(2,"\x0F\x8C") + u32le(0);                   /* [190] jl ω  site[2]@192 */
-                   b += bytes(2,"\x89\x01");                                /* [196] mov [rcx], eax */
-                   b += bytes(2,"\x48\xB9") + u64le(zoa);                 /* [198] movabs rcx, zo_slot */
-                   b += bytes(2,"\x8B\x11");                                /* [208] mov edx, [rcx] */
-                   b += bytes(2,"\x01\xC2");                                /* [210] add edx, eax */
-                   b += bytes(3,"\x41\x89\x12");                            /* [212] mov [r10], edx */
-                   b += bytes(1,"\xE9") + u32le(0);                        /* [215] jmp γ  site[3]@216 */
-                   /* end [220] */
-                   bin = { {143, 168, 172, 192, 216},
+                   b += bytes(6,"\xC7\x01\x00\x00\x00\x00");              /* [10]  mov dword[rcx], 0 */
+                   b += bytes(3,"\x44\x89\xF0");                          /* [16]  mov eax, r14d */
+                   b += bytes(2,"\x48\xB9") + u64le(za);                  /* [19]  movabs rcx, z_slot */
+                   b += bytes(2,"\x03\x01");                              /* [29]  add eax, [rcx] */
+                   b += bytes(3,"\x44\x39\xF8");                          /* [31]  cmp eax, r15d */
+                   b += bytes(2,"\x0F\x8D") + u32le(62u);                 /* [34]  jge done (+62→102) */
+                   b += bytes(3,"\x48\x63\xC8");                          /* [40]  movsxd rcx, eax */
+                   b += bytes(6,"\x41\x0F\xB6\x74\x0D\x00");              /* [43]  movzx esi, byte[r13+rcx] */
+                   b += bytes(2,"\x48\xBF") + u64le(csa);                 /* [49]  movabs rdi, cs_addr */
+                   b += bytes(2,"\x41\x52");                              /* [59]  push r10 */
+                   b += bytes(2,"\x48\xB8") + u64le(strchr_addr);         /* [61]  movabs rax, strchr */
+                   b += bytes(2,"\xFF\xD0");                              /* [71]  call rax */
+                   b += bytes(2,"\x41\x5A");                              /* [73]  pop r10 */
+                   b += bytes(3,"\x48\x85\xC0");                          /* [75]  test rax, rax */
+                   b += bytes(2,"\x0F\x84") + u32le(18u);                 /* [78]  je done (+18→102) */
+                   b += bytes(2,"\x48\xB9") + u64le(za);                  /* [84]  movabs rcx, z_slot */
+                   b += bytes(3,"\x83\x01\x01");                          /* [94]  add dword[rcx], 1 */
+                   b += bytes(1,"\xE9") + u32le((uint32_t)(int32_t)-86);  /* [97]  jmp loop (-86→16) */
+                   b += bytes(2,"\x48\xB9") + u64le(za);                  /* [102] movabs rcx, z_slot */
+                   b += bytes(2,"\x8B\x01");                              /* [112] mov eax, [rcx] */
+                   b += bytes(2,"\x85\xC0");                              /* [114] test eax, eax */
+                   b += bytes(2,"\x0F\x8E") + u32le(0);                   /* [116] jle ω  site[0]@118 */
+                   b += bytes(3,"\x44\x89\xF2");                          /* [122] mov edx, r14d */
+                   b += bytes(2,"\x48\xB9") + u64le(zoa);                 /* [125] movabs rcx, zo_slot */
+                   b += bytes(2,"\x89\x11");                              /* [135] mov [rcx], edx */
+                   b += bytes(2,"\x01\xC2");                              /* [137] add edx, eax */
+                   b += bytes(3,"\x41\x89\xD6");                          /* [139] mov r14d, edx */
+                   b += bytes(1,"\xE9") + u32le(0);                       /* [142] jmp γ  site[1]@143 */
+                   b += bytes(2,"\x48\xB9") + u64le(za);                  /* [147] movabs rcx, z_slot */
+                   b += bytes(2,"\x8B\x01");                              /* [157] mov eax, [rcx] */
+                   b += bytes(3,"\x83\xE8\x01");                          /* [159] sub eax, 1 */
+                   b += bytes(3,"\x83\xF8\x01");                          /* [162] cmp eax, 1 */
+                   b += bytes(2,"\x0F\x8C") + u32le(0);                   /* [165] jl ω  site[2]@167 */
+                   b += bytes(2,"\x89\x01");                              /* [171] mov [rcx], eax */
+                   b += bytes(2,"\x48\xB9") + u64le(zoa);                 /* [173] movabs rcx, zo_slot */
+                   b += bytes(2,"\x8B\x11");                              /* [183] mov edx, [rcx] */
+                   b += bytes(2,"\x01\xC2");                              /* [185] add edx, eax */
+                   b += bytes(3,"\x41\x89\xD6");                          /* [187] mov r14d, edx */
+                   b += bytes(1,"\xE9") + u32le(0);                       /* [190] jmp γ  site[3]@191 */
+                   bin = { {118, 143, 147, 167, 191},
                            {_.lbl_ω_p, _.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p, _.lbl_γ_p},
                            {false, false, true, false, false} };
                    return b;
                }())
              + IF(MEDIUM_TEXT,
                    s_1asm(emit_fmt("%s:", _.lbl_α))
-                 + s_comment("# BOX SPAN()")
+                 + s_comment("# BOX SPAN()  [REG-2 Σ=r13 δ=r14 Δ=r15]")
                  + s_directive(".section .data")
                  + s_directive(z + ": .long 0")
                  + s_directive(".long 0")
                  + s_directive(".section .text")
                  + s_directive(".intel_syntax noprefix")
                  + s_2asm("mov", "dword ptr [rip + " + z + " + 0], 0")
-                 + s_2asm("lea", "r11, [rip + \xCE\xA3]")
-                 + s_2asm("mov", "r11, [r11]")
                  + s_1asm(emit_fmt("%s:", lp.c_str()))
-                 + s_2asm("mov", "eax, [r10]")
+                 + s_2asm("mov", "eax, r14d")
                  + s_2asm("add", "eax, dword ptr [rip + " + z + " + 0]")
-                 + s_2asm("lea", "rcx, [rip + \xCE\xA3" "len]")
-                 + s_2asm("cmp", "eax, [rcx]")
+                 + s_2asm("cmp", "eax, r15d")
                  + s_2asm("jge", dn.c_str())
                  + s_2asm("movsxd", "rcx, eax")
-                 + s_2asm("movzx", "esi, byte ptr [r11+rcx]")
+                 + s_2asm("movzx", "esi, byte ptr [r13+rcx]")
                  + s_2asm("lea", emit_fmt("rdi, [rip + %s]", cs_label ? cs_label : "??"))
                  + s_2asm("push", "r10")
-                 + s_2asm("push", "r11")
                  + s_2asm("call", "strchr@PLT")
-                 + s_2asm("pop", "r11")
                  + s_2asm("pop", "r10")
                  + s_2asm("test", "rax, rax")
                  + s_2asm("jz", dn.c_str())
@@ -124,10 +161,10 @@ static std::string bb_pat_span_str(IR_t * pBB, bb_bin_t & bin) {
                  + s_2asm("mov", "ecx, dword ptr [rip + " + z + " + 0]")
                  + s_2asm("cmp", "ecx, 0")
                  + s_2asm("jle", _.lbl_ω)
-                 + s_2asm("mov", "eax, [r10]")
+                 + s_2asm("mov", "eax, r14d")
                  + s_2asm("mov", "dword ptr [rip + " + z + " + 4], eax")
                  + s_2asm("add", "eax, ecx")
-                 + s_2asm("mov", "[r10], eax")
+                 + s_2asm("mov", "r14d, eax")
                  + s_2asm("jmp", _.lbl_γ)
                  + s_1asm(emit_fmt("%s:", _.lbl_β))
                  + s_2asm("mov", "eax, dword ptr [rip + " + z + " + 4]")
@@ -137,7 +174,7 @@ static std::string bb_pat_span_str(IR_t * pBB, bb_bin_t & bin) {
                  + s_2asm("jl", _.lbl_ω)
                  + s_2asm("mov", "dword ptr [rip + " + z + " + 0], ecx")
                  + s_2asm("add", "eax, ecx")
-                 + s_2asm("mov", "[r10], eax")
+                 + s_2asm("mov", "r14d, eax")
                  + s_2asm("jmp", _.lbl_γ));
     }
     if (PLATFORM_JVM) {
