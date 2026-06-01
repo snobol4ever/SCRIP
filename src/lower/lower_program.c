@@ -645,7 +645,24 @@ stage2_t *lower(const tree_t *prog) {
             if (!proc || proc->t != TT_PROC_DECL) continue;
             if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
             int bb_idx = lower_icon_body(proc);
-            if (bb_idx >= 0) g_stage2.proc_table[pi].bb_idx = bb_idx;
+            if (bb_idx >= 0) {
+                g_stage2.proc_table[pi].bb_idx = bb_idx;
+                /* GZ-10 recursion fix: capture param names into lower_sc NOW (stable GC-dup'd strings) so the
+                   dval==3.0 exec arm can use lower_sc instead of walking the live AST at every activation.
+                   proc->c[1] is the TT_VLIST of params; each child is a TT_VAR with v.sval = param name.
+                   Mirrors SNOBOL4's lp_strdup(params[k]) -> lower_sc pattern (see DEFINE block above). */
+                const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
+                int np = g_stage2.proc_table[pi].nparams;
+                Scope *sc = &g_stage2.proc_table[pi].lower_sc;
+                sc->n = 0;
+                for (int k = 0; k < np && plist && k < plist->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+                    const tree_t *pv = plist->c[k];
+                    if (!pv || !pv->v.sval) continue;
+                    sc->e[sc->n].name = lp_strdup(pv->v.sval);
+                    sc->e[sc->n].slot = sc->n;
+                    sc->n++;
+                }
+            }
         }
         g_stage2.lang = IR_LANG_ICN;
         return &g_stage2;
