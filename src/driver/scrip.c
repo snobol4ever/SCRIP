@@ -312,6 +312,7 @@ int main(int argc, char **argv)
     int has_non_sno = 0;
     int is_prolog = 0;
     int is_icon = 0;
+    int is_raku = 0;
     for (int fi = argi; fi < argc; fi++) {
         const char *d = strrchr(argv[fi], '.');
         if (d && (strcmp(d,".pl")==0 || strcmp(d,".icn")==0 ||
@@ -320,6 +321,7 @@ int main(int argc, char **argv)
             has_non_sno = 1;
         if (d && strcmp(d,".pl")==0) is_prolog = 1;
         if (d && strcmp(d,".icn")==0) is_icon = 1;
+        if (d && strcmp(d,".raku")==0) is_raku = 1;
     }
     CODE_t *sub = NULL;
     tree_t  *ast_prog = NULL;
@@ -494,12 +496,17 @@ int main(int argc, char **argv)
     if (mode_compile_x86) {
         extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
         extern int g_frame_active;
-        if (is_icon) {
+        if (is_icon || is_raku) {
             /* MODE-4 (BB-native x86, GROUND ZERO 3): emit a standalone GAS .s — a C-ABI `main` wrapper that  */
             /* fetches the per-sequence frame (rt_frame), passes it as ζ (rdi) with the α entry selector      */
             /* (esi=0), and calls the flat BB body, then the body itself via codegen_flat_build (the SAME BB  */
             /* templates mode-3 emits, in MEDIUM_TEXT). g_frame_active makes the prologue/epilogue use the    */
             /* Icon stackless r12-frame form. The .s links libscrip_rt.so (rt_write_*, rt_frame, rt_call_*).  */
+            /* RK-EMIT-1 (2026-05-31): Raku rides this SAME generic four-port emission path — Raku's lowered  */
+            /* IR is built from the SHARED Icon kinds (IR_CALL, IR_LIT scalars, IR_VAR, IR_TO, IR_ASSIGN,     */
+            /* IR_IF, IR_WHILE, IR_BINOP, IR_ALT) plus the Raku generator kinds (IR_GATHER, IR_MAP, IR_GREP), */
+            /* so the SAME flat chain builder + shared templates emit it. No severed [SBB] adapter is touched */
+            /* — Raku gets its OWN LOWER-direct driver exactly like Icon's, which is what the diagnosis asked.*/
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
@@ -719,7 +726,7 @@ int main(int argc, char **argv)
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
-        if (is_icon) {
+        if (is_icon || is_raku) {
             extern bb_box_fn bb_build_flat(IR_t * nd);
             extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
             extern void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));

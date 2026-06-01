@@ -86,6 +86,44 @@ static std::string bb_lit_scalar_str(IR_t * pBB, bb_bin_t & bin) {
                  + s_2asm("jmp", _.lbl_ω);
         }
     }
+    if (g_icn_flat_chain && pBB && pBB->t == IR_LIT_S) {
+        /* RK-EMIT-2 (2026-05-31): a string literal is a producer box too — store its 16-byte DESCR        */
+        /* {v=DT_S, slen=0, s=ptr} into its OWN ζ frame slot so a downstream consumer (ASSIGN `$s = "x"`,  */
+        /* the dval==2.0 call marshaller, write) reads it via bb_slot_get(this). Mirrors the IR_LIT_I arm. */
+        /* slen=0 follows the STRVAL convention (length computed by the runtime via strlen on use). The     */
+        /* string bytes are sealed RO (.rodata, IP-relative lea) in TEXT; the JIT uses the host pointer.    */
+        const char * sv = pBB->sval ? pBB->sval : "";
+        if (MEDIUM_BINARY) {
+            int off = bb_slot_alloc16(pBB);
+            uint64_t sptr = (uint64_t)(uintptr_t) sv;
+            /*   0    49 C7 84 24 <u32 off> <u32 1>   mov qword [r12+off], 1   (DESCR eb0: v=DT_S, slen=0)  */
+            /*   12   48 B8 <u64 sptr>                movabs rax, &str                                      */
+            /*   22   49 89 84 24 <u32 off+8>         mov [r12+off+8], rax     (DESCR eb1: ptr)             */
+            /*   30   E9 <rel32 → γ>                  jmp γ                    ← γ patch at 31              */
+            /*   35   E9 <rel32 → ω>                  β: jmp ω                 ← β-def 35, ω patch 36       */
+            bin = { {31, 35, 36}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+            return bytes(4, "\x49\xC7\x84\x24") + u32le((uint32_t)off) + u32le(1u)
+                 + bytes(2, "\x48\xB8") + u64le(sptr)
+                 + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)(off + 8))
+                 + bytes(1, "\xE9") + u32le(0)
+                 + bytes(1, "\xE9") + u32le(0);
+        }
+        if (MEDIUM_TEXT) {
+            int off = bb_slot_alloc16(pBB);
+            std::string sl = emit_fmt(".Llit%d_str", bb_node_id(pBB));
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment("# BOX IR_LIT_S [RK-EMIT-2 flat-chain → ζ slot, 16-byte DESCR]")
+                 + s_directive(".section .rodata")
+                 + s_directive(sl + ": .string \"" + sv + "\"")
+                 + s_directive(".section .text") + s_directive(".intel_syntax noprefix")
+                 + s_2asm("mov", emit_fmt("qword ptr [r12+%d], 1", off))
+                 + s_2asm("lea", emit_fmt("rax, [rip+%s]", sl.c_str()))
+                 + s_2asm("mov", emit_fmt("[r12+%d], rax", off + 8))
+                 + s_2asm("jmp", _.lbl_γ)
+                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                 + s_2asm("jmp", _.lbl_ω);
+        }
+    }
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
              + s_comment("# BOX BB_LIT_scalar (pass-through; value carried via AG ring/sidecar)")

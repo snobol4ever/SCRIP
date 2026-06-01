@@ -42,6 +42,9 @@ int  rt_proc_is_registered(const char *name);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
 int  bb_slot_get(IR_t * nd);
+int  bb_slot_alloc16(IR_t * nd);
+int  bb_varslot(const char * name);
+DESCR_t rt_rk_call_arr(const char * fn, DESCR_t * args, int nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
@@ -52,6 +55,122 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     const char * fn   = pBB->sval ? pBB->sval : "";
     int64_t      narg = pBB->ival;
     IR_t       * a0   = pBB->α;
+
+    /* RK-EMIT-2 (2026-05-31): general deterministic builtin call (dval==2.0). v_raku_det_call lowers       */
+    /* `fn(arg0,arg1,...)` (Raku __rk_arr / elems / sort / __rk_jct_* / hash_get / arr_get / …) to ONE       */
+    /* IR_CALL whose nargs ARGUMENTS are isolated value sub-graphs on `counter` (NOT on the γ-chain). The    */
+    /* mode-2 oracle runs each sub-graph via bb_exec_once; modes 3/4 cannot walk Byrd boxes at run time      */
+    /* (FACT RULE), so this box MATERIALISES each argument's 16-byte DESCR into a per-call vector in its OWN  */
+    /* ζ frame region (the ARBNO-style per-activation array the no-value-stack FACT RULE permits — never a   */
+    /* global value stack, never a name-table round-trip) and calls the by-array dispatcher rt_rk_call_arr,  */
+    /* which is the SAME try_call_builtin_by_name the oracle uses ⇒ m2==m3==m4. The result DESCR (rax:rdx)   */
+    /* is stored into this node's own slot [r12+resoff] so the consumer (say/assign) reads it via            */
+    /* bb_slot_get(this). Each arg sub-graph's entry must be a SIMPLE leaf (literal / variable); a nested or  */
+    /* generator arg sub-graph is NOT handled here (this arm declines so the loud abort below fires — never   */
+    /* a silent wrong emit). Variable args are read from their ζ varslot (the Icon flat model home), NOT the */
+    /* name table, so the value matches what IR_ASSIGN stored.                                                */
+    if (g_icn_flat_chain && pBB->dval == 2.0) {
+        IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
+        int leaves_ok = 1;
+        for (int i = 0; i < (int)narg; i++) {
+            IR_t * lf = (subs && subs[i]) ? subs[i]->entry : NULL;
+            if (!lf) { leaves_ok = 0; break; }
+            if (lf->t != IR_LIT_I && lf->t != IR_LIT_S && lf->t != IR_LIT_F
+                && lf->t != IR_LIT_NUL && lf->t != IR_VAR) { leaves_ok = 0; break; }
+        }
+        if (leaves_ok) {
+            int resoff  = bb_slot_alloc16(pBB);
+            int argbase = (narg > 0) ? bb_slot_alloc16(subs[0]->entry) : resoff;
+            for (int i = 1; i < (int)narg; i++) bb_slot_alloc16(subs[i]->entry);
+            if (MEDIUM_TEXT) {
+                std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
+                    + s_comment(emit_fmt("# BOX IR_CALL %s(...) [RK-EMIT-2 dval=2 marshalled args -> rt_rk_call_arr]", fn));
+                for (int i = 0; i < (int)narg; i++) {
+                    IR_t * lf = subs[i]->entry; int aoff = argbase + i * 16;
+                    if (lf->t == IR_LIT_I) {
+                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 6", aoff));
+                        s += s_2asm("movabs", emit_fmt("rax, %lld", (long long)lf->ival));
+                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
+                    } else if (lf->t == IR_LIT_F) {
+                        uint64_t bits; double d = lf->dval; memcpy(&bits, &d, 8);
+                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 7", aoff));
+                        s += s_2asm("movabs", emit_fmt("rax, %llu", (unsigned long long)bits));
+                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
+                    } else if (lf->t == IR_LIT_NUL) {
+                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff));
+                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff + 8));
+                    } else if (lf->t == IR_LIT_S) {
+                        std::string sl = emit_fmt(".Lrkarg%d_%d", bb_node_id(pBB), i);
+                        s += s_directive(".section .rodata")
+                           + s_directive(sl + ": .string \"" + (lf->sval ? lf->sval : "") + "\"")
+                           + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
+                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 1", aoff));
+                        s += s_2asm("lea", emit_fmt("rax, [rip+%s]", sl.c_str()));
+                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
+                    } else { /* IR_VAR — read its ζ varslot */
+                        int voff = bb_varslot(lf->sval ? lf->sval : "");
+                        s += s_2asm("mov", emit_fmt("rax, [r12+%d]", voff));
+                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff));
+                        s += s_2asm("mov", emit_fmt("rax, [r12+%d]", voff + 8));
+                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
+                    }
+                }
+                std::string fl = emit_fmt(".Lrkfn%d", bb_node_id(pBB));
+                s += s_directive(".section .rodata")
+                   + s_directive(fl + ": .string \"" + fn + "\"")
+                   + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
+                s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
+                s += s_2asm("lea", emit_fmt("rsi, [r12+%d]", argbase));
+                s += s_2asm("mov", emit_fmt("edx, %lld", (long long)narg));
+                s += s_2asm("call", "rt_rk_call_arr@PLT");
+                s += s_2asm("mov", emit_fmt("[r12+%d], rax", resoff));
+                s += s_2asm("mov", emit_fmt("[r12+%d], rdx", resoff + 8));
+                s += s_2asm("jmp", _.lbl_γ);
+                s += s_L1asm(emit_fmt("%s:", _.lbl_β), "");
+                s += s_2asm("jmp", _.lbl_ω);
+                return s;
+            }
+            if (MEDIUM_BINARY) {
+                std::string s;
+                for (int i = 0; i < (int)narg; i++) {
+                    IR_t * lf = subs[i]->entry; uint32_t aoff = (uint32_t)(argbase + i * 16);
+                    if (lf->t == IR_LIT_I || lf->t == IR_LIT_F || lf->t == IR_LIT_NUL || lf->t == IR_LIT_S) {
+                        uint64_t tag = (lf->t == IR_LIT_I) ? 6 : (lf->t == IR_LIT_F) ? 7 : (lf->t == IR_LIT_S) ? 1 : 0;
+                        s += bytes(4, "\x49\xC7\x84\x24") + u32le(aoff) + u32le((uint32_t)tag);   /* mov qword [r12+aoff], tag */
+                        if (lf->t == IR_LIT_NUL) {
+                            s += bytes(4, "\x49\xC7\x84\x24") + u32le(aoff + 8) + u32le(0);        /* mov qword [r12+aoff+8], 0 */
+                        } else {
+                            uint64_t v;
+                            if (lf->t == IR_LIT_I)      v = (uint64_t)lf->ival;
+                            else if (lf->t == IR_LIT_F) { double d = lf->dval; memcpy(&v, &d, 8); }
+                            else                        v = (uint64_t)(uintptr_t)(lf->sval ? lf->sval : "");
+                            s += bytes(2, "\x48\xB8") + u64le(v);                                   /* movabs rax, v */
+                            s += bytes(4, "\x49\x89\x84\x24") + u32le(aoff + 8);                    /* mov [r12+aoff+8], rax */
+                        }
+                    } else { /* IR_VAR */
+                        uint32_t voff = (uint32_t) bb_varslot(lf->sval ? lf->sval : "");
+                        s += bytes(4, "\x49\x8B\x84\x24") + u32le(voff)     + bytes(4, "\x49\x89\x84\x24") + u32le(aoff);
+                        s += bytes(4, "\x49\x8B\x84\x24") + u32le(voff + 8) + bytes(4, "\x49\x89\x84\x24") + u32le(aoff + 8);
+                    }
+                }
+                uint64_t nptr = (uint64_t)(uintptr_t) fn;
+                uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_rk_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+                s += bytes(2, "\x48\xBF") + u64le(nptr);                          /* movabs rdi, fn        */
+                s += bytes(4, "\x49\x8D\xB4\x24") + u32le((uint32_t)argbase);     /* lea rsi, [r12+argbase] */
+                s += bytes(1, "\xBA") + u32le((uint32_t)narg);                    /* mov edx, narg         */
+                s += bytes(2, "\x48\xB8") + u64le(fptr);                          /* movabs rax, &fn       */
+                s += bytes(2, "\xFF\xD0");                                        /* call rax              */
+                s += bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)resoff);      /* mov [r12+resoff], rax */
+                s += bytes(4, "\x49\x89\x94\x24") + u32le((uint32_t)(resoff + 8));/* mov [r12+resoff+8],rdx*/
+                size_t base = s.size();
+                bin = { { (int)(base + 1), (int)(base + 5), (int)(base + 6) },
+                        { _.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p }, { false, true, false } };
+                s += bytes(1, "\xE9") + u32le(0);                                 /* jmp γ   (patch base+1) */
+                s += bytes(1, "\xE9") + u32le(0);                                 /* β: jmp ω (def base+5, patch base+6) */
+                return s;
+            }
+        }
+    }
 
     /* GZ-7 (GROUND ZERO 3) flat-chain slot model: write(E) where E is any single producer box already   */
     /* emitted earlier in the chain (it wrote its 16-byte DESCR result into [r12+off_E]). This box reads  */
