@@ -1861,6 +1861,56 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RK-EMIT-2 (2026-05-31): general deterministic builtin call for modes 3/4. The emitted IR_CALL (dval==2.0) */
+/* box marshals each argument's DESCR into a per-call vector in its OWN ζ frame region (the ARBNO-style per- */
+/* activation array the no-value-stack FACT RULE permits — NOT a global value stack, NOT a name-table round- */
+/* trip) and calls this by-array dispatcher. It is the exact mode-2 oracle dispatch (try_call_builtin_by_name */
+/* over the materialised args), so m2==m3==m4 by construction. NO Byrd-box walking happens at run time: the  */
+/* args are already materialised native values; this is a leaf C call. A name no table serves returns FAIL.  */
+DESCR_t rt_rk_call_arr(const char *fn, DESCR_t *args, int nargs) {
+    DESCR_t out = FAILDESCR;
+    if (!fn) return out;
+    if (try_call_builtin_by_name(fn, args, nargs, &out)) return out;
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RK-EMIT-3 (2026-05-31): junction-collapse relop for modes 3/4. `$x <relop> any(..)/all(..)/one(..)/none(..)` */
+/* — one operand is an ETX-tagged junction value (built by __rk_jct_*); per docs.raku.org/type/Junction the    */
+/* comparison autothreads over members and collapses to a Boolean by flavor (any=OR, all=AND, one=XOR1, none=  */
+/* NONE). This is the EXACT mode-2 collapse (lower_program.c binop_apply junction prologue), wrapped for the   */
+/* emitted relop box, so m2==m3==m4. `op` is the IR BinopKind (gen.h BINOP_*). Returns 1 (true) / 0 (false).   */
+/* If neither operand is a junction it falls back to a plain numeric/string compare so the emitter can route   */
+/* ANY relop whose operand MIGHT be a junction here without changing scalar-relop semantics.                   */
+extern int junction_is(DESCR_t v);
+extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
+int rt_rk_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
+    int lj = junction_is(lhs), rj = junction_is(rhs);
+    int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT || op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
+    int str_rel = (op == BINOP_SEQ || op == BINOP_SNE || op == BINOP_SLT || op == BINOP_SLE || op == BINOP_SGT || op == BINOP_SGE);
+    if ((lj || rj) && (num_rel || str_rel)) {
+        DESCR_t jct    = lj ? lhs : rhs;
+        DESCR_t scalar = lj ? rhs : lhs;
+        int tt_op = (op == BINOP_EQ || op == BINOP_SEQ) ? TT_EQ : (op == BINOP_NE || op == BINOP_SNE) ? TT_NE :
+                    (op == BINOP_LT || op == BINOP_SLT) ? TT_LT : (op == BINOP_LE || op == BINOP_SLE) ? TT_LE :
+                    (op == BINOP_GT || op == BINOP_SGT) ? TT_GT : TT_GE;
+        int numeric = str_rel ? 0 : (IS_INT_fn(scalar) || IS_REAL_fn(scalar));
+        return junction_collapse(scalar, jct, tt_op, numeric) ? 1 : 0;
+    }
+    /* neither is a junction — plain compare (numeric if both numeric, else string) */
+    if (IS_INT_fn(lhs) && IS_INT_fn(rhs)) {
+        int64_t a = lhs.i, b = rhs.i;
+        switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
+                      case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; }
+        return 0;
+    }
+    { const char *a = VARVAL_fn(lhs), *b = VARVAL_fn(rhs); if (!a) a=""; if (!b) b="";
+      int c = strcmp(a, b);
+      switch (op) { case BINOP_EQ: case BINOP_SEQ: return c==0; case BINOP_NE: case BINOP_SNE: return c!=0;
+                    case BINOP_LT: case BINOP_SLT: return c<0;  case BINOP_LE: case BINOP_SLE: return c<=0;
+                    case BINOP_GT: case BINOP_SGT: return c>0;  case BINOP_GE: case BINOP_SGE: return c>=0; }
+      return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t call_builtin(tree_t *call, DESCR_t *args, int nargs) {
     (void)call; (void)args; (void)nargs;
     fprintf(stderr, "[IBB] FATAL: call_builtin invoked — dead SM-walking Icon path resurrected\n");

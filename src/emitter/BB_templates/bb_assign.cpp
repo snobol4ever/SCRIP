@@ -41,8 +41,11 @@ static std::string bb_assign_str(IR_t * pBB, bb_bin_t & bin) {
     /* GZ-9 (2026-05-31): the RHS may also be an IR_BINOP (e.g. `i := i + 1` of a while/until loop). The   */
     /* binop is its own producer box (bb_binop GZ-9 arith arm) that wrote a DESCR into its slot; the copy  */
     /* below is generic over the producer kind, so accepting IR_BINOP needs only the type-guard widened.   */
+    /* RK-EMIT-2 (2026-05-31): IR_CALL is likewise a producer box — the dval==2.0 general builtin call      */
+    /* (bb_call RK-EMIT-2 arm) stores its result DESCR into its own slot; `@a = elems(...)` / `@a = (..)`   */
+    /* (list ctor) / `$x = sort(@a)` all reach here with pBB->α an IR_CALL. The 16-byte copy is identical.  */
     if (g_icn_flat_chain && pBB && pBB->sval && pBB->α
-        && (pBB->α->t == IR_LIT_I || pBB->α->t == IR_VAR || pBB->α->t == IR_BINOP)) {
+        && (pBB->α->t == IR_LIT_I || pBB->α->t == IR_LIT_S || pBB->α->t == IR_VAR || pBB->α->t == IR_BINOP || pBB->α->t == IR_CALL)) {
         int rhs_off = bb_slot_get(pBB->α);
         if (rhs_off >= 0) {
             int voff = bb_varslot(pBB->sval);

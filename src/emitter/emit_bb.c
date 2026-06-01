@@ -680,11 +680,15 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
         fprintf(stderr, "[IBB] FATAL flat_drive_binop_tree: missing α or β child\n");
         abort();
     }
-    if (pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I) {
-        /* GZ-3 (GROUND ZERO 3): both operands are READ-ONLY integer constants. The stackless binop box   */
-        /* (bb_binop.cpp RO-int arm) bakes their values as sealed RO data in its OWN blob and reads them   */
-        /* [rip+disp] directly, computing into its frame slot [r12+off]. The operands are therefore NOT    */
-        /* walked as separate pushing boxes (there is no value stack). Emit only the binop box.            */
+    if ((pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I)
+        || (pBB->α->t == IR_LIT_S && pBB->β->t == IR_LIT_S && pBB->ival == BINOP_CONCAT)) {
+        /* GZ-3 (GROUND ZERO 3): both operands are READ-ONLY constants. The stackless binop box bakes their */
+        /* values as sealed RO data in its OWN blob and reads them [rip+disp] directly, computing into its  */
+        /* frame slot [r12+off]. The operands are therefore NOT walked as separate pushing boxes (there is  */
+        /* no value stack). Emit only the binop box. RK-EMIT-1 (2026-05-31): the IR_LIT_S+CONCAT case is the */
+        /* string analog — bb_binop.cpp's GZ-4 concat arm bakes both string literals inline from pBB->α/β   */
+        /* ->sval, so re-walking them here would re-emit their bb<id>_α labels (a duplicate-symbol assembler */
+        /* error, since the γ-chain already emitted each literal box once). Short-circuit it the same way.   */
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
@@ -1551,6 +1555,17 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_IDX:        flat_drive_idx_get(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_IDX_SET:    flat_drive_idx_set(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIST_BANG:  flat_drive_list_bang(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_CONJ:
+        /* RK-EMIT-1 (2026-05-31): a Raku/Icon block `{ ... }` / `e1 & e2` wrapper (wire_seq IR_CONJ). In  */
+        /* the flat chain its element boxes already ran as γ-chain nodes; the wrapper itself is a pure      */
+        /* pass-through — α -> γ (continue to whatever the lowerer wired on the wrapper's γ, i.e. the       */
+        /* statement AFTER the block), β -> ω. Without this it fell to the default (α,β -> ω), which dropped */
+        /* every statement following an `if`/block because the continuation rides the CONJ's γ port. The α  */
+        /* label is already defined by the chain BFS (or FILL elsewhere); emit only the two forwarders.     */
+        emit_jmp_label(lbl_γ, JMP_JMP);
+        emit_label_define_bb(lbl_β);
+        emit_jmp_label(lbl_ω, JMP_JMP);
+        break;
     case IR_BREAK:
     case IR_NEXT:
     case IR_REPEAT:
@@ -1736,7 +1751,12 @@ static int icn_chain_arity(const IR_t *n) {
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: return 1;
-    case IR_CALL:  return (int)n->ival;
+    /* RK-EMIT-2 (2026-05-31): a dval==2.0 deterministic call (Raku __rk_arr / elems / __rk_jct_* / …)     */
+    /* marshals its OWN arguments from isolated value sub-graphs on `counter`; those args are NOT operands */
+    /* on the γ-chain, so from the postfix operand-ref walk's view this call is a self-contained LEAF       */
+    /* producer (arity 0). Reporting nargs here would wrongly pop that many chain producers and corrupt the */
+    /* operand references of every later consumer (e.g. the relop in `$x == any(..)`).                      */
+    case IR_CALL:  return (n->dval == 2.0) ? 0 : (int)n->ival;
     default:       return -1;
     }
 }
