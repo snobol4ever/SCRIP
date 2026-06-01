@@ -1696,19 +1696,18 @@ IR_t * bb_exec_node(IR_t * bb) {
                 if (!fg || frame_depth >= FRAME_STACK_MAX) { bb->value = FAILDESCR; return bb->ω; }
                 GenFrame * _f = &frame_stack[frame_depth++];
                 memset(_f, 0, sizeof *_f);
-                /* Build the per-activation scope from the proc's param names (TT_PROC_DECL c[1] = param VLIST),
-                   binding each to the actual arg value. Body locals not in this list fall to globals via the
-                   IR_VAR/IR_ASSIGN scope_get miss path (a later rung adds locals/statics to the scope). */
-                const tree_t * proc = (const tree_t *) g_stage2.proc_table[upi].proc;
+                /* GZ-10 recursion fix: bind param names from lower_sc (stable strings captured once at lowering
+                   time) — NOT from proc->c[1] (the live AST) which is mutated by nested scope_patch writes,
+                   causing param names to read empty on 2nd+ activation and breaking recursion. lower_sc was
+                   populated by lower_program.c's Icon lowering loop using lp_strdup — same pattern as SNOBOL4's
+                   DEFINE arm (proc_table[fpi].lower_sc). Each lower_sc entry carries the stable param name and
+                   its slot index; assign the corresponding arg value into _f->env[slot]. */
+                Scope * lsc = &g_stage2.proc_table[upi].lower_sc;
                 int np = g_stage2.proc_table[upi].nparams;
-                if (proc && proc->n >= 2 && proc->c[1]) {
-                    const tree_t * plist = proc->c[1];
-                    for (int k = 0; k < np && k < plist->n && k < FRAME_SLOT_MAX; k++) {
-                        const tree_t * pv = plist->c[k];
-                        if (!pv || !pv->v.sval) continue;
-                        int slot = scope_add(&_f->sc, pv->v.sval);
-                        if (slot >= 0 && slot < FRAME_SLOT_MAX) _f->env[slot] = (k < nargs) ? args[k] : NULVCL;
-                    }
+                for (int k = 0; k < lsc->n && k < np && k < FRAME_SLOT_MAX; k++) {
+                    if (!lsc->e[k].name) continue;
+                    int slot = scope_add(&_f->sc, lsc->e[k].name);
+                    if (slot >= 0 && slot < FRAME_SLOT_MAX) _f->env[slot] = (k < nargs) ? args[k] : NULVCL;
                 }
                 _f->env_n = _f->sc.n > 0 ? _f->sc.n : 1;
                 DESCR_t _ring_save[AG_RING];

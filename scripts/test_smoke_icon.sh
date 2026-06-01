@@ -111,6 +111,15 @@ procedure main()
 end
 EOF
 
+icon "proc_recursion" "120" << 'EOF'
+procedure fact(n)
+  if n <= 1 then return 1; else return n * fact(n - 1);
+end
+procedure main()
+  write(fact(5));
+end
+EOF
+
 echo ""
 echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE)"
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3  / $N   (tracked; floor MODE3_MIN=$MODE3_MIN)"
