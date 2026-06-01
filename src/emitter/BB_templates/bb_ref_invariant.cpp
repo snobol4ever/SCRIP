@@ -15,7 +15,7 @@
    dynamic boxes for structural variance. NO PATND_t, NO tree_t, NO value stack, NO ring.
 
    Bounded single-shot: referencing a sealed head once is enough (β = jmp ω). BINARY + TEXT arms land in
-   PB-RB-1 proper (model on bb_sno_subject.cpp / bb_sno_pat_build_lit.cpp: load operand -> store to [ζ+off]).
+   PB-RB-1 proper (model on bb_sno_subject.cpp: load operand -> store sealed-head address to [ζ+off]).
 */
 #include <string>
 #include <string.h>

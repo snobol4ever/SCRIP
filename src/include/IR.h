@@ -140,7 +140,6 @@ typedef enum {
     IR_GREP,
     IR_SNO_PROG,
     IR_SUBJECT,
-    IR_PAT_BUILD_LIT,
     IR_REF_INVARIANT,
     IR_OP_COUNT
 } IR_e;

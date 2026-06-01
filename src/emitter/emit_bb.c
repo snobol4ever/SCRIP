@@ -1181,13 +1181,13 @@ static void flat_drive_sno_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lb
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_sno_pat_build_lit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* PB-1 PATTERN-BUILDER phase, literal (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). SNOBOL4 literal pattern-
-       builder box — single-shot bounded, NO value stack. The pattern literal is baked RO inside
-       bb_sno_pat_build_lit (reached via the emit_core IR_PAT_BUILD_LIT branch); the box calls
-       rt_sno_pat_build_lit and stores the built pattern-node head (PATND_t*) into its ζ-frame slot, then jmps
-       γ (built) / ω. No operand subtree to walk (the literal rides on pBB->sval and is consumed inside the
-       box); β = jmp ω — same shape as flat_drive_sno_subject. */
+static void flat_drive_sno_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    /* PB-RB-1 REF_INVARIANT (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01). The box loads a
+       SEALED element bb_box_fn head (the EXISTING IR_PAT_LIT matcher box for an invariant literal — referenced
+       via operand_aux per the PEERS RULE) into its ζ-frame slot, then jmps γ. NO runtime construction (Fork
+       A/E): the sealed-head address is an emit-time constant (movabs in BINARY / [rip+disp] in TEXT). No
+       operand subtree to control-thread (the sealed element is referenced, not run, here — running is PB-RB-3
+       BB_MATCH); β = jmp ω — same bounded single-shot shape as flat_drive_sno_subject. */
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
@@ -1616,7 +1616,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SCAN:       flat_drive_sno_scan(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUBJECT:    flat_drive_sno_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_BUILD_LIT: flat_drive_sno_pat_build_lit(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_REF_INVARIANT: flat_drive_sno_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SNO_PROG:   flat_drive_sno_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
         /* GZ-10 (modes 3/4): in the flat γ-chain the return-value producer is a SIBLING box already      */

@@ -368,23 +368,10 @@ rt_subj_t rt_sno_subject_load(const char *name, const char *lit)
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PB-1 PATTERN-BUILDER phase (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). The literal pattern-builder byrd box (bb_sno_pat_build_lit.cpp) CONSTRUCTS a runtime pattern node for a SNOBOL4 pattern literal and returns its head */
-/* pointer (PATND_t*) in rax, which the box stores into its ζ-frame slot for the PB-2 BB_MATCH box to scan. This is value-stack-FREE: it calls the existing pat_lit constructor (core/pattern.c — allocates a PATND_t and  */
-/* wraps it in a DESCR_t{DT_P}) and extracts the bare node pointer from the .p field. It is NOT the deleted rt_pat_lit vstack-assembler wrapper (that pushed onto g_vstack); no value stack, no ring, no name-table round-  */
-/* trip — the built head lives only in the box's ζ slot (PER-BOX LOCAL STORAGE FACT RULE). g_sno_pat_build_dbg_head exposes the constructed node for the PB-1 mode-3 execution probe (verify the box ran + built a node). */
-const void *g_sno_pat_build_dbg_head = 0;
-void *rt_sno_pat_build_lit(const char *s)
-{
-    DESCR_t d = pat_lit(s ? s : "");
-    void *head = (d.v == DT_P) ? (void *)d.p : (void *)0;
-    g_sno_pat_build_dbg_head = head;
-    return head;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PB-2 BB_MATCH scanner kernel — literal case (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). The generic BB_MATCH box (phase 3) runs the SPITBOL ch.18 pattern-match algorithm over the BUILT pattern graph against the */
+/* PB-RB-3 BB_MATCH scanner kernel — literal case (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). The generic BB_MATCH box (phase 3) runs the SPITBOL ch.18 pattern-match algorithm over the BUILT pattern graph against the */
 /* subject Σ/δ/Δ. This helper is the kernel for the LITERAL (XCHR) node — the PB-2 target `S 'b'`. Per SPITBOL Manual ch.18: the cursor starts at 0; a single KNOWN component (a literal) is tried at the current start  */
 /* position; on failure in UNANCHORED mode the starting cursor advances by one until the subject is exhausted; ANCHORED (&ANCHOR nonzero, or a leading FENCE) restricts the start to cursor 0. A null literal matches at  */
-/* cursor 0. Value-stack-FREE: a bounded scan loop over Σ — no g_vstack, no rt_push/pop, no ring (the matcher's own scan position is the cursor δ, owned by the matcher per ch.18, NOT a value stack). On success the box */
+/* cursor 0. Value-stack-FREE: a bounded scan loop over Σ — no value-stack array, no push/pop, no ring (the matcher's own scan position is the cursor δ, owned by the matcher per ch.18, NOT a value stack). On success the box */
 /* will set δ to *m_end and the matched span [*m_start,*m_end); on failure it jmps ω. Returns 1 (match) / 0 (fail). The literal bytes are extracted by the box from the built PATND_t head (kind XCHR -> STRVAL_fn).    */
 int rt_sno_match_lit(const char *subj, long subj_len, const char *lit, long lit_len, int anchored, long *m_start, long *m_end)
 {
