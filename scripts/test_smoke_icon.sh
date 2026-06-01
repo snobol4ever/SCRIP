@@ -129,6 +129,14 @@ procedure main()
 end
 EOF
 
+icon "bare_if" "done" << 'EOF'
+procedure main()
+  x := 2;
+  if x > 5 then write("big");
+  write("done");
+end
+EOF
+
 echo ""
 echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE)"
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3  / $N   (tracked; floor MODE3_MIN=$MODE3_MIN)"

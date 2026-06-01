@@ -199,12 +199,11 @@ IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
 static int lp_s_int(const tree_t *s, const char *tag) { const char *v = stmt_attr_str(stmt_attr_find(s, tag)); return v ? atoi(v) : 0; }
 static tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt_attr_find(s, tag)); }
 /*====================================================================================================================================================================================================*/
-/* lower_icon_body — build ONE Icon proc's four-port BB graph. The proc decl is TT_PROC_DECL(name, params,  */
-/* body) with body = c[2], a TT_PROGRAM of statements. Each statement's expr is lowered VALUE-role and       */
-/* threaded in REVERSE (stmt[i].γ -> stmt[i+1].α, stmt[i].ω -> PFAIL) into one graph — the same reverse-      */
-/* threading the SNOBOL4 walker uses. FAIL-LOUD: if ANY statement fails to lower (an unhandled kind), the     */
-/* whole body returns -1 so the driver keeps its clean [IBB] FATAL abort rather than running a partial graph  */
-/* with a silently-dropped statement. Returns the bb_program index, or -1.                                    */
+/* lower_icon_body — build ONE Icon proc's four-port BB graph. STATEMENT FAILURE SEMANTICS (canonical:     */
+/* JCON ir_a_Compound lines 1253-1254): stmt[i].failure -> stmt[i+1].start (for i < last); last stmt's     */
+/* failure -> PFAIL. A bare `if c then e` whose cond fails is silently swallowed — Icon statement-level     */
+/* continues to the next statement, NOT failing the whole compound/proc. This fixes the documented          */
+/* bare-if-no-else quirk (GZ-8/9/10). FAIL-LOUD: unhandled statement kind -> whole body returns -1.        */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 static int lower_icon_body(const tree_t *proc) {
@@ -215,8 +214,9 @@ static int lower_icon_body(const tree_t *proc) {
     if (!g) return -1;
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *next_a = PSUCC;
+    IR_t *next_a = PSUCC;    /* γ_in for current stmt: entry of the NEXT stmt (or PSUCC for last)  */
     int n_stmts = 0;
+    int is_last = 1;          /* first reverse iteration = LAST statement in source order           */
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t *s = body->c[i];
         if (!s) continue;
@@ -224,9 +224,12 @@ static int lower_icon_body(const tree_t *proc) {
         if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
         n_stmts++;
         IR_t *a = NULL, *b = NULL;
-        IR_t *top = lower2_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
-        if (!top || !a) return -1;       /* fail-loud: an unhandled statement sinks the whole body */
+        /* ω_in: last stmt -> PFAIL (compound fails); earlier stmts -> next_a (silently fall through). */
+        IR_t *ω = is_last ? PFAIL : next_a;
+        IR_t *top = lower2_value_entry(g, (const tree_t *) expr, next_a, ω, &a, &b);
+        if (!top || !a) return -1;
         next_a = a;
+        is_last = 0;
     }
     if (n_stmts == 0) return -1;
     g->entry = next_a;
