@@ -1284,18 +1284,6 @@ void rt_pl_write_canonical_term_ptr(void *t)
     pl_write_canonical(d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_var_push(int slot)
-{
-    extern Term **g_resolve_env;
-    if (!g_resolve_env || slot < 0) return;
-    Term *t = g_resolve_env[slot] ? term_deref(g_resolve_env[slot]) : NULL;
-    if (!t) return;
-    if (t->tag == TERM_INT)   { rt_push_int((long)t->ival); return; }
-    if (t->tag == TERM_FLOAT) { rt_push_int((long)t->fval); return; }
-    if (t->tag == TERM_ATOM)  { const char *nm = prolog_atom_name(t->atom_id);
-                                 rt_push_str(nm ? nm : "", nm ? (int)strlen(nm) : 0); return; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval)
 {
     extern Term **g_resolve_env;
