@@ -1683,6 +1683,48 @@ static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
         /* 2966 (atom_string) and :2931-2942 (string_to_atom) is symmetric — both predicates accept a    */
         /* ground arg on either side and produce an atom with the same text on the other side. SCRIP    */
         /* Terms make no atom-vs-string distinction (both TERM_ATOM), so one helper serves both.        */
+        /* PLG-9i (2026-06-01, Opus 4.8): copy_term/2 with a COMPOUND arg0 (IR_STRUCT/IR_ARITH) — the @PLT  */
+        /* MEDIUM_TEXT twin of the PLR-K-15 BINARY arm. The shared scalar CAT-D-5 arm below degenerates a   */
+        /* compound arg0 (rt_pl_node_to_term flattens an IR_STRUCT, losing intra-term var-sharing →         */
+        /* copy_term(f(X,X),f(A,B)) gave A\==B), which is why the rich gate EXCISED copy_term entirely.      */
+        /* Build arg0's Term* via emit_build_compound_term (the TEXT post-order walker): an unbound var's    */
+        /* fresh Term is written back to its env slot by rt_pl_node_to_term, so a repeated occurrence        */
+        /* rereads the SAME Term — sharing preserved, identical to the BINARY twin. If arg1 is ALSO          */
+        /* compound, build it too (hold arg0 in a stack slot across arg1's build) then rt_pl_copy_term_      */
+        /* terms(t0,t1) — bb_copy_term deep-clones t0 with fresh-var rename and unifies into t1. Scalar      */
+        /* arg1 → rt_pl_copy_term_term(t0, k1,i1,s1). sub rsp,16 = the slot + 16B alignment across the       */
+        /* builder's and helper's calls (same as PLR-K-15 + the proven atomic_list_concat TEXT arm). test    */
+        /* eax → je ω / jmp γ; β→ω. */
+        if (strcmp(fn, "copy_term") == 0 && pBB->α && pBB->α->γ
+            && (pBB->α->t == IR_STRUCT || pBB->α->t == IR_ARITH)) {
+            IR_t *a0 = pBB->α, *a1 = a0->γ;
+            int   a1_compound = (a1->t == IR_STRUCT || a1->t == IR_ARITH);
+            std::string b = hdr + s_2asm("sub", "rsp, 16");
+            if (a1_compound) {
+                b += emit_build_compound_term(a0)
+                   + s_2asm("mov", "qword ptr [rsp + 0], rax")
+                   + emit_build_compound_term(a1)
+                   + s_2asm("mov", "rsi, rax")
+                   + s_2asm("mov", "rdi, qword ptr [rsp + 0]")
+                   + s_2asm("call", "rt_pl_copy_term_terms@PLT");
+            } else {
+                int  k1 = (int)a1->t;
+                long i1 = (long)a1->ival;
+                char s1lbl[64]; s1lbl[0] = 0;
+                if (k1 == IR_ATOM && a1->sval) strtab_label(s1lbl, sizeof s1lbl, a1->sval);
+                b += emit_build_compound_term(a0)
+                   + s_2asm("mov", "rdi, rax")
+                   + s_2asm("mov esi,", emit_fmt("%d", k1))
+                   + s_2asm("mov rdx,", emit_fmt("%ld", i1))
+                   + (s1lbl[0] ? s_2asm("lea rcx,", emit_fmt("[rip + %s]", s1lbl)) : s_2asm("xor", "ecx, ecx"))
+                   + s_2asm("call", "rt_pl_copy_term_term@PLT");
+            }
+            return b + s_2asm("add", "rsp, 16")
+                     + s_2asm("test", "eax, eax")
+                     + s_2asm("je",   _.lbl_ω)
+                     + s_2asm("jmp",  _.lbl_γ)
+                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+        }
         /* CAT-D-5 (2026-05-27): copy_term/2 joins this arm — same 6-scalar shape, distinct rt helper   */
         /* (rt_pl_copy_term) that calls the static bb_copy_term (deep-clone, fresh-var rename) and       */
         /* unifies the result into arg1. Mode-2 oracle bb_exec.c:2904-2908.                               */
