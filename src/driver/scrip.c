@@ -158,6 +158,25 @@ static int pl_flat_arith_leaf_simple(const IR_t *o) {
     if (!o) return 0;
     return o->t == IR_LIT_I || o->t == IR_LOGICVAR;
 }
+/* PLG-9h (2026-06-01): mirrors bb_builtin.cpp's bb_pl_op_floaty — an `is` RHS functor that needs the   */
+/* float evaluator rt_pl_is_f (transcendental/float-producing, a rounding op that consumes a float and   */
+/* yields an int, OR `/` which yields a float for non-divisible integer operands — rt_pl_is_f makes the  */
+/* liv%riv int-vs-float decision exactly as the mode-2 oracle does). Kept byte-identical to the emit-arm */
+/* list so the mode-4 admission gate and the emit arm agree on which `is` RHS shapes are float-routed. */
+static int pl_arith_op_floaty(const char *fn) {
+    static const char *f[] = { "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "exp", "log",
+                               "float", "float_integer_part", "float_fractional_part",
+                               "truncate", "round", "ceiling", "floor", "integer", "/", NULL };
+    for (int i = 0; f[i]; i++) if (!strcmp(fn, f[i])) return 1;
+    return 0;
+}
+/* PLG-9h: an arith RHS leaf operand the float rt_pl_is_f path can evaluate from serialized scalars:    */
+/* an int literal, a FLOAT literal (value in dval, marshalled via xmm), or a bound logic-variable slot. */
+/* Wider than pl_flat_arith_leaf_simple only in admitting IR_LIT_F (the rt_pl_is_f path reads dval). */
+static int pl_flat_arith_leaf_float_ok(const IR_t *o) {
+    if (!o) return 0;
+    return o->t == IR_LIT_I || o->t == IR_LIT_F || o->t == IR_LOGICVAR;
+}
 static int pl_flat_goal_is_simple(const IR_t *g) {
     if (!g) return 0;
     switch (g->t) {
@@ -173,7 +192,26 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
         /* operand a scalar int/slot. Float RHS, nested arith, or a non-slot LHS decline (-> EXCISED).   */
         if (!strcmp(fn, "is")) {
             const IR_t *lhs = g->α, *rhs = g->β;
-            if (!lhs || lhs->t != IR_LOGICVAR || !rhs || rhs->t != IR_ARITH) return 0;
+            if (!lhs || lhs->t != IR_LOGICVAR || !rhs) return 0;
+            /* PLG-9h (2026-06-01): FLOAT path (rt_pl_is_f, see bb_builtin.cpp). A nullary float       */
+            /* constant (X is pi / X is e — rhs is IR_ATOM), a floaty unary functor, or any arith with */
+            /* a float-literal operand routes to the float evaluator. Operand leaves must be int/float */
+            /* literal or a bound slot. The mode-3 native flat tier emits this through the MEDIUM_      */
+            /* BINARY rt_pl_is_eval arm (resolve_arith_eval — byte-identical to the interim route); the */
+            /* mode-4 standalone .s through the MEDIUM_TEXT rt_pl_is_f arm. */
+            if (rhs->t == IR_ATOM)
+                return rhs->sval && (!strcmp(rhs->sval, "pi") || !strcmp(rhs->sval, "e"));
+            if (rhs->t != IR_ARITH) return 0;
+            const char *rop = rhs->sval ? rhs->sval : "+";
+            int floaty = pl_arith_op_floaty(rop)
+                      || (rhs->α && rhs->α->t == IR_LIT_F)
+                      || (rhs->β && rhs->β->t == IR_LIT_F);
+            if (floaty) {
+                if (rhs->α && rhs->β) return pl_flat_arith_leaf_float_ok(rhs->α) && pl_flat_arith_leaf_float_ok(rhs->β);
+                if (rhs->α && !rhs->β) return pl_flat_arith_leaf_float_ok(rhs->α);
+                return 0;
+            }
+            /* INTEGER path (rt_pl_is, PLG-9c) — unchanged. */
             if (rhs->α && rhs->β) return pl_flat_arith_leaf_simple(rhs->α) && pl_flat_arith_leaf_simple(rhs->β);
             if (rhs->α && !rhs->β) return pl_flat_arith_leaf_simple(rhs->α);   /* unary op(L) */
             return 0;
@@ -322,12 +360,13 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         /* STAY EXCISED: findall (compile-time heap pointer stale in separate process — honest-abort stub); */
         /* numbervars (mode-2-only, no proven TEXT arm); copy_term (TEXT arm has a mode-4 var-identity      */
         /* gap); retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — CAT-D/PLG-9      */
-        /* family); float `is` (rt_pl_arith integer-only — needs rt_pl_arith_d path). ADMIT: every family   */
-        /* with a proven scalar-or-compound TEXT arm verified not to miscompile — incl. writeq/write_       */
-        /* canonical and atomic_list_concat/concat_atom as of PLG-9g (@PLT MEDIUM_TEXT twins of their       */
-        /* PLR-K-4 / PLR-K-14 BINARY arms). */
+        /* family). ADMIT: every family with a proven scalar-or-compound TEXT arm verified not to           */
+        /* miscompile — incl. writeq/write_canonical and atomic_list_concat/concat_atom (PLG-9g, @PLT       */
+        /* MEDIUM_TEXT twins of their PLR-K-4 / PLR-K-14 BINARY arms) and float `is` (PLG-9h: rt_pl_is_f,    */
+        /* the serialized-scalar twin of the rt_pl_is_eval BINARY arm — pi/e, sqrt/sin/cos/float/truncate/   */
+        /* round/ceiling/floor/float_integer_part/float_fractional_part/exp/log). */
         const char *fn = nd->sval ? nd->sval : "";
-        /* `is` — integer arith only, as before (PLG-9c). Float `is` stays EXCISED. */
+        /* `is` — pl_flat_goal_is_simple admits both the integer (PLG-9c) and the float (PLG-9h) paths. */
         if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd);
         /* write-family + nl/halt — proven since PLG-9a/b (unchanged). */
         static const char *ok[] = { "write", "writeln", "print", "nl", "halt", NULL };
@@ -388,7 +427,7 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         /* has a TEXT arm but a KNOWN mode-4 var-identity gap (copy_term(f(X,X),f(A,B)) → A==B fails —     */
         /* rung26, GOAL doc). findall (compile-time heap pointer dead in separate process — honest-abort   */
         /* stub). retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13).    */
-        /* float arith (rt_pl_arith integer-only; float path needs rt_pl_arith_d).                          */
+        /* (float arith is now ADMITTED via the `is` branch above — PLG-9h rt_pl_is_f.)                     */
         return 0;
     }
     default:
