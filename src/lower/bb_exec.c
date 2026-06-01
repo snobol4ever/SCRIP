@@ -1569,6 +1569,19 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9d-bt (2026-06-01): operand_aux for IR_DISJ now holds each arm's PRINCIPAL node (apply), uniform   */
+/* with IR_ALT. A conjunction arm's principal is its GCONJ wrapper; the interpreter enters a conjunction  */
+/* at its FIRST GOAL (the GCONJ node itself is a success funnel), so unwrap a GCONJ arm to goals[0]. For  */
+/* a non-conjunction arm this is the identity, and for a conjunction arm goals[0] IS the old entry[] node */
+/* this jumped to — so the jump target is unchanged from the prior entry[]-based operand_aux.             */
+static IR_t * pl_disj_arm_enter(IR_t * a) {
+    if (a && a->t == IR_GCONJ) {
+        bb_conj_state_t * zs = (bb_conj_state_t *)(intptr_t)a->ival;
+        if (zs && zs->goals && zs->ngoals > 0) return zs->goals[0];
+    }
+    return a;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * bb_exec_node(IR_t * bb) {
     switch (bb->t) {
     case IR_LIT_I:
@@ -3810,7 +3823,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             bb->counter = 0;
             bb->ival = (int64_t)trail_mark(&g_resolve_trail);
             bb->value = INTVAL(1);
-            return arms[0];                                  /* jump into arm 0; outer loop drives it */
+            return pl_disj_arm_enter(arms[0]);               /* jump into arm 0; outer loop drives it */
         }
         /* Resume (backtrack): the live arm's continuation failed. Unwind to the pre-arm mark, advance. */
         trail_unwind(&g_resolve_trail, (int)bb->ival);
@@ -3818,7 +3831,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         if (bb->counter >= n_arm) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
         bb->ival = (int64_t)trail_mark(&g_resolve_trail);
         bb->value = INTVAL(1);
-        return arms[(int)bb->counter];                       /* jump into next arm */
+        return pl_disj_arm_enter(arms[(int)bb->counter]);    /* jump into next arm */
     }
     case IR_CHOICE: {
         extern Trail g_resolve_trail; extern Term **g_resolve_env; extern int g_resolve_cut_flag;
