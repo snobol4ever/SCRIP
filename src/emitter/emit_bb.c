@@ -476,22 +476,39 @@ static int resolve_ite_entries_em(const IR_t *nd, IR_t **out_cond, IR_t **out_th
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9f (2026-06-01): a branch of an ITE is walked by its PRINCIPAL (wrapper) node, not its entry[0]. For a  */
+/* multi-goal branch (a `,`-spine lowered via wire_seq) the principal is the IR_GCONJ wrapper that walk_bb_flat */
+/* dispatches to flat_drive_pl_seq, expanding every goal; entry[0] is only the first goal, so walking it alone  */
+/* dropped g2..gn (the bug). For a single-goal branch principal==entry, so this is a no-op there. The branch    */
+/* root is preferred only when it is a driver-owned kind (IR_GCONJ) whose dispatch needs the wrapper; otherwise */
+/* the entry node is the correct walk start (its FILL emits the single box). Falls back to entry if root NULL.  */
+static IR_t *ite_branch_walk_node(IR_t *entry, IR_t *root) {
+    if (root && bb_kind_is_driver_owned(root->t)) return root;
+    return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_pl_ite(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *cond = NULL, *thn = NULL, *els = NULL;
     if (!resolve_ite_entries_em(pBB, &cond, &thn, &els) || !cond) {
         EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return;
     }
+    /* PLG-9f: prefer the branch PRINCIPAL (wrapper) node over entry[0] for cond/then/else, so a multi-goal    */
+    /* branch (IR_GCONJ) dispatches to flat_drive_pl_seq and emits every goal. Single-goal branch -> no-op.    */
+    bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)pBB->ival;
+    IR_t *cond_w = ite_branch_walk_node(cond, zi ? zi->cond_root : NULL);
+    IR_t *thn_w  = ite_branch_walk_node(thn,  zi ? zi->then_root : NULL);
+    IR_t *els_w  = ite_branch_walk_node(els,  zi ? zi->else_root : NULL);
     int id = g_flat_node_id++;
     bb_label_t *then_α = emit_label_alloc("xite%d_then_α", id);
     bb_label_t *else_α = emit_label_alloc("xite%d_else_α", id);
     bb_label_t *cond_β = emit_label_alloc("xite%d_cond_β", id);
     bb_label_t *then_β = emit_label_alloc("xite%d_then_β", id);
     bb_label_t *else_β = emit_label_alloc("xite%d_else_β", id);
-    walk_bb_flat(cond, then_α, else_α, cond_β);
+    walk_bb_flat(cond_w, then_α, else_α, cond_β);
     emit_label_define_bb(then_α);
-    if (thn) walk_bb_flat(thn, lbl_γ, lbl_ω, then_β); else emit_jmp_label(lbl_γ, JMP_JMP);
+    if (thn) walk_bb_flat(thn_w, lbl_γ, lbl_ω, then_β); else emit_jmp_label(lbl_γ, JMP_JMP);
     emit_label_define_bb(else_α);
-    if (els) walk_bb_flat(els, lbl_γ, lbl_ω, else_β); else emit_jmp_label(lbl_ω, JMP_JMP);
+    if (els) walk_bb_flat(els_w, lbl_γ, lbl_ω, else_β); else emit_jmp_label(lbl_ω, JMP_JMP);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);

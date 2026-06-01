@@ -222,31 +222,23 @@ extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
 extern IR_t *resolve_bb_entry_node(const char *name, int arity);
 extern IR_graph_t *resolve_bb_graph_at(int idx);
-/* PLG-9e (2026-06-01): pl_ite_then_branch_trivial — is an IR_ITE's then-branch safe to commit into in       */
-/* mode-4? The one PROVEN-BROKEN shape is `cond binds X -> ...consumes X...` (rung30_dcg_pushback_rest:       */
-/* `( phrase(digits(Ds),Cs) -> atom_codes(A,Ds), write(A) ; … )`; general `( atom_concat(a,b,X) ->          */
-/* atom_length(X,N), write(N) ; … )`): in mode-4 the condition's binding does not survive the ITE commit jump */
-/* into the then-branch, so the consumer reads an unbound var and the goal silently yields empty output. The  */
-/* CORRECT disposition (FALL LOUD, never miscompile) is to EXCISE such an ITE.                                */
-/* DETECTION: the then-branch ENTRY node (zi->then_) is the first goal of the then-branch (for a multi-goal   */
-/* then-branch wrapped in an IR_GCONJ by pl_maybe_ifthenelse, it is that GCONJ's α = the first goal). The     */
-/* proven-SAFE then-branches (3 passing DCG rungs + rung07/09/16/40) all begin with a CONSTANT-output goal —  */
-/* write / writeln / print / nl / halt — or are IR_SUCCEED/IR_FAIL/IR_CUT/a unify/a plain atom. The DANGEROUS */
-/* then-branches begin with a binding-CONSUMING builtin (atom_codes, atom_length, atom_concat, is, …) that    */
-/* reads a variable the condition bound. So: a then-branch whose FIRST goal is an IR_BUILTIN OUTSIDE the safe  */
-/* constant-output set is rejected. (write(X) of a cond-bound X is itself the consuming case, but every       */
-/* corpus then-branch writes a CONSTANT; if a write-of-cond-var program surfaces it would be a new rung to    */
-/* diagnose — keeping write admitted matches the proven corpus and the simple `c -> write(yes)` shape.)       */
-/* Inspect ONLY this node's kind/name — do NOT follow γ (which is wired to the ITE's continuation, e.g. a     */
-/* trailing nl, NOT to the then-branch).                                                                      */
+/* PLG-9f (2026-06-01): the PLG-9e "then-branch consumes a cond binding -> EXCISE" guard is RETIRED. The     */
+/* shape it blocked (`( atom_concat(a,b,X) -> atom_length(X,N), write(N) ; … )`, rung30_dcg_pushback_rest)    */
+/* was NOT a binding-survival defect — the condition's binding always survives the commit (g_resolve_env is   */
+/* a process-global the consumer reads directly). The real defect was in the EMITTER: flat_drive_pl_ite       */
+/* walked the then-branch by its entry[0] node, and walk_bb_flat on an IR_BUILTIN emits only THAT one box     */
+/* (its γ wired straight to the ITE success label), so a MULTI-goal then-branch `g1, g2, g3` emitted only g1  */
+/* and dropped g2..gn. A then-branch that was a single constant-write goal happened to be complete, which is  */
+/* why only constant-write then-branches "worked" and the guard mistook the symptom for a binding problem.    */
+/* The fix (lower.c g_ite stores the branch PRINCIPAL/wrapper node in bb_ite_state_t.{then,else,cond}_root;    */
+/* emit_bb.c flat_drive_pl_ite walks the principal so a driver-owned IR_GCONJ dispatches to flat_drive_pl_seq */
+/* and every goal emits) makes binding-consuming multi-goal then-branches correct. So the guard is removed:   */
+/* a then-branch goal that is genuinely non-emittable is already caught by pl_rich_graph_ok's all[] walk      */
+/* (the ITE branch goals are inline nodes in the graph's all[]), which FALLS LOUD uniformly with every other  */
+/* node. pl_ite_then_branch_trivial is retained (always-true) only so the prior call site stays a no-op.      */
 static int pl_ite_then_branch_trivial(const IR_t *then_entry) {
-    if (!then_entry) return 1;                 /* empty then -> trivial */
-    if (then_entry->t != IR_BUILTIN) return 1; /* succeed/fail/cut/unify/atom/etc — safe */
-    const char *fn = then_entry->sval ? then_entry->sval : "";
-    /* Constant-output builtins are the only ones proven safe as a then-branch head. */
-    if (!strcmp(fn,"write")||!strcmp(fn,"writeln")||!strcmp(fn,"print")||!strcmp(fn,"nl")||!strcmp(fn,"halt"))
-        return 1;
-    return 0;                                  /* binding-consuming builtin head -> EXCISE */
+    (void)then_entry;
+    return 1;
 }
 /* pl_rich_node_emittable — is a single IR node a kind the TEXT walk emits? Pure structural test over the     */
 /* node KIND (and, for arith/unify operand leaves, their immediate operand kinds). Operand sub-nodes hanging  */
@@ -280,12 +272,11 @@ static int pl_rich_node_emittable(const IR_t *nd) {
     case IR_LIT_I: case IR_LIT_F: case IR_LIT_S: case IR_LIT_NUL:
         return 1;
     case IR_ITE: {
-        /* PLG-9e (2026-06-01): admit if-then-else UNLESS its then-branch consumes a binding made in the   */
-        /* condition — that shape (cond binds X, then uses X) is miscompiled in mode-4 (the binding does    */
-        /* not survive the ITE commit jump; output is silently empty). The passing ITE rungs all have       */
-        /* constant-write then-branches and stay admitted; rung30_dcg_pushback_rest's binding-consuming     */
-        /* then-branch EXCISES (FALL LOUD). The else-branch never holds a cond binding (failure path), so   */
-        /* only the then-branch is gated. zi->then_ is the then-branch entry node.                          */
+        /* PLG-9f (2026-06-01): if-then-else is admitted. The PLG-9e then-branch-consumes-binding rejection   */
+        /* is retired (see pl_ite_then_branch_trivial above): the defect was dropped conjunction goals in the  */
+        /* emitter, now fixed, NOT binding survival. A genuinely non-emittable goal anywhere in the then/else  */
+        /* branch is caught by pl_rich_graph_ok's all[] walk (ITE branch goals are inline nodes in all[]), so  */
+        /* it FALLS LOUD uniformly. The retained guard call is a no-op kept for call-site stability.           */
         bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)nd->ival;
         if (zi && !pl_ite_then_branch_trivial(zi->then_)) return 0;
         return 1;
