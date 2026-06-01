@@ -281,6 +281,22 @@ static int bb_is_gen_node(IR_t * e) {
     return bb_is_gen_kind_raw(e->t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * gen_resume_target(IR_t * e) {
+    if (!e) return NULL;
+    if (e->t == IR_ASSIGN) return gen_resume_target(e->β);
+    if (bb_is_gen_kind_raw(e->t)) return e;
+    if (e->t == IR_BINOP) {
+        int n2 = 0;
+        IR_t * const * ax = bb_operand_aux_get(g_current_cfg, e, &n2);
+        if (ax && n2 == 2) {
+            IR_t * r = gen_resume_target(ax[1]);
+            if (r) return r;
+            return gen_resume_target(ax[0]);
+        }
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *resolve_node_to_term(IR_t *bb) {
     extern Term **g_resolve_env;
     if (!bb) return NULL;
@@ -2011,6 +2027,18 @@ IR_t * bb_exec_node(IR_t * bb) {
             IR_t * const * aux = bb_operand_aux_get(g_current_cfg, bb, &n_aux);
             DESCR_t lv, rv;
             if (aux && n_aux == 2 && aux[0] && aux[1]) {
+                /* A binop operand that is a bare VARIABLE reference is re-DEREFERENCED at each computation
+                   (Icon: the `+` opfn dereferences its operand descriptors fresh). On a generator-driven
+                   re-pump the binop is re-entered without re-executing a non-generator operand box, so its
+                   cached .value goes stale — fatal for an accumulator like `every total := total + (1 to n)`,
+                   where the left `total` must see the value just assigned (jcon ir_a_Binop reads [lv,rv] each
+                   opfn). Refresh ONLY a plain IR_VAR/IR_KEYWORD operand (idempotent: re-reads the frame slot /
+                   NV table) — NEVER a generator operand, which re-executing would advance. Icon-gated so the
+                   shared SNOBOL4/Prolog binop path is byte-identical. */
+                if (g_current_cfg && g_current_cfg->lang == IR_LANG_ICN) {
+                    if (aux[0]->t == IR_VAR || aux[0]->t == IR_KEYWORD) bb_exec_node(aux[0]);
+                    if (aux[1]->t == IR_VAR || aux[1]->t == IR_KEYWORD) bb_exec_node(aux[1]);
+                }
                 lv = aux[0]->value;     /* named operand slots (jcon ir_a_Binop: opfn reads [lv,rv]); robust for nested generators */
                 rv = aux[1]->value;
             } else {
@@ -2021,18 +2049,25 @@ IR_t * bb_exec_node(IR_t * bb) {
             int rel_fail = 0;
             DESCR_t result = binop_apply((BinopKind)bb->ival, lv, rv, &rel_fail);
             if (IS_FAIL_fn(result)) {
-                /* jcon ir_a_Binop: a relational op is generator-TRANSPARENT. A FALSE comparison (rel_fail)
-                   is NOT the binop's failure — it must re-seek the next operand value, exactly as the
-                   consumer (write) re-pumps the generator on its own resume edge. Re-enter the generator
-                   operand's chain head (operand_aux[1]=right, [0]=left); its γ flows back to THIS binop, so
-                   the comparison re-runs with the next value. v_binop lowered the right operand's ω to the
-                   LEFT operand's resume, so a both-generators case cascades; when every generator is drained
-                   the resume chain reaches the binop's own ω. With NO generator operand (e.g. `3 < 2`) this
-                   collapses to plain failure -> ω. This is why `2 < (1 to 4)` works (its trues are not a
-                   prefix) and not merely `3 > (1 to 5)` (whose trues happen to be a prefix). */
+                /* jcon ir_a_Binop / ir_binary: a relational op is generator-TRANSPARENT and resumes its
+                   operand (binop.resume -> right.resume; right.failure -> left.resume). A FALSE comparison
+                   (rel_fail) is NOT the binop's failure — it must re-seek the next operand value, exactly as
+                   the consumer (write) re-pumps the generator on its own resume edge. We re-enter the operand
+                   generator's RESUME node (operand_aux[1]=right first, then [0]=left); its γ chain flows back
+                   to THIS binop, so the comparison re-runs with the next value. The operand may itself be a
+                   generator-bearing arithmetic IR_BINOP (a cross-product like `(1 to 3)*(1 to 2)`): its resume
+                   is NOT the binop node (re-running it recomputes the SAME product) but its right operand's
+                   resume — gen_resume_target descends to find it (jcon ir_binary binop.resume -> right.resume).
+                   v_binop lowered the right operand's ω to the LEFT operand's resume, so a both-generators case
+                   cascades; when every generator is drained the resume chain reaches the binop's own ω. With NO
+                   generator operand (e.g. `3 < 2`) this collapses to plain failure -> ω. This is why `2 < (1 to
+                   4)` works (its trues are not a prefix), `(1 to 5) > 3` works (gen-on-left), and now
+                   `3 < ((1 to 3)*(1 to 2))` (relop over a cross-product) re-pumps instead of dead-ending. */
                 if (rel_fail && aux && n_aux == 2) {
-                    if (aux[1] && bb_is_gen_node(aux[1])) { bb->value = FAILDESCR; return aux[1]; }
-                    if (aux[0] && bb_is_gen_node(aux[0])) { bb->value = FAILDESCR; return aux[0]; }
+                    IR_t * rt_tgt = gen_resume_target(aux[1]);
+                    if (rt_tgt) { bb->value = FAILDESCR; return rt_tgt; }
+                    rt_tgt = gen_resume_target(aux[0]);
+                    if (rt_tgt) { bb->value = FAILDESCR; return rt_tgt; }
                 }
                 bb->value = FAILDESCR; return bb->ω;
             }
@@ -3588,9 +3623,12 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_TO: {
         if (!bb->α && !bb->β && bb->sval && bb->sval[0] == 'a') {
+            int n_aux = 0;
+            IR_t * const * aux = bb_operand_aux_get(g_current_cfg, bb, &n_aux);
+            int have_aux = (aux && n_aux == 2 && aux[0] && aux[1]);
             if (bb->state == 0) {
-                DESCR_t lv = ag_ring_peek(g_current_cfg, 1);
-                DESCR_t hv = ag_ring_peek(g_current_cfg, 0);
+                DESCR_t lv = have_aux ? aux[0]->value : ag_ring_peek(g_current_cfg, 1);
+                DESCR_t hv = have_aux ? aux[1]->value : ag_ring_peek(g_current_cfg, 0);
                 if (IS_FAIL_fn(lv) || IS_FAIL_fn(hv)) { bb->value = FAILDESCR; return bb->ω; }
                 int64_t lo = IS_INT_fn(lv) ? lv.i : (lv.v == DT_R ? (int64_t)lv.r : 0);
                 int64_t hi = IS_INT_fn(hv) ? hv.i : (hv.v == DT_R ? (int64_t)hv.r : 0);
@@ -3602,7 +3640,21 @@ IR_t * bb_exec_node(IR_t * bb) {
             }
             int64_t hi_cached;
             memcpy(&hi_cached, &bb->dval, 8);
-            if (bb->counter > hi_cached) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+            if (bb->counter > hi_cached) {
+                /* jcon ir_a_ToBy: the to-counter is exhausted for the CURRENT bounds — re-seek the next bound
+                   value. by.failure -> to.resume (re-pump the hi bound), to.failure -> from.resume (re-pump the
+                   lo bound). The bounds' own ω-wiring cascades (v_to: to.ω -> from.resume, from.ω -> ω_in), and
+                   from.γ -> to.start restarts the hi bound for each new lo. We reset state to 0 so that when the
+                   re-pumped bound's γ flows back to THIS node it re-reads the fresh lo/hi. Constant bounds yield
+                   no resume target -> fall through to ω (the prior single-shot behavior). */
+                if (have_aux) {
+                    IR_t * rt_tgt = gen_resume_target(aux[1]);
+                    if (rt_tgt) { bb->state = 0; bb->value = FAILDESCR; return rt_tgt; }
+                    rt_tgt = gen_resume_target(aux[0]);
+                    if (rt_tgt) { bb->state = 0; bb->value = FAILDESCR; return rt_tgt; }
+                }
+                bb->state = 0; bb->value = FAILDESCR; return bb->ω;
+            }
             bb->value = INTVAL(bb->counter);
             return bb->γ;
         }
