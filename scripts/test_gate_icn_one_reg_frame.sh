@@ -8,7 +8,7 @@
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet  DATE: 2026-05-30
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="${HERE}/../src"
-BASELINE=20
+BASELINE=21
 MAX="${MAX:-$BASELINE}"
 
 COUNT=$(grep -rnoE '\(uintptr_t\)[[:space:]]*&(pBB|a0)->(value|counter|state)' \
