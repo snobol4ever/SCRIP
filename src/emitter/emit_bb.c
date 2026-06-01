@@ -1530,7 +1530,13 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SUBJECT:    flat_drive_sno_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_BUILD_LIT: flat_drive_sno_pat_build_lit(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SNO_PROG:   flat_drive_sno_program(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_RETURN:     flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_RETURN:
+        /* GZ-10 (modes 3/4): in the flat γ-chain the return-value producer is a SIBLING box already      */
+        /* BFS-collected (its DESCR is in its own slot); RETURN.α is the postfix reference to it. FILL     */
+        /* ONLY this box (do NOT re-walk α via flat_drive_return — that double-emits with a fresh slot,    */
+        /* the GZ-8/GZ-9 pattern). bb_return reads [r12+slot(α)] and writes it to the frame's return slot. */
+        if (g_icn_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
+        flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:
     case IR_UNTIL:
@@ -1751,11 +1757,14 @@ static int icn_chain_arity(const IR_t *n) {
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: return 1;
+    case IR_RETURN: return 1;
     /* RK-EMIT-2 (2026-05-31): a dval==2.0 deterministic call (Raku __rk_arr / elems / __rk_jct_* / …)     */
     /* marshals its OWN arguments from isolated value sub-graphs on `counter`; those args are NOT operands */
     /* on the γ-chain, so from the postfix operand-ref walk's view this call is a self-contained LEAF       */
     /* producer (arity 0). Reporting nargs here would wrongly pop that many chain producers and corrupt the */
-    /* operand references of every later consumer (e.g. the relop in `$x == any(..)`).                      */
+    /* operand references of every later consumer (e.g. the relop in `$x == any(..)`). The Icon dval==3.0   */
+    /* user-proc call (GZ-10) likewise marshals its args from `counter`, but its result IS a chain producer */
+    /* consumed by a following box (write/binop), so it reports ival (the consumer's operand count).        */
     case IR_CALL:  return (n->dval == 2.0) ? 0 : (int)n->ival;
     default:       return -1;
     }
@@ -1812,6 +1821,30 @@ int icn_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     emitter_end();
     g_icn_flat_chain = 0;
     return rc;
+}
+/* GZ-10 (modes 3/4): build a user-PROCEDURE body as a flat goto-graph slab with the stackless calling     */
+/* convention used by rt_icn_call_proc_descr — the ζ=r12 frame's [0,16) is RESERVED for the return-value   */
+/* DESCR slot (IR_RETURN writes it), and parameter i is the named-variable slot at [16*(i+1)] (pre-seeded   */
+/* here so the body's IR_VAR(param)/IR_ASSIGN(param) resolve to the same offset the helper binds the arg    */
+/* into). The proc body's own anonymous/local slots follow. Identical to icn_flat_chain_build otherwise.    */
+bb_box_fn icn_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
+    if (!entry) return NULL;
+    icn_chain_operand_refs(entry);
+    bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
+    if (!buf) return NULL;
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_icn_flat_chain = 1;
+    g_flat_slot_count = 16;
+    for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
+    emitter_init_binary(buf, FLAT_BUF_MAX);
+    codegen_flat_chain_body(entry, "proc_flat");
+    int nbytes = emitter_end();
+    g_icn_flat_chain = 0;
+    extern int bb_emit_overflow;
+    if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
+    bb_seal(buf, (size_t)nbytes);
+    bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
+    return (bb_box_fn)buf;
 }
 /*====================================================================================================================================================================================================*/
 /* SBL-M3-CHAIN (2026-05-31, Opus 4.8) — SNOBOL4 FLAT-CHAIN EMITTER (PB-0 substrate; the sno_ring_to_tree   */

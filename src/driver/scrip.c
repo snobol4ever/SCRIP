@@ -731,9 +731,13 @@ int main(int argc, char **argv)
             extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
             extern void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
             extern void rt_proc_reset(void);
+            extern bb_box_fn icn_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
+            extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
+            extern int g_frame_active;
             int main_bb_idx = -1;
             rt_proc_reset();
             rt_proc_set_builder((bb_box_fn (*)(void *))bb_build_flat);
+            g_frame_active = 1;   /* GZ-10: proc slabs (and main below) build with the push-r12 ζ-frame prologue */
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
@@ -748,6 +752,10 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                /* GZ-10 (modes 3/4): build the procedure body NOW as a stackless flat slab with the        */
+                /* return-slot/param-slot convention; rt_icn_call_proc_descr invokes this fn per activation. */
+                bb_box_fn pfn = icn_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
+                if (pfn) rt_proc_set_fn(pname, pfn);
             }
             {
                 extern void *dat_register(const char *spec);
@@ -769,10 +777,8 @@ int main(int argc, char **argv)
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph has no entry\n");
                 abort();
             }
-            extern int g_frame_active;
             extern void *rt_frame(void);
             extern bb_box_fn icn_flat_chain_build(IR_t * entry);
-            g_frame_active = 1;
             IR_t *icn_root = icn_ring_to_tree(bbg);
             bb_box_fn fn;
             if (icn_root) {

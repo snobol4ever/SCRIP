@@ -26,7 +26,9 @@
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
+#include "emit_bb.h"
 void rt_push_null(void);
+int  bb_slot_get(IR_t * nd);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_return_str(IR_t * pBB, bb_bin_t & bin) {
@@ -34,6 +36,49 @@ static std::string bb_return_str(IR_t * pBB, bb_bin_t & bin) {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_RETURN");
     int has_expr = (pBB && pBB->α) ? 1 : 0;
+    /* GZ-10 (modes 3/4, GROUND ZERO 3) flat-chain slot model: `return E`. E is a SIBLING producer box     */
+    /* already emitted earlier in the γ-chain — it wrote its 16-byte DESCR into [r12+slot(α)]. This box     */
+    /* copies that DESCR into the per-activation frame's RETURN slot at [r12+0] (the test_sno_3.c           */
+    /* `OUTPUT_γ: return OUTPUT` model — the value flows out via a fixed frame slot, NO value stack), then  */
+    /* jmps γ (the slab's XA_FLAT_EPILOGUE `ret`). rt_icn_call_proc_descr reads frame[0] after the slab     */
+    /* returns. A bare `return` (no α) leaves [r12+0] = NULVCL (the helper pre-seeds it) and just jmps γ.   */
+    if (g_icn_flat_chain) {
+        int off = has_expr ? bb_slot_get(pBB->α) : -1;
+        if (MEDIUM_BINARY) {
+            std::string body;
+            if (off >= 0) {
+                /*   mov rax,[r12+off]     49 8B 84 24 <u32 off>        (8)  value DESCR eightbyte0          */
+                /*   mov [r12+0],rax       49 89 84 24 00 00 00 00      (8)  return slot eightbyte0          */
+                /*   mov rax,[r12+off+8]   49 8B 84 24 <u32 off+8>      (8)  value DESCR eightbyte1          */
+                /*   mov [r12+8],rax       49 89 84 24 08 00 00 00      (8)  return slot eightbyte1          */
+                body = bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)off)
+                     + bytes(4, "\x49\x89\x84\x24") + u32le(0u)
+                     + bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)(off + 8))
+                     + bytes(4, "\x49\x89\x84\x24") + u32le(8u);
+            }
+            int base = (int)body.size();
+            /*   base+0 : E9 <γ_rel32>     jmp γ      (γ patch at base+1)                                   */
+            /*   base+5 : E9 <ω_rel32>     β: jmp ω   (β-def at base+5, ω patch at base+6)                  */
+            bin = { {base + 1, base + 5, base + 6}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+            return body
+                 + bytes(1, "\xE9") + u32le(0)
+                 + bytes(1, "\xE9") + u32le(0);
+        }
+        if (MEDIUM_TEXT) {
+            std::string head = s_1asm(emit_fmt("%s:", _.lbl_α))
+                             + s_comment(off >= 0 ? "# BOX IR_RETURN flat-chain [GZ-10 value slot → frame return slot]"
+                                                  : "# BOX IR_RETURN bare flat-chain [GZ-10 frame return slot stays null]");
+            if (off >= 0)
+                head = head
+                     + s_2asm("mov", emit_fmt("rax, [r12+%d]", off))
+                     + s_2asm("mov", "[r12+0], rax")
+                     + s_2asm("mov", emit_fmt("rax, [r12+%d]", off + 8))
+                     + s_2asm("mov", "[r12+8], rax");
+            return head + s_2asm("jmp", _.lbl_γ)
+                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                 + s_2asm("jmp", _.lbl_ω);
+        }
+    }
     if (MEDIUM_TEXT) {
         std::string head = s_1asm(emit_fmt("%s:", _.lbl_α))
                          + s_comment(has_expr ? "# BOX IR_RETURN value-on-vstack [IBB-9-6]"
