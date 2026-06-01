@@ -303,17 +303,35 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
                  + bytes(1, "\xE9")     + u32le(0);
         }
         if (MEDIUM_TEXT) {
-            /* mode-4 standalone: the proc slab + its name-keyed registration are NOT yet emitted into the  */
-            /* compiled binary (the name is an in-scrip AST pointer here), so a user-proc call cannot work  */
-            /* in --compile yet. Emit a loud abort so mode-4 FAILS visibly (tracked; floor 0) rather than   */
-            /* calling through a stale pointer. GZ-10 mode-4 (proc-slab emission + startup registration) is */
-            /* the next rung.                                                                                */
-            return s_1asm(emit_fmt("%s:", _.lbl_α))
-                 + s_comment(emit_fmt("# BOX IR_CALL %s(...) [GZ-10 user-proc — mode-4 not yet wired]", fn))
-                 + s_2asm("call", "abort@PLT")
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-                 + s_2asm("jmp",  beta_tgt ? beta_tgt->name : _.lbl_ω);
+            /* GZ-10 mode-4 (MEDIUM_TEXT): user-proc call. Per-arg via rt_icn_arg_stage@PLT,        */
+            /* then rt_icn_call_proc_descr@PLT. Result rax:rdx stored to [r12+off]. Proc name in    */
+            /* .rodata; slab emitted as icn_proc_<name>_α by the mode-4 driver before main.           */
+            int id2 = bb_node_id(pBB);
+            std::string nl = emit_fmt(".Lcall%d_pname", id2);
+            std::string s  = s_1asm(emit_fmt("%s:", _.lbl_α))
+                           + s_comment(emit_fmt("# BOX IR_CALL %s(...) [GZ-10 user-proc mode-4]", fn))
+                           + s_directive(".section .rodata")
+                           + s_directive(nl + ": .string \"" + std::string(fn) + "\"")
+                           + s_directive(".section .text")
+                           + s_directive(".intel_syntax noprefix");
+            for (int i = 0; i < (int)narg; i++) {
+                IR_t *prod = bb_chain_terminal(argblks && argblks[i] ? argblks[i]->entry : NULL);
+                int slot = prod ? bb_slot_get(prod) : -1;
+                if (slot < 0) slot = 0;
+                s += s_2asm("mov edi,",  emit_fmt("%d", i))
+                  +  s_2asm("mov rsi,",  emit_fmt("[r12+%d]", slot))
+                  +  s_2asm("mov rdx,",  emit_fmt("[r12+%d]", slot + 8))
+                  +  s_2asm("call",      "rt_icn_arg_stage@PLT");
+            }
+            s += s_2asm("lea rdi,", "[rip + " + nl + "]")
+              +  s_2asm("mov esi,",  emit_fmt("%d", (int)narg))
+              +  s_2asm("call",      "rt_icn_call_proc_descr@PLT")
+              +  s_2asm("mov",       emit_fmt("[r12+%d], rax", off))
+              +  s_2asm("mov",       emit_fmt("[r12+%d], rdx", off + 8))
+              +  s_2asm("jmp",       _.lbl_γ)
+              +  s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+              +  s_2asm("jmp",       beta_tgt ? beta_tgt->name : _.lbl_ω);
+            return s;
         }
     }
 

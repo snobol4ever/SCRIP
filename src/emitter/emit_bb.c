@@ -1904,7 +1904,9 @@ bb_box_fn icn_flat_chain_build(IR_t *entry) {
 int icn_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return 1;
     icn_chain_operand_refs(entry);
-    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    /* g_flat_node_id is NOT reset here — it persists across all proc slabs already emitted so main        */
+    /* gets a unique xchainN_* label range that cannot collide with any prior proc slab's labels.          */
     g_icn_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_flat_chain_body(entry, prefix);
@@ -1935,6 +1937,30 @@ bb_box_fn icn_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
     bb_seal(buf, (size_t)nbytes);
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GZ-10 mode-4 (MEDIUM_TEXT): emit a user-procedure body as a named GAS asm slab with the same stackless  */
+/* calling convention as icn_flat_chain_build_proc (BINARY). The prefix is "icn_proc_<name>" so the entry  */
+/* point is emitted as the globally-visible label "icn_proc_<name>_α:" that the startup registration stub  */
+/* (emitted by the mode-4 driver in scrip.c) calls rt_proc_set_fn(<name>, icn_proc_<name>_α) to wire.      */
+/* Frame layout is identical to BINARY: [r12+0]=return DESCR slot, [r12+16*(i+1)]=param i slot.            */
+int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) {
+    if (!entry || !out || !pname) return 1;
+    icn_chain_operand_refs(entry);
+    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    /* NOTE: g_flat_node_id is NOT reset — it persists across all proc slabs + main so each slab gets a   */
+    /* unique xchainN_* label namespace and collisions between proc and main slabs cannot occur.           */
+    g_icn_flat_chain = 1;
+    g_flat_slot_count = 16;
+    for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
+    char prefix[256];
+    snprintf(prefix, sizeof(prefix), "icn_proc_%s", pname);
+    emitter_init_text(out, TEXT_MODE_INVOCATION);
+    fprintf(out, "  .globl %s_\316\261\n", prefix);
+    int rc = codegen_flat_chain_body(entry, prefix);
+    emitter_end();
+    g_icn_flat_chain = 0;
+    return rc;
 }
 /*====================================================================================================================================================================================================*/
 /* SBL-M3-CHAIN (2026-05-31, Opus 4.8) — SNOBOL4 FLAT-CHAIN EMITTER (PB-0 substrate; the sno_ring_to_tree   */

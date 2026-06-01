@@ -481,6 +481,9 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (!name) return;
     for (int i = 0; i < g_rt_gen_proc_count; i++)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].fn = fn; return; }
+    if (g_rt_gen_proc_count >= RT_ICN_PROC_MAX) return;
+    rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
+    p->name = name; p->fn = fn; p->entry = NULL; p->pnames = NULL; p->nparams = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)

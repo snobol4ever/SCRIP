@@ -537,22 +537,67 @@ int main(int argc, char **argv)
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern int icn_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
+            extern int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname);
             IR_t *icn_root = icn_ring_to_tree(bbg);
             int use_chain = (icn_root == NULL);
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
+            /* GZ-10 mode-4: emit each user procedure body as a named slab BEFORE main so all labels are     */
+            /* defined before the main body references them. Each proc gets prefix "icn_proc_<name>" whose   */
+            /* alpha entry point is the globally-visible label "icn_proc_<name>_α" (UTF-8 \xce\xb1).        */
+            /* A startup stub icn_proc_startup calls rt_proc_set_fn to wire each proc name -> slab fn ptr,   */
+            /* then main calls the startup stub before calling main_α.                                        */
+            g_frame_active = 1;
+            int n_procs = 0;
+            static char proc_names_buf[64][128];
+            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                const char *pname = s2->proc_table[_pi].name;
+                if (!pname || strcmp(pname, "main") == 0) continue;
+                int idx = s2->proc_table[_pi].bb_idx;
+                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+                int np = s2->proc_table[_pi].nparams;
+                const char **pn = NULL;
+                if (np > 0) {
+                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
+                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+                }
+                icn_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
+                if (n_procs < 64) snprintf(proc_names_buf[n_procs++], 128, "%s", pname);
+                free(pn);
+            }
+            /* Startup stub: registers each proc slab pointer with the runtime before main_α runs.           */
+            /* Uses rt_proc_set_fn(name, fn) — the existing "wire name to fn ptr" helper in rt.c.            */
+            if (n_procs > 0) {
+                printf("icn_proc_startup:\n");
+                printf("  push rbp\n");
+                printf("  mov rbp, rsp\n");
+                for (int i = 0; i < n_procs; i++) {
+                    printf("  .section .rodata\n");
+                    printf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
+                    printf("  .section .text\n");
+                    printf("  .intel_syntax noprefix\n");
+                    printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    /* icn_proc_<name>_α is the UTF-8 alpha label — emit via hex escape in printf */
+                    printf("  lea rsi, [rip + icn_proc_%s_\xce\xb1]\n", proc_names_buf[i]);
+                    printf("  call rt_proc_set_fn@PLT\n");
+                }
+                printf("  pop rbp\n");
+                printf("  ret\n");
+            }
             printf("  .globl main\n");
             printf("main:\n");
             printf("  push rbp\n");
             printf("  mov rbp, rsp\n");
+            if (n_procs > 0)
+                printf("  call icn_proc_startup\n");
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
             printf("  xor esi, esi\n");
-            printf("  call main_α\n");
+            printf("  call main_\xce\xb1\n");
             printf("  xor eax, eax\n");
             printf("  pop rbp\n");
             printf("  ret\n");
-            g_frame_active = 1;
             int rc = use_chain ? icn_flat_chain_build_text(bbg->entry, stdout, "main")
                                : codegen_flat_build(icn_root, stdout, "main");
             g_frame_active = 0;
