@@ -72,7 +72,7 @@ static const char * kname(IR_e t) {
     case IR_ITE: return "ITE";
     case IR_GATHER: return "GTHR";
     case IR_SUBJECT: return "SUBJ";
-    case IR_PAT_BUILD_LIT: return "BLDLIT";
+    case IR_REF_INVARIANT: return "REFINV";
     default: return "?";
     }
 }
@@ -169,10 +169,11 @@ static void dump_subject(const char * title, tree_t * ast, int expect_nodes) {
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* dump_pat_build — PB-1 PATTERN-BUILDER phase topology (lower2_pat_build_entry under IR_LANG_SNO). Proves the
- * IR_PAT_BUILD_LIT builder box's four-port shape: it is its own α, γ -> success, ω -> fail, bounded single-
- * shot (β = ω, NOT self — the builder is not a generator: building the literal once is enough). */
-static void dump_pat_build(const char * title, tree_t * ast, int expect_nodes) {
+/* dump_ref_invariant — PB-RB-1 REF_INVARIANT phase topology (lower2_pat_build_entry under IR_LANG_SNO). Proves the
+ * IR_REF_INVARIANT box's four-port shape: it is its own α, γ -> success, ω -> fail, bounded single-
+ * shot (β = ω, NOT self — referencing a sealed head once is enough; it is not a generator). The sealed
+ * IR_PAT_LIT element it references (operand_aux) is also in the graph but NOT control-flow-wired. */
+static void dump_ref_invariant(const char * title, tree_t * ast, int expect_nodes) {
     IR_graph_t * g = IR_alloc(64, IR_LANG_SNO);
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
@@ -304,11 +305,12 @@ int main(void) {
     /* PB-0 SUBJECT phase, variable subject: SUBJECT(S) -> IR_SUBJECT over IR_VAR. 2 real nodes. */
     dump_subject("SNOBOL4:  SUBJECT(S)  [IR_SUBJECT over a variable subject: name baked RO, fetched via rt_sno_subject_load]",
          var("S"), 2);
-    /* PB-1 PATTERN-BUILDER phase, literal: 'abc' (pattern role) -> ONE IR_PAT_BUILD_LIT builder box. 1 real
-       node, bounded single-shot (β = ω; the builder is not a generator). Distinct from the matcher-leaf
-       IR_PAT_LIT — this box's runtime effect CONSTRUCTS a PATND_t and lands its head in a ζ slot. */
-    dump_pat_build("SNOBOL4:  build 'abc'  [IR_PAT_BUILD_LIT: builder box constructs a runtime LIT pattern node -> head in ζ slot; bounded β=ω (SPITBOL ch.18)]",
-         slit("abc"), 1);
+    /* PB-RB-1 REF_INVARIANT phase, literal: 'abc' (pattern role) -> IR_REF_INVARIANT over a sealed IR_PAT_LIT
+       element. 2 real nodes: the sealed IR_PAT_LIT (the EXISTING matcher box, referenced via operand_aux, NOT
+       control-wired) + the IR_REF_INVARIANT box (its own α, bounded single-shot β=ω). REF_INVARIANT loads the
+       sealed element's bb_box_fn head into a ζ slot for PB-RB-3 BB_MATCH; NO runtime construction (Fork A/E). */
+    dump_ref_invariant("SNOBOL4:  REF_INVARIANT 'abc'  [IR_REF_INVARIANT over sealed IR_PAT_LIT: load sealed bb_box_fn head -> ζ slot; bounded β=ω (SPITBOL ch.18)]",
+         slit("abc"), 2);
     /* ===== END SNOBOL4 SECTION ===== */
 
     /* ===== ICON SECTION — APPEND ICON (VALUE-role) CASES BELOW THIS LINE ===== */

@@ -2484,16 +2484,21 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb->value = FAILDESCR;
         return bb->ω;
     }
-    case IR_PAT_BUILD_LIT: {
-        /* PB-1 PATTERN-BUILDER phase, literal (mode-2 oracle analogue of bb_sno_pat_build_lit.cpp). The
-           BUILDER constructs a runtime pattern node for the literal (sval) — distinct from the matcher-leaf
-           IR_PAT_LIT above, which the mode-2 IR_SCAN super-node consumes. Here we just succeed once carrying
-           the literal as the box value (the built head is the box's ζ-slot effect in mode-3/4). Bounded
-           single-shot: resume -> ω. Dormant until v_scan threads SUBJECT -> PATTERN-BUILDER -> MATCH
-           (PB-2/PB-5); present for concurrency completeness (every emitted IR kind has a mode-2 arm — no
-           silent default). */
+    case IR_REF_INVARIANT: {
+        /* PB-RB-1 REF_INVARIANT (mode-2 oracle analogue of bb_ref_invariant.cpp). CORRECTED PATTERN
+           ARCHITECTURE (2026-06-01): a pattern element that is INVARIANT (a literal here) is the EXISTING
+           IR_PAT_LIT matcher box, sealed at compile time; REF_INVARIANT references that sealed element (via
+           operand_aux per the PEERS RULE) and yields its head as the pattern's DT_P value. No runtime
+           construction (Fork A/E) — this is the runtime READ of a sealed piece. In mode-2 we carry the
+           referenced literal as the box value (the sealed-head bb_box_fn is the box's ζ-slot effect in
+           mode-3/4). Bounded single-shot: resume -> ω. Dormant until v_scan threads SUBJECT -> REF_INVARIANT
+           -> BB_MATCH (PB-RB-3); present for concurrency completeness (every emitted IR kind has a mode-2
+           arm — no silent default). */
         if (bb->state == 0) {
             const char *lit = bb->sval ? bb->sval : "";
+            int n_aux = 0;
+            IR_t * const * aux = bb_operand_aux_get(g_current_cfg, bb, &n_aux);
+            if (n_aux > 0 && aux && aux[0] && aux[0]->sval) lit = aux[0]->sval;
             bb->state = 1;
             DESCR_t vd = { .v = DT_S, .slen = (uint32_t)strlen(lit), .s = (char *)lit };
             bb->value = vd;

@@ -2166,26 +2166,34 @@ IR_t * lower2_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR
     return ret(subj, α_out, β_out, oα ? oα : subj, ω_in);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PB-1 PATTERN-BUILDER phase entry (GOAL-SNOBOL4-BB SESSION RUNG #0 SBL-PAT-BB, literal first). Lowers a
- * SNOBOL4 pattern literal (TT_QLIT) into ONE IR_PAT_BUILD_LIT *builder* box — the "BBs that build BBs" core
- * (ARCH-SNOBOL4.md phase 2). DISTINCT from the matcher-leaf IR_PAT_LIT that the mode-2 oracle consumes via
- * the IR_SCAN super-node: the BUILDER's runtime effect CONSTRUCTS a runtime pattern node (PATND_t, via the
- * value-stack-free pat_lit constructor — NOT the deleted rt_pat_lit vstack wrapper) and lands the built
- * pattern-graph head pointer in a ζ-frame slot, for the PB-2 BB_MATCH box to scan. Bounded single-shot:
- * building the literal once is enough; on backtrack the builder fails (resume -> ω_in), so β = ω_in via the
- * bounded path. SPITBOL Manual ch.18: a literal (`'BLUE'`) is a known component matched left-to-right; the
- * pattern node it builds carries the bytes + length and the matcher advances the cursor δ past them.
- * NOT YET threaded into v_scan (the mode-2 IR_SCAN super-node stays intact -> ZERO regression); this entry
- * is exercised by the prove_lower2 topology gate + a PB-1 mode-3 execution probe. v_scan re-stitch to
- * SUBJECT -> PATTERN-BUILDER -> MATCH lands at PB-2/PB-5 (per the sno_ring_to_tree deletion rationale). */
+/* PB-RB-1 REF_INVARIANT phase entry (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01). Lowers a
+ * SNOBOL4 pattern literal (TT_QLIT) into a sealed IR_PAT_LIT matcher element plus ONE IR_REF_INVARIANT box
+ * that references it. A SNOBOL4 pattern is a graph of EMITTED BYRD-BOXES, NOT a PATND_t data structure (the
+ * retired PB-1 builder built a PATND_t — the type slated for demolition; superseded). An INVARIANT element
+ * (a literal here) is the EXISTING IR_PAT_LIT matcher box (bb_lit.cpp), SEALED at compile time; REF_INVARIANT
+ * loads that sealed element's bb_box_fn head into a ζ-frame slot for the PB-RB-3 BB_MATCH box to drive via
+ * the broker. NO runtime construction (Fork A/E): the sealed-head address is an emit-time constant. The
+ * sealed IR_PAT_LIT is NOT control-flow-threaded — it is referenced (operand_aux, PEERS RULE), not run, here.
+ * Bounded single-shot: referencing the sealed head once is enough; on backtrack the box fails (resume ->
+ * ω_in), so β = ω_in via the bounded path. SPITBOL Manual ch.18: a literal (`'BLUE'`) is a known component
+ * matched left-to-right; the sealed matcher carries the bytes + length and advances the cursor δ past them.
+ * NOT YET threaded into v_scan (the mode-2 IR_SCAN super-node stays intact -> ZERO regression); this entry is
+ * exercised by the prove_lower2 topology gate. v_scan re-stitch to SUBJECT -> REF_INVARIANT -> BB_MATCH lands
+ * at PB-RB-3/PB-RB-CONV (per the sno_ring_to_tree deletion rationale). */
 IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
     if (!e || e->t != TT_QLIT) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
-    IR_t * n = nalloc(cx, IR_PAT_BUILD_LIT);
-    if (!n) return NULL;
-    n->sval = e->v.sval ? e->v.sval : "";
+    const char * lit = e->v.sval ? e->v.sval : "";
+    IR_t * sealed = nalloc(cx, IR_PAT_LIT);
+    if (!sealed) return NULL;
+    sealed->sval = lit;
+    IR_t * ref = nalloc(cx, IR_REF_INVARIANT);
+    if (!ref) return NULL;
+    ref->sval = lit;
+    IR_t * aux[1] = { sealed };
+    bb_operand_aux_set(bbg, ref, aux, 1);
     lcx_t bx = cx; bx.bounded = 1;
-    return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
+    return emit_leaf(bx, ref, γ_in, ω_in, α_out, β_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
