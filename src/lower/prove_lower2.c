@@ -351,6 +351,18 @@ int main(void) {
        referenced via operand_aux (PEERS RULE) for inline-jump drive — NO C call (FACT RULE). */
     dump_match("SNOBOL4:  MATCH('b')  [IR_PAT_MATCH inline-drives IR_PAT_LIT: element γ+ω -> MATCH; ch.18 unanchored outer start-loop; bounded β=ω]",
          slit("b"), 2);
+    /* PB-RB-4 PREREQ — MATCH driving a COMPOSITE element (the topology STITCH_SEQ/STITCH_ALT will wire at the
+       emitter level for the variant case; for all-invariant patterns the element graph is wired at lower/emit
+       time exactly like a bare CAT/ALT). Proves lower2_match_entry composes over a multi-element element with
+       NO new lowering: the element is a wire_seq(IR_PAT_CAT)/wire_alt(IR_PAT_ALT) of two literals, with the
+       element's OUTER γ AND ω both threaded back to the IR_PAT_MATCH node (Lon "jump to alpha, return from
+       omega"). MATCH('a' 'b') = 2 PLIT + 1 PCAT + 1 PATMAT = 4 real nodes; MATCH('a'|'b') = 2 PLIT + 1 PALT +
+       1 PATMAT = 4. This confirms PB-RB-4's lowering layer already exists — the new PB-RB-4 work is the
+       emitter-side STITCH wiring + mode-3 drive, not the IR topology. */
+    dump_match("SNOBOL4:  MATCH('a' 'b')  [IR_PAT_MATCH drives wire_seq(IR_PAT_CAT) of 2 literals; PB-RB-4 prereq: composite element, element γ+ω -> MATCH]",
+         bin(TT_CAT, slit("a"), slit("b")), 4);
+    dump_match("SNOBOL4:  MATCH('a' | 'b')  [IR_PAT_MATCH drives wire_alt(IR_PAT_ALT) fail-chain of 2 literals; PB-RB-4 prereq: composite element]",
+         bin(TT_ALT, slit("a"), slit("b")), 4);
     /* ===== END SNOBOL4 SECTION ===== */
 
     /* ===== ICON SECTION — APPEND ICON (VALUE-role) CASES BELOW THIS LINE ===== */
