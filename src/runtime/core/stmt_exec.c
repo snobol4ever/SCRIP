@@ -25,7 +25,6 @@ extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs);
 #else
 #include <gc/gc.h>
 #include "core.h"
-#include "bb_broker.h"
 #include "sil_macros.h"
 #include "bb_build.h"
 #include "bb_pool.h"
@@ -357,7 +356,10 @@ int exec_stmt(const char  *subj_name,
     NAME_ctx_enter(&scan_ctx);
     int saved_Ω = Ω;
     if (kw_anchor) Ω = 0;
-    int ticks = bb_broker(root, bb_scan, scan_body_fn_u9, &scan_res);
+    /* brokered pattern scan removed (bb_broker deleted) — exec_stmt_blob is dead until native PB-RB lands */
+    fprintf(stderr, "[SBL] FATAL: exec_stmt_blob: brokered pattern scan removed\n");
+    abort();
+    int ticks = 0;
     Ω = saved_Ω;
     g_rt_dcap_active = 0;
     if (ticks > 0) {

@@ -10,8 +10,6 @@
 #include "../../frontend/prolog/prolog_builtin.h"
 #include "../../lower/bb_exec.h"
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
-#include "../../frontend/prolog/pl_broker.h"
-#include "bb_broker.h"
 #include "gen_value.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,16 +93,11 @@ Resolve_PredEntry_BB *resolve_bb_register(const char *name, int arity, int bb_id
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_node_t resolve_bb_once_proc_by_name(const char *name, int arity) {
-    if (!name) return (bb_node_t){ NULL, NULL, 0 };
-    const char *sl = strrchr(name, '/');
-    if (sl && arity == 0) arity = atoi(sl + 1);
-    Resolve_PredEntry_BB *bb = resolve_bb_lookup(name, arity);
-    IR_graph_t *_cfg = bb_graph_of_pred(bb);
-    if (!_cfg) return (bb_node_t){ NULL, NULL, 0 };
-    resolve_dcg_state_t *dz = calloc(1, sizeof(*dz));
-    dz->cfg   = _cfg;
-    dz->first = 1;
-    return (bb_node_t){ resolve_bb_dcg, dz, 0 };
+    /* resolve_bb_dcg removed with bb_broker — brokered Prolog path gone */
+    fprintf(stderr, "[PL] FATAL: resolve_bb_once_proc_by_name: brokered Prolog path removed\n");
+    abort();
+    (void)name; (void)arity;
+    return (bb_node_t){ NULL, NULL, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void resolve_bb_env_push(int nslots) {
@@ -1762,17 +1755,11 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                 uargs[rarity+1] = s1;
                 Trail *utrail = &g_resolve_trail;
                 int umark = trail_mark(utrail);
-                Term **saved_env = g_resolve_env;
-                g_resolve_env = uargs;
-                Resolve_PredEntry *_upe1 = resolve_pred_entry_lookup(ukey);
-                bb_node_t uroot = (_upe1 && _upe1->entry_pc >= 0 && 1)
-                    ? pl_box_choice_pc(_upe1->entry_pc, g_resolve_env, call_arity)
-                    : pl_box_choice(uch, g_resolve_env, call_arity);
-                int uok = bb_broker(uroot, bb_once, NULL, NULL);
-                g_resolve_env = saved_env;
-                if (!uok) trail_unwind(utrail, umark);
-                if (uargs) free(uargs);
-                return uok;
+                /* brokered Prolog --run path removed (pl_box_choice + bb_broker deleted) */
+                fprintf(stderr, "[PL] FATAL: brokered Prolog call path removed\n");
+                abort();
+                (void)uargs; (void)utrail; (void)umark;
+                return 0;
             }
             if (strcmp(fn,"findall")==0&&arity==3){
                 tree_t *tmpl_expr=goal->c[0];
@@ -1792,14 +1779,10 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                     goal_expr = fa_synth;
                     env = fa_tenv;
                 }
-                bb_node_t goal_box=pl_box_goal_from_ir(goal_expr,env);
-                DESCR_t fa_r=goal_box.fn(goal_box.ζ,α);
-                while(!IS_FAIL_fn(fa_r)){
-                    Term *snap=resolve_copy_term(resolve_unified_term_from_expr(tmpl_expr,outer_env));
-                    if(nsol>=sol_cap){sol_cap=sol_cap?sol_cap*2:8;solutions=realloc(solutions,sol_cap*sizeof(Term*));}
-                    solutions[nsol++]=snap;
-                    fa_r=goal_box.fn(goal_box.ζ,β);
-                }
+                /* brokered pl_box_goal_from_ir path removed — abort */
+                fprintf(stderr, "[PL] FATAL: brokered findall goal_box path removed\n");
+                abort();
+                (void)outer_env; (void)fa_tenv; (void)fa_synth;
                 g_resolve_trail=saved_global_trail;
                 if (fa_synth) { resolve_synth_free(fa_synth); free(fa_tenv); }
                 int nil_id=prolog_atom_intern("[]"),dot_id=prolog_atom_intern(".");
@@ -1826,12 +1809,10 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                     if (uok) {
                         Term **saved_env = g_resolve_env;
                         g_resolve_env = uargs;
-                        Resolve_PredEntry *_upe2 = resolve_pred_entry_lookup(ukey);
-                        bb_node_t uroot = (_upe2 && _upe2->entry_pc >= 0 && 1)
-                            ? pl_box_choice_pc(_upe2->entry_pc, g_resolve_env, arity)
-                            : pl_box_choice(uch, g_resolve_env, arity);
-                        uok = bb_broker(uroot, bb_once, NULL, NULL);
-                        g_resolve_env = saved_env;
+                        /* brokered pl_box_choice + bb_broker path removed — abort */
+                        fprintf(stderr, "[PL] FATAL: brokered Prolog user-pred call path removed\n");
+                        abort();
+                        (void)saved_env;
                     }
                     if (!uok) trail_unwind(utrail, umark);
                     if (uargs) free(uargs);
@@ -1939,22 +1920,10 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                 g_resolve_trail = ag_trail;
                 long ag_count=0, ag_sum=0, ag_best=0; int ag_best_set=0;
                 tree_t *snap_expr = (is_count || !val_expr) ? NULL : val_expr;
-                bb_node_t goal_box = pl_box_goal_from_ir(goal_expr, env);
-                DESCR_t ag_r = goal_box.fn(goal_box.ζ, α);
-                while (!IS_FAIL_fn(ag_r)) {
-                    ag_count++;
-                    if ((is_sum||is_max||is_min) && snap_expr) {
-                        Term *vt = term_deref(resolve_unified_term_from_expr(snap_expr, env));
-                        long v=0;
-                        if (vt && vt->tag==TERM_INT)   v=vt->ival;
-                        else if (vt && vt->tag==TERM_FLOAT) v=(long)vt->fval;
-                        if (is_sum) ag_sum += v;
-                        if (!ag_best_set || (is_max && v>ag_best) || (is_min && v<ag_best)) {
-                            ag_best=v; ag_best_set=1;
-                        }
-                    }
-                    ag_r = goal_box.fn(goal_box.ζ, β);
-                }
+                /* brokered pl_box_goal_from_ir aggregate-drain path removed — abort */
+                fprintf(stderr, "[PL] FATAL: brokered aggregate_all goal_box path removed\n");
+                abort();
+                (void)snap_expr; (void)saved_global_trail;
                 g_resolve_trail = saved_global_trail;
                 Term *res = NULL;
                 if (is_count) res = term_new_int(ag_count);

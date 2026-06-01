@@ -2,9 +2,10 @@
 #define GEN_H
 #include <stdlib.h>
 #include <string.h>
-#include "bb_broker.h"
+#include "bb_box.h"
 #include "core.h"
-static const bb_node_t FAIL_GEN_NODE = { fail_box, NULL, 0 };
+/* bb_broker / fail_box deleted (brokered path removed); FAIL_GEN_NODE now a null-fn sentinel */
+static const bb_node_t FAIL_GEN_NODE = { NULL, NULL, 0 };
 static inline void *gen_gen_enter(void **pp, size_t size) {
     void *p = *pp;
     if (size) {

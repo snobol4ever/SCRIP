@@ -2,7 +2,7 @@
 #define GEN_RUNTIME_H
 #include "../ast/ast.h"
 #include "../../frontend/snobol4/scrip_cc.h"
-#include "bb_broker.h"
+#include "bb_box.h"
 #include "gen.h"
 #include "IR.h"
 #include "SM.h"

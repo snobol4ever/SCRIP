@@ -15,7 +15,6 @@
 #include "frontend/prolog/prolog_atom.h"
 #include "frontend/raku/raku_re.h"
 #include "frontend/prolog/prolog_builtin.h"
-#include "frontend/prolog/pl_broker.h"
 #include "frontend/icon/icon_driver.h"
 #include "frontend/raku/raku_driver.h"
 #include "frontend/rebus/rebus_lower.h"

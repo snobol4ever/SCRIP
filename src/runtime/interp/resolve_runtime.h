@@ -5,7 +5,7 @@
 #include "../../frontend/prolog/prolog_driver.h"
 #include "../../frontend/prolog/term.h"
 #include "../../frontend/prolog/prolog_runtime.h"
-#include "bb_broker.h"
+#include "bb_box.h"
 #include "IR.h"
 #include "SM.h"
 #include "stage2.h"
