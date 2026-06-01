@@ -115,6 +115,16 @@ int bb_varslot_peek(const char *name) {
 int g_icn_flat_chain = 0;
 int g_sno_flat_chain = 0;  /* SBL-M3-CHAIN: SNOBOL4 flat-chain emit active — IR_VAR is a by-name pass-through (value read in bb_sno_assign_var) */
 int g_frame_active = 0;
+/* PB-RB-3 BB_MATCH (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01). Cross-box emit-time values   */
+/* threaded from the SUBJECT box (g_sno_subject_slot — its ζ-frame slot offset, set when bb_sno_subject emits  */
+/* and read when bb_match emits, same flat sequence) and from flat_drive_match (the inline element     */
+/* entry label + the match_advance handler label the template jumps to / defines). NOT a g_emit ABI change —   */
+/* SNOBOL-lane dedicated globals (mirror the bb_child_lbl idiom).                                              */
+int                 g_sno_subject_slot       = -1;
+const char *        g_match_elem_lbl     = NULL;
+const char *        g_match_advance_lbl  = NULL;
+struct bb_label_t * g_match_elem_p       = NULL;
+struct bb_label_t * g_match_advance_p    = NULL;
 #define FLAT_DATA_BUF_MAX     (32 * 1024)
 #define FLAT_DATA_LBL_MAX     32
 char   g_flat_data_buf[FLAT_DATA_BUF_MAX];
@@ -1210,6 +1220,34 @@ static void flat_drive_sno_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    /* PB-RB-3 BB_MATCH phase 3 (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01, Opus 4.8). The
+       MATCH box DRIVES the pattern element graph over Σ/δ/Δ with the SPITBOL Manual ch.18 unanchored OUTER
+       start-loop. INLINE-JUMP model (Lon, verbatim: "jump to box's alpha, return from box's omega") — NO
+       (ζ,int entry) C call. The element entry rides on operand_aux[0] (PEERS RULE), resolved as the inline
+       element the way flat_drive_cat inline-emits its kids. The MATCH template (bb_match) emits the
+       outer-loop prologue + retry + advance handler around a forward jmp to elem_entry; the driver then
+       defines elem_entry and inline-emits the element via walk_bb_flat: element γ -> lbl_γ (chain success),
+       element ω -> match_advance (try next start), element β -> element_β. */
+    int n_aux = 0;
+    IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
+    IR_t *elem = (n_aux > 0 && aux) ? aux[0] : NULL;
+    if (!elem) {
+        fprintf(stderr, "[SBB] FATAL flat_drive_match: IR_PAT_MATCH has no element in operand_aux\n");
+        abort();
+    }
+    int id = g_flat_node_id++;
+    bb_label_t *elem_entry = emit_label_alloc("smatch%d_elem", id);
+    bb_label_t *match_adv  = emit_label_alloc("smatch%d_adv",  id);
+    bb_label_t *elem_β     = emit_label_alloc("smatch%d_elemb", id);
+    g_match_elem_p      = elem_entry; g_match_elem_lbl    = elem_entry->name;
+    g_match_advance_p   = match_adv;  g_match_advance_lbl = match_adv->name;
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+    emit_label_define_bb(elem_entry);
+    walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_sno_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* SBL-M3-MULTISTMT (2026-05-31): the whole SNOBOL4 program as a sequence of four-port statement BBs.
        sno_ring_to_tree (scrip.c) folded each statement into a tree root and recorded its success/failure
@@ -1634,6 +1672,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SCAN:       flat_drive_sno_scan(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUBJECT:    flat_drive_sno_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_REF_INVARIANT: flat_drive_sno_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_MATCH:  flat_drive_match(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SNO_PROG:   flat_drive_sno_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
         /* GZ-10 (modes 3/4): in the flat γ-chain the return-value producer is a SIBLING box already      */

@@ -413,7 +413,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SCAN:                 { extern void bb_sno_scan(IR_t *); bb_sno_scan(nd); } return 0;
     case IR_SUBJECT:              { extern void bb_sno_subject(IR_t *); bb_sno_subject(nd); } return 0;
     case IR_REF_INVARIANT:        { extern void bb_ref_invariant(IR_t *); bb_ref_invariant(nd); } return 0;
-    case IR_PAT_MATCH:            { extern void bb_sno_match(IR_t *); bb_sno_match(nd); } return 0;
+    case IR_PAT_MATCH:            { extern void bb_match(IR_t *); bb_match(nd); } return 0;
     case IR_AUGOP:
     case IR_UNOP:
     case IR_CALL:                 bb_call(nd);         return 0;
