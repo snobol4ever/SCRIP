@@ -1184,6 +1184,7 @@ int rt_pl_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, lon
     if (strcmp(op, "=\\=")== 0) return (l != r) ? 1 : 0;
     if (strcmp(op, "<")   == 0) return (l <  r) ? 1 : 0;
     if (strcmp(op, ">")   == 0) return (l >  r) ? 1 : 0;
+    if (strcmp(op, "=<")  == 0) return (l <= r) ? 1 : 0;
     if (strcmp(op, "<=")  == 0) return (l <= r) ? 1 : 0;
     if (strcmp(op, ">=")  == 0) return (l >= r) ? 1 : 0;
     return 0;
@@ -3839,13 +3840,13 @@ IR_t * bb_exec_node(IR_t * bb) {
         }
         if (strcmp(fn, "nl") == 0) { putchar('\n'); bb->value = INTVAL(1); return bb->γ; }
         if (bb->α && bb->β &&
-            (strcmp(fn,">")==0||strcmp(fn,"<")==0||strcmp(fn,">=")==0||strcmp(fn,"<=")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0)) {
+            (strcmp(fn,">")==0||strcmp(fn,"<")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"<=")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0)) {
             DESCR_t lv = resolve_arith_eval(bb->α);
             DESCR_t rv = resolve_arith_eval(bb->β);
             if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { bb->value = FAILDESCR; return bb->ω; }
             double l = (lv.v == DT_I) ? (double)lv.i : lv.r;
             double r = (rv.v == DT_I) ? (double)rv.i : rv.r;
-            int ok = (strcmp(fn,">")==0)?(l>r):(strcmp(fn,"<")==0)?(l<r):(strcmp(fn,">=")==0)?(l>=r):(strcmp(fn,"<=")==0)?(l<=r):(strcmp(fn,"=:=")==0)?(l==r):(l!=r);
+            int ok = (strcmp(fn,">")==0)?(l>r):(strcmp(fn,"<")==0)?(l<r):(strcmp(fn,">=")==0)?(l>=r):(strcmp(fn,"=<")==0||strcmp(fn,"<=")==0)?(l<=r):(strcmp(fn,"=:=")==0)?(l==r):(l!=r);
             if (ok) { bb->value = INTVAL(1); return bb->γ; }
             bb->value = FAILDESCR; return bb->ω;
         }
