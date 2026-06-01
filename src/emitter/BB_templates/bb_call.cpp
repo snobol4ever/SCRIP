@@ -291,7 +291,21 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
             int base = (int)stage.size();
             uint64_t nptr = (uint64_t)(uintptr_t)fn;
             uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_icn_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-            bin = { {base + 44, base + 48, base + 49}, {_.lbl_γ_p, _.lbl_β_p, beta_tgt}, {false, true, false} };
+            /* GZ-10 FAIL-CHECK: rt_icn_call_proc_descr returns FAILDESCR when the proc fails (no return    */
+            /* executed or return with failing expression). Store result rax:rdx to [r12+off]:[r12+off+8],   */
+            /* then cmp eax,99 (DT_FAIL); je ω (proc failed → take else/ω); else jmp γ (proc succeeded).   */
+            /* Byte layout AFTER stage (offsets relative to base = stage.size()):                            */
+            /*  0: 48 BF <u64 name>            movabs rdi, name                — 10 bytes                   */
+            /* 10: BE <u32 nargs>              mov esi, nargs                  —  5 bytes                   */
+            /* 15: 48 B8 <u64 fptr>            movabs rax, rt_icn_call_proc_descr — 10 bytes                */
+            /* 25: FF D0                       call rax                        —  2 bytes                   */
+            /* 27: 49 89 84 24 <u32 off>       mov [r12+off], rax (DESCR lo)   —  8 bytes                   */
+            /* 35: 49 89 94 24 <u32 off+8>     mov [r12+off+8], rdx (DESCR hi) —  8 bytes                   */
+            /* 43: 83 F8 63                    cmp eax, 99 (DT_FAIL)           —  3 bytes                   */
+            /* 46: 0F 84 <rel32 ω>             je ω (proc failed)              —  6 bytes (ω patch at 48)   */
+            /* 52: E9 <rel32 γ>                jmp γ (proc succeeded)          —  5 bytes (γ patch at 53)   */
+            /* 57: E9 <rel32 β-target>         β: jmp β-target                 —  5 bytes (β-def 57, tgt@58)*/
+            bin = { {base + 48, base + 53, base + 57, base + 58}, {_.lbl_ω_p, _.lbl_γ_p, _.lbl_β_p, beta_tgt}, {false, false, true, false} };
             return stage
                  + bytes(2, "\x48\xBF") + u64le(nptr)
                  + bytes(1, "\xBE")     + u32le((uint32_t)narg)
@@ -299,6 +313,8 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
                  + bytes(2, "\xFF\xD0")
                  + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)off)
                  + bytes(4, "\x49\x89\x94\x24") + u32le((uint32_t)(off + 8))
+                 + bytes(3, "\x83\xF8\x63")
+                 + bytes(2, "\x0F\x84") + u32le(0)
                  + bytes(1, "\xE9")     + u32le(0)
                  + bytes(1, "\xE9")     + u32le(0);
         }
@@ -328,6 +344,9 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
               +  s_2asm("call",      "rt_icn_call_proc_descr@PLT")
               +  s_2asm("mov",       emit_fmt("[r12+%d], rax", off))
               +  s_2asm("mov",       emit_fmt("[r12+%d], rdx", off + 8))
+              +  s_comment("# GZ-10 FAIL-CHECK: proc failed (FAILDESCR) → ω; else → γ")
+              +  s_2asm("cmp",       "eax, 99")
+              +  s_2asm("je",        _.lbl_ω)
               +  s_2asm("jmp",       _.lbl_γ)
               +  s_L1asm(emit_fmt("%s:", _.lbl_β), "")
               +  s_2asm("jmp",       beta_tgt ? beta_tgt->name : _.lbl_ω);

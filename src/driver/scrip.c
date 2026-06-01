@@ -120,6 +120,13 @@ static int icn_kind_native_stub(IR_e t) {
     return t == IR_GEN_SCAN || t == IR_GEN_ALT || t == IR_KEYWORD || t == IR_PROC_GEN ||
            t == IR_CSET_UNION || t == IR_CSET_DIFF || t == IR_CSET_INTER || t == IR_CSET_COMPL ||
            t == IR_SUSPEND ||
+           /* GZ-11+: IR_ALT (alternation generator e1|e2|e3) requires a resumable native template (each  */
+           /* arm must resume on β, advancing to the next arm). flat_drive_alt_icn exists but produces a   */
+           /* per-arm dispatch that is single-shot — it does not re-pump on β. Until a proper resumable    */
+           /* native alt template lands, programs containing IR_ALT loudly EXCISE rather than silent-empty. */
+           /* LESSON from GOAL-ICON-BB: IR_ALT is a MUXED kind (simple const-alt vs generator-context alt) */
+           /* so this entry covers BOTH — the safe choice until the β-resume arm is built.                  */
+           t == IR_ALT ||
            /* RK-EMIT (2026-06-01): the Raku resumable-Seq generators. IR_GATHER's MEDIUM_TEXT+MEDIUM_BINARY */
            /* template (bb_rk_gather.cpp) is BUILT — it is NOT listed here so it emits real native code and  */
            /* its rungs PASS in m3/m4. IR_MAP/IR_GREP still need closure-emitting templates (bb_rk_map.cpp / */

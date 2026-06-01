@@ -967,6 +967,29 @@ int rt_unop_size(void)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_icn_size_d — GZ-11+ stackless SIZE (*E) runtime helper. Receives the operand DESCR as two 64-bit    */
+/* args (SysV: lo=rdi v|slen, hi=rsi payload) and returns {DT_I, len} in rax:rdx. Implements the string  */
+/* case (DT_S/DT_SNUL: use slen if non-zero, else strlen) and DT_DATA list/record (frame_size field).    */
+/* DT_FAIL in → DT_FAIL out (caller emits je ω on fail). Mirrors size_value in bb_exec.c (the oracle).   */
+DESCR_t rt_icn_size_d(uint64_t lo, uint64_t hi)
+{
+    DESCR_t v;
+    v.v    = (DTYPE_t)(uint32_t)(lo & 0xFFFFFFFFu);
+    v.slen = (uint32_t)(lo >> 32);
+    v.i    = (int64_t)hi;
+    if (IS_FAIL_fn(v)) return FAILDESCR;
+    if (v.v == DT_SNUL) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
+    if (v.v == DT_S) {
+        size_t n = v.slen ? (size_t)v.slen : (v.s ? strlen(v.s) : 0);
+        DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r;
+    }
+    if (v.v == DT_DATA && v.u) {
+        if (v.u->type) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)v.u->type->nfields; return r; }
+        { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
+    }
+    { const char *s = VARVAL_fn(v); long n = s ? (long)strlen(s) : 0; DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_field_get(const char *fname)
 {
     (void)fname;

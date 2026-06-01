@@ -141,12 +141,26 @@ static std::string xa_flat_epilogue_str(bb_bin_t & bin) {
                    + unwind
                    + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
                    + bytes(1, "\xC3") );
-            std::string fail_half =
-                   bytes(1, "\xB8") + u32le(99)
-                 + bytes(2, "\x31\xD2")
-                 + unwind
-                 + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
-                 + bytes(1, "\xC3");
+            std::string fail_half = g_frame_active
+                /* GZ-10 PROC FAIL EXIT: write FAILDESCR to frame return slot [r12+0]:[r12+8] so that        */
+                /* rt_icn_call_proc_descr reads FAILDESCR when the proc body reaches its failure exit         */
+                /* (no `return` executed, or `return` with a failing expression). The caller's cmp eax,99     */
+                /* gate then routes to ω. Without this write, frame[0] stays NULVCL (pre-seeded by            */
+                /* rt_icn_call_proc_descr), causing silent false-success on proc failure (rung03 bug).        */
+                /* 49 C7 84 24 00000000 63000000   mov qword [r12+0], 99  (DT_FAIL=99, slen=0)   12 bytes    */
+                /* 49 C7 84 24 08000000 00000000   mov qword [r12+8], 0   (payload=0)             12 bytes    */
+                 ? ( bytes(4, "\x49\xC7\x84\x24") + u32le(0u) + u32le(99u)
+                   + bytes(4, "\x49\xC7\x84\x24") + u32le(8u) + u32le(0u)
+                   + bytes(1, "\xB8") + u32le(99)
+                   + bytes(2, "\x31\xD2")
+                   + unwind
+                   + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
+                   + bytes(1, "\xC3") )
+                 : ( bytes(1, "\xB8") + u32le(99)
+                   + bytes(2, "\x31\xD2")
+                   + unwind
+                   + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
+                   + bytes(1, "\xC3") );
             bin = { {(int)succ_half.size()}, {g_emit.flat_fail_p}, {true} };
             return succ_half + fail_half;
         }
@@ -165,6 +179,10 @@ static std::string xa_flat_epilogue_str(bb_bin_t & bin) {
                      + "pop r12\n"
                      + "ret\n"
                      + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                     + "# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_icn_call_proc_descr sees failure\n"
+                     + "mov dword ptr [r12+0], 99\n"
+                     + "mov dword ptr [r12+4], 0\n"
+                     + "mov qword ptr [r12+8], 0\n"
                      + "mov eax, 99\n"
                      + "xor edx, edx\n"
                      + (g_emit.flat_brokered ? std::string("pop rbp\n") : std::string())

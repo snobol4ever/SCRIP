@@ -1730,7 +1730,12 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_NONNULL:
     case IR_NULL_TEST:
     case IR_SIZE:
-    case IR_NOT:        flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β); break;
+    /* GZ-11+ split-kind guard (mirrors IR_UNOP at line above): in the flat-chain the operand producer is    */
+    /* already BFS-collected + slot-allocated by icn_chain_operand_refs (pBB->α set to the producer node).  */
+    /* FILL emits ONLY this box; the bb_unop stackless arm reads the operand DESCR from [r12+sa] and writes */
+    /* the result to its own slot. Re-walking via flat_drive_unop would double-emit the operand (duplicate  */
+    /* label / wrong slot assignment). Off-chain (legacy) still re-walks via the driver.                    */
+    case IR_NOT:        if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_INITIAL:    flat_drive_initial(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CASE:       flat_drive_case(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FIELD_GET:  flat_drive_field_get(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1810,7 +1815,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ && qt < CH_MAX) queue[qt++] = c->γ;
         if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
-        /* RK-EMIT-GATHER (2026-06-01): a Raku `for gather {..} -> $v {..}` lowers (v_raku_for) to a raw    */
+        /* GZ-10 PROC-FAIL (else-branch follow): an IR_CALL to a user proc may route its ω to an else-     */
+        /* continuation (e.g. `if positive(0) then write(2) else write(3)` → IR_CALL.ω = IR_LIT_I[3]).    */
+        /* The γ-only BFS above would never collect the else node; its α label stays unresolved → the      */
+        /* FAIL-CHECK `je main_ω` hits the epilogue instead of the else branch. Follow ω for IR_CALL:      */
+        /* non-terminal ω nodes (non-SUCCEED/FAIL) become chain members with proper α labels. Terminals   */
+        /* (ω = IR_SUCCEED/IR_FAIL) are filtered at the loop's continue above — zero impact on normal calls.*/
+        if (c->t == IR_CALL && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
         /* goto-chain whose CONTINUATION (the statement after the loop, e.g. `say('done')`) hangs off the   */
         /* generator's ω port (gen drained ⇒ for completes ⇒ run the continuation). The γ-only BFS would    */
         /* never reach it (only IR_TO-style generators consumed by Icon's flat_drive_every wrapper, which   */
@@ -2013,7 +2024,10 @@ static void icn_chain_operand_refs(IR_t *entry) {
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
         if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && sv < 512) stkv[sv++] = c->ω;
-        /* RK-EMIT-GATHER (2026-06-01): mirror the emit-BFS ω-follow for IR_GATHER so the for-loop          */
+        /* GZ-10 PROC-FAIL: mirror the emit-BFS ω-follow for IR_CALL so the else-continuation node        */
+        /* gets its operand refs set (else-branch producers have their α/β wired here). Without this,     */
+        /* the else-branch producer node is never visited → its α stays NULL → FATAL in its template.    */
+        if (c->t == IR_CALL && c->ω && sv < 512) stkv[sv++] = c->ω;
         /* CONTINUATION (on the gather's ω) gets its operand refs (α/β) set by this postfix walk — else its */
         /* consuming call (e.g. say('done') reading a separate IR_LIT_S producer box) has a NULL α and is   */
         /* mis-routed to the builtin-dispatch arm. Pushed BEFORE γ (LIFO) so the loop body linearizes first */
