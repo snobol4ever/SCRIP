@@ -30,6 +30,7 @@ extern IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR
 extern IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower2_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * lit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * bin(tree_e op, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(op); ast_push(n, a); ast_push(n, b); return n; }
@@ -81,6 +82,7 @@ static const char * kname(IR_e t) {
     case IR_GATHER: return "GTHR";
     case IR_SUBJECT: return "SUBJ";
     case IR_REF_INVARIANT: return "REFINV";
+    case IR_PAT_MATCH: return "PATMAT";
     default: return "?";
     }
 }
@@ -187,6 +189,29 @@ static void dump_ref_invariant(const char * title, tree_t * ast, int expect_node
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
     IR_t * top = lower2_pat_build_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    printf("=== %s ===\n", title);
+    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
+    printf("idx  kind    α    β    γ    ω      ival  dval\n");
+    for (int i = 0; i < g->n; i++) {
+        IR_t * n = g->all[i];
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) n->ival, n->dval);
+    }
+    int real = g->n - 2;
+    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* dump_match — PB-RB-3 BB_MATCH phase topology (lower2_match_entry under IR_LANG_SNO). Proves the IR_PAT_MATCH
+ * box's INLINE-JUMP four-port shape (Lon "jump to alpha, return from omega"): control arrives at MATCH (its own
+ * α); MATCH.γ -> success, MATCH.ω -> fail; the element it drives (held in operand_aux) has BOTH its γ and ω
+ * threaded back to the MATCH node (the element's success is the loop exit; the element's failure returns for the
+ * outer-loop retry). Bounded single-shot (β = ω, statement-level). The element entry is referenced (operand_aux),
+ * driven inline by the emitter — NO C call (FACT RULE). */
+static void dump_match(const char * title, tree_t * ast, int expect_nodes) {
+    IR_graph_t * g = IR_alloc(64, IR_LANG_SNO);
+    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t * a = NULL, * b = NULL;
+    IR_t * top = lower2_match_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -319,6 +344,13 @@ int main(void) {
        sealed element's bb_box_fn head into a ζ slot for PB-RB-3 BB_MATCH; NO runtime construction (Fork A/E). */
     dump_ref_invariant("SNOBOL4:  REF_INVARIANT 'abc'  [IR_REF_INVARIANT over sealed IR_PAT_LIT: load sealed bb_box_fn head -> ζ slot; bounded β=ω (SPITBOL ch.18)]",
          slit("abc"), 2);
+    /* PB-RB-3 BB_MATCH phase, literal: MATCH('b') -> IR_PAT_MATCH driving an IR_PAT_LIT element. 2 real nodes:
+       the IR_PAT_LIT matcher (its own α) with BOTH γ AND ω threaded back to the MATCH node (γ = loop-exit/success,
+       ω = outer-loop retry — Lon "jump to alpha, return from omega"), + the IR_PAT_MATCH box (its own α = chain
+       entry, γ -> statement success, ω -> match-exhausted fail, bounded single-shot β=ω). The element entry is
+       referenced via operand_aux (PEERS RULE) for inline-jump drive — NO C call (FACT RULE). */
+    dump_match("SNOBOL4:  MATCH('b')  [IR_PAT_MATCH inline-drives IR_PAT_LIT: element γ+ω -> MATCH; ch.18 unanchored outer start-loop; bounded β=ω]",
+         slit("b"), 2);
     /* ===== END SNOBOL4 SECTION ===== */
 
     /* ===== ICON SECTION — APPEND ICON (VALUE-role) CASES BELOW THIS LINE ===== */
