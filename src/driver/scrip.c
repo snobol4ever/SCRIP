@@ -225,9 +225,9 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
         int is_io = (!strcmp(fn, "write") || !strcmp(fn, "writeln") || !strcmp(fn, "print") || !strcmp(fn, "nl") || !strcmp(fn, "halt"));
         if (!is_io) return 0;
         /* PLG-9b (2026-05-31): write/print of a logic-variable slot is now in the flat tier. The bb_builtin */
-        /* emit_write_term TEXT arm already renders IR_LOGICVAR via rt_pl_write_var(slot) (reads g_resolve_  */
-        /* env[slot]); its MEDIUM_BINARY twin does the same. So accept an IR_LOGICVAR arg alongside the      */
-        /* constant IR_ATOM / IR_LIT_I args of PLG-9a.                                                       */
+        /* write/1 TEXT arm renders an IR_LOGICVAR via rt_pl_write_var(slot) (reads g_resolve_env[slot]); its */
+        /* MEDIUM_BINARY twin does the same. So accept an IR_LOGICVAR arg alongside the constant IR_ATOM /    */
+        /* IR_LIT_I args of PLG-9a.                                                                           */
         if (g->ival >= 1) { const IR_t *a = g->α; if (!a || (a->t != IR_ATOM && a->t != IR_LIT_I && a->t != IR_LOGICVAR)) return 0; }
         return 1;
     }
@@ -399,6 +399,10 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;
         /* format/1,2 (CAT-D-format): γ-chain, arity 1 or 2. TEXT arm proven in rung19. */
         if (!strcmp(fn,"format")) return nd->α && (nd->ival==1 || nd->ival==2);
+        /* numbervars/3 (PLG-9j): RESOLVE_BI_CHAIN (α→γ→γ): term, start int, End var. The @PLT MEDIUM_TEXT */
+        /* twin builds the term via emit_build_compound_term (IR_LOGICVARs alias live env slots) then       */
+        /* rt_pl_numbervars_term binds each var to '$VAR'(N) in place — the later write rereads them. rung20.*/
+        if (!strcmp(fn,"numbervars")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
         /* copy_term/2 (PLG-9i): γ-chain pair. Compound arg0 → the PLG-9i @PLT MEDIUM_TEXT twin (rt_pl_   */
         /* copy_term_terms/_term, preserving intra-term var-sharing); scalar arg0 → the CAT-D-5 scalar     */
         /* arm (rt_pl_copy_term). Both arms now present, so the prior var-identity gap is closed. rung26.  */
@@ -432,10 +436,10 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         /* concat_term@PLT — the @PLT twin of the PLR-K-14 BINARY arm. Proven 3-mode in rung26.           */
         if (!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) return nd->α && (nd->ival==2 || nd->ival==3);
         /* EXCISED — no working @PLT MEDIUM_TEXT arm (only a MEDIUM_BINARY arm exists, which the standalone */
-        /* .s cannot use): numbervars/3 (term-mutation: mode-4 leaves vars unbound — rung20). findall       */
-        /* (compile-time heap pointer dead in separate process — honest-abort stub). retract/retractall/    */
-        /* abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13). (float arith ADMITTED via the */
-        /* `is` branch — PLG-9h; copy_term ADMITTED above — PLG-9i.)                                         */
+        /* .s cannot use): findall (compile-time heap pointer dead in separate process — honest-abort stub).*/
+        /* retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13). aggregate. */
+        /* catch/throw (exception barrier). dcg_generate. (float arith ADMITTED — PLG-9h; copy_term — PLG-  */
+        /* 9i; numbervars — PLG-9j.)                                                                         */
         return 0;
     }
     default:
