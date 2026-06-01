@@ -21,6 +21,7 @@ extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, I
 extern IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * lit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * bin(tree_e op, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(op); ast_push(n, a); ast_push(n, b); return n; }
@@ -71,6 +72,7 @@ static const char * kname(IR_e t) {
     case IR_ITE: return "ITE";
     case IR_GATHER: return "GTHR";
     case IR_SUBJECT: return "SUBJ";
+    case IR_PAT_BUILD_LIT: return "BLDLIT";
     default: return "?";
     }
 }
@@ -156,6 +158,26 @@ static void dump_subject(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
     IR_t * top = lower2_subject_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    printf("=== %s ===\n", title);
+    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
+    printf("idx  kind    α    β    γ    ω      ival  dval\n");
+    for (int i = 0; i < g->n; i++) {
+        IR_t * n = g->all[i];
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) n->ival, n->dval);
+    }
+    int real = g->n - 2;
+    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* dump_pat_build — PB-1 PATTERN-BUILDER phase topology (lower2_pat_build_entry under IR_LANG_SNO). Proves the
+ * IR_PAT_BUILD_LIT builder box's four-port shape: it is its own α, γ -> success, ω -> fail, bounded single-
+ * shot (β = ω, NOT self — the builder is not a generator: building the literal once is enough). */
+static void dump_pat_build(const char * title, tree_t * ast, int expect_nodes) {
+    IR_graph_t * g = IR_alloc(64, IR_LANG_SNO);
+    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t * a = NULL, * b = NULL;
+    IR_t * top = lower2_pat_build_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -282,6 +304,11 @@ int main(void) {
     /* PB-0 SUBJECT phase, variable subject: SUBJECT(S) -> IR_SUBJECT over IR_VAR. 2 real nodes. */
     dump_subject("SNOBOL4:  SUBJECT(S)  [IR_SUBJECT over a variable subject: name baked RO, fetched via rt_sno_subject_load]",
          var("S"), 2);
+    /* PB-1 PATTERN-BUILDER phase, literal: 'abc' (pattern role) -> ONE IR_PAT_BUILD_LIT builder box. 1 real
+       node, bounded single-shot (β = ω; the builder is not a generator). Distinct from the matcher-leaf
+       IR_PAT_LIT — this box's runtime effect CONSTRUCTS a PATND_t and lands its head in a ζ slot. */
+    dump_pat_build("SNOBOL4:  build 'abc'  [IR_PAT_BUILD_LIT: builder box constructs a runtime LIT pattern node -> head in ζ slot; bounded β=ω (SPITBOL ch.18)]",
+         slit("abc"), 1);
     /* ===== END SNOBOL4 SECTION ===== */
 
     /* ===== ICON SECTION — APPEND ICON (VALUE-role) CASES BELOW THIS LINE ===== */
