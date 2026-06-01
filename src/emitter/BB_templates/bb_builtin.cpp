@@ -442,14 +442,14 @@ static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
                 (strcmp(fn,"==")==0   || strcmp(fn,"\\==")==0 || strcmp(fn,"@<")==0 || strcmp(fn,"@>")==0
               || strcmp(fn,"@=<")==0  || strcmp(fn,"@>=")==0
               || strcmp(fn,"=:=")==0  || strcmp(fn,"=\\=")==0 || strcmp(fn,"<")==0  || strcmp(fn,">")==0
-              || strcmp(fn,"<=")==0   || strcmp(fn,">=")==0)) {
+              || strcmp(fn,"=<")==0   || strcmp(fn,"<=")==0   || strcmp(fn,">=")==0)) {
                 IR_t *a0 = pBB->α, *a1 = pBB->β;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival;
                 const char *s0 = (k0 == IR_ATOM) ? a0->sval : NULL;
                 const char *s1 = (k1 == IR_ATOM) ? a1->sval : NULL;
                 int is_arith = (strcmp(fn,"=:=")==0 || strcmp(fn,"=\\=")==0 || strcmp(fn,"<")==0
-                             || strcmp(fn,">")==0   || strcmp(fn,"<=")==0   || strcmp(fn,">=")==0);
+                             || strcmp(fn,">")==0   || strcmp(fn,"=<")==0   || strcmp(fn,"<=")==0 || strcmp(fn,">=")==0);
                 void *callee = is_arith ? (void*)rt_pl_arith_cmp : (void*)rt_pl_term_cmp;
                 std::string b;
                 /* sub rsp, 16              48 83 EC 10                                               */
@@ -1901,7 +1901,7 @@ static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
             (strcmp(fn,"==")==0   || strcmp(fn,"\\==")==0 || strcmp(fn,"@<")==0 || strcmp(fn,"@>")==0
           || strcmp(fn,"@=<")==0  || strcmp(fn,"@>=")==0
           || strcmp(fn,"=:=")==0  || strcmp(fn,"=\\=")==0 || strcmp(fn,"<")==0  || strcmp(fn,">")==0
-          || strcmp(fn,"<=")==0   || strcmp(fn,">=")==0)) {
+          || strcmp(fn,"=<")==0   || strcmp(fn,"<=")==0   || strcmp(fn,">=")==0)) {
             IR_t *a0 = pBB->α, *a1 = pBB->β;
             int  k0 = (int)a0->t,    k1 = (int)a1->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival;
@@ -1911,7 +1911,7 @@ static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
             if (k0 == IR_ATOM && a0->sval) strtab_label(s0lbl, sizeof s0lbl, a0->sval);
             if (k1 == IR_ATOM && a1->sval) strtab_label(s1lbl, sizeof s1lbl, a1->sval);
             int is_arith = (strcmp(fn,"=:=")==0 || strcmp(fn,"=\\=")==0 || strcmp(fn,"<")==0
-                         || strcmp(fn,">")==0   || strcmp(fn,"<=")==0   || strcmp(fn,">=")==0);
+                         || strcmp(fn,">")==0   || strcmp(fn,"=<")==0   || strcmp(fn,"<=")==0 || strcmp(fn,">=")==0);
             const char *callee = is_arith ? "rt_pl_arith_cmp@PLT" : "rt_pl_term_cmp@PLT";
             return hdr
                  + s_2asm("sub", "rsp, 16")
