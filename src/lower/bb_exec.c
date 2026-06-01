@@ -135,6 +135,28 @@ int rt_sno_exec_scan(const char *subj_name, const char *subj_lit, int has_repl, 
     Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ; g_dcap_active = save_dca; g_dcap_n = save_dcn;
     return matched;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SBL-M3-CONCAT (2026-05-31): stackless mode-3 store of a SNOBOL4 whitespace-concatenation rhs (`OUT = 'ab' */
+/* 'cd'`). The IR_SEQ concat node (dval=1.0) keeps its two operands as isolated IR_graph_t sub-graphs (left  */
+/* on counter, right on ival); this runs each via bb_reset+bb_exec_once (handles any operand node count and  */
+/* nesting, no AG ring), concatenates via binop_apply(BINOP_CONCAT), and stores under `name` via NV_SET_fn — */
+/* IDENTICAL semantics to the mode-2 IR_SEQ(dval==1.0) arm. Returns 1 on success, 0 on operand failure. The  */
+/* sub-graph pointers are process-valid in mode-3 (baked imm64 by the bb_sno_assign IR_SEQ arm). NO vstack.  */
+extern int rt_sno_assign_concat(const char *name, void *left_graph, void *right_graph);
+int rt_sno_assign_concat(const char *name, void *left_graph, void *right_graph) {
+    IR_graph_t *lblk = (IR_graph_t *)left_graph;
+    IR_graph_t *rblk = (IR_graph_t *)right_graph;
+    if (!lblk || !rblk) return 0;
+    bb_reset(lblk); DESCR_t lv = bb_exec_once(lblk);
+    if (IS_FAIL_fn(lv)) return 0;
+    bb_reset(rblk); DESCR_t rv = bb_exec_once(rblk);
+    if (IS_FAIL_fn(rv)) return 0;
+    int rel_fail = 0;
+    DESCR_t result = binop_apply(BINOP_CONCAT, lv, rv, &rel_fail);
+    if (IS_FAIL_fn(result)) return 0;
+    NV_SET_fn(name ? name : "", result);
+    return 1;
+}
 static int ir_is_single_shot(IR_t * e) {
     if (!e) return 1;
     switch (e->t) {

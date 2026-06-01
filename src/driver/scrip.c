@@ -128,11 +128,20 @@ static int sno_stmt_arity(const IR_t *n) {
     switch (n->t) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD:                 return 0;
-    case IR_BINOP: case IR_BINOP_GEN: case IR_SEQ:  return 2;
+    case IR_SEQ: case IR_SEQ_EXPR:                  return (n->dval == 1.0) ? 0 : 2; /* SNO concat: operands in isolated sub-graphs (counter/ival) => leaf */
+    case IR_BINOP: case IR_BINOP_GEN:               return 2;
     case IR_ASSIGN:                                 return 1;
-    case IR_SCAN:                                   return (n->ival != 0) ? 1 : 1; /* repl: replacement operand; plain: subject operand */
+    case IR_SCAN:                                   return 1; /* repl: replacement operand on chain; plain: subject operand on chain */
     default:                                        return -1;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Walk a statement's gamma-chain to its LAST non-landing node (whose gamma/omega are the statement exits). */
+/* Returns NULL when `start` is itself a landing — a pass-through / bare-goto statement (`:(L)` with no body).*/
+static IR_t * sno_chain_last(IR_t *start) {
+    IR_t *last = NULL;
+    for (IR_t *cur = start; cur && !sno_node_is_landing(cur); cur = cur->γ) last = cur;
+    return last;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Fold one statement's postfix gamma-chain (from `start`, exclusive of the trailing landing) into a tree. */
@@ -170,11 +179,13 @@ static IR_t * sno_ring_to_tree(IR_graph_t *g) {
         if (nl >= MAXL) return NULL;
         land[nl++] = L;
         if (L->t == IR_SUCCEED && L->γ) {
-            IR_t *last = NULL;
-            IR_t *root = sno_fold_stmt(L->γ, &last);
-            if (!root || !last) return NULL;
-            if (last->γ && qt < MAXL) queue[qt++] = last->γ;
-            if (last->ω && qt < MAXL) queue[qt++] = last->ω;
+            IR_t *last = sno_chain_last(L->γ);
+            if (last) {
+                if (last->γ && qt < MAXL) queue[qt++] = last->γ;
+                if (last->ω && qt < MAXL) queue[qt++] = last->ω;
+            } else {
+                if (qt < MAXL) queue[qt++] = L->γ;   /* pass-through / bare goto */
+            }
         }
     }
     sno_prog_t *prog = (sno_prog_t *)GC_MALLOC(sizeof(sno_prog_t));
@@ -186,14 +197,20 @@ static IR_t * sno_ring_to_tree(IR_graph_t *g) {
         sno_stmt_t *st = &prog->stmts[i];
         st->root = NULL; st->succ_idx = -1; st->fail_idx = -1; st->is_terminal = 1;
         if (L->t == IR_SUCCEED && L->γ) {
-            IR_t *last = NULL;
-            IR_t *root = sno_fold_stmt(L->γ, &last);
-            if (!root) return NULL;
-            st->root = root; st->is_terminal = 0;
-            st->succ_idx = -1; st->fail_idx = -1;
-            for (int j = 0; j < nl; j++) {
-                if (land[j] == last->γ) st->succ_idx = j;
-                if (land[j] == last->ω) st->fail_idx = j;
+            IR_t *probe = sno_chain_last(L->γ);
+            if (!probe) {
+                /* pass-through: the landing transfers directly to L->γ's landing (a bare `:(L)`/fall-into). */
+                st->is_terminal = 0; st->root = NULL;
+                for (int j = 0; j < nl; j++) if (land[j] == L->γ) { st->succ_idx = j; st->fail_idx = j; break; }
+            } else {
+                IR_t *last = NULL;
+                IR_t *root = sno_fold_stmt(L->γ, &last);
+                if (!root) return NULL;
+                st->root = root; st->is_terminal = 0;
+                for (int j = 0; j < nl; j++) {
+                    if (land[j] == last->γ) st->succ_idx = j;
+                    if (land[j] == last->ω) st->fail_idx = j;
+                }
             }
         }
     }
