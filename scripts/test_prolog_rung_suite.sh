@@ -87,7 +87,7 @@ collect_files() {
 # run the whole corpus in one mode; sets MODE_FAIL=1 on any FAIL
 run_corpus() {
     local mode="$1"
-    local PASS=0 FAIL=0 XFAIL=0
+    local PASS=0 FAIL=0 XFAIL=0 EXCISED=0
     MODE_FAIL=0
     if mode_is_excised "$mode"; then
         local pend=0 f
@@ -106,6 +106,13 @@ run_corpus() {
             XFAIL=$((XFAIL+1)); continue
         fi
         got=$(run_prog "$mode" "$pl" 8) || true
+        # Per-file excision: mode-4 is now PARTIALLY live (PLG-9a hello tier emits+runs); a shape
+        # the flat tier does not yet cover declines with the [SMX] banner. Per the testing discipline
+        # that is EXCISED (pending regrow), NOT a FAIL — identical to test_smoke_prolog.sh.
+        if printf '%s' "$got" | grep -qE "$SMX_SIG"; then
+            [ "$VERBOSE" = 1 ] && echo "EXCISED $name"
+            EXCISED=$((EXCISED+1)); continue
+        fi
         want=$(cat "$exp")
         if [ "$got" = "$want" ]; then
             [ "$VERBOSE" = 1 ] && echo "PASS $name"
@@ -119,7 +126,11 @@ run_corpus() {
             FAIL=$((FAIL+1)); MODE_FAIL=1
         fi
     done
-    echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
+    if [ "$EXCISED" -gt 0 ]; then
+        echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL EXCISED=$EXCISED TOTAL=$((PASS+FAIL+XFAIL+EXCISED)) ---"
+    else
+        echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
+    fi
 }
 
 PROBE="$(mktemp /tmp/plprobe_XXXXXX.pl)"

@@ -502,7 +502,62 @@ int main(int argc, char **argv)
             fflush(stdout);
             return rc;
         }
-        if (!is_prolog) {
+        if (is_prolog) {
+            /* PLG-9a (mode-4 --compile --target=x86, 2026-05-31): emit a standalone GAS .s for the proven    */
+            /* hello-world tier, mirroring the Icon mode-4 arm above EXACTLY. pl_flat_body_root recognizes the */
+            /* same shape the PLG-8-native mode-3 arm JITs (a single-clause body that is a conjunction of      */
+            /* constant-arg builtins write/writeln/print/nl/halt + IR_SUCCEED/IR_CUT/IR_ATOM, nslots==0); the  */
+            /* identical g_frame_active ζ-frame model is used (rt_frame -> rdi, esi=0, call main_α). The body  */
+            /* is emitted by codegen_flat_build in MEDIUM_TEXT — the SAME bb_builtin write/nl TEXT arm whose    */
+            /* MEDIUM_BINARY twin mode-3 emits (MIGRATION-MODE4-IS-MODE3-DUMP: one template, two output sinks). */
+            /* The write/1 IR_ATOM arg label is produced by strtab_label (g_flat_intern_str hook unset), so    */
+            /* the .rodata string table is flushed by xa_strtab_rodata after the walk (Prolog differs from     */
+            /* Icon here: Icon's bb_call emits its rodata inline). The .s links libscrip_rt.so (rt_pl_write_    */
+            /* atom, putchar, rt_frame). Every richer shape -> pl_flat_body_root returns NULL -> EXCISED banner */
+            /* + non-zero return (smoke reports m4 EXCISED, not FAIL; no regression). Widen rung by rung.       */
+            extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
+            extern int g_frame_active;
+            extern void xa_emit_strtab_rodata(void);
+            stage2_t *s2 = sm_preamble(ast_prog);
+            if (!s2) { fprintf(stderr, "[PBB] mode-4: sm_preamble failed\n"); return 1; }
+            ast_tree_free(ast_prog); ast_prog = NULL;
+            int main_bb_idx = -1;
+            for (int _pi = 0; _pi < s2->proc_count; _pi++)
+                if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
+            if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
+                fprintf(stderr, "[PBB] FATAL: mode-4 driver: Prolog main BB graph not found "
+                                "(no initialization goal lowered, or predicate unhandled)\n");
+                return 1;
+            }
+            IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
+            IR_t *flat_root = pl_flat_body_root(pl_main);
+            if (!flat_root) {
+                fprintf(stderr, "[SMX] --compile --target=x86: Prolog mode-4 flat tier covers the hello-world "
+                                "shape only (write/writeln/print/nl/halt, no slots/choice/call); this program "
+                                "needs PLG-9b+ (not yet wired).\n");
+                return 1;
+            }
+            printf("  .intel_syntax noprefix\n");
+            printf("  .text\n");
+            printf("  .globl main\n");
+            printf("main:\n");
+            printf("  push rbp\n");
+            printf("  mov rbp, rsp\n");
+            printf("  call rt_frame@PLT\n");
+            printf("  mov rdi, rax\n");
+            printf("  xor esi, esi\n");
+            printf("  call main_\xce\xb1\n");
+            printf("  xor eax, eax\n");
+            printf("  pop rbp\n");
+            printf("  ret\n");
+            g_frame_active = 1;
+            int rc = codegen_flat_build(flat_root, stdout, "main");
+            g_frame_active = 0;
+            xa_emit_strtab_rodata();
+            fflush(stdout);
+            return rc;
+        }
+        {
             /* SBL-RING-REMOVE (2026-05-31, Opus 4.8): SNOBOL4 mode-4 BB-native x86 emission now ABORTS.
                It previously leaned on sno_ring_to_tree (the postfix-ring → four-port-tree adapter) which is
                REMOVED as a VIOLATION (Lon directive) — the topology must come from LOWER, not be re-derived at
@@ -526,9 +581,6 @@ int main(int argc, char **argv)
                             "directly (no ring->tree adapter); not yet wired. Aborting (by design).\n");
             abort();
         }
-        fprintf(stderr, "[SMX] --compile --target=x86: Prolog mode-4 pending (BB graph not yet wired).\n");
-        ast_tree_free(ast_prog); ast_prog = NULL;
-        return 1;
     }
     if (mode_compile && target_name && strcmp(target_name, "x86") != 0) {
         fprintf(stderr, "[SMX] --target=%s removed (Stack-Machine codegen excised).\n",

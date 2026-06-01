@@ -108,6 +108,7 @@ void js_escape_string(FILE * out, const char * s);
 #include "XA.h"
 struct tree_t;
 void strtab_label(char *buf, size_t bufsz, const char *s);
+void xa_emit_strtab_rodata(void);
 void strtab_reset(void);
 int  strtab_intern(const char *s);
 void xa_dispatch(XA_op_t op);
