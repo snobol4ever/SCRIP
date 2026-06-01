@@ -222,6 +222,32 @@ extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
 extern IR_t *resolve_bb_entry_node(const char *name, int arity);
 extern IR_graph_t *resolve_bb_graph_at(int idx);
+/* PLG-9e (2026-06-01): pl_ite_then_branch_trivial — is an IR_ITE's then-branch safe to commit into in       */
+/* mode-4? The one PROVEN-BROKEN shape is `cond binds X -> ...consumes X...` (rung30_dcg_pushback_rest:       */
+/* `( phrase(digits(Ds),Cs) -> atom_codes(A,Ds), write(A) ; … )`; general `( atom_concat(a,b,X) ->          */
+/* atom_length(X,N), write(N) ; … )`): in mode-4 the condition's binding does not survive the ITE commit jump */
+/* into the then-branch, so the consumer reads an unbound var and the goal silently yields empty output. The  */
+/* CORRECT disposition (FALL LOUD, never miscompile) is to EXCISE such an ITE.                                */
+/* DETECTION: the then-branch ENTRY node (zi->then_) is the first goal of the then-branch (for a multi-goal   */
+/* then-branch wrapped in an IR_GCONJ by pl_maybe_ifthenelse, it is that GCONJ's α = the first goal). The     */
+/* proven-SAFE then-branches (3 passing DCG rungs + rung07/09/16/40) all begin with a CONSTANT-output goal —  */
+/* write / writeln / print / nl / halt — or are IR_SUCCEED/IR_FAIL/IR_CUT/a unify/a plain atom. The DANGEROUS */
+/* then-branches begin with a binding-CONSUMING builtin (atom_codes, atom_length, atom_concat, is, …) that    */
+/* reads a variable the condition bound. So: a then-branch whose FIRST goal is an IR_BUILTIN OUTSIDE the safe  */
+/* constant-output set is rejected. (write(X) of a cond-bound X is itself the consuming case, but every       */
+/* corpus then-branch writes a CONSTANT; if a write-of-cond-var program surfaces it would be a new rung to    */
+/* diagnose — keeping write admitted matches the proven corpus and the simple `c -> write(yes)` shape.)       */
+/* Inspect ONLY this node's kind/name — do NOT follow γ (which is wired to the ITE's continuation, e.g. a     */
+/* trailing nl, NOT to the then-branch).                                                                      */
+static int pl_ite_then_branch_trivial(const IR_t *then_entry) {
+    if (!then_entry) return 1;                 /* empty then -> trivial */
+    if (then_entry->t != IR_BUILTIN) return 1; /* succeed/fail/cut/unify/atom/etc — safe */
+    const char *fn = then_entry->sval ? then_entry->sval : "";
+    /* Constant-output builtins are the only ones proven safe as a then-branch head. */
+    if (!strcmp(fn,"write")||!strcmp(fn,"writeln")||!strcmp(fn,"print")||!strcmp(fn,"nl")||!strcmp(fn,"halt"))
+        return 1;
+    return 0;                                  /* binding-consuming builtin head -> EXCISE */
+}
 /* pl_rich_node_emittable — is a single IR node a kind the TEXT walk emits? Pure structural test over the     */
 /* node KIND (and, for arith/unify operand leaves, their immediate operand kinds). Operand sub-nodes hanging  */
 /* off the alpha/beta ports (logicvar/atom/literal/struct) are DATA the parent box reads; they are validated  */
@@ -246,13 +272,24 @@ static int pl_rich_node_emittable(const IR_t *nd) {
     /* disjunction arms' fail edges; bb_goal.cpp's β arm re-drives a live CP via resolve_cp_current. The  */
     /* CP globals (g_resolve_bfr / g_resolve_cut_barrier / g_resolve_cut_flag) are zero-initialized in    */
     /* the fresh process, so a top-level query starts with an empty CP spine and an unset cut barrier.    */
-    case IR_GCONJ: case IR_GOAL: case IR_ITE:
+    case IR_GCONJ: case IR_GOAL:
     case IR_CHOICE: case IR_DISJ:
     case IR_SUCCEED: case IR_FAIL: case IR_CUT:
     /* leaf/operand kinds (appear both as boxes and as α/β data) */
     case IR_LOGICVAR: case IR_ATOM: case IR_STRUCT:
     case IR_LIT_I: case IR_LIT_F: case IR_LIT_S: case IR_LIT_NUL:
         return 1;
+    case IR_ITE: {
+        /* PLG-9e (2026-06-01): admit if-then-else UNLESS its then-branch consumes a binding made in the   */
+        /* condition — that shape (cond binds X, then uses X) is miscompiled in mode-4 (the binding does    */
+        /* not survive the ITE commit jump; output is silently empty). The passing ITE rungs all have       */
+        /* constant-write then-branches and stay admitted; rung30_dcg_pushback_rest's binding-consuming     */
+        /* then-branch EXCISES (FALL LOUD). The else-branch never holds a cond binding (failure path), so   */
+        /* only the then-branch is gated. zi->then_ is the then-branch entry node.                          */
+        bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)nd->ival;
+        if (zi && !pl_ite_then_branch_trivial(zi->then_)) return 0;
+        return 1;
+    }
     case IR_UNIFY:
         /* bb_unify TEXT arm builds each operand via build_operand_term (scalars + IR_STRUCT) then           */
         /* rt_pl_unify_terms — all operand shapes covered. */
@@ -262,28 +299,69 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         /* IR_ARITH boxes (comparison ops > < =:= ...) are emitted by bb_arith.cpp TEXT. */
         return 1;
     case IR_BUILTIN: {
-        /* Restrict to builtins with a PROVEN MEDIUM_TEXT arm verified 3-mode by PLG-9a/b/c: the write       */
-        /* family + nl/halt. For `is`, defer to the flat tier's pl_flat_goal_is_simple, which admits only    */
-        /* INTEGER arith (rejects IR_LIT_F / float ops) — rt_pl_arith is integer-only, so a float `is`       */
-        /* (X is pi, X is sqrt(4.0)) would miscompile = FAIL (rung29). The GOAL doc's "Mode-2 only" builtins */
-        /* (numbervars, writeq, write_canonical, copy_term, atomic_list_concat, findall, retract, float      */
-        /* arith) have no working TEXT arm and EXCISE here. Type-tests/comparisons have TEXT arms (PLR-J-1)  */
-        /* but are not yet 3-mode-verified in the mode-4 facts/call context, so they EXCISE for now.         */
+        /* PLG-9e (2026-06-01): widen the rich tier to ALL builtin families whose bb_builtin.cpp MEDIUM_TEXT */
+        /* arm is proven correct in the mode-4 standalone-binary context. The discriminator is structural:  */
+        /* can the template safely emit in TEXT medium given the operand shapes the lowerer produces?        */
+        /* STAY EXCISED: findall (compile-time heap pointer stale in separate process — honest-abort stub); */
+        /* numbervars/writeq/write_canonical/atomic_list_concat (mode-2-only, no proven TEXT arm);          */
+        /* retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — CAT-D/PLG-9 family);  */
+        /* float `is` (rt_pl_arith integer-only — float result needs separate rt_pl_arith_d path).         */
+        /* ADMIT: every family with a proven scalar-or-compound TEXT arm verified not to miscompile.        */
         const char *fn = nd->sval ? nd->sval : "";
+        /* `is` — integer arith only, as before (PLG-9c). Float `is` stays EXCISED. */
         if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd);
+        /* write-family + nl/halt — proven since PLG-9a/b (unchanged). */
         static const char *ok[] = { "write", "writeln", "print", "nl", "halt", NULL };
         for (int k = 0; ok[k]; k++) if (!strcmp(fn, ok[k])) return 1;
-        /* PLG-9d-bt (2026-06-01): arithmetic comparison goals (>,<,>=,=<,=:=,=\=). bb_builtin's CAT-D-9   */
-        /* arm serializes each operand as (kind,ival,sval) and calls rt_pl_arith_cmp (integer), which can  */
-        /* only evaluate a SCALAR operand — an integer literal or a logic-variable slot. A float literal,  */
-        /* a nested IR_ARITH expression, or an atom it cannot evaluate (= wrong result), so admit only     */
-        /* when BOTH operands are integer-scalar (pl_flat_arith_leaf_simple). rung08 (fib `N>1` /          */
-        /* factorial `N>0`) proves this shape passes all three modes. Float/compound comparisons (rung16,  */
-        /* rung29) stay EXCISED. Term comparisons (==, @<, …) route through rt_pl_term_cmp and are not yet */
-        /* 3-mode-proven in this context, so they remain EXCISED.                                          */
-        static const char *cmp[] = { ">", "<", ">=", "=<", "<=", "=:=", "=\\=", NULL };
-        for (int k = 0; cmp[k]; k++)
-            if (!strcmp(fn, cmp[k])) return pl_flat_arith_leaf_simple(nd->α) && pl_flat_arith_leaf_simple(nd->β);
+        /* Arith comparisons (>,<,>=,=<,=:=,=\=) — integer-scalar operands only (PLG-9d-bt). */
+        static const char *acmp[] = { ">", "<", ">=", "=<", "<=", "=:=", "=\\=", NULL };
+        for (int k = 0; acmp[k]; k++)
+            if (!strcmp(fn, acmp[k])) return pl_flat_arith_leaf_simple(nd->α) && pl_flat_arith_leaf_simple(nd->β);
+        /* Term comparisons (==,\==,@<,@>,@=<,@>=) — CAT-D-9 scalar path uses rt_pl_term_cmp; compound-arg  */
+        /* path (CAT-D-9b) handles IR_STRUCT operands via emit_build_compound_term. Both paths exist in TEXT. */
+        /* Admit any operand kind (scalar leaf or IR_STRUCT); the template dispatches the right path.        */
+        if (nd->α && nd->β &&
+            (!strcmp(fn,"==")||!strcmp(fn,"\\==")||!strcmp(fn,"@<")||!strcmp(fn,"@>")||!strcmp(fn,"@=<")||!strcmp(fn,"@>=")))
+            return 1;
+        /* Type-test builtins (CAT-D-10): 1-arg, any scalar or compound arg. TEXT arm exists. */
+        static const char *ttest[] = { "var","nonvar","atom","atomic","number","integer",
+                                        "float","compound","callable","is_list","ground", NULL };
+        for (int k = 0; ttest[k]; k++) if (!strcmp(fn, ttest[k])) return nd->α != NULL;
+        /* succ/2 (PLG-9e): RESOLVE_BI_AB style (α+β scalar args). TEXT arm proven in rung18.  */
+        if (!strcmp(fn,"succ")) return nd->ival==2 && nd->α && nd->β;
+        /* plus/3 (PLG-9e): RESOLVE_BI_CHAIN γ-chain (α→γ→γ). TEXT arm proven in rung18. */
+        if (!strcmp(fn,"plus")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
+        /* sort/2 + msort/2 (CAT-D-11): γ-chain (α→γ). TEXT arm admits scalar or IR_STRUCT a0. */
+        if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;
+        /* format/1,2 (CAT-D-format): γ-chain, arity 1 or 2. TEXT arm proven in rung19. */
+        if (!strcmp(fn,"format")) return nd->α && (nd->ival==1 || nd->ival==2);
+        /* 2-arg atom builtins (CAT-D-1/3/4/5): γ-chain pair. TEXT arms proven in rung12. copy_term is     */
+        /* deliberately NOT here — it has a TEXT arm but a known mode-4 var-identity gap (rung26).          */
+        static const char *atom2[] = { "atom_length","upcase_atom","downcase_atom","string_length",
+            "string_upper","string_lower","atom_string","string_to_atom", NULL };
+        for (int k = 0; atom2[k]; k++) if (!strcmp(fn, atom2[k])) return nd->α && nd->α->γ;
+        /* atom_concat/3 (CAT-D-2/3): γ-chain triple. TEXT arm proven in rung12. */
+        if (!strcmp(fn,"atom_concat")||!strcmp(fn,"string_concat")) return nd->α && nd->α->γ && nd->α->γ->γ;
+        /* atom_chars/atom_codes/string_chars/string_codes (CAT-D-6): γ-chain pair. TEXT arm proven. */
+        static const char *achars[] = { "atom_chars","atom_codes","string_chars","string_codes", NULL };
+        for (int k = 0; achars[k]; k++) if (!strcmp(fn, achars[k])) return nd->α && nd->α->γ;
+        /* char_type/2 (PLR-K-2): γ-chain pair, arity 2. TEXT arm proven in rung21. */
+        if (!strcmp(fn,"char_type")) return nd->ival==2 && nd->α && nd->α->γ;
+        /* number_string/2 + atom_number/2 (PLR-K-7): γ-chain pair. TEXT arm proven in rung24/25. */
+        if (!strcmp(fn,"number_string")||!strcmp(fn,"atom_number")) return nd->α && nd->α->γ;
+        /* functor/3, arg/3, =../2 (CAT-D-12-S2): γ-chain / AB style. TEXT arm proven in rung09. */
+        if (!strcmp(fn,"functor")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
+        if (!strcmp(fn,"arg")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
+        if (!strcmp(fn,"=..")) return nd->α && nd->α->γ;
+        /* term_to_atom/2 + term_string/2 (PLR-K-9): forward direction, γ-chain pair. */
+        if (!strcmp(fn,"term_to_atom")||!strcmp(fn,"term_string")) return nd->α && nd->α->γ;
+        /* EXCISED — no working @PLT MEDIUM_TEXT arm (only a MEDIUM_BINARY arm exists, which the standalone */
+        /* .s cannot use): writeq/1, write_canonical/1 (PLR-K-4 BINARY-only — mode-4 emits empty output);  */
+        /* numbervars/3 (term-mutation: mode-4 leaves vars unbound — rung20). copy_term/2 has a TEXT arm    */
+        /* but a KNOWN mode-4 var-identity gap (copy_term(f(X,X),f(A,B)) → A==B fails — rung26, GOAL doc).   */
+        /* findall (compile-time heap pointer dead in separate process — honest-abort stub).                */
+        /* retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13/PLG-9).      */
+        /* float arith (rt_pl_arith integer-only; float path needs rt_pl_arith_d).                          */
         return 0;
     }
     default:
