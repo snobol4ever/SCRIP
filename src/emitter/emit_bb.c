@@ -1184,7 +1184,17 @@ static void flat_drive_sno_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label
        via operand_aux per the PEERS RULE) into its ζ-frame slot, then jmps γ. NO runtime construction (Fork
        A/E): the sealed-head address is an emit-time constant (movabs in BINARY / [rip+disp] in TEXT). No
        operand subtree to control-thread (the sealed element is referenced, not run, here — running is PB-RB-3
-       BB_MATCH); β = jmp ω — same bounded single-shot shape as flat_drive_sno_subject. */
+       BB_MATCH); β = jmp ω — same bounded single-shot shape as flat_drive_sno_subject. The sealed child was
+       emitted once by pre_build_children / pre_build_children_text (keyed in the child cache); resolve it via
+       operand_aux (NOT bb_pat_kid) and hand its head to the box through g_emit.child_fn (BINARY fn ptr) /
+       g_emit.bb_child_lbl (TEXT α-label). */
+    int n_aux = 0;
+    IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
+    IR_t *ch = (n_aux > 0 && aux) ? aux[0] : NULL;
+    bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
+    g_emit.child_fn    = (void *)cfn;
+    g_emit.bb_child_fn = (void *)cfn;
+    g_emit.bb_child_lbl = cfn ? child_cache_get_lbl(cfn) : NULL;
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
@@ -1784,6 +1794,25 @@ static int g_in_prebuild = 0;
 static int g_text_child_counter = 0;
 static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix) {
     if (!nd) return;
+    if (nd->t == IR_REF_INVARIANT) {
+        int n_aux = 0;
+        IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, nd, &n_aux);
+        IR_t *ch = (n_aux > 0 && aux) ? aux[0] : NULL;
+        if (ch && !child_cache_get(ch)) {
+            pre_build_children_text(ch, out, base_prefix);
+            char child_prefix[120];
+            snprintf(child_prefix, sizeof(child_prefix), "%s_c%d", base_prefix, g_text_child_counter++);
+            emitter_init_text(out, TEXT_MODE_INVOCATION);
+            codegen_flat_body(ch, child_prefix, 1, 0);
+            emitter_end();
+            char α_lbl[128];
+            snprintf(α_lbl, sizeof(α_lbl), "%s_α", child_prefix);
+            bb_box_fn sentinel = (bb_box_fn)(uintptr_t)ch;
+            child_cache_put(ch, sentinel);
+            child_cache_set_lbl(sentinel, α_lbl);
+        }
+        return;
+    }
     if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM || nd->t == IR_PAT_CALLOUT) {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
@@ -1807,6 +1836,17 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pre_build_children(IR_t *nd) {
     if (!nd) return;
+    if (nd->t == IR_REF_INVARIANT) {
+        int n_aux = 0;
+        IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, nd, &n_aux);
+        IR_t *ch = (n_aux > 0 && aux) ? aux[0] : NULL;
+        if (ch && !child_cache_get(ch)) {
+            pre_build_children(ch);
+            bb_box_fn fn = bb_build_flat(ch);     /* sealed matcher element (e.g. bb_lit) — a plain four-port box, NOT brokered */
+            child_cache_put(ch, fn);
+        }
+        return;
+    }
     if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM || nd->t == IR_PAT_CALLOUT) {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
@@ -2024,6 +2064,20 @@ static void sno_stmt_operand_refs(IR_t *head) {
         stk[sp++] = n;
     }
 }
+/* PB-RB-1: the SNOBOL flat-chain builders (sno_flat_chain_build / _text) emit the whole program graph     */
+/* directly (not via bb_build_flat). A NEW IR_REF_INVARIANT node references its sealed IR_PAT_LIT element  */
+/* via operand_aux and needs that element emitted ONCE as its own box + keyed in the child cache BEFORE the */
+/* REF box is filled. We pre-build ONLY IR_REF_INVARIANT here — the pre-existing ARBNO/capture/CALLOUT      */
+/* kinds keep their established emission-time child handling (bb_build_brokered inside their own path), so  */
+/* this addition is byte-neutral to every prior shape. pre_build_children self-guards via child_cache_get.  */
+static void sno_chain_prebuild_children(IR_graph_t *g) {
+    if (!g || !g->all) return;
+    for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) pre_build_children(g->all[i]);
+}
+static void sno_chain_prebuild_children_text(IR_graph_t *g, FILE *out, const char *prefix) {
+    if (!g || !g->all) return;
+    for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) pre_build_children_text(g->all[i], out, prefix);
+}
 /* Run sno_stmt_operand_refs for EVERY statement in the SNOBOL4 program graph. A statement head is the       */
 /* landing-resolved γ-target of the program entry AND of each landing node (IR_SUCCEED-with-γ); deduped.     */
 /* This covers statements reachable only via a failure (ω) edge or a goto, which a γ-only walk from the      */
@@ -2115,15 +2169,19 @@ static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
 }
 bb_box_fn sno_flat_chain_build(IR_graph_t *g) {
     if (!g || !g->entry) return NULL;
+    IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = g;
+    int has_ref = 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) { has_ref = 1; break; }
+    if (has_ref && !g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; sno_chain_prebuild_children(g); g_in_prebuild = 0; }
     sno_chain_operand_refs(g);
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
-    if (!buf) return NULL;
+    if (!buf) { g_emit_cfg = save_cfg; return NULL; }
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_sno_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_sno_flat_chain_body(g->entry, "sno_flat");
     int nbytes = emitter_end();
     g_sno_flat_chain = 0;
+    g_emit_cfg = save_cfg;
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
     bb_seal(buf, (size_t)nbytes);
@@ -2132,6 +2190,9 @@ bb_box_fn sno_flat_chain_build(IR_graph_t *g) {
 }
 int sno_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     if (!g || !g->entry) return 1;
+    IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = g;
+    int has_ref = 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) { has_ref = 1; break; }
+    if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; sno_chain_prebuild_children_text(g, out, prefix); }
     sno_chain_operand_refs(g);
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_sno_flat_chain = 1;
@@ -2139,6 +2200,7 @@ int sno_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     int rc = codegen_sno_flat_chain_body(g->entry, prefix);
     emitter_end();
     g_sno_flat_chain = 0;
+    g_emit_cfg = save_cfg;
     return rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
