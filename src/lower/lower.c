@@ -710,6 +710,60 @@ static IR_t * v_raku_det_call(lcx_t cx, const char * fn, const tree_t * const * 
     return ret(call, α_out, β_out, call /* call node is the chain entry */, ω_in /* det */);
 }
 /*====================================================================================================================================================================================================*/
+/* v_raku_mutate_writeback (RK-LOWER-5b) — Raku in-place container mutation `push(@a,x)` / `@a[i]=v` / `%h<k>=v`  */
+/* / `delete %h<k>` lowered as `TARGET = PURE_FN(TARGET, args...)` (IR_ASSIGN over IR_CALL). IR_t is LEAN (PEERS  */
+/* rule — no per-mutation field), so rather than a runtime exec-side vname peek we thread the writeback through   */
+/* an ordinary IR_ASSIGN whose RHS is the PURE variant of the mutator (push_pure/arr_set_pure/hash_set_pure/      */
+/* hash_delete_pure — each RETURNS the new container string and does NO NV_SET_fn; the IR_ASSIGN supplies the     */
+/* store). The container variable is BOTH the assignment target AND the call's first operand, so its current      */
+/* value is read, transformed, and stored back. This is the docs.raku.org in-place semantics (type/Array#push,    */
+/* language/list `@a[$i]=$y`, type/Hash postcircumfix assign, routine/delete) realized on the shared four-port    */
+/* IR: identical to how v_assign wires rhs.γ -> ASSIGN, so it works byte-for-byte in modes 2/3/4 (both IR_ASSIGN  */
+/* and IR_CALL dval=2.0 already have native templates). Raku-gated by every caller; never reached for a non-Raku  */
+/* language. `target` is the container variable name; `kids[0]` MUST be the container TT_VAR so the read side and */
+/* the write side name the same slot.                                                                            */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_raku_mutate_writeback(lcx_t cx, const char * target, const char * pure_fn, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!target || !pure_fn || nkids < 1) return NULL;
+    IR_t * as = nalloc(cx, IR_ASSIGN);
+    if (!as) return NULL;
+    as->sval = GC_strdup(target);
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * call = v_raku_det_call(cx, pure_fn, kids, nkids, as /*call.γ -> store new container*/, ω_in, &cα, &cβ);
+    if (!call) return NULL;
+    (void) cβ;
+    set_succ_fail(as, γ_in, ω_in);
+    return ret(as, α_out, β_out, cα /*entry = evaluate the pure call*/, ω_in /*bounded: resume -> fail*/);
+}
+/*====================================================================================================================================================================================================*/
+/* v_raku_pop (RK-LOWER-5b) — Raku `my $p = pop(@a)` (docs.raku.org/routine/pop: remove AND return the last       */
+/* element). pop is the one mutator whose RETURNED value (the popped element) differs from the new container      */
+/* (the array minus its last element), so the single `var = pure(var,...)` shape does not fit. We split it into   */
+/* TWO ordinary assignments over PURE reads, sequenced: (1) `$p = arr_last(@a)` binds the popped element; (2)     */
+/* `@a = arr_init(@a)` rewrites the container to all-but-last. Both reads see @a's ORIGINAL value because op2     */
+/* reads @a before op2's own store commits, and op1 (which also reads @a) runs first. No new IR kind, no vname    */
+/* threading: just IR_ASSIGN + IR_CALL dval=2.0, so it rides the native templates in all three modes. `dst` is    */
+/* the scalar target ($p); `arr` is the container TT_VAR (@a). Topology: op1.γ -> op2.α ; op2.γ -> γ_in ; both    */
+/* .ω -> ω_in. Raku-gated by the TT_ASSIGN caller.                                                               */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_raku_pop(lcx_t cx, const char * dst, const tree_t * arr, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!dst || !arr || arr->t != TT_VAR || !arr->v.sval) return NULL;
+    const tree_t * k[1] = { arr };
+    IR_t * o2α = NULL, * o2β = NULL;
+    IR_t * op2 = v_raku_mutate_writeback(cx, arr->v.sval, "arr_init", k, 1, γ_in /*op2.γ -> next stmt*/, ω_in, &o2α, &o2β);
+    if (!op2) return NULL;
+    (void) o2β;
+    IR_t * as = nalloc(cx, IR_ASSIGN);
+    if (!as) return NULL;
+    as->sval = GC_strdup(dst);
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * call = v_raku_det_call(cx, "arr_last", k, 1, as /*call.γ -> store popped value*/, ω_in, &cα, &cβ);
+    if (!call) return NULL;
+    (void) cβ;
+    set_succ_fail(as, o2α /*$p stored -> rewrite @a*/, ω_in);
+    return ret(as, α_out, β_out, cα /*entry = read last element*/, ω_in);
+}
+/*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — `while E1 [do E2]` (jcon ir_a_While). Condition + body both bounded; each iteration
  * re-evaluates the condition FRESH (not resume): while.α = E1.α ; E1.γ = body.α ; E1.ω = while.ω ;
  * body.γ = body.ω = E1.α. while yields no value; fails when the condition fails.                          */
@@ -854,6 +908,15 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     int lhs_is_var = (lhs_t->t == TT_VAR);
     int lhs_is_kw  = (cx.lang == IR_LANG_SNO && lhs_t->t == TT_KEYWORD);
     if (!lhs_is_var && !lhs_is_kw) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    /* RK-LOWER-5b: `my $p = pop(@a)` — pop both RETURNS the last element and MUTATES @a (docs.raku.org/routine/pop),
+       so its returned value differs from the new container and the single `var = pure(var,...)` shape does not fit.
+       v_raku_pop splits it into `$p = arr_last(@a); @a = arr_init(@a)` (two pure reads + IR_ASSIGN stores). Raku-gated
+       inside this shared case (FACT RULE); any non-Raku assign, or a non-pop RHS, falls through to the normal path. */
+    if (cx.lang == IR_LANG_RKU && lhs_is_var && lhs_t->v.sval && rhs_t->t == TT_FNC
+        && rhs_t->n >= 2 && rhs_t->c[0] && rhs_t->c[0]->t == TT_VAR && rhs_t->c[0]->v.sval
+        && !strcmp(rhs_t->c[0]->v.sval, "pop") && rhs_t->c[1] && rhs_t->c[1]->t == TT_VAR) {
+        return v_raku_pop(cx, lhs_t->v.sval, rhs_t->c[1], γ_in, ω_in, α_out, β_out);
+    }
     IR_t * as = nalloc(cx, IR_ASSIGN);
     if (!as) return NULL;
     as->sval = lhs_t->v.sval ? lhs_t->v.sval : "";
@@ -1191,12 +1254,35 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
            The Raku arm lives INSIDE this one TT_FNC case; non-Raku langs never reach it (SNOBOL4 returned above;
            Icon/Prolog use their own TT_FNC shapes). */
         if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            const char * fn = e->c[0]->v.sval;
+            /* RK-LOWER-5b: the explicit-call MUTATORS push/hash_set/hash_delete/arr_set all share the in-place
+               `CONTAINER = pure_fn(CONTAINER, args...)` shape — the first call argument (e->c[1]) is the container
+               variable, which is BOTH the assignment target and the call's first operand. push (docs.raku.org/
+               type/Array#method_push) appends; hash_set/hash_delete (docs.raku.org/type/Hash, /routine/delete) and
+               arr_set (docs.raku.org/language/list `@a[$i]=$y`) are the explicit-call twins of the sigil-syntax
+               TT_HASH_SET/TT_HASH_DELETE/TT_ARR_SET cases, lowered through the SAME v_raku_mutate_writeback so the
+               two surface syntaxes are semantically identical. (pop is handled at its TT_ASSIGN use-site by
+               v_raku_pop, since its returned value — the popped element — differs from the new container.) Each
+               routes to its `*_pure` runtime variant (returns the new container, no NV_SET; the IR_ASSIGN stores). */
+            {
+                static const struct { const char * name; const char * pure; int minargs; } RK_MUT[] = {
+                    { "push", "push_pure", 3 }, { "hash_set", "hash_set_pure", 4 },
+                    { "hash_delete", "hash_delete_pure", 3 }, { "arr_set", "arr_set_pure", 4 }, { NULL, NULL, 0 } };
+                for (int i = 0; RK_MUT[i].name; i++) {
+                    if (strcmp(fn, RK_MUT[i].name)) continue;
+                    if (e->n < RK_MUT[i].minargs || !e->c[1] || e->c[1]->t != TT_VAR || !e->c[1]->v.sval) break;
+                    int nk = e->n - 1;
+                    const tree_t * kids[16];
+                    if (nk > 16) nk = 16;
+                    for (int j = 0; j < nk; j++) kids[j] = e->c[j + 1];   /* kids[0]=container, kids[1..]=args */
+                    return v_raku_mutate_writeback(cx, e->c[1]->v.sval, RK_MUT[i].pure, kids, nk, γ_in, ω_in, α_out, β_out);
+                }
+            }
             static const char * const RK_PURE[] = {
                 "__rk_arr", "elems", "reverse", "sort", "array_sort", "arr_get",
                 "hash_get", "hash_exists", "hash_keys", "hash_values", "hash_pairs",
                 "join", "sum", "unique", "head", "tail", "chars", "length",
                 "lc", "uc", "trim", "substr", "index", "rindex", NULL };
-            const char * fn = e->c[0]->v.sval;
             int is_pure = 0;
             for (int i = 0; RK_PURE[i]; i++) if (!strcmp(fn, RK_PURE[i])) { is_pure = 1; break; }
             if (is_pure) {
@@ -1277,6 +1363,31 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             return v_raku_det_call(cx, "array_sort", k, 1, γ_in, ω_in, α_out, β_out);
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    /* RK-LOWER-5b: Raku in-place hash/array MUTATION via the PURE-variant writeback (v_raku_mutate_writeback ->
+       IR_ASSIGN over IR_CALL dval=2.0). `%h<k>=v`/`%h{k}=v` (TT_HASH_SET) -> `%h = hash_set_pure(%h,k,v)`;
+       `delete %h<k>` (TT_HASH_DELETE) -> `%h = hash_delete_pure(%h,k)`; `@a[i]=v` (TT_ARR_SET) ->
+       `@a = arr_set_pure(@a,i,v)` (docs.raku.org/type/Hash postcircumfix assign + routine/delete;
+       docs.raku.org/language/list `@a[$i]=$y`). The container variable is both the assignment target and the
+       call's first operand. FACT RULE: the Raku arm lives INSIDE each one case; a non-Raku language hitting these
+       kinds falls to lower_unhandled (loud), never a silent default. */
+    case TT_HASH_SET:
+        if (cx.lang == IR_LANG_RKU && e->n >= 3 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[2]) {
+            const tree_t * k[3] = { e->c[0], e->c[1], e->c[2] };
+            return v_raku_mutate_writeback(cx, e->c[0]->v.sval, "hash_set_pure", k, 3, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_HASH_DELETE:
+        if (cx.lang == IR_LANG_RKU && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1]) {
+            const tree_t * k[2] = { e->c[0], e->c[1] };
+            return v_raku_mutate_writeback(cx, e->c[0]->v.sval, "hash_delete_pure", k, 2, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_ARR_SET:
+        if (cx.lang == IR_LANG_RKU && e->n >= 3 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[2]) {
+            const tree_t * k[3] = { e->c[0], e->c[1], e->c[2] };
+            return v_raku_mutate_writeback(cx, e->c[0]->v.sval, "arr_set_pure", k, 3, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     /* SNOBOL4 pattern-match statement SUBJECT ? PATTERN (LOWER2-EXEC). Icon scanning (TT_SMATCH / Icon ?) stays
        in the unhandled group below (L2-F). The per-language split lives inside v_scan (FACT RULE) via cx.lang. */
     case TT_SCAN:
@@ -1289,8 +1400,6 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_SMATCH:     /* subj ? pat — flips cx.role = ROLE_PATTERN */
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER:
     case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW:
-    case TT_HASH_SET: case TT_HASH_DELETE:
-    case TT_ARR_SET:
     case TT_PRINT_FH: case TT_SAY_FH:
     case TT_GLOBAL: case TT_LOCAL: case TT_STATIC_DECL: case TT_DECL: case TT_INITIAL: case TT_OPSYN:
     case TT_GOTO_U: case TT_GOTO_S: case TT_GOTO_F:
