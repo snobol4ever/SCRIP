@@ -99,44 +99,38 @@ static std::string bb_match_str(IR_t * pBB, bb_bin_t & bin) {
         return bomb_text("IR_PAT_MATCH: mode-4 TEXT arm not yet written (PB-RB-8 sweep)");
     }
     if (MEDIUM_BINARY) {
+        /* LITERAL byte map (FACT RULE: hand-coded offsets, NO b.size()). ch.18 unanchored outer start-loop.  */
+        /* Offsets are LITERAL constants: α[0..71], match_retry[72..90], match_advance(DEFINE@91)[91..149],   */
+        /* β(DEFINE@150)[150..154]. Internal back-jump at [145] is literal -78 (= mr 72 − after 150).         */
+        bin = { {87, 91, 121, 141, 150, 151},
+                {elem_p, adv_p, _.lbl_ω_p, _.lbl_ω_p, _.lbl_β_p, _.lbl_ω_p},
+                {false, true, false, false, true, false} };
         std::string b;
-        /* α prologue ------------------------------------------------------------------------------------*/
-        b += bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)subj_off);          /* mov rax,[r12+subj]     */
-        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGMA);                  /* movabs rcx,&Σ          */
-        b += bytes(3, "\x48\x89\x01");                                          /* mov [rcx],rax          */
-        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)(subj_off + 8));    /* mov eax,[r12+subj+8]   */
-        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN);                 /* movabs rcx,&Σlen       */
-        b += bytes(2, "\x89\x01");                                              /* mov [rcx],eax          */
-        b += bytes(2, "\x49\xBA") + u64le(TEMPLATE_ADDR_DELTA);                  /* movabs r10,&Δ          */
-        b += bytes(4, "\x41\xC7\x84\x24") + u32le((uint32_t)start_off) + u32le(0); /* mov d[r12+start],0  */
-        /* match_retry (internal) ------------------------------------------------------------------------*/
-        int mr_off = (int)b.size();
-        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)start_off);         /* mov eax,[r12+start]    */
-        b += bytes(3, "\x41\x89\x02");                                          /* mov [r10],eax (Δ=start)*/
-        b += bytes(1, "\xE9");                                                  /* jmp elem_entry         */
-        bin.sites.push_back((int)b.size()); bin.labels.push_back(elem_p); bin.is_def.push_back(false);
-        b += u32le(0);
-        /* match_advance (DEFINE — element ω lands here) -------------------------------------------------*/
-        bin.sites.push_back((int)b.size()); bin.labels.push_back(adv_p); bin.is_def.push_back(true);
-        b += bytes(4, "\x41\xFF\x84\x24") + u32le((uint32_t)start_off);         /* inc d[r12+start]       */
-        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)start_off);         /* mov eax,[r12+start]    */
-        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN);                 /* movabs rcx,&Σlen       */
-        b += bytes(2, "\x3B\x01");                                              /* cmp eax,[rcx]          */
-        b += bytes(2, "\x0F\x8F");                                              /* jg lbl_ω               */
-        bin.sites.push_back((int)b.size()); bin.labels.push_back(_.lbl_ω_p); bin.is_def.push_back(false);
-        b += u32le(0);
-        b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)&kw_anchor);      /* movabs rcx,&kw_anchor  */
-        b += bytes(4, "\x48\x83\x39\x00");                                      /* cmp qword [rcx],0      */
-        b += bytes(2, "\x0F\x85");                                              /* jne lbl_ω              */
-        bin.sites.push_back((int)b.size()); bin.labels.push_back(_.lbl_ω_p); bin.is_def.push_back(false);
-        b += u32le(0);
-        b += bytes(1, "\xE9");                                                  /* jmp match_retry        */
-        { int after = (int)b.size() + 4; b += u32le((uint32_t)(int32_t)(mr_off - after)); }
-        /* β (DEFINE) ------------------------------------------------------------------------------------*/
-        bin.sites.push_back((int)b.size()); bin.labels.push_back(_.lbl_β_p); bin.is_def.push_back(true);
-        b += bytes(1, "\xE9");                                                  /* jmp lbl_ω              */
-        bin.sites.push_back((int)b.size()); bin.labels.push_back(_.lbl_ω_p); bin.is_def.push_back(false);
-        b += u32le(0);
+        b += bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)subj_off);          /* [0]  mov rax,[r12+subj] */
+        b += bytes(3, "\x49\x89\xC5");                                          /* [8]  mov r13,rax        */
+        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGMA);                  /* [11] movabs rcx,&Σ      */
+        b += bytes(3, "\x48\x89\x01");                                          /* [21] mov [rcx],rax      */
+        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)(subj_off + 8));    /* [24] mov eax,[r12+s+8]  */
+        b += bytes(3, "\x41\x89\xC7");                                          /* [32] mov r15d,eax       */
+        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN);                 /* [35] movabs rcx,&Σlen   */
+        b += bytes(2, "\x89\x01");                                              /* [45] mov [rcx],eax      */
+        b += bytes(2, "\x49\xBA") + u64le(TEMPLATE_ADDR_DELTA);                  /* [47] movabs r10,&Δ      */
+        b += bytes(3, "\x4D\x31\xF6");                                          /* [57] xor r14,r14        */
+        b += bytes(4, "\x41\xC7\x84\x24") + u32le((uint32_t)start_off) + u32le(0); /* [60] mov d[r12+st],0 */
+        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)start_off);         /* [72] mov eax,[r12+st]   */
+        b += bytes(3, "\x41\x89\xC6");                                          /* [80] mov r14d,eax       */
+        b += bytes(3, "\x41\x89\x02");                                          /* [83] mov [r10],eax      */
+        b += bytes(1, "\xE9") + u32le(0);                                       /* [86] jmp elem (site@87) */
+        b += bytes(4, "\x41\xFF\x84\x24") + u32le((uint32_t)start_off);         /* [91] inc d[r12+st]      */
+        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)start_off);         /* [99] mov eax,[r12+st]   */
+        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN);                 /* [107] movabs rcx,&Σlen  */
+        b += bytes(2, "\x3B\x01");                                              /* [117] cmp eax,[rcx]     */
+        b += bytes(2, "\x0F\x8F") + u32le(0);                                   /* [119] jg ω  (site@121)  */
+        b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)&kw_anchor);      /* [125] movabs rcx,&anchor*/
+        b += bytes(4, "\x48\x83\x39\x00");                                      /* [135] cmp q[rcx],0      */
+        b += bytes(2, "\x0F\x85") + u32le(0);                                   /* [139] jne ω (site@141)  */
+        b += bytes(1, "\xE9") + u32le((uint32_t)(int32_t)-78);                  /* [145] jmp match_retry   */
+        b += bytes(1, "\xE9") + u32le(0);                                       /* [150] jmp ω  (site@151) */
         return b;
     }
     return std::string();
