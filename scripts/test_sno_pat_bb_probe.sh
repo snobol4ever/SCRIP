@@ -27,5 +27,6 @@ run_probe() {
 }
 echo "=== SNOBOL4 PAT-BB probes (modes 3 native JIT) ==="
 run_probe probe_pb_rb_1_ref_invariant "ran fn(rt_frame(),0) without crash"
+run_probe probe_pb_rb_3_match "MATCH SUCCEEDED"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

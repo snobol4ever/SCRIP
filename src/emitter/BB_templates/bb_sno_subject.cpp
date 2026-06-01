@@ -42,6 +42,7 @@ extern "C" {
 typedef struct { const char *base; long len; } rt_subj_t;
 rt_subj_t rt_sno_subject_load(const char *name, const char *lit);
 int       bb_slot_alloc16(IR_t * nd);
+extern int g_sno_subject_slot;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_sno_subject_str(IR_t * pBB, bb_bin_t & bin) {
@@ -61,6 +62,7 @@ static std::string bb_sno_subject_str(IR_t * pBB, bb_bin_t & bin) {
     const char *name = is_var ? op->sval : NULL;
     const char *lit  = is_lit ? op->sval : NULL;
     int off = bb_slot_alloc16(pBB);
+    g_sno_subject_slot = off;
     if (MEDIUM_TEXT) {
         int id = g_flat_node_id++;
         std::string nlbl = emit_fmt(".Lsno_subjname_%d", id);

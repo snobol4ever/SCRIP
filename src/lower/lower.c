@@ -2271,7 +2271,7 @@ IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, 
  * element boxes' own β/ω. Statement-level single-shot (β = ω_in): a `SUBJ ? PAT` match does not re-offer once
  * the statement consumed it. NOT YET threaded into v_scan (mode-2 IR_SCAN super-node intact -> ZERO regression);
  * exercised by the prove_lower2 topology gate (this step) + the PB-RB-3 mode-3 probe (the BINARY outer-loop arm,
- * next increment). The BINARY/TEXT arms of bb_sno_match are the immediate next step; the box template currently
+ * next increment). The BINARY/TEXT arms of bb_match are the immediate next step; the box template currently
  * fail-louds (RULES: an honest stub while the arm is written). */
 IR_t * lower2_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
