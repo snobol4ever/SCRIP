@@ -393,8 +393,11 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;
         /* format/1,2 (CAT-D-format): γ-chain, arity 1 or 2. TEXT arm proven in rung19. */
         if (!strcmp(fn,"format")) return nd->α && (nd->ival==1 || nd->ival==2);
-        /* 2-arg atom builtins (CAT-D-1/3/4/5): γ-chain pair. TEXT arms proven in rung12. copy_term is     */
-        /* deliberately NOT here — it has a TEXT arm but a known mode-4 var-identity gap (rung26).          */
+        /* copy_term/2 (PLG-9i): γ-chain pair. Compound arg0 → the PLG-9i @PLT MEDIUM_TEXT twin (rt_pl_   */
+        /* copy_term_terms/_term, preserving intra-term var-sharing); scalar arg0 → the CAT-D-5 scalar     */
+        /* arm (rt_pl_copy_term). Both arms now present, so the prior var-identity gap is closed. rung26.  */
+        if (!strcmp(fn,"copy_term")) return nd->α && nd->α->γ;
+        /* 2-arg atom builtins (CAT-D-1/3/4/5): γ-chain pair. TEXT arms proven in rung12. */
         static const char *atom2[] = { "atom_length","upcase_atom","downcase_atom","string_length",
             "string_upper","string_lower","atom_string","string_to_atom", NULL };
         for (int k = 0; atom2[k]; k++) if (!strcmp(fn, atom2[k])) return nd->α && nd->α->γ;
@@ -423,11 +426,10 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         /* concat_term@PLT — the @PLT twin of the PLR-K-14 BINARY arm. Proven 3-mode in rung26.           */
         if (!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) return nd->α && (nd->ival==2 || nd->ival==3);
         /* EXCISED — no working @PLT MEDIUM_TEXT arm (only a MEDIUM_BINARY arm exists, which the standalone */
-        /* .s cannot use): numbervars/3 (term-mutation: mode-4 leaves vars unbound — rung20). copy_term/2  */
-        /* has a TEXT arm but a KNOWN mode-4 var-identity gap (copy_term(f(X,X),f(A,B)) → A==B fails —     */
-        /* rung26, GOAL doc). findall (compile-time heap pointer dead in separate process — honest-abort   */
-        /* stub). retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13).    */
-        /* (float arith is now ADMITTED via the `is` branch above — PLG-9h rt_pl_is_f.)                     */
+        /* .s cannot use): numbervars/3 (term-mutation: mode-4 leaves vars unbound — rung20). findall       */
+        /* (compile-time heap pointer dead in separate process — honest-abort stub). retract/retractall/    */
+        /* abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13). (float arith ADMITTED via the */
+        /* `is` branch — PLG-9h; copy_term ADMITTED above — PLG-9i.)                                         */
         return 0;
     }
     default:
