@@ -2484,6 +2484,25 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb->value = FAILDESCR;
         return bb->ω;
     }
+    case IR_PAT_BUILD_LIT: {
+        /* PB-1 PATTERN-BUILDER phase, literal (mode-2 oracle analogue of bb_sno_pat_build_lit.cpp). The
+           BUILDER constructs a runtime pattern node for the literal (sval) — distinct from the matcher-leaf
+           IR_PAT_LIT above, which the mode-2 IR_SCAN super-node consumes. Here we just succeed once carrying
+           the literal as the box value (the built head is the box's ζ-slot effect in mode-3/4). Bounded
+           single-shot: resume -> ω. Dormant until v_scan threads SUBJECT -> PATTERN-BUILDER -> MATCH
+           (PB-2/PB-5); present for concurrency completeness (every emitted IR kind has a mode-2 arm — no
+           silent default). */
+        if (bb->state == 0) {
+            const char *lit = bb->sval ? bb->sval : "";
+            bb->state = 1;
+            DESCR_t vd = { .v = DT_S, .slen = (uint32_t)strlen(lit), .s = (char *)lit };
+            bb->value = vd;
+            return bb->γ;
+        }
+        bb->state = 0;
+        bb->value = FAILDESCR;
+        return bb->ω;
+    }
     case IR_PAT_LIT: {
         const char *lit = bb->sval ? bb->sval : "";
         int         len = (int)strlen(lit);

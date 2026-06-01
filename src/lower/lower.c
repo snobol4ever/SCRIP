@@ -2107,6 +2107,28 @@ IR_t * lower2_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR
     return ret(subj, α_out, β_out, oα ? oα : subj, ω_in);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PB-1 PATTERN-BUILDER phase entry (GOAL-SNOBOL4-BB SESSION RUNG #0 SBL-PAT-BB, literal first). Lowers a
+ * SNOBOL4 pattern literal (TT_QLIT) into ONE IR_PAT_BUILD_LIT *builder* box — the "BBs that build BBs" core
+ * (ARCH-SNOBOL4.md phase 2). DISTINCT from the matcher-leaf IR_PAT_LIT that the mode-2 oracle consumes via
+ * the IR_SCAN super-node: the BUILDER's runtime effect CONSTRUCTS a runtime pattern node (PATND_t, via the
+ * value-stack-free pat_lit constructor — NOT the deleted rt_pat_lit vstack wrapper) and lands the built
+ * pattern-graph head pointer in a ζ-frame slot, for the PB-2 BB_MATCH box to scan. Bounded single-shot:
+ * building the literal once is enough; on backtrack the builder fails (resume -> ω_in), so β = ω_in via the
+ * bounded path. SPITBOL Manual ch.18: a literal (`'BLUE'`) is a known component matched left-to-right; the
+ * pattern node it builds carries the bytes + length and the matcher advances the cursor δ past them.
+ * NOT YET threaded into v_scan (the mode-2 IR_SCAN super-node stays intact -> ZERO regression); this entry
+ * is exercised by the prove_lower2 topology gate + a PB-1 mode-3 execution probe. v_scan re-stitch to
+ * SUBJECT -> PATTERN-BUILDER -> MATCH lands at PB-2/PB-5 (per the sno_ring_to_tree deletion rationale). */
+IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
+    if (!e || e->t != TT_QLIT) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    IR_t * n = nalloc(cx, IR_PAT_BUILD_LIT);
+    if (!n) return NULL;
+    n->sval = e->v.sval ? e->v.sval : "";
+    lcx_t bx = cx; bx.bounded = 1;
+    return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
