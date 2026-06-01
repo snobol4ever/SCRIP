@@ -1,6 +1,6 @@
 /* bb_sno_assign.cpp — STACKLESS BB template for SNOBOL4 IR_ASSIGN of a literal-string rhs.
    SBL-M3-STACKLESS (2026-05-31, Opus 4.8). Lon directive: NO VALUE STACK — forbidden. So this box
-   passes both operands in REGISTERS (SysV rdi/rsi) to one runtime call; nothing touches g_vstack /
+   passes both operands in REGISTERS (SysV rdi/rsi) to one runtime call; nothing touches any value stack /
    rt_push_* / rt_pop_*. The rhs string and the lhs name are READ-ONLY constants (their pointers are
    compile-time immediates for the in-process mode-3 LIVE box, mirroring how every BINARY template bakes
    RO data + fn pointers via movabs). The four-port shape is the proven 32-byte bb_assign trailer plus one
