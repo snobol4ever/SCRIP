@@ -1431,6 +1431,72 @@ static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
                 : std::string();
             return hdr + write_body + nl_suffix + succ_back;
         }
+        /* PLG-9g (2026-06-01, Opus 4.8): writeq/1 + write_canonical/1 MEDIUM_TEXT arm — the @PLT twin of  */
+        /* the PLR-K-4 MEDIUM_BINARY arm above. Build the arg Term* uniformly via emit_build_compound_term */
+        /* (atom/var/int/float/struct → rax — the TEXT post-order walker, byte-twin of the BINARY one),    */
+        /* then route through the quoting writer rt_pl_writeq_term_ptr / rt_pl_write_canonical_term_ptr    */
+        /* (which call pl_writeq / pl_write_canonical — the mode-2 oracle's own writers, so the quoting    */
+        /* decisions are already ISO-correct). gprolog write_c.c: writeq = WRITE_NUMBER_VARS|WRITE_NAME_   */
+        /* VARS|WRITE_QUOTED; write_canonical = WRITE_IGNORE_OP|WRITE_QUOTED (operator form suppressed →   */
+        /* 1+2 renders +(1,2)). sub rsp,8 keeps 16-alignment across the build's and writer's internal      */
+        /* calls. Always succeeds → γ; β→γ (write-family arms never fail). No nl suffix (callers add nl).  */
+        if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && pBB->α) {
+            const char *writer = (strcmp(fn, "writeq") == 0)
+                ? "rt_pl_writeq_term_ptr@PLT"
+                : "rt_pl_write_canonical_term_ptr@PLT";
+            return hdr
+                 + s_2asm("sub", "rsp, 8")
+                 + emit_build_compound_term(pBB->α)
+                 + s_2asm("mov", "rdi, rax")
+                 + s_2asm("call", writer)
+                 + s_2asm("add", "rsp, 8")
+                 + succ_back;
+        }
+        /* PLG-9g (2026-06-01, Opus 4.8): atomic_list_concat/2,3 + concat_atom/2 MEDIUM_TEXT arm — the    */
+        /* @PLT twin of the PLR-K-14 MEDIUM_BINARY arm above. Builds arg0's cons-list Term* via           */
+        /* emit_build_compound_term (→ rax → rdi), then rt_pl_atomic_list_concat_term(list, arity, ksep,  */
+        /* isep, ssep, kres, ires, sres) — 8 scalars (SysV: 6 in rdi/esi/edx/rcx/r8/r9d + 2 on the stack  */
+        /* at [rsp+0]=ires, [rsp+8]=sres). arity from pBB->ival (2 or 3): arity 2 → result is a1, sep     */
+        /* triple zeroed; arity 3 → sep is a1, result is a2. The helper concatenates each list element's  */
+        /* atomic text (joining with the separator for arity 3) and unifies the result atom into the      */
+        /* result-term's slot (in g_resolve_env, the process-global home the subsequent write reads).     */
+        /* sub rsp,16: holds the two stack args AND keeps rsp 16-aligned across the builder's/helper's    */
+        /* internal calls. Always-test tail: test eax → je ω / jmp γ; β→ω. Proven 3-mode in rung26.      */
+        if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0)
+            && pBB->α && (pBB->ival == 2 || pBB->ival == 3)) {
+            int   arity = (int)pBB->ival;
+            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1 ? a1->γ : NULL;
+            IR_t *sepN = (arity == 3) ? a1 : NULL;
+            IR_t *resN = (arity == 3) ? a2 : a1;
+            int   ksep = sepN ? (int)sepN->t : 0;
+            long  isep = sepN ? (long)sepN->ival : 0;
+            char  ssepl[64]; ssepl[0] = 0;
+            if (sepN && ksep == IR_ATOM && sepN->sval) strtab_label(ssepl, sizeof ssepl, sepN->sval);
+            int   kres = resN ? (int)resN->t : 0;
+            long  ires = resN ? (long)resN->ival : 0;
+            char  sresl[64]; sresl[0] = 0;
+            if (resN && kres == IR_ATOM && resN->sval) strtab_label(sresl, sizeof sresl, resN->sval);
+            return hdr
+                 + s_2asm("sub", "rsp, 16")
+                 + emit_build_compound_term(a0)
+                 + s_2asm("mov", "rdi, rax")
+                 + s_2asm("mov esi,", emit_fmt("%d", arity))
+                 + s_2asm("mov edx,", emit_fmt("%d", ksep))
+                 + s_2asm("mov rcx,", emit_fmt("%ld", isep))
+                 + (ssepl[0] ? s_2asm("lea r8,", emit_fmt("[rip + %s]", ssepl)) : s_2asm("xor", "r8d, r8d"))
+                 + s_2asm("mov r9d,", emit_fmt("%d", kres))
+                 + s_2asm("mov rax,", emit_fmt("%ld", ires))
+                 + s_2asm("mov", "[rsp + 0], rax")
+                 + (sresl[0]
+                       ? (s_2asm("lea rax,", emit_fmt("[rip + %s]", sresl)) + s_2asm("mov", "[rsp + 8], rax"))
+                       : s_2asm("mov", "qword ptr [rsp + 8], 0"))
+                 + s_2asm("call", "rt_pl_atomic_list_concat_term@PLT")
+                 + s_2asm("add", "rsp, 16")
+                 + s_2asm("test", "eax, eax")
+                 + s_2asm("je",   _.lbl_ω)
+                 + s_2asm("jmp",  _.lbl_γ)
+                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+        }
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
             && pBB->α->t == IR_LOGICVAR && pBB->β->α && pBB->β->β) {
             /* V-2 (2026-05-27): `Var is L op R` for the common binary-arith RHS. Flatten operands at  */

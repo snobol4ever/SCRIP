@@ -294,10 +294,12 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         /* arm is proven correct in the mode-4 standalone-binary context. The discriminator is structural:  */
         /* can the template safely emit in TEXT medium given the operand shapes the lowerer produces?        */
         /* STAY EXCISED: findall (compile-time heap pointer stale in separate process — honest-abort stub); */
-        /* numbervars/writeq/write_canonical/atomic_list_concat (mode-2-only, no proven TEXT arm);          */
-        /* retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — CAT-D/PLG-9 family);  */
-        /* float `is` (rt_pl_arith integer-only — float result needs separate rt_pl_arith_d path).         */
-        /* ADMIT: every family with a proven scalar-or-compound TEXT arm verified not to miscompile.        */
+        /* numbervars (mode-2-only, no proven TEXT arm); copy_term (TEXT arm has a mode-4 var-identity      */
+        /* gap); retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — CAT-D/PLG-9      */
+        /* family); float `is` (rt_pl_arith integer-only — needs rt_pl_arith_d path). ADMIT: every family   */
+        /* with a proven scalar-or-compound TEXT arm verified not to miscompile — incl. writeq/write_       */
+        /* canonical and atomic_list_concat/concat_atom as of PLG-9g (@PLT MEDIUM_TEXT twins of their       */
+        /* PLR-K-4 / PLR-K-14 BINARY arms). */
         const char *fn = nd->sval ? nd->sval : "";
         /* `is` — integer arith only, as before (PLG-9c). Float `is` stays EXCISED. */
         if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd);
@@ -346,12 +348,20 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         if (!strcmp(fn,"=..")) return nd->α && nd->α->γ;
         /* term_to_atom/2 + term_string/2 (PLR-K-9): forward direction, γ-chain pair. */
         if (!strcmp(fn,"term_to_atom")||!strcmp(fn,"term_string")) return nd->α && nd->α->γ;
+        /* writeq/1 + write_canonical/1 (PLG-9g): single arg on nd->α, any kind (atom/var/int/float/      */
+        /* struct). The MEDIUM_TEXT arm builds the arg Term* via emit_build_compound_term then calls the   */
+        /* quoting writer rt_pl_writeq_term_ptr / rt_pl_write_canonical_term_ptr @PLT — the @PLT twin of   */
+        /* the PLR-K-4 BINARY arm. Proven 3-mode in rung22. */
+        if (!strcmp(fn,"writeq")||!strcmp(fn,"write_canonical")) return nd->α != NULL;
+        /* atomic_list_concat/2,3 + concat_atom/2 (PLG-9g): arg0 cons-list on nd->α, γ-chain to sep/res.  */
+        /* The MEDIUM_TEXT arm builds arg0 via emit_build_compound_term then calls rt_pl_atomic_list_     */
+        /* concat_term@PLT — the @PLT twin of the PLR-K-14 BINARY arm. Proven 3-mode in rung26.           */
+        if (!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) return nd->α && (nd->ival==2 || nd->ival==3);
         /* EXCISED — no working @PLT MEDIUM_TEXT arm (only a MEDIUM_BINARY arm exists, which the standalone */
-        /* .s cannot use): writeq/1, write_canonical/1 (PLR-K-4 BINARY-only — mode-4 emits empty output);  */
-        /* numbervars/3 (term-mutation: mode-4 leaves vars unbound — rung20). copy_term/2 has a TEXT arm    */
-        /* but a KNOWN mode-4 var-identity gap (copy_term(f(X,X),f(A,B)) → A==B fails — rung26, GOAL doc).   */
-        /* findall (compile-time heap pointer dead in separate process — honest-abort stub).                */
-        /* retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13/PLG-9).      */
+        /* .s cannot use): numbervars/3 (term-mutation: mode-4 leaves vars unbound — rung20). copy_term/2  */
+        /* has a TEXT arm but a KNOWN mode-4 var-identity gap (copy_term(f(X,X),f(A,B)) → A==B fails —     */
+        /* rung26, GOAL doc). findall (compile-time heap pointer dead in separate process — honest-abort   */
+        /* stub). retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13).    */
         /* float arith (rt_pl_arith integer-only; float path needs rt_pl_arith_d).                          */
         return 0;
     }
