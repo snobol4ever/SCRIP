@@ -415,7 +415,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_REF_INVARIANT:        { extern void bb_ref_invariant(IR_t *); bb_ref_invariant(nd); } return 0;
     case IR_PAT_MATCH:            { extern void bb_match(IR_t *); bb_match(nd); } return 0;
     case IR_AUGOP:
-    case IR_UNOP:
     case IR_CALL:                 bb_call(nd);         return 0;
     case IR_BINOP:                bb_binop(nd);        return 0;
     case IR_SEQ:                  bb_seq(nd);          return 0;
@@ -468,6 +467,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_POS:
     case IR_NONNULL:
     case IR_NULL_TEST:
+    case IR_UNOP:
     case IR_NOT:                  bb_unop(nd);         return 0;
     case IR_GEN_SCAN:                bb_gen_scan(nd);     return 0;
     case IR_KEYWORD:                bb_keyword(nd);     return 0;

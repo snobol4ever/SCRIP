@@ -1648,10 +1648,13 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         int op_is_rel = nd && ((nd->ival >= BINOP_LT && nd->ival <= BINOP_NE) ||
                                (nd->ival >= BINOP_SLT && nd->ival <= BINOP_SNE));
         int op_is_arith = nd && (nd->ival == BINOP_ADD || nd->ival == BINOP_SUB || nd->ival == BINOP_MUL || nd->ival == BINOP_DIV || nd->ival == BINOP_MOD);
-        if (g_icn_flat_chain && (op_is_rel || op_is_arith)) {
-            /* GZ-8 relop / GZ-9 arith: operands are sibling boxes already collected by the flat-chain BFS  */
-            /* (each wrote its own DESCR slot). Emit ONLY this box (FILL) — do NOT re-walk operands via     */
-            /* flat_drive_binop_tree, which would duplicate them with fresh slots and clobber the slotmap.  */
+        int op_is_concat = nd && (nd->ival == BINOP_CONCAT);
+        if (g_icn_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
+            /* GZ-8 relop / GZ-9 arith / GZ-11+ concat: operands are sibling boxes already collected by the   */
+            /* flat-chain BFS (each wrote its own DESCR slot). Emit ONLY this box (FILL) — do NOT re-walk     */
+            /* operands via flat_drive_binop_tree, which would duplicate them with fresh slots (and in mode-4 */
+            /* TEXT double-define their bb<id>_α labels → assembler error) and clobber the slotmap. The       */
+            /* GZ-11+ slot-concat arm in bb_binop.cpp reads each operand via bb_slot_get, so FILL is correct.  */
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
@@ -1713,6 +1716,15 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             emit_jmp_label(lbl_ω, JMP_JMP);
         }
         break;
+    case IR_UNOP:
+        /* GZ-11+ (unary-minus, this session): the unified lowerer emits IR_UNOP (op in ival = the raw     */
+        /* tree_e: TT_MNS/TT_PLS/TT_SIZE/TT_NONNULL) — NOT the split IR_NEG/IR_POS/… kinds below. In the    */
+        /* flat-chain the operand producer is already BFS-collected + slot-allocated (operand-ref pass set  */
+        /* pBB->α to it); FILL emits ONLY this box, whose bb_unop GZ-11+ arm reads the operand DESCR from   */
+        /* [r12+slot(α)+8], applies the op, and writes a DESCR result to its own [r12+off] — re-walking via */
+        /* flat_drive_unop would double-emit the operand with a fresh slot (same hazard as IR_BINOP). Off-  */
+        /* chain (legacy) still re-walks the operand via the driver.                                         */
+        if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_NEG:
     case IR_POS:
     case IR_NONNULL:
@@ -1786,6 +1798,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
+    /* GZ-7 (chain-entry sentinel fix): a `local`/`static` declaration (or an empty leading statement) makes the lowerer prepend one or more IR_SUCCEED/IR_FAIL PRELUDE sentinels whose own γ threads to the real first box (`[6] IR_SUCCEED γ=5` for `local x; x:=42; write(x)`). The BFS below treats a SUCCEED/FAIL node as a chain TERMINATOR (the γ/ω sink, γ==NULL) and skips it WITHOUT following γ — correct for a sink, but if the graph ENTRY is itself such a prelude sentinel the skip dropped the entire chain (n=0 → empty body, a silent miscompile). Advance entry forward through any run of leading prelude sentinels (a sentinel WITH a non-NULL γ) to the first real box; a terminal sentinel (γ==NULL) leaves entry unchanged so a genuinely-empty body still collects nothing. */
+    { int guard = 0; while (entry && (entry->t == IR_SUCCEED || entry->t == IR_FAIL) && entry->γ && guard++ < CH_MAX) entry = entry->γ; }
     queue[qt++] = entry;
     while (qh < qt) {
         IR_t *c = queue[qh++];
@@ -1989,6 +2003,8 @@ static void icn_chain_operand_refs(IR_t *entry) {
     IR_t *chain[512]; int nc = 0;
     IR_t *seen[512]; int ns = 0;
     IR_t *stkv[512]; int sv = 0;
+    /* GZ-7 (chain-entry sentinel fix): mirror codegen_flat_chain_body — a `local`/`static` declaration prepends IR_SUCCEED/IR_FAIL PRELUDE sentinels whose γ threads to the real first box. This postfix operand-ref walk skips SUCCEED/FAIL (terminators) without following γ, so a sentinel ENTRY dropped the whole chain (nc=0 → no operand refs wired → IR_ASSIGN/IR_UNOP α left NULL → bb_assign/bb_unop FATAL). Advance entry past any run of leading prelude sentinels (γ non-NULL) to the first real box; a terminal sentinel (γ==NULL) is left as-is. */
+    { int guard = 0; while (entry && (entry->t == IR_SUCCEED || entry->t == IR_FAIL) && entry->γ && guard++ < 512) entry = entry->γ; }
     stkv[sv++] = entry;
     while (sv > 0 && nc < 512) {
         IR_t *c = stkv[--sv];
