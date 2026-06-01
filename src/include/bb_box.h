@@ -54,7 +54,6 @@ typedef struct cap_s {
     int        cap_start;
 } cap_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern DESCR_t  bb_cap    (void * zeta, int entry);
 extern cap_t  * bb_cap_new(bb_box_fn child_fn, void * child_state, const char * varname, DESCR_t * var_ptr, int immediate);
 extern cap_t  * bb_cap_new_call(bb_box_fn child_fn, void * child_state,
                                 const char * fnc_name,
@@ -64,7 +63,6 @@ extern cap_t  * bb_cap_new_call(bb_box_fn child_fn, void * child_state,
 extern void flush_pending_captures(void);
 extern void reset_capture_registry(void);
 extern void clear_pending_flags(void);
-extern DESCR_t  bb_atp    (void * zeta, int entry);
 extern atp_t  * bb_atp_new(const char * varname);
 int exec_stmt_blob(const char * subj_name, DESCR_t * subj_var, bb_box_fn root_fn, DESCR_t * repl, int has_repl);
 typedef DESCR_t (*univ_box_fn)(void * zeta, int entry);
