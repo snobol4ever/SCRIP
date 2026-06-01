@@ -723,6 +723,82 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         memcpy(o, g_raku_subject + gs, (size_t)len); o[len] = '\0';
         *out = STRVAL(o); return 1;
     }
+    /* RK-LOWER-5b: PURE mutating-op variants. A pure variant computes and RETURNS the new container string but
+       performs NO NV_SET_fn — the writeback is supplied by the enclosing IR_ASSIGN the lowerer wraps it in
+       (`@a = push_pure(@a, x)`), so the container update flows through the same shared four-port store path that
+       works in all three modes. Element/pair encoding matches the read-only readers: array = SOH-separated elements
+       (docs.raku.org/type/Array), hash = SOH-separated key STX value pairs (docs.raku.org/type/Hash). The hash
+       string builders (hash_set_str/hash_delete_str, defined below) already return a fresh string and do no
+       NV_SET_fn, so the hash pure variants delegate to them directly. push_pure appends each extra argument to the
+       array's end and returns the new array (docs.raku.org/routine/push); arr_set_pure replaces element [idx] and
+       returns the new array (docs.raku.org/language/list `@a[$i] = $y`); arr_last/arr_init split the pop semantics
+       (docs.raku.org/routine/pop: return+remove the last element) into a read of the last element and a read of the
+       array minus its last element, so `$p = pop(@a)` lowers to `$p = arr_last(@a); @a = arr_init(@a)` — two pure
+       reads + the existing IR_ASSIGN store, never an exec-side vname peek. */
+    if (!strcmp(fn, "push_pure") && nargs >= 2) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        char *acc = GC_strdup(cur);
+        for (int i = 1; i < nargs; i++) {
+            char rb[64]; const char *rv = to_cstring(args[i], rb, sizeof rb);
+            size_t ol = strlen(acc), rl = strlen(rv);
+            char *no = GC_malloc(ol + rl + 2);
+            memcpy(no, acc, ol);
+            if (ol > 0) { no[ol] = SOH; memcpy(no + ol + 1, rv, rl); no[ol + 1 + rl] = '\0'; }
+            else        { memcpy(no, rv, rl); no[rl] = '\0'; }
+            acc = no;
+        }
+        *out = STRVAL(acc); return 1;
+    }
+    if (!strcmp(fn, "arr_set_pure") && nargs >= 3) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
+        char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb);
+        const char *seg = cur;
+        long k = 0; const char *tstart = NULL; const char *tend = NULL;
+        for (;;) {
+            const char *nx = strchr(seg, SOH);
+            if (k == idx) { tstart = seg; tend = nx; break; }
+            if (!nx) { *out = FAILDESCR; return 1; }
+            seg = nx + 1; k++;
+        }
+        size_t pre = (size_t)(tstart - cur);
+        size_t post = tend ? strlen(tend) : 0;
+        size_t rvl = strlen(rv);
+        size_t total = pre + rvl + post;
+        char *o = GC_malloc(total + 1);
+        memcpy(o, cur, pre);
+        memcpy(o + pre, rv, rvl);
+        if (tend) memcpy(o + pre + rvl, tend, post);
+        o[total] = '\0';
+        *out = STRVAL(o); return 1;
+    }
+    if (!strcmp(fn, "arr_last") && nargs == 1) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur || !*cur) { *out = FAILDESCR; return 1; }
+        const char *last = strrchr(cur, SOH);
+        const char *pstart = last ? last + 1 : cur;
+        *out = elem_to_descr(pstart, strlen(pstart)); return 1;
+    }
+    if (!strcmp(fn, "arr_init") && nargs == 1) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur || !*cur) { *out = STRVAL(GC_strdup("")); return 1; }
+        const char *last = strrchr(cur, SOH);
+        if (!last) { *out = STRVAL(GC_strdup("")); return 1; }
+        size_t nl = (size_t)(last - cur);
+        char *o = GC_malloc(nl + 1); memcpy(o, cur, nl); o[nl] = '\0';
+        *out = STRVAL(o); return 1;
+    }
+    if (!strcmp(fn, "hash_set_pure") && nargs >= 3) {
+        extern char *script_hash_set_str(const char *h, const char *key, const char *val);
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
+        char vb[64]; const char *val = to_cstring(args[2], vb, sizeof vb);
+        *out = STRVAL(script_hash_set_str(cur, key, val)); return 1;
+    }
+    if (!strcmp(fn, "hash_delete_pure") && nargs >= 2) {
+        extern char *script_hash_delete_str(const char *h, const char *key);
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
+        *out = STRVAL(script_hash_delete_str(cur, key)); return 1;
+    }
     extern int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
     if (script_try_hash_builtin(fn, args, nargs, out)) return 1;
     return 0;
@@ -810,7 +886,7 @@ static const char *hash_find(const char *h, const char *key, const char **p_pair
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *hash_set_str(const char *h, const char *key, const char *val) {
+char *script_hash_set_str(const char *h, const char *key, const char *val) {
     if (!h) h = "";
     size_t klen = strlen(key), vlen = strlen(val);
     const char *pair_start = NULL;
@@ -840,7 +916,7 @@ static char *hash_set_str(const char *h, const char *key, const char *val) {
     o[total] = '\0'; return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *hash_delete_str(const char *h, const char *key) {
+char *script_hash_delete_str(const char *h, const char *key) {
     if (!h || !*h) return GC_strdup("");
     const char *pair_start = NULL;
     hash_find(h, key, &pair_start);
@@ -864,13 +940,13 @@ int script_try_hash_mutating_builtin(const char *fn, const char *vname, DESCR_t 
     if (!strcmp(fn, "hash_set") && nargs >= 3) {
         char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
         char vb[64]; const char *val = to_cstring(args[2], vb, sizeof vb);
-        char *nh = hash_set_str(cur, key, val);
+        char *nh = script_hash_set_str(cur, key, val);
         NV_SET_fn(vname, STRVAL(nh));
         *out = STRVAL(nh); return 1;
     }
     if (!strcmp(fn, "hash_delete") && nargs >= 2) {
         char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
-        char *nh = hash_delete_str(cur, key);
+        char *nh = script_hash_delete_str(cur, key);
         NV_SET_fn(vname, STRVAL(nh));
         *out = STRVAL(nh); return 1;
     }

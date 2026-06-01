@@ -235,6 +235,51 @@ sub main() {
 }
 EOF
 
+# --- RK-LOWER-5b: in-place hash/array MUTATION (push/pop/arr_set/hash_set/hash_delete) ---
+
+raku "array_push_pop" "$(printf '3\n1\n3\n99\n7\n3')" << 'EOF'
+sub main() {
+    my @nums = '';
+    push(@nums, 1);
+    push(@nums, 2);
+    push(@nums, 3);
+    say(elems(@nums));
+    say(arr_get(@nums, 0));
+    say(arr_get(@nums, 2));
+    @nums[1] = 99;
+    say(arr_get(@nums, 1));
+    push(@nums, 7);
+    my $p = pop(@nums);
+    say($p);
+    say(elems(@nums));
+}
+EOF
+
+raku "hash_set_get" "$(printf 'Alice\n31\n1\n0')" << 'EOF'
+sub main() {
+    my $h = 0;
+    hash_set($h, 'name', 'Alice');
+    hash_set($h, 'age', '30');
+    say(hash_get($h, 'name'));
+    hash_set($h, 'age', '31');
+    say(hash_get($h, 'age'));
+    say(hash_exists($h, 'name'));
+    say(hash_exists($h, 'missing'));
+}
+EOF
+
+raku "hash_sigil_delete" "$(printf 'Raku\n6\n0')" << 'EOF'
+sub main() {
+    my %h = 0;
+    %h<lang> = 'Raku';
+    %h<vers> = '6';
+    say(%h<lang>);
+    say(%h<vers>);
+    delete %h<lang>;
+    say(hash_exists(%h, 'lang'));
+}
+EOF
+
 echo ""
 echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE — must be all-PASS)"
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 EXCISED=$X3  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
