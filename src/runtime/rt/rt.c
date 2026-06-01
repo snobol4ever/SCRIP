@@ -59,29 +59,16 @@ extern DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var);
 extern DESCR_t pat_at_cursor(const char *varname);
 extern DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
-static int     g_vtop    = 0;
-static int     g_vframe_base = 0;
-static int     g_last_ok  = 1;
 static void    _default_push     (const DESCR_t *d);
 static void    _default_pop      (DESCR_t *out);
 static void    _default_peek     (DESCR_t *out);
-static int     _default_depth    (void)       { return g_vtop; }
-static void    _default_set_depth(int n)      { g_vtop = n; }
-static int     _default_get_last_ok(void)     { return g_last_ok; }
-static void    _default_set_last_ok(int ok)   { g_last_ok = ok ? 1 : 0; }
-static const rt_vstack_ops_t g_default_ops = {
-    .push        = _default_push,
-    .pop         = _default_pop,
-    .peek        = _default_peek,
-    .depth       = _default_depth,
-    .set_depth   = _default_set_depth,
-    .get_last_ok = _default_get_last_ok,
-    .set_last_ok = _default_set_last_ok,
-};
+static int     _default_depth    (void)       { return 0; }
+static void    _default_set_depth(int n)      { (void)n; }
+static int     _default_get_last_ok(void)     { return 1; }
+static void    _default_set_last_ok(int ok)   { (void)ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const rt_vstack_ops_t *g_ops = &g_default_ops;
-int rt_vstack_depth(void) { return g_ops->depth(); }
-DESCR_t rt_vstack_pop(void) { DESCR_t out; g_ops->pop(&out); return out; }
+int rt_vstack_depth(void) { return _default_depth(); }
+DESCR_t rt_vstack_pop(void) { DESCR_t out; _default_pop(&out); return out; }
 static int     g_halt_rc  = 0;
 static int     g_halt_set = 0;
 static int     g_native_chunk_depth = 0;
@@ -111,11 +98,11 @@ static void _default_peek(DESCR_t *out)
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void vstack_push(DESCR_t d) { g_ops->push(&d); }
-static DESCR_t vstack_pop(void)    { DESCR_t out; g_ops->pop(&out); return out; }
-static DESCR_t vstack_peek(void)   { DESCR_t out; g_ops->peek(&out); return out; }
-#define LAST_OK_GET()   (g_ops->get_last_ok())
-#define LAST_OK_SET(x)  (g_ops->set_last_ok(x))
+static void vstack_push(DESCR_t d) { _default_push(&d); }
+static DESCR_t vstack_pop(void)    { DESCR_t out; _default_pop(&out); return out; }
+static DESCR_t vstack_peek(void)   { DESCR_t out; _default_peek(&out); return out; }
+#define LAST_OK_GET()   (_default_get_last_ok())
+#define LAST_OK_SET(x)  (_default_set_last_ok(x))
 static const char *vstack_pop_str(void)
 {
     DESCR_t d = vstack_pop();
@@ -226,17 +213,14 @@ static DESCR_t call_native_chunk(const char *fname, void *fn,
         saved_l[k] = NV_GET_fn(lnames[k]);
         NV_SET_fn(lnames[k], SNUL_D);
     }
-    int saved_vtop = g_ops->depth();
-    int saved_vframe_base = g_vframe_base;
-    g_vframe_base = saved_vtop;
+    int saved_vtop = _default_depth();
     typedef void (*chunk_fn_t)(void);
     chunk_fn_t cfn = (chunk_fn_t)fn;
     g_native_chunk_depth++;
     cfn();
     g_native_chunk_depth--;
-    g_vframe_base = saved_vframe_base;
     DESCR_t result = NV_GET_fn(retname);
-    g_ops->set_depth(saved_vtop);
+    _default_set_depth(saved_vtop);
     for (int k = nl - 1; k >= 0; k--)
         NV_SET_fn(lnames[k], saved_l[k]);
     for (int k = nbound - 1; k >= 0; k--)
@@ -286,10 +270,10 @@ void rt_push_int(int64_t v)
 void rt_halt_tos(void)
 {
     int rc = 0;
-    int depth = g_ops->depth();
+    int depth = _default_depth();
     if (depth > 0) {
         DESCR_t d = vstack_peek();
-        if (d.v == DT_I) { rc = (int)d.i; g_ops->set_depth(depth - 1); }
+        if (d.v == DT_I) { rc = (int)d.i; _default_set_depth(depth - 1); }
     }
     g_halt_rc  = rc;
     g_halt_set = 1;
@@ -965,7 +949,6 @@ void rt_set_stno(int64_t stno)
     extern void comm_stno(int n);
     kw_stno = stno;
     comm_stno((int)stno);
-    if (g_ops->depth() > g_vframe_base) g_ops->set_depth(g_vframe_base);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_push_null(void)
@@ -1718,12 +1701,12 @@ int rt_do_return(int kind, int cond)
     if (cond == 1 && !LAST_OK_GET()) return 0;
     if (cond == 2 &&  LAST_OK_GET()) return 0;
     if (kind == 1) {
-        if (g_ops->depth() > 0) (void)vstack_pop();
+        if (_default_depth() > 0) (void)vstack_pop();
         vstack_push(FAILDESCR);
         LAST_OK_SET(0);
         strncpy(kw_rtntype, "FRETURN", sizeof(kw_rtntype)-1);
     } else if (kind == 2) {
-        DESCR_t v = (g_ops->depth() > 0) ? vstack_pop() : FAILDESCR;
+        DESCR_t v = (_default_depth() > 0) ? vstack_pop() : FAILDESCR;
         if (v.v == DT_N) {
             vstack_push(v);
         } else if (v.v == DT_S && v.s) {
@@ -1736,7 +1719,7 @@ int rt_do_return(int kind, int cond)
         strncpy(kw_rtntype, "NRETURN", sizeof(kw_rtntype)-1);
     } else {
         int ok = 0;
-        if (g_ops->depth() > 0) ok = (vstack_peek().v != DT_FAIL);
+        if (_default_depth() > 0) ok = (vstack_peek().v != DT_FAIL);
         LAST_OK_SET(ok);
         strncpy(kw_rtntype, "RETURN",  sizeof(kw_rtntype)-1);
     }
