@@ -443,7 +443,7 @@ static lcx_t with_loop(lcx_t cx, IR_t * lω, IR_t * lnext) { cx.loop_ω = lω; c
 /*     (the driver visits it; it drives its operand sub-graphs on demand).                                        */
 /*====================================================================================================================================================================================================*/
 static IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e) {
-    IR_graph_t * blk = IR_alloc(256, IR_LANG_SNO);
+    IR_graph_t * blk = IR_alloc(256, cx.lang);
     if (!blk) return NULL;
     IR_t * vfail = IR_node_alloc(blk, IR_FAIL);
     lcx_t vcx = cx; vcx.bbg = blk;
@@ -917,11 +917,36 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_ASSIGN:
         return v_assign(cx, e, γ_in, ω_in, α_out, β_out);
 
+    /* GZ-10 — Icon `return E` / bare `return` (jcon ir_a_Return). The proc-body graph (lower_icon_body)
+       terminates each statement chain at PSUCC/PFAIL; a `return` short-circuits to the body's success carrying
+       a value. Lowering: IR_RETURN with the value expression lowered as its α child (when present), γ_in/ω_in
+       inherited. The mode-2 IR_RETURN exec arm's GENERIC branch (dval==0: eval α -> g_ir_return_val, set
+       FRAME.returning, exit ω) already implements exactly this — so this arm reuses it (dval left 0). A bare
+       `return` (no child) returns the null value. FACT RULE: the Icon arm lives INSIDE this case; a non-Icon
+       language hitting TT_RETURN falls through to the shared write/call group below or lower_unhandled. */
+    case TT_RETURN:
+    case TT_NRETURN:
+        if (cx.lang == IR_LANG_ICN) {
+            IR_t * rn = nalloc(cx, IR_RETURN); if (!rn) return NULL;
+            rn->dval = 0.0;                                        /* generic (Icon) value-return marker */
+            IR_t * vα = NULL, * vβ = NULL;
+            if (e->n >= 1 && e->c[0]) {
+                lcx_t vc = cx; vc.role = ROLE_VALUE;
+                /* value chain flows γ -> rn: by the time RETURN runs, the chain's result is on the AG ring
+                   (exactly like IR_ASSIGN reads ag_ring_peek). RETURN does NOT re-execute a node — its exec
+                   arm peeks the ring. So we do NOT set rn->α (leaving it triggers a single-node re-exec of the
+                   chain ENTRY, which yields only the first leaf, not the full expression result). */
+                IR_t * v = lower2(vc, e->c[0], rn /*value.γ -> return node*/, ω_in, &vα, &vβ);
+                if (!v) return NULL;
+            }
+            set_succ_fail(rn, γ_in, ω_in);
+            return ret(rn, α_out, β_out, vα ? vα : rn, ω_in /* bounded — return is single-shot */);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+
     /* --- extension surface (each = one box onto the foundation, canonical signature) --- */
     case TT_LIMIT:      /* jcon ir_a_Limitation */
     case TT_CASE:       /* jcon ir_a_Case */
-    case TT_RETURN:     /* jcon ir_a_Return */
-    case TT_NRETURN:
     case TT_SUSPEND:    /* jcon ir_a_Suspend */
     case TT_PROC_FAIL:  /* jcon ir_a_Fail */
     case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP:
@@ -1006,6 +1031,35 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             const char * fn = e->c[0]->v.sval;
             if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))
                 return wire_det_builtin1(cx, e->c[1], fn, γ_in, ω_in, α_out, β_out);
+        }
+        /* GZ-10 — Icon GENERAL CALL `f(a1,..,an)` to a user procedure or runtime builtin (jcon ir_a_Call). The
+           parser hands the callee as c[0]=TT_VAR(name) with args c[1..n-1]. Each argument is lowered into its
+           OWN isolated value sub-graph (the proven dval==2.0 SNOBOL4 call idiom — robust for an operand of any
+           internal node count, no AG-ring positional dependency; the sub-graph pointer array rides on `counter`).
+           dval==3.0 marks the Icon-framed dispatch: the mode-2 IR_CALL exec arm evaluates each arg, then if the
+           name is in proc_table runs the callee's four-port BB graph under a FRESH GenFrame whose Scope binds the
+           proc's PARAM NAMES to env slots (Icon locals/params are per-activation — distinct from the SNOBOL4
+           dval==2.0 global save/restore frame; this is what makes recursion correct), harvesting g_ir_return_val
+           on FRAME.returning; otherwise it falls to try_call_builtin_by_name. FACT RULE: the Icon arm lives INSIDE
+           this case; a non-Icon language hitting a multi-arg/general TT_FNC falls to lower_unhandled (loud). */
+        if (cx.lang == IR_LANG_ICN && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
+            call->sval = e->c[0]->v.sval;                          /* callee name (GC-stable from the AST) */
+            int nargs = e->n - 1;
+            call->ival = nargs;
+            call->dval = 3.0;                                      /* Icon user-proc / builtin call marker */
+            if (nargs > 0) {
+                IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
+                if (!blks) return NULL;
+                lcx_t ac = cx; ac.role = ROLE_VALUE;               /* args keep cx.lang=IR_LANG_ICN for nesting */
+                for (int i = 0; i < nargs; i++) {
+                    blks[i] = lower_value_subgraph(ac, e->c[i + 1]);
+                    if (!blks[i]) { free(blks); return NULL; }
+                }
+                call->counter = (int64_t)(intptr_t) blks;          /* array of arg value sub-graphs */
+            }
+            set_succ_fail(call, γ_in, ω_in);
+            return ret(call, α_out, β_out, call /* call node is the chain entry */, ω_in /* bounded */);
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* multi-arg write / general call = L2-E */
     }
