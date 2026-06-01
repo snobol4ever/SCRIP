@@ -563,6 +563,112 @@ int rt_pl_is_eval(void *lhs_bb, void *rhs_bb) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9h (2026-06-01): float `is/2` serialized-scalar evaluator — the standalone-binary (mode-4 TEXT) twin */
+/* of rt_pl_is_eval, which takes in-process IR_t* pointers (dead in a separate .s). Operands arrive as       */
+/* serializable scalars: an int literal (lk=IR_LIT_I, value in li), a float literal (lk=IR_LIT_F, value in   */
+/* the SSE-register double ld), or a bound logic-variable slot (lk=IR_LOGICVAR, slot in li -> read           */
+/* g_resolve_env[li]). rk==-1 marks a unary/nullary RHS (no second operand). The op string is the evaluable  */
+/* functor name (pi/e nullary; sqrt/sin/.../float/truncate/round/... unary; +/-/*/// binary). Result type    */
+/* (int vs float) is decided by the op exactly as resolve_arith_eval does — truncate/round/ceiling/floor/    */
+/* integer yield INT from a FLOAT input; float/float_integer_part/float_fractional_part/transcendentals       */
+/* yield FLOAT; +,-,* on two ints yield INT, with-a-float yield FLOAT. The result Term is unified into the    */
+/* destination slot in g_resolve_env (the per-activation home the consumer write reads directly — no value    */
+/* stack). SysV packing the TEXT arm relies on: dst_slot=edi op=rsi lk=edx li=rcx rk=r8d ri=r9 (6 GP) and     */
+/* ld=xmm0 rd=xmm1 (2 SSE) — all in registers, no stack args. Returns 1 on success, 0 on failure.            */
+int rt_pl_is_f(int dst_slot, const char *op,
+               int lk, long li, double ld,
+               int rk, long ri, double rd) {
+    extern Term **g_resolve_env; extern Trail g_resolve_trail;
+    if (!g_resolve_env || dst_slot < 0) return 0;
+    if (!op) op = "+";
+    int    lf = 0; double ldv = 0.0; long liv = 0;
+    switch (lk) {
+    case IR_LIT_F:    lf = 1; ldv = ld; liv = (long)ld; break;
+    case IR_LIT_I:    lf = 0; liv = li; ldv = (double)li; break;
+    case IR_LOGICVAR: {
+        Term *t = (li >= 0 && g_resolve_env[li]) ? term_deref(g_resolve_env[li]) : NULL;
+        if (t && t->tag == TERM_FLOAT)    { lf = 1; ldv = t->fval; liv = (long)t->fval; }
+        else if (t && t->tag == TERM_INT) { lf = 0; liv = t->ival; ldv = (double)t->ival; }
+        else return 0;
+        break;
+    }
+    default: break;
+    }
+    int    have_r = (rk != -1);
+    int    rf = 0; double rdv = 0.0; long riv = 0;
+    if (have_r) {
+        switch (rk) {
+        case IR_LIT_F:    rf = 1; rdv = rd; riv = (long)rd; break;
+        case IR_LIT_I:    rf = 0; riv = ri; rdv = (double)ri; break;
+        case IR_LOGICVAR: {
+            Term *t = (ri >= 0 && g_resolve_env[ri]) ? term_deref(g_resolve_env[ri]) : NULL;
+            if (t && t->tag == TERM_FLOAT)    { rf = 1; rdv = t->fval; riv = (long)t->fval; }
+            else if (t && t->tag == TERM_INT) { rf = 0; riv = t->ival; rdv = (double)t->ival; }
+            else return 0;
+            break;
+        }
+        default: break;
+        }
+    }
+    Term *result = NULL;
+    if (!strcmp(op, "pi"))      result = term_new_float(M_PI);
+    else if (!strcmp(op, "e")) result = term_new_float(M_E);
+    else if (!have_r) {
+        if      (!strcmp(op, "-"))                     result = lf ? term_new_float(-ldv) : term_new_int(-liv);
+        else if (!strcmp(op, "+"))                     result = lf ? term_new_float(ldv) : term_new_int(liv);
+        else if (!strcmp(op, "abs"))                   result = lf ? term_new_float(fabs(ldv)) : term_new_int(liv < 0 ? -liv : liv);
+        else if (!strcmp(op, "sign"))                  result = lf ? term_new_float(ldv > 0 ? 1.0 : ldv < 0 ? -1.0 : 0.0) : term_new_int(liv > 0 ? 1 : liv < 0 ? -1 : 0);
+        else if (!strcmp(op, "sqrt"))                  result = term_new_float(sqrt(ldv));
+        else if (!strcmp(op, "sin"))                   result = term_new_float(sin(ldv));
+        else if (!strcmp(op, "cos"))                   result = term_new_float(cos(ldv));
+        else if (!strcmp(op, "tan"))                   result = term_new_float(tan(ldv));
+        else if (!strcmp(op, "asin"))                  result = term_new_float(asin(ldv));
+        else if (!strcmp(op, "acos"))                  result = term_new_float(acos(ldv));
+        else if (!strcmp(op, "atan"))                  result = term_new_float(atan(ldv));
+        else if (!strcmp(op, "exp"))                   result = term_new_float(exp(ldv));
+        else if (!strcmp(op, "log"))                   result = term_new_float(log(ldv));
+        else if (!strcmp(op, "float"))                 result = term_new_float(ldv);
+        else if (!strcmp(op, "integer"))               result = term_new_int((long)llround(ldv));
+        else if (!strcmp(op, "float_integer_part"))    result = term_new_float(trunc(ldv));
+        else if (!strcmp(op, "float_fractional_part")) result = term_new_float(ldv - trunc(ldv));
+        else if (!strcmp(op, "truncate"))              result = term_new_int((long)trunc(ldv));
+        else if (!strcmp(op, "round"))                 result = term_new_int((long)llround(ldv));
+        else if (!strcmp(op, "ceiling"))               result = term_new_int((long)ceil(ldv));
+        else if (!strcmp(op, "floor"))                 result = term_new_int((long)floor(ldv));
+        else return 0;
+    } else {
+        int anyf = lf || rf;
+        if      (!strcmp(op, "+")) result = anyf ? term_new_float(ldv + rdv) : term_new_int(liv + riv);
+        else if (!strcmp(op, "-")) result = anyf ? term_new_float(ldv - rdv) : term_new_int(liv - riv);
+        else if (!strcmp(op, "*")) result = anyf ? term_new_float(ldv * rdv) : term_new_int(liv * riv);
+        else if (!strcmp(op, "/")) {
+            if (anyf) { if (rdv == 0.0) return 0; result = term_new_float(ldv / rdv); }
+            else { if (riv == 0) return 0; result = (liv % riv == 0) ? term_new_int(liv / riv) : term_new_float((double)liv / (double)riv); }
+        }
+        else if (!strcmp(op, "**") || !strcmp(op, "^")) {
+            if (!lf && !rf && riv >= 0) { long b = liv, ex = riv, acc = 1; while (ex-- > 0) acc *= b; result = term_new_int(acc); }
+            else result = term_new_float(pow(ldv, rdv));
+        }
+        else if (!strcmp(op, "min")) {
+            if (!anyf) result = term_new_int(liv <= riv ? liv : riv);
+            else if (ldv <= rdv) result = lf ? term_new_float(ldv) : term_new_int(liv);
+            else result = rf ? term_new_float(rdv) : term_new_int(riv);
+        }
+        else if (!strcmp(op, "max")) {
+            if (!anyf) result = term_new_int(liv >= riv ? liv : riv);
+            else if (ldv >= rdv) result = lf ? term_new_float(ldv) : term_new_int(liv);
+            else result = rf ? term_new_float(rdv) : term_new_int(riv);
+        }
+        else return 0;
+    }
+    if (!result) return 0;
+    Term *lhs = g_resolve_env[dst_slot];
+    if (!lhs) { g_resolve_env[dst_slot] = result; return 1; }
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(lhs, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
 int rt_pl_succ(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;

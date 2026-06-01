@@ -15,6 +15,7 @@ extern "C" void rt_pl_write_term_ptr(void *t);
 extern "C" void rt_pl_writeq_term_ptr(void *t);
 extern "C" void rt_pl_write_canonical_term_ptr(void *t);
 extern "C" int  rt_pl_is(int dst_slot, const char *op, int lk, long li, int rk, long ri);
+extern "C" int  rt_pl_is_f(int dst_slot, const char *op, int lk, long li, double ld, int rk, long ri, double rd);
 extern "C" int  rt_pl_is_eval(void *lhs_bb, void *rhs_bb);
 extern "C" int  rt_pl_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern "C" int  rt_pl_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
@@ -53,6 +54,25 @@ extern "C" int  rt_pl_succ(int k0, long i0, const char *s0, int k1, long i1, con
 extern "C" int  rt_pl_plus(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
 extern "C" int  rt_pl_findall(void *fs_ptr);
 extern "C" int  rt_pl_throw(void *alpha_ptr);}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9h (2026-06-01): is the `is/2` RHS evaluable functor one that needs the float evaluator
+   rt_pl_is_f? True for the transcendental/float-producing functors (sqrt/sin/.../float/
+   float_integer_part/float_fractional_part) AND for the rounding functors that CONSUME a float
+   and yield an int (truncate/round/ceiling/floor/integer) — those still need the float operand
+   path because a float-literal operand carries its value in dval, not ival — AND for `/` (true
+   division), which yields a FLOAT when integer operands do not divide evenly (7/2 = 3.5) but an
+   INT when they do (6/2 = 3); rt_pl_is_f makes that liv%riv decision exactly as the mode-2 oracle
+   resolve_arith_eval does, so routing `/` here fixes the pre-existing mode-4 integer-division
+   miscompile (the integer rt_pl_arith arm gave 7/2 = 3, diverging from m2/m3 = 3.5). A plain
+   add/sub/mul op over a float-literal operand is routed by the operand-kind check in the emit arm
+   / gate, not here. Mirrored byte-for-byte by pl_arith_op_floaty in scrip.c (the admission gate). */
+static int bb_pl_op_floaty(const char *fn) {
+    static const char *f[] = { "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "exp", "log",
+                               "float", "float_integer_part", "float_fractional_part",
+                               "truncate", "round", "ceiling", "floor", "integer", "/", NULL };
+    for (int i = 0; f[i]; i++) if (!strcmp(fn, f[i])) return 1;
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* emit_write_term — CAT-D-7 (2026-05-27, Opus 4.7) emit-time recursive walker for write/1's
    operand subgraph. The bb_builtin write/1 TEXT arm calls this once per argument; the helper
@@ -1496,6 +1516,63 @@ static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
                  + s_2asm("je",   _.lbl_ω)
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+        }
+        /* PLG-9h (2026-06-01, Opus 4.8): float `is/2` MEDIUM_TEXT arm — the serialized-scalar twin of    */
+        /* the PLR-K-12 MEDIUM_BINARY rt_pl_is_eval arm (which passes in-process IR_t* pointers, dead in a */
+        /* standalone .s). Fires for a float-producing/consuming RHS BEFORE the integer arms: nullary pi/e */
+        /* (β=IR_ATOM); a floaty unary functor (sqrt/sin/.../float/truncate/round/...); or any arith with  */
+        /* a float-literal operand. Operands serialize to (kind, ival, dval-bits): the int rides rcx/r9,   */
+        /* the float bits load through rax → movq xmm0/xmm1 (no .rodata constant, no value stack). The op  */
+        /* string is _.bb_op_lbl (bb_prepare_pl now interns it for both the IR_ARITH and the IR_ATOM pi/e  */
+        /* RHS). rt_pl_is_f mirrors resolve_arith_eval's int-vs-float result decision and unifies the      */
+        /* result Term into the dst slot in g_resolve_env — the per-activation home the consumer write     */
+        /* reads directly. sub rsp,8 keeps 16-alignment across rt_pl_is_f's libm calls (sqrt/pow touch     */
+        /* SSE). test eax → je ω / jmp γ; β→ω. Proven 3-mode in rung29 (m2/m3 via resolve_arith_eval).     */
+        if (strcmp(fn, "is") == 0 && pBB->α && pBB->α->t == IR_LOGICVAR && pBB->β) {
+            const IR_t *rhs = pBB->β;
+            int is_const = rhs->t == IR_ATOM && rhs->sval
+                        && (!strcmp(rhs->sval, "pi") || !strcmp(rhs->sval, "e"));
+            int is_floaty = 0;
+            if (rhs->t == IR_ARITH) {
+                const char *rop = rhs->sval ? rhs->sval : "+";
+                is_floaty = bb_pl_op_floaty(rop)
+                         || (rhs->α && rhs->α->t == IR_LIT_F)
+                         || (rhs->β && rhs->β->t == IR_LIT_F);
+            }
+            if (is_const || is_floaty) {
+                int      dst_slot = (int)pBB->α->ival;
+                int      lk = -1, rk = -1;
+                long     li = 0,  ri = 0;
+                uint64_t lb = 0,  rb = 0;
+                if (rhs->t == IR_ARITH) {
+                    const IR_t *L = rhs->α, *R = rhs->β;
+                    if (L) { lk = (int)L->t; li = (long)L->ival;
+                             double d = (L->t == IR_LIT_F) ? L->dval : 0.0; memcpy(&lb, &d, 8); }
+                    if (R) { rk = (int)R->t; ri = (long)R->ival;
+                             double d = (R->t == IR_LIT_F) ? R->dval : 0.0; memcpy(&rb, &d, 8); }
+                }
+                std::string load_op = _.bb_op_lbl
+                    ? s_2asm("lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
+                    : s_2asm("xor", "esi, esi");
+                return hdr
+                     + s_2asm("sub", "rsp, 8")
+                     + s_2asm("mov edi,", emit_fmt("%d", dst_slot))
+                     + load_op
+                     + s_2asm("mov edx,", emit_fmt("%d", lk))
+                     + s_2asm("mov rcx,", emit_fmt("%ld", li))
+                     + s_2asm("mov rax,", emit_fmt("%llu", (unsigned long long)lb))
+                     + s_2asm("movq", "xmm0, rax")
+                     + s_2asm("mov r8d,", emit_fmt("%d", rk))
+                     + s_2asm("mov r9,",  emit_fmt("%ld", ri))
+                     + s_2asm("mov rax,", emit_fmt("%llu", (unsigned long long)rb))
+                     + s_2asm("movq", "xmm1, rax")
+                     + s_2asm("call", "rt_pl_is_f@PLT")
+                     + s_2asm("add", "rsp, 8")
+                     + s_2asm("test", "eax, eax")
+                     + s_2asm("je", _.lbl_ω)
+                     + s_2asm("jmp", _.lbl_γ)
+                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+            }
         }
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
             && pBB->α->t == IR_LOGICVAR && pBB->β->α && pBB->β->β) {

@@ -644,6 +644,8 @@ void bb_prepare_pl(IR_t *nd) {
             g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->α->sval ? nd->α->sval : "");
         if (nd->sval && strcmp(nd->sval, "is") == 0 && nd->β && nd->β->t == IR_ARITH)
             g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, nd->β->sval ? nd->β->sval : "+");
+        if (nd->sval && strcmp(nd->sval, "is") == 0 && nd->β && nd->β->t == IR_ATOM)
+            g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, nd->β->sval ? nd->β->sval : "");
         return;
     }
     if (nd->t == IR_GOAL) {
