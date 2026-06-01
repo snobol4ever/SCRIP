@@ -107,118 +107,14 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     return stk[0];
 }
 /*====================================================================================================================================================================================================*/
-/* SNOBOL4 MODE-3/4 RING->PROGRAM ADAPTER (SBL-M3-MULTISTMT, 2026-05-31). The SNOBOL4 program graph is a   */
-/* gamma/omega-threaded CFG of LANDING nodes (one IR_SUCCEED per statement boundary, plus terminal         */
-/* IR_SUCCEED/IR_FAIL/IR_RETURN). Each statement is a postfix gamma-chain of its sub-expressions running   */
-/* from a landing's gamma to the next landing; the chain's LAST node carries the statement's success       */
-/* (->gamma) and failure (->omega) exits, both pointing at landings (SPITBOL ch.4 goto field). This        */
-/* adapter walks every reachable landing, folds each statement's chain into a four-port tree (postfix by   */
-/* SNOBOL4 arities), records each statement's success/failure target landing index, and returns ONE        */
-/* synthetic IR_SNO_PROG node carrying the ordered statement list (sno_prog_t* on counter). The emitter's  */
-/* flat_drive_sno_program threads the statements by label at emit time. EVERY statement must fold cleanly  */
-/* (recognized node kinds + matching arities); any shape it cannot fold (user-proc CALL, unhandled kind)   */
-/* makes the whole adapter return NULL and the caller SOFT-fails (honest stderr, clean exit, NO abort). NO */
-/* value stack is created anywhere (Lon directive). Subsumes the old single-statement literal/arith path.  */
-/*====================================================================================================================================================================================================*/
-static int sno_node_is_landing(const IR_t *n) {
-    return n && (n->t == IR_SUCCEED || n->t == IR_FAIL || n->t == IR_RETURN);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_stmt_arity(const IR_t *n) {
-    switch (n->t) {
-    case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
-    case IR_VAR:   case IR_KEYWORD:                 return 0;
-    case IR_SEQ: case IR_SEQ_EXPR:                  return (n->dval == 1.0) ? 0 : 2; /* SNO concat: operands in isolated sub-graphs (counter/ival) => leaf */
-    case IR_BINOP: case IR_BINOP_GEN:               return 2;
-    case IR_ASSIGN:                                 return 1;
-    case IR_SCAN:                                   return 1; /* repl: replacement operand on chain; plain: subject operand on chain */
-    default:                                        return -1;
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Walk a statement's gamma-chain to its LAST non-landing node (whose gamma/omega are the statement exits). */
-/* Returns NULL when `start` is itself a landing — a pass-through / bare-goto statement (`:(L)` with no body).*/
-static IR_t * sno_chain_last(IR_t *start) {
-    IR_t *last = NULL;
-    for (IR_t *cur = start; cur && !sno_node_is_landing(cur); cur = cur->γ) last = cur;
-    return last;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Fold one statement's postfix gamma-chain (from `start`, exclusive of the trailing landing) into a tree. */
-/* Returns the folded root and writes the last chain node (whose gamma/omega are the statement exits).     */
-static IR_t * sno_fold_stmt(IR_t *start, IR_t **out_last) {
-    IR_t *chain[256]; int nc = 0;
-    for (IR_t *cur = start; cur && !sno_node_is_landing(cur) && nc < 256; cur = cur->γ) chain[nc++] = cur;
-    if (nc == 0 || nc >= 256) return NULL;
-    *out_last = chain[nc - 1];
-    IR_t *stk[256]; int sp = 0;
-    for (int i = 0; i < nc; i++) {
-        IR_t *n = chain[i];
-        int ar = sno_stmt_arity(n);
-        if (ar < 0 || ar > sp) return NULL;
-        if (ar == 2)      { n->β = stk[sp - 1]; n->α = stk[sp - 2]; sp -= 2; }
-        else if (ar == 1) { n->α = stk[sp - 1]; sp -= 1; }
-        stk[sp++] = n;
-    }
-    if (sp != 1) return NULL;
-    return stk[0];
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_ring_to_tree(IR_graph_t *g) {
-    if (!g || !g->entry) return NULL;
-    enum { MAXL = 512 };
-    IR_t *land[MAXL]; int nl = 0;
-    IR_t *queue[MAXL]; int qh = 0, qt = 0;
-    queue[qt++] = g->entry;
-    while (qh < qt) {
-        IR_t *L = queue[qh++];
-        if (!L || !sno_node_is_landing(L)) continue;
-        int seen = 0;
-        for (int i = 0; i < nl; i++) if (land[i] == L) { seen = 1; break; }
-        if (seen) continue;
-        if (nl >= MAXL) return NULL;
-        land[nl++] = L;
-        if (L->t == IR_SUCCEED && L->γ) {
-            IR_t *last = sno_chain_last(L->γ);
-            if (last) {
-                if (last->γ && qt < MAXL) queue[qt++] = last->γ;
-                if (last->ω && qt < MAXL) queue[qt++] = last->ω;
-            } else {
-                if (qt < MAXL) queue[qt++] = L->γ;   /* pass-through / bare goto */
-            }
-        }
-    }
-    sno_prog_t *prog = (sno_prog_t *)GC_MALLOC(sizeof(sno_prog_t));
-    prog->stmts = (sno_stmt_t *)GC_MALLOC(sizeof(sno_stmt_t) * (size_t)nl);
-    prog->n = nl;
-    prog->entry_idx = 0;
-    for (int i = 0; i < nl; i++) {
-        IR_t *L = land[i];
-        sno_stmt_t *st = &prog->stmts[i];
-        st->root = NULL; st->succ_idx = -1; st->fail_idx = -1; st->is_terminal = 1;
-        if (L->t == IR_SUCCEED && L->γ) {
-            IR_t *probe = sno_chain_last(L->γ);
-            if (!probe) {
-                /* pass-through: the landing transfers directly to L->γ's landing (a bare `:(L)`/fall-into). */
-                st->is_terminal = 0; st->root = NULL;
-                for (int j = 0; j < nl; j++) if (land[j] == L->γ) { st->succ_idx = j; st->fail_idx = j; break; }
-            } else {
-                IR_t *last = NULL;
-                IR_t *root = sno_fold_stmt(L->γ, &last);
-                if (!root) return NULL;
-                st->root = root; st->is_terminal = 0;
-                for (int j = 0; j < nl; j++) {
-                    if (land[j] == last->γ) st->succ_idx = j;
-                    if (land[j] == last->ω) st->fail_idx = j;
-                }
-            }
-        }
-    }
-    IR_t *progn = IR_node_alloc(g, IR_SNO_PROG);
-    if (!progn) return NULL;
-    progn->ival = (int64_t)(intptr_t)prog;
-    return progn;
-}
+/* sno_ring_to_tree REMOVED (Lon directive, 2026-05-31 — VIOLATION). The postfix AG-ring -> four-port-tree */
+/* un-flattening adapter was a STOPGAP, never the design: it re-derived the four-port BB topology AT EMIT  */
+/* time from the mode-2 oracle's postfix gamma-ring instead of LOWER producing that topology directly. The */
+/* correct path (this goal's banner + LM-6 DISPATCH-UNIFY) is that LOWER emits each SNOBOL4 statement       */
+/* DIRECTLY into the test_sno_1.c four-port statement-BB graph (subject-BB -> pattern-BBs -> replacement-BB */
+/* -> substitution-BB), so the emitter consumes it with NO driver adapter and modes 3 and 4 light up from   */
+/* the SAME graph + SAME per-box templates (two arms). Both call sites below now ABORT until LOWER does     */
+/* that. NO storage outside the boxes; each BB owns its own RO + RW local allocation (see GOAL FACT RULE).  */
 /*====================================================================================================================================================================================================*/
 /* PROLOG MODE-3 NATIVE FLAT-WALK ROOT RECOGNIZER (PLG-8-native, 2026-05-31). The interim mode-3 route (PLG-8) ran Prolog --run through bb_exec_once (the mode-2 interpreter + the AG ring on IR_graph_t) */
 /* — correct output, but that is the RING path, which is the mode-2 idiom only (Lon directive: rings are for mode-2 interp; WRONG for mode-3). Mode-3 must EMIT code+data INSIDE the boxes with values    */
@@ -607,19 +503,13 @@ int main(int argc, char **argv)
             return rc;
         }
         if (!is_prolog) {
-            /* SBL-M4-STACKLESS (2026-05-31, Opus 4.8): SNOBOL4 mode-4 BB-native x86 emission, REBUILT.
-               The mode-4 emission scaffolding (codegen_flat_build + the XA wrap templates xa_file_header/
-               xa_file_footer/xa_flat_*) was never deleted by SMX-4 — only THIS driver stitch was. Re-stitched
-               for SNOBOL4: lower → find main BB graph → sno_ring_to_tree (the same stackless statement-BB
-               adapter mode-3 uses) → emit a complete .intel_syntax assembly program to stdout:
-                 xa_file_header  (.globl main; rt_gc_init; rt_set_lang; rt_register_expressions)
-                 glue            (xor esi,esi  [fresh-entry dispatch]; call <prefix>_α)
-                 xa_file_footer  (rt_finalize; pop rbp; ret)
-                 codegen_flat_build(root)  (the statement BB as a standalone <prefix>_α function — same
-                                            four-port stackless body as mode-3, via the TEXT arms)
-               The assembled+linked binary (as → gcc -no-pie -lscrip_rt --allow-shlib-undefined) runs the box.
-               SNOBOL4-only; any shape sno_ring_to_tree can't flatten yet → honest soft-fail (no abort). NO
-               value stack (Lon directive). */
+            /* SBL-RING-REMOVE (2026-05-31, Opus 4.8): SNOBOL4 mode-4 BB-native x86 emission now ABORTS.
+               It previously leaned on sno_ring_to_tree (the postfix-ring → four-port-tree adapter) which is
+               REMOVED as a VIOLATION (Lon directive) — the topology must come from LOWER, not be re-derived at
+               emit time. The mode-4 emission scaffolding (codegen_flat_build + the XA wrap templates) is intact
+               and unchanged; the missing piece is LOWER emitting the four-port statement-BB graph directly, after
+               which mode-4's TEXT arm and mode-3's BINARY arm of the SAME box light up together. Until then,
+               abort below (by design). NO storage outside the boxes (PER-BOX LOCAL STORAGE FACT RULE). */
             extern void xa_file_header(void);
             extern void emit_io_set_sink(FILE * out);
             extern void emitter_init_text(FILE * out, int mode);
@@ -630,28 +520,11 @@ int main(int argc, char **argv)
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
-            IR_t *sroot = sbbg ? sno_ring_to_tree(sbbg) : NULL;
-            if (!sroot) {
-                fprintf(stderr, "[SBB] mode-4: SNOBOL4 program shape not yet flat-emittable "
-                                "(stackless boxes pending; only single-statement literal assign wired). No native emit.\n");
-                return 1;
-            }
-            FILE *out = stdout;
-            emit_mode_set(EMIT_TEXT, out);
-            emit_io_set_sink(out);
-            emitter_init_text(out, 0);
-            xa_file_header();
-            fprintf(out, "  xor esi, esi\n  call stmt0_\xCE\xB1\n");
-            /* Close main HERE (rt_finalize; pop rbp; ret; .size) but do NOT emit the .note.GNU-stack yet —
-               xa_file_footer bundles the note WITH the ret, which would strand the statement-BB body (emitted
-               after) in the linker-discarded .note.GNU-stack section. Emit the body in .text, THEN the note last. */
-            fprintf(out, "call rt_finalize@PLT\npop rbp\nret\n.size main, .-main\n");
-            g_frame_active = 1;
-            int rc = codegen_flat_build(sroot, out, "stmt0");
-            g_frame_active = 0;
-            fprintf(out, ".section .note.GNU-stack\n");
-            fflush(out);
-            return rc == 0 ? 0 : 1;
+            (void)sbbg;
+            fprintf(stderr, "[SBB] mode-4: sno_ring_to_tree REMOVED (VIOLATION, Lon 2026-05-31). SNOBOL4 "
+                            "mode-4 emission must come from LOWER producing the four-port statement-BB graph "
+                            "directly (no ring->tree adapter); not yet wired. Aborting (by design).\n");
+            abort();
         }
         fprintf(stderr, "[SMX] --compile --target=x86: Prolog mode-4 pending (BB graph not yet wired).\n");
         ast_tree_free(ast_prog); ast_prog = NULL;
@@ -844,10 +717,10 @@ int main(int argc, char **argv)
                 (void)s2;
                 abort();
             }
-            /* SBL-M3-STACKLESS (2026-05-31): SNOBOL4 mode-3 via bb_build_flat over a STACKLESS box graph.
-               NO value stack (Lon directive). sno_ring_to_tree returns a root only for shapes with a
-               working stackless box (today: single-statement literal assign); NULL otherwise -> honest
-               soft-fail (no abort), so the gap is loud but the process stays clean. */
+            /* SBL: sno_ring_to_tree REMOVED (VIOLATION, Lon 2026-05-31). Mode-3 SNOBOL4 native execution
+               must come from LOWER producing the four-port statement-BB graph directly + the per-box BINARY
+               arm (mode 3) / TEXT arm (mode 4) of one template — NO ring->tree adapter, NO storage outside
+               the boxes. Until LOWER does that, abort (by design — the stopgap is gone). */
             extern bb_box_fn bb_build_flat(IR_t * nd);
             extern void *rt_frame(void);
             extern int g_frame_active;
@@ -855,22 +728,11 @@ int main(int argc, char **argv)
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
-            IR_t *sroot = sbbg ? sno_ring_to_tree(sbbg) : NULL;
-            if (!sroot) {
-                fprintf(stderr, "[SBB] mode-3: SNOBOL4 program shape not yet flat-emittable "
-                                "(stackless boxes pending; only single-statement literal assign wired). "
-                                "No native run; use --interp.\n");
-                goto run_done;
-            }
-            g_frame_active = 1;
-            bb_box_fn sfn = bb_build_flat(sroot);
-            g_frame_active = 0;
-            if (!sfn) {
-                fprintf(stderr, "[SBB] mode-3: bb_build_flat returned NULL (stackless template lacks BINARY arm)\n");
-                goto run_done;
-            }
-            (void)sfn(rt_frame(), 0);
-            goto run_done;
+            (void)sbbg; (void)rt_frame; (void)g_frame_active;
+            fprintf(stderr, "[SBB] mode-3: sno_ring_to_tree REMOVED (VIOLATION, Lon 2026-05-31). SNOBOL4 "
+                            "mode-3 native execution must come from LOWER producing the four-port statement-BB "
+                            "graph directly (no ring->tree adapter); not yet wired. Aborting (by design).\n");
+            abort();
         }
     } else if (has_non_sno) {
         (void)sm_preamble;
