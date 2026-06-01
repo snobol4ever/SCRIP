@@ -23,6 +23,7 @@ extern "C" {
 #include "bb_template_common.h"
 void rt_nv_get(const char *name);
 int  bb_slot_alloc(IR_t * nd);
+int  bb_slot_alloc16(IR_t * nd);
 int  bb_varslot_peek(const char * name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -38,7 +39,7 @@ static std::string bb_var_str(IR_t * pBB, bb_bin_t & bin) {
     if (g_icn_flat_chain && pBB) {
         int voff = bb_varslot_peek(name);
         if (voff >= 0) {
-            int off = bb_slot_alloc(pBB);
+            int off = bb_slot_alloc16(pBB);
             if (MEDIUM_BINARY) {
                 /*   0    49 8B 84 24 <u32 voff>      mov rax,[r12+voff]      (read var slot lo eightbyte)    */
                 /*   8    49 89 84 24 <u32 off>       mov [r12+off],rax       (write own slot lo)             */

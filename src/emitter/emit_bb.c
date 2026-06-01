@@ -1452,8 +1452,14 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             FILL(nd, lbl_γ, lbl_ω, lbl_β);
         break;
     }
-    case IR_BINOP:
-        if (!nd->α && !nd->β) {
+    case IR_BINOP: {
+        int op_is_rel = nd && ((nd->ival >= BINOP_LT && nd->ival <= BINOP_NE) ||
+                               (nd->ival >= BINOP_SLT && nd->ival <= BINOP_SNE));
+        if (g_icn_flat_chain && op_is_rel) {
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
+        } else if (!nd->α && !nd->β) {
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
@@ -1461,6 +1467,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             flat_drive_binop_tree(nd, lbl_γ, lbl_ω, lbl_β);
         }
         break;
+    }
     case IR_IF: {
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -1695,16 +1702,16 @@ static int icn_chain_arity(const IR_t *n) {
 static void icn_chain_operand_refs(IR_t *entry) {
     IR_t *chain[512]; int nc = 0;
     IR_t *seen[512]; int ns = 0;
-    IR_t *q[512]; int qh = 0, qt = 0;
-    q[qt++] = entry;
-    while (qh < qt && nc < 512) {
-        IR_t *c = q[qh++];
+    IR_t *stkv[512]; int sv = 0;
+    stkv[sv++] = entry;
+    while (sv > 0 && nc < 512) {
+        IR_t *c = stkv[--sv];
         if (!c || c->t == IR_SUCCEED || c->t == IR_FAIL) continue;
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if (c->γ && qt < 512) q[qt++] = c->γ;
-        if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && qt < 512) q[qt++] = c->ω;
+        if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && sv < 512) stkv[sv++] = c->ω;
+        if (c->γ && sv < 512) stkv[sv++] = c->γ;
     }
     IR_t *stk[512]; int sp = 0;
     for (int i = 0; i < nc; i++) {
