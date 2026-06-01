@@ -1,14 +1,14 @@
 /* bb_logicvar.cpp — BB template for IR_LOGICVAR: Prolog variable slot.
    PL-T-2 (GOAL-BB-TEMPLATE-LADDER.md). x86 only per Invariant #14 (2026-05-22).
    STACKLESS (2026-05-31, Lon directive): the former body pushed the slot's value onto the global value
-   stack via rt_pl_var_push -> rt_push_int/rt_push_str -> vstack_push(g_vstack) — the value-stack traffic
-   the PER-BOX LOCAL STORAGE FACT RULE bans (GOAL-PROLOG-BB completion test forbids g_vstack and the
+   stack via rt_pl_var_push -> rt_push_int/rt_push_str -> the global value stack — the value-stack traffic
+   the PER-BOX LOCAL STORAGE FACT RULE bans (GOAL-PROLOG-BB completion test forbids any value stack and the
    rt_push / rt_pop value ops). rt_pl_var_push is DELETED, never to be resurrected. A logic variable's
    binding lives in its per-activation slot g_resolve_env[slot]; when its value matters it is read DIRECTLY
    by its consumer (bb_unify / bb_builtin-write / bb_arith via rt_pl_node_to_term / rt_pl_write_var /
    rt_pl_arith — the test_sno_1.c consumer-reads-the-producer-slot model), never pushed. Empirically
    RESOLVE_VAR fires zero times across all live mode-3/mode-4 paths. So the box is the minimal four-port
-   pass-through: alpha -> gamma, beta -> omega. No bytes touch g_vstack. */
+   pass-through: alpha -> gamma, beta -> omega. No bytes touch any value stack. */
 #include <string>
 #include "emit_str.h"
 extern "C" {

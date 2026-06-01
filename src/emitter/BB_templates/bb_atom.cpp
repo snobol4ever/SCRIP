@@ -1,13 +1,13 @@
 /* bb_atom.cpp — BB template for IR_ATOM: Prolog atom literal.
    PL-T-2 (GOAL-BB-TEMPLATE-LADDER.md). x86 only per Invariant #14 (2026-05-22).
    STACKLESS (2026-05-31, Lon directive): the former body pushed the atom string onto the global value
-   stack via rt_pl_atom_push -> rt_push_str -> vstack_push(g_vstack) — exactly the value-stack traffic the
+   stack via rt_pl_atom_push -> rt_push_str -> the global value stack — exactly the value-stack traffic the
    PER-BOX LOCAL STORAGE FACT RULE bans. rt_pl_atom_push is DELETED. An executed IR_ATOM leaf has no
    per-box runtime work: when an atom's value matters it is a READ-ONLY operand CONSTANT read directly by
    its consumer (bb_unify / bb_builtin-write via rt_pl_node_to_term / rt_pl_write_atom — the test_sno_1.c
    "consumer reads the producer's sealed constant" model), never pushed. Empirically RESOLVE_ATOM fires
    zero times across all live mode-3/mode-4 paths. So the box is now the minimal four-port pass-through
-   (mirrors bb_lit_scalar's scalar-literal pass-through): α -> γ, β -> ω. No bytes touch g_vstack. */
+   (mirrors bb_lit_scalar's scalar-literal pass-through): α -> γ, β -> ω. No bytes touch any value stack. */
 #include <string>
 #include "emit_str.h"
 extern "C" {

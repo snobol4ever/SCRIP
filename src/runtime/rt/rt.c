@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
-                         "This box must be rebuilt stackless (per-box slot, no g_vstack).\n", (fn)); \
+                         "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
          abort(); } while (0)
 #include <string.h>
 #include <math.h>
@@ -59,8 +59,6 @@ extern DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var);
 extern DESCR_t pat_at_cursor(const char *varname);
 extern DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
-#define VSTACK_CAP   65536
-static DESCR_t g_vstack[VSTACK_CAP];
 static int     g_vtop    = 0;
 static int     g_vframe_base = 0;
 static int     g_last_ok  = 1;
@@ -90,7 +88,7 @@ static int     g_native_chunk_depth = 0;
 int rt_in_native_chunk(void) { return g_native_chunk_depth > 0; }
 static void _default_push(const DESCR_t *d)
 {
-    (void)d; (void)g_vstack;
+    (void)d;
     fprintf(stderr, "[SMX] FATAL: SM value stack push after excision. There is no value "
                     "stack. This code path belongs to a language not yet on Byrd Boxes. "
                     "Aborting (by design).\n");
