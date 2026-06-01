@@ -133,21 +133,50 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
         const char *fn = g->sval ? g->sval : "";
         int is_io = (!strcmp(fn, "write") || !strcmp(fn, "writeln") || !strcmp(fn, "print") || !strcmp(fn, "nl") || !strcmp(fn, "halt"));
         if (!is_io) return 0;
-        if (g->ival >= 1) { const IR_t *a = g->α; if (!a || (a->t != IR_ATOM && a->t != IR_LIT_I)) return 0; }
+        /* PLG-9b (2026-05-31): write/print of a logic-variable slot is now in the flat tier. The bb_builtin */
+        /* emit_write_term TEXT arm already renders IR_LOGICVAR via rt_pl_write_var(slot) (reads g_resolve_  */
+        /* env[slot]); its MEDIUM_BINARY twin does the same. So accept an IR_LOGICVAR arg alongside the      */
+        /* constant IR_ATOM / IR_LIT_I args of PLG-9a.                                                       */
+        if (g->ival >= 1) { const IR_t *a = g->α; if (!a || (a->t != IR_ATOM && a->t != IR_LIT_I && a->t != IR_LOGICVAR)) return 0; }
         return 1;
+    }
+    case IR_UNIFY: {
+        /* PLG-9b (2026-05-31): the X = world tier — one logic-variable slot bound to a constant. The      */
+        /* bb_unify TEXT/BINARY arms build each operand via rt_pl_node_to_term then call rt_pl_unify_terms, */
+        /* which writes the binding into g_resolve_env[slot] under a trail mark. Accept only the proven     */
+        /* (LOGICVAR = ATOM|LIT_I) and the symmetric (ATOM|LIT_I = LOGICVAR) scalar shapes; a compound or   */
+        /* var=var operand routes through paths PLG-9b does not yet prove, so it declines (-> NULL root ->  */
+        /* EXCISED, no regression). The per-activation slot lives in g_resolve_env, allocated by the driver */
+        /* before the flat walk (mode-3) / by rt_pl_env_alloc in the emitted main: wrapper (mode-4).        */
+        const IR_t *l = g->α, *r = g->β;
+        if (!l || !r) return 1;                                   /* vacuous-success unify (matches bb_exec.c F-6d) */
+        int l_var = (l->t == IR_LOGICVAR), r_var = (r->t == IR_LOGICVAR);
+        int l_con = (l->t == IR_ATOM || l->t == IR_LIT_I);
+        int r_con = (r->t == IR_ATOM || r->t == IR_LIT_I);
+        return (l_var && r_con) || (l_con && r_var);
     }
     default: return 0;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_flat_body_root(IR_graph_t *g) {
-    if (!g || !g->all || g->nslots > 0) return NULL;
+    /* PLG-9b (2026-05-31): the nslots==0 guard is lifted. A body now qualifies for the native flat walk    */
+    /* even with logic-variable slots (nslots>0), PROVIDED every conjunction element passes                 */
+    /* pl_flat_goal_is_simple — which only admits the proven unify-(var=const) + write/print(var) + nl tier. */
+    /* The slots live in g_resolve_env (per-activation env), set up before the walk by the driver (mode-3)   */
+    /* or by an rt_pl_env_alloc(nslots) call emitted into the main: wrapper (mode-4). A richer slot-bearing  */
+    /* shape (user call, choice, compound unify) has an element that fails the simple check -> NULL -> the   */
+    /* interim route (mode-3) / EXCISED (mode-4), so widening stays safe and incremental.                    */
+    if (!g || !g->all) return NULL;
     IR_t *gconj = NULL;
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (nd && nd->t == IR_GCONJ) { if (gconj) return NULL; gconj = nd; }
     }
-    if (!gconj) return (g->entry && g->entry->t == IR_SUCCEED) ? g->entry : NULL;
+    if (!gconj) {
+        if (g->nslots > 0) return NULL;                /* bare non-conj body with slots: not the proven tier */
+        return (g->entry && g->entry->t == IR_SUCCEED) ? g->entry : NULL;
+    }
     bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)gconj->ival;
     if (!zs || !zs->goals || zs->ngoals <= 0) return NULL;
     for (int i = 0; i < zs->ngoals; i++) if (!pl_flat_goal_is_simple(zs->goals[i])) return NULL;
@@ -543,6 +572,15 @@ int main(int argc, char **argv)
             printf("main:\n");
             printf("  push rbp\n");
             printf("  mov rbp, rsp\n");
+            /* PLG-9b (2026-05-31): if the clause body has logic-variable slots, allocate the per-activation */
+            /* env BEFORE running the body. The slots ARE the per-box RW storage for variables (the unify   */
+            /* box writes g_resolve_env[slot], the write box reads it). Mode-3 does this in the driver; the  */
+            /* emitted mode-4 binary has no driver, so it calls rt_pl_env_alloc(nslots) here. nslots==0 (the */
+            /* PLG-9a hello tier) skips it (g_resolve_env stays NULL, never dereferenced).                   */
+            if (pl_main->nslots > 0) {
+                printf("  mov edi, %d\n", pl_main->nslots);
+                printf("  call rt_pl_env_alloc@PLT\n");
+            }
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
             printf("  xor esi, esi\n");

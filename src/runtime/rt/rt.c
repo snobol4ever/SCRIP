@@ -1364,6 +1364,27 @@ void rt_pl_trail_mark_pop(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term **rt_pl_env_current(void) { extern Term **g_resolve_env; return g_resolve_env; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9b (2026-05-31): allocate the per-activation logic-variable environment for the native flat path.    */
+/* In mode-3 the driver GC_MALLOCs g_resolve_env before bb_build_flat; in mode-4 the emitted main: wrapper  */
+/* has no driver to do that, so it calls this once before invoking the body (mirrors the driver's           */
+/* GC_MALLOC(nslots+8) at scrip.c). g_resolve_env holds Term* slots that rt_pl_node_to_term / rt_pl_unify_  */
+/* terms / rt_pl_write_var read and write; the slots ARE the per-box RW storage for logic variables.        */
+void rt_pl_env_alloc(int nslots)
+{
+    extern Term **g_resolve_env;
+    extern Trail  g_resolve_trail;
+    int n = (nslots > 0 ? nslots : 1) + 8;
+    g_resolve_env = (Term **)GC_MALLOC((size_t)n * sizeof(Term *));
+    /* The mode-4 standalone binary's main: never calls rt_init (that is the interpreter driver's */
+    /* entry), so the binding trail rt_pl_unify_terms uses is still zero-initialized {NULL,0,0}.   */
+    /* The PLG-9a hello tier never touched it (write of a constant atom needs no trail); the first */
+    /* unify in PLG-9b limps on a 0-capacity trail by luck, but the SECOND trail_push dereferences */
+    /* past the zero-size block and segfaults. Initialize it here, alongside the env, since this   */
+    /* is the native-flat Prolog runtime-state setup hook. Idempotent re-init across activations is */
+    /* harmless for the single-activation flat tier (no live bindings span the call).               */
+    trail_init(&g_resolve_trail);
+}
 void rt_pl_cp_save_caller_env(void *caller_env) { if (g_resolve_bfr) g_resolve_bfr->saved_args = (Term **)caller_env; }
 void rt_pl_choice_cut_enter(void *cp_void)
 {
