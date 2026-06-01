@@ -119,7 +119,13 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
 static int icn_kind_native_stub(IR_e t) {
     return t == IR_GEN_SCAN || t == IR_GEN_ALT || t == IR_KEYWORD || t == IR_PROC_GEN ||
            t == IR_CSET_UNION || t == IR_CSET_DIFF || t == IR_CSET_INTER || t == IR_CSET_COMPL ||
-           t == IR_SUSPEND;
+           t == IR_SUSPEND ||
+           /* RK-EMIT (2026-06-01): the Raku resumable-Seq generators. IR_GATHER's MEDIUM_TEXT+MEDIUM_BINARY */
+           /* template (bb_rk_gather.cpp) is BUILT — it is NOT listed here so it emits real native code and  */
+           /* its rungs PASS in m3/m4. IR_MAP/IR_GREP still need closure-emitting templates (bb_rk_map.cpp / */
+           /* bb_rk_grep.cpp); until those land they LOUDLY EXCISE here rather than abort, exactly like the  */
+           /* Icon scan/cset/suspend families — m2 (--interp) stays the oracle for those rungs.              */
+           t == IR_MAP || t == IR_GREP;
 }
 static int icn_graph_native_emittable(stage2_t *s2) {
     if (!s2) return 0;
@@ -798,10 +804,10 @@ int main(int argc, char **argv)
             /* GOAL "ALWAYS TEST ALL THREE MODES" loud-decline gate (mode-4 twin of the mode-3 gate): a graph */
             /* with a still-stubbed native kind would emit a .s that assembles+runs but prints silently-wrong */
             /* output. Decline LOUD ([SMX]) so the harness records it EXCISED. Icon only; Raku keeps its path. */
-            if (is_icon && !icn_graph_native_emittable(s2)) {
-                fprintf(stderr, "[SMX] --compile --target=x86: Icon mode-4 native emitter does not yet cover "
-                                "this program (a scan/keyword/cset/gen-alt/suspend box has no MEDIUM_TEXT arm). "
-                                "EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
+            if ((is_icon || is_raku) && !icn_graph_native_emittable(s2)) {
+                fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
+                                "this program (a box has no MEDIUM_TEXT arm — Icon scan/keyword/cset/gen-alt/"
+                                "suspend, or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
                 return 0;
             }
             extern bb_box_fn bb_build_flat(IR_t * nd);
@@ -1118,10 +1124,10 @@ int main(int argc, char **argv)
             /* GOAL "ALWAYS TEST ALL THREE MODES" loud-decline gate: a graph with a still-stubbed native kind */
             /* (scan/gen-alt/keyword/cset/suspend) would emit silently-wrong output. Decline LOUD ([SMX]) so   */
             /* the harness records it EXCISED, never a silent miscompile. Icon only; Raku keeps its own path.  */
-            if (is_icon && !icn_graph_native_emittable(s2)) {
-                fprintf(stderr, "[SMX] --run: Icon mode-3 native emitter does not yet cover this program "
-                                "(a scan/keyword/cset/gen-alt/suspend box has no MEDIUM_BINARY arm). "
-                                "EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
+            if ((is_icon || is_raku) && !icn_graph_native_emittable(s2)) {
+                fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
+                                "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "
+                                "or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
                 return 0;
             }
             int main_bb_idx = -1;

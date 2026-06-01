@@ -1134,6 +1134,7 @@ static int gen_bb_is_gen_arg(IR_t *e) {
         case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT:
         case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
         case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
+        case IR_GATHER:
             return 1;
         default: return 0;
     }
@@ -1684,6 +1685,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_EVERY:      flat_drive_every(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIMIT:      flat_drive_limit(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO:         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1794,6 +1796,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ && qt < CH_MAX) queue[qt++] = c->γ;
         if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
+        /* RK-EMIT-GATHER (2026-06-01): a Raku `for gather {..} -> $v {..}` lowers (v_raku_for) to a raw    */
+        /* goto-chain whose CONTINUATION (the statement after the loop, e.g. `say('done')`) hangs off the   */
+        /* generator's ω port (gen drained ⇒ for completes ⇒ run the continuation). The γ-only BFS would    */
+        /* never reach it (only IR_TO-style generators consumed by Icon's flat_drive_every wrapper, which   */
+        /* stitches its own continuation, avoid this). Following ω for the Raku-only IR_GATHER kind makes    */
+        /* the continuation a chain node so the gather box's ω-port resolves to its α label and emits it.    */
+        /* RAKU-ONLY KIND ⇒ ZERO blast radius on Icon/SNOBOL/Prolog chains (their generators are not        */
+        /* IR_GATHER). IR_MAP/IR_GREP are deliberately NOT added here — that rung is not yet built.          */
+        if (c->t == IR_GATHER && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -1947,6 +1958,13 @@ static int icn_chain_arity(const IR_t *n) {
     switch (n->t) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: return 0;
+    /* RK-EMIT-GATHER (2026-06-01): IR_GATHER is a self-contained resumable Seq producer — its take         */
+    /* payloads live on `counter` (extracted at emit time), NOT as γ-chain operands, so from the postfix    */
+    /* operand-ref walk's view it is a LEAF producer (arity 0). Its yielded element is the chain producer    */
+    /* the following bind (IR_ASSIGN) reads from its ζ slot. Reporting >0 here would wrongly pop chain       */
+    /* producers; reporting -1 (the old default) reset the postfix stack so the consuming bind's α went     */
+    /* unset (NULL) → the bb_assign FATAL. Arity 0 makes it push itself for the bind to reference.           */
+    case IR_GATHER: return 0;
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: return 1;
@@ -1979,6 +1997,12 @@ static void icn_chain_operand_refs(IR_t *entry) {
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
         if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && sv < 512) stkv[sv++] = c->ω;
+        /* RK-EMIT-GATHER (2026-06-01): mirror the emit-BFS ω-follow for IR_GATHER so the for-loop          */
+        /* CONTINUATION (on the gather's ω) gets its operand refs (α/β) set by this postfix walk — else its */
+        /* consuming call (e.g. say('done') reading a separate IR_LIT_S producer box) has a NULL α and is   */
+        /* mis-routed to the builtin-dispatch arm. Pushed BEFORE γ (LIFO) so the loop body linearizes first */
+        /* and the continuation forms a separate trailing segment. RAKU-ONLY kind ⇒ zero peer impact.       */
+        if (c->t == IR_GATHER && c->ω && sv < 512) stkv[sv++] = c->ω;
         if (c->γ && sv < 512) stkv[sv++] = c->γ;
     }
     IR_t *stk[512]; int sp = 0;
