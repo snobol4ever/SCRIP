@@ -116,6 +116,7 @@ int bb_varslot_peek(const char *name) {
 /* _peek), computes, and writes its own result slot — exactly the test_sno_1.c named-slot model. Boxes    */
 /* are NEVER re-walked for operands (postfix order guarantees operands precede consumers in the chain).   */
 int g_icn_flat_chain = 0;
+int g_sno_flat_chain = 0;  /* SBL-M3-CHAIN: SNOBOL4 flat-chain emit active — IR_VAR is a by-name pass-through (value read in bb_sno_assign_var) */
 int g_frame_active = 0;
 #define FLAT_DATA_BUF_MAX     (32 * 1024)
 #define FLAT_DATA_LBL_MAX     32
@@ -1750,6 +1751,185 @@ int icn_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     int rc = codegen_flat_chain_body(entry, prefix);
     emitter_end();
     g_icn_flat_chain = 0;
+    return rc;
+}
+/*====================================================================================================================================================================================================*/
+/* SBL-M3-CHAIN (2026-05-31, Opus 4.8) — SNOBOL4 FLAT-CHAIN EMITTER (PB-0 substrate; the sno_ring_to_tree   */
+/* replacement). LOWER (lower_program.c) emits a SNOBOL4 program as a four-port graph whose statements are  */
+/* threaded through IR_SUCCEED LANDING nodes (g->entry is land[0], itself an IR_SUCCEED whose .γ is the     */
+/* first statement). This builder consumes THAT graph directly — NO ring->tree adapter (banned, VIOLATION) */
+/* — emitting it as a FLAT GOTO-GRAPH in the test_sno_1.c model: every box emitted EXACTLY ONCE, wired by   */
+/* its native γ/ω ports (jmp rel32), reading operands from the producer box's slot or baking RO constants.  */
+/* NO value stack, NO ring. It differs from the Icon chain builder (icn_flat_chain_build) in two ways: (1)  */
+/* it RESOLVES landing nodes transitively — a port to an IR_SUCCEED-with-γ follows through to its target,   */
+/* so the per-statement landings are transparent; a terminal IR_SUCCEED (γ==NULL = PSUCC) maps to the       */
+/* success epilogue and IR_FAIL (PFAIL) to the failure epilogue; (2) it does NOT set g_icn_flat_chain, so   */
+/* walk_bb_flat takes the SNOBOL4 arms (IR_ASSIGN -> bb_sno_assign, IR_SCAN -> bb_sno_scan, ...) not the    */
+/* Icon slot-leaf arm. The operand-ref pass (sno_chain_operand_refs) is the SAME postfix-arity model as     */
+/* Icon's — it derives OPERAND REFERENCES (which producer a consumer reads), NOT topology; topology is from */
+/* LOWER. PER-BOX LOCAL STORAGE FACT RULE: every box-local read is [rip+disp] (RO) or [ζ=r12+off] (RW).     */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Resolve a port target through chained IR_SUCCEED landing nodes (each a pass-through whose .γ is the next  */
+/* real node). Stops at the first non-landing node, at a terminal IR_SUCCEED (γ==NULL = program success),   */
+/* or at IR_FAIL (program failure). Bounded guard against a malformed cyclic landing chain.                 */
+static IR_t *sno_chain_resolve(IR_t *n) {
+    int guard = 0;
+    while (n && n->t == IR_SUCCEED && n->γ != NULL && guard++ < 4096) n = n->γ;
+    return n;
+}
+static int sno_chain_is_real(IR_t *n) { return n && n->t != IR_SUCCEED && n->t != IR_FAIL; }
+/* SNOBOL4 chain arity: a SNOBOL concat IR_SEQ/IR_SEQ_EXPR (dval==1.0) carries its two operands in ISOLATED  */
+/* sub-graphs (on counter/ival), NOT on the γ-chain, so from the chain's perspective it is a LEAF producer  */
+/* (arity 0) whose value the consuming IR_ASSIGN reads via bb_sno_assign_concat. Everything else delegates   */
+/* to the shared icn_chain_arity.                                                                            */
+static int sno_chain_arity(const IR_t *n) {
+    if (n && (n->t == IR_SEQ || n->t == IR_SEQ_EXPR) && n->dval == 1.0) return 0;
+    /* IR_SCAN consumes its single γ-predecessor: the subject value-node (plain form) or the replacement    */
+    /* value-node (repl form, subject is by-name on sval). bb_sno_scan reads it off α. SPITBOL Manual ch.6.  */
+    if (n && n->t == IR_SCAN) return 1;
+    return icn_chain_arity(n);
+}
+/* Postfix operand-ref pass for ONE statement's γ-chain: starting at the statement's first real node, walk  */
+/* γ (the linear value-flow) until it exits the statement (into a landing IR_SUCCEED, a terminal, or IR_FAIL */
+/* — failure/backtrack edges are NOT value-flow), pushing value producers and recording each consumer's k    */
+/* preceding producers on its α/β. Cycle-guarded.                                                            */
+static void sno_stmt_operand_refs(IR_t *head) {
+    IR_t *chain[512]; int nc = 0;
+    IR_t *c = head;
+    while (sno_chain_is_real(c) && nc < 512) {
+        int dup = 0; for (int i = 0; i < nc; i++) if (chain[i] == c) { dup = 1; break; }
+        if (dup) break;
+        chain[nc++] = c;
+        IR_t *g = c->γ;
+        if (!g || g->t == IR_SUCCEED || g->t == IR_FAIL) break;   /* γ leaves the statement */
+        c = g;
+    }
+    IR_t *stk[512]; int sp = 0;
+    for (int i = 0; i < nc; i++) {
+        IR_t *n = chain[i];
+        int ar = sno_chain_arity(n);
+        if (ar < 0) { sp = 0; continue; }
+        if (ar == 2 && sp >= 2) { n->β = stk[sp - 1]; n->α = stk[sp - 2]; sp -= 2; }
+        else if (ar == 1 && sp >= 1) { n->α = stk[sp - 1]; sp -= 1; }
+        else if (ar >= 1) { sp = 0; }
+        stk[sp++] = n;
+    }
+}
+/* Run sno_stmt_operand_refs for EVERY statement in the SNOBOL4 program graph. A statement head is the       */
+/* landing-resolved γ-target of the program entry AND of each landing node (IR_SUCCEED-with-γ); deduped.     */
+/* This covers statements reachable only via a failure (ω) edge or a goto, which a γ-only walk from the      */
+/* entry would miss (then their consumer's α would be unset and flat_drive_assign would abort on emit).      */
+static void sno_chain_operand_refs(IR_graph_t *g) {
+    if (!g || !g->all) return;
+    IR_t *heads[2048]; int nh = 0;
+    IR_t *e0 = sno_chain_resolve(g->entry);
+    if (sno_chain_is_real(e0)) heads[nh++] = e0;
+    for (int i = 0; i < g->n && nh < 2048; i++) {
+        IR_t *L = g->all[i];
+        if (!L || L->t != IR_SUCCEED || L->γ == NULL) continue;
+        IR_t *h = sno_chain_resolve(L);
+        if (!sno_chain_is_real(h)) continue;
+        int dup = 0; for (int k = 0; k < nh; k++) if (heads[k] == h) { dup = 1; break; }
+        if (!dup) heads[nh++] = h;
+    }
+    for (int i = 0; i < nh; i++) sno_stmt_operand_refs(heads[i]);
+}
+/* Chain body: same prologue/epilogue shell as codegen_flat_chain_body, but the BFS and the per-node γ/ω    */
+/* target resolution both run through sno_chain_resolve so the landing nodes are transparent.               */
+static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
+    bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
+    emit_label_initf(&lbl_α,      "%s_α",      prefix);
+    emit_label_initf(&lbl_α_body, "%s_α_body", prefix);
+    emit_label_initf(&lbl_γ,       "%s_γ",      prefix);
+    emit_label_initf(&lbl_ω,       "%s_ω",      prefix);
+    emit_label_initf(&lbl_β,       "%s_β",       prefix);
+    int text_externalise = g_is_text ? 1 : 0;
+    if (text_externalise) data_buf_reset();
+    g_emit.flat_lbl_α        = lbl_α.name;
+    g_emit.flat_lbl_α_body   = lbl_α_body.name;
+    g_emit.flat_lbl_γ         = lbl_γ.name;
+    g_emit.flat_lbl_ω         = lbl_ω.name;
+    g_emit.flat_lbl_β         = lbl_β.name;
+    g_emit.flat_β_p           = &lbl_β;
+    g_emit.flat_succ_p        = &lbl_γ;
+    g_emit.flat_fail_p        = &lbl_ω;
+    g_emit.flat_text_externalise = text_externalise;
+    if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
+    xa_dispatch(XA_FLAT_PROLOGUE);
+    if (g_is_text) g_emit_pos += 7;
+    emit_label_define_bb(&lbl_α_body);
+    enum { CH_MAX = 512 };
+    IR_t *nodes[CH_MAX]; int n = 0;
+    IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
+    IR_t *e0 = sno_chain_resolve(entry);
+    if (sno_chain_is_real(e0)) queue[qt++] = e0;
+    while (qh < qt) {
+        IR_t *c = queue[qh++];           /* already resolved + real on enqueue */
+        int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
+        if (dup) continue;
+        if (n >= CH_MAX) { fprintf(stderr, "[SBB] FATAL sno chain exceeds CH_MAX\n"); abort(); }
+        nodes[n++] = c;
+        IR_t *g = sno_chain_resolve(c->γ);
+        IR_t *w = sno_chain_resolve(c->ω);
+        if (sno_chain_is_real(g) && qt < CH_MAX) queue[qt++] = g;
+        if (sno_chain_is_real(w) && qt < CH_MAX) queue[qt++] = w;
+    }
+    bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
+    bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
+    int id = g_flat_node_id++;
+    for (int i = 0; i < n; i++) {
+        lbls[i]  = emit_label_alloc("snoch%d_n%d_α", id, i);
+        betas[i] = emit_label_alloc("snoch%d_n%d_β", id, i);
+    }
+    for (int i = 0; i < n; i++) {
+        emit_label_define_bb(lbls[i]);
+        bb_label_t *node_γ = &lbl_γ;     /* default: program success epilogue */
+        bb_label_t *node_ω = &lbl_ω;     /* default: program failure epilogue */
+        IR_t *g = sno_chain_resolve(nodes[i]->γ);
+        IR_t *w = sno_chain_resolve(nodes[i]->ω);
+        if (sno_chain_is_real(g)) { for (int k = 0; k < n; k++) if (nodes[k] == g) { node_γ = lbls[k]; break; } }
+        else if (g && g->t == IR_FAIL) node_γ = &lbl_ω;     /* resolved to PFAIL */
+        if (sno_chain_is_real(w)) { for (int k = 0; k < n; k++) if (nodes[k] == w) { node_ω = lbls[k]; break; } }
+        else if (w && w->t == IR_FAIL) node_ω = &lbl_ω;     /* resolved to PFAIL */
+        walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
+    }
+    emit_label_define_bb(&lbl_β);
+    emit_jmp_label(&lbl_ω, JMP_JMP);
+    emit_label_define_bb(&lbl_γ);
+    xa_dispatch(XA_FLAT_EPILOGUE);
+    if (text_externalise && g_is_text) {
+        data_buf_flush_pending_label();
+        xa_dispatch(XA_FLAT_DATA_SECTION);
+        data_buf_reset();
+    }
+    return 0;
+}
+bb_box_fn sno_flat_chain_build(IR_graph_t *g) {
+    if (!g || !g->entry) return NULL;
+    sno_chain_operand_refs(g);
+    bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
+    if (!buf) return NULL;
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_sno_flat_chain = 1;
+    emitter_init_binary(buf, FLAT_BUF_MAX);
+    codegen_sno_flat_chain_body(g->entry, "sno_flat");
+    int nbytes = emitter_end();
+    g_sno_flat_chain = 0;
+    extern int bb_emit_overflow;
+    if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
+    bb_seal(buf, (size_t)nbytes);
+    bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
+    return (bb_box_fn)buf;
+}
+int sno_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
+    if (!g || !g->entry) return 1;
+    sno_chain_operand_refs(g);
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_sno_flat_chain = 1;
+    emitter_init_text(out, TEXT_MODE_INVOCATION);
+    int rc = codegen_sno_flat_chain_body(g->entry, prefix);
+    emitter_end();
+    g_sno_flat_chain = 0;
     return rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

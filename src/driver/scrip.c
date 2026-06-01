@@ -769,22 +769,29 @@ int main(int argc, char **argv)
                 (void)s2;
                 abort();
             }
-            /* SBL: sno_ring_to_tree REMOVED (VIOLATION, Lon 2026-05-31). Mode-3 SNOBOL4 native execution
-               must come from LOWER producing the four-port statement-BB graph directly + the per-box BINARY
-               arm (mode 3) / TEXT arm (mode 4) of one template — NO ring->tree adapter, NO storage outside
-               the boxes. Until LOWER does that, abort (by design — the stopgap is gone). */
-            extern bb_box_fn bb_build_flat(IR_t * nd);
+            /* SBL-M3-CHAIN (2026-05-31, Opus 4.8): SNOBOL4 mode-3 native execution from LOWER's four-port
+               statement-BB graph directly — NO ring->tree adapter (sno_ring_to_tree stays removed). The
+               graph's entry is land[0] (an IR_SUCCEED landing); sno_flat_chain_build resolves landings
+               transitively and emits the flat goto-graph (every box once, native γ/ω ports, NO value stack,
+               NO ring; per-box RO [rip+disp] / RW [ζ=r12+off]). Shapes whose boxes have no BINARY arm yet
+               make sno_flat_chain_build return NULL -> SOFT honest fall (loud stderr, clean exit, NO abort),
+               so a working shape (e.g. OUTPUT='hello') runs while unbuilt shapes produce empty output. */
+            extern bb_box_fn sno_flat_chain_build(IR_graph_t * g);
             extern void *rt_frame(void);
             extern int g_frame_active;
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
-            (void)sbbg; (void)rt_frame; (void)g_frame_active;
-            fprintf(stderr, "[SBB] mode-3: sno_ring_to_tree REMOVED (VIOLATION, Lon 2026-05-31). SNOBOL4 "
-                            "mode-3 native execution must come from LOWER producing the four-port statement-BB "
-                            "graph directly (no ring->tree adapter); not yet wired. Aborting (by design).\n");
-            abort();
+            if (sbbg && sbbg->entry) {
+                g_frame_active = 1;
+                bb_box_fn fn = sno_flat_chain_build(sbbg);
+                g_frame_active = 0;
+                if (fn) { (void)fn(rt_frame(), 0); goto run_done; }
+            }
+            fprintf(stderr, "[SBB] mode-3: SNOBOL4 statement shape not yet flat-emittable (a box lacks a "
+                            "MEDIUM_BINARY arm); soft fall — no output for this shape. No abort.\n");
+            goto run_done;
         }
     } else if (has_non_sno) {
         (void)sm_preamble;
