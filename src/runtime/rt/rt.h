@@ -98,6 +98,7 @@ void rt_pl_write_term_ptr(void *t);
 void rt_pl_writeq_term_ptr(void *t);
 void rt_pl_write_canonical_term_ptr(void *t);
 void rt_pl_var_push(int slot);
+void rt_pl_env_alloc(int nslots);
 void rt_pl_atom_push(const char *s);
 struct Term;
 void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
