@@ -450,6 +450,16 @@ void rt_frame_leave(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_ICN_PROC_MAX 512
+/* GZ-10 (modes 3/4) stackless user-procedure call (test_sno_3.c (ζζ,entry) model). A call activation gets */
+/* a FRESH frame from this depth-indexed arena (recursion-safe per-activation storage — an explicit indexed */
+/* per-activation frame array, NOT a value stack). Frame layout (byte offsets into the ζ=r12 frame): [0,16) */
+/* = the RETURN-value DESCR slot (the callee's IR_RETURN writes here, the caller reads it back); param i at  */
+/* 16*(i+1); the proc body's own slots follow. g_icn_call_args is the TRANSIENT single-call argument         */
+/* marshalling buffer the call box fills immediately before the call and the helper copies into the callee   */
+/* param slots on entry (consumed before any nested call can run — NOT a cross-box value stack).             */
+#define ICN_PROC_FRAME_QWORDS 512
+#define ICN_PROC_FRAME_DEPTH  4096
+#define ICN_CALL_ARGS_MAX     64
 typedef struct { const char *name; bb_box_fn fn; void *entry; const char **pnames; int nparams; } rt_proc_t;
 static rt_proc_t g_rt_gen_procs[RT_ICN_PROC_MAX];
 static int           g_rt_gen_proc_count = 0;
@@ -479,12 +489,54 @@ int rt_proc_is_registered(const char *name)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return 1;
     return 0;
 }
+void rt_proc_set_fn(const char *name, bb_box_fn fn)
+{
+    if (!name) return;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].fn = fn; return; }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
 {
     (void)name;
     (void)nargs;
     STACKLESS_ABORT("rt_call_proc");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t g_icn_call_args[ICN_CALL_ARGS_MAX];
+/* GZ-10 (modes 3/4): a call box stages each evaluated argument here just before invoking                  */
+/* rt_icn_call_proc_descr, which copies them into the fresh callee frame's param slots on entry (and thus  */
+/* before any nested call can re-stage — recursion-safe; this is a transient single-call buffer, NOT a     */
+/* value stack). The DESCR is passed by value (eightbyte0 in rsi, eightbyte1 in rdx) so the emitted staging */
+/* reuses the proven [r12+slot] read pattern + a plain call — no new addressing mode in the template.      */
+void rt_icn_arg_stage(int idx, DESCR_t v)
+{
+    if (idx >= 0 && idx < ICN_CALL_ARGS_MAX) g_icn_call_args[idx] = v;
+}
+static int64_t g_icn_proc_arena[ICN_PROC_FRAME_DEPTH * ICN_PROC_FRAME_QWORDS];
+static int     g_icn_proc_depth = 0;
+DESCR_t rt_icn_call_proc_descr(const char *name, int nargs)
+{
+    rt_proc_t *p = (rt_proc_t *)0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
+    if (!p || !p->fn) {
+        fprintf(stderr, "[GZ-10] rt_icn_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
+        abort();
+    }
+    if (g_icn_proc_depth >= ICN_PROC_FRAME_DEPTH) {
+        fprintf(stderr, "[GZ-10] rt_icn_call_proc_descr: recursion depth exceeded (%d)\n", ICN_PROC_FRAME_DEPTH);
+        abort();
+    }
+    char *fb = (char *)&g_icn_proc_arena[g_icn_proc_depth * ICN_PROC_FRAME_QWORDS];
+    g_icn_proc_depth++;
+    *(DESCR_t *)(fb + 0) = NULVCL;
+    if (nargs > ICN_CALL_ARGS_MAX) nargs = ICN_CALL_ARGS_MAX;
+    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_icn_call_args[i];
+    (void)p->fn((void *)fb, 0);
+    DESCR_t result = *(DESCR_t *)(fb + 0);
+    g_icn_proc_depth--;
+    return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int builtin_is_generator(const char *name)

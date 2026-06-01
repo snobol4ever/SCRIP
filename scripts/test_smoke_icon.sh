@@ -111,6 +111,15 @@ procedure main()
 end
 EOF
 
+icon "proc_zeroarg" "42" << 'EOF'
+procedure answer()
+  return 42;
+end
+procedure main()
+  write(answer());
+end
+EOF
+
 icon "proc_recursion" "120" << 'EOF'
 procedure fact(n)
   if n <= 1 then return 1; else return n * fact(n - 1);

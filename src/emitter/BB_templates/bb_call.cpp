@@ -38,6 +38,7 @@ void rt_write_strz_nl(const char *s);
 void rt_pop_write_int_nl(void);
 void rt_pop_write_any_nl(void);
 void rt_call_proc(const char *name, int nargs);
+DESCR_t rt_icn_call_proc_descr(const char *name, int nargs);
 int  rt_proc_is_registered(const char *name);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
@@ -169,6 +170,57 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
                 s += bytes(1, "\xE9") + u32le(0);                                 /* β: jmp ω (def base+5, patch base+6) */
                 return s;
             }
+        }
+    }
+
+    /* GZ-10 (modes 3/4, GROUND ZERO 3) flat-chain user-procedure call: `f(...)` where f is a registered  */
+    /* Icon procedure (dval==3.0). The stackless (ζζ,entry) model (test_sno_3.c): the call box calls the   */
+    /* C helper rt_icn_call_proc_descr, which allocates a FRESH per-activation frame from the depth-indexed */
+    /* arena (recursion-safe — NOT a value stack), binds the staged args into the callee's param slots,    */
+    /* runs the callee's flat slab (built with the return-slot-at-[0] / params-at-[16(i+1)] convention),   */
+    /* and returns the callee's RETURN-slot DESCR in rax:rdx. This box stores that DESCR into its OWN frame */
+    /* result slot [r12+off] so a consumer (write/binop) reads it by slot — NO value stack, NO ring. Args  */
+    /* (when narg>0) are staged into g_icn_call_args by reading each arg producer's slot just before the    */
+    /* call; the 0-arg case (this rung) needs no staging. β re-pump target recovered from the EMIT_PAIR.   */
+    if (g_icn_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) {
+        int off = bb_slot_alloc16(pBB);
+        bb_label_t *beta_tgt = _.lbl_ω_p;
+        for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++)
+            if (g_emit.xa_bb_emit_pair_define[i] == _.lbl_β_p && g_emit.xa_bb_emit_pair_jmp[i]) { beta_tgt = g_emit.xa_bb_emit_pair_jmp[i]; break; }
+        if (MEDIUM_BINARY) {
+            /*   0  : 48 BF <u64 name>      movabs rdi, name                                                */
+            /*  10  : BE <u32 nargs>        mov esi, nargs                                                  */
+            /*  15  : 48 B8 <u64 fptr>      movabs rax, &rt_icn_call_proc_descr                             */
+            /*  25  : FF D0                 call rax                  (returns DESCR in rax:rdx)            */
+            /*  27  : 49 89 84 24 <u32 off> mov [r12+off], rax        (result eightbyte0)                   */
+            /*  35  : 49 89 94 24 <u32 o+8> mov [r12+off+8], rdx      (result eightbyte1)                   */
+            /*  43  : E9 <γ_rel32>          jmp γ                     ← γ patch at 44                       */
+            /*  48  : E9 <β_rel32>          β: jmp β-target           ← β-def 48, tgt patch at 49           */
+            /*  53  : end                                                                                   */
+            uint64_t nptr = (uint64_t)(uintptr_t)fn;
+            uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_icn_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            bin = { {44, 48, 49}, {_.lbl_γ_p, _.lbl_β_p, beta_tgt}, {false, true, false} };
+            return bytes(2, "\x48\xBF") + u64le(nptr)
+                 + bytes(1, "\xBE")     + u32le((uint32_t)narg)
+                 + bytes(2, "\x48\xB8") + u64le(fptr)
+                 + bytes(2, "\xFF\xD0")
+                 + bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)off)
+                 + bytes(4, "\x49\x89\x94\x24") + u32le((uint32_t)(off + 8))
+                 + bytes(1, "\xE9")     + u32le(0)
+                 + bytes(1, "\xE9")     + u32le(0);
+        }
+        if (MEDIUM_TEXT) {
+            /* mode-4 standalone: the proc slab + its name-keyed registration are NOT yet emitted into the  */
+            /* compiled binary (the name is an in-scrip AST pointer here), so a user-proc call cannot work  */
+            /* in --compile yet. Emit a loud abort so mode-4 FAILS visibly (tracked; floor 0) rather than   */
+            /* calling through a stale pointer. GZ-10 mode-4 (proc-slab emission + startup registration) is */
+            /* the next rung.                                                                                */
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment(emit_fmt("# BOX IR_CALL %s(...) [GZ-10 user-proc — mode-4 not yet wired]", fn))
+                 + s_2asm("call", "abort@PLT")
+                 + s_2asm("jmp",  _.lbl_γ)
+                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                 + s_2asm("jmp",  beta_tgt ? beta_tgt->name : _.lbl_ω);
         }
     }
 

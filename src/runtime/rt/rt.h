@@ -128,8 +128,12 @@ int rt_in_native_chunk(void);
 #include "bb_box.h"
 void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
 void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
+void rt_proc_set_fn(const char *name, bb_box_fn fn);
 void rt_proc_reset(void);
 void rt_call_proc(const char *name, int nargs);
+DESCR_t rt_icn_call_proc_descr(const char *name, int nargs);
+void rt_icn_arg_stage(int idx, DESCR_t v);
+extern DESCR_t g_icn_call_args[];
 int  rt_proc_is_registered(const char *name);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
