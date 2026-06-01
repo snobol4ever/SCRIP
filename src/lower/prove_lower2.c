@@ -29,6 +29,14 @@ static tree_t * slit(const char * s) { tree_t * n = ast_node_new(TT_QLIT); n->v.
 static tree_t * var(const char * s) { tree_t * n = ast_node_new(TT_VAR); n->v.sval = (char *) s; return n; }
 static tree_t * kw(const char * s) { tree_t * n = ast_node_new(TT_KEYWORD); n->v.sval = (char *) s; return n; }
 static tree_t * fnc1(const char * name, tree_t * a) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); return n; }
+/* jct(flav, m0, m1, m2) — a Raku junction constructor TT_FNC the parser shape: sval=flavor, c[0]=TT_VAR(flavor)
+   name sentinel, c[1..]=members. Pass NULL members to stop early (2- or 3-member junctions). */
+static tree_t * jct(const char * flav, tree_t * m0, tree_t * m1, tree_t * m2) {
+    tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) flav;
+    ast_push(n, var(flav));
+    if (m0) ast_push(n, m0); if (m1) ast_push(n, m1); if (m2) ast_push(n, m2);
+    return n;
+}
 static tree_t * gfnc2(const char * name, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); ast_push(n, b); return n; }
 static tree_t * gfnc3(const char * name, tree_t * a, tree_t * b, tree_t * c) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -359,6 +367,18 @@ int main(void) {
         dump_raku_value("RAKU:     for grep { $_ > 2 } 1..5 -> $v { say $v }   [RK-LOWER-3 v_raku_map_grep: IR_GREP β=self (own resume), keep-on-truthy filter, gen.omega->done; pred+source in sub-graphs]",
              bin(TT_EVERY, it, un(TT_SAY, var("v"))), 4);
     }
+    /* RK-LOWER-4: junction constructor `any(1,2,3)` (and same shape for all/one/none, and infix |/& which the
+       parser flattens to this same TT_FNC). Lowers to ONE IR_CALL to __rk_jct_any with dval=2.0; the three
+       members lower into SEPARATE value sub-graphs (lower_value_subgraph, ptr array on counter) — exactly the
+       SNOBOL4-call-arg idiom — so they are NOT counted in the principal graph. => 1 real PRINCIPAL node. */
+    dump_raku_value("RAKU:     any(1, 2, 3)   [RK-LOWER-4: IR_CALL __rk_jct_any dval=2.0, det (β=ω); 3 members in isolated value sub-graphs]",
+         jct("any", lit(1), lit(2), lit(3)), 1);
+    /* RK-LOWER-4: mixed-flavor NESTED junction `any(1, all(5,5))` — the inner all(5,5) is ITSELF a junction
+       TT_FNC, lowered as ONE member sub-graph (which internally re-enters the Raku junction arm). The outer
+       any is still ONE principal IR_CALL; both members (the lit 1 and the nested all junction) are isolated
+       sub-graphs. => 1 real PRINCIPAL node (the nested junction never flattens into the outer member chain). */
+    dump_raku_value("RAKU:     any(1, all(5, 5))   [RK-LOWER-4 nested: outer IR_CALL __rk_jct_any (1 principal); inner all(5,5) is one opaque member sub-graph]",
+         jct("any", lit(1), jct("all", lit(5), lit(5), NULL), NULL), 1);
     /* ===== END RAKU SECTION ===== */
     return 0;
 }
