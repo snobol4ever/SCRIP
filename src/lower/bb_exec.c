@@ -2020,7 +2020,22 @@ IR_t * bb_exec_node(IR_t * bb) {
             if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { bb->value = FAILDESCR; return bb->ω; }
             int rel_fail = 0;
             DESCR_t result = binop_apply((BinopKind)bb->ival, lv, rv, &rel_fail);
-            if (IS_FAIL_fn(result)) { bb->value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(result)) {
+                /* jcon ir_a_Binop: a relational op is generator-TRANSPARENT. A FALSE comparison (rel_fail)
+                   is NOT the binop's failure — it must re-seek the next operand value, exactly as the
+                   consumer (write) re-pumps the generator on its own resume edge. Re-enter the generator
+                   operand's chain head (operand_aux[1]=right, [0]=left); its γ flows back to THIS binop, so
+                   the comparison re-runs with the next value. v_binop lowered the right operand's ω to the
+                   LEFT operand's resume, so a both-generators case cascades; when every generator is drained
+                   the resume chain reaches the binop's own ω. With NO generator operand (e.g. `3 < 2`) this
+                   collapses to plain failure -> ω. This is why `2 < (1 to 4)` works (its trues are not a
+                   prefix) and not merely `3 > (1 to 5)` (whose trues happen to be a prefix). */
+                if (rel_fail && aux && n_aux == 2) {
+                    if (aux[1] && bb_is_gen_node(aux[1])) { bb->value = FAILDESCR; return aux[1]; }
+                    if (aux[0] && bb_is_gen_node(aux[0])) { bb->value = FAILDESCR; return aux[0]; }
+                }
+                bb->value = FAILDESCR; return bb->ω;
+            }
             bb->value = result;
             return bb->γ;
         }
