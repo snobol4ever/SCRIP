@@ -15,67 +15,57 @@ static std::string bb_lit_str(IR_t * pBB, bb_bin_t & bin) {
         const char *lit = pBB->sval ? pBB->sval : "";
         const char *lit_label = emit_intern_str(lit);
         int len = (int)strlen(lit);
-        bin = { {22, 89, 105, 109, 121},
+        bin = { {13, 65, 80, 84, 95},
                 {_.lbl_ω_p, _.lbl_ω_p, _.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p},
                 {false, false, false, true, false} };
         (void)lit_label;
         return IF(MEDIUM_MACRO_DEF, s_comment("# no macro form — LIT"))
              + IF(MEDIUM_BINARY,
-                   bytes(3, "\x41\x8B\x02")
-                 + bytes(1, "\x05") + u32le((uint32_t)len)
-                 + bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN)
-                 + bytes(2, "\x3B\x01")
-                 + bytes(2, "\x0F\x8F") + u32le(0)
-                 + bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGMA)
-                 + bytes(3, "\x48\x8B\x01")
-                 + bytes(3, "\x49\x63\x0A")
-                 + bytes(4, "\x48\x8D\x04\x08")
-                 + bytes(3, "\x48\x89\xC7")
-                 + bytes(2, "\x48\xBE") + u64le((uint64_t)(uintptr_t)lit)
-                 + bytes(2, "\x48\xBA") + u64le((uint64_t)(uint32_t)len)
-                 + bytes(2, "\x41\x52")
-                 + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)memcmp)
-                 + bytes(2, "\xFF\xD0")
-                 + bytes(2, "\x41\x5A")
-                 + bytes(2, "\x85\xC0")
-                 + bytes(2, "\x0F\x85") + u32le(0)
-                 + bytes(3, "\x41\x8B\x02")
-                 + bytes(1, "\x05") + u32le((uint32_t)len)
-                 + bytes(3, "\x41\x89\x02")
-                 + bytes(1, "\xE9") + u32le(0)
-                 + bytes(3, "\x41\x8B\x02")
-                 + bytes(1, "\x2D") + u32le((uint32_t)len)
-                 + bytes(3, "\x41\x89\x02")
-                 + bytes(1, "\xE9") + u32le(0))
+                   /* LITERAL byte map (FACT RULE: two literals, hand-coded offsets — NO b.size()).        */
+                   /* cursor=R14d, Σ=R13, Δ=R15d; [r10] kept as a legacy mirror for un-migrated downstream */
+                   /* elements; r10 push/pop guards memcmp@PLT. The bin offsets are literal constants.      */
+                   bytes(3, "\x44\x89\xF0")                                  /* mov eax, r14d            */
+                 + bytes(1, "\x05") + u32le((uint32_t)len)                   /* add eax, len             */
+                 + bytes(3, "\x44\x39\xF8")                                  /* cmp eax, r15d            */
+                 + bytes(2, "\x0F\x8F") + u32le(0)                           /* jg  ω      [rel32 @13]   */
+                 + bytes(3, "\x49\x63\xCE")                                  /* movsxd rcx, r14d         */
+                 + bytes(5, "\x49\x8D\x7C\x0D\x00")                          /* lea rdi, [r13+rcx]       */
+                 + bytes(2, "\x48\xBE") + u64le((uint64_t)(uintptr_t)lit)    /* movabs rsi, lit          */
+                 + bytes(2, "\x48\xBA") + u64le((uint64_t)(uint32_t)len)     /* movabs rdx, len          */
+                 + bytes(2, "\x41\x52")                                      /* push r10                 */
+                 + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)memcmp) /* movabs rax, memcmp       */
+                 + bytes(2, "\xFF\xD0")                                      /* call rax                 */
+                 + bytes(2, "\x41\x5A")                                      /* pop r10                  */
+                 + bytes(2, "\x85\xC0")                                      /* test eax, eax            */
+                 + bytes(2, "\x0F\x85") + u32le(0)                           /* jne ω      [rel32 @65]   */
+                 + bytes(3, "\x41\x81\xC6") + u32le((uint32_t)len)           /* add r14d, len            */
+                 + bytes(3, "\x45\x89\x32")                                  /* mov [r10], r14d (mirror) */
+                 + bytes(1, "\xE9") + u32le(0)                               /* jmp γ      [rel32 @80]   */
+                 + bytes(3, "\x41\x81\xEE") + u32le((uint32_t)len)           /* β: sub r14d, len   [@84] */
+                 + bytes(3, "\x45\x89\x32")                                  /* mov [r10], r14d (mirror) */
+                 + bytes(1, "\xE9") + u32le(0))                              /* jmp ω      [rel32 @95]   */
              + IF(MEDIUM_TEXT,
                    s_1asm(emit_fmt("%s:", _.lbl_α))
-                   + s_comment(emit_fmt("# BOX LIT(%s)", len > 24 ? emit_fmt("'%.24s...'", lit).c_str() : emit_fmt("'%s'", lit).c_str()))
-                 + s_2asm("mov", "eax, [r10]")
+                   + s_comment(emit_fmt("# BOX LIT(%s)  [REG-1 Σ=r13 δ=r14 Δ=r15]", len > 24 ? emit_fmt("'%.24s...'", lit).c_str() : emit_fmt("'%s'", lit).c_str()))
+                 + s_2asm("mov", "eax, r14d")
                  + s_2asm("add", emit_fmt("eax, %u", (uint32_t)len))
-                 + s_2asm("lea", "rcx, [rip + \xCE\xA3" "len]")
-                 + s_2asm("cmp", "eax, [rcx]")
+                 + s_2asm("cmp", "eax, r15d")
                  + s_2asm("jg", _.lbl_ω)
-                 + s_2asm("lea", "rcx, [rip + Σ]")
-                 + s_2asm("mov", "rax, [rcx]")
-                 + s_2asm("movsxd", "rcx, dword ptr [r10]")
-                 + s_2asm("lea", "rax, [rax+rcx]")
-                 + s_2asm("mov", "rdi, rax")
-                 + s_2asm("lea", emit_fmt("rcx, [rip + %s]", lit_label ? lit_label : "??"))
-                 + s_2asm("mov", "rsi, rcx")
+                 + s_2asm("movsxd", "rcx, r14d")
+                 + s_2asm("lea", "rdi, [r13 + rcx]")
+                 + s_2asm("lea", emit_fmt("rsi, [rip + %s]", lit_label ? lit_label : "??"))
                  + s_2asm("mov", emit_fmt("rdx, %d", len))
                  + s_2asm("push", "r10")
                  + s_2asm("call", "memcmp@PLT")
                  + s_2asm("pop", "r10")
                  + s_2asm("test", "eax, eax")
                  + s_2asm("jne", _.lbl_ω)
-                 + s_2asm("mov", "eax, [r10]")
-                 + s_2asm("add", emit_fmt("eax, %d", len))
-                 + s_2asm("mov", "[r10], eax")
+                 + s_2asm("add", emit_fmt("r14d, %d", len))
+                 + s_2asm("mov", "[r10], r14d")
                  + s_2asm("jmp", _.lbl_γ)
                  + s_1asm(std::string(_.lbl_β) + ":")
-                 + s_2asm("mov", "eax, [r10]")
-                 + s_2asm("sub", emit_fmt("eax, %d", len))
-                 + s_2asm("mov", "[r10], eax")
+                 + s_2asm("sub", emit_fmt("r14d, %d", len))
+                 + s_2asm("mov", "[r10], r14d")
                  + s_2asm("jmp", _.lbl_ω));
     }
     if (PLATFORM_JVM) {
