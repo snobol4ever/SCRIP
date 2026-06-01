@@ -744,3 +744,32 @@ void strtab_label(char *buf, size_t bufsz, const char *s)
     int idx = strtab_intern(s);
     snprintf(buf, bufsz, ".S%d", idx);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* xa_emit_strtab_rodata — bridge the private g_strtab[] (filled by strtab_label during a TEXT-mode walk)   */
+/* into the g_emit.xa_strtab_* arrays the XA_STRTAB_RODATA template reads, then dispatch that template. This */
+/* is the "driver fills g_emit.xa_strtab_*, then calls xa_dispatch" contract documented in xa_strtab_rodata. */
+/* No x86 bytes are produced here — xa_strtab_rodata (the template) emits every byte of the .rodata section; */
+/* this only marshals label (.S<idx>) + escaped-literal metadata. Idempotent reset of g_strtab via          */
+/* strtab_reset is left to the caller's next emission cycle (emitter_init_text path).                        */
+void xa_emit_strtab_rodata(void)
+{
+    if (g_strtab_n <= 0) { strtab_reset(); return; }
+    static const char *labels[SMX_STRTAB_CAP];
+    static std::string escbuf[SMX_STRTAB_CAP];
+    static const char *escaped[SMX_STRTAB_CAP];
+    static char        lblbuf[SMX_STRTAB_CAP][24];
+    for (int i = 0; i < g_strtab_n; i++) {
+        snprintf(lblbuf[i], sizeof lblbuf[i], ".S%d:", g_strtab[i].idx);
+        labels[i]  = lblbuf[i];
+        escbuf[i]  = gas_escape_str(g_strtab[i].s ? g_strtab[i].s : "");
+        escaped[i] = escbuf[i].c_str();
+    }
+    g_emit.xa_strtab_n       = g_strtab_n;
+    g_emit.xa_strtab_labels  = labels;
+    g_emit.xa_strtab_escaped = escaped;
+    xa_dispatch(XA_STRTAB_RODATA);
+    g_emit.xa_strtab_n       = 0;
+    g_emit.xa_strtab_labels  = NULL;
+    g_emit.xa_strtab_escaped = NULL;
+    strtab_reset();
+}
