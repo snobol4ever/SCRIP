@@ -9,6 +9,7 @@
    of PJ-RT-PURGE: a conversion and a side-effect, neither a four-port dispatcher.
    x86 only per Invariant #14. */
 #include <string>
+#include <cstring>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
@@ -17,6 +18,7 @@ extern "C" {
 }
 extern "C" void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
 extern "C" int   rt_pl_unify_terms(void *l, void *r);
+extern "C" int   rt_pl_unify_const(int slot, int kind, long ival, const char *sval, double dval);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Port tail: test the unify result in eax and branch γ/ω. Identical for text and
    binary; β re-entry falls straight to ω (a leaf has no retry). */
@@ -90,6 +92,62 @@ static std::string bb_unify_str(IR_t * pBB, bb_bin_t & bin) {
         IR_t *lhs = pBB->α, *rhs = pBB->β;
         const char *ls = _.bb_ls;   /* interned .S label for lhs->sval (or NULL) */
         const char *rs = _.bb_rs;   /* interned .S label for rhs->sval (or NULL) */
+        /* WAM-CP-7 first-occurrence / self-unify elision (gprolog get_variable; swipl H_FIRSTVAR): a head variable at its own positional slot lowers to IR_UNIFY(LOGICVAR(i), LOGICVAR(i)); unify(env[i], env[i]) hits unify()'s */
+        /* t1==t2 short-circuit (always true, no binding, no trail). The sole side-effect of the general path here is resolve_node_to_term's lazy vivification of env[i], which every reader performs idempotently (storing back */
+        /* the same term_new_var(i)), so a NULL slot and a vivified-unbound-var slot are observationally identical and eliding to a bare success jump is equivalent. Reuses the missing-operand vacuous-success emission (γ; β→ω). */
+        if (lhs->t == IR_LOGICVAR && rhs->t == IR_LOGICVAR && lhs->ival == rhs->ival) {
+            if (MEDIUM_BINARY) {
+                bin = { {1, 5, 6}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+                return bytes(1, "\xE9") + u32le(0)
+                     + bytes(1, "\xE9") + u32le(0);
+            }
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment("# BOX RESOLVE_UNIFY (WAM-CP-7 self-unify x=x — vacuous success)")
+                 + s_2asm("jmp", _.lbl_γ)
+                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+        }
+        /* WAM-CP-7 var-vs-const head-match specialization (gprolog get_atom/get_integer; swipl H_ATOM/H_SMALLINT): one operand a logic-var slot, the other a scalar constant → a single rt_pl_unify_const call (reads/derefs */
+        /* the slot; an unbound var binds+trails via the same unify path, a bound var scalar-compares) in place of node_to_term×2 + unify_terms, skipping the const Term alloc in the bound case. rt_pl_unify_const is built */
+        /* from the identical unify() leaves, so it is provably equal to the general arm below and m4 output stays byte-identical to the m2/m3 oracle. Any other shape (var-var, var-compound, const-const, …) falls through. */
+        {
+            const IR_t *vnode = NULL, *cnode = NULL; const char *clbl = NULL;
+            if (lhs->t == IR_LOGICVAR && (rhs->t == IR_ATOM || rhs->t == IR_LIT_I || rhs->t == IR_LIT_F)) { vnode = lhs; cnode = rhs; clbl = rs; }
+            else if (rhs->t == IR_LOGICVAR && (lhs->t == IR_ATOM || lhs->t == IR_LIT_I || lhs->t == IR_LIT_F)) { vnode = rhs; cnode = lhs; clbl = ls; }
+            if (vnode && cnode) {
+                int slot = (int)vnode->ival;
+                if (MEDIUM_TEXT) {
+                    std::string fload;
+                    if (cnode->t == IR_LIT_F) { uint64_t fb = 0; double dv = cnode->dval; memcpy(&fb, &dv, sizeof fb); fload = s_2asm("mov rax,", emit_fmt("%llu", (unsigned long long)fb)) + s_2asm("movq", "xmm0, rax"); }
+                    else                      { fload = s_2asm("xorps", "xmm0, xmm0"); }
+                    std::string body =
+                          s_1asm(emit_fmt("%s:", _.lbl_α))
+                        + s_comment("# BOX RESOLVE_UNIFY (WAM-CP-7 var-const)")
+                        + s_2asm("mov edi,", emit_fmt("%d", slot))                 /* arg0 slot                     */
+                        + s_2asm("mov esi,", emit_fmt("%d", (int)cnode->t))        /* arg1 kind (IR enum ordinal)   */
+                        + s_2asm("mov rdx,", emit_fmt("%ld", (long)cnode->ival))   /* arg2 ival                     */
+                        + (clbl ? s_2asm("lea", emit_fmt("rcx, [rip + %s]", clbl)) : s_2asm("xor", "ecx, ecx"))  /* arg3 sval */
+                        + fload                                                    /* arg4 dval (xmm0)              */
+                        + s_2asm("call", "rt_pl_unify_const@PLT");
+                    return body + resolve_unify_tail_text();
+                }
+                if (MEDIUM_BINARY) {
+                    std::string b;
+                    b += bytes(1, "\xBF") + u32le((uint32_t)slot);                  /* mov edi, imm32 (slot)         */
+                    b += bytes(1, "\xBE") + u32le((uint32_t)(int)cnode->t);         /* mov esi, imm32 (kind)         */
+                    b += bytes(2, "\x48\xBA") + u64le((uint64_t)(long)cnode->ival); /* movabs rdx, imm64 (ival)      */
+                    if (clbl) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)cnode->sval); /* movabs rcx, sval-ptr */
+                    else      b += bytes(2, "\x31\xC9");                            /* xor ecx, ecx                  */
+                    if (cnode->t == IR_LIT_F) { uint64_t fb = 0; double dv = cnode->dval; memcpy(&fb, &dv, sizeof fb); b += bytes(2, "\x48\xB8") + u64le(fb) + bytes(5, "\x66\x48\x0F\x6E\xC0"); } /* movabs rax,bits; movq xmm0,rax */
+                    else                      { b += bytes(3, "\x0F\x57\xC0"); }    /* xorps xmm0, xmm0              */
+                    b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_pl_unify_const) + bytes(2, "\xFF\xD0"); /* movabs rax,&rt_pl_unify_const; call rax */
+                    int base = 5 + 5 + 10;                                          /* edi(5) + esi(5) + rdx(10)     */
+                    base += clbl ? 10 : 2;                                          /* arg3: movabs rcx(10)|xor(2)   */
+                    base += (cnode->t == IR_LIT_F) ? 15 : 3;                        /* arg4: rax+movq(15)|xorps(3)   */
+                    base += 10 + 2;                                                 /* movabs rax(10) + call rax(2)  */
+                    return b + resolve_unify_tail_binary(base, bin);
+                }
+            }
+        }
 
         if (MEDIUM_TEXT) {
             /* CAT-B (2026-05-27, Opus 4.7): use a 16-aligned scratch frame instead of push/pop so that

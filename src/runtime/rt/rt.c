@@ -1201,6 +1201,23 @@ int rt_pl_unify_terms(void *l, void *r)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* WAM-CP-7 var-vs-const head-match specialization (gprolog get_atom/get_integer, swipl H_ATOM/H_SMALLINT). Provably equal to rt_pl_node_to_term(IR_LOGICVAR,slot) + rt_pl_node_to_term(const) + rt_pl_unify_terms: */
+/* it reads/vivifies env[slot] identically to rt_pl_node_to_term's IR_LOGICVAR arm, then takes the unify() leaf branches verbatim — an unbound var binds+trails via the real rt_pl_unify_terms (identical), a bound */
+/* var scalar-compares against the const exactly as unify()'s ATOM/INT/FLOAT arms do (atom_id/ival/fval equality, mismatched tag => 0), skipping the const Term allocation. One call replaces three; no value stack. */
+int rt_pl_unify_const(int slot, int kind, long ival, const char *sval, double dval)
+{
+    extern Term **g_resolve_env;
+    Term *vt = (g_resolve_env && slot >= 0 && g_resolve_env[slot]) ? term_deref(g_resolve_env[slot]) : (Term *)0;
+    if (!vt) { vt = term_new_var(slot); if (g_resolve_env && slot >= 0) g_resolve_env[slot] = vt; }
+    if (vt->tag == TERM_VAR) return rt_pl_unify_terms(vt, rt_pl_node_to_term(kind, ival, sval, dval));
+    switch (kind) {
+    case IR_ATOM:  return (vt->tag == TERM_ATOM  && vt->atom_id == prolog_atom_intern(sval ? sval : "[]")) ? 1 : 0;
+    case IR_LIT_I: return (vt->tag == TERM_INT   && vt->ival == ival) ? 1 : 0;
+    case IR_LIT_F: return (vt->tag == TERM_FLOAT && vt->fval == dval) ? 1 : 0;
+    default:       return (vt->tag == TERM_INT   && vt->ival == ival) ? 1 : 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_trail_mark(void)
 {
     extern Trail g_resolve_trail;
