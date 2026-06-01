@@ -39,6 +39,7 @@ void rt_pop_write_int_nl(void);
 void rt_pop_write_any_nl(void);
 void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_icn_call_proc_descr(const char *name, int nargs);
+void rt_icn_arg_stage(int idx, DESCR_t v);
 int  rt_proc_is_registered(const char *name);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
@@ -47,6 +48,7 @@ int  bb_slot_alloc16(IR_t * nd);
 int  bb_varslot(const char * name);
 DESCR_t rt_rk_call_arr(const char * fn, DESCR_t * args, int nargs);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* RK-EMIT-2-NEST (jct_nested, 2026-06-01): recursively MATERIALISE one dval==2.0 call-arg sub-graph into the    */
 /* 16-byte DESCR slot at [r12+aoff]. A LEAF (IR_LIT_I/F/NUL/S or IR_VAR) is loaded directly — byte-for-byte the  */
@@ -147,6 +149,18 @@ static std::string rk_marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int id
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GZ-10 (modes 3/4): given a value sub-graph's entry node, return its TERMINAL producer — the node        */
+/* lower_value_subgraph deliberately left with γ==NULL (its value is the sub-graph's result; see           */
+/* lower.c lower_value_subgraph: "γ = NULL: the operand's value-producing node is TERMINAL"). We follow γ  */
+/* (the linear value-flow of the postfix chain), stopping at the node whose γ is NULL or leaves into an    */
+/* IR_SUCCEED/IR_FAIL sentinel; that node's ζ slot (bb_slot_get) holds the arg value. Cycle-guarded.       */
+static IR_t * bb_chain_terminal(IR_t * entry) {
+    IR_t * n = entry;
+    int guard = 0;
+    while (n && n->γ && n->γ->t != IR_SUCCEED && n->γ->t != IR_FAIL && guard++ < 4096) n = n->γ;
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
@@ -233,27 +247,53 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     /* runs the callee's flat slab (built with the return-slot-at-[0] / params-at-[16(i+1)] convention),   */
     /* and returns the callee's RETURN-slot DESCR in rax:rdx. This box stores that DESCR into its OWN frame */
     /* result slot [r12+off] so a consumer (write/binop) reads it by slot — NO value stack, NO ring. Args  */
-    /* (when narg>0) are staged into g_icn_call_args by reading each arg producer's slot just before the    */
-    /* call; the 0-arg case (this rung) needs no staging. β re-pump target recovered from the EMIT_PAIR.   */
+    /* (when narg>0): the driver (flat_drive_icn_userproc) already walked each arg sub-graph inline, so its */
+    /* TERMINAL producer (the lower_value_subgraph node with γ==NULL) holds the arg value in its ζ slot. We */
+    /* read that slot and emit `mov edi,i; mov rsi,[r12+slot]; mov rdx,[r12+slot+8]; call rt_icn_arg_stage` */
+    /* per arg — staging into g_icn_call_args, the transient single-call vector the helper copies into the  */
+    /* callee param slots on entry (consumed before any nested call ⇒ recursion-safe, NOT a value stack).  */
+    /* The 16-byte DESCR is two INTEGER eightbytes ⇒ SysV passes idx in edi, eightbyte0 in rsi, eightbyte1  */
+    /* in rdx. β re-pump target recovered from the EMIT_PAIR.                                               */
     if (g_icn_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) {
         int off = bb_slot_alloc16(pBB);
+        IR_graph_t ** argblks = (IR_graph_t **)(intptr_t) pBB->counter;
         bb_label_t *beta_tgt = _.lbl_ω_p;
         for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++)
             if (g_emit.xa_bb_emit_pair_define[i] == _.lbl_β_p && g_emit.xa_bb_emit_pair_jmp[i]) { beta_tgt = g_emit.xa_bb_emit_pair_jmp[i]; break; }
         if (MEDIUM_BINARY) {
-            /*   0  : 48 BF <u64 name>      movabs rdi, name                                                */
-            /*  10  : BE <u32 nargs>        mov esi, nargs                                                  */
-            /*  15  : 48 B8 <u64 fptr>      movabs rax, &rt_icn_call_proc_descr                             */
-            /*  25  : FF D0                 call rax                  (returns DESCR in rax:rdx)            */
-            /*  27  : 49 89 84 24 <u32 off> mov [r12+off], rax        (result eightbyte0)                   */
-            /*  35  : 49 89 94 24 <u32 o+8> mov [r12+off+8], rdx      (result eightbyte1)                   */
-            /*  43  : E9 <γ_rel32>          jmp γ                     ← γ patch at 44                       */
-            /*  48  : E9 <β_rel32>          β: jmp β-target           ← β-def 48, tgt patch at 49           */
-            /*  53  : end                                                                                   */
+            /*  per arg i (33 bytes), in arg order:                                                          */
+            /*    BF <u32 i>                   mov edi, i                                                    */
+            /*    49 8B B4 24 <u32 slot>       mov rsi, [r12+slot]      (arg DESCR eightbyte0)               */
+            /*    49 8B 94 24 <u32 slot+8>     mov rdx, [r12+slot+8]    (arg DESCR eightbyte1)               */
+            /*    48 B8 <u64 stage_fp>         movabs rax, &rt_icn_arg_stage                                 */
+            /*    FF D0                        call rax                                                      */
+            /*  then the invariant call tail (offsets RELATIVE to end of staging = `base`):                  */
+            /*   base+ 0 : 48 BF <u64 name>      movabs rdi, name                                            */
+            /*   base+10 : BE <u32 nargs>        mov esi, nargs                                              */
+            /*   base+15 : 48 B8 <u64 fptr>      movabs rax, &rt_icn_call_proc_descr                         */
+            /*   base+25 : FF D0                 call rax                  (returns DESCR in rax:rdx)        */
+            /*   base+27 : 49 89 84 24 <u32 off> mov [r12+off], rax                                          */
+            /*   base+35 : 49 89 94 24 <u32 o+8> mov [r12+off+8], rdx                                        */
+            /*   base+43 : E9 <γ_rel32>          jmp γ                     ← γ patch at base+44              */
+            /*   base+48 : E9 <β_rel32>          β: jmp β-target           ← β-def base+48, tgt patch base+49*/
+            uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_icn_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
+            std::string stage;
+            for (int i = 0; i < (int)narg; i++) {
+                IR_t * prod = bb_chain_terminal(argblks && argblks[i] ? argblks[i]->entry : NULL);
+                int slot = prod ? bb_slot_get(prod) : -1;
+                if (slot < 0) slot = 0;
+                stage += bytes(1, "\xBF")          + u32le((uint32_t)i);
+                stage += bytes(4, "\x49\x8B\xB4\x24") + u32le((uint32_t)slot);
+                stage += bytes(4, "\x49\x8B\x94\x24") + u32le((uint32_t)(slot + 8));
+                stage += bytes(2, "\x48\xB8")      + u64le(stage_fp);
+                stage += bytes(2, "\xFF\xD0");
+            }
+            int base = (int)stage.size();
             uint64_t nptr = (uint64_t)(uintptr_t)fn;
             uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_icn_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-            bin = { {44, 48, 49}, {_.lbl_γ_p, _.lbl_β_p, beta_tgt}, {false, true, false} };
-            return bytes(2, "\x48\xBF") + u64le(nptr)
+            bin = { {base + 44, base + 48, base + 49}, {_.lbl_γ_p, _.lbl_β_p, beta_tgt}, {false, true, false} };
+            return stage
+                 + bytes(2, "\x48\xBF") + u64le(nptr)
                  + bytes(1, "\xBE")     + u32le((uint32_t)narg)
                  + bytes(2, "\x48\xB8") + u64le(fptr)
                  + bytes(2, "\xFF\xD0")
