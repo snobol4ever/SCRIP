@@ -1089,6 +1089,18 @@ static void flat_drive_sno_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_sno_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    /* PB-0 SUBJECT phase (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). SNOBOL4 match-statement SUBJECT box —
+       single-shot bounded, NO value stack. The subject variable name OR literal is baked RO inside
+       bb_sno_subject (reached via the emit_core IR_SUBJECT branch); the box calls rt_sno_subject_load and
+       stores Σ (base) / Δ (length) into its ζ-frame slot, then jmps γ (loaded) / ω. No operand subtree to
+       walk (the subject value-expr rides on pBB->α and is consumed inside the box); β = jmp ω — same shape
+       as flat_drive_sno_scan. */
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_sno_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* SBL-M3-MULTISTMT (2026-05-31): the whole SNOBOL4 program as a sequence of four-port statement BBs.
        sno_ring_to_tree (scrip.c) folded each statement into a tree root and recorded its success/failure
@@ -1499,6 +1511,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_VAR:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SCAN:       flat_drive_sno_scan(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SUBJECT:    flat_drive_sno_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SNO_PROG:   flat_drive_sno_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:     flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
