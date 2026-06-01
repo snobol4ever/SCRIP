@@ -1663,6 +1663,76 @@ IR_t * bb_exec_node(IR_t * bb) {
             bb->value = FAILDESCR;
             return bb->ω;
         }
+        /* GZ-10 Icon GENERAL CALL (dval==3.0): args are isolated value sub-graphs on `counter` (lowered with
+           cx.lang==IR_LANG_ICN). Evaluate each (a failing arg fails the call). If the name is a user procedure
+           in proc_table, run its four-port BB graph under a FRESH GenFrame whose Scope binds the proc's PARAM
+           NAMES to env slots so the body's IR_VAR/IR_ASSIGN resolve per-activation (scope_get -> env[slot]) —
+           this is the Icon-correct frame that makes recursion independent (grounded in jcon ir_a_ProcDecl's
+           genuine per-activation params/locals; distinct from the SNOBOL4 dval==2.0 global save/restore frame).
+           Ring + node-state are saved/restored around the nested bb_exec_once so an in-flight operand survives a
+           recursive descent. g_ir_return_val is harvested on FRAME.returning. A non-proc name falls to a runtime
+           builtin (try_call_builtin_by_name). */
+        if (bb->dval == 3.0) {
+            int nargs = (int) bb->ival;
+            DESCR_t * args = NULL;
+            if (nargs > 0) {
+                IR_graph_t ** blks = (IR_graph_t **)(intptr_t) bb->counter;
+                args = (DESCR_t *) GC_malloc((size_t) nargs * sizeof(DESCR_t));
+                for (int j = 0; j < nargs; j++) {
+                    IR_graph_t * ab = blks ? blks[j] : NULL;
+                    if (!ab) { bb->value = FAILDESCR; return bb->ω; }
+                    bb_reset(ab);
+                    DESCR_t av = bb_exec_once(ab);
+                    if (IS_FAIL_fn(av)) { bb->value = FAILDESCR; return bb->ω; }
+                    args[j] = av;
+                }
+            }
+            int upi = -1;
+            for (int _pi = 0; _pi < g_stage2.proc_count; _pi++)
+                if (g_stage2.proc_table[_pi].name && strcmp(g_stage2.proc_table[_pi].name, bb->sval) == 0
+                    && g_stage2.proc_table[_pi].bb_idx >= 0) { upi = _pi; break; }
+            if (upi >= 0) {
+                IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
+                if (!fg || frame_depth >= FRAME_STACK_MAX) { bb->value = FAILDESCR; return bb->ω; }
+                GenFrame * _f = &frame_stack[frame_depth++];
+                memset(_f, 0, sizeof *_f);
+                /* Build the per-activation scope from the proc's param names (TT_PROC_DECL c[1] = param VLIST),
+                   binding each to the actual arg value. Body locals not in this list fall to globals via the
+                   IR_VAR/IR_ASSIGN scope_get miss path (a later rung adds locals/statics to the scope). */
+                const tree_t * proc = (const tree_t *) g_stage2.proc_table[upi].proc;
+                int np = g_stage2.proc_table[upi].nparams;
+                if (proc && proc->n >= 2 && proc->c[1]) {
+                    const tree_t * plist = proc->c[1];
+                    for (int k = 0; k < np && k < plist->n && k < FRAME_SLOT_MAX; k++) {
+                        const tree_t * pv = plist->c[k];
+                        if (!pv || !pv->v.sval) continue;
+                        int slot = scope_add(&_f->sc, pv->v.sval);
+                        if (slot >= 0 && slot < FRAME_SLOT_MAX) _f->env[slot] = (k < nargs) ? args[k] : NULVCL;
+                    }
+                }
+                _f->env_n = _f->sc.n > 0 ? _f->sc.n : 1;
+                DESCR_t _ring_save[AG_RING];
+                int _ring_head = fg->ring_head, _ring_depth = fg->ring_depth;
+                memcpy(_ring_save, fg->ring, sizeof _ring_save);
+                bb_node_state_t * _snap = bb_snapshot_state(fg);
+                bb_reset(fg);
+                DESCR_t out = bb_exec_once(fg);
+                if (frame_depth > 0 && FRAME.returning) { out = g_ir_return_val; FRAME.returning = 0; }
+                frame_depth--;
+                bb_restore_state(fg, _snap);
+                memcpy(fg->ring, _ring_save, sizeof _ring_save);
+                fg->ring_head = _ring_head; fg->ring_depth = _ring_depth;
+                bb->value = out;
+                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+            }
+            DESCR_t out = FAILDESCR;
+            if (try_call_builtin_by_name(bb->sval, args, nargs, &out)) {
+                bb->value = out;
+                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+            }
+            bb->value = FAILDESCR;
+            return bb->ω;
+        }
         if (bb->state == 1 && bb->counter) {
             GeneratorState *gs = (GeneratorState *)(intptr_t)bb->counter;
             DESCR_t v;
@@ -1992,9 +2062,10 @@ IR_t * bb_exec_node(IR_t * bb) {
         } else if (bb->dval == 1.0) {                       /* SNOBOL4 RETURN / NRETURN — value = function-named variable */
             rv = g_sno_cur_func ? NV_GET_fn(g_sno_cur_func) : NULVCL;
             g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
-        } else {                                            /* generic (Icon/Prolog) value return via the alpha child */
+        } else {                                            /* generic (Icon/Prolog) value return */
             rv = NULVCL;
             if (bb->α) { bb_exec_node(bb->α); rv = bb->α->value; }
+            else { DESCR_t pv = ag_ring_peek(g_current_cfg, 0); if (!IS_FAIL_fn(pv)) rv = pv; }
             g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
         }
         if (frame_depth > 0) FRAME.returning = 1;
