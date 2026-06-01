@@ -156,4 +156,49 @@ sub main() {
 }
 EOF
 
+raku "list_construct_read" "$(printf '1\n3')" << 'EOF'
+sub main() {
+    my @a = (3, 1, 2);
+    say(@a[1]);
+    my @b = (10, 3, 20);
+    say(@b[1]);
+}
+EOF
+
+raku "array_sort" "$(printf '1\n3\n5\n9')" << 'EOF'
+sub main() {
+    my @a = (5, 3, 9, 1);
+    my @s = sort(@a);
+    say(@s[0]);
+    say(@s[1]);
+    say(@s[2]);
+    say(@s[3]);
+}
+EOF
+
+raku "array_elems" "$(printf '3\n0')" << 'EOF'
+sub main() {
+    my @a = (10, 20, 30);
+    say(elems(@a));
+    my @e = '';
+    say(elems(@e));
+}
+EOF
+
+raku "array_reverse" "$(printf '3\n2\n1')" << 'EOF'
+sub main() {
+    my @a = (1, 2, 3);
+    my @r = reverse(@a);
+    say(@r[0]);
+    say(@r[1]);
+    say(@r[2]);
+}
+EOF
+
+raku "str_reverse" "cba" << 'EOF'
+sub main() {
+    say(reverse('abc'));
+}
+EOF
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
