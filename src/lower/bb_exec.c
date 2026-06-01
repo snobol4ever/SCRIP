@@ -60,6 +60,34 @@ extern int exec_stmt(const char *subj_name, DESCR_t *subj_var, DESCR_t pat, DESC
 #include "bb_box.h"
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 static DESCR_t g_ir_return_val;
+/* ICON SUSPEND (GZ-11, jcon ir_a_Suspend). A suspending procedure is an Icon GENERATOR: `suspend E do BODY`
+ * yields each value of E, runs BODY on resume, then re-seeks E — until the enclosing control exhausts, at
+ * which point the procedure FAILS. In the mode-2 port-walker oracle this is modelled with the established
+ * eager-drain idiom (the same one IR_GATHER / map-grep use): while a procedure activation's body runs, every
+ * IR_SUSPEND node APPENDS its value(s) into the activation's per-call collection buffer (running the `do`
+ * body between yields, then returning gamma so the enclosing loop re-reaches the suspend). When the body
+ * finishes, the IR_CALL (dval==3.0) site inspects the buffer: a NON-EMPTY buffer means the callee suspended,
+ * so the call node becomes a generator (the collected list is cached on a sidecar, one value yielded per
+ * re-entry via the EVERY/generator pump, exactly like IR_TO); an EMPTY buffer is an ordinary deterministic
+ * call (single g_ir_return_val, existing behavior). The buffer is a stack so nested suspending calls each
+ * collect into their own activation frame and restore the caller's on return. */
+#define SUSPEND_COLLECT_MAX 65536
+typedef struct { DESCR_t * items; int count; int cap; int active; } SuspendBuf;
+static SuspendBuf g_suspend_buf;
+static void suspend_buf_push(DESCR_t v) {
+    if (!g_suspend_buf.active) return;
+    if (g_suspend_buf.count >= g_suspend_buf.cap) {
+        int ncap = g_suspend_buf.cap ? g_suspend_buf.cap * 2 : 16;
+        if (ncap > SUSPEND_COLLECT_MAX) ncap = SUSPEND_COLLECT_MAX;
+        if (g_suspend_buf.count >= ncap) return;
+        DESCR_t * ni = (DESCR_t *) GC_MALLOC((size_t) ncap * sizeof(DESCR_t));
+        if (!ni) return;
+        if (g_suspend_buf.items) memcpy(ni, g_suspend_buf.items, (size_t) g_suspend_buf.count * sizeof(DESCR_t));
+        g_suspend_buf.items = ni; g_suspend_buf.cap = ncap;
+    }
+    g_suspend_buf.items[g_suspend_buf.count++] = v;
+}
+typedef struct { DESCR_t * items; int count; } SuspendList;
 /* SNOBOL4 program-defined function call state (SPITBOL ch.8). A SNOBOL4 call saves the globals named by the
  * function's dummy args + locals + result variable, binds the dummy args, runs the body, then restores them
  * (dynamic scoping by save/restore on a pushdown stack). g_sno_cur_func names the function whose body is
@@ -119,6 +147,23 @@ static void rk_seq_cache_push(rk_seq_cache_t * e, DESCR_t v) {
         e->items = ni; e->cap = ncap;
     }
     e->items[e->count++] = v;
+}
+/* ICON SUSPEND-GENERATOR cache (GZ-11). When an IR_CALL (dval==3.0) to a suspending procedure is FIRST
+ * entered, the callee is run once with the suspend buffer active; every value it suspended is harvested into
+ * this node-keyed cache. Subsequent re-entries (driven by the enclosing every/limit pump exactly as for
+ * IR_TO) yield one cached value per visit via the call node's own state/counter cursor — no re-running of the
+ * callee. Keyed by the call IR_t* so two distinct call sites (and the same site across top-level re-pumps)
+ * keep independent lists. */
+typedef struct { IR_t * node; DESCR_t * items; int count; } susp_gen_cache_t;
+#define SUSP_GEN_CACHE_MAX 64
+static susp_gen_cache_t g_susp_gen_cache[SUSP_GEN_CACHE_MAX];
+static int g_susp_gen_cache_n = 0;
+static susp_gen_cache_t * susp_gen_cache_get(IR_t * node) {
+    for (int i = 0; i < g_susp_gen_cache_n; i++) if (g_susp_gen_cache[i].node == node) return &g_susp_gen_cache[i];
+    if (g_susp_gen_cache_n >= SUSP_GEN_CACHE_MAX) g_susp_gen_cache_n = 0;   /* wrap (corpus never nests this deep) */
+    susp_gen_cache_t * e = &g_susp_gen_cache[g_susp_gen_cache_n++];
+    e->node = node; e->items = NULL; e->count = 0;
+    return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SBL-M3-SCAN (2026-05-31): stackless mode-3/4 entry for a SNOBOL4 pattern-match statement. It is the IR_SCAN  */
@@ -1673,6 +1718,20 @@ IR_t * bb_exec_node(IR_t * bb) {
            recursive descent. g_ir_return_val is harvested on FRAME.returning. A non-proc name falls to a runtime
            builtin (try_call_builtin_by_name). */
         if (bb->dval == 3.0) {
+            /* GZ-11 suspend-generator RESUME: a suspending callee was eager-drained on fresh entry and its
+               values cached on this node. While the cursor (counter) has cached values left, yield the next
+               one per re-entry (the every/limit pump re-drives us exactly as it re-drives IR_TO). When the
+               cache is exhausted, reset and FAIL to omega so the enclosing generator terminates. */
+            if (bb->state == 1) {
+                susp_gen_cache_t * gc = susp_gen_cache_get(bb);
+                if (bb->counter < (int64_t) gc->count) {
+                    bb->value = gc->items[bb->counter];
+                    bb->counter++;
+                    return bb->γ;
+                }
+                bb->state = 0; bb->counter = 0; bb->value = FAILDESCR;
+                return bb->ω;
+            }
             int nargs = (int) bb->ival;
             DESCR_t * args = NULL;
             if (nargs > 0) {
@@ -1694,6 +1753,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             if (upi >= 0) {
                 IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
                 if (!fg || frame_depth >= FRAME_STACK_MAX) { bb->value = FAILDESCR; return bb->ω; }
+                int is_gen = g_stage2.proc_table[upi].is_generator;
                 GenFrame * _f = &frame_stack[frame_depth++];
                 memset(_f, 0, sizeof *_f);
                 /* GZ-10 recursion fix: bind param names from lower_sc (stable strings captured once at lowering
@@ -1714,6 +1774,11 @@ IR_t * bb_exec_node(IR_t * bb) {
                 int _ring_head = fg->ring_head, _ring_depth = fg->ring_depth;
                 memcpy(_ring_save, fg->ring, sizeof _ring_save);
                 bb_node_state_t * _snap = bb_snapshot_state(fg);
+                /* GZ-11: for a GENERATOR callee, run the body with the suspend buffer active and HARVEST every
+                   suspended value into the node-keyed cache; the call then yields them one per re-entry (above).
+                   The buffer is saved/restored so a nested suspending call collects into its own activation. */
+                SuspendBuf _sb_save = g_suspend_buf;
+                if (is_gen) { g_suspend_buf.items = NULL; g_suspend_buf.count = 0; g_suspend_buf.cap = 0; g_suspend_buf.active = 1; }
                 bb_reset(fg);
                 DESCR_t out = bb_exec_once(fg);
                 if (frame_depth > 0 && FRAME.returning) { out = g_ir_return_val; FRAME.returning = 0; }
@@ -1721,6 +1786,16 @@ IR_t * bb_exec_node(IR_t * bb) {
                 bb_restore_state(fg, _snap);
                 memcpy(fg->ring, _ring_save, sizeof _ring_save);
                 fg->ring_head = _ring_head; fg->ring_depth = _ring_depth;
+                if (is_gen) {
+                    int collected = g_suspend_buf.count;
+                    susp_gen_cache_t * gc = susp_gen_cache_get(bb);
+                    gc->count = collected;
+                    gc->items = (collected > 0) ? (DESCR_t *) GC_malloc((size_t) collected * sizeof(DESCR_t)) : NULL;
+                    if (gc->items && collected > 0) memcpy(gc->items, g_suspend_buf.items, (size_t) collected * sizeof(DESCR_t));
+                    g_suspend_buf = _sb_save;
+                    if (collected > 0) { bb->state = 1; bb->counter = 1; bb->value = gc->items[0]; return bb->γ; }
+                    bb->state = 0; bb->counter = 0; bb->value = FAILDESCR; return bb->ω;
+                }
                 bb->value = out;
                 return IS_FAIL_fn(out) ? bb->ω : bb->γ;
             }
@@ -2069,6 +2144,45 @@ IR_t * bb_exec_node(IR_t * bb) {
         }
         if (frame_depth > 0) FRAME.returning = 1;
         bb->value = g_ir_return_val;
+        return bb->ω;
+    }
+    case IR_SUSPEND: {
+        /* GZ-11 Icon `suspend E do BODY` (jcon ir_a_Suspend), dval==1.0. Reached once per pass of the enclosing
+           control (e.g. each `while` iteration). Drain E's value sub-graph (counter) for THIS visit; append each
+           value to the activation's suspend-collection buffer; run the optional `do` BODY sub-graph (ival)
+           between yields. Return gamma so the enclosing loop re-reaches us next iteration (the eager-drain
+           generator model). When E produces no value, the suspend itself contributes nothing and control still
+           flows gamma (the enclosing loop's own condition decides termination); the buffer the IR_CALL site
+           harvests is what makes the whole procedure a generator. */
+        if (bb->dval == 1.0) {
+            IR_graph_t * eblk = (IR_graph_t *)(intptr_t) bb->counter;
+            IR_graph_t * bblk = (IR_graph_t *)(intptr_t) bb->ival;
+            DESCR_t last = NULVCL;
+            if (eblk && eblk->entry) {
+                /* Enumerate E for THIS visit. If E's producing node is itself a generator (1 to n, !L, find(),
+                   nested suspend-call, …) we re-pump it across all its values; if E is an ordinary expression
+                   (a variable, an arithmetic value) it yields exactly ONE value — re-pumping a non-generator
+                   would re-read the same value forever. After EACH yielded value the optional `do` BODY runs
+                   (jcon ir_a_Suspend: success -> Succeed(susp, t); t -> run body -> re-seek E). Per-visit
+                   enumeration + the enclosing loop's own re-entry together produce the full value sequence. */
+                int e_is_gen = !ir_is_single_shot(eblk->entry);
+                IR_graph_t * save_cfg = g_current_cfg;
+                bb_reset(eblk);
+                DESCR_t v = bb_exec_once(eblk);
+                int safety = eblk->n * 256 + 4096;
+                while (!IS_FAIL_fn(v) && safety-- > 0) {
+                    suspend_buf_push(v);
+                    last = v;
+                    if (bblk && bblk->entry) { bb_reset(bblk); (void) bb_exec_once(bblk); }
+                    if (!e_is_gen) break;
+                    v = bb_exec_resume(eblk);
+                }
+                g_current_cfg = save_cfg;
+            }
+            bb->value = last;
+            return bb->γ;
+        }
+        bb->value = FAILDESCR;
         return bb->ω;
     }
     case IR_FAIL:

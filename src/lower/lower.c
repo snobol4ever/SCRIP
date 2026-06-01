@@ -105,6 +105,20 @@ static IR_t * ret(IR_t * n, IR_t ** α_out, IR_t ** β_out, IR_t * α, IR_t * β
     if (β_out) *β_out = β;
     return n;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* icn_proc_is_generator — does the Icon procedure NAME suspend (and is therefore a generator)? The pre-pass   */
+/* in lower_program.c marks proc_table[].is_generator for every Icon proc BEFORE any body is lowered, so this  */
+/* is reliable even when a caller is lowered before its suspending callee. Used by the TT_FNC call arm to wire */
+/* a generator call as RESUMABLE (beta -> the call node itself, re-pumped for successive values) rather than   */
+/* BOUNDED (beta -> omega). A non-generator / unknown name returns 0.                                          */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_proc_is_generator(const char * name) {
+    if (!name) return 0;
+    for (int i = 0; i < g_stage2.proc_count; i++)
+        if (g_stage2.proc_table[i].name && strcmp(g_stage2.proc_table[i].name, name) == 0)
+            return g_stage2.proc_table[i].is_generator;
+    return 0;
+}
 /*====================================================================================================================================================================================================*/
 /* SHARED COMBINATOR SCAFFOLDING — the two control shapes every role reuses. This is the "sharing" the
  * three concurrent language sessions ride: SNOBOL4 CAT (P1 P2), Icon conjunction (e1 & e2), and Prolog
@@ -991,10 +1005,39 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
 
+    /* GZ-11 — Icon `suspend E do BODY` (jcon ir_a_Suspend). A suspending procedure is a GENERATOR: each value
+       of E is yielded to the caller; on resume the optional `do` BODY runs, then E is re-sought; when E (and
+       the enclosing control) is exhausted the procedure FAILS. Lowering follows the SNOBOL4 call-arg idiom
+       (isolated value sub-graphs, robust for any operand node count, no AG-ring positional coupling): E ->
+       counter, the `do` BODY -> ival, dval=1.0 marks the Icon-suspend arm. The exec arm (bb_exec.c IR_SUSPEND
+       dval==1.0) drains E for this visit, appends each value to the activation's suspend-collection buffer,
+       runs BODY between yields, and returns gamma so the enclosing loop re-reaches the suspend (the eager-drain
+       generator model the rest of the mode-2 oracle uses). γ_in/ω_in are the statement-chain successors:
+       gamma continues the enclosing body; omega is the proc-failure edge taken when E cannot produce a value.
+       FACT RULE: the Icon arm lives INSIDE this case; a non-Icon language hitting TT_SUSPEND (e.g. Raku `take`,
+       handled via TT_GATHER/TT_SEQ_EXPR elsewhere) falls to lower_unhandled (loud), never a silent default. */
+    case TT_SUSPEND:
+        if (cx.lang == IR_LANG_ICN) {
+            IR_t * sn = nalloc(cx, IR_SUSPEND); if (!sn) return NULL;
+            sn->dval = 1.0;                                        /* Icon-suspend marker */
+            if (e->n >= 1 && e->c[0]) {
+                IR_graph_t * eblk = lower_value_subgraph(cx, e->c[0]);
+                if (!eblk) return NULL;
+                sn->counter = (int64_t)(intptr_t) eblk;            /* suspend expression sub-graph */
+            }
+            if (e->n >= 2 && e->c[1]) {
+                IR_graph_t * bblk = lower_value_subgraph(cx, e->c[1]);
+                if (!bblk) return NULL;
+                sn->ival = (int64_t)(intptr_t) bblk;               /* optional `do` body sub-graph */
+            }
+            set_succ_fail(sn, γ_in, ω_in);
+            return ret(sn, α_out, β_out, sn /* suspend node is the chain entry */, ω_in);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+
     /* --- extension surface (each = one box onto the foundation, canonical signature) --- */
     case TT_LIMIT:      /* jcon ir_a_Limitation */
     case TT_CASE:       /* jcon ir_a_Case */
-    case TT_SUSPEND:    /* jcon ir_a_Suspend */
     case TT_PROC_FAIL:  /* jcon ir_a_Fail */
     case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP:
     /* SHARED — Icon `write(x)`/`writes(x)` deterministic output builtin (1-arg), via wire_det_builtin1 ->
@@ -1106,7 +1149,8 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
                 call->counter = (int64_t)(intptr_t) blks;          /* array of arg value sub-graphs */
             }
             set_succ_fail(call, γ_in, ω_in);
-            return ret(call, α_out, β_out, call /* call node is the chain entry */, ω_in /* bounded */);
+            IR_t * call_beta = icn_proc_is_generator(call->sval) ? call : ω_in;
+            return ret(call, α_out, β_out, call, call_beta);
         }
         /* RK-LOWER-5a: Raku PURE / read-only value builtins (explicit-call form `f(...)`, which the parser hands
            as TT_FNC(c[0]=TT_VAR(name), c[1..]=args)) -> one deterministic IR_CALL via v_raku_det_call. This is the
@@ -1227,6 +1271,19 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_GLOBAL: case TT_LOCAL: case TT_STATIC_DECL: case TT_DECL: case TT_INITIAL: case TT_OPSYN:
     case TT_GOTO_U: case TT_GOTO_S: case TT_GOTO_F:
     case TT_TRY: case TT_DIE: case TT_UNLESS: case TT_DO_WHILE: case TT_FOR:
+        /* GZ-11 — Icon DECLARATION statements (`local v;`, `global v;`, `static v;`) carry NO runtime action:
+           the variable is already a per-activation frame slot (bound via the proc's lower_sc scope), so the
+           declaration is a transparent pass-through statement that simply flows to the next statement. jcon
+           treats locals/globals purely as scope metadata (no ir_a_* node). We lower to an IR_SUCCEED whose γ
+           is the statement-chain successor (γ_in) — success advances to the next statement exactly like any
+           total expression. (TT_INITIAL with a real initializer is a later rung; a bare declaration here is the
+           common case in the suspend-generator corpus and is a no-op.) Non-declaration kinds in this group, and
+           non-Icon languages, keep the loud-unhandled path. */
+        if (cx.lang == IR_LANG_ICN && (e->t == TT_LOCAL || e->t == TT_GLOBAL || e->t == TT_STATIC_DECL)) {
+            IR_t * nop = nalloc(cx, IR_SUCCEED); if (!nop) return NULL;
+            set_succ_fail(nop, γ_in, ω_in);
+            return ret(nop, α_out, β_out, nop, ω_in);
+        }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     /* RK-LOWER-1: Raku explicit-var `for LO..HI -> $v { ... $v }` parses to TT_FOR_RANGE(var, lo, hi, body, ex)
        — see raku.y for_stmt; ex=1 marks the `..^` endpoint-exclusive form. Synthesize the lo..hi Range as a
