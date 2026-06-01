@@ -36,6 +36,26 @@ static std::string bb_var_str(IR_t * pBB, bb_bin_t & bin) {
     /* frame slot [r12+off_var] into this box's OWN slot [r12+off] so a consumer reads it by             */
     /* bb_slot_get(this). The variable slot was written by an earlier IR_ASSIGN(name) (bb_varslot keyed   */
     /* by name → both share one slot). 16-byte DESCR copy (v.lo + payload.hi). NO rt_nv_get, NO ring.    */
+    /* SBL-M3-CHAIN (2026-05-31, Opus 4.8): SNOBOL4 flat-chain — IR_VAR is a pure four-port PASS-THROUGH.
+       In SNOBOL4 a bare variable read on a statement's γ-chain (e.g. the `S` in `OUTPUT = S`) is consumed
+       BY NAME inside the downstream box (bb_sno_assign_var bakes the source name and calls rt_sno_assign_var
+       → NV_SET(dst, NV_GET(src))); the IR_VAR box itself produces no value and must NOT push onto the
+       excised value stack (rt_nv_get → [SMX] abort). So under g_sno_flat_chain it emits α: jmp γ ; β: jmp ω
+       — NO value stack, NO ring (mirrors the IR_LIT_S pass-through). 10 bytes. */
+    if (g_sno_flat_chain && pBB) {
+        if (MEDIUM_TEXT) {
+            return s_1asm(emit_fmt("%s:", _.lbl_α))
+                 + s_comment(emit_fmt("# BOX IR_VAR \"%s\" [SNO flat-chain: by-name pass-through]", pBB->sval ? pBB->sval : ""))
+                 + s_2asm("jmp", _.lbl_γ)
+                 + s_L1asm(std::string(_.lbl_β) + ":", "")
+                 + s_2asm("jmp", _.lbl_ω);
+        }
+        if (MEDIUM_BINARY) {
+            bin = { {1, 5, 6}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
+            return bytes(1, "\xE9") + u32le(0) + bytes(1, "\xE9") + u32le(0);
+        }
+        return std::string();
+    }
     if (g_icn_flat_chain && pBB) {
         int voff = bb_varslot_peek(name);
         if (voff >= 0) {
