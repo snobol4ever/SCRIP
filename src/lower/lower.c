@@ -2258,6 +2258,36 @@ IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, 
     return emit_leaf(bx, ref, γ_in, ω_in, α_out, β_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PB-RB-3 BB_MATCH phase entry (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01, Opus 4.8). Phase
+ * 3 of SUBJECT->PATTERN->MATCH: the IR_PAT_MATCH box DRIVES the pattern element graph over Σ/δ/Δ with the
+ * SPITBOL ch.18 unanchored OUTER start-loop. INLINE-JUMP model (Lon directive 2026-06-01: "jump to box's alpha,
+ * return from box's omega" — NO C call, the proven combinator mechanism): BB_MATCH establishes the ratified
+ * registers (REG-0: R13<-Σ, R15<-Δ from SUBJECT's ζ-slots, R14<-δ=0) at its α, then jumps INTO the element
+ * graph at the element's α; the element's γ (match success) is the loop EXIT -> BB_MATCH success -> γ_in; the
+ * element's ω (no match at this start) RETURNS INTO BB_MATCH's retry (advance the start δ; re-enter the element
+ * α unless &ANCHOR; exhausted -> ω_in). So the element's BOTH continuations (γ AND ω) thread back to the
+ * MATCH node — the driver decides. The element entry is held in operand_aux (PEERS RULE) so the emitter's
+ * flat_drive jumps to it (like REF_INVARIANT references its sealed child); within-pattern backtracking is the
+ * element boxes' own β/ω. Statement-level single-shot (β = ω_in): a `SUBJ ? PAT` match does not re-offer once
+ * the statement consumed it. NOT YET threaded into v_scan (mode-2 IR_SCAN super-node intact -> ZERO regression);
+ * exercised by the prove_lower2 topology gate (this step) + the PB-RB-3 mode-3 probe (the BINARY outer-loop arm,
+ * next increment). The BINARY/TEXT arms of bb_sno_match are the immediate next step; the box template currently
+ * fail-louds (RULES: an honest stub while the arm is written). */
+IR_t * lower2_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
+    IR_t * m = nalloc(cx, IR_PAT_MATCH);
+    if (!m) return NULL;
+    IR_t * eα = NULL, * eβ = NULL;
+    IR_t * el = lower2(cx, e, m, m, &eα, &eβ);     /* element success AND failure both return to BB_MATCH */
+    if (!el) return NULL;
+    (void) eβ;
+    IR_t * entry = eα ? eα : el;                    /* the element's fresh-entry α — what BB_MATCH jmps into */
+    IR_t * aux[1] = { entry };
+    bb_operand_aux_set(bbg, m, aux, 1);             /* PEERS RULE: emitter reads the element entry to jump to */
+    set_succ_fail(m, γ_in, ω_in);                   /* m.γ = statement success; m.ω = match-exhausted failure */
+    return ret(m, α_out, β_out, m, ω_in);           /* control arrives at m; bounded single-shot (β = ω_in) */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
