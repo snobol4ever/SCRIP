@@ -105,8 +105,34 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     if (sp != 1) return NULL;
     return stk[0];
 }
-/*====================================================================================================================================================================================================*/
-/* sno_ring_to_tree REMOVED (Lon directive, 2026-05-31 — VIOLATION). The postfix AG-ring -> four-port-tree */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* icn_graph_native_emittable — Icon mode-3/4 LOUD-DECLINE gate (mirrors Prolog's pl_rich_graph_ok). The */
+/* native BB emitter has per-box templates; a few kinds are still genuine STUBS whose template emits ZERO */
+/* bytes (bb_gen_scan / bb_gen_alt / bb_keyword / bb_cset / bb_proc_gen), and IR_SUSPEND's native form is */
+/* an explicitly-deferred rung. A graph containing any such kind would emit SILENTLY-WRONG output (the    */
+/* program runs but the stubbed box contributes nothing — e.g. `s ? body` prints nothing). The GOAL's     */
+/* "ALWAYS TEST ALL THREE MODES" discipline (adopted from GOAL-PROLOG-BB) forbids that: an uncovered      */
+/* native shape must FALL LOUD (driver prints [SMX] and DECLINES) so the harness counts it EXCISED — never */
+/* a silent miscompile. This walks every node of every registered graph and returns 0 if any kind has no  */
+/* working native template yet. ADD a kind here when its template is a stub; REMOVE it the moment a real   */
+/* MEDIUM_TEXT+MEDIUM_BINARY arm lands (that is what lights the mode up for that family). */
+static int icn_kind_native_stub(IR_e t) {
+    return t == IR_GEN_SCAN || t == IR_GEN_ALT || t == IR_KEYWORD || t == IR_PROC_GEN ||
+           t == IR_CSET_UNION || t == IR_CSET_DIFF || t == IR_CSET_INTER || t == IR_CSET_COMPL ||
+           t == IR_SUSPEND;
+}
+static int icn_graph_native_emittable(stage2_t *s2) {
+    if (!s2) return 0;
+    for (int gi = 0; gi < s2->bbp.count; gi++) {
+        IR_graph_t *g = s2->bbp.table[gi];
+        if (!g || !g->all) continue;
+        for (int ni = 0; ni < g->n; ni++) {
+            IR_t *nd = g->all[ni];
+            if (nd && icn_kind_native_stub(nd->t)) return 0;
+        }
+    }
+    return 1;
+}
 /* un-flattening adapter was a STOPGAP, never the design: it re-derived the four-port BB topology AT EMIT  */
 /* time from the mode-2 oracle's postfix gamma-ring instead of LOWER producing that topology directly. The */
 /* correct path (this goal's banner + LM-6 DISPATCH-UNIFY) is that LOWER emits each SNOBOL4 statement       */
@@ -728,6 +754,15 @@ int main(int argc, char **argv)
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
+            /* GOAL "ALWAYS TEST ALL THREE MODES" loud-decline gate (mode-4 twin of the mode-3 gate): a graph */
+            /* with a still-stubbed native kind would emit a .s that assembles+runs but prints silently-wrong */
+            /* output. Decline LOUD ([SMX]) so the harness records it EXCISED. Icon only; Raku keeps its path. */
+            if (is_icon && !icn_graph_native_emittable(s2)) {
+                fprintf(stderr, "[SMX] --compile --target=x86: Icon mode-4 native emitter does not yet cover "
+                                "this program (a scan/keyword/cset/gen-alt/suspend box has no MEDIUM_TEXT arm). "
+                                "EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
+                return 0;
+            }
             extern bb_box_fn bb_build_flat(IR_t * nd);
             extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
             extern void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
@@ -1039,6 +1074,15 @@ int main(int argc, char **argv)
             extern bb_box_fn icn_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
+            /* GOAL "ALWAYS TEST ALL THREE MODES" loud-decline gate: a graph with a still-stubbed native kind */
+            /* (scan/gen-alt/keyword/cset/suspend) would emit silently-wrong output. Decline LOUD ([SMX]) so   */
+            /* the harness records it EXCISED, never a silent miscompile. Icon only; Raku keeps its own path.  */
+            if (is_icon && !icn_graph_native_emittable(s2)) {
+                fprintf(stderr, "[SMX] --run: Icon mode-3 native emitter does not yet cover this program "
+                                "(a scan/keyword/cset/gen-alt/suspend box has no MEDIUM_BINARY arm). "
+                                "EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
+                return 0;
+            }
             int main_bb_idx = -1;
             rt_proc_reset();
             rt_proc_set_builder((bb_box_fn (*)(void *))bb_build_flat);
