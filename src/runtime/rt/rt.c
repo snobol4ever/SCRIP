@@ -59,64 +59,13 @@ extern DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var);
 extern DESCR_t pat_at_cursor(const char *varname);
 extern DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
-static void    _default_push     (const DESCR_t *d);
-static void    _default_pop      (DESCR_t *out);
-static void    _default_peek     (DESCR_t *out);
-static int     _default_depth    (void)       { return 0; }
-static void    _default_set_depth(int n)      { (void)n; }
-static int     _default_get_last_ok(void)     { return 1; }
-static void    _default_set_last_ok(int ok)   { (void)ok; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_vstack_depth(void) { return _default_depth(); }
-DESCR_t rt_vstack_pop(void) { DESCR_t out; _default_pop(&out); return out; }
 static int     g_halt_rc  = 0;
 static int     g_halt_set = 0;
 static int     g_native_chunk_depth = 0;
 int rt_in_native_chunk(void) { return g_native_chunk_depth > 0; }
-static void _default_push(const DESCR_t *d)
-{
-    (void)d;
-    fprintf(stderr, "[SMX] FATAL: SM value stack push after excision. There is no value "
-                    "stack. This code path belongs to a language not yet on Byrd Boxes. "
-                    "Aborting (by design).\n");
-    abort();
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _default_pop(DESCR_t *out)
-{
-    (void)out;
-    fprintf(stderr, "[SMX] FATAL: SM value stack pop after excision. There is no value "
-                    "stack. Aborting (by design).\n");
-    abort();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _default_peek(DESCR_t *out)
-{
-    (void)out;
-    fprintf(stderr, "[SMX] FATAL: SM value stack peek after excision. There is no value "
-                    "stack. Aborting (by design).\n");
-    abort();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void vstack_push(DESCR_t d) { _default_push(&d); }
-static DESCR_t vstack_pop(void)    { DESCR_t out; _default_pop(&out); return out; }
-static DESCR_t vstack_peek(void)   { DESCR_t out; _default_peek(&out); return out; }
-#define LAST_OK_GET()   (_default_get_last_ok())
-#define LAST_OK_SET(x)  (_default_set_last_ok(x))
-static const char *vstack_pop_str(void)
-{
-    DESCR_t d = vstack_pop();
-    if (d.v == DT_S) return d.s ? d.s : "";
-    char *s = VARVAL_fn(d);
-    return s ? s : "";
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int64_t vstack_pop_int64(void)
-{
-    DESCR_t d = vstack_pop();
-    if (d.v == DT_I) return d.i;
-    return to_int(d);
-}
+int rt_vstack_depth(void) { STACKLESS_ABORT("rt_vstack_depth"); return 0; }
+DESCR_t rt_vstack_pop(void) { STACKLESS_ABORT("rt_vstack_pop"); return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _rt_IDENT(DESCR_t *a, int n)
 {
@@ -213,14 +162,12 @@ static DESCR_t call_native_chunk(const char *fname, void *fn,
         saved_l[k] = NV_GET_fn(lnames[k]);
         NV_SET_fn(lnames[k], SNUL_D);
     }
-    int saved_vtop = _default_depth();
     typedef void (*chunk_fn_t)(void);
     chunk_fn_t cfn = (chunk_fn_t)fn;
     g_native_chunk_depth++;
     cfn();
     g_native_chunk_depth--;
     DESCR_t result = NV_GET_fn(retname);
-    _default_set_depth(saved_vtop);
     for (int k = nl - 1; k >= 0; k--)
         NV_SET_fn(lnames[k], saved_l[k]);
     for (int k = nbound - 1; k >= 0; k--)
@@ -264,19 +211,13 @@ int rt_finalize(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_push_int(int64_t v)
 {
-    vstack_push(INTVAL(v));
+    (void)v;
+    STACKLESS_ABORT("rt_push_int");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_halt_tos(void)
 {
-    int rc = 0;
-    int depth = _default_depth();
-    if (depth > 0) {
-        DESCR_t d = vstack_peek();
-        if (d.v == DT_I) { rc = (int)d.i; _default_set_depth(depth - 1); }
-    }
-    g_halt_rc  = rc;
-    g_halt_set = 1;
+    STACKLESS_ABORT("rt_halt_tos");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_unhandled_op(int op)
@@ -296,11 +237,9 @@ void rt_bomb(const char *msg)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_push_str(const char *s, uint32_t slen)
 {
-    DESCR_t d;
-    d.v    = DT_S;
-    d.slen = slen ? slen : (uint32_t)(s ? strlen(s) : 0);
-    d.s    = (char *)s;
-    vstack_push(d);
+    (void)s;
+    (void)slen;
+    STACKLESS_ABORT("rt_push_str");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_write_str_nl(const char *s, uint32_t slen)
@@ -356,35 +295,20 @@ void rt_pop_nv_set(const char *name)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_arith(int op)
 {
-    DESCR_t r = vstack_pop();
-    DESCR_t l = vstack_pop();
-    if (l.v == DT_FAIL || r.v == DT_FAIL) { vstack_push(FAILDESCR); LAST_OK_SET(0); return; }
-    if (l.v == DT_S) l = INTVAL(to_int(l));
-    if (r.v == DT_S) r = INTVAL(to_int(r));
-    if (l.v == DT_SNUL) l = INTVAL(0);
-    if (r.v == DT_SNUL) r = INTVAL(0);
-    extern DESCR_t shared_arith(DESCR_t l, DESCR_t r, int op);
-    DESCR_t result = shared_arith(l, r, op);
-    vstack_push(result);
-    LAST_OK_SET(result.v != DT_FAIL);
+    (void)op;
+    STACKLESS_ABORT("rt_arith");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_nv_get(const char *name)
 {
-    vstack_push(NV_GET_fn(name ? name : ""));
+    (void)name;
+    STACKLESS_ABORT("rt_nv_get");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_nv_set(const char *name)
 {
-    DESCR_t val = vstack_pop();
-    if (val.v == DT_FAIL) {
-        vstack_push(val);
-        LAST_OK_SET(0);
-        return;
-    }
-    NV_SET_fn(name ? name : "", val);
-    vstack_push(val);
-    LAST_OK_SET(1);
+    (void)name;
+    STACKLESS_ABORT("rt_nv_set");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sno_assign_lit_s(const char *name, const char *str)
@@ -446,7 +370,7 @@ rt_subj_t rt_sno_subject_load(const char *name, const char *lit)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pop_void(void)
 {
-    (void)vstack_pop();
+    STACKLESS_ABORT("rt_pop_void");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pop_store_i64(int64_t *slot)
@@ -480,20 +404,8 @@ static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
 void rt_frame_enter(int nparams)
 {
-    if (nparams < 0) nparams = 0;
-    if (nparams > RT_FRAME_SLOT_MAX) nparams = RT_FRAME_SLOT_MAX;
-    if (g_rt_frame_depth >= RT_FRAME_STACK_MAX) {
-        for (int k = 0; k < nparams; k++) (void)vstack_pop();
-        return;
-    }
-    rt_frame_t *f = &g_rt_frames[g_rt_frame_depth++];
-    for (int k = 0; k < RT_FRAME_SLOT_MAX; k++) f->slot[k] = NULVCL;
-    f->nslots = nparams;
-    for (int i = 0; i < nparams; i++) {
-        DESCR_t v = vstack_pop();
-        int s = nparams - 1 - i;
-        if (s >= 0 && s < RT_FRAME_SLOT_MAX) f->slot[s] = v;
-    }
+    (void)nparams;
+    STACKLESS_ABORT("rt_frame_enter");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_frame_leave(void)
@@ -581,115 +493,117 @@ void rt_call_builtin(const char *name, int nargs)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_load_frame(int slot)
 {
-    if (g_rt_frame_depth <= 0 || slot < 0 || slot >= RT_FRAME_SLOT_MAX) {
-        vstack_push(FAILDESCR);
-        LAST_OK_SET(0);
-        return;
-    }
-    rt_frame_t *f = &g_rt_frames[g_rt_frame_depth - 1];
-    vstack_push(f->slot[slot]);
-    LAST_OK_SET((f->slot[slot].v != DT_FAIL));
+    (void)slot;
+    STACKLESS_ABORT("rt_load_frame");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_store_frame(int slot)
 {
-    DESCR_t v = vstack_pop();
-    if (g_rt_frame_depth <= 0 || slot < 0 || slot >= RT_FRAME_SLOT_MAX) {
-        vstack_push(v);
-        LAST_OK_SET(0);
-        return;
-    }
-    rt_frame_t *f = &g_rt_frames[g_rt_frame_depth - 1];
-    f->slot[slot] = v;
-    if (slot >= f->nslots) f->nslots = slot + 1;
-    vstack_push(v);
-    LAST_OK_SET((v.v != DT_FAIL));
+    (void)slot;
+    STACKLESS_ABORT("rt_store_frame");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_last_ok(void)  { return LAST_OK_GET(); }
-void rt_set_last_ok(int ok) { LAST_OK_SET(ok ? 1 : 0); }
+int rt_last_ok(void)
+{
+    STACKLESS_ABORT("rt_last_ok");
+    return 0;
+}
+void rt_set_last_ok(int ok)
+{
+    (void)ok;
+    STACKLESS_ABORT("rt_set_last_ok");
+}
 void rt_push_expression_descr(int64_t entry_pc, int64_t arity)
 {
-    DESCR_t d;
-    d.v    = DT_E;
-    d.slen = (uint32_t)arity;
-    d.i    = entry_pc;
-    vstack_push(d);
+    (void)entry_pc;
+    (void)arity;
+    STACKLESS_ABORT("rt_push_expression_descr");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void rt_set_last_ok(int v);
 void rt_exec_stmt_pat(void *blob_α, const char *subj_name, int has_repl)
 {
-    DESCR_t repl   = vstack_pop();
-    DESCR_t subj_d = vstack_pop();
-    (void)vstack_pop();
-    bb_box_fn root_fn = (bb_box_fn)blob_α;
-    int ok = exec_stmt_blob(subj_name, &subj_d, root_fn, has_repl ? &repl : NULL, has_repl);
-    rt_set_last_ok(ok);
+    (void)blob_α;
+    (void)subj_name;
+    (void)has_repl;
+    STACKLESS_ABORT("rt_exec_stmt_pat");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_match_blob(void *blob_α,
                          const char *subj_name,
                          int has_repl)
 {
-    DESCR_t repl = vstack_pop();
-    DESCR_t subj = vstack_pop();
-    bb_box_fn root_fn = (bb_box_fn)blob_α;
-    int ok = exec_stmt_blob(subj_name,
-                            &subj,
-                            root_fn,
-                            has_repl ? &repl : NULL,
-                            has_repl);
-    rt_set_last_ok(ok);
+    (void)blob_α;
+    (void)subj_name;
+    (void)has_repl;
+    STACKLESS_ABORT("rt_match_blob");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_lit(const char *s)
 {
-    vstack_push(pat_lit(s ? s : ""));
+    (void)s;
+    STACKLESS_ABORT("rt_pat_lit");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_refname(const char *name)
 {
-    vstack_push(pat_ref(name ? name : ""));
+    (void)name;
+    STACKLESS_ABORT("rt_pat_refname");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_span(void)
 {
-    const char *cs = vstack_pop_str();
-    vstack_push(pat_span(cs));
+    STACKLESS_ABORT("rt_pat_span");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_break(void)
 {
-    const char *cs = vstack_pop_str();
-    vstack_push(pat_break_(cs));
+    STACKLESS_ABORT("rt_pat_break");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_breakx(void)
 {
-    const char *cs = vstack_pop_str();
-    vstack_push(pat_breakx(cs));
+    STACKLESS_ABORT("rt_pat_breakx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_any(void)
 {
-    const char *cs = vstack_pop_str();
-    vstack_push(pat_any_cs(cs));
+    STACKLESS_ABORT("rt_pat_any");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_notany(void)
 {
-    const char *cs = vstack_pop_str();
-    vstack_push(pat_notany(cs));
+    STACKLESS_ABORT("rt_pat_notany");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pat_len(void)   { vstack_push(pat_len (vstack_pop_int64())); }
-void rt_pat_pos(void)   { vstack_push(pat_pos (vstack_pop_int64())); }
-void rt_pat_rpos(void)  { vstack_push(pat_rpos(vstack_pop_int64())); }
-void rt_pat_tab(void)   { vstack_push(pat_tab (vstack_pop_int64())); }
-void rt_pat_rtab(void)  { vstack_push(pat_rtab(vstack_pop_int64())); }
-void rt_pat_arb(void)     { vstack_push(pat_arb());     }
-void rt_pat_rem(void)     { vstack_push(pat_rem());     }
+void rt_pat_len(void)
+{
+    STACKLESS_ABORT("rt_pat_len");
+}
+void rt_pat_pos(void)
+{
+    STACKLESS_ABORT("rt_pat_pos");
+}
+void rt_pat_rpos(void)
+{
+    STACKLESS_ABORT("rt_pat_rpos");
+}
+void rt_pat_tab(void)
+{
+    STACKLESS_ABORT("rt_pat_tab");
+}
+void rt_pat_rtab(void)
+{
+    STACKLESS_ABORT("rt_pat_rtab");
+}
+void rt_pat_arb(void)
+{
+    STACKLESS_ABORT("rt_pat_arb");
+}
+void rt_pat_rem(void)
+{
+    STACKLESS_ABORT("rt_pat_rem");
+}
 #define RT_DCAP_MAX 32
 typedef struct { const char *varname; const char *base; int len; } rt_dcap_t;
 static rt_dcap_t g_rt_dcap[RT_DCAP_MAX];
@@ -787,155 +701,101 @@ int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pat_fence(void)   { vstack_push(pat_fence());   }
-void rt_pat_fail(void)    { vstack_push(pat_fail());    }
-void rt_pat_abort(void)   { vstack_push(pat_abort());   }
-void rt_pat_succeed(void) { vstack_push(pat_succeed()); }
-void rt_pat_bal(void)     { vstack_push(pat_bal());     }
-void rt_pat_eps(void)     { vstack_push(pat_epsilon()); }
+void rt_pat_fence(void)
+{
+    STACKLESS_ABORT("rt_pat_fence");
+}
+void rt_pat_fail(void)
+{
+    STACKLESS_ABORT("rt_pat_fail");
+}
+void rt_pat_abort(void)
+{
+    STACKLESS_ABORT("rt_pat_abort");
+}
+void rt_pat_succeed(void)
+{
+    STACKLESS_ABORT("rt_pat_succeed");
+}
+void rt_pat_bal(void)
+{
+    STACKLESS_ABORT("rt_pat_bal");
+}
+void rt_pat_eps(void)
+{
+    STACKLESS_ABORT("rt_pat_eps");
+}
 void rt_pat_arbno(void)
 {
-    DESCR_t inner = vstack_pop();
-    vstack_push(pat_arbno(inner));
+    STACKLESS_ABORT("rt_pat_arbno");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_fence1(void)
 {
-    DESCR_t child = vstack_pop();
-    vstack_push(pat_fence_p(child));
+    STACKLESS_ABORT("rt_pat_fence1");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_cat(void)
 {
-    DESCR_t right = vstack_pop();
-    DESCR_t left  = vstack_pop();
-    vstack_push(pat_cat(left, right));
+    STACKLESS_ABORT("rt_pat_cat");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_alt(void)
 {
-    DESCR_t right = vstack_pop();
-    DESCR_t left  = vstack_pop();
-    vstack_push(pat_alt(left, right));
+    STACKLESS_ABORT("rt_pat_alt");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_deref(void)
 {
-    DESCR_t v = vstack_pop();
-    if (v.v == DT_P) {
-        vstack_push(v);
-    } else if (v.v == DT_S && v.s) {
-        vstack_push(pat_lit(v.s));
-    } else {
-        char *name = VARVAL_fn(v);
-        vstack_push(pat_ref(name ? name : ""));
-    }
+    STACKLESS_ABORT("rt_pat_deref");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_capture(const char *varname, int kind)
 {
-    DESCR_t child = vstack_pop();
-    DESCR_t var   = NAME_fn(varname ? varname : "");
-    DESCR_t result;
-    if (kind == 1)
-        result = pat_assign_imm(child, var);
-    else if (kind == 2) {
-        vstack_push(pat_cat(child, pat_at_cursor(varname ? varname : "")));
-        return;
-    } else
-        result = pat_assign_cond(child, var);
-    if (result.v == DT_P && result.p && varname && varname[0]) {
-        PATND_t *pp = (PATND_t *)result.p;
-        if (!pp->STRVAL_fn || !pp->STRVAL_fn[0])
-            pp->STRVAL_fn = GC_strdup(varname);
-    }
-    vstack_push(result);
+    (void)varname;
+    (void)kind;
+    STACKLESS_ABORT("rt_pat_capture");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_capture_fn(const char *fname, int is_imm, const char *namelist)
 {
-    DESCR_t child = vstack_pop();
-    if (!fname) fname = "";
-    if (namelist && namelist[0]) {
-        int nnames = 1;
-        for (const char *q = namelist; *q; q++) if (*q == '\t') nnames++;
-        char **names = (char **)GC_MALLOC((size_t)nnames * sizeof(char *));
-        int ni = 0;
-        const char *start = namelist;
-        for (const char *q = namelist; ; q++) {
-            if (*q == '\t' || *q == '\0') {
-                size_t len = (size_t)(q - start);
-                char *nm = (char *)GC_MALLOC(len + 1);
-                memcpy(nm, start, len);  nm[len] = '\0';
-                names[ni++] = nm;
-                if (*q == '\0') break;
-                start = q + 1;
-            }
-        }
-        vstack_push(is_imm
-            ? pat_assign_callcap_named_imm(child, fname, NULL, 0, names, nnames)
-            : pat_assign_callcap_named    (child, fname, NULL, 0, names, nnames));
-    } else {
-        vstack_push(is_imm
-            ? pat_assign_callcap_named_imm(child, fname, NULL, 0, NULL, 0)
-            : pat_assign_callcap          (child, fname, NULL, 0));
-    }
+    (void)fname;
+    (void)is_imm;
+    (void)namelist;
+    STACKLESS_ABORT("rt_pat_capture_fn");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_capture_fn_args(const char *fname, int is_imm, int nargs)
 {
-    if (!fname) fname = "";
-    DESCR_t *argv = nargs > 0
-        ? (DESCR_t *)GC_MALLOC((size_t)nargs * sizeof(DESCR_t))
-        : NULL;
-    for (int i = nargs - 1; i >= 0; i--) argv[i] = vstack_pop();
-    DESCR_t child = vstack_pop();
-    vstack_push(is_imm
-        ? pat_assign_callcap_named_imm(child, fname, argv, nargs, NULL, 0)
-        : pat_assign_callcap          (child, fname, argv, nargs));
+    (void)fname;
+    (void)is_imm;
+    (void)nargs;
+    STACKLESS_ABORT("rt_pat_capture_fn_args");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_usercall(const char *fname)
 {
-    if (!fname) fname = "";
-    vstack_push(pat_user_call(fname, NULL, 0));
+    (void)fname;
+    STACKLESS_ABORT("rt_pat_usercall");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pat_usercall_args(const char *fname, int nargs)
 {
-    if (!fname) fname = "";
-    DESCR_t *argv = nargs > 0
-        ? (DESCR_t *)GC_MALLOC((size_t)nargs * sizeof(DESCR_t))
-        : NULL;
-    for (int i = nargs - 1; i >= 0; i--) argv[i] = vstack_pop();
-    vstack_push(pat_user_call(fname, argv, nargs));
+    (void)fname;
+    (void)nargs;
+    STACKLESS_ABORT("rt_pat_usercall_args");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_match_variant(const char *subj_name, int has_repl)
 {
-    DESCR_t repl   = vstack_pop();
-    DESCR_t subj_d = vstack_pop();
-    DESCR_t pat_d  = vstack_pop();
-    int err = setjmp(g_core_err_jmp);
-    g_core_err_active = 1;
-    if (err != 0) {
-        exec_stmt_pool_reset();
-        LAST_OK_SET(0);
-        return;
-    }
-    int ok = exec_stmt(subj_name, &subj_d, pat_d,
-                       has_repl ? &repl : NULL, has_repl);
-    g_core_err_active = 0;
-    LAST_OK_SET(ok ? 1 : 0);
+    (void)subj_name;
+    (void)has_repl;
+    STACKLESS_ABORT("rt_match_variant");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_concat(void)
 {
-    DESCR_t r = vstack_pop();
-    DESCR_t l = vstack_pop();
-    DESCR_t result = CONCAT_fn(l, r);
-    vstack_push(result);
-    LAST_OK_SET((result.v != DT_FAIL));
+    STACKLESS_ABORT("rt_concat");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
@@ -953,74 +813,39 @@ void rt_set_stno(int64_t stno)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_push_null(void)
 {
-    vstack_push(NULVCL);
-    LAST_OK_SET(1);
+    STACKLESS_ABORT("rt_push_null");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_coerce_num(void)
 {
-    DESCR_t v = vstack_pop();
-    if (v.v == DT_FAIL) { vstack_push(FAILDESCR); LAST_OK_SET(0); return; }
-    if (v.v == DT_S || v.v == DT_SNUL) {
-        const char *s = v.s ? v.s : "";
-        int is_real = 0;
-        for (const char *p = s; *p; p++) {
-            if (*p == '.' || *p == 'e' || *p == 'E' || *p == 'd' || *p == 'D') { is_real = 1; break; }
-        }
-        if (is_real) vstack_push(REALVAL(to_real(v)));
-        else         vstack_push(INTVAL(to_int(v)));
-    } else {
-        vstack_push(v);
-    }
-    LAST_OK_SET(1);
+    STACKLESS_ABORT("rt_coerce_num");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_push_real_bits(uint64_t bits)
 {
-    double v;
-    __builtin_memcpy(&v, &bits, 8);
-    vstack_push(REALVAL(v));
-    LAST_OK_SET(1);
+    (void)bits;
+    STACKLESS_ABORT("rt_push_real_bits");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_push_null_noflip(void)
 {
-    vstack_push(NULVCL);
+    STACKLESS_ABORT("rt_push_null_noflip");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_push_expr(void *ptr)
 {
-    DESCR_t d;
-    d.v    = DT_E;
-    d.slen = 0;
-    d.ptr  = ptr;
-    vstack_push(d);
-    LAST_OK_SET(1);
+    (void)ptr;
+    STACKLESS_ABORT("rt_push_expr");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_exp(void)
 {
-    DESCR_t r = vstack_pop();
-    DESCR_t l = vstack_pop();
-    if (l.v == DT_FAIL || r.v == DT_FAIL) {
-        vstack_push(FAILDESCR); LAST_OK_SET(0); return;
-    }
-    if (l.v == DT_S) l = INTVAL(to_int(l));
-    if (r.v == DT_S) r = INTVAL(to_int(r));
-    if (l.v == DT_SNUL) l = INTVAL(0);
-    if (r.v == DT_SNUL) r = INTVAL(0);
-    extern DESCR_t shared_arith(DESCR_t l, DESCR_t r, int op);
-    DESCR_t result = shared_arith(l, r, SM_EXP);
-    vstack_push(result);
-    LAST_OK_SET(result.v != DT_FAIL);
+    STACKLESS_ABORT("rt_exp");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_neg(void)
 {
-    DESCR_t v = vstack_pop();
-    if (v.v == DT_I) vstack_push(INTVAL(-v.i));
-    else              vstack_push(REALVAL(-to_real(v)));
-    LAST_OK_SET(1);
+    STACKLESS_ABORT("rt_neg");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_unop_neg(void)
@@ -1105,16 +930,17 @@ int rt_limit_begin(DESCR_t *max_slot, int64_t *count_slot)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_limit_more(DESCR_t *max_slot, int64_t *count_slot)
 {
-    if (*count_slot < max_slot->i) { LAST_OK_SET(1); return 1; }
-    LAST_OK_SET(0);
+    (void)max_slot;
+    (void)count_slot;
+    STACKLESS_ABORT("rt_limit_more");
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_limit_inc(int64_t *count_slot)
 {
-    (*count_slot)++;
-    LAST_OK_SET(1);
-    return 1;
+    (void)count_slot;
+    STACKLESS_ABORT("rt_limit_inc");
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_toby_real(DESCR_t *cur_slot, int64_t lo_bits, int64_t hi_bits, int64_t step_bits, int reset)
@@ -1130,79 +956,26 @@ int rt_toby_real(DESCR_t *cur_slot, int64_t lo_bits, int64_t hi_bits, int64_t st
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_incr(int64_t n)
 {
-    DESCR_t v = vstack_pop();
-    vstack_push(INTVAL(v.i + n));
-    LAST_OK_SET(1);
+    (void)n;
+    STACKLESS_ABORT("rt_incr");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_decr(int64_t n)
 {
-    DESCR_t v = vstack_pop();
-    vstack_push(INTVAL(v.i - n));
-    LAST_OK_SET(1);
+    (void)n;
+    STACKLESS_ABORT("rt_decr");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_acomp(int op)
 {
-    DESCR_t r = vstack_pop();
-    DESCR_t l = vstack_pop();
-    if (l.v == DT_FAIL || r.v == DT_FAIL) {
-        vstack_push(FAILDESCR); LAST_OK_SET(0); return;
-    }
-    if (junction_is(r) || junction_is(l)) {
-        int jr = junction_is(r);
-        DESCR_t jct = jr ? r : l;
-        DESCR_t scl = jr ? l : r;
-        int jok = junction_collapse(scl, jct, op, 1);
-        vstack_push(jok ? scl : FAILDESCR); LAST_OK_SET(jok ? 1 : 0); return;
-    }
-    if (l.v == DT_SNUL) l = INTVAL(0);
-    if (r.v == DT_SNUL) r = INTVAL(0);
-    double lv = (l.v == DT_R) ? l.r : (l.v == DT_I) ? (double)l.i : (l.v == DT_S && l.s) ? strtod(l.s, NULL) : 0.0;
-    double rv = (r.v == DT_R) ? r.r : (r.v == DT_I) ? (double)r.i : (r.v == DT_S && r.s) ? strtod(r.s, NULL) : 0.0;
-    int ok;
-    switch (op) {
-        case TT_EQ: ok = (lv == rv); break;
-        case TT_NE: ok = (lv != rv); break;
-        case TT_LT: ok = (lv <  rv); break;
-        case TT_LE: ok = (lv <= rv); break;
-        case TT_GT: ok = (lv >  rv); break;
-        case TT_GE: ok = (lv >= rv); break;
-        default:    ok = (lv == rv); break;
-    }
-    vstack_push(ok ? r : FAILDESCR);
-    LAST_OK_SET(ok ? 1 : 0);
+    (void)op;
+    STACKLESS_ABORT("rt_acomp");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lcomp(int op)
 {
-    DESCR_t r = vstack_pop();
-    DESCR_t l = vstack_pop();
-    if (l.v == DT_FAIL || r.v == DT_FAIL) {
-        vstack_push(FAILDESCR); LAST_OK_SET(0); return;
-    }
-    if (junction_is(r) || junction_is(l)) {
-        int jr = junction_is(r);
-        DESCR_t jct = jr ? r : l;
-        DESCR_t scl = jr ? l : r;
-        int jok = junction_collapse(scl, jct, op, 0);
-        vstack_push(jok ? scl : FAILDESCR); LAST_OK_SET(jok ? 1 : 0); return;
-    }
-    const char *ls = VARVAL_fn(l); if (!ls) ls = "";
-    const char *rs = VARVAL_fn(r); if (!rs) rs = "";
-    int cmp = strcmp(ls, rs);
-    int ok;
-    switch (op) {
-        case TT_LLT: ok = (cmp <  0); break;
-        case TT_LLE: ok = (cmp <= 0); break;
-        case TT_LGT: ok = (cmp >  0); break;
-        case TT_LGE: ok = (cmp >= 0); break;
-        case TT_LEQ: ok = (cmp == 0); break;
-        case TT_LNE: ok = (cmp != 0); break;
-        default:     ok = (cmp == 0); break;
-    }
-    vstack_push(ok ? r : FAILDESCR);
-    LAST_OK_SET(ok ? 1 : 0);
+    (void)op;
+    STACKLESS_ABORT("rt_lcomp");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_define_entry(void)
@@ -1491,248 +1264,25 @@ static void _rt_nv_fold_set(const char *raw, DESCR_t val)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call(const char *name, int nargs)
 {
-    DESCR_t args[32];
-    if (nargs > 32) nargs = 32;
-    for (int k = nargs - 1; k >= 0; k--) args[k] = vstack_pop();
-    if (name && strcmp(name, "INDIR_GET") == 0) {
-        DESCR_t name_d = args[0];
-        DESCR_t val;
-        if (IS_NAMEPTR(name_d))      val = NAME_DEREF_PTR(name_d);
-        else if (IS_NAMEVAL(name_d)) val = _rt_nv_fold_get(name_d.s);
-        else                         val = _rt_nv_fold_get(VARVAL_fn(name_d));
-        vstack_push(val);
-        LAST_OK_SET(1);
-        return;
-    }
-    if (name && strcmp(name, "NAME_PUSH") == 0) {
-        DESCR_t name_d = args[0];
-        const char *vname0 = VARVAL_fn(name_d);
-        char *vname = GC_strdup(vname0 ? vname0 : "");
-        vstack_push(NAMEVAL(vname));
-        LAST_OK_SET(1);
-        return;
-    }
-    if (name && strncmp(name, "NRETURN_ASGN_", 13) == 0) {
-        const char *fname = name + 13;
-        DESCR_t rhs = args[0];
-        void *cfn = chunk_reg_lookup(fname);
-        DESCR_t fres = cfn ? call_native_chunk(fname, cfn, NULL, 0) : FAILDESCR;
-        int ok = 0;
-        if (!IS_FAIL_fn(fres)) {
-            if (IS_NAMEPTR(fres))      { NAME_DEREF_PTR(fres) = rhs; ok = 1; }
-            else if (IS_NAMEVAL(fres)) {
-                char *fn = GC_strdup(fres.s);
-                NV_SET_fn(fn, rhs); ok = 1;
-            }
-            else {
-                char setname[256];
-                snprintf(setname, sizeof(setname), "%s_SET", fname ? fname : "");
-                vstack_push(rhs); vstack_push(fres);
-                rt_call(setname, 2);
-                ok = LAST_OK_GET();
-            }
-        }
-        vstack_push(rhs);
-        LAST_OK_SET(ok);
-        return;
-    }
-    if (name && strcmp(name, "ASGN_INDIR") == 0) {
-        DESCR_t name_d = args[1];
-        DESCR_t val    = args[0];
-        int ok = 0;
-        if (IS_NAMEPTR(name_d)) { *(DESCR_t*)name_d.ptr = val; ok = 1; }
-        else if (IS_NAMEVAL(name_d)) { _rt_nv_fold_set(name_d.s, val); ok = 1; }
-        else {
-            const char *vname0 = VARVAL_fn(name_d);
-            if (vname0 && *vname0) { _rt_nv_fold_set(vname0, val); ok = 1; }
-        }
-        vstack_push(val);
-        LAST_OK_SET(ok);
-        return;
-    }
-    if (name && strcmp(name, "IDX") == 0) {
-        if (nargs == 2) {
-            DESCR_t r = subscript_get(args[0], args[1]);
-            vstack_push(r);
-            LAST_OK_SET((r.v != DT_FAIL));
-        } else if (nargs == 3) {
-            DESCR_t r = subscript_get2(args[0], args[1], args[2]);
-            vstack_push(r);
-            LAST_OK_SET((r.v != DT_FAIL));
-        } else {
-            DESCR_t r = INVOKE_fn("ITEM", args, nargs);
-            vstack_push(r);
-            LAST_OK_SET((r.v != DT_FAIL));
-        }
-        return;
-    }
-    if (name && strcmp(name, "IDX_SET") == 0) {
-        if (nargs == 3) {
-            DESCR_t val = args[0]; DESCR_t base = args[1]; DESCR_t idx = args[2];
-            LAST_OK_SET(subscript_set(base, idx, val));
-            vstack_push(val);
-        } else if (nargs >= 4) {
-            DESCR_t val = args[0]; DESCR_t base = args[1];
-            DESCR_t i = args[2]; DESCR_t j = args[3];
-            LAST_OK_SET(subscript_set2(base, i, j, val));
-            vstack_push(val);
-        } else {
-            DESCR_t r = INVOKE_fn("ITEM_SET", args, nargs);
-            LAST_OK_SET((r.v != DT_FAIL));
-            vstack_push(args[0]);
-        }
-        return;
-    }
-    if (name && strcmp(name, "ITEM_SET") == 0) {
-        if (nargs == 3) {
-            DESCR_t val = args[0]; DESCR_t base = args[1]; DESCR_t idx = args[2];
-            LAST_OK_SET(subscript_set(base, idx, val));
-            vstack_push(val);
-        } else if (nargs >= 4) {
-            DESCR_t val = args[0]; DESCR_t base = args[1];
-            DESCR_t i = args[2]; DESCR_t j = args[3];
-            LAST_OK_SET(subscript_set2(base, i, j, val));
-            vstack_push(val);
-        } else {
-            DESCR_t r = INVOKE_fn("ITEM_SET", args, nargs);
-            LAST_OK_SET((r.v != DT_FAIL));
-            vstack_push(args[0]);
-        }
-        return;
-    }
-    for (int k = 0; k < nargs; k++) {
-        if (args[k].v == DT_FAIL) {
-            vstack_push(FAILDESCR);
-            LAST_OK_SET(0);
-            return;
-        }
-    }
-    void *cfn = chunk_reg_lookup(name ? name : "");
-    if (!cfn && name) {
-        const char *entry = FUNC_ENTRY_fn(name);
-        if (entry && strcmp(entry, name) != 0)
-            cfn = chunk_reg_lookup(entry);
-    }
-    if (cfn) {
-        strncpy(kw_rtntype, "RETURN", sizeof(kw_rtntype)-1);
-        DESCR_t result = call_native_chunk(name, cfn, args, nargs);
-        if (strcmp(kw_rtntype, "FRETURN") == 0) {
-            vstack_push(FAILDESCR);
-            LAST_OK_SET(0);
-        } else if (strcmp(kw_rtntype, "NRETURN") == 0) {
-            DESCR_t deref = result;
-            if (IS_NAMEPTR(deref))      deref = NAME_DEREF_PTR(deref);
-            else if (IS_NAMEVAL(deref)) deref = NV_GET_fn(deref.s);
-            vstack_push(deref);
-            LAST_OK_SET(1);
-        } else {
-            vstack_push(result);
-            LAST_OK_SET((result.v != DT_FAIL));
-        }
-        return;
-    }
-    if (name && strcmp(name, "SIZE") == 0 && nargs == 1 && args[0].v == DT_A) {
-        DESCR_t r = INTVAL(args[0].arr ? (args[0].arr->hi - args[0].arr->lo + 1) : 0);
-        vstack_push(r); LAST_OK_SET(1); return;
-    }
-    if (name) {
-        extern int g_lang;
-        if (g_lang == LANG_RAKU) {
-            if (nargs >= 1 && args[0].v == DT_S && args[0].s
-                    && (strcmp(name, "push") == 0
-                     || strcmp(name, "pop")  == 0
-                     || strcmp(name, "arr_set") == 0
-                     || strcmp(name, "hash_set") == 0
-                     || strcmp(name, "hash_delete") == 0)) {
-                extern int script_try_mutating_builtin_by_name(
-                    const char *fn, const char *vname,
-                    DESCR_t *args, int nargs, DESCR_t *out);
-                extern int script_try_hash_mutating_builtin(
-                    const char *fn, const char *vname,
-                    DESCR_t *args, int nargs, DESCR_t *out);
-                DESCR_t mu_out;
-                if (script_try_hash_mutating_builtin(name, args[0].s,
-                        &args[1], nargs - 1, &mu_out)
-                 || script_try_mutating_builtin_by_name(name, args[0].s,
-                        &args[1], nargs - 1, &mu_out)) {
-                    if (IS_NAMEPTR(mu_out))      mu_out = NAME_DEREF_PTR(mu_out);
-                    else if (IS_NAMEVAL(mu_out)) mu_out = NV_GET_fn(mu_out.s);
-                    vstack_push(mu_out);
-                    LAST_OK_SET((mu_out.v != DT_FAIL));
-                    return;
-                }
-            }
-            extern int try_call_builtin_by_name(
-                const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-            DESCR_t rk_out;
-            if (try_call_builtin_by_name(name, args, nargs, &rk_out)) {
-                if (IS_NAMEPTR(rk_out))      rk_out = NAME_DEREF_PTR(rk_out);
-                else if (IS_NAMEVAL(rk_out)) rk_out = NV_GET_fn(rk_out.s);
-                vstack_push(rk_out);
-                LAST_OK_SET((rk_out.v != DT_FAIL));
-                return;
-            }
-        }
-        extern int core_fn_registered(const char *);
-        if (!core_fn_registered(name)) {
-        extern int try_call_builtin_by_name(
-            const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-        DESCR_t gen_out;
-        if (try_call_builtin_by_name(name, args, nargs, &gen_out)) {
-            if (IS_NAMEPTR(gen_out))      gen_out = NAME_DEREF_PTR(gen_out);
-            else if (IS_NAMEVAL(gen_out)) gen_out = NV_GET_fn(gen_out.s);
-            vstack_push(gen_out);
-            LAST_OK_SET((gen_out.v != DT_FAIL));
-            return;
-        }
-        }
-    }
-    DESCR_t result = INVOKE_fn(name ? name : "", args, nargs);
-    if (strcmp(kw_rtntype, "NRETURN") == 0) {
-        if (IS_NAMEPTR(result))      result = NAME_DEREF_PTR(result);
-        else if (IS_NAMEVAL(result)) result = NV_GET_fn(result.s);
-    }
-    vstack_push(result);
-    LAST_OK_SET((result.v != DT_FAIL));
+    (void)name;
+    (void)nargs;
+    STACKLESS_ABORT("rt_call");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_do_return(int kind, int cond)
 {
-    if (cond == 1 && !LAST_OK_GET()) return 0;
-    if (cond == 2 &&  LAST_OK_GET()) return 0;
-    if (kind == 1) {
-        if (_default_depth() > 0) (void)vstack_pop();
-        vstack_push(FAILDESCR);
-        LAST_OK_SET(0);
-        strncpy(kw_rtntype, "FRETURN", sizeof(kw_rtntype)-1);
-    } else if (kind == 2) {
-        DESCR_t v = (_default_depth() > 0) ? vstack_pop() : FAILDESCR;
-        if (v.v == DT_N) {
-            vstack_push(v);
-        } else if (v.v == DT_S && v.s) {
-            char *n = GC_strdup(v.s);
-            vstack_push(NAMEVAL(n));
-        } else {
-            vstack_push(FAILDESCR);
-        }
-        LAST_OK_SET(1);
-        strncpy(kw_rtntype, "NRETURN", sizeof(kw_rtntype)-1);
-    } else {
-        int ok = 0;
-        if (_default_depth() > 0) ok = (vstack_peek().v != DT_FAIL);
-        LAST_OK_SET(ok);
-        strncpy(kw_rtntype, "RETURN",  sizeof(kw_rtntype)-1);
-    }
-    return g_native_chunk_depth > 0 ? 2 : 1;
+    (void)kind;
+    (void)cond;
+    STACKLESS_ABORT("rt_do_return");
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_do_nreturn(const char *fname, int cond)
 {
-    if (cond == 1 && !LAST_OK_GET()) return 0;
-    if (cond == 2 &&  LAST_OK_GET()) return 0;
-    LAST_OK_SET(fname ? 1 : 0);
-    strncpy(kw_rtntype, "NRETURN", sizeof(kw_rtntype)-1);
-    return g_native_chunk_depth > 0 ? 2 : 1;
+    (void)fname;
+    (void)cond;
+    STACKLESS_ABORT("rt_do_nreturn");
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "SM.h"
