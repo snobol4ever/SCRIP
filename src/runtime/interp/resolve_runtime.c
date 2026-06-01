@@ -79,6 +79,13 @@ int resolve_bb_pred_arity_at(int idx) {
     return g_resolve_bb_table[idx].arity;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9d (2026-06-01): the predicate's full IR graph at table index idx, for the mode-3/4 rich-emit driver  */
+/* to walk and validate. NULL if the slot is empty or unregistered. */
+IR_graph_t *resolve_bb_graph_at(int idx) {
+    if (idx < 0 || idx >= g_resolve_bb_count) return NULL;
+    return bb_graph_of_pred(&g_resolve_bb_table[idx]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Resolve_PredEntry_BB *resolve_bb_register(const char *name, int arity, int bb_idx) {
     if (!name) return NULL;
     Resolve_PredEntry_BB *existing = resolve_bb_lookup(name, arity);

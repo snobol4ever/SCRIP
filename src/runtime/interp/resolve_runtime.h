@@ -70,6 +70,7 @@ Resolve_PredEntry_BB *resolve_bb_lookup(const char *name, int arity);
 int         resolve_bb_pred_count(void);
 const char *resolve_bb_pred_name_at(int idx);
 int         resolve_bb_pred_arity_at(int idx);
+IR_graph_t *resolve_bb_graph_at(int idx);
 Resolve_PredEntry_BB *resolve_bb_register(const char *name, int arity, int bb_idx);
 bb_node_t resolve_bb_once_proc_by_name(const char *name, int arity);
 void resolve_bb_env_push(int nslots);
