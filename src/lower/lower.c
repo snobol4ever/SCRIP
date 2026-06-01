@@ -652,7 +652,7 @@ static IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     if (!cond) return NULL;
     if (e->n >= 2 && e->c[1]) {
         IR_t * b2α=NULL,*b2β=NULL;
-        IR_t * body = lower2(bounded(cx), e->c[1], c1α /*body.γ -> cond.start*/, c1α /*body.ω -> cond.start*/, &b2α, &b2β);
+        IR_t * body = lower2(with_loop(bounded(cx), γ_in, c1α), e->c[1], c1α /*body.γ -> cond.start*/, c1α /*body.ω -> cond.start*/, &b2α, &b2β);
         if (!body) return NULL;
         if (!cond->γ) cond->γ = b2α;     /* E1.succeed -> body.start */
     } else {
@@ -663,41 +663,89 @@ static IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     return ret(wh, α_out, β_out, c1α, ω_in);
 }
 /*====================================================================================================================================================================================================*/
-/* VALUE-ROLE — `until E1 [do E2]` (jcon ir_a_Until). Mirror of while with the condition sense flipped:
- *   until.α = E1.α ; E1.γ = until.ω (cond true -> until fails) ; E1.ω = body.α ; body.γ = body.ω = E1.α.   */
+/* VALUE-ROLE — `until E1 [do E2]` (jcon ir_a_Until). Structural mirror of v_while with the condition
+ * sense flipped, so the loop SELF-DRIVES under the top-level port-walker exactly as `while` does (the
+ * IR_UNTIL node is a pure exit terminator reached only when the condition SUCCEEDS, never threaded mid-
+ * loop): until.α = E1.α ; E1.γ = until (cond true -> exit) ; E1.ω = body.α (cond false -> run body) ;
+ * body.γ = body.ω = E1.α (re-evaluate the condition fresh each iteration). jcon ir_a_Until wires
+ * cond.success -> loop.failure(exit) and cond.failure -> body.start; threading the body off the relop's
+ * OWN fail port (not off an UNTIL-node child the port-walker never visits) is what lets the same graph
+ * drive correctly in mode-2 (port-walker) AND modes-3/4 (flat-chain BFS, which follows γ/ω ports).      */
 /*====================================================================================================================================================================================================*/
 static IR_t * v_until(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t * un = nalloc(cx, IR_UNTIL);
     if (!un) return NULL;
     IR_t * c1α=NULL,*c1β=NULL;
-    IR_t * cond = lower2(bounded(cx), e->c[0], ω_in /*E1.succeed -> until.fail*/, un /*E1.fail -> until node -> body/loop*/, &c1α, &c1β);
+    IR_t * cond = lower2(bounded(cx), e->c[0], un /*E1.succeed -> until node (loop exit)*/, NULL /*E1.fail -> body, patched below*/, &c1α, &c1β);
     if (!cond) return NULL;
     if (e->n >= 2 && e->c[1]) {
         IR_t * b2α=NULL,*b2β=NULL;
-        IR_t * body = lower2(bounded(cx), e->c[1], c1α /*body.γ -> cond.start*/, c1α /*body.ω -> cond.start*/, &b2α, &b2β);
+        IR_t * body = lower2(with_loop(bounded(cx), γ_in, c1α), e->c[1], c1α /*body.γ -> cond.start*/, c1α /*body.ω -> cond.start*/, &b2α, &b2β);
         if (!body) return NULL;
-        un->α = b2α;                     /* until node forwards E1-fail to body.start */
+        if (!cond->ω) cond->ω = b2α;     /* E1.fail -> body.start */
     } else {
-        un->α = c1α;                     /* no body: forward to cond restart */
+        if (!cond->ω) cond->ω = c1α;     /* no body: loop re-evaluating the condition */
     }
+    un->α = c1α;
     set_succ_fail(un, γ_in, ω_in);
     return ret(un, α_out, β_out, c1α, ω_in);
 }
 /*====================================================================================================================================================================================================*/
-/* VALUE-ROLE — `repeat E` (jcon ir_a_Repeat). Unconditional infinite loop: repeat.α = E.α ;
- * E.γ = E.ω = E.α (every outcome restarts E). Never fails on its own.                                      */
+/* VALUE-ROLE — `repeat E` (jcon ir_a_Repeat). Unconditional infinite loop that SELF-DRIVES under the
+ * top-level port-walker exactly as while/until do: every outcome of the body re-enters the body start,
+ * so the IR_REPEAT node is a pure (unreached-without-break) terminator. repeat.α = E.α ; E.γ = E.ω = E.α
+ * (success AND failure restart E). Never terminates on its own — only a `break` in the body (which routes
+ * to the loop's exit continuation γ_in via the loop context) can leave it. Threading the restart through
+ * the body's OWN γ/ω ports (not an IR_REPEAT child the port-walker / flat-chain BFS never visits mid-loop)
+ * is what makes the same graph drive in mode-2 AND modes-3/4. jcon ir_a_Repeat: expr.success/failure →
+ * repeat.start ; repeat.start → expr.start.                                                                */
 /*====================================================================================================================================================================================================*/
 static IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t * rp = nalloc(cx, IR_REPEAT);
     if (!rp) return NULL;
     IR_t * eα=NULL,*eβ=NULL;
-    IR_t * body = lower2(bounded(cx), e->c[0], rp /*E.succeed -> repeat (restart)*/, rp /*E.fail -> repeat (restart)*/, &eα, &eβ);
+    /* Lower the body with the loop context active: BREAK -> γ_in (loop exit), NEXT -> body restart (eα,
+       resolved after lowering, so use the repeat node as the stable re-entry stand-in patched below). */
+    IR_t * body = lower2(with_loop(bounded(cx), γ_in, rp), e->c[0], rp /*E.succeed -> repeat (restart)*/, rp /*E.fail -> repeat (restart)*/, &eα, &eβ);
     if (!body) return NULL;
     rp->α = eα;                          /* repeat node re-enters E.start */
     set_succ_fail(rp, γ_in, ω_in);
+    rp->γ = eα;                          /* Model B: reaching the repeat node loops back to the body start
+                                            (γ repurposed as the loop-back edge; the only NORMAL exit is a
+                                            `break` in the body, wired straight to γ_in via loop_ω). The
+                                            flat-chain IR_REPEAT arm emits `jmp γ` = jmp body-start.        */
     return ret(rp, α_out, β_out, eα, ω_in);
+}
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — `break [E]` (jcon ir_a_Break). Unconditional transfer OUT of the nearest enclosing loop to
+ * that loop's exit continuation (the γ the loop itself was given). Port-based (Model B) so it self-drives
+ * in mode-2 AND emits a flat `jmp` in modes-3/4: IR_BREAK is a forwarder whose γ == ω == cx.loop_ω (the
+ * loop exit). A bare `break` (no expr) just transfers; `break E` evaluates E first (its value becomes the
+ * loop's result) — handled minimally here as a transfer (the optional expr is a later refinement). Outside
+ * any loop, cx.loop_ω is NULL → fall to ω_in (a no-op transfer, matching "invalid context" leniently).    */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_loop_break(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    (void)γ_in;
+    IR_t * br = nalloc(cx, IR_BREAK);
+    if (!br) return NULL;
+    IR_t * tgt = cx.loop_ω ? cx.loop_ω : ω_in;   /* loop exit continuation (the loop's own γ) */
+    set_succ_fail(br, tgt, tgt);                  /* γ == ω == loop exit: unconditional transfer */
+    return ret(br, α_out, β_out, br, tgt);
+}
+/*====================================================================================================================================================================================================*/
+/* VALUE-ROLE — `next` (jcon ir_a_Next). Unconditional transfer back to the nearest enclosing loop's
+ * re-entry point (re-evaluate the condition for while/until; restart the body for repeat). Port-based
+ * (Model B): IR_NEXT is a forwarder whose γ == ω == cx.loop_next. Outside a loop, falls to ω_in.          */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_loop_next(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    (void)γ_in; (void)e;
+    IR_t * nx = nalloc(cx, IR_NEXT);
+    if (!nx) return NULL;
+    IR_t * tgt = cx.loop_next ? cx.loop_next : ω_in;
+    set_succ_fail(nx, tgt, tgt);
+    return ret(nx, α_out, β_out, nx, tgt);
 }
 /*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — `not E` (jcon ir_a_Not). Succeeds (yielding &null) exactly when E fails, else fails:
@@ -859,6 +907,12 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         return v_repeat(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_NOT:
         return v_not(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_LOOP_BREAK: /* jcon ir_a_Break — Icon */
+        if (cx.lang == IR_LANG_ICN) return v_loop_break(cx, e, γ_in, ω_in, α_out, β_out);
+        break;
+    case TT_LOOP_NEXT:  /* jcon ir_a_Next — Icon */
+        if (cx.lang == IR_LANG_ICN) return v_loop_next(cx, e, γ_in, ω_in, α_out, β_out);
+        break;
     /* SHARED TABLE — first cross-language value arm (SNOBOL4 OUTPUT=, Icon/Rebus :=) */
     case TT_ASSIGN:
         return v_assign(cx, e, γ_in, ω_in, α_out, β_out);
@@ -870,8 +924,6 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_NRETURN:
     case TT_SUSPEND:    /* jcon ir_a_Suspend */
     case TT_PROC_FAIL:  /* jcon ir_a_Fail */
-    case TT_LOOP_BREAK: /* jcon ir_a_Break */
-    case TT_LOOP_NEXT:  /* jcon ir_a_Next */
     case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP:
     /* SHARED — Icon `write(x)`/`writes(x)` deterministic output builtin (1-arg), via wire_det_builtin1 ->
        IR_CALL. NOTE the per-language TT_FNC shape (FACT RULE: variation lives inside the case): Icon carries

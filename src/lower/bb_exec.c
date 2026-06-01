@@ -2166,21 +2166,14 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_REPEAT: {
+        /* GZ-9 (Model B, self-driving): `repeat E` is an unconditional infinite loop. The body's every
+           outcome (γ AND ω) was wired to this node; reaching it simply re-enters the body start (bb->α).
+           No internal driver loop, no FRAME flag — the only way out is a `break` in the body, which the
+           lowerer wired straight to the loop's exit continuation (bypassing this node). If there is no
+           body (bb->α NULL) it degenerates to success (bb->γ). */
         if (!bb->α) { bb->value = NULVCL; return bb->γ; }
-        int saved_brk_r = frame_depth > 0 ? FRAME.loop_break : 0;
-        int saved_nxt_r = frame_depth > 0 ? FRAME.loop_next  : 0;
-        if (frame_depth > 0) { FRAME.loop_break = 0; FRAME.loop_next = 0; }
-        int safety_r = 1000000;
-        while (safety_r-- > 0) {
-            bb->α->state = 0;
-            bb_exec_node(bb->α);
-            if (IS_FAIL_fn(bb->α->value)) break;
-            if (frame_depth > 0 && (FRAME.loop_break || FRAME.returning)) break;
-            if (frame_depth > 0) FRAME.loop_next = 0;
-        }
-        if (frame_depth > 0) { FRAME.loop_break = saved_brk_r; FRAME.loop_next = saved_nxt_r; }
         bb->value = NULVCL;
-        return bb->γ;
+        return bb->α;
     }
     case IR_LIMIT: {
         if (!bb->α || !bb->β) { bb->value = FAILDESCR; return bb->ω; }
@@ -2444,14 +2437,15 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->ω;
     }
     case IR_BREAK: {
-        if (frame_depth > 0) FRAME.loop_break = 1;
-        bb->value = FAILDESCR;
-        return bb->ω;
+        /* GZ-9 (Model B, port-based): unconditional transfer to the loop exit continuation, wired by the
+           lowerer onto bb->γ (== bb->ω). The port-walker just follows it; no FRAME flag, no internal loop. */
+        bb->value = NULVCL;
+        return bb->γ ? bb->γ : bb->ω;
     }
     case IR_NEXT: {
-        if (frame_depth > 0) FRAME.loop_next = 1;
-        bb->value = FAILDESCR;
-        return bb->ω;
+        /* GZ-9 (Model B): unconditional transfer to the loop re-entry, wired onto bb->γ (== bb->ω). */
+        bb->value = NULVCL;
+        return bb->γ ? bb->γ : bb->ω;
     }
     case IR_NONNULL: {
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }
