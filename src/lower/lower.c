@@ -82,6 +82,7 @@ static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * �
 static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * v_raku_map_grep(lcx_t cx, int is_grep, const tree_t * closure_t, const tree_t * src_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_builtin(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
@@ -236,7 +237,7 @@ static int tm_g(const tree_t * e, tree_e kind, const char * tag, int nargs, ...)
 int kind_is_resumable(IR_e t) {
     return t == IR_TO || t == IR_TO_BY || t == IR_UPTO || t == IR_ALT || t == IR_BINOP_GEN || t == IR_ITERATE || t == IR_LIMIT || t == IR_PROC_GEN ||
            t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN || t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN || t == IR_GATHER ||
-           t == IR_GEN_SCAN || t == IR_CONJ ||
+           t == IR_GEN_SCAN || t == IR_CONJ || t == IR_MAP || t == IR_GREP ||
            /* SNOBOL4 PATTERN generators — bb->β=self (retry to backtrack/shrink/grow): */
            t == IR_PAT_LIT || t == IR_PAT_ARB || t == IR_PAT_REM || t == IR_PAT_SPAN || t == IR_PAT_ANY || t == IR_PAT_NOTANY ||
            t == IR_PAT_BREAK || t == IR_PAT_LEN || t == IR_PAT_TAB || t == IR_PAT_ARBNO || t == IR_PAT_DEFER ||
@@ -600,6 +601,37 @@ static IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t 
     return ret(g, α_out, β_out, g /*gather entry = its own start*/, g /*IR_GATHER is its own resume*/);
 }
 /*====================================================================================================================================================================================================*/
+/* v_raku_map_grep (RK-LOWER-3) — Raku `map { BODY } SOURCE` / `grep { PRED } SOURCE` as lazy Seq CONSUMERS.    */
+/* docs.raku.org/routine/map: map "invokes &code for each element and gathers the return values in a sequence"  */
+/* (the topic is $_; returns a Seq, lazily). docs.raku.org/routine/grep: grep "Returns a sequence of elements   */
+/* against which $matcher smartmatches ... in the order in which they appear" — for a { } block matcher the     */
+/* block is applied to $_ and the element is KEPT iff the block returns a true value. Both are SEQ CONSUMERS:   */
+/* they eager-drain a producer SOURCE Seq (here an IR_TO range or an IR_GATHER) and re-emit one value per pull. */
+/* We REUSE the IR_GATHER resumable-producer model: a NEW kind (IR_MAP / IR_GREP) that is its OWN resume        */
+/* (beta=self, exactly like IR_TO / IR_GATHER) so the EXISTING generator PUMP via v_raku_for (body.gamma ->     */
+/* gen.beta) re-pumps it and the cursor advances per cycle. Layout (read by the bb_exec.c arm): SOURCE lowers   */
+/* into its OWN value sub-graph (lower_value_subgraph; the cursor carries IR_LANG_RKU so it lowers as a Raku    */
+/* value) whose ptr rides on .counter (PRESERVED across bb_reset — the IR_GATHER/IR_SCAN idiom); the closure    */
+/* BODY lowers into a SECOND sub-graph whose ptr rides on .ival (cast to intptr_t); the resume cursor on .state.*/
+/* The body reads $_ via IR_VAR("_") -> NV_GET_fn("_"); the exec arm sets `_` with NV_SET_fn before each run.   */
+/* is_grep selects the kind + the filter-vs-transform exec semantics. Raku-gated; non-Raku never reaches here   */
+/* (the TT_MAP/TT_GREP case routes only IR_LANG_RKU here, else lower_unhandled).                                */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_raku_map_grep(lcx_t cx, int is_grep, const tree_t * closure_t, const tree_t * src_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!closure_t || !src_t) return NULL;
+    IR_t * mg = nalloc(cx, is_grep ? IR_GREP : IR_MAP);
+    if (!mg) return NULL;
+    IR_graph_t * src_sg = lower_value_subgraph(cx, src_t);       /* the producer Seq (range / gather) to drain */
+    if (!src_sg) return NULL;
+    IR_graph_t * body_sg = lower_value_subgraph(cx, closure_t);  /* the closure body; reads $_ each iteration  */
+    if (!body_sg) { IR_free(src_sg); return NULL; }
+    mg->counter = (int64_t)(intptr_t) src_sg;                    /* SOURCE sub-graph (preserved across bb_reset) */
+    mg->ival    = (int64_t)(intptr_t) body_sg;                   /* closure BODY sub-graph                       */
+    mg->state   = 0;                                             /* 0 = fresh: drain SOURCE, then yield from cursor */
+    set_succ_fail(mg, γ_in, ω_in);
+    return ret(mg, α_out, β_out, mg /*entry = its own start*/, mg /*IR_MAP/IR_GREP is its own resume (β=self)*/);
+}
+/*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — `while E1 [do E2]` (jcon ir_a_While). Condition + body both bounded; each iteration
  * re-evaluates the condition FRESH (not resume): while.α = E1.α ; E1.γ = body.α ; E1.ω = while.ω ;
  * body.γ = body.ω = E1.α. while yields no value; fails when the condition fails.                          */
@@ -800,11 +832,14 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
            (TT_TO/TT_TO_BY), drive it as a Raku for-loop binding the element to the iterate's name or $_ by
            default. RK-LOWER-2: the iterate child may also be a TT_GATHER producer (`for gather { take .. } -> $v`);
            v_raku_for's lower2(range_t) dispatches it to v_raku_gather (a resumable Seq, beta=self) and the
-           generator PUMP re-pump pulls one take per cycle. Other non-range iterate sources (arrays) are a later
-           rung (RK-LOWER-3); they stay on Icon's v_every. */
+           generator PUMP re-pump pulls one take per cycle. RK-LOWER-3: the iterate child may ALSO be a TT_MAP /
+           TT_GREP Seq consumer (`for map {..} SOURCE -> $v`); v_raku_for's lower2 dispatches it to v_raku_map_grep
+           (another resumable Seq, beta=self) which eager-drains its own SOURCE producer. Other non-Seq iterate
+           sources (bare arrays) are a later rung; they stay on Icon's v_every. */
         if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0] && e->c[0]->t == TT_ITERATE
             && e->c[0]->n >= 1 && e->c[0]->c[0]
-            && (e->c[0]->c[0]->t == TT_TO || e->c[0]->c[0]->t == TT_TO_BY || e->c[0]->c[0]->t == TT_GATHER)) {
+            && (e->c[0]->c[0]->t == TT_TO || e->c[0]->c[0]->t == TT_TO_BY || e->c[0]->c[0]->t == TT_GATHER
+                || e->c[0]->c[0]->t == TT_MAP || e->c[0]->c[0]->t == TT_GREP)) {
             const char * v = (e->c[0]->v.sval && e->c[0]->v.sval[0]) ? e->c[0]->v.sval : "_";
             return v_raku_for(cx, e->c[0]->c[0], v, (e->n >= 2 ? e->c[1] : NULL), γ_in, ω_in, α_out, β_out);
         }
@@ -900,6 +935,18 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0])
             return v_raku_gather(cx, e->c[0], γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    /* RK-LOWER-3: Raku `map { BODY } SOURCE` / `grep { PRED } SOURCE` -> a resumable Seq CONSUMER (v_raku_map_grep).
+       docs.raku.org/routine/map: map gathers each element's closure-return into a (lazy) Seq; docs.raku.org/
+       routine/grep: grep keeps each element whose { } block (applied to $_) returns true. The parser hands
+       c[0] = closure body expr (reads $_), c[1] = SOURCE expr. Reached BOTH as the iterate source of a
+       `for map/grep {..} SOURCE -> $v` loop (via v_raku_for's lower2 — the TT_EVERY arm above now admits
+       TT_MAP/TT_GREP) AND as a bare value expression here. FACT RULE: the Raku arm lives INSIDE this one case;
+       a non-Raku language hitting TT_MAP/TT_GREP falls to lower_unhandled (loud), never a silent default. */
+    case TT_MAP:
+    case TT_GREP:
+        if (cx.lang == IR_LANG_RKU && e->n >= 2 && e->c[0] && e->c[1])
+            return v_raku_map_grep(cx, (e->t == TT_GREP), e->c[0], e->c[1], γ_in, ω_in, α_out, β_out);
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     /* SNOBOL4 pattern-match statement SUBJECT ? PATTERN (LOWER2-EXEC). Icon scanning (TT_SMATCH / Icon ?) stays
        in the unhandled group below (L2-F). The per-language split lives inside v_scan (FACT RULE) via cx.lang. */
     case TT_SCAN:
@@ -912,7 +959,6 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_SMATCH:     /* subj ? pat — flips cx.role = ROLE_PATTERN */
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER:
     case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW: case TT_SORT:
-    case TT_MAP: case TT_GREP:
     case TT_HASH_GET: case TT_HASH_SET: case TT_HASH_DELETE: case TT_HASH_EXISTS:
     case TT_ARR_GET: case TT_ARR_SET:
     case TT_PRINT_FH: case TT_SAY_FH:

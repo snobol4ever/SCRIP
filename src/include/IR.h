@@ -136,6 +136,8 @@ typedef enum {
     IR_DO_WHILE,
     IR_PAT_BAL,
     IR_GATHER,
+    IR_MAP,
+    IR_GREP,
     IR_SNO_PROG,
     IR_OP_COUNT
 } IR_e;

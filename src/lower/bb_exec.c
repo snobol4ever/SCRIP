@@ -89,6 +89,38 @@ static IR_t       * g_resolve_tail_redirect_entry = NULL;
 int g_resolve_b3_call_mark = -1;
 DESCR_t bb_exec_once(IR_graph_t * bbg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RK-LOWER-3 — eager-drained-Seq cache for IR_MAP / IR_GREP. A map/grep node drains its SOURCE producer Seq    */
+/* ONCE on fresh entry (state==0) into a DESCR_t[] keyed by the node pointer, so the resumable cursor can       */
+/* re-yield across the generator-PUMP re-entries (body.γ -> gen.β) without re-draining the source each pull.    */
+/* Small fixed table (one live map/grep per for-loop in the flat corpus shape); GC-allocated item buffers grow  */
+/* by doubling. find() returns the existing entry (NULL if none); get() returns it, creating if absent.         */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { IR_t * node; DESCR_t * items; int count; int cap; } rk_seq_cache_t;
+#define RK_SEQ_CACHE_MAX 64
+static rk_seq_cache_t g_rk_seq_cache[RK_SEQ_CACHE_MAX];
+static int g_rk_seq_cache_n = 0;
+static rk_seq_cache_t * rk_seq_cache_find(IR_t * node) {
+    for (int i = 0; i < g_rk_seq_cache_n; i++) if (g_rk_seq_cache[i].node == node) return &g_rk_seq_cache[i];
+    return NULL;
+}
+static rk_seq_cache_t * rk_seq_cache_get(IR_t * node) {
+    rk_seq_cache_t * e = rk_seq_cache_find(node);
+    if (e) return e;
+    if (g_rk_seq_cache_n >= RK_SEQ_CACHE_MAX) { g_rk_seq_cache_n = 0; }   /* wrap (corpus never nests this deep) */
+    e = &g_rk_seq_cache[g_rk_seq_cache_n++];
+    e->node = node; e->items = NULL; e->count = 0; e->cap = 0;
+    return e;
+}
+static void rk_seq_cache_push(rk_seq_cache_t * e, DESCR_t v) {
+    if (e->count >= e->cap) {
+        int ncap = e->cap ? e->cap * 2 : 8;
+        DESCR_t * ni = (DESCR_t *) GC_malloc((size_t) ncap * sizeof(DESCR_t));
+        if (e->items && e->count > 0) memcpy(ni, e->items, (size_t) e->count * sizeof(DESCR_t));
+        e->items = ni; e->cap = ncap;
+    }
+    e->items[e->count++] = v;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SBL-M3-SCAN (2026-05-31): stackless mode-3/4 entry for a SNOBOL4 pattern-match statement. It is the IR_SCAN  */
 /* exec arm (bb_exec.c case IR_SCAN) re-expressed with EXPLICIT operands so a native box (bb_sno_scan.cpp) can  */
 /* drive it with NO value stack and NO AG ring: subj_name = the subject variable (the replacement form requires */
@@ -166,6 +198,7 @@ static int ir_is_single_shot(IR_t * e) {
     case IR_SUSPEND: case IR_REPEAT: case IR_GEN_SCAN:
     case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
     case IR_GATHER:
+    case IR_MAP: case IR_GREP:
         return 0;
     case IR_CALL: {
         if (!e->sval) return 1;
@@ -194,7 +227,7 @@ static int bb_is_gen_node(IR_t * e);
 static int bb_is_gen_kind_raw(IR_e k) {
     return k == IR_TO || k == IR_TO_BY || k == IR_UPTO || k == IR_ALT ||
            k == IR_BINOP_GEN || k == IR_ITERATE || k == IR_LIMIT || k == IR_PROC_GEN ||
-           k == IR_LIST_BANG || k == IR_KEY_GEN || k == IR_FIND_GEN || k == IR_SEQ_GEN || k == IR_GATHER;
+           k == IR_LIST_BANG || k == IR_KEY_GEN || k == IR_FIND_GEN || k == IR_SEQ_GEN || k == IR_GATHER || k == IR_MAP || k == IR_GREP;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e) {
@@ -2219,7 +2252,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             (k) == IR_TO || (k) == IR_TO_BY || (k) == IR_UPTO || \
             (k) == IR_ALT    || (k) == IR_BINOP_GEN || \
             (k) == IR_ITERATE || (k) == IR_LIMIT || (k) == IR_PROC_GEN || \
-            (k) == IR_LIST_BANG || (k) == IR_KEY_GEN || (k) == IR_FIND_GEN || (k) == IR_SEQ_GEN || (k) == IR_TO_BY  || (k) == IR_GEN_ALT || (k) == IR_GATHER)
+            (k) == IR_LIST_BANG || (k) == IR_KEY_GEN || (k) == IR_FIND_GEN || (k) == IR_SEQ_GEN || (k) == IR_TO_BY  || (k) == IR_GEN_ALT || (k) == IR_GATHER || (k) == IR_MAP || (k) == IR_GREP)
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }
         if (bb->state == 0) {
             int i = 0;
@@ -2907,6 +2940,63 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb->state = idx + 1;
         bb->value = tv;
         return bb->γ;
+    }
+    case IR_MAP:
+    case IR_GREP: {
+        /* RK-LOWER-3 — Raku `map { BODY } SOURCE` / `grep { PRED } SOURCE` resumable Seq CONSUMER. Realizes the
+           verified semantics (docs.raku.org/routine/{map,grep}): map gathers each element's closure-return into
+           the Seq; grep keeps each element whose { } block (applied to $_) returns true. Layout (set by
+           v_raku_map_grep): .counter = the SOURCE producer's IR_graph_t* (range / gather), .ival = the closure
+           BODY's IR_graph_t* (reads $_), .state = resume cursor (0 = fresh: eager-drain SOURCE first). The node
+           is its own resume (β=self), so the generator PUMP / v_raku_for re-pump re-enters here and the cursor
+           advances — yield ONE value to γ per (re)entry; walking past the last element (or empty SOURCE) resets
+           the cursor and FAILs to ω (Seq drained), exactly like IR_GATHER. The drain uses the aggregate_all
+           idiom (bb_reset + bb_exec_once + bb_exec_resume loop). The eager-drained source elements are cached on
+           a side table keyed by the node pointer so the cursor can re-yield across re-entries without re-draining.
+           $_ is bound via NV_SET_fn("_", elem) before each closure run; the BODY reads it via IR_VAR("_"). */
+        IR_graph_t * src_sg  = (IR_graph_t *)(intptr_t) bb->counter;
+        IR_graph_t * body_sg = (IR_graph_t *)(intptr_t) bb->ival;
+        if (!src_sg || !body_sg) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+        rk_seq_cache_t * sc = rk_seq_cache_find(bb);
+        if (bb->state == 0 || !sc) {
+            /* FRESH entry: eager-drain the SOURCE producer Seq into a DESCR_t[] cache. */
+            sc = rk_seq_cache_get(bb);
+            sc->count = 0;
+            IR_graph_t * save_cfg = g_current_cfg;
+            bb_reset(src_sg);
+            DESCR_t sv = bb_exec_once(src_sg);
+            int safety = src_sg->n * 256 + 4096;
+            while (!IS_FAIL_fn(sv) && safety-- > 0) {
+                rk_seq_cache_push(sc, sv);
+                sv = bb_exec_resume(src_sg);
+            }
+            g_current_cfg = save_cfg;
+            bb->state = 1;          /* cursor now at element 0 (1-based state convention as in IR_GATHER) */
+        }
+        int cur = bb->state - 1;    /* 0-based index of the next element to consider */
+        for (; cur < sc->count; cur++) {
+            NV_SET_fn("_", sc->items[cur]);
+            IR_graph_t * save_cfg = g_current_cfg;
+            bb_reset(body_sg);
+            DESCR_t bv = bb_exec_once(body_sg);
+            g_current_cfg = save_cfg;
+            if (bb->t == IR_GREP) {
+                /* grep: KEEP the source element iff the predicate is truthy. binop_apply's relational arms
+                   return FAIL when false (rel_fail), so a false `$_ > 2` makes the closure sub-graph FAIL —
+                   the runtime value-model's truthiness convention. Skip on FAIL; yield the ELEMENT on truthy. */
+                if (IS_FAIL_fn(bv)) continue;
+                bb->state = cur + 2;            /* advance past this element for the next pull */
+                bb->value = sc->items[cur];
+                return bb->γ;
+            } else {
+                /* map: yield the closure's RETURN value (the transform). A failing transform yields NULVCL
+                   rather than dropping the slot (map gathers one return per element). */
+                bb->state = cur + 2;
+                bb->value = IS_FAIL_fn(bv) ? NULVCL : bv;
+                return bb->γ;
+            }
+        }
+        bb->state = 0; bb->value = FAILDESCR; return bb->ω;     /* Seq drained */
     }
     case IR_CASE: {
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }

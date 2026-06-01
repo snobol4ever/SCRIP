@@ -335,6 +335,30 @@ int main(void) {
         dump_raku_value("RAKU:     for gather { take 10; take 20; take 30 } -> $v { say $v }   [RK-LOWER-2 v_raku_gather: IR_GATHER β=self (own resume), gen.gamma->ASGN(v), gen.omega->done; takes in sub-graphs]",
              bin(TT_EVERY, it, un(TT_SAY, var("v"))), 4);
     }
+    /* RK-LOWER-3: `for map { $_ * 2 } 1..3 -> $v { say $v }` =>
+       TT_EVERY(TT_ITERATE(v, TT_MAP(TT_MUL($_,2), TT_TO(1,3))), say $v). v_raku_for drives a v_raku_map_grep
+       producer: bind(IR_ASSIGN v) + gen(IR_MAP, its own resume β=self) + body(IR_CALL + IR_VAR v) = 4 real
+       PRINCIPAL nodes. The SOURCE (TT_TO + 2 bounds) and the closure (TT_MUL + VAR + ILIT) lower into SEPARATE
+       value sub-graphs (lower_value_subgraph) so they are NOT counted here — exactly the IR_GATHER idiom. */
+    {
+        tree_t * mp = ast_node_new(TT_MAP);
+        ast_push(mp, bin(TT_MUL, var("_"), lit(2)));        /* closure body: $_ * 2 */
+        ast_push(mp, bin(TT_TO, lit(1), lit(3)));            /* source: 1..3        */
+        tree_t * it = ast_node_new(TT_ITERATE); it->v.sval = "v"; ast_push(it, mp);
+        dump_raku_value("RAKU:     for map { $_ * 2 } 1..3 -> $v { say $v }   [RK-LOWER-3 v_raku_map_grep: IR_MAP β=self (own resume), gen.gamma->ASGN(v), gen.omega->done; source+closure in sub-graphs]",
+             bin(TT_EVERY, it, un(TT_SAY, var("v"))), 4);
+    }
+    /* RK-LOWER-3: `for grep { $_ > 2 } 1..5 -> $v { say $v }` =>
+       TT_EVERY(TT_ITERATE(v, TT_GREP(TT_GT($_,2), TT_TO(1,5))), say $v). Same shape as map: IR_GREP β=self,
+       4 principal nodes; the predicate (TT_GT + VAR + ILIT) and source (TT_TO) lower into sub-graphs. */
+    {
+        tree_t * gp = ast_node_new(TT_GREP);
+        ast_push(gp, bin(TT_GT, var("_"), lit(2)));          /* predicate: $_ > 2 */
+        ast_push(gp, bin(TT_TO, lit(1), lit(5)));            /* source: 1..5      */
+        tree_t * it = ast_node_new(TT_ITERATE); it->v.sval = "v"; ast_push(it, gp);
+        dump_raku_value("RAKU:     for grep { $_ > 2 } 1..5 -> $v { say $v }   [RK-LOWER-3 v_raku_map_grep: IR_GREP β=self (own resume), keep-on-truthy filter, gen.omega->done; pred+source in sub-graphs]",
+             bin(TT_EVERY, it, un(TT_SAY, var("v"))), 4);
+    }
     /* ===== END RAKU SECTION ===== */
     return 0;
 }
