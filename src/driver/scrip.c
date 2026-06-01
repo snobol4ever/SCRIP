@@ -738,6 +738,12 @@ int main(int argc, char **argv)
             rt_proc_reset();
             rt_proc_set_builder((bb_box_fn (*)(void *))bb_build_flat);
             g_frame_active = 1;   /* GZ-10: proc slabs (and main below) build with the push-r12 ζ-frame prologue */
+            /* GZ-10 (modes 3/4): TWO PHASES. Phase 1 registers EVERY user proc (name + params + entry) so   */
+            /* that during Phase 2 slab emission a call to ANY proc — including a forward or mutually-         */
+            /* recursive one not yet built — passes the rt_proc_is_registered gate in the bb_call dval==3.0   */
+            /* arm. Building a slab the moment its proc was registered (one-pass) made `iseven` calling the    */
+            /* later-registered `isodd` fall through to the unsupported-shape abort. Registration is cheap     */
+            /* (no emission); only Phase 2 emits, by which point the whole proc set is known.                  */
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
@@ -752,6 +758,19 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+            }
+            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                const char *pname = s2->proc_table[_pi].name;
+                if (!pname || strcmp(pname, "main") == 0) continue;
+                int idx = s2->proc_table[_pi].bb_idx;
+                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+                int np = s2->proc_table[_pi].nparams;
+                const char **pn = NULL;
+                if (np > 0) {
+                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
+                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+                }
                 /* GZ-10 (modes 3/4): build the procedure body NOW as a stackless flat slab with the        */
                 /* return-slot/param-slot convention; rt_icn_call_proc_descr invokes this fn per activation. */
                 bb_box_fn pfn = icn_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);

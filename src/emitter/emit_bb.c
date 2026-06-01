@@ -218,6 +218,7 @@ static void data_buf_remember_label(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_emit_block_comment(void) { g_flat_data_block_nlbls = 0; }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+static void icn_chain_operand_refs(IR_t *entry);
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
@@ -1015,6 +1016,81 @@ static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GZ-10 (modes 3/4) STACKLESS Icon user-procedure call WITH ARGS. The dval==3.0 IR_CALL carries its       */
+/* arguments as ISOLATED value sub-graphs in the IR_graph_t* array on pBB->counter (lower.c TT_FNC arm),    */
+/* NOT on the γ-chain — exactly the SNOBOL4/Raku isolated-subgraph idiom. For each arg i this DRIVER walks  */
+/* that sub-graph inline as a flat chain (so each producer box is emitted ONCE and claims its own ζ=r12     */
+/* result slot via bb_slot_alloc16); the sub-graph's TERMINAL producer (the node lower_value_subgraph left  */
+/* with γ==NULL) holds the arg value in its slot. The bb_call template (dval==3.0 arm) then reads each      */
+/* terminal-producer slot and emits `mov edi,i; mov rsi,[r12+slot]; mov rdx,[r12+slot+8]; call             */
+/* rt_icn_arg_stage` before the rt_icn_call_proc_descr call — NO value stack, NO ring (the staging buffer   */
+/* g_icn_call_args is a transient single-call vector consumed by the helper on entry, the no-value-stack    */
+/* FACT RULE's permitted per-activation marshalling). Each arg sub-graph runs bounded: its success falls    */
+/* through to the next arg (arg_done chaining, like flat_drive_call_userproc), its failure routes to lbl_ω  */
+/* (a failing argument fails the whole call — jcon ir_a_Call's L[1].ir.failure -> p.ir.failure).            */
+/* GZ-10 (modes 3/4): emit ONE Icon argument value sub-graph as a complete inline flat chain. The arg      */
+/* sub-graph (lower_value_subgraph) is a postfix γ-chain of producer boxes terminating in a node with      */
+/* γ==NULL (its slot is the arg's value). walk_bb_flat on a single node only emits THAT node, so a          */
+/* multi-node arg like `n - 1` (VAR→LIT→BINOP) needs the SAME BFS-over-(γ + BINOP.ω) chain walk            */
+/* codegen_flat_chain_body uses for a proc body — every box emitted once, wired by its native γ/ω ports,    */
+/* each operand/consumer reading the producer's ζ slot. succ = where the chain's value flows when done      */
+/* (the next arg's entry, or the call box); fail = lbl_ω (a failing argument fails the whole call, jcon     */
+/* ir_a_Call L[1].ir.failure -> p.ir.failure). The caller runs icn_chain_operand_refs(entry) first so the   */
+/* binop/relop operand refs (α/β) are set before this walk allocates and reads their slots.                 */
+static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail) {
+    enum { CH_MAX = 512 };
+    IR_t *nodes[CH_MAX]; int n = 0;
+    IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
+    queue[qt++] = entry;
+    while (qh < qt) {
+        IR_t *c = queue[qh++];
+        if (!c || c->t == IR_SUCCEED || c->t == IR_FAIL) continue;
+        int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
+        if (dup) continue;
+        if (n >= CH_MAX) { fprintf(stderr, "[GZ-10] FATAL arg subchain exceeds CH_MAX\n"); abort(); }
+        nodes[n++] = c;
+        if (c->γ && qt < CH_MAX) queue[qt++] = c->γ;
+        if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
+    }
+    bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
+    bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
+    int id = g_flat_node_id++;
+    for (int i = 0; i < n; i++) {
+        lbls[i]  = emit_label_alloc("xargsub%d_n%d_α", id, i);
+        betas[i] = emit_label_alloc("xargsub%d_n%d_β", id, i);
+    }
+    for (int i = 0; i < n; i++) {
+        emit_label_define_bb(lbls[i]);
+        bb_label_t *node_γ = succ;
+        bb_label_t *node_ω = fail;
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ) { node_γ = lbls[k]; break; }
+        if (nodes[i]->γ == NULL || nodes[i]->γ->t == IR_SUCCEED) node_γ = succ;
+        int omega_resolved = 0;
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω) { node_ω = lbls[k]; omega_resolved = 1; break; }
+        if (!omega_resolved) node_ω = fail;
+        walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
+    }
+}
+static void flat_drive_icn_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    int nargs = (int)(pBB ? pBB->ival : 0);
+    IR_graph_t **blks = pBB ? (IR_graph_t **)(intptr_t) pBB->counter : NULL;
+    bb_label_t *prev_done = NULL;
+    for (int i = 0; i < nargs && blks; i++) {
+        IR_t *aentry = blks[i] ? blks[i]->entry : NULL;
+        if (!aentry) continue;
+        int id = g_flat_node_id++;
+        bb_label_t *arg_done = emit_label_alloc("xicnarg%d_done", id);
+        if (prev_done) emit_label_define_bb(prev_done);
+        icn_chain_operand_refs(aentry);
+        flat_emit_arg_subchain(aentry, arg_done, lbl_ω);
+        prev_done = arg_done;
+    }
+    if (prev_done) emit_label_define_bb(prev_done);
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gen_bb_is_gen_arg(IR_t *e) {
     if (!e) return 0;
     if (e->t == IR_ASSIGN) return gen_bb_is_gen_arg(e->β);
@@ -1464,7 +1540,19 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: {
         IR_t *a0 = nd->α;
-        if (g_icn_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
+        if (g_icn_flat_chain) {
+            /* GZ-10 (modes 3/4): a dval==3.0 Icon user-procedure call WITH arguments needs each arg        */
+            /* sub-graph (on nd->counter) walked inline so its producer boxes are emitted and claim ζ slots */
+            /* the bb_call template then stages into g_icn_call_args before rt_icn_call_proc_descr. The      */
+            /* zero-arg case (and every non-user-proc flat-chain call: write(operand), dval==2.0 RK) keeps   */
+            /* the bare FILL — their args (if any) are leaves materialised in-template or the chain's own    */
+            /* sibling producers. rt_proc_is_registered gates strictly to a known user proc.                 */
+            if (nd->dval == 3.0 && (int)nd->ival > 0 && nd->sval && rt_proc_is_registered(nd->sval))
+                flat_drive_icn_userproc(nd, lbl_γ, lbl_ω, lbl_β);
+            else
+                FILL(nd, lbl_γ, lbl_ω, lbl_β);
+            break;
+        }
         int is_intexpr_shape = (a0 && (a0->t == IR_BINOP || a0->t == IR_LIT_I || a0->t == IR_TO || a0->t == IR_TO_BY || a0->t == IR_ALT || a0->t == IR_BINOP_GEN || a0->t == IR_VAR ||
                    a0->t == IR_NEG || a0->t == IR_POS || a0->t == IR_NONNULL || a0->t == IR_NULL_TEST || a0->t == IR_NOT || a0->t == IR_SIZE || a0->t == IR_CALL || a0->t == IR_CASE || a0->t == IR_FIELD_GET || a0->t == IR_LIST_BANG || a0->t == IR_LIMIT || a0->t == IR_IDX ));
         int is_write_fn   = (nd->sval && (!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes")));
@@ -1762,10 +1850,15 @@ static int icn_chain_arity(const IR_t *n) {
     /* marshals its OWN arguments from isolated value sub-graphs on `counter`; those args are NOT operands */
     /* on the γ-chain, so from the postfix operand-ref walk's view this call is a self-contained LEAF       */
     /* producer (arity 0). Reporting nargs here would wrongly pop that many chain producers and corrupt the */
-    /* operand references of every later consumer (e.g. the relop in `$x == any(..)`). The Icon dval==3.0   */
-    /* user-proc call (GZ-10) likewise marshals its args from `counter`, but its result IS a chain producer */
-    /* consumed by a following box (write/binop), so it reports ival (the consumer's operand count).        */
-    case IR_CALL:  return (n->dval == 2.0) ? 0 : (int)n->ival;
+    /* operand references of every later consumer (e.g. the relop in `$x == any(..)`).                      */
+    /* GZ-10 (2026-06-01): the Icon dval==3.0 user-proc call is ALSO a LEAF producer (arity 0) in the flat- */
+    /* chain model — its arguments live on `counter` and are emitted as inline sub-chains by                */
+    /* flat_emit_arg_subchain, NOT as γ-chain operands. The old `(int)n->ival` here belonged to the legacy  */
+    /* value-stack flat_drive_call_userproc path (args γ-chained); under g_icn_flat_chain that path is gone, */
+    /* so reporting ival made a 1-arg call like `fact(n-1)` wrongly pop the sibling `n` off the operand      */
+    /* stack — corrupting the enclosing `n * fact(n-1)` binop's α (it resolved to a RETURN/garbage slot).   */
+    /* Both marshalled call flavours are leaves; their RESULT is the chain producer a following box reads.   */
+    case IR_CALL:  return (n->dval == 2.0 || n->dval == 3.0) ? 0 : (int)n->ival;
     default:       return -1;
     }
 }
