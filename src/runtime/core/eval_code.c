@@ -419,21 +419,10 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
             return sm_eval_subexpr(entry_pc);
         }
         if (expr_d.slen == 2) {
-            typedef void (*expr_thunk_t)(void);
-            expr_thunk_t fn = (expr_thunk_t)(uintptr_t)expr_d.i;
-            extern int     rt_vstack_depth(void);
-            extern DESCR_t rt_vstack_pop(void);
-            int sp0 = rt_vstack_depth();
-            __asm__ __volatile__(
-                "mov  %%rsp, %%rbx\n\t"
-                "and  $-16, %%rsp\n\t"
-                "sub  $8, %%rsp\n\t"
-                "call *%0\n\t"
-                "mov  %%rbx, %%rsp\n\t"
-                : : "r"(fn) : "rbx", "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "memory", "cc");
-            int sp1 = rt_vstack_depth();
-            if (sp1 > sp0) return rt_vstack_pop();
-            return FAILDESCR;
+            fprintf(stderr, "[SMX] FATAL: eval_code DT_E thunk path used the global value stack, "
+                            "which is removed. This SM-era code path is not on Byrd Boxes. "
+                            "Aborting (by design).\n");
+            abort();
         }
         if (!expr_d.ptr) return FAILDESCR;
         const char *save_Σ = Σ;
