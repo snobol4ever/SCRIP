@@ -44,8 +44,12 @@ static std::string bb_assign_str(IR_t * pBB, bb_bin_t & bin) {
     /* RK-EMIT-2 (2026-05-31): IR_CALL is likewise a producer box — the dval==2.0 general builtin call      */
     /* (bb_call RK-EMIT-2 arm) stores its result DESCR into its own slot; `@a = elems(...)` / `@a = (..)`   */
     /* (list ctor) / `$x = sort(@a)` all reach here with pBB->α an IR_CALL. The 16-byte copy is identical.  */
+    /* RK-EMIT-GATHER (2026-06-01): IR_GATHER is likewise a producer box — the resumable Seq producer       */
+    /* (bb_rk_gather) writes its yielded element DESCR into its own ζ slot; `for gather{..} -> $v` reaches   */
+    /* here with pBB->α the IR_GATHER node (set by icn_chain_operand_refs as the bind's operand). The        */
+    /* 16-byte copy from the producer slot to the var slot is identical to the IR_BINOP/IR_CALL cases.       */
     if (g_icn_flat_chain && pBB && pBB->sval && pBB->α
-        && (pBB->α->t == IR_LIT_I || pBB->α->t == IR_LIT_S || pBB->α->t == IR_VAR || pBB->α->t == IR_BINOP || pBB->α->t == IR_CALL)) {
+        && (pBB->α->t == IR_LIT_I || pBB->α->t == IR_LIT_S || pBB->α->t == IR_VAR || pBB->α->t == IR_BINOP || pBB->α->t == IR_CALL || pBB->α->t == IR_GATHER)) {
         int rhs_off = bb_slot_get(pBB->α);
         if (rhs_off >= 0) {
             int voff = bb_varslot(pBB->sval);

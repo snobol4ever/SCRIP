@@ -422,6 +422,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_FAIL:                 bb_fail(nd);         return 0;
     case IR_SUCCEED:              bb_succeed(nd);      return 0;
     case IR_EVERY:                bb_every(nd);        return 0;
+    case IR_GATHER:               { extern void bb_rk_gather(IR_t *); bb_rk_gather(nd); } return 0;
     case IR_GOTO:
                                   bb_alt(nd);          return 0;
     case IR_RETURN:               bb_return(nd);       return 0;

@@ -154,6 +154,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_pat_fence.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_alt.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_cat.cpp \
+    $(SRC)/emitter/BB_templates/bb_rk_gather.cpp \
     $(SRC)/emitter/XA_templates/xa_stubs.cpp \
     $(SRC)/emitter/XA_templates/xa_macro_library.cpp \
     $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp \
@@ -341,6 +342,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_fence.cpp     -o $(OBJ)/bb_pat_fence.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_alt.cpp    -o $(OBJ)/bb_pat_alt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_cat.cpp    -o $(OBJ)/bb_pat_cat.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_rk_gather.cpp  -o $(OBJ)/bb_rk_gather.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -c $(SRC)/emitter/XA_templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -c $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp -o $(OBJ)/xa_bb_macro_library.o
