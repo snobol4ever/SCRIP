@@ -3676,28 +3676,30 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_DISJ: {
         extern Trail g_resolve_trail; extern Term **g_resolve_env;
-        if (!bb->α || !bb->β) { bb->value = FAILDESCR; return bb->ω; }
-        if (bb->state == 2) {
-            resolve_choice *alt_cp = (resolve_choice *)(intptr_t)bb->counter;
-            if (alt_cp && resolve_cp_current() == alt_cp) resolve_cp_pop();
+        int n_arm = 0;
+        IR_t * const * arms = bb_operand_aux_get(g_current_cfg, bb, &n_arm);
+        if (!arms || n_arm <= 0) { bb->value = FAILDESCR; return bb->ω; }
+        /* Pure-jump model (no inline arm execution — the outer port-follower drives the arm sub-chains):
+           Each arm's success edge is wired to THIS node's γ (so when an arm completes, control flows straight
+           to the disjunction's continuation, NOT back into DISJ). Forward arm failure flows arm[i].ω -> the
+           next arm's entry (wire_alt fail-chain), last arm -> ω_in. On BACKTRACK the continuation re-enters
+           DISJ via DISJ.β (= DISJ itself, set by wire_alt's ret): we then unwind to the saved pre-arm trail
+           mark and jump to the NEXT arm's entry. bb->counter = the arm currently live; bb->ival = trail mark
+           saved before the live arm launched.                                                                */
+        if (bb->state == 0) {
+            bb->state = 1;
             bb->counter = 0;
-            int mark = trail_mark(&g_resolve_trail); Term **saved_env = g_resolve_env;
-            bb_exec_node(bb->β); DESCR_t r1 = bb->β->value;
-            if (!IS_FAIL_fn(r1)) { bb->value = r1; bb->state = 0; return bb->γ; }
-            trail_unwind(&g_resolve_trail, mark); g_resolve_env = saved_env;
-            bb->value = FAILDESCR; bb->state = 0; return bb->ω;
+            bb->ival = (int64_t)trail_mark(&g_resolve_trail);
+            bb->value = INTVAL(1);
+            return arms[0];                                  /* jump into arm 0; outer loop drives it */
         }
-        int mark = trail_mark(&g_resolve_trail); Term **saved_env = g_resolve_env;
-        bb_exec_node(bb->α); DESCR_t r0 = bb->α->value;
-        if (!IS_FAIL_fn(r0)) {
-            resolve_choice *cp = resolve_cp_push(RESOLVE_CP_DISJ, mark, saved_env, (void *)bb->β, 0);
-            bb->counter = (int64_t)(intptr_t)cp;
-            bb->state = 1; bb->value = r0; return bb->γ;
-        }
-        trail_unwind(&g_resolve_trail, mark); g_resolve_env = saved_env;
-        bb_exec_node(bb->β); DESCR_t r1 = bb->β->value;
-        if (!IS_FAIL_fn(r1)) { bb->state = 0; bb->value = r1; return bb->γ; }
-        bb->state = 0; bb->value = FAILDESCR; return bb->ω;
+        /* Resume (backtrack): the live arm's continuation failed. Unwind to the pre-arm mark, advance. */
+        trail_unwind(&g_resolve_trail, (int)bb->ival);
+        bb->counter += 1;
+        if (bb->counter >= n_arm) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+        bb->ival = (int64_t)trail_mark(&g_resolve_trail);
+        bb->value = INTVAL(1);
+        return arms[(int)bb->counter];                       /* jump into next arm */
     }
     case IR_CHOICE: {
         extern Trail g_resolve_trail; extern Term **g_resolve_env; extern int g_resolve_cut_flag;
@@ -4775,7 +4777,7 @@ DESCR_t bb_exec_once(IR_graph_t * bbg) {
     IR_graph_t * saved_cfg = g_current_cfg;
     g_current_cfg = bbg;
     IR_t * cur = bbg->entry;
-    int safety = bbg->n * 64 + 256;
+    int safety = bbg->n * 65536 + 1048576;
     DESCR_t result = FAILDESCR;
     while (cur && safety-- > 0) {
         IR_t * next = bb_exec_node(cur);
@@ -4786,7 +4788,7 @@ DESCR_t bb_exec_once(IR_graph_t * bbg) {
             g_resolve_tail_redirect_entry = NULL;
             g_current_cfg = tgt;
             bbg = tgt;
-            safety = tgt->n * 64 + 256;
+            safety = tgt->n * 65536 + 1048576;
             cur = te;
             continue;
         }
@@ -4812,7 +4814,7 @@ DESCR_t bb_exec_resume(IR_graph_t * bbg) {
     IR_graph_t * saved_cfg = g_current_cfg;
     g_current_cfg = bbg;
     IR_t * cur = bbg->entry;
-    int safety = bbg->n * 64 + 256;
+    int safety = bbg->n * 65536 + 1048576;
     DESCR_t result = FAILDESCR;
     while (cur && safety-- > 0) {
         IR_t * next = bb_exec_node(cur);
@@ -4823,7 +4825,7 @@ DESCR_t bb_exec_resume(IR_graph_t * bbg) {
             g_resolve_tail_redirect_entry = NULL;
             g_current_cfg = tgt;
             bbg = tgt;
-            safety = tgt->n * 64 + 256;
+            safety = tgt->n * 65536 + 1048576;
             cur = te;
             continue;
         }

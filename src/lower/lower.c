@@ -175,17 +175,30 @@ static IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nki
      * child[0].ω / emit_leaf's leaf.ω). The last arm fails to ω_in. The previous left-to-right patch of
      * apply[j]->ω only reached SINGLE-element arms: a conjunction arm's first element kept ω_in (NULL), so a
      * generator-then-fail left arm (`(G, fail ; Else)`) terminated the whole graph instead of trying Else. */
+    /* DISJ (Prolog): arm success flows straight to the disjunction's continuation (γ_in) — the DISJ exec is a
+       pure jumper, re-entered only on BACKTRACK via DISJ.β. Icon IR_ALT / SNOBOL IR_PAT_ALT funnel arm success
+       back to the wrapper node (its collector re-pumps generators / advances the cursor).                    */
+    IR_t * arm_succ = (kind == IR_DISJ) ? γ_in : node;
     for (int j = nkids - 1; j >= 0; j--) {
         if (!kids[j]) return NULL;
         IR_t * ωj = (j + 1 < nkids) ? entry[j + 1] : ω_in;   /* arm[j] exhausted -> next arm's entry ; last -> ω_in */
         IR_t * αj = NULL, * βj = NULL;
-        IR_t * arm = lower2(cx, kids[j], node /*arm.γ -> node*/, ωj, &αj, &βj);
+        IR_t * arm = lower2(cx, kids[j], arm_succ, ωj, &αj, &βj);
         if (!arm) return NULL;
-        if (!arm->γ) arm->γ = node;
+        if (!arm->γ) arm->γ = arm_succ;
         apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
     }
-    bb_operand_aux_set(cx.bbg, node, apply, nkids);
+    /* Icon IR_ALT / SNOBOL IR_PAT_ALT read the arm APPLY (value) nodes from operand_aux (their chain driver
+       pre-runs arm[0], then advances via apply->ω). The Prolog IR_DISJ exec instead JUMPS to each arm's ENTRY
+       and runs the sub-chain inline, so it needs the ENTRY nodes. Store the right set per kind.              */
+    if (kind == IR_DISJ) bb_operand_aux_set(cx.bbg, node, entry, nkids);
+    else                 bb_operand_aux_set(cx.bbg, node, apply, nkids);
     set_succ_fail(node, γ_in, ω_in);
+    /* For the Prolog IR_DISJ exec (ITE-style): the node's α is the first arm's entry, so the executor jumps
+       into the arm chain and lets the outer port-follower drive it. Each arm's success flows arm.γ=node (the
+       executor re-enters to deliver), and arm[i].ω is already wired to arm[i+1].entry (the fail-chain above),
+       last arm -> ω_in. Icon's IR_ALT reads arms from operand_aux instead; harmless to also set α here.      */
+    if (kind == IR_DISJ) node->α = entry[0];
     return ret(node, α_out, β_out, entry[0], node /* node is its own resume; collector dispatches to active arm */);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1778,6 +1791,48 @@ static IR_t * g_ite(lcx_t cx, const tree_t * cond, const tree_t * then_, const t
     return ret(ite, α_out, β_out, ite, ω_in /* semidet to enclosing seq: resume -> fail */);
 }
 /*====================================================================================================================================================================================================*/
+/* GOAL ROLE — negation as failure `\+(Goal)` / `not(Goal)`. SEMANTICS (authoritative: ISO 7.8.6 / SWI
+ * boot/init.pl `\+(Goal) :- (Goal -> fail ; true)`): run Goal once; if it SUCCEEDS the whole goal FAILS; if Goal
+ * FAILS the whole goal SUCCEEDS. Semidet (no backtrack into Goal on redo — the commit is inside the ITE).
+ * TOPOLOGY: mirror g_ite but build Then=IR_FAIL and Else=IR_SUCCEED at IR level (no tree_t needed).
+ * Goal is lowered as the ITE condition (γ→Then=IR_FAIL commit, ω→Else=IR_SUCCEED). FACT-RULE clean. */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_neg_goal(lcx_t cx, const tree_t * goal_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!goal_t) return NULL;
+    IR_t * suc = nalloc(cx, IR_SUCCEED); if (!suc) return NULL;
+    IR_t * bα = NULL, * bβ = NULL; if (!emit_leaf(cx, suc, γ_in, ω_in, &bα, &bβ)) return NULL;
+    IR_t * fal = nalloc(cx, IR_FAIL);  if (!fal) return NULL;
+    IR_t * tα = NULL, * tβ = NULL; if (!emit_leaf(cx, fal, γ_in, ω_in, &tα, &tβ)) return NULL;
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * c = lower_goal(cx, goal_t, tα, bα, &cα, &cβ); if (!c) return NULL; (void) cβ;
+    IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
+    ite->α = cα;
+    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
+    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; ite->ival = (int64_t)(intptr_t)zi; }
+    set_succ_fail(ite, γ_in, ω_in);
+    return ret(ite, α_out, β_out, ite, ω_in);
+}
+/*====================================================================================================================================================================================================*/
+/* GOAL ROLE — not-unifiable `\=(A,B)`. SEMANTICS (authoritative: ISO 7.4.1 / SWI `\=(X,Y) :- \+(X=Y)`):
+ * succeeds iff A and B are NOT unifiable (no binding is made regardless). TOPOLOGY: same negation-as-failure
+ * ITE shape as g_neg_goal but the condition is g_unify(A,B) rather than an arbitrary goal tree. Semidet. */
+/*====================================================================================================================================================================================================*/
+static IR_t * g_not_unify(lcx_t cx, const tree_t * A, const tree_t * B, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!A || !B) return NULL;
+    IR_t * suc = nalloc(cx, IR_SUCCEED); if (!suc) return NULL;
+    IR_t * bα = NULL, * bβ = NULL; if (!emit_leaf(cx, suc, γ_in, ω_in, &bα, &bβ)) return NULL;
+    IR_t * fal = nalloc(cx, IR_FAIL);  if (!fal) return NULL;
+    IR_t * tα = NULL, * tβ = NULL; if (!emit_leaf(cx, fal, γ_in, ω_in, &tα, &tβ)) return NULL;
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * c = g_unify(cx, A, B, tα, bα, &cα, &cβ); if (!c) return NULL; (void) cβ;
+    IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
+    ite->α = cα;
+    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
+    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; ite->ival = (int64_t)(intptr_t)zi; }
+    set_succ_fail(ite, γ_in, ω_in);
+    return ret(ite, α_out, β_out, ite, ω_in);
+}
+/*====================================================================================================================================================================================================*/
 /* GOAL ROLE — catch/3: catch(Goal, Catcher, Recovery). The bb_exec.c IR_CATCH arm (bb_exec.c:3321) setjmps a
  * Pl_CatchFrame, runs Goal as a SUB-GRAPH; if Goal throws a ball that unifies with Catcher it runs Recovery as
  * a SUB-GRAPH (else rethrows). So Goal and Recovery are each lowered into their OWN fresh IR_graph_t (NOT nodes
@@ -1945,8 +2000,12 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
             if (cur && sn < 64) spine[sn++] = cur;
             return wire_alt(cx, IR_DISJ, spine, sn, γ_in, ω_in, α_out, β_out);
         }
-        /* unification as an operator FNC `=/2`. */
-        if (tm_g(e, TT_FNC, "=", 2, &A, &B)) return g_unify(cx, A, B, γ_in, ω_in, α_out, β_out);
+        /* unification `=/2` and not-unifiable `\=/2` (negation-as-failure of unification). */
+        if (tm_g(e, TT_FNC, "=",   2, &A, &B)) return g_unify(cx, A, B, γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "\\=", 2, &A, &B)) return g_not_unify(cx, A, B, γ_in, ω_in, α_out, β_out);
+        /* negation as failure `\+/1` / `not/1` (ISO 7.8.6 / SWI boot/init.pl). */
+        if (tm_g(e, TT_FNC, "\\+", 1, &arg)) return g_neg_goal(cx, e->c[0], γ_in, ω_in, α_out, β_out);
+        if (tm_g(e, TT_FNC, "not", 1, &arg)) return g_neg_goal(cx, e->c[0], γ_in, ω_in, α_out, β_out);
         /* arithmetic comparison goals — op string passed directly to IR_BUILTIN sval (exec reads sval, not ival). */
         if (tm_g(e, TT_FNC, "<",   2, &A, &B)) return g_compare(cx, A, B, "<",   γ_in, ω_in, α_out, β_out);
         if (tm_g(e, TT_FNC, ">",   2, &A, &B)) return g_compare(cx, A, B, ">",   γ_in, ω_in, α_out, β_out);
