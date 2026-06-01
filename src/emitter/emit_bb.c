@@ -15,9 +15,6 @@
 #include <stdarg.h>
 extern const char * Σ;
 extern int          Σlen;
-extern DESCR_t    bb_deferred_var_exported  (void *zeta, int entry);
-extern DESCR_t    gen_bb_every             (void *zeta, int entry);
-extern DESCR_t    gen_bb_to                (void *zeta, int entry);
 extern DESCR_t gen_bb_not(void*,int);
 extern DESCR_t gen_bb_repalt(void*,int);
 extern DESCR_t gen_bb_while_gen(void*,int);

@@ -52,7 +52,6 @@ char     subject_data[65536] = {0};
 typedef struct { const char *name; bb_box_fn child_fn; void *child_state; size_t child_size; int in_progress; } deferred_var_t;
 static int g_dvar_depth = 0;
 #define DVAR_MAX_DEPTH 4096
-static DESCR_t bb_deferred_var(void *zeta, int entry);
 #define DYNC_CACHE_CAP 512
 typedef struct {
     PATND_t   *key;
@@ -115,15 +114,7 @@ void bin_audit_print(void)
             "BINARY_AUDIT: known fallbacks: XABRT XSUCF XBAL XVAR (not in 50-file corpus)\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t bb_deferred_var(void *zeta, int entry)
-{
-    (void)zeta; (void)entry;
-    fprintf(stderr, "libscrip: FATAL bb_deferred_var — C BB box DELETED (GROUND ZERO). "
-                    "SNOBOL4 deferred-eval box must be rebuilt as an emitted wired graph.\n");
-    abort();
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bb_deferred_var_exported(void *zeta, int entry) { return bb_deferred_var(zeta, entry); }
 deferred_var_t *bb_dvar_bin_new(const char *name)
 {
     deferred_var_t *ζ = calloc(1, sizeof(deferred_var_t));
