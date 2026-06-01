@@ -20,6 +20,7 @@
 extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower2_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * lit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * bin(tree_e op, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(op); ast_push(n, a); ast_push(n, b); return n; }
@@ -59,6 +60,7 @@ static const char * kname(IR_e t) {
     case IR_BUILTIN: return "BLTIN"; case IR_ATOM: return "ATOM"; case IR_STRUCT: return "STRCT"; case IR_LOGICVAR: return "LVAR";
     case IR_ITE: return "ITE";
     case IR_GATHER: return "GTHR";
+    case IR_SUBJECT: return "SUBJ";
     default: return "?";
     }
 }
@@ -125,6 +127,25 @@ static void dump_goal(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
     IR_t * top = lower2_goal_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    printf("=== %s ===\n", title);
+    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
+    printf("idx  kind    α    β    γ    ω      ival  dval\n");
+    for (int i = 0; i < g->n; i++) {
+        IR_t * n = g->all[i];
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) n->ival, n->dval);
+    }
+    int real = g->n - 2;
+    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* dump_subject — PB-0 SUBJECT phase topology (lower2_subject_entry under IR_LANG_SNO). Proves the IR_SUBJECT
+ * box's four-port shape: α = the subject value-expr's entry, γ -> success, ω -> fail, bounded (β = resume). */
+static void dump_subject(const char * title, tree_t * ast, int expect_nodes) {
+    IR_graph_t * g = IR_alloc(64, IR_LANG_SNO);
+    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t * a = NULL, * b = NULL;
+    IR_t * top = lower2_subject_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -244,6 +265,13 @@ int main(void) {
          var("token"), 1);
     dump_pat("SNOBOL4:  BAL  [IR_PAT_BAL: generator(resumable) β=self; shortest paren-balanced non-null (SPITBOL ch.18)]",
          ast_node_new(TT_BAL), 1);
+    /* PB-0 SUBJECT phase: SUBJECT('abc') -> IR_SUBJECT (loads Σ base + Δ length into ζ-frame) over the
+       subject value-expr (literal -> IR_LIT_S). 2 real nodes: IR_SUBJECT + IR_LIT_S. */
+    dump_subject("SNOBOL4:  SUBJECT('abc')  [IR_SUBJECT: load Σ base + Δ length into ζ-frame; cursor δ owned by matcher per SPITBOL ch.18]",
+         slit("abc"), 2);
+    /* PB-0 SUBJECT phase, variable subject: SUBJECT(S) -> IR_SUBJECT over IR_VAR. 2 real nodes. */
+    dump_subject("SNOBOL4:  SUBJECT(S)  [IR_SUBJECT over a variable subject: name baked RO, fetched via rt_sno_subject_load]",
+         var("S"), 2);
     /* ===== END SNOBOL4 SECTION ===== */
 
     /* ===== ICON SECTION — APPEND ICON (VALUE-role) CASES BELOW THIS LINE ===== */

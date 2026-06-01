@@ -2462,6 +2462,29 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb->value = mspan;
         return bb->γ;
     }
+    case IR_SUBJECT: {
+        /* PB-0 SUBJECT phase (mode-2 oracle analogue of bb_sno_subject.cpp). The subject value-expr ran
+           VALUE-role and pushed its value to the AG ring; establish the scanned whole Σ (base) and
+           Ω/Σlen (length), and set the cursor Δ=0 (SPITBOL Manual ch.18: the cursor is set to zero when a
+           pattern match begins, so it is the matcher's running state). This mirrors the box storing Σ→
+           [r12+off] / Δ→[r12+off+8]; the downstream BB_MATCH (PB-2) consumes Σ/Δ. Bounded single-shot:
+           resume -> ω. Dormant until v_scan threads SUBJECT (PB-2/PB-5); present for concurrency
+           completeness (every emitted IR kind has a mode-2 arm — no silent default). */
+        if (bb->state == 0) {
+            DESCR_t sv = VARVAL_d_fn(ag_ring_peek(g_current_cfg, 0));
+            const char *subj_str = ""; int subj_len = 0;
+            if (sv.v == DT_S || sv.v == DT_SNUL) { subj_str = sv.s ? sv.s : ""; subj_len = sv.slen ? (int)sv.slen : (int)strlen(subj_str); }
+            else if (IS_INT_fn(sv) || IS_REAL_fn(sv)) { DESCR_t t = descr_to_str_icn(sv); subj_str = t.s ? t.s : ""; subj_len = t.slen ? (int)t.slen : (int)strlen(subj_str); }
+            Σ = subj_str; Σlen = subj_len; Ω = subj_len; Δ = 0;
+            bb->state = 1;
+            DESCR_t vd = { .v = DT_S, .slen = (uint32_t)subj_len, .s = (char *)subj_str };
+            bb->value = vd;
+            return bb->γ;
+        }
+        bb->state = 0;
+        bb->value = FAILDESCR;
+        return bb->ω;
+    }
     case IR_PAT_LIT: {
         const char *lit = bb->sval ? bb->sval : "";
         int         len = (int)strlen(lit);

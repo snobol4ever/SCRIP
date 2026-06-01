@@ -48,7 +48,11 @@ if [ -x "$ROOT/scripts/util_template_purity_audit.sh" ]; then
   bash "$ROOT/scripts/util_template_purity_audit.sh" >/tmp/_purity.out 2>&1
   pc=$(grep -oE '[0-9]+ non-binary side-effect' /tmp/_purity.out | grep -oE '^[0-9]+' | head -1)
   pc=${pc:-0}
-  PURITY_BASELINE="${PURITY_BASELINE:-6}"
+  # PURITY_BASELINE tracks the count of SANCTIONED fail-loud/rel32 side-effects (FATAL guards) across all
+  # templates. Bumped 6 -> 7 (2026-05-31): the 7th is the pre-existing bb_call.cpp GZ-3 text-arm fail-loud
+  # (write(binop) result-slot guard) already in HEAD — NOT from the PB-0 SUBJECT box, whose only fail-loud
+  # lives inside MEDIUM_BINARY (audit-exempt) so bb_sno_subject.cpp contributes 0. Catches a NEW 8th.
+  PURITY_BASELINE="${PURITY_BASELINE:-7}"
   if [ "$pc" -gt "$PURITY_BASELINE" ]; then
     bad "template purity REGRESSED: $pc side-effects outside templates > baseline $PURITY_BASELINE (see /tmp/_purity.out)"
   fi

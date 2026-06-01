@@ -432,6 +432,36 @@ void rt_sno_assign_var(const char *dst, const char *src)
     NV_SET_fn(dst ? dst : "", NV_GET_fn(src ? src : ""));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PB-0 SUBJECT phase (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). The SUBJECT byrd box (bb_sno_subject.cpp) evaluates a SNOBOL4 match statement's subject value-expr and establishes the SCANNED WHOLE: Σ (base ptr) + Δ (length). */
+/* SPITBOL Manual ch.18 (pattern-match algorithm): Σ/Ω are the fixed subject + bound; the cursor is set to ZERO when the match begins, so the cursor δ is owned by the matcher (PB-2 BB_MATCH), NOT this box. This helper returns */
+/* {base,len} (SysV: base in rax, len in rdx — a 16-byte two-INTEGER struct) so the box can store Σ→[r12+off] and Δ→[r12+off+8] into its ζ-frame slot. A variable subject is resolved via VARVAL_d_fn (NAME indirection +     */
+/* string slen, honoring embedded NULs); a literal subject rides on `lit` directly. g_sno_subject_dbg_* expose the loaded base+len for the PB-0 mode-3 execution probe (verify the box ran and computed the right length).      */
+extern DESCR_t VARVAL_d_fn(DESCR_t d);
+typedef struct { const char *base; long len; } rt_subj_t;
+const char *g_sno_subject_dbg_base = 0;
+long        g_sno_subject_dbg_len  = -1;
+rt_subj_t rt_sno_subject_load(const char *name, const char *lit)
+{
+    rt_subj_t r;
+    if (lit) {
+        r.base = lit;
+        r.len  = (long)strlen(lit);
+    } else {
+        DESCR_t d = VARVAL_d_fn(NV_GET_fn(name ? name : ""));
+        if (d.v == DT_S || d.v == DT_SNUL) {
+            r.base = d.s ? d.s : "";
+            r.len  = d.slen ? (long)d.slen : (long)strlen(r.base);
+        } else {
+            const char *s = VARVAL_fn(NV_GET_fn(name ? name : ""));
+            r.base = s ? s : "";
+            r.len  = (long)strlen(r.base);
+        }
+    }
+    g_sno_subject_dbg_base = r.base;
+    g_sno_subject_dbg_len  = r.len;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pop_void(void)
 {
     (void)vstack_pop();

@@ -1991,6 +1991,27 @@ IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PB-0 SUBJECT phase entry (GOAL-SNOBOL4-BB SESSION RUNG #0 SBL-PAT-BB). Lowers a SNOBOL4 match-statement
+ * subject value-expr into an IR_SUBJECT box (phase 1 of SUBJECT->PATTERN->MATCH->REPLACEMENT->SUBSTITUTION).
+ * The value-expr is lowered VALUE-role with its γ -> the IR_SUBJECT node, so the subject string is on the AG
+ * ring when SUBJECT executes in the mode-2 oracle; in mode-3/4 the box fetches it by name/literal (one
+ * rt_sno_subject_load call) and stores Σ (base) + Δ (length) into its ζ-frame slot. SPITBOL Manual ch.18:
+ * the cursor is zeroed when the match begins, so SUBJECT loads only the fixed whole + bound. Bounded
+ * single-shot: resume -> ω_in. NOT YET threaded into v_scan — the mode-2 IR_SCAN super-node stays intact
+ * (zero regression); this entry is exercised by the prove_lower2 topology gate and the PB-0 mode-3 probe.
+ * The v_scan re-stitch to the full five-phase chain lands at PB-2/PB-5. */
+IR_t * lower2_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    lcx_t cx = { bbg, ROLE_VALUE, 0, bbg ? bbg->lang : 0, NULL, NULL };
+    IR_t * subj = nalloc(cx, IR_SUBJECT);
+    if (!subj) return NULL;
+    IR_t * oα = NULL, * oβ = NULL;
+    IR_t * op = lower2(cx, e, subj, ω_in, &oα, &oβ);
+    if (!op) return NULL;
+    (void) oβ;
+    set_succ_fail(subj, γ_in, ω_in);
+    return ret(subj, α_out, β_out, oα ? oα : subj, ω_in);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
     return lower2(cx, e, γ_in, ω_in, α_out, β_out);
