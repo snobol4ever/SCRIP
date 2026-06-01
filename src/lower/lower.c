@@ -1765,6 +1765,11 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
                    pattern-match the head term read from bb->α, and splice out matched clauses. Pure lowering
                    recognition: without these names they fall to g_goal (user-pred call) and never resolve. */
                 {"retract",1},{"retractall",1},{"abolish",1},
+                /* dynamic database (insert) — assertz/1, asserta/1, assert/1 from a goal body. PL-RT-ASSERTZ.
+                   Exec arm in bb_exec.c IR_BUILTIN calls pl_rt_assertz (Term -> IR clause graph, append/prepend
+                   into the live predicate's IR_CHOICE bodies[]). Without these names they fall to g_goal (a
+                   user-pred call) and never resolve — the rung15 abolish-then-reassert failure. */
+                {"assertz",1},{"asserta",1},{"assert",1},
                 /* exception throw — the bb_exec.c IR_BUILTIN throw arm reads the ball from bb->alpha and calls
                    resolve_throw_term (longjmp to nearest catch). One arg on bb->alpha; g_builtin wires it. */
                 {"throw",1},

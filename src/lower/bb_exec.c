@@ -4626,6 +4626,14 @@ IR_t * bb_exec_node(IR_t * bb) {
             if (removed>0) { bb->value=INTVAL(1); return bb->γ; }
             bb->value=FAILDESCR; return bb->ω;
         }
+        if ((strcmp(fn,"assertz")==0||strcmp(fn,"asserta")==0||strcmp(fn,"assert")==0) && bb->α) {
+            extern int pl_rt_assertz(Term *clause_term, int prepend);
+            Term *clause_t = resolve_node_to_term(bb->α);
+            int prepend = (strcmp(fn,"asserta")==0);
+            int ok = clause_t ? pl_rt_assertz(clause_t, prepend) : 0;
+            if (ok) { bb->value=INTVAL(1); return bb->γ; }
+            bb->value=FAILDESCR; return bb->ω;
+        }
         if (strcmp(fn,"abolish")==0 && bb->α) {
             Term *spec = term_deref(resolve_node_to_term(bb->α));
             const char *pred_name = NULL; int pred_arity = 0;

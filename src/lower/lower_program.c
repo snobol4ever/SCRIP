@@ -8,6 +8,8 @@
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
 #include "../runtime/interp/resolve_runtime.h"
+#include "../frontend/prolog/term.h"
+#include "../frontend/prolog/prolog_atom.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -313,6 +315,74 @@ static int lower_pl_clause_graph(const tree_t *clause) {
     if (!top || !α) return -1;
     g->entry = α;
     return bb_program_add(&g_stage2.bbp, g);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* pl_rt_assertz — runtime assertz/1 (prepend==0) and asserta/1 (prepend==1) from a goal body. PL-RT-ASSERTZ.  */
+/* The inverse of abolish (bb_exec.c): materialise the runtime clause Term into an IR clause-body graph and    */
+/* splice it into the live predicate's IR_CHOICE bodies[]. SWI assert_term (pl-comp.c:4306) inserts a compiled */
+/* clause at CL_START (asserta) or CL_END (assertz) of the predicate; this is the BB-graph analogue. Path:     */
+/* pl_assert_term (Term->dense-slotted TT_CLAUSE) -> lower_pl_clause_graph (TT_CLAUSE->IR graph) -> look up the */
+/* predicate's IR_CHOICE via resolve_bb_lookup; if none exists (assertz to a fresh dynamic pred), build+register*/
+/* an empty IR_CHOICE first; then grow bodies[] and insert. idx_ok stays 0 (first-arg index is rebuilt lazily).*/
+extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
+int pl_rt_assertz(Term *clause_term, int prepend) {
+    int fid = -1, arity = 0;
+    tree_t *clause = pl_assert_term(clause_term, &fid, &arity);
+    if (!clause || clause->t != TT_CLAUSE) return 0;
+    const char *fname = prolog_atom_name(fid);
+    if (!fname) return 0;
+    char key[256]; snprintf(key, sizeof key, "%s/%d", fname, arity);
+    int body_idx = lower_pl_clause_graph(clause);
+    if (body_idx < 0) return 0;
+    IR_graph_t *body = g_stage2.bbp.table[body_idx];
+    if (!body) return 0;
+    Resolve_PredEntry_BB *entry = resolve_bb_lookup(key, arity);
+    IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
+    if (!pred_cfg || !pred_cfg->entry || pred_cfg->entry->t != IR_CHOICE) {
+        IR_graph_t *prior = (pred_cfg && pred_cfg->entry) ? pred_cfg : NULL;
+        IR_graph_t *cg = IR_alloc(8, IR_LANG_PL);
+        if (!cg) return 0;
+        IR_t *PSUCC = IR_node_alloc(cg, IR_SUCCEED);
+        IR_t *PFAIL = IR_node_alloc(cg, IR_FAIL);
+        IR_t *nd = IR_node_alloc(cg, IR_CHOICE);
+        if (!nd) return 0;
+        bb_choice_state_t *zc0 = (bb_choice_state_t *)GC_MALLOC(sizeof *zc0);
+        if (!zc0) return 0;
+        memset(zc0, 0, sizeof *zc0);
+        if (prior) {
+            IR_graph_t **pb = (IR_graph_t **)GC_MALLOC(sizeof(IR_graph_t *));
+            if (!pb) return 0;
+            pb[0] = prior;
+            zc0->bodies = pb; zc0->nbodies = 1;
+        } else {
+            zc0->bodies = NULL; zc0->nbodies = 0;
+        }
+        zc0->idx_ok = 0; zc0->idx_key = NULL;
+        nd->ival = (int64_t)(intptr_t)zc0;
+        nd->γ = PSUCC; nd->ω = PFAIL;
+        (void)PSUCC; (void)PFAIL;
+        cg->entry = nd;
+        int cg_idx = bb_program_add(&g_stage2.bbp, cg);
+        if (cg_idx < 0) return 0;
+        resolve_bb_register(key, arity, cg_idx);
+        pred_cfg = g_stage2.bbp.table[cg_idx];
+    }
+    bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)pred_cfg->entry->ival;
+    if (!zc) return 0;
+    int n = zc->nbodies;
+    IR_graph_t **nb = (IR_graph_t **)GC_MALLOC((size_t)(n + 1) * sizeof(IR_graph_t *));
+    if (!nb) return 0;
+    if (prepend) {
+        nb[0] = body;
+        for (int i = 0; i < n; i++) nb[i + 1] = zc->bodies[i];
+    } else {
+        for (int i = 0; i < n; i++) nb[i] = zc->bodies[i];
+        nb[n] = body;
+    }
+    zc->bodies = nb;
+    zc->nbodies = n + 1;
+    zc->idx_ok = 0; zc->idx_key = NULL;
+    return 1;
 }
 /* "main" so the driver's bb_exec_once(main) path can run it. SNOBOL4 only this increment: Icon proc-body and Prolog clause graph-building belong to their own concurrent sessions (FACT RULE).          */
 /* Statements thread in reverse (each statement's gamma flows to the next; omega to PFAIL). An assignment (subj :eq repl, no :pat) becomes a synthesized TT_ASSIGN(subj, repl) lowered via the VALUE role. */
