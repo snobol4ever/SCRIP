@@ -581,15 +581,20 @@ void rt_store_frame(int slot)
     STACKLESS_ABORT("rt_store_frame");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9d (2026-06-01): the callee-success flag. bb_goal.cpp's IR_GOAL arm does `call <callee-block>` then  */
+/* `call rt_last_ok` to learn whether the callee body reached its γ (success) or ω (failure) port; the      */
+/* callee block sets it via rt_set_last_ok at its γ/ω epilogue. This is ONE boolean of control-state — the  */
+/* irreducible "did the last call succeed" signal of the resume spine — NOT a value stack (no array, no     */
+/* push/pop, no inter-box value threading; the VSX purge bombed it only because it was bundled with the      */
+/* deleted ops layer, never because the flag itself was a value stack). Zero-init is the correct default.   */
+static int g_pl_last_ok = 0;
 int rt_last_ok(void)
 {
-    STACKLESS_ABORT("rt_last_ok");
-    return 0;
+    return g_pl_last_ok;
 }
 void rt_set_last_ok(int ok)
 {
-    (void)ok;
-    STACKLESS_ABORT("rt_set_last_ok");
+    g_pl_last_ok = ok ? 1 : 0;
 }
 void rt_push_expression_descr(int64_t entry_pc, int64_t arity)
 {
@@ -1209,6 +1214,24 @@ void rt_pl_trail_mark_pop(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term **rt_pl_env_current(void) { extern Term **g_resolve_env; return g_resolve_env; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9d (2026-06-01): one-time process init for the mode-4 standalone Prolog binary. The emitted main:    */
+/* wrapper never calls rt_init (the interpreter driver's entry), so the well-known atom IDs (ATOM_DOT /     */
+/* ATOM_NIL / ATOM_TRUE / ATOM_FAIL / ATOM_CUT) stay at their -1 sentinels and the binding trail stays      */
+/* zero-initialized. The PLG-9a..9c flat tier dodged this (constant-atom write needs no interning, and      */
+/* rt_pl_env_alloc trail-inits for the unify/arith tiers), but facts+choice (PLG-9d) interns atoms at run   */
+/* time via rt_pl_node_to_term and sugars lists/compounds against ATOM_DOT/ATOM_NIL in pl_write — both of   */
+/* which require prolog_atom_init to have run. Emit ONE call to this at the very top of main:, before any    */
+/* env alloc or body entry. Subset of rt_init that the BB-native Prolog binary needs (no SNOBOL/SM/cap       */
+/* setup): line-buffer stdout, init the GC pool, init the trail, intern the well-known atoms. Idempotent.   */
+void rt_pl_main_init(void)
+{
+    extern Trail g_resolve_trail;
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    bb_pool_init();
+    trail_init(&g_resolve_trail);
+    prolog_atom_init();
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PLG-9b (2026-05-31): allocate the per-activation logic-variable environment for the native flat path.    */
 /* In mode-3 the driver GC_MALLOCs g_resolve_env before bb_build_flat; in mode-4 the emitted main: wrapper  */

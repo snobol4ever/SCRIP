@@ -1751,6 +1751,7 @@ static IR_t * g_goal(lcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, 
     bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc);
     if (!zc) return NULL;
     zc->callee = fn; zc->arity = ar; zc->nargs = ar; zc->cs = NULL;
+    nd->sval = fn;   /* PLG-9d: bb_goal.cpp TEXT/BINARY arm reads pBB->sval for the .Lplpred call-block label */
     zc->args = ar > 0 ? (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *)) : NULL;
     for (int ai = 0; ai < ar; ai++) {
         if (!e->c[ai]) { zc->args[ai] = NULL; continue; }
@@ -1916,6 +1917,7 @@ static IR_t * g_phrase(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     IR_t * nd = nalloc(cx, IR_GOAL); if (!nd) return NULL;
     bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc); if (!zc) return NULL;
     zc->callee = callee; zc->arity = ar; zc->nargs = ar; zc->cs = NULL;
+    nd->sval = callee;   /* PLG-9d: bb_goal.cpp reads pBB->sval for the .Lplpred call-block label */
     zc->args = (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *));
     for (int ai = 0; ai < orig_ar; ai++) {
         IR_t * aaα = NULL, * aaβ = NULL;
@@ -2097,6 +2099,7 @@ static IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
               bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc);
               if (!zc) return NULL;
               zc->callee = fn; zc->arity = ar; zc->nargs = ar; zc->cs = NULL;
+              nd->sval = fn;   /* PLG-9d: bb_goal.cpp reads pBB->sval for the .Lplpred call-block label */
               zc->args = ar > 0 ? (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *)) : NULL;
               for (int ai = 0; ai < ar; ai++) {
                   if (!e->c[ai]) { zc->args[ai] = NULL; continue; }

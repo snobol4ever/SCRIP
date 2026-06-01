@@ -2185,6 +2185,107 @@ int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) {
     return rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PLG-9d (2026-06-01) — PROLOG PREDICATE-REGISTRY TEXT EMIT. bb_goal.cpp's IR_GOAL arm calls a callee     */
+/* predicate by `call .Lplpred_<name>_<arity>` (fresh entry) and `call .Lplpred_<name>_<arity>_redo` (β    */
+/* re-entry on backtrack), then `call rt_last_ok` to learn whether the callee body reached success or      */
+/* failure. The flat-tier mode-4 arm (PLG-9a..9c) emitted only main_α; nothing defined those callee labels */
+/* (the SM_BB_PL_INVOKE callee-sweep that did so pre-Ground-Zero is severed). This emits each registered   */
+/* predicate's body as a TEXT block whose:                                                                  */
+/*   .Lplpred_<name>_<arity>:        — fresh-entry α; predecessor `call` lands here, body runs              */
+/*   .Lplpred_<name>_<arity>_redo:   — β re-entry; bb_goal.cpp `call`s this to re-drive a live CP           */
+/* and whose γ (body success) → `rt_set_last_ok(1); ret` and ω (body failure / exhausted) →                */
+/* `rt_set_last_ok(0); ret`. The body itself is walked by walk_bb_flat (the SAME dispatch the flat tier     */
+/* uses), so IR_CHOICE -> flat_drive_pl_choice, IR_GCONJ -> flat_drive_pl_seq, IR_UNIFY/IR_BUILTIN -> their */
+/* TEXT arms emit the bytes (FACT-clean: every byte still comes from a template fn via the dispatch). The   */
+/* callee runs on the SAME ζ-frame as main (rt_frame passes one frame for the whole activation chain in     */
+/* the flat model); g_frame_active is already set by the caller so the prologue does push r12/mov r12,rdi.  */
+/* The α and redo entries are distinct labels but the redo entry simply falls into the body's β path: a CP- */
+/* bearing predicate (IR_CHOICE/IR_GOAL body) re-drives via its own β; a deterministic body has no live CP  */
+/* so a redo immediately fails to ω (set_last_ok(0); ret), which bb_goal's β handles (resolve_cp_current    */
+/* NULL -> ω).                                                                                              */
+static int codegen_pl_callee_block(IR_graph_t *g, const char *name, int arity, FILE *out) {
+    if (!g || !g->entry || !name) return 1;
+    /* The clause graph's entry is the FIRST body element (e.g. the first head-unify), not the conjunction  */
+    /* wrapper — lower2_clause_body_entry returns entry[0] as α while the IR_GCONJ wraps ALL head-unifies +  */
+    /* body goals. Walking the raw entry emits ONLY the first element (its γ wired straight to γ), dropping  */
+    /* the rest (a 2-arg fact would unify only arg0). So pick the body ROOT the same way the main arm does:  */
+    /* the principal IR_GCONJ (flat_drive_pl_seq walks its goals[] in order). For an IR_CHOICE-headed pred   */
+    /* (multi-clause) the entry IS the choice node (no GCONJ wrapper); for a bare single-element body the    */
+    /* entry is that element. Choose: the GCONJ whose first goal == g->entry (the wrapper for THIS body),    */
+    /* else g->entry.                                                                                        */
+    IR_t *body_root = g->entry;
+    if (g->all) {
+        for (int i = 0; i < g->n; i++) {
+            IR_t *nd = g->all[i];
+            if (!nd || nd->t != IR_GCONJ) continue;
+            bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)nd->ival;
+            if (zs && zs->goals && zs->ngoals > 0 && zs->goals[0] == g->entry) { body_root = nd; break; }
+        }
+    }
+    char blbl[160]; resolve_call_block_label(blbl, sizeof blbl, name, arity);
+    char redo_lbl[200]; snprintf(redo_lbl, sizeof redo_lbl, "%s_redo", blbl);
+    g_child_cache_n = 0;
+    g_text_child_counter = 0;
+    pre_build_children_text(body_root, out, blbl);
+    emitter_init_text(out, TEXT_MODE_INVOCATION);
+    /* labels: the α entry (bb_goal `call`s it), the β redo entry, and the γ/ω body sinks. */
+    bb_label_t *lbl_α    = emit_label_intern(blbl);
+    bb_label_t *lbl_redo = emit_label_intern(redo_lbl);
+    bb_label_t lbl_γ, lbl_ω, lbl_β;
+    emit_label_initf(&lbl_γ, "%s_γ", blbl);
+    emit_label_initf(&lbl_ω, "%s_ω", blbl);
+    emit_label_initf(&lbl_β, "%s_β", blbl);
+    g_emit.flat_succ_p = &lbl_γ;
+    g_emit.flat_fail_p = &lbl_ω;
+    g_emit.flat_β_p    = &lbl_β;
+    /* α: fresh entry. Body's α IS this label (predecessor call lands here). The body graph's entry node    */
+    /* gets its own α label from walk_bb_flat; we define .Lplpred_… right before so the call resolves.      */
+    emit_label_define_bb(lbl_α);
+    walk_bb_flat(body_root, &lbl_γ, &lbl_ω, &lbl_β);
+    /* redo: β re-entry. Jumps to the body's β (lbl_β, DEFINED by the walk above — the body's outermost     */
+    /* resume edge targets it), which a CP-bearing body uses to re-drive its CP; a deterministic body's β   */
+    /* chains to ω -> set_last_ok(0); ret.                                                                   */
+    emit_label_define_bb(lbl_redo);
+    emit_jmp_label(&lbl_β, JMP_JMP);
+    /* γ: body succeeded → rt_set_last_ok(1); ret. */
+    emit_label_define_bb(&lbl_γ);
+    { const char *s = "  mov edi, 1\n  call rt_set_last_ok@PLT\n  ret\n"; emit_text_n(s, strlen(s)); }
+    /* ω: body failed / exhausted → rt_set_last_ok(0); ret. */
+    emit_label_define_bb(&lbl_ω);
+    { const char *s = "  mov edi, 0\n  call rt_set_last_ok@PLT\n  ret\n"; emit_text_n(s, strlen(s)); }
+    emitter_end();
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* codegen_pl_program — PLG-9d driver entry. Emit every registered Prolog predicate's callee block (so the */
+/* .Lplpred_<name>_<arity> labels bb_goal.cpp calls are defined), then return 0. main_α is emitted          */
+/* separately by the scrip.c arm via codegen_flat_build (unchanged from PLG-9c). Predicate iteration is the */
+/* resolve_bb_* table (resolve_bb_pred_count / _name_at / _arity_at / resolve_bb_graph_at). A predicate     */
+/* whose body has an unemittable node was already rejected by pl_rich_body_root (the caller's gate), so by  */
+/* the time we get here every block is emittable.                                                           */
+extern int resolve_bb_pred_count(void);
+extern const char *resolve_bb_pred_name_at(int idx);
+extern int resolve_bb_pred_arity_at(int idx);
+extern IR_graph_t *resolve_bb_graph_at(int idx);
+int codegen_pl_program(FILE *out) {
+    int npred = resolve_bb_pred_count();
+    for (int i = 0; i < npred; i++) {
+        const char *nm = resolve_bb_pred_name_at(i);
+        if (!nm) continue;
+        int ar = resolve_bb_pred_arity_at(i);
+        /* main is emitted separately by the driver as main_α (the C-ABI entry); skip it here so we do not  */
+        /* also emit a redundant .Lplpred_main_0 block (nothing calls it, and it would double-walk the main */
+        /* graph). The registry stores the FULL key "name/arity" as the name, so match "main/" prefix (or   */
+        /* exact "main"). Every OTHER predicate is a callee reached via bb_goal's .Lplpred_<name>_<arity>.   */
+        if (ar == 0 && (strcmp(nm, "main") == 0 || strcmp(nm, "main/0") == 0)) continue;
+        IR_graph_t *pg = resolve_bb_graph_at(i);
+        if (!pg) continue;
+        int rc = codegen_pl_callee_block(pg, nm, ar, out);
+        if (rc) return rc;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_register_child_label(IR_t *nd, const char *α_label) {
     bb_box_fn fn = child_cache_get(nd);
     if (fn) child_cache_set_lbl(fn, α_label);

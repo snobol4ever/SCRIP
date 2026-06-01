@@ -98,6 +98,7 @@ void rt_pl_write_term_ptr(void *t);
 void rt_pl_writeq_term_ptr(void *t);
 void rt_pl_write_canonical_term_ptr(void *t);
 void rt_pl_env_alloc(int nslots);
+void rt_pl_main_init(void);
 struct Term;
 void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
 int   rt_pl_unify_terms(void *l, void *r);

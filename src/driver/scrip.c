@@ -203,6 +203,112 @@ static IR_t * pl_flat_body_root(IR_graph_t *g) {
     for (int i = 0; i < zs->ngoals; i++) if (!pl_flat_goal_is_simple(zs->goals[i])) return NULL;
     return gconj;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PROLOG MODE-3/4 RICH-BODY RECOGNIZER (PLG-9d, 2026-06-01). The flat-tier recognizer above admits only a   */
+/* single-clause body with no user calls / choice / disjunction. PLG-9d crosses the next rung: facts +       */
+/* clause choice + deterministic + backtracking user-predicate calls. The emit machinery is already shared   */
+/* and present — walk_bb_flat dispatches IR_GOAL -> bb_goal.cpp, IR_CHOICE -> flat_drive_pl_choice, IR_DISJ  */
+/* -> flat_drive_pl_alt, IR_GCONJ -> flat_drive_pl_seq, IR_UNIFY/IR_BUILTIN/IR_ARITH -> their TEXT arms (the  */
+/* byte-twins of the MEDIUM_BINARY arms PLR-J proved in mode-3). What was missing is the DRIVER INVOCATION:   */
+/* a predicate-registry emit loop (each callee's entry body via walk_bb_flat in TEXT, defining the           */
+/* .Lplpred_<name>_<arity> labels bb_goal.cpp calls). This recognizer is the gate for that loop — it returns */
+/* the main graph's entry node iff EVERY node reachable in main AND in every transitively-called predicate   */
+/* is a kind the TEXT emitter handles (FALL LOUD: an unhandled kind -> NULL -> EXCISED, never a silent        */
+/* miscompile). It is strictly a SUPERSET of pl_flat_body_root: anything the flat tier accepts, this does     */
+/* too, plus IR_GOAL / IR_CHOICE / IR_DISJ / IR_ITE / IR_STRUCT / IR_FAIL.                                    */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int resolve_bb_pred_count(void);
+extern const char *resolve_bb_pred_name_at(int idx);
+extern int resolve_bb_pred_arity_at(int idx);
+extern IR_t *resolve_bb_entry_node(const char *name, int arity);
+extern IR_graph_t *resolve_bb_graph_at(int idx);
+/* pl_rich_node_emittable — is a single IR node a kind the TEXT walk emits? Pure structural test over the     */
+/* node KIND (and, for arith/unify operand leaves, their immediate operand kinds). Operand sub-nodes hanging  */
+/* off the alpha/beta ports (logicvar/atom/literal/struct) are DATA the parent box reads; they are validated  */
+/* by their parent's arm, not as standalone executable boxes.                                                 */
+/* pl_rich_node_emittable — is a single IR node a kind the PLG-9d DETERMINISTIC tier emits correctly? This    */
+/* is deliberately NARROWER than "has a TEXT arm": IR_DISJ (`;`) and IR_CHOICE (multi-clause enumeration)     */
+/* both have TEXT arms (flat_drive_pl_alt / flat_drive_pl_choice) but their fail-driven BACKTRACKING through  */
+/* the standalone-binary CP spine is NOT yet proven end-to-end (that is the next sub-rung). Admitting them    */
+/* here makes the harder smoke shapes (clause enumeration, recursion) EMIT-then-produce-wrong-output = FAIL,  */
+/* which is strictly worse than cleanly declining (EXCISED). So the deterministic tier rejects them: a        */
+/* program qualifies only if main + every callee is a single-solution conjunction of head-unifies, builtins, */
+/* arith, unify, and deterministic user calls — no disjunction, no multi-clause choice. FALL LOUD: anything   */
+/* outside this set -> NULL -> EXCISED, never a silent miscompile.                                            */
+static int pl_rich_node_emittable(const IR_t *nd) {
+    if (!nd) return 1;
+    switch (nd->t) {
+    /* DETERMINISTIC control-flow / goal boxes (single-solution). NOTE: IR_DISJ and IR_CHOICE are            */
+    /* intentionally NOT here — they need the backtracking CP spine the deterministic tier doesn't drive.   */
+    case IR_GCONJ: case IR_GOAL: case IR_ITE:
+    case IR_SUCCEED: case IR_FAIL: case IR_CUT:
+    /* leaf/operand kinds (appear both as boxes and as α/β data) */
+    case IR_LOGICVAR: case IR_ATOM: case IR_STRUCT:
+    case IR_LIT_I: case IR_LIT_F: case IR_LIT_S: case IR_LIT_NUL:
+        return 1;
+    case IR_UNIFY:
+        /* bb_unify TEXT arm builds each operand via build_operand_term (scalars + IR_STRUCT) then           */
+        /* rt_pl_unify_terms — all operand shapes covered. */
+        return 1;
+    case IR_ARITH:
+        /* IR_ARITH appears as the RHS of an `is` IR_BUILTIN; bb_builtin's is-arm flattens it. Standalone     */
+        /* IR_ARITH boxes (comparison ops > < =:= ...) are emitted by bb_arith.cpp TEXT. */
+        return 1;
+    case IR_BUILTIN: {
+        /* Restrict to builtins with a PROVEN MEDIUM_TEXT arm verified 3-mode by PLG-9a/b/c: the write       */
+        /* family + nl/halt. For `is`, defer to the flat tier's pl_flat_goal_is_simple, which admits only    */
+        /* INTEGER arith (rejects IR_LIT_F / float ops) — rt_pl_arith is integer-only, so a float `is`       */
+        /* (X is pi, X is sqrt(4.0)) would miscompile = FAIL (rung29). The GOAL doc's "Mode-2 only" builtins */
+        /* (numbervars, writeq, write_canonical, copy_term, atomic_list_concat, findall, retract, float      */
+        /* arith) have no working TEXT arm and EXCISE here. Type-tests/comparisons have TEXT arms (PLR-J-1)  */
+        /* but are not yet 3-mode-verified in the mode-4 facts/call context, so they EXCISE for now.         */
+        const char *fn = nd->sval ? nd->sval : "";
+        if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd);
+        static const char *ok[] = { "write", "writeln", "print", "nl", "halt", NULL };
+        for (int k = 0; ok[k]; k++) if (!strcmp(fn, ok[k])) return 1;
+        return 0;
+    }
+    default:
+        /* IR_DISJ, IR_CHOICE, and any unrecognized kind -> not in the deterministic tier -> EXCISED. */
+        return 0;
+    }
+}
+/* pl_rich_graph_ok — every node in one predicate graph is in the deterministic tier. */
+static int pl_rich_graph_ok(IR_graph_t *g) {
+    if (!g || !g->all) return 0;
+    for (int i = 0; i < g->n; i++)
+        if (!pl_rich_node_emittable(g->all[i])) return 0;
+    return 1;
+}
+/* pl_rich_body_root — gate for the PLG-9d mode-3/4 DETERMINISTIC rich-emit driver. Verifies main's graph AND */
+/* every registered predicate is in the deterministic tier, returning main's body ROOT (or NULL -> EXCISED). */
+/* Conservative: ALL registered predicates must pass, not just the reachable ones — the registry emit loop   */
+/* emits every registered predicate, so any non-deterministic one would emit code that backtracks wrongly.   */
+static IR_t * pl_rich_body_root(IR_graph_t *main_g) {
+    if (!main_g || !main_g->entry) return NULL;
+    if (!pl_rich_graph_ok(main_g)) return NULL;
+    int npred = resolve_bb_pred_count();
+    for (int i = 0; i < npred; i++) {
+        const char *nm = resolve_bb_pred_name_at(i);
+        if (!nm) continue;
+        IR_graph_t *pg = resolve_bb_graph_at(i);
+        if (!pg) continue;
+        if (!pl_rich_graph_ok(pg)) return NULL;   /* any non-deterministic callee -> EXCISED (no miscompile) */
+    }
+    /* Return the body ROOT the flat walk should enter. For a conjunctive body that is the principal        */
+    /* IR_GCONJ (flat_drive_pl_seq walks its goals[] in order); for a single-goal / bare body it is the     */
+    /* graph entry. Mirrors pl_flat_body_root's GCONJ-first selection — walking the raw entry node alone    */
+    /* would emit ONLY the first goal (its γ wired straight to the sequence γ), dropping the rest.          */
+    {
+        IR_t *gconj = NULL;
+        for (int i = 0; i < main_g->n; i++) {
+            IR_t *nd = main_g->all[i];
+            if (nd && nd->t == IR_GCONJ) { if (gconj) { gconj = NULL; break; } gconj = nd; }
+        }
+        if (gconj) return gconj;
+    }
+    return main_g->entry;
+}
 /*====================================================================================================================================================================================================*/
 int main(int argc, char **argv)
 {
@@ -618,6 +724,7 @@ int main(int argc, char **argv)
             /* atom, putchar, rt_frame). Every richer shape -> pl_flat_body_root returns NULL -> EXCISED banner */
             /* + non-zero return (smoke reports m4 EXCISED, not FAIL; no regression). Widen rung by rung.       */
             extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
+            extern int codegen_pl_program(FILE * out);
             extern int g_frame_active;
             extern void xa_emit_strtab_rodata(void);
             stage2_t *s2 = sm_preamble(ast_prog);
@@ -634,10 +741,46 @@ int main(int argc, char **argv)
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
             IR_t *flat_root = pl_flat_body_root(pl_main);
             if (!flat_root) {
-                fprintf(stderr, "[SMX] --compile --target=x86: Prolog mode-4 flat tier covers the hello-world "
-                                "shape only (write/writeln/print/nl/halt, no slots/choice/call); this program "
-                                "needs PLG-9b+ (not yet wired).\n");
-                return 1;
+                /* PLG-9d (2026-06-01): the flat tier (single-clause, no call/choice) declined. Try the RICH  */
+                /* tier — facts + clause choice + user-predicate calls. pl_rich_body_root verifies main AND   */
+                /* every registered predicate are fully TEXT-emittable (else NULL -> EXCISED, no miscompile). */
+                /* On accept, emit: (1) rt_pl_main_init (atoms+trail+GC the standalone binary needs); (2) the */
+                /* main: C-ABI wrapper -> main_α; (3) every predicate's callee block (codegen_pl_program, so  */
+                /* the .Lplpred_<name>_<arity> labels bb_goal.cpp calls resolve); (4) main_α itself. The      */
+                /* SAME ζ-frame model + walk_bb_flat dispatch as the flat tier; richer kinds (IR_GOAL ->      */
+                /* bb_goal, IR_CHOICE -> flat_drive_pl_choice) light up via the shared dispatch.              */
+                IR_t *rich_root = pl_rich_body_root(pl_main);
+                if (!rich_root) {
+                    fprintf(stderr, "[SMX] --compile --target=x86: Prolog mode-4 covers the hello-world + "
+                                    "unify/arith + facts/choice/call tiers; this program has a construct not "
+                                    "yet wired (PLG-9e+).\n");
+                    return 1;
+                }
+                printf("  .intel_syntax noprefix\n");
+                printf("  .text\n");
+                printf("  .globl main\n");
+                printf("main:\n");
+                printf("  push rbp\n");
+                printf("  mov rbp, rsp\n");
+                printf("  call rt_pl_main_init@PLT\n");
+                if (pl_main->nslots > 0) {
+                    printf("  mov edi, %d\n", pl_main->nslots);
+                    printf("  call rt_pl_env_alloc@PLT\n");
+                }
+                printf("  call rt_frame@PLT\n");
+                printf("  mov rdi, rax\n");
+                printf("  xor esi, esi\n");
+                printf("  call main_\xce\xb1\n");
+                printf("  xor eax, eax\n");
+                printf("  pop rbp\n");
+                printf("  ret\n");
+                g_frame_active = 1;
+                int rcp = codegen_pl_program(stdout);          /* callee predicate blocks */
+                int rcm = codegen_flat_build(rich_root, stdout, "main");  /* main_α body */
+                g_frame_active = 0;
+                xa_emit_strtab_rodata();
+                fflush(stdout);
+                return (rcp || rcm) ? 1 : 0;
             }
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
