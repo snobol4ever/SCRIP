@@ -885,7 +885,21 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
  * IR_SCAN is bounded (one match per statement attempt): resume -> ω_in. Icon scanning (s ? expr) is L2-F. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    if (cx.lang == IR_LANG_ICN) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    if (cx.lang == IR_LANG_ICN) {
+        const tree_t * isubj_t = NULL, * ibody_t = NULL;
+        if (!tm(e, TT_SCAN, 2, &isubj_t, &ibody_t) || !isubj_t || !ibody_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+        IR_t * gs = nalloc(cx, IR_GEN_SCAN);
+        if (!gs) return NULL;
+        IR_graph_t * subj_sg = lower_value_subgraph(cx, isubj_t);
+        if (!subj_sg) return NULL;
+        IR_graph_t * body_sg = lower_value_subgraph(cx, ibody_t);
+        if (!body_sg) return NULL;
+        gs->counter = (int64_t)(intptr_t) subj_sg;
+        gs->ival    = (int64_t)(intptr_t) body_sg;
+        gs->dval    = 1.0;
+        set_succ_fail(gs, γ_in, ω_in);
+        return ret(gs, α_out, β_out, gs, ω_in);
+    }
     const tree_t * subj_t = NULL, * pat_t = NULL;
     if (!tm(e, TT_SCAN, 2, &subj_t, &pat_t) || !subj_t || !pat_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     const tree_t * repl_t = (e->n >= 3) ? e->c[2] : NULL;

@@ -2885,6 +2885,50 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_GEN_SCAN: {
+        /* Icon string scanning `subj ? body` (jcon ir_a_Scan; runtime bscan/escan in imisc.r). dval==1.0 is the
+           Icon form: the subject value-expr is an isolated sub-graph on counter, the body is an isolated
+           sub-graph on ival. bscan semantics: evaluate the subject, coerce to string, SAVE the current
+           (&subject,&pos) onto the scan stack, set &subject := subject-string and &pos := 1, run the body.
+           escan semantics: on body success the scan's value is the body's value and the saved (&subject,&pos)
+           are restored (the nested-scan test depends on the outer subject coming back); on body failure the
+           scan fails and (&subject,&pos) are likewise restored. Per-box state lives in this box (the scan
+           stack here is the broker/oracle's idiom, NOT a value stack). */
+        if (bb->dval == 1.0) {
+            IR_graph_t * subj_sg = (IR_graph_t *)(intptr_t) bb->counter;
+            IR_graph_t * body_sg = (IR_graph_t *)(intptr_t) bb->ival;
+            if (!subj_sg || !subj_sg->entry) { bb->value = FAILDESCR; return bb->ω; }
+            IR_graph_t * save_cfg = g_current_cfg;
+            bb_reset(subj_sg);
+            DESCR_t sv = bb_exec_once(subj_sg);
+            g_current_cfg = save_cfg;
+            if (IS_FAIL_fn(sv)) { bb->value = FAILDESCR; return bb->ω; }
+            if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_icn(sv);
+            const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
+            if (!s) s = "";
+            if (scan_depth < SCAN_STACK_MAX) {
+                scan_stack[scan_depth].subj = scan_subj;
+                scan_stack[scan_depth].pos  = scan_pos;
+                scan_depth++;
+            }
+            scan_subj = s;
+            scan_pos  = 1;
+            DESCR_t body_val = NULVCL;
+            int body_ok = 1;
+            if (body_sg && body_sg->entry) {
+                bb_reset(body_sg);
+                body_val = bb_exec_once(body_sg);
+                g_current_cfg = save_cfg;
+                if (IS_FAIL_fn(body_val)) body_ok = 0;
+            }
+            if (scan_depth > 0) {
+                scan_depth--;
+                scan_subj = scan_stack[scan_depth].subj;
+                scan_pos  = scan_stack[scan_depth].pos;
+            }
+            if (!body_ok) { bb->value = FAILDESCR; return bb->ω; }
+            bb->value = body_val;
+            return bb->γ;
+        }
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }
         bb_exec_node(bb->α);
         DESCR_t sv = bb->α->value;
