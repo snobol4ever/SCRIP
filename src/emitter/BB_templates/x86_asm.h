@@ -165,6 +165,43 @@ inline std::string x86_deflabel(int port) {
     return MEDIUM_BINARY ? x86_Drec(port) : (std::string(" ") + x86_portname(port) + ":\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* UNIFIED FRONT-END (Lon eureka 2026-06-01).  ONE x86(...) keyed on the mnemonic (1st arg); the remaining   */
+/* args' cardinality + type select the form via overloading.  This is the template-facing API — the typed   */
+/* x86_* encoders above are the internal implementation it dispatches to.  Add a case here as vocabulary     */
+/* grows; the medium (BINARY/TEXT) stays invisible because the encoders handle it.                           */
+inline std::string x86(const char * mnem, const char * op1) {                                  /* push / pop                */
+    if (!strcmp(mnem, "push")) return x86_push(op1);
+    if (!strcmp(mnem, "pop"))  return x86_pop(op1);
+    return std::string();
+}
+inline std::string x86(const char * mnem, x86_port port) {                                     /* jmp / jcc / def(label)    */
+    if (!strcmp(mnem, "jmp")) return x86_jmp(port);
+    if (!strcmp(mnem, "def")) return x86_deflabel(port);
+    return x86_jcc(mnem, port);
+}
+inline std::string x86(const char * mnem, const char * a, const char * b) {                    /* reg/mem 2-operand         */
+    if (!strcmp(mnem, "mov"))    return (a[0] == '[') ? x86_store_cursor_mirror() : x86_mov(a, b);
+    if (!strcmp(mnem, "cmp"))    return x86_cmp(a, b);
+    if (!strcmp(mnem, "test"))   return x86_test(a, b);
+    if (!strcmp(mnem, "movsxd")) return x86_movsxd(a, b);
+    if (!strcmp(mnem, "lea"))    return x86_lea_subj_cursor(a);                                 /* lea a, [r13 + rcx]        */
+    return std::string();
+}
+inline std::string x86(const char * mnem, const char * reg, long imm) {                        /* reg, imm32                */
+    if (!strcmp(mnem, "add")) return x86_add(reg, imm);
+    if (!strcmp(mnem, "sub")) return x86_sub(reg, imm);
+    if (!strcmp(mnem, "mov")) return x86_movimm(reg, imm);
+    return std::string();
+}
+inline std::string x86(const char * mnem, const char * sym, uint64_t ptr) {                    /* call sym (RO ptr)         */
+    (void)mnem;
+    return x86_call_ro(sym, ptr);
+}
+inline std::string x86(const char * mnem, const char * dst, const char * mem, uint64_t val, const char * label) { /* lea dst,[rip+RO] */
+    (void)mnem; (void)mem;
+    return x86_load_ro(dst, label, val);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* The consumer.  TEXT: passthrough.  BINARY: walk records, DISCOVERING byte positions (no bb_bin_t).     */
 inline void bb_emit_x86(const std::string & s) {
     if (!MEDIUM_BINARY) { if (!s.empty()) emit_text_n(s.data(), s.size()); return; }
