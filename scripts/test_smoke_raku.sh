@@ -64,4 +64,40 @@ sub main() {
 }
 EOF
 
+raku "map_range" "$(printf '2\n4\n6\ndone')" << 'EOF'
+sub main() {
+    for map { $_ * 2 } 1..3 -> $v {
+        say($v);
+    }
+    say('done');
+}
+EOF
+
+raku "grep_range" "$(printf '3\n4\n5\ndone')" << 'EOF'
+sub main() {
+    for grep { $_ > 2 } 1..5 -> $v {
+        say($v);
+    }
+    say('done');
+}
+EOF
+
+raku "map_over_gather" "$(printf '2\n4\n6\ndone')" << 'EOF'
+sub main() {
+    for map { $_ * 2 } gather { take(1); take(2); take(3); } -> $v {
+        say($v);
+    }
+    say('done');
+}
+EOF
+
+raku "grep_over_gather" "$(printf '2\n4\ndone')" << 'EOF'
+sub main() {
+    for grep { $_ % 2 == 0 } gather { take(1); take(2); take(3); take(4); } -> $v {
+        say($v);
+    }
+    say('done');
+}
+EOF
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
