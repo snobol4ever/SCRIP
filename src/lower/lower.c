@@ -411,6 +411,14 @@ static IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
     IR_t * hi = lower2(cx, e->c[1], node /*to.γ -> node*/, fβ /*to.ω -> from.resume*/, &tα, &tβ);
     if (!hi) return NULL;
     if (!lo->γ) lo->γ = tα;             /* from.succeed -> to.start */
+    /* Store the from/to bound CHAINS in the operand_aux sidecar (PEERS rule), mirroring v_binop. The IR_TO
+       postfix exec arm reads the current bound VALUES from these (aux[0]=from, aux[1]=to) — position-
+       independent, robust when a bound is itself a generator — and, when the counter exhausts, re-pumps the
+       hi bound then the lo bound via gen_resume_target (jcon ir_a_ToBy: by.failure -> to.resume; to.failure ->
+       from.resume — the cross-product of generator bounds). Constant bounds (LIT) have no resume target, so
+       gen_resume_target returns NULL and the node fails to ω exactly as before. */
+    IR_t * bounds[2] = { lo, hi };
+    bb_operand_aux_set(cx.bbg, node, bounds, 2);
     set_succ_fail(node, γ_in, ω_in);
     return ret(node, α_out, β_out, fα, node /* node is its own resume */);
 }
