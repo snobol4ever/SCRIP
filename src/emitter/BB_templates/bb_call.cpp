@@ -48,6 +48,105 @@ int  bb_varslot(const char * name);
 DESCR_t rt_rk_call_arr(const char * fn, DESCR_t * args, int nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RK-EMIT-2-NEST (jct_nested, 2026-06-01): recursively MATERIALISE one dval==2.0 call-arg sub-graph into the    */
+/* 16-byte DESCR slot at [r12+aoff]. A LEAF (IR_LIT_I/F/NUL/S or IR_VAR) is loaded directly — byte-for-byte the  */
+/* single-level RK-EMIT-2 marshalling (so the all-leaf calls stay byte-identical). A NESTED IR_CALL dval==2.0    */
+/* (a junction value used as a junction member, e.g. any(..) inside all(..) — docs.raku.org/type/Junction        */
+/* nested junctions) is emitted INLINE: its own args are marshalled into a FRESH contiguous ζ arg-vector region  */
+/* (allocated here, AFTER this level's vector so each level's vector stays contiguous), rt_rk_call_arr is         */
+/* invoked, and its rax:rdx result DESCR is stored into [r12+aoff] — exactly mirroring the mode-2 oracle, which   */
+/* executes the nested sub-graph to a DESCR and passes THAT as the arg ⇒ m2==m3==m4. Straight-line code only     */
+/* (no jumps → no rel32 patch sites here; the box's only jmps are its trailing γ and β:ω). In-process fn/string  */
+/* pointers are the mode-3 movabs idiom; mode-4 uses .rodata + @PLT. `owner`/`idx` namespace the per-arg string   */
+/* label .Lrkarg<node>_<idx> uniquely. NO value stack, NO name-table round-trip — the per-call arg vector is the  */
+/* sanctioned ARBNO-style per-activation frame array the no-value-stack FACT RULE permits.                        */
+static std::string rk_marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
+    if (!lf) return std::string();
+    if (lf->t == IR_CALL && lf->dval == 2.0) {
+        const char * nfn = lf->sval ? lf->sval : "";
+        int nn = (int) lf->ival;
+        IR_graph_t ** nsubs = (IR_graph_t **)(intptr_t) lf->counter;
+        int avbase = (nn > 0) ? bb_slot_alloc16(nsubs[0]->entry) : bb_slot_alloc16(lf);
+        for (int j = 1; j < nn; j++) bb_slot_alloc16(nsubs[j]->entry);
+        std::string s;
+        for (int j = 0; j < nn; j++) s += rk_marshal_call_arg(nsubs[j]->entry, avbase + j * 16, lf, j);
+        if (MEDIUM_TEXT) {
+            std::string fl = emit_fmt(".Lrkfn%d", bb_node_id(lf));
+            s += s_directive(".section .rodata")
+               + s_directive(fl + ": .string \"" + nfn + "\"")
+               + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
+            s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
+            s += s_2asm("lea", emit_fmt("rsi, [r12+%d]", avbase));
+            s += s_2asm("mov", emit_fmt("edx, %d", nn));
+            s += s_2asm("call", "rt_rk_call_arr@PLT");
+            s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff));
+            s += s_2asm("mov", emit_fmt("[r12+%d], rdx", aoff + 8));
+        } else if (MEDIUM_BINARY) {
+            uint64_t nptr = (uint64_t)(uintptr_t) nfn;
+            uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_rk_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            s += bytes(2, "\x48\xBF") + u64le(nptr);
+            s += bytes(4, "\x49\x8D\xB4\x24") + u32le((uint32_t)avbase);
+            s += bytes(1, "\xBA") + u32le((uint32_t)nn);
+            s += bytes(2, "\x48\xB8") + u64le(fptr);
+            s += bytes(2, "\xFF\xD0");
+            s += bytes(4, "\x49\x89\x84\x24") + u32le((uint32_t)aoff);
+            s += bytes(4, "\x49\x89\x94\x24") + u32le((uint32_t)(aoff + 8));
+        }
+        return s;
+    }
+    std::string s;
+    if (MEDIUM_TEXT) {
+        if (lf->t == IR_LIT_I) {
+            s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 6", aoff));
+            s += s_2asm("movabs", emit_fmt("rax, %lld", (long long)lf->ival));
+            s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
+        } else if (lf->t == IR_LIT_F) {
+            uint64_t bits; double d = lf->dval; memcpy(&bits, &d, 8);
+            s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 7", aoff));
+            s += s_2asm("movabs", emit_fmt("rax, %llu", (unsigned long long)bits));
+            s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
+        } else if (lf->t == IR_LIT_NUL) {
+            s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff));
+            s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff + 8));
+        } else if (lf->t == IR_LIT_S) {
+            std::string sl = emit_fmt(".Lrkarg%d_%d", bb_node_id(owner), idx);
+            s += s_directive(".section .rodata")
+               + s_directive(sl + ": .string \"" + (lf->sval ? lf->sval : "") + "\"")
+               + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
+            s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 1", aoff));
+            s += s_2asm("lea", emit_fmt("rax, [rip+%s]", sl.c_str()));
+            s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
+        } else {
+            int voff = bb_varslot(lf->sval ? lf->sval : "");
+            s += s_2asm("mov", emit_fmt("rax, [r12+%d]", voff));
+            s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff));
+            s += s_2asm("mov", emit_fmt("rax, [r12+%d]", voff + 8));
+            s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
+        }
+    } else if (MEDIUM_BINARY) {
+        uint32_t aoffu = (uint32_t) aoff;
+        if (lf->t == IR_LIT_I || lf->t == IR_LIT_F || lf->t == IR_LIT_NUL || lf->t == IR_LIT_S) {
+            uint64_t tag = (lf->t == IR_LIT_I) ? 6 : (lf->t == IR_LIT_F) ? 7 : (lf->t == IR_LIT_S) ? 1 : 0;
+            s += bytes(4, "\x49\xC7\x84\x24") + u32le(aoffu) + u32le((uint32_t)tag);
+            if (lf->t == IR_LIT_NUL) {
+                s += bytes(4, "\x49\xC7\x84\x24") + u32le(aoffu + 8) + u32le(0);
+            } else {
+                uint64_t v;
+                if (lf->t == IR_LIT_I)      v = (uint64_t)lf->ival;
+                else if (lf->t == IR_LIT_F) { double d = lf->dval; memcpy(&v, &d, 8); }
+                else                        v = (uint64_t)(uintptr_t)(lf->sval ? lf->sval : "");
+                s += bytes(2, "\x48\xB8") + u64le(v);
+                s += bytes(4, "\x49\x89\x84\x24") + u32le(aoffu + 8);
+            }
+        } else {
+            uint32_t voff = (uint32_t) bb_varslot(lf->sval ? lf->sval : "");
+            s += bytes(4, "\x49\x8B\x84\x24") + u32le(voff)     + bytes(4, "\x49\x89\x84\x24") + u32le(aoffu);
+            s += bytes(4, "\x49\x8B\x84\x24") + u32le(voff + 8) + bytes(4, "\x49\x89\x84\x24") + u32le(aoffu + 8);
+        }
+    }
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
     if (!PLATFORM_X86) return std::string();
@@ -72,50 +171,23 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
     /* name table, so the value matches what IR_ASSIGN stored.                                                */
     if (g_icn_flat_chain && pBB->dval == 2.0) {
         IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
-        int leaves_ok = 1;
+        int args_ok = 1;
         for (int i = 0; i < (int)narg; i++) {
             IR_t * lf = (subs && subs[i]) ? subs[i]->entry : NULL;
-            if (!lf) { leaves_ok = 0; break; }
-            if (lf->t != IR_LIT_I && lf->t != IR_LIT_S && lf->t != IR_LIT_F
-                && lf->t != IR_LIT_NUL && lf->t != IR_VAR) { leaves_ok = 0; break; }
+            if (!lf) { args_ok = 0; break; }
+            int leaf   = (lf->t == IR_LIT_I || lf->t == IR_LIT_S || lf->t == IR_LIT_F || lf->t == IR_LIT_NUL || lf->t == IR_VAR);
+            int nested = (lf->t == IR_CALL && lf->dval == 2.0);
+            if (!leaf && !nested) { args_ok = 0; break; }
         }
-        if (leaves_ok) {
+        if (args_ok) {
             int resoff  = bb_slot_alloc16(pBB);
             int argbase = (narg > 0) ? bb_slot_alloc16(subs[0]->entry) : resoff;
             for (int i = 1; i < (int)narg; i++) bb_slot_alloc16(subs[i]->entry);
             if (MEDIUM_TEXT) {
                 std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
                     + s_comment(emit_fmt("# BOX IR_CALL %s(...) [RK-EMIT-2 dval=2 marshalled args -> rt_rk_call_arr]", fn));
-                for (int i = 0; i < (int)narg; i++) {
-                    IR_t * lf = subs[i]->entry; int aoff = argbase + i * 16;
-                    if (lf->t == IR_LIT_I) {
-                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 6", aoff));
-                        s += s_2asm("movabs", emit_fmt("rax, %lld", (long long)lf->ival));
-                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
-                    } else if (lf->t == IR_LIT_F) {
-                        uint64_t bits; double d = lf->dval; memcpy(&bits, &d, 8);
-                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 7", aoff));
-                        s += s_2asm("movabs", emit_fmt("rax, %llu", (unsigned long long)bits));
-                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
-                    } else if (lf->t == IR_LIT_NUL) {
-                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff));
-                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff + 8));
-                    } else if (lf->t == IR_LIT_S) {
-                        std::string sl = emit_fmt(".Lrkarg%d_%d", bb_node_id(pBB), i);
-                        s += s_directive(".section .rodata")
-                           + s_directive(sl + ": .string \"" + (lf->sval ? lf->sval : "") + "\"")
-                           + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
-                        s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 1", aoff));
-                        s += s_2asm("lea", emit_fmt("rax, [rip+%s]", sl.c_str()));
-                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
-                    } else { /* IR_VAR — read its ζ varslot */
-                        int voff = bb_varslot(lf->sval ? lf->sval : "");
-                        s += s_2asm("mov", emit_fmt("rax, [r12+%d]", voff));
-                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff));
-                        s += s_2asm("mov", emit_fmt("rax, [r12+%d]", voff + 8));
-                        s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff + 8));
-                    }
-                }
+                for (int i = 0; i < (int)narg; i++)
+                    s += rk_marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
                 std::string fl = emit_fmt(".Lrkfn%d", bb_node_id(pBB));
                 s += s_directive(".section .rodata")
                    + s_directive(fl + ": .string \"" + fn + "\"")
@@ -133,27 +205,8 @@ static std::string bb_call_str(IR_t * pBB, bb_bin_t & bin) {
             }
             if (MEDIUM_BINARY) {
                 std::string s;
-                for (int i = 0; i < (int)narg; i++) {
-                    IR_t * lf = subs[i]->entry; uint32_t aoff = (uint32_t)(argbase + i * 16);
-                    if (lf->t == IR_LIT_I || lf->t == IR_LIT_F || lf->t == IR_LIT_NUL || lf->t == IR_LIT_S) {
-                        uint64_t tag = (lf->t == IR_LIT_I) ? 6 : (lf->t == IR_LIT_F) ? 7 : (lf->t == IR_LIT_S) ? 1 : 0;
-                        s += bytes(4, "\x49\xC7\x84\x24") + u32le(aoff) + u32le((uint32_t)tag);   /* mov qword [r12+aoff], tag */
-                        if (lf->t == IR_LIT_NUL) {
-                            s += bytes(4, "\x49\xC7\x84\x24") + u32le(aoff + 8) + u32le(0);        /* mov qword [r12+aoff+8], 0 */
-                        } else {
-                            uint64_t v;
-                            if (lf->t == IR_LIT_I)      v = (uint64_t)lf->ival;
-                            else if (lf->t == IR_LIT_F) { double d = lf->dval; memcpy(&v, &d, 8); }
-                            else                        v = (uint64_t)(uintptr_t)(lf->sval ? lf->sval : "");
-                            s += bytes(2, "\x48\xB8") + u64le(v);                                   /* movabs rax, v */
-                            s += bytes(4, "\x49\x89\x84\x24") + u32le(aoff + 8);                    /* mov [r12+aoff+8], rax */
-                        }
-                    } else { /* IR_VAR */
-                        uint32_t voff = (uint32_t) bb_varslot(lf->sval ? lf->sval : "");
-                        s += bytes(4, "\x49\x8B\x84\x24") + u32le(voff)     + bytes(4, "\x49\x89\x84\x24") + u32le(aoff);
-                        s += bytes(4, "\x49\x8B\x84\x24") + u32le(voff + 8) + bytes(4, "\x49\x89\x84\x24") + u32le(aoff + 8);
-                    }
-                }
+                for (int i = 0; i < (int)narg; i++)
+                    s += rk_marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
                 uint64_t nptr = (uint64_t)(uintptr_t) fn;
                 uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_rk_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
                 s += bytes(2, "\x48\xBF") + u64le(nptr);                          /* movabs rdi, fn        */
