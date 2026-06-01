@@ -316,21 +316,8 @@ int is_suspendable(tree_t *e) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { DESCR_t val; int fired; } gen_bb_oneshot_state_t;
-static DESCR_t gen_bb_oneshot(void *zeta, int entry) {
-    gen_bb_oneshot_state_t *z = (gen_bb_oneshot_state_t *)zeta;
-    if (entry == α) { z->fired = 0; }
-    if (!z->fired && !IS_FAIL_fn(z->val)) { z->fired = 1; return z->val; }
-    return FAILDESCR;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_graph_t *cfg; int first; } dcg_state_t;
-DESCR_t gen_bb_dcg(void *zeta, int entry) {
-    dcg_state_t *z = (dcg_state_t *)zeta;
-    if (!z || !z->cfg) return FAILDESCR;
-    if (entry == α) { z->first = 1; }
-    DESCR_t v = z->first ? (z->first=0, bb_exec_once(z->cfg)) : bb_exec_resume(z->cfg);
-    return v;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_node_t gen_bb_pump_proc_by_name(const char *name, DESCR_t *args, int nargs) {
     if (!name) return (bb_node_t){ NULL, NULL, 0 };

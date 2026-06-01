@@ -4,7 +4,6 @@
 #include <string.h>
 #include "bb_broker.h"
 #include "core.h"
-static DESCR_t fail_box(void *zeta, int entry) { (void)zeta; (void)entry; return FAILDESCR; }
 static const bb_node_t FAIL_GEN_NODE = { fail_box, NULL, 0 };
 static inline void *gen_gen_enter(void **pp, size_t size) {
     void *p = *pp;

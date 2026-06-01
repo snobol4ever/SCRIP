@@ -54,13 +54,6 @@ void resolve_cp_truncate(resolve_choice *barrier)
 Resolve_PredEntry_BB g_resolve_bb_table[RESOLVE_BB_TABLE_MAX];
 int             g_resolve_bb_count = 0;
 typedef struct { IR_graph_t *cfg; int first; } resolve_dcg_state_t;
-DESCR_t resolve_bb_dcg(void *zeta, int entry) {
-    resolve_dcg_state_t *z = (resolve_dcg_state_t *)zeta;
-    if (!z || !z->cfg) return FAILDESCR;
-    if (entry == α) { z->first = 1; }
-    DESCR_t v = z->first ? (z->first = 0, bb_exec_once(z->cfg)) : bb_exec_resume(z->cfg);
-    return v;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Resolve_PredEntry_BB *resolve_bb_lookup(const char *name, int arity) {
     if (!name) return NULL;

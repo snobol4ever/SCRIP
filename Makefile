@@ -171,7 +171,6 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit_bb.c \
     \
     $(SRC)/processor/bb_boxes.c \
-    $(SRC)/processor/bb_broker.c \
     $(SRC)/processor/smx_dead_stubs.c \
     $(SRC)/lower/sm_prog.c \
     $(SRC)/lower/lower.c \
@@ -211,7 +210,6 @@ RT_PIC_SRCS := \
     $(SRC)/frontend/prolog/prolog_builtin.c \
     $(SRC)/frontend/prolog/prolog_unify.c \
     $(SRC)/frontend/prolog/prolog_driver.c \
-    $(SRC)/frontend/prolog/pl_broker.c \
     $(SRC)/frontend/snocone/snocone_lex.c \
     $(SRC)/frontend/snocone/snocone_parse.tab.c \
     $(SRC)/frontend/snocone/snocone_driver.c \
@@ -357,7 +355,6 @@ scrip:
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
 	$(CC) $(CRT) -c $(SRC)/processor/bb_boxes.c -o $(OBJ)/bb_boxes.o
-	$(CC) $(CRT) -c $(SRC)/processor/bb_broker.c -o $(OBJ)/bb_broker.o
 	$(CC) $(CRT) -c $(SRC)/processor/smx_dead_stubs.c -o $(OBJ)/smx_dead_stubs.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -DIR_DEFINE_NAMES \
 	    -c $(SRC)/ast/ast_print.c -o $(OBJ)/ast_print.o
@@ -371,7 +368,6 @@ scrip:
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_builtin.c  -o $(OBJ)/prolog_builtin.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_unify.c    -o $(OBJ)/prolog_unify.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_driver.c   -o $(OBJ)/prolog_driver.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/pl_broker.c       -o $(OBJ)/pl_broker.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/icon/icon_lex.c         -o $(OBJ)/icon_lex.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/icon/icon_parse.c       -o $(OBJ)/icon_parse.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/icon/icon_runtime.c     -o $(OBJ)/icon_runtime.o

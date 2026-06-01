@@ -66,7 +66,6 @@ int     interp_exec_pl_builtin(tree_t *goal, Term **env);
 int     resolve_call_term(Term *gt);
 int     resolve_call_term_n(Term *gt, int n_extra, Term **extras);
 void    resolve_execute_program_unified(CODE_t *prog);
-DESCR_t resolve_bb_dcg(void *zeta, int entry);
 Resolve_PredEntry_BB *resolve_bb_lookup(const char *name, int arity);
 int         resolve_bb_pred_count(void);
 const char *resolve_bb_pred_name_at(int idx);
