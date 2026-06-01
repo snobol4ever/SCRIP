@@ -1461,6 +1461,13 @@ long rt_pl_arith(int lk, long li, const char *ls,
     if (strcmp(op, "<<") == 0)   return lv << rv;
     if (strcmp(op, "mod") == 0)  return rv ? lv % rv : 0;
     if (strcmp(op, "rem") == 0)  return rv ? lv % rv : 0;
+    /* PLG-9c (2026-05-31): gcd + div were present in bb_exec.c's resolve_arith_eval (the mode-2/3 */
+    /* evaluator the IR_ARITH/rt_pl_is_eval path uses) but MISSING here in rt_pl_arith (the integer */
+    /* evaluator the mode-4 MEDIUM_TEXT `is` arm reaches via rt_pl_is). With them absent, gcd(12,8)  */
+    /* fell through to the `return lv + rv` default → 20 (wrong, addition) in mode-4 only. Added to  */
+    /* match bb_exec.c byte-for-byte (gcd: Euclid on absolute values; div: floored integer division). */
+    if (strcmp(op, "gcd") == 0)  { long a = lv<0?-lv:lv, b = rv<0?-rv:rv; while (b) { long r = a % b; a = b; b = r; } return a; }
+    if (strcmp(op, "div") == 0)  { if (!rv) return 0; long q = lv / rv; if ((lv % rv != 0) && ((lv < 0) != (rv < 0))) q--; return q; }
     if (strcmp(op, "max") == 0)  return lv > rv ? lv : rv;
     if (strcmp(op, "min") == 0)  return lv < rv ? lv : rv;
     if (strcmp(op, "//") == 0)   return rv ? lv / rv : 0;

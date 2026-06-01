@@ -125,12 +125,34 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
 /* widen-as-you-go gate sno_ring_to_tree uses for SNOBOL4. The GCONJ carries its goal entries in the bb_conj_state_t sidecar (node->ival); bb_builtin reads each arg from the goal's own alpha at emit time   */
 /* (write of an IR_ATOM -> mov rdi, imm64(atom); call rt_pl_write_atom), so the value is a sealed read-only constant read directly by its consumer — no rt_pl_atom_push ring push. Widens rung by rung.       */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_flat_arith_leaf_simple(const IR_t *o) {
+    /* PLG-9c: an arith RHS leaf operand the integer rt_pl_is/rt_pl_arith path can evaluate from        */
+    /* serialized scalars: a literal int, or a logic-variable slot (rt_pl_arith reads g_resolve_env[li] */
+    /* and derefs to its int). NOT a float literal (rt_pl_is is integer-only — term_new_int), NOT a     */
+    /* nested IR_ARITH (the MEDIUM_TEXT is arm flattens only ONE level of operands into lk/li,rk/ri).   */
+    if (!o) return 0;
+    return o->t == IR_LIT_I || o->t == IR_LOGICVAR;
+}
 static int pl_flat_goal_is_simple(const IR_t *g) {
     if (!g) return 0;
     switch (g->t) {
     case IR_SUCCEED: case IR_CUT: case IR_ATOM: return 1;
     case IR_BUILTIN: {
         const char *fn = g->sval ? g->sval : "";
+        /* PLG-9c (2026-05-31): `Var is Expr` — integer arithmetic into a logic-variable slot. The      */
+        /* bb_builtin MEDIUM_TEXT is arm (line ~1434) flattens the RHS at emit time into serialized      */
+        /* scalars (dst_slot, op via _.bb_op_lbl, lk/li, rk/ri) and calls rt_pl_is, which evaluates via  */
+        /* rt_pl_arith and unifies the int result into g_resolve_env[dst_slot] — NO cross-process IR_t*  */
+        /* pointer (that is the MEDIUM_BINARY twin's mode-3-only path). Admit only the shapes that arm    */
+        /* handles: α = IR_LOGICVAR, β = IR_ARITH binary (both operands) or unary (left only), each       */
+        /* operand a scalar int/slot. Float RHS, nested arith, or a non-slot LHS decline (-> EXCISED).   */
+        if (!strcmp(fn, "is")) {
+            const IR_t *lhs = g->α, *rhs = g->β;
+            if (!lhs || lhs->t != IR_LOGICVAR || !rhs || rhs->t != IR_ARITH) return 0;
+            if (rhs->α && rhs->β) return pl_flat_arith_leaf_simple(rhs->α) && pl_flat_arith_leaf_simple(rhs->β);
+            if (rhs->α && !rhs->β) return pl_flat_arith_leaf_simple(rhs->α);   /* unary op(L) */
+            return 0;
+        }
         int is_io = (!strcmp(fn, "write") || !strcmp(fn, "writeln") || !strcmp(fn, "print") || !strcmp(fn, "nl") || !strcmp(fn, "halt"));
         if (!is_io) return 0;
         /* PLG-9b (2026-05-31): write/print of a logic-variable slot is now in the flat tier. The bb_builtin */
