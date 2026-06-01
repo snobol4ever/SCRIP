@@ -172,6 +172,7 @@ typedef struct IR_graph_t {
     int            max;
     int            lang;
     int            nslots;
+    IR_t         * body_root;
     bb_operand_aux_t *operand_aux;
     int              operand_aux_n;
     int              operand_aux_max;

@@ -238,9 +238,16 @@ extern IR_graph_t *resolve_bb_graph_at(int idx);
 static int pl_rich_node_emittable(const IR_t *nd) {
     if (!nd) return 1;
     switch (nd->t) {
-    /* DETERMINISTIC control-flow / goal boxes (single-solution). NOTE: IR_DISJ and IR_CHOICE are            */
-    /* intentionally NOT here — they need the backtracking CP spine the deterministic tier doesn't drive.   */
+    /* Control-flow / goal boxes. PLG-9d-bt (2026-06-01) admits IR_CHOICE (multi-clause clause           */
+    /* enumeration) and IR_DISJ (`;`) to the tier: their fail-driven backtracking is now driven end-to-  */
+    /* end through the standalone-binary CP spine. bb_choice.cpp's TEXT arm pushes a resolve_choice CP    */
+    /* (resolve_cp_push) and walks the clause cursor with per-clause trail unwind (the gprolog            */
+    /* CREATE/UPDATE/DELETE_CHOICE_POINT shape from EnginePl/wam_inst.c); flat_drive_pl_alt threads the   */
+    /* disjunction arms' fail edges; bb_goal.cpp's β arm re-drives a live CP via resolve_cp_current. The  */
+    /* CP globals (g_resolve_bfr / g_resolve_cut_barrier / g_resolve_cut_flag) are zero-initialized in    */
+    /* the fresh process, so a top-level query starts with an empty CP spine and an unset cut barrier.    */
     case IR_GCONJ: case IR_GOAL: case IR_ITE:
+    case IR_CHOICE: case IR_DISJ:
     case IR_SUCCEED: case IR_FAIL: case IR_CUT:
     /* leaf/operand kinds (appear both as boxes and as α/β data) */
     case IR_LOGICVAR: case IR_ATOM: case IR_STRUCT:
@@ -266,18 +273,42 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd);
         static const char *ok[] = { "write", "writeln", "print", "nl", "halt", NULL };
         for (int k = 0; ok[k]; k++) if (!strcmp(fn, ok[k])) return 1;
+        /* PLG-9d-bt (2026-06-01): arithmetic comparison goals (>,<,>=,=<,=:=,=\=). bb_builtin's CAT-D-9   */
+        /* arm serializes each operand as (kind,ival,sval) and calls rt_pl_arith_cmp (integer), which can  */
+        /* only evaluate a SCALAR operand — an integer literal or a logic-variable slot. A float literal,  */
+        /* a nested IR_ARITH expression, or an atom it cannot evaluate (= wrong result), so admit only     */
+        /* when BOTH operands are integer-scalar (pl_flat_arith_leaf_simple). rung08 (fib `N>1` /          */
+        /* factorial `N>0`) proves this shape passes all three modes. Float/compound comparisons (rung16,  */
+        /* rung29) stay EXCISED. Term comparisons (==, @<, …) route through rt_pl_term_cmp and are not yet */
+        /* 3-mode-proven in this context, so they remain EXCISED.                                          */
+        static const char *cmp[] = { ">", "<", ">=", "=<", "<=", "=:=", "=\\=", NULL };
+        for (int k = 0; cmp[k]; k++)
+            if (!strcmp(fn, cmp[k])) return pl_flat_arith_leaf_simple(nd->α) && pl_flat_arith_leaf_simple(nd->β);
         return 0;
     }
     default:
-        /* IR_DISJ, IR_CHOICE, and any unrecognized kind -> not in the deterministic tier -> EXCISED. */
+        /* Any unrecognized kind -> not yet in the rich tier -> EXCISED (fall loud, never miscompile). */
         return 0;
     }
 }
 /* pl_rich_graph_ok — every node in one predicate graph is in the deterministic tier. */
 static int pl_rich_graph_ok(IR_graph_t *g) {
     if (!g || !g->all) return 0;
-    for (int i = 0; i < g->n; i++)
-        if (!pl_rich_node_emittable(g->all[i])) return 0;
+    for (int i = 0; i < g->n; i++) {
+        IR_t *nd = g->all[i];
+        if (!pl_rich_node_emittable(nd)) return 0;
+        /* PLG-9d-bt: a multi-clause predicate's clause bodies live in SEPARATE sub-graphs (zc->bodies[]),  */
+        /* NOT in this graph's all[]. Recurse so a non-emittable node buried in a clause body (e.g. a       */
+        /* retract/assertz IR_BUILTIN inside a recursive clause) is caught -> the program EXCISES cleanly   */
+        /* rather than emitting an "unknown builtin" stub and crashing at run time. (IR_DISJ arms and        */
+        /* IR_ITE branches are inline nodes already in all[], so they need no special recursion.)           */
+        if (nd && nd->t == IR_CHOICE) {
+            bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)nd->ival;
+            if (zc && zc->bodies)
+                for (int b = 0; b < zc->nbodies; b++)
+                    if (zc->bodies[b] && !pl_rich_graph_ok(zc->bodies[b])) return 0;
+        }
+    }
     return 1;
 }
 /* pl_rich_body_root — gate for the PLG-9d mode-3/4 DETERMINISTIC rich-emit driver. Verifies main's graph AND */
@@ -295,10 +326,13 @@ static IR_t * pl_rich_body_root(IR_graph_t *main_g) {
         if (!pg) continue;
         if (!pl_rich_graph_ok(pg)) return NULL;   /* any non-deterministic callee -> EXCISED (no miscompile) */
     }
-    /* Return the body ROOT the flat walk should enter. For a conjunctive body that is the principal        */
-    /* IR_GCONJ (flat_drive_pl_seq walks its goals[] in order); for a single-goal / bare body it is the     */
-    /* graph entry. Mirrors pl_flat_body_root's GCONJ-first selection — walking the raw entry node alone    */
-    /* would emit ONLY the first goal (its γ wired straight to the sequence γ), dropping the rest.          */
+    /* Return the body ROOT the flat walk should enter. PLG-9d-bt: prefer the body_root the lowerer       */
+    /* recorded on the graph (lower2_clause_body_entry stores the top GCONJ there). The GCONJ-finder       */
+    /* heuristic below is ambiguous for a disjunctive body — `main :- (A,B,fail ; true)` lowers to a top   */
+    /* GCONJ wrapping an IR_DISJ whose alpha IS the left arm's inner GCONJ entry, so TWO GCONJs share the  */
+    /* same goals[0]==entry. The recorded body_root names the right one unambiguously. Fall back to the    */
+    /* unique-GCONJ search only when body_root is unset (graphs not built via lower2_clause_body_entry).   */
+    if (main_g->body_root) return main_g->body_root;
     {
         IR_t *gconj = NULL;
         for (int i = 0; i < main_g->n; i++) {
@@ -776,7 +810,12 @@ int main(int argc, char **argv)
                 printf("  ret\n");
                 g_frame_active = 1;
                 int rcp = codegen_pl_program(stdout);          /* callee predicate blocks */
+                /* PLG-9d-bt: main's body owns its disjunction's operand_aux; point g_emit_cfg at pl_main   */
+                /* for the main_α walk (codegen_pl_program already save/restores per callee).               */
+                extern IR_graph_t *g_emit_cfg;
+                IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = pl_main;
                 int rcm = codegen_flat_build(rich_root, stdout, "main");  /* main_α body */
+                g_emit_cfg = save_cfg;
                 g_frame_active = 0;
                 xa_emit_strtab_rodata();
                 fflush(stdout);

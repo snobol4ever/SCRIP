@@ -164,7 +164,7 @@ static IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nki
         bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
         if (zs) {
             zs->goals = (IR_t **)GC_MALLOC((size_t)nkids * sizeof(IR_t *));
-            if (zs->goals) { for (int i = 0; i < nkids; i++) zs->goals[i] = entry[i]; zs->ngoals = nkids; node->ival = (int64_t)(intptr_t)zs; }
+            if (zs->goals) { for (int i = 0; i < nkids; i++) zs->goals[i] = apply[i]; zs->ngoals = nkids; node->ival = (int64_t)(intptr_t)zs; }
         }
     }
     set_succ_fail(node, γ_in, ω_in);
@@ -202,11 +202,13 @@ static IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nki
         if (!arm->γ) arm->γ = arm_succ;
         apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
     }
-    /* Icon IR_ALT / SNOBOL IR_PAT_ALT read the arm APPLY (value) nodes from operand_aux (their chain driver
-       pre-runs arm[0], then advances via apply->ω). The Prolog IR_DISJ exec instead JUMPS to each arm's ENTRY
-       and runs the sub-chain inline, so it needs the ENTRY nodes. Store the right set per kind.              */
-    if (kind == IR_DISJ) bb_operand_aux_set(cx.bbg, node, entry, nkids);
-    else                 bb_operand_aux_set(cx.bbg, node, apply, nkids);
+    /* Both Icon IR_ALT / SNOBOL IR_PAT_ALT and Prolog IR_DISJ store the arm APPLY (principal) nodes in    */
+    /* operand_aux. PLG-9d-bt (2026-06-01): the mode-4 emitter (flat_drive_pl_alt) reads these principals   */
+    /* and re-threads each arm via walk_bb_flat (a conjunction arm's GCONJ -> flat_drive_pl_seq expands its */
+    /* goals). The IR_DISJ interpreter exec jumps to arm[counter] but unwraps a GCONJ arm to its goals[0]   */
+    /* (its first goal) — identical to the previous entry[] jump target, since a conjunction's goals[0] IS  */
+    /* that arm's deep entry. So both consumers agree on a single operand_aux representation.               */
+    bb_operand_aux_set(cx.bbg, node, apply, nkids);
     set_succ_fail(node, γ_in, ω_in);
     /* For the Prolog IR_DISJ exec (ITE-style): the node's α is the first arm's entry, so the executor jumps
        into the arm chain and lets the outer port-follower drive it. Each arm's success flows arm.γ=node (the
@@ -2304,7 +2306,7 @@ IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * 
        still emit (harmless, keeps slot count correct); atoms/numbers/compounds bind. We emit one per arg. */
     if (arity == 0 && nbody == 0) {                 /* bare 0-arg fact: succeed once */
         IR_t * s = nalloc(cx, IR_SUCCEED);
-        if (bbg) bbg->nslots = 0;
+        if (bbg) { bbg->nslots = 0; bbg->body_root = s; }
         return emit_leaf(cx, s, γ_in, ω_in, α_out, β_out);
     }
     /* Build the head-unify + body goal spine. We can't synthesize tree nodes for head unifies, so we wire
@@ -2339,10 +2341,10 @@ IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * 
         bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
         if (zs) {
             zs->goals = (IR_t **)GC_MALLOC((size_t)total * sizeof(IR_t *));
-            if (zs->goals) { for (int i = 0; i < total; i++) zs->goals[i] = entry[i]; zs->ngoals = total; node->ival = (int64_t)(intptr_t)zs; }
+            if (zs->goals) { for (int i = 0; i < total; i++) zs->goals[i] = apply[i]; zs->ngoals = total; node->ival = (int64_t)(intptr_t)zs; }
         }
     }
     set_succ_fail(node, γ_in, ω_in);
-    if (bbg) bbg->nslots = pv.count;
+    if (bbg) { bbg->nslots = pv.count; bbg->body_root = node; }
     return ret(node, α_out, β_out, entry[0], resume[total - 1]);
 }

@@ -349,7 +349,12 @@ int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)nd->ival;
     if (!zc || !zc->bodies) return 0;
     int k = zc->nbodies < max ? zc->nbodies : max;
-    for (int i = 0; i < k; i++) out[i] = zc->bodies[i] ? zc->bodies[i]->entry : NULL;
+    /* PLG-9d-bt: enter each clause at its body_root (the body's top GCONJ) so a multi-goal clause body    */
+    /* emits ALL its goals; ->entry is only the first goal's α (walking it alone under-emits). For a       */
+    /* single-element fact body, body_root is a GCONJ(n=1) whose sole goal is that element -> byte-        */
+    /* identical to the prior ->entry walk. Fall back to ->entry if body_root was never recorded.          */
+    for (int i = 0; i < k; i++)
+        out[i] = zc->bodies[i] ? (zc->bodies[i]->body_root ? zc->bodies[i]->body_root : zc->bodies[i]->entry) : NULL;
     return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -420,10 +425,15 @@ static void flat_drive_pl_choice(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_pl_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || !pBB->α) { EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return; }
-    IR_t *branches[2]; int n = 0;
-    if (pBB->α) branches[n++] = pBB->α;
-    if (pBB->β) branches[n++] = pBB->β;
+    /* PLG-9d-bt: a Prolog `;` disjunction's arms (their PRINCIPAL nodes) live in the operand_aux sidecar  */
+    /* of the owning graph — NOT in pBB->α/β (the old read saw only one arm and silently dropped the rest).*/
+    /* Walk each arm principal via walk_bb_flat (a conjunction arm's GCONJ -> flat_drive_pl_seq expands    */
+    /* its goals). Arm i's success flows to lbl_γ (the disjunction's continuation); arm i's failure flows   */
+    /* to the NEXT arm's `pre` (the bb_disj template's pre does rt_pl_trail_unwind_top then jmps that arm's */
+    /* body), the last arm's failure to lbl_ω. The α/pre/β scaffold + trail mark is emitted by bb_disj.     */
+    int n = 0;
+    IR_t * const * arms = pBB ? bb_operand_aux_get(g_emit_cfg, pBB, &n) : NULL;
+    if (!arms || n <= 0) { EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return; }
     int id = g_flat_node_id++;
     bb_label_t **cbody = (bb_label_t **)alloca((size_t)n * sizeof(bb_label_t *));
     bb_label_t **cpre  = (bb_label_t **)alloca((size_t)n * sizeof(bb_label_t *));
@@ -442,7 +452,7 @@ static void flat_drive_pl_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     for (int i = 0; i < n; i++) {
         bb_label_t *bi_ω = (i < n - 1) ? cpre[i + 1] : lbl_ω;
         emit_label_define_bb(cbody[i]);
-        walk_bb_flat(branches[i], lbl_γ, bi_ω, cβ[i]);
+        walk_bb_flat(arms[i], lbl_γ, bi_ω, cβ[i]);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2267,6 +2277,9 @@ int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) {
 /* NULL -> ω).                                                                                              */
 static int codegen_pl_callee_block(IR_graph_t *g, const char *name, int arity, FILE *out) {
     if (!g || !g->entry || !name) return 1;
+    /* PLG-9d-bt: operand_aux is keyed by (graph, node); set g_emit_cfg to THIS callee's graph so a DISJ   */
+    /* (or any operand_aux read) inside the clause body resolves against the body that owns it.            */
+    IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = g;
     /* The clause graph's entry is the FIRST body element (e.g. the first head-unify), not the conjunction  */
     /* wrapper — lower2_clause_body_entry returns entry[0] as α while the IR_GCONJ wraps ALL head-unifies +  */
     /* body goals. Walking the raw entry emits ONLY the first element (its γ wired straight to γ), dropping  */
@@ -2276,7 +2289,12 @@ static int codegen_pl_callee_block(IR_graph_t *g, const char *name, int arity, F
     /* entry is that element. Choose: the GCONJ whose first goal == g->entry (the wrapper for THIS body),    */
     /* else g->entry.                                                                                        */
     IR_t *body_root = g->entry;
-    if (g->all) {
+    if (g->body_root) {
+        /* PLG-9d-bt: the lowerer recorded the clause-body root (the top GCONJ) on the graph. Prefer it —  */
+        /* the goals[0]==entry scan below is ambiguous when the body has a top-level disjunction (the DISJ */
+        /* and its left-arm GCONJ share goals[0]==entry), and walking the wrong one drops an arm.          */
+        body_root = g->body_root;
+    } else if (g->all) {
         for (int i = 0; i < g->n; i++) {
             IR_t *nd = g->all[i];
             if (!nd || nd->t != IR_GCONJ) continue;
@@ -2316,6 +2334,7 @@ static int codegen_pl_callee_block(IR_graph_t *g, const char *name, int arity, F
     emit_label_define_bb(&lbl_ω);
     { const char *s = "  mov edi, 0\n  call rt_set_last_ok@PLT\n  ret\n"; emit_text_n(s, strlen(s)); }
     emitter_end();
+    g_emit_cfg = save_cfg;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
