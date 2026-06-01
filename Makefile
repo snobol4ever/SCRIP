@@ -126,6 +126,13 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_proc.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_gen.cpp \
     $(SRC)/emitter/BB_templates/bb_binop.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_lit_arith.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_jct_relop.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_relop.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_arith.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_concat_lit.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_agpure.cpp \
     $(SRC)/emitter/BB_templates/bb_if.cpp \
     $(SRC)/emitter/BB_templates/bb_initial.cpp \
     $(SRC)/emitter/BB_templates/bb_case.cpp \
@@ -314,6 +321,13 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_to_by.cpp        -o $(OBJ)/bb_to_by.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gen.cpp    -o $(OBJ)/bb_binop_gen.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop.cpp        -o $(OBJ)/bb_binop.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_lit_arith.cpp   -o $(OBJ)/bb_binop_lit_arith.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_jct_relop.cpp   -o $(OBJ)/bb_binop_jct_relop.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_relop.cpp       -o $(OBJ)/bb_binop_relop.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_arith.cpp       -o $(OBJ)/bb_binop_arith.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_concat_lit.cpp  -o $(OBJ)/bb_binop_concat_lit.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_agpure.cpp      -o $(OBJ)/bb_binop_agpure.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_if.cpp           -o $(OBJ)/bb_if.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_initial.cpp      -o $(OBJ)/bb_initial.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_case.cpp         -o $(OBJ)/bb_case.o
