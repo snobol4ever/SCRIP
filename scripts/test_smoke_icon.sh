@@ -81,6 +81,36 @@ procedure main()
 end
 EOF
 
+icon "while" "$(printf '1\n2\n3')" << 'EOF'
+procedure main()
+  i := 1;
+  while i <= 3 do {
+    write(i);
+    i := i + 1;
+  };
+end
+EOF
+
+icon "until" "$(printf '5\n4\n3\n2\n1')" << 'EOF'
+procedure main()
+  i := 5;
+  until i <= 0 do {
+    write(i);
+    i := i - 1;
+  };
+end
+EOF
+
+icon "repeat_break" "$(printf '0\n1\n2')" << 'EOF'
+procedure main()
+  i := 0;
+  repeat {
+    if i >= 3 then break else write(i);
+    i := i + 1;
+  };
+end
+EOF
+
 echo ""
 echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE)"
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3  / $N   (tracked; floor MODE3_MIN=$MODE3_MIN)"

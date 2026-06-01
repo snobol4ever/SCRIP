@@ -1456,7 +1456,11 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_BINOP: {
         int op_is_rel = nd && ((nd->ival >= BINOP_LT && nd->ival <= BINOP_NE) ||
                                (nd->ival >= BINOP_SLT && nd->ival <= BINOP_SNE));
-        if (g_icn_flat_chain && op_is_rel) {
+        int op_is_arith = nd && (nd->ival == BINOP_ADD || nd->ival == BINOP_SUB || nd->ival == BINOP_MUL || nd->ival == BINOP_DIV || nd->ival == BINOP_MOD);
+        if (g_icn_flat_chain && (op_is_rel || op_is_arith)) {
+            /* GZ-8 relop / GZ-9 arith: operands are sibling boxes already collected by the flat-chain BFS  */
+            /* (each wrote its own DESCR slot). Emit ONLY this box (FILL) — do NOT re-walk operands via     */
+            /* flat_drive_binop_tree, which would duplicate them with fresh slots and clobber the slotmap.  */
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
@@ -1521,6 +1525,16 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_IDX:        flat_drive_idx_get(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_IDX_SET:    flat_drive_idx_set(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIST_BANG:  flat_drive_list_bang(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_BREAK:
+    case IR_NEXT:
+    case IR_REPEAT:
+        /* GZ-9 (Model B) flat-chain: pure unconditional forwarders. IR_BREAK/IR_NEXT jump to the loop  */
+        /* exit / re-entry (wired onto γ by the lowerer); IR_REPEAT jumps back to the body start (γ).   */
+        /* lbl_γ is resolved by the chain BFS from node->γ. β is a dead landing (jmp γ as well).         */
+        emit_label_define_bb(lbl_β);
+        emit_jmp_label(lbl_γ, JMP_JMP);
+        emit_jmp_label(lbl_γ, JMP_JMP);
+        break;
     default:
         emit_label_define_bb(lbl_β);
         emit_jmp_label(lbl_ω, JMP_JMP);

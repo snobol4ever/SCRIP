@@ -38,8 +38,11 @@ static std::string bb_assign_str(IR_t * pBB, bb_bin_t & bin) {
     /* producer's slot [r12+off_rhs] (bb_slot_get) and writes the named variable slot [r12+off_x]         */
     /* (bb_varslot keyed by name, shared with IR_VAR readers). 16-byte DESCR copy. The variable IS its    */
     /* slot — the test_sno_1.c named-slot model. NO rt_pop_nv_set, NO value stack, NO ring.              */
+    /* GZ-9 (2026-05-31): the RHS may also be an IR_BINOP (e.g. `i := i + 1` of a while/until loop). The   */
+    /* binop is its own producer box (bb_binop GZ-9 arith arm) that wrote a DESCR into its slot; the copy  */
+    /* below is generic over the producer kind, so accepting IR_BINOP needs only the type-guard widened.   */
     if (g_icn_flat_chain && pBB && pBB->sval && pBB->α
-        && (pBB->α->t == IR_LIT_I || pBB->α->t == IR_VAR)) {
+        && (pBB->α->t == IR_LIT_I || pBB->α->t == IR_VAR || pBB->α->t == IR_BINOP)) {
         int rhs_off = bb_slot_get(pBB->α);
         if (rhs_off >= 0) {
             int voff = bb_varslot(pBB->sval);
