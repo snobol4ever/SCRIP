@@ -206,6 +206,27 @@ static tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_ex
 /* bare-if-no-else quirk (GZ-8/9/10). FAIL-LOUD: unhandled statement kind -> whole body returns -1.        */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+/* proc_body_has_suspend — does this Icon procedure body (recursively, but NOT descending into a NESTED        */
+/* TT_PROC_DECL) contain a `suspend` statement? A procedure that suspends IS an Icon generator (jcon           */
+/* ir_a_Suspend / ir_a_ProcDecl): the IR_CALL site must re-pump it for successive values rather than treating  */
+/* it as a deterministic single-value call. We mark proc_table[].is_generator from this so ir_is_single_shot   */
+/* (bb_exec.c) classifies the call correctly and the EVERY/limit pump re-drives it.                            */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int proc_subtree_has_suspend(const tree_t *n) {
+    if (!n) return 0;
+    if (n->t == TT_SUSPEND) return 1;
+    if (n->t == TT_PROC_DECL || n->t == TT_SUB_DECL) return 0;   /* do NOT descend into a nested procedure */
+    for (int i = 0; i < n->n; i++) if (proc_subtree_has_suspend(n->c[i])) return 1;
+    return 0;
+}
+static int proc_body_has_suspend(const tree_t *proc) {
+    if (!proc) return 0;
+    /* proc is the TT_PROC_DECL itself; scan its CHILDREN (params + body) for a suspend, without the top-level
+       TT_PROC_DECL guard above tripping immediately. */
+    for (int i = 0; i < proc->n; i++) if (proc_subtree_has_suspend(proc->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_icon_body(const tree_t *proc) {
     if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
     const tree_t *body = proc->c[2];
@@ -640,6 +661,16 @@ stage2_t *lower(const tree_t *prog) {
         }
     }
     if (mask & (1u << LANG_ICN)) {
+        /* GZ-11 PRE-PASS — mark every Icon procedure's is_generator (does its body `suspend`?) BEFORE lowering
+           any body. The TT_FNC call arm in lower.c consults proc_table[].is_generator at lowering time to wire
+           a generator call as RESUMABLE (beta -> self) vs a deterministic call as BOUNDED (beta -> fail); since
+           a caller (e.g. main) may be lowered before the suspending callee (e.g. upto) in this loop, the flag
+           must be set for ALL procs first. */
+        for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+            const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+            if (!proc || proc->t != TT_PROC_DECL) continue;
+            g_stage2.proc_table[pi].is_generator = proc_body_has_suspend(proc);
+        }
         /* Icon procs were registered by polyglot_init with proc -> TT_PROC_DECL and bb_idx = -1. Lower each
            body into a four-port graph and fill bb_idx; the driver runs bb_exec_once(main). A proc whose body
            has an unhandled statement keeps bb_idx = -1 (lower_icon_body fails loud) -> driver aborts cleanly. */

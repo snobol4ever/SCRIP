@@ -11,11 +11,19 @@
 #define BB_DEFINE_NAMES
 #include "IR.h"
 #include "ast.h"
+#include "stage2.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* kind_is_resumable + cset_try_fold now come from lower.o (the production lowerer defines them); the harness no longer supplies local copies, which would otherwise be duplicate symbols at link. */
+/* GZ-11: lower.c's icn_proc_is_generator consults g_stage2.proc_table to decide a generator call's resume    */
+/* port. The production g_stage2 lives in sm_prog.c/gen_runtime.c (not linked into this standalone topology    */
+/* harness), so the harness supplies its own zero-initialized definition — proc_count is 0 here, so the helper */
+/* simply returns 0 (no generator calls in the topology proof cases). This mirrors how the harness already     */
+/* extern-declares the lower2_*_entry symbols it links from lower.o.                                            */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+stage2_t g_stage2;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
