@@ -2,7 +2,6 @@
 #include "gen_value.h"
 #include "../ast/ast.h"
 #include "../../frontend/snobol4/scrip_cc.h"
-#include "bb_broker.h"
 #include "gen.h"
 #include "coerce.h"
 #include "scan_builtins.h"
@@ -315,47 +314,12 @@ int is_suspendable(tree_t *e) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { DESCR_t val; int fired; } gen_bb_oneshot_state_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { IR_graph_t *cfg; int first; } dcg_state_t;
+/* gen_bb_dcg / gen_bb_oneshot removed (brokered ICN generator path deleted with bb_broker) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_node_t gen_bb_pump_proc_by_name(const char *name, DESCR_t *args, int nargs) {
-    if (!name) return (bb_node_t){ NULL, NULL, 0 };
-    for (int i = 0; i < g_stage2.proc_count; i++) {
-        if (strcmp(g_stage2.proc_table[i].name, name) != 0) continue;
-        IR_graph_t *_cfg_i = bb_graph_of_proc(&g_stage2.proc_table[i]);
-        if (_cfg_i) {
-            if (frame_depth < FRAME_STACK_MAX) {
-                GenFrame *f = &frame_stack[frame_depth++];
-                memset(f, 0, sizeof *f);
-                Scope sc_local = g_stage2.proc_table[i].lower_sc;
-                f->sc       = sc_local;
-                int nslots = sc_local.n > 0 ? sc_local.n : 1;
-                if (nslots > FRAME_SLOT_MAX) nslots = FRAME_SLOT_MAX;
-                f->env_n    = nslots;
-                for (int k = 0; k < g_stage2.proc_table[i].nparams && k < nargs && k < FRAME_SLOT_MAX; k++)
-                    f->env[k] = args[k];
-            }
-            dcg_state_t *dz = calloc(1, sizeof(*dz));
-            dz->cfg = _cfg_i;
-            dz->first = 1;
-            return (bb_node_t){ gen_bb_dcg, dz, 0 };
-        }
-        if (g_stage2.proc_table[i].is_generator && g_stage2.proc_table[i].entry_pc >= 0 && 1) {
-            GeneratorState *pgs = generator_state_new_proc(i, args, nargs);
-            if (pgs) {
-                IR_graph_t *pcfg = lower_proc_gen(pgs);
-                if (pcfg) {
-                    dcg_state_t *pdz = calloc(1, sizeof(*pdz));
-                    pdz->cfg = pcfg; pdz->first = 1;
-                    return (bb_node_t){ gen_bb_dcg, pdz, 0 };
-                }
-            }
-        }
-        gen_bb_oneshot_state_t *oshot1 = calloc(1, sizeof(*oshot1));
-        oshot1->val = proc_table_call(i, args, nargs);
-        return (bb_node_t){ gen_bb_oneshot, oshot1, 0 };
-    }
+    fprintf(stderr, "[SBL] FATAL: gen_bb_pump_proc_by_name: brokered generator path removed\n");
+    abort();
+    (void)name; (void)args; (void)nargs;
     return (bb_node_t){ NULL, NULL, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

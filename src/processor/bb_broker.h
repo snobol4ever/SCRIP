@@ -1,6 +1,0 @@
-#ifndef BB_BROKER_H
-#define BB_BROKER_H
-#include "bb_box.h"
-#include "core.h"
-int bb_broker(bb_node_t root, BrokerMode mode, void (*body_fn)(DESCR_t val, void * arg), void * arg);
-#endif

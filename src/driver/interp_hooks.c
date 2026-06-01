@@ -70,14 +70,11 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
                         NULL);
                 Term **saved_env = g_resolve_env;
                 g_resolve_env = resolve_args;
-                Resolve_PredEntry *_hpe = resolve_pred_entry_lookup(resolve_key);
-                extern stage2_t g_stage2;
-                bb_node_t root = (_hpe && _hpe->entry_pc >= 0 && 1)
-                    ? pl_box_choice_pc(_hpe->entry_pc, g_resolve_env, nargs)
-                    : pl_box_choice(choice, g_resolve_env, nargs);
-                int ok = bb_broker(root, bb_once, NULL, NULL);
-                g_resolve_env = saved_env;
-                return ok ? INTVAL(1) : FAILDESCR;
+                /* brokered pl_box_choice + bb_broker Prolog call path removed — abort */
+                fprintf(stderr, "[PL] FATAL: brokered Prolog call path removed (interp_hooks)\n");
+                abort();
+                (void)saved_env;
+                return FAILDESCR;
             }
         }
     }
