@@ -1854,7 +1854,15 @@ static IR_t * g_ite(lcx_t cx, const tree_t * cond, const tree_t * then_, const t
     IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
     bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
-    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; ite->ival = (int64_t)(intptr_t)zi; }
+    /* PLG-9f (2026-06-01): then_/else_ are the branch ENTRY (entry[0]) nodes — what mode-2 follows by port
+       wiring (cond.gamma->then_, cond.omega->else_), and what scrip.c's commit-safety guard inspects. then_root/
+       else_root are the branch PRINCIPAL (wrapper) nodes — `lower_goal`'s RETURN value (t/b). For a single-goal
+       branch principal==entry; for a MULTI-goal branch (a `,`-spine / TT_PROGRAM lowered via wire_seq) the
+       principal is the IR_GCONJ wrapper while entry[0] is only its first goal. The mode-4/native-mode-3 emitter
+       (flat_drive_pl_ite) MUST walk the principal so a driver-owned IR_GCONJ dispatches to flat_drive_pl_seq and
+       every goal in the branch emits; walking entry[0] alone emitted only the first goal (the PLG-9f bug —
+       `(C -> g1, g2, g3 ; …)` ran only g1). Additive + mode-2-neutral: the interpreter reads neither field. */
+    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = t; zi->else_root = b; zi->cond_root = c; ite->ival = (int64_t)(intptr_t)zi; }
     set_succ_fail(ite, γ_in, ω_in);
     return ret(ite, α_out, β_out, ite, ω_in /* semidet to enclosing seq: resume -> fail */);
 }
@@ -1876,7 +1884,7 @@ static IR_t * g_neg_goal(lcx_t cx, const tree_t * goal_t, IR_t * γ_in, IR_t * �
     IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
     bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
-    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; ite->ival = (int64_t)(intptr_t)zi; }
+    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; ite->ival = (int64_t)(intptr_t)zi; }
     set_succ_fail(ite, γ_in, ω_in);
     return ret(ite, α_out, β_out, ite, ω_in);
 }
@@ -1896,7 +1904,7 @@ static IR_t * g_not_unify(lcx_t cx, const tree_t * A, const tree_t * B, IR_t * �
     IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
     bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
-    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; ite->ival = (int64_t)(intptr_t)zi; }
+    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; ite->ival = (int64_t)(intptr_t)zi; }
     set_succ_fail(ite, γ_in, ω_in);
     return ret(ite, α_out, β_out, ite, ω_in);
 }
