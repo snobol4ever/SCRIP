@@ -40,6 +40,16 @@ static tree_t * jct(const char * flav, tree_t * m0, tree_t * m1, tree_t * m2) {
 }
 static tree_t * gfnc2(const char * name, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); ast_push(n, b); return n; }
 static tree_t * gfnc3(const char * name, tree_t * a, tree_t * b, tree_t * c) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
+/* rkfnc(name, a0, a1, a2) — Raku explicit-call form f(args): the parser shape for a builtin call is
+   TT_FNC(sval=name, c[0]=TT_VAR(name) name sentinel, c[1..]=args) — e.g. __rk_arr(1,2,3) (the desugaring of
+   the list literal (1,2,3)), elems(@a), reverse(@a). Pass NULL args to stop early. (Same shape as jct() but
+   named for RK-LOWER-5a's pure read-only builtin calls rather than junctions.) */
+static tree_t * rkfnc(const char * name, tree_t * a0, tree_t * a1, tree_t * a2) {
+    tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name;
+    ast_push(n, var(name));
+    if (a0) ast_push(n, a0); if (a1) ast_push(n, a1); if (a2) ast_push(n, a2);
+    return n;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int idx_of(IR_graph_t * g, IR_t * n) { if (!n) return -1; for (int i = 0; i < g->n; i++) if (g->all[i] == n) return i; return -2; }
 static const char * kname(IR_e t) {
@@ -407,6 +417,21 @@ int main(void) {
        sub-graphs. => 1 real PRINCIPAL node (the nested junction never flattens into the outer member chain). */
     dump_raku_value("RAKU:     any(1, all(5, 5))   [RK-LOWER-4 nested: outer IR_CALL __rk_jct_any (1 principal); inner all(5,5) is one opaque member sub-graph]",
          jct("any", lit(1), jct("all", lit(5), lit(5), NULL), NULL), 1);
+    /* RK-LOWER-5a: Raku PURE read-only value builtins -> ONE deterministic IR_CALL (dval=2.0) via v_raku_det_call.
+       Each operand lowers into a SEPARATE value sub-graph (the SNOBOL4-call-arg idiom, ptr array on counter), so
+       NONE are counted in the principal graph => 1 real PRINCIPAL node each, exactly like the junction cases. */
+    /* list construction `(1,2,3)` desugars (parser) to __rk_arr(1,2,3); builds the \x01-joined array value. */
+    dump_raku_value("RAKU:     (1,2,3) => __rk_arr(1,2,3)   [RK-LOWER-5a: IR_CALL __rk_arr dval=2.0, det; 3 elems in isolated value sub-graphs]",
+         rkfnc("__rk_arr", lit(1), lit(2), lit(3)), 1);
+    /* `@a[1]` positional read -> arr_get; var + index lower into isolated value sub-graphs. */
+    dump_raku_value("RAKU:     @a[1]   [RK-LOWER-5a TT_ARR_GET -> IR_CALL arr_get dval=2.0, det; var+idx in sub-graphs]",
+         bin(TT_ARR_GET, var("a"), lit(1)), 1);
+    /* `sort(@a)` -> array_sort (TT_SORT dedicated node, 1 child). */
+    dump_raku_value("RAKU:     sort(@a)   [RK-LOWER-5a TT_SORT -> IR_CALL array_sort dval=2.0, det; @a in sub-graph]",
+         un(TT_SORT, var("a")), 1);
+    /* `elems(@a)` -> elems (explicit-call form). */
+    dump_raku_value("RAKU:     elems(@a)   [RK-LOWER-5a TT_FNC whitelist -> IR_CALL elems dval=2.0, det; @a in sub-graph]",
+         rkfnc("elems", var("a"), NULL, NULL), 1);
     /* ===== END RAKU SECTION ===== */
     return 0;
 }

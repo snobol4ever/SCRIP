@@ -639,6 +639,40 @@ static IR_t * v_raku_map_grep(lcx_t cx, int is_grep, const tree_t * closure_t, c
     return ret(mg, α_out, β_out, mg /*entry = its own start*/, mg /*IR_MAP/IR_GREP is its own resume (β=self)*/);
 }
 /*====================================================================================================================================================================================================*/
+/* RK-LOWER-5a (Raku eager core) — DETERMINISTIC builtin VALUE call: a Raku construct that is a pure args-in /
+ * value-out function on its operands, lowered to ONE IR_CALL (dval=2.0 SNOBOL4 isolated-subgraph idiom, det
+ * so β=ω_in). Each operand lowers into its OWN value sub-graph (lower_value_subgraph; the cursor keeps
+ * cx.lang=IR_LANG_RKU so a nested Raku value re-enters the right arms), and the sub-graph pointer array rides
+ * on `counter` with the count on `ival` — byte-for-byte the same packing the junction arm uses, so the EXISTING
+ * dval==2.0 exec arm in bb_exec.c drains the operands and dispatches the named builtin through
+ * try_call_builtin_by_name -> (RK-LOWER-4 tail delegation) script_try_call_builtin_by_name. This is how the
+ * read-only Raku data builtins reach their already-proven runtime: hash element read (`%h<k>`/`%h{k}` ->
+ * hash_get, docs.raku.org/type/Hash#postcircumfix), hash membership (hash_exists, docs.raku.org/routine/:exists),
+ * positional read (`@a[i]` -> arr_get, docs.raku.org/type/Array) and whole-list `sort(@a)` -> array_sort
+ * (docs.raku.org/routine/sort). All are STRAIGHT-LINE (no generator, beta=omega). A failing operand fails the
+ * call (-> ω_in). The Raku arm lives INSIDE each kind's one case (FACT RULE); non-Raku langs fall to
+ * lower_unhandled (loud), never a silent default.                                                              */
+/*====================================================================================================================================================================================================*/
+static IR_t * v_raku_det_call(lcx_t cx, const char * fn, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!fn || nkids < 0) return NULL;
+    IR_t * call = nalloc(cx, IR_CALL);
+    if (!call) return NULL;
+    call->sval = GC_strdup(fn);                                  /* GC-stable builtin name for exec dispatch */
+    call->ival = nkids;
+    call->dval = 2.0;                                            /* isolated-subgraph args (SNOBOL4 call idiom) */
+    IR_graph_t ** blks = (IR_graph_t **) calloc((size_t)(nkids > 0 ? nkids : 1), sizeof(IR_graph_t *));
+    if (!blks) return NULL;
+    lcx_t mv = cx; mv.role = ROLE_VALUE;                         /* cursor keeps cx.lang=IR_LANG_RKU for nesting */
+    for (int i = 0; i < nkids; i++) {
+        if (!kids[i]) { free(blks); return NULL; }
+        blks[i] = lower_value_subgraph(mv, kids[i]);
+        if (!blks[i]) { free(blks); return NULL; }
+    }
+    call->counter = (int64_t)(intptr_t) blks;                    /* array of operand value sub-graphs */
+    set_succ_fail(call, γ_in, ω_in);
+    return ret(call, α_out, β_out, call /* call node is the chain entry */, ω_in /* det */);
+}
+/*====================================================================================================================================================================================================*/
 /* VALUE-ROLE — `while E1 [do E2]` (jcon ir_a_While). Condition + body both bounded; each iteration
  * re-evaluates the condition FRESH (not resume): while.α = E1.α ; E1.γ = body.α ; E1.ω = while.ω ;
  * body.γ = body.ω = E1.α. while yields no value; fails when the condition fails.                          */
@@ -1061,6 +1095,37 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             set_succ_fail(call, γ_in, ω_in);
             return ret(call, α_out, β_out, call /* call node is the chain entry */, ω_in /* bounded */);
         }
+        /* RK-LOWER-5a: Raku PURE / read-only value builtins (explicit-call form `f(...)`, which the parser hands
+           as TT_FNC(c[0]=TT_VAR(name), c[1..]=args)) -> one deterministic IR_CALL via v_raku_det_call. This is the
+           reach into the already-proven script-builtin runtime (script_builtins_byname.c, via the RK-LOWER-4 tail
+           delegation): list/array CONSTRUCTION `(e1,e2,..)` desugars to `__rk_arr(e1,e2,..)` (builds the \x01-joined
+           array string — docs.raku.org/type/List), `elems` (docs.raku.org/routine/elems), `reverse`
+           (docs.raku.org/routine/reverse), `sort`/`array_sort` (docs.raku.org/routine/sort), positional/associative
+           reads `arr_get`/`hash_get`/`hash_exists`, `hash_keys`/`hash_values`/`hash_pairs`, and the string/list value
+           helpers `join`/`sum`/`unique`/`head`/`tail`/`chars`/`length`/`lc`/`uc`/`trim`/`substr`/`index`/`rindex`.
+           The MUTATING builtins (push/pop/arr_set/hash_set/hash_delete) and the effectful ones (open, close, slurp,
+           spurt, die, meth_call, obj_new, the grammar/regex/nfa families) are DELIBERATELY NOT whitelisted — routing
+           them through this pure value path would compute a result but silently DROP their variable-writeback or side
+           effect, so per the FACT RULE they instead fall to lower_unhandled (loud) and land properly in RK-LOWER-5b/5c.
+           The Raku arm lives INSIDE this one TT_FNC case; non-Raku langs never reach it (SNOBOL4 returned above;
+           Icon/Prolog use their own TT_FNC shapes). */
+        if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            static const char * const RK_PURE[] = {
+                "__rk_arr", "elems", "reverse", "sort", "array_sort", "arr_get",
+                "hash_get", "hash_exists", "hash_keys", "hash_values", "hash_pairs",
+                "join", "sum", "unique", "head", "tail", "chars", "length",
+                "lc", "uc", "trim", "substr", "index", "rindex", NULL };
+            const char * fn = e->c[0]->v.sval;
+            int is_pure = 0;
+            for (int i = 0; RK_PURE[i]; i++) if (!strcmp(fn, RK_PURE[i])) { is_pure = 1; break; }
+            if (is_pure) {
+                int nk = e->n - 1;
+                const tree_t * kids[16];
+                if (nk > 16) nk = 16;
+                for (int i = 0; i < nk; i++) kids[i] = e->c[i + 1];
+                return v_raku_det_call(cx, fn, kids, nk, γ_in, ω_in, α_out, β_out);
+            }
+        }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);   /* multi-arg write / general call = L2-E */
     }
     /* RAKU `say(x)` / `print(x)` 1-arg output (RK-LOWER-0). Per docs.raku.org/routine/say + /routine/print: say
@@ -1101,6 +1166,36 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         if (cx.lang == IR_LANG_RKU && e->n >= 2 && e->c[0] && e->c[1])
             return v_raku_map_grep(cx, (e->t == TT_GREP), e->c[0], e->c[1], γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    /* RK-LOWER-5a: Raku read-only data builtins as deterministic value calls (v_raku_det_call -> IR_CALL dval=2.0).
+       `%h<k>`/`%h{k}` postcircumfix read -> hash_get (docs.raku.org/type/Hash); `@a[i]` positional read -> arr_get
+       (docs.raku.org/type/Array); membership -> hash_exists (docs.raku.org/routine/:exists); whole-list sort(@a) ->
+       array_sort (docs.raku.org/routine/sort). Each kid (incl. the %/@/$ variable, whose VALUE — the \x01/\x02-packed
+       string — is what the runtime reads via VARVAL_fn) lowers into its own value sub-graph. FACT RULE: the Raku arm
+       lives INSIDE each one case; a non-Raku language hitting these kinds falls to lower_unhandled (loud). */
+    case TT_HASH_GET:
+        if (cx.lang == IR_LANG_RKU && e->n >= 2 && e->c[0] && e->c[1]) {
+            const tree_t * k[2] = { e->c[0], e->c[1] };
+            return v_raku_det_call(cx, "hash_get", k, 2, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_HASH_EXISTS:
+        if (cx.lang == IR_LANG_RKU && e->n >= 2 && e->c[0] && e->c[1]) {
+            const tree_t * k[2] = { e->c[0], e->c[1] };
+            return v_raku_det_call(cx, "hash_exists", k, 2, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_ARR_GET:
+        if (cx.lang == IR_LANG_RKU && e->n >= 2 && e->c[0] && e->c[1]) {
+            const tree_t * k[2] = { e->c[0], e->c[1] };
+            return v_raku_det_call(cx, "arr_get", k, 2, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_SORT:
+        if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0]) {
+            const tree_t * k[1] = { e->c[0] };
+            return v_raku_det_call(cx, "array_sort", k, 1, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     /* SNOBOL4 pattern-match statement SUBJECT ? PATTERN (LOWER2-EXEC). Icon scanning (TT_SMATCH / Icon ?) stays
        in the unhandled group below (L2-F). The per-language split lives inside v_scan (FACT RULE) via cx.lang. */
     case TT_SCAN:
@@ -1112,9 +1207,9 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_INDIRECT: case TT_IDENTICAL:
     case TT_SMATCH:     /* subj ? pat — flips cx.role = ROLE_PATTERN */
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER:
-    case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW: case TT_SORT:
-    case TT_HASH_GET: case TT_HASH_SET: case TT_HASH_DELETE: case TT_HASH_EXISTS:
-    case TT_ARR_GET: case TT_ARR_SET:
+    case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW:
+    case TT_HASH_SET: case TT_HASH_DELETE:
+    case TT_ARR_SET:
     case TT_PRINT_FH: case TT_SAY_FH:
     case TT_GLOBAL: case TT_LOCAL: case TT_STATIC_DECL: case TT_DECL: case TT_INITIAL: case TT_OPSYN:
     case TT_GOTO_U: case TT_GOTO_S: case TT_GOTO_F:
