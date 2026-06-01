@@ -74,75 +74,9 @@ static int bb_pl_op_floaty(const char *fn) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* emit_write_term — CAT-D-7 (2026-05-27, Opus 4.7) emit-time recursive walker for write/1's
-   operand subgraph. The bb_builtin write/1 TEXT arm calls this once per argument; the helper
-   returns an asm string that, when executed, renders that one argument to stdout via existing
-   pure-effect helpers (rt_pl_write_atom / _var / _int / _cstr). For IR_STRUCT it recurses,
-   interleaving rt_pl_write_cstr("(" / "," / ")") between the functor and its children. Children
-   of a struct hang off α then chase γ for arity-1 more hops (see lower_pl.c:131-136). All bytes
-   originate from s_2asm/s_1asm inside this template per the FACT RULE — no caller-side emit. */
-static std::string emit_write_term(const IR_t *nd) {
-    if (!nd) return s_comment("# write_term: NULL");
-    if (nd->t == IR_ATOM) {
-        char lbl[64];
-        if (nd->sval && *nd->sval) {
-            strtab_label(lbl, sizeof lbl, nd->sval);
-            return s_2asm("lea rcx,", emit_fmt("[rip + %s]", lbl))
-                 + s_2asm("mov", "rdi, rcx")
-                 + s_2asm("call", "rt_pl_write_atom@PLT");
-        }
-        return s_2asm("xor", "edi, edi") + s_2asm("call", "rt_pl_write_atom@PLT");
-    }
-    if (nd->t == IR_LOGICVAR) {
-        return s_2asm("mov edi,", emit_fmt("%d", (int)nd->ival))
-             + s_2asm("call", "rt_pl_write_var@PLT");
-    }
-    if (nd->t == IR_LIT_I) {
-        return s_2asm("mov rdi,", emit_fmt("%ld", (long)nd->ival))
-             + s_2asm("call", "rt_pl_write_int@PLT");
-    }
-    if (nd->t == IR_LIT_F) {
-        /* Floats not yet rendered inline — printing as int would be wrong; leave a marker so the */
-        /* failure is visible in `objdump --disassemble` instead of silent garbage on stdout.       */
-        return s_comment("# write_term: IR_LIT_F not yet rendered inline (rare in rungs)");
-    }
-    if (nd->t == IR_STRUCT) {
-        char lparen_lbl[64], comma_lbl[64], rparen_lbl[64], fn_lbl[64];
-        strtab_label(lparen_lbl, sizeof lparen_lbl, "(");
-        strtab_label(comma_lbl,  sizeof comma_lbl,  ",");
-        strtab_label(rparen_lbl, sizeof rparen_lbl, ")");
-        std::string out;
-        if (nd->sval && *nd->sval) {
-            strtab_label(fn_lbl, sizeof fn_lbl, nd->sval);
-            out += s_2asm("lea rcx,", emit_fmt("[rip + %s]", fn_lbl))
-                 + s_2asm("mov", "rdi, rcx")
-                 + s_2asm("call", "rt_pl_write_atom@PLT");
-        }
-        out += s_2asm("lea rcx,", emit_fmt("[rip + %s]", lparen_lbl))
-             + s_2asm("mov", "rdi, rcx")
-             + s_2asm("call", "rt_pl_write_cstr@PLT");
-        int arity = (int)nd->ival;
-        const IR_t *child = nd->α;
-        for (int i = 0; i < arity && child; i++) {
-            if (i > 0) {
-                out += s_2asm("lea rcx,", emit_fmt("[rip + %s]", comma_lbl))
-                     + s_2asm("mov", "rdi, rcx")
-                     + s_2asm("call", "rt_pl_write_cstr@PLT");
-            }
-            out += emit_write_term(child);
-            child = child->γ;
-        }
-        out += s_2asm("lea rcx,", emit_fmt("[rip + %s]", rparen_lbl))
-             + s_2asm("mov", "rdi, rcx")
-             + s_2asm("call", "rt_pl_write_cstr@PLT");
-        return out;
-    }
-    return s_comment(emit_fmt("# write_term: unhandled kind %d", (int)nd->t));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* CAT-D-9b (2026-05-27, Opus 4.7): emit_build_compound_term — post-order asm walker that constructs a   */
-/* real Term* tree from a IR_t subgraph. Mirrors emit_write_term's structure but CONSTRUCTIVE instead of */
-/* destructive: each invocation emits asm that leaves the Term* for that subtree in rax. For IR_STRUCT */
+/* real Term* tree from a IR_t subgraph. Each invocation emits asm that leaves the Term* for that         */
+/* subtree in rax. For IR_STRUCT */
 /* with arity N, we sub rsp by aligned(N*8) to reserve an args slot-array, recursively build each child   */
 /* into its slot, then call rt_pl_compound_build_n(functor_name, N, rsp). For leaves we route to          */
 /* rt_pl_node_to_term — same serialized-scalar shape used everywhere in CAT-D-*. Used by the IR_BUILTIN   */
@@ -1437,11 +1371,34 @@ static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
                 } else if (arg->t == IR_LOGICVAR) {
                     write_body = s_2asm("mov edi,", emit_fmt("%d", (int)arg->ival))
                                + s_2asm("call", "rt_pl_write_var@PLT");
-                } else if (arg->t == IR_STRUCT || arg->t == IR_LIT_I) {
-                    /* CAT-D-7: compound terms (and bare ints — rare but cheap to dispatch the same way). */
-                    write_body = emit_write_term(arg);
+                } else if (arg->t == IR_LIT_I) {
+                    /* PLG-9j: bare int is a flat-tier arg (PLG-9b gate) — 16-aligned box entry, so a direct */
+                    /* rt_pl_write_int with no rsp adjust is correct (a sub rsp,8 here would mis-align the    */
+                    /* call and fault). Restores the pre-PLG-9j leaf path; only compounds need pl_write.      */
+                    write_body = s_2asm("mov rdi,", emit_fmt("%ld", (long)arg->ival))
+                               + s_2asm("call", "rt_pl_write_int@PLT");
+                } else if (arg->t == IR_LIT_F) {
+                    /* PLG-9j: bare float — likewise a flat-tier leaf (16-aligned entry). Load the literal's  */
+                    /* bits into xmm0 (no .rodata constant) and call rt_pl_write_float directly, no rsp       */
+                    /* adjust. emit_build_compound_term hard-codes xmm0=0 for leaves, so the build+pl_write   */
+                    /* path below would render 0.0 (and a sub rsp,8 would mis-align the leaf's call → fault).  */
+                    uint64_t fb = 0; double dv = arg->dval; memcpy(&fb, &dv, sizeof fb);
+                    write_body = s_2asm("mov rax,", emit_fmt("%llu", (unsigned long long)fb))
+                               + s_2asm("movq", "xmm0, rax")
+                               + s_2asm("call", "rt_pl_write_float@PLT");
                 } else {
-                    write_body = s_comment(emit_fmt("# RESOLVE_BUILTIN write: arg kind %d not yet emitted inline", (int)arg->t));
+                    /* PLG-9j (2026-06-01, Opus 4.8): compound / op-term arg (IR_STRUCT / IR_ARITH — rich     */
+                    /* tier, 8-misaligned box entry) → build the Term* via emit_build_compound_term then      */
+                    /* rt_pl_write_term_ptr@PLT (which calls pl_write — the mode-2 oracle's writer, so it     */
+                    /* sugars cons-cells against ATOM_DOT/ATOM_NIL: [a,b,c] not .(a,.(b,.(c,[])))). Replaces  */
+                    /* the old emit_write_term inline walker, which rendered an IR_STRUCT '.'/2 generically   */
+                    /* as functor notation (the m4 write-list gap — rung20 list). Byte-twin of the writeq     */
+                    /* TEXT arm. sub rsp,8 realigns to 16 across the build's and writer's internal calls.     */
+                    write_body = s_2asm("sub", "rsp, 8")
+                               + emit_build_compound_term(arg)
+                               + s_2asm("mov", "rdi, rax")
+                               + s_2asm("call", "rt_pl_write_term_ptr@PLT")
+                               + s_2asm("add", "rsp, 8");
                 }
             } else {
                 write_body = s_comment("# RESOLVE_BUILTIN write: no arg");
@@ -1683,6 +1640,35 @@ static std::string bb_builtin_str(IR_t * pBB, bb_bin_t & bin) {
         /* 2966 (atom_string) and :2931-2942 (string_to_atom) is symmetric — both predicates accept a    */
         /* ground arg on either side and produce an atom with the same text on the other side. SCRIP    */
         /* Terms make no atom-vs-string distinction (both TERM_ATOM), so one helper serves both.        */
+        /* PLG-9j (2026-06-01, Opus 4.8): numbervars/3 MEDIUM_TEXT arm — the @PLT twin of the PLR-K-3      */
+        /* BINARY arm. a0 = term (α), a1 = start int (α->γ), a2 = End var (α->γ->γ). Build a0 via           */
+        /* emit_build_compound_term: its IR_LOGICVARs alias the live env slots (rt_pl_node_to_term writes   */
+        /* an unbound var's fresh Term back to g_resolve_env[slot]), so rt_pl_numbervars_term binding each  */
+        /* TERM_VAR to '$VAR'(N) via unify mutates the very cells the later write rereads. Hold the term in */
+        /* rdi across the start/End loads: rt_pl_numbervars_term(t0=rdi, start=rsi, k2=edx, i2=rcx, s2=r8). */
+        /* sub rsp,8 keeps 16-alignment across the builder's/helper's calls. test eax → je ω / jmp γ; β→ω.  */
+        if (strcmp(fn, "numbervars") == 0 && pBB->ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
+            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+            long start = (long)a1->ival;
+            int  k2 = (int)a2->t;
+            long i2 = (long)a2->ival;
+            char s2lbl[64]; s2lbl[0] = 0;
+            if (k2 == IR_ATOM && a2->sval) strtab_label(s2lbl, sizeof s2lbl, a2->sval);
+            return hdr
+                 + s_2asm("sub", "rsp, 8")
+                 + emit_build_compound_term(a0)
+                 + s_2asm("mov", "rdi, rax")
+                 + s_2asm("mov rsi,", emit_fmt("%ld", start))
+                 + s_2asm("mov edx,", emit_fmt("%d", k2))
+                 + s_2asm("mov rcx,", emit_fmt("%ld", i2))
+                 + (s2lbl[0] ? s_2asm("lea r8,", emit_fmt("[rip + %s]", s2lbl)) : s_2asm("xor", "r8d, r8d"))
+                 + s_2asm("call", "rt_pl_numbervars_term@PLT")
+                 + s_2asm("add", "rsp, 8")
+                 + s_2asm("test", "eax, eax")
+                 + s_2asm("je",   _.lbl_ω)
+                 + s_2asm("jmp",  _.lbl_γ)
+                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+        }
         /* PLG-9i (2026-06-01, Opus 4.8): copy_term/2 with a COMPOUND arg0 (IR_STRUCT/IR_ARITH) — the @PLT  */
         /* MEDIUM_TEXT twin of the PLR-K-15 BINARY arm. The shared scalar CAT-D-5 arm below degenerates a   */
         /* compound arg0 (rt_pl_node_to_term flattens an IR_STRUCT, losing intra-term var-sharing →         */
