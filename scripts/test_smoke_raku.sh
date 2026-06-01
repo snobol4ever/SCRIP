@@ -1,19 +1,42 @@
 #!/usr/bin/env bash
-# test_smoke_raku.sh — per-frontend smoke for Raku  (FI-9)
-# Gate: exits 0 in < 2s on a clean build.
-# AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-14
+# test_smoke_raku.sh — per-frontend smoke for Raku, run in ALL THREE execution modes.
+#   mode 2 = --interp  (BB port-walker oracle over the lowered IR) — HARD GATE: must be all-PASS.
+#   mode 3 = --run     (stackless native x86)   — TRACKED: climbs to all-PASS as RK-EMIT lands.
+#   mode 4 = --compile (standalone x86-64 asm)   — TRACKED: emit asm -> as -> link libscrip_rt -> run.
+# ⛔ POLICY (GOAL-RAKU-BB.md "TESTING DIRECTIVE — ALWAYS RUN ALL THREE MODES", Lon 2026-05-31): every Raku
+#    execution test runs --interp, --run AND --compile on the SAME program and reports all three. Never report
+#    a mode-2 number alone. Modes 3/4 are by-design SMX abort until RK-EMIT (the bb_rk_*.cpp templates) is built,
+#    so they read 0/N today (floors MODE3_MIN/MODE4_MIN default 0); raise the floors as 3/4 come back.
+# Exit 0 iff mode-2 is all-PASS AND mode-3 PASS >= $MODE3_MIN AND mode-4 PASS >= $MODE4_MIN.
+# AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet · Claude Opus  DATE: 2026-05-31 (3-mode)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-PASS=0; FAIL=0
+RT_SO="${HERE}/../out/libscrip_rt.so"
+MODE3_MIN="${MODE3_MIN:-0}"
+MODE4_MIN="${MODE4_MIN:-0}"
+P2=0; F2=0; P3=0; F3=0; P4=0; F4=0; N=0
 
 raku() {
     local label="$1" expected="$2"
     local tmp; tmp=$(mktemp /tmp/rk_XXXXXX.raku)
     cat > "$tmp"
-    local actual; actual=$(timeout 8 "$SCRIP" --interp "$tmp" 2>/dev/null)
-    rm -f "$tmp"
-    if [ "$actual" = "$expected" ]; then echo "  PASS $label"; PASS=$((PASS+1))
-    else echo "  FAIL $label (got: $(echo "$actual"|head -1))"; FAIL=$((FAIL+1)); fi
+    N=$((N+1))
+    local a2 a3 a4 r2 r3 r4
+    a2=$(timeout 8 "$SCRIP" --interp "$tmp" 2>/dev/null </dev/null)
+    a3=$(timeout 8 "$SCRIP" --run    "$tmp" 2>/dev/null </dev/null)
+    a4=""
+    local s4 bin4
+    s4=$(mktemp /tmp/rk_XXXXXX.s); bin4=$(mktemp /tmp/rk_XXXXXX.bin); rm -f "$bin4"
+    if timeout 8 "$SCRIP" --compile --target=x86 "$tmp" >"$s4" 2>/dev/null </dev/null && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
+        if gcc -no-pie "$s4" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin4" 2>/dev/null; then
+            a4=$(timeout 8 "$bin4" 2>/dev/null </dev/null)
+        fi
+    fi
+    rm -f "$tmp" "$s4" "$bin4"
+    if [ "$a2" = "$expected" ]; then r2="m2 PASS"; P2=$((P2+1)); else r2="m2 FAIL"; F2=$((F2+1)); fi
+    if [ "$a3" = "$expected" ]; then r3="m3 PASS"; P3=$((P3+1)); else r3="m3 FAIL"; F3=$((F3+1)); fi
+    if [ "$a4" = "$expected" ]; then r4="m4 PASS"; P4=$((P4+1)); else r4="m4 FAIL"; F4=$((F4+1)); fi
+    printf "  [%s] [%s] [%s] %s\n" "$r2" "$r3" "$r4" "$label"
 }
 
 echo "=== Raku smoke ==="
@@ -201,4 +224,8 @@ sub main() {
 }
 EOF
 
-echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
+echo ""
+echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE)"
+echo "mode-3 (--run):      PASS=$P3 FAIL=$F3  / $N   (tracked; floor MODE3_MIN=$MODE3_MIN)"
+echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4  / $N   (tracked; floor MODE4_MIN=$MODE4_MIN)"
+[ "$F2" -eq 0 ] && [ "$P3" -ge "$MODE3_MIN" ] && [ "$P4" -ge "$MODE4_MIN" ]
