@@ -142,6 +142,9 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_upto.cpp \
     $(SRC)/emitter/BB_templates/bb_suspend.cpp \
     $(SRC)/emitter/BB_templates/bb_seq.cpp \
+    $(SRC)/emitter/BB_templates/bb_seq_gather.cpp \
+    $(SRC)/emitter/BB_templates/bb_seq_flat.cpp \
+    $(SRC)/emitter/BB_templates/bb_seq_passthrough.cpp \
     $(SRC)/emitter/BB_templates/bb_iterate.cpp \
     $(SRC)/emitter/BB_templates/bb_gen_scan.cpp \
     $(SRC)/emitter/BB_templates/bb_keyword.cpp \
@@ -335,6 +338,9 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_upto.cpp -o $(OBJ)/bb_upto.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_suspend.cpp -o $(OBJ)/bb_suspend.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_seq.cpp -o $(OBJ)/bb_seq.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_seq_gather.cpp -o $(OBJ)/bb_seq_gather.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_seq_flat.cpp -o $(OBJ)/bb_seq_flat.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_seq_passthrough.cpp -o $(OBJ)/bb_seq_passthrough.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gen_alt.cpp -o $(OBJ)/bb_gen_alt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_limit.cpp -o $(OBJ)/bb_limit.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_iterate.cpp -o $(OBJ)/bb_iterate.o
