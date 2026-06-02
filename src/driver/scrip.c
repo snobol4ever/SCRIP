@@ -1023,13 +1023,18 @@ int main(int argc, char **argv)
             return rc;
         }
         {
-            /* SBL-RING-REMOVE (2026-05-31, Opus 4.8): SNOBOL4 mode-4 BB-native x86 emission now ABORTS.
-               It previously leaned on sno_ring_to_tree (the postfix-ring → four-port-tree adapter) which is
-               REMOVED as a VIOLATION (Lon directive) — the topology must come from LOWER, not be re-derived at
-               emit time. The mode-4 emission scaffolding (codegen_flat_build + the XA wrap templates) is intact
-               and unchanged; the missing piece is LOWER emitting the four-port statement-BB graph directly, after
-               which mode-4's TEXT arm and mode-3's BINARY arm of the SAME box light up together. Until then,
-               abort below (by design). NO storage outside the boxes (PER-BOX LOCAL STORAGE FACT RULE). */
+            /* SBL-RING-REMOVE (2026-05-31, Opus 4.8): SNOBOL4 mode-4 BB-native x86 emission is PENDING ONE
+               WIRING STEP — it is not a designed limitation, and mode-4 is NOT inferior to mode-3. The two
+               modes are the SAME boxes in two media: every converted template emits BINARY (mode-3, run
+               in-process) or TEXT (mode-4, relocatable) from one x86() body, and for the ζ-frame/REG-ratified
+               boxes those bytes are identical. mode-4 already lights up for Icon/Prolog (the codegen_flat_build
+               path above). SNOBOL4 previously leaned on sno_ring_to_tree (a postfix-ring → four-port-tree
+               adapter) which was REMOVED as a VIOLATION (Lon directive) — the topology must come from LOWER,
+               not be re-derived at emit time. The emission scaffolding (codegen_flat_build + the XA wrap
+               templates) is intact and unchanged; the one missing piece is LOWER emitting the four-port
+               statement-BB graph directly for SNOBOL4, after which mode-4's TEXT arm and mode-3's BINARY arm
+               of the SAME box light up together. Until that wiring lands, abort below. NO storage outside the
+               boxes (PER-BOX LOCAL STORAGE FACT RULE). */
             extern void xa_file_header(void);
             extern void emit_io_set_sink(FILE * out);
             extern void emitter_init_text(FILE * out, int mode);
@@ -1043,7 +1048,8 @@ int main(int argc, char **argv)
             (void)sbbg;
             fprintf(stderr, "[SBB] mode-4: sno_ring_to_tree REMOVED (VIOLATION, Lon 2026-05-31). SNOBOL4 "
                             "mode-4 emission must come from LOWER producing the four-port statement-BB graph "
-                            "directly (no ring->tree adapter); not yet wired. Aborting (by design).\n");
+                            "directly (no ring->tree adapter); pending that wiring. mode-4 uses the SAME boxes "
+                            "as mode-3 (TEXT vs BINARY medium) — this is a wiring gap, not a design limit.\n");
             abort();
         }
     }
