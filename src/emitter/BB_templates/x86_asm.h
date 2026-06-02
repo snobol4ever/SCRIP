@@ -250,6 +250,31 @@ inline std::string x86_deflabel_id(int n) {
 /* string.  Mirrors the bb_cs_id idiom; BINARY needs no uid (records carry ids).                              */
 inline void x86_begin() { if (!MEDIUM_BINARY) _.x86_uid = g_flat_node_id++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* REG-RO — rip-relative load of a SEALED READ-ONLY VALUE qword (ICON READ-ONLY LOCALS ARE IP-RELATIVE       */
+/* FACT RULE).  A box that owns a compile-time-constant qword (an Icon integer literal's payload, a sealed   */
+/* bound) seals the 8 bytes in an RO trailer placed AFTER the box's terminal jumps (control never falls into */
+/* it) and loads it `mov reg, qword ptr [rip + .Lx<uid>_<n>]`.  The disp32 is DISCOVERED by the walker — a   */
+/* rel32 patch to internal label n (the SAME J/D record machinery as a jump; `mov reg,[rip+disp]` puts the   */
+/* disp where a jump's rel32 would sit, and the CPU computes RIP-after-disp, exactly the patch primitive's   */
+/* `target-(site+4)`).  Position-independent in BOTH media (no movabs of an address, no movabs of the value, */
+/* no rip-rel .data) — it replaces the hand-counted GZ-2 `mov rdi,[rip+22]` literal-offset form.  Pairs:     */
+/*   x86_ro_load_q(reg, n)  — the load (references internal label n)                                          */
+/*   x86_ro_seal_q(n, val)  — the trailer (defines internal label n + the 8 sealed bytes)                     */
+/* The owning box calls x86_begin() once before building (sets the TEXT label uid).  ModRM for `mov reg,     */
+/* [rip+disp32]`: mod=00 reg=rrr rm=101 (0x05); REX.W=0x48, REX.R when reg>=8.                                */
+inline std::string x86_ro_load_q(const char * reg, int n) {
+    if (MEDIUM_BINARY) {
+        int m = x86_rnum(reg); uint8_t rex = 0x48; if (m >= 8) rex |= 0x04;
+        std::string code; code += (char)rex; code += (char)0x8B; code += (char)((0 << 6) | ((m & 7) << 3) | 5);
+        return x86_Lrec(code) + x86_Jrec(X86_INTERNAL_BASE + n);
+    }
+    return std::string(" mov ") + reg + ", qword ptr [rip + " + x86_internal_name(n) + "]\n";
+}
+inline std::string x86_ro_seal_q(int n, uint64_t val) {
+    if (MEDIUM_BINARY) return x86_Drec(X86_INTERNAL_BASE + n) + x86_Lrec(u64le(val));
+    return x86_internal_name(n) + ":\n" + std::string(" .quad ") + std::to_string((unsigned long long)val) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* and reg, imm — imm8 short form (0x83 /4) when it fits int8 (matches `as`, e.g. `and rsp,-16` = 48 83 E4 F0);*/
 /* else eax→0x25, others 0x81 /4.  REX.W when the register is 64-bit (rsp/rbx/…); REX.B when reg>=8.  Used by  */
 /* the 16-byte stack-alignment dance (sub-pattern SSE path) so the alignment is a normal x86() call, not a    */

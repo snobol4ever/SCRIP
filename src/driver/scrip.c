@@ -84,6 +84,12 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     IR_t *chain[256]; int nc = 0;
     for (IR_t *cur = g->entry; cur && cur->t != IR_SUCCEED && cur->t != IR_FAIL && nc < 256; cur = cur->γ) chain[nc++] = cur;
     if (nc == 0 || nc >= 256) return NULL;
+    /* TEMPLATE-REVAMP (2026-06-02): the slot-based bb_binop_* boxes (arith/relop/concat) require their       */
+    /* operands materialised as PRODUCER boxes that allocate ζ-slots ahead of the binop — the flat-chain      */
+    /* path (icn_flat_chain_build) does this; this STOPGAP tree adapter does not (it un-flattens operands into */
+    /* α/β children for the deleted inline-fused box). DECLINE any IR_BINOP-bearing graph so it falls to the   */
+    /* flat-chain path, where the literal/var producers + REG-RO + the slot-based binop boxes light it up.     */
+    for (int i = 0; i < nc; i++) if (chain[i]->t == IR_BINOP) return NULL;
     IR_t *stk[256]; int sp = 0;
     for (int i = 0; i < nc; i++) {
         IR_t *n = chain[i];

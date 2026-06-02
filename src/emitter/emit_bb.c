@@ -1619,7 +1619,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     }
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_LIT_I:
+    case IR_LIT_I:      if (g_icn_flat_chain) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_S:
     case IR_LIT_F:
     case IR_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
