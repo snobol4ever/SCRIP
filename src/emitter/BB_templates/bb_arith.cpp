@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 #include "emit_bb.h"
-extern long rt_pl_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
+extern long rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -30,7 +30,7 @@ static std::string bb_arith_str() {
              + (_.bb_rs ? x86("lea", "r9", "[rip + __]", (uint64_t)(uintptr_t)_.bb_rs, _.bb_rs) : x86("mov", "r9d", (long)0))
              + x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t)op_str(), _.bb_op_lbl)
              + x86("push", "rax")
-             + x86("call", "rt_pl_arith", (uint64_t)(uintptr_t)(void*)rt_pl_arith)
+             + x86("call", "rt_arith", (uint64_t)(uintptr_t)(void*)rt_arith)
              + x86("add", "rsp", (long)8)
              + x86("jmp", PORT_GAMMA)
              + x86("def", PORT_BETA)

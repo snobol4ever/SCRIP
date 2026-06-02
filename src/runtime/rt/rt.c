@@ -293,12 +293,6 @@ void rt_pop_nv_set(const char *name)
     STACKLESS_ABORT("rt_pop_nv_set");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_arith(int op)
-{
-    (void)op;
-    STACKLESS_ABORT("rt_arith");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_nv_get(const char *name)
 {
     (void)name;
@@ -1276,7 +1270,7 @@ Term **resolve_bb_env_install(Term **env)
     return prev;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-long rt_pl_arith(int lk, long li, const char *ls,
+long rt_arith(int lk, long li, const char *ls,
                   int rk, long ri, const char *rs, const char *op)
 {
     extern Term **g_resolve_env;
