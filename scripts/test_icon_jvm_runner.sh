@@ -5,7 +5,7 @@
 set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SCRIP_CC="${SCRIP_CC:-$ROOT/scrip}"
-JASMIN="${JASMIN:-$ROOT/src/backend/jasmin.jar}"
+JASMIN="${JASMIN:-$ROOT/src/backends/jasmin.jar}"
 icn="$1"
 base=$(mktemp /tmp/icon_jvm_XXXXXX)
 "$SCRIP_CC" -icn -jvm "$icn" -o "${base}.j" 2>/dev/null

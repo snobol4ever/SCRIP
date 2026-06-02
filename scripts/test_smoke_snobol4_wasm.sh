@@ -5,8 +5,8 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 ORACLE="${ORACLE:-/home/claude/x64/bin/sbl}"
-HOST_MJS="${HOST_MJS:-$HERE/../src/runtime/wasm/sno_host.mjs}"
-RUNTIME_WAT="${RUNTIME_WAT:-$HERE/../src/runtime/wasm/sno_runtime.wat}"
+HOST_MJS="${HOST_MJS:-$HERE/../src/backends/runtime/wasm/sno_host.mjs}"
+RUNTIME_WAT="${RUNTIME_WAT:-$HERE/../src/backends/runtime/wasm/sno_runtime.wat}"
 RUNTIME_WASM="${RUNTIME_WAT%.wat}.wasm"
 PASS=0; FAIL=0
 

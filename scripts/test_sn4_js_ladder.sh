@@ -10,7 +10,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/scrip}"
 CORPUS="/home/claude/corpus"
-RT="$HERE/../src/runtime/js/sno_runtime.js"
+RT="$HERE/../src/backends/runtime/js/sno_runtime.js"
 TIMEOUT=10
 VERBOSE="${1:-}"
 FLOOR=70

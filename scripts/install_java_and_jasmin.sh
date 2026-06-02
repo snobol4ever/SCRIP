@@ -16,6 +16,6 @@ else
 fi
 
 # Jasmin
-JASMIN="$SCRIP/src/backend/jasmin.jar"
+JASMIN="$SCRIP/src/backends/jasmin.jar"
 [ -f "$JASMIN" ] || { echo "FAIL jasmin.jar missing at $JASMIN"; exit 1; }
 echo "OK  jasmin.jar present: $JASMIN"

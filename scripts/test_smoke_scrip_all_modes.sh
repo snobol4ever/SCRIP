@@ -6,7 +6,7 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$ROOT/../scrip}"
-JASMIN="${JASMIN:-$ROOT/src/backend/jasmin.jar}"
+JASMIN="${JASMIN:-$ROOT/src/backends/jasmin.jar}"
 PASS=0; FAIL=0
 
 have() { command -v "$1" &>/dev/null; }

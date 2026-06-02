@@ -5,7 +5,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 ORACLE="${ORACLE:-/home/claude/x64/bin/sbl}"
-SNORT_IL="$HERE/../src/runtime/net/SnoRt.il"
+SNORT_IL="$HERE/../src/backends/runtime/net/SnoRt.il"
 PASS=0; FAIL=0
 run_smoke() {
     local name="$1"
