@@ -639,7 +639,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_INT_fn(av))       { snprintf(_cbuf,sizeof _cbuf,"%lld",(long long)av.i); raw=_cbuf; }
         else if (IS_REAL_fn(av)) { real_str(av.r,_cbuf,sizeof _cbuf); raw=_cbuf; }
         else { raw = VARVAL_fn(av); if (!raw) raw = ""; }
-        *out = CSETVAL(icn_cset_canonical(raw)); return 1;
+        *out = CSETVAL(cset_canonical(raw)); return 1;
     }
     if (!strcmp(fn,"ord") && nargs == 1) {
         DESCR_t av = args[0];
@@ -1782,9 +1782,9 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             if (IS_INT_fn(r))       { snprintf(_rbuf,sizeof _rbuf,"%lld",(long long)r.i); ra=_rbuf; }
             else if (IS_REAL_fn(r)) { real_str(r.r,_rbuf,sizeof _rbuf); ra=_rbuf; }
             else                    { ra=VARVAL_fn(r); if(!ra) ra=""; }
-            if (fn[0]=='+') *out=CSETVAL(icn_cset_canonical(icn_cset_union(la,ra)));
-            else if (fn[1]=='-') *out=CSETVAL(icn_cset_canonical(icn_cset_diff(la,ra)));
-            else *out=CSETVAL(icn_cset_canonical(icn_cset_inter(la,ra)));
+            if (fn[0]=='+') *out=CSETVAL(cset_canonical(cset_union(la,ra)));
+            else if (fn[1]=='-') *out=CSETVAL(cset_canonical(cset_diff(la,ra)));
+            else *out=CSETVAL(cset_canonical(cset_inter(la,ra)));
             return 1;
         }
     }
@@ -1896,7 +1896,7 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
     for (int i = 0; i < g_kw_cset_count; i++)
         if (!strcmp(g_kw_cset_names[i].name, kw_name))
             return CSETVAL(g_kw_cset_names[i].ptr);
-    const char *arena = icn_cset_canonical(chars);
+    const char *arena = cset_canonical(chars);
     char *stable = GC_strdup(arena);
     int clen = (int)strlen(stable);
     if (g_kw_cset_count < KW_CSET_MAX) {
@@ -1936,7 +1936,7 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             static char ascii_str[128];
             for (int c=1;c<128;c++) ascii_str[c-1]=(char)c; ascii_str[127]='\0';
-            const char *tmp = icn_cset_canonical(ascii_str);
+            const char *tmp = cset_canonical(ascii_str);
             int tlen = (int)strlen(tmp);
             char *stable = GC_malloc(tlen + 2);
             stable[0] = '\0'; memcpy(stable+1, tmp, tlen+1);
@@ -1955,7 +1955,7 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             static char cset_str[256];
             for (int c=1;c<256;c++) cset_str[c-1]=(char)c; cset_str[255]='\0';
-            const char *tmp = icn_cset_canonical(cset_str);
+            const char *tmp = cset_canonical(cset_str);
             int tlen = (int)strlen(tmp);
             char *stable = GC_malloc(tlen + 2);
             stable[0] = '\0'; memcpy(stable+1, tmp, tlen+1);
