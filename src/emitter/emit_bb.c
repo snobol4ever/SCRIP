@@ -1665,7 +1665,18 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         /* case" (the op-code decision lives ONLY here, not duplicated in the box). Reset to -1 covers all   */
         /* three sub-branches so a stale positive can never make the arith box fire for a relop/concat/Raku. */
         g_emit.op_off = -1;
-        if (g_icn_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
+        if (g_gvar_flat_chain && op_is_arith && nd->α && nd->β && nd->α->t == IR_LIT_I && nd->β->t == IR_LIT_I) {
+            /* GVAR lit+lit arith: both operands are compile-time integer literals. Compute the result at    */
+            /* emit time and bake it as a sealed int64 constant; the box loads it [rip+disp] into rax and   */
+            /* stores into an 8-byte ζ-slot. op_sa = lhs ival, op_sb = rhs ival (literal holders, not slot  */
+            /* offsets), op_off = the result ζ-slot. op_ival is the op-code (already set from nd->ival).    */
+            g_emit.op_sa  = (int)nd->α->ival;
+            g_emit.op_sb  = (int)nd->β->ival;
+            g_emit.op_off = bb_slot_alloc(nd);
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
+        } else if (g_icn_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
             if (op_is_arith || op_is_rel || op_is_concat) {
                 g_emit.op_sa = bb_slot_get(nd->α);
                 g_emit.op_sb = bb_slot_get(nd->β);

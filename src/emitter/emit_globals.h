@@ -16,6 +16,7 @@ typedef struct {
     int                          op_node_kind;
     const char *                 op_a_sval;
     int                          op_a_node_kind;
+    int                          op_a_slot;
     int                          op_sa;
     int                          op_sb;
     int                          op_off;
