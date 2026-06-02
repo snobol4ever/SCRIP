@@ -3,8 +3,8 @@
    in walk_bb_flat IR_VAR case); op_off = own result slot (bb_slot_alloc16 result, promoted same place).
    No neighbor reads — the driver (walk_bb_flat IR_VAR) marshals all slot decisions onto _ before FILL.
    Two live arms + one fallback bomb:
-     SNO flat-chain (g_nv_flat_chain): pass-through — α: jmp γ ; def β ; jmp ω (10 bytes).
-       The ASSIGN consumer reads the src variable NAME via _.op_a_sval / rt_nv_assign_var; the IR_VAR box
+     SNO flat-chain (g_gvar_flat_chain): pass-through — α: jmp γ ; def β ; jmp ω (10 bytes).
+       The ASSIGN consumer reads the src variable NAME via _.op_a_sval / rt_gvar_assign_var; the IR_VAR box
        itself produces no value (SPITBOL semantics: a variable reference on the rhs of an assignment is
        resolved by the runtime name-value table at call time, not at emit time).
      ICN flat-chain (g_icn_flat_chain, op_off >= 0): GZ-7 16-byte DESCR copy (Icon variables are typed
@@ -23,7 +23,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_var_str() {
     if (!PLATFORM_X86) return std::string();
-    if (g_nv_flat_chain)
+    if (g_gvar_flat_chain)
         return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
                              + s_comment(emit_fmt("# BOX IR_VAR \"%s\" [SNO flat-chain: by-name pass-through]", _.op_sval ? _.op_sval : "")))
              + x86("jmp",  PORT_GAMMA)

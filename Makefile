@@ -110,7 +110,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_lit_scalar.cpp \
     $(SRC)/emitter/BB_templates/bb_var.cpp \
     $(SRC)/emitter/BB_templates/bb_assign.cpp \
-    $(SRC)/emitter/BB_templates/bb_nv_assign.cpp \
+    $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp \
     $(SRC)/emitter/BB_templates/bb_subject.cpp \
     $(SRC)/emitter/BB_templates/bb_ref_invariant.cpp \
@@ -313,7 +313,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_lit_scalar.cpp        -o $(OBJ)/bb_lit_scalar.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var.cpp               -o $(OBJ)/bb_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign.cpp            -o $(OBJ)/bb_assign.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nv_assign.cpp        -o $(OBJ)/bb_nv_assign.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp        -o $(OBJ)/bb_gvar_assign.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp          -o $(OBJ)/bb_scan_stmt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_subject.cpp       -o $(OBJ)/bb_subject.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_ref_invariant.cpp     -o $(OBJ)/bb_ref_invariant.o
