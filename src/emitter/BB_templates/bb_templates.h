@@ -6,7 +6,7 @@
 void bb_pat_any    (void);
 void bb_pat_notany (void);
 void bb_pat_span   (void);
-void bb_pat_break  (IR_t * pBB);
+void bb_pat_break  (void);
 void bb_pat_pos    (void);
 void bb_pat_tab    (void);
 void bb_pat_atp    (void);
@@ -14,7 +14,7 @@ void bb_pat_len    (void);
 void bb_pat_rem    (void);
 void bb_pat_arb    (void);
 void bb_pat_abort  (void);
-void bb_pat_fence  (IR_t * pBB);
+void bb_pat_fence  (void);
 void bb_pat_alt    (IR_t * pBB);
 void bb_pat_cat    (IR_t * pBB);
 void bb_capture    (IR_t * pBB, int imm);
