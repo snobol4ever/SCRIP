@@ -21,7 +21,7 @@ static std::string xa_prologue_str(void) {
     }
     if (PLATFORM_JS) {
         return std::string("'use strict';\n")
-             + "const rt = require('/home/claude/SCRIP/src/runtime/js/core_runtime.js');\n"
+             + "const rt = require('/home/claude/SCRIP/src/backends/runtime/js/core_runtime.js');\n"
              "rt._init();\n"
              "let _pc = 0;\n"
              "loop: while (true) { switch (_pc) {\n";

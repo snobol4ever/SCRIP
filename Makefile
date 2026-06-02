@@ -43,7 +43,7 @@ SNO          ?= $(error SNO is required — e.g. make run SNO=prog.sno)
 INC          ?= $(CORPUS)/programs/inc
 JVM_CACHE    := /tmp/scrip_jvm_cache
 NET_CACHE    := /tmp/scrip_net_cache
-JASMIN       := $(SRC)/backend/jasmin.jar
+JASMIN       := $(SRC)/backends/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
 .PHONY: all scrip scrip-interp scrip setup \
