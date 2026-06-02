@@ -394,9 +394,35 @@ inline std::string x86(const char * mnem, const char * dst, const char * mem, ui
     return x86_load_ro(dst, label, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* VARIABLE-LENGTH define/jmp-PAIR COMBINATOR loop (RESOLVED — the shared STILL-OPEN pair-loop item).      */
+/* A combinator box (Prolog conjunction/ITE, SNOBOL4 pattern cat/alt) does not own its own glue labels —   */
+/* the driver (flat_drive_pl_seq / flat_drive_pl_ite; the cat/alt sub-region walkers) mints externally-     */
+/* owned bb_label_t glue into g_emit.xa_bb_emit_pair_{define,jmp}[0..n).  Each pair OPTIONALLY defines a     */
+/* label at its point and OPTIONALLY emits jmp to a label (def-only / jmp-only / def+jmp all occur).  This  */
+/* is the variable-length analogue of x86_jmp/x86_deflabel: instead of a fixed port/internal id baked into  */
+/* the record, the record carries the PAIR INDEX and the walker fetches the bb_label_t out of g_emit — so   */
+/* no raw pointer rides in the 1-byte-id record stream.  Records (BINARY only): 'E' <idx> define            */
+/* xa_bb_emit_pair_define[idx] here (0 bytes); 'F' <idx> rel32-patch to xa_bb_emit_pair_jmp[idx] (the        */
+/* preceding 'L' carries the E9, exactly like 'J').  TEXT emits the GAS the four boxes hand-rolled          */
+/* identically (LABEL:\n ; " jmp LABEL\n"), so this primitive is byte-identical to the loops it replaces.   */
+inline std::string x86_pair_loop() {
+    std::string r;
+    for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
+        if (MEDIUM_BINARY) {
+            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; }
+            if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
+        } else {
+            if (g_emit.xa_bb_emit_pair_define[i]) r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name);
+            if (g_emit.xa_bb_emit_pair_jmp[i])    r += s_1asm(emit_fmt("jmp %s", g_emit.xa_bb_emit_pair_jmp[i]->name));
+        }
+    }
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* The consumer.  TEXT: passthrough.  BINARY: walk records, DISCOVERING byte positions (no bb_bin_t).      */
 /* id < X86_INTERNAL_BASE → port label (g_emit.lbl_*_p); id >= base → a fresh box-local internal label,    */
 /* defined/patched with the same primitives (the global patch list resolves forward refs within the walk).*/
+/* 'E'/'F' are the pair-loop records: index into g_emit.xa_bb_emit_pair_{define,jmp} (driver-owned labels).*/
 inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
     return id < X86_INTERNAL_BASE ? x86_portlbl(id) : &internal[id - X86_INTERNAL_BASE];
 }
@@ -410,6 +436,8 @@ inline void bb_emit_x86(const std::string & s) {
         if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); }
         else if (tag == 'J') { int id = (unsigned char)s[i++]; bb_emit_patch_rel32(x86_label_for(id, internal)); }
         else if (tag == 'D') { int id = (unsigned char)s[i++]; bb_label_define(x86_label_for(id, internal)); }
+        else if (tag == 'E') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_define[idx]) bb_label_define(g_emit.xa_bb_emit_pair_define[idx]); }
+        else if (tag == 'F') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_jmp[idx]) bb_emit_patch_rel32(g_emit.xa_bb_emit_pair_jmp[idx]); }
         else break;
     }
 }
