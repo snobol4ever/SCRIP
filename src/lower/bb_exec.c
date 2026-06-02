@@ -32,7 +32,7 @@ static void bb_dcap_record(const char *vname, int start, int len) {
     }
     if (g_dcap_n < BB_DCAP_MAX) { g_dcap[g_dcap_n].varname = vname; g_dcap[g_dcap_n].start = start; g_dcap[g_dcap_n].len = len; g_dcap_n++; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_dcap_flush(void) {
     for (int i = 0; i < g_dcap_n; i++) {
         int len = g_dcap[i].len;
@@ -43,7 +43,7 @@ static void bb_dcap_flush(void) {
     }
     g_dcap_n = 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_dcap_clear(void) { g_dcap_n = 0; }
 #include "core.h"
 #include "lower.h"
@@ -60,17 +60,6 @@ extern int exec_stmt(const char *subj_name, DESCR_t *subj_var, DESCR_t pat, DESC
 #include "bb_box.h"
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 static DESCR_t g_ir_return_val;
-/* ICON SUSPEND (GZ-11, jcon ir_a_Suspend). A suspending procedure is an Icon GENERATOR: `suspend E do BODY`
- * yields each value of E, runs BODY on resume, then re-seeks E — until the enclosing control exhausts, at
- * which point the procedure FAILS. In the mode-2 port-walker oracle this is modelled with the established
- * eager-drain idiom (the same one IR_GATHER / map-grep use): while a procedure activation's body runs, every
- * IR_SUSPEND node APPENDS its value(s) into the activation's per-call collection buffer (running the `do`
- * body between yields, then returning gamma so the enclosing loop re-reaches the suspend). When the body
- * finishes, the IR_CALL (dval==3.0) site inspects the buffer: a NON-EMPTY buffer means the callee suspended,
- * so the call node becomes a generator (the collected list is cached on a sidecar, one value yielded per
- * re-entry via the EVERY/generator pump, exactly like IR_TO); an EMPTY buffer is an ordinary deterministic
- * call (single g_ir_return_val, existing behavior). The buffer is a stack so nested suspending calls each
- * collect into their own activation frame and restore the caller's on return. */
 #define SUSPEND_COLLECT_MAX 65536
 typedef struct { DESCR_t * items; int count; int cap; int active; } SuspendBuf;
 static SuspendBuf g_suspend_buf;
@@ -88,10 +77,6 @@ static void suspend_buf_push(DESCR_t v) {
     g_suspend_buf.items[g_suspend_buf.count++] = v;
 }
 typedef struct { DESCR_t * items; int count; } SuspendList;
-/* SNOBOL4 program-defined function call state (SPITBOL ch.8). A SNOBOL4 call saves the globals named by the
- * function's dummy args + locals + result variable, binds the dummy args, runs the body, then restores them
- * (dynamic scoping by save/restore on a pushdown stack). g_sno_cur_func names the function whose body is
- * executing so a bare RETURN can yield the function-named variable's value. */
 #define SNO_SAVE_MAX 4096
 typedef struct { const char * name; DESCR_t old; } SnoSaveEnt;
 static SnoSaveEnt   g_sno_save[SNO_SAVE_MAX];
@@ -104,25 +89,20 @@ static void resolve_nb_set(int aid, Term *v) {
     unsigned h=(unsigned)aid%(unsigned)RESOLVE_NB_SIZE;
     for (int i=0;i<RESOLVE_NB_SIZE;i++) { int s=(h+i)%RESOLVE_NB_SIZE; if (!g_resolve_nb[s].val||g_resolve_nb[s].atom_id==aid) { g_resolve_nb[s].atom_id=aid; g_resolve_nb[s].val=v; return; } }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static Term *resolve_nb_get(int aid) {
     unsigned h=(unsigned)aid%(unsigned)RESOLVE_NB_SIZE;
     for (int i=0;i<RESOLVE_NB_SIZE;i++) { int s=(h+i)%RESOLVE_NB_SIZE; if (!g_resolve_nb[s].val) return NULL; if (g_resolve_nb[s].atom_id==aid) return g_resolve_nb[s].val; }
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * g_current_cfg = NULL;
 static IR_graph_t * g_resolve_tail_redirect_cfg   = NULL;
 static IR_t       * g_resolve_tail_redirect_entry = NULL;
 int g_resolve_b3_call_mark = -1;
 DESCR_t bb_exec_once(IR_graph_t * bbg);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RK-LOWER-3 — eager-drained-Seq cache for IR_MAP / IR_GREP. A map/grep node drains its SOURCE producer Seq    */
-/* ONCE on fresh entry (state==0) into a DESCR_t[] keyed by the node pointer, so the resumable cursor can       */
-/* re-yield across the generator-PUMP re-entries (body.γ -> gen.β) without re-draining the source each pull.    */
-/* Small fixed table (one live map/grep per for-loop in the flat corpus shape); GC-allocated item buffers grow  */
-/* by doubling. find() returns the existing entry (NULL if none); get() returns it, creating if absent.         */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_t * node; DESCR_t * items; int count; int cap; } rk_seq_cache_t;
 #define RK_SEQ_CACHE_MAX 64
 static rk_seq_cache_t g_rk_seq_cache[RK_SEQ_CACHE_MAX];
@@ -134,7 +114,7 @@ static rk_seq_cache_t * rk_seq_cache_find(IR_t * node) {
 static rk_seq_cache_t * rk_seq_cache_get(IR_t * node) {
     rk_seq_cache_t * e = rk_seq_cache_find(node);
     if (e) return e;
-    if (g_rk_seq_cache_n >= RK_SEQ_CACHE_MAX) { g_rk_seq_cache_n = 0; }   /* wrap (corpus never nests this deep) */
+    if (g_rk_seq_cache_n >= RK_SEQ_CACHE_MAX) { g_rk_seq_cache_n = 0; }
     e = &g_rk_seq_cache[g_rk_seq_cache_n++];
     e->node = node; e->items = NULL; e->count = 0; e->cap = 0;
     return e;
@@ -148,32 +128,18 @@ static void rk_seq_cache_push(rk_seq_cache_t * e, DESCR_t v) {
     }
     e->items[e->count++] = v;
 }
-/* ICON SUSPEND-GENERATOR cache (GZ-11). When an IR_CALL (dval==3.0) to a suspending procedure is FIRST
- * entered, the callee is run once with the suspend buffer active; every value it suspended is harvested into
- * this node-keyed cache. Subsequent re-entries (driven by the enclosing every/limit pump exactly as for
- * IR_TO) yield one cached value per visit via the call node's own state/counter cursor — no re-running of the
- * callee. Keyed by the call IR_t* so two distinct call sites (and the same site across top-level re-pumps)
- * keep independent lists. */
 typedef struct { IR_t * node; DESCR_t * items; int count; } susp_gen_cache_t;
 #define SUSP_GEN_CACHE_MAX 64
 static susp_gen_cache_t g_susp_gen_cache[SUSP_GEN_CACHE_MAX];
 static int g_susp_gen_cache_n = 0;
 static susp_gen_cache_t * susp_gen_cache_get(IR_t * node) {
     for (int i = 0; i < g_susp_gen_cache_n; i++) if (g_susp_gen_cache[i].node == node) return &g_susp_gen_cache[i];
-    if (g_susp_gen_cache_n >= SUSP_GEN_CACHE_MAX) g_susp_gen_cache_n = 0;   /* wrap (corpus never nests this deep) */
+    if (g_susp_gen_cache_n >= SUSP_GEN_CACHE_MAX) g_susp_gen_cache_n = 0;
     susp_gen_cache_t * e = &g_susp_gen_cache[g_susp_gen_cache_n++];
     e->node = node; e->items = NULL; e->count = 0;
     return e;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SBL-M3-SCAN (2026-05-31): stackless mode-3/4 entry for a SNOBOL4 pattern-match statement. It is the IR_SCAN  */
-/* exec arm (bb_exec.c case IR_SCAN) re-expressed with EXPLICIT operands so a native box (bb_scan_stmt.cpp) can  */
-/* drive it with NO value stack and NO AG ring: subj_name = the subject variable (the replacement form requires */
-/* a variable per SPITBOL ch.6; for a literal/expr subject the caller passes subj_lit instead), has_repl/repl   */
-/* = the replacement literal, pat_graph = the IR_SCAN.counter pattern sub-graph (a process-valid IR_graph_t* in */
-/* mode-3). The pattern is driven through the proven 19-arm IR_PAT_* oracle via bb_exec_once with anchored      */
-/* start-iteration + deferred-capture flush + the replacement splice — IDENTICAL semantics to the mode-2 arm.   */
-/* Returns 1 on match (box jmps γ), 0 on failure (box jmps ω). NO value stack (Lon directive).                  */
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
 int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph) {
     IR_graph_t *pat = (IR_graph_t *)pat_graph;
@@ -212,13 +178,7 @@ int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, cons
     Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ; g_dcap_active = save_dca; g_dcap_n = save_dcn;
     return matched;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SBL-M3-CONCAT (2026-05-31): stackless mode-3 store of a SNOBOL4 whitespace-concatenation rhs (`OUT = 'ab' */
-/* 'cd'`). The IR_SEQ concat node (dval=1.0) keeps its two operands as isolated IR_graph_t sub-graphs (left  */
-/* on counter, right on ival); this runs each via bb_reset+bb_exec_once (handles any operand node count and  */
-/* nesting, no AG ring), concatenates via binop_apply(BINOP_CONCAT), and stores under `name` via NV_SET_fn — */
-/* IDENTICAL semantics to the mode-2 IR_SEQ(dval==1.0) arm. Returns 1 on success, 0 on operand failure. The  */
-/* sub-graph pointers are process-valid in mode-3 (baked imm64 by the bb_gvar_assign IR_SEQ arm). NO vstack.  */
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern int rt_gvar_assign_concat(const char *name, void *left_graph, void *right_graph);
 int rt_gvar_assign_concat(const char *name, void *left_graph, void *right_graph) {
     IR_graph_t *lblk = (IR_graph_t *)left_graph;
@@ -267,20 +227,20 @@ static int ir_is_single_shot(IR_t * e) {
     }
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e);
 static int bb_is_gen_kind_raw(IR_e k) {
     return k == IR_TO || k == IR_TO_BY || k == IR_UPTO || k == IR_ALT ||
            k == IR_BINOP_GEN || k == IR_ITERATE || k == IR_LIMIT || k == IR_PROC_GEN ||
            k == IR_LIST_BANG || k == IR_KEY_GEN || k == IR_FIND_GEN || k == IR_SEQ_GEN || k == IR_GATHER || k == IR_MAP || k == IR_GREP;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e) {
     if (!e) return 0;
     if (e->t == IR_ASSIGN) return bb_is_gen_node(e->β);
     return bb_is_gen_kind_raw(e->t);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * gen_resume_target(IR_t * e) {
     if (!e) return NULL;
     if (e->t == IR_ASSIGN) return gen_resume_target(e->β);
@@ -296,7 +256,7 @@ static IR_t * gen_resume_target(IR_t * e) {
     }
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static Term *resolve_node_to_term(IR_t *bb) {
     extern Term **g_resolve_env;
     if (!bb) return NULL;
@@ -335,7 +295,7 @@ static Term *resolve_node_to_term(IR_t *bb) {
     }
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void resolve_format_float(char *buf, size_t bufsz, double d);
 static const char *resolve_atomic_text(Term *t, char *buf, size_t bufsz) {
     t = t ? term_deref(t) : NULL;
@@ -345,7 +305,7 @@ static const char *resolve_atomic_text(Term *t, char *buf, size_t bufsz) {
     if (t->tag == TERM_FLOAT) { resolve_format_float(buf, bufsz, t->fval); return buf; }
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { Term *orig; Term *copy; } BBCopyMap;
 static Term *bb_copy_term_rec(Term *t, BBCopyMap *map, int *nmap) {
     t = t ? term_deref(t) : NULL;
@@ -366,7 +326,7 @@ static Term *bb_copy_term_rec(Term *t, BBCopyMap *map, int *nmap) {
     default: return term_new_atom(prolog_atom_intern("[]"));
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static Term *bb_copy_term(Term *t) { BBCopyMap map[256]; int n=0; return bb_copy_term_rec(t,map,&n); }
 static int resolve_term_class(Term *t) {
     switch (t->tag) {
@@ -377,7 +337,7 @@ static int resolve_term_class(Term *t) {
     default: return 4;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int resolve_term_compare(Term *a, Term *b) {
     a = a ? term_deref(a) : NULL; b = b ? term_deref(b) : NULL;
     if (!a && !b) return 0; if (!a) return -1; if (!b) return 1;
@@ -407,7 +367,7 @@ static int resolve_term_compare(Term *a, Term *b) {
     default: return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
  static int resolve_term_is_ground(Term *t) {
     t = t ? term_deref(t) : NULL;
     if (!t) return 0;
@@ -418,7 +378,7 @@ static int resolve_term_compare(Term *a, Term *b) {
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int resolve_term_is_proper_list(Term *t) {
     extern int ATOM_DOT, ATOM_NIL;
     t = t ? term_deref(t) : NULL;
@@ -432,7 +392,7 @@ static int resolve_term_is_proper_list(Term *t) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t resolve_arith_eval(IR_t *bb) {
     extern Term **g_resolve_env;
     if (!bb) return FAILDESCR;
@@ -533,7 +493,7 @@ static DESCR_t resolve_arith_eval(IR_t *bb) {
     }
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern long rt_pl_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
 int rt_pl_is(int dst_slot, const char *op, int lk, long li, int rk, long ri) {
     extern Term **g_resolve_env; extern Trail g_resolve_trail;
@@ -545,7 +505,7 @@ int rt_pl_is(int dst_slot, const char *op, int lk, long li, int rk, long ri) {
     if (!unify(lhs, vt, &g_resolve_trail)) return 0;
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_eval(void *lhs_bb, void *rhs_bb) {
     extern Term **g_resolve_env; extern Trail g_resolve_trail;
     IR_t *lhs = (IR_t *)lhs_bb;
@@ -562,19 +522,7 @@ int rt_pl_is_eval(void *lhs_bb, void *rhs_bb) {
     if (!unify(lhst, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PLG-9h (2026-06-01): float `is/2` serialized-scalar evaluator — the standalone-binary (mode-4 TEXT) twin */
-/* of rt_pl_is_eval, which takes in-process IR_t* pointers (dead in a separate .s). Operands arrive as       */
-/* serializable scalars: an int literal (lk=IR_LIT_I, value in li), a float literal (lk=IR_LIT_F, value in   */
-/* the SSE-register double ld), or a bound logic-variable slot (lk=IR_LOGICVAR, slot in li -> read           */
-/* g_resolve_env[li]). rk==-1 marks a unary/nullary RHS (no second operand). The op string is the evaluable  */
-/* functor name (pi/e nullary; sqrt/sin/.../float/truncate/round/... unary; +/-/*/// binary). Result type    */
-/* (int vs float) is decided by the op exactly as resolve_arith_eval does — truncate/round/ceiling/floor/    */
-/* integer yield INT from a FLOAT input; float/float_integer_part/float_fractional_part/transcendentals       */
-/* yield FLOAT; +,-,* on two ints yield INT, with-a-float yield FLOAT. The result Term is unified into the    */
-/* destination slot in g_resolve_env (the per-activation home the consumer write reads directly — no value    */
-/* stack). SysV packing the TEXT arm relies on: dst_slot=edi op=rsi lk=edx li=rcx rk=r8d ri=r9 (6 GP) and     */
-/* ld=xmm0 rd=xmm1 (2 SSE) — all in registers, no stack args. Returns 1 on success, 0 on failure.            */
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_f(int dst_slot, const char *op,
                int lk, long li, double ld,
                int rk, long ri, double rd) {
@@ -668,7 +616,7 @@ int rt_pl_is_f(int dst_slot, const char *op,
     if (!unify(lhs, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
 int rt_pl_succ(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
@@ -692,7 +640,7 @@ int rt_pl_succ(int k0, long i0, const char *s0, int k1, long i1, const char *s1)
     trail_unwind(&g_resolve_trail, mark);
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_plus(int k0, long i0, const char *s0,
                int k1, long i1, const char *s1,
                int k2, long i2, const char *s2) {
@@ -715,7 +663,7 @@ int rt_pl_plus(int k0, long i0, const char *s0,
     if (!unify(tgt, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern void pl_write(Term *);
 static int rt_pl_format_walk(const char *fmt, Term *args_list) {
     Term *arg_cur = args_list;
@@ -752,7 +700,7 @@ static int rt_pl_format_walk(const char *fmt, Term *args_list) {
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static const char *rt_pl_format_resolve(Term *fmt_t, char *fmtbuf, size_t bufsz) {
     fmt_t = fmt_t ? term_deref(fmt_t) : NULL;
     if (!fmt_t) return NULL;
@@ -775,7 +723,7 @@ static const char *rt_pl_format_resolve(Term *fmt_t, char *fmtbuf, size_t bufsz)
     }
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_format(int arity, int k0, long i0, const char *s0,
                               int k1, long i1, const char *s1) {
     Term *fmt_t = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
@@ -789,7 +737,7 @@ int rt_pl_format(int arity, int k0, long i0, const char *s0,
     }
     return rt_pl_format_walk(fmt, args_list);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_format_term(int arity, int k0, long i0, const char *s0, void *args_term_ptr) {
     Term *fmt_t = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     char fmtbuf[1024];
@@ -799,7 +747,7 @@ int rt_pl_format_term(int arity, int k0, long i0, const char *s0, void *args_ter
     args_list = args_list ? term_deref(args_list) : NULL;
     return rt_pl_format_walk(fmt, args_list);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
 static const char *rt_pl_atomic_text_helper(Term *t, char *buf, size_t bufsz) {
     t = t ? term_deref(t) : NULL;
@@ -808,7 +756,7 @@ static const char *rt_pl_atomic_text_helper(Term *t, char *buf, size_t bufsz) {
     if (t->tag == TERM_INT)  { snprintf(buf, bufsz, "%ld", t->ival); return buf; }
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_length(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -820,7 +768,7 @@ int rt_pl_atom_length(int k0, long i0, const char *s0, int k1, long i1, const ch
     if (!unify(t1, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_case_atom_common(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int up) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -835,15 +783,15 @@ static int rt_pl_case_atom_common(int k0, long i0, const char *s0, int k1, long 
     if (!unify(t1, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_upcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     return rt_pl_case_atom_common(k0, i0, s0, k1, i1, s1, 1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_downcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     return rt_pl_case_atom_common(k0, i0, s0, k1, i1, s1, 0);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type(int k0, long i0, const char *s0, const char *ty, int is_compound, int ki, long ii, const char *si) {
     extern Trail g_resolve_trail;
     if (!ty) return 0;
@@ -882,7 +830,7 @@ int rt_pl_char_type(int k0, long i0, const char *s0, const char *ty, int is_comp
     if (!ok) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_numbervars_term(void *t0, long start, int k2, long i2, const char *s2) {
     extern Trail g_resolve_trail;
     Term *term_arg = (Term *)t0;
@@ -906,7 +854,7 @@ int rt_pl_numbervars_term(void *t0, long start, int k2, long i2, const char *s2)
     if (end_var && !unify(end_var, term_new_int(counter), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_concat(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -924,7 +872,7 @@ int rt_pl_atom_concat(int k0, long i0, const char *s0, int k1, long i1, const ch
     if (!unify(t2, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_string_pair(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -940,7 +888,7 @@ int rt_pl_atom_string_pair(int k0, long i0, const char *s0, int k1, long i1, con
     if (!unify(dst, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_number_string_pair(int num_first, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -964,7 +912,7 @@ int rt_pl_number_string_pair(int num_first, int k0, long i0, const char *s0, int
     if (!unify(numDst, nt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_to_atom_term(void *t0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     extern char *pl_term_to_string(Term *);
@@ -978,7 +926,7 @@ int rt_pl_term_to_atom_term(void *t0, int k1, long i1, const char *s1) {
     if (!unify(t1, at, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atomic_list_concat_term(void *list, int arity,
                                   int ksep, long isep, const char *ssep,
                                   int kres, long ires, const char *sres) {
@@ -1009,7 +957,7 @@ int rt_pl_atomic_list_concat_term(void *list, int arity,
     if (!unify(rt, term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_body_has_live_choice(IR_graph_t *bbg);
 int rt_pl_findall(void *fs_ptr) {
     extern Trail g_resolve_trail;
@@ -1069,7 +1017,7 @@ int rt_pl_findall(void *fs_ptr) {
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_catch(void *zc_ptr) {
     extern Trail g_resolve_trail; extern Term **g_resolve_env;
     bb_catch_state_t *zc = (bb_catch_state_t *)zc_ptr;
@@ -1105,14 +1053,14 @@ int rt_pl_catch(void *zc_ptr) {
         return 1;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_throw(void *alpha_ptr) {
     IR_t *alpha = (IR_t *)alpha_ptr;
     Term *ball = alpha ? resolve_node_to_term(alpha) : term_new_atom(prolog_atom_intern("error"));
     resolve_throw_term(ball);
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_copy_term(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -1123,7 +1071,7 @@ int rt_pl_copy_term(int k0, long i0, const char *s0, int k1, long i1, const char
     if (!unify(t1, cp, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_copy_term_term(void *t0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -1133,7 +1081,7 @@ int rt_pl_copy_term_term(void *t0, int k1, long i1, const char *s1) {
     if (!unify(t1, cp, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_copy_term_terms(void *t0, void *t1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -1142,7 +1090,7 @@ int rt_pl_copy_term_terms(void *t0, void *t1) {
     if (!unify((Term *)t1, cp, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_setval_term(void *key, void *val) {
     Term *kd = key ? term_deref((Term *)key) : NULL;
     if (!kd || kd->tag != TERM_ATOM) return 0;
@@ -1150,7 +1098,7 @@ int rt_pl_nb_setval_term(void *key, void *val) {
     resolve_nb_set(kd->atom_id, vd ? vd : (Term *)val);
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_getval_term(void *key, int kres, long ires, const char *sres) {
     extern Trail g_resolve_trail;
     Term *kd = key ? term_deref((Term *)key) : NULL;
@@ -1162,7 +1110,7 @@ int rt_pl_nb_getval_term(void *key, int kres, long ires, const char *sres) {
     if (!unify(rt, stored, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_aggregate_all_term(void *tmpl, void *goal, int kres, long ires, const char *sres) {
     extern Term **g_resolve_env; extern Trail g_resolve_trail;
     Term *tmpl_d = tmpl ? term_deref((Term *)tmpl) : NULL;
@@ -1227,7 +1175,7 @@ int rt_pl_aggregate_all_term(void *tmpl, void *goal, int kres, long ires, const 
     if (!unify(res_t, result_term, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark2); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int atom_chars_codes_common(int as_codes, Term *t0, Term *t1) {
     extern int ATOM_DOT, ATOM_NIL;
     extern Trail g_resolve_trail;
@@ -1269,18 +1217,18 @@ static int atom_chars_codes_common(int as_codes, Term *t0, Term *t1) {
     if (!unify(t0, term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_chars_codes(int as_codes, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
     return atom_chars_codes_common(as_codes, t0, t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_chars_codes_term(int as_codes, int k0, long i0, const char *s0, void *t1) {
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     return atom_chars_codes_common(as_codes, t0, (Term *)t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int type_test_common(const char *fn, Term *t) {
     Term *d = t ? term_deref(t) : NULL;
     int isvar = (!d || d->tag == TERM_VAR);
@@ -1298,16 +1246,16 @@ static int type_test_common(const char *fn, Term *t) {
     if (strcmp(fn, "is_list")  == 0) return resolve_term_is_proper_list(d) ? 1 : 0;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_type_test(const char *fn, int k0, long i0, const char *s0) {
     Term *t = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     return type_test_common(fn, t);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_type_test_term(const char *fn, void *t0) {
     return type_test_common(fn, (Term *)t0);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int sort_msort_common(int do_msort, Term *t0, Term *t1) {
     extern int ATOM_DOT, ATOM_NIL;
     extern Trail g_resolve_trail;
@@ -1339,18 +1287,18 @@ static int sort_msort_common(int do_msort, Term *t0, Term *t1) {
     if (!unify(t1, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_msort(int do_msort, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
     return sort_msort_common(do_msort, t0, t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_msort_term(int do_msort, void *t0, int k1, long i1, const char *s1) {
     Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
     return sort_msort_common(do_msort, (Term *)t0, t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     if (!op) return 0;
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
@@ -1364,7 +1312,7 @@ int rt_pl_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long
     if (strcmp(op, "@>=")  == 0) return (c >= 0) ? 1 : 0;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_arith_cmp_extract(int k, long i, const char *s, double *out_d) {
     if (k == IR_LIT_I) { *out_d = (double)i; return 1; }
     Term *t = (Term *)rt_pl_node_to_term(k, i, s, 0.0);
@@ -1374,7 +1322,7 @@ static int rt_pl_arith_cmp_extract(int k, long i, const char *s, double *out_d) 
     if (d->tag == TERM_FLOAT) { *out_d = d->fval;         return 1; }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     if (!op) return 0;
     double l = 0.0, r = 0.0;
@@ -1389,7 +1337,7 @@ int rt_pl_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, lon
     if (strcmp(op, ">=")  == 0) return (l >= r) ? 1 : 0;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
     Term **args_in = (Term **)args_ptr;
     Term **args = (Term **)GC_MALLOC(arity * sizeof(Term *));
@@ -1397,7 +1345,7 @@ void *rt_pl_compound_build_n(const char *functor_name, int arity, void *args_ptr
     int fid = prolog_atom_intern(functor_name ? functor_name : "");
     return term_new_compound(fid, arity, args);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_cmp_terms(const char *op, void *t0, void *t1) {
     if (!op) return 0;
     int c = resolve_term_compare((Term *)t0, (Term *)t1);
@@ -1409,7 +1357,7 @@ int rt_pl_term_cmp_terms(const char *op, void *t0, void *t1) {
     if (strcmp(op, "@>=")  == 0) return (c >= 0) ? 1 : 0;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int functor_common(Term *t0, Term *t1, Term *t2) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -1441,20 +1389,20 @@ static int functor_common(Term *t0, Term *t1, Term *t2) {
     if (!unify(t0, built, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_functor(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2) {
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
     Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
     return functor_common(t0, t1, t2);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2) {
     Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
     Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
     return functor_common((Term *)t0, t1, t2);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int arg_common(Term *tN, Term *tT, Term *tA) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
@@ -1468,20 +1416,20 @@ static int arg_common(Term *tN, Term *tT, Term *tA) {
         trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arg(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2) {
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
     Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
     return arg_common(t0, t1, t2);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arg_term(int k0, long i0, const char *s0, void *t1, int k2, long i2, const char *s2) {
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
     return arg_common(t0, (Term *)t1, t2);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int univ_common(Term *t0, Term *t1) {
     extern int ATOM_DOT;
     extern Trail g_resolve_trail;
@@ -1528,27 +1476,27 @@ static int univ_common(Term *t0, Term *t1) {
     if (!unify(t0, built, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_univ(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
     return univ_common(t0, t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_univ_term(void *t0, int k1, long i1, const char *s1) {
     Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
     return univ_common((Term *)t0, t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_univ_term_list(int k0, long i0, const char *s0, void *t1) {
     Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
     return univ_common(t0, (Term *)t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_univ_term_term(void *t0, void *t1) {
     return univ_common((Term *)t0, (Term *)t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void resolve_format_float(char *buf, size_t bufsz, double d) {
     for (int prec = 15; prec <= 17; prec++) {
         snprintf(buf, bufsz, "%.*g", prec, d);
@@ -1560,7 +1508,7 @@ static void resolve_format_float(char *buf, size_t bufsz, double d) {
         if (n + 2 < bufsz) { buf[n] = '.'; buf[n+1] = '0'; buf[n+2] = '\0'; }
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_body_has_live_choice(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
@@ -1571,7 +1519,7 @@ static int bb_body_has_live_choice(IR_graph_t *bbg) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_body_cp_free_except_tail(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
@@ -1582,7 +1530,7 @@ static int bb_body_cp_free_except_tail(IR_graph_t *bbg) {
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static long resolve_term_first_arg_key(Term *t) {
     if (!t) return RESOLVE_IDX_NOKEY;
     t = term_deref(t);
@@ -1597,7 +1545,7 @@ static long resolve_term_first_arg_key(Term *t) {
     default:            return RESOLVE_IDX_NOKEY;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_body_single_solution(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
@@ -1607,7 +1555,7 @@ static int bb_body_single_solution(IR_graph_t *bbg) {
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * resolve_choice_unique_indexed_body(IR_graph_t *callee, Term *first_arg) {
     if (!callee || !callee->entry || callee->entry->t != IR_CHOICE) return NULL;
     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)callee->entry->ival;
@@ -1624,7 +1572,7 @@ static IR_graph_t * resolve_choice_unique_indexed_body(IR_graph_t *callee, Term 
     if (!bb_body_cp_free_except_tail(body)) return NULL;
     return body;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 long size_value(DESCR_t v, int * failed) {
     *failed = 0;
     if (IS_FAIL_fn(v)) { *failed = 1; return 0; }
@@ -1649,7 +1597,7 @@ long size_value(DESCR_t v, int * failed) {
         return s ? (long)strlen(s) : 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     if (obj.v == DT_DATA) {
         DESCR_t tag = FIELD_GET_fn(obj, "gen_type");
@@ -1690,12 +1638,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         return 1;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PLG-9d-bt (2026-06-01): operand_aux for IR_DISJ now holds each arm's PRINCIPAL node (apply), uniform   */
-/* with IR_ALT. A conjunction arm's principal is its GCONJ wrapper; the interpreter enters a conjunction  */
-/* at its FIRST GOAL (the GCONJ node itself is a success funnel), so unwrap a GCONJ arm to goals[0]. For  */
-/* a non-conjunction arm this is the identity, and for a conjunction arm goals[0] IS the old entry[] node */
-/* this jumped to — so the jump target is unchanged from the prior entry[]-based operand_aux.             */
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_disj_arm_enter(IR_t * a) {
     if (a && a->t == IR_GCONJ) {
         bb_conj_state_t * zs = (bb_conj_state_t *)(intptr_t)a->ival;
@@ -1703,7 +1646,7 @@ static IR_t * pl_disj_arm_enter(IR_t * a) {
     }
     return a;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * bb_exec_node(IR_t * bb) {
     switch (bb->t) {
     case IR_LIT_I:
@@ -1726,8 +1669,6 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_ASSIGN: {
-        /* Threaded four-port assignment (unified lowerer): the RHS ran first and pushed its value onto the AG ring; the target name is carried in bb->sval (bb->alpha/beta are unused in this form).        */
-        /* SPITBOL OUTPUT semantics are handled by NV_SET_fn: assigning to OUTPUT routes through the runtime's associated-variable hook (output_val), which writes one record to stdout on assignment.       */
         DESCR_t val = ag_ring_peek(g_current_cfg, 0);
         if (IS_FAIL_fn(val)) { bb->value = FAILDESCR; return bb->ω; }
         const char *name = bb->sval ? bb->sval : "";
@@ -1770,9 +1711,6 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_CALL: {
         if (!bb->sval) { bb->value = FAILDESCR; return bb->ω; }
-        /* SNOBOL4 call (dval==2.0): arguments are isolated value sub-graphs whose pointer array rides on
-           `counter`. Evaluate each (a failing argument fails the call). A user DEFINE'd function (in the
-           proc_table) runs through the SNOBOL4 global save/restore frame; any other name falls to a builtin. */
         if (bb->dval == 2.0) {
             int nargs = (int) bb->ival;
             DESCR_t * args = NULL;
@@ -1799,8 +1737,6 @@ IR_t * bb_exec_node(IR_t * bb) {
                 if (!fg || frame_depth >= FRAME_STACK_MAX || g_sno_save_top + sc->n > SNO_SAVE_MAX) {
                     bb->value = FAILDESCR; return bb->ω;
                 }
-                /* save the globals named in sc (dummy args, then locals, then the result variable);
-                   bind the dummy args to the actual arg values; null the locals + the result variable. */
                 int save_base = g_sno_save_top;
                 for (int k = 0; k < sc->n; k++) {
                     const char * nm = sc->e[k].name; if (!nm) continue;
@@ -1812,11 +1748,7 @@ IR_t * bb_exec_node(IR_t * bb) {
                 const char * saved_func = g_sno_cur_func;
                 g_sno_cur_func = bb->sval;
                 GenFrame * _f = &frame_stack[frame_depth++];
-                memset(_f, 0, sizeof *_f);              /* empty scope -> the body's vars route through globals */
-                /* The four-port AG ring is graph-level state that bb_snapshot/restore_state do NOT cover, and
-                   the nested bb_exec_once (recursion re-enters the SAME view graph) calls bb_reset ->
-                   ag_ring_clear on entry. Save and restore the ring around the call so an in-flight operand
-                   (e.g. the N of `N * FACT(N - 1)`) survives the recursive descent. */
+                memset(_f, 0, sizeof *_f);
                 DESCR_t _ring_save[AG_RING];
                 int _ring_head = fg->ring_head, _ring_depth = fg->ring_depth;
                 memcpy(_ring_save, fg->ring, sizeof _ring_save);
@@ -1843,20 +1775,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             bb->value = FAILDESCR;
             return bb->ω;
         }
-        /* GZ-10 Icon GENERAL CALL (dval==3.0): args are isolated value sub-graphs on `counter` (lowered with
-           cx.lang==IR_LANG_ICN). Evaluate each (a failing arg fails the call). If the name is a user procedure
-           in proc_table, run its four-port BB graph under a FRESH GenFrame whose Scope binds the proc's PARAM
-           NAMES to env slots so the body's IR_VAR/IR_ASSIGN resolve per-activation (scope_get -> env[slot]) —
-           this is the Icon-correct frame that makes recursion independent (grounded in jcon ir_a_ProcDecl's
-           genuine per-activation params/locals; distinct from the SNOBOL4 dval==2.0 global save/restore frame).
-           Ring + node-state are saved/restored around the nested bb_exec_once so an in-flight operand survives a
-           recursive descent. g_ir_return_val is harvested on FRAME.returning. A non-proc name falls to a runtime
-           builtin (try_call_builtin_by_name). */
         if (bb->dval == 3.0) {
-            /* GZ-11 suspend-generator RESUME: a suspending callee was eager-drained on fresh entry and its
-               values cached on this node. While the cursor (counter) has cached values left, yield the next
-               one per re-entry (the every/limit pump re-drives us exactly as it re-drives IR_TO). When the
-               cache is exhausted, reset and FAIL to omega so the enclosing generator terminates. */
             if (bb->state == 1) {
                 susp_gen_cache_t * gc = susp_gen_cache_get(bb);
                 if (bb->counter < (int64_t) gc->count) {
@@ -1891,12 +1810,6 @@ IR_t * bb_exec_node(IR_t * bb) {
                 int is_gen = g_stage2.proc_table[upi].is_generator;
                 GenFrame * _f = &frame_stack[frame_depth++];
                 memset(_f, 0, sizeof *_f);
-                /* GZ-10 recursion fix: bind param names from lower_sc (stable strings captured once at lowering
-                   time) — NOT from proc->c[1] (the live AST) which is mutated by nested scope_patch writes,
-                   causing param names to read empty on 2nd+ activation and breaking recursion. lower_sc was
-                   populated by lower_program.c's Icon lowering loop using lp_strdup — same pattern as SNOBOL4's
-                   DEFINE arm (proc_table[fpi].lower_sc). Each lower_sc entry carries the stable param name and
-                   its slot index; assign the corresponding arg value into _f->env[slot]. */
                 Scope * lsc = &g_stage2.proc_table[upi].lower_sc;
                 int np = g_stage2.proc_table[upi].nparams;
                 for (int k = 0; k < lsc->n && k < np && k < FRAME_SLOT_MAX; k++) {
@@ -1909,9 +1822,6 @@ IR_t * bb_exec_node(IR_t * bb) {
                 int _ring_head = fg->ring_head, _ring_depth = fg->ring_depth;
                 memcpy(_ring_save, fg->ring, sizeof _ring_save);
                 bb_node_state_t * _snap = bb_snapshot_state(fg);
-                /* GZ-11: for a GENERATOR callee, run the body with the suspend buffer active and HARVEST every
-                   suspended value into the node-keyed cache; the call then yields them one per re-entry (above).
-                   The buffer is saved/restored so a nested suspending call collects into its own activation. */
                 SuspendBuf _sb_save = g_suspend_buf;
                 if (is_gen) { g_suspend_buf.items = NULL; g_suspend_buf.count = 0; g_suspend_buf.cap = 0; g_suspend_buf.active = 1; }
                 bb_reset(fg);
@@ -2073,10 +1983,6 @@ IR_t * bb_exec_node(IR_t * bb) {
             else bb->value = NULVCL;
             return NULL;
         }
-        /* SNOBOL4 whitespace concatenation (v_conj SNO branch sets dval=1.0). The two operands are isolated
-           IR_graph_t sub-graphs stored on counter (left) and ival (right); run each via bb_exec_once (drives the
-           whole operand chain -> final value, robust for any operand node count, no AG-ring dependency) and
-           concatenate via binop_apply(BINOP_CONCAT). bb_exec_once saves/restores g_current_cfg around the call. */
         if (bb->dval == 1.0) {
             IR_graph_t * lblk = (IR_graph_t *)(intptr_t) bb->counter;
             IR_graph_t * rblk = (IR_graph_t *)(intptr_t) bb->ival;
@@ -2133,19 +2039,11 @@ IR_t * bb_exec_node(IR_t * bb) {
             IR_t * const * aux = bb_operand_aux_get(g_current_cfg, bb, &n_aux);
             DESCR_t lv, rv;
             if (aux && n_aux == 2 && aux[0] && aux[1]) {
-                /* A binop operand that is a bare VARIABLE reference is re-DEREFERENCED at each computation
-                   (Icon: the `+` opfn dereferences its operand descriptors fresh). On a generator-driven
-                   re-pump the binop is re-entered without re-executing a non-generator operand box, so its
-                   cached .value goes stale — fatal for an accumulator like `every total := total + (1 to n)`,
-                   where the left `total` must see the value just assigned (jcon ir_a_Binop reads [lv,rv] each
-                   opfn). Refresh ONLY a plain IR_VAR/IR_KEYWORD operand (idempotent: re-reads the frame slot /
-                   NV table) — NEVER a generator operand, which re-executing would advance. Icon-gated so the
-                   shared SNOBOL4/Prolog binop path is byte-identical. */
                 if (g_current_cfg && g_current_cfg->lang == IR_LANG_ICN) {
                     if (aux[0]->t == IR_VAR || aux[0]->t == IR_KEYWORD) bb_exec_node(aux[0]);
                     if (aux[1]->t == IR_VAR || aux[1]->t == IR_KEYWORD) bb_exec_node(aux[1]);
                 }
-                lv = aux[0]->value;     /* named operand slots (jcon ir_a_Binop: opfn reads [lv,rv]); robust for nested generators */
+                lv = aux[0]->value;
                 rv = aux[1]->value;
             } else {
                 rv = ag_ring_peek(g_current_cfg, 0);
@@ -2155,20 +2053,6 @@ IR_t * bb_exec_node(IR_t * bb) {
             int rel_fail = 0;
             DESCR_t result = binop_apply((BinopKind)bb->ival, lv, rv, &rel_fail);
             if (IS_FAIL_fn(result)) {
-                /* jcon ir_a_Binop / ir_binary: a relational op is generator-TRANSPARENT and resumes its
-                   operand (binop.resume -> right.resume; right.failure -> left.resume). A FALSE comparison
-                   (rel_fail) is NOT the binop's failure — it must re-seek the next operand value, exactly as
-                   the consumer (write) re-pumps the generator on its own resume edge. We re-enter the operand
-                   generator's RESUME node (operand_aux[1]=right first, then [0]=left); its γ chain flows back
-                   to THIS binop, so the comparison re-runs with the next value. The operand may itself be a
-                   generator-bearing arithmetic IR_BINOP (a cross-product like `(1 to 3)*(1 to 2)`): its resume
-                   is NOT the binop node (re-running it recomputes the SAME product) but its right operand's
-                   resume — gen_resume_target descends to find it (jcon ir_binary binop.resume -> right.resume).
-                   v_binop lowered the right operand's ω to the LEFT operand's resume, so a both-generators case
-                   cascades; when every generator is drained the resume chain reaches the binop's own ω. With NO
-                   generator operand (e.g. `3 < 2`) this collapses to plain failure -> ω. This is why `2 < (1 to
-                   4)` works (its trues are not a prefix), `(1 to 5) > 3` works (gen-on-left), and now
-                   `3 < ((1 to 3)*(1 to 2))` (relop over a cross-product) re-pumps instead of dead-ending. */
                 if (rel_fail && aux && n_aux == 2) {
                     IR_t * rt_tgt = gen_resume_target(aux[1]);
                     if (rt_tgt) { bb->value = FAILDESCR; return rt_tgt; }
@@ -2299,13 +2183,13 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_RETURN: {
         DESCR_t rv;
-        if (bb->dval == 2.0) {                              /* SNOBOL4 FRETURN — the call fails */
+        if (bb->dval == 2.0) {
             rv = FAILDESCR;
             g_ir_return_val = FAILDESCR;
-        } else if (bb->dval == 1.0) {                       /* SNOBOL4 RETURN / NRETURN — value = function-named variable */
+        } else if (bb->dval == 1.0) {
             rv = g_sno_cur_func ? NV_GET_fn(g_sno_cur_func) : NULVCL;
             g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
-        } else {                                            /* generic (Icon/Prolog) value return */
+        } else {
             rv = NULVCL;
             if (bb->α) { bb_exec_node(bb->α); rv = bb->α->value; }
             else { DESCR_t pv = ag_ring_peek(g_current_cfg, 0); if (!IS_FAIL_fn(pv)) rv = pv; }
@@ -2316,24 +2200,11 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->ω;
     }
     case IR_SUSPEND: {
-        /* GZ-11 Icon `suspend E do BODY` (jcon ir_a_Suspend), dval==1.0. Reached once per pass of the enclosing
-           control (e.g. each `while` iteration). Drain E's value sub-graph (counter) for THIS visit; append each
-           value to the activation's suspend-collection buffer; run the optional `do` BODY sub-graph (ival)
-           between yields. Return gamma so the enclosing loop re-reaches us next iteration (the eager-drain
-           generator model). When E produces no value, the suspend itself contributes nothing and control still
-           flows gamma (the enclosing loop's own condition decides termination); the buffer the IR_CALL site
-           harvests is what makes the whole procedure a generator. */
         if (bb->dval == 1.0) {
             IR_graph_t * eblk = (IR_graph_t *)(intptr_t) bb->counter;
             IR_graph_t * bblk = (IR_graph_t *)(intptr_t) bb->ival;
             DESCR_t last = NULVCL;
             if (eblk && eblk->entry) {
-                /* Enumerate E for THIS visit. If E's producing node is itself a generator (1 to n, !L, find(),
-                   nested suspend-call, …) we re-pump it across all its values; if E is an ordinary expression
-                   (a variable, an arithmetic value) it yields exactly ONE value — re-pumping a non-generator
-                   would re-read the same value forever. After EACH yielded value the optional `do` BODY runs
-                   (jcon ir_a_Suspend: success -> Succeed(susp, t); t -> run body -> re-seek E). Per-visit
-                   enumeration + the enclosing loop's own re-entry together produce the full value sequence. */
                 int e_is_gen = !ir_is_single_shot(eblk->entry);
                 IR_graph_t * save_cfg = g_current_cfg;
                 bb_reset(eblk);
@@ -2358,10 +2229,6 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb->value = FAILDESCR;
         return bb->ω;
     case IR_GOTO: {
-        /* Computed/indirect goto (SPITBOL ch.4: `:($X)` / `:S($X)` / `:F($X)`). The goto expression was lowered
-           into an isolated value sub-graph (pointer on counter). Run it, coerce the value to a label-name
-           string, resolve it to a landing node via bb_label_landing, and transfer there. An unresolved label
-           (or a failing expr) takes bb->ω (the fall-through path the lowerer wired). */
         extern IR_t * bb_label_landing(const char * name);
         IR_graph_t * sub = (IR_graph_t *)(intptr_t) bb->counter;
         if (!sub || !sub->entry) { bb->value = FAILDESCR; return bb->ω; }
@@ -2417,12 +2284,6 @@ IR_t * bb_exec_node(IR_t * bb) {
     case IR_EVERY: {
         if (!bb->α) { bb->value = NULVCL; return bb->γ; }
         if (bb->ival == 0) {
-            /* jcon ir_a_Every: iterations 2+ resume the generator via expr.resume (the ω-backtrack chain).
-               With the resume ports wired (write/call.resume -> last-arg.resume; binop/to/alt resume -> inner),
-               the generator chain SELF-DRIVES under the top-level port follower (bb_exec_once enters at the
-               generator start, runs the body on each value, and re-pumps the innermost generator). The EVERY
-               node sits only on the generator's failure edge (E1.ω = ev), so it is reached EXACTLY ONCE, after
-               the whole sequence is exhausted. Re-driving here would double the output, so we just succeed. */
             if (frame_depth > 0 && FRAME.loop_break) FRAME.loop_break = 0;
             bb->value = NULVCL;
             return bb->γ;
@@ -2519,11 +2380,6 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_REPEAT: {
-        /* GZ-9 (Model B, self-driving): `repeat E` is an unconditional infinite loop. The body's every
-           outcome (γ AND ω) was wired to this node; reaching it simply re-enters the body start (bb->α).
-           No internal driver loop, no FRAME flag — the only way out is a `break` in the body, which the
-           lowerer wired straight to the loop's exit continuation (bypassing this node). If there is no
-           body (bb->α NULL) it degenerates to success (bb->γ). */
         if (!bb->α) { bb->value = NULVCL; return bb->γ; }
         bb->value = NULVCL;
         return bb->α;
@@ -2561,8 +2417,6 @@ IR_t * bb_exec_node(IR_t * bb) {
                 return bb->γ;
             }
             if (bb->state == 0) {
-                /* forward entry: the chain driver entered at entry[0] and drove arm[0] to its first value
-                   (now on ring[0]). Emit it and arm the resume cursor at arm 0. */
                 DESCR_t v = ag_ring_peek(g_current_cfg, 0);
                 if (IS_FAIL_fn(v)) { bb->value = FAILDESCR; return bb->ω; }
                 bb->value   = v;
@@ -2745,13 +2599,6 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_SUBJECT: {
-        /* PB-0 SUBJECT phase (mode-2 oracle analogue of bb_subject.cpp). The subject value-expr ran
-           VALUE-role and pushed its value to the AG ring; establish the scanned whole Σ (base) and
-           Ω/Σlen (length), and set the cursor Δ=0 (SPITBOL Manual ch.18: the cursor is set to zero when a
-           pattern match begins, so it is the matcher's running state). This mirrors the box storing Σ→
-           [r12+off] / Δ→[r12+off+8]; the downstream BB_MATCH (PB-2) consumes Σ/Δ. Bounded single-shot:
-           resume -> ω. Dormant until v_scan threads SUBJECT (PB-2/PB-5); present for concurrency
-           completeness (every emitted IR kind has a mode-2 arm — no silent default). */
         if (bb->state == 0) {
             DESCR_t sv = VARVAL_d_fn(ag_ring_peek(g_current_cfg, 0));
             const char *subj_str = ""; int subj_len = 0;
@@ -2768,15 +2615,6 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->ω;
     }
     case IR_REF_INVARIANT: {
-        /* PB-RB-1 REF_INVARIANT (mode-2 oracle analogue of bb_ref_invariant.cpp). CORRECTED PATTERN
-           ARCHITECTURE (2026-06-01): a pattern element that is INVARIANT (a literal here) is the EXISTING
-           IR_PAT_LIT matcher box, sealed at compile time; REF_INVARIANT references that sealed element (via
-           operand_aux per the PEERS RULE) and yields its head as the pattern's DT_P value. No runtime
-           construction (Fork A/E) — this is the runtime READ of a sealed piece. In mode-2 we carry the
-           referenced literal as the box value (the sealed-head bb_box_fn is the box's ζ-slot effect in
-           mode-3/4). Bounded single-shot: resume -> ω. Dormant until v_scan threads SUBJECT -> REF_INVARIANT
-           -> BB_MATCH (PB-RB-3); present for concurrency completeness (every emitted IR kind has a mode-2
-           arm — no silent default). */
         if (bb->state == 0) {
             const char *lit = bb->sval ? bb->sval : "";
             int n_aux = 0;
@@ -2837,13 +2675,10 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->ω;
     }
     case IR_BREAK: {
-        /* GZ-9 (Model B, port-based): unconditional transfer to the loop exit continuation, wired by the
-           lowerer onto bb->γ (== bb->ω). The port-walker just follows it; no FRAME flag, no internal loop. */
         bb->value = NULVCL;
         return bb->γ ? bb->γ : bb->ω;
     }
     case IR_NEXT: {
-        /* GZ-9 (Model B): unconditional transfer to the loop re-entry, wired onto bb->γ (== bb->ω). */
         bb->value = NULVCL;
         return bb->γ ? bb->γ : bb->ω;
     }
@@ -2991,14 +2826,6 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_GEN_SCAN: {
-        /* Icon string scanning `subj ? body` (jcon ir_a_Scan; runtime bscan/escan in imisc.r). dval==1.0 is the
-           Icon form: the subject value-expr is an isolated sub-graph on counter, the body is an isolated
-           sub-graph on ival. bscan semantics: evaluate the subject, coerce to string, SAVE the current
-           (&subject,&pos) onto the scan stack, set &subject := subject-string and &pos := 1, run the body.
-           escan semantics: on body success the scan's value is the body's value and the saved (&subject,&pos)
-           are restored (the nested-scan test depends on the outer subject coming back); on body failure the
-           scan fails and (&subject,&pos) are likewise restored. Per-box state lives in this box (the scan
-           stack here is the broker/oracle's idiom, NOT a value stack). */
         if (bb->dval == 1.0) {
             IR_graph_t * subj_sg = (IR_graph_t *)(intptr_t) bb->counter;
             IR_graph_t * body_sg = (IR_graph_t *)(intptr_t) bb->ival;
@@ -3358,15 +3185,6 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_GATHER: {
-        /* RK-LOWER-2 (KEYSTONE) — Raku `gather { take E0; take E1; ... }` resumable Seq producer. Realizes the
-           FLAT-take model (docs.raku.org/syntax/gather%20take: take calls yield values one-per-pull; the keystone
-           spec APPENDIX-A RK-M2-GATHER = counter-as-resume-cursor). Layout (set by v_raku_gather): .counter = the
-           IR_graph_t* array of take-payload value sub-graphs, .ival = take COUNT, .state = takes already yielded
-           (0 = fresh: yield take[0]; k>=1: yield take[k]). Mirrors the IR_TO resumable contract: yield ONE value
-           to γ per (re)entry, advancing the cursor; walking past the last take (or empty gather) resets the cursor
-           and FAILs to ω (Seq drained). The node is its own resume (β=self), so the generator PUMP / v_raku_for
-           re-pump re-enters here and the cursor advances. Each yield lands in bb->value; the port-follower pushes
-           it onto the AG ring for the consumer (the for-loop bind / Seq consumer) to peek. */
         int n = (int) bb->ival;
         IR_graph_t ** subs = (IR_graph_t **)(intptr_t) bb->counter;
         int idx = bb->state;
@@ -3381,23 +3199,11 @@ IR_t * bb_exec_node(IR_t * bb) {
     }
     case IR_MAP:
     case IR_GREP: {
-        /* RK-LOWER-3 — Raku `map { BODY } SOURCE` / `grep { PRED } SOURCE` resumable Seq CONSUMER. Realizes the
-           verified semantics (docs.raku.org/routine/{map,grep}): map gathers each element's closure-return into
-           the Seq; grep keeps each element whose { } block (applied to $_) returns true. Layout (set by
-           v_raku_map_grep): .counter = the SOURCE producer's IR_graph_t* (range / gather), .ival = the closure
-           BODY's IR_graph_t* (reads $_), .state = resume cursor (0 = fresh: eager-drain SOURCE first). The node
-           is its own resume (β=self), so the generator PUMP / v_raku_for re-pump re-enters here and the cursor
-           advances — yield ONE value to γ per (re)entry; walking past the last element (or empty SOURCE) resets
-           the cursor and FAILs to ω (Seq drained), exactly like IR_GATHER. The drain uses the aggregate_all
-           idiom (bb_reset + bb_exec_once + bb_exec_resume loop). The eager-drained source elements are cached on
-           a side table keyed by the node pointer so the cursor can re-yield across re-entries without re-draining.
-           $_ is bound via NV_SET_fn("_", elem) before each closure run; the BODY reads it via IR_VAR("_"). */
         IR_graph_t * src_sg  = (IR_graph_t *)(intptr_t) bb->counter;
         IR_graph_t * body_sg = (IR_graph_t *)(intptr_t) bb->ival;
         if (!src_sg || !body_sg) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
         rk_seq_cache_t * sc = rk_seq_cache_find(bb);
         if (bb->state == 0 || !sc) {
-            /* FRESH entry: eager-drain the SOURCE producer Seq into a DESCR_t[] cache. */
             sc = rk_seq_cache_get(bb);
             sc->count = 0;
             IR_graph_t * save_cfg = g_current_cfg;
@@ -3409,9 +3215,9 @@ IR_t * bb_exec_node(IR_t * bb) {
                 sv = bb_exec_resume(src_sg);
             }
             g_current_cfg = save_cfg;
-            bb->state = 1;          /* cursor now at element 0 (1-based state convention as in IR_GATHER) */
+            bb->state = 1;
         }
-        int cur = bb->state - 1;    /* 0-based index of the next element to consider */
+        int cur = bb->state - 1;
         for (; cur < sc->count; cur++) {
             NV_SET_fn("_", sc->items[cur]);
             IR_graph_t * save_cfg = g_current_cfg;
@@ -3419,22 +3225,17 @@ IR_t * bb_exec_node(IR_t * bb) {
             DESCR_t bv = bb_exec_once(body_sg);
             g_current_cfg = save_cfg;
             if (bb->t == IR_GREP) {
-                /* grep: KEEP the source element iff the predicate is truthy. binop_apply's relational arms
-                   return FAIL when false (rel_fail), so a false `$_ > 2` makes the closure sub-graph FAIL —
-                   the runtime value-model's truthiness convention. Skip on FAIL; yield the ELEMENT on truthy. */
                 if (IS_FAIL_fn(bv)) continue;
-                bb->state = cur + 2;            /* advance past this element for the next pull */
+                bb->state = cur + 2;
                 bb->value = sc->items[cur];
                 return bb->γ;
             } else {
-                /* map: yield the closure's RETURN value (the transform). A failing transform yields NULVCL
-                   rather than dropping the slot (map gathers one return per element). */
                 bb->state = cur + 2;
                 bb->value = IS_FAIL_fn(bv) ? NULVCL : bv;
                 return bb->γ;
             }
         }
-        bb->state = 0; bb->value = FAILDESCR; return bb->ω;     /* Seq drained */
+        bb->state = 0; bb->value = FAILDESCR; return bb->ω;
     }
     case IR_CASE: {
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }
@@ -3791,12 +3592,6 @@ IR_t * bb_exec_node(IR_t * bb) {
             int64_t hi_cached;
             memcpy(&hi_cached, &bb->dval, 8);
             if (bb->counter > hi_cached) {
-                /* jcon ir_a_ToBy: the to-counter is exhausted for the CURRENT bounds — re-seek the next bound
-                   value. by.failure -> to.resume (re-pump the hi bound), to.failure -> from.resume (re-pump the
-                   lo bound). The bounds' own ω-wiring cascades (v_to: to.ω -> from.resume, from.ω -> ω_in), and
-                   from.γ -> to.start restarts the hi bound for each new lo. We reset state to 0 so that when the
-                   re-pumped bound's γ flows back to THIS node it re-reads the fresh lo/hi. Constant bounds yield
-                   no resume target -> fall through to ω (the prior single-shot behavior). */
                 if (have_aux) {
                     IR_t * rt_tgt = gen_resume_target(aux[1]);
                     if (rt_tgt) { bb->state = 0; bb->value = FAILDESCR; return rt_tgt; }
@@ -4028,27 +3823,19 @@ IR_t * bb_exec_node(IR_t * bb) {
         int n_arm = 0;
         IR_t * const * arms = bb_operand_aux_get(g_current_cfg, bb, &n_arm);
         if (!arms || n_arm <= 0) { bb->value = FAILDESCR; return bb->ω; }
-        /* Pure-jump model (no inline arm execution — the outer port-follower drives the arm sub-chains):
-           Each arm's success edge is wired to THIS node's γ (so when an arm completes, control flows straight
-           to the disjunction's continuation, NOT back into DISJ). Forward arm failure flows arm[i].ω -> the
-           next arm's entry (wire_alt fail-chain), last arm -> ω_in. On BACKTRACK the continuation re-enters
-           DISJ via DISJ.β (= DISJ itself, set by wire_alt's ret): we then unwind to the saved pre-arm trail
-           mark and jump to the NEXT arm's entry. bb->counter = the arm currently live; bb->ival = trail mark
-           saved before the live arm launched.                                                                */
         if (bb->state == 0) {
             bb->state = 1;
             bb->counter = 0;
             bb->ival = (int64_t)trail_mark(&g_resolve_trail);
             bb->value = INTVAL(1);
-            return pl_disj_arm_enter(arms[0]);               /* jump into arm 0; outer loop drives it */
+            return pl_disj_arm_enter(arms[0]);
         }
-        /* Resume (backtrack): the live arm's continuation failed. Unwind to the pre-arm mark, advance. */
         trail_unwind(&g_resolve_trail, (int)bb->ival);
         bb->counter += 1;
         if (bb->counter >= n_arm) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
         bb->ival = (int64_t)trail_mark(&g_resolve_trail);
         bb->value = INTVAL(1);
-        return pl_disj_arm_enter(arms[(int)bb->counter]);    /* jump into next arm */
+        return pl_disj_arm_enter(arms[(int)bb->counter]);
     }
     case IR_CHOICE: {
         extern Trail g_resolve_trail; extern Term **g_resolve_env; extern int g_resolve_cut_flag;
@@ -5119,7 +4906,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->ω;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bb_exec_once(IR_graph_t * bbg) {
     if (!bbg || !bbg->entry) return FAILDESCR;
     bb_reset(bbg);
@@ -5157,7 +4944,7 @@ DESCR_t bb_exec_once(IR_graph_t * bbg) {
     g_current_cfg = saved_cfg;
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bb_exec_resume(IR_graph_t * bbg) {
     if (!bbg || !bbg->entry) return FAILDESCR;
     IR_graph_t * saved_cfg = g_current_cfg;
@@ -5194,7 +4981,7 @@ DESCR_t bb_exec_resume(IR_graph_t * bbg) {
     g_current_cfg = saved_cfg;
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int bb_exec_pump(IR_graph_t * bbg, bb_body_fn body_fn, void * ctx) {
     if (!bbg || !bbg->entry) return 0;
     bb_reset(bbg);
@@ -5225,7 +5012,7 @@ int bb_exec_pump(IR_graph_t * bbg, bb_body_fn body_fn, void * ctx) {
     g_current_cfg = saved_cfg;
     return ticks;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int bb_exec_pat(IR_graph_t *bbg,
                 const char *subj_name,
                 DESCR_t    *subj_var,

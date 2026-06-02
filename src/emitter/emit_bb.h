@@ -45,13 +45,13 @@ static inline bb_label_t bb_label_from_name(const char *name) {
     if (name) { strncpy(lbl.name, name, BB_LABEL_NAME_MAX - 1); lbl.name[BB_LABEL_NAME_MAX - 1] = '\0'; }
     return lbl;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define bb_build_flat_text(p,out,pfx)    codegen_flat_build(p,out,pfx)
 #define bb_flat_set_intern_str(fn)        lower_flat_set_intern_str(fn)
 #define bb_build_flat_text_reset()        lower_flat_reset()
 #define bb_flat_set_cap_fixup_cb(cb)      lower_flat_set_cap_fixup(cb)
 #ifdef __cplusplus
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #endif
 #endif

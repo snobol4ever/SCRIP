@@ -1,12 +1,10 @@
-/* xa_bb_ptr_slot.cpp — XA template for BB pointer slot. Side-effect: allocates slot label into
-   g_emit.bb_ptr_slot_lbl for use by subsequent template emission. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
 #include "xa_template_common.h"
 #include "../emit_bb.h"
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_bb_ptr_slot_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_BB_PTR_SLOT");
@@ -20,7 +18,7 @@ static std::string xa_bb_ptr_slot_str(void) {
     }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_bb_ptr_slot(void) {
     if (MEDIUM_TEXT) {
         std::string _lbl = emit_fmt(".Lrtc%d_z", g_flat_node_id++);

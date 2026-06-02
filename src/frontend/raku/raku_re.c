@@ -7,7 +7,7 @@ static void cc_set(Raku_cc *cc, unsigned char c) { cc->bits[c>>3] |= (1u << (c&7
 static void cc_setrange(Raku_cc *cc, unsigned char lo, unsigned char hi) {
     for (unsigned c = lo; c <= hi; c++) cc_set(cc, (unsigned char)c);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void cc_invert(Raku_cc *cc) { for (int i=0;i<32;i++) cc->bits[i]^=0xFFu; }
 int raku_cc_test(const Raku_cc *cc, unsigned char c) { return (cc->bits[c>>3]>>(c&7))&1; }
 static void cc_fill_digit(Raku_cc *cc) { cc_setrange(cc,'0','9'); }
@@ -28,7 +28,7 @@ struct Raku_nfa {
     void        *code_ud;
     int          has_code;
 };
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int nfa_alloc(Raku_nfa *nfa) {
     if (nfa->n >= nfa->cap) {
         nfa->cap *= 2;
@@ -43,7 +43,7 @@ static int nfa_alloc(Raku_nfa *nfa) {
     nfa->states[id].kind    = NK_EPS;
     return id;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int nfa_state(Raku_nfa *nfa, Nfa_kind kind, int out1, int out2) {
     int id = nfa_alloc(nfa);
     nfa->states[id].kind = kind;
@@ -51,7 +51,7 @@ static int nfa_state(Raku_nfa *nfa, Nfa_kind kind, int out1, int out2) {
     nfa->states[id].out2 = out2;
     return id;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     const char *pat;
     int         pos;
@@ -61,14 +61,14 @@ typedef struct {
     int         ok;
     int         group_counter;
 } Re_parser;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static char peek(Re_parser *p)    { return p->pos < p->len ? p->pat[p->pos] : '\0'; }
 static char consume(Re_parser *p) { return p->pos < p->len ? p->pat[p->pos++] : '\0'; }
 static int  at_end(Re_parser *p)  { return p->pos >= p->len; }
 static void re_err(Re_parser *p, const char *msg) {
     if (p->ok) { snprintf(p->errbuf, sizeof p->errbuf, "%s", msg); p->ok = 0; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int parse_alt(Re_parser *p, int *out_start, int *out_accept);
 static int parse_concat(Re_parser *p, int *out_start, int *out_accept);
 static int parse_quantified(Re_parser *p, int *out_start, int *out_accept);
@@ -112,7 +112,7 @@ static int parse_charclass(Re_parser *p) {
     if (negate) cc_invert(&s->cc);
     return id;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
     if (at_end(p)) { re_err(p,"unexpected end of pattern"); return 0; }
     char c = peek(p);
@@ -224,7 +224,7 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
     p->nfa->states[id].ch=(unsigned char)c;
     *out_start=*out_accept=id; return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int parse_quantified(Re_parser *p, int *out_start, int *out_accept) {
     int a_start, a_acc;
     if (!parse_atom(p,&a_start,&a_acc)) return 0;
@@ -254,7 +254,7 @@ static int parse_quantified(Re_parser *p, int *out_start, int *out_accept) {
     } else { *out_start=a_start; *out_accept=a_acc; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int parse_concat(Re_parser *p, int *out_start, int *out_accept) {
     int started=0, c_start=NFA_NULL, c_acc=NFA_NULL;
     while (!at_end(p) && peek(p)!='|' && peek(p)!=')') {
@@ -266,7 +266,7 @@ static int parse_concat(Re_parser *p, int *out_start, int *out_accept) {
     if (!started) { int id=nfa_state(p->nfa,NK_EPS,NFA_NULL,NFA_NULL); c_start=c_acc=id; }
     *out_start=c_start; *out_accept=c_acc; return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int parse_alt(Re_parser *p, int *out_start, int *out_accept) {
     int l_start, l_acc;
     if (!parse_concat(p,&l_start,&l_acc)) return 0;
@@ -283,7 +283,7 @@ static int parse_alt(Re_parser *p, int *out_start, int *out_accept) {
     }
     *out_start=l_start; *out_accept=l_acc; return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 Raku_nfa *raku_nfa_build(const char *pattern) {
     Raku_nfa *nfa = malloc(sizeof *nfa);
     nfa->cap=NFA_INIT_CAP; nfa->n=0; nfa->ngroups=0;
@@ -303,7 +303,7 @@ Raku_nfa *raku_nfa_build(const char *pattern) {
     nfa->start=frag_start; nfa->accept=acc;
     return nfa;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int        raku_nfa_state_count(const Raku_nfa *nfa) { return nfa?nfa->n:0; }
 int        raku_nfa_start(const Raku_nfa *nfa) { return nfa?nfa->start:NFA_NULL; }
 int        raku_nfa_accept(const Raku_nfa *nfa) { return nfa?nfa->accept:NFA_NULL; }
@@ -315,7 +315,7 @@ typedef struct {
     int gs[MAX_GROUPS];
     int ge[MAX_GROUPS];
 } Cap_snap;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static Cap_snap g_snaps[MAX_STATES];
 static void ss_add(State_set *ss, Cap_snap *snaps, const Raku_nfa *nfa, int id,
                    char *visited, int pos, int slen, const Cap_snap *cur_snap) {
@@ -345,13 +345,13 @@ static void ss_add(State_set *ss, Cap_snap *snaps, const Raku_nfa *nfa, int id,
             ss->ids[ss->n++]=id; break;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void eps_closure_into(State_set *ss, Cap_snap *snaps, const Raku_nfa *nfa,
                               int start, int pos, int slen, const Cap_snap *snap) {
     char visited[MAX_STATES]; memset(visited,0,(size_t)nfa->n);
     ss_add(ss,snaps,nfa,start,visited,pos,slen,snap);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void raku_nfa_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result) {
     memset(result,0,sizeof *result);
     result->matched=0;

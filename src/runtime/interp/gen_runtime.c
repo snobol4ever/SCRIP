@@ -32,23 +32,23 @@ int  frame_lookup(tree_t *n, long *out) {
     GenFrame *f = &FRAME;
     for (int i=f->gen_depth-1;i>=0;i--) if(f->gen[i].node==n){*out=f->gen[i].cur;return 1;} return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int  frame_lookup_sv(tree_t *n, long *out, const char **sv) {
     GenFrame *f = &FRAME;
     for (int i=f->gen_depth-1;i>=0;i--) if(f->gen[i].node==n){*out=f->gen[i].cur;*sv=f->gen[i].sval;return 1;} return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int frame_env_active(void) {
     return frame_depth > 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t frame_env_load(int slot) {
     if (frame_depth <= 0) return FAILDESCR;
     GenFrame *f = &FRAME;
     if (slot < 0 || slot >= f->env_n) return FAILDESCR;
     return f->env[slot];
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void frame_env_store(int slot, DESCR_t val) {
     if (frame_depth <= 0) return;
     GenFrame *f = &FRAME;
@@ -56,7 +56,7 @@ void frame_env_store(int slot, DESCR_t val) {
     if (slot >= f->env_n) f->env_n = slot + 1;
     f->env[slot] = val;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 const char *scan_subj  = "";
 int         scan_pos   = 1;
 ScanEntry scan_stack[SCAN_STACK_MAX];
@@ -69,19 +69,19 @@ int is_global(const char *name) {
         if (global_names[i] && strcmp(global_names[i], name) == 0) return 1;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void global_register(const char *name) {
     if (!name || is_global(name) || global_count >= GLOBAL_MAX) return;
     global_names[global_count++] = name;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     int         entry_pc;
     const char *proc_name;
     const char *name;
     DESCR_t     val;
 } static_ent_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define STATIC_MAX 256
 static static_ent_t static_tab[STATIC_MAX];
 static int              static_n = 0;
@@ -92,14 +92,14 @@ static int static_proc_entry_pc(const char *proc_name) {
             return g_stage2.proc_table[i].entry_pc;
     return -1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int static_entry_matches(const static_ent_t *e, int epc,
                                 const char *pname, const char *vname) {
     if (!e->name || !vname || strcmp(e->name, vname) != 0) return 0;
     if (epc >= 0 && e->entry_pc >= 0) return e->entry_pc == epc;
     return e->proc_name && pname && strcmp(e->proc_name, pname) == 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int static_get(tree_t *proc, const char *name, DESCR_t *out) {
     if (!proc || !name || !out) return 0;
     const char *pname = proc->v.sval;
@@ -112,7 +112,7 @@ int static_get(tree_t *proc, const char *name, DESCR_t *out) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void static_set(tree_t *proc, const char *name, DESCR_t val) {
     if (!proc || !name) return;
     const char *pname = proc->v.sval;
@@ -132,7 +132,7 @@ void static_set(tree_t *proc, const char *name, DESCR_t val) {
     static_tab[static_n].val       = val;
     static_n++;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int scope_add(Scope *sc, const char *name) {
     if (!name) return -1;
     for (int i=0;i<sc->n;i++) if(strcmp(sc->e[i].name,name)==0) return sc->e[i].slot;
@@ -141,13 +141,13 @@ int scope_add(Scope *sc, const char *name) {
     sc->e[sc->n].name=name; sc->e[sc->n].slot=slot; sc->n++;
     return slot;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int scope_get(Scope *sc, const char *name) {
     if (!name) return -1;
     for (int i=0;i<sc->n;i++) if(strcmp(sc->e[i].name,name)==0) return sc->e[i].slot;
     return -1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void scope_patch(Scope *sc, tree_t *e) {
     if (!e) return;
     if (e->t == TT_GLOBAL) {
@@ -168,7 +168,7 @@ void scope_patch(Scope *sc, tree_t *e) {
     int child_start = (e->t == TT_FNC) ? 1 : 0;
     for (int i=child_start;i<e->n;i++) scope_patch(sc, e->c[i]);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t sm_call_proc(int entry_pc, int nparams, DESCR_t *args, int nargs)
 {
     extern DESCR_t sm_eval_subexpr(int epc);
@@ -236,7 +236,7 @@ DESCR_t sm_call_proc(int entry_pc, int nparams, DESCR_t *args, int nargs)
     frame_depth--;
     return result;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t proc_table_call(int pi, DESCR_t *args, int nargs)
 {
     if (pi < 0 || pi >= g_stage2.proc_count) return FAILDESCR;
@@ -245,7 +245,7 @@ DESCR_t proc_table_call(int pi, DESCR_t *args, int nargs)
         return sm_call_proc(g_stage2.proc_table[pi].entry_pc, g_stage2.proc_table[pi].nparams, args, nargs);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int descr_identical(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return 0;
     int an = (a.v == DT_SNUL) || (a.v == DT_S && (!a.s || !*a.s));
@@ -269,7 +269,7 @@ int descr_identical(DESCR_t a, DESCR_t b) {
     if (a.v == DT_DATA) return a.ptr == b.ptr;
     return memcmp(&a, &b, sizeof(DESCR_t)) == 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int is_suspendable(tree_t *e) {
     if (!e) return 0;
     switch (e->t) {
@@ -313,16 +313,15 @@ int is_suspendable(tree_t *e) {
             return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* gen_bb_dcg / gen_bb_oneshot removed (brokered ICN generator path deleted with bb_broker) */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 bb_node_t gen_bb_pump_proc_by_name(const char *name, DESCR_t *args, int nargs) {
     fprintf(stderr, "[SBL] FATAL: gen_bb_pump_proc_by_name: brokered generator path removed\n");
     abort();
     (void)name; (void)args; (void)nargs;
     return (bb_node_t){ NULL, NULL, 0 };
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
     DESCR_t as = descr_to_str_icn(a);
@@ -338,7 +337,7 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     buf[al + bl] = '\0';
     return STRVAL(buf);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t lconcat_d(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
     if (a.v == DT_DATA && b.v == DT_DATA) {
@@ -366,7 +365,7 @@ DESCR_t lconcat_d(DESCR_t a, DESCR_t b) {
     }
     return str_concat_d(a, b);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t proc_as_value(const char *name) {
     if (!name || name[0] == '&') return FAILDESCR;
     for (int i = 0; i < g_stage2.proc_count; i++) {
@@ -393,7 +392,7 @@ DESCR_t proc_as_value(const char *name) {
     for (int i = 0; builtins[i]; i++) if (strcmp(builtins[i], name) == 0) return STRVAL(name);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #include "../../driver/interp_private.h"
 #include <time.h>
 int string_section_assign(tree_t *lhs, DESCR_t val) {
@@ -487,7 +486,7 @@ int string_section_assign(tree_t *lhs, DESCR_t val) {
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 const char *real_str(double r, char *buf, int bufsz) {
     for (int p = 15; p <= 17; p++) {
         snprintf(buf, bufsz, "%.*g", p, r);
@@ -498,7 +497,7 @@ const char *real_str(double r, char *buf, int bufsz) {
         strncat(buf, ".0", bufsz - strlen(buf) - 1);
     return buf;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (!fn || !out) return 0;
@@ -1748,10 +1747,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!strcmp(fn,">>=")) _STRREL(>=);
         if (!strcmp(fn,"=="))  _STRREL(==);
         if (!strcmp(fn,"~==")) _STRREL(!=);
-        /* SNOBOL4 comparison predicates (function names; SPITBOL Manual ch.7). Numeric EQ/NE/LT/LE/GT/GE and
-           lexical LGT/LLT/LGE/LLE/LEQ/LNE return the NULL STRING on success and FAIL otherwise (so they chain
-           with a following operand, e.g. `OUTPUT = GT(A,B) A`). Distinct from the relational OPERATORS above;
-           only SNOBOL4 reaches here by these names. */
         if (!strcmp(fn,"EQ")||!strcmp(fn,"NE")||!strcmp(fn,"LT")||!strcmp(fn,"LE")||!strcmp(fn,"GT")||!strcmp(fn,"GE")) {
             DESCR_t _l=args[0],_r=args[1]; _OPCOERCE(_l); _OPCOERCE(_r);
             double a=IS_REAL_fn(_l)?_l.r:(double)_l.i, b=IS_REAL_fn(_r)?_r.r:(double)_r.i;
@@ -1800,38 +1795,17 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DatType *_rdt = dat_find_type(fn);
         if (_rdt) { *out = dat_construct(_rdt, args, nargs); return 1; }
     }
-    /* RK-LOWER-4 dispatch-gap fix: names this dispatcher does not handle fall through to the script-builtin
-       dispatcher (script_builtins_byname.c) — the SM-era arm that was orphaned by SMX-4 (no live call site)
-       yet still holds the proven Raku script-builtin implementations: junction constructors __rk_jct_{any,all,
-       one,none} (this rung), plus the hash/IO/regex/array families (RK-LOWER-5 / RK-NFA territory). Placed at
-       the very tail AFTER every gen_runtime arm has had its chance, so the six overlapping names (close/open/
-       pop/push/reverse/trim) keep gen_runtime's semantics (it matched and returned first) and no live path is
-       disturbed — only names gen_runtime previously REJECTED (returned 0) are newly served. Mirrors the
-       APPENDIX-A "SM dispatch-gap fix" that lit the regex cluster via the raku_try_call_builtin_by_name twins. */
     if (script_try_call_builtin_by_name(fn, args, nargs, out)) return 1;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RK-EMIT-2 (2026-05-31): general deterministic builtin call for modes 3/4. The emitted IR_CALL (dval==2.0) */
-/* box marshals each argument's DESCR into a per-call vector in its OWN ζ frame region (the ARBNO-style per- */
-/* activation array the no-value-stack FACT RULE permits — NOT a global value stack, NOT a name-table round- */
-/* trip) and calls this by-array dispatcher. It is the exact mode-2 oracle dispatch (try_call_builtin_by_name */
-/* over the materialised args), so m2==m3==m4 by construction. NO Byrd-box walking happens at run time: the  */
-/* args are already materialised native values; this is a leaf C call. A name no table serves returns FAIL.  */
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_rk_call_arr(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     if (!fn) return out;
     if (try_call_builtin_by_name(fn, args, nargs, &out)) return out;
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RK-EMIT-3 (2026-05-31): junction-collapse relop for modes 3/4. `$x <relop> any(..)/all(..)/one(..)/none(..)` */
-/* — one operand is an ETX-tagged junction value (built by __rk_jct_*); per docs.raku.org/type/Junction the    */
-/* comparison autothreads over members and collapses to a Boolean by flavor (any=OR, all=AND, one=XOR1, none=  */
-/* NONE). This is the EXACT mode-2 collapse (lower_program.c binop_apply junction prologue), wrapped for the   */
-/* emitted relop box, so m2==m3==m4. `op` is the IR BinopKind (gen.h BINOP_*). Returns 1 (true) / 0 (false).   */
-/* If neither operand is a junction it falls back to a plain numeric/string compare so the emitter can route   */
-/* ANY relop whose operand MIGHT be a junction here without changing scalar-relop semantics.                   */
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 int rt_rk_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
@@ -1847,7 +1821,6 @@ int rt_rk_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
         int numeric = str_rel ? 0 : (IS_INT_fn(scalar) || IS_REAL_fn(scalar));
         return junction_collapse(scalar, jct, tt_op, numeric) ? 1 : 0;
     }
-    /* neither is a junction — plain compare (numeric if both numeric, else string) */
     if (IS_INT_fn(lhs) && IS_INT_fn(rhs)) {
         int64_t a = lhs.i, b = rhs.i;
         switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
@@ -1861,14 +1834,14 @@ int rt_rk_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
                     case BINOP_GT: case BINOP_SGT: return c>0;  case BINOP_GE: case BINOP_SGE: return c>=0; }
       return 0; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t call_builtin(tree_t *call, DESCR_t *args, int nargs) {
     (void)call; (void)args; (void)nargs;
     fprintf(stderr, "[IBB] FATAL: call_builtin invoked — dead SM-walking Icon path resurrected\n");
     abort();
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 long g_error  = 0;
 long g_trace  = 0;
 long g_dump   = 0;
@@ -1902,7 +1875,7 @@ int kw_assign(const char *kw, DESCR_t val) {
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int kw_can_assign(const char *kw, DESCR_t val) {
     if (!strcmp(kw, "pos")) {
         long n = to_int(val);
@@ -1915,7 +1888,7 @@ int kw_can_assign(const char *kw, DESCR_t val) {
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define KW_CSET_MAX 16
 static struct { const char *ptr; const char *name; int len; } g_kw_cset_names[KW_CSET_MAX];
 static int g_kw_cset_count = 0;
@@ -1934,19 +1907,19 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
     }
     return CSETVAL(stable);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 const char *kw_cset_name(const char *ptr) {
     for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr == ptr) return g_kw_cset_names[i].name;
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int kw_cset_len(const char *ptr) {
     for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr == ptr) return g_kw_cset_names[i].len;
     return -1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
     if (!strcmp(kw,"pos"))     return INTVAL(scan_pos);

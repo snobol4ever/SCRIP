@@ -1,21 +1,3 @@
-/* bb_pat_break.cpp — BB template for BREAK and BREAKX. x86() self-encoding (template-revamp, 2026-06-02, Opus 4.8).
-   BREAK(S) matches the run of subject chars from the cursor up to but NOT including the first char in set S
-   (SPITBOL Manual ch.3: "BREAK(S) matches up to but not including any character in S"); it FAILS if no char in
-   S is found before the subject end. BREAKX(S) is the extended form (ch.3 word4.spt): on backtrack it "looks
-   past" the stop point — steps past the break char and rescans to the NEXT char in S — so a subsequent element
-   can drive it further (BREAK never returns a string containing a char of S; BREAKX may, if a subsequent
-   pattern requires it). Mode-2 oracle (bb_exec.c IR_PAT_BREAK): α scans i=0.. to first cset char, fails if
-   δ+i>=Σlen, else counter=i, δ+=i, → γ. β plain BREAK: δ-=counter, fail. β BREAKX (ival==1): origin=δ-counter,
-   i=counter+1, rescan from origin+i to next cset char, fail (δ=origin) if none or i<=counter, else counter=i,
-   δ=origin+i, → γ.
-   REG-2 registers: Σ=R13/δ=R14d/Δ=R15d (ratified, established by BB_MATCH α per REG-0). The legacy subject
-   model (movabs &Σ, [r10], movabs &Σlen) is GONE; r11 scratch + push/pop r11 removed; r10 is SysV caller-saved
-   so push/pop around strchr (r13/r14/r15 are callee-saved and survive). The match-state scalars are ζ-frame
-   slots (PER-BOX LOCAL STORAGE / NO-VALUE-STACK FACT RULES): z = matched length @ [r12+off], z_orig = BREAKX
-   rescan origin @ [r12+off+4] — claimed by bb_slot_claim(8), register-relative so BINARY==TEXT (the old
-   process-global rt_cs_t z/z_orig + movabs &zeta is GONE). strchr(cs,ch)!=NULL ⇒ char in set. Internal labels:
-   plain BREAK loop=L(0)/done=L(1); BREAKX adds rescan loop2=L(2)/done2=L(3). x86 arm: ONE return, pure x86()
-   concat, NO bb_bin_t, medium invisible. */
 #include <string>
 #include <cstring>
 #include <cstdint>
@@ -27,74 +9,71 @@ extern "C" {
 int bb_slot_claim(int bytes);
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * cset_chars() { return _.op_sval ? _.op_sval : ""; }
 static inline const char * cset_label() { return emit_intern_str(cset_chars()); }
 static inline uint64_t     cset_addr()  { return (uint64_t)(uintptr_t)(const void *)cset_chars(); }
 static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
 static inline int          is_breakx()  { return _.op_ival == 1; }
-static inline int          zoff()       { return _.x86_scratch_off; }       /* z  @ [r12+off]   */
-static inline int          zooff()      { return _.x86_scratch_off + 4; }   /* z_orig @ [r12+off+4] (BREAKX) */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int          zoff()       { return _.x86_scratch_off; }
+static inline int          zooff()      { return _.x86_scratch_off + 4; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_break_str() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    s_1asm(std::string(_.lbl_α) + ":")
                  + s_comment(is_breakx() ? "# BOX BREAKX()  [REG-2 Σ=r13 δ=r14 Δ=r15, ζ-frame z/z_orig, x86() self-encoding]"
                                          : "# BOX BREAK()  [REG-2 Σ=r13 δ=r14 Δ=r15, ζ-frame z, x86() self-encoding]"))
-             /* α: z = 0; scan forward to the first cset char */
-             + x86("mov",    FR(zoff()), (long)0)                       /* z = 0                 */
-             + x86("def",    L(0))                                      /* loop:                 */
-             + x86("mov",    "eax", "r14d")                             /* eax = δ               */
-             + x86("add",    "eax", FR(zoff()))                         /* eax = δ + z           */
-             + x86("cmp",    "eax", "r15d")                             /* (δ+z) vs Δ            */
-             + x86("jge",    PORT_OMEGA)                                /* >= Δ → not found → fail*/
+             + x86("mov",    FR(zoff()), (long)0)
+             + x86("def",    L(0))
+             + x86("mov",    "eax", "r14d")
+             + x86("add",    "eax", FR(zoff()))
+             + x86("cmp",    "eax", "r15d")
+             + x86("jge",    PORT_OMEGA)
              + x86("movsxd", "rcx", "eax")
-             + x86("movzx",  "esi", "[r13+rcx]")                        /* Σ[δ+z]                */
+             + x86("movzx",  "esi", "[r13+rcx]")
              + x86("lea",    "rdi", "[rip + __]", cset_addr(), cset_label())
              + x86("push",   "r10")
              + x86("call",   "strchr", strchr_ptr())
              + x86("pop",    "r10")
              + x86("test",   "rax", "rax")
-             + x86("jnz",    L(1))                                      /* found break char → done*/
-             + x86("add",    FR(zoff()), (long)1)                       /* z += 1                */
-             + x86("jmp",    L(0))                                      /* loop                  */
-             + x86("def",    L(1))                                      /* done:                 */
-             + x86("mov",    "eax", "r14d")                             /* eax = δ               */
-             + x86("add",    "eax", FR(zoff()))                         /* eax = δ + z           */
-             + x86("mov",    "r14d", "eax")                             /* δ += z (break char not consumed)*/
+             + x86("jnz",    L(1))
+             + x86("add",    FR(zoff()), (long)1)
+             + x86("jmp",    L(0))
+             + x86("def",    L(1))
+             + x86("mov",    "eax", "r14d")
+             + x86("add",    "eax", FR(zoff()))
+             + x86("mov",    "r14d", "eax")
              + x86("jmp",    PORT_GAMMA)
-             + x86("def",    PORT_BETA)                                 /* β:                    */
+             + x86("def",    PORT_BETA)
              + (is_breakx()
-                  /* BREAKX β: origin = δ − z (saved); z++; rescan from origin+z to NEXT cset char */
-                ? (  x86("mov",    "eax", "r14d")                       /* eax = δ               */
-                   + x86("sub",    "eax", FR(zoff()))                   /* eax = δ − z = origin  */
-                   + x86("mov",    FR(zooff()), "eax")                  /* z_orig = origin       */
-                   + x86("add",    FR(zoff()), (long)1)                 /* z++                   */
-                   + x86("def",    L(2))                                /* loop2:                */
-                   + x86("mov",    "eax", FR(zooff()))                  /* eax = z_orig          */
-                   + x86("add",    "eax", FR(zoff()))                   /* eax = z_orig + z      */
-                   + x86("cmp",    "eax", "r15d")                       /* (z_orig+z) vs Δ       */
-                   + x86("jge",    PORT_OMEGA)                          /* >= Δ → none → fail    */
+                ? (  x86("mov",    "eax", "r14d")
+                   + x86("sub",    "eax", FR(zoff()))
+                   + x86("mov",    FR(zooff()), "eax")
+                   + x86("add",    FR(zoff()), (long)1)
+                   + x86("def",    L(2))
+                   + x86("mov",    "eax", FR(zooff()))
+                   + x86("add",    "eax", FR(zoff()))
+                   + x86("cmp",    "eax", "r15d")
+                   + x86("jge",    PORT_OMEGA)
                    + x86("movsxd", "rcx", "eax")
-                   + x86("movzx",  "esi", "[r13+rcx]")                  /* Σ[z_orig+z]           */
+                   + x86("movzx",  "esi", "[r13+rcx]")
                    + x86("lea",    "rdi", "[rip + __]", cset_addr(), cset_label())
                    + x86("push",   "r10")
                    + x86("call",   "strchr", strchr_ptr())
                    + x86("pop",    "r10")
                    + x86("test",   "rax", "rax")
-                   + x86("jnz",    L(3))                                /* found → done2         */
-                   + x86("add",    FR(zoff()), (long)1)                 /* z++                   */
-                   + x86("jmp",    L(2))                                /* loop2                 */
-                   + x86("def",    L(3))                                /* done2:                */
-                   + x86("mov",    "eax", FR(zooff()))                  /* eax = z_orig          */
-                   + x86("add",    "eax", FR(zoff()))                   /* eax = z_orig + z      */
-                   + x86("mov",    "r14d", "eax")                       /* δ = z_orig + z        */
+                   + x86("jnz",    L(3))
+                   + x86("add",    FR(zoff()), (long)1)
+                   + x86("jmp",    L(2))
+                   + x86("def",    L(3))
+                   + x86("mov",    "eax", FR(zooff()))
+                   + x86("add",    "eax", FR(zoff()))
+                   + x86("mov",    "r14d", "eax")
                    + x86("jmp",    PORT_GAMMA))
-                  /* plain BREAK β: undo (δ −= z) and fail */
-                : (  x86("mov",    "eax", "r14d")                       /* eax = δ               */
-                   + x86("sub",    "eax", FR(zoff()))                   /* eax = δ − z           */
-                   + x86("mov",    "r14d", "eax")                       /* δ −= z                */
+                : (  x86("mov",    "eax", "r14d")
+                   + x86("sub",    "eax", FR(zoff()))
+                   + x86("mov",    "r14d", "eax")
                    + x86("jmp",    PORT_OMEGA)));
     }
     if (PLATFORM_JVM) {
@@ -213,9 +192,9 @@ static std::string bb_pat_break_str() {
     if (PLATFORM_WASM) { return "          (call $bb_break_new)\n"; }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_pat_break(void) {
-    x86_begin();                                    /* TEXT: per-box uid for .Lx<uid>_<n> internal labels */
-    _.x86_scratch_off = bb_slot_claim(8);           /* z @ [r12+off], z_orig @ [r12+off+4] (BREAKX) */
+    x86_begin();
+    _.x86_scratch_off = bb_slot_claim(8);
     bb_emit_x86(bb_pat_break_str());
 }

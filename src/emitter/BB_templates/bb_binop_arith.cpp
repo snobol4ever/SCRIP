@@ -1,16 +1,3 @@
-/* bb_binop_arith.cpp — BB box: IR_BINOP integer arithmetic, stackless slot→slot DESCR.
-   GZ-9 (Icon). x86() self-encoding (template-revamp, 2026-06-02). pBB-FREE: reads ONLY g_emit
-   (FACT RULE — no neighbor reads, no fusion). The driver (emit_bb.c case IR_BINOP) resolves the
-   operand slots and result slot and deposits them as scalars: op_ival (the op), op_sa / op_sb
-   (operand DESCR frame offsets), op_off (this box's result DESCR slot). op_off>=0 is the driver's
-   verdict "this IS the arith case" — the ADD/SUB/MUL/DIV/MOD decision lives ONLY in the driver, so
-   it is not duplicated here. Both operands are producer boxes (VAR / nested binop) that already
-   wrote a 16-byte DESCR into their own ζ=r12 frame slot; this box reads each operand's int payload
-   at [r12+slot+8], computes register-to-register (rax=lhs, rcx=rhs, result→rax), and writes a DESCR
-   {v:DT_I, payload:result} into [r12+off] so a consumer reads it by its slot. test_icon.c named-slot
-   model — NO value stack, NO ring. `i := i + 1` of a while/until loop lowers to exactly this. The x86
-   arm is ONE return, a pure x86() concat: the only per-medium difference (BINARY bytes vs GAS text)
-   lives inside the x86_* encoders. Grounded in Icon oarith.r integer arithmetic. */
 #include <string>
 #include <stdint.h>
 #include "emit_str.h"
@@ -23,7 +10,7 @@ extern "C" {
 extern int g_icn_flat_chain;
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith_str() {
     if (!PLATFORM_X86) return std::string();
     if (!(g_icn_flat_chain && _.op_off >= 0)) return std::string();
