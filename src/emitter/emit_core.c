@@ -416,7 +416,10 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     }
     case IR_AUGOP:
     case IR_CALL:                 bb_call(nd);         return 0;
-    case IR_BINOP:                bb_binop(nd);        return 0;
+    case IR_BINOP_RELOP:          bb_binop_relop(nd);       return 0;
+    case IR_BINOP_ARITH:          bb_binop_arith(nd);       return 0;
+    case IR_BINOP_GVAR_ARITH:     bb_binop_gvar_arith(nd);  return 0;
+    case IR_BINOP_CONCAT:         bb_binop_concat_slot(nd); return 0;
     case IR_SUCCEED:              bb_succeed();        return 0;
     case IR_EVERY:                bb_every(nd);        return 0;
     case IR_GATHER:               { extern void bb_rk_gather(IR_t *); bb_rk_gather(nd); } return 0;

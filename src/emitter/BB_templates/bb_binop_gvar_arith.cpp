@@ -37,3 +37,10 @@ std::string bb_binop_gvar_arith_str() {
          + x86("def", PORT_BETA)
          + x86("jmp", PORT_OMEGA);
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_binop_gvar_arith(IR_t * pBB) {
+    (void)pBB;
+    std::string s = bb_binop_gvar_arith_str();
+    if (s.empty()) { bb_emit_x86(x86_bomb("bb_binop_gvar_arith: shape mismatch (dispatch chose this arm but predicate failed)")); return; }
+    bb_emit_x86(s);
+}

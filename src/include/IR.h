@@ -142,6 +142,10 @@ typedef enum {
     IR_SUBJECT,
     IR_REF_INVARIANT,
     IR_PAT_MATCH,
+    IR_BINOP_RELOP,
+    IR_BINOP_ARITH,
+    IR_BINOP_GVAR_ARITH,
+    IR_BINOP_CONCAT,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/
