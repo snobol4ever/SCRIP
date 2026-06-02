@@ -14,7 +14,7 @@ static std::string bb_var_str() {
              + x86("jmp",  PORT_GAMMA)
              + x86("def",  PORT_BETA)
              + x86("jmp",  PORT_OMEGA);
-    if (g_icn_flat_chain && _.op_off >= 0 && _.op_sa >= 0)
+    if (g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0)
         return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
                              + s_comment(emit_fmt("# BOX IR_VAR read(\"%s\") [GZ-7 ICN flat-chain: var slot %d -> own slot %d]", _.op_sval ? _.op_sval : "", _.op_sa, _.op_off)))
              + x86_frame_load64("rax", _.op_sa)

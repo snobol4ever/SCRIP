@@ -7,14 +7,14 @@ extern "C" {
 #include "ast.h"
 #include "descr.h"
 #include "../../runtime/builtins/gen.h"
-extern int g_icn_flat_chain;
+extern int g_descr_flat_chain;
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot_str() {
     if (!PLATFORM_X86) return std::string();
-    if (!(g_icn_flat_chain && _.op_off >= 0 && _.op_ival == BINOP_CONCAT)) return std::string();
+    if (!(g_descr_flat_chain && _.op_off >= 0 && _.op_ival == BINOP_CONCAT)) return std::string();
     int sa = _.op_sa, sb = _.op_sb, off = _.op_off;
     if (sa < 0 || sb < 0) return std::string();
     uint64_t fptr; { DESCR_t (*fp)(DESCR_t, DESCR_t) = str_concat_d; fptr = (uint64_t)(uintptr_t)(void*)fp; }

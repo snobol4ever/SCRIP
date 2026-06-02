@@ -7,7 +7,7 @@ extern "C" {
 #include "ast.h"
 #include "descr.h"
 #include "../../runtime/builtins/gen.h"
-extern int g_icn_flat_chain;
+extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -27,7 +27,7 @@ static const char * rel_fail_mnem(int64_t op) {
 std::string bb_binop_relop_str() {
     if (!PLATFORM_X86) return std::string();
     int64_t op = _.op_ival;
-    if (!(g_icn_flat_chain && _.op_off >= 0 && rel_is_numrel(op))) return std::string();
+    if (!(g_descr_flat_chain && _.op_off >= 0 && rel_is_numrel(op))) return std::string();
     int sa = _.op_sa, sb = _.op_sb;
     if (sa < 0 || sb < 0) return std::string();
     const char * mnem = rel_fail_mnem(op);

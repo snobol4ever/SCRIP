@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "ast.h"
 #include "descr.h"
-extern int g_icn_flat_chain;
+extern int g_descr_flat_chain;
 struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
@@ -37,7 +37,7 @@ static unop_op bb_unop_resolve(int kind, int64_t sub) {
 std::string bb_unop_str() {
     if (!PLATFORM_X86) return std::string();
     int off = _.op_off;
-    if (!(g_icn_flat_chain && off >= 0)) return std::string();
+    if (!(g_descr_flat_chain && off >= 0)) return std::string();
     int sa = _.op_sa;
     unop_op uo = bb_unop_resolve(_.op_node_kind, _.op_ival);
     if (uo == UO_UNHANDLED) return std::string();

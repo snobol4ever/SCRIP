@@ -624,8 +624,8 @@ int main(int argc, char **argv)
                 return 1;
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
-            extern int icn_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
-            extern int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname);
+            extern int descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
+            extern int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname);
             IR_t *icn_root = icn_ring_to_tree(bbg);
             int use_chain = (icn_root == NULL);
             printf("  .intel_syntax noprefix\n");
@@ -645,7 +645,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                icn_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
+                descr_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
                 if (n_procs < 64) snprintf(proc_names_buf[n_procs++], 128, "%s", pname);
                 free(pn);
             }
@@ -680,11 +680,11 @@ int main(int argc, char **argv)
             printf("  ret\n");
             int rc;
             {
-                extern int g_icn_flat_chain;
-                int saved = g_icn_flat_chain; g_icn_flat_chain = 1;
-                rc = use_chain ? icn_flat_chain_build_text(bbg->entry, stdout, "main")
+                extern int g_descr_flat_chain;
+                int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
+                rc = use_chain ? descr_flat_chain_build_text(bbg->entry, stdout, "main")
                                : codegen_flat_build(icn_root, stdout, "main");
-                g_icn_flat_chain = saved;
+                g_descr_flat_chain = saved;
             }
             g_frame_active = 0;
             fflush(stdout);
@@ -870,7 +870,7 @@ int main(int argc, char **argv)
             extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
             extern void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
             extern void rt_proc_reset(void);
-            extern bb_box_fn icn_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
+            extern bb_box_fn descr_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
             if ((is_icon || is_raku) && !icn_graph_native_emittable(s2)) {
@@ -910,7 +910,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                bb_box_fn pfn = icn_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
+                bb_box_fn pfn = descr_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
             {
@@ -934,16 +934,16 @@ int main(int argc, char **argv)
                 abort();
             }
             extern void *rt_frame(void);
-            extern bb_box_fn icn_flat_chain_build(IR_t * entry);
+            extern bb_box_fn descr_flat_chain_build(IR_t * entry);
             IR_t *icn_root = icn_ring_to_tree(bbg);
             bb_box_fn fn;
             if (icn_root) {
-                extern int g_icn_flat_chain;
-                int saved = g_icn_flat_chain; g_icn_flat_chain = 1;
+                extern int g_descr_flat_chain;
+                int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
                 fn = bb_build_flat(icn_root);
-                g_icn_flat_chain = saved;
+                g_descr_flat_chain = saved;
             } else {
-                fn = icn_flat_chain_build(bbg->entry);
+                fn = descr_flat_chain_build(bbg->entry);
             }
             g_frame_active = 0;
             if (!fn) {
@@ -992,7 +992,7 @@ int main(int argc, char **argv)
                 (void)s2;
                 abort();
             }
-            extern bb_box_fn sno_flat_chain_build(IR_graph_t * g);
+            extern bb_box_fn gvar_flat_chain_build(IR_graph_t * g);
             extern void *rt_frame(void);
             extern int g_frame_active;
             int main_bb_idx = -1;
@@ -1001,7 +1001,7 @@ int main(int argc, char **argv)
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
             if (sbbg && sbbg->entry) {
                 g_frame_active = 1;
-                bb_box_fn fn = sno_flat_chain_build(sbbg);
+                bb_box_fn fn = gvar_flat_chain_build(sbbg);
                 g_frame_active = 0;
                 if (fn) { (void)fn(rt_frame(), 0); goto run_done; }
             }

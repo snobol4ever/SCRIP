@@ -132,7 +132,7 @@ static std::string bb_call_str(IR_t * pBB) {
     const char * fn   = pBB->sval ? pBB->sval : "";
     int64_t      narg = pBB->ival;
     IR_t       * a0   = pBB->α;
-    if (g_icn_flat_chain && pBB->dval == 2.0) {
+    if (g_descr_flat_chain && pBB->dval == 2.0) {
         IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
         int args_ok = 1;
         for (int i = 0; i < (int)narg; i++) {
@@ -186,7 +186,7 @@ static std::string bb_call_str(IR_t * pBB) {
             }
         }
     }
-    if (g_icn_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) {
+    if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) {
         int off = bb_slot_alloc16(pBB);
         IR_graph_t ** argblks = (IR_graph_t **)(intptr_t) pBB->counter;
         bb_label_t * beta_tgt = bb_call_beta_target();
@@ -255,7 +255,7 @@ static std::string bb_call_str(IR_t * pBB) {
             return s;
         }
     }
-    if (g_icn_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
+    if (g_descr_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
         int off = bb_slot_get(a0);
         if (off >= 0) {
             bb_label_t * beta_tgt = bb_call_beta_target();
