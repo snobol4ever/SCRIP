@@ -402,7 +402,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PAT_ASSIGN_IMM:  bb_prepare_capture_arbno(nd, 1); bb_capture(nd, 1);        return 0;
     case IR_PAT_ASSIGN_COND: bb_prepare_capture_arbno(nd, 0); bb_capture(nd, 0);        return 0;
     case IR_GOAL:         bb_prepare_pl(nd); bb_goal(nd);          return 0;
-    case IR_ARITH:           bb_prepare_pl(nd); bb_arith(nd);         return 0;
+    case IR_ARITH:           bb_prepare_pl(nd); bb_arith();           return 0;
     case IR_BUILTIN:         bb_prepare_pl(nd); bb_builtin(nd);       return 0;
     case IR_LOGICVAR:          bb_logicvar(nd);            return 0;
     case IR_ATOM:         bb_prepare_pl(nd); bb_atom(nd);           return 0;
