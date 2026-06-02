@@ -1,4 +1,6 @@
 #include "bb_exec.h"
+#include "bb_exec_state.h"
+#include "rt/rt.h"
 #include "lower.h"
 #include "../../emitter/sil_macros.h"
 #include "../../parser/prolog/term.h"
