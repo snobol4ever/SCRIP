@@ -188,6 +188,85 @@ inline std::string x86_deflabel(int port) {
     return MEDIUM_BINARY ? x86_Drec(port) : (std::string(" ") + x86_portname(port) + ":\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* INTERNAL (box-local) LABELS.  Ports 0..3 are α/β/γ/ω.  A box with an internal loop (SPAN/BREAK) or a join  */
+/* ("done") jumps to targets that are NOT ports — only reachable from within the box.  These use record ids   */
+/* >= X86_INTERNAL_BASE (id = base + n, n>=0).  BINARY: the walker (bb_emit_x86) maps id>=base to a fresh      */
+/* box-local bb_label_t, defined/patched with the SAME bb_label_define / bb_emit_patch_rel32 primitives as     */
+/* ports (forward + backward refs already handled by the patch list).  TEXT: the name is .Lx<uid>_<n> where    */
+/* uid = _.x86_uid (set per-box by x86_begin() BEFORE the string is built), so two instances of the same box   */
+/* never collide.  Template-facing: x86("jmp"/"jge"/.../"def", L(n)).                                          */
+#define X86_INTERNAL_BASE 4
+#define X86_INTERNAL_MAX  16
+struct x86_lbl { int n; };
+inline x86_lbl L(int n) { return x86_lbl{ n }; }
+inline std::string x86_internal_name(int n) { return std::string(".Lx") + std::to_string(_.x86_uid) + "_" + std::to_string(n); }
+inline std::string x86_jmp_id(int n) {
+    return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(X86_INTERNAL_BASE + n))
+                         : (std::string(" jmp ") + x86_internal_name(n) + "\n");
+}
+inline std::string x86_jcc_id(const char * mnem, int n) {
+    return MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(X86_INTERNAL_BASE + n))
+                         : (std::string(" ") + mnem + " " + x86_internal_name(n) + "\n");
+}
+inline std::string x86_deflabel_id(int n) {
+    return MEDIUM_BINARY ? x86_Drec(X86_INTERNAL_BASE + n) : (x86_internal_name(n) + ":\n");
+}
+/* Set the per-box internal-label uid (TEXT only).  Called by a looping box's extern BEFORE building the      */
+/* string.  Mirrors the bb_cs_id idiom; BINARY needs no uid (records carry ids).                              */
+inline void x86_begin() { if (!MEDIUM_BINARY) _.x86_uid = g_flat_node_id++; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* cmp r32, imm — imm8 short form (0x83 /7) when it fits int8 (matches `as`); else eax→0x3D, others 0x81 /7.  */
+inline std::string x86_cmp_imm(const char * reg, long imm) {
+    int m = x86_rnum(reg);
+    std::string code;
+    if (imm >= -128 && imm <= 127) { if (m >= 8) code += (char)0x41; code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
+    else if (m == 0)               { code += (char)0x3D; code += u32le((uint32_t)imm); }
+    else                           { if (m >= 8) code += (char)0x41; code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" cmp ") + reg + ", " + std::to_string(imm) + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ζ-FRAME MEMORY OPERAND [r12 + off].  RW box-local state (PER-BOX LOCAL STORAGE FACT RULE) lives in the     */
+/* one-register frame ζ=r12 and is reached register-relative — IDENTICAL bytes in BINARY and TEXT (no movabs  */
+/* to a process address, no rip-rel .data), so there is no medium divergence to drift.  off==0 → mod00 (no    */
+/* disp); int8 → mod01 disp8; else mod10 disp32 — matching how `as` encodes an r12 (SIB-base) memory operand. */
+inline std::string x86_r12_modrm(int regfield, int off) {
+    std::string s; int rf = regfield & 7;
+    if (off == 0)                       { s += (char)((0 << 6) | (rf << 3) | 4); s += (char)0x24; }
+    else if (off >= -128 && off <= 127) { s += (char)((1 << 6) | (rf << 3) | 4); s += (char)0x24; s += (char)(int8_t)off; }
+    else                                { s += (char)((2 << 6) | (rf << 3) | 4); s += (char)0x24; s += u32le((uint32_t)off); }
+    return s;
+}
+inline std::string x86_frame_text_mem(int off) { return std::string("[r12 + ") + std::to_string(off) + "]"; }
+/* mov dword [r12+off], imm32 — C7 /0.                                                                        */
+inline std::string x86_frame_mov_imm(int off, long imm) {
+    if (MEDIUM_BINARY) { std::string c; c += (char)0x41; c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
+}
+/* mov [r12+off], reg32 — 89 /r (store reg into frame slot).                                                  */
+inline std::string x86_frame_store(int off, const char * reg) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
+}
+/* mov reg32, [r12+off] — 8B /r (load frame slot into reg).                                                   */
+inline std::string x86_frame_load(const char * reg, int off) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" mov ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
+}
+/* add dword [r12+off], imm — 83 /0 (imm8) or 81 /0 (imm32).                                                  */
+inline std::string x86_frame_add_imm(int off, long imm) {
+    if (MEDIUM_BINARY) {
+        std::string c; c += (char)0x41;
+        if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_r12_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
+        else                           { c += (char)0x81; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); }
+        return x86_Lrec(c);
+    }
+    return std::string(" add dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
+}
+struct x86_frame { int off; };
+inline x86_frame FR(int off) { return x86_frame{ off }; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* UNIFIED FRONT-END (Lon eureka 2026-06-01).  ONE x86(...) keyed on the mnemonic (1st arg); the remaining   */
 /* args' cardinality + type select the form via overloading.  This is the template-facing API — the typed   */
 /* x86_* encoders above are the internal implementation it dispatches to.  Add a case here as vocabulary     */
@@ -202,6 +281,21 @@ inline std::string x86(const char * mnem, x86_port port) {                      
     if (!strcmp(mnem, "def")) return x86_deflabel(port);
     return x86_jcc(mnem, port);
 }
+inline std::string x86(const char * mnem, x86_lbl lab) {                                       /* jmp / jcc / def to internal*/
+    if (!strcmp(mnem, "jmp")) return x86_jmp_id(lab.n);
+    if (!strcmp(mnem, "def")) return x86_deflabel_id(lab.n);
+    return x86_jcc_id(mnem, lab.n);
+}
+inline std::string x86(const char * mnem, x86_frame f, const char * reg) {                     /* mov [r12+off], reg        */
+    (void)mnem; return x86_frame_store(f.off, reg);
+}
+inline std::string x86(const char * mnem, const char * reg, x86_frame f) {                     /* mov reg, [r12+off]        */
+    (void)mnem; return x86_frame_load(reg, f.off);
+}
+inline std::string x86(const char * mnem, x86_frame f, long imm) {                             /* mov/add dword[r12+off],imm*/
+    if (!strcmp(mnem, "add")) return x86_frame_add_imm(f.off, imm);
+    return x86_frame_mov_imm(f.off, imm);
+}
 inline std::string x86(const char * mnem, const char * a, const char * b) {                    /* reg/mem 2-operand         */
     if (!strcmp(mnem, "mov"))    return (a[0] == '[') ? x86_store_cursor_mirror() : x86_mov(a, b);
     if (!strcmp(mnem, "cmp"))    return x86_cmp(a, b);
@@ -214,6 +308,7 @@ inline std::string x86(const char * mnem, const char * a, const char * b) {     
 inline std::string x86(const char * mnem, const char * reg, long imm) {                        /* reg, imm32                */
     if (!strcmp(mnem, "add")) return x86_add(reg, imm);
     if (!strcmp(mnem, "sub")) return x86_sub(reg, imm);
+    if (!strcmp(mnem, "cmp")) return x86_cmp_imm(reg, imm);
     if (!strcmp(mnem, "mov")) return x86_movimm(reg, imm);
     return std::string();
 }
@@ -226,15 +321,22 @@ inline std::string x86(const char * mnem, const char * dst, const char * mem, ui
     return x86_load_ro(dst, label, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* The consumer.  TEXT: passthrough.  BINARY: walk records, DISCOVERING byte positions (no bb_bin_t).     */
+/* The consumer.  TEXT: passthrough.  BINARY: walk records, DISCOVERING byte positions (no bb_bin_t).      */
+/* id < X86_INTERNAL_BASE → port label (g_emit.lbl_*_p); id >= base → a fresh box-local internal label,    */
+/* defined/patched with the same primitives (the global patch list resolves forward refs within the walk).*/
+inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
+    return id < X86_INTERNAL_BASE ? x86_portlbl(id) : &internal[id - X86_INTERNAL_BASE];
+}
 inline void bb_emit_x86(const std::string & s) {
     if (!MEDIUM_BINARY) { if (!s.empty()) emit_text_n(s.data(), s.size()); return; }
+    bb_label_t internal[X86_INTERNAL_MAX];
+    for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; snprintf(internal[k].name, BB_LABEL_NAME_MAX, ".Lxi%d", k); }
     size_t i = 0, n = s.size();
     while (i < n) {
         char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); }
-        else if (tag == 'J') { int p = (unsigned char)s[i++]; bb_emit_patch_rel32(x86_portlbl(p)); }
-        else if (tag == 'D') { int p = (unsigned char)s[i++]; bb_label_define(x86_portlbl(p)); }
+        else if (tag == 'J') { int id = (unsigned char)s[i++]; bb_emit_patch_rel32(x86_label_for(id, internal)); }
+        else if (tag == 'D') { int id = (unsigned char)s[i++]; bb_label_define(x86_label_for(id, internal)); }
         else break;
     }
 }

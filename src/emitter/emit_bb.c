@@ -83,6 +83,16 @@ int bb_slot_get(IR_t *nd) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Node-free per-sequence frame claim. A box whose RW slot is PRIVATE (no consumer recovers it by node */
+/* key — e.g. a pattern element's own match-state counter) claims `bytes` of the ζ=r12 frame and gets  */
+/* the offset, without entering the node-keyed slotmap. Same per-sequence counter as bb_slot_alloc, so */
+/* offsets never collide; this keeps the box pBB-free (no IR_t* needed to allocate private scratch).   */
+int bb_slot_claim(int bytes) {
+    int off = g_flat_slot_count;
+    g_flat_slot_count += bytes;
+    return off;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GZ-7 (GROUND ZERO 3) named-variable slot map. An Icon variable `x` is a NAMED storage location — the   */
 /* x86 analog of test_sno_1.c's named box slots (`str_t POS0; ... seq = cat(seq, POS0)`). All references  */
 /* to the SAME variable name resolve to ONE per-sequence frame slot [r12+off]: IR_ASSIGN(x) writes it,    */
