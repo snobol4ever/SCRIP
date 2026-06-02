@@ -679,6 +679,14 @@ static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static IR_e binop_slot_kind(IR_t *nd) {
+    int64_t op = nd ? nd->ival : -1;
+    if (op >= BINOP_LT && op <= BINOP_NE) return IR_BINOP_RELOP;
+    if (op == BINOP_CONCAT)               return IR_BINOP_CONCAT;
+    if (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD) return IR_BINOP_ARITH;
+    return IR_BINOP;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_binop_tree: missing α or β child\n");
@@ -688,7 +696,7 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
         || (pBB->α->t == IR_LIT_S && pBB->β->t == IR_LIT_S && pBB->ival == BINOP_CONCAT)) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        { IR_e _sk = pBB->t; pBB->t = binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); pBB->t = _sk; }
         return;
     }
     int id = g_flat_node_id++;
@@ -716,7 +724,7 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     emit_label_define_bb(rhs_done);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+    { IR_e _sk = pBB->t; pBB->t = binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); pBB->t = _sk; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int binop_operand_streams(IR_t *e) {
@@ -1541,7 +1549,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             g_emit.op_off = bb_slot_alloc(nd);
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-            EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
+            { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
         } else if (g_icn_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
             if (op_is_arith || op_is_rel || op_is_concat) {
                 g_emit.op_sa = bb_slot_get(nd->α);
@@ -1550,7 +1558,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-            EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
+            { IR_e _sk = nd->t; nd->t = binop_slot_kind(nd); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
         } else if (!nd->α && !nd->β) {
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);

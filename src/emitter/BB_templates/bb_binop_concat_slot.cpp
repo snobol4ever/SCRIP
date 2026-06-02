@@ -31,3 +31,10 @@ std::string bb_binop_concat_slot_str() {
          + x86("def", PORT_BETA)
          + x86("jmp", PORT_OMEGA);
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_binop_concat_slot(IR_t * pBB) {
+    (void)pBB;
+    std::string s = bb_binop_concat_slot_str();
+    if (s.empty()) { bb_emit_x86(x86_bomb("bb_binop_concat_slot: shape mismatch (dispatch chose this arm but predicate failed)")); return; }
+    bb_emit_x86(s);
+}
