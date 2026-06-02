@@ -4,7 +4,7 @@
 #include "../../frontend/prolog/term.h"
 #include "../../frontend/prolog/prolog_runtime.h"
 #include "../../frontend/prolog/prolog_atom.h"
-#include "../../runtime/interp/resolve_runtime.h"
+#include "../../runtime/builtins/resolve_runtime.h"
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
@@ -47,8 +47,8 @@ static void bb_dcap_flush(void) {
 static void bb_dcap_clear(void) { g_dcap_n = 0; }
 #include "core.h"
 #include "lower.h"
-#include "../runtime/interp/gen_runtime.h"
-#include "../runtime/interp/gen_value.h"
+#include "../runtime/builtins/gen_runtime.h"
+#include "../runtime/builtins/gen_value.h"
 #include "coerce.h"
 extern int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
 extern DESCR_t *data_field_ptr(const char *field, DESCR_t obj);

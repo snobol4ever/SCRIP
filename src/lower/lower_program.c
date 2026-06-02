@@ -4,7 +4,7 @@
 #include "lower.h"
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
-#include "../runtime/interp/resolve_runtime.h"
+#include "../runtime/builtins/resolve_runtime.h"
 #include "../frontend/prolog/term.h"
 #include "../frontend/prolog/prolog_atom.h"
 #include <stdio.h>

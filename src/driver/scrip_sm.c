@@ -5,8 +5,8 @@
 #include "../frontend/snobol4/scrip_cc.h"
 #include "../include/IR.h"
 #include "../include/bb_program.h"
-#include "../runtime/interp/gen_runtime.h"
-#include "../runtime/interp/resolve_runtime.h"
+#include "../runtime/builtins/gen_runtime.h"
+#include "../runtime/builtins/resolve_runtime.h"
 #include "interp_private.h"
 #include "polyglot.h"
 extern int g_core_err_active;

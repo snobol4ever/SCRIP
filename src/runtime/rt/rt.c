@@ -98,7 +98,7 @@ void rt_register_expressions(const rt_expression_entry *tbl)
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #include "../../include/IR.h"
-#include "../interp/resolve_runtime.h"
+#include "../builtins/resolve_runtime.h"
 extern cap_t *bb_cap_new(bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
 extern cap_t *bb_cap_new_call(bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
 void rt_init_cap(void **slot_ptr, void *child_fn, const char *varname, int immediate)

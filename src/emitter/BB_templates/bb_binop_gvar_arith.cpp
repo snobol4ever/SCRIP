@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "SM.h"
 #include "ast.h"
-#include "../../runtime/interp/gen.h"
+#include "../../runtime/builtins/gen.h"
 extern int g_gvar_flat_chain;
 }
 #include "x86_asm.h"

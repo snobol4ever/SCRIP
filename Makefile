@@ -140,11 +140,11 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower.c \
     $(SRC)/lower/lower_program.c \
     $(SRC)/lower/lower_sno.c \
-    $(SRC)/runtime/interp/gen_runtime.c \
-    $(SRC)/runtime/interp/scan_builtins.c \
-    $(SRC)/runtime/interp/script_builtins.c \
-    $(SRC)/runtime/interp/script_builtins_byname.c \
-    $(SRC)/runtime/interp/resolve_runtime.c \
+    $(SRC)/runtime/builtins/gen_runtime.c \
+    $(SRC)/runtime/builtins/scan_builtins.c \
+    $(SRC)/runtime/builtins/script_builtins.c \
+    $(SRC)/runtime/builtins/script_builtins_byname.c \
+    $(SRC)/runtime/builtins/resolve_runtime.c \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/lower/ast_clone.c \
     $(SRC)/lower/scrip_ir.c \
@@ -311,11 +311,11 @@ scrip:
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/rebus/rebus_lower.c  -o $(OBJ)/rebus_lower.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/rebus/rebus_emit.c   -o $(OBJ)/rebus_emit.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/rebus/rebus_print.c  -o $(OBJ)/rebus_print.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/interp/gen_runtime.c -o $(OBJ)/gen_runtime.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/interp/script_builtins.c -o $(OBJ)/script_builtins.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/interp/script_builtins_byname.c -o $(OBJ)/script_builtins_byname.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/interp/scan_builtins.c -o $(OBJ)/scan_builtins.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/interp/resolve_runtime.c  -o $(OBJ)/resolve_runtime.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/gen_runtime.c -o $(OBJ)/gen_runtime.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/script_builtins.c -o $(OBJ)/script_builtins.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/script_builtins_byname.c -o $(OBJ)/script_builtins_byname.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/scan_builtins.c -o $(OBJ)/scan_builtins.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolve_runtime.c  -o $(OBJ)/resolve_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
 	$(CC) $(CRT)   -c $(SRC)/lower/ast_clone.c    -o $(OBJ)/ast_clone.o
 	$(CC) $(CRT)   -c $(SRC)/lower/scrip_ir.c     -o $(OBJ)/scrip_ir.o

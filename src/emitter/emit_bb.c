@@ -4,7 +4,7 @@
 #include "emit_templates.h"
 #include "emit_globals.h"
 #include "XA.h"
-#include "../runtime/interp/gen.h"
+#include "../runtime/builtins/gen.h"
 #include "IR.h"
 #include "../rt/rt.h"
 #include "../processor/bb_build.h"

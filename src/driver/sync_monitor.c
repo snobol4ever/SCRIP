@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include "sync_monitor.h"
 #include "core.h"
-#include "runtime/interp/gen_runtime.h"
-#include "runtime/interp/resolve_runtime.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/resolve_runtime.h"
 #include "lower.h"
 #include "SM.h"
 #include "interp.h"
