@@ -1,5 +1,5 @@
 #include "rt_protected.h"
-#include "../../include/SM.h"
+#include "SM.h"
 #include <string.h>
 static const struct {
     const char *name;

@@ -7,7 +7,7 @@
 #include "bb_pool.h"
 #include "bb_build.h"
 #include "ast.h"
-#include "../../include/SM.h"
+#include "SM.h"
 #include "../../parser/prolog/prolog_atom.h"
 #include <stdint.h>
 #include <stdio.h>
