@@ -391,8 +391,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PAT_BREAK:       bb_pat_break();           return 0;
     case IR_PAT_ARB:         bb_pat_arb();             return 0;
     case IR_PAT_ARBNO:       bb_prepare_capture_arbno(nd, 0); bb_arbno(nd);             return 0;
-    case IR_PAT_CAT:         bb_pat_cat(nd);           return 0;
-    case IR_PAT_ALT:         bb_pat_alt(nd);           return 0;
+    case IR_PAT_CAT:         bb_pat_cat();             return 0;
+    case IR_PAT_ALT:         bb_pat_alt();             return 0;
     case IR_PAT_LEN:         bb_pat_len();           return 0;
     case IR_PAT_POS:         bb_pat_pos();             return 0;
     case IR_PAT_TAB:         bb_pat_tab();             return 0;

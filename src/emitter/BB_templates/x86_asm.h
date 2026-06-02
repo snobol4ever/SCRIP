@@ -242,6 +242,25 @@ inline std::string x86_deflabel_id(int n) {
 /* string.  Mirrors the bb_cs_id idiom; BINARY needs no uid (records carry ids).                              */
 inline void x86_begin() { if (!MEDIUM_BINARY) _.x86_uid = g_flat_node_id++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* and reg, imm — imm8 short form (0x83 /4) when it fits int8 (matches `as`, e.g. `and rsp,-16` = 48 83 E4 F0);*/
+/* else eax→0x25, others 0x81 /4.  REX.W when the register is 64-bit (rsp/rbx/…); REX.B when reg>=8.  Used by  */
+/* the 16-byte stack-alignment dance (sub-pattern SSE path) so the alignment is a normal x86() call, not a    */
+/* medium-branched raw-byte literal in the template (FACT RULE: ONE MEDIUM, INVISIBLE).                       */
+inline std::string x86_and(const char * reg, long imm) {
+    int m = x86_rnum(reg); bool w = x86_is64(reg);
+    std::string code;
+    if (imm >= -128 && imm <= 127) {
+        uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
+        code += (char)0x83; code += (char)(0xC0 | (4 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm;
+    } else if (m == 0 && !w) {
+        code += (char)0x25; code += u32le((uint32_t)imm);
+    } else {
+        uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
+        code += (char)0x81; code += (char)(0xC0 | (4 << 3) | (m & 7)); code += u32le((uint32_t)imm);
+    }
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" and ") + reg + ", " + std::to_string(imm) + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* cmp r32, imm — imm8 short form (0x83 /7) when it fits int8 (matches `as`); else eax→0x3D, others 0x81 /7.  */
 inline std::string x86_cmp_imm(const char * reg, long imm) {
     int m = x86_rnum(reg);
@@ -406,10 +425,11 @@ inline std::string x86(const char * mnem, const char * a, const char * b) {     
 inline std::string x86(const char * mnem, const char * reg, long imm) {                        /* reg, imm32                */
     if (!strcmp(mnem, "add"))    return x86_add(reg, imm);
     if (!strcmp(mnem, "sub"))    return x86_sub(reg, imm);
+    if (!strcmp(mnem, "and"))    return x86_and(reg, imm);
     if (!strcmp(mnem, "cmp"))    return x86_cmp_imm(reg, imm);
-    if (!strcmp(mnem, "cmp64")) return x86_cmp_imm64(reg, imm);
+    if (!strcmp(mnem, "cmp64"))  return x86_cmp_imm64(reg, imm);
     if (!strcmp(mnem, "mov"))    return x86_movimm(reg, imm);
-    if (!strcmp(mnem, "mov32")) return x86_movimm32(reg, imm);
+    if (!strcmp(mnem, "mov32"))  return x86_movimm32(reg, imm);
     return std::string();
 }
 inline std::string x86(const char * mnem, const char * dst, const char * b, const char * idx) { /* mov dst,[base+idx*8] */
@@ -427,7 +447,24 @@ inline std::string x86(const char * mnem, const char * dst, const char * mem, ui
     return x86_load_ro(dst, label, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* VARIABLE-LENGTH define/jmp-PAIR COMBINATOR loop (RESOLVED — the shared STILL-OPEN pair-loop item).      */
+/* x86_bomb(msg) — the canonical LOUD abort stub for a box NOT YET converted to x86() self-encoding.  Emits    */
+/* `lea rdi,[rip+msg]; call rt_bomb@PLT; ud2` (TEXT) / `movabs rdi,msg; movabs rax,&rt_bomb; call rax; ud2`    */
+/* (BINARY) — i.e. it prints the box name + aborts when the emitted code is reached.  Built ENTIRELY from the  */
+/* existing x86_load_ro / x86_call_ro encoders + a ud2 literal, so it is medium-invisible and lives in        */
+/* x86_asm.h (NOT a template) — the sanctioned raw-byte carve-out.  A stubbed box is exactly                  */
+/* `extern "C" void bb_foo(...) { bb_emit_x86(x86_bomb("bb_foo: TEMPLATE-REVAMP not converted")); }` — it      */
+/* COMPILES + LINKS (build stays green) and ABORTS beautifully at the point of use.  The Four-Musketeers       */
+/* GOAL-*-BB sessions replace each x86_bomb stub with the real x86() concatenation as their own test reaches   */
+/* it.  ud2 = 0F 0B (the only literal here; rt_bomb addr + msg ptr go through the RO encoders).                */
+extern "C" void rt_bomb(const char * msg);
+inline std::string x86_bomb(const char * msg) {
+    const char * m   = msg ? msg : "(unimplemented box)";
+    const char * lbl = emit_intern_str(m);
+    uint64_t     fp  = (uint64_t)(uintptr_t)(void *)rt_bomb;
+    return x86_load_ro("rdi", lbl, (uint64_t)(uintptr_t)(const void *)m)
+         + x86_call_ro("rt_bomb", fp)
+         + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : s_1asm("ud2"));
+}
 /* A combinator box (Prolog conjunction/ITE, SNOBOL4 pattern cat/alt) does not own its own glue labels —   */
 /* the driver (flat_drive_pl_seq / flat_drive_pl_ite; the cat/alt sub-region walkers) mints externally-     */
 /* owned bb_label_t glue into g_emit.xa_bb_emit_pair_{define,jmp}[0..n).  Each pair OPTIONALLY defines a     */

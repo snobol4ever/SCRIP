@@ -1,139 +1,18 @@
-/* bb_match.cpp — STACKLESS BB template for the SNOBOL4 pattern-match MATCH phase (IR_PAT_MATCH).
-   PB-RB-3 (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01, Opus 4.8). Phase 3 of the five-phase
-   `SUBJ ? PAT [= REPL]` native model: BB_MATCH DRIVES the pattern element graph over Σ/δ/Δ with the SPITBOL
-   Manual ch.18 unanchored OUTER start-loop. INLINE-JUMP model (Lon directive 2026-06-01, verbatim: "BB_MATCH
-   would jump in and be jumped back into from the PATTERNS BB. Jump to box's alpha, return from box's omega") —
-   NO C call, the proven combinator mechanism (walk_bb_flat port-threading, as XCAT/XALT already use). This box
-   is entered by a JUMP and threads control by JUMP, never a (ζ,int entry) C call (NO C BYRD-BOX FUNCTIONS FACT
-   RULE).
-
-   CONTROL-FLOW CONTRACT (the four ports, SPITBOL Manual ch.18 algorithm steps 1-6):
-     α (entry): the OUTER start-loop prologue. Establish the legacy scan globals the element matchers read —
-       Σ (base ptr) and Σlen (length) from the SUBJECT box's ζ-frame slot (PB-0 stored base at [r12+subj],
-       len at [r12+subj+8]); re-establish r10 = &Δ (the cursor cell every pattern element reads via [r10];
-       SUBJECT's rt_sno_subject_load C-call clobbered r10, SysV caller-saved); seed the OUTER start cursor
-       (a ζ-slot) to 0 (ch.18 step 1). NOTE: this is the LEGACY subject model (Σ/Σlen globals, cursor in Δ
-       via [r10]); the ratified Σ=R13/δ=R14/Δ=R15 migration is the SEPARATE REG ladder — until REG-1 migrates
-       bb_lit, MATCH populates the legacy cells the un-migrated element still reads.
-     match_retry (internal): Δ = start (mov [r10], start), then JUMP into the element's α (elem_entry, the
-       driver-defined label immediately preceding the inline element). The element matches at cursor Δ.
-     element γ (match success) = the chain success continuation (lbl_γ): the element advanced Δ past its
-       match; control leaves the whole MATCH for the statement's success path. (Span recording is deferred —
-       this first cut proves the match SUCCEEDS; the matched span lives implicitly in [start, Δ].)
-     element ω (no match at this start) = match_advance: SPITBOL ch.18 step 6 — advance the starting cursor
-       by one; if start <= Σlen AND &ANCHOR is zero, re-enter the element (jmp match_retry); else (anchored,
-       or start exhausted) the entire match has failed → jmp lbl_ω.
-     β (resume): statement-level single-shot — a `SUBJ ? PAT` match does not re-offer once the statement
-       consumed it (bounded; β = jmp ω). Within-pattern backtracking is the element boxes' OWN β/ω, not this
-       box's; the OUTER unanchored advance is match_advance above.
-
-   PER-BOX LOCAL STORAGE / NO-VALUE-STACK FACT RULES: the OUTER start cursor is a RW ζ-slot [r12+off]
-   (bb_slot_alloc); Σ/Σlen/Δ are the legacy scan globals (RO-addressed by movabs to their fixed addresses, the
-   SAME cells bb_lit reads). NO PATND_t, NO tree_t, NO value stack, NO ring. The element is reached by JUMP
-   (jmp elem_entry / element ω jmp match_advance), never a (ζ,int entry) C call.
-
-   The element entry (elem_entry) and the match_advance handler labels are passed by flat_drive_match
-   (emit_bb.c) via the g_match_* emit-globals; the SUBJECT box's ζ-slot offset via g_sno_subject_slot.
-   The element itself is emitted INLINE by the driver right after this box, via walk_bb_flat(element, lbl_γ,
-   match_advance, element_β) — exactly as flat_drive_cat inline-emits its kids.
-
-   Bytes (BINARY arm, mode-3 `--run`; sizes are illustrative — offsets computed at emit time):
-       α prologue:
-         49 8B 84 24 <subj>      mov rax, [r12+subj]         ; Σ base ptr from SUBJECT's ζ-slot
-         48 B9 <&Σ>              movabs rcx, &Σ
-         48 89 01                mov [rcx], rax              ; Σ = base
-         41 8B 84 24 <subj+8>    mov eax, [r12+subj+8]       ; Σlen from SUBJECT's ζ-slot (low 32)
-         48 B9 <&Σlen>          movabs rcx, &Σlen
-         89 01                   mov [rcx], eax              ; Σlen = len
-         49 BA <&Δ>             movabs r10, &Δ             ; re-establish r10 = &Δ (cursor cell)
-         41 C7 84 24 <start> 0   mov dword [r12+start], 0    ; seed outer start = 0 (ch.18 step 1)
-       match_retry (mr):
-         41 8B 84 24 <start>     mov eax, [r12+start]        ; eax = start
-         41 89 02                mov [r10], eax              ; Δ = start
-         E9 <elem_entry rel32>   jmp elem_entry              ; into the inline element
-       match_advance (element ω target, DEFINE):
-         41 FF 84 24 <start>     inc dword [r12+start]       ; ch.18 step 6: advance start
-         41 8B 84 24 <start>     mov eax, [r12+start]
-         48 B9 <&Σlen>          movabs rcx, &Σlen
-         3B 01                   cmp eax, [rcx]              ; start <= Σlen ?
-         0F 8F <lbl_ω rel32>    jg  lbl_ω                   ; start exhausted -> whole match fails
-         48 B9 <&kw_anchor>      movabs rcx, &kw_anchor
-         48 83 39 00             cmp qword [rcx], 0
-         0F 85 <lbl_ω rel32>    jne lbl_ω                   ; &ANCHOR nonzero -> no unanchored advance
-         E9 <match_retry rel32>  jmp match_retry             ; (internal backward rel32)
-       β (DEFINE):
-         E9 <lbl_ω rel32>       jmp lbl_ω
-*/
+/* bb_match.cpp — TEMPLATE-REVAMP bomb stub (Lon directive 2026-06-02).  The original box body used the
+   ABOLISHED bb_bin_t / bb_emit_asm_result offset-table path.  It is replaced with a LOUD x86_bomb() stub so
+   SCRIP BUILDS + LINKS (green) and ABORTS beautifully when this box is reached — the SNOBOL4
+   GOAL-*-BB session converts it to real x86() self-encoding as its own test reaches it.  pBB-free per the
+   revamp FACT RULES (reads only _ / g_emit); zero bb_bin_t, zero raw-byte producer, zero MEDIUM_* branch. */
 #include <string>
-#include <string.h>
-#include <stdint.h>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
-int          bb_slot_alloc(IR_t * nd);
-extern int   g_sno_subject_slot;
-extern const char * g_match_elem_lbl;
-extern const char * g_match_advance_lbl;
-extern struct bb_label_t * g_match_elem_p;
-extern struct bb_label_t * g_match_advance_p;
-extern int64_t kw_anchor;
+#include "bb_templates.h"
+#include "emit.h"
 }
+#include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_str(IR_t * pBB, bb_bin_t & bin) {
-    bin = {};
-    if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_PAT_MATCH");
-    int subj_off = g_sno_subject_slot;
-    bb_label_t * elem_p = g_match_elem_p;
-    bb_label_t * adv_p  = g_match_advance_p;
-    if (!pBB || subj_off < 0 || !elem_p || !adv_p) {
-        if (MEDIUM_BINARY) {
-            fprintf(stderr, "[SBB] FATAL bb_match: missing context (subj_slot=%d elem=%p adv=%p) — flat_drive_match must set g_sno_subject_slot + g_match_*\n",
-                    subj_off, (void*)elem_p, (void*)adv_p);
-            abort();
-        }
-        return bomb_text("IR_PAT_MATCH: ch.18 outer-loop drive context not set (flat_drive_match)");
-    }
-    int start_off = bb_slot_alloc(pBB);
-    if (MEDIUM_TEXT) {
-        return bomb_text("IR_PAT_MATCH: mode-4 TEXT arm not yet written (PB-RB-8 sweep)");
-    }
-    if (MEDIUM_BINARY) {
-        /* LITERAL byte map (FACT RULE: hand-coded offsets, NO b.size()). ch.18 unanchored outer start-loop.  */
-        /* Offsets are LITERAL constants: α[0..71], match_retry[72..90], match_advance(DEFINE@91)[91..149],   */
-        /* β(DEFINE@150)[150..154]. Internal back-jump at [145] is literal -78 (= mr 72 − after 150).         */
-        bin = { {87, 91, 121, 141, 150, 151},
-                {elem_p, adv_p, _.lbl_ω_p, _.lbl_ω_p, _.lbl_β_p, _.lbl_ω_p},
-                {false, true, false, false, true, false} };
-        std::string b;
-        b += bytes(4, "\x49\x8B\x84\x24") + u32le((uint32_t)subj_off);          /* [0]  mov rax,[r12+subj] */
-        b += bytes(3, "\x49\x89\xC5");                                          /* [8]  mov r13,rax        */
-        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGMA);                  /* [11] movabs rcx,&Σ      */
-        b += bytes(3, "\x48\x89\x01");                                          /* [21] mov [rcx],rax      */
-        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)(subj_off + 8));    /* [24] mov eax,[r12+s+8]  */
-        b += bytes(3, "\x41\x89\xC7");                                          /* [32] mov r15d,eax       */
-        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN);                 /* [35] movabs rcx,&Σlen   */
-        b += bytes(2, "\x89\x01");                                              /* [45] mov [rcx],eax      */
-        b += bytes(2, "\x49\xBA") + u64le(TEMPLATE_ADDR_DELTA);                  /* [47] movabs r10,&Δ      */
-        b += bytes(3, "\x4D\x31\xF6");                                          /* [57] xor r14,r14        */
-        b += bytes(4, "\x41\xC7\x84\x24") + u32le((uint32_t)start_off) + u32le(0); /* [60] mov d[r12+st],0 */
-        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)start_off);         /* [72] mov eax,[r12+st]   */
-        b += bytes(3, "\x41\x89\xC6");                                          /* [80] mov r14d,eax       */
-        b += bytes(3, "\x41\x89\x02");                                          /* [83] mov [r10],eax      */
-        b += bytes(1, "\xE9") + u32le(0);                                       /* [86] jmp elem (site@87) */
-        b += bytes(4, "\x41\xFF\x84\x24") + u32le((uint32_t)start_off);         /* [91] inc d[r12+st]      */
-        b += bytes(4, "\x41\x8B\x84\x24") + u32le((uint32_t)start_off);         /* [99] mov eax,[r12+st]   */
-        b += bytes(2, "\x48\xB9") + u64le(TEMPLATE_ADDR_SIGLEN);                 /* [107] movabs rcx,&Σlen  */
-        b += bytes(2, "\x3B\x01");                                              /* [117] cmp eax,[rcx]     */
-        b += bytes(2, "\x0F\x8F") + u32le(0);                                   /* [119] jg ω  (site@121)  */
-        b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)&kw_anchor);      /* [125] movabs rcx,&anchor*/
-        b += bytes(4, "\x48\x83\x39\x00");                                      /* [135] cmp q[rcx],0      */
-        b += bytes(2, "\x0F\x85") + u32le(0);                                   /* [139] jne ω (site@141)  */
-        b += bytes(1, "\xE9") + u32le((uint32_t)(int32_t)-78);                  /* [145] jmp match_retry   */
-        b += bytes(1, "\xE9") + u32le(0);                                       /* [150] jmp ω  (site@151) */
-        return b;
-    }
-    return std::string();
+extern "C" void bb_match(IR_t * pBB) {
+    (void)pBB;
+    bb_emit_x86(x86_bomb("bb_match: TEMPLATE-REVAMP not yet converted (was offset-table)"));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_match_str(pBB, bin), bin); }

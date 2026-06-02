@@ -42,16 +42,13 @@ static std::string bb_pat_defer_str() {
              + x86("push", "r10")
              + x86("push", "rbx")
              /* rbx = rsp (remember pre-alignment rsp) */
-             + IF(MEDIUM_TEXT,  std::string(" mov rbx, rsp\n"))
-             + IF(MEDIUM_BINARY, x86_Lrec(x86_b3(0x48, 0x89, 0xE3)))
+             + x86("mov", "rbx", "rsp")
              /* rsp &= -16 (force 16-byte alignment for sub-pattern SSE path) */
-             + IF(MEDIUM_TEXT,  std::string(" and rsp, -16\n"))
-             + IF(MEDIUM_BINARY, x86_Lrec(std::string("\x48\x83\xE4\xF0", 4)))
+             + x86("and", "rsp", -16L)
              /* call rt_defer_match */
              + x86("call", "rt_defer_match", defer_fn())
              /* restore rsp via rbx */
-             + IF(MEDIUM_TEXT,  std::string(" mov rsp, rbx\n"))
-             + IF(MEDIUM_BINARY, x86_Lrec(x86_b3(0x48, 0x89, 0xDC)))
+             + x86("mov", "rsp", "rbx")
              + x86("pop",  "rbx")
              + x86("pop",  "r10")
              /* if eax < 0 (sign bit set) → ω */

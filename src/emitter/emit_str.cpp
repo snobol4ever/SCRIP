@@ -58,52 +58,11 @@ std::string bomb_bytes(const char * msg) {
          + bytes(2, "\x0F\x0B");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* NO-BUFFERS binary path.  A MEDIUM_BINARY arm returns bb_bin_t { sites, labels, is_def, bytes }.
- * bb_emit_asm_result walks the bytes string, emitting raw bytes and patching rel32/label-def sites. */
-void bb_emit_asm_result(const std::string & out, const bb_bin_t & bin) {
-    if (!MEDIUM_BINARY) {
-        if (!out.empty()) emit_text_n(out.data(), out.size());
-        return;
-    }
-    int n = (int)bin.sites.size();
-    int pos = 0;
-    for (int i = 0; i < n; i++) {
-        for (; pos < bin.sites[i]; pos++) bb_emit_byte((uint8_t)(unsigned char)out[pos]);
-        if (bin.is_def[i]) {
-            bb_label_define(bin.labels[i]);
-        } else {
-            bb_emit_patch_rel32(bin.labels[i]);
-            pos += 4;
-        }
-    }
-    for (; pos < (int)out.size(); pos++) bb_emit_byte((uint8_t)(unsigned char)out[pos]);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Variant of bb_emit_asm_result for combinator templates whose BINARY arm walks
- * g_emit.xa_bb_emit_pair_*[] and emits zero-or-5 bytes per pair.  Metadata is reconstructed
- * here from the same arrays — templates stay pure (no bin.sites/labels/is_def access).
- * FACT RULE: byte production stays in the template; this helper only reconstructs patch metadata.
- * Each pair: xa_bb_emit_pair_define[i] non-NULL → 0 bytes, bb_label_define at current offset.
- *            xa_bb_emit_pair_jmp[i]    non-NULL → 1 opcode byte (\\xE9) already in out, then rel32. */
-void bb_emit_asm_result_pairs(const std::string & out) {
-    if (!MEDIUM_BINARY) {
-        if (!out.empty()) emit_text_n(out.data(), out.size());
-        return;
-    }
-    int pos = 0;
-    int n = g_emit.xa_bb_emit_pair_n;
-    for (int i = 0; i < n; i++) {
-        if (g_emit.xa_bb_emit_pair_define[i]) {
-            bb_label_define(g_emit.xa_bb_emit_pair_define[i]);
-        }
-        if (g_emit.xa_bb_emit_pair_jmp[i]) {
-            bb_emit_byte((uint8_t)(unsigned char)out[pos]); pos++;
-            bb_emit_patch_rel32(g_emit.xa_bb_emit_pair_jmp[i]);
-            pos += 4;
-        }
-    }
-    for (; pos < (int)out.size(); pos++) bb_emit_byte((uint8_t)(unsigned char)out[pos]);
-}
+/* bb_emit_asm_result + bb_emit_asm_result_pairs ABOLISHED 2026-06-02 (Lon directive). The offset-table /      */
+/* function-byte-counter path is gone; every BB template now returns ONE x86() concatenation with IN-BAND      */
+/* patch records (L/J/D/E/F) consumed by bb_emit_x86 in x86_asm.h, which DISCOVERS each byte position as it    */
+/* copies. See GOAL-TEMPLATE-REVAMP-RULES-DRAFT FACT RULE "bb_bin_t IS ABOLISHED".                             */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string s_1asm (const std::string & a)                                                            { return std::string(" ") + a + "\n"; }
 std::string s_2asm (const std::string & a, const std::string & b)                                     { return std::string(" ") + a + " " + b + "\n"; }
