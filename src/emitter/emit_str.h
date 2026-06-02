@@ -30,15 +30,10 @@ inline std::string s_L1asm_c (const char * l, const char * a)                   
 inline std::string s_L2asm_c (const char * l, const char * a, const char * b)              { return s_L2asm(std::string(l ? l : ""), std::string(a ? a : ""), std::string(b ? b : "")); }
 inline std::string s_directive_c(const char * line)                                        { return s_directive(std::string(line ? line : "")); }
 inline std::string s_comment_c  (const char * line)                                        { return s_comment(std::string(line ? line : "")); }
-struct bb_bin_t {
-    std::vector<int>          sites;
-    std::vector<bb_label_t *> labels;
-    std::vector<bool>         is_def;
-    std::string               bytes;
-};
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_emit_asm_result(const std::string & out, const bb_bin_t & bin);
-void bb_emit_asm_result_pairs(const std::string & out);
+/* bb_bin_t + bb_emit_asm_result ABOLISHED 2026-06-02 (Lon directive): patch metadata travels IN-BAND in the   */
+/* returned string (L/J/D/E/F records) and is emitted by bb_emit_x86(out) in x86_asm.h. No offset table, no    */
+/* function counts bytes. See GOAL-TEMPLATE-REVAMP-RULES-DRAFT FACT RULE "bb_bin_t IS ABOLISHED".              */
 std::string jvm_push_int2_str(long v);
 std::string jvm_emit_ldc_string_str(const char * s);
 std::string js_escape_string_str(const char * s);

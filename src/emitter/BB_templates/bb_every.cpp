@@ -37,8 +37,7 @@ static std::string bb_every_flat_str() {
          + x86("jmp", PORT_OMEGA);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_every_str(IR_t * pBB, bb_bin_t & bin) {
-    bin = {};
+static std::string bb_every_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_EVERY");
     if (MEDIUM_TEXT) {
@@ -105,5 +104,6 @@ static std::string bb_every_str(IR_t * pBB, bb_bin_t & bin) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_every(IR_t * pBB) {
     if (MEDIUM_BINARY) { bb_emit_x86(bb_every_flat_str()); return; }
-    bb_bin_t bin; bb_emit_asm_result(bb_every_str(pBB, bin), bin);
+    std::string s = bb_every_str(pBB);            /* TEXT arm: GAS text, no patch sites (bb_bin_t ABOLISHED) */
+    if (!s.empty()) emit_text_n(s.data(), s.size());
 }

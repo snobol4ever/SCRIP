@@ -1,31 +1,18 @@
-/* bb_eps.cpp — BB template for the degenerate EPS (empty-pattern) box. */
+/* bb_eps.cpp — TEMPLATE-REVAMP bomb stub (Lon directive 2026-06-02).  The original box body used the
+   ABOLISHED bb_bin_t / bb_emit_asm_result offset-table path.  It is replaced with a LOUD x86_bomb() stub so
+   SCRIP BUILDS + LINKS (green) and ABORTS beautifully when this box is reached — the SNOBOL4
+   GOAL-*-BB session converts it to real x86() self-encoding as its own test reaches it.  pBB-free per the
+   revamp FACT RULES (reads only _ / g_emit); zero bb_bin_t, zero raw-byte producer, zero MEDIUM_* branch. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
+#include "bb_templates.h"
 #include "emit.h"
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_eps_str(IR_t * pBB, bb_bin_t & bin) {
-    bin = {};
-    (void)pBB;
-    if (PLATFORM_X86) {
-        bin = { {1, 5, 6}, {_.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
-        return IF(MEDIUM_MACRO_DEF,
-               s_comment("# no macro form — EPS"))
-             + IF(MEDIUM_BINARY,
-               bytes(1, "\xE9") + u32le(0)
-                 + bytes(1, "\xE9") + u32le(0))
-             + IF(MEDIUM_TEXT,
-               s_1asm(emit_fmt("%s:", _.lbl_α))
-               + s_comment("# BOX EPS()")
-                 + s_2asm("jmp", _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω));
-    }
-    return std::string();
-}
+#include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_eps(IR_t * pBB) {
-    bb_bin_t bin;
-    bb_emit_asm_result(bb_eps_str(pBB, bin), bin);
+    (void)pBB;
+    bb_emit_x86(x86_bomb("bb_eps: TEMPLATE-REVAMP not yet converted (was offset-table)"));
 }

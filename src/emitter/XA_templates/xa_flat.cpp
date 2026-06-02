@@ -3,8 +3,10 @@
    Templates emit only asm text: .global decls, lea r10, cmp/je/jmp, ret, etc.
    NB-3f (2026-05-25): all four bodies are PURE — zero side effects. xa_entry_dispatch /
    xa_flat_prologue / xa_flat_data_section return std::string (TEXT CONCAT); xa_flat_epilogue
-   returns TEXT CONCAT or a MEDIUM_BINARY byte-string (no labels/jumps, empty bb_bin_t) routed
-   through bb_emit_asm_result. The g_emit_pos bookkeeping (prologue lea r10) and the data-buffer
+   returns TEXT CONCAT or a MEDIUM_BINARY byte-string. TEMPLATE-REVAMP (2026-06-02): the abolished
+   bb_bin_t offset-table is gone — each arm reports at most ONE patch site via out-params and a LOCAL
+   xa_emit_one walks the bytes (its targets are DRIVER labels flat_β_p/flat_fail_p, not box ports, so
+   the bb_emit_x86 J/D port records do not apply). The g_emit_pos bookkeeping (prologue lea r10) and the data-buffer
    flush/reset (data_section) were LIFTED to the driver (codegen_flat_body in emit_bb.c); the
    data-section content is the accumulated g_flat_data_buf sliced as a std::string. No buffer-family,
    no fwrite, no bb_emit_out reads, no global mutation remain in any body. */
@@ -33,36 +35,36 @@ static std::string xa_entry_dispatch_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BB_BANNER_RULE_LEN 119
-static std::string xa_flat_prologue_str(bb_bin_t & bin) {
-    bin = {};
+/* xa_flat keeps a LOCAL one-site emit (bb_bin_t ABOLISHED): its patch targets are DRIVER labels        */
+/* (g_emit.flat_β_p / flat_fail_p), NOT box α/β/γ/ω ports, so the bb_emit_x86 J/D port records do not    */
+/* apply.  Each arm reports at most ONE site via (out_site,out_lbl,out_def); xa_emit_one walks the byte  */
+/* string emitting that site exactly as the old bb_emit_asm_result did — no offset table type, no        */
+/* function counts bytes for a JUMP (the single site offset is the natural length of the head run).      */
+static void xa_emit_one(const std::string & out, int site, bb_label_t * lbl, bool is_def) {
+    if (!MEDIUM_BINARY) { if (!out.empty()) emit_text_n(out.data(), out.size()); return; }
+    int pos = 0;
+    if (lbl) {
+        for (; pos < site; pos++) bb_emit_byte((uint8_t)(unsigned char)out[pos]);
+        if (is_def) { bb_label_define(lbl); }
+        else        { bb_emit_patch_rel32(lbl); pos += 4; }
+    }
+    for (; pos < (int)out.size(); pos++) bb_emit_byte((uint8_t)(unsigned char)out[pos]);
+}
+static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
+    out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_FLAT_PROLOGUE");
         if (MEDIUM_BINARY) {
-            /* ICON ONE-REGISTER FRAME (FACT RULE): when the Icon driver set g_frame_active, the slab */
-            /* establishes the BB-frame register ζ: `push r12` (callee-saved — survives rt_* calls; also  */
-            /* provides the SAME 8-byte rsp adjustment as the legacy `sub rsp,8`, so internal call         */
-            /* alignment is unchanged) then `mov r12, rdi` (frame base passed as zeta). Paired `pop r12`   */
-            /* before each ret in xa_flat_epilogue. R12 is the RATIFIED ζ register (UNIFIED REGISTER       */
-            /* LAYOUT, 2026-05-30) — distinct from the broker's r10 and the SM-state r13. Layout: push r12 */
-            /* (2) + mov r12,rdi (3) + movabs r10 (10) + cmp esi,0 (3) + jne β (6); jne rel32 bin-site @20. */
             extern int g_frame_active;
             if (g_frame_active) {
-                bin = { {20}, {g_emit.flat_β_p}, {false} };
+                out_site = 20; out_lbl = g_emit.flat_β_p; out_def = false;
                 return bytes(2, "\x41\x54")
                      + bytes(3, "\x49\x89\xFC")
                      + bytes(2, "\x49\xBA") + u64le(TEMPLATE_ADDR_DELTA)
                      + bytes(3, "\x83\xFE\x00")
                      + bytes(2, "\x0F\x85") + u32le(0);
             }
-            /* IBB-8 (2026-05-29): the slab is entered via the driver's `call fn(NULL,0)`, so on entry */
-            /* rsp%16==8. The prologue pushes nothing, so every internal `call *rax` to a runtime       */
-            /* helper is made at rsp%16==8 → callee enters at rsp%16==0, violating the SysV ABI which   */
-            /* requires rsp%16==8 at callee entry. Non-SSE helpers tolerate it; fprintf("%g") faults on */
-            /* `movaps [rbp-0x80],xmm0`. Fix: `sub rsp,8` here (48 83 EC 08) realigns so internal calls */
-            /* land at rsp%16==0, giving callees the correct rsp%16==8 entry. Paired `add rsp,8` runs   */
-            /* before each `ret` in xa_flat_epilogue. `sub` runs before the esi-dispatch so BOTH the α   */
-            /* fall-through and the β branch carry the adjustment. The jne β rel32 bin-site shifts +4.   */
-            bin = { {19}, {g_emit.flat_β_p}, {false} };
+            out_site = 19; out_lbl = g_emit.flat_β_p; out_def = false;
             return bytes(4, "\x48\x83\xEC\x08")
                  + bytes(2, "\x49\xBA") + u64le(TEMPLATE_ADDR_DELTA)
                  + bytes(3, "\x83\xFE\x00")
@@ -102,8 +104,8 @@ static std::string xa_flat_prologue_str(bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_epilogue_str(bb_bin_t & bin) {
-    bin = {};
+static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
+    out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_FLAT_EPILOGUE");
         if (MEDIUM_BINARY) {
@@ -161,7 +163,7 @@ static std::string xa_flat_epilogue_str(bb_bin_t & bin) {
                    + unwind
                    + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
                    + bytes(1, "\xC3") );
-            bin = { {(int)succ_half.size()}, {g_emit.flat_fail_p}, {true} };
+            out_site = (int)succ_half.size(); out_lbl = g_emit.flat_fail_p; out_def = true;
             return succ_half + fail_half;
         }
         {
@@ -222,6 +224,6 @@ static std::string xa_flat_data_section_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_entry_dispatch(void)    { auto s = xa_entry_dispatch_str();    if (!s.empty()) emit_text_n(s.data(), s.size()); }
-extern "C" void xa_flat_prologue(void)     { bb_bin_t bin; auto s = xa_flat_prologue_str(bin); bb_emit_asm_result(s, bin); }
-extern "C" void xa_flat_epilogue(void)     { bb_bin_t bin; auto s = xa_flat_epilogue_str(bin); bb_emit_asm_result(s, bin); }
+extern "C" void xa_flat_prologue(void)     { int st; bb_label_t * lb; bool df; auto s = xa_flat_prologue_str(st, lb, df); xa_emit_one(s, st, lb, df); }
+extern "C" void xa_flat_epilogue(void)     { int st; bb_label_t * lb; bool df; auto s = xa_flat_epilogue_str(st, lb, df); xa_emit_one(s, st, lb, df); }
 extern "C" void xa_flat_data_section(void) { auto s = xa_flat_data_section_str(); if (!s.empty()) emit_text_n(s.data(), s.size()); }
