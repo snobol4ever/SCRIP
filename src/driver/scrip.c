@@ -30,6 +30,7 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "sil_macros.h"
 #include "runtime_shim.h"
 #include "lower.h"
+#include "bb_exec_state.h"
 #include "bb_build.h"
 #include "emit.h"
 #include "emit_bb.h"
