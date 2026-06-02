@@ -27,7 +27,7 @@ DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string rk_marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
+static std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
     if (!lf) return std::string();
     if (lf->t == IR_CALL && lf->dval == 2.0) {
         const char * nfn = lf->sval ? lf->sval : "";
@@ -36,9 +36,9 @@ static std::string rk_marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int id
         int avbase = (nn > 0) ? bb_slot_alloc16(nsubs[0]->entry) : bb_slot_alloc16(lf);
         for (int j = 1; j < nn; j++) bb_slot_alloc16(nsubs[j]->entry);
         std::string s;
-        for (int j = 0; j < nn; j++) s += rk_marshal_call_arg(nsubs[j]->entry, avbase + j * 16, lf, j);
+        for (int j = 0; j < nn; j++) s += marshal_call_arg(nsubs[j]->entry, avbase + j * 16, lf, j);
         if (MEDIUM_TEXT) {
-            std::string fl = emit_fmt(".Lrkfn%d", bb_node_id(lf));
+            std::string fl = emit_fmt(".Lcallfn%d", bb_node_id(lf));
             s += s_directive(".section .rodata")
                + s_directive(fl + ": .string \"" + nfn + "\"")
                + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
@@ -150,8 +150,8 @@ static std::string bb_call_str(IR_t * pBB) {
                 std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
                     + s_comment(emit_fmt("# BOX IR_CALL %s(...) [RK-EMIT-2 dval=2 -> rt_call_arr]", fn));
                 for (int i = 0; i < (int)narg; i++)
-                    s += rk_marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
-                std::string fl = emit_fmt(".Lrkfn%d", bb_node_id(pBB));
+                    s += marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
+                std::string fl = emit_fmt(".Lcallfn%d", bb_node_id(pBB));
                 s += s_directive(".section .rodata")
                    + s_directive(fl + ": .string \"" + fn + "\"")
                    + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
@@ -169,7 +169,7 @@ static std::string bb_call_str(IR_t * pBB) {
             if (MEDIUM_BINARY) {
                 std::string s;
                 for (int i = 0; i < (int)narg; i++)
-                    s += rk_marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
+                    s += marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
                 uint64_t nptr = (uint64_t)(uintptr_t) fn;
                 uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
                 s += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
