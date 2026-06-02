@@ -170,7 +170,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             /* ICON/SNOBOL4 STACKLESS EPILOGUE (g_frame_active, MEDIUM_TEXT): mirror the BINARY arm above —
                return a constant success (eax=1, edx=0) with NO Σ/r10 dereference, then `pop r12` (paired with
                the prologue's `push r12`). The legacy Σ/[r10] deref below is the non-frame Icon path ONLY; r10 is
-               SysV caller-saved, so any box that calls a runtime fn (e.g. rt_sno_assign_lit_s@PLT / rt_write_*)
+               SysV caller-saved, so any box that calls a runtime fn (e.g. rt_nv_assign_str@PLT / rt_write_*)
                leaves r10 clobbered → the deref segfaults. The driver ignores the slab's return value, so the
                deref is vestigial for a frame-active statement BB. */
             extern int g_frame_active;

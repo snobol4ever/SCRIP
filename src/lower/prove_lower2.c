@@ -336,7 +336,7 @@ int main(void) {
     dump_subject("SNOBOL4:  SUBJECT('abc')  [IR_SUBJECT: load Σ base + Δ length into ζ-frame; cursor δ owned by matcher per SPITBOL ch.18]",
          slit("abc"), 2);
     /* PB-0 SUBJECT phase, variable subject: SUBJECT(S) -> IR_SUBJECT over IR_VAR. 2 real nodes. */
-    dump_subject("SNOBOL4:  SUBJECT(S)  [IR_SUBJECT over a variable subject: name baked RO, fetched via rt_sno_subject_load]",
+    dump_subject("SNOBOL4:  SUBJECT(S)  [IR_SUBJECT over a variable subject: name baked RO, fetched via rt_subject_load]",
          var("S"), 2);
     /* PB-RB-1 REF_INVARIANT phase, literal: 'abc' (pattern role) -> IR_REF_INVARIANT over a sealed IR_PAT_LIT
        element. 2 real nodes: the sealed IR_PAT_LIT (the EXISTING matcher box, referenced via operand_aux, NOT

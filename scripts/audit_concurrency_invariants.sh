@@ -51,7 +51,7 @@ if [ -x "$ROOT/scripts/util_template_purity_audit.sh" ]; then
   # PURITY_BASELINE tracks the count of SANCTIONED fail-loud/rel32 side-effects (FATAL guards) across all
   # templates. Bumped 6 -> 7 (2026-05-31): the 7th is the pre-existing bb_call.cpp GZ-3 text-arm fail-loud
   # (write(binop) result-slot guard) already in HEAD — NOT from the PB-0 SUBJECT box, whose only fail-loud
-  # lives inside MEDIUM_BINARY (audit-exempt) so bb_sno_subject.cpp contributes 0. Catches a NEW 8th.
+  # lives inside MEDIUM_BINARY (audit-exempt) so bb_subject.cpp contributes 0. Catches a NEW 8th.
   # Bumped 7 -> 8 (2026-06-01): the 8th is bb_rk_gather.cpp's single FLAT-take fall-loud guard (RK-EMIT-GATHER).
   PURITY_BASELINE="${PURITY_BASELINE:-8}"
   if [ "$pc" -gt "$PURITY_BASELINE" ]; then
