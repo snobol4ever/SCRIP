@@ -11,25 +11,25 @@ int  bb_slot_alloc16(IR_t * nd);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-#define RK_GATHER_MAX_TAKES 256
-static int64_t  s_rkg_vals[RK_GATHER_MAX_TAKES];
-static int      s_rkg_n;
-static uint64_t s_rkg_vals_ptr;
-static char     s_rkg_lbl[64];
-static int      s_rkg_cursoff;
-static int      s_rkg_resoff;
+#define GATHER_MAX_TAKES 256
+static int64_t  s_gather_vals[GATHER_MAX_TAKES];
+static int      s_gather_n;
+static uint64_t s_gather_vals_ptr;
+static char     s_gather_lbl[64];
+static int      s_gather_cursoff;
+static int      s_gather_resoff;
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline int          gatherN() { return s_rkg_n; }
-static inline uint64_t     valsPtr() { return s_rkg_vals_ptr; }
-static inline const char * valsLbl() { return s_rkg_lbl; }
-static inline int          cursoff() { return s_rkg_cursoff; }
-static inline int          resoff()  { return s_rkg_resoff; }
+static inline int          gatherN() { return s_gather_n; }
+static inline uint64_t     valsPtr() { return s_gather_vals_ptr; }
+static inline const char * valsLbl() { return s_gather_lbl; }
+static inline int          cursoff() { return s_gather_cursoff; }
+static inline int          resoff()  { return s_gather_resoff; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string rkg_vals_rodata() {
+static std::string gather_vals_rodata() {
     std::string q = std::string(valsLbl()) + ":";
     if (gatherN() > 0) {
         q += " .quad ";
-        for (int i = 0; i < gatherN(); i++) q += emit_fmt("%s%lld", (i ? ", " : ""), (long long)s_rkg_vals[i]);
+        for (int i = 0; i < gatherN(); i++) q += emit_fmt("%s%lld", (i ? ", " : ""), (long long)s_gather_vals[i]);
     } else {
         q += " .quad 0";
     }
@@ -37,12 +37,12 @@ static std::string rkg_vals_rodata() {
          + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_rk_gather_str() {
+static std::string bb_gather_str() {
     if (!PLATFORM_X86) return std::string();
     return IF(MEDIUM_TEXT,
                s_1asm(std::string(_.lbl_α) + ":")
              + s_comment(emit_fmt("# BOX IR_GATHER n=%d [x86() self-encoding, ζ-frame cursor]", gatherN()))
-             + rkg_vals_rodata())
+             + gather_vals_rodata())
            + x86("def",    L(0))
            + x86("mov",    "rcx", FRQ(cursoff()))
            + x86("cmp64",  "rcx", (long)gatherN())
@@ -57,26 +57,26 @@ static std::string bb_rk_gather_str() {
            + x86("jmp",    L(0));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_rk_gather(IR_t * pBB) {
+extern "C" void bb_gather(IR_t * pBB) {
     if (!PLATFORM_X86) { return; }
     int n = (int)pBB->ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t)pBB->counter;
-    int ok = (n >= 0 && n <= RK_GATHER_MAX_TAKES && (n == 0 || subs != NULL));
+    int ok = (n >= 0 && n <= GATHER_MAX_TAKES && (n == 0 || subs != NULL));
     for (int i = 0; ok && i < n; i++) {
         IR_t * lf = subs[i] ? subs[i]->entry : NULL;
         if (!lf || lf->t != IR_LIT_I) { ok = 0; break; }
-        s_rkg_vals[i] = lf->ival;
+        s_gather_vals[i] = lf->ival;
     }
     if (!ok) {
-        fprintf(stderr, "[RK] FATAL bb_rk_gather: gather requires 0..%d literal-int take payloads (FLAT-take model); n=%d\n",
-                RK_GATHER_MAX_TAKES, n);
+        fprintf(stderr, "[RK] FATAL bb_gather: gather requires 0..%d literal-int take payloads (FLAT-take model); n=%d\n",
+                GATHER_MAX_TAKES, n);
         abort();
     }
-    s_rkg_n        = n;
-    s_rkg_vals_ptr = (uint64_t)(uintptr_t)(const void *)s_rkg_vals;
-    snprintf(s_rkg_lbl, sizeof(s_rkg_lbl), ".Lrkg%d_vals", bb_node_id(pBB));
+    s_gather_n        = n;
+    s_gather_vals_ptr = (uint64_t)(uintptr_t)(const void *)s_gather_vals;
+    snprintf(s_gather_lbl, sizeof(s_gather_lbl), ".Lgather%d_vals", bb_node_id(pBB));
     x86_begin();
-    s_rkg_resoff  = bb_slot_alloc16(pBB);
-    s_rkg_cursoff = bb_slot_claim(8);
-    bb_emit_x86(bb_rk_gather_str());
+    s_gather_resoff  = bb_slot_alloc16(pBB);
+    s_gather_cursoff = bb_slot_claim(8);
+    bb_emit_x86(bb_gather_str());
 }
