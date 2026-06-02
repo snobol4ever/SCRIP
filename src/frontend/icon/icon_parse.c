@@ -1,5 +1,5 @@
 #include "icon_parse.h"
-#include "../ast/ast.h"
+#include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include <stdlib.h>
 #include <string.h>

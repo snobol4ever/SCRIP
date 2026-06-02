@@ -3,7 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "core.h"
-#include "../ast/ast.h"
+#include "ast.h"
 #include "../../frontend/snobol4/scrip_cc.h"
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 static PATND_t *spat_new(XKIND_t kind) {

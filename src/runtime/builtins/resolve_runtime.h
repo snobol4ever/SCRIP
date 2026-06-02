@@ -1,6 +1,6 @@
 #ifndef DRIVER_PL_RUNTIME_H
 #define DRIVER_PL_RUNTIME_H
-#include "../ast/ast.h"
+#include "ast.h"
 #include "../../frontend/snobol4/scrip_cc.h"
 #include "../../frontend/prolog/prolog_driver.h"
 #include "../../frontend/prolog/term.h"

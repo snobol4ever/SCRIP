@@ -2,7 +2,7 @@
 /*====================================================================================================================*/
 #define BB_DEFINE_NAMES
 #include "lower.h"
-#include "../ast/ast.h"
+#include "ast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

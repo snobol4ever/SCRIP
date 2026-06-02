@@ -1,7 +1,7 @@
 #include "resolve_runtime.h"
 #include <math.h>
 #include <limits.h>
-#include "../ast/ast.h"
+#include "ast.h"
 #include "../../frontend/snobol4/scrip_cc.h"
 #include "../../frontend/prolog/prolog_driver.h"
 #include "../../frontend/prolog/term.h"

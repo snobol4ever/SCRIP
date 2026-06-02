@@ -32,7 +32,7 @@ extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs);
 #include "lower.h"
 int rt_in_native_chunk(void) __attribute__((weak));
 int rt_in_native_chunk(void) { return 0; }
-#include "../ast/ast.h"
+#include "ast.h"
 extern DESCR_t eval_node(tree_t *e);
 #include "bb_box.h"
 #ifndef BB_ALPHA_DEFINED

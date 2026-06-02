@@ -2,7 +2,7 @@
 #define BOX_RT_H
 #include <stdint.h>
 #include "gen.h"
-#include "../../include/IR.h"
+#include "IR.h"
 #include "../../interp/bb_exec.h"
 typedef struct {
     int64_t from_i; int64_t to_i; int64_t by_i; int64_t cur_i;

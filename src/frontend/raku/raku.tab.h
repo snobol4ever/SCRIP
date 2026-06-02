@@ -55,7 +55,7 @@ extern int raku_yydebug;
 /* "%code requires" blocks.  */
 #line 2 "raku.y"
 
-#include "../../ast/ast.h"
+#include "ast.h"
 #include "../snobol4/scrip_cc.h"
 typedef struct ExprList {
     tree_t **items;

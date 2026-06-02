@@ -1,5 +1,5 @@
 #include "lower_sno.h"
-#include "../include/ast.h"
+#include "ast.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
