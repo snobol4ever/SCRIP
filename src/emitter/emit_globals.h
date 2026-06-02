@@ -85,6 +85,8 @@ typedef struct {
     struct bb_label_t *          xa_bb_emit_pair_define[XA_BB_EMIT_PAIR_MAX];
     struct bb_label_t *          xa_bb_emit_pair_jmp[XA_BB_EMIT_PAIR_MAX];
     int                          xa_bb_emit_pair_n;
+    int                          x86_uid;
+    int                          x86_scratch_off;
 } sm_emit_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern sm_emit_t g_emit;
