@@ -22,7 +22,7 @@ void bb_clause         (IR_t * pBB);
 void bb_builtin (IR_t * pBB);
 void bb_logicvar     (IR_t * pBB);
 void bb_atom    (IR_t * pBB);
-void bb_unify   (IR_t * pBB);
+void bb_unify   (void);
 void bb_arith   (void);
 void bb_conj     (void);
 void bb_goal    (IR_t * pBB);

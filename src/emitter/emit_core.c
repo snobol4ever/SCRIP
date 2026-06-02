@@ -451,7 +451,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_GCONJ:          bb_conj();                                 return 0;
     case IR_ITE:          bb_ite();                                 return 0;
     case IR_CATCH:        bb_catch();                               return 0;
-    case IR_UNIFY:           bb_prepare_pl(nd); bb_unify(nd);         return 0;
+    case IR_UNIFY:           bb_prepare_pl(nd); bb_unify();           return 0;
     case IR_TO_BY:                    bb_to_by(nd);        return 0;
     case IR_TO:                   bb_to(nd);           return 0;
     case IR_UPTO:                bb_upto(nd);     return 0;
