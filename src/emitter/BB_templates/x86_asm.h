@@ -90,6 +90,7 @@ inline std::string x86_alu_rr(const char * mnem, uint8_t op, const char * rm, co
 inline std::string x86_mov (const char * rm, const char * reg) { return x86_alu_rr("mov",  0x89, rm, reg); }
 inline std::string x86_cmp (const char * rm, const char * reg) { return x86_alu_rr("cmp",  0x39, rm, reg); }
 inline std::string x86_test(const char * rm, const char * reg) { return x86_alu_rr("test", 0x85, rm, reg); }
+inline std::string x86_add_rr(const char * rm, const char * reg) { return x86_alu_rr("add", 0x01, rm, reg); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* add r32, imm — imm8 short form (0x83 /0) when it fits in int8 (matches `as`); else eax→0x05, others 0x81*/
 inline std::string x86_add(const char * reg, long imm) {
@@ -173,6 +174,7 @@ inline uint8_t x86_jcc_op(const char * mnem) {
     if (!strcmp(mnem, "jne")) return 0x85;
     if (!strcmp(mnem, "jl"))  return 0x8C;
     if (!strcmp(mnem, "jge")) return 0x8D;
+    if (!strcmp(mnem, "jle")) return 0x8E;
     if (!strcmp(mnem, "jg"))  return 0x8F;
     return 0x85;
 }
@@ -264,6 +266,12 @@ inline std::string x86_frame_add_imm(int off, long imm) {
     }
     return std::string(" add dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
+/* add reg32, dword [r12+off] — 03 /r (accumulate a frame slot into a reg).                                  */
+inline std::string x86_frame_add_to_reg(const char * reg, int off) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x03; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" add ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
+}
 struct x86_frame { int off; };
 inline x86_frame FR(int off) { return x86_frame{ off }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -289,8 +297,9 @@ inline std::string x86(const char * mnem, x86_lbl lab) {                        
 inline std::string x86(const char * mnem, x86_frame f, const char * reg) {                     /* mov [r12+off], reg        */
     (void)mnem; return x86_frame_store(f.off, reg);
 }
-inline std::string x86(const char * mnem, const char * reg, x86_frame f) {                     /* mov reg, [r12+off]        */
-    (void)mnem; return x86_frame_load(reg, f.off);
+inline std::string x86(const char * mnem, const char * reg, x86_frame f) {                     /* mov/add reg, [r12+off]    */
+    if (!strcmp(mnem, "add")) return x86_frame_add_to_reg(reg, f.off);
+    return x86_frame_load(reg, f.off);
 }
 inline std::string x86(const char * mnem, x86_frame f, long imm) {                             /* mov/add dword[r12+off],imm*/
     if (!strcmp(mnem, "add")) return x86_frame_add_imm(f.off, imm);
@@ -298,6 +307,7 @@ inline std::string x86(const char * mnem, x86_frame f, long imm) {              
 }
 inline std::string x86(const char * mnem, const char * a, const char * b) {                    /* reg/mem 2-operand         */
     if (!strcmp(mnem, "mov"))    return (a[0] == '[') ? x86_store_cursor_mirror() : x86_mov(a, b);
+    if (!strcmp(mnem, "add"))    return x86_add_rr(a, b);
     if (!strcmp(mnem, "cmp"))    return x86_cmp(a, b);
     if (!strcmp(mnem, "test"))   return x86_test(a, b);
     if (!strcmp(mnem, "movsxd")) return x86_movsxd(a, b);
