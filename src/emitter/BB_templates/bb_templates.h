@@ -57,7 +57,7 @@ void bb_list_bang  (IR_t * pBB);
 void bb_idx        (IR_t * pBB);
 void bb_idx_set    (IR_t * pBB);
 void bb_fail       (IR_t * pBB);
-void bb_succeed    (IR_t * pBB);
+void bb_succeed    (void);
 void bb_cset       (IR_t * pBB);
 void bb_eps        (IR_t * pBB);
 void bb_nfa_eps      (IR_t * pBB);
