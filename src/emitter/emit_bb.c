@@ -1669,7 +1669,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         /* three sub-branches so a stale positive can never make the arith box fire for a relop/concat/Raku. */
         g_emit.op_off = -1;
         if (g_icn_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
-            if (op_is_arith) {
+            if (op_is_arith || op_is_rel || op_is_concat) {
                 g_emit.op_sa = bb_slot_get(nd->α);
                 g_emit.op_sb = bb_slot_get(nd->β);
                 if (g_emit.op_sa >= 0 && g_emit.op_sb >= 0) g_emit.op_off = bb_slot_alloc16(nd);

@@ -28,6 +28,7 @@ std::string bb_binop_arith_str() {
     if (!PLATFORM_X86) return std::string();
     if (!(g_icn_flat_chain && _.op_off >= 0)) return std::string();
     int64_t op  = _.op_ival;
+    if (!(op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD)) return std::string();
     int     sa  = _.op_sa, sb = _.op_sb, off = _.op_off;
     std::string opb;
     switch (op) {

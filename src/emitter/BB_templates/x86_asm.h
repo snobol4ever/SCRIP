@@ -69,6 +69,7 @@ inline std::string x86_Drec(int port)              { std::string r; r += (char)'
 inline std::string x86_b1(uint8_t a)                          { std::string s; s += (char)a; return s; }
 inline std::string x86_b2(uint8_t a, uint8_t b)               { std::string s; s += (char)a; s += (char)b; return s; }
 inline std::string x86_b3(uint8_t a, uint8_t b, uint8_t c)    { std::string s; s += (char)a; s += (char)b; s += (char)c; return s; }
+inline std::string x86_b4(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { std::string s; s += (char)a; s += (char)b; s += (char)c; s += (char)d; return s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* 64-bit register? rax..rdi / rsp / rbp / rsi / rdi / r8..r15 (NO trailing 'd'). 32-bit: eax.. / rNNd.   */
 inline bool x86_is64(const char * r) {
