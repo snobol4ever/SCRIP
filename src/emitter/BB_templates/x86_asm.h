@@ -105,6 +105,13 @@ inline std::string x86_imul_rr(const char * dst, const char * src) {
 inline std::string x86_cqo() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b2(0x48, 0x99)) : std::string(" cqo\n");
 }
+/* xorps xmm0, xmm0 — zero the SSE scalar-double argument register (0F 57 C0).  Used by the Prolog          */
+/* rt_pl_node_to_term / rt_pl_unify_const calls (SysV xmm0 = dval) when the operand is a non-float scalar    */
+/* (atom/int): dval is unread by those arms, but the register is defensively cleared (matches the original   */
+/* bb_unify build_term_text).  Single fixed encoding; verified vs `as`.                                      */
+inline std::string x86_xorps_xmm0() {
+    return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x0F, 0x57, 0xC0)) : std::string(" xorps xmm0, xmm0\n");
+}
 inline std::string x86_idiv(const char * reg) {
     int m = x86_rnum(reg); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex; code += (char)0xF7; code += (char)(0xC0 | (7 << 3) | (m & 7));
@@ -341,6 +348,25 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
 struct x86_frameq { int off; };
 inline x86_frameq FRQ(int off) { return x86_frameq{ off }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RSP-SCRATCH qword [rsp + off].  A box that calls a runtime helper twice (e.g. Prolog bb_unify: build the   */
+/* L Term, stash it, build R, reload L) needs scratch that SURVIVES a call.  The C call stack is the natural  */
+/* home (this is NOT a value stack: it is the box's own local call-frame scratch, like the ζ-frame but rsp-   */
+/* relative — same status as bb_arith's push/pop).  rsp shares r12's SIB-base-4 ModRM (rm=100 ⇒ SIB byte      */
+/* 0x24); the ONLY diff from the r12 forms is REX.W only (0x48), no REX.B (rsp is reg 4, not r12).  Verified   */
+/* vs `as`: mov [rsp],rax = 48 89 04 24 ; mov rdi,[rsp] = 48 8B 3C 24 ; mov [rsp+8],rax = 48 89 44 24 08.      */
+inline std::string x86_rsp_store64(int off, const char * reg) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" mov qword ptr [rsp + ") + std::to_string(off) + "], " + reg + "\n";
+}
+inline std::string x86_rsp_load64(const char * reg, int off) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" mov ") + reg + ", qword ptr [rsp + " + std::to_string(off) + "]\n";
+}
+struct x86_rsp { int off; };
+inline x86_rsp RSP(int off) { return x86_rsp{ off }; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GATHER-tier encoders (added 2026-06-02 for bb_rk_gather x86() conversion; defined here so the ζ-frame    */
 /* helpers x86_r12_modrm / x86_frame_text_mem they reference are already in scope).                          */
 /* cmp r64, imm — REX.W.  imm8 short form (48 83 /7) when it fits int8; else 48 81 /7.                       */
@@ -407,6 +433,12 @@ inline std::string x86(const char * mnem, const char * reg, x86_frameq f) {     
 inline std::string x86(const char * mnem, x86_frameq f, long imm) {                            /* mov qword [r12+off], imm  */
     (void)mnem; return x86_frame_mov_imm64(f.off, imm);
 }
+inline std::string x86(const char * mnem, x86_rsp f, const char * reg) {                       /* mov qword [rsp+off], reg  */
+    (void)mnem; return x86_rsp_store64(f.off, reg);
+}
+inline std::string x86(const char * mnem, const char * reg, x86_rsp f) {                       /* mov reg, qword [rsp+off]  */
+    (void)mnem; return x86_rsp_load64(reg, f.off);
+}
 inline std::string x86(const char * mnem) {                                                    /* cqo (zero-operand)        */
     if (!strcmp(mnem, "cqo")) return x86_cqo();
     return std::string();
@@ -421,6 +453,7 @@ inline std::string x86(const char * mnem, const char * a, const char * b) {     
     if (!strcmp(mnem, "movsxd")) return x86_movsxd(a, b);
     if (!strcmp(mnem, "movzx"))  return x86_movzx_subj_byte(a);                                /* movzx a, byte[r13+rcx]    */
     if (!strcmp(mnem, "lea"))    return x86_lea_subj_cursor(a);                                 /* lea a, [r13 + rcx]        */
+    if (!strcmp(mnem, "xorps"))  return x86_xorps_xmm0();                                       /* xorps xmm0, xmm0          */
     return std::string();
 }
 inline std::string x86(const char * mnem, const char * reg, long imm) {                        /* reg, imm32                */

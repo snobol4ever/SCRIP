@@ -643,13 +643,10 @@ void bb_prepare_pl(IR_t *nd) {
     }
     if (nd->t == IR_UNIFY) {
         if (!nd->α || !nd->β) return;
-        if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_ATOM) {
-            g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, nd->β->sval ? nd->β->sval : "");
-            return;
-        }
-        if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_LOGICVAR) return;
-        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->α->sval);
-        g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, nd->β->sval);
+        g_emit.bb_lk = (int)nd->α->t; g_emit.bb_li = (int64_t)nd->α->ival;
+        g_emit.bb_rk = (int)nd->β->t; g_emit.bb_ri = (int64_t)nd->β->ival;
+        if (nd->α->t == IR_ATOM) g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->α->sval ? nd->α->sval : "");
+        if (nd->β->t == IR_ATOM) g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, nd->β->sval ? nd->β->sval : "");
         return;
     }
     if (nd->t == IR_BUILTIN) {
