@@ -1,18 +1,23 @@
 /* bb_every.cpp — BB template for IR_EVERY (generic generator pump driver).
    LANGUAGE-IGNORANT: IR_EVERY pumps its body generator to exhaustion.
-   IBB ground-zero (Opus 4.7, 2026-05-28).
+   IBB ground-zero (Opus 4.7, 2026-05-28). MEDIUM_BINARY arm → x86() self-encoding (template-revamp,
+   Icon GZ-11+, 2026-06-02).
 
-   Wire:
-       outer_α: jmp body.α
-       body.γ -> outer_α  (loop: pump body's β as if α — bb_to handles its own re-entry)
-       body.ω -> outer_γ  (generator exhausted -> every succeeds)
-       outer_β: jmp outer_ω  (every doesn't backtrack itself)
+   TWO ARMS, discriminated on MEDIUM (NOT g_icn_flat_chain — that flag is already 0 by the time the
+   EMIT_PAIR_FILL → walk_bb_node → bb_every call lands, since flat_drive_every runs the FILL after the
+   chain emitter has cleared it). The original split was always medium-based and stays that way:
 
-   The body sub-graph re-yields by jumping to its β label (which we wire = outer_α for the
-   first iteration only; per the generator's own loop the body is re-entered via its β port
-   on retry). For now, the simplest correct shape: body.γ jumps back to body.β if body has
-   a β label, else to body.α. We use body.β here because every generator BB template
-   (IR_TO etc.) emits a real β label that resumes the generator.                          */
+   • MEDIUM_BINARY (mode-3 in-pool BLOB) — flat_drive_every (emit_bb.c) does ALL the body-walk + label-
+     wiring BEFORE invoking this template; every code path that FILLs the every-box itself first runs
+     EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω). So the box's only remaining emission is its own
+     β port: define β, jmp ω (every never backtracks itself — generator exhaustion is the body's success
+     exit; the loop-back lives in the already-emitted body sub-graph). This is now x86()-encoded
+     (def PORT_BETA + jmp PORT_OMEGA), BYTE-IDENTICAL to the old pair-replay, with NO bb_bin_t.
+
+   • MEDIUM_TEXT (mode-2 interp AND mode-4 --compile .s) — the recursive body-walk arm. This arm reads
+     pBB->α (the body sub-graph) and recurses via walk_bb_node_str_c; it is NOT pBB-free and is left
+     verbatim (an every box's mode-2/mode-4 form fundamentally needs the body graph, so it cannot reduce
+     to a pure operand-scalar x86() concat the way a value leaf does).                                   */
 #include <string>
 #include "emit_str.h"
 extern "C" {
@@ -21,6 +26,16 @@ extern "C" {
 #include "emit_bb.h"
 }
 extern "C" char * walk_bb_node_str_c(IR_t *);
+#include "x86_asm.h"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* MEDIUM_BINARY (mode-3) β-port emission: define β, jmp ω. pBB-FREE: reads only g_emit ports. The IF()    */
+/* label/comment is TEXT-only (no-op in BINARY); under BINARY this is exactly two records — D(β), J(ω).   */
+static std::string bb_every_flat_str() {
+    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_β) + ":")
+                         + s_comment("# BOX IR_EVERY β [x86() self-encoding — every never backtracks: β -> ω]"))
+         + x86("def", PORT_BETA)
+         + x86("jmp", PORT_OMEGA);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_every_str(IR_t * pBB, bb_bin_t & bin) {
     bin = {};
@@ -85,30 +100,10 @@ static std::string bb_every_str(IR_t * pBB, bb_bin_t & bin) {
              + body_text
              + post_body;
     }
-    if (MEDIUM_BINARY) {
-        /* IBB-4 (Opus 4.7, 2026-05-28): pair-driven emit. flat_drive_every (in emit_bb.c) walks  */
-        /* bb->α (the body) with γ-and-β both pointing at body's mid-stream β-define label, and    */
-        /* body.ω → outer γ, so the loop topology is set up BEFORE we get here. This template      */
-        /* emits ONLY the driver's queued EMIT_PAIR_DEF_JMP entries (every's own outer-β port stub */
-        /* that jmps to outer ω), mirroring bb_pat_alt.cpp's MEDIUM_BINARY arm.                     */
-        std::string b;
-        for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
-            if (g_emit.xa_bb_emit_pair_define[i]) {
-                bin.sites.push_back((int)b.size());
-                bin.labels.push_back(g_emit.xa_bb_emit_pair_define[i]);
-                bin.is_def.push_back(true);
-            }
-            if (g_emit.xa_bb_emit_pair_jmp[i]) {
-                b += bytes(1, "\xE9");
-                bin.sites.push_back((int)b.size());
-                bin.labels.push_back(g_emit.xa_bb_emit_pair_jmp[i]);
-                bin.is_def.push_back(false);
-                b += u32le(0);
-            }
-        }
-        return b;
-    }
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_every(IR_t * pBB) { bb_bin_t bin; bb_emit_asm_result(bb_every_str(pBB, bin), bin); }
+extern "C" void bb_every(IR_t * pBB) {
+    if (MEDIUM_BINARY) { bb_emit_x86(bb_every_flat_str()); return; }
+    bb_bin_t bin; bb_emit_asm_result(bb_every_str(pBB, bin), bin);
+}
