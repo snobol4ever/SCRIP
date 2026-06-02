@@ -32,9 +32,9 @@ CORPUS  ?= $(ROOT)/../corpus
 OBJ     := /tmp/si_objs
 CC      := gcc
 CXX     := g++
-CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED
+CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED
 WARN    := -w
-CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
+CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 CRT     := $(CBASE) -DDYN_ENGINE_LINKED
 LIBS    := -lgc -lm
 
@@ -148,7 +148,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/lower/ast_clone.c \
     $(SRC)/lower/scrip_ir.c \
-    $(SRC)/lower/bb_exec.c \
+    $(SRC)/interp/bb_exec.c \
     $(SRC)/driver/interp_globals.c \
     $(SRC)/driver/interp_label.c \
     $(SRC)/driver/interp_hooks.c \
@@ -191,7 +191,7 @@ RT_PIC_SRCS := \
 out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
 	$(CC) -O0 -g $(WARN) -fPIC -shared \
-	    -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
+	    -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
 	    -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES \
 	    $(RT_PIC_SRCS) \
@@ -319,7 +319,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
 	$(CC) $(CRT)   -c $(SRC)/lower/ast_clone.c    -o $(OBJ)/ast_clone.o
 	$(CC) $(CRT)   -c $(SRC)/lower/scrip_ir.c     -o $(OBJ)/scrip_ir.o
-	$(CC) $(CRT)   -c $(SRC)/lower/bb_exec.c      -o $(OBJ)/bb_exec.o
+	$(CC) $(CRT)   -c $(SRC)/interp/bb_exec.c      -o $(OBJ)/bb_exec.o
 	$(CC) $(CRT)   -c $(SRC)/lower/sm_prog.c    -o $(OBJ)/sm_prog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower.c      -o $(OBJ)/lower.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_program.c -o $(OBJ)/lower_program.o

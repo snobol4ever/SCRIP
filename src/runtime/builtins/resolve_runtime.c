@@ -8,7 +8,7 @@
 #include "../../frontend/prolog/prolog_runtime.h"
 #include "../../frontend/prolog/prolog_atom.h"
 #include "../../frontend/prolog/prolog_builtin.h"
-#include "../../lower/bb_exec.h"
+#include "../../interp/bb_exec.h"
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 #include "gen_value.h"
 #include <stdio.h>
