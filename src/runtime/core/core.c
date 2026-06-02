@@ -1,7 +1,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "utf8.h"
-#include "../../frontend/snobol4/scrip_cc.h"
+#include "../../parser/snobol4/scrip_cc.h"
 #include "../rt/rt_protected.h"
 extern int g_protected_pat_vars_armed;
 #include <stdio.h>

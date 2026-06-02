@@ -1,5 +1,5 @@
 #include "snocone_driver.h"
-#include "../../frontend/snobol4/scrip_cc.h"
+#include "../../parser/snobol4/scrip_cc.h"
 #include <stdio.h>
 CODE_t *snocone_parse_program(const char *src, const char *filename);
 void snocone_compile(const char *source, const char *filename, tree_t **out_ast)

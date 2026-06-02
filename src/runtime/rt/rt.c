@@ -8,7 +8,7 @@
 #include "bb_build.h"
 #include "ast.h"
 #include "../../include/SM.h"
-#include "../../frontend/prolog/prolog_atom.h"
+#include "../../parser/prolog/prolog_atom.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

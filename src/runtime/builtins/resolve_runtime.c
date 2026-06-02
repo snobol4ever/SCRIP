@@ -2,12 +2,12 @@
 #include <math.h>
 #include <limits.h>
 #include "ast.h"
-#include "../../frontend/snobol4/scrip_cc.h"
-#include "../../frontend/prolog/prolog_driver.h"
-#include "../../frontend/prolog/term.h"
-#include "../../frontend/prolog/prolog_runtime.h"
-#include "../../frontend/prolog/prolog_atom.h"
-#include "../../frontend/prolog/prolog_builtin.h"
+#include "../../parser/snobol4/scrip_cc.h"
+#include "../../parser/prolog/prolog_driver.h"
+#include "../../parser/prolog/term.h"
+#include "../../parser/prolog/prolog_runtime.h"
+#include "../../parser/prolog/prolog_atom.h"
+#include "../../parser/prolog/prolog_builtin.h"
 #include "../../interp/bb_exec.h"
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 #include "gen_value.h"

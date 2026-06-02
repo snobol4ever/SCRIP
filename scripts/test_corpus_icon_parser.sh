@@ -17,7 +17,7 @@ icont -s -o "$TMP/icon_recognizer" "$RECOG_SRC"   2>/dev/null || { echo "ERROR: 
 DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then
   DIRS=(
-    "$REPO_ROOT/test/frontend/icon"
+    "$REPO_ROOT/test/parser/icon"
     /home/claude/corpus/programs/icon
   )
 fi

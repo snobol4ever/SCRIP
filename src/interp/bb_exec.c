@@ -1,9 +1,9 @@
 #include "bb_exec.h"
 #include "lower.h"
 #include "../../emitter/sil_macros.h"
-#include "../../frontend/prolog/term.h"
-#include "../../frontend/prolog/prolog_runtime.h"
-#include "../../frontend/prolog/prolog_atom.h"
+#include "../../parser/prolog/term.h"
+#include "../../parser/prolog/prolog_runtime.h"
+#include "../../parser/prolog/prolog_atom.h"
 #include "../../runtime/builtins/resolve_runtime.h"
 #include <stddef.h>
 #include <string.h>

@@ -13,7 +13,7 @@ RECOG_SRC="$REPO_ROOT/demo/scrip/prolog_recognizer.pro"
 DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then
   DIRS=(
-    "$REPO_ROOT/test/frontend/prolog"
+    "$REPO_ROOT/test/parser/prolog"
     /home/claude/corpus/programs/prolog
   )
 fi

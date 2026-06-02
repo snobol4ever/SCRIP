@@ -18,7 +18,7 @@
 #   bash test/g8_session.sh [--skip-verify] [--skip-fix] [--only-baseline]
 #
 # After this script completes successfully, commit:
-#   git add test/emit_baseline src/frontend/snobol4/lex.c src/driver/main.c
+#   git add test/emit_baseline src/parser/snobol4/lex.c src/driver/main.c
 #   git commit -m "G-8: M-G-INV-EMIT-FIX ✅ — in-process batch + emit baseline"
 #
 # Milestones closed by this script:
@@ -93,7 +93,7 @@ if [[ $SKIP_FIX -eq 0 && $ONLY_BASELINE -eq 0 ]]; then
 
   echo -e "${BOLD}FIX GUIDANCE — statics to audit and reset in snoc_reset()${RESET}"
   echo ""
-  info "In src/frontend/snobol4/lex.c:"
+  info "In src/parser/snobol4/lex.c:"
   info "  snoc_nerrors      — reset to 0           ✅ done"
   info "  n_inc / inc_dirs  — reset to 0 / freed   ✅ done"
   info "  yyfilename        — reset to <stdin>      ✅ done"
@@ -118,7 +118,7 @@ if [[ $SKIP_FIX -eq 0 && $ONLY_BASELINE -eq 0 ]]; then
   # Try to build with ASan for better crash diagnosis
   info "Building with AddressSanitizer for crash diagnosis..."
   ASAN_BIN="$ROOT/scrip_asan"
-  if (cd "$ROOT/src" && make -j4 -s CFLAGS="-Wall -Wno-unused-function -g -O0 -I. -Ifrontend/snobol4 -Ifrontend/snocone -Ifrontend/prolog -Ifrontend/icon -Ibackend -Ibackend/x64 -fsanitize=address,undefined" 2>/dev/null && cp "$ROOT/scrip" "$ASAN_BIN") 2>/dev/null; then
+  if (cd "$ROOT/src" && make -j4 -s CFLAGS="-Wall -Wno-unused-function -g -O0 -I. -Iparser/snobol4 -Iparser/snocone -Iparser/prolog -Iparser/icon -Ibackend -Ibackend/x64 -fsanitize=address,undefined" 2>/dev/null && cp "$ROOT/scrip" "$ASAN_BIN") 2>/dev/null; then
     ok "ASan binary: $ASAN_BIN"
     info "Running crash pair under ASan..."
     ASAN_OPTIONS=abort_on_error=0 "$ASAN_BIN" -x86 "$F013" "$F014" > /dev/null 2>&1 || true
@@ -177,7 +177,7 @@ echo -e "${BOLD}═════════════════════�
 if [[ $ERRORS -eq 0 ]]; then
   echo -e "${GREEN}${BOLD}  G-8 SESSION COMPLETE — commit and close${RESET}"
   echo ""
-  echo "  git add test/emit_baseline src/frontend/snobol4/lex.c src/driver/main.c"
+  echo "  git add test/emit_baseline src/parser/snobol4/lex.c src/driver/main.c"
   echo "  git commit -m 'G-8: M-G-INV-EMIT ✅ — in-process batch + emit baseline'"
   echo "  git push"
 else
@@ -192,8 +192,8 @@ echo -e "${BOLD}═════════════════════�
 # After M-G-INV-EMIT-FIX, extend it to cover all 7 active cells:
 #
 #   Cell 1-3: SNOBOL4 × x86/JVM/.NET  — corpus/crosscheck/*.sno (152 files)
-#   Cell 4-5: Icon    × x86/JVM       — test/frontend/icon/corpus/rung*/*.icn (258 files)
-#   Cell 6-7: Prolog  × x86/JVM       — test/frontend/prolog/corpus/rung*/*.pro/.pl (131 files)
+#   Cell 4-5: Icon    × x86/JVM       — test/parser/icon/corpus/rung*/*.icn (258 files)
+#   Cell 6-7: Prolog  × x86/JVM       — test/parser/prolog/corpus/rung*/*.pro/.pl (131 files)
 #
 # Icon and Prolog frontends do NOT have the SIGSEGV issue (they init fresh per
 # compile_one call — no snoc_* global state). Multi-file batch works for them now.
@@ -206,14 +206,14 @@ echo -e "${BOLD}═════════════════════�
 #
 # Quick test that Icon multi-file works today:
 echo -e "${BOLD}BONUS — verify Icon/Prolog multi-file (should work already)${RESET}"
-ICN_FILES=$(find "$ROOT/test/frontend/icon/corpus" -name "*.icn" 2>/dev/null | head -10 | tr '\n' ' ')
+ICN_FILES=$(find "$ROOT/test/parser/icon/corpus" -name "*.icn" 2>/dev/null | head -10 | tr '\n' ' ')
 if [[ -n "$ICN_FILES" ]]; then
   eval "$SCRIP_CC -x86 $ICN_FILES" > /dev/null 2>&1 && ok "Icon x86 multi-file: OK" || fail "Icon x86 multi-file: CRASH"
-  find "$ROOT/test/frontend/icon/corpus" -name "*.s" | xargs rm -f 2>/dev/null || true
+  find "$ROOT/test/parser/icon/corpus" -name "*.s" | xargs rm -f 2>/dev/null || true
 fi
-PRO_FILES=$(find "$ROOT/test/frontend/prolog/corpus" -name "*.pro" -o -name "*.pl" 2>/dev/null | head -10 | tr '\n' ' ')
+PRO_FILES=$(find "$ROOT/test/parser/prolog/corpus" -name "*.pro" -o -name "*.pl" 2>/dev/null | head -10 | tr '\n' ' ')
 if [[ -n "$PRO_FILES" ]]; then
   eval "$SCRIP_CC -x86 $PRO_FILES" > /dev/null 2>&1 && ok "Prolog x86 multi-file: OK" || fail "Prolog x86 multi-file: CRASH"
-  find "$ROOT/test/frontend/prolog/corpus" -name "*.s" | xargs rm -f 2>/dev/null || true
+  find "$ROOT/test/parser/prolog/corpus" -name "*.s" | xargs rm -f 2>/dev/null || true
 fi
 echo ""
