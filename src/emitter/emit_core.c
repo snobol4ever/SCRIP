@@ -380,21 +380,23 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     emit_io_set_sink(out);
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
+    g_emit.op_sval = nd->sval;
+    g_emit.op_ival = nd->ival;
     switch (nd->t) {
-    case IR_PAT_LIT:         bb_lit(nd);               return 0;
-    case IR_PAT_ANY:         bb_pat_any(nd);           return 0;
-    case IR_PAT_NOTANY:      bb_pat_notany(nd);        return 0;
+    case IR_PAT_LIT:         bb_lit();               return 0;
+    case IR_PAT_ANY:         bb_pat_any();           return 0;
+    case IR_PAT_NOTANY:      bb_pat_notany();        return 0;
     case IR_PAT_SPAN:        bb_pat_span(nd);          return 0;
     case IR_PAT_BREAK:       bb_pat_break(nd);         return 0;
     case IR_PAT_ARB:         bb_pat_arb(nd);           return 0;
     case IR_PAT_ARBNO:       bb_prepare_capture_arbno(nd, 0); bb_arbno(nd);             return 0;
     case IR_PAT_CAT:         bb_pat_cat(nd);           return 0;
     case IR_PAT_ALT:         bb_pat_alt(nd);           return 0;
-    case IR_PAT_LEN:         bb_pat_len(nd);           return 0;
+    case IR_PAT_LEN:         bb_pat_len();           return 0;
     case IR_PAT_POS:         bb_pat_pos(nd);           return 0;
     case IR_PAT_TAB:         bb_pat_tab(nd);           return 0;
     case IR_PAT_ATP:         bb_pat_atp(nd);           return 0;
-    case IR_PAT_REM:         bb_pat_rem(nd);           return 0;
+    case IR_PAT_REM:         bb_pat_rem();           return 0;
     case IR_PAT_FENCE:       bb_pat_fence(nd);         return 0;
     case IR_PAT_ABORT:       bb_pat_abort(nd);         return 0;
     case IR_PAT_ASSIGN_IMM:  bb_prepare_capture_arbno(nd, 1); bb_capture(nd, 1);        return 0;

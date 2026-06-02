@@ -10,14 +10,14 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LIT operand accessors — pure functions of g_emit (_) and the current node. No template locals. */
-static inline const char * lit()        { return (_.node && _.node->sval) ? _.node->sval : ""; }
+static inline const char * lit()        { return _.op_sval ? _.op_sval : ""; }
 static inline long         litlen()     { return (long)strlen(lit()); }
 static inline const char * litlabel()   { return emit_intern_str(lit()); }
 static inline uint64_t     litaddr()    { return (uint64_t)(uintptr_t)lit(); }
 static inline uint64_t     memcmpaddr() { return (uint64_t)(uintptr_t)memcmp; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_lit_str(IR_t * pBB) {
-    int nid = bb_node_id(pBB); int sid = 0;
+static std::string bb_lit_str() {
+    int nid = _.nid; int sid = 0;
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT,
                    s_1asm(std::string(_.lbl_α) + ":")
@@ -95,8 +95,8 @@ static std::string bb_lit_str(IR_t * pBB) {
              + s_directive(".end method");
     }
     if (PLATFORM_JS) {
-        const char *sval = pBB->sval;
-        return emit_fmt("function make_pat_%d_%d(ms) { const lit = ", pBB->ival, nid)
+        const char *sval = _.op_sval;
+        return emit_fmt("function make_pat_%d_%d(ms) { const lit = ", _.op_ival, nid)
              + js_escape_string_str(sval)
              + "; const len = lit.length; let self = { succ: null, fail: null,\n"
                "α() { if (ms.delta + len > ms.omega || ms.sigma.slice(ms.delta, ms.delta + len) !== lit) { self.fail.α(); return; } ms.delta += len; self.succ.α(); },\n"
@@ -104,7 +104,7 @@ static std::string bb_lit_str(IR_t * pBB) {
                "}; return self; }\n";
     }
     if (PLATFORM_NET) {
-        const char *lit = pBB->sval ? pBB->sval : "";
+        const char *lit = _.op_sval ? _.op_sval : "";
         return net_class_hdr_str(sid, nid)
              + s_directive(".field private string _lit")
              + s_directive(".field private int32  _len")
@@ -154,7 +154,7 @@ static std::string bb_lit_str(IR_t * pBB) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_lit(IR_t * pBB) {
-    bb_emit_x86(bb_lit_str(pBB));
+extern "C" void bb_lit(void) {
+    bb_emit_x86(bb_lit_str());
     if (MEDIUM_TEXT) g_emit_pos += 7;
 }
