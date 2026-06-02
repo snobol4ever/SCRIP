@@ -16,11 +16,12 @@
 extern "C" {
 #include "bb_template_common.h"
 }
+#include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_lit_arith_str(IR_t * pBB, bb_bin_t & bin);
 std::string bb_binop_jct_relop_str(IR_t * pBB, bb_bin_t & bin);
 std::string bb_binop_relop_str(IR_t * pBB, bb_bin_t & bin);
-std::string bb_binop_arith_str(IR_t * pBB, bb_bin_t & bin);
+std::string bb_binop_arith_str();
 std::string bb_binop_concat_slot_str(IR_t * pBB, bb_bin_t & bin);
 std::string bb_binop_concat_lit_str(IR_t * pBB, bb_bin_t & bin);
 std::string bb_binop_agpure_str(IR_t * pBB, bb_bin_t & bin);
@@ -31,7 +32,7 @@ extern "C" void bb_binop(IR_t * pBB) {
     s = bb_binop_lit_arith_str(pBB, bin);   if (!s.empty()) { bb_emit_asm_result(s, bin); return; }
     s = bb_binop_jct_relop_str(pBB, bin);   if (!s.empty()) { bb_emit_asm_result(s, bin); return; }
     s = bb_binop_relop_str(pBB, bin);       if (!s.empty()) { bb_emit_asm_result(s, bin); return; }
-    s = bb_binop_arith_str(pBB, bin);       if (!s.empty()) { bb_emit_asm_result(s, bin); return; }
+    s = bb_binop_arith_str();               if (!s.empty()) { bb_emit_x86(s); return; }
     s = bb_binop_concat_slot_str(pBB, bin); if (!s.empty()) { bb_emit_asm_result(s, bin); return; }
     s = bb_binop_concat_lit_str(pBB, bin);  if (!s.empty()) { bb_emit_asm_result(s, bin); return; }
     s = bb_binop_agpure_str(pBB, bin);      bb_emit_asm_result(s, bin);

@@ -13,6 +13,9 @@ typedef struct {
     int                          nid;
     const char *                 op_sval;
     int64_t                      op_ival;
+    int                          op_sa;
+    int                          op_sb;
+    int                          op_off;
     const char *                 lbl_α;
     const char *                 lbl_γ;
     const char *                 lbl_ω;
