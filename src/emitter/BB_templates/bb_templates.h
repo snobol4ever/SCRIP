@@ -9,7 +9,7 @@ void bb_pat_span   (void);
 void bb_pat_break  (IR_t * pBB);
 void bb_pat_pos    (void);
 void bb_pat_tab    (void);
-void bb_pat_atp    (IR_t * pBB);
+void bb_pat_atp    (void);
 void bb_pat_len    (void);
 void bb_pat_rem    (void);
 void bb_pat_arb    (IR_t * pBB);
