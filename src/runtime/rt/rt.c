@@ -311,7 +311,7 @@ void rt_nv_set(const char *name)
     STACKLESS_ABORT("rt_nv_set");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_nv_assign_str(const char *name, const char *str)
+void rt_gvar_assign_str(const char *name, const char *str)
 {
     DESCR_t d;
     d.v    = DT_S;
@@ -320,9 +320,9 @@ void rt_nv_assign_str(const char *name, const char *str)
     NV_SET_fn(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SBL-M3-ARITH (2026-05-31): integer analog of rt_nv_assign_str. The stackless RO-int binop box (GZ-3 bb_binop.cpp) computed its raw int64 result into a ζ-frame slot; the SNOBOL4 assign box reads that slot by value     */
-/* and hands it here with the target name. Build a DT_I integer DESCR and store via NV_SET_fn — the same associated-variable hook (output_val) that handles OUTPUT assignment in rt_nv_assign_str, so `OUTPUT = 2 + 3` prints. */
-void rt_nv_assign_int(const char *name, int64_t val)
+/* SBL-M3-ARITH (2026-05-31): integer analog of rt_gvar_assign_str. The stackless RO-int binop box (GZ-3 bb_binop.cpp) computed its raw int64 result into a ζ-frame slot; the SNOBOL4 assign box reads that slot by value     */
+/* and hands it here with the target name. Build a DT_I integer DESCR and store via NV_SET_fn — the same associated-variable hook (output_val) that handles OUTPUT assignment in rt_gvar_assign_str, so `OUTPUT = 2 + 3` prints. */
+void rt_gvar_assign_int(const char *name, int64_t val)
 {
     DESCR_t d;
     d.v    = DT_I;
@@ -331,9 +331,9 @@ void rt_nv_assign_int(const char *name, int64_t val)
     NV_SET_fn(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SBL-M3-VAR (2026-05-31): SNOBOL4 `dst = src` where src is a bare variable reference (`OUTPUT = S`). Fully stackless — the dst and src names are RO immediates baked by the bb_nv_assign IR_VAR arm; this fetches src's value */
+/* SBL-M3-VAR (2026-05-31): SNOBOL4 `dst = src` where src is a bare variable reference (`OUTPUT = S`). Fully stackless — the dst and src names are RO immediates baked by the bb_gvar_assign IR_VAR arm; this fetches src's value */
 /* via NV_GET_fn and stores it under dst via NV_SET_fn (the same associated-variable hook, so OUTPUT prints, S round-trips). VARVAL is resolved by NV_GET_fn (handles NAME indirection). NO value stack (Lon directive).        */
-void rt_nv_assign_var(const char *dst, const char *src)
+void rt_gvar_assign_var(const char *dst, const char *src)
 {
     NV_SET_fn(dst ? dst : "", NV_GET_fn(src ? src : ""));
 }

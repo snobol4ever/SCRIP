@@ -218,9 +218,9 @@ int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, cons
 /* on counter, right on ival); this runs each via bb_reset+bb_exec_once (handles any operand node count and  */
 /* nesting, no AG ring), concatenates via binop_apply(BINOP_CONCAT), and stores under `name` via NV_SET_fn — */
 /* IDENTICAL semantics to the mode-2 IR_SEQ(dval==1.0) arm. Returns 1 on success, 0 on operand failure. The  */
-/* sub-graph pointers are process-valid in mode-3 (baked imm64 by the bb_nv_assign IR_SEQ arm). NO vstack.  */
-extern int rt_nv_assign_concat(const char *name, void *left_graph, void *right_graph);
-int rt_nv_assign_concat(const char *name, void *left_graph, void *right_graph) {
+/* sub-graph pointers are process-valid in mode-3 (baked imm64 by the bb_gvar_assign IR_SEQ arm). NO vstack.  */
+extern int rt_gvar_assign_concat(const char *name, void *left_graph, void *right_graph);
+int rt_gvar_assign_concat(const char *name, void *left_graph, void *right_graph) {
     IR_graph_t *lblk = (IR_graph_t *)left_graph;
     IR_graph_t *rblk = (IR_graph_t *)right_graph;
     if (!lblk || !rblk) return 0;

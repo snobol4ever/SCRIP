@@ -123,7 +123,7 @@ int bb_varslot_peek(const char *name) {
 /* _peek), computes, and writes its own result slot — exactly the test_sno_1.c named-slot model. Boxes    */
 /* are NEVER re-walked for operands (postfix order guarantees operands precede consumers in the chain).   */
 int g_icn_flat_chain = 0;
-int g_nv_flat_chain = 0;  /* SBL-M3-CHAIN: SNOBOL4 flat-chain emit active — IR_VAR is a by-name pass-through (value read in bb_nv_assign_var) */
+int g_gvar_flat_chain = 0;  /* SBL-M3-CHAIN: SNOBOL4 flat-chain emit active — IR_VAR is a by-name pass-through (value read in bb_gvar_assign_var) */
 int g_frame_active = 0;
 /* PB-RB-3 BB_MATCH (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01). Cross-box emit-time values   */
 /* threaded from the SUBJECT box (g_subject_slot — its ζ-frame slot offset, set when bb_subject emits  */
@@ -1177,22 +1177,22 @@ static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_nv_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_gvar_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* SBL-M3-STACKLESS: SNOBOL4 `name = 'literal'` — single-shot bounded, NO value stack. The rhs literal
-       and target name are baked as RO immediates inside bb_nv_assign (reached via emit_core IR_ASSIGN
+       and target name are baked as RO immediates inside bb_gvar_assign (reached via emit_core IR_ASSIGN
        branch when α==IR_LIT_S); no operand subtree to walk, β = jmp ω. */
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_nv_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* SBL-M3-ARITH (2026-05-31): SNOBOL4 `name = lit op lit`. Mirrors flat_drive_call_intexpr: walk the rhs
        binop FIRST (it allocates its ζ-frame result slot via bb_slot_alloc during emission), then emit the
        assign box, which recovers the slot offset via bb_slot_get(rhs) and reads [r12+off]. Bounded single-
        shot, NO value stack. β of the assign jumps ω (an assign does not resume). */
     if (!pBB || !pBB->α || pBB->α->t != IR_BINOP) {
-        fprintf(stderr, "[SBB] FATAL flat_drive_nv_assign_binop: rhs is not IR_BINOP\n");
+        fprintf(stderr, "[SBB] FATAL flat_drive_gvar_assign_binop: rhs is not IR_BINOP\n");
         abort();
     }
     int id = g_flat_node_id++;
@@ -1713,7 +1713,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR:        if (g_icn_flat_chain && nd && nd->sval) { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_nv_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_nv_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SCAN:       flat_drive_scan_stmt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUBJECT:    flat_drive_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_REF_INVARIANT: flat_drive_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -2157,7 +2157,7 @@ int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FIL
 /* it RESOLVES landing nodes transitively — a port to an IR_SUCCEED-with-γ follows through to its target,   */
 /* so the per-statement landings are transparent; a terminal IR_SUCCEED (γ==NULL = PSUCC) maps to the       */
 /* success epilogue and IR_FAIL (PFAIL) to the failure epilogue; (2) it does NOT set g_icn_flat_chain, so   */
-/* walk_bb_flat takes the SNOBOL4 arms (IR_ASSIGN -> bb_nv_assign, IR_SCAN -> bb_scan_stmt, ...) not the    */
+/* walk_bb_flat takes the SNOBOL4 arms (IR_ASSIGN -> bb_gvar_assign, IR_SCAN -> bb_scan_stmt, ...) not the    */
 /* Icon slot-leaf arm. The operand-ref pass (sno_chain_operand_refs) is the SAME postfix-arity model as     */
 /* Icon's — it derives OPERAND REFERENCES (which producer a consumer reads), NOT topology; topology is from */
 /* LOWER. PER-BOX LOCAL STORAGE FACT RULE: every box-local read is [rip+disp] (RO) or [ζ=r12+off] (RW).     */
@@ -2173,7 +2173,7 @@ static IR_t *sno_chain_resolve(IR_t *n) {
 static int sno_chain_is_real(IR_t *n) { return n && n->t != IR_SUCCEED && n->t != IR_FAIL; }
 /* SNOBOL4 chain arity: a SNOBOL concat IR_SEQ/IR_SEQ_EXPR (dval==1.0) carries its two operands in ISOLATED  */
 /* sub-graphs (on counter/ival), NOT on the γ-chain, so from the chain's perspective it is a LEAF producer  */
-/* (arity 0) whose value the consuming IR_ASSIGN reads via bb_nv_assign_concat. Everything else delegates   */
+/* (arity 0) whose value the consuming IR_ASSIGN reads via bb_gvar_assign_concat. Everything else delegates   */
 /* to the shared icn_chain_arity.                                                                            */
 static int sno_chain_arity(const IR_t *n) {
     if (n && (n->t == IR_SEQ || n->t == IR_SEQ_EXPR) && n->dval == 1.0) return 0;
@@ -2320,11 +2320,11 @@ bb_box_fn sno_flat_chain_build(IR_graph_t *g) {
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) { g_emit_cfg = save_cfg; return NULL; }
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_nv_flat_chain = 1;
+    g_gvar_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_sno_flat_chain_body(g->entry, "sno_flat");
     int nbytes = emitter_end();
-    g_nv_flat_chain = 0;
+    g_gvar_flat_chain = 0;
     g_emit_cfg = save_cfg;
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
@@ -2339,11 +2339,11 @@ int sno_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; sno_chain_prebuild_children_text(g, out, prefix); }
     sno_chain_operand_refs(g);
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_nv_flat_chain = 1;
+    g_gvar_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_sno_flat_chain_body(g->entry, prefix);
     emitter_end();
-    g_nv_flat_chain = 0;
+    g_gvar_flat_chain = 0;
     g_emit_cfg = save_cfg;
     return rc;
 }
