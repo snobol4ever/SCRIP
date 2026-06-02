@@ -30,7 +30,7 @@ void bb_choice  (IR_t * pBB);
 void bb_disj     (IR_t * pBB);
 void bb_ite     (IR_t * pBB);
 void bb_catch   (IR_t * pBB);
-void bb_cut     (IR_t * pBB);
+void bb_cut     (void);
 void bb_to         (IR_t * pBB);
 void bb_every      (IR_t * pBB);
 void bb_call       (IR_t * pBB);
