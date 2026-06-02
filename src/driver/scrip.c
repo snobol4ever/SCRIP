@@ -910,8 +910,14 @@ int main(int argc, char **argv)
             printf("  xor eax, eax\n");
             printf("  pop rbp\n");
             printf("  ret\n");
-            int rc = use_chain ? icn_flat_chain_build_text(bbg->entry, stdout, "main")
+            int rc;
+            {
+                extern int g_icn_flat_chain;
+                int saved = g_icn_flat_chain; g_icn_flat_chain = 1;
+                rc = use_chain ? icn_flat_chain_build_text(bbg->entry, stdout, "main")
                                : codegen_flat_build(icn_root, stdout, "main");
+                g_icn_flat_chain = saved;
+            }
             g_frame_active = 0;
             fflush(stdout);
             return rc;
@@ -1214,7 +1220,10 @@ int main(int argc, char **argv)
             IR_t *icn_root = icn_ring_to_tree(bbg);
             bb_box_fn fn;
             if (icn_root) {
+                extern int g_icn_flat_chain;
+                int saved = g_icn_flat_chain; g_icn_flat_chain = 1;
                 fn = bb_build_flat(icn_root);
+                g_icn_flat_chain = saved;
             } else {
                 /* GZ-7 (GROUND ZERO 3): the single-expression-tree adapter could not linearize this graph */
                 /* (multi-statement, a variable read/assign, or branching control flow). Emit it as a FLAT  */
