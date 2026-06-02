@@ -30,7 +30,7 @@ SRC="$ROOT/src"
 gcc -O0 -g -w \
     -DRS23_DIAG \
     -I"$SRC" -I"$SRC/runtime/x86" -I"$SRC/runtime" \
-    -I"$SRC/frontend/snobol4" \
+    -I"$SRC/parser/snobol4" \
     -DIR_DEFINE_NAMES \
     -c "$SRC/driver/rs23_diag.c" -o "$OBJ/rs23_diag.o"
 

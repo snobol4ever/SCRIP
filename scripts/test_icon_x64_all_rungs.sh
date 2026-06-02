@@ -8,7 +8,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 SCRIP_CC="${SCRIP_CC:-$ROOT/scrip}"
-RT="$ROOT/src/frontend/icon/icon_runtime.c"
+RT="$ROOT/src/parser/icon/icon_runtime.c"
 STOP_ON_FAIL="${STOP_ON_FAIL:-0}"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'

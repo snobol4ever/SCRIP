@@ -4,9 +4,9 @@
 # Companion gate to test_gate_lower_isolation.sh.  Where that gate protects
 # the parse->lower edge, this one protects the parse->runtime edge.
 #
-# Invariant: src/runtime/ must not reach into src/frontend/ except through
+# Invariant: src/runtime/ must not reach into src/parser/ except through
 # a small, explicit allowlist of headers that contain shared infrastructure
-# currently misfiled under frontend/.  Every allowlist entry is a known
+# currently misfiled under parser/.  Every allowlist entry is a known
 # misfile with an owning relocation goal; the allowlist is a ratchet, not
 # a permanent license.
 #
@@ -16,7 +16,7 @@
 # types (descr, etc.) and the frontends are pluggable producers of AST.
 #
 # A future commit may shrink the allowlist (by moving a header out of
-# frontend/) but must never grow it.
+# parser/) but must never grow it.
 #
 # Run: bash scripts/test_gate_runtime_isolation.sh
 set -euo pipefail
@@ -26,31 +26,31 @@ cd "$ROOT"
 
 ALLOW=(
     # scrip_cc.h: defines STMT_t, CODE_t, LANG_* enums, tree_t helper macros.
-    #   Universal AST/language infrastructure misfiled under frontend/snobol4/
+    #   Universal AST/language infrastructure misfiled under parser/snobol4/
     #   for historical reasons.  Included by 54 files tree-wide.
     #   Owning relocation goal: move to src/include/scrip_lang.h.
-    "frontend/snobol4/scrip_cc.h"
+    "parser/snobol4/scrip_cc.h"
 
     # The four Prolog "runtime-ish" headers below describe Prolog Term
     # representation, atom interning, unification scaffolding, broker
     # dispatch, and built-in predicate registry.  Their primary clients
     # are src/runtime/interp/pl_runtime.{c,h} (Prolog execution engine)
-    # but they currently live under src/frontend/prolog/ alongside the
+    # but they currently live under src/parser/prolog/ alongside the
     # Prolog lexer and parser.  This reflects historical bundling.
-    # Owning relocation goal: split src/frontend/prolog/ into
-    # src/frontend/prolog/ (lex/parse only) and src/runtime/interp/prolog/
+    # Owning relocation goal: split src/parser/prolog/ into
+    # src/parser/prolog/ (lex/parse only) and src/runtime/interp/prolog/
     # (Term, atoms, unify, broker, builtins).
-    "frontend/prolog/term.h"
-    "frontend/prolog/prolog_runtime.h"
-    "frontend/prolog/prolog_atom.h"
-    "frontend/prolog/prolog_driver.h"
-    "frontend/prolog/prolog_builtin.h"
-    "frontend/prolog/pl_broker.h"
+    "parser/prolog/term.h"
+    "parser/prolog/prolog_runtime.h"
+    "parser/prolog/prolog_atom.h"
+    "parser/prolog/prolog_driver.h"
+    "parser/prolog/prolog_builtin.h"
+    "parser/prolog/pl_broker.h"
 
     # raku_re.h: Raku regex runtime — match/capture/grep operations.
-    #   Pure runtime API misfiled under frontend/raku/.
+    #   Pure runtime API misfiled under parser/raku/.
     #   Owning relocation goal: relocate to src/runtime/interp/raku/.
-    "frontend/raku/raku_re.h"
+    "parser/raku/raku_re.h"
 )
 
 violations=0
@@ -63,7 +63,7 @@ while IFS= read -r line; do
     lineno="${rest%%:*}"
     inc_path=$(echo "$rest" | sed -E 's/.*include[[:space:]]+["<]([^">]+)[">].*/\1/')
     normalized=$(echo "$inc_path" | sed -E 's|^(\.\./)+||')
-    if [[ "$normalized" != frontend/* ]]; then
+    if [[ "$normalized" != parser/* ]]; then
         continue
     fi
     ok=0
@@ -77,9 +77,9 @@ while IFS= read -r line; do
         new_violations+=("$file:$lineno: $normalized")
         violations=$((violations + 1))
     fi
-done < <(grep -rn "include.*frontend/" src/runtime/ 2>/dev/null | grep -v "^Binary file" || true)
+done < <(grep -rn "include.*parser/" src/runtime/ 2>/dev/null | grep -v "^Binary file" || true)
 
-present=$(grep -rn "include.*frontend/" src/runtime/ 2>/dev/null | grep -v "^Binary file" | wc -l)
+present=$(grep -rn "include.*parser/" src/runtime/ 2>/dev/null | grep -v "^Binary file" | wc -l)
 
 if [ $violations -gt 0 ]; then
     echo "FAIL runtime->frontend firewall: $violations new include(s) not on allowlist:"
@@ -87,9 +87,9 @@ if [ $violations -gt 0 ]; then
     echo ""
     echo "If the new include is legitimate, add the header to the ALLOW list in"
     echo "this script with a comment explaining why and the relocation plan."
-    echo "Prefer moving the header out of src/frontend/ instead."
+    echo "Prefer moving the header out of src/parser/ instead."
     exit 1
 fi
 
-echo "OK  runtime->frontend firewall: $present include(s) under src/runtime/ into src/frontend/, all allowlisted"
+echo "OK  runtime->frontend firewall: $present include(s) under src/runtime/ into src/parser/, all allowlisted"
 echo "    (allowlist size: ${#ALLOW[@]} entries — see top of script for relocation goals)"

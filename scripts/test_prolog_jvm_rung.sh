@@ -5,7 +5,7 @@
 # with jasmin.jar, runs with java, diffs vs .expected oracle.
 #
 # Usage:
-#   bash test/frontend/prolog/run_prolog_jvm_rung.sh <dir> [dir2 ...]
+#   bash test/parser/prolog/run_prolog_jvm_rung.sh <dir> [dir2 ...]
 #
 # Environment overrides:
 #   SCRIP_CC        — path to scrip binary       (default: ./scrip)

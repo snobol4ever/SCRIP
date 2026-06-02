@@ -5,8 +5,8 @@
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
 #include "../runtime/builtins/resolve_runtime.h"
-#include "../frontend/prolog/term.h"
-#include "../frontend/prolog/prolog_atom.h"
+#include "../parser/prolog/term.h"
+#include "../parser/prolog/prolog_atom.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

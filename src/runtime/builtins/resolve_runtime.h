@@ -1,10 +1,10 @@
 #ifndef DRIVER_PL_RUNTIME_H
 #define DRIVER_PL_RUNTIME_H
 #include "ast.h"
-#include "../../frontend/snobol4/scrip_cc.h"
-#include "../../frontend/prolog/prolog_driver.h"
-#include "../../frontend/prolog/term.h"
-#include "../../frontend/prolog/prolog_runtime.h"
+#include "../../parser/snobol4/scrip_cc.h"
+#include "../../parser/prolog/prolog_driver.h"
+#include "../../parser/prolog/term.h"
+#include "../../parser/prolog/prolog_runtime.h"
 #include "bb_box.h"
 #include "IR.h"
 #include "SM.h"

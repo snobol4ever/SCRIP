@@ -1,5 +1,5 @@
 #pragma once
 #include "ast.h"
-#include "../../frontend/snobol4/scrip_cc.h"
+#include "../../parser/snobol4/scrip_cc.h"
 tree_t *ast_gc_clone(const tree_t *e);
 void code_free(CODE_t *prog);

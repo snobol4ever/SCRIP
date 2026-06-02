@@ -161,38 +161,38 @@ RT_PIC_SRCS := \
     $(SRC)/driver/sync_monitor.c \
     $(SRC)/driver/polyglot.c \
     $(SRC)/contracts/ast_print.c \
-    $(SRC)/frontend/snobol4/snobol4.tab.c \
-    $(SRC)/frontend/snobol4/snobol4.lex.c \
-    $(SRC)/frontend/icon/icon_runtime.c \
-    $(SRC)/frontend/icon/icon_parse.c \
-    $(SRC)/frontend/icon/icon_lex.c \
-    $(SRC)/frontend/icon/icon_driver.c \
-    $(SRC)/frontend/prolog/prolog_lex.c \
-    $(SRC)/frontend/prolog/prolog_parse.c \
-    $(SRC)/frontend/prolog/prolog_lower.c \
-    $(SRC)/frontend/prolog/prolog_atom.c \
-    $(SRC)/frontend/prolog/prolog_builtin.c \
-    $(SRC)/frontend/prolog/prolog_unify.c \
-    $(SRC)/frontend/prolog/prolog_driver.c \
-    $(SRC)/frontend/snocone/snocone_lex.c \
-    $(SRC)/frontend/snocone/snocone_parse.tab.c \
-    $(SRC)/frontend/snocone/snocone_driver.c \
-    $(SRC)/frontend/raku/raku.tab.c \
-    $(SRC)/frontend/raku/raku.lex.c \
-    $(SRC)/frontend/raku/raku_driver.c \
-    $(SRC)/frontend/raku/raku_re.c \
-    $(SRC)/frontend/raku/raku_nfa_bb.c \
-    $(SRC)/frontend/rebus/rebus.tab.c \
-    $(SRC)/frontend/rebus/lex.rebus.c \
-    $(SRC)/frontend/rebus/rebus_lower.c \
-    $(SRC)/frontend/rebus/rebus_emit.c \
-    $(SRC)/frontend/rebus/rebus_print.c
+    $(SRC)/parser/snobol4/snobol4.tab.c \
+    $(SRC)/parser/snobol4/snobol4.lex.c \
+    $(SRC)/parser/icon/icon_runtime.c \
+    $(SRC)/parser/icon/icon_parse.c \
+    $(SRC)/parser/icon/icon_lex.c \
+    $(SRC)/parser/icon/icon_driver.c \
+    $(SRC)/parser/prolog/prolog_lex.c \
+    $(SRC)/parser/prolog/prolog_parse.c \
+    $(SRC)/parser/prolog/prolog_lower.c \
+    $(SRC)/parser/prolog/prolog_atom.c \
+    $(SRC)/parser/prolog/prolog_builtin.c \
+    $(SRC)/parser/prolog/prolog_unify.c \
+    $(SRC)/parser/prolog/prolog_driver.c \
+    $(SRC)/parser/snocone/snocone_lex.c \
+    $(SRC)/parser/snocone/snocone_parse.tab.c \
+    $(SRC)/parser/snocone/snocone_driver.c \
+    $(SRC)/parser/raku/raku.tab.c \
+    $(SRC)/parser/raku/raku.lex.c \
+    $(SRC)/parser/raku/raku_driver.c \
+    $(SRC)/parser/raku/raku_re.c \
+    $(SRC)/parser/raku/raku_nfa_bb.c \
+    $(SRC)/parser/rebus/rebus.tab.c \
+    $(SRC)/parser/rebus/lex.rebus.c \
+    $(SRC)/parser/rebus/rebus_lower.c \
+    $(SRC)/parser/rebus/rebus_emit.c \
+    $(SRC)/parser/rebus/rebus_print.c
 
 out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
 	$(CC) -O0 -g $(WARN) -fPIC -shared \
 	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
-	    -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku \
+	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES \
 	    $(RT_PIC_SRCS) \
 	    -lgc -lm -lstdc++ \
@@ -216,8 +216,8 @@ out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 scrip:
 	@mkdir -p $(OBJ)
 	@rm -f $(OBJ)/*.o
-	$(CC) $(CBASE) -c $(SRC)/frontend/snobol4/snobol4.lex.c -o $(OBJ)/snobol4.lex.o
-	$(CC) $(CBASE) -c $(SRC)/frontend/snobol4/snobol4.tab.c -o $(OBJ)/snobol4.tab.o
+	$(CC) $(CBASE) -c $(SRC)/parser/snobol4/snobol4.lex.c -o $(OBJ)/snobol4.lex.o
+	$(CC) $(CBASE) -c $(SRC)/parser/snobol4/snobol4.tab.c -o $(OBJ)/snobol4.tab.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/core.c               -o $(OBJ)/snobol4.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/pattern.c        -o $(OBJ)/snobol4_pattern.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/invoke.c                 -o $(OBJ)/snobol4_invoke.o
@@ -284,33 +284,33 @@ scrip:
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
 	$(CC) $(CRT) -c $(SRC)/machine/bb_boxes.c -o $(OBJ)/bb_boxes.o
 	$(CC) $(CRT) -c $(SRC)/machine/smx_dead_stubs.c -o $(OBJ)/smx_dead_stubs.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -DIR_DEFINE_NAMES \
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -DIR_DEFINE_NAMES \
 	    -c $(SRC)/contracts/ast_print.c -o $(OBJ)/ast_print.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/snocone/snocone_lex.c        -o $(OBJ)/snocone_lex.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/snocone/snocone_parse.tab.c  -o $(OBJ)/snocone_parse.tab.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/snocone/snocone_driver.c     -o $(OBJ)/snocone_driver.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_lex.c      -o $(OBJ)/prolog_lex.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_parse.c    -o $(OBJ)/prolog_parse.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_lower.c    -o $(OBJ)/prolog_lower.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_atom.c     -o $(OBJ)/prolog_atom.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_builtin.c  -o $(OBJ)/prolog_builtin.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_unify.c    -o $(OBJ)/prolog_unify.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/prolog/prolog_driver.c   -o $(OBJ)/prolog_driver.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/icon/icon_lex.c         -o $(OBJ)/icon_lex.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/icon/icon_parse.c       -o $(OBJ)/icon_parse.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/icon/icon_runtime.c     -o $(OBJ)/icon_runtime.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/snocone/snocone_lex.c        -o $(OBJ)/snocone_lex.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/snocone/snocone_parse.tab.c  -o $(OBJ)/snocone_parse.tab.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/snocone/snocone_driver.c     -o $(OBJ)/snocone_driver.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/prolog/prolog_lex.c      -o $(OBJ)/prolog_lex.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/prolog/prolog_parse.c    -o $(OBJ)/prolog_parse.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/prolog/prolog_lower.c    -o $(OBJ)/prolog_lower.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/prolog/prolog_atom.c     -o $(OBJ)/prolog_atom.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/prolog/prolog_builtin.c  -o $(OBJ)/prolog_builtin.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/prolog/prolog_unify.c    -o $(OBJ)/prolog_unify.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/prolog/prolog_driver.c   -o $(OBJ)/prolog_driver.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/icon/icon_lex.c         -o $(OBJ)/icon_lex.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/icon/icon_parse.c       -o $(OBJ)/icon_parse.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/icon/icon_runtime.c     -o $(OBJ)/icon_runtime.o
 
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/icon/icon_driver.c      -o $(OBJ)/icon_driver.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -c $(SRC)/frontend/raku/raku.tab.c    -o $(OBJ)/raku.tab.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -c $(SRC)/frontend/raku/raku.lex.c    -o $(OBJ)/raku.lex.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -c $(SRC)/frontend/raku/raku_driver.c -o $(OBJ)/raku_driver.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -c $(SRC)/frontend/raku/raku_re.c      -o $(OBJ)/raku_re.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -c $(SRC)/frontend/raku/raku_nfa_bb.c  -o $(OBJ)/raku_nfa_bb.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/rebus/rebus.tab.c    -o $(OBJ)/rebus.tab.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/rebus/lex.rebus.c    -o $(OBJ)/lex.rebus.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/rebus/rebus_lower.c  -o $(OBJ)/rebus_lower.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/rebus/rebus_emit.c   -o $(OBJ)/rebus_emit.o
-	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/rebus/rebus_print.c  -o $(OBJ)/rebus_print.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/icon/icon_driver.c      -o $(OBJ)/icon_driver.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku.tab.c    -o $(OBJ)/raku.tab.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku.lex.c    -o $(OBJ)/raku.lex.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_driver.c -o $(OBJ)/raku_driver.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_re.c      -o $(OBJ)/raku_re.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_nfa_bb.c  -o $(OBJ)/raku_nfa_bb.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus.tab.c    -o $(OBJ)/rebus.tab.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/lex.rebus.c    -o $(OBJ)/lex.rebus.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_lower.c  -o $(OBJ)/rebus_lower.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_emit.c   -o $(OBJ)/rebus_emit.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_print.c  -o $(OBJ)/rebus_print.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/gen_runtime.c -o $(OBJ)/gen_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/script_builtins.c -o $(OBJ)/script_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/script_builtins_byname.c -o $(OBJ)/script_builtins_byname.o
