@@ -4,13 +4,13 @@ extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 #include "descr.h"
-extern int g_icn_flat_chain;
+extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_lit_scalar_str() {
     if (PLATFORM_X86) {
-        if (g_icn_flat_chain && _.op_node_kind == (int)IR_LIT_I && _.op_off >= 0) {
+        if (g_descr_flat_chain && _.op_node_kind == (int)IR_LIT_I && _.op_off >= 0) {
             int off = _.op_off;
             return IF(MEDIUM_TEXT,
                        s_1asm(std::string(_.lbl_α) + ":")

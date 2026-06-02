@@ -103,7 +103,7 @@ int bb_varslot_peek(const char *name) {
         if (g_bb_varslot[i].name && strcmp(g_bb_varslot[i].name, name) == 0) return g_bb_varslot[i].off;
     return -1;
 }
-int g_icn_flat_chain = 0;
+int g_descr_flat_chain = 0;
 int g_gvar_flat_chain = 0;
 int g_frame_active = 0;
 int                 g_subject_slot       = -1;
@@ -211,7 +211,7 @@ static void data_buf_remember_label(const char *name) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_emit_block_comment(void) { g_flat_data_block_nlbls = 0; }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
-static void icn_chain_operand_refs(IR_t *entry);
+static void descr_chain_operand_refs(IR_t *entry);
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
@@ -1060,7 +1060,7 @@ static void flat_drive_icn_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
         int id = g_flat_node_id++;
         bb_label_t *arg_done = emit_label_alloc("xicnarg%d_done", id);
         if (prev_done) emit_label_define_bb(prev_done);
-        icn_chain_operand_refs(aentry);
+        descr_chain_operand_refs(aentry);
         flat_emit_arg_subchain(aentry, arg_done, lbl_ω);
         prev_done = arg_done;
     }
@@ -1509,13 +1509,13 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     }
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_LIT_I:      if (g_icn_flat_chain) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_I:      if (g_descr_flat_chain) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_S:
     case IR_LIT_F:
     case IR_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: {
         IR_t *a0 = nd->α;
-        if (g_icn_flat_chain) {
+        if (g_descr_flat_chain) {
             if (nd->dval == 3.0 && (int)nd->ival > 0 && nd->sval && rt_proc_is_registered(nd->sval))
                 flat_drive_icn_userproc(nd, lbl_γ, lbl_ω, lbl_β);
             else
@@ -1551,7 +1551,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
-        } else if (g_icn_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
+        } else if (g_descr_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
             if (op_is_arith || op_is_rel || op_is_concat) {
                 g_emit.op_sa = bb_slot_get(nd->α);
                 g_emit.op_sb = bb_slot_get(nd->β);
@@ -1593,15 +1593,15 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_VAR:        if (g_icn_flat_chain && nd && nd->sval) { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_VAR:        if (g_descr_flat_chain && nd && nd->sval) { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ASSIGN:     if (g_descr_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SCAN:       flat_drive_scan_stmt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUBJECT:    flat_drive_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_REF_INVARIANT: flat_drive_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_MATCH:  flat_drive_match(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SNO_PROG:   flat_drive_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
-        if (g_icn_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
+        if (g_descr_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
         flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:
@@ -1621,7 +1621,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_NULL_TEST:
     case IR_SIZE:
     case IR_NOT:
-        if (g_icn_flat_chain) {
+        if (g_descr_flat_chain) {
             g_emit.op_sa   = (nd->α) ? bb_slot_get(nd->α) : -1;
             g_emit.op_off  = bb_slot_alloc16(nd);
             FILL(nd, lbl_γ, lbl_ω, lbl_β);
@@ -1830,7 +1830,7 @@ static void pre_build_children(IR_t *nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int icn_chain_arity(const IR_t *n) {
+static int descr_chain_arity(const IR_t *n) {
     switch (n->t) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: return 0;
@@ -1843,7 +1843,7 @@ static int icn_chain_arity(const IR_t *n) {
     default:       return -1;
     }
 }
-static void icn_chain_operand_refs(IR_t *entry) {
+static void descr_chain_operand_refs(IR_t *entry) {
     IR_t *chain[512]; int nc = 0;
     IR_t *seen[512]; int ns = 0;
     IR_t *stkv[512]; int sv = 0;
@@ -1863,7 +1863,7 @@ static void icn_chain_operand_refs(IR_t *entry) {
     IR_t *stk[512]; int sp = 0;
     for (int i = 0; i < nc; i++) {
         IR_t *n = chain[i];
-        int ar = icn_chain_arity(n);
+        int ar = descr_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
         if (ar == 2 && sp >= 2) { n->β = stk[sp - 1]; n->α = stk[sp - 2]; sp -= 2; }
         else if (ar == 1 && sp >= 1) { n->α = stk[sp - 1]; sp -= 1; }
@@ -1871,47 +1871,47 @@ static void icn_chain_operand_refs(IR_t *entry) {
         stk[sp++] = n;
     }
 }
-bb_box_fn icn_flat_chain_build(IR_t *entry) {
+bb_box_fn descr_flat_chain_build(IR_t *entry) {
     if (!entry) return NULL;
-    icn_chain_operand_refs(entry);
+    descr_chain_operand_refs(entry);
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_icn_flat_chain = 1;
+    g_descr_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "pat_flat");
     int nbytes = emitter_end();
-    g_icn_flat_chain = 0;
+    g_descr_flat_chain = 0;
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
     bb_seal(buf, (size_t)nbytes);
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
-int icn_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
+int descr_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return 1;
-    icn_chain_operand_refs(entry);
+    descr_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_icn_flat_chain = 1;
+    g_descr_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_flat_chain_body(entry, prefix);
     emitter_end();
-    g_icn_flat_chain = 0;
+    g_descr_flat_chain = 0;
     return rc;
 }
-bb_box_fn icn_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
+bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
     if (!entry) return NULL;
-    icn_chain_operand_refs(entry);
+    descr_chain_operand_refs(entry);
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_icn_flat_chain = 1;
+    g_descr_flat_chain = 1;
     g_flat_slot_count = 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "proc_flat");
     int nbytes = emitter_end();
-    g_icn_flat_chain = 0;
+    g_descr_flat_chain = 0;
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
     bb_seal(buf, (size_t)nbytes);
@@ -1919,11 +1919,11 @@ bb_box_fn icn_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
     return (bb_box_fn)buf;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) {
+int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) {
     if (!entry || !out || !pname) return 1;
-    icn_chain_operand_refs(entry);
+    descr_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_icn_flat_chain = 1;
+    g_descr_flat_chain = 1;
     g_flat_slot_count = 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
     char prefix[256];
@@ -1932,26 +1932,26 @@ int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FIL
     fprintf(out, "  .globl %s_\316\261\n", prefix);
     int rc = codegen_flat_chain_body(entry, prefix);
     emitter_end();
-    g_icn_flat_chain = 0;
+    g_descr_flat_chain = 0;
     return rc;
 }
 /*====================================================================================================================*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t *sno_chain_resolve(IR_t *n) {
+static IR_t *gvar_chain_resolve(IR_t *n) {
     int guard = 0;
     while (n && n->t == IR_SUCCEED && n->γ != NULL && guard++ < 4096) n = n->γ;
     return n;
 }
-static int sno_chain_is_real(IR_t *n) { return n && n->t != IR_SUCCEED && n->t != IR_FAIL; }
-static int sno_chain_arity(const IR_t *n) {
+static int gvar_chain_is_real(IR_t *n) { return n && n->t != IR_SUCCEED && n->t != IR_FAIL; }
+static int gvar_chain_arity(const IR_t *n) {
     if (n && (n->t == IR_SEQ || n->t == IR_SEQ_EXPR) && n->dval == 1.0) return 0;
     if (n && n->t == IR_SCAN) return 1;
-    return icn_chain_arity(n);
+    return descr_chain_arity(n);
 }
-static void sno_stmt_operand_refs(IR_t *head) {
+static void gvar_stmt_operand_refs(IR_t *head) {
     IR_t *chain[512]; int nc = 0;
     IR_t *c = head;
-    while (sno_chain_is_real(c) && nc < 512) {
+    while (gvar_chain_is_real(c) && nc < 512) {
         int dup = 0; for (int i = 0; i < nc; i++) if (chain[i] == c) { dup = 1; break; }
         if (dup) break;
         chain[nc++] = c;
@@ -1962,7 +1962,7 @@ static void sno_stmt_operand_refs(IR_t *head) {
     IR_t *stk[512]; int sp = 0;
     for (int i = 0; i < nc; i++) {
         IR_t *n = chain[i];
-        int ar = sno_chain_arity(n);
+        int ar = gvar_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
         if (ar == 2 && sp >= 2) { n->β = stk[sp - 1]; n->α = stk[sp - 2]; sp -= 2; }
         else if (ar == 1 && sp >= 1) { n->α = stk[sp - 1]; sp -= 1; }
@@ -1970,30 +1970,30 @@ static void sno_stmt_operand_refs(IR_t *head) {
         stk[sp++] = n;
     }
 }
-static void sno_chain_prebuild_children(IR_graph_t *g) {
+static void gvar_chain_prebuild_children(IR_graph_t *g) {
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) pre_build_children(g->all[i]);
 }
-static void sno_chain_prebuild_children_text(IR_graph_t *g, FILE *out, const char *prefix) {
+static void gvar_chain_prebuild_children_text(IR_graph_t *g, FILE *out, const char *prefix) {
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) pre_build_children_text(g->all[i], out, prefix);
 }
-static void sno_chain_operand_refs(IR_graph_t *g) {
+static void gvar_chain_operand_refs(IR_graph_t *g) {
     if (!g || !g->all) return;
     IR_t *heads[2048]; int nh = 0;
-    IR_t *e0 = sno_chain_resolve(g->entry);
-    if (sno_chain_is_real(e0)) heads[nh++] = e0;
+    IR_t *e0 = gvar_chain_resolve(g->entry);
+    if (gvar_chain_is_real(e0)) heads[nh++] = e0;
     for (int i = 0; i < g->n && nh < 2048; i++) {
         IR_t *L = g->all[i];
         if (!L || L->t != IR_SUCCEED || L->γ == NULL) continue;
-        IR_t *h = sno_chain_resolve(L);
-        if (!sno_chain_is_real(h)) continue;
+        IR_t *h = gvar_chain_resolve(L);
+        if (!gvar_chain_is_real(h)) continue;
         int dup = 0; for (int k = 0; k < nh; k++) if (heads[k] == h) { dup = 1; break; }
         if (!dup) heads[nh++] = h;
     }
-    for (int i = 0; i < nh; i++) sno_stmt_operand_refs(heads[i]);
+    for (int i = 0; i < nh; i++) gvar_stmt_operand_refs(heads[i]);
 }
-static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
+static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
     emit_label_initf(&lbl_α_body, "%s_α_body", prefix);
@@ -2018,18 +2018,18 @@ static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
-    IR_t *e0 = sno_chain_resolve(entry);
-    if (sno_chain_is_real(e0)) queue[qt++] = e0;
+    IR_t *e0 = gvar_chain_resolve(entry);
+    if (gvar_chain_is_real(e0)) queue[qt++] = e0;
     while (qh < qt) {
         IR_t *c = queue[qh++];
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[SBB] FATAL sno chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        IR_t *g = sno_chain_resolve(c->γ);
-        IR_t *w = sno_chain_resolve(c->ω);
-        if (sno_chain_is_real(g) && qt < CH_MAX) queue[qt++] = g;
-        if (sno_chain_is_real(w) && qt < CH_MAX) queue[qt++] = w;
+        IR_t *g = gvar_chain_resolve(c->γ);
+        IR_t *w = gvar_chain_resolve(c->ω);
+        if (gvar_chain_is_real(g) && qt < CH_MAX) queue[qt++] = g;
+        if (gvar_chain_is_real(w) && qt < CH_MAX) queue[qt++] = w;
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
@@ -2042,11 +2042,11 @@ static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
-        IR_t *g = sno_chain_resolve(nodes[i]->γ);
-        IR_t *w = sno_chain_resolve(nodes[i]->ω);
-        if (sno_chain_is_real(g)) { for (int k = 0; k < n; k++) if (nodes[k] == g) { node_γ = lbls[k]; break; } }
+        IR_t *g = gvar_chain_resolve(nodes[i]->γ);
+        IR_t *w = gvar_chain_resolve(nodes[i]->ω);
+        if (gvar_chain_is_real(g)) { for (int k = 0; k < n; k++) if (nodes[k] == g) { node_γ = lbls[k]; break; } }
         else if (g && g->t == IR_FAIL) node_γ = &lbl_ω;
-        if (sno_chain_is_real(w)) { for (int k = 0; k < n; k++) if (nodes[k] == w) { node_ω = lbls[k]; break; } }
+        if (gvar_chain_is_real(w)) { for (int k = 0; k < n; k++) if (nodes[k] == w) { node_ω = lbls[k]; break; } }
         else if (w && w->t == IR_FAIL) node_ω = &lbl_ω;
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
@@ -2061,18 +2061,18 @@ static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     return 0;
 }
-bb_box_fn sno_flat_chain_build(IR_graph_t *g) {
+bb_box_fn gvar_flat_chain_build(IR_graph_t *g) {
     if (!g || !g->entry) return NULL;
     IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = g;
     int has_ref = 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) { has_ref = 1; break; }
-    if (has_ref && !g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; sno_chain_prebuild_children(g); g_in_prebuild = 0; }
-    sno_chain_operand_refs(g);
+    if (has_ref && !g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; gvar_chain_prebuild_children(g); g_in_prebuild = 0; }
+    gvar_chain_operand_refs(g);
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) { g_emit_cfg = save_cfg; return NULL; }
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_gvar_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
-    codegen_sno_flat_chain_body(g->entry, "sno_flat");
+    codegen_gvar_flat_chain_body(g->entry, "sno_flat");
     int nbytes = emitter_end();
     g_gvar_flat_chain = 0;
     g_emit_cfg = save_cfg;
@@ -2082,16 +2082,16 @@ bb_box_fn sno_flat_chain_build(IR_graph_t *g) {
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
-int sno_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
+int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     if (!g || !g->entry) return 1;
     IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = g;
     int has_ref = 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) { has_ref = 1; break; }
-    if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; sno_chain_prebuild_children_text(g, out, prefix); }
-    sno_chain_operand_refs(g);
+    if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; gvar_chain_prebuild_children_text(g, out, prefix); }
+    gvar_chain_operand_refs(g);
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_gvar_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
-    int rc = codegen_sno_flat_chain_body(g->entry, prefix);
+    int rc = codegen_gvar_flat_chain_body(g->entry, prefix);
     emitter_end();
     g_gvar_flat_chain = 0;
     g_emit_cfg = save_cfg;
