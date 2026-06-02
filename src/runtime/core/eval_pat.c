@@ -1,7 +1,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "../ast/ast.h"
-#include "../interp/gen_runtime.h"
+#include "../builtins/gen_runtime.h"
 extern DESCR_t eval_node(tree_t *e);
 static inline DESCR_t NAME_DEREF(DESCR_t d) {
     if (IS_NAME(d)) {

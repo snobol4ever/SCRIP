@@ -124,4 +124,4 @@ DESCR_t *data_field_ptr(const char *fname, DESCR_t inst) {
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-#include "../runtime/interp/gen_runtime.h"
+#include "../runtime/builtins/gen_runtime.h"

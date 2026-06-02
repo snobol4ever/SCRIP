@@ -6,7 +6,7 @@ extern "C" {
 #include "SM.h"
 #include "ast.h"
 #include "descr.h"
-#include "../../runtime/interp/gen.h"
+#include "../../runtime/builtins/gen.h"
 extern int g_icn_flat_chain;
 }
 #include "x86_asm.h"

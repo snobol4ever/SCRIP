@@ -20,7 +20,7 @@
 #include "../frontend/icon/icon_driver.h"
 #include "../frontend/raku/raku_driver.h"
 #include "../frontend/rebus/rebus_lower.h"
-#include "../runtime/interp/gen.h"
+#include "../runtime/builtins/gen.h"
 #include "../frontend/icon/icon_lex.h"
 #include "../include/bb_box.h"
 extern void ir_print_node   (const tree_t *e, FILE *f);
@@ -48,8 +48,8 @@ extern int exec_stmt(const char *subj_name,
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
-#include "../runtime/interp/gen_runtime.h"
-#include "../runtime/interp/resolve_runtime.h"
+#include "../runtime/builtins/gen_runtime.h"
+#include "../runtime/builtins/resolve_runtime.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
 /*====================================================================================================================*/

@@ -7,7 +7,7 @@ extern "C" {
 #include "bb_templates.h"
 #include "emit.h"
 #include "emit_bb.h"
-#include "../../runtime/interp/gen.h"
+#include "../../runtime/builtins/gen.h"
 void rt_write_str_nl(const char *s, uint32_t slen);
 void rt_write_int_nl(int64_t v);
 void rt_write_any_nl(DESCR_t d);

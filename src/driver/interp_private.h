@@ -18,7 +18,7 @@
 #include "frontend/icon/icon_driver.h"
 #include "frontend/raku/raku_driver.h"
 #include "frontend/rebus/rebus_lower.h"
-#include "runtime/interp/gen.h"
+#include "runtime/builtins/gen.h"
 #include "frontend/icon/icon_lex.h"
 extern void ir_print_node   (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
@@ -29,8 +29,8 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "SM.h"
 #include "bb_build.h"
 extern DESCR_t pat_at_cursor(const char *varname);
-#include "runtime/interp/gen_runtime.h"
-#include "runtime/interp/resolve_runtime.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/resolve_runtime.h"
 extern DESCR_t      eval_expr(const char *src);
 extern const char  *exec_code(DESCR_t code_block);
 extern int exec_stmt(const char *subj_name,
