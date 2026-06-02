@@ -86,7 +86,13 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_capture.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_defer.cpp \
     $(SRC)/emitter/BB_templates/bb_eps.cpp \
-    $(SRC)/emitter/BB_templates/bb_nfa.cpp \
+    $(SRC)/emitter/BB_templates/bb_nfa_passthrough.cpp \
+    $(SRC)/emitter/BB_templates/bb_nfa_char.cpp \
+    $(SRC)/emitter/BB_templates/bb_nfa_any.cpp \
+    $(SRC)/emitter/BB_templates/bb_nfa_class.cpp \
+    $(SRC)/emitter/BB_templates/bb_nfa_bol.cpp \
+    $(SRC)/emitter/BB_templates/bb_nfa_eol.cpp \
+    $(SRC)/emitter/BB_templates/bb_nfa_accept.cpp \
     $(SRC)/emitter/BB_templates/bb_lit.cpp \
     $(SRC)/emitter/BB_templates/bb_clause.cpp \
     $(SRC)/emitter/BB_templates/bb_builtin.cpp \
@@ -283,7 +289,13 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_capture.cpp     -o $(OBJ)/bb_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_defer.cpp   -o $(OBJ)/bb_pat_defer.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_eps.cpp         -o $(OBJ)/bb_eps.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nfa.cpp         -o $(OBJ)/bb_nfa.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nfa_passthrough.cpp -o $(OBJ)/bb_nfa_passthrough.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nfa_char.cpp    -o $(OBJ)/bb_nfa_char.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nfa_any.cpp     -o $(OBJ)/bb_nfa_any.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nfa_class.cpp   -o $(OBJ)/bb_nfa_class.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nfa_bol.cpp     -o $(OBJ)/bb_nfa_bol.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nfa_eol.cpp     -o $(OBJ)/bb_nfa_eol.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_nfa_accept.cpp  -o $(OBJ)/bb_nfa_accept.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_lit.cpp        -o $(OBJ)/bb_lit.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_clause.cpp           -o $(OBJ)/bb_clause.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin.cpp   -o $(OBJ)/bb_builtin.o
