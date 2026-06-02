@@ -4,7 +4,7 @@
 #include "sil_macros.h"
 #include "bb_pool.h"
 #include "bb_box.h"
-#include "../../processor/bb_pool.h"
+#include "bb_pool.h"
 #include "bb_build.h"
 #include "ast.h"
 #include "../../include/SM.h"

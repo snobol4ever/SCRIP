@@ -7,7 +7,7 @@
 #include "../runtime/builtins/gen.h"
 #include "IR.h"
 #include "../rt/rt.h"
-#include "../processor/bb_build.h"
+#include "bb_build.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>

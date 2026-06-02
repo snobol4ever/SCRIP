@@ -8,7 +8,7 @@
 #include "../../runtime/builtins/gen_runtime.h"
 #include "ast_clone.h"
 #include "IR.h"
-#include "../processor/bb_box.h"
+#include "bb_box.h"
 #include "../runtime/builtins/gen.h"
 /*====================================================================================================================*/
 char *kw_canonicalize(const char *raw);
