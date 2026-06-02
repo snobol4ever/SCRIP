@@ -153,6 +153,13 @@ inline std::string x86_movimm(const char * dst, long imm) {
     if (MEDIUM_BINARY) { std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le((uint64_t)(uint32_t)imm); return x86_Lrec(code); }
     return std::string(" mov ") + dst + ", " + std::to_string(imm) + "\n";
 }
+/* mov dst32, imm32 — 32-bit immediate load (B8+rd; REX.B when reg>=8).  Used by TAB/RTAB to set δ=r14d.    */
+/* r14d → 41 BE imm32 (6 bytes); ecx → B9 imm32; eax → B8 imm32 (5 bytes).  Verified vs `as`.             */
+inline std::string x86_movimm32(const char * dst, long imm) {
+    int m = x86_rnum(dst);
+    if (MEDIUM_BINARY) { std::string code; if (m >= 8) code += (char)0x41; code += (char)(0xB8 | (m & 7)); code += u32le((uint32_t)imm); return x86_Lrec(code); }
+    return std::string(" mov ") + dst + ", " + std::to_string(imm) + "\n";
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* RO pointer load. TEXT: lea dst, [rip + label] (position-independent). BINARY: movabs dst, ptr (v1).    */
 /* REG-RO target: make the BINARY arm position-independent too (lea dst,[rip+disp] into a sealed RO       */
@@ -316,10 +323,11 @@ inline std::string x86(const char * mnem, const char * a, const char * b) {     
     return std::string();
 }
 inline std::string x86(const char * mnem, const char * reg, long imm) {                        /* reg, imm32                */
-    if (!strcmp(mnem, "add")) return x86_add(reg, imm);
-    if (!strcmp(mnem, "sub")) return x86_sub(reg, imm);
-    if (!strcmp(mnem, "cmp")) return x86_cmp_imm(reg, imm);
-    if (!strcmp(mnem, "mov")) return x86_movimm(reg, imm);
+    if (!strcmp(mnem, "add"))   return x86_add(reg, imm);
+    if (!strcmp(mnem, "sub"))   return x86_sub(reg, imm);
+    if (!strcmp(mnem, "cmp"))   return x86_cmp_imm(reg, imm);
+    if (!strcmp(mnem, "mov"))   return x86_movimm(reg, imm);
+    if (!strcmp(mnem, "mov32")) return x86_movimm32(reg, imm);
     return std::string();
 }
 inline std::string x86(const char * mnem, const char * sym, uint64_t ptr) {                    /* call sym (RO ptr)         */

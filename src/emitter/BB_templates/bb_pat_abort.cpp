@@ -1,32 +1,22 @@
-/* bb_pat_abort.cpp — BB template for ABORT.  CPP return-String spike (GOAL-HEADQUARTERS ⚡ CPP).
-   One file per opcode. Invariant #10: no grouping with other opcodes (distinct emit shape).
-   SHAPE: text backends build ONE std::string by concatenation (the future Snocone form, where `+`
-   becomes `.`); the C-linkage entry point writes it once via emit_text_n (NUL-safe → binary OK).
-   The MEDIUM_BINARY arm and the JVM/NET layer-2 helpers (jvm_ and net_ families) perform FILE/relocation
-   side-effects, so they stay imperative and the wrapper emits nothing extra for them. */
+/* bb_pat_abort.cpp — BB template for ABORT. x86() self-encoding (template-revamp, 2026-06-02).
+ * ABORT unconditionally fails the match: α → jmp ω; β → jmp ω.  Both ports dead-end at ω
+ * (SPITBOL Manual ch.18: "ABORT — Causes pattern match failure.").  pBB-free: reads _ only. */
 #include <string>
 #include "emit_str.h"
-#include "emit_str_builders.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 }
+#include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_abort_str(IR_t * pBB, bb_bin_t & bin) {
-    bin = {};
-    int nid = bb_node_id(pBB); (void)nid;
+static std::string bb_pat_abort_str() {
     if (PLATFORM_X86) {
-        bin = { {1, 5, 6}, {_.lbl_ω_p, _.lbl_β_p, _.lbl_ω_p}, {false, true, false} };
-        return IF(MEDIUM_MACRO_DEF,
-               s_comment("# no macro form — ABORT"))
-             + IF(MEDIUM_BINARY,
-               bytes(1, "\xE9") + u32le(0)
-                 + bytes(1, "\xE9") + u32le(0))
-             + IF(MEDIUM_TEXT,
-               s_1asm(emit_fmt("%s:", _.lbl_α))
-               + s_comment("# BOX ABORT()")
-                 + s_2asm("jmp", _.lbl_ω)
-                 + s_L2asm(std::string(_.lbl_β) + ":", "jmp", _.lbl_ω));
+        return IF(MEDIUM_TEXT,
+                   s_1asm(std::string(_.lbl_α) + ":")
+                 + s_comment("# BOX ABORT()  [x86() self-encoding]"))
+             + x86("jmp",  PORT_OMEGA)
+             + x86("def",  PORT_BETA)
+             + x86("jmp",  PORT_OMEGA);
     }
     if (PLATFORM_JVM) {
         return jvm_class_hdr_str("abort")
@@ -50,11 +40,12 @@ static std::string bb_pat_abort_str(IR_t * pBB, bb_bin_t & bin) {
              + s_directive(".end method");
     }
     if (PLATFORM_JS) {
-        return emit_fmt("function make_pat_%d_%d(ms) { let self = { succ: null, fail: null,\n", pBB->ival, nid)
+        int nid = _.nid;
+        return emit_fmt("function make_pat_%d_%d(ms) { let self = { succ: null, fail: null,\n", (int)_.op_ival, nid)
              + "\316\261() { self.fail.\316\261(); return null; },\n\316\262() { self.fail.\316\261(); return null; }\n}; return self; }\n";
     }
     if (PLATFORM_NET) {
-        int sid = 0;
+        int sid = 0; int nid = _.nid;
         return net_class_hdr_str(sid, nid)
              + net_ctor_none_str(sid, nid)
              + net_α_hdr_str()
@@ -72,7 +63,4 @@ static std::string bb_pat_abort_str(IR_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_abort(IR_t * pBB) {
-    bb_bin_t bin;
-    bb_emit_asm_result(bb_pat_abort_str(pBB, bin), bin);
-}
+extern "C" void bb_pat_abort(void) { bb_emit_x86(bb_pat_abort_str()); }
