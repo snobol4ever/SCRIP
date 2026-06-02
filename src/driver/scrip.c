@@ -721,10 +721,10 @@ int main(int argc, char **argv)
                 printf("main:\n");
                 printf("  push rbp\n");
                 printf("  mov rbp, rsp\n");
-                printf("  call rt_pl_main_init@PLT\n");
+                printf("  call rt_main_init@PLT\n");
                 if (pl_main->nslots > 0) {
                     printf("  mov edi, %d\n", pl_main->nslots);
-                    printf("  call rt_pl_env_alloc@PLT\n");
+                    printf("  call rt_env_alloc@PLT\n");
                 }
                 printf("  call rt_frame@PLT\n");
                 printf("  mov rdi, rax\n");
@@ -752,7 +752,7 @@ int main(int argc, char **argv)
             printf("  mov rbp, rsp\n");
             if (pl_main->nslots > 0) {
                 printf("  mov edi, %d\n", pl_main->nslots);
-                printf("  call rt_pl_env_alloc@PLT\n");
+                printf("  call rt_env_alloc@PLT\n");
             }
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");

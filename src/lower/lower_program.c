@@ -112,8 +112,8 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
         case BINOP_EQ: *rel_fail = !(either_real ? ld == rd : li == ri); return *rel_fail ? FAILDESCR : rv;
         case BINOP_NE: *rel_fail = !(either_real ? ld != rd : li != ri); return *rel_fail ? FAILDESCR : rv;
         case BINOP_CONCAT: {
-            DESCR_t ls_d; ls_d = descr_to_str_icn(lv);
-            DESCR_t rs_d; rs_d = descr_to_str_icn(rv);
+            DESCR_t ls_d; ls_d = descr_to_str(lv);
+            DESCR_t rs_d; rs_d = descr_to_str(rv);
             if (IS_FAIL_fn(ls_d) || IS_FAIL_fn(rs_d)) return FAILDESCR;
             const char *ls = ls_d.s ? ls_d.s : "";
             const char *rs = rs_d.s ? rs_d.s : "";
@@ -125,8 +125,8 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
         }
         case BINOP_SLT: case BINOP_SLE: case BINOP_SGT:
         case BINOP_SGE: case BINOP_SEQ: case BINOP_SNE: {
-            DESCR_t ls_d = descr_to_str_icn(lv);
-            DESCR_t rs_d = descr_to_str_icn(rv);
+            DESCR_t ls_d = descr_to_str(lv);
+            DESCR_t rs_d = descr_to_str(rv);
             const char *ls = (!IS_FAIL_fn(ls_d) && ls_d.s) ? ls_d.s : "";
             const char *rs = (!IS_FAIL_fn(rs_d) && rs_d.s) ? rs_d.s : "";
             int cmp = strcmp(ls, rs);

@@ -381,7 +381,7 @@ Term **resolve_env_new(int n) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 Term *resolve_unified_term_from_expr(tree_t *e, Term **env);
 static Term *resolve_unified_deep_copy(Term *t);
-int          interp_exec_pl_builtin(tree_t *goal, Term **env);
+int          interp_exec_builtin(tree_t *goal, Term **env);
 Term *resolve_unified_term_from_expr(tree_t *e, Term **env) {
     if (!e) return term_new_atom(prolog_atom_intern("[]"));
     switch (e->t) {
@@ -580,7 +580,7 @@ static long resolve_unified_eval_arith(tree_t *e, Term **env) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int is_pl_user_call(tree_t *goal) {
+int is_user_call(tree_t *goal) {
     if (!goal || goal->t != TT_FNC || !goal->v.sval) return 0;
     static const char *builtins[] = {
         "true","fail","halt","nl","write","writeln","print","writeq","write_canonical","tab","is",
@@ -816,12 +816,12 @@ static int resolve_invoke_var_goal(Term *gt, Term **caller_env) {
     for (int i = 0; i < RESOLVE_SYNTH_TENV_MAX; i++) tenv[i] = NULL;
     int    tn = 0;
     tree_t *synth = resolve_term_to_synth_expr(gt, tenv, &tn);
-    int ok = interp_exec_pl_builtin(synth, tenv);
+    int ok = interp_exec_builtin(synth, tenv);
     resolve_synth_free(synth);
     return ok;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int interp_exec_pl_builtin(tree_t *goal, Term **env) {
+int interp_exec_builtin(tree_t *goal, Term **env) {
     if (!goal) return 1;
     Trail *trail = &g_resolve_trail;
     int *cut_flag = &g_resolve_cut_flag;
@@ -838,7 +838,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
         case TT_FNC: {
             const char *fn = goal->v.sval ? goal->v.sval : "true";
             int arity = goal->n;
-            if (is_pl_user_call(goal)) {
+            if (is_user_call(goal)) {
                 Resolve_PredEntry_BB *pe = NULL;
                 if (fn) {
                     char key[256]; snprintf(key, sizeof key, "%s/%d", fn, arity);
@@ -957,7 +957,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                 for(int i=0;i<goal->n;i++){
                     tree_t *g=goal->c[i];
                     if(!g) continue;
-                    int ok = is_pl_user_call(g) ? ({
+                    int ok = is_user_call(g) ? ({
                         char key[256]; snprintf(key,sizeof key,"%s/%d",g->v.sval?g->v.sval:"",g->n);
                         tree_t *ch=resolve_pred_table_lookup(&g_stage2.resolve_pred_table,key);
                         int r=0;
@@ -966,7 +966,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                                  Term **sv=g_resolve_env; g_resolve_env=cargs;
                                  DESCR_t rd=FAILDESCR; g_resolve_env=sv; if(cargs)free(cargs); fprintf(stderr, "[NO-AST] interp_eval stub\n");
                                  r=!IS_FAIL_fn(rd); }
-                        r; }) : interp_exec_pl_builtin(g, env);
+                        r; }) : interp_exec_builtin(g, env);
                     if(!ok) return 0;
                 }
                 return 1;
@@ -975,21 +975,21 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                 tree_t *left=goal->c[0],*right=goal->c[1];
                 if(left&&left->t==TT_FNC&&left->v.sval&&strcmp(left->v.sval,"->")==0&&left->n>=2){
                     int mark=trail_mark(trail); int cut2=0;
-                    if(interp_exec_pl_builtin(left->c[0],env)){
-                        for(int i=1;i<left->n;i++) if(!interp_exec_pl_builtin(left->c[i],env)) return 0;
+                    if(interp_exec_builtin(left->c[0],env)){
+                        for(int i=1;i<left->n;i++) if(!interp_exec_builtin(left->c[i],env)) return 0;
                         return 1;
                     }
                     trail_unwind(trail,mark);
-                    return interp_exec_pl_builtin(right,env);
+                    return interp_exec_builtin(right,env);
                 }
                 {int mark=trail_mark(trail);
-                 if(interp_exec_pl_builtin(left,env)) return 1;
+                 if(interp_exec_builtin(left,env)) return 1;
                  trail_unwind(trail,mark);
-                 return interp_exec_pl_builtin(right,env);}
+                 return interp_exec_builtin(right,env);}
             }
             if (strcmp(fn,"->")==0&&arity>=2){
-                if(!interp_exec_pl_builtin(goal->c[0],env)) return 0;
-                for(int i=1;i<goal->n;i++) if(!interp_exec_pl_builtin(goal->c[i],env)) return 0;
+                if(!interp_exec_builtin(goal->c[0],env)) return 0;
+                for(int i=1;i<goal->n;i++) if(!interp_exec_builtin(goal->c[i],env)) return 0;
                 return 1;
             }
             if ((strcmp(fn,"\\+")==0||strcmp(fn,"not")==0)&&arity==1){
@@ -999,7 +999,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                     Term *gt = resolve_unified_term_from_expr(goal->c[0], env);
                     ok = resolve_invoke_var_goal(gt, env);
                 } else {
-                    ok = interp_exec_pl_builtin(goal->c[0],env);
+                    ok = interp_exec_builtin(goal->c[0],env);
                 }
                 trail_unwind(trail,mark);return !ok;
             }
@@ -1010,7 +1010,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                     Term *gt = resolve_unified_term_from_expr(goal->c[0], env);
                     ok = resolve_invoke_var_goal(gt, env);
                 } else {
-                    ok = interp_exec_pl_builtin(goal->c[0],env);
+                    ok = interp_exec_builtin(goal->c[0],env);
                 }
                 if(!ok) trail_unwind(trail,mark);
                 return ok;
@@ -1970,7 +1970,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                     if (goal_e && goal_e->t == TERM_VAR) {
                         Term *gt = resolve_unified_term_from_expr(goal_e, env);
                         ok = resolve_invoke_var_goal(gt, env);
-                    } else if (is_pl_user_call(goal_e)) {
+                    } else if (is_user_call(goal_e)) {
                         char ukey[256];
                         snprintf(ukey,sizeof ukey,"%s/%d",
                                  goal_e->v.sval?goal_e->v.sval:"",goal_e->n);
@@ -1989,7 +1989,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                                 goal_e->v.sval ? goal_e->v.sval : "", goal_e->n);
                         }
                     } else {
-                        ok = interp_exec_pl_builtin(goal_e, env);
+                        ok = interp_exec_builtin(goal_e, env);
                     }
                     if (g_resolve_catch_top>0 && &g_resolve_catch_stack[g_resolve_catch_top-1]==cf)
                         g_resolve_catch_top--;
@@ -2000,7 +2000,7 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                     g_resolve_exception = NULL;
                     int mark2=trail_mark(trail);
                     unify(catcher, exc, trail);
-                    int rok = interp_exec_pl_builtin(recovery, env);
+                    int rok = interp_exec_builtin(recovery, env);
                     return rok;
                 }
             }
@@ -2026,15 +2026,15 @@ int interp_exec_pl_builtin(tree_t *goal, Term **env) {
                     c_tenv=calloc(RESOLVE_SYNTH_TENV_MAX,sizeof(Term*)); int n=0;
                     c_synth=resolve_term_to_synth_expr(gt,c_tenv,&n); cleanup_e=c_synth;
                 }
-                int sok = interp_exec_pl_builtin(setup_e, s_synth ? s_tenv : env);
+                int sok = interp_exec_builtin(setup_e, s_synth ? s_tenv : env);
                 if (!sok) {
                     if (s_synth){resolve_synth_free(s_synth);free(s_tenv);}
                     if (g_synth){resolve_synth_free(g_synth);free(g_tenv);}
                     if (c_synth){resolve_synth_free(c_synth);free(c_tenv);}
                     return 0;
                 }
-                int gok = interp_exec_pl_builtin(scc_goal_e, g_synth ? g_tenv : env);
-                interp_exec_pl_builtin(cleanup_e, c_synth ? c_tenv : env);
+                int gok = interp_exec_builtin(scc_goal_e, g_synth ? g_tenv : env);
+                interp_exec_builtin(cleanup_e, c_synth ? c_tenv : env);
                 if (s_synth){resolve_synth_free(s_synth);free(s_tenv);}
                 if (g_synth){resolve_synth_free(g_synth);free(g_tenv);}
                 if (c_synth){resolve_synth_free(c_synth);free(c_tenv);}
