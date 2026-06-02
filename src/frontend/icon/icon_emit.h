@@ -14,7 +14,7 @@ typedef struct {
     int   had_error;
 } IcnEmitter;
 /*--------------------------------------------------------------------------------------------------------------------*/
-#include "ast/ast.h"
+#include "ast.h"
 void icn_emit_file(tree_t **nodes, int count, FILE *out);
 void icn_emit_expr(tree_t *n, const char *γ, const char *ω, char *oa, char *ob);
 void icn_label_α  (int id, char *buf, size_t sz);

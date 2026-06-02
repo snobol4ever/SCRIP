@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include "../../ast/ast.h"
+#include "ast.h"
 typedef struct RCase RCase;
 struct RCase {
     int       is_default;

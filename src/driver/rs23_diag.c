@@ -7,7 +7,7 @@
 #include <dlfcn.h>
 #include "descr.h"
 #include "scrip_cc.h"
-#include "ast/ast.h"
+#include "ast.h"
 DESCR_t __real_interp_eval(tree_t *e);
 #define DEDUP_CAP 1024
 static unsigned long g_seen[DEDUP_CAP];

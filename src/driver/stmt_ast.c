@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "ast/ast.h"
+#include "ast.h"
 #include "frontend/snobol4/scrip_cc.h"
 tree_t *ast_stmt_new(tree_e kind)
 {

@@ -49,12 +49,12 @@ FIELDS=(
 ALLOW=(
     # stage2.h defines the struct itself — the field names appear bare
     # there as struct member declarations.  This is the source of truth.
-    "src/include/stage2.h:g_registry"
-    "src/include/stage2.h:label_table"
-    "src/include/stage2.h:label_count"
-    "src/include/stage2.h:g_pl_pred_table"
-    "src/include/stage2.h:proc_table"
-    "src/include/stage2.h:proc_count"
+    "src/contracts/stage2.h:g_registry"
+    "src/contracts/stage2.h:label_table"
+    "src/contracts/stage2.h:label_count"
+    "src/contracts/stage2.h:g_pl_pred_table"
+    "src/contracts/stage2.h:proc_table"
+    "src/contracts/stage2.h:proc_count"
     # ScripModule (the per-language module-registry entry) has its own
     # `nprocs` field — renamed from `proc_count` in ST2-1 specifically to
     # avoid colliding with the (now-gone) shim macro.  The struct comment

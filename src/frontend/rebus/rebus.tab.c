@@ -78,7 +78,7 @@
 #line 1 "rebus.y"
 
 #include "rebus.h"
-#include "../../ast/ast.h"
+#include "ast.h"
 #include "../../frontend/snobol4/scrip_cc.h"  /* expr_add_child, expr_binary, expr_unary */
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,5 +1,5 @@
 #include "rebus.h"
-#include "../../ast/ast.h"
+#include "ast.h"
 #include <stdio.h>
 #include <string.h>
 static void indent(FILE *out, int depth) {

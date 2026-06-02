@@ -32,9 +32,9 @@ CORPUS  ?= $(ROOT)/../corpus
 OBJ     := /tmp/si_objs
 CC      := gcc
 CXX     := g++
-CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED
+CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED
 WARN    := -w
-CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
+CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 CRT     := $(CBASE) -DDYN_ENGINE_LINKED
 LIBS    := -lgc -lm
 
@@ -147,7 +147,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/builtins/resolve_runtime.c \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/lower/ast_clone.c \
-    $(SRC)/lower/scrip_ir.c \
+    $(SRC)/contracts/scrip_ir.c \
     $(SRC)/interp/bb_exec.c \
     $(SRC)/driver/interp_globals.c \
     $(SRC)/driver/interp_label.c \
@@ -160,7 +160,7 @@ RT_PIC_SRCS := \
     $(SRC)/driver/stmt_ast.c \
     $(SRC)/driver/sync_monitor.c \
     $(SRC)/driver/polyglot.c \
-    $(SRC)/ast/ast_print.c \
+    $(SRC)/contracts/ast_print.c \
     $(SRC)/frontend/snobol4/snobol4.tab.c \
     $(SRC)/frontend/snobol4/snobol4.lex.c \
     $(SRC)/frontend/icon/icon_runtime.c \
@@ -191,7 +191,7 @@ RT_PIC_SRCS := \
 out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
 	$(CC) -O0 -g $(WARN) -fPIC -shared \
-	    -I$(SRC) -I$(SRC)/include -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
+	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
 	    -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES \
 	    $(RT_PIC_SRCS) \
@@ -267,25 +267,25 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_alt.cpp    -o $(OBJ)/bb_pat_alt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_cat.cpp    -o $(OBJ)/bb_pat_cat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_rk_gather.cpp  -o $(OBJ)/bb_rk_gather.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -c $(SRC)/emitter/XA_templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -c $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp -o $(OBJ)/xa_bb_macro_library.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_exec_stmt_blob.cpp -o $(OBJ)/xa_exec_stmt_blob.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_file_header.cpp     -o $(OBJ)/xa_file_header.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_bb_ptr_slot.cpp      -o $(OBJ)/xa_bb_ptr_slot.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_flat.cpp             -o $(OBJ)/xa_flat.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_prologue.cpp         -o $(OBJ)/xa_prologue.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_epilogue.cpp         -o $(OBJ)/xa_epilogue.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_wasm_main.cpp        -o $(OBJ)/xa_wasm_main.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_js_label_register.cpp -o $(OBJ)/xa_js_label_register.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_expression_registry.cpp -o $(OBJ)/xa_expression_registry.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_strtab_rodata.cpp     -o $(OBJ)/xa_strtab_rodata.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp -o $(OBJ)/xa_bb_macro_library.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_exec_stmt_blob.cpp -o $(OBJ)/xa_exec_stmt_blob.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_file_header.cpp     -o $(OBJ)/xa_file_header.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_bb_ptr_slot.cpp      -o $(OBJ)/xa_bb_ptr_slot.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_flat.cpp             -o $(OBJ)/xa_flat.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_prologue.cpp         -o $(OBJ)/xa_prologue.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_epilogue.cpp         -o $(OBJ)/xa_epilogue.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_wasm_main.cpp        -o $(OBJ)/xa_wasm_main.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_js_label_register.cpp -o $(OBJ)/xa_js_label_register.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_expression_registry.cpp -o $(OBJ)/xa_expression_registry.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_strtab_rodata.cpp     -o $(OBJ)/xa_strtab_rodata.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
+	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
 	$(CC) $(CRT) -c $(SRC)/processor/bb_boxes.c -o $(OBJ)/bb_boxes.o
 	$(CC) $(CRT) -c $(SRC)/processor/smx_dead_stubs.c -o $(OBJ)/smx_dead_stubs.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -DIR_DEFINE_NAMES \
-	    -c $(SRC)/ast/ast_print.c -o $(OBJ)/ast_print.o
+	    -c $(SRC)/contracts/ast_print.c -o $(OBJ)/ast_print.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/snocone/snocone_lex.c        -o $(OBJ)/snocone_lex.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/snocone/snocone_parse.tab.c  -o $(OBJ)/snocone_parse.tab.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/snocone/snocone_driver.c     -o $(OBJ)/snocone_driver.o
@@ -318,7 +318,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolve_runtime.c  -o $(OBJ)/resolve_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
 	$(CC) $(CRT)   -c $(SRC)/lower/ast_clone.c    -o $(OBJ)/ast_clone.o
-	$(CC) $(CRT)   -c $(SRC)/lower/scrip_ir.c     -o $(OBJ)/scrip_ir.o
+	$(CC) $(CRT)   -c $(SRC)/contracts/scrip_ir.c     -o $(OBJ)/scrip_ir.o
 	$(CC) $(CRT)   -c $(SRC)/interp/bb_exec.c      -o $(OBJ)/bb_exec.o
 	$(CC) $(CRT)   -c $(SRC)/lower/sm_prog.c    -o $(OBJ)/sm_prog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower.c      -o $(OBJ)/lower.o

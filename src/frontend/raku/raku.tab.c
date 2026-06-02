@@ -77,7 +77,7 @@
 /* First part of user prologue.  */
 #line 11 "raku.y"
 
-#include "../../ast/ast.h"
+#include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include "raku.tab.h"
 #include "raku_driver.h"

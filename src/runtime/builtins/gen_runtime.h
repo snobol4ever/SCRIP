@@ -1,6 +1,6 @@
 #ifndef GEN_RUNTIME_H
 #define GEN_RUNTIME_H
-#include "../ast/ast.h"
+#include "ast.h"
 #include "../../frontend/snobol4/scrip_cc.h"
 #include "bb_box.h"
 #include "gen.h"
