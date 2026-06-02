@@ -1715,7 +1715,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_VAR:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_VAR:        if (g_icn_flat_chain && nd && nd->sval) { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SCAN:       flat_drive_sno_scan(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUBJECT:    flat_drive_sno_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
