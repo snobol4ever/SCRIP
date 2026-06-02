@@ -382,6 +382,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.nid  = bb_node_id(nd);
     g_emit.op_sval = nd->sval;
     g_emit.op_ival = nd->ival;
+    g_emit.op_node_kind = (int)nd->t;
     switch (nd->t) {
     case IR_PAT_LIT:         bb_lit();               return 0;
     case IR_PAT_ANY:         bb_pat_any();           return 0;
@@ -433,7 +434,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_UNTIL:                bb_if(nd);           return 0;
     case IR_REPEAT:
     case IR_ALT:                  bb_alt(nd);          return 0;
-    case IR_SIZE:                 bb_unop(nd);      return 0;
+    case IR_SIZE:                 bb_unop();        return 0;
     case IR_CASE:
     case IR_LIMIT:                bb_limit(nd);     return 0;
     case IR_SUSPEND:              bb_suspend(nd);      return 0;
@@ -470,7 +471,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_NONNULL:
     case IR_NULL_TEST:
     case IR_UNOP:
-    case IR_NOT:                  bb_unop(nd);         return 0;
+    case IR_NOT:                  bb_unop();           return 0;
     case IR_GEN_SCAN:                bb_gen_scan(nd);     return 0;
     case IR_KEYWORD:                bb_keyword(nd);     return 0;
     case IR_BINOP_GEN:                bb_binop_gen(nd);    return 0;

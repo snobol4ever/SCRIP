@@ -1741,25 +1741,26 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         }
         break;
     case IR_UNOP:
-        /* GZ-11+ (unary-minus, this session): the unified lowerer emits IR_UNOP (op in ival = the raw     */
-        /* tree_e: TT_MNS/TT_PLS/TT_SIZE/TT_NONNULL) — NOT the split IR_NEG/IR_POS/… kinds below. In the    */
-        /* flat-chain the operand producer is already BFS-collected + slot-allocated (operand-ref pass set  */
-        /* pBB->α to it); FILL emits ONLY this box, whose bb_unop GZ-11+ arm reads the operand DESCR from   */
-        /* [r12+slot(α)+8], applies the op, and writes a DESCR result to its own [r12+off] — re-walking via */
-        /* flat_drive_unop would double-emit the operand with a fresh slot (same hazard as IR_BINOP). Off-  */
-        /* chain (legacy) still re-walks the operand via the driver.                                         */
-        if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_NEG:
     case IR_POS:
     case IR_NONNULL:
     case IR_NULL_TEST:
     case IR_SIZE:
-    /* GZ-11+ split-kind guard (mirrors IR_UNOP at line above): in the flat-chain the operand producer is    */
-    /* already BFS-collected + slot-allocated by icn_chain_operand_refs (pBB->α set to the producer node).  */
-    /* FILL emits ONLY this box; the bb_unop stackless arm reads the operand DESCR from [r12+sa] and writes */
-    /* the result to its own slot. Re-walking via flat_drive_unop would double-emit the operand (duplicate  */
-    /* label / wrong slot assignment). Off-chain (legacy) still re-walks via the driver.                    */
-    case IR_NOT:        if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_NOT:
+        /* TEMPLATE-REVAMP (Icon, x86() self-encoding): bb_unop is pBB-free — reads NO neighbor.             */
+        /* Driver resolves operand slot and result slot HERE and deposits as g_emit scalars; the box trusts   */
+        /* op_off>=0 as "flat-chain, slots valid". The KIND discriminator is op_node_kind (promoted from      */
+        /* nd->t at the single dispatch point in walk_bb_node); the IR_UNOP mux sub-op (TT_MNS/TT_PLS) rides   */
+        /* op_ival (also re-promoted there from nd->ival). IR_NOT has no value operand (op_sa==-1); all others */
+        /* read the operand DESCR at [r12+op_sa].                                                             */
+        if (g_icn_flat_chain) {
+            g_emit.op_sa   = (nd->α) ? bb_slot_get(nd->α) : -1;
+            g_emit.op_off  = bb_slot_alloc16(nd);
+            FILL(nd, lbl_γ, lbl_ω, lbl_β);
+        } else {
+            flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β);
+        }
+        break;
     case IR_INITIAL:    flat_drive_initial(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CASE:       flat_drive_case(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FIELD_GET:  flat_drive_field_get(nd, lbl_γ, lbl_ω, lbl_β); break;
