@@ -50,7 +50,7 @@ void bb_var        (IR_t * pBB);
 void bb_assign     (IR_t * pBB);
 void bb_swap       (IR_t * pBB);
 void bb_return     (IR_t * pBB);
-void bb_unop       (IR_t * pBB);
+void bb_unop       (void);
 void bb_field_get  (IR_t * pBB);
 void bb_field_set  (IR_t * pBB);
 void bb_list_bang  (IR_t * pBB);
