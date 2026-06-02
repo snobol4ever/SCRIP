@@ -374,7 +374,7 @@ void net_push_i4(FILE * out, int v) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
-    extern void bb_prepare_pl(IR_t *nd);
+    extern void bb_prepare(IR_t *nd);
     extern int  bb_slot_get(IR_t *nd);
     if (!nd) return 1;
     g_emit.node = nd;
@@ -403,7 +403,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PAT_REM:         bb_pat_rem();           return 0;
     case IR_PAT_FENCE:       bb_pat_fence();           return 0;
     case IR_PAT_ABORT:       bb_pat_abort();           return 0;
-    case IR_ARITH:           bb_prepare_pl(nd); bb_arith();           return 0;
+    case IR_ARITH:           bb_prepare(nd); bb_arith();           return 0;
     case IR_LIT_I:
     case IR_LIT_S:
     case IR_LIT_F:
@@ -430,7 +430,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_GCONJ:          bb_conj();                                 return 0;
     case IR_ITE:          bb_ite();                                 return 0;
     case IR_CATCH:        bb_catch();                               return 0;
-    case IR_UNIFY:           bb_prepare_pl(nd); bb_unify();           return 0;
+    case IR_UNIFY:           bb_prepare(nd); bb_unify();           return 0;
     case IR_NEG:
     case IR_POS:
     case IR_NONNULL:
@@ -658,10 +658,10 @@ void xa_dispatch(XA_op_t op)
     case XA_WASM_MAIN_CLOSE:       xa_wasm_main_close();       return;
     case XA_JS_LABEL_REGISTER:     xa_js_label_register();     return;
     case XA_EXPRESSION_REGISTRY:   xa_expression_registry();   return;
-    case XA_PL_KIDS_RODATA:                                    return;
-    case XA_PL_SUB_BUILDER:                                    return;
-    case XA_PL_BUILDER:                                        return;
-    case XA_PL_REGISTRY_TABLE:                                 return;
+    case XA_KIDS_RODATA:                                    return;
+    case XA_SUB_BUILDER:                                    return;
+    case XA_BUILDER:                                        return;
+    case XA_REGISTRY_TABLE:                                 return;
     case XA_STRTAB_RODATA:         xa_strtab_rodata();         return;
     case XA_CAP_FIXUP:             xa_cap_fixup();             return;
     case XA_PATTERN_BLOBS:         xa_pattern_blobs();         return;

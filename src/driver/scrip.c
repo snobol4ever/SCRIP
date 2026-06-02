@@ -692,7 +692,7 @@ int main(int argc, char **argv)
         }
         if (is_prolog) {
             extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
-            extern int codegen_pl_program(FILE * out);
+            extern int codegen_clause_dispatch(FILE * out);
             extern int g_frame_active;
             extern void xa_emit_strtab_rodata(void);
             stage2_t *s2 = sm_preamble(ast_prog);
@@ -735,7 +735,7 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n");
                 printf("  ret\n");
                 g_frame_active = 1;
-                int rcp = codegen_pl_program(stdout);
+                int rcp = codegen_clause_dispatch(stdout);
                 extern IR_graph_t *g_emit_cfg;
                 IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = pl_main;
                 int rcm = codegen_flat_build(rich_root, stdout, "main");

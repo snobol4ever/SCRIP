@@ -417,12 +417,12 @@ void rt_frame_leave(void)
     if (g_rt_frame_depth > 0) g_rt_frame_depth--;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-#define RT_ICN_PROC_MAX 512
-#define ICN_PROC_FRAME_QWORDS 512
-#define ICN_PROC_FRAME_DEPTH  4096
-#define ICN_CALL_ARGS_MAX     64
+#define RT_PROC_MAX 512
+#define PROC_FRAME_QWORDS 512
+#define PROC_FRAME_DEPTH  4096
+#define CALL_ARGS_MAX     64
 typedef struct { const char *name; bb_box_fn fn; void *entry; const char **pnames; int nparams; } rt_proc_t;
-static rt_proc_t g_rt_gen_procs[RT_ICN_PROC_MAX];
+static rt_proc_t g_rt_gen_procs[RT_PROC_MAX];
 static int           g_rt_gen_proc_count = 0;
 static bb_box_fn (*g_rt_gen_proc_builder)(void *entry) = NULL;
 void rt_proc_set_builder(bb_box_fn (*builder)(void *entry)) { g_rt_gen_proc_builder = builder; }
@@ -437,7 +437,7 @@ void rt_proc_register(const char *name, void *entry, const char **pnames, int np
             return;
         }
     }
-    if (g_rt_gen_proc_count >= RT_ICN_PROC_MAX) return;
+    if (g_rt_gen_proc_count >= RT_PROC_MAX) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->entry = entry; p->pnames = pnames; p->nparams = nparams;
 }
@@ -455,7 +455,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (!name) return;
     for (int i = 0; i < g_rt_gen_proc_count; i++)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].fn = fn; return; }
-    if (g_rt_gen_proc_count >= RT_ICN_PROC_MAX) return;
+    if (g_rt_gen_proc_count >= RT_PROC_MAX) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->entry = NULL; p->pnames = NULL; p->nparams = 0;
 }
@@ -467,12 +467,12 @@ void rt_call_proc(const char *name, int nargs)
     STACKLESS_ABORT("rt_call_proc");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t g_call_args[ICN_CALL_ARGS_MAX];
+DESCR_t g_call_args[CALL_ARGS_MAX];
 void rt_arg_stage(int idx, DESCR_t v)
 {
-    if (idx >= 0 && idx < ICN_CALL_ARGS_MAX) g_call_args[idx] = v;
+    if (idx >= 0 && idx < CALL_ARGS_MAX) g_call_args[idx] = v;
 }
-static int64_t g_proc_arena[ICN_PROC_FRAME_DEPTH * ICN_PROC_FRAME_QWORDS];
+static int64_t g_proc_arena[PROC_FRAME_DEPTH * PROC_FRAME_QWORDS];
 static int     g_proc_depth = 0;
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
@@ -483,14 +483,14 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         abort();
     }
-    if (g_proc_depth >= ICN_PROC_FRAME_DEPTH) {
-        fprintf(stderr, "[GZ-10] rt_call_proc_descr: recursion depth exceeded (%d)\n", ICN_PROC_FRAME_DEPTH);
+    if (g_proc_depth >= PROC_FRAME_DEPTH) {
+        fprintf(stderr, "[GZ-10] rt_call_proc_descr: recursion depth exceeded (%d)\n", PROC_FRAME_DEPTH);
         abort();
     }
-    char *fb = (char *)&g_proc_arena[g_proc_depth * ICN_PROC_FRAME_QWORDS];
+    char *fb = (char *)&g_proc_arena[g_proc_depth * PROC_FRAME_QWORDS];
     g_proc_depth++;
     *(DESCR_t *)(fb + 0) = NULVCL;
-    if (nargs > ICN_CALL_ARGS_MAX) nargs = ICN_CALL_ARGS_MAX;
+    if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
@@ -1186,14 +1186,14 @@ void rt_trail_unwind(int mark)
     trail_unwind(&g_resolve_trail, mark);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-#define RT_PL_MARK_STACK_MAX 32
-static int g_resolve_mark_stack[RT_PL_MARK_STACK_MAX];
+#define RT_MARK_STACK_MAX 32
+static int g_resolve_mark_stack[RT_MARK_STACK_MAX];
 static int g_resolve_mark_top = 0;
 void rt_trail_mark_push(void)
 {
     extern Trail g_resolve_trail;
     int m = trail_mark(&g_resolve_trail);
-    if (g_resolve_mark_top < RT_PL_MARK_STACK_MAX) g_resolve_mark_stack[g_resolve_mark_top++] = m;
+    if (g_resolve_mark_top < RT_MARK_STACK_MAX) g_resolve_mark_stack[g_resolve_mark_top++] = m;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_trail_unwind_top(void)

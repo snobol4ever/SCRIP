@@ -44,9 +44,9 @@ typedef struct {
     int                          win_exec_pat_id;
     int                          hdr_count;
     int                          hdr_has_expr_reg;
-    int                          hdr_has_pl_reg;
+    int                          hdr_has_reg;
     int                          reg_expr_count;
-    int                          reg_pl_count;
+    int                          reg_count;
     char                         bb_ptr_slot_lbl[88];
     int                          bb_cs_id;
     void *                       bb_cs_zeta;
