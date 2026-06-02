@@ -138,7 +138,7 @@ typedef enum {
     IR_GATHER,
     IR_MAP,
     IR_GREP,
-    IR_SNO_PROG,
+    IR_PROG,
     IR_SUBJECT,
     IR_REF_INVARIANT,
     IR_PAT_MATCH,

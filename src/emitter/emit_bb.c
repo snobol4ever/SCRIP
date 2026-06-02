@@ -1177,7 +1177,7 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    sno_prog_t *prog = (sno_prog_t *)(intptr_t)pBB->ival;
+    prog_t *prog = (prog_t *)(intptr_t)pBB->ival;
     if (!prog || prog->n <= 0) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(lbl_γ);
@@ -1196,7 +1196,7 @@ static void flat_drive_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     if (prog->entry_idx > 0 && prog->entry_idx < n) emit_jmp_label(slbl[prog->entry_idx], JMP_JMP);
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(slbl[i]);
-        sno_stmt_t *st = &prog->stmts[i];
+        stmt_t *st = &prog->stmts[i];
         if (st->is_terminal) {
             emit_jmp_label(lbl_γ, JMP_JMP);
             continue;
@@ -1599,7 +1599,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SUBJECT:    flat_drive_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_REF_INVARIANT: flat_drive_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_MATCH:  flat_drive_match(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_SNO_PROG:   flat_drive_program(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PROG:   flat_drive_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
         if (g_descr_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
         flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
