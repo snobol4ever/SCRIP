@@ -30,7 +30,7 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "sil_macros.h"
 #include "runtime_shim.h"
 #include "lower.h"
-#include "bb_exec_state.h"
+#include "IR_interp_state.h"
 #include "bb_build.h"
 #include "emit.h"
 #include "emit_bb.h"
@@ -805,7 +805,7 @@ int main(int argc, char **argv)
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (is_icon) {
-            extern DESCR_t bb_exec_once(IR_graph_t * bbg);
+            extern DESCR_t IR_interp_once(IR_graph_t * bbg);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) {
@@ -817,11 +817,11 @@ int main(int argc, char **argv)
                 fprintf(stderr, "[IBB] FATAL: mode-2 driver: main BB graph not found\n");
                 abort();
             }
-            (void)bb_exec_once(s2->bbp.table[main_bb_idx]);
+            (void)IR_interp_once(s2->bbp.table[main_bb_idx]);
             goto run_done;
         }
         if (!is_icon && !is_prolog) {
-            extern DESCR_t bb_exec_once(IR_graph_t * bbg);
+            extern DESCR_t IR_interp_once(IR_graph_t * bbg);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) {
@@ -833,11 +833,11 @@ int main(int argc, char **argv)
                 fprintf(stderr, "[SBB] FATAL: mode-2 driver: SNOBOL4 main BB graph not found\n");
                 abort();
             }
-            (void)bb_exec_once(s2->bbp.table[main_bb_idx]);
+            (void)IR_interp_once(s2->bbp.table[main_bb_idx]);
             goto run_done;
         }
         if (is_prolog) {
-            extern DESCR_t bb_exec_once(IR_graph_t * bbg);
+            extern DESCR_t IR_interp_once(IR_graph_t * bbg);
             extern Term **g_resolve_env;
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -854,7 +854,7 @@ int main(int argc, char **argv)
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
             int nslots = pl_main->nslots > 0 ? pl_main->nslots : 1;
             g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 8) * sizeof(Term *));
-            (void)bb_exec_once(pl_main);
+            (void)IR_interp_once(pl_main);
             goto run_done;
         }
         fprintf(stderr, "[SMX] FATAL: Stack Machine excised. Non-Icon mode-2 (--interp) "
@@ -954,7 +954,7 @@ int main(int argc, char **argv)
             goto run_done;
         }
         if (is_prolog) {
-            extern DESCR_t bb_exec_once(IR_graph_t * bbg);
+            extern DESCR_t IR_interp_once(IR_graph_t * bbg);
             extern Term **g_resolve_env;
             extern bb_box_fn bb_build_flat(IR_t * nd);
             extern void *rt_frame(void);
@@ -981,7 +981,7 @@ int main(int argc, char **argv)
                 g_frame_active = 0;
                 if (pfn) { (void)pfn(rt_frame(), 0); goto run_done; }
             }
-            (void)bb_exec_once(pl_main);
+            (void)IR_interp_once(pl_main);
             goto run_done;
         }
         {

@@ -2,7 +2,7 @@
 /*====================================================================================================================*/
 #define BB_DEFINE_NAMES
 #include "lower.h"
-#include "bb_exec_state.h"
+#include "IR_interp_state.h"
 #include "ast.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -6,7 +6,7 @@
 #include "XA.h"
 #include "../runtime/builtins/gen.h"
 #include "IR.h"
-#include "bb_exec_state.h"
+#include "IR_interp_state.h"
 #include "../rt/rt.h"
 #include "bb_build.h"
 #include <string.h>
