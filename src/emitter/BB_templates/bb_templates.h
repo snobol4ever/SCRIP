@@ -7,7 +7,7 @@ void bb_pat_any    (void);
 void bb_pat_notany (void);
 void bb_pat_span   (IR_t * pBB);
 void bb_pat_break  (IR_t * pBB);
-void bb_pat_pos    (IR_t * pBB);
+void bb_pat_pos    (void);
 void bb_pat_tab    (IR_t * pBB);
 void bb_pat_atp    (IR_t * pBB);
 void bb_pat_len    (void);
