@@ -7,8 +7,8 @@ extern "C" {
 }
 #include "x86_asm.h"
 extern "C" {
-void rt_pl_trail_mark_push(void);
-void rt_pl_trail_unwind_top(void);
+void rt_trail_mark_push(void);
+void rt_trail_unwind_top(void);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_pre (int ci) { char b[160]; resolve_choice_clause_label(b, sizeof b, _.resolve_choice_id, ci, "pre");  return std::string(b); }
@@ -28,11 +28,11 @@ static std::string bb_disj_str() {
                 + s_comment(emit_fmt("# BOX RESOLVE_ALT n=%d (mode-4 first-solution)  [x86() self-encoding]", n))
                 + s_2asm("jmp", disj_pre(0).c_str())
                 + s_1asm(disj_pre(0) + ":")
-                + x86("call", "rt_pl_trail_mark_push", (uint64_t)(uintptr_t)(void*)rt_pl_trail_mark_push)
+                + x86("call", "rt_trail_mark_push", (uint64_t)(uintptr_t)(void*)rt_trail_mark_push)
                 + s_2asm("jmp", disj_body(0).c_str())
                 + FOR(1, n, [](int i){
                       return s_1asm(disj_pre(i) + ":")
-                           + x86("call", "rt_pl_trail_unwind_top", (uint64_t)(uintptr_t)(void*)rt_pl_trail_unwind_top)
+                           + x86("call", "rt_trail_unwind_top", (uint64_t)(uintptr_t)(void*)rt_trail_unwind_top)
                            + s_2asm("jmp", disj_body(i).c_str()); })
                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω));
     }

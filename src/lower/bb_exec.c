@@ -617,12 +617,12 @@ int rt_pl_is_f(int dst_slot, const char *op,
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
+extern void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
 int rt_pl_succ(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
-    Term *xt = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *yt = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *xt = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *yt = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     Term *xd = xt ? term_deref(xt) : NULL;
     Term *yd = yt ? term_deref(yt) : NULL;
     if (xd && xd->tag == TERM_INT) {
@@ -646,9 +646,9 @@ int rt_pl_plus(int k0, long i0, const char *s0,
                int k2, long i2, const char *s2) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
-    Term *at = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *bt = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
-    Term *ct = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
+    Term *at = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *bt = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
+    Term *ct = (Term *)rt_node_to_term(k2, i2, s2, 0.0);
     Term *ad = at ? term_deref(at) : NULL;
     Term *bd = bt ? term_deref(bt) : NULL;
     Term *cd = ct ? term_deref(ct) : NULL;
@@ -726,20 +726,20 @@ static const char *rt_pl_format_resolve(Term *fmt_t, char *fmtbuf, size_t bufsz)
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_format(int arity, int k0, long i0, const char *s0,
                               int k1, long i1, const char *s1) {
-    Term *fmt_t = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
+    Term *fmt_t = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
     char fmtbuf[1024];
     const char *fmt = rt_pl_format_resolve(fmt_t, fmtbuf, sizeof fmtbuf);
     if (!fmt) return 0;
     Term *args_list = NULL;
     if (arity == 2) {
-        args_list = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+        args_list = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
         args_list = args_list ? term_deref(args_list) : NULL;
     }
     return rt_pl_format_walk(fmt, args_list);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_format_term(int arity, int k0, long i0, const char *s0, void *args_term_ptr) {
-    Term *fmt_t = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
+    Term *fmt_t = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
     char fmtbuf[1024];
     const char *fmt = rt_pl_format_resolve(fmt_t, fmtbuf, sizeof fmtbuf);
     if (!fmt) return 0;
@@ -748,7 +748,7 @@ int rt_pl_format_term(int arity, int k0, long i0, const char *s0, void *args_ter
     return rt_pl_format_walk(fmt, args_list);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
+extern void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
 static const char *rt_pl_atomic_text_helper(Term *t, char *buf, size_t bufsz) {
     t = t ? term_deref(t) : NULL;
     if (!t) return NULL;
@@ -760,8 +760,8 @@ static const char *rt_pl_atomic_text_helper(Term *t, char *buf, size_t bufsz) {
 int rt_pl_atom_length(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     char buf[256]; const char *txt = rt_pl_atomic_text_helper(t0, buf, sizeof buf);
     if (!txt) { trail_unwind(&g_resolve_trail, mark); return 0; }
     Term *vt = term_new_int((long)strlen(txt));
@@ -772,8 +772,8 @@ int rt_pl_atom_length(int k0, long i0, const char *s0, int k1, long i1, const ch
 static int rt_pl_case_atom_common(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int up) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     char buf[256]; const char *txt = rt_pl_atomic_text_helper(t0, buf, sizeof buf);
     if (!txt) { trail_unwind(&g_resolve_trail, mark); return 0; }
     size_t n = strlen(txt); char *out = (char *)GC_MALLOC(n + 1);
@@ -796,7 +796,7 @@ int rt_pl_char_type(int k0, long i0, const char *s0, const char *ty, int is_comp
     extern Trail g_resolve_trail;
     if (!ty) return 0;
     int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
     char b0[256]; const char *cs = rt_pl_atomic_text_helper(t0, b0, sizeof b0);
     if (!cs || !cs[0]) { trail_unwind(&g_resolve_trail, mark); return 0; }
     unsigned char ch = (unsigned char)cs[0];
@@ -809,7 +809,7 @@ int rt_pl_char_type(int k0, long i0, const char *s0, const char *ty, int is_comp
         else if (strcmp(ty, "lower") == 0)    { if (!islower(ch)) { trail_unwind(&g_resolve_trail, mark); return 0; } char c2[2] = { (char)toupper(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
         else if (strcmp(ty, "code") == 0)     { out = term_new_int((long)ch); }
         else { trail_unwind(&g_resolve_trail, mark); return 0; }
-        Term *inner = (Term *)rt_pl_node_to_term(ki, ii, si, 0.0);
+        Term *inner = (Term *)rt_node_to_term(ki, ii, si, 0.0);
         if (!unify(inner, out, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
         return 1;
     }
@@ -849,7 +849,7 @@ int rt_pl_numbervars_term(void *t0, long start, int k2, long i2, const char *s2)
             for (int i = t->compound.arity - 1; i >= 0; i--) if (top < 2048) { stack[top] = t->compound.args[i]; top++; }
         }
     }
-    Term *end_var = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
+    Term *end_var = (Term *)rt_node_to_term(k2, i2, s2, 0.0);
     int mark = trail_mark(&g_resolve_trail);
     if (end_var && !unify(end_var, term_new_int(counter), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
@@ -858,9 +858,9 @@ int rt_pl_numbervars_term(void *t0, long start, int k2, long i2, const char *s2)
 int rt_pl_atom_concat(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
-    Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
+    Term *t2 = (Term *)rt_node_to_term(k2, i2, s2, 0.0);
     char b0[256], b1[256];
     const char *x0 = rt_pl_atomic_text_helper(t0, b0, sizeof b0);
     const char *x1 = rt_pl_atomic_text_helper(t1, b1, sizeof b1);
@@ -876,8 +876,8 @@ int rt_pl_atom_concat(int k0, long i0, const char *s0, int k1, long i1, const ch
 int rt_pl_atom_string_pair(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     Term *d0 = t0 ? term_deref(t0) : NULL;
     Term *d1 = t1 ? term_deref(t1) : NULL;
     char buf[256]; const char *txt = NULL; Term *dst = NULL;
@@ -892,8 +892,8 @@ int rt_pl_atom_string_pair(int k0, long i0, const char *s0, int k1, long i1, con
 int rt_pl_number_string_pair(int num_first, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     Term *d0 = t0 ? term_deref(t0) : NULL;
     Term *d1 = t1 ? term_deref(t1) : NULL;
     Term *numNode = num_first ? d0 : d1; Term *txtNode = num_first ? d1 : d0;
@@ -922,7 +922,7 @@ int rt_pl_term_to_atom_term(void *t0, int k1, long i1, const char *s1) {
     char *s = pl_term_to_string(d0);
     if (!s) { trail_unwind(&g_resolve_trail, mark); return 0; }
     Term *at = term_new_atom(prolog_atom_intern(s)); free(s);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     if (!unify(t1, at, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
@@ -936,7 +936,7 @@ int rt_pl_atomic_list_concat_term(void *list, int arity,
     int sep3 = (arity == 3);
     char sepbuf[256]; const char *sep = "";
     if (sep3) {
-        Term *st = (Term *)rt_pl_node_to_term(ksep, isep, ssep, 0.0);
+        Term *st = (Term *)rt_node_to_term(ksep, isep, ssep, 0.0);
         sep = resolve_atomic_text(st, sepbuf, sizeof sepbuf);
         if (!sep) sep = "";
     }
@@ -953,7 +953,7 @@ int rt_pl_atomic_list_concat_term(void *list, int arity,
         cur = term_deref(cur->compound.args[1]);
     }
     out[oi] = '\0';
-    Term *rt = (Term *)rt_pl_node_to_term(kres, ires, sres, 0.0);
+    Term *rt = (Term *)rt_node_to_term(kres, ires, sres, 0.0);
     if (!unify(rt, term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
@@ -1064,8 +1064,8 @@ int rt_pl_throw(void *alpha_ptr) {
 int rt_pl_copy_term(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     Term *d0 = t0 ? term_deref(t0) : NULL;
     Term *cp = bb_copy_term(d0 ? d0 : t0);
     if (!unify(t1, cp, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
@@ -1077,7 +1077,7 @@ int rt_pl_copy_term_term(void *t0, int k1, long i1, const char *s1) {
     int mark = trail_mark(&g_resolve_trail);
     Term *d0 = t0 ? term_deref((Term *)t0) : NULL;
     Term *cp = bb_copy_term(d0 ? d0 : (Term *)t0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     if (!unify(t1, cp, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
@@ -1106,7 +1106,7 @@ int rt_pl_nb_getval_term(void *key, int kres, long ires, const char *sres) {
     Term *stored = resolve_nb_get(kd->atom_id);
     if (!stored) return 0;
     int mark = trail_mark(&g_resolve_trail);
-    Term *rt = (Term *)rt_pl_node_to_term(kres, ires, sres, 0.0);
+    Term *rt = (Term *)rt_node_to_term(kres, ires, sres, 0.0);
     if (!unify(rt, stored, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
@@ -1171,7 +1171,7 @@ int rt_pl_aggregate_all_term(void *tmpl, void *goal, int kres, long ires, const 
     else if (mode_min)   result_term = (acc_min == (int64_t)acc_min) ? term_new_int((int64_t)acc_min) : term_new_float(acc_min);
     if (!result_term) return 0;
     int mark2 = trail_mark(&g_resolve_trail);
-    Term *res_t = (Term *)rt_pl_node_to_term(kres, ires, sres, 0.0);
+    Term *res_t = (Term *)rt_node_to_term(kres, ires, sres, 0.0);
     if (!unify(res_t, result_term, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark2); return 0; }
     return 1;
 }
@@ -1219,13 +1219,13 @@ static int atom_chars_codes_common(int as_codes, Term *t0, Term *t1) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_chars_codes(int as_codes, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     return atom_chars_codes_common(as_codes, t0, t1);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_chars_codes_term(int as_codes, int k0, long i0, const char *s0, void *t1) {
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
     return atom_chars_codes_common(as_codes, t0, (Term *)t1);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1248,7 +1248,7 @@ static int type_test_common(const char *fn, Term *t) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_type_test(const char *fn, int k0, long i0, const char *s0) {
-    Term *t = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
+    Term *t = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
     return type_test_common(fn, t);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1289,20 +1289,20 @@ static int sort_msort_common(int do_msort, Term *t0, Term *t1) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_msort(int do_msort, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     return sort_msort_common(do_msort, t0, t1);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_msort_term(int do_msort, void *t0, int k1, long i1, const char *s1) {
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     return sort_msort_common(do_msort, (Term *)t0, t1);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     if (!op) return 0;
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     int c = resolve_term_compare(t0, t1);
     if (strcmp(op, "==")   == 0) return (c == 0) ? 1 : 0;
     if (strcmp(op, "\\==") == 0) return (c != 0) ? 1 : 0;
@@ -1315,7 +1315,7 @@ int rt_pl_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_arith_cmp_extract(int k, long i, const char *s, double *out_d) {
     if (k == IR_LIT_I) { *out_d = (double)i; return 1; }
-    Term *t = (Term *)rt_pl_node_to_term(k, i, s, 0.0);
+    Term *t = (Term *)rt_node_to_term(k, i, s, 0.0);
     Term *d = t ? term_deref(t) : NULL;
     if (!d) return 0;
     if (d->tag == TERM_INT)   { *out_d = (double)d->ival; return 1; }
@@ -1338,7 +1338,7 @@ int rt_pl_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, lon
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
+void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
     Term **args_in = (Term **)args_ptr;
     Term **args = (Term **)GC_MALLOC(arity * sizeof(Term *));
     for (int i = 0; i < arity; i++) args[i] = args_in[i];
@@ -1391,15 +1391,15 @@ static int functor_common(Term *t0, Term *t1, Term *t2) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_functor(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2) {
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
-    Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
+    Term *t2 = (Term *)rt_node_to_term(k2, i2, s2, 0.0);
     return functor_common(t0, t1, t2);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2) {
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
-    Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
+    Term *t2 = (Term *)rt_node_to_term(k2, i2, s2, 0.0);
     return functor_common((Term *)t0, t1, t2);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1418,15 +1418,15 @@ static int arg_common(Term *tN, Term *tT, Term *tA) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arg(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2) {
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
-    Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
+    Term *t2 = (Term *)rt_node_to_term(k2, i2, s2, 0.0);
     return arg_common(t0, t1, t2);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arg_term(int k0, long i0, const char *s0, void *t1, int k2, long i2, const char *s2) {
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t2 = (Term *)rt_pl_node_to_term(k2, i2, s2, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t2 = (Term *)rt_node_to_term(k2, i2, s2, 0.0);
     return arg_common(t0, (Term *)t1, t2);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1478,18 +1478,18 @@ static int univ_common(Term *t0, Term *t1) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_univ(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     return univ_common(t0, t1);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_univ_term(void *t0, int k1, long i1, const char *s1) {
-    Term *t1 = (Term *)rt_pl_node_to_term(k1, i1, s1, 0.0);
+    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
     return univ_common((Term *)t0, t1);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_univ_term_list(int k0, long i0, const char *s0, void *t1) {
-    Term *t0 = (Term *)rt_pl_node_to_term(k0, i0, s0, 0.0);
+    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
     return univ_common(t0, (Term *)t1);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

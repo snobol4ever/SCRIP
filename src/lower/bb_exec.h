@@ -41,7 +41,7 @@ int rt_pl_sort_msort(int do_msort, int k0, long i0, const char *s0, int k1, long
 int rt_pl_sort_msort_term(int do_msort, void *t0, int k1, long i1, const char *s1);
 int rt_pl_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_pl_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
-void *rt_pl_compound_build_n(const char *functor_name, int arity, void *args_ptr);
+void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr);
 int rt_pl_term_cmp_terms(const char *op, void *t0, void *t1);
 long size_value(DESCR_t v, int *failed);
 #endif

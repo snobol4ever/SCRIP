@@ -5,9 +5,9 @@ extern "C" {
 #include "emit.h"
 #include "emit_bb.h"
 }
-extern "C" void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval);
-extern "C" int   rt_pl_unify_terms(void *l, void *r);
-extern "C" int   rt_pl_unify_const(int slot, int kind, long ival, const char *sval, double dval);
+extern "C" void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
+extern "C" int   rt_unify_terms(void *l, void *r);
+extern "C" int   rt_unify_const(int slot, int kind, long ival, const char *sval, double dval);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline int  u_present()        { return _.bb_lk >= 0; }
@@ -31,7 +31,7 @@ static inline std::string u_build(int kind, long ival, const char *lbl) {
          + x86("mov", "rsi", ival)
          + (lbl ? x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)lbl, lbl) : x86("mov", "edx", (long)0))
          + x86("xorps", "xmm0", "xmm0")
-         + x86("call", "rt_pl_node_to_term", (uint64_t)(uintptr_t)(void*)rt_pl_node_to_term);
+         + x86("call", "rt_node_to_term", (uint64_t)(uintptr_t)(void*)rt_node_to_term);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_unify_str() {
@@ -56,7 +56,7 @@ static std::string bb_unify_str() {
                      + x86("mov", "rdx", ci)
                      + (clbl ? x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)clbl, clbl) : x86("mov", "ecx", (long)0))
                      + x86("xorps", "xmm0", "xmm0")
-                     + x86("call", "rt_pl_unify_const", (uint64_t)(uintptr_t)(void*)rt_pl_unify_const)
+                     + x86("call", "rt_unify_const", (uint64_t)(uintptr_t)(void*)rt_unify_const)
                      + u_tail();
         }
         return u_head("# BOX RESOLVE_UNIFY  [x86() self-encoding]")
@@ -67,7 +67,7 @@ static std::string bb_unify_str() {
              + x86("mov", "rsi", "rax")
              + x86("mov", "rdi", RSP(0))
              + x86("add", "rsp", (long)16)
-             + x86("call", "rt_pl_unify_terms", (uint64_t)(uintptr_t)(void*)rt_pl_unify_terms)
+             + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void*)rt_unify_terms)
              + u_tail();
     }
     return std::string();
