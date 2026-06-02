@@ -443,7 +443,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
                                   bb_stub(nd);         return 0;
     case IR_PAT_DEFER:            bb_pat_defer(nd);    return 0;
     case IR_CHOICE:          bb_choice(nd);                            return 0;
-    case IR_CUT:             bb_cut(nd);                               return 0;
+    case IR_CUT:             bb_cut();                                 return 0;
     case IR_DISJ:          bb_disj(nd);                               return 0;
     case IR_GCONJ:          bb_conj(nd);                               return 0;
     case IR_ITE:          bb_ite(nd);                               return 0;
