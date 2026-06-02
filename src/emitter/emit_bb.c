@@ -1659,7 +1659,18 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                                (nd->ival >= BINOP_SLT && nd->ival <= BINOP_SNE));
         int op_is_arith = nd && (nd->ival == BINOP_ADD || nd->ival == BINOP_SUB || nd->ival == BINOP_MUL || nd->ival == BINOP_DIV || nd->ival == BINOP_MOD);
         int op_is_concat = nd && (nd->ival == BINOP_CONCAT);
+        /* TEMPLATE-REVAMP (Icon, x86() self-encoding): bb_binop_arith is pBB-free — it reads NO neighbor. */
+        /* The driver resolves the operand slots (already collected by the flat-chain BFS) and the result   */
+        /* slot HERE and deposits them as g_emit scalars; the box trusts op_off>=0 as "this is the arith     */
+        /* case" (the op-code decision lives ONLY here, not duplicated in the box). Reset to -1 covers all   */
+        /* three sub-branches so a stale positive can never make the arith box fire for a relop/concat/Raku. */
+        g_emit.op_off = -1;
         if (g_icn_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
+            if (op_is_arith) {
+                g_emit.op_sa = bb_slot_get(nd->α);
+                g_emit.op_sb = bb_slot_get(nd->β);
+                if (g_emit.op_sa >= 0 && g_emit.op_sb >= 0) g_emit.op_off = bb_slot_alloc16(nd);
+            }
             /* GZ-8 relop / GZ-9 arith / GZ-11+ concat: operands are sibling boxes already collected by the   */
             /* flat-chain BFS (each wrote its own DESCR slot). Emit ONLY this box (FILL) — do NOT re-walk     */
             /* operands via flat_drive_binop_tree, which would duplicate them with fresh slots (and in mode-4 */

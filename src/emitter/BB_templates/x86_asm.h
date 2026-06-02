@@ -91,6 +91,24 @@ inline std::string x86_mov (const char * rm, const char * reg) { return x86_alu_
 inline std::string x86_cmp (const char * rm, const char * reg) { return x86_alu_rr("cmp",  0x39, rm, reg); }
 inline std::string x86_test(const char * rm, const char * reg) { return x86_alu_rr("test", 0x85, rm, reg); }
 inline std::string x86_add_rr(const char * rm, const char * reg) { return x86_alu_rr("add", 0x01, rm, reg); }
+inline std::string x86_sub_rr(const char * rm, const char * reg) { return x86_alu_rr("sub", 0x29, rm, reg); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* imul dst, src — 0F AF /r (reg=dst, rm=src). REX.W when 64-bit. cqo — 48 99. idiv r/m — F7 /7, REX.W.    */
+/* These three complete the integer-ALU vocabulary the Icon arithmetic box (ADD/SUB/MUL/DIV/MOD) needs.    */
+inline std::string x86_imul_rr(const char * dst, const char * src) {
+    int g = x86_rnum(dst), m = x86_rnum(src);
+    uint8_t rex = 0x40; if (x86_is64(dst) || x86_is64(src)) rex |= 0x08; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
+    std::string code; if (rex != 0x40) code += (char)rex; code += (char)0x0F; code += (char)0xAF; code += (char)(0xC0 | ((g & 7) << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" imul ") + dst + ", " + src + "\n");
+}
+inline std::string x86_cqo() {
+    return MEDIUM_BINARY ? x86_Lrec(x86_b2(0x48, 0x99)) : std::string(" cqo\n");
+}
+inline std::string x86_idiv(const char * reg) {
+    int m = x86_rnum(reg); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
+    std::string code; code += (char)rex; code += (char)0xF7; code += (char)(0xC0 | (7 << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" idiv ") + reg + "\n");
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* add r32, imm — imm8 short form (0x83 /0) when it fits in int8 (matches `as`); else eax→0x05, others 0x81*/
 inline std::string x86_add(const char * reg, long imm) {
@@ -282,6 +300,27 @@ inline std::string x86_frame_add_to_reg(const char * reg, int off) {
 struct x86_frame { int off; };
 inline x86_frame FR(int off) { return x86_frame{ off }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* 64-bit ζ-FRAME MEMORY OPERAND [r12 + off].  Icon values are 16-byte DESCRs (two qwords: lo=type tag,    */
+/* hi=payload), so a value box loads/stores QWORDs — REX.W set.  Same SIB-base r12 ModRM as the 32-bit     */
+/* forms (x86_r12_modrm picks minimal disp like `as`), so BINARY==TEXT and BINARY agrees with `as` (R10).  */
+/* The marker type is FRQ() (qword) to keep these overloads distinct from the 32-bit FR() forms.           */
+inline std::string x86_frame_load64(const char * reg, int off) {
+    int g = x86_rnum(reg); uint8_t rex = 0x49; if (g >= 8) rex |= 0x04;
+    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" mov ") + reg + ", qword ptr " + x86_frame_text_mem(off) + "\n";
+}
+inline std::string x86_frame_store64(int off, const char * reg) {
+    int g = x86_rnum(reg); uint8_t rex = 0x49; if (g >= 8) rex |= 0x04;
+    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
+}
+inline std::string x86_frame_mov_imm64(int off, long imm) {
+    if (MEDIUM_BINARY) { std::string c; c += (char)0x49; c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
+}
+struct x86_frameq { int off; };
+inline x86_frameq FRQ(int off) { return x86_frameq{ off }; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* UNIFIED FRONT-END (Lon eureka 2026-06-01).  ONE x86(...) keyed on the mnemonic (1st arg); the remaining   */
 /* args' cardinality + type select the form via overloading.  This is the template-facing API — the typed   */
 /* x86_* encoders above are the internal implementation it dispatches to.  Add a case here as vocabulary     */
@@ -289,6 +328,7 @@ inline x86_frame FR(int off) { return x86_frame{ off }; }
 inline std::string x86(const char * mnem, const char * op1) {                                  /* push / pop                */
     if (!strcmp(mnem, "push")) return x86_push(op1);
     if (!strcmp(mnem, "pop"))  return x86_pop(op1);
+    if (!strcmp(mnem, "idiv")) return x86_idiv(op1);
     return std::string();
 }
 inline std::string x86(const char * mnem, x86_port port) {                                     /* jmp / jcc / def(label)    */
@@ -312,9 +352,24 @@ inline std::string x86(const char * mnem, x86_frame f, long imm) {              
     if (!strcmp(mnem, "add")) return x86_frame_add_imm(f.off, imm);
     return x86_frame_mov_imm(f.off, imm);
 }
+inline std::string x86(const char * mnem, x86_frameq f, const char * reg) {                    /* mov qword [r12+off], reg  */
+    (void)mnem; return x86_frame_store64(f.off, reg);
+}
+inline std::string x86(const char * mnem, const char * reg, x86_frameq f) {                    /* mov reg, qword [r12+off]  */
+    (void)mnem; return x86_frame_load64(reg, f.off);
+}
+inline std::string x86(const char * mnem, x86_frameq f, long imm) {                            /* mov qword [r12+off], imm  */
+    (void)mnem; return x86_frame_mov_imm64(f.off, imm);
+}
+inline std::string x86(const char * mnem) {                                                    /* cqo (zero-operand)        */
+    if (!strcmp(mnem, "cqo")) return x86_cqo();
+    return std::string();
+}
 inline std::string x86(const char * mnem, const char * a, const char * b) {                    /* reg/mem 2-operand         */
     if (!strcmp(mnem, "mov"))    return (a[0] == '[') ? x86_store_cursor_mirror() : x86_mov(a, b);
     if (!strcmp(mnem, "add"))    return x86_add_rr(a, b);
+    if (!strcmp(mnem, "sub"))    return x86_sub_rr(a, b);
+    if (!strcmp(mnem, "imul"))   return x86_imul_rr(a, b);
     if (!strcmp(mnem, "cmp"))    return x86_cmp(a, b);
     if (!strcmp(mnem, "test"))   return x86_test(a, b);
     if (!strcmp(mnem, "movsxd")) return x86_movsxd(a, b);
