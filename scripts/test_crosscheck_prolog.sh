@@ -19,7 +19,7 @@ xcheck() {
     local ir run_out run_rc
     ir=$(timeout  $TIMEOUT "$SCRIP" --interp  "$file" </dev/null 2>/dev/null)
     # Mode 3 = NATIVE. --run is unconditionally native (sm_run_native: x86 SM asm + flat-wired x86 BB,
-    # NOT sm_interp_run / bb_exec / brokers). There is NO interpreter fallback anywhere — --run either
+    # NOT sm_interp_run / IR_interp / brokers). There is NO interpreter fallback anywhere — --run either
     # runs native fully or ABORTs (rc 134 / SIGABRT). An abort is NEVER a pass: a program whose native
     # path is unimplemented (e.g. SM_BB_PL_INVOKE MEDIUM_BINARY stub for Prolog) aborts here, and we
     # count it NATIVE-ABORT, not a degenerate empty-output match against --interp.

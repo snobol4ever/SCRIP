@@ -8,7 +8,7 @@
 #include "../../parser/prolog/prolog_runtime.h"
 #include "../../parser/prolog/prolog_atom.h"
 #include "../../parser/prolog/prolog_builtin.h"
-#include "../../interp/bb_exec.h"
+#include "../../interp/IR_interp.h"
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 #include "gen_value.h"
 #include <stdio.h>
@@ -861,7 +861,7 @@ int interp_exec_builtin(tree_t *goal, Term **env) {
                 Term **saved_env = g_resolve_env;
                 g_resolve_env = callee_env;
                 bb_reset(_bcfg);
-                DESCR_t res = bb_exec_once(_bcfg);
+                DESCR_t res = IR_interp_once(_bcfg);
                 g_resolve_env = saved_env;
                 free(callee_env);
                 if (IS_FAIL_fn(res)) { trail_unwind(&g_resolve_trail, mark); return 0; }

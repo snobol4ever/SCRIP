@@ -6,9 +6,9 @@
 # The five Prolog control-flow BB templates —
 #     bb_pl_seq, bb_pl_call, bb_pl_choice, bb_pl_alt, bb_pl_cut
 # — must each emit inline x86 for their four-port (α/β/γ/ω) logic, translating
-# the matching `case` in bb_exec.c (HQ Invariant 11, INLINE-ALL). Today they are
+# the matching `case` in IR_interp.c (HQ Invariant 11, INLINE-ALL). Today they are
 # empty stubs: `return std::string();` with ZERO emission calls, so Mode-4
-# Prolog four-port logic lives in the C graph-walker (bb_exec.c) instead of in
+# Prolog four-port logic lives in the C graph-walker (IR_interp.c) instead of in
 # the template — the root of the D grade in the HQ-ALIGNMENT AUDIT.
 #
 # A template is EMPTY if its `<name>_str` body contains NO emission call
@@ -38,7 +38,7 @@ for t in $TEMPLATES; do
   # place they can appear; the extern "C" wrapper just calls _str).
   hits=$(grep -cE "$EMIT_RE" "$f")
   if [ "$hits" -eq 0 ]; then
-    printf "  %-14s EMPTY  (stub — delegates to bb_exec.c C walker)\n" "$t"
+    printf "  %-14s EMPTY  (stub — delegates to IR_interp.c C walker)\n" "$t"
     empty=$((empty+1))
   else
     printf "  %-14s FILLED (%s emission calls)\n" "$t" "$hits"

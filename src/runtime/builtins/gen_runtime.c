@@ -6,7 +6,7 @@
 #include "coerce.h"
 #include "scan_builtins.h"
 #include "script_builtins.h"
-#include "../../interp/bb_exec.h"
+#include "../../interp/IR_interp.h"
 #include "../../lower/lower.h"
 #include <stdlib.h>
 #include <string.h>
