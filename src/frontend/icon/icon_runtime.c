@@ -6,7 +6,7 @@ static int  icn_sp = 0;
 long icn_retval = 0;
 int  icn_failed = 0;
 static char subscript_buf[2];
-const char *icn_cset_complement(const char *cs) {
+const char *cset_complement(const char *cs) {
     if (!cs) cs = "";
     if (str_arena_pos + 128 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
@@ -21,7 +21,7 @@ const char *icn_cset_complement(const char *cs) {
     return out;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-const char *icn_cset_union(const char *a, const char *b) {
+const char *cset_union(const char *a, const char *b) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
@@ -37,7 +37,7 @@ const char *icn_cset_union(const char *a, const char *b) {
     return out;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-const char *icn_cset_diff(const char *a, const char *b) {
+const char *cset_diff(const char *a, const char *b) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
@@ -52,7 +52,7 @@ const char *icn_cset_diff(const char *a, const char *b) {
     return out;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-const char *icn_cset_inter(const char *a, const char *b) {
+const char *cset_inter(const char *a, const char *b) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
@@ -65,7 +65,7 @@ const char *icn_cset_inter(const char *a, const char *b) {
     return out;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-const char *icn_cset_canonical(const char *cs) {
+const char *cset_canonical(const char *cs) {
     if (!cs || !*cs) return "";
     unsigned char present[256] = {0};
     for (const unsigned char *p = (const unsigned char *)cs; *p; p++) present[*p] = 1;

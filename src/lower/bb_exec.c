@@ -2769,7 +2769,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         case TT_PLS: { DESCR_t r = binop_apply(BINOP_ADD, INTVAL(0), v, &rel_fail); if (IS_FAIL_fn(r)) { bb->value = FAILDESCR; return bb->ω; } bb->value = r; return bb->γ; }
         case TT_SIZE: { int failed = 0; long len = size_value(v, &failed); if (failed) { bb->value = FAILDESCR; return bb->ω; } bb->value = INTVAL(len); return bb->γ; }
         case TT_NONNULL: { if (v.v == DT_SNUL) { bb->value = FAILDESCR; return bb->ω; } bb->value = v; return bb->γ; }
-        case TT_CSET_COMPL: { if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str_icn(v); const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v); bb->value = CSETVAL(icn_cset_complement(cs ? cs : "")); return bb->γ; }
+        case TT_CSET_COMPL: { if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str_icn(v); const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v); bb->value = CSETVAL(cset_complement(cs ? cs : "")); return bb->γ; }
         default: bb->value = FAILDESCR; return bb->ω;
         }
     }
@@ -2802,7 +2802,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         if (IS_FAIL_fn(v)) { bb->value = FAILDESCR; return bb->ω; }
         if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str_icn(v);
         const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v);
-        bb->value = CSETVAL(icn_cset_complement(cs ? cs : ""));
+        bb->value = CSETVAL(cset_complement(cs ? cs : ""));
         return bb->γ;
     }
     case IR_CSET_UNION:
@@ -2819,10 +2819,10 @@ IR_t * bb_exec_node(IR_t * bb) {
         if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str_icn(rv);
         const char *a = IS_NULL_fn(lv) ? "" : VARVAL_fn(lv); if (!a) a = "";
         const char *b = IS_NULL_fn(rv) ? "" : VARVAL_fn(rv); if (!b) b = "";
-        const char *raw = (bb->t == IR_CSET_UNION) ? icn_cset_union(a, b)
-                        : (bb->t == IR_CSET_DIFF)  ? icn_cset_diff (a, b)
-                                                   : icn_cset_inter(a, b);
-        bb->value = CSETVAL(icn_cset_canonical(raw));
+        const char *raw = (bb->t == IR_CSET_UNION) ? cset_union(a, b)
+                        : (bb->t == IR_CSET_DIFF)  ? cset_diff (a, b)
+                                                   : cset_inter(a, b);
+        bb->value = CSETVAL(cset_canonical(raw));
         return bb->γ;
     }
     case IR_GEN_SCAN: {
