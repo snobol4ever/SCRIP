@@ -27,14 +27,14 @@
 ROOT    := $(shell pwd)
 SRC     := $(ROOT)/src
 RT      := $(SRC)/runtime
-BOXES   := $(SRC)/processor
+BOXES   := $(SRC)/machine
 CORPUS  ?= $(ROOT)/../corpus
 OBJ     := /tmp/si_objs
 CC      := gcc
 CXX     := g++
-CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED
+CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED
 WARN    := -w
-CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
+CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 CRT     := $(CBASE) -DDYN_ENGINE_LINKED
 LIBS    := -lgc -lm
 
@@ -77,7 +77,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/stmt_exec.c \
     $(SRC)/runtime/core/eval_code.c \
     $(SRC)/runtime/core/eval_pat.c \
-    $(SRC)/processor/bb_pool.c \
+    $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_globals.c \
@@ -134,9 +134,9 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp \
     $(SRC)/emitter/emit_bb.c \
     \
-    $(SRC)/processor/bb_boxes.c \
-    $(SRC)/processor/smx_dead_stubs.c \
-    $(SRC)/lower/sm_prog.c \
+    $(SRC)/machine/bb_boxes.c \
+    $(SRC)/machine/smx_dead_stubs.c \
+    $(SRC)/machine/sm_prog.c \
     $(SRC)/lower/lower.c \
     $(SRC)/lower/lower_program.c \
     $(SRC)/lower/lower_sno.c \
@@ -191,7 +191,7 @@ RT_PIC_SRCS := \
 out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
 	$(CC) -O0 -g $(WARN) -fPIC -shared \
-	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/processor -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
+	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/interp -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
 	    -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES \
 	    $(RT_PIC_SRCS) \
@@ -227,7 +227,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/stmt_exec.c                  -o $(OBJ)/stmt_exec.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/eval_code.c                  -o $(OBJ)/eval_code.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/eval_pat.c                   -o $(OBJ)/eval_pat.o
-	$(CC) $(CRT)   -c $(SRC)/processor/bb_pool.c                    -o $(OBJ)/bb_pool.o
+	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
@@ -282,8 +282,8 @@ scrip:
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_strtab_rodata.cpp     -o $(OBJ)/xa_strtab_rodata.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
-	$(CC) $(CRT) -c $(SRC)/processor/bb_boxes.c -o $(OBJ)/bb_boxes.o
-	$(CC) $(CRT) -c $(SRC)/processor/smx_dead_stubs.c -o $(OBJ)/smx_dead_stubs.o
+	$(CC) $(CRT) -c $(SRC)/machine/bb_boxes.c -o $(OBJ)/bb_boxes.o
+	$(CC) $(CRT) -c $(SRC)/machine/smx_dead_stubs.c -o $(OBJ)/smx_dead_stubs.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -DIR_DEFINE_NAMES \
 	    -c $(SRC)/contracts/ast_print.c -o $(OBJ)/ast_print.o
 	$(CC) $(CBASE) -I$(SRC)/frontend/snobol4 -c $(SRC)/frontend/snocone/snocone_lex.c        -o $(OBJ)/snocone_lex.o
@@ -320,7 +320,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/ast_clone.c    -o $(OBJ)/ast_clone.o
 	$(CC) $(CRT)   -c $(SRC)/contracts/scrip_ir.c     -o $(OBJ)/scrip_ir.o
 	$(CC) $(CRT)   -c $(SRC)/interp/bb_exec.c      -o $(OBJ)/bb_exec.o
-	$(CC) $(CRT)   -c $(SRC)/lower/sm_prog.c    -o $(OBJ)/sm_prog.o
+	$(CC) $(CRT)   -c $(SRC)/machine/sm_prog.c    -o $(OBJ)/sm_prog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower.c      -o $(OBJ)/lower.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_program.c -o $(OBJ)/lower_program.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_sno.c     -o $(OBJ)/lower_sno.o

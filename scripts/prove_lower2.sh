@@ -5,7 +5,7 @@
 set -euo pipefail
 SCRIP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$SCRIP"
-INC="-Isrc -Isrc/include -Isrc/contracts -Isrc/lower -Isrc/processor -Isrc/emitter -Isrc/runtime/core -Isrc/runtime"
+INC="-Isrc -Isrc/include -Isrc/contracts -Isrc/lower -Isrc/machine -Isrc/emitter -Isrc/runtime/core -Isrc/runtime"
 OUT=/tmp/prove_lower2
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower.c     -o /tmp/p_lower2.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED                   -c src/contracts/scrip_ir.c  -o /tmp/p_scrip_ir.o
