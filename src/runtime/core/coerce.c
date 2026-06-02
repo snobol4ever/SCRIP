@@ -6,7 +6,7 @@
 const char *real_str(double r, char *buf, int bufsz);
 int64_t     to_int(DESCR_t v);
 double      to_real(DESCR_t v);
-DESCR_t descr_to_str_icn(DESCR_t d)
+DESCR_t descr_to_str(DESCR_t d)
 {
     if (IS_INT_fn(d)) {
         char *nbuf = GC_malloc(32);

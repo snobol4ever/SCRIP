@@ -17,4 +17,4 @@ struct tree_t;
 typedef struct tree_t tree_t;
 #define EXPR_T_DEFINED 1
 #endif
-int interp_exec_pl_builtin(tree_t *goal, Term **env);
+int interp_exec_builtin(tree_t *goal, Term **env);

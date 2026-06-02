@@ -324,8 +324,8 @@ bb_node_t gen_bb_pump_proc_by_name(const char *name, DESCR_t *args, int nargs) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
-    DESCR_t as = descr_to_str_icn(a);
-    DESCR_t bs = descr_to_str_icn(b);
+    DESCR_t as = descr_to_str(a);
+    DESCR_t bs = descr_to_str(b);
     const char *asp = (as.v == DT_S || as.v == DT_SNUL) ? VARVAL_fn(as) : NULL;
     const char *bsp = (bs.v == DT_S || bs.v == DT_SNUL) ? VARVAL_fn(bs) : NULL;
     if (!asp) asp = "";
@@ -358,9 +358,9 @@ DESCR_t lconcat_d(DESCR_t a, DESCR_t b) {
             for (int i = 0; i < an; i++) celems[i]      = ae ? ae[i] : NULVCL;
             for (int i = 0; i < bn; i++) celems[an + i] = be ? be[i] : NULVCL;
             DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)celems;
-            static int icnlist_lcat_d = 0;
-            if (!icnlist_lcat_d) { DEFDAT_fn("icnlist(frame_elems,frame_size,gen_type)"); icnlist_lcat_d = 1; }
-            return DATCON_fn("icnlist", eptr, INTVAL(cn), STRVAL("list"));
+            static int list_lcat_d = 0;
+            if (!list_lcat_d) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_lcat_d = 1; }
+            return DATCON_fn("list", eptr, INTVAL(cn), STRVAL("list"));
         }
     }
     return str_concat_d(a, b);
@@ -737,7 +737,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (av.v==DT_T)          { snprintf(buf,128,"table(%d)",av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
         if (av.v==DT_DATA && av.u) {
             const char *tname = av.u->type ? av.u->type->name : "record";
-            if (strcmp(tname,"icnlist")==0) {
+            if (strcmp(tname,"list")==0) {
                 int cnt = (av.u->type && av.u->type->nfields>=2 && av.u->fields)
                           ? (int)av.u->fields[1].i : 0;
                 snprintf(buf,128,"list(%d)",cnt); *out = STRVAL(buf); return 1;
@@ -1108,7 +1108,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 DESCR_t *new_elems = (DESCR_t *)GC_malloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
                 if (src_elems && n > 0) memcpy(new_elems, src_elems, (size_t)n * sizeof(DESCR_t));
                 DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)new_elems;
-                *out = DATCON_fn("icnlist", eptr, INTVAL(n), STRVAL("list"));
+                *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"));
                 return 1;
             }
         }
@@ -1130,12 +1130,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             DESCR_t iv = args[1];
             if (!IS_FAIL_fn(iv)) init = iv;
         }
-        static int icnlist_reg2 = 0;
-        if (!icnlist_reg2) { DEFDAT_fn("icnlist(frame_elems,frame_size,gen_type)"); icnlist_reg2 = 1; }
+        static int list_reg2 = 0;
+        if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_reg2 = 1; }
         DESCR_t *elems = GC_malloc((n>0?n:1)*sizeof(DESCR_t));
         for (int i = 0; i < n; i++) elems[i] = init;
         DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
-        *out = DATCON_fn("icnlist", eptr, INTVAL(n), STRVAL("list"));
+        *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"));
         return 1;
     }
     if (!strcmp(fn,"table") && nargs <= 2) {
@@ -1536,12 +1536,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn,"MAKELIST")) {
-        static int icnlist_reg3 = 0;
-        if (!icnlist_reg3) { DEFDAT_fn("icnlist(frame_elems,frame_size,gen_type)"); icnlist_reg3 = 1; }
+        static int list_reg3 = 0;
+        if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_reg3 = 1; }
         DESCR_t *elems = GC_malloc((nargs>0?nargs:1)*sizeof(DESCR_t));
         for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
         DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
-        *out = DATCON_fn("icnlist", eptr, INTVAL(nargs), STRVAL("list")); return 1;
+        *out = DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list")); return 1;
     }
     if (!strcmp(fn,"RECORD_REGISTER") && nargs >= 1) {
         extern void record_register(const char *spec);
@@ -1799,7 +1799,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_rk_call_arr(const char *fn, DESCR_t *args, int nargs) {
+DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     if (!fn) return out;
     if (try_call_builtin_by_name(fn, args, nargs, &out)) return out;
@@ -1808,7 +1808,7 @@ DESCR_t rt_rk_call_arr(const char *fn, DESCR_t *args, int nargs) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
-int rt_rk_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
+int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     int lj = junction_is(lhs), rj = junction_is(rhs);
     int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT || op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
     int str_rel = (op == BINOP_SEQ || op == BINOP_SNE || op == BINOP_SLT || op == BINOP_SLE || op == BINOP_SGT || op == BINOP_SGE);

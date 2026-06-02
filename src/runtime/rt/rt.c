@@ -473,13 +473,13 @@ void rt_call_proc(const char *name, int nargs)
     STACKLESS_ABORT("rt_call_proc");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t g_icn_call_args[ICN_CALL_ARGS_MAX];
+DESCR_t g_call_args[ICN_CALL_ARGS_MAX];
 void rt_arg_stage(int idx, DESCR_t v)
 {
-    if (idx >= 0 && idx < ICN_CALL_ARGS_MAX) g_icn_call_args[idx] = v;
+    if (idx >= 0 && idx < ICN_CALL_ARGS_MAX) g_call_args[idx] = v;
 }
-static int64_t g_icn_proc_arena[ICN_PROC_FRAME_DEPTH * ICN_PROC_FRAME_QWORDS];
-static int     g_icn_proc_depth = 0;
+static int64_t g_proc_arena[ICN_PROC_FRAME_DEPTH * ICN_PROC_FRAME_QWORDS];
+static int     g_proc_depth = 0;
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = (rt_proc_t *)0;
@@ -489,18 +489,18 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         abort();
     }
-    if (g_icn_proc_depth >= ICN_PROC_FRAME_DEPTH) {
+    if (g_proc_depth >= ICN_PROC_FRAME_DEPTH) {
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: recursion depth exceeded (%d)\n", ICN_PROC_FRAME_DEPTH);
         abort();
     }
-    char *fb = (char *)&g_icn_proc_arena[g_icn_proc_depth * ICN_PROC_FRAME_QWORDS];
-    g_icn_proc_depth++;
+    char *fb = (char *)&g_proc_arena[g_proc_depth * ICN_PROC_FRAME_QWORDS];
+    g_proc_depth++;
     *(DESCR_t *)(fb + 0) = NULVCL;
     if (nargs > ICN_CALL_ARGS_MAX) nargs = ICN_CALL_ARGS_MAX;
-    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_icn_call_args[i];
+    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
-    g_icn_proc_depth--;
+    g_proc_depth--;
     return result;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -556,14 +556,14 @@ void rt_store_frame(int slot)
     STACKLESS_ABORT("rt_store_frame");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int g_pl_last_ok = 0;
+static int g_last_ok = 0;
 int rt_last_ok(void)
 {
-    return g_pl_last_ok;
+    return g_last_ok;
 }
 void rt_set_last_ok(int ok)
 {
-    g_pl_last_ok = ok ? 1 : 0;
+    g_last_ok = ok ? 1 : 0;
 }
 void rt_push_expression_descr(int64_t entry_pc, int64_t arity)
 {
@@ -1063,12 +1063,12 @@ void rt_unhandled_sm(int op)
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_write_atom(const char *s)
+void rt_write_atom(const char *s)
 {
     if (s) fputs(s, stdout);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void rt_pl_format_float(char *buf, size_t bufsz, double d)
+static void rt_format_float(char *buf, size_t bufsz, double d)
 {
     for (int prec = 15; prec <= 17; prec++) {
         snprintf(buf, bufsz, "%.*g", prec, d);
@@ -1080,42 +1080,42 @@ static void rt_pl_format_float(char *buf, size_t bufsz, double d)
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_write_int(long v)
+void rt_write_int(long v)
 {
     printf("%ld", v);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_write_float(double v)
+void rt_write_float(double v)
 {
-    char fb[64]; rt_pl_format_float(fb, sizeof fb, v); fputs(fb, stdout);
+    char fb[64]; rt_format_float(fb, sizeof fb, v); fputs(fb, stdout);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_write_cstr(const char *s)
+void rt_write_cstr(const char *s)
 {
     if (s) fputs(s, stdout);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_cut_set(void)
+void rt_cut_set(void)
 {
     extern int g_resolve_cut_flag;
     g_resolve_cut_flag = 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_write_var(int slot)
+void rt_write_var(int slot)
 {
     extern Term **g_resolve_env;
     if (!g_resolve_env || slot < 0) { fputs("_", stdout); return; }
     Term *t = g_resolve_env[slot] ? term_deref(g_resolve_env[slot]) : NULL;
     if (!t) { fputs("_", stdout); return; }
     if (t->tag == TERM_INT)   { printf("%ld", (long)t->ival); return; }
-    if (t->tag == TERM_FLOAT) { char fb[64]; rt_pl_format_float(fb, sizeof fb, t->fval); fputs(fb, stdout); return; }
+    if (t->tag == TERM_FLOAT) { char fb[64]; rt_format_float(fb, sizeof fb, t->fval); fputs(fb, stdout); return; }
     if (t->tag == TERM_ATOM)  { const char *nm = prolog_atom_name(t->atom_id);
                                  if (nm) fputs(nm, stdout); return; }
     if (t->tag == TERM_COMPOUND) { extern void pl_write(Term *); pl_write(t); return; }
     fputs("_", stdout);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_write_term_ptr(void *t)
+void rt_write_term_ptr(void *t)
 {
     extern void pl_write(Term *);
     Term *d = t ? term_deref((Term *)t) : NULL;
@@ -1123,7 +1123,7 @@ void rt_pl_write_term_ptr(void *t)
     pl_write(d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_writeq_term_ptr(void *t)
+void rt_writeq_term_ptr(void *t)
 {
     extern void pl_writeq(Term *);
     Term *d = t ? term_deref((Term *)t) : NULL;
@@ -1131,7 +1131,7 @@ void rt_pl_writeq_term_ptr(void *t)
     pl_writeq(d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_write_canonical_term_ptr(void *t)
+void rt_write_canonical_term_ptr(void *t)
 {
     extern void pl_write_canonical(Term *);
     Term *d = t ? term_deref((Term *)t) : NULL;
@@ -1215,9 +1215,9 @@ void rt_trail_mark_pop(void)
     if (g_resolve_mark_top > 0) g_resolve_mark_top--;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-Term **rt_pl_env_current(void) { extern Term **g_resolve_env; return g_resolve_env; }
+Term **rt_env_current(void) { extern Term **g_resolve_env; return g_resolve_env; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_main_init(void)
+void rt_main_init(void)
 {
     extern Trail g_resolve_trail;
     setvbuf(stdout, NULL, _IOLBF, 0);
@@ -1226,7 +1226,7 @@ void rt_pl_main_init(void)
     prolog_atom_init();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_env_alloc(int nslots)
+void rt_env_alloc(int nslots)
 {
     extern Term **g_resolve_env;
     extern Trail  g_resolve_trail;
@@ -1234,8 +1234,8 @@ void rt_pl_env_alloc(int nslots)
     g_resolve_env = (Term **)GC_MALLOC((size_t)n * sizeof(Term *));
     trail_init(&g_resolve_trail);
 }
-void rt_pl_cp_save_caller_env(void *caller_env) { if (g_resolve_bfr) g_resolve_bfr->saved_args = (Term **)caller_env; }
-void rt_pl_choice_cut_enter(void *cp_void)
+void rt_cp_save_caller_env(void *caller_env) { if (g_resolve_bfr) g_resolve_bfr->saved_args = (Term **)caller_env; }
+void rt_choice_cut_enter(void *cp_void)
 {
     resolve_choice *cp = (resolve_choice *)cp_void;
     if (!cp) return;
@@ -1245,7 +1245,7 @@ void rt_pl_choice_cut_enter(void *cp_void)
     g_resolve_cut_barrier      = cp->parent;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_choice_cut_exit(void *cp_void)
+void rt_choice_cut_exit(void *cp_void)
 {
     resolve_choice *cp = (resolve_choice *)cp_void;
     if (!cp) return;
@@ -1253,7 +1253,7 @@ void rt_pl_choice_cut_exit(void *cp_void)
     g_resolve_cut_barrier = cp->saved_cut_barrier;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_choice_cut_unwind(void *cp_void)
+void rt_choice_cut_unwind(void *cp_void)
 {
     resolve_choice *cp = (resolve_choice *)cp_void;
     if (!cp) return;
@@ -1263,7 +1263,7 @@ void rt_pl_choice_cut_unwind(void *cp_void)
     resolve_cp_truncate(parent);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_get_cut_flag(void)
+int rt_get_cut_flag(void)
 {
     return g_resolve_cut_flag;
 }

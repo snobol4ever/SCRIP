@@ -23,7 +23,7 @@ int  rt_builtin_is_known(const char *name);
 int  bb_slot_get(IR_t * nd);
 int  bb_slot_alloc16(IR_t * nd);
 int  bb_varslot(const char * name);
-DESCR_t rt_rk_call_arr(const char * fn, DESCR_t * args, int nargs);
+DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -45,12 +45,12 @@ static std::string rk_marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int id
             s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
             s += s_2asm("lea", emit_fmt("rsi, [r12+%d]", avbase));
             s += s_2asm("mov", emit_fmt("edx, %d", nn));
-            s += s_2asm("call", "rt_rk_call_arr@PLT");
+            s += s_2asm("call", "rt_call_arr@PLT");
             s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff));
             s += s_2asm("mov", emit_fmt("[r12+%d], rdx", aoff + 8));
         } else if (MEDIUM_BINARY) {
             uint64_t nptr = (uint64_t)(uintptr_t) nfn;
-            uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_rk_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
             s += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
             s += x86_Lrec(x86_b4(0x49,0x8D,0xB4,0x24)) + x86_Lrec(u32le((uint32_t)avbase));
             s += x86_Lrec(x86_b1(0xBA)) + x86_Lrec(u32le((uint32_t)nn));
@@ -148,7 +148,7 @@ static std::string bb_call_str(IR_t * pBB) {
             for (int i = 1; i < (int)narg; i++) bb_slot_alloc16(subs[i]->entry);
             if (MEDIUM_TEXT) {
                 std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
-                    + s_comment(emit_fmt("# BOX IR_CALL %s(...) [RK-EMIT-2 dval=2 -> rt_rk_call_arr]", fn));
+                    + s_comment(emit_fmt("# BOX IR_CALL %s(...) [RK-EMIT-2 dval=2 -> rt_call_arr]", fn));
                 for (int i = 0; i < (int)narg; i++)
                     s += rk_marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
                 std::string fl = emit_fmt(".Lrkfn%d", bb_node_id(pBB));
@@ -158,7 +158,7 @@ static std::string bb_call_str(IR_t * pBB) {
                 s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
                 s += s_2asm("lea", emit_fmt("rsi, [r12+%d]", argbase));
                 s += s_2asm("mov", emit_fmt("edx, %lld", (long long)narg));
-                s += s_2asm("call", "rt_rk_call_arr@PLT");
+                s += s_2asm("call", "rt_call_arr@PLT");
                 s += s_2asm("mov", emit_fmt("[r12+%d], rax", resoff));
                 s += s_2asm("mov", emit_fmt("[r12+%d], rdx", resoff + 8));
                 s += s_2asm("jmp", _.lbl_γ);
@@ -171,7 +171,7 @@ static std::string bb_call_str(IR_t * pBB) {
                 for (int i = 0; i < (int)narg; i++)
                     s += rk_marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
                 uint64_t nptr = (uint64_t)(uintptr_t) fn;
-                uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_rk_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+                uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
                 s += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
                 s += x86_Lrec(x86_b4(0x49,0x8D,0xB4,0x24)) + x86_Lrec(u32le((uint32_t)argbase));
                 s += x86_Lrec(x86_b1(0xBA)) + x86_Lrec(u32le((uint32_t)narg));

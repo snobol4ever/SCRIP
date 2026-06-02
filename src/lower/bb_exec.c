@@ -148,7 +148,7 @@ int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, cons
     if (subj_name) {
         DESCR_t sv = VARVAL_d_fn(NV_GET_fn(subj_name));
         if (sv.v == DT_S || sv.v == DT_SNUL) { subj_str = sv.s ? sv.s : ""; subj_len = sv.slen ? (int)sv.slen : (int)strlen(subj_str); }
-        else if (IS_INT_fn(sv) || IS_REAL_fn(sv)) { DESCR_t ss = descr_to_str_icn(sv); subj_str = ss.s ? ss.s : ""; subj_len = (int)strlen(subj_str); }
+        else if (IS_INT_fn(sv) || IS_REAL_fn(sv)) { DESCR_t ss = descr_to_str(sv); subj_str = ss.s ? ss.s : ""; subj_len = (int)strlen(subj_str); }
     } else if (subj_lit) {
         subj_str = subj_lit; subj_len = (int)strlen(subj_lit);
     }
@@ -2581,7 +2581,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         DESCR_t mspan = matched ? descr_match_span(subj_str + m_start, m_end - m_start) : FAILDESCR;
         if (matched && is_repl) {
             DESCR_t repl_d = VARVAL_d_fn(ag_ring_peek(g_current_cfg, 0));
-            if (IS_INT_fn(repl_d) || IS_REAL_fn(repl_d)) repl_d = descr_to_str_icn(repl_d);
+            if (IS_INT_fn(repl_d) || IS_REAL_fn(repl_d)) repl_d = descr_to_str(repl_d);
             const char *repl_str = (repl_d.v == DT_S || repl_d.v == DT_SNUL) ? (repl_d.s ? repl_d.s : "") : "";
             int repl_len = (repl_d.v == DT_S || repl_d.v == DT_SNUL) ? (repl_d.slen ? (int)repl_d.slen : (int)strlen(repl_str)) : 0;
             int new_len = m_start + repl_len + (subj_len - m_end);
@@ -2603,7 +2603,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             DESCR_t sv = VARVAL_d_fn(ag_ring_peek(g_current_cfg, 0));
             const char *subj_str = ""; int subj_len = 0;
             if (sv.v == DT_S || sv.v == DT_SNUL) { subj_str = sv.s ? sv.s : ""; subj_len = sv.slen ? (int)sv.slen : (int)strlen(subj_str); }
-            else if (IS_INT_fn(sv) || IS_REAL_fn(sv)) { DESCR_t t = descr_to_str_icn(sv); subj_str = t.s ? t.s : ""; subj_len = t.slen ? (int)t.slen : (int)strlen(subj_str); }
+            else if (IS_INT_fn(sv) || IS_REAL_fn(sv)) { DESCR_t t = descr_to_str(sv); subj_str = t.s ? t.s : ""; subj_len = t.slen ? (int)t.slen : (int)strlen(subj_str); }
             Σ = subj_str; Σlen = subj_len; Ω = subj_len; Δ = 0;
             bb->state = 1;
             DESCR_t vd = { .v = DT_S, .slen = (uint32_t)subj_len, .s = (char *)subj_str };
@@ -2769,7 +2769,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         case TT_PLS: { DESCR_t r = binop_apply(BINOP_ADD, INTVAL(0), v, &rel_fail); if (IS_FAIL_fn(r)) { bb->value = FAILDESCR; return bb->ω; } bb->value = r; return bb->γ; }
         case TT_SIZE: { int failed = 0; long len = size_value(v, &failed); if (failed) { bb->value = FAILDESCR; return bb->ω; } bb->value = INTVAL(len); return bb->γ; }
         case TT_NONNULL: { if (v.v == DT_SNUL) { bb->value = FAILDESCR; return bb->ω; } bb->value = v; return bb->γ; }
-        case TT_CSET_COMPL: { if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str_icn(v); const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v); bb->value = CSETVAL(cset_complement(cs ? cs : "")); return bb->γ; }
+        case TT_CSET_COMPL: { if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str(v); const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v); bb->value = CSETVAL(cset_complement(cs ? cs : "")); return bb->γ; }
         default: bb->value = FAILDESCR; return bb->ω;
         }
     }
@@ -2800,7 +2800,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb_exec_node(bb->α);
         DESCR_t v = bb->α->value;
         if (IS_FAIL_fn(v)) { bb->value = FAILDESCR; return bb->ω; }
-        if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str_icn(v);
+        if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str(v);
         const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v);
         bb->value = CSETVAL(cset_complement(cs ? cs : ""));
         return bb->γ;
@@ -2815,8 +2815,8 @@ IR_t * bb_exec_node(IR_t * bb) {
         bb_exec_node(bb->β);
         DESCR_t rv = bb->β->value;
         if (IS_FAIL_fn(rv)) { bb->value = FAILDESCR; return bb->ω; }
-        if (IS_INT_fn(lv) || IS_REAL_fn(lv)) lv = descr_to_str_icn(lv);
-        if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str_icn(rv);
+        if (IS_INT_fn(lv) || IS_REAL_fn(lv)) lv = descr_to_str(lv);
+        if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
         const char *a = IS_NULL_fn(lv) ? "" : VARVAL_fn(lv); if (!a) a = "";
         const char *b = IS_NULL_fn(rv) ? "" : VARVAL_fn(rv); if (!b) b = "";
         const char *raw = (bb->t == IR_CSET_UNION) ? cset_union(a, b)
@@ -2835,7 +2835,7 @@ IR_t * bb_exec_node(IR_t * bb) {
             DESCR_t sv = bb_exec_once(subj_sg);
             g_current_cfg = save_cfg;
             if (IS_FAIL_fn(sv)) { bb->value = FAILDESCR; return bb->ω; }
-            if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_icn(sv);
+            if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
             const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
             if (!s) s = "";
             if (scan_depth < SCAN_STACK_MAX) {
