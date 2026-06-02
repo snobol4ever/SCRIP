@@ -4,7 +4,7 @@
 #include <math.h>
 #include "core.h"
 #include "sil_macros.h"
-#include "../../parser/snobol4/scrip_cc.h"
+#include "../parser/snobol4/scrip_cc.h"
 extern int exec_stmt(const char  *subj_name,
                           DESCR_t     *subj_var,
                           DESCR_t      pat,
