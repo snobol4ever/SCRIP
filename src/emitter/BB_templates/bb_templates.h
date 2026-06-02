@@ -3,15 +3,15 @@
 #include "emit_globals.h"
 #include "emit_ir.h"
 #include <stdio.h>
-void bb_pat_any    (IR_t * pBB);
-void bb_pat_notany (IR_t * pBB);
+void bb_pat_any    (void);
+void bb_pat_notany (void);
 void bb_pat_span   (IR_t * pBB);
 void bb_pat_break  (IR_t * pBB);
 void bb_pat_pos    (IR_t * pBB);
 void bb_pat_tab    (IR_t * pBB);
 void bb_pat_atp    (IR_t * pBB);
-void bb_pat_len    (IR_t * pBB);
-void bb_pat_rem    (IR_t * pBB);
+void bb_pat_len    (void);
+void bb_pat_rem    (void);
 void bb_pat_arb    (IR_t * pBB);
 void bb_pat_abort  (IR_t * pBB);
 void bb_pat_fence  (IR_t * pBB);
@@ -44,7 +44,7 @@ void bb_initial    (IR_t * pBB);
 void bb_case_store (IR_t * pBB);
 void bb_case_gate  (IR_t * pBB);
 void bb_stub       (IR_t * pBB);
-void bb_lit        (IR_t * pBB);
+void bb_lit        (void);
 void bb_lit_scalar (IR_t * pBB);
 void bb_var        (IR_t * pBB);
 void bb_assign     (IR_t * pBB);

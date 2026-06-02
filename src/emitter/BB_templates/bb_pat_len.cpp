@@ -1,61 +1,38 @@
-/* bb_pat_len.cpp — BB template for LEN.  CPP return-String (GOAL-HEADQUARTERS CPP rung).
-   One file per opcode. Invariant #10: no grouping with other opcodes (distinct emit shape).
-   x86 + JS arms return concatenation (data value n + labels re-injected); JVM/NET arms keep the
-   imperative jvm_/net_ helpers (x86-only directive → stubs). Built from the frozen baseline shape. */
+/* bb_pat_len.cpp — BB template for LEN. x86() self-encoding (template-revamp, 2026-06-01, Opus 4.8).
+   LEN(n) is a bounded single-shot leaf (SPITBOL Manual ch.18: "LEN(I) produces a pattern which matches a
+   string exactly I characters long"): succeeds once advancing δ by n, else fails; β has no alternative →
+   jmp ω (cursor restore on backtrack is the combinator's job, REG-4, not the leaf's). REG-2 registers:
+   cursor δ=R14d, length Δ=R15d (established by BB_MATCH α per REG-0). x86 arm: ONE return, pure x86()
+   concat, NO bb_bin_t; the operand n is read late from _.op_ival and baked as a literal immediate by the
+   encoders; the medium (BINARY bytes vs GAS text) is invisible. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 }
+#include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_len_str(IR_t * pBB, bb_bin_t & bin) {
-    bin = {};
-    int nid = bb_node_id(pBB); int sid = 0;
-    if (PLATFORM_X86) {
-        /* REG-2 (GOAL-SNOBOL4-BB REG ladder, 2026-06-01): cursor δ=R14d, length Δ=R15d (ratified regs,
-           bb_regs.h). The legacy cursor-cell reads/writes and the &Σlen bake are gone — δ lives in r14d,
-           the subject length in r15d (both established by BB_MATCH α per REG-0). LEN(n) is a bounded
-           single-shot leaf (SPITBOL Manual ch.18: "LEN(I) produces a pattern which matches a string exactly
-           I characters long"): it succeeds once advancing δ by n, or fails; on β it has no alternative and
-           jmps ω (cursor restore on backtrack is the combinator's job — REG-4 — not the leaf's). LITERAL
-           byte map, hand-coded offsets (FACT RULE TWO LITERAL FORMS — no b.size()):
-               0  : 44 89 F0              mov eax, r14d            ; eax = δ
-               3  : 05 + u32 n            add eax, n               ; eax = δ + n
-               8  : 44 39 F8              cmp eax, r15d            ; vs Δ (length)
-               11 : 0F 8F + u32 ω_rel32   jg ω                     ; rel32 @13  (δ+n > Δ → fail)
-               17 : 41 81 C6 + u32 n      add r14d, n              ; advance cursor δ += n
-               24 : E9 + u32 γ_rel32      jmp γ                    ; rel32 @25
-               29 : E9 + u32 ω_rel32      β: jmp ω                 ; β-def @29, rel32 @30
-               34 : end                                                                                    */
-        bin = { {13, 25, 29, 30},
-                {_.lbl_ω_p, _.lbl_γ_p, _.lbl_β_p, _.lbl_ω_p},
-                {false, false, true, false} };
-        return IF(MEDIUM_MACRO_DEF,
-                   s_comment("# no macro form — LEN"))
-             + IF(MEDIUM_BINARY,
-                   bytes(3, "\x44\x89\xF0")
-                 + bytes(1, "\x05") + u32le((uint32_t)(int)pBB->ival)
-                 + bytes(3, "\x44\x39\xF8")
-                 + bytes(2, "\x0F\x8F") + u32le(0)
-                 + bytes(3, "\x41\x81\xC6") + u32le((uint32_t)(int)pBB->ival)
-                 + bytes(1, "\xE9") + u32le(0)
-                 + bytes(1, "\xE9") + u32le(0))
-             + IF(MEDIUM_TEXT,
-                   s_1asm(emit_fmt("%s:", _.lbl_α))
-                   + s_comment(emit_fmt("# BOX LEN(%d)  [REG-2 δ=r14 Δ=r15]", (int)pBB->ival))
-                 + s_2asm("mov", "eax, r14d")
-                 + s_2asm("add", emit_fmt("eax, %d", (int)pBB->ival))
-                 + s_2asm("cmp", "eax, r15d")
-                 + s_2asm("jg", _.lbl_ω)
-                 + s_2asm("add", emit_fmt("r14d, %d", (int)pBB->ival))
-                 + s_2asm("jmp", _.lbl_γ)
-                 + s_1asm(std::string(_.lbl_β) + ":")
-                 + s_2asm("jmp", _.lbl_ω));
-    }
+static inline long lenN() { return (long)(int)_.op_ival; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_pat_len_str() {
+    int nid = _.nid; int sid = 0;
+    if (PLATFORM_X86)
+        return IF(MEDIUM_TEXT,
+                   s_1asm(std::string(_.lbl_α) + ":")
+                 + s_comment(emit_fmt("# BOX LEN(%ld)  [REG-2 δ=r14 Δ=r15, x86() self-encoding]", lenN())))
+             + x86("mov", "eax", "r14d")
+             + x86("add", "eax", lenN())
+             + x86("cmp", "eax", "r15d")
+             + x86("jg",  PORT_OMEGA)
+             + x86("add", "r14d", lenN())
+             + x86("jmp", PORT_GAMMA)
+             + x86("def", PORT_BETA)
+             + x86("jmp", PORT_OMEGA);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (PLATFORM_JVM) {
         std::string tag_s = emit_fmt("len_%d_%d", sid, nid);
-        int n = (int)pBB->ival;
+        int n = (int)_.op_ival;
         std::string r = jvm_class_hdr_str("len")
             + s_directive(".field private final n I")
             + s_directive(".field private final dyn Ljava/util/function/IntSupplier;")
@@ -113,14 +90,14 @@ static std::string bb_pat_len_str(IR_t * pBB, bb_bin_t & bin) {
         return r;
     }
     if (PLATFORM_JS) {
-        int64_t n = pBB->ival;
-        return emit_fmt("function make_pat_%d_%d(ms) { const n = %ld; let self = { succ: null, fail: null,\n", pBB->ival, nid, n)
+        int64_t n = _.op_ival;
+        return emit_fmt("function make_pat_%d_%d(ms) { const n = %ld; let self = { succ: null, fail: null,\n", _.op_ival, nid, n)
              + "α() { if (ms.delta + n > ms.omega) { self.fail.α(); return; } const r = ms.sigma.slice(ms.delta, ms.delta + n); ms.delta += n; self.succ.α(); return r; },\n"
              "β() { ms.delta -= n; self.fail.α(); }\n"
              "}; return self; }\n";
     }
     if (PLATFORM_NET) {
-        int n = (int)pBB->ival;
+        int n = (int)_.op_ival;
         std::string r = net_class_hdr_str(sid, nid)
             + s_directive(".field private int32 _n")
             + s_directive(".method public specialname rtspecialname instance void .ctor(int32 n) cil managed")
@@ -169,7 +146,4 @@ static std::string bb_pat_len_str(IR_t * pBB, bb_bin_t & bin) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_len(IR_t * pBB) {
-    bb_bin_t bin;
-    bb_emit_asm_result(bb_pat_len_str(pBB, bin), bin);
-}
+extern "C" void bb_pat_len(void) { bb_emit_x86(bb_pat_len_str()); }

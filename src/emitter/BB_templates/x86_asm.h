@@ -70,10 +70,20 @@ inline std::string x86_b1(uint8_t a)                          { std::string s; s
 inline std::string x86_b2(uint8_t a, uint8_t b)               { std::string s; s += (char)a; s += (char)b; return s; }
 inline std::string x86_b3(uint8_t a, uint8_t b, uint8_t c)    { std::string s; s += (char)a; s += (char)b; s += (char)c; return s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ALU r/m32, r32 (op /r stores reg into rm): mov 0x89, cmp 0x39, test 0x85.                              */
+/* 64-bit register? rax..rdi / rsp / rbp / rsi / rdi / r8..r15 (NO trailing 'd'). 32-bit: eax.. / rNNd.   */
+inline bool x86_is64(const char * r) {
+    if (!r) return false;
+    if (r[0] != 'r') return false;
+    size_t n = strlen(r);
+    if (r[n - 1] == 'd') return false;
+    return true;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ALU r/m, r (op /r stores reg into rm): mov 0x89, cmp 0x39, test 0x85. REX.W when the operands are 64-bit*/
+/* (e.g. test rax,rax after a pointer-returning call); 32-bit otherwise. Operands share a width in x86.    */
 inline std::string x86_alu_rr(const char * mnem, uint8_t op, const char * rm, const char * reg) {
     int m = x86_rnum(rm), g = x86_rnum(reg);
-    uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
+    uint8_t rex = 0x40; if (x86_is64(rm) || x86_is64(reg)) rex |= 0x08; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
     std::string code; if (rex != 0x40) code += (char)rex; code += (char)op; code += (char)(0xC0 | ((g & 7) << 3) | (m & 7));
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" ") + mnem + " " + rm + ", " + reg + "\n");
 }
@@ -81,19 +91,21 @@ inline std::string x86_mov (const char * rm, const char * reg) { return x86_alu_
 inline std::string x86_cmp (const char * rm, const char * reg) { return x86_alu_rr("cmp",  0x39, rm, reg); }
 inline std::string x86_test(const char * rm, const char * reg) { return x86_alu_rr("test", 0x85, rm, reg); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* add r32, imm32 — eax uses the short form 0x05; others 0x81 /0.   sub r32, imm32 — 0x81 /5.             */
+/* add r32, imm — imm8 short form (0x83 /0) when it fits in int8 (matches `as`); else eax→0x05, others 0x81*/
 inline std::string x86_add(const char * reg, long imm) {
     int m = x86_rnum(reg);
     std::string code;
-    if (m == 0) { code += (char)0x05; }
-    else { uint8_t rex = 0x40; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex; code += (char)0x81; code += (char)(0xC0 | (0 << 3) | (m & 7)); }
-    code += u32le((uint32_t)imm);
+    if (imm >= -128 && imm <= 127) { if (m >= 8) code += (char)0x41; code += (char)0x83; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
+    else if (m == 0)               { code += (char)0x05; code += u32le((uint32_t)imm); }
+    else                           { if (m >= 8) code += (char)0x41; code += (char)0x81; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" add ") + reg + ", " + std::to_string(imm) + "\n");
 }
+/* sub r32, imm — imm8 short form (0x83 /5) when it fits in int8 (matches `as`); else 0x81 /5.             */
 inline std::string x86_sub(const char * reg, long imm) {
     int m = x86_rnum(reg);
-    uint8_t rex = 0x40; if (m >= 8) rex |= 0x01;
-    std::string code; if (rex != 0x40) code += (char)rex; code += (char)0x81; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += u32le((uint32_t)imm);
+    std::string code;
+    if (imm >= -128 && imm <= 127) { if (m >= 8) code += (char)0x41; code += (char)0x83; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
+    else                           { if (m >= 8) code += (char)0x41; code += (char)0x81; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" sub ") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -113,6 +125,17 @@ inline std::string x86_lea_subj_cursor(const char * dst) {
     uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x8D; code += (char)modrm; code += (char)sib; code += (char)0x00;
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" lea ") + dst + ", [r13 + rcx]\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* movzx dst32, byte [r13 + rcx] — load one subject byte at Σ=r13 + cursor-index rcx (0F B6 /r, REX.B, SIB).*/
+/* dst is the 32-bit dest (esi etc.); reg field = dst&7 (+REX.R if dst>=8). 6 bytes for low dests.          */
+inline std::string x86_movzx_subj_byte(const char * dst) {
+    int g = x86_rnum(dst);
+    uint8_t rex = 0x40 | 0x01; if (g >= 8) rex |= 0x04;
+    uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
+    uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
+    std::string code; code += (char)rex; code += (char)0x0F; code += (char)0xB6; code += (char)modrm; code += (char)sib; code += (char)0x00;
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movzx ") + dst + ", byte ptr [r13+rcx]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* mov [r10], r14d — the legacy cursor mirror (45 89 32). Dies at REG-RO once r10 is retired.             */
@@ -184,6 +207,7 @@ inline std::string x86(const char * mnem, const char * a, const char * b) {     
     if (!strcmp(mnem, "cmp"))    return x86_cmp(a, b);
     if (!strcmp(mnem, "test"))   return x86_test(a, b);
     if (!strcmp(mnem, "movsxd")) return x86_movsxd(a, b);
+    if (!strcmp(mnem, "movzx"))  return x86_movzx_subj_byte(a);                                /* movzx a, byte[r13+rcx]    */
     if (!strcmp(mnem, "lea"))    return x86_lea_subj_cursor(a);                                 /* lea a, [r13 + rcx]        */
     return std::string();
 }

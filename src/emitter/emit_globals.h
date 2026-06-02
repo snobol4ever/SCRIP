@@ -11,6 +11,8 @@ typedef struct {
     IR_t *                       node;
     int                          sid;
     int                          nid;
+    const char *                 op_sval;
+    int64_t                      op_ival;
     const char *                 lbl_α;
     const char *                 lbl_γ;
     const char *                 lbl_ω;
