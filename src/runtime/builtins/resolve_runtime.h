@@ -1,5 +1,5 @@
-#ifndef DRIVER_PL_RUNTIME_H
-#define DRIVER_PL_RUNTIME_H
+#ifndef RESOLVE_RUNTIME_H
+#define RESOLVE_RUNTIME_H
 #include "ast.h"
 #include "../../parser/snobol4/scrip_cc.h"
 #include "../../parser/prolog/prolog_driver.h"

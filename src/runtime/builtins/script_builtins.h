@@ -1,5 +1,5 @@
-#ifndef RAKU_BUILTINS_H
-#define RAKU_BUILTINS_H
+#ifndef SCRIPT_BUILTINS_H
+#define SCRIPT_BUILTINS_H
 #include "ast.h"
 #include "core.h"
 int script_try_call_builtin(tree_t *call, DESCR_t *out);
