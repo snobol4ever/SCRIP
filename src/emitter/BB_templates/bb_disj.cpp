@@ -1,107 +1,56 @@
-/* bb_disj.cpp — BB template for IR_DISJ: Prolog `;` disjunction (`( A ; B )`).
-   AGW-9B-3 (2026-05-27). Same dispatcher structure as bb_choice but n is always 2 (the two
-   branches stored as nd->α / nd->β by lower_pl). The branches were ALREADY wired by lower_pl
-   (a.γ=γ_in, a.ω=b.α; b.γ=γ_in, b.ω=ω_in), so the bodies self-chain through their own node-pointer
-   ports — the dispatcher only needs to land control at branch 0's entry with a trail mark, and
-   the alt's β redo path stays as fail-through for now (full resumable disjunction is a later rung).
-   x86 TEXT only. */
+/* bb_disj.cpp — BB template for IR_DISJ: Prolog `;` disjunction (`( A ; B )`).  x86() self-encoding
+   (template-revamp PL-RV-4, 2026-06-02, Opus 4.8).  Same dispatcher shape as bb_choice but n is the arm
+   count (g_emit.resolve_choice_n, driver-promoted) and the arm bodies are wired by the driver
+   flat_drive_pl_alt (emit_bb.c): each arm's body label cbody[i] is define+walked there, arm i's failure
+   flows to the next arm's pre (this template's pre[i>0] does rt_pl_trail_unwind_top then jmps body[i]),
+   the last arm's failure to ω.  This template emits ONLY the α/pre/β trail-mark scaffold: α→pre[0];
+   pre[0]: trail_mark_push; jmp body[0]; pre[i>0]: trail_unwind_top; jmp body[i]; β: jmp ω.
+   pBB-FREE: reads only _ (resolve_choice_id/_n already promoted by the driver; ports/labels).  The two
+   rt_pl_trail_* calls go through the x86() RO-call encoder.  The pre/body labels are the driver-minted,
+   name-deterministic glue (resolve_choice_clause_label(id,i,...)) the driver coordinates on — NOT ports
+   and NOT box-internal L(n), so they are emitted as the GAS label scaffold the driver shares.  The dead
+   MEDIUM_BINARY twin — which hand-counted its own rel32 patch offsets via b.size() — is DELETED: Prolog's
+   live disjunction path is mode-4 TEXT (mode-3 routes the oracle); verified zero BINARY-arm fires across
+   the full rung suite via abort-probe, so the whole box is TEXT-only and BINARY yields empty. x86 only. */
 #include <string>
-#include <vector>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 #include "emit_bb.h"
-#include "IR.h"
 }
-/* PLR-J-5 (2026-05-29): runtime helpers the MEDIUM_BINARY alt arm calls via movabs+call rax.        */
+#include "x86_asm.h"
 extern "C" {
 void rt_pl_trail_mark_push(void);
 void rt_pl_trail_unwind_top(void);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_disj_str(IR_t * pBB) {
-    (void)pBB;
+static std::string disj_pre (int ci) { char b[160]; resolve_choice_clause_label(b, sizeof b, _.resolve_choice_id, ci, "pre");  return std::string(b); }
+static std::string disj_body(int ci) { char b[160]; resolve_choice_clause_label(b, sizeof b, _.resolve_choice_id, ci, "body"); return std::string(b); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_disj_str() {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — RESOLVE_ALT");
-        if (MEDIUM_BINARY) {
-            /* PLR-J-5 (2026-05-29): full MEDIUM_BINARY arm — byte twin of the TEXT arm below.  Was a   */
-            /* double-jump stub.  α → pre[0] (trail_mark_push) → body[0]; pre[i>0] (trail_unwind_top) →  */
-            /* body[i]; β → ω.  Branch self-chaining (branch_i.ω → pre[i+1]) is wired by the driver.     */
-            /* pre[i]/body[i] are shared with flat_drive_pl_alt via emit_label_intern (pointer identity).*/
-            int id = _.resolve_choice_id;
-            int n  = _.resolve_choice_n;
-            std::string b;
-            std::vector<int> st; std::vector<bb_label_t *> lb; std::vector<bool> df;
-            auto def = [&](bb_label_t *L){ st.push_back((int)b.size()); lb.push_back(L); df.push_back(true); };
-            auto ref = [&](bb_label_t *L){ st.push_back((int)b.size() - 4); lb.push_back(L); df.push_back(false); };
-            auto jmp32 = [&](bb_label_t *L){ b += bytes(1, "\xE9") + u32le(0); ref(L); };
-            auto callabs = [&](void *fn){ b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)fn) + bytes(2, "\xFF\xD0"); };
-            if (n <= 0) {
-                def(_.lbl_α_p); jmp32(_.lbl_ω_p);
-                def(_.lbl_β_p); jmp32(_.lbl_ω_p);
-                bb_bin_t bin; bin.sites = st; bin.labels = lb; bin.is_def = df; bin.bytes = b;
-                bb_emit_asm_result(b, bin);
-                return std::string();
-            }
-            char buf[200];
-            std::vector<bb_label_t *> L_pre(n), L_body(n);
-            for (int i = 0; i < n; i++) {
-                resolve_choice_clause_label(buf, sizeof buf, id, i, "pre");  L_pre[i]  = emit_label_intern(buf);
-                resolve_choice_clause_label(buf, sizeof buf, id, i, "body"); L_body[i] = emit_label_intern(buf);
-            }
-            /* α: jmp pre[0]. */
-            def(_.lbl_α_p);
-            jmp32(L_pre[0]);
-            /* pre[0]: trail_mark_push; jmp body[0]. */
-            def(L_pre[0]);
-            callabs((void*)rt_pl_trail_mark_push);
-            jmp32(L_body[0]);
-            /* pre[i>0]: trail_unwind_top; jmp body[i]. */
-            for (int i = 1; i < n; i++) {
-                def(L_pre[i]);
-                callabs((void*)rt_pl_trail_unwind_top);
-                jmp32(L_body[i]);
-            }
-            /* β: jmp ω. */
-            def(_.lbl_β_p);
-            jmp32(_.lbl_ω_p);
-            bb_bin_t bin; bin.sites = st; bin.labels = lb; bin.is_def = df; bin.bytes = b;
-            bb_emit_asm_result(b, bin);
-            return std::string();
-        }
-        if (MEDIUM_TEXT) {
-            int id = _.resolve_choice_id;
-            int n  = _.resolve_choice_n;
-            if (n <= 0) {
-                return s_1asm(emit_fmt("%s:", _.lbl_α))
-                     + s_2asm("jmp", _.lbl_ω)
-                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
-            }
-            std::string out = s_1asm(emit_fmt("%s:", _.lbl_α))
-                            + s_comment(emit_fmt("# BOX RESOLVE_ALT n=%d (mode-4 first-solution)", n));
-            char pre0[160]; resolve_choice_clause_label(pre0, sizeof pre0, id, 0, "pre");
-            out += s_2asm("jmp", pre0);
-            char body0[160]; resolve_choice_clause_label(body0, sizeof body0, id, 0, "body");
-            out += s_1asm(emit_fmt("%s:", pre0))
-                 + s_2asm("call", "rt_pl_trail_mark_push@PLT")
-                 + s_2asm("jmp", body0);
-            for (int i = 1; i < n; i++) {
-                char prei[160], bodyi[160];
-                resolve_choice_clause_label(prei,  sizeof prei,  id, i, "pre");
-                resolve_choice_clause_label(bodyi, sizeof bodyi, id, i, "body");
-                out += s_1asm(emit_fmt("%s:", prei))
-                     + s_2asm("call", "rt_pl_trail_unwind_top@PLT")
-                     + s_2asm("jmp", bodyi);
-            }
-            out += s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
-            return out;
-        }
+        int n = _.resolve_choice_n;
+        if (n <= 0)
+            return IF(MEDIUM_TEXT,
+                      s_1asm(std::string(_.lbl_α) + ":")
+                    + s_comment("# BOX RESOLVE_ALT (empty)  [x86() self-encoding]")
+                    + s_2asm("jmp", _.lbl_ω)
+                    + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω));
+        return IF(MEDIUM_TEXT,
+                  s_1asm(std::string(_.lbl_α) + ":")
+                + s_comment(emit_fmt("# BOX RESOLVE_ALT n=%d (mode-4 first-solution)  [x86() self-encoding]", n))
+                + s_2asm("jmp", disj_pre(0).c_str())
+                + s_1asm(disj_pre(0) + ":")
+                + x86("call", "rt_pl_trail_mark_push", (uint64_t)(uintptr_t)(void*)rt_pl_trail_mark_push)
+                + s_2asm("jmp", disj_body(0).c_str())
+                + FOR(1, n, [](int i){
+                      return s_1asm(disj_pre(i) + ":")
+                           + x86("call", "rt_pl_trail_unwind_top", (uint64_t)(uintptr_t)(void*)rt_pl_trail_unwind_top)
+                           + s_2asm("jmp", disj_body(i).c_str()); })
+                + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω));
     }
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_disj(IR_t * pBB) {
-    std::string out = bb_disj_str(pBB);
-    if (!out.empty()) emit_text_n(out.data(), out.size());
-}
+extern "C" void bb_disj(void) { bb_emit_x86(bb_disj_str()); }
