@@ -6,7 +6,7 @@ extern "C" {
 #include "ast.h"
 #include "descr.h"
 extern int g_icn_flat_chain;
-struct DESCR_t rt_icn_size_d(uint64_t lo, uint64_t hi);
+struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -81,13 +81,13 @@ std::string bb_unop_str() {
              + x86("jmp", PORT_OMEGA);
     }
     if (uo == UO_SIZE) {
-        struct DESCR_t (*fp)(uint64_t, uint64_t) = rt_icn_size_d;
+        struct DESCR_t (*fp)(uint64_t, uint64_t) = rt_size_d;
         uint64_t fptr = (uint64_t)(uintptr_t)(void *)fp;
         return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment("# BOX UNOP SIZE [x86() stackless: rt_icn_size_d->slot->γ]"))
+                             + s_comment("# BOX UNOP SIZE [x86() stackless: rt_size_d->slot->γ]"))
              + x86("mov", "rdi", FRQ(sa))
              + x86("mov", "rsi", FRQ(sa + 8))
-             + x86("call", "rt_icn_size_d", fptr)
+             + x86("call", "rt_size_d", fptr)
              + x86("mov", FRQ(off),     "rax")
              + x86("mov", FRQ(off + 8), "rdx")
              + x86("jmp", PORT_GAMMA)

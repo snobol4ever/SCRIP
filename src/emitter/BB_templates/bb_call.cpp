@@ -15,8 +15,8 @@ void rt_write_strz_nl(const char *s);
 void rt_pop_write_int_nl(void);
 void rt_pop_write_any_nl(void);
 void rt_call_proc(const char *name, int nargs);
-DESCR_t rt_icn_call_proc_descr(const char *name, int nargs);
-void rt_icn_arg_stage(int idx, DESCR_t v);
+DESCR_t rt_call_proc_descr(const char *name, int nargs);
+void rt_arg_stage(int idx, DESCR_t v);
 int  rt_proc_is_registered(const char *name);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
@@ -191,7 +191,7 @@ static std::string bb_call_str(IR_t * pBB) {
         IR_graph_t ** argblks = (IR_graph_t **)(intptr_t) pBB->counter;
         bb_label_t * beta_tgt = bb_call_beta_target();
         if (MEDIUM_BINARY) {
-            uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_icn_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
+            uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
             std::string stage;
             for (int i = 0; i < (int)narg; i++) {
                 IR_t * prod = bb_chain_terminal(argblks && argblks[i] ? argblks[i]->entry : NULL);
@@ -204,7 +204,7 @@ static std::string bb_call_str(IR_t * pBB) {
                 stage += x86_Lrec(x86_b2(0xFF,0xD0));
             }
             uint64_t nptr = (uint64_t)(uintptr_t)fn;
-            uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_icn_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
             std::string tail;
             tail += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
             tail += x86_Lrec(x86_b1(0xBE))     + x86_Lrec(u32le((uint32_t)narg));
@@ -240,11 +240,11 @@ static std::string bb_call_str(IR_t * pBB) {
                 s += s_2asm("mov edi,",  emit_fmt("%d", i))
                   +  s_2asm("mov rsi,",  emit_fmt("[r12+%d]", slot))
                   +  s_2asm("mov rdx,",  emit_fmt("[r12+%d]", slot + 8))
-                  +  s_2asm("call",      "rt_icn_arg_stage@PLT");
+                  +  s_2asm("call",      "rt_arg_stage@PLT");
             }
             s += s_2asm("lea rdi,", "[rip + " + nl + "]")
               +  s_2asm("mov esi,",  emit_fmt("%d", (int)narg))
-              +  s_2asm("call",      "rt_icn_call_proc_descr@PLT")
+              +  s_2asm("call",      "rt_call_proc_descr@PLT")
               +  s_2asm("mov",       emit_fmt("[r12+%d], rax", off))
               +  s_2asm("mov",       emit_fmt("[r12+%d], rdx", off + 8))
               +  s_2asm("cmp",       "eax, 99")

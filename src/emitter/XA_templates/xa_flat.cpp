@@ -124,7 +124,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                      + "pop r12\n"
                      + "ret\n"
                      + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
-                     + "# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_icn_call_proc_descr sees failure\n"
+                     + "# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure\n"
                      + "mov dword ptr [r12+0], 99\n"
                      + "mov dword ptr [r12+4], 0\n"
                      + "mov qword ptr [r12+8], 0\n"

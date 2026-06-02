@@ -474,23 +474,23 @@ void rt_call_proc(const char *name, int nargs)
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t g_icn_call_args[ICN_CALL_ARGS_MAX];
-void rt_icn_arg_stage(int idx, DESCR_t v)
+void rt_arg_stage(int idx, DESCR_t v)
 {
     if (idx >= 0 && idx < ICN_CALL_ARGS_MAX) g_icn_call_args[idx] = v;
 }
 static int64_t g_icn_proc_arena[ICN_PROC_FRAME_DEPTH * ICN_PROC_FRAME_QWORDS];
 static int     g_icn_proc_depth = 0;
-DESCR_t rt_icn_call_proc_descr(const char *name, int nargs)
+DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = (rt_proc_t *)0;
     for (int i = 0; i < g_rt_gen_proc_count; i++)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
     if (!p || !p->fn) {
-        fprintf(stderr, "[GZ-10] rt_icn_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
+        fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         abort();
     }
     if (g_icn_proc_depth >= ICN_PROC_FRAME_DEPTH) {
-        fprintf(stderr, "[GZ-10] rt_icn_call_proc_descr: recursion depth exceeded (%d)\n", ICN_PROC_FRAME_DEPTH);
+        fprintf(stderr, "[GZ-10] rt_call_proc_descr: recursion depth exceeded (%d)\n", ICN_PROC_FRAME_DEPTH);
         abort();
     }
     char *fb = (char *)&g_icn_proc_arena[g_icn_proc_depth * ICN_PROC_FRAME_QWORDS];
@@ -936,7 +936,7 @@ int rt_unop_size(void)
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_icn_size_d(uint64_t lo, uint64_t hi)
+DESCR_t rt_size_d(uint64_t lo, uint64_t hi)
 {
     DESCR_t v;
     v.v    = (DTYPE_t)(uint32_t)(lo & 0xFFFFFFFFu);
