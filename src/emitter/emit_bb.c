@@ -915,7 +915,6 @@ static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     for (int i = 0; i < npair; i++) val_entry[i] = emit_label_alloc("xcase%d_val%d", id, i);
     walk_bb_flat(pBB->α, sel_done, lbl_ω, sel_β);
     emit_label_define_bb(sel_done);
-    bb_case_store(pBB);
     for (int i = 0; i < npair; i++) {
         bb_label_t *key_done = emit_label_alloc("xcase%d_key%d_done", id, i);
         bb_label_t *key_β    = emit_label_alloc("xcase%d_key%d_β",    id, i);
@@ -923,7 +922,6 @@ static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
         emit_label_define_bb(key_done);
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(val_entry[i]);
-        bb_case_gate(pBB);
     }
     if (has_default) {
         bb_label_t *def_β = emit_label_alloc("xcase%d_def_β", id);
@@ -965,17 +963,14 @@ static void flat_drive_limit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     emit_label_define_bb(count_done);
     EMIT_PAIR_RESET();
     EMIT_PAIR_JMP(lbl_ω);
-    bb_limit_begin(pBB);
     walk_bb_flat(pBB->α, got_value, lbl_ω, gen_resume);
     emit_label_define_bb(got_value);
     EMIT_PAIR_RESET();
     EMIT_PAIR_JMP(lbl_γ);
-    bb_limit_inc(pBB);
     emit_label_define_bb(lbl_β);
     EMIT_PAIR_RESET();
     EMIT_PAIR_JMP(lbl_ω);
     EMIT_PAIR_JMP(gen_resume);
-    bb_limit_more(pBB);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_return(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
@@ -1441,7 +1436,6 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         g_emit.lbl_ω = lbl_ω->name;
         g_emit.lbl_β = lbl_β->name;
         g_emit.lbl_γ_p = lbl_γ; g_emit.lbl_ω_p = lbl_ω; g_emit.lbl_β_p = lbl_β;
-        bb_eps(NULL);
         return;
     }
     switch (nd->t) {
