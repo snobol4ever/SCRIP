@@ -375,6 +375,7 @@ void net_push_i4(FILE * out, int v) {
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare_pl(IR_t *nd);
+    extern int  bb_slot_get(IR_t *nd);
     if (!nd) return 1;
     g_emit.node = nd;
     emit_io_set_sink(out);
@@ -385,6 +386,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_node_kind = (int)nd->t;
     g_emit.op_a_sval = nd->α ? nd->α->sval : (const char *)0;
     g_emit.op_a_node_kind = nd->α ? (int)nd->α->t : -1;
+    g_emit.op_a_slot = nd->α ? bb_slot_get(nd->α) : -1;
     switch (nd->t) {
     case IR_PAT_LIT:         bb_lit();               return 0;
     case IR_PAT_ANY:         bb_pat_any();           return 0;
