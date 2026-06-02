@@ -1,50 +1,28 @@
-/* bb_ite.cpp — BB template for IR_ITE: Prolog (Cond -> Then ; Else).
-   CAT-D-8 (2026-05-27, Opus 4.7). The driver flat_drive_pl_ite (emit_bb.c) is byte-free: it
-   mints Then/Else region labels and recursively walks each sub-region. This template emits the
-   wrapper's α prologue and the β-tombstone (β: jmp ω — ITE is non-resumable from caller's view;
-   internal choice points inside Then/Else retry via their own β labels). All bytes originate
-   here per the FACT RULE; the driver only mints labels and chains walk_bb_flat. x86 TEXT only. */
+/* bb_ite.cpp — BB template for IR_ITE: Prolog (Cond -> Then ; Else).  x86() self-encoding (template-revamp
+   PL-RV-3, 2026-06-02, Opus 4.8).  The driver flat_drive_pl_ite (emit_bb.c) is byte-free: it mints Then/Else
+   region labels and recursively walks each sub-region, depositing the wrapper glue — the β-tombstone (β: jmp ω;
+   ITE is non-resumable from the caller's view, internal choice points inside Then/Else retry via their own β
+   labels) — into g_emit.xa_bb_emit_pair_*.  This template emits that collected variable-length define/jmp-pair
+   loop via the SHARED x86_pair_loop() combinator (the RESOLVED pair-loop primitive in x86_asm.h, also used by
+   Prolog bb_conj and SNOBOL4 bb_pat_cat/bb_pat_alt).  ONE return, pure concat, NO bb_bin_t, pBB-free (reads
+   only _ / g_emit).  Both media are produced by the ONE primitive (medium-invisible per R2): its 'E'/'F'/'L'
+   records reproduce the exact define / E9+rel32 / GAS sequence the box hand-rolled before, so the byte stream
+   is byte-identical to the prior MEDIUM_BINARY+MEDIUM_TEXT arms in both media (GATE-3 unchanged 111/111/86).
+   x86 only per Invariant #14. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 }
+#include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_ite_str(IR_t * pBB, bb_bin_t & bin) {
-    bin = {};
-    (void)pBB;
+static std::string bb_ite_str() {
     if (PLATFORM_X86) {
-        return IF(MEDIUM_MACRO_DEF, s_comment("# no macro form — RESOLVE_ITE"))
-             + IF(MEDIUM_BINARY, [&]() {
-                   std::string b;
-                   for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
-                       if (g_emit.xa_bb_emit_pair_define[i]) {
-                           bin.sites.push_back((int)b.size());
-                           bin.labels.push_back(g_emit.xa_bb_emit_pair_define[i]);
-                           bin.is_def.push_back(true);
-                       }
-                       if (g_emit.xa_bb_emit_pair_jmp[i]) {
-                           b += bytes(1, "\xE9");
-                           bin.sites.push_back((int)b.size());
-                           bin.labels.push_back(g_emit.xa_bb_emit_pair_jmp[i]);
-                           bin.is_def.push_back(false);
-                           b += u32le(0);
-                       }
-                   }
-                   return b;
-               }())
-             + IF(MEDIUM_TEXT,
-                   s_comment("# END RESOLVE_ITE (β-tombstone via EP)")
-                 + FOR(0, g_emit.xa_bb_emit_pair_n, [](int i) {
-                       return (g_emit.xa_bb_emit_pair_define[i] ? emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name) : std::string())
-                            + (g_emit.xa_bb_emit_pair_jmp[i]    ? s_1asm(emit_fmt("jmp %s", g_emit.xa_bb_emit_pair_jmp[i]->name)) : std::string());
-                   }));
+        return IF(MEDIUM_TEXT, s_comment("# END RESOLVE_ITE (β-tombstone via EP)  [x86() self-encoding]"))
+             + x86_pair_loop();
     }
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_ite(IR_t * pBB) {
-    bb_bin_t bin;
-    bb_emit_asm_result(bb_ite_str(pBB, bin), bin);
-}
+extern "C" void bb_ite(void) { bb_emit_x86(bb_ite_str()); }
