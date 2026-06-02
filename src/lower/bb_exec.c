@@ -167,15 +167,15 @@ static susp_gen_cache_t * susp_gen_cache_get(IR_t * node) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SBL-M3-SCAN (2026-05-31): stackless mode-3/4 entry for a SNOBOL4 pattern-match statement. It is the IR_SCAN  */
-/* exec arm (bb_exec.c case IR_SCAN) re-expressed with EXPLICIT operands so a native box (bb_sno_scan.cpp) can  */
+/* exec arm (bb_exec.c case IR_SCAN) re-expressed with EXPLICIT operands so a native box (bb_scan_stmt.cpp) can  */
 /* drive it with NO value stack and NO AG ring: subj_name = the subject variable (the replacement form requires */
 /* a variable per SPITBOL ch.6; for a literal/expr subject the caller passes subj_lit instead), has_repl/repl   */
 /* = the replacement literal, pat_graph = the IR_SCAN.counter pattern sub-graph (a process-valid IR_graph_t* in */
 /* mode-3). The pattern is driven through the proven 19-arm IR_PAT_* oracle via bb_exec_once with anchored      */
 /* start-iteration + deferred-capture flush + the replacement splice — IDENTICAL semantics to the mode-2 arm.   */
 /* Returns 1 on match (box jmps γ), 0 on failure (box jmps ω). NO value stack (Lon directive).                  */
-extern int rt_sno_exec_scan(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
-int rt_sno_exec_scan(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph) {
+extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
+int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph) {
     IR_graph_t *pat = (IR_graph_t *)pat_graph;
     if (!pat || !pat->entry) return 0;
     const char *subj_str = ""; int subj_len = 0;
@@ -218,9 +218,9 @@ int rt_sno_exec_scan(const char *subj_name, const char *subj_lit, int has_repl, 
 /* on counter, right on ival); this runs each via bb_reset+bb_exec_once (handles any operand node count and  */
 /* nesting, no AG ring), concatenates via binop_apply(BINOP_CONCAT), and stores under `name` via NV_SET_fn — */
 /* IDENTICAL semantics to the mode-2 IR_SEQ(dval==1.0) arm. Returns 1 on success, 0 on operand failure. The  */
-/* sub-graph pointers are process-valid in mode-3 (baked imm64 by the bb_sno_assign IR_SEQ arm). NO vstack.  */
-extern int rt_sno_assign_concat(const char *name, void *left_graph, void *right_graph);
-int rt_sno_assign_concat(const char *name, void *left_graph, void *right_graph) {
+/* sub-graph pointers are process-valid in mode-3 (baked imm64 by the bb_nv_assign IR_SEQ arm). NO vstack.  */
+extern int rt_nv_assign_concat(const char *name, void *left_graph, void *right_graph);
+int rt_nv_assign_concat(const char *name, void *left_graph, void *right_graph) {
     IR_graph_t *lblk = (IR_graph_t *)left_graph;
     IR_graph_t *rblk = (IR_graph_t *)right_graph;
     if (!lblk || !rblk) return 0;
@@ -2745,7 +2745,7 @@ IR_t * bb_exec_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_SUBJECT: {
-        /* PB-0 SUBJECT phase (mode-2 oracle analogue of bb_sno_subject.cpp). The subject value-expr ran
+        /* PB-0 SUBJECT phase (mode-2 oracle analogue of bb_subject.cpp). The subject value-expr ran
            VALUE-role and pushed its value to the AG ring; establish the scanned whole Σ (base) and
            Ω/Σlen (length), and set the cursor Δ=0 (SPITBOL Manual ch.18: the cursor is set to zero when a
            pattern match begins, so it is the matcher's running state). This mirrors the box storing Σ→

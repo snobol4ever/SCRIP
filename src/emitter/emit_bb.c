@@ -123,14 +123,14 @@ int bb_varslot_peek(const char *name) {
 /* _peek), computes, and writes its own result slot — exactly the test_sno_1.c named-slot model. Boxes    */
 /* are NEVER re-walked for operands (postfix order guarantees operands precede consumers in the chain).   */
 int g_icn_flat_chain = 0;
-int g_sno_flat_chain = 0;  /* SBL-M3-CHAIN: SNOBOL4 flat-chain emit active — IR_VAR is a by-name pass-through (value read in bb_sno_assign_var) */
+int g_nv_flat_chain = 0;  /* SBL-M3-CHAIN: SNOBOL4 flat-chain emit active — IR_VAR is a by-name pass-through (value read in bb_nv_assign_var) */
 int g_frame_active = 0;
 /* PB-RB-3 BB_MATCH (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01). Cross-box emit-time values   */
-/* threaded from the SUBJECT box (g_sno_subject_slot — its ζ-frame slot offset, set when bb_sno_subject emits  */
+/* threaded from the SUBJECT box (g_subject_slot — its ζ-frame slot offset, set when bb_subject emits  */
 /* and read when bb_match emits, same flat sequence) and from flat_drive_match (the inline element     */
 /* entry label + the match_advance handler label the template jumps to / defines). NOT a g_emit ABI change —   */
 /* SNOBOL-lane dedicated globals (mirror the bb_child_lbl idiom).                                              */
-int                 g_sno_subject_slot       = -1;
+int                 g_subject_slot       = -1;
 const char *        g_match_elem_lbl     = NULL;
 const char *        g_match_advance_lbl  = NULL;
 struct bb_label_t * g_match_elem_p       = NULL;
@@ -1177,22 +1177,22 @@ static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_sno_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_nv_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* SBL-M3-STACKLESS: SNOBOL4 `name = 'literal'` — single-shot bounded, NO value stack. The rhs literal
-       and target name are baked as RO immediates inside bb_sno_assign (reached via emit_core IR_ASSIGN
+       and target name are baked as RO immediates inside bb_nv_assign (reached via emit_core IR_ASSIGN
        branch when α==IR_LIT_S); no operand subtree to walk, β = jmp ω. */
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_sno_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_nv_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* SBL-M3-ARITH (2026-05-31): SNOBOL4 `name = lit op lit`. Mirrors flat_drive_call_intexpr: walk the rhs
        binop FIRST (it allocates its ζ-frame result slot via bb_slot_alloc during emission), then emit the
        assign box, which recovers the slot offset via bb_slot_get(rhs) and reads [r12+off]. Bounded single-
        shot, NO value stack. β of the assign jumps ω (an assign does not resume). */
     if (!pBB || !pBB->α || pBB->α->t != IR_BINOP) {
-        fprintf(stderr, "[SBB] FATAL flat_drive_sno_assign_binop: rhs is not IR_BINOP\n");
+        fprintf(stderr, "[SBB] FATAL flat_drive_nv_assign_binop: rhs is not IR_BINOP\n");
         abort();
     }
     int id = g_flat_node_id++;
@@ -1205,10 +1205,10 @@ static void flat_drive_sno_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_sno_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* SBL-M3-SCAN (2026-05-31): SNOBOL4 pattern-match statement — single-shot bounded, NO value stack. The
        subject name, replacement literal, and pattern sub-graph pointer are baked as RO immediates inside
-       bb_sno_scan (reached via emit_core IR_SCAN branch); the box tests rt_sno_exec_scan's result and jmps
+       bb_scan_stmt (reached via emit_core IR_SCAN branch); the box tests rt_scan_exec's result and jmps
        γ (match) or ω (fail). No operand subtree to walk here (the replacement/subject literal are folded
        onto pBB->α and consumed inside the box); β = jmp ω. */
     EMIT_PAIR_RESET();
@@ -1216,25 +1216,25 @@ static void flat_drive_sno_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_sno_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* PB-0 SUBJECT phase (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). SNOBOL4 match-statement SUBJECT box —
        single-shot bounded, NO value stack. The subject variable name OR literal is baked RO inside
-       bb_sno_subject (reached via the emit_core IR_SUBJECT branch); the box calls rt_sno_subject_load and
+       bb_subject (reached via the emit_core IR_SUBJECT branch); the box calls rt_subject_load and
        stores Σ (base) / Δ (length) into its ζ-frame slot, then jmps γ (loaded) / ω. No operand subtree to
        walk (the subject value-expr rides on pBB->α and is consumed inside the box); β = jmp ω — same shape
-       as flat_drive_sno_scan. */
+       as flat_drive_scan_stmt. */
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_sno_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* PB-RB-1 REF_INVARIANT (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01). The box loads a
        SEALED element bb_box_fn head (the EXISTING IR_PAT_LIT matcher box for an invariant literal — referenced
        via operand_aux per the PEERS RULE) into its ζ-frame slot, then jmps γ. NO runtime construction (Fork
        A/E): the sealed-head address is an emit-time constant (movabs in BINARY / [rip+disp] in TEXT). No
        operand subtree to control-thread (the sealed element is referenced, not run, here — running is PB-RB-3
-       BB_MATCH); β = jmp ω — same bounded single-shot shape as flat_drive_sno_subject. The sealed child was
+       BB_MATCH); β = jmp ω — same bounded single-shot shape as flat_drive_subject. The sealed child was
        emitted once by pre_build_children / pre_build_children_text (keyed in the child cache); resolve it via
        operand_aux (NOT bb_pat_kid) and hand its head to the box through g_emit.child_fn (BINARY fn ptr) /
        g_emit.bb_child_lbl (TEXT α-label). */
@@ -1278,7 +1278,7 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_sno_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     /* SBL-M3-MULTISTMT (2026-05-31): the whole SNOBOL4 program as a sequence of four-port statement BBs.
        sno_ring_to_tree (scrip.c) folded each statement into a tree root and recorded its success/failure
        target statement index (the SPITBOL :S/:F/:(L) goto field). Here we allocate one label per statement,
@@ -1713,12 +1713,12 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_TO_BY:      FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        flat_drive_alt_icn(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR:        if (g_icn_flat_chain && nd && nd->sval) { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_sno_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_sno_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_SCAN:       flat_drive_sno_scan(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_SUBJECT:    flat_drive_sno_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_REF_INVARIANT: flat_drive_sno_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ASSIGN:     if (g_icn_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) flat_drive_nv_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_nv_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SCAN:       flat_drive_scan_stmt(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SUBJECT:    flat_drive_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_REF_INVARIANT: flat_drive_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_MATCH:  flat_drive_match(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_SNO_PROG:   flat_drive_sno_program(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SNO_PROG:   flat_drive_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
         /* GZ-10 (modes 3/4): in the flat γ-chain the return-value producer is a SIBLING box already      */
         /* BFS-collected (its DESCR is in its own slot); RETURN.α is the postfix reference to it. FILL     */
@@ -2157,7 +2157,7 @@ int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FIL
 /* it RESOLVES landing nodes transitively — a port to an IR_SUCCEED-with-γ follows through to its target,   */
 /* so the per-statement landings are transparent; a terminal IR_SUCCEED (γ==NULL = PSUCC) maps to the       */
 /* success epilogue and IR_FAIL (PFAIL) to the failure epilogue; (2) it does NOT set g_icn_flat_chain, so   */
-/* walk_bb_flat takes the SNOBOL4 arms (IR_ASSIGN -> bb_sno_assign, IR_SCAN -> bb_sno_scan, ...) not the    */
+/* walk_bb_flat takes the SNOBOL4 arms (IR_ASSIGN -> bb_nv_assign, IR_SCAN -> bb_scan_stmt, ...) not the    */
 /* Icon slot-leaf arm. The operand-ref pass (sno_chain_operand_refs) is the SAME postfix-arity model as     */
 /* Icon's — it derives OPERAND REFERENCES (which producer a consumer reads), NOT topology; topology is from */
 /* LOWER. PER-BOX LOCAL STORAGE FACT RULE: every box-local read is [rip+disp] (RO) or [ζ=r12+off] (RW).     */
@@ -2173,12 +2173,12 @@ static IR_t *sno_chain_resolve(IR_t *n) {
 static int sno_chain_is_real(IR_t *n) { return n && n->t != IR_SUCCEED && n->t != IR_FAIL; }
 /* SNOBOL4 chain arity: a SNOBOL concat IR_SEQ/IR_SEQ_EXPR (dval==1.0) carries its two operands in ISOLATED  */
 /* sub-graphs (on counter/ival), NOT on the γ-chain, so from the chain's perspective it is a LEAF producer  */
-/* (arity 0) whose value the consuming IR_ASSIGN reads via bb_sno_assign_concat. Everything else delegates   */
+/* (arity 0) whose value the consuming IR_ASSIGN reads via bb_nv_assign_concat. Everything else delegates   */
 /* to the shared icn_chain_arity.                                                                            */
 static int sno_chain_arity(const IR_t *n) {
     if (n && (n->t == IR_SEQ || n->t == IR_SEQ_EXPR) && n->dval == 1.0) return 0;
     /* IR_SCAN consumes its single γ-predecessor: the subject value-node (plain form) or the replacement    */
-    /* value-node (repl form, subject is by-name on sval). bb_sno_scan reads it off α. SPITBOL Manual ch.6.  */
+    /* value-node (repl form, subject is by-name on sval). bb_scan_stmt reads it off α. SPITBOL Manual ch.6.  */
     if (n && n->t == IR_SCAN) return 1;
     return icn_chain_arity(n);
 }
@@ -2320,11 +2320,11 @@ bb_box_fn sno_flat_chain_build(IR_graph_t *g) {
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) { g_emit_cfg = save_cfg; return NULL; }
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_sno_flat_chain = 1;
+    g_nv_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_sno_flat_chain_body(g->entry, "sno_flat");
     int nbytes = emitter_end();
-    g_sno_flat_chain = 0;
+    g_nv_flat_chain = 0;
     g_emit_cfg = save_cfg;
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
@@ -2339,11 +2339,11 @@ int sno_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; sno_chain_prebuild_children_text(g, out, prefix); }
     sno_chain_operand_refs(g);
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_sno_flat_chain = 1;
+    g_nv_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_sno_flat_chain_body(g->entry, prefix);
     emitter_end();
-    g_sno_flat_chain = 0;
+    g_nv_flat_chain = 0;
     g_emit_cfg = save_cfg;
     return rc;
 }

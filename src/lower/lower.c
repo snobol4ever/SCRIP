@@ -2350,7 +2350,7 @@ IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t
  * subject value-expr into an IR_SUBJECT box (phase 1 of SUBJECT->PATTERN->MATCH->REPLACEMENT->SUBSTITUTION).
  * The value-expr is lowered VALUE-role with its γ -> the IR_SUBJECT node, so the subject string is on the AG
  * ring when SUBJECT executes in the mode-2 oracle; in mode-3/4 the box fetches it by name/literal (one
- * rt_sno_subject_load call) and stores Σ (base) + Δ (length) into its ζ-frame slot. SPITBOL Manual ch.18:
+ * rt_subject_load call) and stores Σ (base) + Δ (length) into its ζ-frame slot. SPITBOL Manual ch.18:
  * the cursor is zeroed when the match begins, so SUBJECT loads only the fixed whole + bound. Bounded
  * single-shot: resume -> ω_in. NOT YET threaded into v_scan — the mode-2 IR_SCAN super-node stays intact
  * (zero regression); this entry is exercised by the prove_lower2 topology gate and the PB-0 mode-3 probe.

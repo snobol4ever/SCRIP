@@ -1,4 +1,4 @@
-/* bb_sno_subject.cpp — TEMPLATE-REVAMP bomb stub (Lon directive 2026-06-02).  The original box body used the
+/* bb_scan_stmt.cpp — TEMPLATE-REVAMP bomb stub (Lon directive 2026-06-02).  The original box body used the
    ABOLISHED bb_bin_t / bb_emit_asm_result offset-table path.  It is replaced with a LOUD x86_bomb() stub so
    SCRIP BUILDS + LINKS (green) and ABORTS beautifully when this box is reached — the SNOBOL4
    GOAL-*-BB session converts it to real x86() self-encoding as its own test reaches it.  pBB-free per the
@@ -12,7 +12,7 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_sno_subject(IR_t * pBB) {
+extern "C" void bb_scan_stmt(IR_t * pBB) {
     (void)pBB;
-    bb_emit_x86(x86_bomb("bb_sno_subject: TEMPLATE-REVAMP not yet converted (was offset-table)"));
+    bb_emit_x86(x86_bomb("bb_scan_stmt: TEMPLATE-REVAMP not yet converted (was offset-table)"));
 }

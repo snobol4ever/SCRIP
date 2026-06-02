@@ -311,7 +311,7 @@ void rt_nv_set(const char *name)
     STACKLESS_ABORT("rt_nv_set");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_sno_assign_lit_s(const char *name, const char *str)
+void rt_nv_assign_str(const char *name, const char *str)
 {
     DESCR_t d;
     d.v    = DT_S;
@@ -320,9 +320,9 @@ void rt_sno_assign_lit_s(const char *name, const char *str)
     NV_SET_fn(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SBL-M3-ARITH (2026-05-31): integer analog of rt_sno_assign_lit_s. The stackless RO-int binop box (GZ-3 bb_binop.cpp) computed its raw int64 result into a ζ-frame slot; the SNOBOL4 assign box reads that slot by value     */
-/* and hands it here with the target name. Build a DT_I integer DESCR and store via NV_SET_fn — the same associated-variable hook (output_val) that handles OUTPUT assignment in rt_sno_assign_lit_s, so `OUTPUT = 2 + 3` prints. */
-void rt_sno_assign_int(const char *name, int64_t val)
+/* SBL-M3-ARITH (2026-05-31): integer analog of rt_nv_assign_str. The stackless RO-int binop box (GZ-3 bb_binop.cpp) computed its raw int64 result into a ζ-frame slot; the SNOBOL4 assign box reads that slot by value     */
+/* and hands it here with the target name. Build a DT_I integer DESCR and store via NV_SET_fn — the same associated-variable hook (output_val) that handles OUTPUT assignment in rt_nv_assign_str, so `OUTPUT = 2 + 3` prints. */
+void rt_nv_assign_int(const char *name, int64_t val)
 {
     DESCR_t d;
     d.v    = DT_I;
@@ -331,22 +331,22 @@ void rt_sno_assign_int(const char *name, int64_t val)
     NV_SET_fn(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SBL-M3-VAR (2026-05-31): SNOBOL4 `dst = src` where src is a bare variable reference (`OUTPUT = S`). Fully stackless — the dst and src names are RO immediates baked by the bb_sno_assign IR_VAR arm; this fetches src's value */
+/* SBL-M3-VAR (2026-05-31): SNOBOL4 `dst = src` where src is a bare variable reference (`OUTPUT = S`). Fully stackless — the dst and src names are RO immediates baked by the bb_nv_assign IR_VAR arm; this fetches src's value */
 /* via NV_GET_fn and stores it under dst via NV_SET_fn (the same associated-variable hook, so OUTPUT prints, S round-trips). VARVAL is resolved by NV_GET_fn (handles NAME indirection). NO value stack (Lon directive).        */
-void rt_sno_assign_var(const char *dst, const char *src)
+void rt_nv_assign_var(const char *dst, const char *src)
 {
     NV_SET_fn(dst ? dst : "", NV_GET_fn(src ? src : ""));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PB-0 SUBJECT phase (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). The SUBJECT byrd box (bb_sno_subject.cpp) evaluates a SNOBOL4 match statement's subject value-expr and establishes the SCANNED WHOLE: Σ (base ptr) + Δ (length). */
+/* PB-0 SUBJECT phase (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). The SUBJECT byrd box (bb_subject.cpp) evaluates a SNOBOL4 match statement's subject value-expr and establishes the SCANNED WHOLE: Σ (base ptr) + Δ (length). */
 /* SPITBOL Manual ch.18 (pattern-match algorithm): Σ/Ω are the fixed subject + bound; the cursor is set to ZERO when the match begins, so the cursor δ is owned by the matcher (PB-2 BB_MATCH), NOT this box. This helper returns */
 /* {base,len} (SysV: base in rax, len in rdx — a 16-byte two-INTEGER struct) so the box can store Σ→[r12+off] and Δ→[r12+off+8] into its ζ-frame slot. A variable subject is resolved via VARVAL_d_fn (NAME indirection +     */
-/* string slen, honoring embedded NULs); a literal subject rides on `lit` directly. g_sno_subject_dbg_* expose the loaded base+len for the PB-0 mode-3 execution probe (verify the box ran and computed the right length).      */
+/* string slen, honoring embedded NULs); a literal subject rides on `lit` directly. g_subject_dbg_* expose the loaded base+len for the PB-0 mode-3 execution probe (verify the box ran and computed the right length).      */
 extern DESCR_t VARVAL_d_fn(DESCR_t d);
 typedef struct { const char *base; long len; } rt_subj_t;
-const char *g_sno_subject_dbg_base = 0;
-long        g_sno_subject_dbg_len  = -1;
-rt_subj_t rt_sno_subject_load(const char *name, const char *lit)
+const char *g_subject_dbg_base = 0;
+long        g_subject_dbg_len  = -1;
+rt_subj_t rt_subject_load(const char *name, const char *lit)
 {
     rt_subj_t r;
     if (lit) {
@@ -363,8 +363,8 @@ rt_subj_t rt_sno_subject_load(const char *name, const char *lit)
             r.len  = (long)strlen(r.base);
         }
     }
-    g_sno_subject_dbg_base = r.base;
-    g_sno_subject_dbg_len  = r.len;
+    g_subject_dbg_base = r.base;
+    g_subject_dbg_len  = r.len;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -373,7 +373,7 @@ rt_subj_t rt_sno_subject_load(const char *name, const char *lit)
 /* position; on failure in UNANCHORED mode the starting cursor advances by one until the subject is exhausted; ANCHORED (&ANCHOR nonzero, or a leading FENCE) restricts the start to cursor 0. A null literal matches at  */
 /* cursor 0. Value-stack-FREE: a bounded scan loop over Σ — no value-stack array, no push/pop, no ring (the matcher's own scan position is the cursor δ, owned by the matcher per ch.18, NOT a value stack). On success the box */
 /* will set δ to *m_end and the matched span [*m_start,*m_end); on failure it jmps ω. Returns 1 (match) / 0 (fail). The literal bytes are extracted by the box from the built PATND_t head (kind XCHR -> STRVAL_fn).    */
-int rt_sno_match_lit(const char *subj, long subj_len, const char *lit, long lit_len, int anchored, long *m_start, long *m_end)
+int rt_match_lit(const char *subj, long subj_len, const char *lit, long lit_len, int anchored, long *m_start, long *m_end)
 {
     if (!subj) subj = "";
     if (!lit)  lit  = "";
