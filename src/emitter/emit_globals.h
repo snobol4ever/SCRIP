@@ -55,6 +55,10 @@ typedef struct {
     const char *                 bb_ls;
     const char *                 bb_rs;
     const char *                 bb_op_lbl;
+    int                          bb_lk;
+    int64_t                      bb_li;
+    int                          bb_rk;
+    int64_t                      bb_ri;
     const char *                 flat_lbl_α_body;
     const char *                 flat_lbl_β;
     const char *                 flat_lbl_α;
