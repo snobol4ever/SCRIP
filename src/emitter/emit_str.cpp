@@ -1,17 +1,16 @@
-/* emit_str.cpp — CPP return-String spike helpers.  See emit_str.h. */
 #include "emit_str.h"
 #include <cstdarg>
 #include <cstdint>
 #include <cstring>
 #include <deque>
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" {
 #include "emit_core.h"
 #include "emit_io.h"
 #include "emit.h"
 #include "emit_globals.h"
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string emit_fmt(const char * f, ...) {
     va_list ap; va_start(ap, f);
     va_list ap2; va_copy(ap2, ap);
@@ -21,16 +20,14 @@ std::string emit_fmt(const char * f, ...) {
     vsnprintf(buf.data(), buf.size(), f, ap2); va_end(ap2);
     return std::string(buf.data(), (size_t)n);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string u8(unsigned v) { char c = (char)(uint8_t)v; return std::string(&c, 1); }
 std::string u32le(uint32_t v) { char b[4] = { (char)(uint8_t)v, (char)(uint8_t)(v>>8), (char)(uint8_t)(v>>16), (char)(uint8_t)(v>>24) }; return std::string(b, 4); }
 std::string u64le(uint64_t v) { return u32le((uint32_t)v) + u32le((uint32_t)(v>>32)); }
 std::string bytes(size_t n, const char * lit) { return std::string(lit, n); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_bomb(const char * msg);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* M3-NATIVE-0 loud bomb.  bomb_intern owns message strings for the lifetime of the emitter process so */
-/* the movabs in bomb_bytes points at a pointer that never invalidates (deque never reallocates nodes).*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static const char * bomb_intern(const char * msg) {
     static std::deque<std::string> pool;
     pool.emplace_back(msg ? msg : "(no message)");
@@ -57,13 +54,9 @@ std::string bomb_bytes(const char * msg) {
          + bytes(2, "\xFF\xD0")
          + bytes(2, "\x0F\x0B");
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* bb_emit_asm_result + bb_emit_asm_result_pairs ABOLISHED 2026-06-02 (Lon directive). The offset-table /      */
-/* function-byte-counter path is gone; every BB template now returns ONE x86() concatenation with IN-BAND      */
-/* patch records (L/J/D/E/F) consumed by bb_emit_x86 in x86_asm.h, which DISCOVERS each byte position as it    */
-/* copies. See GOAL-TEMPLATE-REVAMP-RULES-DRAFT FACT RULE "bb_bin_t IS ABOLISHED".                             */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string s_1asm (const std::string & a)                                                            { return std::string(" ") + a + "\n"; }
 std::string s_2asm (const std::string & a, const std::string & b)                                     { return std::string(" ") + a + " " + b + "\n"; }
 std::string s_3asm (const std::string & a, const std::string & b, const std::string & c)              { return std::string(" ") + a + " " + b + " " + c + "\n"; }
@@ -71,7 +64,7 @@ std::string s_L1asm(const std::string & l, const std::string & a)               
 std::string s_L2asm(const std::string & l, const std::string & a, const std::string & b)              { return l + " " + a + " " + b + "\n"; }
 std::string s_directive(const std::string & line)                                                     { return line + "\n"; }
 std::string s_comment  (const std::string & line)                                                     { return line + "\n"; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_push_int2_str(long v) {
     if (v == -1) return "    iconst_m1\n";
     if (v >= 0 && v <= 5) return emit_fmt("    iconst_%ld\n", v);
@@ -156,7 +149,7 @@ std::string jvm_val_helper_str(const char * name) {
         "    ireturn\n"
         ".end method\n", name, name, name, name, name);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string gas_escape_str(const char * s) {
     std::string result = "\"";
     for (const char * cp = s ? s : ""; *cp; cp++) {
@@ -184,7 +177,7 @@ std::string js_escape_string_str(const char * s) {
     result += "\"";
     return result;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string net_escape_ldstr_str(const char * s) {
     std::string result = "    ldstr      \"";
     if (s) {
@@ -219,7 +212,7 @@ std::string net_spec_of_str() {
     return "    call       valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::Of(int32, int32)\n";
 }
 std::string net_charset_class_str(int sid, int nid, const char * tag) {
-    return net_class_hdr_str(sid, nid) + 
+    return net_class_hdr_str(sid, nid) +
            "  .field private string _chars\n" +
            "  .method public specialname rtspecialname instance void .ctor(string chars) cil managed\n  {\n" +
            "    .maxstack 3\n    ldarg.0\n    call       instance void [mscorlib]System.Object::.ctor()\n" +

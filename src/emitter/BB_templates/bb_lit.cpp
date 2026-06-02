@@ -1,4 +1,3 @@
-/* bb_lit.cpp — BB template for literal string match. Converted to return-string (ER wave). */
 #include <string>
 #include <cstring>
 #include "emit_str.h"
@@ -8,14 +7,13 @@ extern "C" {
 #include "emit.h"
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* LIT operand accessors — pure functions of g_emit (_) and the current node. No template locals. */
+/*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * lit()        { return _.op_sval ? _.op_sval : ""; }
 static inline long         litlen()     { return (long)strlen(lit()); }
 static inline const char * litlabel()   { return emit_intern_str(lit()); }
 static inline uint64_t     litaddr()    { return (uint64_t)(uintptr_t)lit(); }
 static inline uint64_t     memcmpaddr() { return (uint64_t)(uintptr_t)memcmp; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_lit_str() {
     int nid = _.nid; int sid = 0;
     if (PLATFORM_X86)
@@ -153,7 +151,7 @@ static std::string bb_lit_str() {
     if (PLATFORM_WASM) { return "          (call $bb_lit_new)\n"; }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_lit(void) {
     bb_emit_x86(bb_lit_str());
     if (MEDIUM_TEXT) g_emit_pos += 7;

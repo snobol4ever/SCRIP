@@ -1,10 +1,3 @@
-/* bb_binop_concat_slot.cpp — BB box: IR_BINOP CONCAT, both operands producer slots. GZ-11+ (Icon/Raku).
-   x86() self-encoding (template-revamp, 2026-06-02). pBB-FREE: reads ONLY g_emit. The driver
-   (emit_bb.c case IR_BINOP, concat) deposits op_sa/op_sb (operand DESCR frame offsets) + op_off (this
-   box's result DESCR slot). op_off>=0 with op_ival==BINOP_CONCAT is the driver's verdict "this is the
-   slot-concat case". Loads operand a (lo->rdi, hi->rsi) and operand b (lo->rdx, hi->rcx) from
-   [r12+slot], calls str_concat_d by value (SysV a=rdi:rsi b=rdx:rcx -> result DESCR rax:rdx), stores
-   result into [r12+off]/[+8]. Grounded in Icon ofncs.r cat / str_concat_d heap-join. */
 #include <string>
 #include <stdint.h>
 #include "emit_str.h"
@@ -18,7 +11,7 @@ extern int g_icn_flat_chain;
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot_str() {
     if (!PLATFORM_X86) return std::string();
     if (!(g_icn_flat_chain && _.op_off >= 0 && _.op_ival == BINOP_CONCAT)) return std::string();

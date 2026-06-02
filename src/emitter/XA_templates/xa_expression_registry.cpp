@@ -1,11 +1,9 @@
-/* xa_expression_registry.cpp — XA_EXPRESSION_REGISTRY: emit .data expression fn-ptr table.
-   Driver fills g_emit.xa_expr_pcs, xa_expr_str_idxs, xa_expr_count, then calls xa_dispatch. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
 #include "xa_template_common.h"
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_expression_registry_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_EXPRESSION_REGISTRY");
@@ -22,7 +20,7 @@ static std::string xa_expression_registry_str(void) {
     }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_expression_registry(void) {
     std::string s = xa_expression_registry_str();
     if (!s.empty()) emit_text_n(s.data(), s.size());

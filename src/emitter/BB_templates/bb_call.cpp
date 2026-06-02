@@ -26,8 +26,7 @@ int  bb_varslot(const char * name);
 DESCR_t rt_rk_call_arr(const char * fn, DESCR_t * args, int nargs);
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RK-EMIT-2-NEST: marshal one dval==2.0 call-arg into [r12+aoff]. */
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string rk_marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
     if (!lf) return std::string();
     if (lf->t == IR_CALL && lf->dval == 2.0) {
@@ -114,27 +113,25 @@ static std::string rk_marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int id
     }
     return s;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * bb_chain_terminal(IR_t * entry) {
     IR_t * n = entry; int guard = 0;
     while (n && n->γ && n->γ->t != IR_SUCCEED && n->γ->t != IR_FAIL && guard++ < 4096) n = n->γ;
     return n;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Recover the beta-target from the driver's queued EMIT_PAIR. */
+/*--------------------------------------------------------------------------------------------------------------------*/
 static bb_label_t * bb_call_beta_target() {
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++)
         if (g_emit.xa_bb_emit_pair_define[i] == _.lbl_β_p && g_emit.xa_bb_emit_pair_jmp[i])
             return g_emit.xa_bb_emit_pair_jmp[i];
     return _.lbl_ω_p;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn   = pBB->sval ? pBB->sval : "";
     int64_t      narg = pBB->ival;
     IR_t       * a0   = pBB->α;
-    /* RK-EMIT-2: general deterministic Raku builtin call (dval==2.0). */
     if (g_icn_flat_chain && pBB->dval == 2.0) {
         IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
         int args_ok = 1;
@@ -189,7 +186,6 @@ static std::string bb_call_str(IR_t * pBB) {
             }
         }
     }
-    /* GZ-10: flat-chain user-procedure call (dval==3.0). */
     if (g_icn_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) {
         int off = bb_slot_alloc16(pBB);
         IR_graph_t ** argblks = (IR_graph_t **)(intptr_t) pBB->counter;
@@ -217,17 +213,14 @@ static std::string bb_call_str(IR_t * pBB) {
             tail += x86_frame_store64(off, "rax");
             tail += x86_frame_store64(off + 8, "rdx");
             tail += x86_Lrec(x86_b3(0x83,0xF8,0x63));
-            /* je omega, jmp gamma, def beta, jmp beta_tgt */
             tail += x86_Lrec(x86_b2(0x0F,0x84)) + x86_Jrec(PORT_OMEGA);
             tail += x86_Lrec(x86_b1(0xE9))      + x86_Jrec(PORT_GAMMA);
-            /* beta is an internal label; define it + jmp beta_tgt */
             tail += x86_Drec(PORT_BETA);
             if (beta_tgt == _.lbl_ω_p) {
                 tail += x86("jmp", PORT_OMEGA);
             } else {
-                /* jmp to driver-supplied label via pair-loop record */
                 tail += x86_Lrec(x86_b1(0xE9));
-                tail += (char)'F'; tail += (char)(unsigned char)0; /* pair index 0 — the beta jmp */
+                tail += (char)'F'; tail += (char)(unsigned char)0;
             }
             return stage + tail;
         }
@@ -262,7 +255,6 @@ static std::string bb_call_str(IR_t * pBB) {
             return s;
         }
     }
-    /* GZ-7 flat-chain: write(E) where E is any single producer box with a slot. */
     if (g_icn_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
         int off = bb_slot_get(a0);
         if (off >= 0) {
@@ -270,7 +262,6 @@ static std::string bb_call_str(IR_t * pBB) {
             if (MEDIUM_BINARY) {
                 uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
                 std::string s;
-                /* mov rdi,[r12+off]; mov rsi,[r12+off+8]; movabs rax,fptr; call rax */
                 s += x86_Lrec(x86_b4(0x49,0x8B,0xBC,0x24)) + x86_Lrec(u32le((uint32_t)off));
                 s += x86_Lrec(x86_b4(0x49,0x8B,0xB4,0x24)) + x86_Lrec(u32le((uint32_t)(off + 8)));
                 s += x86_Lrec(x86_b2(0x48,0xB8))            + x86_Lrec(u64le(fptr));
@@ -293,7 +284,6 @@ static std::string bb_call_str(IR_t * pBB) {
             }
         }
     }
-    /* Write-of-strlit (non-flat-chain, non-slot path): legacy R-HW / GZ-1 form. */
     int is_write_strlit = (fn && !strcmp(fn, "write") && narg == 1 && a0 && a0->t == IR_LIT_S && a0->sval);
     int is_write_intexpr = (fn && !strcmp(fn, "write") && narg == 1 && a0 &&
                             (a0->t == IR_BINOP || a0->t == IR_LIT_I || a0->t == IR_TO || a0->t == IR_TO_BY || a0->t == IR_ALT || a0->t == IR_BINOP_GEN || a0->t == IR_VAR ||
@@ -447,7 +437,6 @@ static std::string bb_call_str(IR_t * pBB) {
         }
         return std::string();
     }
-    /* write(string_literal): R-HW / GZ-1 legacy path. */
     int id = bb_node_id(pBB);
     if (MEDIUM_TEXT) {
         const char * lit = a0->sval;
@@ -469,7 +458,6 @@ static std::string bb_call_str(IR_t * pBB) {
         uint32_t    slen = (uint32_t)strlen(lit);
         uint64_t    fptr; { void (*fp)(const char *, uint32_t) = rt_write_str_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
         bb_label_t * beta_tgt = bb_call_beta_target();
-        /* GZ-1 R-HW-2: RO string sealed in-blob, [rip+27] load. */
         std::string s;
         s += x86_Lrec(x86_b3(0x48,0x8D,0x3D)) + x86_Lrec(u32le(27u));
         s += x86_Lrec(x86_b1(0xBE))            + x86_Lrec(u32le(slen));
@@ -484,5 +472,5 @@ static std::string bb_call_str(IR_t * pBB) {
     }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_call(IR_t * pBB) { bb_emit_x86(bb_call_str(pBB)); }

@@ -9,7 +9,7 @@ GeneratorState *generator_state_new_proc(int pi, DESCR_t *args, int nargs)
                     "this language has not crossed onto Byrd Boxes. Aborting.\n");
     abort();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int bb_broker_drive_sm_one(GeneratorState *gs, DESCR_t *out)
 {
     (void)gs; (void)out;

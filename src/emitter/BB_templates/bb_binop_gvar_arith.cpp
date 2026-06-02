@@ -1,10 +1,3 @@
-/* bb_binop_gvar_arith.cpp — BB box: IR_BINOP integer arithmetic for the global variable (gvar) flat-chain.
-   SNOBOL4 `OUTPUT = 2 + 3` path. x86() self-encoding (template-revamp). pBB-FREE: reads ONLY g_emit
-   (FACT RULE). The driver deposits op_sa=lhs_ival, op_sb=rhs_ival (literal int32 values, NOT frame
-   slot offsets), op_ival=op-code, op_off=8-byte ζ-slot for the raw int64 result. The consuming
-   bb_gvar_assign int-binop arm reads [r12+op_off] (8 bytes) and calls rt_gvar_assign_int(name, val).
-   SPITBOL semantics (manual ch.3): integer add/sub/mul/div/mod; div truncates toward zero.
-   Guard: g_gvar_flat_chain && op_off>=0. op_sa/op_sb are immediates, not slot offsets. */
 #include <string>
 #include <stdint.h>
 #include "emit_str.h"
@@ -16,7 +9,7 @@ extern "C" {
 extern int g_gvar_flat_chain;
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_gvar_arith_str() {
     if (!PLATFORM_X86) return std::string();
     if (!(g_gvar_flat_chain && _.op_off >= 0)) return std::string();

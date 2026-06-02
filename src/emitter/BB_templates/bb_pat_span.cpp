@@ -1,13 +1,3 @@
-/* bb_pat_span.cpp — BB template for SPAN. x86() self-encoding (template-revamp, 2026-06-01, Opus 4.8).
-   SPAN(S) matches ONE OR MORE subject chars drawn from the set S, longest possible (SPITBOL Manual ch.18:
-   "SPAN must match at least one subject character, and will match the longest subject string possible"); on β
-   it gives back one char at a time and fails once it would drop below 1. REG-4 registers: subject base Σ=R13,
-   cursor δ=R14d, length Δ=R15d (established by BB_MATCH α per REG-0). The two match-state scalars are now ζ-frame
-   slots (PER-BOX LOCAL STORAGE / NO-VALUE-STACK FACT RULES): z = matched length @ [r12+off], zo = origin δ for the
-   β undo @ [r12+off+4] — claimed by bb_slot_claim(16), reached register-relative so BINARY==TEXT (the old process-
-   global deque + movabs, and the rip-rel .data, are both GONE). strchr(cs,ch)!=NULL ⇒ char in set; r10 is SysV
-   caller-saved so push/pop around the call (r13/r14/r15 are callee-saved and survive). Internal labels: loop=L(0),
-   done=L(1) — non-port targets resolved by the bb_emit_x86 walker. x86 arm: ONE return, pure x86() concat. */
 #include <string>
 #include <cstring>
 #include <cstdint>
@@ -19,53 +9,53 @@ extern "C" {
 int bb_slot_claim(int bytes);
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * cset_chars() { return _.op_sval ? _.op_sval : ""; }
 static inline const char * cset_label() { return emit_intern_str(cset_chars()); }
 static inline uint64_t     cset_addr()  { return (uint64_t)(uintptr_t)(const void *)cset_chars(); }
 static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
 static inline int          zoff()  { return _.x86_scratch_off; }
 static inline int          zooff() { return _.x86_scratch_off + 4; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_span_str() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    s_1asm(std::string(_.lbl_α) + ":")
                  + s_comment("# BOX SPAN()  [REG-4 Σ=r13 δ=r14 Δ=r15, ζ-frame z/zo, x86() self-encoding]"))
-             + x86("mov",    FR(zoff()), (long)0)                       /* z = 0                 */
-             + x86("def",    L(0))                                      /* loop:                 */
-             + x86("mov",    "eax", "r14d")                             /* eax = δ               */
-             + x86("add",    "eax", FR(zoff()))                         /* eax = δ + z           */
-             + x86("cmp",    "eax", "r15d")                             /* (δ+z) vs Δ            */
-             + x86("jge",    L(1))                                      /* >= Δ → done           */
+             + x86("mov",    FR(zoff()), (long)0)
+             + x86("def",    L(0))
+             + x86("mov",    "eax", "r14d")
+             + x86("add",    "eax", FR(zoff()))
+             + x86("cmp",    "eax", "r15d")
+             + x86("jge",    L(1))
              + x86("movsxd", "rcx", "eax")
-             + x86("movzx",  "esi", "[r13+rcx]")                        /* Σ[δ+z]                */
+             + x86("movzx",  "esi", "[r13+rcx]")
              + x86("lea",    "rdi", "[rip + __]", cset_addr(), cset_label())
              + x86("push",   "r10")
              + x86("call",   "strchr", strchr_ptr())
              + x86("pop",    "r10")
              + x86("test",   "rax", "rax")
-             + x86("je",     L(1))                                      /* not in set → done     */
-             + x86("add",    FR(zoff()), (long)1)                       /* z += 1                */
-             + x86("jmp",    L(0))                                      /* loop                  */
-             + x86("def",    L(1))                                      /* done:                 */
-             + x86("mov",    "eax", FR(zoff()))                         /* eax = z               */
+             + x86("je",     L(1))
+             + x86("add",    FR(zoff()), (long)1)
+             + x86("jmp",    L(0))
+             + x86("def",    L(1))
+             + x86("mov",    "eax", FR(zoff()))
              + x86("test",   "eax", "eax")
-             + x86("jle",    PORT_OMEGA)                                /* z == 0 → fail (≥1)    */
-             + x86("mov",    "edx", "r14d")                             /* edx = δ               */
-             + x86("mov",    FR(zooff()), "edx")                        /* zo = δ (origin)       */
-             + x86("add",    "edx", "eax")                              /* edx = δ + z           */
-             + x86("mov",    "r14d", "edx")                             /* δ = δ + z             */
+             + x86("jle",    PORT_OMEGA)
+             + x86("mov",    "edx", "r14d")
+             + x86("mov",    FR(zooff()), "edx")
+             + x86("add",    "edx", "eax")
+             + x86("mov",    "r14d", "edx")
              + x86("jmp",    PORT_GAMMA)
-             + x86("def",    PORT_BETA)                                 /* β:                    */
-             + x86("mov",    "eax", FR(zoff()))                         /* eax = z               */
-             + x86("sub",    "eax", (long)1)                            /* eax = z − 1           */
-             + x86("cmp",    "eax", (long)1)                            /* (z−1) vs 1            */
-             + x86("jl",     PORT_OMEGA)                                /* z−1 < 1 → fail        */
-             + x86("mov",    FR(zoff()), "eax")                         /* z = z − 1             */
-             + x86("mov",    "edx", FR(zooff()))                        /* edx = zo              */
-             + x86("add",    "edx", "eax")                              /* edx = zo + (z−1)      */
-             + x86("mov",    "r14d", "edx")                             /* δ = zo + (z−1)        */
+             + x86("def",    PORT_BETA)
+             + x86("mov",    "eax", FR(zoff()))
+             + x86("sub",    "eax", (long)1)
+             + x86("cmp",    "eax", (long)1)
+             + x86("jl",     PORT_OMEGA)
+             + x86("mov",    FR(zoff()), "eax")
+             + x86("mov",    "edx", FR(zooff()))
+             + x86("add",    "edx", "eax")
+             + x86("mov",    "r14d", "edx")
              + x86("jmp",    PORT_GAMMA);
     }
     if (PLATFORM_JVM) {
@@ -189,9 +179,9 @@ static std::string bb_pat_span_str() {
     if (PLATFORM_WASM) { return "          (call $bb_span_new)\n"; }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_pat_span(void) {
-    x86_begin();                                    /* TEXT: per-box uid for .Lx<uid>_<n> internal labels */
-    _.x86_scratch_off = bb_slot_claim(16);          /* z @ [r12+off], zo @ [r12+off+4]                     */
+    x86_begin();
+    _.x86_scratch_off = bb_slot_claim(16);
     bb_emit_x86(bb_pat_span_str());
 }

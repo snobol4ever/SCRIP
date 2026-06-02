@@ -58,11 +58,6 @@ const char *child_cache_get_lbl(bb_box_fn fn);
 #define FLAT_BUF_MAX  (256 * 1024)
 int g_flat_node_id   = 0;
 static int g_flat_slot_count = 0;
-/* GZ-3 (GROUND ZERO 3) node->slot-offset map. A box that produces a READ-WRITE result (e.g. the     */
-/* stackless integer binop) claims a per-sequence frame slot via bb_slot_alloc and records it keyed by */
-/* its IR_t*; a consumer box (write reading the binop's result) recovers the offset via bb_slot_get on */
-/* its operand node. Both live in the ONE-REGISTER FRAME addressed by ζ=r12 ([r12+off]). Reset per     */
-/* sequence alongside g_flat_slot_count in bb_build_flat/bb_build_brokered.                             */
 #define BB_SLOTMAP_MAX 512
 static struct { IR_t *key; int off; } g_bb_slotmap[BB_SLOTMAP_MAX];
 static int g_bb_slotmap_n = 0;
@@ -82,23 +77,13 @@ int bb_slot_get(IR_t *nd) {
     for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
     return -1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Node-free per-sequence frame claim. A box whose RW slot is PRIVATE (no consumer recovers it by node */
-/* key — e.g. a pattern element's own match-state counter) claims `bytes` of the ζ=r12 frame and gets  */
-/* the offset, without entering the node-keyed slotmap. Same per-sequence counter as bb_slot_alloc, so */
-/* offsets never collide; this keeps the box pBB-free (no IR_t* needed to allocate private scratch).   */
+/*--------------------------------------------------------------------------------------------------------------------*/
 int bb_slot_claim(int bytes) {
     int off = g_flat_slot_count;
     g_flat_slot_count += bytes;
     return off;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GZ-7 (GROUND ZERO 3) named-variable slot map. An Icon variable `x` is a NAMED storage location — the   */
-/* x86 analog of test_sno_1.c's named box slots (`str_t POS0; ... seq = cat(seq, POS0)`). All references  */
-/* to the SAME variable name resolve to ONE per-sequence frame slot [r12+off]: IR_ASSIGN(x) writes it,    */
-/* IR_VAR(x) reads it. Keyed by name (not node ptr) precisely because distinct ASSIGN and VAR nodes must  */
-/* share the slot. Lives in the SAME ζ=r12 frame as bb_slot_alloc's anonymous box slots; reset per        */
-/* sequence alongside g_flat_slot_count. NO value stack, NO ring — the variable IS its slot.              */
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define BB_VARSLOT_MAX 256
 static struct { const char *name; int off; } g_bb_varslot[BB_VARSLOT_MAX];
 static int g_bb_varslot_n = 0;
@@ -117,19 +102,9 @@ int bb_varslot_peek(const char *name) {
         if (g_bb_varslot[i].name && strcmp(g_bb_varslot[i].name, name) == 0) return g_bb_varslot[i].off;
     return -1;
 }
-/* GZ-7 flat-chain mode flag. When set (Icon multi-statement / variable-bearing graph emitted as a flat   */
-/* goto-graph via icn_flat_chain_build), the per-box templates take their STACKLESS SLOT-LEAF arm: each   */
-/* box reads its operands from the producer box's slot (bb_slot_get) or a named variable slot (bb_varslot */
-/* _peek), computes, and writes its own result slot — exactly the test_sno_1.c named-slot model. Boxes    */
-/* are NEVER re-walked for operands (postfix order guarantees operands precede consumers in the chain).   */
 int g_icn_flat_chain = 0;
-int g_gvar_flat_chain = 0;  /* SBL-M3-CHAIN: SNOBOL4 flat-chain emit active — IR_VAR is a by-name pass-through (value read in bb_gvar_assign_var) */
+int g_gvar_flat_chain = 0;
 int g_frame_active = 0;
-/* PB-RB-3 BB_MATCH (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01). Cross-box emit-time values   */
-/* threaded from the SUBJECT box (g_subject_slot — its ζ-frame slot offset, set when bb_subject emits  */
-/* and read when bb_match emits, same flat sequence) and from flat_drive_match (the inline element     */
-/* entry label + the match_advance handler label the template jumps to / defines). NOT a g_emit ABI change —   */
-/* SNOBOL-lane dedicated globals (mirror the bb_child_lbl idiom).                                              */
 int                 g_subject_slot       = -1;
 const char *        g_match_elem_lbl     = NULL;
 const char *        g_match_advance_lbl  = NULL;
@@ -147,20 +122,20 @@ static bb_box_fn child_cache_get(IR_t *p) {
     for (int i = 0; i < g_child_cache_n; i++) if (g_child_cache[i].key == p) return g_child_cache[i].fn;
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 const char *child_cache_get_lbl(bb_box_fn fn) {
     for (int i = 0; i < g_child_cache_n; i++) if (g_child_cache[i].fn == fn && g_child_cache[i].text_lbl[0]) return g_child_cache[i].text_lbl;
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void child_cache_put(IR_t *p, bb_box_fn fn) {
     if (g_child_cache_n < CHILD_CACHE_MAX) { g_child_cache[g_child_cache_n].key = p; g_child_cache[g_child_cache_n].fn = fn; g_child_cache[g_child_cache_n].text_lbl[0] = '\0'; g_child_cache_n++; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void child_cache_set_lbl(bb_box_fn fn, const char *lbl) {
     for (int i = 0; i < g_child_cache_n; i++) if (g_child_cache[i].fn == fn) { snprintf(g_child_cache[i].text_lbl, 80, "%s", lbl ? lbl : ""); return; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int    g_flat_data_any    = 0;
 static int    g_flat_data_just_closed = 0;
 static char   g_flat_data_pending_lbl[160] = "";
@@ -174,7 +149,7 @@ void data_buf_reset(void) {
     g_flat_data_block_nlbls = 0;
     g_flat_data_pending_lbl[0] = '\0';
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_appendf(const char *fmt, ...) {
     if (g_flat_data_len >= FLAT_DATA_BUF_MAX) return;
     va_list ap;
@@ -186,7 +161,7 @@ static void data_buf_appendf(const char *fmt, ...) {
         g_flat_data_len += ((size_t)n < left) ? (size_t)n : left;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_three_col(const char *lbl, const char *act, const char *got) {
     const char *L = lbl ? lbl : "";
     const char *A = act ? act : "";
@@ -201,19 +176,19 @@ static void data_buf_three_col(const char *lbl, const char *act, const char *got
     if (*G) { o += snprintf(line+o, sizeof(line)-o, "%s%s", first?"":" ", G); }
     data_buf_appendf("%s\n", line);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_pend_label(const char *name) {
     if (g_flat_data_pending_lbl[0])
         data_buf_appendf("%s\n", g_flat_data_pending_lbl);
     snprintf(g_flat_data_pending_lbl, sizeof(g_flat_data_pending_lbl), "%s:", name ? name : "");
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void data_buf_flush_pending_label(void) {
     if (!g_flat_data_pending_lbl[0]) return;
     data_buf_appendf("%s\n", g_flat_data_pending_lbl);
     g_flat_data_pending_lbl[0] = '\0';
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void lower_flat_set_cap_fixup(void (*cb)(void *cap_ptr, const char *child_α_label)) { g_cap_fixup_cb = cb; }
 #define SYM_SIGMA   "\xCE\xA3"
 #define SYM_SIGLEN  "\xCE\xA3""len"
@@ -226,13 +201,13 @@ void lower_flat_set_intern_str(const char *(*fn)(const char *)) { g_flat_intern_
 const char *emit_intern_str(const char *s) {
     return (g_flat_intern_str && g_is_text) ? g_flat_intern_str(s) : NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_remember_label(const char *name) {
     if (g_flat_data_block_nlbls >= FLAT_DATA_LBL_MAX) return;
     snprintf(g_flat_data_block_lbls[g_flat_data_block_nlbls], sizeof(g_flat_data_block_lbls[0]), "%s", name ? name : "");
     g_flat_data_block_nlbls++;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_emit_block_comment(void) { g_flat_data_block_nlbls = 0; }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 static void icn_chain_operand_refs(IR_t *entry);
@@ -245,7 +220,7 @@ static void bb_fill_alpha(IR_t *nd) {
     g_emit.lbl_α   = a->name;
     g_emit.lbl_α_p = a;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define FILL(nd,s,f,b) do { \
     bb_fill_alpha(nd); \
     g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
@@ -311,7 +286,7 @@ static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     EMIT_PAIR_DEF_JMP(xcat_ω, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int id = g_flat_node_id++;
     int nc = pBB ? bb_pat_nkids(pBB) : 0;
@@ -335,7 +310,7 @@ static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     EMIT_PAIR_DEF_JMP(lbl_β, ci_βs[0]);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || bb_pat_nkids(pBB) == 0) {
         EMIT_PAIR_RESET();
@@ -354,7 +329,7 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int resolve_seq_goals_em(const IR_t *nd, IR_t **out, int max) {
     if (!nd || nd->t != IR_GCONJ) return 0;
     bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)nd->ival;
@@ -363,21 +338,17 @@ int resolve_seq_goals_em(const IR_t *nd, IR_t **out, int max) {
     for (int i = 0; i < k; i++) out[i] = zs->goals[i];
     return k;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
     if (!nd || nd->t != IR_CHOICE) return 0;
     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)nd->ival;
     if (!zc || !zc->bodies) return 0;
     int k = zc->nbodies < max ? zc->nbodies : max;
-    /* PLG-9d-bt: enter each clause at its body_root (the body's top GCONJ) so a multi-goal clause body    */
-    /* emits ALL its goals; ->entry is only the first goal's α (walking it alone under-emits). For a       */
-    /* single-element fact body, body_root is a GCONJ(n=1) whose sole goal is that element -> byte-        */
-    /* identical to the prior ->entry walk. Fall back to ->entry if body_root was never recorded.          */
     for (int i = 0; i < k; i++)
         out[i] = zc->bodies[i] ? (zc->bodies[i]->body_root ? zc->bodies[i]->body_root : zc->bodies[i]->entry) : NULL;
     return k;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_pl_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *goals[256];
     int n = pBB ? resolve_seq_goals_em(pBB, goals, 256) : 0;
@@ -411,11 +382,11 @@ static void flat_drive_pl_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     EMIT_PAIR_DEF_JMP(lbl_β, eff_β[n-1]);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const char *suffix) {
     snprintf(dst, dsz, ".Lplch%d_c%d_%s", id, ci, suffix);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_pl_choice(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *bodies[256];
     int n = pBB ? resolve_choice_bodies_em(pBB, bodies, 256) : 0;
@@ -443,14 +414,8 @@ static void flat_drive_pl_choice(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     }
     (void)exit_γ_lbl;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_pl_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* PLG-9d-bt: a Prolog `;` disjunction's arms (their PRINCIPAL nodes) live in the operand_aux sidecar  */
-    /* of the owning graph — NOT in pBB->α/β (the old read saw only one arm and silently dropped the rest).*/
-    /* Walk each arm principal via walk_bb_flat (a conjunction arm's GCONJ -> flat_drive_pl_seq expands    */
-    /* its goals). Arm i's success flows to lbl_γ (the disjunction's continuation); arm i's failure flows   */
-    /* to the NEXT arm's `pre` (the bb_disj template's pre does rt_pl_trail_unwind_top then jmps that arm's */
-    /* body), the last arm's failure to lbl_ω. The α/pre/β scaffold + trail mark is emitted by bb_disj.     */
     int n = 0;
     IR_t * const * arms = pBB ? bb_operand_aux_get(g_emit_cfg, pBB, &n) : NULL;
     if (!arms || n <= 0) { EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return; }
@@ -475,7 +440,7 @@ static void flat_drive_pl_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
         walk_bb_flat(arms[i], lbl_γ, bi_ω, cβ[i]);
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int resolve_ite_entries_em(const IR_t *nd, IR_t **out_cond, IR_t **out_then, IR_t **out_else) {
     if (!nd || nd->t != IR_ITE) return 0;
     bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)nd->ival;
@@ -485,25 +450,17 @@ static int resolve_ite_entries_em(const IR_t *nd, IR_t **out_cond, IR_t **out_th
     if (out_else) *out_else = zi->else_;
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PLG-9f (2026-06-01): a branch of an ITE is walked by its PRINCIPAL (wrapper) node, not its entry[0]. For a  */
-/* multi-goal branch (a `,`-spine lowered via wire_seq) the principal is the IR_GCONJ wrapper that walk_bb_flat */
-/* dispatches to flat_drive_pl_seq, expanding every goal; entry[0] is only the first goal, so walking it alone  */
-/* dropped g2..gn (the bug). For a single-goal branch principal==entry, so this is a no-op there. The branch    */
-/* root is preferred only when it is a driver-owned kind (IR_GCONJ) whose dispatch needs the wrapper; otherwise */
-/* the entry node is the correct walk start (its FILL emits the single box). Falls back to entry if root NULL.  */
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t *ite_branch_walk_node(IR_t *entry, IR_t *root) {
     if (root && bb_kind_is_driver_owned(root->t)) return root;
     return entry;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_pl_ite(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *cond = NULL, *thn = NULL, *els = NULL;
     if (!resolve_ite_entries_em(pBB, &cond, &thn, &els) || !cond) {
         EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return;
     }
-    /* PLG-9f: prefer the branch PRINCIPAL (wrapper) node over entry[0] for cond/then/else, so a multi-goal    */
-    /* branch (IR_GCONJ) dispatches to flat_drive_pl_seq and emits every goal. Single-goal branch -> no-op.    */
     bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)pBB->ival;
     IR_t *cond_w = ite_branch_walk_node(cond, zi ? zi->cond_root : NULL);
     IR_t *thn_w  = ite_branch_walk_node(thn,  zi ? zi->then_root : NULL);
@@ -523,7 +480,7 @@ static void flat_drive_pl_ite(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void resolve_call_block_label(char *dst, size_t dsz, const char *name, int arity) {
     char san[128]; size_t j = 0;
     size_t namelen = 0;
@@ -535,7 +492,7 @@ void resolve_call_block_label(char *dst, size_t dsz, const char *name, int arity
     san[j] = '\0';
     snprintf(dst, dsz, ".Lplpred_%s_%d", san, arity);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void sub_label(char *dst, size_t dsz, const char *name) {
     char san[128]; size_t j = 0;
     for (size_t i = 0; name && name[i] && j + 1 < sizeof san; i++) {
@@ -545,18 +502,18 @@ void sub_label(char *dst, size_t dsz, const char *name) {
     san[j] = '\0';
     snprintf(dst, dsz, ".Lrksub_%s", san);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int resolve_emit_callee_block_body(const char *name, int arity, bb_label_t *bγ, bb_label_t *bω, bb_label_t *bβ) {
     IR_t *pentry = resolve_bb_entry_node(name, arity);
     if (!pentry) return 0;
     walk_bb_flat(pentry, bγ, bω, bβ);
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int bb_kind_is_driver_owned(int t) {
     return t == IR_PAT_CAT || t == IR_PAT_ALT || t == IR_PAT_FENCE || t == IR_GCONJ;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare_capture_arbno(IR_t *nd, int imm) {
     if (!PLATFORM_X86) return;
     bb_box_fn   child_fn = (bb_box_fn)g_emit.child_fn;
@@ -610,7 +567,7 @@ void bb_prepare_capture_arbno(IR_t *nd, int imm) {
         }
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static const char *bb_intern_into(char *buf, const char *sval) {
     if (!sval) return NULL;
     const char *lbl = emit_intern_str(sval);
@@ -621,7 +578,7 @@ static const char *bb_intern_into(char *buf, const char *sval) {
     snprintf(buf, 64, "%s", lbl);
     return buf;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare_pl(IR_t *nd) {
     if (!PLATFORM_X86) return;
     g_emit.bb_ls = NULL;
@@ -663,13 +620,13 @@ void bb_prepare_pl(IR_t *nd) {
         return;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static bb_label_t *seq_node_label(IR_t **nodes, bb_label_t **lbls, int n, IR_t *tgt, bb_label_t *falloff) {
     if (!tgt) return falloff;
     for (int i = 0; i < n; i++) if (nodes[i] == tgt) return lbls[i];
     return falloff;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *first = pBB ? pBB->α : NULL;
     if (!first) {
@@ -721,7 +678,7 @@ static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     emit_label_define_bb(lbl_β);
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_binop_tree: missing α or β child\n");
@@ -729,13 +686,6 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     }
     if ((pBB->α->t == IR_LIT_I && pBB->β->t == IR_LIT_I)
         || (pBB->α->t == IR_LIT_S && pBB->β->t == IR_LIT_S && pBB->ival == BINOP_CONCAT)) {
-        /* GZ-3 (GROUND ZERO 3): both operands are READ-ONLY constants. The stackless binop box bakes their */
-        /* values as sealed RO data in its OWN blob and reads them [rip+disp] directly, computing into its  */
-        /* frame slot [r12+off]. The operands are therefore NOT walked as separate pushing boxes (there is  */
-        /* no value stack). Emit only the binop box. RK-EMIT-1 (2026-05-31): the IR_LIT_S+CONCAT case is the */
-        /* string analog — bb_binop.cpp's GZ-4 concat arm bakes both string literals inline from pBB->α/β   */
-        /* ->sval, so re-walking them here would re-emit their bb<id>_α labels (a duplicate-symbol assembler */
-        /* error, since the γ-chain already emitted each literal box once). Short-circuit it the same way.   */
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
@@ -768,7 +718,7 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int binop_operand_streams(IR_t *e) {
     if (!e) return 0;
     if (e->t == IR_ASSIGN) return binop_operand_streams(e->β);
@@ -784,7 +734,7 @@ static int binop_operand_streams(IR_t *e) {
             return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_binop_gen_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_binop_gen_tree: missing α or β child\n");
@@ -807,7 +757,7 @@ static void flat_drive_binop_gen_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t 
     EMIT_PAIR_DEF_JMP(lbl_β, rhs_β);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_call_intexpr: missing arg0\n");
@@ -824,7 +774,7 @@ static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_DEF_JMP(lbl_β, (pBB->dval == 1.0) ? lbl_ω : arg_β);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_unop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_unop: missing operand (α)\n");
@@ -839,7 +789,7 @@ static void flat_drive_unop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_list_bang(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_list_bang: missing iterable (α)\n");
@@ -852,7 +802,7 @@ static void flat_drive_list_bang(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     emit_label_define_bb(iter_done);
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->sval) {
         fprintf(stderr, "[IBB] FATAL flat_drive_field_get: IR_FIELD_GET needs α (object) and sval (field)\n");
@@ -867,7 +817,7 @@ static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β || !pBB->sval) {
         fprintf(stderr, "[IBB] FATAL flat_drive_field_set: IR_FIELD_SET needs α (object), β (rhs), sval (field)\n");
@@ -886,7 +836,7 @@ static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (pBB && pBB->α && pBB->β) {
         int id = g_flat_node_id++;
@@ -903,7 +853,7 @@ static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (pBB && pBB->α && pBB->β) {
         int id = g_flat_node_id++;
@@ -927,7 +877,7 @@ static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_initial(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         emit_label_define_bb(lbl_β);
@@ -945,7 +895,7 @@ static void flat_drive_initial(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     emit_label_define_bb(body_entry);
     walk_bb_flat(pBB->α, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         emit_label_define_bb(lbl_β);
@@ -989,7 +939,7 @@ static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     emit_label_define_bb(lbl_β);
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_limit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_limit: IR_LIMIT requires α (generator) and β (count expr)\n");
@@ -1027,7 +977,7 @@ static void flat_drive_limit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     EMIT_PAIR_JMP(gen_resume);
     bb_limit_more(pBB);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_return(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     (void)lbl_γ;
     bb_label_t *slab_exit = g_emit.flat_succ_p ? g_emit.flat_succ_p : lbl_γ;
@@ -1042,7 +992,7 @@ static void flat_drive_return(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, slab_exit, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int nargs = (int)(pBB ? pBB->ival : 0);
     IR_t *ax = pBB ? pBB->α : NULL;
@@ -1061,28 +1011,7 @@ static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GZ-10 (modes 3/4) STACKLESS Icon user-procedure call WITH ARGS. The dval==3.0 IR_CALL carries its       */
-/* arguments as ISOLATED value sub-graphs in the IR_graph_t* array on pBB->counter (lower.c TT_FNC arm),    */
-/* NOT on the γ-chain — exactly the SNOBOL4/Raku isolated-subgraph idiom. For each arg i this DRIVER walks  */
-/* that sub-graph inline as a flat chain (so each producer box is emitted ONCE and claims its own ζ=r12     */
-/* result slot via bb_slot_alloc16); the sub-graph's TERMINAL producer (the node lower_value_subgraph left  */
-/* with γ==NULL) holds the arg value in its slot. The bb_call template (dval==3.0 arm) then reads each      */
-/* terminal-producer slot and emits `mov edi,i; mov rsi,[r12+slot]; mov rdx,[r12+slot+8]; call             */
-/* rt_icn_arg_stage` before the rt_icn_call_proc_descr call — NO value stack, NO ring (the staging buffer   */
-/* g_icn_call_args is a transient single-call vector consumed by the helper on entry, the no-value-stack    */
-/* FACT RULE's permitted per-activation marshalling). Each arg sub-graph runs bounded: its success falls    */
-/* through to the next arg (arg_done chaining, like flat_drive_call_userproc), its failure routes to lbl_ω  */
-/* (a failing argument fails the whole call — jcon ir_a_Call's L[1].ir.failure -> p.ir.failure).            */
-/* GZ-10 (modes 3/4): emit ONE Icon argument value sub-graph as a complete inline flat chain. The arg      */
-/* sub-graph (lower_value_subgraph) is a postfix γ-chain of producer boxes terminating in a node with      */
-/* γ==NULL (its slot is the arg's value). walk_bb_flat on a single node only emits THAT node, so a          */
-/* multi-node arg like `n - 1` (VAR→LIT→BINOP) needs the SAME BFS-over-(γ + BINOP.ω) chain walk            */
-/* codegen_flat_chain_body uses for a proc body — every box emitted once, wired by its native γ/ω ports,    */
-/* each operand/consumer reading the producer's ζ slot. succ = where the chain's value flows when done      */
-/* (the next arg's entry, or the call box); fail = lbl_ω (a failing argument fails the whole call, jcon     */
-/* ir_a_Call L[1].ir.failure -> p.ir.failure). The caller runs icn_chain_operand_refs(entry) first so the   */
-/* binop/relop operand refs (α/β) are set before this walk allocates and reads their slots.                 */
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
@@ -1136,7 +1065,7 @@ static void flat_drive_icn_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int gen_bb_is_gen_arg(IR_t *e) {
     if (!e) return 0;
     if (e->t == IR_ASSIGN) return gen_bb_is_gen_arg(e->β);
@@ -1149,7 +1078,7 @@ static int gen_bb_is_gen_arg(IR_t *e) {
         default: return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int call_args_single_shot(IR_t *pBB) {
     int nargs = (int)(pBB ? pBB->ival : 0);
     IR_t *ax = pBB ? pBB->α : NULL;
@@ -1157,7 +1086,7 @@ static int call_args_single_shot(IR_t *pBB) {
         if (gen_bb_is_gen_arg(ax)) return 0;
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int nargs = (int)(pBB ? pBB->ival : 0);
     IR_t *ax = pBB ? pBB->α : NULL;
@@ -1176,21 +1105,14 @@ static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_gvar_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* SBL-M3-STACKLESS: SNOBOL4 `name = 'literal'` — single-shot bounded, NO value stack. The rhs literal
-       and target name are baked as RO immediates inside bb_gvar_assign (reached via emit_core IR_ASSIGN
-       branch when α==IR_LIT_S); no operand subtree to walk, β = jmp ω. */
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* SBL-M3-ARITH (2026-05-31): SNOBOL4 `name = lit op lit`. Mirrors flat_drive_call_intexpr: walk the rhs
-       binop FIRST (it allocates its ζ-frame result slot via bb_slot_alloc during emission), then emit the
-       assign box, which recovers the slot offset via bb_slot_get(rhs) and reads [r12+off]. Bounded single-
-       shot, NO value stack. β of the assign jumps ω (an assign does not resume). */
     if (!pBB || !pBB->α || pBB->α->t != IR_BINOP) {
         fprintf(stderr, "[SBB] FATAL flat_drive_gvar_assign_binop: rhs is not IR_BINOP\n");
         abort();
@@ -1204,40 +1126,20 @@ static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* SBL-M3-SCAN (2026-05-31): SNOBOL4 pattern-match statement — single-shot bounded, NO value stack. The
-       subject name, replacement literal, and pattern sub-graph pointer are baked as RO immediates inside
-       bb_scan_stmt (reached via emit_core IR_SCAN branch); the box tests rt_scan_exec's result and jmps
-       γ (match) or ω (fail). No operand subtree to walk here (the replacement/subject literal are folded
-       onto pBB->α and consumed inside the box); β = jmp ω. */
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* PB-0 SUBJECT phase (GOAL-SNOBOL4-BB SBL-PAT-BB, 2026-05-31). SNOBOL4 match-statement SUBJECT box —
-       single-shot bounded, NO value stack. The subject variable name OR literal is baked RO inside
-       bb_subject (reached via the emit_core IR_SUBJECT branch); the box calls rt_subject_load and
-       stores Σ (base) / Δ (length) into its ζ-frame slot, then jmps γ (loaded) / ω. No operand subtree to
-       walk (the subject value-expr rides on pBB->α and is consumed inside the box); β = jmp ω — same shape
-       as flat_drive_scan_stmt. */
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* PB-RB-1 REF_INVARIANT (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01). The box loads a
-       SEALED element bb_box_fn head (the EXISTING IR_PAT_LIT matcher box for an invariant literal — referenced
-       via operand_aux per the PEERS RULE) into its ζ-frame slot, then jmps γ. NO runtime construction (Fork
-       A/E): the sealed-head address is an emit-time constant (movabs in BINARY / [rip+disp] in TEXT). No
-       operand subtree to control-thread (the sealed element is referenced, not run, here — running is PB-RB-3
-       BB_MATCH); β = jmp ω — same bounded single-shot shape as flat_drive_subject. The sealed child was
-       emitted once by pre_build_children / pre_build_children_text (keyed in the child cache); resolve it via
-       operand_aux (NOT bb_pat_kid) and hand its head to the box through g_emit.child_fn (BINARY fn ptr) /
-       g_emit.bb_child_lbl (TEXT α-label). */
     int n_aux = 0;
     IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
     IR_t *ch = (n_aux > 0 && aux) ? aux[0] : NULL;
@@ -1249,16 +1151,8 @@ static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* PB-RB-3 BB_MATCH phase 3 (GOAL-SNOBOL4-BB CORRECTED PATTERN ARCHITECTURE, 2026-06-01, Opus 4.8). The
-       MATCH box DRIVES the pattern element graph over Σ/δ/Δ with the SPITBOL Manual ch.18 unanchored OUTER
-       start-loop. INLINE-JUMP model (Lon, verbatim: "jump to box's alpha, return from box's omega") — NO
-       (ζ,int entry) C call. The element entry rides on operand_aux[0] (PEERS RULE), resolved as the inline
-       element the way flat_drive_cat inline-emits its kids. The MATCH template (bb_match) emits the
-       outer-loop prologue + retry + advance handler around a forward jmp to elem_entry; the driver then
-       defines elem_entry and inline-emits the element via walk_bb_flat: element γ -> lbl_γ (chain success),
-       element ω -> match_advance (try next start), element β -> element_β. */
     int n_aux = 0;
     IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
     IR_t *elem = (n_aux > 0 && aux) ? aux[0] : NULL;
@@ -1277,14 +1171,8 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     emit_label_define_bb(elem_entry);
     walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    /* SBL-M3-MULTISTMT (2026-05-31): the whole SNOBOL4 program as a sequence of four-port statement BBs.
-       sno_ring_to_tree (scrip.c) folded each statement into a tree root and recorded its success/failure
-       target statement index (the SPITBOL :S/:F/:(L) goto field). Here we allocate one label per statement,
-       then emit each statement's body threading its γ→succ-statement-label and ω→fail-statement-label, so
-       both ports flow to the next statement (or a goto target) exactly as SNOBOL4 control flow requires.
-       A terminal landing (END / fall-off / RETURN) jumps to the program success label. Stackless. */
     sno_prog_t *prog = (sno_prog_t *)(intptr_t)pBB->ival;
     if (!prog || prog->n <= 0) {
         EMIT_PAIR_RESET();
@@ -1310,7 +1198,6 @@ static void flat_drive_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
             continue;
         }
         if (!st->root) {
-            /* pass-through / bare goto: transfer directly to the target statement label. */
             bb_label_t *t = (st->succ_idx >= 0 && st->succ_idx < n) ? slbl[st->succ_idx] : lbl_γ;
             emit_jmp_label(t, JMP_JMP);
             continue;
@@ -1322,7 +1209,7 @@ static void flat_drive_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     emit_label_define_bb(lbl_β);
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_assign: missing α (lhs IR_VAR)\n");
@@ -1347,7 +1234,7 @@ static void flat_drive_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     (void)lbl_ω;
     if (!pBB || !pBB->α) {
@@ -1446,7 +1333,7 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β ||
         pBB->α->t != IR_VAR || !pBB->α->sval ||
@@ -1467,7 +1354,7 @@ static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int while_operand_simple(IR_t *o) {
     if (!o) return 0;
     switch (o->t) {
@@ -1481,12 +1368,12 @@ static int while_operand_simple(IR_t *o) {
         return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int while_cond_emittable(IR_t *cond) {
     return cond && cond->t == IR_BINOP && cond->state >= 1 &&
            while_operand_simple(cond->α) && while_operand_simple(cond->β);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_while(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α) {
         fprintf(stderr, "[IBB] FATAL flat_drive_while: missing cond (bb->α)\n");
@@ -1520,7 +1407,7 @@ static void flat_drive_while(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     emit_label_define_bb(lbl_β);
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_alt_icn(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *arms[64];
     int n = 0;
@@ -1546,7 +1433,7 @@ static void flat_drive_alt_icn(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
         walk_bb_flat(arms[i], lbl_γ, lbl_ω, arm_β[i]);
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) {
         bb_fill_alpha(nd);
@@ -1626,12 +1513,6 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_CALL: {
         IR_t *a0 = nd->α;
         if (g_icn_flat_chain) {
-            /* GZ-10 (modes 3/4): a dval==3.0 Icon user-procedure call WITH arguments needs each arg        */
-            /* sub-graph (on nd->counter) walked inline so its producer boxes are emitted and claim ζ slots */
-            /* the bb_call template then stages into g_icn_call_args before rt_icn_call_proc_descr. The      */
-            /* zero-arg case (and every non-user-proc flat-chain call: write(operand), dval==2.0 RK) keeps   */
-            /* the bare FILL — their args (if any) are leaves materialised in-template or the chain's own    */
-            /* sibling producers. rt_proc_is_registered gates strictly to a known user proc.                 */
             if (nd->dval == 3.0 && (int)nd->ival > 0 && nd->sval && rt_proc_is_registered(nd->sval))
                 flat_drive_icn_userproc(nd, lbl_γ, lbl_ω, lbl_β);
             else
@@ -1659,17 +1540,8 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                                (nd->ival >= BINOP_SLT && nd->ival <= BINOP_SNE));
         int op_is_arith = nd && (nd->ival == BINOP_ADD || nd->ival == BINOP_SUB || nd->ival == BINOP_MUL || nd->ival == BINOP_DIV || nd->ival == BINOP_MOD);
         int op_is_concat = nd && (nd->ival == BINOP_CONCAT);
-        /* TEMPLATE-REVAMP (Icon, x86() self-encoding): bb_binop_arith is pBB-free — it reads NO neighbor. */
-        /* The driver resolves the operand slots (already collected by the flat-chain BFS) and the result   */
-        /* slot HERE and deposits them as g_emit scalars; the box trusts op_off>=0 as "this is the arith     */
-        /* case" (the op-code decision lives ONLY here, not duplicated in the box). Reset to -1 covers all   */
-        /* three sub-branches so a stale positive can never make the arith box fire for a relop/concat/Raku. */
         g_emit.op_off = -1;
         if (g_gvar_flat_chain && op_is_arith && nd->α && nd->β && nd->α->t == IR_LIT_I && nd->β->t == IR_LIT_I) {
-            /* GVAR lit+lit arith: both operands are compile-time integer literals. Compute the result at    */
-            /* emit time and bake it as a sealed int64 constant; the box loads it [rip+disp] into rax and   */
-            /* stores into an 8-byte ζ-slot. op_sa = lhs ival, op_sb = rhs ival (literal holders, not slot  */
-            /* offsets), op_off = the result ζ-slot. op_ival is the op-code (already set from nd->ival).    */
             g_emit.op_sa  = (int)nd->α->ival;
             g_emit.op_sb  = (int)nd->β->ival;
             g_emit.op_off = bb_slot_alloc(nd);
@@ -1682,11 +1554,6 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 g_emit.op_sb = bb_slot_get(nd->β);
                 if (g_emit.op_sa >= 0 && g_emit.op_sb >= 0) g_emit.op_off = bb_slot_alloc16(nd);
             }
-            /* GZ-8 relop / GZ-9 arith / GZ-11+ concat: operands are sibling boxes already collected by the   */
-            /* flat-chain BFS (each wrote its own DESCR slot). Emit ONLY this box (FILL) — do NOT re-walk     */
-            /* operands via flat_drive_binop_tree, which would duplicate them with fresh slots (and in mode-4 */
-            /* TEXT double-define their bb<id>_α labels → assembler error) and clobber the slotmap. The       */
-            /* GZ-11+ slot-concat arm in bb_binop.cpp reads each operand via bb_slot_get, so FILL is correct.  */
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
@@ -1731,10 +1598,6 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PAT_MATCH:  flat_drive_match(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SNO_PROG:   flat_drive_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
-        /* GZ-10 (modes 3/4): in the flat γ-chain the return-value producer is a SIBLING box already      */
-        /* BFS-collected (its DESCR is in its own slot); RETURN.α is the postfix reference to it. FILL     */
-        /* ONLY this box (do NOT re-walk α via flat_drive_return — that double-emits with a fresh slot,    */
-        /* the GZ-8/GZ-9 pattern). bb_return reads [r12+slot(α)] and writes it to the frame's return slot. */
         if (g_icn_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
         flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1755,12 +1618,6 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_NULL_TEST:
     case IR_SIZE:
     case IR_NOT:
-        /* TEMPLATE-REVAMP (Icon, x86() self-encoding): bb_unop is pBB-free — reads NO neighbor.             */
-        /* Driver resolves operand slot and result slot HERE and deposits as g_emit scalars; the box trusts   */
-        /* op_off>=0 as "flat-chain, slots valid". The KIND discriminator is op_node_kind (promoted from      */
-        /* nd->t at the single dispatch point in walk_bb_node); the IR_UNOP mux sub-op (TT_MNS/TT_PLS) rides   */
-        /* op_ival (also re-promoted there from nd->ival). IR_NOT has no value operand (op_sa==-1); all others */
-        /* read the operand DESCR at [r12+op_sa].                                                             */
         if (g_icn_flat_chain) {
             g_emit.op_sa   = (nd->α) ? bb_slot_get(nd->α) : -1;
             g_emit.op_off  = bb_slot_alloc16(nd);
@@ -1777,12 +1634,6 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_IDX_SET:    flat_drive_idx_set(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIST_BANG:  flat_drive_list_bang(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CONJ:
-        /* RK-EMIT-1 (2026-05-31): a Raku/Icon block `{ ... }` / `e1 & e2` wrapper (wire_seq IR_CONJ). In  */
-        /* the flat chain its element boxes already ran as γ-chain nodes; the wrapper itself is a pure      */
-        /* pass-through — α -> γ (continue to whatever the lowerer wired on the wrapper's γ, i.e. the       */
-        /* statement AFTER the block), β -> ω. Without this it fell to the default (α,β -> ω), which dropped */
-        /* every statement following an `if`/block because the continuation rides the CONJ's γ port. The α  */
-        /* label is already defined by the chain BFS (or FILL elsewhere); emit only the two forwarders.     */
         emit_jmp_label(lbl_γ, JMP_JMP);
         emit_label_define_bb(lbl_β);
         emit_jmp_label(lbl_ω, JMP_JMP);
@@ -1790,9 +1641,6 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_BREAK:
     case IR_NEXT:
     case IR_REPEAT:
-        /* GZ-9 (Model B) flat-chain: pure unconditional forwarders. IR_BREAK/IR_NEXT jump to the loop  */
-        /* exit / re-entry (wired onto γ by the lowerer); IR_REPEAT jumps back to the body start (γ).   */
-        /* lbl_γ is resolved by the chain BFS from node->γ. β is a dead landing (jmp γ as well).         */
         emit_label_define_bb(lbl_β);
         emit_jmp_label(lbl_γ, JMP_JMP);
         emit_jmp_label(lbl_γ, JMP_JMP);
@@ -1804,13 +1652,8 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         break;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GZ-7 chain body: same prologue/epilogue shell as codegen_flat_body, but the body is the WHOLE Icon     */
-/* gamma-chain emitted as a flat goto-graph (every box once, wired by its native gamma/omega ports). BFS  */
-/* the reachable boxes from entry, give each a label, then emit each via walk_bb_flat with its real       */
-/* successor/failure labels resolved against the collected set (falling off to the sequence gamma/omega   */
-/* sentinels). g_icn_flat_chain is already set by the caller so the per-box slot-leaf arms fire.          */
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -1836,7 +1679,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
-    /* GZ-7 (chain-entry sentinel fix): a `local`/`static` declaration (or an empty leading statement) makes the lowerer prepend one or more IR_SUCCEED/IR_FAIL PRELUDE sentinels whose own γ threads to the real first box (`[6] IR_SUCCEED γ=5` for `local x; x:=42; write(x)`). The BFS below treats a SUCCEED/FAIL node as a chain TERMINATOR (the γ/ω sink, γ==NULL) and skips it WITHOUT following γ — correct for a sink, but if the graph ENTRY is itself such a prelude sentinel the skip dropped the entire chain (n=0 → empty body, a silent miscompile). Advance entry forward through any run of leading prelude sentinels (a sentinel WITH a non-NULL γ) to the first real box; a terminal sentinel (γ==NULL) leaves entry unchanged so a genuinely-empty body still collects nothing. */
     { int guard = 0; while (entry && (entry->t == IR_SUCCEED || entry->t == IR_FAIL) && entry->γ && guard++ < CH_MAX) entry = entry->γ; }
     queue[qt++] = entry;
     while (qh < qt) {
@@ -1848,20 +1690,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ && qt < CH_MAX) queue[qt++] = c->γ;
         if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
-        /* GZ-10 PROC-FAIL (else-branch follow): an IR_CALL to a user proc may route its ω to an else-     */
-        /* continuation (e.g. `if positive(0) then write(2) else write(3)` → IR_CALL.ω = IR_LIT_I[3]).    */
-        /* The γ-only BFS above would never collect the else node; its α label stays unresolved → the      */
-        /* FAIL-CHECK `je main_ω` hits the epilogue instead of the else branch. Follow ω for IR_CALL:      */
-        /* non-terminal ω nodes (non-SUCCEED/FAIL) become chain members with proper α labels. Terminals   */
-        /* (ω = IR_SUCCEED/IR_FAIL) are filtered at the loop's continue above — zero impact on normal calls.*/
         if (c->t == IR_CALL && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
-        /* goto-chain whose CONTINUATION (the statement after the loop, e.g. `say('done')`) hangs off the   */
-        /* generator's ω port (gen drained ⇒ for completes ⇒ run the continuation). The γ-only BFS would    */
-        /* never reach it (only IR_TO-style generators consumed by Icon's flat_drive_every wrapper, which   */
-        /* stitches its own continuation, avoid this). Following ω for the Raku-only IR_GATHER kind makes    */
-        /* the continuation a chain node so the gather box's ω-port resolves to its α label and emits it.    */
-        /* RAKU-ONLY KIND ⇒ ZERO blast radius on Icon/SNOBOL/Prolog chains (their generators are not        */
-        /* IR_GATHER). IR_MAP/IR_GREP are deliberately NOT added here — that rung is not yet built.          */
         if (c->t == IR_GATHER && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -1893,7 +1722,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise, int brokered) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -1926,7 +1755,7 @@ static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise,
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int g_in_prebuild = 0;
 static int g_text_child_counter = 0;
 static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix) {
@@ -1970,7 +1799,7 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
     if (bb_pat_nkids(nd) == 0) return;
     for (int i = 0; i < bb_pat_nkids(nd); i++) pre_build_children_text(bb_pat_kid(nd, i), out, base_prefix);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void pre_build_children(IR_t *nd) {
     if (!nd) return;
     if (nd->t == IR_REF_INVARIANT) {
@@ -1979,7 +1808,7 @@ static void pre_build_children(IR_t *nd) {
         IR_t *ch = (n_aux > 0 && aux) ? aux[0] : NULL;
         if (ch && !child_cache_get(ch)) {
             pre_build_children(ch);
-            bb_box_fn fn = bb_build_flat(ch);     /* sealed matcher element (e.g. bb_lit) — a plain four-port box, NOT brokered */
+            bb_box_fn fn = bb_build_flat(ch);
             child_cache_put(ch, fn);
         }
         return;
@@ -1996,49 +1825,17 @@ static void pre_build_children(IR_t *nd) {
     if (bb_pat_nkids(nd) == 0) return;
     for (int i = 0; i < bb_pat_nkids(nd); i++) pre_build_children(bb_pat_kid(nd, i));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GZ-7 (GROUND ZERO 3) ICON FLAT-CHAIN EMITTER. The unified lowerer emits an Icon procedure body as a    */
-/* postfix gamma-chain (operands precede their consumer; every node alpha=beta=NULL; branches diverge at  */
-/* a relop's omega and re-join). A multi-statement / variable-bearing graph (e.g. `x := 42; write(x)`) is */
-/* NOT a single expression tree, so icn_ring_to_tree (which un-flattens ONE tree) returns NULL for it.    */
-/* This builder emits the graph as a FLAT GOTO-GRAPH in the test_sno_*.c model: every box is emitted      */
-/* EXACTLY ONCE, wired by its native gamma/omega ports (jmp rel32), and every box reads its operands from  */
-/* the producer box's SLOT (bb_slot_get) or a named variable slot (bb_varslot) and writes its own result  */
-/* slot. NO value stack, NO ring (the ring is the mode-2 oracle's model only). Two passes:                 */
-/*   (1) postfix operand-ref pass — walk the gamma-chain; a stack tracks value-producing boxes; when a    */
-/*       consumer of arity k is reached, its k preceding producers are recorded on its alpha/beta as       */
-/*       OPERAND REFERENCES (so the slot-leaf template can bb_slot_get them) — the boxes are NOT re-walked.*/
-/*   (2) flat emission — BFS the chain from entry following gamma (and omega at branch nodes), assign each */
-/*       box a label, and emit each via walk_bb_flat with its real gamma/omega target labels.              */
-/* g_icn_flat_chain gates the per-box slot-leaf arms during emission.                                      */
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int icn_chain_arity(const IR_t *n) {
     switch (n->t) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: return 0;
-    /* RK-EMIT-GATHER (2026-06-01): IR_GATHER is a self-contained resumable Seq producer — its take         */
-    /* payloads live on `counter` (extracted at emit time), NOT as γ-chain operands, so from the postfix    */
-    /* operand-ref walk's view it is a LEAF producer (arity 0). Its yielded element is the chain producer    */
-    /* the following bind (IR_ASSIGN) reads from its ζ slot. Reporting >0 here would wrongly pop chain       */
-    /* producers; reporting -1 (the old default) reset the postfix stack so the consuming bind's α went     */
-    /* unset (NULL) → the bb_assign FATAL. Arity 0 makes it push itself for the bind to reference.           */
     case IR_GATHER: return 0;
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;
-    /* RK-EMIT-2 (2026-05-31): a dval==2.0 deterministic call (Raku __rk_arr / elems / __rk_jct_* / …)     */
-    /* marshals its OWN arguments from isolated value sub-graphs on `counter`; those args are NOT operands */
-    /* on the γ-chain, so from the postfix operand-ref walk's view this call is a self-contained LEAF       */
-    /* producer (arity 0). Reporting nargs here would wrongly pop that many chain producers and corrupt the */
-    /* operand references of every later consumer (e.g. the relop in `$x == any(..)`).                      */
-    /* GZ-10 (2026-06-01): the Icon dval==3.0 user-proc call is ALSO a LEAF producer (arity 0) in the flat- */
-    /* chain model — its arguments live on `counter` and are emitted as inline sub-chains by                */
-    /* flat_emit_arg_subchain, NOT as γ-chain operands. The old `(int)n->ival` here belonged to the legacy  */
-    /* value-stack flat_drive_call_userproc path (args γ-chained); under g_icn_flat_chain that path is gone, */
-    /* so reporting ival made a 1-arg call like `fact(n-1)` wrongly pop the sibling `n` off the operand      */
-    /* stack — corrupting the enclosing `n * fact(n-1)` binop's α (it resolved to a RETURN/garbage slot).   */
-    /* Both marshalled call flavours are leaves; their RESULT is the chain producer a following box reads.   */
     case IR_CALL:  return (n->dval == 2.0 || n->dval == 3.0) ? 0 : (int)n->ival;
     default:       return -1;
     }
@@ -2047,7 +1844,6 @@ static void icn_chain_operand_refs(IR_t *entry) {
     IR_t *chain[512]; int nc = 0;
     IR_t *seen[512]; int ns = 0;
     IR_t *stkv[512]; int sv = 0;
-    /* GZ-7 (chain-entry sentinel fix): mirror codegen_flat_chain_body — a `local`/`static` declaration prepends IR_SUCCEED/IR_FAIL PRELUDE sentinels whose γ threads to the real first box. This postfix operand-ref walk skips SUCCEED/FAIL (terminators) without following γ, so a sentinel ENTRY dropped the whole chain (nc=0 → no operand refs wired → IR_ASSIGN/IR_UNOP α left NULL → bb_assign/bb_unop FATAL). Advance entry past any run of leading prelude sentinels (γ non-NULL) to the first real box; a terminal sentinel (γ==NULL) is left as-is. */
     { int guard = 0; while (entry && (entry->t == IR_SUCCEED || entry->t == IR_FAIL) && entry->γ && guard++ < 512) entry = entry->γ; }
     stkv[sv++] = entry;
     while (sv > 0 && nc < 512) {
@@ -2057,14 +1853,7 @@ static void icn_chain_operand_refs(IR_t *entry) {
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
         if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && sv < 512) stkv[sv++] = c->ω;
-        /* GZ-10 PROC-FAIL: mirror the emit-BFS ω-follow for IR_CALL so the else-continuation node        */
-        /* gets its operand refs set (else-branch producers have their α/β wired here). Without this,     */
-        /* the else-branch producer node is never visited → its α stays NULL → FATAL in its template.    */
         if (c->t == IR_CALL && c->ω && sv < 512) stkv[sv++] = c->ω;
-        /* CONTINUATION (on the gather's ω) gets its operand refs (α/β) set by this postfix walk — else its */
-        /* consuming call (e.g. say('done') reading a separate IR_LIT_S producer box) has a NULL α and is   */
-        /* mis-routed to the builtin-dispatch arm. Pushed BEFORE γ (LIFO) so the loop body linearizes first */
-        /* and the continuation forms a separate trailing segment. RAKU-ONLY kind ⇒ zero peer impact.       */
         if (c->t == IR_GATHER && c->ω && sv < 512) stkv[sv++] = c->ω;
         if (c->γ && sv < 512) stkv[sv++] = c->γ;
     }
@@ -2100,8 +1889,6 @@ int icn_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return 1;
     icn_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    /* g_flat_node_id is NOT reset here — it persists across all proc slabs already emitted so main        */
-    /* gets a unique xchainN_* label range that cannot collide with any prior proc slab's labels.          */
     g_icn_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_flat_chain_body(entry, prefix);
@@ -2109,11 +1896,6 @@ int icn_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     g_icn_flat_chain = 0;
     return rc;
 }
-/* GZ-10 (modes 3/4): build a user-PROCEDURE body as a flat goto-graph slab with the stackless calling     */
-/* convention used by rt_icn_call_proc_descr — the ζ=r12 frame's [0,16) is RESERVED for the return-value   */
-/* DESCR slot (IR_RETURN writes it), and parameter i is the named-variable slot at [16*(i+1)] (pre-seeded   */
-/* here so the body's IR_VAR(param)/IR_ASSIGN(param) resolve to the same offset the helper binds the arg    */
-/* into). The proc body's own anonymous/local slots follow. Identical to icn_flat_chain_build otherwise.    */
 bb_box_fn icn_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
     if (!entry) return NULL;
     icn_chain_operand_refs(entry);
@@ -2133,18 +1915,11 @@ bb_box_fn icn_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GZ-10 mode-4 (MEDIUM_TEXT): emit a user-procedure body as a named GAS asm slab with the same stackless  */
-/* calling convention as icn_flat_chain_build_proc (BINARY). The prefix is "icn_proc_<name>" so the entry  */
-/* point is emitted as the globally-visible label "icn_proc_<name>_α:" that the startup registration stub  */
-/* (emitted by the mode-4 driver in scrip.c) calls rt_proc_set_fn(<name>, icn_proc_<name>_α) to wire.      */
-/* Frame layout is identical to BINARY: [r12+0]=return DESCR slot, [r12+16*(i+1)]=param i slot.            */
+/*--------------------------------------------------------------------------------------------------------------------*/
 int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) {
     if (!entry || !out || !pname) return 1;
     icn_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    /* NOTE: g_flat_node_id is NOT reset — it persists across all proc slabs + main so each slab gets a   */
-    /* unique xchainN_* label namespace and collisions between proc and main slabs cannot occur.           */
     g_icn_flat_chain = 1;
     g_flat_slot_count = 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
@@ -2157,46 +1932,19 @@ int icn_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FIL
     g_icn_flat_chain = 0;
     return rc;
 }
-/*====================================================================================================================================================================================================*/
-/* SBL-M3-CHAIN (2026-05-31, Opus 4.8) — SNOBOL4 FLAT-CHAIN EMITTER (PB-0 substrate; the sno_ring_to_tree   */
-/* replacement). LOWER (lower_program.c) emits a SNOBOL4 program as a four-port graph whose statements are  */
-/* threaded through IR_SUCCEED LANDING nodes (g->entry is land[0], itself an IR_SUCCEED whose .γ is the     */
-/* first statement). This builder consumes THAT graph directly — NO ring->tree adapter (banned, VIOLATION) */
-/* — emitting it as a FLAT GOTO-GRAPH in the test_sno_1.c model: every box emitted EXACTLY ONCE, wired by   */
-/* its native γ/ω ports (jmp rel32), reading operands from the producer box's slot or baking RO constants.  */
-/* NO value stack, NO ring. It differs from the Icon chain builder (icn_flat_chain_build) in two ways: (1)  */
-/* it RESOLVES landing nodes transitively — a port to an IR_SUCCEED-with-γ follows through to its target,   */
-/* so the per-statement landings are transparent; a terminal IR_SUCCEED (γ==NULL = PSUCC) maps to the       */
-/* success epilogue and IR_FAIL (PFAIL) to the failure epilogue; (2) it does NOT set g_icn_flat_chain, so   */
-/* walk_bb_flat takes the SNOBOL4 arms (IR_ASSIGN -> bb_gvar_assign, IR_SCAN -> bb_scan_stmt, ...) not the    */
-/* Icon slot-leaf arm. The operand-ref pass (sno_chain_operand_refs) is the SAME postfix-arity model as     */
-/* Icon's — it derives OPERAND REFERENCES (which producer a consumer reads), NOT topology; topology is from */
-/* LOWER. PER-BOX LOCAL STORAGE FACT RULE: every box-local read is [rip+disp] (RO) or [ζ=r12+off] (RW).     */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Resolve a port target through chained IR_SUCCEED landing nodes (each a pass-through whose .γ is the next  */
-/* real node). Stops at the first non-landing node, at a terminal IR_SUCCEED (γ==NULL = program success),   */
-/* or at IR_FAIL (program failure). Bounded guard against a malformed cyclic landing chain.                 */
+/*====================================================================================================================*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t *sno_chain_resolve(IR_t *n) {
     int guard = 0;
     while (n && n->t == IR_SUCCEED && n->γ != NULL && guard++ < 4096) n = n->γ;
     return n;
 }
 static int sno_chain_is_real(IR_t *n) { return n && n->t != IR_SUCCEED && n->t != IR_FAIL; }
-/* SNOBOL4 chain arity: a SNOBOL concat IR_SEQ/IR_SEQ_EXPR (dval==1.0) carries its two operands in ISOLATED  */
-/* sub-graphs (on counter/ival), NOT on the γ-chain, so from the chain's perspective it is a LEAF producer  */
-/* (arity 0) whose value the consuming IR_ASSIGN reads via bb_gvar_assign_concat. Everything else delegates   */
-/* to the shared icn_chain_arity.                                                                            */
 static int sno_chain_arity(const IR_t *n) {
     if (n && (n->t == IR_SEQ || n->t == IR_SEQ_EXPR) && n->dval == 1.0) return 0;
-    /* IR_SCAN consumes its single γ-predecessor: the subject value-node (plain form) or the replacement    */
-    /* value-node (repl form, subject is by-name on sval). bb_scan_stmt reads it off α. SPITBOL Manual ch.6.  */
     if (n && n->t == IR_SCAN) return 1;
     return icn_chain_arity(n);
 }
-/* Postfix operand-ref pass for ONE statement's γ-chain: starting at the statement's first real node, walk  */
-/* γ (the linear value-flow) until it exits the statement (into a landing IR_SUCCEED, a terminal, or IR_FAIL */
-/* — failure/backtrack edges are NOT value-flow), pushing value producers and recording each consumer's k    */
-/* preceding producers on its α/β. Cycle-guarded.                                                            */
 static void sno_stmt_operand_refs(IR_t *head) {
     IR_t *chain[512]; int nc = 0;
     IR_t *c = head;
@@ -2205,7 +1953,7 @@ static void sno_stmt_operand_refs(IR_t *head) {
         if (dup) break;
         chain[nc++] = c;
         IR_t *g = c->γ;
-        if (!g || g->t == IR_SUCCEED || g->t == IR_FAIL) break;   /* γ leaves the statement */
+        if (!g || g->t == IR_SUCCEED || g->t == IR_FAIL) break;
         c = g;
     }
     IR_t *stk[512]; int sp = 0;
@@ -2219,12 +1967,6 @@ static void sno_stmt_operand_refs(IR_t *head) {
         stk[sp++] = n;
     }
 }
-/* PB-RB-1: the SNOBOL flat-chain builders (sno_flat_chain_build / _text) emit the whole program graph     */
-/* directly (not via bb_build_flat). A NEW IR_REF_INVARIANT node references its sealed IR_PAT_LIT element  */
-/* via operand_aux and needs that element emitted ONCE as its own box + keyed in the child cache BEFORE the */
-/* REF box is filled. We pre-build ONLY IR_REF_INVARIANT here — the pre-existing ARBNO/capture/CALLOUT      */
-/* kinds keep their established emission-time child handling (bb_build_brokered inside their own path), so  */
-/* this addition is byte-neutral to every prior shape. pre_build_children self-guards via child_cache_get.  */
 static void sno_chain_prebuild_children(IR_graph_t *g) {
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) pre_build_children(g->all[i]);
@@ -2233,10 +1975,6 @@ static void sno_chain_prebuild_children_text(IR_graph_t *g, FILE *out, const cha
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) pre_build_children_text(g->all[i], out, prefix);
 }
-/* Run sno_stmt_operand_refs for EVERY statement in the SNOBOL4 program graph. A statement head is the       */
-/* landing-resolved γ-target of the program entry AND of each landing node (IR_SUCCEED-with-γ); deduped.     */
-/* This covers statements reachable only via a failure (ω) edge or a goto, which a γ-only walk from the      */
-/* entry would miss (then their consumer's α would be unset and flat_drive_assign would abort on emit).      */
 static void sno_chain_operand_refs(IR_graph_t *g) {
     if (!g || !g->all) return;
     IR_t *heads[2048]; int nh = 0;
@@ -2252,8 +1990,6 @@ static void sno_chain_operand_refs(IR_graph_t *g) {
     }
     for (int i = 0; i < nh; i++) sno_stmt_operand_refs(heads[i]);
 }
-/* Chain body: same prologue/epilogue shell as codegen_flat_chain_body, but the BFS and the per-node γ/ω    */
-/* target resolution both run through sno_chain_resolve so the landing nodes are transparent.               */
 static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -2282,7 +2018,7 @@ static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
     IR_t *e0 = sno_chain_resolve(entry);
     if (sno_chain_is_real(e0)) queue[qt++] = e0;
     while (qh < qt) {
-        IR_t *c = queue[qh++];           /* already resolved + real on enqueue */
+        IR_t *c = queue[qh++];
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[SBB] FATAL sno chain exceeds CH_MAX\n"); abort(); }
@@ -2301,14 +2037,14 @@ static int codegen_sno_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(lbls[i]);
-        bb_label_t *node_γ = &lbl_γ;     /* default: program success epilogue */
-        bb_label_t *node_ω = &lbl_ω;     /* default: program failure epilogue */
+        bb_label_t *node_γ = &lbl_γ;
+        bb_label_t *node_ω = &lbl_ω;
         IR_t *g = sno_chain_resolve(nodes[i]->γ);
         IR_t *w = sno_chain_resolve(nodes[i]->ω);
         if (sno_chain_is_real(g)) { for (int k = 0; k < n; k++) if (nodes[k] == g) { node_γ = lbls[k]; break; } }
-        else if (g && g->t == IR_FAIL) node_γ = &lbl_ω;     /* resolved to PFAIL */
+        else if (g && g->t == IR_FAIL) node_γ = &lbl_ω;
         if (sno_chain_is_real(w)) { for (int k = 0; k < n; k++) if (nodes[k] == w) { node_ω = lbls[k]; break; } }
-        else if (w && w->t == IR_FAIL) node_ω = &lbl_ω;     /* resolved to PFAIL */
+        else if (w && w->t == IR_FAIL) node_ω = &lbl_ω;
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
@@ -2358,7 +2094,7 @@ int sno_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     g_emit_cfg = save_cfg;
     return rc;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn bb_build_flat(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
@@ -2373,7 +2109,7 @@ bb_box_fn bb_build_flat(IR_t *nd) {
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn bb_build_brokered(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
@@ -2391,7 +2127,7 @@ bb_box_fn bb_build_brokered(IR_t *nd) {
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) {
     g_child_cache_n = 0;
     g_text_child_counter = 0;
@@ -2401,43 +2137,12 @@ int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) {
     emitter_end();
     return rc;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PLG-9d (2026-06-01) — PROLOG PREDICATE-REGISTRY TEXT EMIT. bb_goal.cpp's IR_GOAL arm calls a callee     */
-/* predicate by `call .Lplpred_<name>_<arity>` (fresh entry) and `call .Lplpred_<name>_<arity>_redo` (β    */
-/* re-entry on backtrack), then `call rt_last_ok` to learn whether the callee body reached success or      */
-/* failure. The flat-tier mode-4 arm (PLG-9a..9c) emitted only main_α; nothing defined those callee labels */
-/* (the SM_BB_PL_INVOKE callee-sweep that did so pre-Ground-Zero is severed). This emits each registered   */
-/* predicate's body as a TEXT block whose:                                                                  */
-/*   .Lplpred_<name>_<arity>:        — fresh-entry α; predecessor `call` lands here, body runs              */
-/*   .Lplpred_<name>_<arity>_redo:   — β re-entry; bb_goal.cpp `call`s this to re-drive a live CP           */
-/* and whose γ (body success) → `rt_set_last_ok(1); ret` and ω (body failure / exhausted) →                */
-/* `rt_set_last_ok(0); ret`. The body itself is walked by walk_bb_flat (the SAME dispatch the flat tier     */
-/* uses), so IR_CHOICE -> flat_drive_pl_choice, IR_GCONJ -> flat_drive_pl_seq, IR_UNIFY/IR_BUILTIN -> their */
-/* TEXT arms emit the bytes (FACT-clean: every byte still comes from a template fn via the dispatch). The   */
-/* callee runs on the SAME ζ-frame as main (rt_frame passes one frame for the whole activation chain in     */
-/* the flat model); g_frame_active is already set by the caller so the prologue does push r12/mov r12,rdi.  */
-/* The α and redo entries are distinct labels but the redo entry simply falls into the body's β path: a CP- */
-/* bearing predicate (IR_CHOICE/IR_GOAL body) re-drives via its own β; a deterministic body has no live CP  */
-/* so a redo immediately fails to ω (set_last_ok(0); ret), which bb_goal's β handles (resolve_cp_current    */
-/* NULL -> ω).                                                                                              */
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int codegen_pl_callee_block(IR_graph_t *g, const char *name, int arity, FILE *out) {
     if (!g || !g->entry || !name) return 1;
-    /* PLG-9d-bt: operand_aux is keyed by (graph, node); set g_emit_cfg to THIS callee's graph so a DISJ   */
-    /* (or any operand_aux read) inside the clause body resolves against the body that owns it.            */
     IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = g;
-    /* The clause graph's entry is the FIRST body element (e.g. the first head-unify), not the conjunction  */
-    /* wrapper — lower2_clause_body_entry returns entry[0] as α while the IR_GCONJ wraps ALL head-unifies +  */
-    /* body goals. Walking the raw entry emits ONLY the first element (its γ wired straight to γ), dropping  */
-    /* the rest (a 2-arg fact would unify only arg0). So pick the body ROOT the same way the main arm does:  */
-    /* the principal IR_GCONJ (flat_drive_pl_seq walks its goals[] in order). For an IR_CHOICE-headed pred   */
-    /* (multi-clause) the entry IS the choice node (no GCONJ wrapper); for a bare single-element body the    */
-    /* entry is that element. Choose: the GCONJ whose first goal == g->entry (the wrapper for THIS body),    */
-    /* else g->entry.                                                                                        */
     IR_t *body_root = g->entry;
     if (g->body_root) {
-        /* PLG-9d-bt: the lowerer recorded the clause-body root (the top GCONJ) on the graph. Prefer it —  */
-        /* the goals[0]==entry scan below is ambiguous when the body has a top-level disjunction (the DISJ */
-        /* and its left-arm GCONJ share goals[0]==entry), and walking the wrong one drops an arm.          */
         body_root = g->body_root;
     } else if (g->all) {
         for (int i = 0; i < g->n; i++) {
@@ -2453,7 +2158,6 @@ static int codegen_pl_callee_block(IR_graph_t *g, const char *name, int arity, F
     g_text_child_counter = 0;
     pre_build_children_text(body_root, out, blbl);
     emitter_init_text(out, TEXT_MODE_INVOCATION);
-    /* labels: the α entry (bb_goal `call`s it), the β redo entry, and the γ/ω body sinks. */
     bb_label_t *lbl_α    = emit_label_intern(blbl);
     bb_label_t *lbl_redo = emit_label_intern(redo_lbl);
     bb_label_t lbl_γ, lbl_ω, lbl_β;
@@ -2463,32 +2167,19 @@ static int codegen_pl_callee_block(IR_graph_t *g, const char *name, int arity, F
     g_emit.flat_succ_p = &lbl_γ;
     g_emit.flat_fail_p = &lbl_ω;
     g_emit.flat_β_p    = &lbl_β;
-    /* α: fresh entry. Body's α IS this label (predecessor call lands here). The body graph's entry node    */
-    /* gets its own α label from walk_bb_flat; we define .Lplpred_… right before so the call resolves.      */
     emit_label_define_bb(lbl_α);
     walk_bb_flat(body_root, &lbl_γ, &lbl_ω, &lbl_β);
-    /* redo: β re-entry. Jumps to the body's β (lbl_β, DEFINED by the walk above — the body's outermost     */
-    /* resume edge targets it), which a CP-bearing body uses to re-drive its CP; a deterministic body's β   */
-    /* chains to ω -> set_last_ok(0); ret.                                                                   */
     emit_label_define_bb(lbl_redo);
     emit_jmp_label(&lbl_β, JMP_JMP);
-    /* γ: body succeeded → rt_set_last_ok(1); ret. */
     emit_label_define_bb(&lbl_γ);
     { const char *s = "  mov edi, 1\n  call rt_set_last_ok@PLT\n  ret\n"; emit_text_n(s, strlen(s)); }
-    /* ω: body failed / exhausted → rt_set_last_ok(0); ret. */
     emit_label_define_bb(&lbl_ω);
     { const char *s = "  mov edi, 0\n  call rt_set_last_ok@PLT\n  ret\n"; emit_text_n(s, strlen(s)); }
     emitter_end();
     g_emit_cfg = save_cfg;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* codegen_pl_program — PLG-9d driver entry. Emit every registered Prolog predicate's callee block (so the */
-/* .Lplpred_<name>_<arity> labels bb_goal.cpp calls are defined), then return 0. main_α is emitted          */
-/* separately by the scrip.c arm via codegen_flat_build (unchanged from PLG-9c). Predicate iteration is the */
-/* resolve_bb_* table (resolve_bb_pred_count / _name_at / _arity_at / resolve_bb_graph_at). A predicate     */
-/* whose body has an unemittable node was already rejected by pl_rich_body_root (the caller's gate), so by  */
-/* the time we get here every block is emittable.                                                           */
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
@@ -2499,10 +2190,6 @@ int codegen_pl_program(FILE *out) {
         const char *nm = resolve_bb_pred_name_at(i);
         if (!nm) continue;
         int ar = resolve_bb_pred_arity_at(i);
-        /* main is emitted separately by the driver as main_α (the C-ABI entry); skip it here so we do not  */
-        /* also emit a redundant .Lplpred_main_0 block (nothing calls it, and it would double-walk the main */
-        /* graph). The registry stores the FULL key "name/arity" as the name, so match "main/" prefix (or   */
-        /* exact "main"). Every OTHER predicate is a callee reached via bb_goal's .Lplpred_<name>_<arity>.   */
         if (ar == 0 && (strcmp(nm, "main") == 0 || strcmp(nm, "main/0") == 0)) continue;
         IR_graph_t *pg = resolve_bb_graph_at(i);
         if (!pg) continue;
@@ -2511,16 +2198,16 @@ int codegen_pl_program(FILE *out) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_register_child_label(IR_t *nd, const char *α_label) {
     bb_box_fn fn = child_cache_get(nd);
     if (fn) child_cache_set_lbl(fn, α_label);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern bb_mode_t g_bb_mode;
 bb_box_fn bb_build_pure_mode(IR_t *nd) {
     if (g_bb_mode == BB_MODE_LIVE) return bb_build_flat(nd);
     return bb_build_brokered(nd);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void lower_flat_reset(void) { g_flat_slot_count = 0; g_flat_node_id = 0; }

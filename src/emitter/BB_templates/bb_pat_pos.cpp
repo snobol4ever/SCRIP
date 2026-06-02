@@ -1,10 +1,3 @@
-/* bb_pat_pos.cpp — BB template for POS and RPOS. x86() self-encoding (template-revamp, 2026-06-01, Opus 4.8).
-   POS(N) matches the empty string iff the cursor is at absolute position N; RPOS(N) iff the cursor is at N from
-   the right, i.e. δ == Δ − N (SPITBOL Manual ch.18). RPOS is distinguished by sval[0]=='r' per lower_pat_dcg.c
-   (TT_RPOS / XRPSI) — `ival != 0` is NOT authoritative (it misclassifies RPOS(0) and POS(N>0)). Both fail on β
-   (an anchor matches at most once). REG-3 registers: cursor δ=R14d, length Δ=R15d (ratified, established by
-   BB_MATCH α per REG-0) — the legacy [r10] cursor cell and the &Σlen movabs/rip bake are GONE (δ/Δ read straight
-   from the callee-saved regs). x86 arm: ONE return, pure x86() concat, NO bb_bin_t, medium invisible. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
@@ -12,10 +5,10 @@ extern "C" {
 #include "emit.h"
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static inline long posN()    { return (long)(int)_.op_ival; }
 static inline int  is_rpos() { return _.op_sval && _.op_sval[0] == 'r'; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_pos_str() {
     int nid = _.nid; (void)nid;
     if (PLATFORM_X86) {
@@ -24,10 +17,10 @@ static std::string bb_pat_pos_str() {
                  + s_comment(is_rpos() ? "# BOX RPOS()  [REG-3 δ=r14 Δ=r15, x86() self-encoding]"
                                        : "# BOX POS()  [REG-3 δ=r14, x86() self-encoding]"))
              + (is_rpos()
-                  ? ( x86("mov", "ecx", "r15d")          /* ecx = Δ            */
-                    + x86("sub", "ecx", posN())          /* ecx = Δ − N        */
-                    + x86("cmp", "r14d", "ecx") )        /* δ vs (Δ − N)       */
-                  : ( x86("cmp", "r14d", posN()) ))       /* δ vs N             */
+                  ? ( x86("mov", "ecx", "r15d")
+                    + x86("sub", "ecx", posN())
+                    + x86("cmp", "r14d", "ecx") )
+                  : ( x86("cmp", "r14d", posN()) ))
              + x86("jne", PORT_OMEGA)
              + x86("jmp", PORT_GAMMA)
              + x86("def", PORT_BETA)
@@ -107,5 +100,5 @@ static std::string bb_pat_pos_str() {
     }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_pat_pos(void) { bb_emit_x86(bb_pat_pos_str()); }

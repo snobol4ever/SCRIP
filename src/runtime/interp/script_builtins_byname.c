@@ -19,17 +19,17 @@ static char *itos(long long v, char *buf, size_t cap) {
     for (size_t i = 0; i < len; i++) buf[i] = tmp[len - 1 - i];
     buf[len] = '\0'; return buf;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static char *rtos(double r, char *buf, size_t cap) {
     gcvt(r, 14, buf); (void)cap; return buf;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static const char *to_cstring(DESCR_t v, char *scratch, size_t scap) {
     if (IS_INT_fn(v))  { return itos((long long)v.i, scratch, scap); }
     if (IS_REAL_fn(v)) { return rtos(v.r, scratch, scap); }
     const char *s = VARVAL_fn(v); return s ? s : "";
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t elem_to_descr(const char *s, size_t slen) {
     char *buf = GC_malloc(slen + 1);
     memcpy(buf, s, slen); buf[slen] = '\0';
@@ -37,24 +37,24 @@ static DESCR_t elem_to_descr(const char *s, size_t slen) {
     if (*ep == '\0' && ep > buf) return INTVAL(iv);
     return STRVAL(buf);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int junction_is(DESCR_t v) {
     return (IS_STR_fn(v) || v.v == DT_SNUL) && v.s && v.s[0] == '\x03';
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int jct_one_cmp_num(double a, double b, int op) {
     switch (op) { case TT_EQ: return a == b; case TT_NE: return a != b; case TT_LT: return a < b;
                   case TT_LE: return a <= b; case TT_GT: return a > b; case TT_GE: return a >= b;
                   default: return a == b; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int jct_one_cmp_str(const char *a, const char *b, int op) {
     int c = strcmp(a, b);
     switch (op) { case TT_EQ: return c == 0; case TT_NE: return c != 0; case TT_LT: return c < 0;
                   case TT_LE: return c <= 0; case TT_GT: return c > 0; case TT_GE: return c >= 0;
                   default: return c == 0; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
     const char *s = jct.s; if (!s || s[0] != '\x03' || !s[1]) return 0;
     char flav = s[1];
@@ -82,7 +82,7 @@ int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
     switch (flav) { case 'a': return hits >= 1; case 'l': return total > 0 && hits == total;
                     case 'o': return hits == 1; case 'n': return hits == 0; default: return 0; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define RK_GRAM_MAX 128
 static struct { const char *qname; const char *body; int flavor; } gram_reg[RK_GRAM_MAX];
 static int gram_n = 0;
@@ -90,17 +90,17 @@ static void gram_set(const char *qname, const char *body, int flavor) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) { gram_reg[i].body = GC_strdup(body); gram_reg[i].flavor = flavor; return; }
     if (gram_n < RK_GRAM_MAX) { gram_reg[gram_n].qname = GC_strdup(qname); gram_reg[gram_n].body = GC_strdup(body); gram_reg[gram_n].flavor = flavor; gram_n++; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int gram_get_flavor(const char *qname) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) return gram_reg[i].flavor;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static const char *gram_get(const char *qname) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) return gram_reg[i].body;
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void gram_expand(const char *gname, const char *body, int flavor, char *out, int outsz, int depth) {
     int op = 0, n = (int)strlen(body);
     for (int i = 0; i < n && op < outsz - 1; ) {
@@ -141,7 +141,7 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
     }
     out[op] = '\0';
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (nargs >= 1 && (!strcmp(fn, "__rk_jct_any") || !strcmp(fn, "__rk_jct_all")
@@ -723,18 +723,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         memcpy(o, g_raku_subject + gs, (size_t)len); o[len] = '\0';
         *out = STRVAL(o); return 1;
     }
-    /* RK-LOWER-5b: PURE mutating-op variants. A pure variant computes and RETURNS the new container string but
-       performs NO NV_SET_fn — the writeback is supplied by the enclosing IR_ASSIGN the lowerer wraps it in
-       (`@a = push_pure(@a, x)`), so the container update flows through the same shared four-port store path that
-       works in all three modes. Element/pair encoding matches the read-only readers: array = SOH-separated elements
-       (docs.raku.org/type/Array), hash = SOH-separated key STX value pairs (docs.raku.org/type/Hash). The hash
-       string builders (hash_set_str/hash_delete_str, defined below) already return a fresh string and do no
-       NV_SET_fn, so the hash pure variants delegate to them directly. push_pure appends each extra argument to the
-       array's end and returns the new array (docs.raku.org/routine/push); arr_set_pure replaces element [idx] and
-       returns the new array (docs.raku.org/language/list `@a[$i] = $y`); arr_last/arr_init split the pop semantics
-       (docs.raku.org/routine/pop: return+remove the last element) into a read of the last element and a read of the
-       array minus its last element, so `$p = pop(@a)` lowers to `$p = arr_last(@a); @a = arr_init(@a)` — two pure
-       reads + the existing IR_ASSIGN store, never an exec-side vname peek. */
     if (!strcmp(fn, "push_pure") && nargs >= 2) {
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         char *acc = GC_strdup(cur);
@@ -803,7 +791,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (script_try_hash_builtin(fn, args, nargs, out)) return 1;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_mutating_builtin_by_name(const char *fn, const char *vname,
                                       DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn || !vname) return 0;
@@ -863,7 +851,7 @@ int script_try_mutating_builtin_by_name(const char *fn, const char *vname,
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define STX '\x02'
 static const char *hash_find(const char *h, const char *key, const char **p_pair_start) {
     if (!h || !key) return NULL;
@@ -885,7 +873,7 @@ static const char *hash_find(const char *h, const char *key, const char **p_pair
     }
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 char *script_hash_set_str(const char *h, const char *key, const char *val) {
     if (!h) h = "";
     size_t klen = strlen(key), vlen = strlen(val);
@@ -915,7 +903,7 @@ char *script_hash_set_str(const char *h, const char *key, const char *val) {
     memcpy(o + hlen + (need_sep ? 1 : 0) + klen + 1, val, vlen);
     o[total] = '\0'; return o;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 char *script_hash_delete_str(const char *h, const char *key) {
     if (!h || !*h) return GC_strdup("");
     const char *pair_start = NULL;
@@ -933,7 +921,7 @@ char *script_hash_delete_str(const char *h, const char *key) {
     else if (nx) memcpy(o, nx, post);
     o[total] = '\0'; return o;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_hash_mutating_builtin(const char *fn, const char *vname, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn || !vname) return 0;
     const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
@@ -952,7 +940,7 @@ int script_try_hash_mutating_builtin(const char *fn, const char *vname, DESCR_t 
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn || nargs < 1) return 0;
     if (args[0].v != DT_S && args[0].v != DT_SNUL) return 0;
@@ -1049,6 +1037,6 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 #undef STX
 #undef SOH

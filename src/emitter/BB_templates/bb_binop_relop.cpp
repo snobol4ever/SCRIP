@@ -1,10 +1,3 @@
-/* bb_binop_relop.cpp — BB box: IR_BINOP numeric relop, stackless slot->slot cmp. GZ-8 (Icon).
-   x86() self-encoding (template-revamp, 2026-06-02). pBB-FREE: reads ONLY g_emit. The driver
-   (emit_bb.c case IR_BINOP, relop) deposits op_sa/op_sb (operand DESCR frame offsets) + op_ival
-   (the relop). op_off>=0 is the driver's "this is the relop case" verdict (shared with arith, but
-   the op-code in op_ival disambiguates). The relop routes its OWN gamma/omega: it loads each
-   operand int payload at [r12+slot+8], compares, and jcc-on-the-NEGATED-relation to omega (fail),
-   else jmp gamma (true). Grounded in Icon ocomp.r numeric comparison. */
 #include <string>
 #include <stdint.h>
 #include "emit_str.h"
@@ -17,7 +10,7 @@ extern "C" {
 extern int g_icn_flat_chain;
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int rel_is_numrel(int64_t op) { return op >= BINOP_LT && op <= BINOP_NE; }
 static const char * rel_fail_mnem(int64_t op) {
     switch (op) {
@@ -30,7 +23,7 @@ static const char * rel_fail_mnem(int64_t op) {
     default:       return "jmp";
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_relop_str() {
     if (!PLATFORM_X86) return std::string();
     int64_t op = _.op_ival;

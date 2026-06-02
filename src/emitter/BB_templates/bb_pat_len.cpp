@@ -1,10 +1,3 @@
-/* bb_pat_len.cpp — BB template for LEN. x86() self-encoding (template-revamp, 2026-06-01, Opus 4.8).
-   LEN(n) is a bounded single-shot leaf (SPITBOL Manual ch.18: "LEN(I) produces a pattern which matches a
-   string exactly I characters long"): succeeds once advancing δ by n, else fails; β has no alternative →
-   jmp ω (cursor restore on backtrack is the combinator's job, REG-4, not the leaf's). REG-2 registers:
-   cursor δ=R14d, length Δ=R15d (established by BB_MATCH α per REG-0). x86 arm: ONE return, pure x86()
-   concat, NO bb_bin_t; the operand n is read late from _.op_ival and baked as a literal immediate by the
-   encoders; the medium (BINARY bytes vs GAS text) is invisible. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
@@ -12,9 +5,9 @@ extern "C" {
 #include "emit.h"
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static inline long lenN() { return (long)(int)_.op_ival; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_len_str() {
     int nid = _.nid; int sid = 0;
     if (PLATFORM_X86)
@@ -29,7 +22,7 @@ static std::string bb_pat_len_str() {
              + x86("jmp", PORT_GAMMA)
              + x86("def", PORT_BETA)
              + x86("jmp", PORT_OMEGA);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
     if (PLATFORM_JVM) {
         std::string tag_s = emit_fmt("len_%d_%d", sid, nid);
         int n = (int)_.op_ival;
@@ -145,5 +138,5 @@ static std::string bb_pat_len_str() {
     if (PLATFORM_WASM) { return std::string("          (call $bb_len_new)\n"); }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_pat_len(void) { bb_emit_x86(bb_pat_len_str()); }

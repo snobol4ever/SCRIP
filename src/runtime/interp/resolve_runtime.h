@@ -16,7 +16,7 @@ typedef struct Resolve_PredEntry_t {
     const char *key; tree_t *choice; struct Resolve_PredEntry_t *next;
     int entry_pc;
 } Resolve_PredEntry;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int slot; } PlScopeEnt;
 typedef struct { PlScopeEnt e[RESOLVE_SCOPE_SLOT_MAX]; int n; } PlScope;
 typedef struct { const char *name; int arity; int bb_idx; PlScope lower_sc; } Resolve_PredEntry_BB;
@@ -29,7 +29,7 @@ static inline IR_graph_t *bb_graph_of_pred(const Resolve_PredEntry_BB *e)
         return g_stage2.bbp.table[e->bb_idx];
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern Trail         g_resolve_trail;
 extern int           g_resolve_cut_flag;
 extern Term        **g_resolve_env;
@@ -47,7 +47,7 @@ typedef struct resolve_choice {
     int               saved_cut_flag;
     struct resolve_choice *saved_cut_barrier;
 } resolve_choice;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern resolve_choice    *g_resolve_bfr;
 extern resolve_choice    *g_resolve_cut_barrier;
 extern int           g_resolve_cp_stamp;

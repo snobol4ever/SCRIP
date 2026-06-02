@@ -1,15 +1,10 @@
-/* xa_bb_macro_library.cpp — XA template for BB macro library. Pure std::string CONCAT (NB-3g).
-   The body builds the entire bb_macros.s text as a returned string; the dispatch wrapper writes it
-   to disk. No in-body FILE* side-effects: the bm_* helpers return strings and the macro library is
-   one CONCAT. The file-write (fopen/fwrite/fclose of bb_macros.s) is driver-layer orchestration in
-   the extern "C" wrapper, not template-body emission. */
 #include <string>
 #include <cstdio>
 #include "emit_str.h"
 extern "C" {
 #include "xa_template_common.h"
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bm_line(const char *lbl, const char *act, const char *got)
 {
     std::string line = emit_fmt("%-24s%-16s %s", lbl ? lbl : "", act ? act : "", got ? got : "");
@@ -51,7 +46,7 @@ static std::string xa_bb_macro_library_str(void) {
     }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_bb_macro_library(void) {
     auto s = xa_bb_macro_library_str();
     if (s.empty()) return;

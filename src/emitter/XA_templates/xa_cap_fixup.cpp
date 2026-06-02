@@ -1,11 +1,9 @@
-/* xa_cap_fixup.cpp — XA_CAP_FIXUP: emit one lea/call cap-fixup init sequence.
-   Driver loops g_cap_fixups[], fills g_emit.xa_cap_* scalars per entry, calls xa_dispatch per entry. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
 #include "xa_template_common.h"
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_cap_fixup_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_CAP_FIXUP");
@@ -31,7 +29,7 @@ static std::string xa_cap_fixup_str(void) {
     }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_cap_fixup(void) {
     std::string s = xa_cap_fixup_str();
     if (!s.empty()) emit_text_n(s.data(), s.size());

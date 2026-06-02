@@ -52,20 +52,8 @@ extern int         Δ;
 #include "../runtime/interp/resolve_runtime.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
-/*====================================================================================================================================================================================================*/
-/* ICON MODE-3 RING->TREE ADAPTER (Path 1-lite, Icon --run only). The unified lower2 emits a postfix      */
-/* gamma-chain for Icon expressions: operands precede their operator in gamma-order, every node has       */
-/* alpha=beta=NULL, and operands are read from the AG ring at exec time (the mode-2 oracle's model). The  */
-/* mode-3 flat emitter (emit_bb.c walk_bb_flat / flat_drive_*) and the GROUND-ZERO templates expect the   */
-/* OLD tree-shape (operands in alpha/beta children, as the deleted lower_icn.c blob d2d8c8e1 built them:  */
-/* bb->alpha=lhs; bb->beta=rhs / bb->alpha=args[0]). This adapter un-flattens the straight-line chain     */
-/* into that tree by postfix evaluation (each kind's operand arity drives how many preceding nodes become */
-/* its children), relinks alpha/beta, and returns the root for bb_build_flat. Fails SOFT (returns NULL)   */
-/* on any shape outside the GZ-1/2/3 straight-line subset so the caller falls back to the prior behavior  */
-/* (no regression for control-flow rungs not yet rebuilt). Postfix order verified empirically via         */
-/* --dump-bb (write(2+3): LIT_I 2 -> LIT_I 3 -> IR_BINOP -> IR_CALL). lower.c and the templates are        */
-/* UNTOUCHED; this is a mode-3 Icon emitter-input adapter, not a lowerer change.                          */
-/*====================================================================================================================================================================================================*/
+/*====================================================================================================================*/
+/*====================================================================================================================*/
 static int icn_rt_arity(const IR_t *n) {
     switch (n->t) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
@@ -78,17 +66,12 @@ static int icn_rt_arity(const IR_t *n) {
     default:       return -1;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     if (!g || !g->entry) return NULL;
     IR_t *chain[256]; int nc = 0;
     for (IR_t *cur = g->entry; cur && cur->t != IR_SUCCEED && cur->t != IR_FAIL && nc < 256; cur = cur->γ) chain[nc++] = cur;
     if (nc == 0 || nc >= 256) return NULL;
-    /* TEMPLATE-REVAMP (2026-06-02): the slot-based bb_binop_* boxes (arith/relop/concat) require their       */
-    /* operands materialised as PRODUCER boxes that allocate ζ-slots ahead of the binop — the flat-chain      */
-    /* path (icn_flat_chain_build) does this; this STOPGAP tree adapter does not (it un-flattens operands into */
-    /* α/β children for the deleted inline-fused box). DECLINE any IR_BINOP-bearing graph so it falls to the   */
-    /* flat-chain path, where the literal/var producers + REG-RO + the slot-based binop boxes light it up.     */
     for (int i = 0; i < nc; i++) if (chain[i]->t == IR_BINOP) return NULL;
     IR_t *stk[256]; int sp = 0;
     for (int i = 0; i < nc; i++) {
@@ -111,33 +94,12 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     if (sp != 1) return NULL;
     return stk[0];
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* icn_graph_native_emittable — Icon mode-3/4 LOUD-DECLINE gate (mirrors Prolog's pl_rich_graph_ok). The */
-/* native BB emitter has per-box templates; a few kinds are still genuine STUBS whose template emits ZERO */
-/* bytes (bb_gen_scan / bb_gen_alt / bb_keyword / bb_cset / bb_proc_gen), and IR_SUSPEND's native form is */
-/* an explicitly-deferred rung. A graph containing any such kind would emit SILENTLY-WRONG output (the    */
-/* program runs but the stubbed box contributes nothing — e.g. `s ? body` prints nothing). The GOAL's     */
-/* "ALWAYS TEST ALL THREE MODES" discipline (adopted from GOAL-PROLOG-BB) forbids that: an uncovered      */
-/* native shape must FALL LOUD (driver prints [SMX] and DECLINES) so the harness counts it EXCISED — never */
-/* a silent miscompile. This walks every node of every registered graph and returns 0 if any kind has no  */
-/* working native template yet. ADD a kind here when its template is a stub; REMOVE it the moment a real   */
-/* MEDIUM_TEXT+MEDIUM_BINARY arm lands (that is what lights the mode up for that family). */
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int icn_kind_native_stub(IR_e t) {
     return t == IR_GEN_SCAN || t == IR_GEN_ALT || t == IR_KEYWORD || t == IR_PROC_GEN ||
            t == IR_CSET_UNION || t == IR_CSET_DIFF || t == IR_CSET_INTER || t == IR_CSET_COMPL ||
            t == IR_SUSPEND ||
-           /* GZ-11+: IR_ALT (alternation generator e1|e2|e3) requires a resumable native template (each  */
-           /* arm must resume on β, advancing to the next arm). flat_drive_alt_icn exists but produces a   */
-           /* per-arm dispatch that is single-shot — it does not re-pump on β. Until a proper resumable    */
-           /* native alt template lands, programs containing IR_ALT loudly EXCISE rather than silent-empty. */
-           /* LESSON from GOAL-ICON-BB: IR_ALT is a MUXED kind (simple const-alt vs generator-context alt) */
-           /* so this entry covers BOTH — the safe choice until the β-resume arm is built.                  */
            t == IR_ALT ||
-           /* RK-EMIT (2026-06-01): the Raku resumable-Seq generators. IR_GATHER's MEDIUM_TEXT+MEDIUM_BINARY */
-           /* template (bb_rk_gather.cpp) is BUILT — it is NOT listed here so it emits real native code and  */
-           /* its rungs PASS in m3/m4. IR_MAP/IR_GREP still need closure-emitting templates (bb_rk_map.cpp / */
-           /* bb_rk_grep.cpp); until those land they LOUDLY EXCISE here rather than abort, exactly like the  */
-           /* Icon scan/cset/suspend families — m2 (--interp) stays the oracle for those rungs.              */
            t == IR_MAP || t == IR_GREP;
 }
 static int icn_graph_native_emittable(stage2_t *s2) {
@@ -152,36 +114,12 @@ static int icn_graph_native_emittable(stage2_t *s2) {
     }
     return 1;
 }
-/* un-flattening adapter was a STOPGAP, never the design: it re-derived the four-port BB topology AT EMIT  */
-/* time from the mode-2 oracle's postfix gamma-ring instead of LOWER producing that topology directly. The */
-/* correct path (this goal's banner + LM-6 DISPATCH-UNIFY) is that LOWER emits each SNOBOL4 statement       */
-/* DIRECTLY into the test_sno_1.c four-port statement-BB graph (subject-BB -> pattern-BBs -> replacement-BB */
-/* -> substitution-BB), so the emitter consumes it with NO driver adapter and modes 3 and 4 light up from   */
-/* the SAME graph + SAME per-box templates (two arms). Both call sites below now ABORT until LOWER does     */
-/* that. NO storage outside the boxes; each BB owns its own RO + RW local allocation (see GOAL FACT RULE).  */
-/*====================================================================================================================================================================================================*/
-/* PROLOG MODE-3 NATIVE FLAT-WALK ROOT RECOGNIZER (PLG-8-native, 2026-05-31). The interim mode-3 route (PLG-8) ran Prolog --run through bb_exec_once (the mode-2 interpreter + the AG ring on IR_graph_t) */
-/* — correct output, but that is the RING path, which is the mode-2 idiom only (Lon directive: rings are for mode-2 interp; WRONG for mode-3). Mode-3 must EMIT code+data INSIDE the boxes with values    */
-/* flowing UP the BB graph chain via per-box slots, exactly as test_sno_1.c / test_icon.c do (POS0/BIRD/mult_V live in the box and the consumer reads the producer's slot — no ring, no value stack). This  */
-/* recognizer returns the flat-walk ROOT (the principal IR_GCONJ in the main graph) for the shapes whose BB templates already emit a correct stackless box with NO ring traffic — today the ground          */
-/* hello-world tier: a single-clause body that is a conjunction of constant-arg builtins (write/writeln/print/nl/halt) and/or IR_SUCCEED/IR_CUT, with NO logic-variable slots (nslots==0) and NO             */
-/* user-proc call / choice / disjunction / ite / unify / arith goal. For every richer shape it returns NULL and the driver keeps the proven interim bb_exec_once route (zero regression) — the same          */
-/* widen-as-you-go gate sno_ring_to_tree uses for SNOBOL4. The GCONJ carries its goal entries in the bb_conj_state_t sidecar (node->ival); bb_builtin reads each arg from the goal's own alpha at emit time   */
-/* (write of an IR_ATOM -> mov rdi, imm64(atom); call rt_pl_write_atom), so the value is a sealed read-only constant read directly by its consumer — no rt_pl_atom_push ring push. Widens rung by rung.       */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*====================================================================================================================*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int pl_flat_arith_leaf_simple(const IR_t *o) {
-    /* PLG-9c: an arith RHS leaf operand the integer rt_pl_is/rt_pl_arith path can evaluate from        */
-    /* serialized scalars: a literal int, or a logic-variable slot (rt_pl_arith reads g_resolve_env[li] */
-    /* and derefs to its int). NOT a float literal (rt_pl_is is integer-only — term_new_int), NOT a     */
-    /* nested IR_ARITH (the MEDIUM_TEXT is arm flattens only ONE level of operands into lk/li,rk/ri).   */
     if (!o) return 0;
     return o->t == IR_LIT_I || o->t == IR_LOGICVAR;
 }
-/* PLG-9h (2026-06-01): mirrors bb_builtin.cpp's bb_pl_op_floaty — an `is` RHS functor that needs the   */
-/* float evaluator rt_pl_is_f (transcendental/float-producing, a rounding op that consumes a float and   */
-/* yields an int, OR `/` which yields a float for non-divisible integer operands — rt_pl_is_f makes the  */
-/* liv%riv int-vs-float decision exactly as the mode-2 oracle does). Kept byte-identical to the emit-arm */
-/* list so the mode-4 admission gate and the emit arm agree on which `is` RHS shapes are float-routed. */
 static int pl_arith_op_floaty(const char *fn) {
     static const char *f[] = { "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "exp", "log",
                                "float", "float_integer_part", "float_fractional_part",
@@ -189,9 +127,6 @@ static int pl_arith_op_floaty(const char *fn) {
     for (int i = 0; f[i]; i++) if (!strcmp(fn, f[i])) return 1;
     return 0;
 }
-/* PLG-9h: an arith RHS leaf operand the float rt_pl_is_f path can evaluate from serialized scalars:    */
-/* an int literal, a FLOAT literal (value in dval, marshalled via xmm), or a bound logic-variable slot. */
-/* Wider than pl_flat_arith_leaf_simple only in admitting IR_LIT_F (the rt_pl_is_f path reads dval). */
 static int pl_flat_arith_leaf_float_ok(const IR_t *o) {
     if (!o) return 0;
     return o->t == IR_LIT_I || o->t == IR_LIT_F || o->t == IR_LOGICVAR;
@@ -202,22 +137,9 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
     case IR_SUCCEED: case IR_CUT: case IR_ATOM: return 1;
     case IR_BUILTIN: {
         const char *fn = g->sval ? g->sval : "";
-        /* PLG-9c (2026-05-31): `Var is Expr` — integer arithmetic into a logic-variable slot. The      */
-        /* bb_builtin MEDIUM_TEXT is arm (line ~1434) flattens the RHS at emit time into serialized      */
-        /* scalars (dst_slot, op via _.bb_op_lbl, lk/li, rk/ri) and calls rt_pl_is, which evaluates via  */
-        /* rt_pl_arith and unifies the int result into g_resolve_env[dst_slot] — NO cross-process IR_t*  */
-        /* pointer (that is the MEDIUM_BINARY twin's mode-3-only path). Admit only the shapes that arm    */
-        /* handles: α = IR_LOGICVAR, β = IR_ARITH binary (both operands) or unary (left only), each       */
-        /* operand a scalar int/slot. Float RHS, nested arith, or a non-slot LHS decline (-> EXCISED).   */
         if (!strcmp(fn, "is")) {
             const IR_t *lhs = g->α, *rhs = g->β;
             if (!lhs || lhs->t != IR_LOGICVAR || !rhs) return 0;
-            /* PLG-9h (2026-06-01): FLOAT path (rt_pl_is_f, see bb_builtin.cpp). A nullary float       */
-            /* constant (X is pi / X is e — rhs is IR_ATOM), a floaty unary functor, or any arith with */
-            /* a float-literal operand routes to the float evaluator. Operand leaves must be int/float */
-            /* literal or a bound slot. The mode-3 native flat tier emits this through the MEDIUM_      */
-            /* BINARY rt_pl_is_eval arm (resolve_arith_eval — byte-identical to the interim route); the */
-            /* mode-4 standalone .s through the MEDIUM_TEXT rt_pl_is_f arm. */
             if (rhs->t == IR_ATOM)
                 return rhs->sval && (!strcmp(rhs->sval, "pi") || !strcmp(rhs->sval, "e"));
             if (rhs->t != IR_ARITH) return 0;
@@ -230,30 +152,18 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
                 if (rhs->α && !rhs->β) return pl_flat_arith_leaf_float_ok(rhs->α);
                 return 0;
             }
-            /* INTEGER path (rt_pl_is, PLG-9c) — unchanged. */
             if (rhs->α && rhs->β) return pl_flat_arith_leaf_simple(rhs->α) && pl_flat_arith_leaf_simple(rhs->β);
-            if (rhs->α && !rhs->β) return pl_flat_arith_leaf_simple(rhs->α);   /* unary op(L) */
+            if (rhs->α && !rhs->β) return pl_flat_arith_leaf_simple(rhs->α);
             return 0;
         }
         int is_io = (!strcmp(fn, "write") || !strcmp(fn, "writeln") || !strcmp(fn, "print") || !strcmp(fn, "nl") || !strcmp(fn, "halt"));
         if (!is_io) return 0;
-        /* PLG-9b (2026-05-31): write/print of a logic-variable slot is now in the flat tier. The bb_builtin */
-        /* write/1 TEXT arm renders an IR_LOGICVAR via rt_pl_write_var(slot) (reads g_resolve_env[slot]); its */
-        /* MEDIUM_BINARY twin does the same. So accept an IR_LOGICVAR arg alongside the constant IR_ATOM /    */
-        /* IR_LIT_I args of PLG-9a.                                                                           */
         if (g->ival >= 1) { const IR_t *a = g->α; if (!a || (a->t != IR_ATOM && a->t != IR_LIT_I && a->t != IR_LOGICVAR)) return 0; }
         return 1;
     }
     case IR_UNIFY: {
-        /* PLG-9b (2026-05-31): the X = world tier — one logic-variable slot bound to a constant. The      */
-        /* bb_unify TEXT/BINARY arms build each operand via rt_pl_node_to_term then call rt_pl_unify_terms, */
-        /* which writes the binding into g_resolve_env[slot] under a trail mark. Accept only the proven     */
-        /* (LOGICVAR = ATOM|LIT_I) and the symmetric (ATOM|LIT_I = LOGICVAR) scalar shapes; a compound or   */
-        /* var=var operand routes through paths PLG-9b does not yet prove, so it declines (-> NULL root ->  */
-        /* EXCISED, no regression). The per-activation slot lives in g_resolve_env, allocated by the driver */
-        /* before the flat walk (mode-3) / by rt_pl_env_alloc in the emitted main: wrapper (mode-4).        */
         const IR_t *l = g->α, *r = g->β;
-        if (!l || !r) return 1;                                   /* vacuous-success unify (matches bb_exec.c F-6d) */
+        if (!l || !r) return 1;
         int l_var = (l->t == IR_LOGICVAR), r_var = (r->t == IR_LOGICVAR);
         int l_con = (l->t == IR_ATOM || l->t == IR_LIT_I);
         int r_con = (r->t == IR_ATOM || r->t == IR_LIT_I);
@@ -262,15 +172,8 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
     default: return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_flat_body_root(IR_graph_t *g) {
-    /* PLG-9b (2026-05-31): the nslots==0 guard is lifted. A body now qualifies for the native flat walk    */
-    /* even with logic-variable slots (nslots>0), PROVIDED every conjunction element passes                 */
-    /* pl_flat_goal_is_simple — which only admits the proven unify-(var=const) + write/print(var) + nl tier. */
-    /* The slots live in g_resolve_env (per-activation env), set up before the walk by the driver (mode-3)   */
-    /* or by an rt_pl_env_alloc(nslots) call emitted into the main: wrapper (mode-4). A richer slot-bearing  */
-    /* shape (user call, choice, compound unify) has an element that fails the simple check -> NULL -> the   */
-    /* interim route (mode-3) / EXCISED (mode-4), so widening stays safe and incremental.                    */
     if (!g || !g->all) return NULL;
     IR_t *gconj = NULL;
     for (int i = 0; i < g->n; i++) {
@@ -278,7 +181,7 @@ static IR_t * pl_flat_body_root(IR_graph_t *g) {
         if (nd && nd->t == IR_GCONJ) { if (gconj) return NULL; gconj = nd; }
     }
     if (!gconj) {
-        if (g->nslots > 0) return NULL;                /* bare non-conj body with slots: not the proven tier */
+        if (g->nslots > 0) return NULL;
         return (g->entry && g->entry->t == IR_SUCCEED) ? g->entry : NULL;
     }
     bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)gconj->ival;
@@ -286,191 +189,80 @@ static IR_t * pl_flat_body_root(IR_graph_t *g) {
     for (int i = 0; i < zs->ngoals; i++) if (!pl_flat_goal_is_simple(zs->goals[i])) return NULL;
     return gconj;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PROLOG MODE-3/4 RICH-BODY RECOGNIZER (PLG-9d, 2026-06-01). The flat-tier recognizer above admits only a   */
-/* single-clause body with no user calls / choice / disjunction. PLG-9d crosses the next rung: facts +       */
-/* clause choice + deterministic + backtracking user-predicate calls. The emit machinery is already shared   */
-/* and present — walk_bb_flat dispatches IR_GOAL -> bb_goal.cpp, IR_CHOICE -> flat_drive_pl_choice, IR_DISJ  */
-/* -> flat_drive_pl_alt, IR_GCONJ -> flat_drive_pl_seq, IR_UNIFY/IR_BUILTIN/IR_ARITH -> their TEXT arms (the  */
-/* byte-twins of the MEDIUM_BINARY arms PLR-J proved in mode-3). What was missing is the DRIVER INVOCATION:   */
-/* a predicate-registry emit loop (each callee's entry body via walk_bb_flat in TEXT, defining the           */
-/* .Lplpred_<name>_<arity> labels bb_goal.cpp calls). This recognizer is the gate for that loop — it returns */
-/* the main graph's entry node iff EVERY node reachable in main AND in every transitively-called predicate   */
-/* is a kind the TEXT emitter handles (FALL LOUD: an unhandled kind -> NULL -> EXCISED, never a silent        */
-/* miscompile). It is strictly a SUPERSET of pl_flat_body_root: anything the flat tier accepts, this does     */
-/* too, plus IR_GOAL / IR_CHOICE / IR_DISJ / IR_ITE / IR_STRUCT / IR_FAIL.                                    */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
 extern IR_t *resolve_bb_entry_node(const char *name, int arity);
 extern IR_graph_t *resolve_bb_graph_at(int idx);
-/* PLG-9f (2026-06-01): the PLG-9e "then-branch consumes a cond binding -> EXCISE" guard is RETIRED. The     */
-/* shape it blocked (`( atom_concat(a,b,X) -> atom_length(X,N), write(N) ; … )`, rung30_dcg_pushback_rest)    */
-/* was NOT a binding-survival defect — the condition's binding always survives the commit (g_resolve_env is   */
-/* a process-global the consumer reads directly). The real defect was in the EMITTER: flat_drive_pl_ite       */
-/* walked the then-branch by its entry[0] node, and walk_bb_flat on an IR_BUILTIN emits only THAT one box     */
-/* (its γ wired straight to the ITE success label), so a MULTI-goal then-branch `g1, g2, g3` emitted only g1  */
-/* and dropped g2..gn. A then-branch that was a single constant-write goal happened to be complete, which is  */
-/* why only constant-write then-branches "worked" and the guard mistook the symptom for a binding problem.    */
-/* The fix (lower.c g_ite stores the branch PRINCIPAL/wrapper node in bb_ite_state_t.{then,else,cond}_root;    */
-/* emit_bb.c flat_drive_pl_ite walks the principal so a driver-owned IR_GCONJ dispatches to flat_drive_pl_seq */
-/* and every goal emits) makes binding-consuming multi-goal then-branches correct. So the guard is removed:   */
-/* a then-branch goal that is genuinely non-emittable is already caught by pl_rich_graph_ok's all[] walk      */
-/* (the ITE branch goals are inline nodes in the graph's all[]), which FALLS LOUD uniformly with every other  */
-/* node. pl_ite_then_branch_trivial is retained (always-true) only so the prior call site stays a no-op.      */
 static int pl_ite_then_branch_trivial(const IR_t *then_entry) {
     (void)then_entry;
     return 1;
 }
-/* pl_rich_node_emittable — is a single IR node a kind the TEXT walk emits? Pure structural test over the     */
-/* node KIND (and, for arith/unify operand leaves, their immediate operand kinds). Operand sub-nodes hanging  */
-/* off the alpha/beta ports (logicvar/atom/literal/struct) are DATA the parent box reads; they are validated  */
-/* by their parent's arm, not as standalone executable boxes.                                                 */
-/* pl_rich_node_emittable — is a single IR node a kind the PLG-9d DETERMINISTIC tier emits correctly? This    */
-/* is deliberately NARROWER than "has a TEXT arm": IR_DISJ (`;`) and IR_CHOICE (multi-clause enumeration)     */
-/* both have TEXT arms (flat_drive_pl_alt / flat_drive_pl_choice) but their fail-driven BACKTRACKING through  */
-/* the standalone-binary CP spine is NOT yet proven end-to-end (that is the next sub-rung). Admitting them    */
-/* here makes the harder smoke shapes (clause enumeration, recursion) EMIT-then-produce-wrong-output = FAIL,  */
-/* which is strictly worse than cleanly declining (EXCISED). So the deterministic tier rejects them: a        */
-/* program qualifies only if main + every callee is a single-solution conjunction of head-unifies, builtins, */
-/* arith, unify, and deterministic user calls — no disjunction, no multi-clause choice. FALL LOUD: anything   */
-/* outside this set -> NULL -> EXCISED, never a silent miscompile.                                            */
 static int pl_rich_node_emittable(const IR_t *nd) {
     if (!nd) return 1;
     switch (nd->t) {
-    /* Control-flow / goal boxes. PLG-9d-bt (2026-06-01) admits IR_CHOICE (multi-clause clause           */
-    /* enumeration) and IR_DISJ (`;`) to the tier: their fail-driven backtracking is now driven end-to-  */
-    /* end through the standalone-binary CP spine. bb_choice.cpp's TEXT arm pushes a resolve_choice CP    */
-    /* (resolve_cp_push) and walks the clause cursor with per-clause trail unwind (the gprolog            */
-    /* CREATE/UPDATE/DELETE_CHOICE_POINT shape from EnginePl/wam_inst.c); flat_drive_pl_alt threads the   */
-    /* disjunction arms' fail edges; bb_goal.cpp's β arm re-drives a live CP via resolve_cp_current. The  */
-    /* CP globals (g_resolve_bfr / g_resolve_cut_barrier / g_resolve_cut_flag) are zero-initialized in    */
-    /* the fresh process, so a top-level query starts with an empty CP spine and an unset cut barrier.    */
     case IR_GCONJ: case IR_GOAL:
     case IR_CHOICE: case IR_DISJ:
     case IR_SUCCEED: case IR_FAIL: case IR_CUT:
-    /* leaf/operand kinds (appear both as boxes and as α/β data) */
     case IR_LOGICVAR: case IR_ATOM: case IR_STRUCT:
     case IR_LIT_I: case IR_LIT_F: case IR_LIT_S: case IR_LIT_NUL:
         return 1;
     case IR_ITE: {
-        /* PLG-9f (2026-06-01): if-then-else is admitted. The PLG-9e then-branch-consumes-binding rejection   */
-        /* is retired (see pl_ite_then_branch_trivial above): the defect was dropped conjunction goals in the  */
-        /* emitter, now fixed, NOT binding survival. A genuinely non-emittable goal anywhere in the then/else  */
-        /* branch is caught by pl_rich_graph_ok's all[] walk (ITE branch goals are inline nodes in all[]), so  */
-        /* it FALLS LOUD uniformly. The retained guard call is a no-op kept for call-site stability.           */
         bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)nd->ival;
         if (zi && !pl_ite_then_branch_trivial(zi->then_)) return 0;
         return 1;
     }
     case IR_UNIFY:
-        /* bb_unify TEXT arm builds each operand via build_operand_term (scalars + IR_STRUCT) then           */
-        /* rt_pl_unify_terms — all operand shapes covered. */
         return 1;
     case IR_ARITH:
-        /* IR_ARITH appears as the RHS of an `is` IR_BUILTIN; bb_builtin's is-arm flattens it. Standalone     */
-        /* IR_ARITH boxes (comparison ops > < =:= ...) are emitted by bb_arith.cpp TEXT. */
         return 1;
     case IR_BUILTIN: {
-        /* PLG-9e (2026-06-01): widen the rich tier to ALL builtin families whose bb_builtin.cpp MEDIUM_TEXT */
-        /* arm is proven correct in the mode-4 standalone-binary context. The discriminator is structural:  */
-        /* can the template safely emit in TEXT medium given the operand shapes the lowerer produces?        */
-        /* STAY EXCISED: findall (compile-time heap pointer stale in separate process — honest-abort stub); */
-        /* numbervars (mode-2-only, no proven TEXT arm); copy_term (TEXT arm has a mode-4 var-identity      */
-        /* gap); retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — CAT-D/PLG-9      */
-        /* family). ADMIT: every family with a proven scalar-or-compound TEXT arm verified not to           */
-        /* miscompile — incl. writeq/write_canonical and atomic_list_concat/concat_atom (PLG-9g, @PLT       */
-        /* MEDIUM_TEXT twins of their PLR-K-4 / PLR-K-14 BINARY arms) and float `is` (PLG-9h: rt_pl_is_f,    */
-        /* the serialized-scalar twin of the rt_pl_is_eval BINARY arm — pi/e, sqrt/sin/cos/float/truncate/   */
-        /* round/ceiling/floor/float_integer_part/float_fractional_part/exp/log). */
         const char *fn = nd->sval ? nd->sval : "";
-        /* `is` — pl_flat_goal_is_simple admits both the integer (PLG-9c) and the float (PLG-9h) paths. */
         if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd);
-        /* write-family + nl/halt — proven since PLG-9a/b (unchanged). */
         static const char *ok[] = { "write", "writeln", "print", "nl", "halt", NULL };
         for (int k = 0; ok[k]; k++) if (!strcmp(fn, ok[k])) return 1;
-        /* Arith comparisons (>,<,>=,=<,=:=,=\=) — integer-scalar operands only (PLG-9d-bt). */
         static const char *acmp[] = { ">", "<", ">=", "=<", "<=", "=:=", "=\\=", NULL };
         for (int k = 0; acmp[k]; k++)
             if (!strcmp(fn, acmp[k])) return pl_flat_arith_leaf_simple(nd->α) && pl_flat_arith_leaf_simple(nd->β);
-        /* Term comparisons (==,\==,@<,@>,@=<,@>=) — CAT-D-9 scalar path uses rt_pl_term_cmp; compound-arg  */
-        /* path (CAT-D-9b) handles IR_STRUCT operands via emit_build_compound_term. Both paths exist in TEXT. */
-        /* Admit any operand kind (scalar leaf or IR_STRUCT); the template dispatches the right path.        */
         if (nd->α && nd->β &&
             (!strcmp(fn,"==")||!strcmp(fn,"\\==")||!strcmp(fn,"@<")||!strcmp(fn,"@>")||!strcmp(fn,"@=<")||!strcmp(fn,"@>=")))
             return 1;
-        /* Type-test builtins (CAT-D-10): 1-arg, any scalar or compound arg. TEXT arm exists. */
         static const char *ttest[] = { "var","nonvar","atom","atomic","number","integer",
                                         "float","compound","callable","is_list","ground", NULL };
         for (int k = 0; ttest[k]; k++) if (!strcmp(fn, ttest[k])) return nd->α != NULL;
-        /* succ/2 (PLG-9e): RESOLVE_BI_AB style (α+β scalar args). TEXT arm proven in rung18.  */
         if (!strcmp(fn,"succ")) return nd->ival==2 && nd->α && nd->β;
-        /* plus/3 (PLG-9e): RESOLVE_BI_CHAIN γ-chain (α→γ→γ). TEXT arm proven in rung18. */
         if (!strcmp(fn,"plus")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
-        /* sort/2 + msort/2 (CAT-D-11): γ-chain (α→γ). TEXT arm admits scalar or IR_STRUCT a0. */
         if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;
-        /* format/1,2 (CAT-D-format): γ-chain, arity 1 or 2. TEXT arm proven in rung19. */
         if (!strcmp(fn,"format")) return nd->α && (nd->ival==1 || nd->ival==2);
-        /* numbervars/3 (PLG-9j): RESOLVE_BI_CHAIN (α→γ→γ): term, start int, End var. The @PLT MEDIUM_TEXT */
-        /* twin builds the term via emit_build_compound_term (IR_LOGICVARs alias live env slots) then       */
-        /* rt_pl_numbervars_term binds each var to '$VAR'(N) in place — the later write rereads them. rung20.*/
         if (!strcmp(fn,"numbervars")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
-        /* copy_term/2 (PLG-9i): γ-chain pair. Compound arg0 → the PLG-9i @PLT MEDIUM_TEXT twin (rt_pl_   */
-        /* copy_term_terms/_term, preserving intra-term var-sharing); scalar arg0 → the CAT-D-5 scalar     */
-        /* arm (rt_pl_copy_term). Both arms now present, so the prior var-identity gap is closed. rung26.  */
         if (!strcmp(fn,"copy_term")) return nd->α && nd->α->γ;
-        /* 2-arg atom builtins (CAT-D-1/3/4/5): γ-chain pair. TEXT arms proven in rung12. */
         static const char *atom2[] = { "atom_length","upcase_atom","downcase_atom","string_length",
             "string_upper","string_lower","atom_string","string_to_atom", NULL };
         for (int k = 0; atom2[k]; k++) if (!strcmp(fn, atom2[k])) return nd->α && nd->α->γ;
-        /* atom_concat/3 (CAT-D-2/3): γ-chain triple. TEXT arm proven in rung12. */
         if (!strcmp(fn,"atom_concat")||!strcmp(fn,"string_concat")) return nd->α && nd->α->γ && nd->α->γ->γ;
-        /* atom_chars/atom_codes/string_chars/string_codes (CAT-D-6): γ-chain pair. TEXT arm proven. */
         static const char *achars[] = { "atom_chars","atom_codes","string_chars","string_codes", NULL };
         for (int k = 0; achars[k]; k++) if (!strcmp(fn, achars[k])) return nd->α && nd->α->γ;
-        /* char_type/2 (PLR-K-2): γ-chain pair, arity 2. TEXT arm proven in rung21. */
         if (!strcmp(fn,"char_type")) return nd->ival==2 && nd->α && nd->α->γ;
-        /* number_string/2 + atom_number/2 (PLR-K-7): γ-chain pair. TEXT arm proven in rung24/25. */
         if (!strcmp(fn,"number_string")||!strcmp(fn,"atom_number")) return nd->α && nd->α->γ;
-        /* functor/3, arg/3, =../2 (CAT-D-12-S2): γ-chain / AB style. TEXT arm proven in rung09. */
         if (!strcmp(fn,"functor")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
         if (!strcmp(fn,"arg")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
         if (!strcmp(fn,"=..")) return nd->α && nd->α->γ;
-        /* term_to_atom/2 + term_string/2 (PLR-K-9): forward direction, γ-chain pair. */
         if (!strcmp(fn,"term_to_atom")||!strcmp(fn,"term_string")) return nd->α && nd->α->γ;
-        /* writeq/1 + write_canonical/1 (PLG-9g): single arg on nd->α, any kind (atom/var/int/float/      */
-        /* struct). The MEDIUM_TEXT arm builds the arg Term* via emit_build_compound_term then calls the   */
-        /* quoting writer rt_pl_writeq_term_ptr / rt_pl_write_canonical_term_ptr @PLT — the @PLT twin of   */
-        /* the PLR-K-4 BINARY arm. Proven 3-mode in rung22. */
         if (!strcmp(fn,"writeq")||!strcmp(fn,"write_canonical")) return nd->α != NULL;
-        /* atomic_list_concat/2,3 + concat_atom/2 (PLG-9g): arg0 cons-list on nd->α, γ-chain to sep/res.  */
-        /* The MEDIUM_TEXT arm builds arg0 via emit_build_compound_term then calls rt_pl_atomic_list_     */
-        /* concat_term@PLT — the @PLT twin of the PLR-K-14 BINARY arm. Proven 3-mode in rung26.           */
         if (!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) return nd->α && (nd->ival==2 || nd->ival==3);
-        /* EXCISED — no working @PLT MEDIUM_TEXT arm (only a MEDIUM_BINARY arm exists, which the standalone */
-        /* .s cannot use): findall (compile-time heap pointer dead in separate process — honest-abort stub).*/
-        /* retract/retractall/abolish/assertz/asserta (dynamic-DB, mode-4 emit gap — WAM-CP-13). aggregate. */
-        /* catch/throw (exception barrier). dcg_generate. (float arith ADMITTED — PLG-9h; copy_term — PLG-  */
-        /* 9i; numbervars — PLG-9j.)                                                                         */
         return 0;
     }
     default:
-        /* Any unrecognized kind -> not yet in the rich tier -> EXCISED (fall loud, never miscompile). */
         return 0;
     }
 }
-/* pl_rich_graph_ok — every node in one predicate graph is in the deterministic tier. */
 static int pl_rich_graph_ok(IR_graph_t *g) {
     if (!g || !g->all) return 0;
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (!pl_rich_node_emittable(nd)) return 0;
-        /* PLG-9d-bt: a multi-clause predicate's clause bodies live in SEPARATE sub-graphs (zc->bodies[]),  */
-        /* NOT in this graph's all[]. Recurse so a non-emittable node buried in a clause body (e.g. a       */
-        /* retract/assertz IR_BUILTIN inside a recursive clause) is caught -> the program EXCISES cleanly   */
-        /* rather than emitting an "unknown builtin" stub and crashing at run time. (IR_DISJ arms and        */
-        /* IR_ITE branches are inline nodes already in all[], so they need no special recursion.)           */
         if (nd && nd->t == IR_CHOICE) {
             bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)nd->ival;
             if (zc && zc->bodies)
@@ -480,10 +272,6 @@ static int pl_rich_graph_ok(IR_graph_t *g) {
     }
     return 1;
 }
-/* pl_rich_body_root — gate for the PLG-9d mode-3/4 DETERMINISTIC rich-emit driver. Verifies main's graph AND */
-/* every registered predicate is in the deterministic tier, returning main's body ROOT (or NULL -> EXCISED). */
-/* Conservative: ALL registered predicates must pass, not just the reachable ones — the registry emit loop   */
-/* emits every registered predicate, so any non-deterministic one would emit code that backtracks wrongly.   */
 static IR_t * pl_rich_body_root(IR_graph_t *main_g) {
     if (!main_g || !main_g->entry) return NULL;
     if (!pl_rich_graph_ok(main_g)) return NULL;
@@ -493,14 +281,8 @@ static IR_t * pl_rich_body_root(IR_graph_t *main_g) {
         if (!nm) continue;
         IR_graph_t *pg = resolve_bb_graph_at(i);
         if (!pg) continue;
-        if (!pl_rich_graph_ok(pg)) return NULL;   /* any non-deterministic callee -> EXCISED (no miscompile) */
+        if (!pl_rich_graph_ok(pg)) return NULL;
     }
-    /* Return the body ROOT the flat walk should enter. PLG-9d-bt: prefer the body_root the lowerer       */
-    /* recorded on the graph (lower2_clause_body_entry stores the top GCONJ there). The GCONJ-finder       */
-    /* heuristic below is ambiguous for a disjunctive body — `main :- (A,B,fail ; true)` lowers to a top   */
-    /* GCONJ wrapping an IR_DISJ whose alpha IS the left arm's inner GCONJ entry, so TWO GCONJs share the  */
-    /* same goals[0]==entry. The recorded body_root names the right one unambiguously. Fall back to the    */
-    /* unique-GCONJ search only when body_root is unset (graphs not built via lower2_clause_body_entry).   */
     if (main_g->body_root) return main_g->body_root;
     {
         IR_t *gconj = NULL;
@@ -512,7 +294,7 @@ static IR_t * pl_rich_body_root(IR_graph_t *main_g) {
     }
     return main_g->entry;
 }
-/*====================================================================================================================================================================================================*/
+/*====================================================================================================================*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -805,22 +587,9 @@ int main(int argc, char **argv)
         extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
         extern int g_frame_active;
         if (is_icon || is_raku) {
-            /* MODE-4 (BB-native x86, GROUND ZERO 3): emit a standalone GAS .s — a C-ABI `main` wrapper that  */
-            /* fetches the per-sequence frame (rt_frame), passes it as ζ (rdi) with the α entry selector      */
-            /* (esi=0), and calls the flat BB body, then the body itself via codegen_flat_build (the SAME BB  */
-            /* templates mode-3 emits, in MEDIUM_TEXT). g_frame_active makes the prologue/epilogue use the    */
-            /* Icon stackless r12-frame form. The .s links libscrip_rt.so (rt_write_*, rt_frame, rt_call_*).  */
-            /* RK-EMIT-1 (2026-05-31): Raku rides this SAME generic four-port emission path — Raku's lowered  */
-            /* IR is built from the SHARED Icon kinds (IR_CALL, IR_LIT scalars, IR_VAR, IR_TO, IR_ASSIGN,     */
-            /* IR_IF, IR_WHILE, IR_BINOP, IR_ALT) plus the Raku generator kinds (IR_GATHER, IR_MAP, IR_GREP), */
-            /* so the SAME flat chain builder + shared templates emit it. No severed [SBB] adapter is touched */
-            /* — Raku gets its OWN LOWER-direct driver exactly like Icon's, which is what the diagnosis asked.*/
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
-            /* GOAL "ALWAYS TEST ALL THREE MODES" loud-decline gate (mode-4 twin of the mode-3 gate): a graph */
-            /* with a still-stubbed native kind would emit a .s that assembles+runs but prints silently-wrong */
-            /* output. Decline LOUD ([SMX]) so the harness records it EXCISED. Icon only; Raku keeps its path. */
             if ((is_icon || is_raku) && !icn_graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Icon scan/keyword/cset/gen-alt/"
@@ -860,11 +629,6 @@ int main(int argc, char **argv)
             int use_chain = (icn_root == NULL);
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
-            /* GZ-10 mode-4: emit each user procedure body as a named slab BEFORE main so all labels are     */
-            /* defined before the main body references them. Each proc gets prefix "icn_proc_<name>" whose   */
-            /* alpha entry point is the globally-visible label "icn_proc_<name>_α" (UTF-8 \xce\xb1).        */
-            /* A startup stub icn_proc_startup calls rt_proc_set_fn to wire each proc name -> slab fn ptr,   */
-            /* then main calls the startup stub before calling main_α.                                        */
             g_frame_active = 1;
             int n_procs = 0;
             static char proc_names_buf[64][128];
@@ -884,8 +648,6 @@ int main(int argc, char **argv)
                 if (n_procs < 64) snprintf(proc_names_buf[n_procs++], 128, "%s", pname);
                 free(pn);
             }
-            /* Startup stub: registers each proc slab pointer with the runtime before main_α runs.           */
-            /* Uses rt_proc_set_fn(name, fn) — the existing "wire name to fn ptr" helper in rt.c.            */
             if (n_procs > 0) {
                 printf("icn_proc_startup:\n");
                 printf("  push rbp\n");
@@ -896,7 +658,6 @@ int main(int argc, char **argv)
                     printf("  .section .text\n");
                     printf("  .intel_syntax noprefix\n");
                     printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    /* icn_proc_<name>_α is the UTF-8 alpha label — emit via hex escape in printf */
                     printf("  lea rsi, [rip + icn_proc_%s_\xce\xb1]\n", proc_names_buf[i]);
                     printf("  call rt_proc_set_fn@PLT\n");
                 }
@@ -929,18 +690,6 @@ int main(int argc, char **argv)
             return rc;
         }
         if (is_prolog) {
-            /* PLG-9a (mode-4 --compile --target=x86, 2026-05-31): emit a standalone GAS .s for the proven    */
-            /* hello-world tier, mirroring the Icon mode-4 arm above EXACTLY. pl_flat_body_root recognizes the */
-            /* same shape the PLG-8-native mode-3 arm JITs (a single-clause body that is a conjunction of      */
-            /* constant-arg builtins write/writeln/print/nl/halt + IR_SUCCEED/IR_CUT/IR_ATOM, nslots==0); the  */
-            /* identical g_frame_active ζ-frame model is used (rt_frame -> rdi, esi=0, call main_α). The body  */
-            /* is emitted by codegen_flat_build in MEDIUM_TEXT — the SAME bb_builtin write/nl TEXT arm whose    */
-            /* MEDIUM_BINARY twin mode-3 emits (MIGRATION-MODE4-IS-MODE3-DUMP: one template, two output sinks). */
-            /* The write/1 IR_ATOM arg label is produced by strtab_label (g_flat_intern_str hook unset), so    */
-            /* the .rodata string table is flushed by xa_strtab_rodata after the walk (Prolog differs from     */
-            /* Icon here: Icon's bb_call emits its rodata inline). The .s links libscrip_rt.so (rt_pl_write_    */
-            /* atom, putchar, rt_frame). Every richer shape -> pl_flat_body_root returns NULL -> EXCISED banner */
-            /* + non-zero return (smoke reports m4 EXCISED, not FAIL; no regression). Widen rung by rung.       */
             extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
             extern int codegen_pl_program(FILE * out);
             extern int g_frame_active;
@@ -959,14 +708,6 @@ int main(int argc, char **argv)
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
             IR_t *flat_root = pl_flat_body_root(pl_main);
             if (!flat_root) {
-                /* PLG-9d (2026-06-01): the flat tier (single-clause, no call/choice) declined. Try the RICH  */
-                /* tier — facts + clause choice + user-predicate calls. pl_rich_body_root verifies main AND   */
-                /* every registered predicate are fully TEXT-emittable (else NULL -> EXCISED, no miscompile). */
-                /* On accept, emit: (1) rt_pl_main_init (atoms+trail+GC the standalone binary needs); (2) the */
-                /* main: C-ABI wrapper -> main_α; (3) every predicate's callee block (codegen_pl_program, so  */
-                /* the .Lplpred_<name>_<arity> labels bb_goal.cpp calls resolve); (4) main_α itself. The      */
-                /* SAME ζ-frame model + walk_bb_flat dispatch as the flat tier; richer kinds (IR_GOAL ->      */
-                /* bb_goal, IR_CHOICE -> flat_drive_pl_choice) light up via the shared dispatch.              */
                 IR_t *rich_root = pl_rich_body_root(pl_main);
                 if (!rich_root) {
                     fprintf(stderr, "[SMX] --compile --target=x86: Prolog mode-4 covers the hello-world + "
@@ -993,12 +734,10 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n");
                 printf("  ret\n");
                 g_frame_active = 1;
-                int rcp = codegen_pl_program(stdout);          /* callee predicate blocks */
-                /* PLG-9d-bt: main's body owns its disjunction's operand_aux; point g_emit_cfg at pl_main   */
-                /* for the main_α walk (codegen_pl_program already save/restores per callee).               */
+                int rcp = codegen_pl_program(stdout);
                 extern IR_graph_t *g_emit_cfg;
                 IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = pl_main;
-                int rcm = codegen_flat_build(rich_root, stdout, "main");  /* main_α body */
+                int rcm = codegen_flat_build(rich_root, stdout, "main");
                 g_emit_cfg = save_cfg;
                 g_frame_active = 0;
                 xa_emit_strtab_rodata();
@@ -1011,11 +750,6 @@ int main(int argc, char **argv)
             printf("main:\n");
             printf("  push rbp\n");
             printf("  mov rbp, rsp\n");
-            /* PLG-9b (2026-05-31): if the clause body has logic-variable slots, allocate the per-activation */
-            /* env BEFORE running the body. The slots ARE the per-box RW storage for variables (the unify   */
-            /* box writes g_resolve_env[slot], the write box reads it). Mode-3 does this in the driver; the  */
-            /* emitted mode-4 binary has no driver, so it calls rt_pl_env_alloc(nslots) here. nslots==0 (the */
-            /* PLG-9a hello tier) skips it (g_resolve_env stays NULL, never dereferenced).                   */
             if (pl_main->nslots > 0) {
                 printf("  mov edi, %d\n", pl_main->nslots);
                 printf("  call rt_pl_env_alloc@PLT\n");
@@ -1035,18 +769,6 @@ int main(int argc, char **argv)
             return rc;
         }
         {
-            /* SBL-RING-REMOVE (2026-05-31, Opus 4.8): SNOBOL4 mode-4 BB-native x86 emission is PENDING ONE
-               WIRING STEP — it is not a designed limitation, and mode-4 is NOT inferior to mode-3. The two
-               modes are the SAME boxes in two media: every converted template emits BINARY (mode-3, run
-               in-process) or TEXT (mode-4, relocatable) from one x86() body, and for the ζ-frame/REG-ratified
-               boxes those bytes are identical. mode-4 already lights up for Icon/Prolog (the codegen_flat_build
-               path above). SNOBOL4 previously leaned on sno_ring_to_tree (a postfix-ring → four-port-tree
-               adapter) which was REMOVED as a VIOLATION (Lon directive) — the topology must come from LOWER,
-               not be re-derived at emit time. The emission scaffolding (codegen_flat_build + the XA wrap
-               templates) is intact and unchanged; the one missing piece is LOWER emitting the four-port
-               statement-BB graph directly for SNOBOL4, after which mode-4's TEXT arm and mode-3's BINARY arm
-               of the SAME box light up together. Until that wiring lands, abort below. NO storage outside the
-               boxes (PER-BOX LOCAL STORAGE FACT RULE). */
             extern void xa_file_header(void);
             extern void emit_io_set_sink(FILE * out);
             extern void emitter_init_text(FILE * out, int mode);
@@ -1077,7 +799,7 @@ int main(int argc, char **argv)
         return 1;
     } else if (mode_interp) {
         extern int g_icn_postfix_resume;
-        if (is_icon) g_icn_postfix_resume = 1;   /* mode-2 port-walker: wire deterministic-builtin CALL resume to arg resume (re-pump generator args); Icon-only */
+        if (is_icon) g_icn_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
@@ -1150,9 +872,6 @@ int main(int argc, char **argv)
             extern bb_box_fn icn_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
-            /* GOAL "ALWAYS TEST ALL THREE MODES" loud-decline gate: a graph with a still-stubbed native kind */
-            /* (scan/gen-alt/keyword/cset/suspend) would emit silently-wrong output. Decline LOUD ([SMX]) so   */
-            /* the harness records it EXCISED, never a silent miscompile. Icon only; Raku keeps its own path.  */
             if ((is_icon || is_raku) && !icn_graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "
@@ -1162,13 +881,7 @@ int main(int argc, char **argv)
             int main_bb_idx = -1;
             rt_proc_reset();
             rt_proc_set_builder((bb_box_fn (*)(void *))bb_build_flat);
-            g_frame_active = 1;   /* GZ-10: proc slabs (and main below) build with the push-r12 ζ-frame prologue */
-            /* GZ-10 (modes 3/4): TWO PHASES. Phase 1 registers EVERY user proc (name + params + entry) so   */
-            /* that during Phase 2 slab emission a call to ANY proc — including a forward or mutually-         */
-            /* recursive one not yet built — passes the rt_proc_is_registered gate in the bb_call dval==3.0   */
-            /* arm. Building a slab the moment its proc was registered (one-pass) made `iseven` calling the    */
-            /* later-registered `isodd` fall through to the unsupported-shape abort. Registration is cheap     */
-            /* (no emission); only Phase 2 emits, by which point the whole proc set is known.                  */
+            g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
@@ -1196,8 +909,6 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                /* GZ-10 (modes 3/4): build the procedure body NOW as a stackless flat slab with the        */
-                /* return-slot/param-slot convention; rt_icn_call_proc_descr invokes this fn per activation. */
                 bb_box_fn pfn = icn_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
@@ -1231,10 +942,6 @@ int main(int argc, char **argv)
                 fn = bb_build_flat(icn_root);
                 g_icn_flat_chain = saved;
             } else {
-                /* GZ-7 (GROUND ZERO 3): the single-expression-tree adapter could not linearize this graph */
-                /* (multi-statement, a variable read/assign, or branching control flow). Emit it as a FLAT  */
-                /* GOTO-GRAPH in the test_sno_*.c named-slot model — every box once, wired by its native    */
-                /* gamma/omega ports, operands read from producer slots. NO ring (mode-2 only), NO stack.   */
                 fn = icn_flat_chain_build(bbg->entry);
             }
             g_frame_active = 0;
@@ -1266,11 +973,6 @@ int main(int argc, char **argv)
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
             int nslots = pl_main->nslots > 0 ? pl_main->nslots : 1;
             g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 8) * sizeof(Term *));
-            /* PLG-8-native (2026-05-31): for the proven hello-world shape, EMIT the boxes natively via    */
-            /* bb_build_flat (code+data in the boxes; values up the chain in per-box slots; NO ring) and    */
-            /* run the JIT'd box, exactly as Icon/SNOBOL4 mode-3 do. Every richer shape -> pl_flat_body_root */
-            /* returns NULL and we keep the proven interim bb_exec_once route (no regression). Widen rung-   */
-            /* by-rung as the flat templates are verified for choice/unify/arith/user-call.                 */
             IR_t *flat_root = pl_flat_body_root(pl_main);
             if (flat_root) {
                 g_frame_active = 1;
@@ -1289,13 +991,6 @@ int main(int argc, char **argv)
                 (void)s2;
                 abort();
             }
-            /* SBL-M3-CHAIN (2026-05-31, Opus 4.8): SNOBOL4 mode-3 native execution from LOWER's four-port
-               statement-BB graph directly — NO ring->tree adapter (sno_ring_to_tree stays removed). The
-               graph's entry is land[0] (an IR_SUCCEED landing); sno_flat_chain_build resolves landings
-               transitively and emits the flat goto-graph (every box once, native γ/ω ports, NO value stack,
-               NO ring; per-box RO [rip+disp] / RW [ζ=r12+off]). Shapes whose boxes have no BINARY arm yet
-               make sno_flat_chain_build return NULL -> SOFT honest fall (loud stderr, clean exit, NO abort),
-               so a working shape (e.g. OUTPUT='hello') runs while unbuilt shapes produce empty output. */
             extern bb_box_fn sno_flat_chain_build(IR_graph_t * g);
             extern void *rt_frame(void);
             extern int g_frame_active;

@@ -1,6 +1,3 @@
-/* bb_pat_abort.cpp — BB template for ABORT. x86() self-encoding (template-revamp, 2026-06-02).
- * ABORT unconditionally fails the match: α → jmp ω; β → jmp ω.  Both ports dead-end at ω
- * (SPITBOL Manual ch.18: "ABORT — Causes pattern match failure.").  pBB-free: reads _ only. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
@@ -8,7 +5,7 @@ extern "C" {
 #include "emit.h"
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_abort_str() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
@@ -62,5 +59,5 @@ static std::string bb_pat_abort_str() {
     if (PLATFORM_WASM) { return std::string("          (call $bb_abort_new)\n"); }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_pat_abort(void) { bb_emit_x86(bb_pat_abort_str()); }

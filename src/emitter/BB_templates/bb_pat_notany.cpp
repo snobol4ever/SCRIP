@@ -1,10 +1,3 @@
-/* notany.cpp — BB template for NOTANY. x86() self-encoding (template-revamp, 2026-06-01, Opus 4.8).
-   NOTANY(S) matches exactly ONE subject character that does NOT appear in S (SPITBOL Manual ch.18). On success δ += 1; on β it
-   undoes (δ -= 1) and fails. strchr(cs,ch) != NULL ⇒ char in set, so jne ω fails when the char IS in the set. REG-2 registers: subject
-   base Σ=R13, cursor δ=R14d, length Δ=R15d (established by BB_MATCH α per REG-0). r10 is SysV caller-saved
-   so it is push/pop'd around the strchr call (r13/r14/r15 are callee-saved and survive). x86 arm: ONE
-   return, pure x86() concat, NO bb_bin_t; the cset address is an RO load (movabs in BINARY / lea[rip] in
-   TEXT, REG-RO will unify) and the medium is invisible. */
 #include <string>
 #include <cstring>
 #include <cstdint>
@@ -16,12 +9,12 @@ void *rt_cs_new(const char *chars);
 #include "emit.h"
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * cset_chars() { return _.op_sval ? _.op_sval : ""; }
 static inline const char * cset_label() { return emit_intern_str(cset_chars()); }
 static inline uint64_t     cset_addr()  { return (uint64_t)(uintptr_t)(const void *)cset_chars(); }
 static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_notany_str() {
     int nid = _.nid; (void)nid;
     if (PLATFORM_X86) {
@@ -45,7 +38,7 @@ static std::string bb_pat_notany_str() {
              + x86("sub",    "r14d", (long)1)
              + x86("jmp",    PORT_OMEGA);
     }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
     if (PLATFORM_JVM) {
         return jvm_class_hdr_str("notany")
              + s_directive(".field private final chars Ljava/lang/String;")
@@ -143,5 +136,5 @@ static std::string bb_pat_notany_str() {
     if (PLATFORM_WASM) { return "          (call $bb_notany_new)\n"; }
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_pat_notany(void) { bb_emit_x86(bb_pat_notany_str()); }
