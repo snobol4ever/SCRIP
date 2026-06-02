@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <gc/gc.h>
-int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
+int script_try_call_builtin(tree_t *call, DESCR_t *out_descr) {
     if (!call || call->n < 1 || !call->c[0]) return 0;
     const char *fn = call->c[0]->v.sval;
     if (!fn) return 0;
@@ -32,7 +32,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 }
                 char *out = GC_malloc((size_t)len + 1);
                 memcpy(out, s + start, (size_t)len); out[len] = '\0';
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if (!strcmp(fn,"str_index") || (!strcmp(fn,"index") && nargs >= 2)) {
                 DESCR_t sd = interp_eval(call->c[1]);
@@ -42,9 +42,9 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 long from = 0;
                 if (nargs >= 3) { DESCR_t pd = interp_eval(call->c[3]); from = IS_INT_fn(pd)?pd.i:0; }
                 if (from < 0) from = 0;
-                if (*needle == '\0') { *__rk_out = INTVAL(from); return 1; }
+                if (*needle == '\0') { *out_descr = INTVAL(from); return 1; }
                 const char *found = strstr(s + from, needle);
-                { *__rk_out = found ? INTVAL((long)(found - s)) : INTVAL(-1); return 1; }
+                { *out_descr = found ? INTVAL((long)(found - s)) : INTVAL(-1); return 1; }
             }
             if (!strcmp(fn,"str_rindex") || (!strcmp(fn,"rindex") && nargs >= 2)) {
                 DESCR_t sd = interp_eval(call->c[1]);
@@ -55,12 +55,12 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 long from = slen;
                 if (nargs >= 3) { DESCR_t pd = interp_eval(call->c[3]); from = IS_INT_fn(pd)?pd.i:slen; }
                 size_t nlen = strlen(needle);
-                if (nlen == 0) { *__rk_out = INTVAL(from < slen ? from : slen); return 1; }
+                if (nlen == 0) { *out_descr = INTVAL(from < slen ? from : slen); return 1; }
                 long best = -1;
                 for (long i = 0; i <= from - (long)nlen; i++) {
                     if (memcmp(s + i, needle, nlen) == 0) best = i;
                 }
-                { *__rk_out = INTVAL(best); return 1; }
+                { *out_descr = INTVAL(best); return 1; }
             }
             if (!strcmp(fn,"re_match") && nargs == 2) {
                 DESCR_t sd = interp_eval(call->c[1]);
@@ -68,11 +68,11 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 const char *subj = VARVAL_fn(sd); if (!subj) subj = "";
                 if (pd.v == DT_P) {
                     extern int exec_stmt(const char *, DESCR_t *, DESCR_t, DESCR_t *, int);
-                    { *__rk_out = exec_stmt(NULL, &sd, pd, NULL, 0) ? INTVAL(1) : FAILDESCR; return 1; }
+                    { *out_descr = exec_stmt(NULL, &sd, pd, NULL, 0) ? INTVAL(1) : FAILDESCR; return 1; }
                 }
                 const char *pat = VARVAL_fn(pd); if (!pat) pat = "";
                 { Raku_nfa *nfa = raku_nfa_build(pat);
-                  if (!nfa) { *__rk_out = FAILDESCR; return 1; }
+                  if (!nfa) { *out_descr = FAILDESCR; return 1; }
                   extern int raku_nfa_bb_match(const Raku_nfa *, const char *);
                   static int nfa_bb = -1;
                   if (nfa_bb < 0) { const char *e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0]=='1') ? 1 : 0; }
@@ -81,7 +81,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                   int verdict = g_raku_match.matched ? 1 : 0;
                   if (nfa_bb) verdict = raku_nfa_bb_match(nfa, subj);
                   raku_nfa_free(nfa);
-                  { *__rk_out = verdict ? INTVAL(1) : FAILDESCR; return 1; }
+                  { *out_descr = verdict ? INTVAL(1) : FAILDESCR; return 1; }
                 }
             }
             if (!strcmp(fn,"re_match_global") && nargs == 2) {
@@ -90,7 +90,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 const char *subj = VARVAL_fn(sd); if (!subj) subj = "";
                 const char *pat  = VARVAL_fn(pd); if (!pat)  pat  = "";
                 Raku_nfa *nfa = raku_nfa_build(pat);
-                if (!nfa) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                if (!nfa) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int slen = (int)strlen(subj);
                 char *out = GC_malloc(slen * 4 + 4); out[0] = '\0';
                 int pos = 0, count = 0;
@@ -113,7 +113,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                     count++;
                 }
                 raku_nfa_free(nfa);
-                { *__rk_out = count > 0 ? STRVAL(out) : FAILDESCR; return 1; }
+                { *out_descr = count > 0 ? STRVAL(out) : FAILDESCR; return 1; }
             }
             if (!strcmp(fn,"re_subst") && nargs == 2) {
                 DESCR_t sd = interp_eval(call->c[1]);
@@ -121,16 +121,16 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 const char *subj = VARVAL_fn(sd); if (!subj) subj = "";
                 const char *tok  = VARVAL_fn(td); if (!tok)  tok  = "";
                 const char *sep1 = strchr(tok, '\x01');
-                if (!sep1) { *__rk_out = sd; return 1; }
+                if (!sep1) { *out_descr = sd; return 1; }
                 const char *sep2 = strchr(sep1+1, '\x01');
-                if (!sep2) { *__rk_out = sd; return 1; }
+                if (!sep2) { *out_descr = sd; return 1; }
                 int plen = (int)(sep1-tok);
                 int rlen = (int)(sep2-(sep1+1));
                 char *pat  = GC_malloc(plen+1); memcpy(pat, tok, plen); pat[plen]='\0';
                 char *repl = GC_malloc(rlen+1); memcpy(repl, sep1+1, rlen); repl[rlen]='\0';
                 int global = (*(sep2+1)=='g');
                 Raku_nfa *nfa = raku_nfa_build(pat);
-                if (!nfa) { *__rk_out = sd; return 1; }
+                if (!nfa) { *out_descr = sd; return 1; }
                 int slen=(int)strlen(subj);
                 char *res = GC_malloc(slen*4+rlen*8+4); res[0]='\0';
                 int pos=0, did_one=0;
@@ -148,11 +148,11 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 if (call->c[1]->t==TERM_VAR && call->c[1]->v.ival>=0 &&
                     call->c[1]->v.ival<FRAME.env_n && frame_depth>0)
                     FRAME.env[call->c[1]->v.ival] = STRVAL(res);
-                { *__rk_out = did_one ? STRVAL(res) : sd; return 1; }
+                { *out_descr = did_one ? STRVAL(res) : sd; return 1; }
             }
             if (!strcmp(fn,"open") && (nargs==1||nargs==2)) {
                 DESCR_t pd=interp_eval(call->c[1]);
-                const char *path=VARVAL_fn(pd); if(!path||!*path) { *__rk_out = FAILDESCR; return 1; }
+                const char *path=VARVAL_fn(pd); if(!path||!*path) { *out_descr = FAILDESCR; return 1; }
                 const char *mode="r";
                 if(nargs==2){
                     DESCR_t md=interp_eval(call->c[2]);
@@ -161,17 +161,17 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                     else if(strstr(ms,":a")||strstr(ms,"a")) mode="a";
                 }
                 FILE *fp=fopen(path,mode);
-                if(!fp) { *__rk_out = FAILDESCR; return 1; }
+                if(!fp) { *out_descr = FAILDESCR; return 1; }
                 int idx=fh_alloc(fp);
-                if(idx<0){fclose(fp);{ *__rk_out = FAILDESCR; return 1; }}
-                { *__rk_out = INTVAL(idx); return 1; }
+                if(idx<0){fclose(fp);{ *out_descr = FAILDESCR; return 1; }}
+                { *out_descr = INTVAL(idx); return 1; }
             }
             if (!strcmp(fn,"close") && nargs==1) {
                 DESCR_t fd=interp_eval(call->c[1]);
                 int idx=(int)(IS_INT_fn(fd)?fd.i:0);
                 FILE *fp=fh_get(idx);
                 if(fp){fclose(fp);fh_free(idx);}
-                { *__rk_out = INTVAL(0); return 1; }
+                { *out_descr = INTVAL(0); return 1; }
             }
             if (!strcmp(fn,"slurp") && nargs==1) {
                 DESCR_t ad=interp_eval(call->c[1]);
@@ -179,15 +179,15 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 if(IS_INT_fn(ad)) {
                     fp=fh_get((int)ad.i);
                 } else {
-                    const char *path=VARVAL_fn(ad); if(!path||!*path) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                    const char *path=VARVAL_fn(ad); if(!path||!*path) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                     fp=fopen(path,"r"); need_close=1;
                 }
-                if(!fp) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                if(!fp) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 fseek(fp,0,SEEK_END); long sz=ftell(fp); rewind(fp);
                 char *buf=GC_malloc(sz+1);
                 size_t nr=fread(buf,1,(size_t)sz,fp); buf[nr]='\0';
                 if(need_close) fclose(fp);
-                { *__rk_out = STRVAL(buf); return 1; }
+                { *out_descr = STRVAL(buf); return 1; }
             }
             if (!strcmp(fn,"lines") && nargs==1) {
                 DESCR_t ad=interp_eval(call->c[1]);
@@ -195,10 +195,10 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 if(IS_INT_fn(ad)) {
                     fp=fh_get((int)ad.i);
                 } else {
-                    const char *path=VARVAL_fn(ad); if(!path||!*path) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                    const char *path=VARVAL_fn(ad); if(!path||!*path) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                     fp=fopen(path,"r"); need_close=1;
                 }
-                if(!fp) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                if(!fp) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 char *out=GC_malloc(65536); out[0]='\0'; size_t cap=65536, used=0;
                 char line[4096]; int first=1;
                 while(fgets(line,sizeof line,fp)){
@@ -210,7 +210,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                     memcpy(out+used,line,ll); used+=ll; out[used]='\0'; first=0;
                 }
                 if(need_close) fclose(fp);
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if ((!strcmp(fn,"print_fh")||!strcmp(fn,"say_fh")) && nargs==2) {
                 DESCR_t fd=interp_eval(call->c[1]);
@@ -220,68 +220,68 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 const char *s=VARVAL_fn(vd); if(!s) s="";
                 fputs(s,fp);
                 if(!strcmp(fn,"say_fh")) fputc('\n',fp);
-                { *__rk_out = INTVAL(0); return 1; }
+                { *out_descr = INTVAL(0); return 1; }
             }
             if (!strcmp(fn,"spurt") && nargs==2) {
                 DESCR_t pd=interp_eval(call->c[1]);
                 DESCR_t cd=interp_eval(call->c[2]);
-                const char *path=VARVAL_fn(pd); if(!path||!*path) { *__rk_out = FAILDESCR; return 1; }
+                const char *path=VARVAL_fn(pd); if(!path||!*path) { *out_descr = FAILDESCR; return 1; }
                 const char *content=VARVAL_fn(cd); if(!content) content="";
-                FILE *fp=fopen(path,"w"); if(!fp) { *__rk_out = FAILDESCR; return 1; }
+                FILE *fp=fopen(path,"w"); if(!fp) { *out_descr = FAILDESCR; return 1; }
                 fputs(content,fp); fclose(fp);
-                { *__rk_out = INTVAL(0); return 1; }
+                { *out_descr = INTVAL(0); return 1; }
             }
             if (!strcmp(fn,"raku_nfa_compile") && nargs == 1) {
                 DESCR_t pd = interp_eval(call->c[1]);
                 const char *pat = VARVAL_fn(pd); if (!pat) pat = "";
                 { Raku_nfa *nfa = raku_nfa_build(pat);
-                  if (!nfa) { printf("NFA:%s:ERROR\n", pat); { *__rk_out = INTVAL(0); return 1; } }
+                  if (!nfa) { printf("NFA:%s:ERROR\n", pat); { *out_descr = INTVAL(0); return 1; } }
                   printf("NFA:%s:states=%d\n", pat, raku_nfa_state_count(nfa));
                   raku_nfa_free(nfa);
                 }
-                { *__rk_out = INTVAL(0); return 1; }
+                { *out_descr = INTVAL(0); return 1; }
             }
             if (!strcmp(fn,"re_named_capture") && nargs == 1) {
                 DESCR_t nd = interp_eval(call->c[1]);
                 const char *name = VARVAL_fn(nd); if (!name) name = "";
-                if (!g_raku_match.matched) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                if (!g_raku_match.matched) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int g = -1;
                 for (int i=0;i<g_raku_match.ngroups;i++)
                     if (strcmp(g_raku_match.group_name[i],name)==0){g=i;break;}
-                if (g<0||g_raku_match.group_start[g]<0) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                if (g<0||g_raku_match.group_start[g]<0) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int gs=g_raku_match.group_start[g], ge=g_raku_match.group_end[g];
-                if (ge<gs) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                if (ge<gs) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int len=ge-gs; char *out=GC_malloc(len+1);
                 memcpy(out,g_raku_subject+gs,(size_t)len); out[len]='\0';
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if ((!strcmp(fn,"fh_capture") || !strcmp(fn,"re_capture")) && nargs == 1) {
                 DESCR_t nd = interp_eval(call->c[1]);
                 int n = (int)(IS_INT_fn(nd) ? nd.i : 0);
                 if (!g_raku_match.matched || n < 0 || n >= g_raku_match.ngroups
-                    || g_raku_match.group_start[n] < 0) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                    || g_raku_match.group_start[n] < 0) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int gs = g_raku_match.group_start[n];
                 int ge = g_raku_match.group_end[n];
-                if (ge < gs) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                if (ge < gs) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int len = ge - gs;
                 char *out = GC_malloc(len + 1);
                 memcpy(out, g_raku_subject + gs, (size_t)len);
                 out[len] = '\0';
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if (!strcmp(fn,"str_uc") || (!strcmp(fn,"uc") && nargs == 1)) {
                 DESCR_t sd = interp_eval(call->c[1]);
                 const char *s = VARVAL_fn(sd); if (!s) s = "";
                 char *out = GC_strdup(s);
                 for (char *p = out; *p; p++) *p = (char)toupper((unsigned char)*p);
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if (!strcmp(fn,"str_lc") || (!strcmp(fn,"lc") && nargs == 1)) {
                 DESCR_t sd = interp_eval(call->c[1]);
                 const char *s = VARVAL_fn(sd); if (!s) s = "";
                 char *out = GC_strdup(s);
                 for (char *p = out; *p; p++) *p = (char)tolower((unsigned char)*p);
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if (!strcmp(fn,"str_trim")) {
                 DESCR_t sd = interp_eval(call->c[1]);
@@ -290,13 +290,13 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 size_t len = strlen(s);
                 while (len > 0 && (s[len-1]==' '||s[len-1]=='\t'||s[len-1]=='\n'||s[len-1]=='\r')) len--;
                 char *out = GC_malloc(len + 1); memcpy(out, s, len); out[len] = '\0';
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if (!strcmp(fn,"chars") || !strcmp(fn,"length")) {
                 if (nargs == 1) {
                     DESCR_t sd = interp_eval(call->c[1]);
                     const char *s = VARVAL_fn(sd); if (!s) s = "";
-                    { *__rk_out = INTVAL((long)strlen(s)); return 1; }
+                    { *out_descr = INTVAL((long)strlen(s)); return 1; }
                 }
             }
             if (!strcmp(fn,"script_die") && nargs >= 1) {
@@ -304,7 +304,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 const char *msg = VARVAL_fn(md); if (!msg) msg = "Died";
                 extern char g_script_exception[512];
                 snprintf(g_script_exception, sizeof g_script_exception, "%s", msg);
-                { *__rk_out = FAILDESCR; return 1; }
+                { *out_descr = FAILDESCR; return 1; }
             }
             if (!strcmp(fn,"script_try") && (nargs == 1 || nargs == 2)) {
                 extern char g_script_exception[512];
@@ -312,7 +312,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                 DESCR_t r = interp_eval(call->c[1]);
                 int body_failed = IS_FAIL_fn(r);
                 int real_die    = (g_script_exception[0] != '\0');
-                if (!body_failed) { g_script_exception[0]='\0'; { *__rk_out = r; return 1; } }
+                if (!body_failed) { g_script_exception[0]='\0'; { *out_descr = r; return 1; } }
                 if (nargs == 2 && real_die) {
                     tree_t *catch_blk = call->c[2];
                     int _sl2 = -1;
@@ -328,10 +328,10 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                     if (_sl2 >= 0 && _sl2 < FRAME.env_n) FRAME.env[_sl2] = exc_d;
                     else NV_SET_fn("$!", exc_d);
                     g_script_exception[0] = '\0';
-                    { *__rk_out = interp_eval(catch_blk); return 1; }
+                    { *out_descr = interp_eval(catch_blk); return 1; }
                 }
                 g_script_exception[0] = '\0';
-                { *__rk_out = NULVCL; return 1; }
+                { *out_descr = NULVCL; return 1; }
             }
 #define SOH '\x01'
             if (!strcmp(fn,"array_map") && nargs == 2) {
@@ -378,7 +378,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                     }
                     seg = nx ? nx + 1 : NULL;
                 } while (seg);
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if (!strcmp(fn,"array_grep") && nargs == 2) {
                 tree_t *blk = call->c[1];
@@ -421,11 +421,11 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                     }
                     seg = nx ? nx + 1 : NULL;
                 } while (seg);
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
             if (!strcmp(fn,"array_sort") && (nargs == 1 || nargs == 2)) {
                 DESCR_t arrd = interp_eval(call->c[nargs == 2 ? 2 : 1]);
-                const char *as = VARVAL_fn(arrd); if (!as || !*as) { *__rk_out = STRVAL(GC_strdup("")); return 1; }
+                const char *as = VARVAL_fn(arrd); if (!as || !*as) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 tree_t *blk = (nargs == 2) ? call->c[1] : NULL;
                 int cnt = 1; for (const char *p=as;*p;p++) if(*p==SOH) cnt++;
                 char **elems = GC_malloc((size_t)cnt * sizeof(char*));
@@ -476,16 +476,16 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                     if (i) { size_t ol=strlen(out); out[ol]=SOH; out[ol+1]='\0'; }
                     strcat(out,elems[i]);
                 }
-                { *__rk_out = STRVAL(out); return 1; }
+                { *out_descr = STRVAL(out); return 1; }
             }
 #undef SOH
             if (!strcmp(fn,"obj_new")) {
-                if (call->n < 2) { *__rk_out = NULVCL; return 1; }
+                if (call->n < 2) { *out_descr = NULVCL; return 1; }
                 DESCR_t cnameD = interp_eval(call->c[1]);
                 const char *cname = VARVAL_fn(cnameD);
-                if (!cname || !*cname) { *__rk_out = FAILDESCR; return 1; }
+                if (!cname || !*cname) { *out_descr = FAILDESCR; return 1; }
                 DatType *t = dat_find_type(cname);
-                if (!t) { *__rk_out = FAILDESCR; return 1; }
+                if (!t) { *out_descr = FAILDESCR; return 1; }
                 DESCR_t fvals[64];
                 for (int i=0;i<t->nfields && i<64;i++) fvals[i]=NULVCL;
                 for (int ci=2; ci+1 < call->n; ci+=2) {
@@ -497,32 +497,32 @@ int script_try_call_builtin(tree_t *call, DESCR_t *__rk_out) {
                         if (strcmp(t->fields[fi], kname)==0) { fvals[fi]=vD; break; }
                     }
                 }
-                { *__rk_out = dat_construct(t, fvals, t->nfields); return 1; }
+                { *out_descr = dat_construct(t, fvals, t->nfields); return 1; }
             }
             if (!strcmp(fn,"meth_call")) {
-                if (call->n < 3) { *__rk_out = FAILDESCR; return 1; }
+                if (call->n < 3) { *out_descr = FAILDESCR; return 1; }
                 DESCR_t obj    = interp_eval(call->c[1]);
                 DESCR_t mnameD = interp_eval(call->c[2]);
                 const char *mname = VARVAL_fn(mnameD);
-                if (!mname || !*mname) { *__rk_out = FAILDESCR; return 1; }
+                if (!mname || !*mname) { *out_descr = FAILDESCR; return 1; }
                 const char *cname = NULL;
                 if (obj.v == DT_DATA && obj.u) {
                     DATINST_t *inst = (DATINST_t *)obj.u;
                     if (inst->type) cname = inst->type->name;
                 }
-                if (!cname) { *__rk_out = FAILDESCR; return 1; }
+                if (!cname) { *out_descr = FAILDESCR; return 1; }
                 char procname[256];
                 snprintf(procname, sizeof procname, "%s__%s", cname, mname);
                 int pi;
                 for (pi = 0; pi < g_stage2.proc_count; pi++)
                     if (strcmp(g_stage2.proc_table[pi].name, procname) == 0) break;
-                if (pi >= g_stage2.proc_count) { *__rk_out = FAILDESCR; return 1; }
+                if (pi >= g_stage2.proc_count) { *out_descr = FAILDESCR; return 1; }
                 int nextra = call->n - 3;
                 int total  = 1 + nextra;
                 DESCR_t *callargs = GC_malloc((size_t)total * sizeof(DESCR_t));
                 callargs[0] = obj;
                 for (int i=0;i<nextra;i++) callargs[i+1] = interp_eval(call->c[3+i]);
-                { *__rk_out = proc_table_call(pi, callargs, total); return 1; }
+                { *out_descr = proc_table_call(pi, callargs, total); return 1; }
             }
     return 0;
 }

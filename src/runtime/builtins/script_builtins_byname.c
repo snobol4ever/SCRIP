@@ -83,12 +83,12 @@ int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
                     case 'o': return hits == 1; case 'n': return hits == 0; default: return 0; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-#define RK_GRAM_MAX 128
-static struct { const char *qname; const char *body; int flavor; } gram_reg[RK_GRAM_MAX];
+#define GRAMMAR_MAX 128
+static struct { const char *qname; const char *body; int flavor; } gram_reg[GRAMMAR_MAX];
 static int gram_n = 0;
 static void gram_set(const char *qname, const char *body, int flavor) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) { gram_reg[i].body = GC_strdup(body); gram_reg[i].flavor = flavor; return; }
-    if (gram_n < RK_GRAM_MAX) { gram_reg[gram_n].qname = GC_strdup(qname); gram_reg[gram_n].body = GC_strdup(body); gram_reg[gram_n].flavor = flavor; gram_n++; }
+    if (gram_n < GRAMMAR_MAX) { gram_reg[gram_n].qname = GC_strdup(qname); gram_reg[gram_n].body = GC_strdup(body); gram_reg[gram_n].flavor = flavor; gram_n++; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int gram_get_flavor(const char *qname) {
