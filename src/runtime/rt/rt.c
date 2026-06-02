@@ -1139,7 +1139,7 @@ void rt_pl_write_canonical_term_ptr(void *t)
     pl_write_canonical(d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval)
+void *rt_node_to_term(int kind, long ival, const char *sval, double dval)
 {
     extern Term **g_resolve_env;
     switch (kind) {
@@ -1156,7 +1156,7 @@ void *rt_pl_node_to_term(int kind, long ival, const char *sval, double dval)
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_unify_terms(void *l, void *r)
+int rt_unify_terms(void *l, void *r)
 {
     extern Trail g_resolve_trail;
     Term *lt = (Term *)l, *rt_ = (Term *)r;
@@ -1166,12 +1166,12 @@ int rt_pl_unify_terms(void *l, void *r)
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_unify_const(int slot, int kind, long ival, const char *sval, double dval)
+int rt_unify_const(int slot, int kind, long ival, const char *sval, double dval)
 {
     extern Term **g_resolve_env;
     Term *vt = (g_resolve_env && slot >= 0 && g_resolve_env[slot]) ? term_deref(g_resolve_env[slot]) : (Term *)0;
     if (!vt) { vt = term_new_var(slot); if (g_resolve_env && slot >= 0) g_resolve_env[slot] = vt; }
-    if (vt->tag == TERM_VAR) return rt_pl_unify_terms(vt, rt_pl_node_to_term(kind, ival, sval, dval));
+    if (vt->tag == TERM_VAR) return rt_unify_terms(vt, rt_node_to_term(kind, ival, sval, dval));
     switch (kind) {
     case IR_ATOM:  return (vt->tag == TERM_ATOM  && vt->atom_id == prolog_atom_intern(sval ? sval : "[]")) ? 1 : 0;
     case IR_LIT_I: return (vt->tag == TERM_INT   && vt->ival == ival) ? 1 : 0;
@@ -1180,13 +1180,13 @@ int rt_pl_unify_const(int slot, int kind, long ival, const char *sval, double dv
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_trail_mark(void)
+int rt_trail_mark(void)
 {
     extern Trail g_resolve_trail;
     return trail_mark(&g_resolve_trail);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_trail_unwind(int mark)
+void rt_trail_unwind(int mark)
 {
     extern Trail g_resolve_trail;
     trail_unwind(&g_resolve_trail, mark);
@@ -1195,14 +1195,14 @@ void rt_pl_trail_unwind(int mark)
 #define RT_PL_MARK_STACK_MAX 32
 static int g_resolve_mark_stack[RT_PL_MARK_STACK_MAX];
 static int g_resolve_mark_top = 0;
-void rt_pl_trail_mark_push(void)
+void rt_trail_mark_push(void)
 {
     extern Trail g_resolve_trail;
     int m = trail_mark(&g_resolve_trail);
     if (g_resolve_mark_top < RT_PL_MARK_STACK_MAX) g_resolve_mark_stack[g_resolve_mark_top++] = m;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_trail_unwind_top(void)
+void rt_trail_unwind_top(void)
 {
     extern Trail g_resolve_trail;
     if (g_resolve_mark_top <= 0) return;
@@ -1210,7 +1210,7 @@ void rt_pl_trail_unwind_top(void)
     trail_unwind(&g_resolve_trail, m);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_trail_mark_pop(void)
+void rt_trail_mark_pop(void)
 {
     if (g_resolve_mark_top > 0) g_resolve_mark_top--;
 }
