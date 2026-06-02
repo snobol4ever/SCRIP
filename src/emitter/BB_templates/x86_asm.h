@@ -321,7 +321,33 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
 struct x86_frameq { int off; };
 inline x86_frameq FRQ(int off) { return x86_frameq{ off }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* UNIFIED FRONT-END (Lon eureka 2026-06-01).  ONE x86(...) keyed on the mnemonic (1st arg); the remaining   */
+/* GATHER-tier encoders (added 2026-06-02 for bb_rk_gather x86() conversion; defined here so the ζ-frame    */
+/* helpers x86_r12_modrm / x86_frame_text_mem they reference are already in scope).                          */
+/* cmp r64, imm — REX.W.  imm8 short form (48 83 /7) when it fits int8; else 48 81 /7.                       */
+/* Verified vs `as`: cmp rcx,10 → 48 83 F9 0A ; cmp rcx,300 → 48 81 F9 2C 01 00 00.                          */
+inline std::string x86_cmp_imm64(const char * reg, long imm) {
+    int m = x86_rnum(reg);
+    std::string code; code += (char)0x48;
+    if (imm >= -128 && imm <= 127) { code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
+    else                           { code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" cmp ") + reg + ", " + std::to_string(imm) + "\n");
+}
+/* mov r64, [base64 + idx64*8] — SCALE-8 indexed array load.  48 8B /r SIB(ss=3, idx, base).                */
+/* Verified vs `as`: mov rsi,[rdx+rcx*8] → 48 8B 34 CA.  reg=dst, base, idx all <8 here (no REX.B/X/R).      */
+inline std::string x86_load_indexed8(const char * dst, const char * base, const char * idx) {
+    int g = x86_rnum(dst), b = x86_rnum(base), x = x86_rnum(idx);
+    std::string code; code += (char)0x48; code += (char)0x8B;
+    code += (char)(0x00 | ((g & 7) << 3) | 0x04);
+    code += (char)((3 << 6) | ((x & 7) << 3) | (b & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", [" + base + " + " + idx + "*8]\n");
+}
+/* inc qword [r12+off] — 49 FF /0 with r12 SIB ModRM.  BINARY==TEXT (register-relative, no movabs).         */
+/* Verified vs `as`: inc qword[r12] → 49 FF 04 24 ; [r12+8] → 49 FF 44 24 08 ; [r12+512] → 49 FF 84 24 ...   */
+inline std::string x86_frame_inc64(int off) {
+    std::string code; code += (char)0x49; code += (char)0xFF; code += x86_r12_modrm(0, off);
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" inc qword ptr ") + x86_frame_text_mem(off) + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* args' cardinality + type select the form via overloading.  This is the template-facing API — the typed   */
 /* x86_* encoders above are the internal implementation it dispatches to.  Add a case here as vocabulary     */
 /* grows; the medium (BINARY/TEXT) stays invisible because the encoders handle it.                           */
@@ -378,12 +404,19 @@ inline std::string x86(const char * mnem, const char * a, const char * b) {     
     return std::string();
 }
 inline std::string x86(const char * mnem, const char * reg, long imm) {                        /* reg, imm32                */
-    if (!strcmp(mnem, "add"))   return x86_add(reg, imm);
-    if (!strcmp(mnem, "sub"))   return x86_sub(reg, imm);
-    if (!strcmp(mnem, "cmp"))   return x86_cmp_imm(reg, imm);
-    if (!strcmp(mnem, "mov"))   return x86_movimm(reg, imm);
+    if (!strcmp(mnem, "add"))    return x86_add(reg, imm);
+    if (!strcmp(mnem, "sub"))    return x86_sub(reg, imm);
+    if (!strcmp(mnem, "cmp"))    return x86_cmp_imm(reg, imm);
+    if (!strcmp(mnem, "cmp64")) return x86_cmp_imm64(reg, imm);
+    if (!strcmp(mnem, "mov"))    return x86_movimm(reg, imm);
     if (!strcmp(mnem, "mov32")) return x86_movimm32(reg, imm);
     return std::string();
+}
+inline std::string x86(const char * mnem, const char * dst, const char * b, const char * idx) { /* mov dst,[base+idx*8] */
+    (void)mnem; return x86_load_indexed8(dst, b, idx);
+}
+inline std::string x86(const char * mnem, x86_frameq f) {                                     /* inc qword [r12+off]       */
+    (void)mnem; return x86_frame_inc64(f.off);
 }
 inline std::string x86(const char * mnem, const char * sym, uint64_t ptr) {                    /* call sym (RO ptr)         */
     (void)mnem;
