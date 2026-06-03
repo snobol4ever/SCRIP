@@ -1265,6 +1265,18 @@ static const char * scan_pat_cat_concat(IR_graph_t *pg) {
     return buf;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int scan_val_is_single_lit(IR_graph_t *g) {
+    if (!g || !g->entry || g->entry->t != IR_LIT_S) return 0;
+    int nlit = 0;
+    for (int i = 0; i < g->n; i++) {
+        IR_e t = g->all[i]->t;
+        if (t == IR_SUCCEED || t == IR_FAIL) continue;
+        if (t == IR_LIT_S) { nlit++; continue; }
+        return 0;
+    }
+    return nlit == 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int n_aux = 0;
     IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
@@ -1278,8 +1290,8 @@ static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
         IR_graph_t * rg = (IR_graph_t *)(intptr_t)g_emit.op_scan_repl;
         if (scan_pat_is_single_lit(pg))                    g_emit.op_scan_pat_lit  = pg->entry->sval ? pg->entry->sval : "";
         else { const char * cc = scan_pat_cat_concat(pg); if (cc)  g_emit.op_scan_pat_lit  = cc; }
-        if (sg && sg->entry && sg->entry->t == IR_LIT_S)   g_emit.op_scan_subj_lit = sg->entry->sval ? sg->entry->sval : "";
-        if (rg && rg->entry && rg->entry->t == IR_LIT_S)   g_emit.op_scan_replace_lit = rg->entry->sval ? rg->entry->sval : "";
+        if (scan_val_is_single_lit(sg))                    g_emit.op_scan_subj_lit = sg->entry->sval ? sg->entry->sval : "";
+        if (scan_val_is_single_lit(rg))                    g_emit.op_scan_replace_lit = rg->entry->sval ? rg->entry->sval : "";
     }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
