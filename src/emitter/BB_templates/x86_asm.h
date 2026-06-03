@@ -457,6 +457,8 @@ extern "C" void rt_bomb(const char * msg);
 inline std::string x86_bomb(const char * msg) {
     const char * m   = msg ? msg : "(unimplemented box)";
     const char * lbl = emit_intern_str(m);
+    char lblbuf[24];
+    if (!MEDIUM_BINARY && (!lbl || !lbl[0])) { strtab_label(lblbuf, sizeof lblbuf, m); lbl = lblbuf; }
     uint64_t     fp  = (uint64_t)(uintptr_t)(void *)rt_bomb;
     return x86_load_ro("rdi", lbl, (uint64_t)(uintptr_t)(const void *)m)
          + x86_call_ro("rt_bomb", fp)

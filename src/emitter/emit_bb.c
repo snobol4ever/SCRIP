@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <gc/gc.h>
 extern const char * Σ;
 extern int          Σlen;
 extern DESCR_t gen_bb_not(void*,int);
@@ -1186,6 +1187,38 @@ static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int scan_pat_is_single_lit(IR_graph_t *pg) {
+    if (!pg || !pg->entry || pg->entry->t != IR_PAT_LIT) return 0;
+    int nlit = 0;
+    for (int i = 0; i < pg->n; i++) {
+        IR_e t = pg->all[i]->t;
+        if (t == IR_SUCCEED || t == IR_FAIL) continue;
+        if (t == IR_PAT_LIT) { nlit++; continue; }
+        return 0;
+    }
+    return nlit == 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static const char * scan_pat_cat_concat(IR_graph_t *pg) {
+    if (!pg || !pg->entry || pg->entry->t != IR_PAT_LIT) return NULL;
+    int nlit = 0, ncat = 0;
+    for (int i = 0; i < pg->n; i++) {
+        IR_e t = pg->all[i]->t;
+        if (t == IR_SUCCEED || t == IR_FAIL) continue;
+        if (t == IR_PAT_LIT) { nlit++; continue; }
+        if (t == IR_PAT_CAT) { ncat++; continue; }
+        return NULL;
+    }
+    if (nlit < 2 || ncat < 1) return NULL;
+    size_t total = 0;
+    for (IR_t *c = pg->entry; c && c->t == IR_PAT_LIT; c = c->γ) total += c->sval ? strlen(c->sval) : 0;
+    char *buf = (char *)GC_MALLOC_ATOMIC(total + 1);
+    size_t off = 0;
+    for (IR_t *c = pg->entry; c && c->t == IR_PAT_LIT; c = c->γ) { const char *s = c->sval ? c->sval : ""; size_t n = strlen(s); memcpy(buf + off, s, n); off += n; }
+    buf[off] = 0;
+    return buf;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int n_aux = 0;
     IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
@@ -1197,7 +1230,8 @@ static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
         IR_graph_t * pg = (IR_graph_t *)(intptr_t)g_emit.op_scan_pat;
         IR_graph_t * sg = (IR_graph_t *)(intptr_t)g_emit.op_scan_subj;
         IR_graph_t * rg = (IR_graph_t *)(intptr_t)g_emit.op_scan_repl;
-        if (pg && pg->entry && pg->entry->t == IR_PAT_LIT) g_emit.op_scan_pat_lit  = pg->entry->sval ? pg->entry->sval : "";
+        if (scan_pat_is_single_lit(pg))                    g_emit.op_scan_pat_lit  = pg->entry->sval ? pg->entry->sval : "";
+        else { const char * cc = scan_pat_cat_concat(pg); if (cc)  g_emit.op_scan_pat_lit  = cc; }
         if (sg && sg->entry && sg->entry->t == IR_LIT_S)   g_emit.op_scan_subj_lit = sg->entry->sval ? sg->entry->sval : "";
         if (rg && rg->entry && rg->entry->t == IR_LIT_S)   g_emit.op_scan_replace_lit = rg->entry->sval ? rg->entry->sval : "";
     }
