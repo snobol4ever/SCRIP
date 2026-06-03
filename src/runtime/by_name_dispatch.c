@@ -1,8 +1,8 @@
-#include "script_builtins.h"
-#include "gen_value.h"
-#include "gen_runtime.h"
-#include "../../driver/interp_private.h"
-#include "../../parser/raku/raku_re.h"
+#include "builtins/script_builtins.h"
+#include "builtins/gen_value.h"
+#include "builtins/gen_runtime.h"
+#include "../driver/interp_private.h"
+#include "../parser/raku/raku_re.h"
 #include "core.h"
 #include <stdio.h>
 #include <string.h>

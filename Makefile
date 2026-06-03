@@ -145,7 +145,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_sno.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/builtins/scan_builtins.c \
-    $(SRC)/runtime/builtins/script_builtins.c \
+    $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/builtins/script_builtins_byname.c \
     $(SRC)/runtime/builtins/resolve_runtime.c \
     $(SRC)/runtime/core/coerce.c \
@@ -324,7 +324,7 @@ scrip:
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_emit.c   -o $(OBJ)/rebus_emit.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_print.c  -o $(OBJ)/rebus_print.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/gen_runtime.c -o $(OBJ)/gen_runtime.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/script_builtins.c -o $(OBJ)/script_builtins.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/by_name_dispatch.c -o $(OBJ)/by_name_dispatch.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/script_builtins_byname.c -o $(OBJ)/script_builtins_byname.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/scan_builtins.c -o $(OBJ)/scan_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolve_runtime.c  -o $(OBJ)/resolve_runtime.o
