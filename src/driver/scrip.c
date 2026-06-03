@@ -113,7 +113,10 @@ static int icn_graph_native_emittable(stage2_t *s2) {
         if (!g || !g->all) continue;
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
-            if (nd && icn_kind_native_stub(nd->t)) return 0;
+            if (!nd) continue;
+            if (icn_kind_native_stub(nd->t)) return 0;
+            if (nd->t == IR_VAR && nd->state == 1) return 0;
+            if (nd->t == IR_ASSIGN && nd->sval && is_global(nd->sval)) return 0;
         }
     }
     return 1;
