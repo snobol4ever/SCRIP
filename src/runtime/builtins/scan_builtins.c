@@ -1,32 +1,11 @@
 #include "scan_builtins.h"
 #include "gen_runtime.h"
 #include "core.h"
+#include "pattern_match.h"
 #include <gc/gc.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-static int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
-    const char *cv;
-    int clen;
-    if (IS_CSET_fn(arg)) {
-        cv = arg.s;
-        if (!cv) return 0;
-        int klen = kw_cset_len(cv);
-        clen = (klen >= 0) ? klen : (int)strlen(cv);
-    } else {
-        cv = VARVAL_fn(arg);
-        if (!cv) return 0;
-        clen = (int)strlen(cv);
-    }
-    *out_ptr = cv;
-    *out_len = clen;
-    return 1;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static inline int cset_has(const char *cv, int clen, unsigned char ch) {
-    return cv && clen > 0 && memchr(cv, ch, (size_t)clen) != NULL;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 int scan_try_call_builtin(tree_t *call, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (!call || call->n < 1 || !call->c[0]) return 0;

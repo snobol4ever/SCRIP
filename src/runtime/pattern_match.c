@@ -1317,3 +1317,25 @@ int patnd_is_pure_altcat(const PATND_t *pp) {
     }
     return 1;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
+    const char *cv;
+    int clen;
+    if (IS_CSET_fn(arg)) {
+        cv = arg.s;
+        if (!cv) return 0;
+        int klen = kw_cset_len(cv);
+        clen = (klen >= 0) ? klen : (int)strlen(cv);
+    } else {
+        cv = VARVAL_fn(arg);
+        if (!cv) return 0;
+        clen = (int)strlen(cv);
+    }
+    *out_ptr = cv;
+    *out_len = clen;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int cset_has(const char *cv, int clen, unsigned char ch) {
+    return cv && clen > 0 && memchr(cv, ch, (size_t)clen) != NULL;
+}
