@@ -1117,8 +1117,8 @@ static IR_t *descr_chain_terminal(IR_t *entry) {
     return last;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_scan_glue(IR_t *pBB, int phase, int subj_slot, bb_label_t *γ, bb_label_t *ω, bb_label_t *β) {
-    g_emit.op_sb = phase; g_emit.op_sa = subj_slot;
+static void flat_drive_scan_glue(IR_t *pBB, int phase, int subj_slot, int regs_off, bb_label_t *γ, bb_label_t *ω, bb_label_t *β) {
+    g_emit.op_sb = phase; g_emit.op_sa = subj_slot; g_emit.op_off = regs_off;
     g_emit.lbl_γ = γ->name; g_emit.lbl_ω = ω->name; g_emit.lbl_β = β->name;
     g_emit.lbl_γ_p = γ; g_emit.lbl_ω_p = ω; g_emit.lbl_β_p = β;
     walk_bb_node(pBB, emit_outf());
@@ -1142,15 +1142,16 @@ static void flat_drive_gen_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     IR_t *subj_term = descr_chain_terminal(subj_sg->entry);
     flat_emit_arg_subchain(subj_sg->entry, subj_done, lbl_ω);
     int subj_slot = bb_slot_get(subj_term);
+    int regs_off = bb_slot_claim(24);
     emit_label_define_bb(subj_done);
-    flat_drive_scan_glue(pBB, 1, subj_slot, body_start, lbl_ω, enter_β);
+    flat_drive_scan_glue(pBB, 1, subj_slot, regs_off, body_start, lbl_ω, enter_β);
     emit_label_define_bb(body_start);
     descr_chain_operand_refs(body_sg->entry);
     flat_emit_arg_subchain(body_sg->entry, body_done, body_fail);
     emit_label_define_bb(body_done);
-    flat_drive_scan_glue(pBB, 2, -1, lbl_γ, lbl_ω, leaveok_β);
+    flat_drive_scan_glue(pBB, 2, -1, regs_off, lbl_γ, lbl_ω, leaveok_β);
     emit_label_define_bb(body_fail);
-    flat_drive_scan_glue(pBB, 2, -1, lbl_ω, lbl_ω, leavef_β);
+    flat_drive_scan_glue(pBB, 2, -1, regs_off, lbl_ω, lbl_ω, leavef_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int gen_bb_is_gen_arg(IR_t *e) {
