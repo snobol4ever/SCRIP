@@ -1,6 +1,6 @@
 /* PB-RB-1 mode-3 execution probe — REF_INVARIANT over a sealed IR_PAT_LIT.
    Builds SUBJECT('abc') -> REF_INVARIANT('b') -> SUCCEED as a four-port flat chain,
-   JITs it via sno_flat_chain_build, disassembles, and runs it with rt_frame.
+   JITs it via gvar_flat_chain_build, disassembles, and runs it with rt_frame.
    Confirms: the 'b' literal-matcher head (a bb_box_fn, emit-time constant) lands in
    the REF_INVARIANT box's ζ-slot [r12+off]; stackless (ζ=r12), no value stack. */
 #include <stdio.h>
@@ -9,7 +9,7 @@
 #include "IR.h"
 #include "bb_box.h"
 
-extern bb_box_fn sno_flat_chain_build(IR_graph_t * g);
+extern bb_box_fn gvar_flat_chain_build(IR_graph_t * g);
 extern void *rt_frame(void);
 extern int g_frame_active;
 extern void bb_pool_init(void);
@@ -44,15 +44,15 @@ int main(void) {
     g->entry = subj;
 
     g_frame_active = 1;
-    bb_box_fn fn = sno_flat_chain_build(g);
+    bb_box_fn fn = gvar_flat_chain_build(g);
     g_frame_active = 0;
-    if (!fn) { fprintf(stderr, "sno_flat_chain_build returned NULL\n"); return 3; }
+    if (!fn) { fprintf(stderr, "gvar_flat_chain_build returned NULL\n"); return 3; }
 
     /* dump the emitted bytes for disassembly */
     unsigned char *code = (unsigned char *)fn;
     FILE *bf = fopen("/tmp/probe_ref_inv.bin", "wb");
     if (bf) { fwrite(code, 1, 256, bf); fclose(bf); }
-    printf("PROBE: sno_flat_chain_build OK, fn=%p\n", (void*)fn);
+    printf("PROBE: gvar_flat_chain_build OK, fn=%p\n", (void*)fn);
     printf("PROBE: sealed IR_PAT_LIT('b') head emitted as a separate box; ");
     printf("REF_INVARIANT loads its address into a ζ-slot.\n");
 

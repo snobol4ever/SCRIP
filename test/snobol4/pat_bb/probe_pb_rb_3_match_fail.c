@@ -18,7 +18,7 @@
 #include "IR.h"
 #include "bb_box.h"
 
-extern bb_box_fn sno_flat_chain_build(IR_graph_t * g);
+extern bb_box_fn gvar_flat_chain_build(IR_graph_t * g);
 extern void *rt_frame(void);
 extern int g_frame_active;
 extern void bb_pool_init(void);
@@ -43,9 +43,9 @@ static int run_match(const char *subj_s, const char *lit_s) {
     match->γ = succ;  match->ω = fail;
     g->entry = subj;
     g_frame_active = 1;
-    bb_box_fn fn = sno_flat_chain_build(g);
+    bb_box_fn fn = gvar_flat_chain_build(g);
     g_frame_active = 0;
-    if (!fn) { fprintf(stderr, "sno_flat_chain_build returned NULL\n"); return -3; }
+    if (!fn) { fprintf(stderr, "gvar_flat_chain_build returned NULL\n"); return -3; }
     DESCR_t r = fn(rt_frame(), 0);
     return (int)r.v;
 }
