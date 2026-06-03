@@ -1,7 +1,15 @@
 #include "core.h"
 #include "sil_macros.h"
+#include "rt/rt.h"
+#include "builtins/resolve_runtime.h"
+#include "../parser/prolog/prolog_atom.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
+#define STACKLESS_ABORT(fn) \
+    do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
+                         "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
+         abort(); } while (0)
 /*====================================================================================================================*/
 static DESCR_t coerce_numeric(DESCR_t v) {
     if (IS_STR(v)) {
@@ -115,4 +123,90 @@ int gt(DESCR_t a, DESCR_t b) {
 int ge(DESCR_t a, DESCR_t b) {
     if (IS_INT(a) && IS_INT(b)) return a.i >= b.i;
     return to_real(a) >= to_real(b);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_coerce_num(void)
+{
+    STACKLESS_ABORT("rt_coerce_num");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_exp(void)
+{
+    STACKLESS_ABORT("rt_exp");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_neg(void)
+{
+    STACKLESS_ABORT("rt_neg");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_incr(int64_t n)
+{
+    (void)n;
+    STACKLESS_ABORT("rt_incr");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_decr(int64_t n)
+{
+    (void)n;
+    STACKLESS_ABORT("rt_decr");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_acomp(int op)
+{
+    (void)op;
+    STACKLESS_ABORT("rt_acomp");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_lcomp(int op)
+{
+    (void)op;
+    STACKLESS_ABORT("rt_lcomp");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+long rt_arith(int lk, long li, const char *ls,
+                  int rk, long ri, const char *rs, const char *op)
+{
+    extern Term **g_resolve_env;
+    (void)ls; (void)rs;
+    long lv = li;
+    if (lk == IR_LOGICVAR && g_resolve_env && li >= 0) {
+        Term *t = g_resolve_env[li] ? term_deref(g_resolve_env[li]) : NULL;
+        if (t && t->tag == TERM_INT) lv = t->ival;
+    }
+    long rv = ri;
+    if (rk == IR_LOGICVAR && g_resolve_env && ri >= 0) {
+        Term *t = g_resolve_env[ri] ? term_deref(g_resolve_env[ri]) : NULL;
+        if (t && t->tag == TERM_INT) rv = t->ival;
+    }
+    if (!op) return lv + rv;
+    if (strcmp(op, "sign")==0)     return (lv > 0) ? 1 : (lv < 0) ? -1 : 0;
+    if (strcmp(op, "abs")==0)      return (lv < 0) ? -lv : lv;
+    if (strcmp(op, "truncate")==0) return lv;
+    if (strcmp(op, "integer")==0)  return lv;
+    if (strcmp(op, "round")==0)    return lv;
+    if (strcmp(op, "ceiling")==0)  return lv;
+    if (strcmp(op, "floor")==0)    return lv;
+    if (strcmp(op, "\\")==0)       return ~lv;
+    if (strcmp(op, "msb")==0)      { long v=lv, m=-1; while(v){v>>=1;m++;} return m; }
+    if (strcmp(op, "**") == 0)   { long r=1; for(long i=0;i<rv;i++) r*=lv; return r; }
+    if (strcmp(op, "^") == 0)    { long r=1; for(long i=0;i<rv;i++) r*=lv; return r; }
+    if (strcmp(op, "/\\") == 0)  return lv & rv;
+    if (strcmp(op, "\\/") == 0)  return lv | rv;
+    if (strcmp(op, "xor") == 0)  return lv ^ rv;
+    if (strcmp(op, ">>") == 0)   return lv >> rv;
+    if (strcmp(op, "<<") == 0)   return lv << rv;
+    if (strcmp(op, "mod") == 0)  return rv ? lv % rv : 0;
+    if (strcmp(op, "rem") == 0)  return rv ? lv % rv : 0;
+    if (strcmp(op, "gcd") == 0)  { long a = lv<0?-lv:lv, b = rv<0?-rv:rv; while (b) { long r = a % b; a = b; b = r; } return a; }
+    if (strcmp(op, "div") == 0)  { if (!rv) return 0; long q = lv / rv; if ((lv % rv != 0) && ((lv < 0) != (rv < 0))) q--; return q; }
+    if (strcmp(op, "max") == 0)  return lv > rv ? lv : rv;
+    if (strcmp(op, "min") == 0)  return lv < rv ? lv : rv;
+    if (strcmp(op, "//") == 0)   return rv ? lv / rv : 0;
+    if (op[0] == '+' && op[1] == '\0') return lv + rv;
+    if (op[0] == '-' && op[1] == '\0') return lv - rv;
+    if (op[0] == '*' && op[1] == '\0') return lv * rv;
+    if (op[0] == '/' && op[1] == '\0') return rv ? lv / rv : 0;
+    if (op[0] == '%' && op[1] == '\0') return rv ? lv % rv : 0;
+    return lv + rv;
 }
