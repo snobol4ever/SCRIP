@@ -150,7 +150,6 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_sno.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
-    $(SRC)/runtime/builtins/script_builtins_byname.c \
     $(SRC)/runtime/builtins/resolve_runtime.c \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/lower/ast_clone.c \
@@ -334,7 +333,6 @@ scrip:
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_print.c  -o $(OBJ)/rebus_print.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/gen_runtime.c -o $(OBJ)/gen_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/by_name_dispatch.c -o $(OBJ)/by_name_dispatch.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/script_builtins_byname.c -o $(OBJ)/script_builtins_byname.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolve_runtime.c  -o $(OBJ)/resolve_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
 	$(CC) $(CRT)   -c $(SRC)/lower/ast_clone.c    -o $(OBJ)/ast_clone.o
