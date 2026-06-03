@@ -11,6 +11,8 @@
 /*--------------------------------------------------------------------------------------------------------------------*/
 stage2_t g_stage2;
 /*--------------------------------------------------------------------------------------------------------------------*/
+int is_global(const char * name) { (void) name; return 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
