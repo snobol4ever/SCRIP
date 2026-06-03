@@ -8,6 +8,7 @@ extern "C" {
 extern "C" void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
 extern "C" int   rt_unify_terms(void *l, void *r);
 extern "C" int   rt_unify_const(int slot, int kind, long ival, const char *sval, double dval);
+extern "C" int   rt_pl_unify_var_var(int lslot, int rslot);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline int  u_present()        { return _.bb_lk >= 0; }
@@ -45,6 +46,12 @@ static std::string bb_unify_str() {
         const char *ls = _.bb_ls, *rs = _.bb_rs;
         if (lk == IR_LOGICVAR && rk == IR_LOGICVAR && li == ri)
             return u_vacuous("# BOX RESOLVE_UNIFY (WAM-CP-7 self-unify x=x — vacuous success)  [x86() self-encoding]");
+        if (lk == IR_LOGICVAR && rk == IR_LOGICVAR)
+            return u_head("# BOX RESOLVE_UNIFY (WAM-CP-7c var-var — 1 call)  [x86() self-encoding]")
+                 + x86("mov", "edi", li)
+                 + x86("mov", "esi", ri)
+                 + x86("call", "rt_pl_unify_var_var", (uint64_t)(uintptr_t)(void*)rt_pl_unify_var_var)
+                 + u_tail();
         {
             int slot = -1, ck = 0; long ci = 0; const char *clbl = (const char *)0;
             if (lk == IR_LOGICVAR && u_const_kind(rk))      { slot = (int)li; ck = rk; ci = ri; clbl = rs; }
