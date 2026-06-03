@@ -17,7 +17,21 @@ std::string bb_binop_gvar_arith_str() {
     int64_t op  = _.op_ival;
     if (!(op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD)) return std::string();
     if (_.op_name1 && _.op_name2) {
-        if (MEDIUM_TEXT) return x86_bomb("bb_binop_gvar_arith VAR+VAR: TEXT(mode-4) needs RO-interned var-name ptrs (SNOBOL m4 pending LOWER four-port wiring)");
+        if (MEDIUM_TEXT) {
+            char b1[80], b2[80];
+            strtab_label(b1, sizeof b1, _.op_name1);
+            strtab_label(b2, sizeof b2, _.op_name2);
+            return s_1asm(std::string(_.lbl_α) + ":")
+                 + s_comment("# BOX SNO IR_BINOP gvar-arith VAR+VAR [RO name ptrs, FRQ slot, @PLT]")
+                 + s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1))
+                 + s_2asm("lea", emit_fmt("rsi, [rip + %s]", b2))
+                 + s_2asm("mov", emit_fmt("rdx, %lld", (long long)op))
+                 + s_2asm("call", "rt_gvar_arith@PLT")
+                 + s_2asm("mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
+                 + s_2asm("jmp", _.lbl_γ)
+                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
+                 + s_2asm("jmp", _.lbl_ω);
+        }
         return x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)_.op_name1)
              + x86_load_ro("rsi", "??", (uint64_t)(uintptr_t)_.op_name2)
              + x86("mov",  "rdx", (long)op)

@@ -16,10 +16,10 @@ int  bb_slot_get(IR_t * nd);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * dst_name()  { return _.op_sval   ? _.op_sval   : ""; }
 static inline uint64_t     dst_addr()  { return (uint64_t)(uintptr_t)dst_name(); }
-static inline const char * dst_label() { return emit_intern_str(dst_name()); }
+static inline const char * dst_label() { const char * l = emit_intern_str(dst_name()); if (l) return l; static char b[64]; strtab_label(b, sizeof b, dst_name()); return b; }
 static inline const char * rhs_sval()  { return _.op_a_sval ? _.op_a_sval : ""; }
 static inline uint64_t     rhs_addr()  { return (uint64_t)(uintptr_t)rhs_sval(); }
-static inline const char * rhs_label() { return emit_intern_str(rhs_sval()); }
+static inline const char * rhs_label() { const char * l = emit_intern_str(rhs_sval()); if (l) return l; static char b[64]; strtab_label(b, sizeof b, rhs_sval()); return b; }
 static inline uint64_t     fn_lit_s()  { void (*f)(const char *, const char *) = rt_gvar_assign_str; return (uint64_t)(uintptr_t)(void *)f; }
 static inline uint64_t     fn_var()    { void (*f)(const char *, const char *) = rt_gvar_assign_var;    return (uint64_t)(uintptr_t)(void *)f; }
 static inline uint64_t     fn_int()    { void (*f)(const char *, int64_t)      = rt_gvar_assign_int;    return (uint64_t)(uintptr_t)(void *)f; }

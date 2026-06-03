@@ -223,9 +223,12 @@ static void descr_chain_operand_refs(IR_t *entry);
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
+static int        g_bb_alpha_seq = 0;
 static void bb_fill_alpha(IR_t *nd) {
+    extern int g_sno_m4_dense_nid;
     bb_label_t *a = &g_α_ring[g_α_ring_i++ & 7];
-    emit_label_initf(a, "bb%d_α", nd ? bb_node_id(nd) : 0);
+    if (g_sno_m4_dense_nid) emit_label_initf(a, "bb%d_α", ++g_bb_alpha_seq);
+    else                    emit_label_initf(a, "bb%d_α", nd ? bb_node_id(nd) : 0);
     g_emit.lbl_α   = a->name;
     g_emit.lbl_α_p = a;
 }
@@ -2185,7 +2188,7 @@ int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     int has_ref = 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) { has_ref = 1; break; }
     if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; gvar_chain_prebuild_children_text(g, out, prefix); }
     gvar_chain_operand_refs(g);
-    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_gvar_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_gvar_flat_chain_body(g->entry, prefix);
