@@ -19,6 +19,9 @@ typedef struct {
     int                          op_a_slot;
     int64_t                      op_a_counter;
     int64_t                      op_a_ival_sg;
+    int64_t                      op_scan_pat;
+    int64_t                      op_scan_subj;
+    int64_t                      op_scan_repl;
     int                          op_sa;
     int                          op_sb;
     int                          op_off;

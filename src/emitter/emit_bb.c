@@ -1139,6 +1139,11 @@ static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    int n_aux = 0;
+    IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
+    g_emit.op_scan_pat  = pBB ? pBB->counter : 0;
+    g_emit.op_scan_subj = (n_aux > 0 && aux) ? (int64_t)(intptr_t)aux[0] : 0;
+    g_emit.op_scan_repl = (n_aux > 1 && aux) ? (int64_t)(intptr_t)aux[1] : 0;
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);

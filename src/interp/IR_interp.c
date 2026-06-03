@@ -196,6 +196,47 @@ int rt_gvar_assign_concat(const char *name, void *left_graph, void *right_graph)
     NV_SET_fn(name ? name : "", result);
     return 1;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern int rt_scan(void * pat_graph, void * subj_graph, int is_repl, const char * subj_name, void * repl_graph);
+int rt_scan(void * pat_graph, void * subj_graph, int is_repl, const char * subj_name, void * repl_graph) {
+    IR_graph_t * pat = (IR_graph_t *)pat_graph;
+    if (!pat || !pat->entry) return 0;
+    const char * save_Σ = Σ; int save_Σlen = Σlen; int save_Ω = Ω; int save_Δ = Δ; int save_dca = g_dcap_active; int save_dcn = g_dcap_n;
+    IR_graph_t * sjg = (IR_graph_t *)subj_graph;
+    DESCR_t subj_d = sjg ? IR_interp_once(sjg) : (is_repl ? NV_GET_fn(subj_name ? subj_name : "") : FAILDESCR);
+    DESCR_t sv = VARVAL_d_fn(subj_d);
+    const char * subj_str = ""; int subj_len = 0;
+    if (sv.v == DT_S || sv.v == DT_SNUL) { subj_str = sv.s ? sv.s : ""; subj_len = sv.slen ? (int)sv.slen : (int)strlen(subj_str); }
+    else if (IS_INT_fn(sv) || IS_REAL_fn(sv)) { DESCR_t t = descr_to_str(sv); subj_str = t.s ? t.s : ""; subj_len = t.slen ? (int)t.slen : (int)strlen(subj_str); }
+    extern int64_t kw_anchor;
+    Σ = subj_str; Σlen = subj_len; Ω = subj_len;
+    int max_start = kw_anchor ? 0 : subj_len; int matched = 0; int m_start = -1; int m_end = -1;
+    g_dcap_active = 1;
+    for (int start = 0; start <= max_start; start++) {
+        Δ = start; g_dcap_n = 0;
+        DESCR_t r = IR_interp_once(pat);
+        if (!IS_FAIL_fn(r)) { matched = 1; m_start = start; m_end = Δ; break; }
+    }
+    if (matched) bb_dcap_flush(); else g_dcap_n = 0;
+    if (matched && is_repl) {
+        IR_graph_t * rpg = (IR_graph_t *)repl_graph;
+        DESCR_t repl_d = rpg ? VARVAL_d_fn(IR_interp_once(rpg)) : NULVCL;
+        if (IS_INT_fn(repl_d) || IS_REAL_fn(repl_d)) repl_d = descr_to_str(repl_d);
+        const char * repl_str = (repl_d.v == DT_S || repl_d.v == DT_SNUL) ? (repl_d.s ? repl_d.s : "") : "";
+        int repl_len = (repl_d.v == DT_S || repl_d.v == DT_SNUL) ? (repl_d.slen ? (int)repl_d.slen : (int)strlen(repl_str)) : 0;
+        int new_len = m_start + repl_len + (subj_len - m_end);
+        char * new_s = (char *)GC_MALLOC((size_t)new_len + 1);
+        memcpy(new_s, subj_str, (size_t)m_start);
+        memcpy(new_s + m_start, repl_str, (size_t)repl_len);
+        memcpy(new_s + m_start + repl_len, subj_str + m_end, (size_t)(subj_len - m_end));
+        new_s[new_len] = '\0';
+        DESCR_t nv = { .v = DT_S, .slen = (uint32_t)new_len, .s = new_s };
+        NV_SET_fn(subj_name ? subj_name : "", nv);
+    }
+    Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ; g_dcap_active = save_dca; g_dcap_n = save_dcn;
+    return matched ? 1 : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_single_shot(IR_t * e) {
     if (!e) return 1;
     switch (e->t) {

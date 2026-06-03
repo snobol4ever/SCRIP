@@ -416,6 +416,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         if (!g_descr_flat_chain && nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_BINOP || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR)) { bb_gvar_assign(nd); return 0; }
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1;
     }
+    case IR_SCAN: { extern void bb_scan_stmt(IR_t *); bb_scan_stmt(nd); return 0; }
     case IR_AUGOP:
     case IR_CALL:                 bb_call(nd);         return 0;
     case IR_BINOP_RELOP:          bb_binop_relop(nd);       return 0;
