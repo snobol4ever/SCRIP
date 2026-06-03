@@ -218,11 +218,23 @@ static int lower_pascal_body(const tree_t *proc) {
     if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
     const tree_t *body = proc->c[2];
     if (!body || body->t != TT_PROGRAM) return -1;
+    int is_function = (proc->n >= 4 && proc->c[3] && proc->c[3]->v.sval);
     IR_graph_t *g = IR_alloc(256, IR_LANG_PAS);
     if (!g) return -1;
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *next_a = PSUCC;
+    IR_t *chain_end = PSUCC;
+    if (is_function) {
+        IR_t *PRET = IR_node_alloc(g, IR_RETURN);
+        IR_t *PVAR = IR_node_alloc(g, IR_VAR);
+        if (!PRET || !PVAR) return -1;
+        PRET->dval = 0.0;
+        PVAR->sval = proc->c[3]->v.sval;
+        PRET->α = PVAR;
+        PRET->γ = PSUCC; PRET->ω = PSUCC;
+        chain_end = PRET;
+    }
+    IR_t *next_a = chain_end;
     int n_stmts = 0;
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t *s = body->c[i];
@@ -235,7 +247,7 @@ static int lower_pascal_body(const tree_t *proc) {
         if (!top || !a) return -1;
         next_a = a;
     }
-    if (n_stmts == 0) return -1;
+    if (n_stmts == 0) { if (is_function) { g->entry = chain_end; return bb_program_add(&g_stage2.bbp, g); } return -1; }
     g->entry = next_a;
     return bb_program_add(&g_stage2.bbp, g);
 }
