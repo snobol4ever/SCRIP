@@ -669,3 +669,39 @@ concurrency OK        ✅
 
 **SCRIP HEAD:** `85677cb` (unchanged — no code committed)  
 **Next step:** Lon reviews this map → approve/revise → RS-2 (first subsystem move slice, gated)
+
+---
+
+# RS-2 EXECUTION — PARTITION STARTED (2026-06-02 Sonnet 4.6, continuation)
+
+Lon directive: "Rearrange ALL the runtime so files are SUBSYSTEMS not language silos. I'm trusting you."
+Executed as **gated slices** per the rung's "never start a split you can't finish+gate+commit" rule. Two slices landed green; stopped at a green committed state when context budget (~70% at session start) ran low rather than leave a half-moved broken tree.
+
+## ✅ SLICE 1 — `runtime_eval` (SCRIP `970dbf5`)
+`git mv src/runtime/core/eval_code.c → src/runtime/runtime_eval.c` (EVAL/CODE runtime-compile capability). Fixed one relative include (`../../parser/` → `../parser/` after moving up a dir). Makefile RT_PIC_SRCS + scrip per-`.o` rule updated in lockstep. **Validated the gated-slice loop end-to-end.** Gates byte-identical.
+
+## ✅ SLICE 2 — `unification` (SCRIP `17e759e`)
+Extracted the **WAM execution core** from the grab-bag `rt/rt.c` (lines 1135–1263) into new `src/runtime/unification.c`: `rt_node_to_term`, `rt_unify_terms`, `rt_unify_const`, `rt_trail_mark/unwind/push/pop` (+ statics `g_resolve_mark_stack`/`_top`), `rt_env_alloc`, `rt_env_current`, `rt_cp_save_caller_env`, `rt_choice_cut_enter/exit/unwind`, `rt_get_cut_flag`, `rt_main_init`. Cut+paste move-only; call sites untouched (decls live in `rt.h` and the emitter's `bb_unify.cpp` extern). Breaks the "Prolog WAM lives in the grab-bag" coupling — this is the start of Lon's #1 backtracking-engine unification. Gates byte-identical.
+- ⚠ **Residual to re-home in a follow-up micro-slice:** `rt_main_init` (setvbuf + bb_pool_init + trail_init + prolog_atom_init) is cross-capability "runtime init" — it rode along in the contiguous block; belongs in `runtime_init.c`. The trail/choice/cut functions are arguably `backtrack.c` not `unification.c` (per RS-1 map they're separate subsystems); they were kept together here because they share the `g_resolve_mark_stack` static and are one physical WAM block. A later slice may split unification(term/unify/env) from backtrack(trail/choice/cut).
+
+## 🔑 KEY FINDINGS (save the next session real time)
+1. **Build lockstep = the Makefile ONLY.** `build_scrip.sh` just calls `make scrip`. Per new `.c`: add ONE line to `RT_PIC_SRCS` (line ~71–148) AND ONE compile rule in the `scrip:` target (line ~221+). Linking is a `$(OBJ)/*.o` glob — no per-`.o` link prereq. Per emptied/removed `.c`: remove from both.
+2. **INCLUDE GOTCHA for files moved to `src/runtime/` (sibling of core/rt/builtins):** the `scrip:` per-`.o` build uses `CRT`/`CBASE` which have `-I$(SRC)/runtime` and `-I$(SRC)/runtime/core` but **NOT `-I$(SRC)/runtime/rt`**. So a file in `src/runtime/X.c` must use **relative** includes: `"rt/rt.h"`, `"builtins/resolve_runtime.h"`, `"../parser/prolog/prolog_atom.h"`. (`"core.h"` and `"bb_pool.h"` resolve via -I.) `core.h` brings `<gc/gc.h>`; `resolve_runtime.h` brings `Term`/`Trail`/`resolve_choice`/`g_resolve_*`/IR enum/term API. The `libscrip_rt` build DOES have `-I.../rt` so it's more forgiving — always test BOTH `make scrip` and `make libscrip_rt`.
+3. **PROLOG BUILTINS ARE OUT OF SCOPE.** `rt_findall`, `rt_compound_build_n`, `rt_atom_*`, `rt_copy_term`, `rt_sort_msort`, `rt_catch/throw`, `rt_type_test`, `rt_char_type`, `rt_numbervars`, `rt_is*` are DEFINED in `src/interp/IR_interp.c` (the IR-graph interpreter), NOT in `src/runtime/**`. Definition-location is authoritative ⇒ they are NOT runtime's to move under this rung. The RS-1 map's `resolution.c` therefore draws ONLY from `builtins/resolve_runtime.c` (predicate DB / choice-point protocol / assert-retract / ISO errors), not from the `rt_*` builtins.
+
+## REMAINING WORK (recommended order, each a gated slice)
+The grab-bag `rt/rt.c` and the language-named files are the targets. Cleanest-first:
+- **`runtime_init.c`** — `rt_init`, `rt_finalize`, `rt_gc_init` (~1253), `rt_set_lang` (~1258), `rt_bomb`, `rt_unhandled_op` + re-home `rt_main_init` here from unification.c. (Adjacent-ish; small.)
+- **`io_format.c`** — the `rt_write_*` family from rt.c (scattered — needs per-function moves). Pairs with `output_val`/`output_str` from core.c.
+- **`arithmetic.c`** — `rt_arith`(~1144), `rt_neg`(~892), `rt_coerce_num`(~865), `rt_incr/decr`(~1022/1028), `rt_acomp`/`rt_lcomp`, `rt_unop_*`, `rt_exp` + the core.c `add/sub/mul/DIVIDE_fn/POWER_fn/eq/ne/lt/...` block. (Scattered in rt.c; the core.c block is more contiguous.)
+- **`pattern_match.c`** — the big `rt_pat_*` family from rt.c + `core/pattern.c` (whole-file) + `core/eval_pat.c` + `scan_builtins.c` + the `patnd_*` helpers from `stmt_exec.c`. (Largest; do whole-file `git mv` of pattern.c/eval_pat.c first, then pull rt_pat_* in.)
+- **The language-named FILES (the loudest silos):** `gen_runtime.c` (Icon), `resolve_runtime.c` (Prolog), `script_builtins*.c` (Raku) → split by capability into `backtrack.c` / `unification.c` / `resolution.c` / `by_name_dispatch.c` / `keywords.c` / `name_binding.c`. These have intricate file-local statics ⇒ each is its own multi-slice effort; move whole coherent blocks, gate after each.
+- **`core/core.c` (3449 lines)** — the biggest split, into `name_binding` / `string_ops` / `arithmetic` / `collections` / `io_format` / `invocation` / `keywords` / `monitor_trace` / `control_flow`. SNO-specific residue (`SNO_INIT_fn`, save/restore frame) stays in `core/` per LI-CORE.
+- **`RS-FENCE`** — `scripts/test_gate_runtime_subsystems.sh` asserting the partition; wire into Session Setup.
+
+## Gates after slice 2 (byte-identical baseline, every commit)
+```
+m2 SNOBOL4 7/7 HARD  · m2 Icon 12/12 HARD · m2 Prolog 5/5 HARD
+prove_lower2 67 · no_bb_bin_t 0 · LI-FENCE OK · concurrency OK
+```
+**SCRIP HEAD after slice 2:** `17e759e` (slices `970dbf5` runtime_eval, `17e759e` unification — both pushed-pending).
