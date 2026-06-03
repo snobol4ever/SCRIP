@@ -1692,6 +1692,34 @@ static IR_t * pl_disj_arm_enter(IR_t * a) {
     return a;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pas_slot_read(GenFrame *f, int slot) {
+    if (!f || slot < 0 || slot >= FRAME_SLOT_MAX) return NULVCL;
+    if (f->slotref[slot].is_ref) {
+        if (f->slotref[slot].frame) return pas_slot_read(f->slotref[slot].frame, f->slotref[slot].slot);
+        return f->slotref[slot].name ? NV_GET_fn(f->slotref[slot].name) : NULVCL;
+    }
+    return f->env[slot];
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void pas_slot_write(GenFrame *f, int slot, DESCR_t v) {
+    if (!f || slot < 0 || slot >= FRAME_SLOT_MAX) return;
+    if (f->slotref[slot].is_ref) {
+        if (f->slotref[slot].frame) { pas_slot_write(f->slotref[slot].frame, f->slotref[slot].slot, v); return; }
+        if (f->slotref[slot].name) NV_SET_fn(f->slotref[slot].name, v);
+        return;
+    }
+    f->env[slot] = v;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void pas_loc_of_name(GenFrame *caller, const char *name, GenFrame **of, int *os, const char **on) {
+    *of = NULL; *os = -1; *on = name;
+    if (!caller || !name) return;
+    int slot = scope_get(&caller->sc, name);
+    if (slot < 0 || slot >= FRAME_SLOT_MAX) return;
+    if (caller->slotref[slot].is_ref) { *of = caller->slotref[slot].frame; *os = caller->slotref[slot].slot; *on = caller->slotref[slot].name; }
+    else { *of = caller; *os = slot; *on = NULL; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * IR_interp_node(IR_t * bb) {
     switch (bb->t) {
     case IR_LIT_I:
@@ -1701,6 +1729,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (frame_depth > 0 && bb->sval) {
             int slot = scope_get(&FRAME.sc, bb->sval);
             if (slot >= 0 && slot < FRAME.env_n) {
+                if (FRAME.slotref[slot].is_ref) { bb->value = pas_slot_read(&FRAME, slot); return bb->γ; }
                 DESCR_t sv = FRAME.env[slot];
                 if (sv.v != 0) { bb->value = sv; return bb->γ; }
             }
@@ -1720,7 +1749,10 @@ IR_t * IR_interp_node(IR_t * bb) {
         int stored = 0;
         if (frame_depth > 0) {
             int slot = scope_get(&FRAME.sc, name);
-            if (slot >= 0 && slot < FRAME.env_n) { FRAME.env[slot] = val; stored = 1; }
+            if (slot >= 0 && slot < FRAME.env_n) {
+                if (FRAME.slotref[slot].is_ref) pas_slot_write(&FRAME, slot, val); else FRAME.env[slot] = val;
+                stored = 1;
+            }
         }
         if (!stored) NV_SET_fn(name, val);
         bb->value = val;
@@ -1853,6 +1885,9 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
                 if (!fg || frame_depth >= FRAME_STACK_MAX) { bb->value = FAILDESCR; return bb->ω; }
                 int is_gen = g_stage2.proc_table[upi].is_generator;
+                GenFrame * caller = (frame_depth > 0) ? &FRAME : NULL;
+                uint64_t bmask = g_stage2.proc_table[upi].byref_mask;
+                IR_graph_t ** call_blks = (IR_graph_t **)(intptr_t) bb->counter;
                 GenFrame * _f = &frame_stack[frame_depth++];
                 memset(_f, 0, sizeof *_f);
                 Scope * lsc = &g_stage2.proc_table[upi].lower_sc;
@@ -1860,7 +1895,14 @@ IR_t * IR_interp_node(IR_t * bb) {
                 for (int k = 0; k < lsc->n && k < np && k < FRAME_SLOT_MAX; k++) {
                     if (!lsc->e[k].name) continue;
                     int slot = scope_add(&_f->sc, lsc->e[k].name);
-                    if (slot >= 0 && slot < FRAME_SLOT_MAX) _f->env[slot] = (k < nargs) ? args[k] : NULVCL;
+                    if (slot < 0 || slot >= FRAME_SLOT_MAX) continue;
+                    _f->env[slot] = (k < nargs) ? args[k] : NULVCL;
+                    if ((bmask & (1ull << k)) && k < nargs && call_blks && call_blks[k] && call_blks[k]->entry
+                        && call_blks[k]->entry->t == IR_VAR && call_blks[k]->entry->sval) {
+                        GenFrame * hf; int hs; const char * hn;
+                        pas_loc_of_name(caller, call_blks[k]->entry->sval, &hf, &hs, &hn);
+                        _f->slotref[slot].is_ref = 1; _f->slotref[slot].frame = hf; _f->slotref[slot].slot = hs; _f->slotref[slot].name = hn;
+                    }
                 }
                 _f->env_n = _f->sc.n > 0 ? _f->sc.n : 1;
                 DESCR_t _ring_save[AG_RING];

@@ -25,6 +25,7 @@ typedef struct ProcEntry {
     Scope            lower_sc;
     int                 bb_idx;
     int                 is_generator;
+    uint64_t            byref_mask;
 } ProcEntry;
 /*--------------------------------------------------------------------------------------------------------------------*/
 struct Resolve_PredEntry_t;

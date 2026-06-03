@@ -128,6 +128,8 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
                 s2->proc_table[_pi].nparams  = (s_lang == LANG_ICN || s_lang == LANG_PASCAL)
                     ? (proc->t == TT_PROC_DECL && proc->n >= 2 ? proc->c[1]->n : 0)
                     : (int)proc->v.ival;
+                s2->proc_table[_pi].byref_mask = (s_lang == LANG_PASCAL && proc->t == TT_PROC_DECL && proc->n >= 2 && proc->c[1])
+                    ? (uint64_t)proc->c[1]->v.ival : 0;
                 if (mod_idx >= 0) s2->module_registry.mods[mod_idx].nprocs++;
                 if (strcmp(name, "main") == 0 && s2->module_registry.main_mod < 0)
                     s2->module_registry.main_mod = mod_idx;

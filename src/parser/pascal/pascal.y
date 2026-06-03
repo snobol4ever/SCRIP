@@ -79,7 +79,13 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
     proc->v.sval = (char *)name;
     ast_push(proc, leaf_s(TT_VAR, name));
     tree_t *vlist = ast_node_new(TT_VLIST);
-    if (params) for (int i = 0; i < params->count; i++) ast_push(vlist, params->items[i]);
+    long long byref = 0;
+    if (params) for (int i = 0; i < params->count; i++) {
+        tree_t *pv = params->items[i];
+        if (pv && pv->n > 0) { if (i < 64) byref |= (1LL << i); pv->n = 0; }
+        ast_push(vlist, pv);
+    }
+    vlist->v.ival = byref;
     ast_push(proc, vlist);
     ast_push(proc, body_prog);
     if (is_function) ast_push(proc, leaf_s(TT_VAR, name));
@@ -234,7 +240,7 @@ parameter_decl_list:
 parameter_decl:
     PROCEDURESY id_list { $$ = $2; }
     | FUNCTIONSY id_list COLON IDENT { $$ = $2; }
-    | VARSY id_list COLON IDENT { $$ = $2; }
+    | VARSY id_list COLON IDENT { for (int i = 0; i < $2->count; i++) if ($2->items[i]) ast_push($2->items[i], ast_node_new(TT_SUCCEED)); $$ = $2; }
     | id_list COLON IDENT { $$ = $1; }
     ;
 id_list:
