@@ -30,6 +30,7 @@ static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn,
 static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_pascal_repeat(lcx_t cx, const tree_t * body_t, const tree_t * cond_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * v_det_call(lcx_t cx, const tree_t * e, int allow_generator, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_map_grep(lcx_t cx, int is_grep, const tree_t * closure_t, const tree_t * src_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
@@ -286,7 +287,11 @@ static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
         if (!c3) return NULL;
         elseα = c3α;
     } else {
-        elseα = (cx.lang == IR_LANG_RKU || cx.lang == IR_LANG_PAS) ? γ_in : ω_in;
+        switch (cx.lang) {
+        case IR_LANG_RKU:
+        case IR_LANG_PAS: elseα = γ_in; break;
+        default:          elseα = ω_in; break;
+        }
     }
     IR_t * c1 = lower2(cb, e->c[0], thenα  , elseα  , &c1α, &c1β);
     if (!c1) return NULL;
@@ -550,6 +555,28 @@ static IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
+/*====================================================================================================================*/
+/*====================================================================================================================*/
+static IR_t * v_det_call(lcx_t cx, const tree_t * e, int allow_generator, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
+    call->sval = e->c[0]->v.sval;
+    int nargs = e->n - 1;
+    call->ival = nargs;
+    call->dval = 3.0;
+    if (nargs > 0) {
+        IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
+        if (!blks) return NULL;
+        lcx_t ac = cx; ac.role = ROLE_VALUE;
+        for (int i = 0; i < nargs; i++) {
+            blks[i] = lower_value_subgraph(ac, e->c[i + 1]);
+            if (!blks[i]) { free(blks); return NULL; }
+        }
+        call->counter = (int64_t)(intptr_t) blks;
+    }
+    set_succ_fail(call, γ_in, ω_in);
+    IR_t * call_beta = (allow_generator && icn_proc_is_generator(call->sval)) ? call : ω_in;
+    return ret(call, α_out, β_out, call, call_beta);
+}
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 static IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
@@ -837,25 +864,12 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))
                 return wire_det_builtin1(cx, e->c[1], fn, γ_in, ω_in, α_out, β_out);
         }
-        if ((cx.lang == IR_LANG_ICN || cx.lang == IR_LANG_PAS) && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
-            IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
-            call->sval = e->c[0]->v.sval;
-            int nargs = e->n - 1;
-            call->ival = nargs;
-            call->dval = 3.0;
-            if (nargs > 0) {
-                IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
-                if (!blks) return NULL;
-                lcx_t ac = cx; ac.role = ROLE_VALUE;
-                for (int i = 0; i < nargs; i++) {
-                    blks[i] = lower_value_subgraph(ac, e->c[i + 1]);
-                    if (!blks[i]) { free(blks); return NULL; }
-                }
-                call->counter = (int64_t)(intptr_t) blks;
+        if (e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            switch (cx.lang) {
+            case IR_LANG_ICN: return v_det_call(cx, e, 1, γ_in, ω_in, α_out, β_out);
+            case IR_LANG_PAS: return v_det_call(cx, e, 0, γ_in, ω_in, α_out, β_out);
+            default: break;
             }
-            set_succ_fail(call, γ_in, ω_in);
-            IR_t * call_beta = (cx.lang == IR_LANG_ICN && icn_proc_is_generator(call->sval)) ? call : ω_in;
-            return ret(call, α_out, β_out, call, call_beta);
         }
         if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
             const char * fn = e->c[0]->v.sval;
