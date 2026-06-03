@@ -511,13 +511,13 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             int w = (IS_INT_fn(aw) && aw.i >= 0) ? (int)aw.i : -1;
             if (IS_INT_fn(av)) {
                 char _pb[32];
-                int _pl = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);
-                int _fw = (w < 0) ? 10 : (w > _pl ? w : _pl);
+                int _pfmtlen = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);
+                int _fw = (w < 0) ? 10 : (w > _pfmtlen ? w : _pfmtlen);
                 fprintf(stdout, "%*s", _fw, _pb);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
-                int _pl = snprintf(_rb, sizeof _rb, "%s", real_str(av.r, _rb, sizeof _rb));
-                int _fw = (w < 0) ? 20 : (w > _pl ? w : _pl);
+                int _pfmtlen = snprintf(_rb, sizeof _rb, "%s", real_str(av.r, _rb, sizeof _rb));
+                int _fw = (w < 0) ? 20 : (w > _pfmtlen ? w : _pfmtlen);
                 fprintf(stdout, "%*s", _fw, _rb);
             } else {
                 const char *_ps = VARVAL_fn(av);
