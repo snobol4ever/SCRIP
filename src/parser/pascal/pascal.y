@@ -71,7 +71,7 @@ static void emit_proc(PNodeList *procs, tree_t *proc) {
     ast_push(st, ast_attr_expr(":subj", proc));
     pnl_push(procs, st);
 }
-static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt) {
+static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, int is_function) {
     tree_t *body_prog = ast_node_new(TT_PROGRAM);
     if (body_stmt && body_stmt->t == TT_PROGRAM) { for (int i = 0; i < body_stmt->n; i++) ast_push(body_prog, body_stmt->c[i]); }
     else if (body_stmt) { ast_push(body_prog, body_stmt); }
@@ -82,6 +82,7 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt) {
     if (params) for (int i = 0; i < params->count; i++) ast_push(vlist, params->items[i]);
     ast_push(proc, vlist);
     ast_push(proc, body_prog);
+    if (is_function) ast_push(proc, leaf_s(TT_VAR, name));
     return proc;
 }
 static struct { char *name; long long val; } g_pas_consts[256]; static int g_pas_nconst;
@@ -144,7 +145,7 @@ program:
               else if (body) ast_push(combined, body);
               body = combined;
           }
-          tree_t *mainp = mk_proc("main", NULL, body); emit_proc(&g_pascal_procs, mainp);
+          tree_t *mainp = mk_proc("main", NULL, body, 0); emit_proc(&g_pascal_procs, mainp);
           tree_t *root = ast_stmt_new(TT_PROGRAM);
           for (int i = 0; i < g_pascal_procs.count; i++) ast_push(root, g_pascal_procs.items[i]);
           pascal_prog_result = root; }
@@ -218,9 +219,9 @@ procedure_decl:
     PROCEDURESY IDENT parameter_list_opt SEMICOLON FORWARDSY SEMICOLON { }
     | FUNCTIONSY IDENT parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON { }
     | PROCEDURESY IDENT parameter_list_opt SEMICOLON block SEMICOLON
-        { emit_proc(&g_pascal_procs, mk_proc($2, $3, $5)); }
+        { emit_proc(&g_pascal_procs, mk_proc($2, $3, $5, 0)); }
     | FUNCTIONSY IDENT parameter_list_opt COLON IDENT SEMICOLON block SEMICOLON
-        { emit_proc(&g_pascal_procs, mk_proc($2, $3, $7)); }
+        { emit_proc(&g_pascal_procs, mk_proc($2, $3, $7, 1)); }
     ;
 parameter_list_opt:
     LPARENT parameter_decl_list RPARENT { $$ = $2; }
