@@ -868,6 +868,28 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         long v = IS_INT_fn(args[0]) ? args[0].i : 0;
         *out = INTVAL(v * v); return 1;
     }
+    if (!strcmp(fn, "__pas_in") && nargs == 2) {
+        long e = IS_INT_fn(args[0]) ? args[0].i : -1;
+        long s = IS_INT_fn(args[1]) ? args[1].i : 0;
+        *out = INTVAL((e >= 0 && e < 64 && ((s >> e) & 1L)) ? 1 : 0); return 1;
+    }
+    if (!strcmp(fn, "__pas_set")) {
+        long s = 0;
+        for (int k = 0; k < nargs; k++) { long e = IS_INT_fn(args[k]) ? args[k].i : -1; if (e >= 0 && e < 64) s |= (1L << e); }
+        *out = INTVAL(s); return 1;
+    }
+    if (nargs == 2 && (!strcmp(fn, "__pas_setuni") || !strcmp(fn, "__pas_setint") || !strcmp(fn, "__pas_setdif")
+                    || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super"))) {
+        long a = IS_INT_fn(args[0]) ? args[0].i : 0;
+        long b = IS_INT_fn(args[1]) ? args[1].i : 0;
+        long r;
+        if      (!strcmp(fn, "__pas_setuni")) r = a | b;
+        else if (!strcmp(fn, "__pas_setint")) r = a & b;
+        else if (!strcmp(fn, "__pas_setdif")) r = a & ~b;
+        else if (!strcmp(fn, "__pas_subset")) r = ((a & ~b) == 0) ? 1 : 0;
+        else                                  r = ((b & ~a) == 0) ? 1 : 0;
+        *out = INTVAL(r); return 1;
+    }
     if (nargs >= 1 && (!strcmp(fn, "__rk_jct_any") || !strcmp(fn, "__rk_jct_all")
                     || !strcmp(fn, "__rk_jct_one") || !strcmp(fn, "__rk_jct_none"))) {
         char flav = !strcmp(fn, "__rk_jct_any") ? 'a'

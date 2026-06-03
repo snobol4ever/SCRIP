@@ -63,6 +63,17 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     return e;
 }
+static tree_t *mk_in(tree_t *elem, tree_t *set) {
+    tree_t *e = ast_node_new(TT_FNC);
+    ast_push(e, leaf_s(TT_VAR, "__pas_in")); ast_push(e, elem); ast_push(e, set);
+    return e;
+}
+static tree_t *mk_set_ctor(PNodeList *elems) {
+    tree_t *e = ast_node_new(TT_FNC);
+    ast_push(e, leaf_s(TT_VAR, "__pas_set"));
+    if (elems) for (int i = 0; i < elems->count; i++) ast_push(e, elems->items[i]);
+    return e;
+}
 static void emit_proc(PNodeList *procs, tree_t *proc) {
     tree_t *st = ast_stmt_new(TT_STMT);
     ast_push(st, ast_attr_int(":lang", LANG_PASCAL));
@@ -125,6 +136,16 @@ static struct { const char *names[PAS_LOCAL_MAX]; int n; int decl_level; } g_pas
 static void pas_proc_enter(void) { if (g_pas_ldepth < PAS_NEST_MAX) { g_pas_lstk[g_pas_ldepth].n = 0; g_pas_lstk[g_pas_ldepth].decl_level = g_pas_level; } g_pas_ldepth++; g_pas_level++; }
 static void pas_proc_exit(void) { if (g_pas_ldepth > 0) g_pas_ldepth--; if (g_pas_level > 1) g_pas_level--; }
 static void pas_local_add(const char *name) { if (g_pas_level < 2 || g_pas_ldepth == 0 || g_pas_ldepth > PAS_NEST_MAX || !name) return; int d = g_pas_ldepth - 1; if (g_pas_lstk[d].n < PAS_LOCAL_MAX) g_pas_lstk[d].names[g_pas_lstk[d].n++] = strdup(name); }
+static struct { char *name; } g_pas_setvars[256]; static int g_pas_nsetvar;
+static void pas_setvar_add(const char *name) { if (g_pas_nsetvar < 256 && name) { g_pas_setvars[g_pas_nsetvar++].name = strdup(name); } }
+static int pas_is_setvar(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nsetvar; i++) if (g_pas_setvars[i].name && !strcmp(g_pas_setvars[i].name, name)) return 1; return 0; }
+static int pas_is_setexpr(tree_t *e) { if (!e) return 0;
+    if (e->t == TT_VAR && e->v.sval) return pas_is_setvar(e->v.sval);
+    if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->v.sval) { const char *f = e->c[0]->v.sval;
+        return !strcmp(f, "__pas_set") || !strcmp(f, "__pas_setuni") || !strcmp(f, "__pas_setint") || !strcmp(f, "__pas_setdif"); }
+    return 0; }
+static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, name)); ast_push(e, a); ast_push(e, b); return e; }
+static tree_t *pas_arith_or_set(tree_e ak, const char *setfn, tree_t *a, tree_t *b) { return (pas_is_setexpr(a) || pas_is_setexpr(b)) ? mk_set_bin(setfn, a, b) : bin(ak, a, b); }
 static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "true"))  return ilit(1);
     if (name && !strcmp(name, "false")) return ilit(0);
@@ -166,7 +187,7 @@ static tree_t *mk_array_fill(long long high) {
 %type <node> assignment call call_with_args if_statement while_statement
 %type <node> repeat_statement for_statement with_statement case_statement goto_statement
 %type <node> expression simple_expression term factor selector
-%type <list> statement_list argument_list expression_list id_list argument
+%type <list> statement_list argument_list expression_list expression_list_opt id_list argument
 %type <list> parameter_list_opt parameter_decl_list parameter_decl
 %type <ival> constant scalar_constant simple_type type
 %start program
@@ -226,7 +247,7 @@ type:
     | ARROW IDENT { $$ = -1; }
     | packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY type { $$ = $4; }
     | packed_opt RECORDSY record_body ENDSY { $$ = -1; }
-    | packed_opt SETSY OFSY simple_type { $$ = -1; }
+    | packed_opt SETSY OFSY simple_type { $$ = -2; }
     | packed_opt FILESY { $$ = -1; }
     ;
 packed_opt: PACKEDSY | ;
@@ -250,7 +271,7 @@ var_decl_list:
     var_decl_list var_decl
     | var_decl
     ;
-var_decl: id_list COLON type SEMICOLON { if ($1) for (int i = 0; i < $1->count; i++) { tree_t *id = $1->items[i]; if (id && id->v.sval) { if ($3 >= 0) pas_array_add(id->v.sval, $3); if (g_pas_pend_nf > 0) { pas_recvar_add(id->v.sval); pas_array_add(id->v.sval, (long long)(g_pas_pend_nf - 1)); } pas_local_add(id->v.sval); } } pas_pend_reset(); } ;
+var_decl: id_list COLON type SEMICOLON { if ($1) for (int i = 0; i < $1->count; i++) { tree_t *id = $1->items[i]; if (id && id->v.sval) { if ($3 >= 0) pas_array_add(id->v.sval, $3); if ($3 == -2) pas_setvar_add(id->v.sval); if (g_pas_pend_nf > 0) { pas_recvar_add(id->v.sval); pas_array_add(id->v.sval, (long long)(g_pas_pend_nf - 1)); } pas_local_add(id->v.sval); } } pas_pend_reset(); } ;
 procedure_decl:
     PROCEDURESY IDENT parameter_list_opt SEMICOLON FORWARDSY SEMICOLON { }
     | FUNCTIONSY IDENT parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON { pas_func_add($2); }
@@ -380,11 +401,11 @@ selector_list:
     ;
 expression:
     simple_expression { $$ = $1; }
-    | expression INOP simple_expression { $$ = bin(TT_FNC, $1, $3); }
+    | expression INOP simple_expression { $$ = mk_in($1, $3); }
     | expression LTOP simple_expression { $$ = bin(TT_LT, $1, $3); }
-    | expression LEOP simple_expression { $$ = bin(TT_LE, $1, $3); }
+    | expression LEOP simple_expression { $$ = pas_arith_or_set(TT_LE, "__pas_subset", $1, $3); }
     | expression GTOP simple_expression { $$ = bin(TT_GT, $1, $3); }
-    | expression GEOP simple_expression { $$ = bin(TT_GE, $1, $3); }
+    | expression GEOP simple_expression { $$ = pas_arith_or_set(TT_GE, "__pas_super", $1, $3); }
     | expression NEOP simple_expression { $$ = bin(TT_NE, $1, $3); }
     | expression EQOP simple_expression { $$ = bin(TT_EQ, $1, $3); }
     ;
@@ -392,13 +413,13 @@ simple_expression:
     term { $$ = $1; }
     | PLUS term { $$ = $2; }
     | MINUS term { $$ = un(TT_MNS, $2); }
-    | simple_expression PLUS term { $$ = bin(TT_ADD, $1, $3); }
-    | simple_expression MINUS term { $$ = bin(TT_SUB, $1, $3); }
+    | simple_expression PLUS term { $$ = pas_arith_or_set(TT_ADD, "__pas_setuni", $1, $3); }
+    | simple_expression MINUS term { $$ = pas_arith_or_set(TT_SUB, "__pas_setdif", $1, $3); }
     | simple_expression OROP term { $$ = bin(TT_ADD, $1, $3); }
     ;
 term:
     factor { $$ = $1; }
-    | term MUL factor { $$ = bin(TT_MUL, $1, $3); }
+    | term MUL factor { $$ = pas_arith_or_set(TT_MUL, "__pas_setint", $1, $3); }
     | term RDIV factor { $$ = bin(TT_DIV, $1, $3); }
     | term IDIV factor { $$ = bin(TT_DIV, $1, $3); }
     | term IMOD factor { $$ = bin(TT_MOD, $1, $3); }
@@ -412,11 +433,11 @@ factor:
     | STRINGCONST { $$ = leaf_s(TT_QLIT, $1); }
     | LPARENT expression RPARENT { $$ = $2; }
     | NOTSY factor { $$ = un(TT_NOT, $2); }
-    | LBRACK expression_list_opt RBRACK { $$ = ast_node_new(TT_SUCCEED); }
+    | LBRACK expression_list_opt RBRACK { $$ = mk_set_ctor($2); }
     ;
 expression_list_opt:
-    expression_list
-    |
+    expression_list { $$ = $1; }
+    | { $$ = NULL; }
     ;
 %%
 extern void *pascal_yy_scan_string(const char *);
@@ -425,7 +446,7 @@ tree_t *pascal_parse_string(const char *src) {
     pascal_prog_result = NULL;
     memset(&g_pascal_procs, 0, sizeof g_pascal_procs);
     g_pas_nconst = 0; g_pas_narray = 0; g_pas_nfunc = 0;
-    g_pas_nrectype = 0; g_pas_nrecvar = 0; g_pas_pend_nf = 0;
+    g_pas_nrectype = 0; g_pas_nrecvar = 0; g_pas_pend_nf = 0; g_pas_nsetvar = 0;
     g_pas_level = 1; g_pas_ldepth = 0;
     void *buf = pascal_yy_scan_string(src);
     pascal_yyparse();
