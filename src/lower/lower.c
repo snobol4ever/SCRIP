@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <gc/gc.h>
 int g_icn_postfix_resume = 0;
+int g_icn_globals_nv = 1;
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 typedef enum { ROLE_VALUE = 0, ROLE_PATTERN = 1, ROLE_GOAL = 2 } lower_role_e;
@@ -742,6 +743,7 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     IR_t * rhs = lower2(cx, rhs_t, as  , ω_in, &rα, &rβ);
     if (!rhs) return NULL;
     (void) rβ;
+    if (cx.lang == IR_LANG_ICN) as->α = rhs;
     set_succ_fail(as, γ_in, ω_in);
     IR_t * resume = (cx.lang == IR_LANG_ICN && !cx.bounded && rβ && rβ != ω_in) ? rβ : ω_in;
     return ret(as, α_out, β_out, rα, resume);
@@ -870,6 +872,7 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
                 lcx_t vc = cx; vc.role = ROLE_VALUE;
                 IR_t * v = lower2(vc, e->c[0], rn  , ω_in, &vα, &vβ);
                 if (!v) return NULL;
+                rn->α = v;
             }
             set_succ_fail(rn, γ_in, ω_in);
             return ret(rn, α_out, β_out, vα ? vα : rn, ω_in  );

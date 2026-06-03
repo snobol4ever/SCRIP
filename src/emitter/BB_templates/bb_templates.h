@@ -41,6 +41,8 @@ void bb_lit        (void);
 void bb_lit_scalar (IR_t * pBB);
 void bb_var        (IR_t * pBB);
 void bb_var_global (IR_t * pBB);
+void bb_gvar_assign_icn (IR_t * pBB);
+void bb_return (IR_t * pBB);
 void bb_unop       (void);
 void bb_succeed    (void);
 void bb_pat_defer  (void);
