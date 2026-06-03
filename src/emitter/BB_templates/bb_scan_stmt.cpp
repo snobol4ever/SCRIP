@@ -30,6 +30,8 @@ static std::string bb_scan_stmt_str() {
     if (PLATFORM_X86) {
         if (MEDIUM_TEXT) {
             if (!scan_pat_lit()) return x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)");
+            if (!scan_has_name() && !scan_subj_lit()) return x86_bomb("bb_scan: TEXT(mode-4) non-literal subject needs native PB-RB graph (pending)");
+            if (scan_is_repl() && !scan_replace_lit()) return x86_bomb("bb_scan: TEXT(mode-4) non-literal replacement needs native PB-RB graph (pending)");
             std::string a_subj = scan_has_name()    ? x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)scan_subj_name(),    scan_lbl(scan_subj_name()))    : x86("mov", "rdi", (long)0);
             std::string a_slit = scan_subj_lit()     ? x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)scan_subj_lit(),     scan_lbl(scan_subj_lit()))     : x86("mov", "rsi", (long)0);
             std::string a_patlit =                     x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)scan_pat_lit(),      scan_lbl(scan_pat_lit()));
