@@ -5,17 +5,17 @@ extern "C" {
 #include "emit.h"
 #include "emit_bb.h"
 }
-extern "C" void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
+#include "bb_builtin_common.h"
 extern "C" int   rt_unify_terms(void *l, void *r);
 extern "C" int   rt_unify_const(int slot, int kind, long ival, const char *sval, double dval);
 extern "C" int   rt_unify_var_var(int lslot, int rslot);
-#include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline int  u_present()        { return _.bb_lk >= 0; }
 static inline int  u_const_kind(int k){ return k == IR_ATOM || k == IR_LIT_I; }
-static inline int  u_deferred()       { int lk = _.bb_lk, rk = _.bb_rk;
-                                        return lk == IR_STRUCT || rk == IR_STRUCT || lk == IR_ARITH || rk == IR_ARITH
-                                            || lk == IR_LIT_F  || rk == IR_LIT_F; }
+static inline int  u_compound_kind(int k){ return k == IR_STRUCT || k == IR_ARITH; }
+static inline int  u_float_kind(int k){ return k == IR_LIT_F; }
+static inline int  u_deferred_float() { int lk = _.bb_lk, rk = _.bb_rk;
+                                        return u_float_kind(lk) || u_float_kind(rk); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline std::string u_head(const char *msg) {
     return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment(msg));
@@ -27,7 +27,7 @@ static inline std::string u_tail() {
     return x86("test", "eax", "eax") + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA)
          + x86("def", PORT_BETA) + x86("jmp", PORT_OMEGA);
 }
-static inline std::string u_build(int kind, long ival, const char *lbl) {
+static inline std::string u_build_scalar(int kind, long ival, const char *lbl) {
     return x86("mov", "edi", (long)kind)
          + x86("mov", "rsi", ival)
          + (lbl ? x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)lbl, lbl) : x86("mov", "edx", (long)0))
@@ -39,11 +39,12 @@ static std::string bb_unify_str() {
     if (PLATFORM_X86) {
         if (!u_present())
             return u_vacuous("# BOX RESOLVE_UNIFY: missing children — vacuous success  [x86() self-encoding]");
-        if (u_deferred())
-            return x86_bomb("bb_unify: compound/float operand — deferred (PL-HY-1a compound substrate + float-unify)");
+        if (u_deferred_float())
+            return x86_bomb("bb_unify: float operand — deferred (CAT-D float substrate)");
         int  lk = _.bb_lk, rk = _.bb_rk;
         long li = (long)_.bb_li, ri = (long)_.bb_ri;
         const char *ls = _.bb_ls, *rs = _.bb_rs;
+        const IR_t *ln = (const IR_t *)_.bb_ln, *rn = (const IR_t *)_.bb_rn;
         if (lk == IR_LOGICVAR && rk == IR_LOGICVAR && li == ri)
             return u_vacuous("# BOX RESOLVE_UNIFY (WAM-CP-7 self-unify x=x — vacuous success)  [x86() self-encoding]");
         if (lk == IR_LOGICVAR && rk == IR_LOGICVAR)
@@ -66,16 +67,24 @@ static std::string bb_unify_str() {
                      + x86("call", "rt_unify_const", (uint64_t)(uintptr_t)(void*)rt_unify_const)
                      + u_tail();
         }
-        return u_head("# BOX RESOLVE_UNIFY  [x86() self-encoding]")
-             + x86("sub", "rsp", (long)16)
-             + u_build(lk, li, ls)
-             + x86("mov", RSP(0), "rax")
-             + u_build(rk, ri, rs)
-             + x86("mov", "rsi", "rax")
-             + x86("mov", "rdi", RSP(0))
-             + x86("add", "rsp", (long)16)
-             + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void*)rt_unify_terms)
-             + u_tail();
+        {
+            std::string lbuild = u_compound_kind(lk)
+                ? emit_build_compound_term(ln)
+                : u_build_scalar(lk, li, ls);
+            std::string rbuild = u_compound_kind(rk)
+                ? emit_build_compound_term(rn)
+                : u_build_scalar(rk, ri, rs);
+            return u_head("# BOX RESOLVE_UNIFY (general)  [x86() self-encoding]")
+                 + x86("sub", "rsp", (long)16)
+                 + lbuild
+                 + x86("mov", RSP(0), "rax")
+                 + rbuild
+                 + x86("mov", "rsi", "rax")
+                 + x86("mov", "rdi", RSP(0))
+                 + x86("add", "rsp", (long)16)
+                 + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void*)rt_unify_terms)
+                 + u_tail();
+        }
     }
     return std::string();
 }

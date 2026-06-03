@@ -611,6 +611,7 @@ void bb_prepare(IR_t *nd) {
         if (!nd->α || !nd->β) return;
         g_emit.bb_lk = (int)nd->α->t; g_emit.bb_li = (int64_t)nd->α->ival;
         g_emit.bb_rk = (int)nd->β->t; g_emit.bb_ri = (int64_t)nd->β->ival;
+        g_emit.bb_ln = (void *)nd->α; g_emit.bb_rn = (void *)nd->β;
         if (nd->α->t == IR_ATOM) g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->α->sval ? nd->α->sval : "");
         if (nd->β->t == IR_ATOM) g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, nd->β->sval ? nd->β->sval : "");
         return;
