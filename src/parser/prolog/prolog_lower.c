@@ -246,21 +246,57 @@ static void pl_flatten_conj(tree_t *t, tree_t *prog) {
     ast_push(prog, t);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static tree_t *pl_maybe_ifthenelse(tree_t *semi_node) {
-    if (semi_node->n != 2) return semi_node;
-    tree_t *left  = semi_node->c[0];
-    tree_t *right = semi_node->c[1];
-    if (!left || left->t != TT_FNC || !left->v.sval) return semi_node;
-    if (strcmp(left->v.sval, "->") != 0 || left->n < 2) return semi_node;
+static tree_t *pl_rewrite_control(tree_t *t);
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_arrow_then_prog(tree_t *arrow) {
     tree_t *then_prog = ast_node_new(TT_PROGRAM);
-    pl_flatten_conj(left->c[1], then_prog);
-    tree_t *else_prog = ast_node_new(TT_PROGRAM);
-    pl_flatten_conj(right, else_prog);
-    tree_t *iff = ast_node_new(TT_IF);
-    ast_push(iff, left->c[0]);
-    ast_push(iff, then_prog->n == 1 ? then_prog->c[0] : then_prog);
-    ast_push(iff, else_prog->n == 1 ? else_prog->c[0] : else_prog);
-    return iff;
+    for (int i = 1; i < arrow->n; i++) pl_flatten_conj(arrow->c[i], then_prog);
+    for (int i = 0; i < then_prog->n; i++) then_prog->c[i] = pl_rewrite_control(then_prog->c[i]);
+    return then_prog;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_disj_of_rest(tree_t *semi_node, int from) {
+    if (from >= semi_node->n) { tree_t *f = ast_node_new(TT_QLIT); f->v.sval = strdup("fail"); return f; }
+    if (from == semi_node->n - 1) return semi_node->c[from];
+    tree_t *rest = ast_node_new(TT_FNC); rest->v.sval = strdup(";");
+    for (int i = from; i < semi_node->n; i++) ast_push(rest, semi_node->c[i]);
+    return rest;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int pl_is_arrow(const tree_t *t) {
+    return t && t->t == TT_FNC && t->v.sval && strcmp(t->v.sval, "->") == 0 && t->n >= 2;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_rewrite_control(tree_t *t) {
+    if (!t) return t;
+    if (pl_is_arrow(t)) {
+        tree_t *then_prog = pl_arrow_then_prog(t);
+        tree_t *else_prog = ast_node_new(TT_PROGRAM);
+        { tree_t *f = ast_node_new(TT_QLIT); f->v.sval = strdup("fail"); ast_push(else_prog, f); }
+        tree_t *iff = ast_node_new(TT_IF);
+        ast_push(iff, pl_rewrite_control(t->c[0]));
+        ast_push(iff, then_prog->n == 1 ? then_prog->c[0] : then_prog);
+        ast_push(iff, else_prog->n == 1 ? else_prog->c[0] : else_prog);
+        return iff;
+    }
+    if (t->t == TT_FNC && t->v.sval && strcmp(t->v.sval, ";") == 0 && t->n >= 2 && pl_is_arrow(t->c[0])) {
+        tree_t *arrow = t->c[0];
+        tree_t *then_prog = pl_arrow_then_prog(arrow);
+        tree_t *else_src  = pl_disj_of_rest(t, 1);
+        tree_t *else_prog = ast_node_new(TT_PROGRAM);
+        pl_flatten_conj(else_src, else_prog);
+        for (int i = 0; i < else_prog->n; i++) else_prog->c[i] = pl_rewrite_control(else_prog->c[i]);
+        tree_t *iff = ast_node_new(TT_IF);
+        ast_push(iff, pl_rewrite_control(arrow->c[0]));
+        ast_push(iff, then_prog->n == 1 ? then_prog->c[0] : then_prog);
+        ast_push(iff, else_prog->n == 1 ? else_prog->c[0] : else_prog);
+        return iff;
+    }
+    if (t->t == TT_FNC && t->v.sval && (strcmp(t->v.sval, ";") == 0 || strcmp(t->v.sval, ",") == 0)) {
+        for (int i = 0; i < t->n; i++) t->c[i] = pl_rewrite_control(t->c[i]);
+        return t;
+    }
+    return t;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pl_make_clause(tree_t *head_tr, tree_t *body_tr) {
@@ -367,11 +403,8 @@ static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key) {
         body_prog = ast_node_new(TT_PROGRAM);
         if (raw_body) pl_flatten_conj(raw_body, body_prog);
     }
-    for (int i = 0; i < body_prog->n; i++) {
-        tree_t *g = body_prog->c[i];
-        if (g && g->t == TT_FNC && g->v.sval && strcmp(g->v.sval, ";") == 0)
-            body_prog->c[i] = pl_maybe_ifthenelse(g);
-    }
+    for (int i = 0; i < body_prog->n; i++)
+        body_prog->c[i] = pl_rewrite_control(body_prog->c[i]);
     for (int i = 0; i < body_prog->n; i++)
         expr_add_child(ec, body_prog->c[i]);
     return ec;
