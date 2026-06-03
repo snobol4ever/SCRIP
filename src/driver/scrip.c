@@ -102,21 +102,43 @@ static int icn_kind_native_stub(IR_e t) {
            t == IR_CSET_UNION || t == IR_CSET_DIFF || t == IR_CSET_INTER || t == IR_CSET_COMPL ||
            t == IR_SUSPEND ||
            t == IR_LIST_BANG ||
-           t == IR_ALT ||
            t == IR_BINOP_GEN ||
            t == IR_MAP || t == IR_GREP;
+}
+static int icn_alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
+    int n = 0;
+    IR_t * const * arms = bb_operand_aux_get(g, alt, &n);
+    if (!arms || n <= 0 || n > 5) return 0;
+    for (int i = 0; i < n; i++) {
+        if (!arms[i]) return 0;
+        if (arms[i]->t != IR_LIT_I && arms[i]->t != IR_LIT_S) return 0;
+    }
+    return 1;
+}
+static int icn_alt_safe_kind(IR_e t) {
+    return t == IR_ALT || t == IR_CALL || t == IR_EVERY || t == IR_FAIL ||
+           t == IR_SUCCEED || t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL;
+}
+static int icn_graph_has_alt(const IR_graph_t *g) {
+    for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->t == IR_ALT) return 1;
+    return 0;
 }
 static int icn_graph_native_emittable(stage2_t *s2) {
     if (!s2) return 0;
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
         if (!g || !g->all) continue;
+        int has_alt = icn_graph_has_alt(g);
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
             if (icn_kind_native_stub(nd->t)) return 0;
             if (nd->t == IR_VAR && nd->state == 1) return 0;
             if (nd->t == IR_ASSIGN && nd->sval && is_global(nd->sval)) return 0;
+            if (has_alt) {
+                if (!icn_alt_safe_kind(nd->t)) return 0;
+                if (nd->t == IR_ALT && !icn_alt_arms_all_simple_lit(g, nd)) return 0;
+            }
         }
     }
     return 1;
@@ -662,6 +684,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
+                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 descr_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
                 if (n_procs < 64) snprintf(proc_names_buf[n_procs++], 128, "%s", pname);
                 free(pn);
@@ -699,6 +722,7 @@ int main(int argc, char **argv)
             {
                 extern int g_descr_flat_chain;
                 int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
+                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 rc = use_chain ? descr_flat_chain_build_text(bbg->entry, stdout, "main")
                                : codegen_flat_build(icn_root, stdout, "main");
                 g_descr_flat_chain = saved;
@@ -929,6 +953,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
+                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 bb_box_fn pfn = descr_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
@@ -956,6 +981,7 @@ int main(int argc, char **argv)
             extern bb_box_fn descr_flat_chain_build(IR_t * entry);
             IR_t *icn_root = icn_ring_to_tree(bbg);
             bb_box_fn fn;
+            { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
             if (icn_root) {
                 extern int g_descr_flat_chain;
                 int saved = g_descr_flat_chain; g_descr_flat_chain = 1;

@@ -835,6 +835,17 @@ static void flat_drive_to(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_alt_icn_gen(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    if (!pBB) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_alt_icn_gen: null node\n");
+        abort();
+    }
+    g_emit.node   = pBB;
+    g_emit.op_off = bb_slot_alloc16(pBB);
+    (void)bb_slot_claim(8);
+    FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->sval) {
         fprintf(stderr, "[IBB] FATAL flat_drive_field_get: IR_FIELD_GET needs α (object) and sval (field)\n");
@@ -1654,7 +1665,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_TO:         flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO_BY:      flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_ALT:        flat_drive_gen_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_ALT:        if (g_descr_flat_chain) flat_drive_alt_icn_gen(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_gen_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR:        if (g_descr_flat_chain && nd && nd->sval) { if (nd->state == 1) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN:     if (g_descr_flat_chain) FILL(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR || nd->α->t == IR_CALL)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SCAN:       flat_drive_scan_stmt(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1719,6 +1730,20 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int ir_node_is_alt_arm(IR_t *nd) {
+    if (!nd || !g_emit_cfg) return 0;
+    if (!(nd->γ && nd->γ->t == IR_ALT)) return 0;
+    int na = 0;
+    IR_t * const * arms = bb_operand_aux_get(g_emit_cfg, nd->γ, &na);
+    for (int i = 0; i < na && arms; i++) if (arms[i] == nd) return 1;
+    return 0;
+}
+static IR_t *ir_skip_alt_arms(IR_t *entry) {
+    int guard = 0;
+    while (entry && ir_node_is_alt_arm(entry) && guard++ < 512) entry = entry->γ;
+    return entry;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -1745,10 +1770,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
     { int guard = 0; while (entry && (entry->t == IR_SUCCEED || entry->t == IR_FAIL) && entry->γ && guard++ < CH_MAX) entry = entry->γ; }
+    entry = ir_skip_alt_arms(entry);
     queue[qt++] = entry;
     while (qh < qt) {
         IR_t *c = queue[qh++];
         if (!c || c->t == IR_SUCCEED || c->t == IR_FAIL) continue;
+        if (ir_node_is_alt_arm(c)) continue;
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
@@ -1900,6 +1927,7 @@ static int descr_chain_arity(const IR_t *n) {
     switch (n->t) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: return 0;
+    case IR_ALT:   return 0;
     case IR_GATHER: return 0;
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
