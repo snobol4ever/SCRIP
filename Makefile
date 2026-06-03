@@ -144,7 +144,6 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_program.c \
     $(SRC)/lower/lower_sno.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
-    $(SRC)/runtime/builtins/scan_builtins.c \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/builtins/script_builtins_byname.c \
     $(SRC)/runtime/builtins/resolve_runtime.c \
@@ -326,7 +325,6 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/gen_runtime.c -o $(OBJ)/gen_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/by_name_dispatch.c -o $(OBJ)/by_name_dispatch.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/script_builtins_byname.c -o $(OBJ)/script_builtins_byname.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/scan_builtins.c -o $(OBJ)/scan_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolve_runtime.c  -o $(OBJ)/resolve_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
 	$(CC) $(CRT)   -c $(SRC)/lower/ast_clone.c    -o $(OBJ)/ast_clone.o
