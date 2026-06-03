@@ -214,6 +214,33 @@ static int lower_icon_body(const tree_t *proc) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int lower_pascal_body(const tree_t *proc) {
+    if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
+    const tree_t *body = proc->c[2];
+    if (!body || body->t != TT_PROGRAM) return -1;
+    IR_graph_t *g = IR_alloc(256, IR_LANG_PAS);
+    if (!g) return -1;
+    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t *next_a = PSUCC;
+    int n_stmts = 0;
+    for (int i = body->n - 1; i >= 0; i--) {
+        const tree_t *s = body->c[i];
+        if (!s) continue;
+        const tree_t *expr = s;
+        if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
+        n_stmts++;
+        IR_t *a = NULL, *b = NULL;
+        IR_t *top = lower2_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
+        if (!top || !a) return -1;
+        next_a = a;
+    }
+    if (n_stmts == 0) return -1;
+    g->entry = next_a;
+    return bb_program_add(&g_stage2.bbp, g);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_raku_body(const tree_t *proc) {
     if (!proc || proc->t != TT_SUB_DECL) return -1;
     int np = (int) proc->v.ival;
@@ -552,6 +579,30 @@ stage2_t *lower(const tree_t *prog) {
                 }
             }
         }
+    }
+    if (mask & (1u << LANG_PASCAL)) {
+        for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+            const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+            if (!proc || proc->t != TT_PROC_DECL) continue;
+            if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
+            int bb_idx = lower_pascal_body(proc);
+            if (bb_idx >= 0) {
+                g_stage2.proc_table[pi].bb_idx = bb_idx;
+                const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
+                int np = g_stage2.proc_table[pi].nparams;
+                Scope *sc = &g_stage2.proc_table[pi].lower_sc;
+                sc->n = 0;
+                for (int k = 0; k < np && plist && k < plist->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+                    const tree_t *pv = plist->c[k];
+                    if (!pv || !pv->v.sval) continue;
+                    sc->e[sc->n].name = lp_strdup(pv->v.sval);
+                    sc->e[sc->n].slot = sc->n;
+                    sc->n++;
+                }
+            }
+        }
+        g_stage2.lang = IR_LANG_PAS;
+        return &g_stage2;
     }
     if (mask & (1u << LANG_ICN)) {
         for (int pi = 0; pi < g_stage2.proc_count; pi++) {

@@ -22,6 +22,7 @@
 #define IR_LANG_ICN  4
 #define IR_LANG_PL   5
 #define IR_LANG_RKU  6
+#define IR_LANG_PAS  7
 typedef enum {
     IR_LIT_I,
     IR_LIT_S,

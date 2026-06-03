@@ -28,6 +28,8 @@ static IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 static IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static IR_t * v_pascal_repeat(lcx_t cx, const tree_t * body_t, const tree_t * cond_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_map_grep(lcx_t cx, int is_grep, const tree_t * closure_t, const tree_t * src_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * g_term(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
@@ -284,7 +286,7 @@ static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
         if (!c3) return NULL;
         elseα = c3α;
     } else {
-        elseα = (cx.lang == IR_LANG_RKU) ? γ_in : ω_in;
+        elseα = (cx.lang == IR_LANG_RKU || cx.lang == IR_LANG_PAS) ? γ_in : ω_in;
     }
     IR_t * c1 = lower2(cb, e->c[0], thenα  , elseα  , &c1α, &c1β);
     if (!c1) return NULL;
@@ -548,6 +550,40 @@ static IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
+/*====================================================================================================================*/
+/*====================================================================================================================*/
+static IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!e || e->n < 4 || !e->c[0] || e->c[0]->t != TT_VAR || !e->c[0]->v.sval) return NULL;
+    int down = (e->v.ival == 1);
+    const tree_t * var  = e->c[0];
+    const tree_t * from = e->c[1];
+    const tree_t * to   = e->c[2];
+    const tree_t * body = e->c[3];
+    tree_t * init = ast_node_new(TT_ASSIGN); ast_push(init, (tree_t *) var); ast_push(init, (tree_t *) from);
+    tree_t * cond = ast_node_new(down ? TT_GE : TT_LE); ast_push(cond, (tree_t *) var); ast_push(cond, (tree_t *) to);
+    tree_t * one  = ast_node_new(TT_ILIT); one->v.ival = 1;
+    tree_t * step = ast_node_new(down ? TT_SUB : TT_ADD); ast_push(step, (tree_t *) var); ast_push(step, one);
+    tree_t * incr = ast_node_new(TT_ASSIGN); ast_push(incr, (tree_t *) var); ast_push(incr, step);
+    tree_t * inner = ast_node_new(TT_SEQ_EXPR); ast_push(inner, (tree_t *) body); ast_push(inner, incr);
+    tree_t * loop  = ast_node_new(TT_WHILE); ast_push(loop, cond); ast_push(loop, inner);
+    tree_t * seq   = ast_node_new(TT_SEQ_EXPR); ast_push(seq, init); ast_push(seq, loop);
+    return lower2(cx, seq, γ_in, ω_in, α_out, β_out);
+}
+/*====================================================================================================================*/
+/*====================================================================================================================*/
+static IR_t * v_pascal_repeat(lcx_t cx, const tree_t * body_t, const tree_t * cond_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!body_t || !cond_t) return NULL;
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * cond = lower2(bounded(cx), cond_t, γ_in, NULL, &cα, &cβ);
+    if (!cond) return NULL;
+    IR_t * bα = NULL, * bβ = NULL;
+    IR_t * body = lower2(bounded(cx), body_t, cα, ω_in, &bα, &bβ);
+    if (!body) return NULL;
+    if (!cond->ω) cond->ω = bα;
+    return ret(body, α_out, β_out, bα, ω_in);
+}
+/*====================================================================================================================*/
+/*====================================================================================================================*/
 static IR_t * v_loop_break(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     (void)γ_in;
     IR_t * br = nalloc(cx, IR_BREAK);
@@ -663,6 +699,8 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_CSET:
     case TT_NUL:  case TT_NULL: case TT_VAR:  case TT_NAME: case TT_KEYWORD:
         return v_literal(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_SUCCEED: { IR_t * n = nalloc(cx, IR_SUCCEED); if (!n) return NULL; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_FAIL:    { IR_t * n = nalloc(cx, IR_FAIL);    if (!n) return NULL; lcx_t bx = cx; bx.bounded = 1; return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out); }
     case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL:
     case TT_RANDOM: case TT_MATCH_UNARY: case TT_CSET_COMPL: case TT_ITERATE: case TT_INTERROGATE:
         return v_unop(cx, e, γ_in, ω_in, α_out, β_out);
@@ -693,6 +731,8 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_UNTIL:
         return v_until(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_REPEAT:
+        if (cx.lang == IR_LANG_PAS && e->n >= 2 && e->c[0] && e->c[1])
+            return v_pascal_repeat(cx, e->c[0], e->c[1], γ_in, ω_in, α_out, β_out);
         return v_repeat(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_NOT:
         return v_not(cx, e, γ_in, ω_in, α_out, β_out);
@@ -787,7 +827,7 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))
                 return wire_det_builtin1(cx, e->c[1], fn, γ_in, ω_in, α_out, β_out);
         }
-        if (cx.lang == IR_LANG_ICN && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+        if ((cx.lang == IR_LANG_ICN || cx.lang == IR_LANG_PAS) && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
             IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
             call->sval = e->c[0]->v.sval;
             int nargs = e->n - 1;
@@ -804,7 +844,7 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
                 call->counter = (int64_t)(intptr_t) blks;
             }
             set_succ_fail(call, γ_in, ω_in);
-            IR_t * call_beta = icn_proc_is_generator(call->sval) ? call : ω_in;
+            IR_t * call_beta = (cx.lang == IR_LANG_ICN && icn_proc_is_generator(call->sval)) ? call : ω_in;
             return ret(call, α_out, β_out, call, call_beta);
         }
         if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
@@ -907,10 +947,14 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_SMATCH:
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER:
     case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW:
+    case TT_FOR:
+        if (cx.lang == IR_LANG_PAS)
+            return v_pascal_for(cx, e, γ_in, ω_in, α_out, β_out);
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_PRINT_FH: case TT_SAY_FH:
     case TT_GLOBAL: case TT_LOCAL: case TT_STATIC_DECL: case TT_DECL: case TT_INITIAL: case TT_OPSYN:
     case TT_GOTO_U: case TT_GOTO_S: case TT_GOTO_F:
-    case TT_TRY: case TT_DIE: case TT_UNLESS: case TT_DO_WHILE: case TT_FOR:
+    case TT_TRY: case TT_DIE: case TT_UNLESS: case TT_DO_WHILE:
         if (cx.lang == IR_LANG_ICN && (e->t == TT_LOCAL || e->t == TT_GLOBAL || e->t == TT_STATIC_DECL)) {
             IR_t * nop = nalloc(cx, IR_SUCCEED); if (!nop) return NULL;
             set_succ_fail(nop, γ_in, ω_in);

@@ -43,19 +43,28 @@ static tree_t *seq_of(PNodeList *l) {
     return e;
 }
 static const char *map_io(const char *fn) {
-    if (fn && !strcmp(fn, "writeln")) return "write";
-    if (fn && !strcmp(fn, "write"))   return "writes";
+    if (fn && !strcmp(fn, "writeln")) return "__pas_writeln";
+    if (fn && !strcmp(fn, "write"))   return "__pas_write";
     return fn;
+}
+static int is_pas_io(const char *fn) {
+    return fn && (!strcmp(fn, "__pas_writeln") || !strcmp(fn, "__pas_write"));
 }
 static tree_t *mk_call(const char *name, PNodeList *args) {
     tree_t *e = ast_node_new(TT_FNC);
     ast_push(e, leaf_s(TT_VAR, map_io(name)));
-    if (args) for (int i = 0; i < args->count; i++) ast_push(e, args->items[i]);
+    if (args) {
+        if (is_pas_io(map_io(name))) {
+            for (int i = 0; i < args->count; i++) ast_push(e, args->items[i]);
+        } else {
+            for (int i = 0; i < args->count; i += 2) ast_push(e, args->items[i]);
+        }
+    }
     return e;
 }
 static void emit_proc(PNodeList *procs, tree_t *proc) {
     tree_t *st = ast_stmt_new(TT_STMT);
-    ast_push(st, ast_attr_int(":lang", LANG_ICN));
+    ast_push(st, ast_attr_int(":lang", LANG_PASCAL));
     ast_push(st, ast_attr_int(":line", 0));
     ast_push(st, ast_attr_int(":stno", 0));
     ast_push(st, ast_attr_expr(":subj", proc));
@@ -94,8 +103,8 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt) {
 %type <node> block body statement statement_no_label compound_statement
 %type <node> assignment call call_with_args if_statement while_statement
 %type <node> repeat_statement for_statement with_statement case_statement goto_statement
-%type <node> expression simple_expression term factor selector argument
-%type <list> statement_list argument_list expression_list id_list
+%type <node> expression simple_expression term factor selector
+%type <list> statement_list argument_list expression_list id_list argument
 %type <list> parameter_list_opt parameter_decl_list parameter_decl
 %start program
 %%
@@ -229,12 +238,12 @@ call_with_args:
     IDENT LPARENT argument_list RPARENT { $$ = mk_call($1, $3); }
     ;
 argument_list:
-    argument_list COMMA argument { pnl_push($1, $3); $$ = $1; }
-    | argument { PNodeList *l = pnl_new(); pnl_push(l, $1); $$ = l; }
+    argument_list COMMA argument { $$ = pnl_concat($1, $3); }
+    | argument { $$ = $1; }
     ;
 argument:
-    expression { $$ = $1; }
-    | expression COLON expression { $$ = $1; }
+    expression { PNodeList *_al = pnl_new(); pnl_push(_al, $1); pnl_push(_al, ilit(-1)); $$ = _al; }
+    | expression COLON expression { PNodeList *_al = pnl_new(); pnl_push(_al, $1); pnl_push(_al, $3); $$ = _al; }
     ;
 assignment:
     selector BECOMES expression { $$ = bin(TT_ASSIGN, $1, $3); }
@@ -278,7 +287,7 @@ while_statement:
     WHILESY expression DOSY statement { $$ = bin(TT_WHILE, $2, $4); }
     ;
 repeat_statement:
-    REPEATSY statement_list UNTILSY expression { $$ = bin(TT_REPEAT, prog_of($2), $4); }
+    REPEATSY statement_list UNTILSY expression { $$ = bin(TT_REPEAT, seq_of($2), $4); }
     ;
 for_statement:
     FORSY IDENT BECOMES expression TOSY expression DOSY statement
