@@ -7,6 +7,7 @@ extern "C" {
 #include "ast.h"
 #include "../../runtime/builtins/gen.h"
 extern int g_gvar_flat_chain;
+extern int64_t rt_gvar_arith(const char *a, const char *b, int op);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -15,6 +16,17 @@ std::string bb_binop_gvar_arith_str() {
     if (!(g_gvar_flat_chain && _.op_off >= 0)) return std::string();
     int64_t op  = _.op_ival;
     if (!(op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD)) return std::string();
+    if (_.op_name1 && _.op_name2) {
+        if (MEDIUM_TEXT) return x86_bomb("bb_binop_gvar_arith VAR+VAR: TEXT(mode-4) needs RO-interned var-name ptrs (SNOBOL m4 pending LOWER four-port wiring)");
+        return x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)_.op_name1)
+             + x86_load_ro("rsi", "??", (uint64_t)(uintptr_t)_.op_name2)
+             + x86("mov",  "rdx", (long)op)
+             + x86("call", "rt_gvar_arith", (uint64_t)(uintptr_t)(void *)rt_gvar_arith)
+             + x86("mov",  FRQ(_.op_off), "rax")
+             + x86("jmp",  PORT_GAMMA)
+             + x86("def",  PORT_BETA)
+             + x86("jmp",  PORT_OMEGA);
+    }
     long    lhs = (long)_.op_sa;
     long    rhs = (long)_.op_sb;
     int     off = _.op_off;
