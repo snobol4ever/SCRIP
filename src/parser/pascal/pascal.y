@@ -95,6 +95,9 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
     ast_push(proc, locals);
     return proc;
 }
+static struct { const char *name; } g_pas_funcs[256]; static int g_pas_nfunc;
+static void pas_func_add(const char *name) { if (g_pas_nfunc < 256 && name) { g_pas_funcs[g_pas_nfunc].name = strdup(name); g_pas_nfunc++; } }
+static int pas_is_func(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nfunc; i++) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) return 1; return 0; }
 static struct { char *name; long long val; } g_pas_consts[256]; static int g_pas_nconst;
 static void pas_const_add(const char *name, long long v) { if (g_pas_nconst < 256 && name) { g_pas_consts[g_pas_nconst].name = strdup(name); g_pas_consts[g_pas_nconst].val = v; g_pas_nconst++; } }
 static int pas_const_get(const char *name, long long *out) { if (!name) return 0; for (int i = 0; i < g_pas_nconst; i++) if (g_pas_consts[i].name && !strcmp(g_pas_consts[i].name, name)) { *out = g_pas_consts[i].val; return 1; } return 0; }
@@ -111,6 +114,7 @@ static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "true"))  return ilit(1);
     if (name && !strcmp(name, "false")) return ilit(0);
     long long cv; if (pas_const_get(name, &cv)) return ilit(cv);
+    if (pas_is_func(name)) return mk_call(name, NULL);
     return leaf_s(TT_VAR, name);
 }
 static int pas_is_rel(tree_t *e) {
@@ -234,12 +238,12 @@ var_decl_list:
 var_decl: id_list COLON type SEMICOLON { if ($1) for (int i = 0; i < $1->count; i++) { tree_t *id = $1->items[i]; if (id && id->v.sval) { if ($3 >= 0) pas_array_add(id->v.sval, $3); pas_local_add(id->v.sval); } } } ;
 procedure_decl:
     PROCEDURESY IDENT parameter_list_opt SEMICOLON FORWARDSY SEMICOLON { }
-    | FUNCTIONSY IDENT parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON { }
+    | FUNCTIONSY IDENT parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON { pas_func_add($2); }
     | PROCEDURESY IDENT parameter_list_opt SEMICOLON { pas_proc_enter(); } block SEMICOLON
         { int d = g_pas_ldepth - 1; int dl = (d >= 0) ? g_pas_lstk[d].decl_level : 1;
           const char **ln = (d >= 0) ? g_pas_lstk[d].names : NULL; int lc = (d >= 0) ? g_pas_lstk[d].n : 0;
           tree_t *p = mk_proc($2, $3, $6, 0, dl, ln, lc); pas_proc_exit(); emit_proc(&g_pascal_procs, p); }
-    | FUNCTIONSY IDENT parameter_list_opt COLON IDENT SEMICOLON { pas_proc_enter(); } block SEMICOLON
+    | FUNCTIONSY IDENT parameter_list_opt COLON IDENT SEMICOLON { pas_func_add($2); pas_proc_enter(); } block SEMICOLON
         { int d = g_pas_ldepth - 1; int dl = (d >= 0) ? g_pas_lstk[d].decl_level : 1;
           const char **ln = (d >= 0) ? g_pas_lstk[d].names : NULL; int lc = (d >= 0) ? g_pas_lstk[d].n : 0;
           tree_t *p = mk_proc($2, $3, $8, 1, dl, ln, lc); pas_proc_exit(); emit_proc(&g_pascal_procs, p); }
@@ -404,7 +408,7 @@ extern void  pascal_yy_delete_buffer(void *);
 tree_t *pascal_parse_string(const char *src) {
     pascal_prog_result = NULL;
     memset(&g_pascal_procs, 0, sizeof g_pascal_procs);
-    g_pas_nconst = 0; g_pas_narray = 0;
+    g_pas_nconst = 0; g_pas_narray = 0; g_pas_nfunc = 0;
     g_pas_level = 1; g_pas_ldepth = 0;
     void *buf = pascal_yy_scan_string(src);
     pascal_yyparse();
