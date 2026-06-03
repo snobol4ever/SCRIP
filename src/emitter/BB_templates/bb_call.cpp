@@ -49,13 +49,12 @@ static std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) 
             s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff));
             s += s_2asm("mov", emit_fmt("[r12+%d], rdx", aoff + 8));
         } else if (MEDIUM_BINARY) {
-            uint64_t nptr = (uint64_t)(uintptr_t) nfn;
             uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-            s += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
-            s += x86_Lrec(x86_b4(0x49,0x8D,0xB4,0x24)) + x86_Lrec(u32le((uint32_t)avbase));
-            s += x86_Lrec(x86_b1(0xBA)) + x86_Lrec(u32le((uint32_t)nn));
-            s += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(fptr));
-            s += x86_Lrec(x86_b2(0xFF,0xD0));
+            s += x86("mov", "rdi", (uint64_t)(uintptr_t)nfn);
+            s += x86("lea", "rsi", "[r12+avbase]", (uint64_t)(uintptr_t)nullptr, emit_fmt("r12+%d", avbase).c_str());
+            s += x86_frame_load64("rsi", avbase);
+            s += x86("mov32", "edx", (long)nn);
+            s += x86("call", "rt_call_arr", fptr);
             s += x86_frame_store64(aoff, "rax");
             s += x86_frame_store64(aoff + 8, "rdx");
         }
@@ -102,7 +101,7 @@ static std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) 
                 if (lf->t == IR_LIT_I)      v = (uint64_t)lf->ival;
                 else if (lf->t == IR_LIT_F) { double d = lf->dval; memcpy(&v, &d, 8); }
                 else                        v = (uint64_t)(uintptr_t)(lf->sval ? lf->sval : "");
-                s += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(v));
+                s += x86("mov", "rax", (uint64_t)v);
                 s += x86_frame_store64(aoff + 8, "rax");
             }
         } else {
@@ -170,13 +169,11 @@ static std::string bb_call_str(IR_t * pBB) {
                 std::string s;
                 for (int i = 0; i < (int)narg; i++)
                     s += marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
-                uint64_t nptr = (uint64_t)(uintptr_t) fn;
                 uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-                s += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
-                s += x86_Lrec(x86_b4(0x49,0x8D,0xB4,0x24)) + x86_Lrec(u32le((uint32_t)argbase));
-                s += x86_Lrec(x86_b1(0xBA)) + x86_Lrec(u32le((uint32_t)narg));
-                s += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(fptr));
-                s += x86_Lrec(x86_b2(0xFF,0xD0));
+                s += x86("mov", "rdi", (uint64_t)(uintptr_t)fn);
+                s += x86_frame_load64("rsi", argbase);
+                s += x86("mov32", "edx", (long)narg);
+                s += x86("call", "rt_call_arr", fptr);
                 s += x86_frame_store64(resoff, "rax");
                 s += x86_frame_store64(resoff + 8, "rdx");
                 s += x86("jmp", PORT_GAMMA);
@@ -197,30 +194,26 @@ static std::string bb_call_str(IR_t * pBB) {
                 IR_t * prod = bb_chain_terminal(argblks && argblks[i] ? argblks[i]->entry : NULL);
                 int slot = prod ? bb_slot_get(prod) : -1;
                 if (slot < 0) slot = 0;
-                stage += x86_Lrec(x86_b1(0xBF)) + x86_Lrec(u32le((uint32_t)i));
-                stage += x86_Lrec(x86_b4(0x49,0x8B,0xB4,0x24)) + x86_Lrec(u32le((uint32_t)slot));
-                stage += x86_Lrec(x86_b4(0x49,0x8B,0x94,0x24)) + x86_Lrec(u32le((uint32_t)(slot + 8)));
-                stage += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(stage_fp));
-                stage += x86_Lrec(x86_b2(0xFF,0xD0));
+                stage += x86("mov32", "edi", (long)i);
+                stage += x86_frame_load64("rsi", slot);
+                stage += x86_frame_load64("rdx", slot + 8);
+                stage += x86("call", "rt_arg_stage", stage_fp);
             }
-            uint64_t nptr = (uint64_t)(uintptr_t)fn;
             uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
             std::string tail;
-            tail += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
-            tail += x86_Lrec(x86_b1(0xBE))     + x86_Lrec(u32le((uint32_t)narg));
-            tail += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(fptr));
-            tail += x86_Lrec(x86_b2(0xFF,0xD0));
+            tail += x86("mov", "rdi", (uint64_t)(uintptr_t)fn);
+            tail += x86("mov32", "esi", (long)narg);
+            tail += x86("call", "rt_call_proc_descr", fptr);
             tail += x86_frame_store64(off, "rax");
             tail += x86_frame_store64(off + 8, "rdx");
-            tail += x86_Lrec(x86_b3(0x83,0xF8,0x63));
-            tail += x86_Lrec(x86_b2(0x0F,0x84)) + x86_Jrec(PORT_OMEGA);
-            tail += x86_Lrec(x86_b1(0xE9))      + x86_Jrec(PORT_GAMMA);
-            tail += x86_Drec(PORT_BETA);
+            tail += x86("cmp", "eax", (long)99);
+            tail += x86("je", PORT_OMEGA);
+            tail += x86("jmp", PORT_GAMMA);
+            tail += x86("def", PORT_BETA);
             if (beta_tgt == _.lbl_ω_p) {
                 tail += x86("jmp", PORT_OMEGA);
             } else {
-                tail += x86_Lrec(x86_b1(0xE9));
-                tail += (char)'F'; tail += (char)(unsigned char)0;
+                tail += x86_pair_jmp(0);
             }
             return stage + tail;
         }
@@ -262,14 +255,13 @@ static std::string bb_call_str(IR_t * pBB) {
             if (MEDIUM_BINARY) {
                 uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
                 std::string s;
-                s += x86_Lrec(x86_b4(0x49,0x8B,0xBC,0x24)) + x86_Lrec(u32le((uint32_t)off));
-                s += x86_Lrec(x86_b4(0x49,0x8B,0xB4,0x24)) + x86_Lrec(u32le((uint32_t)(off + 8)));
-                s += x86_Lrec(x86_b2(0x48,0xB8))            + x86_Lrec(u64le(fptr));
-                s += x86_Lrec(x86_b2(0xFF,0xD0));
+                s += x86_frame_load64("rdi", off);
+                s += x86_frame_load64("rsi", off + 8);
+                s += x86("call", "rt_write_any_nl", fptr);
                 s += x86("jmp", PORT_GAMMA);
                 s += x86("def", PORT_BETA);
                 if (beta_tgt == _.lbl_ω_p) { s += x86("jmp", PORT_OMEGA); }
-                else { s += x86_Lrec(x86_b1(0xE9)); s += (char)'F'; s += (char)(unsigned char)0; }
+                else { s += x86_pair_jmp(0); }
                 return s;
             }
             if (MEDIUM_TEXT) {
@@ -303,13 +295,11 @@ static std::string bb_call_str(IR_t * pBB) {
                  + s_2asm("jmp",  _.lbl_ω);
         }
         if (MEDIUM_BINARY) {
-            uint64_t nptr = (uint64_t)(uintptr_t)fn;
             uint64_t fptr; { void (*fp)(const char *, int) = rt_call_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
             std::string s;
-            s += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
-            s += x86_Lrec(x86_b1(0xBE))     + x86_Lrec(u32le((uint32_t)narg));
-            s += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(fptr));
-            s += x86_Lrec(x86_b2(0xFF,0xD0));
+            s += x86("mov", "rdi", (uint64_t)(uintptr_t)fn);
+            s += x86("mov32", "esi", (long)narg);
+            s += x86("call", "rt_call_proc", fptr);
             s += x86("jmp", PORT_GAMMA);
             s += x86("def", PORT_BETA);
             s += x86("jmp", PORT_OMEGA);
@@ -328,13 +318,11 @@ static std::string bb_call_str(IR_t * pBB) {
                  + s_2asm("jmp",  _.lbl_ω);
         }
         if (MEDIUM_BINARY) {
-            uint64_t nptr = (uint64_t)(uintptr_t)fn;
             uint64_t fptr; { void (*fp)(const char *, int) = rt_call_builtin; fptr = (uint64_t)(uintptr_t)(void*)fp; }
             std::string s;
-            s += x86_Lrec(x86_b2(0x48,0xBF)) + x86_Lrec(u64le(nptr));
-            s += x86_Lrec(x86_b1(0xBE))     + x86_Lrec(u32le((uint32_t)narg));
-            s += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(fptr));
-            s += x86_Lrec(x86_b2(0xFF,0xD0));
+            s += x86("mov", "rdi", (uint64_t)(uintptr_t)fn);
+            s += x86("mov32", "esi", (long)narg);
+            s += x86("call", "rt_call_builtin", fptr);
             s += x86("jmp", PORT_GAMMA);
             s += x86("def", PORT_BETA);
             s += x86("jmp", PORT_OMEGA);
@@ -354,14 +342,13 @@ static std::string bb_call_str(IR_t * pBB) {
         if (arg_is_ro_int && MEDIUM_BINARY) {
             uint64_t fptr; { void (*fp)(int64_t) = rt_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
             std::string s;
-            s += x86_Lrec(x86_b3(0x48,0x8B,0x3D)) + x86_Lrec(u32le(22u));
-            s += x86_Lrec(x86_b2(0x48,0xB8))      + x86_Lrec(u64le(fptr));
-            s += x86_Lrec(x86_b2(0xFF,0xD0));
+            s += x86_ro_load_q("rdi", 0);
+            s += x86("call", "rt_write_int_nl", fptr);
             s += x86("jmp", PORT_GAMMA);
             s += x86("def", PORT_BETA);
             if (beta_tgt == _.lbl_ω_p) { s += x86("jmp", PORT_OMEGA); }
-            else { s += x86_Lrec(x86_b1(0xE9)); s += (char)'F'; s += (char)(unsigned char)0; }
-            s += x86_Lrec(u64le((uint64_t)a0->ival));
+            else { s += x86_pair_jmp(0); }
+            s += x86_ro_seal_q(0, (uint64_t)a0->ival);
             return s;
         }
         if (arg_is_ro_int && MEDIUM_TEXT) {
@@ -383,22 +370,20 @@ static std::string bb_call_str(IR_t * pBB) {
                 if (a0->t == IR_BINOP && a0->ival == BINOP_CONCAT) {
                     uint64_t fptr; { void (*fp)(const char *) = rt_write_strz_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
                     std::string s;
-                    s += x86_Lrec(x86_b4(0x49,0x8B,0xBC,0x24)) + x86_Lrec(u32le((uint32_t)(off + 8)));
-                    s += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(fptr));
-                    s += x86_Lrec(x86_b2(0xFF,0xD0));
+                    s += x86_frame_load64("rdi", off + 8);
+                    s += x86("call", "rt_write_strz_nl", fptr);
                     s += x86("jmp", PORT_GAMMA); s += x86("def", PORT_BETA);
                     if (beta_tgt == _.lbl_ω_p) s += x86("jmp", PORT_OMEGA);
-                    else { s += x86_Lrec(x86_b1(0xE9)); s += (char)'F'; s += (char)(unsigned char)0; }
+                    else { s += x86_pair_jmp(0); }
                     return s;
                 }
                 uint64_t fptr; { void (*fp)(int64_t) = rt_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
                 std::string s;
-                s += x86_Lrec(x86_b4(0x49,0x8B,0xBC,0x24)) + x86_Lrec(u32le((uint32_t)off));
-                s += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(fptr));
-                s += x86_Lrec(x86_b2(0xFF,0xD0));
+                s += x86_frame_load64("rdi", off);
+                s += x86("call", "rt_write_int_nl", fptr);
                 s += x86("jmp", PORT_GAMMA); s += x86("def", PORT_BETA);
                 if (beta_tgt == _.lbl_ω_p) s += x86("jmp", PORT_OMEGA);
-                else { s += x86_Lrec(x86_b1(0xE9)); s += (char)'F'; s += (char)(unsigned char)0; }
+                else { s += x86_pair_jmp(0); }
                 return s;
             }
             if (MEDIUM_TEXT) {
@@ -428,11 +413,10 @@ static std::string bb_call_str(IR_t * pBB) {
             if (arg_is_any) { void (*fp)(void) = rt_pop_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
             else            { void (*fp)(void) = rt_pop_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
             std::string s;
-            s += x86_Lrec(x86_b2(0x48,0xB8)) + x86_Lrec(u64le(fptr));
-            s += x86_Lrec(x86_b2(0xFF,0xD0));
+            s += x86("call", arg_is_any ? "rt_pop_write_any_nl" : "rt_pop_write_int_nl", fptr);
             s += x86("jmp", PORT_GAMMA); s += x86("def", PORT_BETA);
             if (beta_tgt == _.lbl_ω_p) s += x86("jmp", PORT_OMEGA);
-            else { s += x86_Lrec(x86_b1(0xE9)); s += (char)'F'; s += (char)(unsigned char)0; }
+            else { s += x86_pair_jmp(0); }
             return s;
         }
         return std::string();
@@ -459,15 +443,14 @@ static std::string bb_call_str(IR_t * pBB) {
         uint64_t    fptr; { void (*fp)(const char *, uint32_t) = rt_write_str_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
         bb_label_t * beta_tgt = bb_call_beta_target();
         std::string s;
-        s += x86_Lrec(x86_b3(0x48,0x8D,0x3D)) + x86_Lrec(u32le(27u));
-        s += x86_Lrec(x86_b1(0xBE))            + x86_Lrec(u32le(slen));
-        s += x86_Lrec(x86_b2(0x48,0xB8))        + x86_Lrec(u64le(fptr));
-        s += x86_Lrec(x86_b2(0xFF,0xD0));
+        s += x86_ro_load_q("rdi", 0);
+        s += x86("mov32", "esi", (long)slen);
+        s += x86("call", "rt_write_str_nl", fptr);
         s += x86("jmp", PORT_GAMMA);
         s += x86("def", PORT_BETA);
         if (beta_tgt == _.lbl_ω_p) s += x86("jmp", PORT_OMEGA);
-        else { s += x86_Lrec(x86_b1(0xE9)); s += (char)'F'; s += (char)(unsigned char)0; }
-        s += x86_Lrec(std::string(lit, slen));
+        else { s += x86_pair_jmp(0); }
+        s += x86_ro_seal_q(0, (uint64_t)(uintptr_t)lit);
         return s;
     }
     return std::string();
