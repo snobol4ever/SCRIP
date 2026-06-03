@@ -6,7 +6,7 @@
 #include "../../parser/prolog/term.h"
 #include "../../parser/prolog/prolog_runtime.h"
 #include "../../parser/prolog/prolog_atom.h"
-#include "../../runtime/builtins/resolve_runtime.h"
+#include "../../runtime/builtins/resolution.h"
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>

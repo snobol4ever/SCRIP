@@ -1,7 +1,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "rt/rt.h"
-#include "builtins/resolve_runtime.h"
+#include "builtins/resolution.h"
 #include "../parser/prolog/prolog_atom.h"
 #include <stdlib.h>
 #include <stdio.h>

@@ -51,7 +51,7 @@ extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
 #include "../runtime/builtins/gen_runtime.h"
-#include "../runtime/builtins/resolve_runtime.h"
+#include "../runtime/builtins/resolution.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
 /*====================================================================================================================*/
