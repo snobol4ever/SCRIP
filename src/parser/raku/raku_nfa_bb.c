@@ -6,19 +6,39 @@
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int gs[MAX_GROUPS]; int ge[MAX_GROUPS]; } Bb_cap;
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int nfa_bt_ir_cap(const IR_t *s, const char *subj, int pos, int slen, int depth, Bb_cap *cap) {
+static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth, Bb_cap *cap,
+                         char *vis, int stride) {
     if (!s) return -1;
     if (depth > 100000) return -1;
+    /* (node,pos) visited cut — mirrors the parallel-NFA oracle's per-step visited[] (raku_re.c
+       ss_add). A quantifier over an empty-matchable subpattern (e.g. (a?)*, (a*)*, ()*, (|a)*, and
+       the same shape followed by a constraint that forces backtracking like (a?)*$ on "aab") builds
+       an epsilon loop: SPLIT -> ... -> back to SPLIT with no char consumed. A naive backtracker spins
+       forever and overflows the C stack (the depth>100000 guard dies of stack exhaustion long first).
+       We memo each (node, pos): the FIRST arrival explores it; any later arrival at the SAME (node,pos)
+       is cut (return -1). Keying by BOTH node and pos is essential — a single per-node stamp is
+       overwritten when a node is legitimately in-progress at several positions during backtracking,
+       re-opening the cycle. `vis` is an n*(slen+1) byte grid (node id = s->counter, stride = slen+1),
+       cleared per leftmost-sweep iteration in raku_nfa_bb_exec; set-without-restore. SOUND for the
+       verdict and for ordered (||-style) leftmost captures: the first arrival at (node,pos) is the
+       highest-priority path, a winning path returns before any sibling re-arrival, and a failed
+       (node,pos) subtree yields nothing new on revisit. As a bonus the memo bounds total work at
+       n*(slen+1), so the ordered walk no longer degrades to exponential backtracking. */
+    {
+        int vi = (int)s->counter * stride + pos;
+        if (vis[vi]) return -1;
+        vis[vi] = 1;
+    }
     switch (s->t) {
         case IR_NFA_ACCEPT:
             return pos;
         case IR_NFA_EPS:
-            return nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap);
+            return nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
         case IR_NFA_CAP_OPEN: {
             int idx = (int)s->ival;
             int save_gs = -2, save_ge = -2;
             if (idx >= 0 && idx < MAX_GROUPS) { save_gs = cap->gs[idx]; save_ge = cap->ge[idx]; cap->gs[idx] = pos; cap->ge[idx] = -1; }
-            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap);
+            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
             if (r < 0 && idx >= 0 && idx < MAX_GROUPS) { cap->gs[idx] = save_gs; cap->ge[idx] = save_ge; }
             return r;
         }
@@ -26,35 +46,35 @@ static int nfa_bt_ir_cap(const IR_t *s, const char *subj, int pos, int slen, int
             int idx = (int)s->ival;
             int save_ge = -2;
             if (idx >= 0 && idx < MAX_GROUPS) { save_ge = cap->ge[idx]; cap->ge[idx] = pos; }
-            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap);
+            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
             if (r < 0 && idx >= 0 && idx < MAX_GROUPS) cap->ge[idx] = save_ge;
             return r;
         }
         case IR_NFA_BOL:
-            return (pos == 0)    ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap) : -1;
+            return (pos == 0)    ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride) : -1;
         case IR_NFA_EOL:
-            return (pos == slen) ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap) : -1;
+            return (pos == slen) ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride) : -1;
         case IR_NFA_CHAR:
             if (pos < slen && (unsigned char)subj[pos] == (unsigned char)s->ival)
-                return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap);
+                return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap, vis, stride);
             return -1;
         case IR_NFA_ANY:
             if (pos < slen && subj[pos] != '\n')
-                return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap);
+                return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap, vis, stride);
             return -1;
         case IR_NFA_CLASS: {
             const unsigned char *bits = (const unsigned char *)s->sval;
             if (pos < slen && bits) {
                 unsigned char c = (unsigned char)subj[pos];
                 if ((bits[c >> 3] >> (c & 7)) & 1)
-                    return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap);
+                    return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap, vis, stride);
             }
             return -1;
         }
         case IR_NFA_SPLIT: {
-            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap);
+            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
             if (r >= 0) return r;
-            return nfa_bt_ir_cap(s->β, subj, pos, slen, depth + 1, cap);
+            return nfa_bt_ir_cap(s->β, subj, pos, slen, depth + 1, cap, vis, stride);
         }
         default:
             return -1;
@@ -70,12 +90,17 @@ void raku_nfa_bb_exec(const Raku_nfa *nfa, const char *subject, Raku_match *resu
     for (int g = 0; g < ng && g < MAX_GROUPS; g++) raku_nfa_group_name_copy(nfa, g, result->group_name[g]);
     IR_graph_t *bbg = raku_nfa_to_bb((Raku_nfa *)nfa);
     if (!bbg || !bbg->entry) return;
-    const IR_t *start = bbg->entry;
+    IR_t *start = bbg->entry;
     int slen = (int)strlen(subject);
     int anchored_bol = (start->t == IR_NFA_BOL);
+    int n = bbg->n;
+    int stride = slen + 1;
+    for (int i = 0; i < n; i++) if (bbg->all[i]) bbg->all[i]->counter = i; /* node id for the (node,pos) memo */
+    char *vis = (char *)GC_malloc((size_t)n * (size_t)stride);             /* (node,pos) visited grid */
     for (int sp = 0; sp <= slen; sp++) {
+        if (vis) memset(vis, 0, (size_t)n * (size_t)stride);               /* fresh memo per leftmost-sweep iteration */
         Bb_cap cap; for (int i = 0; i < MAX_GROUPS; i++) { cap.gs[i] = -1; cap.ge[i] = -1; }
-        int end = nfa_bt_ir_cap(start, subject, sp, slen, 0, &cap);
+        int end = vis ? nfa_bt_ir_cap(start, subject, sp, slen, 0, &cap, vis, stride) : -1;
         if (end >= 0) {
             result->matched    = 1;
             result->full_start = sp;
