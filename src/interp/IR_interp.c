@@ -1711,11 +1711,32 @@ static void pas_slot_write(GenFrame *f, int slot, DESCR_t v) {
     f->env[slot] = v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static GenFrame *pas_base(GenFrame *f, int ld) {
+    while (ld > 0 && f) { f = f->static_link; ld--; }
+    return f;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int pas_uplevel_find(GenFrame *cur, const char *name, GenFrame **of, int *os) {
+    if (!name) return 0;
+    for (GenFrame *f = cur ? cur->static_link : NULL; f; f = f->static_link) {
+        int slot = scope_get(&f->sc, name);
+        if (slot >= 0 && slot < f->env_n) { *of = f; *os = slot; return 1; }
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void pas_loc_of_name(GenFrame *caller, const char *name, GenFrame **of, int *os, const char **on) {
     *of = NULL; *os = -1; *on = name;
     if (!caller || !name) return;
     int slot = scope_get(&caller->sc, name);
-    if (slot < 0 || slot >= FRAME_SLOT_MAX) return;
+    if (slot < 0 || slot >= FRAME_SLOT_MAX) {
+        GenFrame *uf; int us;
+        if (pas_uplevel_find(caller, name, &uf, &us)) {
+            if (uf->slotref[us].is_ref) { *of = uf->slotref[us].frame; *os = uf->slotref[us].slot; *on = uf->slotref[us].name; }
+            else { *of = uf; *os = us; *on = NULL; }
+        }
+        return;
+    }
     if (caller->slotref[slot].is_ref) { *of = caller->slotref[slot].frame; *os = caller->slotref[slot].slot; *on = caller->slotref[slot].name; }
     else { *of = caller; *os = slot; *on = NULL; }
 }
@@ -1732,6 +1753,9 @@ IR_t * IR_interp_node(IR_t * bb) {
                 if (FRAME.slotref[slot].is_ref) { bb->value = pas_slot_read(&FRAME, slot); return bb->γ; }
                 DESCR_t sv = FRAME.env[slot];
                 if (sv.v != 0) { bb->value = sv; return bb->γ; }
+            } else if (g_current_cfg && g_current_cfg->lang == IR_LANG_PAS) {
+                GenFrame *uf; int us;
+                if (pas_uplevel_find(&FRAME, bb->sval, &uf, &us)) { bb->value = pas_slot_read(uf, us); return bb->γ; }
             }
         }
         if (bb->sval) {
@@ -1752,6 +1776,9 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (slot >= 0 && slot < FRAME.env_n) {
                 if (FRAME.slotref[slot].is_ref) pas_slot_write(&FRAME, slot, val); else FRAME.env[slot] = val;
                 stored = 1;
+            } else if (g_current_cfg && g_current_cfg->lang == IR_LANG_PAS) {
+                GenFrame *uf; int us;
+                if (pas_uplevel_find(&FRAME, name, &uf, &us)) { pas_slot_write(uf, us, val); stored = 1; }
             }
         }
         if (!stored) NV_SET_fn(name, val);
@@ -1890,12 +1917,19 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_graph_t ** call_blks = (IR_graph_t **)(intptr_t) bb->counter;
                 GenFrame * _f = &frame_stack[frame_depth++];
                 memset(_f, 0, sizeof *_f);
+                if (g_current_cfg && g_current_cfg->lang == IR_LANG_PAS) {
+                    int callee_dl = g_stage2.proc_table[upi].decl_level;
+                    int caller_lvl = caller ? caller->level : 1;
+                    _f->static_link = pas_base(caller, caller_lvl - callee_dl);
+                    _f->level = callee_dl + 1;
+                }
                 Scope * lsc = &g_stage2.proc_table[upi].lower_sc;
                 int np = g_stage2.proc_table[upi].nparams;
-                for (int k = 0; k < lsc->n && k < np && k < FRAME_SLOT_MAX; k++) {
+                for (int k = 0; k < lsc->n && k < FRAME_SLOT_MAX; k++) {
                     if (!lsc->e[k].name) continue;
                     int slot = scope_add(&_f->sc, lsc->e[k].name);
                     if (slot < 0 || slot >= FRAME_SLOT_MAX) continue;
+                    if (k >= np) { _f->env[slot] = NULVCL; continue; }
                     _f->env[slot] = (k < nargs) ? args[k] : NULVCL;
                     if ((bmask & (1ull << k)) && k < nargs && call_blks && call_blks[k] && call_blks[k]->entry
                         && call_blks[k]->entry->t == IR_VAR && call_blks[k]->entry->sval) {

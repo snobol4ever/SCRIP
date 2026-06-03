@@ -35,6 +35,8 @@ struct GenFrame {
     tree_t       *suspend_do;
     struct GeneratorState *every_gen[EVERY_GEN_SLOT_MAX];
     SlotRef       slotref[FRAME_SLOT_MAX];
+    GenFrame     *static_link;
+    int           level;
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e)

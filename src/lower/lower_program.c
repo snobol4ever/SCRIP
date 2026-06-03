@@ -218,7 +218,7 @@ static int lower_pascal_body(const tree_t *proc) {
     if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
     const tree_t *body = proc->c[2];
     if (!body || body->t != TT_PROGRAM) return -1;
-    int is_function = (proc->n >= 4 && proc->c[3] && proc->c[3]->v.sval);
+    int is_function = (proc->n >= 4 && proc->c[3] && proc->c[3]->t == TT_VAR && proc->c[3]->v.sval);
     IR_graph_t *g = IR_alloc(256, IR_LANG_PAS);
     if (!g) return -1;
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
@@ -610,6 +610,18 @@ stage2_t *lower(const tree_t *prog) {
                     sc->e[sc->n].name = lp_strdup(pv->v.sval);
                     sc->e[sc->n].slot = sc->n;
                     sc->n++;
+                }
+                const tree_t *locals = (proc->n >= 1) ? proc->c[proc->n - 1] : NULL;
+                if (locals && locals->t == TT_VLIST) {
+                    g_stage2.proc_table[pi].decl_level = (int) locals->v.ival;
+                    for (int k = 0; k < locals->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+                        const tree_t *lv = locals->c[k];
+                        if (!lv || !lv->v.sval) continue;
+                        if (scope_get(sc, lv->v.sval) >= 0) continue;
+                        sc->e[sc->n].name = lp_strdup(lv->v.sval);
+                        sc->e[sc->n].slot = sc->n;
+                        sc->n++;
+                    }
                 }
             }
         }
