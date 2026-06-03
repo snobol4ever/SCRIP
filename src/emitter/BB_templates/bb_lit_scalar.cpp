@@ -23,6 +23,20 @@ static std::string bb_lit_scalar_str() {
                  + x86("jmp", PORT_OMEGA)
                  + x86_ro_seal_q(0, (uint64_t) _.op_ival);
         }
+        if (g_descr_flat_chain && _.op_node_kind == (int)IR_LIT_S && _.op_off >= 0) {
+            int off = _.op_off;
+            const char * lit = _.op_sval ? _.op_sval : "";
+            return IF(MEDIUM_TEXT,
+                       s_1asm(std::string(_.lbl_α) + ":")
+                     + s_comment("# BOX BB_LIT_scalar IR_LIT_S [GZ-11+ x86() stackless: {DT_S,0,&str}->[r12+off]; str sealed RO [rip+disp] (string REG-RO)]"))
+                 + x86_frame_mov_imm64(off, (long)DT_S)
+                 + x86_ro_load_q("rax", 0)
+                 + x86_frame_store64(off + 8, "rax")
+                 + x86("jmp", PORT_GAMMA)
+                 + x86("def", PORT_BETA)
+                 + x86("jmp", PORT_OMEGA)
+                 + x86_ro_seal_str(0, lit);
+        }
         return IF(MEDIUM_TEXT,
                    s_1asm(std::string(_.lbl_α) + ":")
                  + s_comment("# BOX BB_LIT_scalar (pass-through; value is RO, consumer reads it [rip+disp])"))
