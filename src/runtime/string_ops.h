@@ -1,0 +1,8 @@
+#ifndef STRING_OPS_H
+#define STRING_OPS_H
+#include "../contracts/descr.h"
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t     str_concat_d(DESCR_t a, DESCR_t b);
+DESCR_t     lconcat_d(DESCR_t a, DESCR_t b);
+const char *real_str(double r, char *buf, int bufsz);
+#endif
