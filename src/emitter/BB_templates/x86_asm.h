@@ -213,6 +213,25 @@ inline std::string x86_ro_seal_q(int n, uint64_t val) {
     return x86_internal_name(n) + ":\n" + std::string(" .quad ") + std::to_string((unsigned long long)val) + "\n";
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_asm_str_escape(const char * s) {
+    std::string o;
+    for (const char * p = s; p && *p; ++p) {
+        char c = *p;
+        if (c == '\\' || c == '"') { o += '\\'; o += c; }
+        else if (c == '\n')        { o += "\\n"; }
+        else if (c == '\t')        { o += "\\t"; }
+        else                        o += c;
+    }
+    return o;
+}
+inline std::string x86_ro_seal_str(int n, const char * lit) {
+    const char * s = lit ? lit : "";
+    if (MEDIUM_BINARY) return x86_Drec(X86_INTERNAL_BASE + n) + x86_Lrec(u64le((uint64_t)(uintptr_t)s));
+    std::string slot = x86_internal_name(n);
+    std::string sbuf = slot + "_s";
+    return slot + ":\n .quad " + sbuf + "\n" + sbuf + ":\n .string \"" + x86_asm_str_escape(s) + "\"\n";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_and(const char * reg, long imm) {
     int m = x86_rnum(reg); bool w = x86_is64(reg);
     std::string code;
