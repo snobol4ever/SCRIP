@@ -26,6 +26,7 @@ void bb_catch   (void);
 void bb_cut     (void);
 void bb_every      (IR_t * pBB);
 void bb_call       (IR_t * pBB);
+void bb_iterate    (IR_t * pBB);
 void bb_binop_relop      (IR_t * pBB);
 void bb_binop_arith      (IR_t * pBB);
 void bb_binop_gvar_arith (IR_t * pBB);

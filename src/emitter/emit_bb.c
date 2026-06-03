@@ -809,6 +809,9 @@ static void flat_drive_list_bang(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     bb_label_t *iter_β    = emit_label_alloc("xbang%d_iter_β",    id);
     walk_bb_flat(pBB->α, iter_done, lbl_ω, iter_β);
     emit_label_define_bb(iter_done);
+    g_emit.op_sa  = bb_slot_get(pBB->α);
+    g_emit.op_sb  = bb_slot_claim(8);
+    g_emit.op_off = bb_slot_alloc16(pBB);
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

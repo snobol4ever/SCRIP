@@ -101,6 +101,7 @@ static int icn_kind_native_stub(IR_e t) {
     return t == IR_GEN_SCAN || t == IR_GEN_ALT || t == IR_KEYWORD || t == IR_PROC_GEN ||
            t == IR_CSET_UNION || t == IR_CSET_DIFF || t == IR_CSET_INTER || t == IR_CSET_COMPL ||
            t == IR_SUSPEND ||
+           t == IR_LIST_BANG ||
            t == IR_ALT ||
            t == IR_MAP || t == IR_GREP;
 }
