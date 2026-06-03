@@ -22,6 +22,9 @@ typedef struct {
     int64_t                      op_scan_pat;
     int64_t                      op_scan_subj;
     int64_t                      op_scan_repl;
+    const char *                 op_scan_pat_lit;
+    const char *                 op_scan_subj_lit;
+    const char *                 op_scan_replace_lit;
     int                          op_sa;
     int                          op_sb;
     int                          op_off;
