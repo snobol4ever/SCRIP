@@ -87,6 +87,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/invocation.c \
     $(SRC)/runtime/aggregates.c \
     $(SRC)/runtime/tree.c \
+    $(SRC)/runtime/string_builtins.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
     $(SRC)/emitter/emit_str.cpp \
@@ -274,6 +275,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/invocation.c                 -o $(OBJ)/invocation.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/aggregates.c                 -o $(OBJ)/aggregates.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/tree.c                       -o $(OBJ)/tree.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/string_builtins.c           -o $(OBJ)/string_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
