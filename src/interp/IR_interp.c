@@ -237,6 +237,36 @@ int rt_scan(void * pat_graph, void * subj_graph, int is_repl, const char * subj_
     return matched ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+extern int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit);
+int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit) {
+    const char * subj_str = ""; int subj_len = 0;
+    if (subj_name && subj_name[0]) {
+        DESCR_t sv = VARVAL_d_fn(NV_GET_fn(subj_name));
+        if (sv.v == DT_S || sv.v == DT_SNUL) { subj_str = sv.s ? sv.s : ""; subj_len = sv.slen ? (int)sv.slen : (int)strlen(subj_str); }
+        else if (IS_INT_fn(sv) || IS_REAL_fn(sv)) { DESCR_t t = descr_to_str(sv); subj_str = t.s ? t.s : ""; subj_len = t.slen ? (int)t.slen : (int)strlen(subj_str); }
+    } else if (subj_lit) {
+        subj_str = subj_lit; subj_len = (int)strlen(subj_lit);
+    }
+    const char * pat = pat_lit ? pat_lit : ""; int pat_len = (int)strlen(pat);
+    extern int64_t kw_anchor;
+    int max_start = kw_anchor ? 0 : subj_len; int matched = 0; int m_start = -1; int m_end = -1;
+    for (int start = 0; start <= max_start; start++) {
+        if (start + pat_len <= subj_len && (pat_len == 0 || memcmp(subj_str + start, pat, (size_t)pat_len) == 0)) { matched = 1; m_start = start; m_end = start + pat_len; break; }
+    }
+    if (matched && is_repl && subj_name && subj_name[0]) {
+        const char * repl = repl_lit ? repl_lit : ""; int repl_len = (int)strlen(repl);
+        int new_len = m_start + repl_len + (subj_len - m_end);
+        char * new_s = (char *)GC_MALLOC((size_t)new_len + 1);
+        memcpy(new_s, subj_str, (size_t)m_start);
+        memcpy(new_s + m_start, repl, (size_t)repl_len);
+        memcpy(new_s + m_start + repl_len, subj_str + m_end, (size_t)(subj_len - m_end));
+        new_s[new_len] = '\0';
+        DESCR_t nv = { .v = DT_S, .slen = (uint32_t)new_len, .s = new_s };
+        NV_SET_fn(subj_name, nv);
+    }
+    return matched ? 1 : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_single_shot(IR_t * e) {
     if (!e) return 1;
     switch (e->t) {

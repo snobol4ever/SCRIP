@@ -1192,6 +1192,15 @@ static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     g_emit.op_scan_pat  = pBB ? pBB->counter : 0;
     g_emit.op_scan_subj = (n_aux > 0 && aux) ? (int64_t)(intptr_t)aux[0] : 0;
     g_emit.op_scan_repl = (n_aux > 1 && aux) ? (int64_t)(intptr_t)aux[1] : 0;
+    g_emit.op_scan_pat_lit = NULL; g_emit.op_scan_subj_lit = NULL; g_emit.op_scan_replace_lit = NULL;
+    {
+        IR_graph_t * pg = (IR_graph_t *)(intptr_t)g_emit.op_scan_pat;
+        IR_graph_t * sg = (IR_graph_t *)(intptr_t)g_emit.op_scan_subj;
+        IR_graph_t * rg = (IR_graph_t *)(intptr_t)g_emit.op_scan_repl;
+        if (pg && pg->entry && pg->entry->t == IR_PAT_LIT) g_emit.op_scan_pat_lit  = pg->entry->sval ? pg->entry->sval : "";
+        if (sg && sg->entry && sg->entry->t == IR_LIT_S)   g_emit.op_scan_subj_lit = sg->entry->sval ? sg->entry->sval : "";
+        if (rg && rg->entry && rg->entry->t == IR_LIT_S)   g_emit.op_scan_replace_lit = rg->entry->sval ? rg->entry->sval : "";
+    }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);

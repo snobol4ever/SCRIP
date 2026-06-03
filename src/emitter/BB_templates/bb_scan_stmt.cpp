@@ -6,6 +6,7 @@ extern "C" {
 #include "emit.h"
 #include "descr.h"
 int rt_scan(void * pat_graph, void * subj_graph, int is_repl, const char * subj_name, void * repl_graph);
+int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -18,9 +19,33 @@ static inline uint64_t     scan_repl_graph() { return (uint64_t)(uintptr_t)(intp
 static inline long         scan_is_repl()    { return _.op_ival ? 1L : 0L; }
 static inline uint64_t     fn_scan()         { int (*f)(void *, void *, int, const char *, void *) = rt_scan; return (uint64_t)(uintptr_t)(void *)f; }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static inline const char * scan_pat_lit()    { return _.op_scan_pat_lit; }
+static inline const char * scan_subj_lit()   { return _.op_scan_subj_lit; }
+static inline const char * scan_replace_lit() { return _.op_scan_replace_lit; }
+static inline int          scan_has_name()   { return _.op_sval && _.op_sval[0]; }
+static inline uint64_t     fn_scan_lit()     { int (*f)(const char *, const char *, const char *, int, const char *) = rt_scan_lit; return (uint64_t)(uintptr_t)(void *)f; }
+static inline const char * scan_lbl(const char * s) { s = s ? s : ""; const char * l = emit_intern_str(s); if (l) return l; static char b[24]; strtab_label(b, sizeof b, s); return b; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_scan_stmt_str() {
     if (PLATFORM_X86) {
-        if (MEDIUM_TEXT) return x86_bomb("bb_scan: TEXT(mode-4) needs relocatable subgraph addrs (SNOBOL m4 pending LOWER four-port wiring)");
+        if (MEDIUM_TEXT) {
+            if (!scan_pat_lit()) return x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)");
+            std::string a_subj = scan_has_name()    ? x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)scan_subj_name(),    scan_lbl(scan_subj_name()))    : x86("mov", "rdi", (long)0);
+            std::string a_slit = scan_subj_lit()     ? x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)scan_subj_lit(),     scan_lbl(scan_subj_lit()))     : x86("mov", "rsi", (long)0);
+            std::string a_patlit =                     x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)scan_pat_lit(),      scan_lbl(scan_pat_lit()));
+            std::string a_rlit = scan_replace_lit()   ? x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)scan_replace_lit(), scan_lbl(scan_replace_lit())) : x86("mov", "r8", (long)0);
+            return s_1asm(std::string(_.lbl_α) + ":")
+                 + s_comment("# BOX SNO IR_SCAN literal-pattern [rt_scan_lit, RO ptrs @PLT]")
+                 + a_subj + a_slit + a_patlit
+                 + x86("mov", "rcx", scan_is_repl())
+                 + a_rlit
+                 + x86("call", "rt_scan_lit", fn_scan_lit())
+                 + x86("test", "eax", "eax")
+                 + x86("je",   PORT_OMEGA)
+                 + x86("jmp",  PORT_GAMMA)
+                 + x86("def",  PORT_BETA)
+                 + x86("jmp",  PORT_OMEGA);
+        }
         return x86_load_ro("rdi", "??", scan_pat_graph())
              + x86_load_ro("rsi", "??", scan_subj_graph())
              + x86("mov",  "rdx", scan_is_repl())
