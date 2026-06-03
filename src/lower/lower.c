@@ -330,7 +330,24 @@ static IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e) {
     blk->entry = eα ? eα : en;
     return blk;
 }
+static int fold_concat_const(const tree_t * e, char * buf, size_t cap, size_t * len) {
+    if (!e) return 0;
+    if (e->t == TT_QLIT) { const char * s = e->v.sval ? e->v.sval : ""; size_t n = strlen(s); if (*len + n >= cap) return 0; memcpy(buf + *len, s, n); *len += n; return 1; }
+    if (e->t == TT_SEQ && e->n == 2) return fold_concat_const(e->c[0], buf, cap, len) && fold_concat_const(e->c[1], buf, cap, len);
+    return 0;
+}
 static IR_t * v_seq_concat_pair(lcx_t cx, const tree_t * lhs, const tree_t * rhs, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (cx.lang == IR_LANG_SNO) {
+        char fbuf[8192]; size_t flen = 0;
+        if (fold_concat_const(lhs, fbuf, sizeof fbuf, &flen) && fold_concat_const(rhs, fbuf, sizeof fbuf, &flen)) {
+            fbuf[flen] = '\0';
+            IR_t * lit = nalloc(cx, IR_LIT_S);
+            if (!lit) return NULL;
+            lit->sval = GC_strdup(fbuf);
+            set_succ_fail(lit, γ_in, ω_in);
+            return ret(lit, α_out, β_out, lit, ω_in);
+        }
+    }
     IR_t * node = nalloc(cx, IR_SEQ);
     if (!node) return NULL;
     node->dval = 1.0;

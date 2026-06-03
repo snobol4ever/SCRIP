@@ -14,7 +14,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
 OUTDIR="${HERE}/../out"                 # libscrip_rt.so lives here (mode-4 link)
 MODE3_MIN="${MODE3_MIN:-3}"             # tracked floor: mode-3 (--run) PASS must be >= this
-MODE4_MIN="${MODE4_MIN:-3}"             # tracked floor: mode-4 (--compile) PASS must be >= this
+MODE4_MIN="${MODE4_MIN:-4}"             # tracked floor: mode-4 (--compile) PASS must be >= this
 TAG=2                                   # which per-mode counter run_file updates (2|3|4)
 P2=0; F2=0; P3=0; F3=0; P4=0; F4=0
 
