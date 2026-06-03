@@ -104,7 +104,7 @@ static inline DESCR_t _snoc_pat_imm(DESCR_t child, const char *var) {
 #define pat_deref(v)            _snoc_pat_deref(v)
 #define pat_cond(child, var)    _snoc_pat_cond(child, var)
 #define pat_imm(child, var)     _snoc_pat_imm(child, var)
-static inline void INIT_fn(void)    { SNO_INIT_fn(); extern void inc_init(void); inc_init(); }
+static inline void INIT_fn(void)    { core_lib_init(); extern void inc_init(void); inc_init(); }
 static inline void finish(void)  { }
 #include <setjmp.h>
 #define ABRT_STACK_INIT 16

@@ -255,7 +255,7 @@ extern char ucase[27];
 extern char lcase[27];
 extern char alphabet[257];
 extern char digits[11];
-void SNO_INIT_fn(void);
+void core_lib_init(void);
 DESCR_t pat_lit(const char *s);
 DESCR_t pat_span(const char *chars);
 DESCR_t pat_break_(const char *chars);
