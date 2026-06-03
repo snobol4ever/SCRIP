@@ -72,3 +72,16 @@ flex --noline --prefix=raku_yy -o raku.lex.c raku.l
 echo "OK  raku.lex.c"
 
 echo "DONE — commit .y/.l sources and generated .tab.c/.tab.h/.lex.c together"
+
+# ── pascal parser: pascal.y → pascal.tab.c + pascal.tab.h ───────────────────
+# (PB-0..PB-3, session 2026-06-02 — 7th frontend. Grammar adapted from the
+# MIT-licensed pascalp.y syntactic reference; case-sensitive lowercase-only P4
+# subset. One expected dangling-else shift/reduce conflict, same as pascalp.y.)
+PASCAL="$SCRIP/src/parser/pascal"
+echo "GEN pascal.tab.c from pascal.y"
+cd "$PASCAL"
+bison -d -o pascal.tab.c pascal.y
+echo "OK  pascal.tab.c pascal.tab.h"
+echo "GEN pascal.lex.c from pascal.l"
+flex --noline -o pascal.lex.c pascal.l
+echo "OK  pascal.lex.c"

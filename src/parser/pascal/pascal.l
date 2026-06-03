@@ -5,21 +5,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 static char pascal_strbuf[65536];
 static int  pascal_strpos;
-static char *pascal_lc_dup(const char *s, int n) {
-    char *b = (char *)malloc((size_t)(n + 1)); int i;
-    for (i = 0; i < n; i++) b[i] = (char)tolower((unsigned char)s[i]);
-    b[n] = '\0'; return b;
-}
 static char *pascal_raw_dup(const char *s, int n) {
     char *b = (char *)malloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
 }
 void pascal_lex_error(const char *msg) { fprintf(stderr, "pascal lex error line %d: %s\n", pascal_yylineno, msg); }
 int  pascal_get_lineno(void) { return pascal_yylineno; }
 %}
-%option noyywrap noinput nounput caseless
+%option noyywrap noinput nounput
 %option prefix="pascal_yy"
 %option yylineno
 %x COMMENT BRACE
@@ -82,7 +76,7 @@ ALNUM    [A-Za-z0-9_]
                           pascal_strbuf[pascal_strpos] = '\0';
                           pascal_yylval.str = pascal_raw_dup(pascal_strbuf, pascal_strpos);
                           return STRINGCONST; }
-{ALPHA}{ALNUM}*         { pascal_yylval.str = pascal_lc_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
+{ALPHA}{ALNUM}*         { pascal_yylval.str = pascal_raw_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
 ":="                    { return BECOMES; }
 ".."                    { return DOTDOT; }
 "<="                    { return LEOP; }
