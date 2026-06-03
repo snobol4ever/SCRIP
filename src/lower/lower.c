@@ -1018,10 +1018,28 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             return v_raku_det_call(cx, "arr_get", k, 2, γ_in, ω_in, α_out, β_out);
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_SMATCH:
+        if (cx.lang == IR_LANG_RKU && e->n >= 3 && e->c[0] && e->c[1] && e->c[2]
+            && e->c[2]->t == TT_QLIT && e->c[2]->v.sval && strcmp(e->c[2]->v.sval, "match") == 0) {
+            const tree_t * k[2] = { e->c[0], e->c[1] };
+            return v_raku_det_call(cx, "re_match", k, 2, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_CAPTURE:
+        if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0]) {
+            const tree_t * k[1] = { e->c[0] };
+            return v_raku_det_call(cx, "re_capture", k, 1, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_NAMED_CAPTURE:
+        if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0]) {
+            const tree_t * k[1] = { e->c[0] };
+            return v_raku_det_call(cx, "re_named_capture", k, 1, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_FIELD:
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS:
     case TT_INDIRECT: case TT_IDENTICAL:
-    case TT_SMATCH:
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER:
     case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW:
     case TT_FOR:

@@ -3,55 +3,94 @@
 #include <gc/gc.h>
 #include "raku_re.h"
 #include "IR.h"
-static int nfa_bt(const Nfa_state *st, int sid, const char *subj, int pos, int slen, int depth) {
-    if (sid == NFA_NULL) return -1;
+/*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int gs[MAX_GROUPS]; int ge[MAX_GROUPS]; } Bb_cap;
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int nfa_bt_ir_cap(const IR_t *s, const char *subj, int pos, int slen, int depth, Bb_cap *cap) {
+    if (!s) return -1;
     if (depth > 100000) return -1;
-    const Nfa_state *s = &st[sid];
-    switch (s->kind) {
-        case NK_ACCEPT:
+    switch (s->t) {
+        case IR_NFA_ACCEPT:
             return pos;
-        case NK_EPS:
-            return nfa_bt(st, s->out1, subj, pos, slen, depth + 1);
-        case NK_ANCHOR_BOL:
-            return (pos == 0)    ? nfa_bt(st, s->out1, subj, pos, slen, depth + 1) : -1;
-        case NK_ANCHOR_EOL:
-            return (pos == slen) ? nfa_bt(st, s->out1, subj, pos, slen, depth + 1) : -1;
-        case NK_CHAR:
-            if (pos < slen && (unsigned char)subj[pos] == s->ch)
-                return nfa_bt(st, s->out1, subj, pos + 1, slen, depth + 1);
-            return -1;
-        case NK_ANY:
-            if (pos < slen && subj[pos] != '\n')
-                return nfa_bt(st, s->out1, subj, pos + 1, slen, depth + 1);
-            return -1;
-        case NK_CLASS:
-            if (pos < slen && raku_cc_test(&s->cc, (unsigned char)subj[pos]))
-                return nfa_bt(st, s->out1, subj, pos + 1, slen, depth + 1);
-            return -1;
-        case NK_SPLIT: {
-            int r = nfa_bt(st, s->out1, subj, pos, slen, depth + 1);
-            if (r >= 0) return r;
-            return nfa_bt(st, s->out2, subj, pos, slen, depth + 1);
+        case IR_NFA_EPS:
+            return nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap);
+        case IR_NFA_CAP_OPEN: {
+            int idx = (int)s->ival;
+            int save_gs = -2, save_ge = -2;
+            if (idx >= 0 && idx < MAX_GROUPS) { save_gs = cap->gs[idx]; save_ge = cap->ge[idx]; cap->gs[idx] = pos; cap->ge[idx] = -1; }
+            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap);
+            if (r < 0 && idx >= 0 && idx < MAX_GROUPS) { cap->gs[idx] = save_gs; cap->ge[idx] = save_ge; }
+            return r;
         }
-        case NK_CAP_OPEN:
-        case NK_CAP_CLOSE:
-            return nfa_bt(st, s->out1, subj, pos, slen, depth + 1);
+        case IR_NFA_CAP_CLOSE: {
+            int idx = (int)s->ival;
+            int save_ge = -2;
+            if (idx >= 0 && idx < MAX_GROUPS) { save_ge = cap->ge[idx]; cap->ge[idx] = pos; }
+            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap);
+            if (r < 0 && idx >= 0 && idx < MAX_GROUPS) cap->ge[idx] = save_ge;
+            return r;
+        }
+        case IR_NFA_BOL:
+            return (pos == 0)    ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap) : -1;
+        case IR_NFA_EOL:
+            return (pos == slen) ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap) : -1;
+        case IR_NFA_CHAR:
+            if (pos < slen && (unsigned char)subj[pos] == (unsigned char)s->ival)
+                return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap);
+            return -1;
+        case IR_NFA_ANY:
+            if (pos < slen && subj[pos] != '\n')
+                return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap);
+            return -1;
+        case IR_NFA_CLASS: {
+            const unsigned char *bits = (const unsigned char *)s->sval;
+            if (pos < slen && bits) {
+                unsigned char c = (unsigned char)subj[pos];
+                if ((bits[c >> 3] >> (c & 7)) & 1)
+                    return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap);
+            }
+            return -1;
+        }
+        case IR_NFA_SPLIT: {
+            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap);
+            if (r >= 0) return r;
+            return nfa_bt_ir_cap(s->β, subj, pos, slen, depth + 1, cap);
+        }
         default:
             return -1;
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int raku_nfa_bb_match(const Raku_nfa *nfa, const char *subject) {
-    if (!nfa || !subject) return 0;
-    const Nfa_state *st = raku_nfa_states((Raku_nfa *)nfa);
-    int start = raku_nfa_start(nfa);
-    int slen  = (int)strlen(subject);
-    int anchored_bol = (start != NFA_NULL && st[start].kind == NK_ANCHOR_BOL);
+void raku_nfa_bb_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result) {
+    memset(result, 0, sizeof *result);
+    for (int i = 0; i < MAX_GROUPS; i++) { result->group_start[i] = -1; result->group_end[i] = -1; }
+    if (!nfa || !subject || !result) return;
+    int ng = raku_nfa_ngroups(nfa);
+    result->ngroups = ng;
+    for (int g = 0; g < ng && g < MAX_GROUPS; g++) raku_nfa_group_name_copy(nfa, g, result->group_name[g]);
+    IR_graph_t *bbg = raku_nfa_to_bb((Raku_nfa *)nfa);
+    if (!bbg || !bbg->entry) return;
+    const IR_t *start = bbg->entry;
+    int slen = (int)strlen(subject);
+    int anchored_bol = (start->t == IR_NFA_BOL);
     for (int sp = 0; sp <= slen; sp++) {
-        if (nfa_bt(st, start, subject, sp, slen, 0) >= 0) return 1;
+        Bb_cap cap; for (int i = 0; i < MAX_GROUPS; i++) { cap.gs[i] = -1; cap.ge[i] = -1; }
+        int end = nfa_bt_ir_cap(start, subject, sp, slen, 0, &cap);
+        if (end >= 0) {
+            result->matched    = 1;
+            result->full_start = sp;
+            result->full_end   = end;
+            for (int g = 0; g < ng && g < MAX_GROUPS; g++) { result->group_start[g] = cap.gs[g]; result->group_end[g] = cap.ge[g]; }
+            return;
+        }
         if (anchored_bol) break;
     }
-    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int raku_nfa_bb_match(const Raku_nfa *nfa, const char *subject) {
+    Raku_match m;
+    raku_nfa_bb_exec(nfa, subject, &m);
+    return m.matched ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_e nfa_kind_to_bb(Nfa_kind k) {

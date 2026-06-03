@@ -54,6 +54,8 @@ void       raku_nfa_exec(const Raku_nfa *nfa, const char *subject, Raku_match *r
 void       raku_nfa_free(Raku_nfa *nfa);
 Nfa_state *raku_nfa_states(Raku_nfa *nfa);
 int        raku_nfa_group_by_name(const Raku_nfa *nfa, const char *name);
+void       raku_nfa_group_name_copy(const Raku_nfa *nfa, int g, char *dst64);
+void       raku_nfa_bb_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result);
 struct IR_graph_t;
 struct IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa);
 #endif

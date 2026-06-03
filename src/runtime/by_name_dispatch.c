@@ -75,13 +75,12 @@ int script_try_call_builtin(tree_t *call, DESCR_t *out_descr) {
                 const char *pat = VARVAL_fn(pd); if (!pat) pat = "";
                 { Raku_nfa *nfa = raku_nfa_build(pat);
                   if (!nfa) { *out_descr = FAILDESCR; return 1; }
-                  extern int raku_nfa_bb_match(const Raku_nfa *, const char *);
                   static int nfa_bb = -1;
                   if (nfa_bb < 0) { const char *e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0]=='1') ? 1 : 0; }
-                  raku_nfa_exec(nfa, subj, &g_raku_match);
+                  if (nfa_bb) raku_nfa_bb_exec(nfa, subj, &g_raku_match);
+                  else        raku_nfa_exec(nfa, subj, &g_raku_match);
                   g_raku_subject = subj;
                   int verdict = g_raku_match.matched ? 1 : 0;
-                  if (nfa_bb) verdict = raku_nfa_bb_match(nfa, subj);
                   raku_nfa_free(nfa);
                   { *out_descr = verdict ? INTVAL(1) : FAILDESCR; return 1; }
                 }
@@ -1311,12 +1310,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *pat  = VARVAL_fn(args[1]); if (!pat)  pat  = "";
         Raku_nfa *nfa = raku_nfa_build(pat);
         if (!nfa) { *out = FAILDESCR; return 1; }
-        raku_nfa_exec(nfa, subj, &g_raku_match);
-        g_raku_subject = subj;
-        int verdict = g_raku_match.matched ? 1 : 0;
         static int nfa_bb = -1;
         if (nfa_bb < 0) { const char *e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0] == '1') ? 1 : 0; }
-        if (nfa_bb) { extern int raku_nfa_bb_match(const Raku_nfa *, const char *); verdict = raku_nfa_bb_match(nfa, subj); }
+        if (nfa_bb) raku_nfa_bb_exec(nfa, subj, &g_raku_match);
+        else        raku_nfa_exec(nfa, subj, &g_raku_match);
+        g_raku_subject = subj;
+        int verdict = g_raku_match.matched ? 1 : 0;
         raku_nfa_free(nfa);
         *out = verdict ? INTVAL(1) : FAILDESCR; return 1;
     }

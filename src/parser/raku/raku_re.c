@@ -307,6 +307,12 @@ Raku_nfa *raku_nfa_build(const char *pattern) {
 int        raku_nfa_state_count(const Raku_nfa *nfa) { return nfa?nfa->n:0; }
 int        raku_nfa_start(const Raku_nfa *nfa) { return nfa?nfa->start:NFA_NULL; }
 int        raku_nfa_accept(const Raku_nfa *nfa) { return nfa?nfa->accept:NFA_NULL; }
+int        raku_nfa_ngroups(const Raku_nfa *nfa) { return nfa?nfa->ngroups:0; }
+void       raku_nfa_group_name_copy(const Raku_nfa *nfa, int g, char *dst64) {
+    if (!dst64) return; dst64[0]='\0';
+    if (!nfa||g<0||g>=MAX_GROUPS) return;
+    memcpy(dst64, nfa->group_name[g], 64);
+}
 Nfa_state *raku_nfa_states(Raku_nfa *nfa) { return nfa?nfa->states:0; }
 void raku_nfa_free(Raku_nfa *nfa) { if(!nfa)return; free(nfa->states); free(nfa); }
 #define MAX_STATES 512
