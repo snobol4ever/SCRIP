@@ -1,4 +1,4 @@
-#include "resolve_runtime.h"
+#include "resolution.h"
 #include <math.h>
 #include <limits.h>
 #include "ast.h"

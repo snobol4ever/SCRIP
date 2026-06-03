@@ -9,7 +9,7 @@
 #include "parser/raku/raku_driver.h"
 #include "parser/rebus/rebus_lower.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "runtime/builtins/resolve_runtime.h"
+#include "runtime/builtins/resolution.h"
 #include "driver/interp.h"
 #include "driver/polyglot.h"
 #include "lower.h"

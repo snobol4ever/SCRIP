@@ -5,7 +5,7 @@
 #include "IR_interp_state.h"
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
-#include "../runtime/builtins/resolve_runtime.h"
+#include "../runtime/builtins/resolution.h"
 #include "../parser/prolog/term.h"
 #include "../parser/prolog/prolog_atom.h"
 #include <stdio.h>

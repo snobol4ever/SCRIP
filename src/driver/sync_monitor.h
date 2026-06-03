@@ -2,7 +2,7 @@
 #define SYNC_MONITOR_H
 #include "core.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "runtime/builtins/resolve_runtime.h"
+#include "runtime/builtins/resolution.h"
 typedef struct {
     NvPair  *nv_pairs;
     int      nv_count;
