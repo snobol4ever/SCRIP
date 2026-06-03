@@ -266,7 +266,7 @@ inline std::string x86_r12_modrm(int regfield, int off) {
 inline std::string x86_frame_text_mem(int off) { return std::string("[r12 + ") + std::to_string(off) + "]"; }
 inline std::string x86_frame_lea(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x49; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" lea ") + reg + ", " + x86_frame_text_mem(off) + "\n";
 }
 inline std::string x86_frame_mov_imm(int off, long imm) {
