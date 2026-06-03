@@ -79,6 +79,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/unification.c \
     $(SRC)/runtime/runtime_init.c \
     $(SRC)/runtime/io_format.c \
+    $(SRC)/runtime/arithmetic.c \
     $(SRC)/runtime/core/eval_pat.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
@@ -232,6 +233,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/unification.c                  -o $(OBJ)/unification.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/runtime_init.c                  -o $(OBJ)/runtime_init.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/io_format.c                  -o $(OBJ)/io_format.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/arithmetic.c                  -o $(OBJ)/arithmetic.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/eval_pat.c                   -o $(OBJ)/eval_pat.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
