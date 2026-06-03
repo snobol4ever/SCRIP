@@ -17,7 +17,9 @@
 #define GLOBAL_MAX      64
 struct GeneratorState;
 typedef struct { tree_t *node; long cur; const char *sval; } ScopeEntry;
-typedef struct {
+typedef struct GenFrame GenFrame;
+typedef struct { unsigned char is_ref; GenFrame *frame; int slot; const char *name; } SlotRef;
+struct GenFrame {
     DESCR_t       env[FRAME_SLOT_MAX];
     int           env_n;
     int           returning;
@@ -32,7 +34,8 @@ typedef struct {
     DESCR_t       suspend_val;
     tree_t       *suspend_do;
     struct GeneratorState *every_gen[EVERY_GEN_SLOT_MAX];
-} GenFrame;
+    SlotRef       slotref[FRAME_SLOT_MAX];
+};
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e)
 {
