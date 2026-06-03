@@ -272,6 +272,18 @@ void rt_gvar_assign_int(const char *name, int64_t val)
     NV_SET_fn(name ? name : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
+int64_t rt_gvar_arith(const char *a, const char *b, int op)
+{
+    DESCR_t lv = NV_GET_fn(a ? a : "");
+    DESCR_t rv = NV_GET_fn(b ? b : "");
+    int rel_fail = 0;
+    DESCR_t r = binop_apply(op, lv, rv, &rel_fail);
+    if (r.v == DT_I) return r.i;
+    if (r.v == DT_R) return (int64_t)r.r;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_var(const char *dst, const char *src)
 {
     NV_SET_fn(dst ? dst : "", NV_GET_fn(src ? src : ""));

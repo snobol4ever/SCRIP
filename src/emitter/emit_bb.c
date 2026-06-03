@@ -1563,6 +1563,15 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             g_emit.op_sa  = (int)nd->α->ival;
             g_emit.op_sb  = (int)nd->β->ival;
             g_emit.op_off = bb_slot_alloc(nd);
+            g_emit.op_name1 = (const char *)0;
+            g_emit.op_name2 = (const char *)0;
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
+        } else if (g_gvar_flat_chain && op_is_arith && nd->α && nd->β && nd->α->t == IR_VAR && nd->β->t == IR_VAR && nd->α->sval && nd->β->sval) {
+            g_emit.op_name1 = nd->α->sval;
+            g_emit.op_name2 = nd->β->sval;
+            g_emit.op_off   = bb_slot_alloc(nd);
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
