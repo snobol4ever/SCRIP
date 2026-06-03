@@ -76,6 +76,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/name_t.c \
     $(SRC)/runtime/core/stmt_exec.c \
     $(SRC)/runtime/runtime_eval.c \
+    $(SRC)/runtime/unification.c \
     $(SRC)/runtime/core/eval_pat.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
@@ -226,6 +227,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/name_t.c                         -o $(OBJ)/name_t.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/stmt_exec.c                  -o $(OBJ)/stmt_exec.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/runtime_eval.c                  -o $(OBJ)/eval_code.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/unification.c                  -o $(OBJ)/unification.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/eval_pat.c                   -o $(OBJ)/eval_pat.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
