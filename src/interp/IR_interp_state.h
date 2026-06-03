@@ -43,7 +43,7 @@ typedef struct { IR_graph_t ** bodies; int nbodies; int cur; int mark; void * sa
 #define RESOLVE_IDX_FLT             (RESOLVE_IDX_CLS_FLT)
 #define RESOLVE_IDX_CMP(fn,ar)      (RESOLVE_IDX_CLS_CMP  | ((((long)(fn) << 16) | ((long)(ar) & 0xFFFF)) & RESOLVE_IDX_PAYLOAD_MASK))
 typedef struct { IR_t ** args; int nargs; const char * callee; int arity; void * cs; } bb_goal_state_t;
-typedef struct { IR_graph_t * gcfg; IR_t * tmpl; IR_t * result; } bb_findall_state_t;
+typedef struct { IR_graph_t * gcfg; IR_t * tmpl; IR_t * result; IR_t * goal_node; } bb_findall_state_t;
 typedef struct { IR_t ** kids; int nkids; } bb_pat_kids_state_t;
 static inline int bb_pat_nkids(const IR_t * nd) {
     if (!nd) return 0;

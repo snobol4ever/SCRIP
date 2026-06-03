@@ -1093,6 +1093,36 @@ int rt_findall(void *fs_ptr) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+extern int rt_call_term(void *goal_v);
+extern int rt_redo_meta(void *entry_cp_v);
+int rt_findall_term(void *goal_v, void *tmpl_v, void *result_v) {
+    extern Trail g_resolve_trail;
+    extern int ATOM_DOT;
+    int mark = trail_mark(&g_resolve_trail);
+    resolve_choice *entry_cp = resolve_cp_current();
+    Term **acc = (Term **)calloc(4096, sizeof(Term *)); int nacc = 0;
+    if (!acc) return 0;
+    int ok = rt_call_term(goal_v);
+    int fa_safety = 1 << 20;
+    while (ok && nacc < 4096 && fa_safety-- > 0) {
+        acc[nacc++] = bb_copy_term(term_deref((Term *)tmpl_v));
+        ok = rt_redo_meta((void *)entry_cp);
+    }
+    resolve_cp_truncate(entry_cp);
+    trail_unwind(&g_resolve_trail, mark);
+    Term *lst = term_new_atom(prolog_atom_intern("[]"));
+    for (int i = nacc - 1; i >= 0; i--) {
+        Term **c = (Term **)GC_MALLOC(2 * sizeof(Term *)); c[0] = acc[i]; c[1] = lst;
+        lst = term_new_compound(ATOM_DOT, 2, c);
+    }
+    free(acc);
+    int mark2 = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref((Term *)result_v), lst, &g_resolve_trail)) {
+        trail_unwind(&g_resolve_trail, mark2); return 0;
+    }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_catch(void *zc_ptr) {
     extern Trail g_resolve_trail; extern Term **g_resolve_env;
     bb_catch_state_t *zc = (bb_catch_state_t *)zc_ptr;
