@@ -83,15 +83,6 @@ void rt_trail_mark_pop(void)
 /*--------------------------------------------------------------------------------------------------------------------*/
 Term **rt_env_current(void) { extern Term **g_resolve_env; return g_resolve_env; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_main_init(void)
-{
-    extern Trail g_resolve_trail;
-    setvbuf(stdout, NULL, _IOLBF, 0);
-    bb_pool_init();
-    trail_init(&g_resolve_trail);
-    prolog_atom_init();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_env_alloc(int nslots)
 {
     extern Term **g_resolve_env;
