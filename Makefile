@@ -102,6 +102,10 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_succeed.cpp \
     $(SRC)/emitter/BB_templates/bb_every.cpp \
     $(SRC)/emitter/BB_templates/bb_call.cpp \
+    $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp \
+    $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp \
+    $(SRC)/emitter/BB_templates/bb_call_userproc.cpp \
+    $(SRC)/emitter/BB_templates/bb_call_builtin.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_relop.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_arith.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_gvar_arith.cpp \
@@ -257,6 +261,10 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_succeed.cpp           -o $(OBJ)/bb_succeed.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_every.cpp        -o $(OBJ)/bb_every.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call.cpp         -o $(OBJ)/bb_call.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp  -o $(OBJ)/bb_call_proc_staged.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp   -o $(OBJ)/bb_call_write_slot.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_userproc.cpp     -o $(OBJ)/bb_call_userproc.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_builtin.cpp      -o $(OBJ)/bb_call_builtin.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_relop.cpp       -o $(OBJ)/bb_binop_relop.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_arith.cpp       -o $(OBJ)/bb_binop_arith.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_arith.cpp  -o $(OBJ)/bb_binop_gvar_arith.o
