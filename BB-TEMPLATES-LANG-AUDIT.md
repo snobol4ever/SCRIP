@@ -73,3 +73,9 @@ knowledge (`__pas_*`) stays in `src/runtime/by_name_dispatch.c` where it already
 (`lower.c:955-956`), and Icon never rides the gvar chain — so today the arm fires exactly for Pascal
 det-calls to non-proc names, and any future frontend lowering onto the same shape gets the same generic
 contract.
+
+## XA_TEMPLATES appendix (scanned 2026-06-03, same session)
+
+`src/emitter/XA_templates/` (17 files): **ZERO language-specific markers.** The only grep hits are
+`prologue` substring false-positives on the `prolog` pattern. The LANGUAGE-BLIND FACT RULE's completion
+grep therefore starts at 0 for XA; only `BB_templates/` carries the Tier-1/2/3 inventory above.
