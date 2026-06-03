@@ -254,8 +254,7 @@ static int pl_rich_node_emittable(const IR_t *nd) {
     case IR_UNIFY: {
         const IR_t *l = nd->α, *r = nd->β;
         int lk = l ? (int)l->t : -1, rk = r ? (int)r->t : -1;
-        if (lk == IR_ARITH || rk == IR_ARITH
-            || lk == IR_LIT_F || rk == IR_LIT_F) return 0;
+        if (lk == IR_ARITH || rk == IR_ARITH) return 0;
         return 1;
     }
     case IR_ARITH:

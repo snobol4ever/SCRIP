@@ -81,6 +81,20 @@ inline std::string x86_cqo() {
 inline std::string x86_xorps_xmm0() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x0F, 0x57, 0xC0)) : std::string(" xorps xmm0, xmm0\n");
 }
+inline std::string x86_movabs_r64(const char * dst, uint64_t imm) {
+    int m = x86_rnum(dst);
+    if (MEDIUM_BINARY) { std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le(imm); return x86_Lrec(code); }
+    return std::string(" movabs ") + dst + ", " + std::to_string((unsigned long long)imm) + "\n";
+}
+inline std::string x86_movq_xmm0_r64(const char * src) {
+    int m = x86_rnum(src); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
+    std::string code; code += (char)0x66; code += (char)rex; code += (char)0x0F; code += (char)0x6E; code += (char)(0xC0 | (0 << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movq xmm0, ") + src + "\n");
+}
+inline std::string x86_set_xmm0_double(double d) {
+    uint64_t bits = 0; memcpy(&bits, &d, sizeof bits);
+    return x86_movabs_r64("rax", bits) + x86_movq_xmm0_r64("rax");
+}
 inline std::string x86_idiv(const char * reg) {
     int m = x86_rnum(reg); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex; code += (char)0xF7; code += (char)(0xC0 | (7 << 3) | (m & 7));
@@ -329,6 +343,8 @@ inline std::string x86_rsp_load64(const char * reg, int off) {
 }
 struct x86_rsp { int off; };
 inline x86_rsp RSP(int off) { return x86_rsp{ off }; }
+struct x86_f64 { double d; };
+inline x86_f64 F64(double d) { return x86_f64{ d }; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_cmp_imm64(const char * reg, long imm) {
     int m = x86_rnum(reg);
@@ -391,6 +407,9 @@ inline std::string x86(const char * mnem, x86_rsp f, const char * reg) {
 }
 inline std::string x86(const char * mnem, const char * reg, x86_rsp f) {
     (void)mnem; return x86_rsp_load64(reg, f.off);
+}
+inline std::string x86(const char * mnem, const char * dst, x86_f64 f) {
+    (void)mnem; (void)dst; return x86_set_xmm0_double(f.d);
 }
 inline std::string x86(const char * mnem) {
     if (!strcmp(mnem, "cqo")) return x86_cqo();

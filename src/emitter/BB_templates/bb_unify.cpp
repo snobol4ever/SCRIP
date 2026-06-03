@@ -13,9 +13,6 @@ extern "C" int   rt_unify_var_var(int lslot, int rslot);
 static inline int  u_present()        { return _.bb_lk >= 0; }
 static inline int  u_const_kind(int k){ return k == IR_ATOM || k == IR_LIT_I; }
 static inline int  u_compound_kind(int k){ return k == IR_STRUCT || k == IR_ARITH; }
-static inline int  u_float_kind(int k){ return k == IR_LIT_F; }
-static inline int  u_deferred_float() { int lk = _.bb_lk, rk = _.bb_rk;
-                                        return u_float_kind(lk) || u_float_kind(rk); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline std::string u_head(const char *msg) {
     return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment(msg));
@@ -27,11 +24,11 @@ static inline std::string u_tail() {
     return x86("test", "eax", "eax") + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA)
          + x86("def", PORT_BETA) + x86("jmp", PORT_OMEGA);
 }
-static inline std::string u_build_scalar(int kind, long ival, const char *lbl) {
+static inline std::string u_build_scalar(int kind, long ival, double dval, const char *lbl) {
     return x86("mov", "edi", (long)kind)
          + x86("mov", "rsi", ival)
          + (lbl ? x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)lbl, lbl) : x86("mov", "edx", (long)0))
-         + x86("xorps", "xmm0", "xmm0")
+         + (kind == IR_LIT_F ? x86("movsd", "xmm0", F64(dval)) : x86("xorps", "xmm0", "xmm0"))
          + x86("call", "rt_node_to_term", (uint64_t)(uintptr_t)(void*)rt_node_to_term);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -39,8 +36,6 @@ static std::string bb_unify_str() {
     if (PLATFORM_X86) {
         if (!u_present())
             return u_vacuous("# BOX RESOLVE_UNIFY: missing children — vacuous success  [x86() self-encoding]");
-        if (u_deferred_float())
-            return x86_bomb("bb_unify: float operand — deferred (CAT-D float substrate)");
         int  lk = _.bb_lk, rk = _.bb_rk;
         long li = (long)_.bb_li, ri = (long)_.bb_ri;
         const char *ls = _.bb_ls, *rs = _.bb_rs;
@@ -68,12 +63,13 @@ static std::string bb_unify_str() {
                      + u_tail();
         }
         {
+            double lf = ln ? ln->dval : 0.0, rf = rn ? rn->dval : 0.0;
             std::string lbuild = u_compound_kind(lk)
                 ? emit_build_compound_term(ln)
-                : u_build_scalar(lk, li, ls);
+                : u_build_scalar(lk, li, lf, ls);
             std::string rbuild = u_compound_kind(rk)
                 ? emit_build_compound_term(rn)
-                : u_build_scalar(rk, ri, rs);
+                : u_build_scalar(rk, ri, rf, rs);
             return u_head("# BOX RESOLVE_UNIFY (general)  [x86() self-encoding]")
                  + x86("sub", "rsp", (long)16)
                  + lbuild
