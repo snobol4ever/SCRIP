@@ -999,9 +999,31 @@ int main(int argc, char **argv)
             extern bb_box_fn gvar_flat_chain_build(IR_graph_t * g);
             extern void *rt_frame(void);
             extern int g_frame_active;
+            extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
+            extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
+            extern void rt_proc_reset(void);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
+            rt_proc_reset();
+            g_frame_active = 1;
+            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                const char *pname = s2->proc_table[_pi].name;
+                if (!pname || strcmp(pname, "main") == 0) continue;
+                int idx = s2->proc_table[_pi].bb_idx;
+                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+                int np = s2->proc_table[_pi].nparams;
+                const char **pn = NULL;
+                if (np > 0) {
+                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
+                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+                }
+                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                bb_box_fn pfn = gvar_flat_chain_build(s2->bbp.table[idx]);
+                if (pfn) rt_proc_set_fn(pname, pfn);
+            }
+            g_frame_active = 0;
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
             if (sbbg && sbbg->entry) {
                 g_frame_active = 1;

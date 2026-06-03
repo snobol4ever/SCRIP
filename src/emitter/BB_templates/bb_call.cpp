@@ -17,6 +17,8 @@ int  bb_slot_get(IR_t * nd);
 int  bb_slot_alloc16(IR_t * nd);
 int  bb_varslot(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
+DESCR_t rt_call_named_proc(const char * name, DESCR_t * args, int nargs);
+DESCR_t rt_proc_define(const char * spec);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -101,7 +103,7 @@ static std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) 
                 if (lf->t == IR_LIT_I)      v = (uint64_t)lf->ival;
                 else if (lf->t == IR_LIT_F) { double d = lf->dval; memcpy(&v, &d, 8); }
                 else                        v = (uint64_t)(uintptr_t)(lf->sval ? lf->sval : "");
-                s += x86("mov", "rax", (uint64_t)v);
+                s += x86_load_ro("rax", "??", (uint64_t)v);
                 s += x86_frame_store64(aoff + 8, "rax");
             }
         } else {
@@ -169,12 +171,98 @@ static std::string bb_call_rk_arr_str(IR_t * pBB) {
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_call_gvar_define_str(IR_t * pBB) {
+    if (!PLATFORM_X86) return std::string();
+    int64_t narg = pBB->ival;
+    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
+    IR_t * spec = (narg > 0 && subs && subs[0]) ? subs[0]->entry : NULL;
+    const char * specstr = (spec && spec->t == IR_LIT_S && spec->sval) ? spec->sval : "";
+    if (MEDIUM_TEXT) {
+        std::string fl = emit_fmt(".Ldefspec%d", bb_node_id(pBB));
+        std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
+            + s_comment("# BOX SNO IR_CALL DEFINE(spec) -> rt_proc_define [single-shot success]")
+            + s_directive(".section .rodata")
+            + s_directive(fl + ": .string \"" + specstr + "\"")
+            + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
+        s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
+        s += s_2asm("call", "rt_proc_define@PLT");
+        s += s_2asm("jmp", _.lbl_γ);
+        s += s_L1asm(emit_fmt("%s:", _.lbl_β), "");
+        s += s_2asm("jmp", _.lbl_ω);
+        return s;
+    }
+    if (MEDIUM_BINARY) {
+        uint64_t fptr; { DESCR_t (*fp)(const char *) = rt_proc_define; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        std::string s;
+        s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)specstr);
+        s += x86_call_ro("rt_proc_define", fptr);
+        s += x86("jmp", PORT_GAMMA);
+        s += x86("def", PORT_BETA);
+        s += x86("jmp", PORT_OMEGA);
+        return s;
+    }
+    return std::string();
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
+    if (!PLATFORM_X86) return std::string();
+    const char * fn   = pBB->sval ? pBB->sval : "";
+    int64_t      narg = pBB->ival;
+    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
+    int resoff  = bb_slot_alloc16(pBB);
+    int argbase = (narg > 0) ? bb_slot_alloc16(subs[0]->entry) : resoff;
+    for (int i = 1; i < (int)narg; i++) bb_slot_alloc16(subs[i]->entry);
+    if (MEDIUM_TEXT) {
+        std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
+            + s_comment(emit_fmt("# BOX SNO IR_CALL %s(...) -> rt_call_named_proc [four-port, FAIL->ω]", fn));
+        for (int i = 0; i < (int)narg; i++)
+            s += marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
+        std::string fl = emit_fmt(".Lprocfn%d", bb_node_id(pBB));
+        s += s_directive(".section .rodata")
+           + s_directive(fl + ": .string \"" + fn + "\"")
+           + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
+        s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
+        s += s_2asm("lea", emit_fmt("rsi, [r12+%d]", argbase));
+        s += s_2asm("mov", emit_fmt("edx, %lld", (long long)narg));
+        s += s_2asm("call", "rt_call_named_proc@PLT");
+        s += s_2asm("mov", emit_fmt("[r12+%d], rax", resoff));
+        s += s_2asm("mov", emit_fmt("[r12+%d], rdx", resoff + 8));
+        s += s_2asm("cmp", "eax, 99");
+        s += s_2asm("je", _.lbl_ω);
+        s += s_2asm("jmp", _.lbl_γ);
+        s += s_L1asm(emit_fmt("%s:", _.lbl_β), "");
+        s += s_2asm("jmp", _.lbl_ω);
+        return s;
+    }
+    if (MEDIUM_BINARY) {
+        std::string s;
+        for (int i = 0; i < (int)narg; i++)
+            s += marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
+        uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fn);
+        s += x86_frame_lea("rsi", argbase);
+        s += x86("mov32", "edx", (long)narg);
+        s += x86_call_ro("rt_call_named_proc", fptr);
+        s += x86_frame_store64(resoff, "rax");
+        s += x86_frame_store64(resoff + 8, "rdx");
+        s += x86("cmp", "eax", (long)99);
+        s += x86("je", PORT_OMEGA);
+        s += x86("jmp", PORT_GAMMA);
+        s += x86("def", PORT_BETA);
+        s += x86("jmp", PORT_OMEGA);
+        return s;
+    }
+    return std::string();
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn   = pBB->sval ? pBB->sval : "";
     int64_t      narg = pBB->ival;
     IR_t       * a0   = pBB->α;
     if (g_descr_flat_chain && pBB->dval == 2.0) return bb_call_rk_arr_str(pBB);
+    if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && !strcmp(fn, "DEFINE")) return bb_call_gvar_define_str(pBB);
+    if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
     if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) return bb_call_proc_staged_str(pBB);
     if (g_descr_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
         int off = bb_slot_get(a0);
