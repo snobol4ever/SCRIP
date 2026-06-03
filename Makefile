@@ -101,6 +101,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_unop.cpp \
     $(SRC)/emitter/BB_templates/bb_succeed.cpp \
     $(SRC)/emitter/BB_templates/bb_every.cpp \
+    $(SRC)/emitter/BB_templates/bb_iterate.cpp \
     $(SRC)/emitter/BB_templates/bb_call.cpp \
     $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp \
     $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp \
@@ -259,6 +260,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_unop.cpp              -o $(OBJ)/bb_unop.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_succeed.cpp           -o $(OBJ)/bb_succeed.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_every.cpp        -o $(OBJ)/bb_every.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_iterate.cpp      -o $(OBJ)/bb_iterate.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call.cpp         -o $(OBJ)/bb_call.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp  -o $(OBJ)/bb_call_proc_staged.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp   -o $(OBJ)/bb_call_write_slot.o

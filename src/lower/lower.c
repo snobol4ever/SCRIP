@@ -185,6 +185,16 @@ static IR_t * v_literal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, 
 /*====================================================================================================================*/
 static IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
+    if (e->t == TT_ITERATE) {
+        IR_t * bang = nalloc(cx, IR_LIST_BANG);
+        if (!bang) return NULL;
+        IR_t * oα = NULL, * oβ = NULL;
+        IR_t * operand = lower2(cx, e->c[0], NULL, ω_in, &oα, &oβ);
+        if (!operand) return NULL;
+        bang->α = oα ? oα : operand;
+        set_succ_fail(bang, γ_in, ω_in);
+        return ret(bang, α_out, β_out, bang, bang);
+    }
     IR_t * un = nalloc(cx, IR_UNOP);
     if (!un) return NULL;
     un->sval = e->v.sval;

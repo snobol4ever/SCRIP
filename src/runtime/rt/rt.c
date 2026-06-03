@@ -653,14 +653,12 @@ int rt_idx_set(void)
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_list_bang(DESCR_t *obj_slot, int64_t *idx_slot, int *state_slot, int reset)
+extern int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t *out);
+DESCR_t rt_list_bang_at(DESCR_t obj, int64_t idx)
 {
-    (void)obj_slot;
-    (void)idx_slot;
-    (void)state_slot;
-    (void)reset;
-    STACKLESS_ABORT("rt_list_bang");
-    return 0;
+    DESCR_t out;
+    if (list_bang_at(obj, idx, &out)) return out;
+    return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_limit_begin(DESCR_t *max_slot, int64_t *count_slot)
