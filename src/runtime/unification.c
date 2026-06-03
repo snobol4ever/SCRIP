@@ -46,7 +46,7 @@ int rt_unify_const(int slot, int kind, long ival, const char *sval, double dval)
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_unify_var_var(int lslot, int rslot)
+int rt_unify_var_var(int lslot, int rslot)
 {
     extern Term **g_resolve_env;
     Term *lt = (g_resolve_env && lslot >= 0 && g_resolve_env[lslot]) ? term_deref(g_resolve_env[lslot]) : (Term *)0;
