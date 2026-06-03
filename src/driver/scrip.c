@@ -18,6 +18,7 @@
 #include "../parser/prolog/prolog_atom.h"
 #include "../parser/prolog/prolog_builtin.h"
 #include "../parser/icon/icon_driver.h"
+#include "../parser/pascal/pascal_driver.h"
 #include "../parser/raku/raku_driver.h"
 #include "../parser/rebus/rebus_lower.h"
 #include "../runtime/builtins/gen.h"
@@ -465,6 +466,7 @@ int main(int argc, char **argv)
         int lang_icon     = dot && strcmp(dot, ".icn")  == 0;
         int lang_raku     = dot && strcmp(dot, ".raku") == 0;
         int lang_rebus    = dot && strcmp(dot, ".reb")  == 0;
+        int lang_pascal   = dot && strcmp(dot, ".pas")  == 0;
         int lang_polyglot = dot && (strcmp(dot, ".scrip") == 0 || strcmp(dot, ".md") == 0);
         sub = NULL;
         if (lang_polyglot) {
@@ -478,7 +480,7 @@ int main(int argc, char **argv)
             tree_t *sub_ast = parse_scrip_polyglot(src, input_path);
             free(src);
             MERGE_AST(sub_ast);
-        } else if (lang_snocone || lang_prolog || lang_icon || lang_raku || lang_rebus) {
+        } else if (lang_snocone || lang_prolog || lang_icon || lang_raku || lang_rebus || lang_pascal) {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             fseek(f, 0, SEEK_END); long flen = ftell(f); rewind(f);
@@ -490,6 +492,7 @@ int main(int argc, char **argv)
             else if (lang_raku)    raku_compile(src, input_path, &sub_ast);
             else if (lang_prolog)  prolog_compile(src, input_path, &sub_ast);
             else if (lang_rebus)   rebus_compile(src, input_path, &sub_ast);
+            else if (lang_pascal)  pascal_compile(src, input_path, &sub_ast);
             else                   snocone_compile(src, input_path, &sub_ast);
             free(src);
             if (dump_ast && sub_ast) {

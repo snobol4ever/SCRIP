@@ -189,7 +189,10 @@ RT_PIC_SRCS := \
     $(SRC)/parser/rebus/lex.rebus.c \
     $(SRC)/parser/rebus/rebus_lower.c \
     $(SRC)/parser/rebus/rebus_emit.c \
-    $(SRC)/parser/rebus/rebus_print.c
+    $(SRC)/parser/rebus/rebus_print.c \
+    $(SRC)/parser/pascal/pascal.tab.c \
+    $(SRC)/parser/pascal/pascal.lex.c \
+    $(SRC)/parser/pascal/pascal_driver.c
 
 out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
@@ -312,6 +315,9 @@ scrip:
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_driver.c -o $(OBJ)/raku_driver.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_re.c      -o $(OBJ)/raku_re.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_nfa_bb.c  -o $(OBJ)/raku_nfa_bb.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/pascal/pascal.tab.c    -o $(OBJ)/pascal.tab.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/pascal/pascal.lex.c    -o $(OBJ)/pascal.lex.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/pascal/pascal_driver.c -o $(OBJ)/pascal_driver.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus.tab.c    -o $(OBJ)/rebus.tab.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/lex.rebus.c    -o $(OBJ)/lex.rebus.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_lower.c  -o $(OBJ)/rebus_lower.o
