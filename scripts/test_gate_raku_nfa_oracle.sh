@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# test_gate_raku_nfa_oracle.sh — RK-NFA-1 oracle-equivalence gate (Raku, mode-2, ISOLATED).
+# test_gate_raku_nfa_oracle.sh — RK-NFA-1/2/3 oracle-equivalence gate (Raku, mode-2, ISOLATED).
 #   Proves the IR_NFA_* graph backtracking walk (raku_nfa_bb.c nfa_bt_ir, selected by RK_NFA_BB=1)
 #   returns verdicts byte-identical to the parallel-NFA oracle (raku_re.c raku_nfa_exec, RK_NFA_BB=0)
 #   on a battery exercising every IR_NFA_* kind: CHAR ANY CLASS SPLIT EPS BOL EOL CAP_OPEN CAP_CLOSE ACCEPT.
 #   The `~~` smartmatch operator is lowered for Raku in lower.c (TT_SMATCH -> IR_CALL re_match);
 #   re_match honors RK_NFA_BB, so the SAME lowered program drives both matchers.
+#   Sections: RK-NFA-1 (verdict battery, all kinds) · RK-NFA-2 (cset/anchor/alt L4-L12 verdict
+#   set + safe-extent captures, with the documented | LTM vs || ordered seam) · RK-NFA-3 (capture
+#   recording $0/$1/$<name>).
 # Scope: mode-2 only (the HARD oracle). The NFA leaf templates are SHELVED (tier-seam decision),
 #   so modes 3/4 EXCISE this path; this gate does not touch them.
 # Isolation: edits live only in raku_nfa_bb.c + the Raku TT_SMATCH arm in lower.c; SNOBOL4/Icon/Prolog
@@ -69,6 +72,101 @@ if diff -q "$TMP/oracle.out" "$TMP/irbb.out" >/dev/null; then
 else
     echo "FAIL: IR-graph walk diverges from oracle (verdicts)"
     diff "$TMP/oracle.out" "$TMP/irbb.out" | head -40
+    exit 1
+fi
+
+# ────────────────────────────────────────────────────────────────────────────────────────────
+# RK-NFA-2 — formalize the L4-L12 verdict set: negated shorthand csets, enumerated csets with
+#   ranges + negation, mixed shorthands inside [...], and BOL/EOL anchors. The IR_NFA_* graph
+#   walk (raku_nfa_bb.c) already handles these (the RK-NFA-1 battery exercises a subset); this
+#   section pins down the full edge-case verdict set against the parallel-NFA oracle.
+#
+#   SEMANTIC NOTE (the | LTM vs || ordered seam — KEEP, per GOAL-RAKU-BB locked decision):
+#   the C builder (raku_re.c) parses only single `|`, lowered to an NFA SPLIT. The parallel
+#   oracle (raku_nfa_exec) resolves SPLIT by leftmost-LONGEST (Raku `|` LTM / declarative);
+#   the backtracking IR-graph walker (nfa_bt_ir_cap) resolves SPLIT by leftmost-FIRST (Raku
+#   `||` ordered). For a BOOLEAN VERDICT these always agree (if any branch reaches ACCEPT both
+#   say matched), so the verdict battery below spans alternation freely. For MATCH EXTENT /
+#   CAPTURES they agree ONLY where leftmost-longest == leftmost-first (greedy quantifiers,
+#   disjoint/anchored alternatives) — the safe-extent battery below stays inside that envelope.
+#   Overlapping-`|` extent (e.g. /(a|ab)/ ~ "ab" -> oracle "ab" vs walker "a") DIVERGES BY
+#   DESIGN: it is the Phase-2 `|`-LTM-on-the-parallel-NFA vs `||`-ordered-on-IR_NFA_* boundary,
+#   not a bug, so it is deliberately NOT probed here. `||` itself is not yet parseable.
+cat > "$TMP/cset.raku" << 'RAKU'
+sub main() {
+    # negated shorthand csets — \D \W \S (NK_CLASS with inverted bitmap, shared by both engines)
+    if ('abc'    ~~ /\D+/) { say('c1 Y'); } else { say('c1 N'); }   # all non-digit
+    if ('123'    ~~ /\D/)  { say('c2 Y'); } else { say('c2 N'); }   # only digits -> N
+    if ('a b'    ~~ /\S/)  { say('c3 Y'); } else { say('c3 N'); }   # has non-space
+    if (' '      ~~ /\S/)  { say('c4 Y'); } else { say('c4 N'); }   # only space -> N
+    if ('a_b'    ~~ /\W/)  { say('c5 Y'); } else { say('c5 N'); }   # _,a,b all word -> N
+    if ('a-b'    ~~ /\W/)  { say('c6 Y'); } else { say('c6 N'); }   # - is non-word
+    if ('hello'  ~~ /\w+/) { say('c7 Y'); } else { say('c7 N'); }   # \w full coverage
+    if ("\t"     ~~ /\s/)  { say('c8 Y'); } else { say('c8 N'); }   # tab is \s
+    # enumerated csets — ranges, negation, multi-range
+    if ('hello5' ~~ /[a-z0-9]+/) { say('c9 Y');  } else { say('c9 N');  }  # multi-range
+    if ('ABC'    ~~ /[^0-9]+/)   { say('c10 Y'); } else { say('c10 N'); }  # negated range
+    if ('999'    ~~ /[^0-9]/)    { say('c11 Y'); } else { say('c11 N'); }  # negated, all digit -> N
+    if ('Hi9'    ~~ /[A-Za-z]/)  { say('c12 Y'); } else { say('c12 N'); }  # two ranges
+    if ('___'    ~~ /[A-Za-z]/)  { say('c13 Y'); } else { say('c13 N'); }  # no letter -> N
+    # mixed shorthand inside [...]
+    if ('a 1'    ~~ /[\d\s]/) { say('c14 Y'); } else { say('c14 N'); }  # space or digit
+    if ('xyz'    ~~ /[\d\s]/) { say('c15 Y'); } else { say('c15 N'); }  # neither -> N
+    if ('a-z'    ~~ /[\w-]+/) { say('c16 Y'); } else { say('c16 N'); }  # word + literal dash
+    # BOL / EOL anchors (L: ^ $)
+    if ('hello'  ~~ /^h/)      { say('c17 Y'); } else { say('c17 N'); }  # BOL hit
+    if ('hello'  ~~ /^e/)      { say('c18 Y'); } else { say('c18 N'); }  # not at BOL -> N
+    if ('hello'  ~~ /o$/)      { say('c19 Y'); } else { say('c19 N'); }  # EOL hit
+    if ('hello'  ~~ /h$/)      { say('c20 Y'); } else { say('c20 N'); }  # not at EOL -> N
+    if ('hello'  ~~ /^hello$/) { say('c21 Y'); } else { say('c21 N'); }  # full anchor
+    if ('hellox' ~~ /^hello$/) { say('c22 Y'); } else { say('c22 N'); }  # full anchor miss
+    if (''       ~~ /^$/)      { say('c23 Y'); } else { say('c23 N'); }  # empty anchored
+    say('cset done');
+}
+RAKU
+RK_NFA_BB=0 timeout 20 "$SCRIP" --interp "$TMP/cset.raku" </dev/null >"$TMP/cset_o.out" 2>/dev/null; rc_so=$?
+RK_NFA_BB=1 timeout 20 "$SCRIP" --interp "$TMP/cset.raku" </dev/null >"$TMP/cset_b.out" 2>/dev/null; rc_sb=$?
+if [ "$rc_so" -ne 0 ] || [ "$rc_sb" -ne 0 ]; then echo "FAIL: cset battery rc oracle=$rc_so irbb=$rc_sb"; exit 1; fi
+if ! tail -1 "$TMP/cset_o.out" | grep -q 'cset done'; then echo "FAIL: cset oracle did not complete"; exit 1; fi
+if diff -q "$TMP/cset_o.out" "$TMP/cset_b.out" >/dev/null; then
+    n=$(grep -c ' [YN]$' "$TMP/cset_o.out")
+    echo "PASS: $n cset/anchor verdict probes — IR_NFA_* graph walk == parallel-NFA oracle (byte-identical)"
+else
+    echo "FAIL: IR-graph cset/anchor verdicts diverge from oracle"
+    diff "$TMP/cset_o.out" "$TMP/cset_b.out" | head -40
+    exit 1
+fi
+
+# RK-NFA-2 safe-extent battery — captures where leftmost-longest == leftmost-first (greedy
+#   quantifiers, disjoint/anchored alternation, cset captures). Stays inside the envelope where
+#   the | (LTM) oracle and the || (ordered) IR-graph walker provably co-agree on EXTENT.
+cat > "$TMP/ext2.raku" << 'RAKU'
+sub main() {
+    my $s = 'barbar';
+    if ($s ~~ /(foo|bar)/)       { say('e1=[' ~ $0 ~ ']'); } else { say('e1 no'); }   # disjoint alt
+    my $t = 'cat';
+    if ($t ~~ /^(cat|dog)$/)     { say('e2=[' ~ $0 ~ ']'); } else { say('e2 no'); }   # anchored alt
+    my $u = 'abc123';
+    if ($u ~~ /(\D+)/)           { say('e3=[' ~ $0 ~ ']'); } else { say('e3 no'); }   # negated-cset greedy
+    if ($u ~~ /([a-z]+)/)        { say('e4=[' ~ $0 ~ ']'); } else { say('e4 no'); }   # range-class greedy
+    if ($u ~~ /([0-9]+)/)        { say('e5=[' ~ $0 ~ ']'); } else { say('e5 no'); }   # digit-class greedy
+    my $v = 'key=val';
+    if ($v ~~ /(\w+)=(\w+)/)     { say('e6=[' ~ $0 ~ '][' ~ $1 ~ ']'); } else { say('e6 no'); }   # two greedy caps
+    if ($u ~~ /<word>([a-z]+)<num>([0-9]+)/) { say('e7=[' ~ $<word> ~ '][' ~ $<num> ~ ']'); } else { say('e7 no'); }   # named over csets
+    my $w = 'aaab';
+    if ($w ~~ /(a*)/)            { say('e8=[' ~ $0 ~ ']'); } else { say('e8 no'); }   # greedy star
+    say('ext2 done');
+}
+RAKU
+RK_NFA_BB=0 timeout 20 "$SCRIP" --interp "$TMP/ext2.raku" </dev/null >"$TMP/ext2_o.out" 2>/dev/null; rc_eo=$?
+RK_NFA_BB=1 timeout 20 "$SCRIP" --interp "$TMP/ext2.raku" </dev/null >"$TMP/ext2_b.out" 2>/dev/null; rc_eb=$?
+if [ "$rc_eo" -ne 0 ] || [ "$rc_eb" -ne 0 ]; then echo "FAIL: safe-extent battery rc oracle=$rc_eo irbb=$rc_eb"; exit 1; fi
+if ! tail -1 "$TMP/ext2_o.out" | grep -q 'ext2 done'; then echo "FAIL: safe-extent oracle did not complete"; exit 1; fi
+if diff -q "$TMP/ext2_o.out" "$TMP/ext2_b.out" >/dev/null; then
+    echo "PASS: safe-extent captures (greedy / disjoint+anchored alt / csets) — IR-graph spans == parallel-NFA oracle"
+else
+    echo "FAIL: IR-graph safe-extent captures diverge from oracle"
+    diff "$TMP/ext2_o.out" "$TMP/ext2_b.out" | head -40
     exit 1
 fi
 
