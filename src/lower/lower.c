@@ -696,6 +696,17 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
         const tree_t * k[3] = { lhs_t->c[0], lhs_t->c[1], rhs_t };
         return v_raku_mutate_writeback(cx, lhs_t->c[0]->v.sval, "arr_set_pure", k, 3, γ_in, ω_in, α_out, β_out);
     }
+    if (cx.lang == IR_LANG_PAS && lhs_t->t == TT_FNC && lhs_t->n >= 1 && lhs_t->c[0] && lhs_t->c[0]->t == TT_VAR && lhs_t->c[0]->v.sval) {
+        IR_t * as = nalloc(cx, IR_ASSIGN);
+        if (!as) return NULL;
+        as->sval = lhs_t->c[0]->v.sval;
+        IR_t * rα = NULL, * rβ = NULL;
+        IR_t * rhs = lower2(cx, rhs_t, as, ω_in, &rα, &rβ);
+        if (!rhs) return NULL;
+        (void) rβ;
+        set_succ_fail(as, γ_in, ω_in);
+        return ret(as, α_out, β_out, rα, ω_in);
+    }
     int lhs_is_var = (lhs_t->t == TT_VAR);
     int lhs_is_kw  = (cx.lang == IR_LANG_SNO && lhs_t->t == TT_KEYWORD);
     if (!lhs_is_var && !lhs_is_kw) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
