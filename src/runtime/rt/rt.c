@@ -59,8 +59,6 @@ extern DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var);
 extern DESCR_t pat_at_cursor(const char *varname);
 extern DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
-static int     g_halt_rc  = 0;
-static int     g_halt_set = 0;
 static int     g_native_chunk_depth = 0;
 int rt_in_native_chunk(void) { return g_native_chunk_depth > 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -204,11 +202,6 @@ void rt_init(int argc, char **argv)
     g_user_call_hook = _rt_usercall;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_finalize(void)
-{
-    return g_halt_set ? g_halt_rc : 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_push_int(int64_t v)
 {
     (void)v;
@@ -218,21 +211,6 @@ void rt_push_int(int64_t v)
 void rt_halt_tos(void)
 {
     STACKLESS_ABORT("rt_halt_tos");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void rt_unhandled_op(int op)
-{
-    fprintf(stderr,
-        "libscrip_rt: unhandled SM opcode %d reached in emitted code.\n"
-        "  (scrip --dump-sm to identify; subsequent EM-N rungs shrink the set)\n",
-        op);
-    abort();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void rt_bomb(const char *msg)
-{
-    fprintf(stderr, "libscrip_rt: BOMB — %s\n", msg ? msg : "(no message)");
-    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_push_str(const char *s, uint32_t slen)
@@ -1250,17 +1228,6 @@ __attribute__((weak)) int _expr_is_pat(tree_t *e)          { (void)e; return 0; 
 #include <stdlib.h>
 #include <stdio.h>
 #include <gc/gc.h>
-void rt_gc_init(void)
-{
-    GC_INIT();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void rt_set_lang(int lang)
-{
-    extern int g_lang;
-    g_lang = lang;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *chars; int delta; } rt_cs_t;
 void *rt_cs_new(const char *chars)
 {
