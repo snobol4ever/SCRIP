@@ -678,6 +678,12 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     if (repl_t) {
         sc->sval = subj_t->v.sval ? subj_t->v.sval : "";
         sc->ival = 1;
+        IR_graph_t * subj_blk = lower_value_subgraph(cx, subj_t);
+        if (!subj_blk) { IR_free(pat_blk); return NULL; }
+        IR_graph_t * repl_blk = lower_value_subgraph(cx, repl_t);
+        if (!repl_blk) { IR_free(pat_blk); return NULL; }
+        IR_t * scan_aux[2]; scan_aux[0] = (IR_t *)(void *)subj_blk; scan_aux[1] = (IR_t *)(void *)repl_blk;
+        bb_operand_aux_set(cx.bbg, sc, scan_aux, 2);
         IR_t * rα = NULL, * rβ = NULL;
         IR_t * repln = lower2(cx, repl_t, sc, ω_in, &rα, &rβ);
         if (!repln) { IR_free(pat_blk); return NULL; }
@@ -685,6 +691,10 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         set_succ_fail(sc, γ_in, ω_in);
         return ret(sc, α_out, β_out, rα ? rα : sc, ω_in);
     }
+    IR_graph_t * subj_blk = lower_value_subgraph(cx, subj_t);
+    if (!subj_blk) { IR_free(pat_blk); return NULL; }
+    IR_t * scan_aux[1]; scan_aux[0] = (IR_t *)(void *)subj_blk;
+    bb_operand_aux_set(cx.bbg, sc, scan_aux, 1);
     IR_t * sα = NULL, * sβ = NULL;
     IR_t * subj = lower2(cx, subj_t, sc, ω_in, &sα, &sβ);
     if (!subj) { IR_free(pat_blk); return NULL; }
