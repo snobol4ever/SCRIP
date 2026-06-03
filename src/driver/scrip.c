@@ -103,7 +103,7 @@ static int icn_kind_native_stub(IR_e t) {
            t == IR_SUSPEND ||
            t == IR_LIST_BANG ||
            t == IR_ALT ||
-           t == IR_TO || t == IR_TO_BY || t == IR_BINOP_GEN ||
+           t == IR_BINOP_GEN ||
            t == IR_MAP || t == IR_GREP;
 }
 static int icn_graph_native_emittable(stage2_t *s2) {
@@ -582,6 +582,8 @@ int main(int argc, char **argv)
     }
     if (dump_bb) {
         extern void bb_print(const IR_graph_t * bbg, FILE * fp);
+        extern int g_icn_postfix_resume;
+        if (is_icon) g_icn_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
@@ -598,6 +600,8 @@ int main(int argc, char **argv)
         extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
         extern int g_frame_active;
         if (is_icon || is_raku) {
+            extern int g_icn_postfix_resume;
+            if (is_icon) g_icn_postfix_resume = 1;
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
@@ -872,6 +876,8 @@ int main(int argc, char **argv)
                         "Aborting (by design).\n");
         abort();
     } else if (mode_run) {
+        extern int g_icn_postfix_resume;
+        if (is_icon) g_icn_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;

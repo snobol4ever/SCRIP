@@ -106,6 +106,14 @@ int bb_varslot_peek(const char *name) {
 int g_descr_flat_chain = 0;
 int g_gvar_flat_chain = 0;
 int g_frame_active = 0;
+/*--------------------------------------------------------------------------------------------------------------------*/
+#define FLAT_CHAIN_SET_MAX 512
+static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
+static int   g_flat_chain_set_n = 0;
+static int flat_chain_set_has(IR_t *nd) {
+    for (int i = 0; i < g_flat_chain_set_n; i++) if (g_flat_chain_set[i] == nd) return 1;
+    return 0;
+}
 int                 g_subject_slot       = -1;
 const char *        g_match_elem_lbl     = NULL;
 const char *        g_match_advance_lbl  = NULL;
@@ -1097,6 +1105,17 @@ static int gen_bb_is_gen_arg(IR_t *e) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int ir_is_generator_kind(IR_e t) {
+    switch (t) {
+        case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT:
+        case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
+        case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
+        case IR_GATHER:
+            return 1;
+        default: return 0;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int call_args_single_shot(IR_t *pBB) {
     int nargs = (int)(pBB ? pBB->ival : 0);
     IR_t *ax = pBB ? pBB->α : NULL;
@@ -1355,6 +1374,13 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     if (pBB->ival != 0) {
         fprintf(stderr, "[IBB] FATAL flat_drive_every: bodyless lower-ival=%lld not yet flat-wired (only ival=0)\n", (long long)pBB->ival);
         abort();
+    }
+    if (flat_chain_set_has(pBB->α)) {
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_JMP(lbl_γ);
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        return;
     }
     int id = g_flat_node_id++;
     bb_label_t *body_β = emit_label_alloc("xevery%d_body_β", id);
@@ -1734,6 +1760,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
     int id = g_flat_node_id++;
     for (int i = 0; i < n; i++) {
         lbls[i]  = emit_label_alloc("xchain%d_n%d_α", id, i);
@@ -1743,7 +1770,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ) { node_γ = lbls[k]; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ) {
+            node_γ = (i > k && ir_is_generator_kind(nodes[k]->t)) ? betas[k] : lbls[k];
+            break;
+        }
         if (nodes[i]->γ == NULL || nodes[i]->γ->t == IR_SUCCEED) node_γ = &lbl_γ;
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω) { node_ω = lbls[k]; omega_resolved = 1; break; }
@@ -1913,6 +1943,7 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_flat_chain_set_n = 0;
     g_descr_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "pat_flat");
@@ -1928,6 +1959,7 @@ int descr_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return 1;
     descr_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_flat_chain_set_n = 0;
     g_descr_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_flat_chain_body(entry, prefix);
