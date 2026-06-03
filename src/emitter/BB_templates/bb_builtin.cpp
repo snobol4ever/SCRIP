@@ -22,6 +22,7 @@ extern "C" int  rt_term_cmp(const char *op, int k0, long i0, const char *s0, int
 extern "C" int  rt_type_test(const char *fn, int k0, long i0, const char *s0);
 extern "C" int  rt_type_test_term(const char *fn, void *t0);
 extern "C" void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
+extern "C" void *rt_node_to_term_ptr(void *ir_node);
 extern "C" void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr);
 extern "C" int  rt_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
 extern "C" int  rt_arg_term(int k0, long i0, const char *s0, void *t1, int k2, long i2, const char *s2);
@@ -167,107 +168,11 @@ std::string emit_build_compound_term(const IR_t *nd) {
     return s_comment(emit_fmt("# build_compound_term: unhandled kind %d", (int)nd->t));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PLR-J-3 (2026-05-29): emit_build_compound_term_bin — MEDIUM_BINARY twin of emit_build_compound_term.   */
-/* Same post-order walker, same calling convention (leaves Term* in rax), but emits raw x86-64 bytes      */
-/* instead of assembly text: absolute movabs for interned string pointers (valid in-process for mode-3    */
-/* native, where this path runs) and movabs rax,&helper; call rax instead of RIP-relative lea + PLT.      */
-/* rt_node_to_term(int kind, long ival, const char *sval, double dval): SysV edi=kind rsi=ival         */
-/* rdx=sval xmm0=dval. dval always 0.0 here (no float literals reach this builder) → xorps xmm0,xmm0.     */
-/* rt_compound_build_n(const char *functor, int arity, void *args_ptr): rdi=functor esi=arity rdx=ptr. */
-/* Stack discipline: caller (the builtin arm) must enter with rsp 16-aligned; each STRUCT level subtracts */
-/* an aligned frame and restores it, so alignment is preserved across the recursion.                      */
-std::string emit_build_compound_term_bin(const IR_t *nd) {
-    if (!nd) {
-        std::string b;
-        b += bytes(2, "\x31\xFF");
-        b += bytes(2, "\x31\xF6");
-        b += bytes(2, "\x31\xD2");
-        b += bytes(3, "\x0F\x57\xC0");
-        b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_node_to_term) + bytes(2, "\xFF\xD0");
-        return b;
-    }
-    if (nd->t == IR_LIT_I || nd->t == IR_LIT_F || nd->t == IR_ATOM || nd->t == IR_LOGICVAR) {
-        const char *s = (nd->t == IR_ATOM && nd->sval) ? nd->sval : NULL;
-        std::string b;
-        b += bytes(1, "\xBF") + u32le((uint32_t)(int)nd->t);
-        b += bytes(2, "\x48\xBE") + u64le((uint64_t)(long)nd->ival);
-        if (s) b += bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)s);
-        else   b += bytes(2, "\x31\xD2");
-        b += bytes(3, "\x0F\x57\xC0");
-        b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_node_to_term) + bytes(2, "\xFF\xD0");
-        return b;
-    }
-    if (nd->t == IR_STRUCT) {
-        int arity = (int)nd->ival;
-        const char *fn = nd->sval;
-        if (arity <= 0 || !nd->α) {
-            std::string b;
-            b += bytes(1, "\xBF") + u32le((uint32_t)(int)IR_ATOM);
-            b += bytes(2, "\x31\xF6");
-            if (fn) b += bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)fn);
-            else    b += bytes(2, "\x31\xD2");
-            b += bytes(3, "\x0F\x57\xC0");
-            b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_node_to_term) + bytes(2, "\xFF\xD0");
-            return b;
-        }
-        int slots_bytes = arity * 8;
-        int frame = (slots_bytes + 15) & ~15;
-        std::string b;
-        b += bytes(3, "\x48\x81\xEC") + u32le((uint32_t)frame);
-        const IR_t *child = nd->α;
-        for (int i = 0; i < arity && child; i++) {
-            b += emit_build_compound_term_bin(child);
-            int off = i * 8;
-            if (off == 0) b += bytes(4, "\x48\x89\x04\x24");
-            else if (off < 128) { char d = (char)(uint8_t)off; b += bytes(4, "\x48\x89\x44\x24") + std::string(&d, 1); }
-            else                b += bytes(4, "\x48\x89\x84\x24") + u32le((uint32_t)off);
-            child = child->γ;
-        }
-        if (fn) b += bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)fn);
-        else    b += bytes(2, "\x31\xFF");
-        b += bytes(1, "\xBE") + u32le((uint32_t)arity);
-        b += bytes(3, "\x48\x89\xE2");
-        b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_compound_build_n) + bytes(2, "\xFF\xD0");
-        b += bytes(3, "\x48\x81\xC4") + u32le((uint32_t)frame);
-        return b;
-    }
-    if (nd->t == IR_ARITH) {
-        /* PLR-K-4 (2026-05-29): a IR_ARITH node in TERM position (not evaluated) is a compound term, */
-        /* e.g. write_canonical(1+2). Mirror resolve_node_to_term's IR_ARITH case: functor = sval, operands */
-        /* on α and β (NOT γ-chained like IR_STRUCT). arity 0 → atom; 1 → f(α); 2 → f(α,β).         */
-        int arity = (int)nd->ival;
-        const char *fn = nd->sval;
-        if (arity <= 0 || !nd->α) {
-            std::string b;
-            b += bytes(1, "\xBF") + u32le((uint32_t)(int)IR_ATOM);
-            b += bytes(2, "\x31\xF6");
-            if (fn) b += bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)fn);
-            else    b += bytes(2, "\x31\xD2");
-            b += bytes(3, "\x0F\x57\xC0");
-            b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_node_to_term) + bytes(2, "\xFF\xD0");
-            return b;
-        }
-        const IR_t *ops[2] = { nd->α, (arity >= 2) ? nd->β : NULL };
-        int slots_bytes = arity * 8;
-        int frame = (slots_bytes + 15) & ~15;
-        std::string b;
-        b += bytes(3, "\x48\x81\xEC") + u32le((uint32_t)frame);
-        for (int i = 0; i < arity && ops[i]; i++) {
-            b += emit_build_compound_term_bin(ops[i]);
-            int off = i * 8;
-            if (off == 0) b += bytes(4, "\x48\x89\x04\x24");
-            else if (off < 128) { char d = (char)(uint8_t)off; b += bytes(4, "\x48\x89\x44\x24") + std::string(&d, 1); }
-            else                b += bytes(4, "\x48\x89\x84\x24") + u32le((uint32_t)off);
-        }
-        if (fn) b += bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)fn);
-        else    b += bytes(2, "\x31\xFF");
-        b += bytes(1, "\xBE") + u32le((uint32_t)arity);
-        b += bytes(3, "\x48\x89\xE2");
-        b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_compound_build_n) + bytes(2, "\xFF\xD0");
-        b += bytes(3, "\x48\x81\xC4") + u32le((uint32_t)frame);
-        return b;
-    }
-    return std::string();
+std::string emit_term_from_node_bin(const IR_t *nd) {
+    std::string b;
+    b += bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)(const void *)nd);
+    b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)rt_node_to_term_ptr) + bytes(2, "\xFF\xD0");
+    return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_builtin_str(IR_t * pBB) {
@@ -309,7 +214,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                         /* emit_build_compound_term_bin (→ rax) then rt_write_term_ptr(rdi=rax).     */
                         /* sub rsp,8 keeps 16-alignment across the build's and helper's internal calls. */
                         b += bytes(4, "\x48\x83\xEC\x08");
-                        b += emit_build_compound_term_bin(arg);
+                        b += emit_term_from_node_bin(arg);
                         b += bytes(3, "\x48\x89\xC7");   /* mov rdi, rax */
                         b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_term_ptr)
                            + bytes(2, "\xFF\xD0");
@@ -335,7 +240,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                     : (void *)rt_write_canonical_term_ptr;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x08");          /* sub rsp, 8 */
-                b += emit_build_compound_term_bin(arg);
+                b += emit_term_from_node_bin(arg);
                 b += bytes(3, "\x48\x89\xC7");              /* mov rdi, rax */
                 b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)writer) + bytes(2, "\xFF\xD0");
                 b += bytes(4, "\x48\x83\xC4\x08");          /* add rsp, 8 */
@@ -435,7 +340,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                     /* 16-alignment across the build's internal calls. Std test/je-ω/jmp-γ/β→ω tail.      */
                     std::string b;
                     b += bytes(4, "\x48\x83\xEC\x08");          /* sub rsp, 8 */
-                    b += emit_build_compound_term_bin(a0);
+                    b += emit_term_from_node_bin(a0);
                     b += bytes(3, "\x48\x89\xC6");              /* mov rsi, rax */
                     b += bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)fn);   /* mov rdi, fn */
                     b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_type_test_term) + bytes(2, "\xFF\xD0");
@@ -476,7 +381,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 const char *s2 = (k2 == IR_ATOM) ? a2->sval : NULL;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");
-                b += emit_build_compound_term_bin(a0);
+                b += emit_term_from_node_bin(a0);
                 b += bytes(3, "\x48\x89\xC7");
                 b += bytes(1, "\xBE") + u32le((uint32_t)k1);
                 b += bytes(2, "\x48\xBA") + u64le((uint64_t)i1);
@@ -502,7 +407,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 const char *s2 = (k2 == IR_ATOM) ? a2->sval : NULL;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");
-                b += emit_build_compound_term_bin(a1);
+                b += emit_term_from_node_bin(a1);
                 b += bytes(3, "\x48\x89\xC1");
                 b += bytes(1, "\xBF") + u32le((uint32_t)k0);
                 b += bytes(2, "\x48\xBE") + u64le((uint64_t)i0);
@@ -531,16 +436,16 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 std::string b;
                 if (compound0 && compound1) {
                     b += bytes(4, "\x48\x83\xEC\x10");
-                    b += emit_build_compound_term_bin(a0);
+                    b += emit_term_from_node_bin(a0);
                     b += bytes(4, "\x48\x89\x04\x24");
-                    b += emit_build_compound_term_bin(a1);
+                    b += emit_term_from_node_bin(a1);
                     b += bytes(3, "\x48\x89\xC6");
                     b += bytes(4, "\x48\x8B\x3C\x24");
                     b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_univ_term_term) + bytes(2, "\xFF\xD0");
                     b += bytes(4, "\x48\x83\xC4\x10");
                 } else if (compound0) {
                     b += bytes(4, "\x48\x83\xEC\x08");
-                    b += emit_build_compound_term_bin(a0);
+                    b += emit_term_from_node_bin(a0);
                     b += bytes(3, "\x48\x89\xC7");
                     b += bytes(1, "\xBE") + u32le((uint32_t)k1);
                     b += bytes(2, "\x48\xBA") + u64le((uint64_t)i1);
@@ -550,7 +455,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                     b += bytes(4, "\x48\x83\xC4\x08");
                 } else {
                     b += bytes(4, "\x48\x83\xEC\x08");
-                    b += emit_build_compound_term_bin(a1);
+                    b += emit_term_from_node_bin(a1);
                     b += bytes(3, "\x48\x89\xC1");
                     b += bytes(1, "\xBF") + u32le((uint32_t)k0);
                     b += bytes(2, "\x48\xBE") + u64le((uint64_t)i0);
@@ -576,9 +481,9 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 const char *sres = (kres == IR_ATOM) ? a2->sval : NULL;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
-                b += emit_build_compound_term_bin(a0);            /* build template → rax */
+                b += emit_term_from_node_bin(a0);            /* build template → rax */
                 b += bytes(4, "\x48\x89\x04\x24");                /* mov [rsp+0], rax (hold tmpl) */
-                b += emit_build_compound_term_bin(a1);            /* build goal → rax */
+                b += emit_term_from_node_bin(a1);            /* build goal → rax */
                 b += bytes(3, "\x48\x89\xC6");                    /* mov rsi, rax (goal) */
                 b += bytes(4, "\x48\x8B\x3C\x24");                /* mov rdi, [rsp+0] (tmpl) */
                 b += bytes(1, "\xBA") + u32le((uint32_t)kres);    /* mov edx, kres */
@@ -603,9 +508,9 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
                 if (is_set) {
-                    b += emit_build_compound_term_bin(a0);        /* build key → rax */
+                    b += emit_term_from_node_bin(a0);        /* build key → rax */
                     b += bytes(4, "\x48\x89\x04\x24");            /* mov [rsp+0], rax (hold key) */
-                    b += emit_build_compound_term_bin(a1);        /* build value → rax */
+                    b += emit_term_from_node_bin(a1);        /* build value → rax */
                     b += bytes(3, "\x48\x89\xC6");                /* mov rsi, rax (val) */
                     b += bytes(4, "\x48\x8B\x3C\x24");            /* mov rdi, [rsp+0] (key) */
                     b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_nb_setval_term) + bytes(2, "\xFF\xD0");
@@ -613,7 +518,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                     int  kres = (int)a1->t;
                     long ires = (long)a1->ival;
                     const char *sres = (kres == IR_ATOM) ? a1->sval : NULL;
-                    b += emit_build_compound_term_bin(a0);        /* build key → rax */
+                    b += emit_term_from_node_bin(a0);        /* build key → rax */
                     b += bytes(3, "\x48\x89\xC7");                /* mov rdi, rax (key) */
                     b += bytes(1, "\xBE") + u32le((uint32_t)kres);/* mov esi, kres */
                     b += bytes(2, "\x48\xBA") + u64le((uint64_t)ires);  /* mov rdx, ires */
@@ -641,9 +546,9 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
                 if (a1_compound) {
-                    b += emit_build_compound_term_bin(a0);        /* build arg0 → rax */
+                    b += emit_term_from_node_bin(a0);        /* build arg0 → rax */
                     b += bytes(4, "\x48\x89\x04\x24");            /* mov [rsp+0], rax (hold across build) */
-                    b += emit_build_compound_term_bin(a1);        /* build arg1 → rax */
+                    b += emit_term_from_node_bin(a1);        /* build arg1 → rax */
                     b += bytes(3, "\x48\x89\xC6");                /* mov rsi, rax (t1) */
                     b += bytes(4, "\x48\x8B\x3C\x24");            /* mov rdi, [rsp+0] (t0) */
                     b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_copy_term_terms) + bytes(2, "\xFF\xD0");
@@ -651,7 +556,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                     int  k1 = (int)a1->t;
                     long i1 = (long)a1->ival;
                     const char *s1 = (k1 == IR_ATOM) ? a1->sval : NULL;
-                    b += emit_build_compound_term_bin(a0);        /* build arg0 → rax */
+                    b += emit_term_from_node_bin(a0);        /* build arg0 → rax */
                     b += bytes(3, "\x48\x89\xC7");                /* mov rdi, rax */
                     b += bytes(1, "\xBE") + u32le((uint32_t)k1);  /* mov esi, k1 */
                     b += bytes(2, "\x48\xBA") + u64le((uint64_t)i1);  /* mov rdx, i1 */
@@ -809,7 +714,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                     /* Path B: build the list Term* then call the _term helper.                          */
                     /* sub rsp, 8     48 83 EC 08   (align: one odd push to balance the build's call)     */
                     b += bytes(4, "\x48\x83\xEC\x08");
-                    b += emit_build_compound_term_bin(a1);
+                    b += emit_term_from_node_bin(a1);
                     /* mov r8, rax    49 89 C0                                                            */
                     b += bytes(3, "\x49\x89\xC0");
                     /* mov edi, as_codes ; mov esi, k0 ; mov rdx, i0 ; mov rcx, s0                        */
@@ -909,7 +814,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 /* sub rsp, 8 (keep 16-alignment across the build's internal calls)   48 83 EC 08      */
                 b += bytes(4, "\x48\x83\xEC\x08");
                 /* build a0's term → rax                                                               */
-                b += emit_build_compound_term_bin(a0);
+                b += emit_term_from_node_bin(a0);
                 /* mov rdi, rax    48 89 C7                                                             */
                 b += bytes(3, "\x48\x89\xC7");
                 /* mov rsi, start    48 BE [8]                                                          */
@@ -943,7 +848,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 const char *s1 = (k1 == IR_ATOM) ? a1->sval : NULL;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
-                b += emit_build_compound_term_bin(a0);            /* build a0's term → rax */
+                b += emit_term_from_node_bin(a0);            /* build a0's term → rax */
                 b += bytes(3, "\x48\x89\xC7");                    /* mov rdi, rax */
                 b += bytes(1, "\xBE") + u32le((uint32_t)k1);      /* mov esi, k1 */
                 b += bytes(2, "\x48\xBA") + u64le((uint64_t)i1);  /* mov rdx, i1 */
@@ -974,7 +879,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
                 if (compound1) {
                     /* Path B: build args-list Term* (→ rax), move to r8, then scalar fmt args. */
-                    b += emit_build_compound_term_bin(a1);
+                    b += emit_term_from_node_bin(a1);
                     b += bytes(3, "\x49\x89\xC0");                /* mov r8, rax */
                     b += bytes(1, "\xBF") + u32le((uint32_t)arity);          /* mov edi, arity */
                     b += bytes(1, "\xBE") + u32le((uint32_t)k0);             /* mov esi, k0 */
@@ -1099,7 +1004,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 const char *sres = (resN && kres == IR_ATOM) ? resN->sval : NULL;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
-                b += emit_build_compound_term_bin(a0);            /* build arg0 list → rax */
+                b += emit_term_from_node_bin(a0);            /* build arg0 list → rax */
                 b += bytes(3, "\x48\x89\xC7");                    /* mov rdi, rax */
                 b += bytes(1, "\xBE") + u32le((uint32_t)arity);   /* mov esi, arity */
                 b += bytes(1, "\xBA") + u32le((uint32_t)ksep);    /* mov edx, ksep */
@@ -1141,7 +1046,7 @@ static std::string bb_builtin_str(IR_t * pBB) {
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
                 if (a0->t == IR_STRUCT) {
                     /* Path B: build a0's term → rax → rsi, then scalar args in rdi/edx/rcx/r8. */
-                    b += emit_build_compound_term_bin(a0);
+                    b += emit_term_from_node_bin(a0);
                     b += bytes(3, "\x48\x89\xC6");                /* mov rsi, rax */
                     b += bytes(1, "\xBF") + u32le((uint32_t)do_msort);       /* mov edi, do_msort */
                     b += bytes(1, "\xBA") + u32le((uint32_t)k1);             /* mov edx, k1 */

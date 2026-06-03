@@ -339,6 +339,8 @@ static Term *resolve_node_to_term(IR_t *bb) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void *rt_node_to_term_ptr(void *ir_node) { return (void *)resolve_node_to_term((IR_t *)ir_node); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void resolve_format_float(char *buf, size_t bufsz, double d);
 static const char *resolve_atomic_text(Term *t, char *buf, size_t bufsz) {
     t = t ? term_deref(t) : NULL;
