@@ -103,6 +103,7 @@ static int icn_kind_native_stub(IR_e t) {
            t == IR_SUSPEND ||
            t == IR_LIST_BANG ||
            t == IR_ALT ||
+           t == IR_TO || t == IR_TO_BY || t == IR_BINOP_GEN ||
            t == IR_MAP || t == IR_GREP;
 }
 static int icn_graph_native_emittable(stage2_t *s2) {
