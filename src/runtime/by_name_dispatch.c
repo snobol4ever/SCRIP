@@ -861,12 +861,50 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
     out[op] = '\0';
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static long g_pas_heap_ctr = 0;
+/*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (!strcmp(fn, "__pas_sqr") && nargs == 1) {
         if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d * d; *out = r; return 1; }
         long v = IS_INT_fn(args[0]) ? args[0].i : 0;
         *out = INTVAL(v * v); return 1;
+    }
+    if (!strcmp(fn, "__pas_alloc") && nargs == 0) {
+        char key[32]; g_pas_heap_ctr++; snprintf(key, 32, "__heap_%ld", g_pas_heap_ctr);
+        NV_SET_fn(key, INTVAL(0)); *out = INTVAL(g_pas_heap_ctr); return 1;
+    }
+    if (!strcmp(fn, "__pas_alloc_rec") && nargs == 1) {
+        long nf = IS_INT_fn(args[0]) ? args[0].i : 1; if (nf < 1) nf = 1;
+        size_t len = (size_t)(nf * 2 - 1); char *seg = GC_malloc(len + 1); size_t p = 0;
+        for (long k = 0; k < nf; k++) { if (k) seg[p++] = SOH; seg[p++] = '0'; } seg[p] = '\0';
+        char key[32]; g_pas_heap_ctr++; snprintf(key, 32, "__heap_%ld", g_pas_heap_ctr);
+        NV_SET_fn(key, STRVAL(seg)); *out = INTVAL(g_pas_heap_ctr); return 1;
+    }
+    if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
+        long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[2]; return 1; }
+        char key[32]; snprintf(key, 32, "__heap_%ld", n);
+        DESCR_t recd = NV_GET_fn(key); const char *cur = VARVAL_fn(recd); if (!cur) cur = "";
+        long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
+        char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb);
+        const char *s = cur; long k = 0; const char *tstart = NULL; const char *tend = NULL;
+        for (;;) { const char *nx = strchr(s, SOH); if (k == idx) { tstart = s; tend = nx; break; } if (!nx) { tstart = NULL; break; } s = nx + 1; k++; }
+        if (!tstart) { *out = args[2]; return 1; }
+        size_t pre = (size_t)(tstart - cur); size_t post = tend ? strlen(tend) : 0; size_t rvl = strlen(rv);
+        char *o = GC_malloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, rv, rvl);
+        if (tend) memcpy(o + pre + rvl, tend, post); o[pre + rvl + post] = '\0';
+        NV_SET_fn(key, STRVAL(o)); *out = args[2]; return 1;
+    }
+    if (!strcmp(fn, "__pas_deref") && nargs == 1) {
+        long n = IS_INT_fn(args[0]) ? args[0].i : 0;
+        if (n <= 0) { *out = INTVAL(0); return 1; }
+        char key[32]; snprintf(key, 32, "__heap_%ld", n);
+        *out = NV_GET_fn(key); return 1;
+    }
+    if (!strcmp(fn, "__pas_deref_set") && nargs == 2) {
+        long n = IS_INT_fn(args[0]) ? args[0].i : 0;
+        if (n > 0) { char key[32]; snprintf(key, 32, "__heap_%ld", n); NV_SET_fn(key, args[1]); }
+        *out = args[1]; return 1;
     }
     if (!strcmp(fn, "__pas_in") && nargs == 2) {
         long e = IS_INT_fn(args[0]) ? args[0].i : -1;
