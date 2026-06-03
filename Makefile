@@ -69,7 +69,6 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt.c \
     $(RT)/rt/rt_protected.c \
     $(SRC)/runtime/core/core.c \
-    $(SRC)/runtime/core/pattern.c \
     $(SRC)/runtime/core/invoke.c \
     $(SRC)/runtime/core/argval.c \
     $(SRC)/runtime/core/name_save.c \
@@ -80,7 +79,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/runtime_init.c \
     $(SRC)/runtime/io_format.c \
     $(SRC)/runtime/arithmetic.c \
-    $(SRC)/runtime/core/eval_pat.c \
+    $(SRC)/runtime/pattern_match.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
     $(SRC)/emitter/emit_str.cpp \
@@ -223,7 +222,6 @@ scrip:
 	$(CC) $(CBASE) -c $(SRC)/parser/snobol4/snobol4.lex.c -o $(OBJ)/snobol4.lex.o
 	$(CC) $(CBASE) -c $(SRC)/parser/snobol4/snobol4.tab.c -o $(OBJ)/snobol4.tab.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/core.c               -o $(OBJ)/snobol4.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/core/pattern.c        -o $(OBJ)/snobol4_pattern.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/invoke.c                 -o $(OBJ)/snobol4_invoke.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/argval.c                 -o $(OBJ)/snobol4_argval.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/name_save.c                    -o $(OBJ)/snobol4_nmd.o
@@ -234,7 +232,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/runtime_init.c                  -o $(OBJ)/runtime_init.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/io_format.c                  -o $(OBJ)/io_format.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/arithmetic.c                  -o $(OBJ)/arithmetic.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/core/eval_pat.c                   -o $(OBJ)/eval_pat.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/pattern_match.c              -o $(OBJ)/pattern_match.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
