@@ -1906,6 +1906,11 @@ IR_t * IR_interp_node(IR_t * bb) {
                 bb->value = out;
                 return IS_FAIL_fn(out) ? bb->ω : bb->γ;
             }
+            if (FNCEX_fn(bb->sval)) {
+                out = APPLY_fn(bb->sval, args, nargs);
+                bb->value = out;
+                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+            }
             bb->value = FAILDESCR;
             return bb->ω;
         }
