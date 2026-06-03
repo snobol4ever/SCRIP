@@ -428,6 +428,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_TO:
     case IR_TO_BY:                { extern void bb_to(IR_t *); bb_to(nd); } return 0;
     case IR_LIST_BANG:            bb_iterate(nd);      return 0;
+    case IR_ALT:                  { extern void bb_alt(IR_t *); bb_alt(nd); } return 0;
     case IR_GATHER:               { extern void bb_gather(IR_t *); bb_gather(nd); } return 0;
     case IR_SIZE:                 bb_unop();        return 0;
     case IR_PAT_DEFER:            bb_pat_defer();    return 0;
