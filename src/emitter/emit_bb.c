@@ -1116,6 +1116,13 @@ static void flat_drive_gvar_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lb
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_gvar_seq_passthrough(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    (void)pBB;
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_JMP(lbl_γ);
+    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || pBB->α->t != IR_BINOP) {
         fprintf(stderr, "[SBB] FATAL flat_drive_gvar_assign_binop: rhs is not IR_BINOP\n");
@@ -1585,7 +1592,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             flat_drive_binop_gen_tree(nd, lbl_γ, lbl_ω, lbl_β);
         }
         break;
-    case IR_SEQ:        flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SEQ:        if (g_gvar_flat_chain && nd && nd->dval == 1.0) { flat_drive_gvar_seq_passthrough(nd, lbl_γ, lbl_ω, lbl_β); } else flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SEQ_EXPR:   flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_EVERY:      flat_drive_every(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIMIT:      flat_drive_limit(nd, lbl_γ, lbl_ω, lbl_β); break;

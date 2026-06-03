@@ -17,6 +17,8 @@ typedef struct {
     const char *                 op_a_sval;
     int                          op_a_node_kind;
     int                          op_a_slot;
+    int64_t                      op_a_counter;
+    int64_t                      op_a_ival_sg;
     int                          op_sa;
     int                          op_sb;
     int                          op_off;
