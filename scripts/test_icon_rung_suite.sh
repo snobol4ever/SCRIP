@@ -71,12 +71,12 @@ run_prog() {
         compile)
             s="$WORK/$name.s"; o="$WORK/$name.o"; bin="$WORK/${name}_bin"
             if ! timeout "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>"$errf"; then
-                return 0   # emit failed/declined; banner (if any) is in errf
+                return 1   # emit failed; a loud [SMX] banner in errf still wins (EXCISED) in run_corpus
             fi
             # a loud [SMX] decline prints to stderr and emits no usable .s — surface the banner, no asm step
             if grep -qE "$SMX_SIG" "$errf"; then return 0; fi
-            if ! as "$s" -o "$o" 2>>"$errf"; then return 0; fi
-            if ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then return 0; fi
+            if ! as "$s" -o "$o" 2>>"$errf"; then return 1; fi
+            if ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then return 1; fi
             timeout "$tmo" "$bin" < "$IN" 2>>"$errf"
             ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;
@@ -107,7 +107,7 @@ run_corpus() {
     local mode="$1"
     local PASS=0 FAIL=0 XFAIL=0 EXCISED=0
     MODE_FAIL=0
-    local icn base name exp got want errf
+    local icn base name exp got want errf rc
     errf="$WORK/err.txt"
     for icn in "${FILES[@]}"; do
         exp="${icn%.icn}.expected"
@@ -119,11 +119,18 @@ run_corpus() {
             XFAIL=$((XFAIL+1)); continue
         fi
         : > "$errf"
-        got=$(run_prog "$mode" "$icn" 8 "$errf") || true
+        got=$(run_prog "$mode" "$icn" 8 "$errf"); rc=$?
         # loud-decline -> EXCISED (expected mid-Ground-Zero, NOT a FAIL). interp never declines.
         if [ "$mode" != interp ] && grep -qE "$SMX_SIG" "$errf"; then
             [ "$VERBOSE" = 1 ] && echo "EXCISED $name"
             EXCISED=$((EXCISED+1)); continue
+        fi
+        # SUITE-HONESTY (GOAL-ICON-BB 2026-06-03): a nonzero exit without the [SMX] banner is a FAIL in
+        # EVERY mode (m2 included), even when stdout happens to match .expected — kills the vacuous pass
+        # where an aborting program with empty stdout matched an empty .expected (rung36_jcon_proto).
+        if [ "$rc" -ne 0 ]; then
+            [ "$VERBOSE" = 1 ] && echo "FAIL $name (rc=$rc)"
+            FAIL=$((FAIL+1)); MODE_FAIL=1; continue
         fi
         want=$(cat "$exp")
         if [ "$got" = "$want" ]; then
