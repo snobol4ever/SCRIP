@@ -18,7 +18,7 @@
          abort(); } while (0)
 #include <string.h>
 #include <math.h>
-extern void    SNO_INIT_fn(void);
+extern void    core_lib_init(void);
 extern int     exec_stmt(const char *subj_name, DESCR_t *subj_var,
                          DESCR_t pat, DESCR_t *repl, int has_repl);
 extern DESCR_t NV_GET_fn(const char *name);
@@ -195,7 +195,7 @@ void rt_init(int argc, char **argv)
     (void)argc; (void)argv;
     setvbuf(stdout, NULL, _IOLBF, 0);
     bb_pool_init();
-    SNO_INIT_fn();
+    core_lib_init();
     trail_init(&g_resolve_trail);
     prolog_atom_init();
     g_bb_mode = BB_MODE_BROKERED;

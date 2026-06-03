@@ -1602,7 +1602,7 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
     return NV_GET_fn(fname);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void SNO_INIT_fn(void) {
+void core_lib_init(void) {
     GC_INIT();
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';

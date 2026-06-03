@@ -10,8 +10,10 @@
 #   * snocone / _snoc* / snoch / snotypes  — Snocone is a DIFFERENT language (sno is a substring).
 #   * prologue / epilogue                  — assembly terms, not Prolog.
 #   * src/runtime/core/**                  — the SNOBOL runtime LIBRARY (genuine SNOBOL execution
-#     model; SNO_INIT_fn precedent). Its de-naming is a separate runtime-unification decision
-#     (LI-CORE), tracked apart from this rung.
+#     model: the NV/keyword tables, the pattern engine, the SNOBOL builtins). Its de-naming is a
+#     separate runtime-unification decision (LI-CORE), tracked apart from this rung. (The former
+#     universal-init carve-out SNO_INIT_fn was de-named to core_lib_init 2026-06-02 — it inits the
+#     shared runtime + builtin ABI for every language, so its language tag was misleading.)
 #   * frontend-contract dispatch NAME strings the parser mints and the runtime strcmp-dispatches:
 #     ICN_NULL / ICN_CASE_EQ / ICN_SCAN_PUSH / ICN_SCAN_POP / ICN_SWAP* / ICN_GEN_STATE* ,
 #     __rk_jct_* / __rk_arr , set_prolog_flag / current_prolog_flag.  Renaming these requires
@@ -45,7 +47,6 @@ ALLOW="$ALLOW"'|prolog_atom|prolog_runtime|prolog_driver|prolog_builtin'        
 ALLOW="$ALLOW"'|pl_write|pl_writeq|pl_write_canonical|pl_assert_term|pl_univ|pl_functor|pl_arg|pl_term_to_string'  # parser Prolog builtins
 ALLOW="$ALLOW"'|Raku_nfa|Raku_match|raku_nfa_|raku_re|raku_nfa_compile'                  # parser Raku NFA API
 ALLOW="$ALLOW"'|g_raku_match|g_raku_subject'                                             # driver Raku globals
-ALLOW="$ALLOW"'|SNO_INIT_fn|SNOBOL'                                                      # core SNOBOL-lib (LI-CORE pending)
 ALLOW="$ALLOW"'|STAGE2_PL_PRED_TABLE_SIZE'                                               # stage2 contract (contracts-scope)
 ALLOW="$ALLOW"'|\bIcon\b|\bProlog\b|\bprolog\b|\braku\b'                                  # English words in diagnostic strings/comments
 

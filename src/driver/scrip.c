@@ -536,8 +536,8 @@ int main(int argc, char **argv)
         bb_pool_init();
     }
     setvbuf(stdout, NULL, _IOLBF, 0);
-    extern void SNO_INIT_fn(void);
-    SNO_INIT_fn();
+    extern void core_lib_init(void);
+    core_lib_init();
     stmt_init();
     register_fn("IDENT",  _builtin_IDENT,  1, 2);
     register_fn("DIFFER", _builtin_DIFFER, 1, 2);
