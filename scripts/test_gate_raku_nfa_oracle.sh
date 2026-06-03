@@ -170,6 +170,46 @@ else
     exit 1
 fi
 
+# ────────────────────────────────────────────────────────────────────────────────────────────
+# RK-NFA-2 epsilon-loop TERMINATION battery (regression guard, found by differential fuzz 2026-06-03).
+#   A quantifier over an empty-matchable subpattern — (a?)*, (a*)*, ()*, (|a)*, and the same shapes
+#   under a constraint that forces backtracking ((a?)*$ on "aab", (a+)+$, ((a|b|c)*)*$) — builds an
+#   epsilon loop in the NFA. The recursive backtracking walker (nfa_bt_ir_cap) used to spin on the
+#   zero-width cycle and overflow the C stack (SIGSEGV), while the parallel-NFA oracle (visited[]
+#   eps-closure) returned the correct verdict. Fixed by a (node,pos) visited memo mirroring the
+#   oracle; this battery proves the walker now (a) does NOT crash and (b) agrees with the oracle —
+#   including catastrophic-backtracking shapes on longer subjects, which the memo also bounds to
+#   linear work. Both matchers must run rc=0 and produce identical output.
+cat > "$TMP/eps.raku" << 'RAKU'
+sub main() {
+    if ('xyz'  ~~ /(a?)*/)  { say('p1 Y'); } else { say('p1 N'); }      # empty-loop, unanchored
+    if ('xyz'  ~~ /(a*)*/)  { say('p2 Y'); } else { say('p2 N'); }      # nested empty-loop
+    if ('xyz'  ~~ /()*/)    { say('p3 Y'); } else { say('p3 N'); }      # truly-empty group loop
+    if ('xyz'  ~~ /(|a)*/)  { say('p4 Y'); } else { say('p4 N'); }      # empty-alternative loop
+    if ('aaa'  ~~ /^(a?)*$/) { say('p5 Y'); } else { say('p5 N'); }     # anchored, satisfiable
+    if ('aab'  ~~ /^(a?)*$/) { say('p6 Y'); } else { say('p6 N'); }     # anchored, forces backtrack -> N
+    if ('b'    ~~ /(a?)*b/)  { say('p7 Y'); } else { say('p7 N'); }     # eps-loop then required char
+    if ('aac'  ~~ /(a?)*b/)  { say('p8 Y'); } else { say('p8 N'); }     # required char fails -> N (was SEGV)
+    if ('aaaaaaaaaaaaaaaa'  ~~ /(a*)*$/)       { say('p9 Y');  } else { say('p9 N');  }  # catastrophic shape
+    if ('aaaaaaaaaaaaaaab'  ~~ /(a+)+$/)       { say('p10 Y'); } else { say('p10 N'); }  # nested +, fails -> N
+    if ('abcabcabc'         ~~ /((a|b|c)*)*$/)  { say('p11 Y'); } else { say('p11 N'); }  # alt under nested *
+    if (''                  ~~ /(.*)*(.*)*$/)   { say('p12 Y'); } else { say('p12 N'); }  # empty subj, eps-heavy
+    say('eps done');
+}
+RAKU
+RK_NFA_BB=0 timeout 30 "$SCRIP" --interp "$TMP/eps.raku" </dev/null >"$TMP/eps_o.out" 2>/dev/null; rc_po=$?
+RK_NFA_BB=1 timeout 30 "$SCRIP" --interp "$TMP/eps.raku" </dev/null >"$TMP/eps_b.out" 2>/dev/null; rc_pb=$?
+if [ "$rc_po" -ne 0 ]; then echo "FAIL: eps oracle rc=$rc_po"; exit 1; fi
+if [ "$rc_pb" -ne 0 ]; then echo "FAIL: eps WALKER rc=$rc_pb (epsilon-loop crash regressed — the (node,pos) memo is broken)"; exit 1; fi
+if ! tail -1 "$TMP/eps_o.out" | grep -q 'eps done'; then echo "FAIL: eps oracle did not complete"; exit 1; fi
+if diff -q "$TMP/eps_o.out" "$TMP/eps_b.out" >/dev/null; then
+    echo "PASS: $(grep -c ' [YN]$' "$TMP/eps_o.out") epsilon-loop probes — walker terminates + == oracle (no SIGSEGV, no exponential blowup)"
+else
+    echo "FAIL: eps-loop walker diverges from oracle"
+    diff "$TMP/eps_o.out" "$TMP/eps_b.out" | head -40
+    exit 1
+fi
+
 # RK-NFA-3 — capture recording on the IR-graph path ($0/$1 positional, $<name> named).
 # Same lowered program; re_capture/re_named_capture read g_raku_match, populated from the
 # IR-graph exec (raku_nfa_bb_exec) under RK_NFA_BB=1. Must equal the parallel-NFA oracle.
