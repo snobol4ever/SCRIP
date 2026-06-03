@@ -343,7 +343,7 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
             case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)bb->ival); break;
             case IR_LIT_F: fprintf(fp, " dval=%g",   bb->dval);             break;
             case IR_LIT_S: fprintf(fp, " sval=\"%s\"", bb->sval ? bb->sval : ""); break;
-            case IR_VAR:   fprintf(fp, " var=\"%s\"",  bb->sval ? bb->sval : ""); break;
+            case IR_VAR:   fprintf(fp, " var=\"%s\"%s",  bb->sval ? bb->sval : "", bb->state == 1 ? " scope=global" : ""); break;
             case IR_FIELD_GET:
             case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", bb->sval ? bb->sval : ""); break;
             default: break;
