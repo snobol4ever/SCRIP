@@ -62,6 +62,32 @@ ScanEntry scan_stack[SCAN_STACK_MAX];
 int         scan_depth = 0;
 int sm_yield_to_caller(DESCR_t v) { (void)v; return 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_icn_scan_enter(uint64_t lo, uint64_t hi) {
+    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
+    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
+    if (!s) s = "";
+    if (scan_depth < SCAN_STACK_MAX) {
+        scan_stack[scan_depth].subj = scan_subj;
+        scan_stack[scan_depth].pos  = scan_pos;
+        scan_depth++;
+    }
+    scan_subj = s;
+    scan_pos  = 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_icn_scan_leave(void) {
+    if (scan_depth > 0) {
+        scan_depth--;
+        scan_subj = scan_stack[scan_depth].subj;
+        scan_pos  = scan_stack[scan_depth].pos;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_icn_keyword_subject(void) { return scan_subj ? STRVAL(scan_subj) : NULVCL; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_icn_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 int is_suspendable(tree_t *e) {
     if (!e) return 0;
     switch (e->t) {

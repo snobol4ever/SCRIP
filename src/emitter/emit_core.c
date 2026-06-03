@@ -410,7 +410,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_LIT_S:
     case IR_LIT_F:
     case IR_LIT_NUL:              bb_lit_scalar(nd);         return 0;
-    case IR_VAR:                  { extern int g_icn_globals_nv; if (nd->state == 1 && g_icn_globals_nv) bb_var_global(nd); else bb_var(nd); } return 0;
+    case IR_VAR:                  { extern int g_icn_globals_nv; extern void bb_keyword(IR_t *); if (nd->sval && nd->sval[0] == '&') bb_keyword(nd); else if (nd->state == 1 && g_icn_globals_nv) bb_var_global(nd); else bb_var(nd); } return 0;
     case IR_ASSIGN: {
         extern int g_descr_flat_chain; extern void bb_gvar_assign(IR_t *); extern int g_icn_globals_nv; extern int is_global(const char *);
         if (!g_descr_flat_chain && nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_BINOP || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR || nd->α->t == IR_CALL)) { bb_gvar_assign(nd); return 0; }
@@ -418,6 +418,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1;
     }
     case IR_SCAN: { extern void bb_scan_stmt(IR_t *); bb_scan_stmt(nd); return 0; }
+    case IR_GEN_SCAN: { extern void bb_gen_scan(IR_t *); bb_gen_scan(nd); return 0; }
+    case IR_KEYWORD: { extern void bb_keyword(IR_t *); bb_keyword(nd); return 0; }
     case IR_RETURN: { extern int g_descr_flat_chain; extern void bb_return(IR_t *); if (g_descr_flat_chain) { bb_return(nd); return 0; } fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1; }
     case IR_AUGOP:
     case IR_CALL:                 bb_call(nd);         return 0;
