@@ -62,26 +62,32 @@ ScanEntry scan_stack[SCAN_STACK_MAX];
 int         scan_depth = 0;
 int sm_yield_to_caller(DESCR_t v) { (void)v; return 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_icn_scan_enter(uint64_t lo, uint64_t hi) {
+ScanSubjRegs rt_icn_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
     if (scan_depth < SCAN_STACK_MAX) {
-        scan_stack[scan_depth].subj = scan_subj;
-        scan_stack[scan_depth].pos  = scan_pos;
+        scan_stack[scan_depth].subj  = scan_subj;
+        scan_stack[scan_depth].pos   = scan_pos;
+        scan_stack[scan_depth].sigma = sigma;
+        scan_stack[scan_depth].delta = delta;
+        scan_stack[scan_depth].Delta = Delta;
         scan_depth++;
     }
     scan_subj = s;
     scan_pos  = 1;
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    return r;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_icn_scan_leave(void) {
+void rt_icn_scan_leave(uint64_t *out3) {
     if (scan_depth > 0) {
         scan_depth--;
         scan_subj = scan_stack[scan_depth].subj;
         scan_pos  = scan_stack[scan_depth].pos;
-    }
+        if (out3) { out3[0] = scan_stack[scan_depth].sigma; out3[1] = scan_stack[scan_depth].delta; out3[2] = scan_stack[scan_depth].Delta; }
+    } else if (out3) { out3[0] = 0; out3[1] = 0; out3[2] = 0; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_icn_keyword_subject(void) { return scan_subj ? STRVAL(scan_subj) : NULVCL; }
