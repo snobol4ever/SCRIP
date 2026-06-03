@@ -46,6 +46,16 @@ int rt_unify_const(int slot, int kind, long ival, const char *sval, double dval)
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_unify_var_var(int lslot, int rslot)
+{
+    extern Term **g_resolve_env;
+    Term *lt = (g_resolve_env && lslot >= 0 && g_resolve_env[lslot]) ? term_deref(g_resolve_env[lslot]) : (Term *)0;
+    if (!lt) { lt = term_new_var(lslot); if (g_resolve_env && lslot >= 0) g_resolve_env[lslot] = lt; }
+    Term *rt_ = (g_resolve_env && rslot >= 0 && g_resolve_env[rslot]) ? term_deref(g_resolve_env[rslot]) : (Term *)0;
+    if (!rt_) { rt_ = term_new_var(rslot); if (g_resolve_env && rslot >= 0) g_resolve_env[rslot] = rt_; }
+    return rt_unify_terms(lt, rt_);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_trail_mark(void)
 {
     extern Trail g_resolve_trail;
