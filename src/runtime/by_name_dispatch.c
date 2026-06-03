@@ -1,4 +1,4 @@
-#include "builtins/script_builtins.h"
+#include "by_name_dispatch.h"
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
 #include "../driver/interp_private.h"
