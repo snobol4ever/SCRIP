@@ -682,6 +682,10 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     const tree_t * lhs_t = NULL, * rhs_t = NULL;
     if (!tm(e, TT_ASSIGN, 2, &lhs_t, &rhs_t)) return NULL;
     if (!lhs_t || !rhs_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    if (cx.lang == IR_LANG_PAS && lhs_t->t == TT_IDX && lhs_t->n >= 2 && lhs_t->c[0] && lhs_t->c[0]->t == TT_VAR && lhs_t->c[0]->v.sval && lhs_t->c[1]) {
+        const tree_t * k[3] = { lhs_t->c[0], lhs_t->c[1], rhs_t };
+        return v_raku_mutate_writeback(cx, lhs_t->c[0]->v.sval, "arr_set_pure", k, 3, γ_in, ω_in, α_out, β_out);
+    }
     int lhs_is_var = (lhs_t->t == TT_VAR);
     int lhs_is_kw  = (cx.lang == IR_LANG_SNO && lhs_t->t == TT_KEYWORD);
     if (!lhs_is_var && !lhs_is_kw) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
@@ -998,8 +1002,13 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_SCAN:
         return v_scan(cx, e, γ_in, ω_in, α_out, β_out);
-    case TT_FIELD:
     case TT_IDX:
+        if (cx.lang == IR_LANG_PAS && e->n >= 2 && e->c[0] && e->c[1]) {
+            const tree_t * k[2] = { e->c[0], e->c[1] };
+            return v_raku_det_call(cx, "arr_get", k, 2, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_FIELD:
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS:
     case TT_INDIRECT: case TT_IDENTICAL:
     case TT_SMATCH:

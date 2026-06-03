@@ -864,6 +864,11 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
 /*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
+    if (!strcmp(fn, "__pas_sqr") && nargs == 1) {
+        if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d * d; *out = r; return 1; }
+        long v = IS_INT_fn(args[0]) ? args[0].i : 0;
+        *out = INTVAL(v * v); return 1;
+    }
     if (nargs >= 1 && (!strcmp(fn, "__rk_jct_any") || !strcmp(fn, "__rk_jct_all")
                     || !strcmp(fn, "__rk_jct_one") || !strcmp(fn, "__rk_jct_none"))) {
         char flav = !strcmp(fn, "__rk_jct_any") ? 'a'
