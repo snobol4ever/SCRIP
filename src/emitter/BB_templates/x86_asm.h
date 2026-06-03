@@ -86,6 +86,11 @@ inline std::string x86_idiv(const char * reg) {
     std::string code; code += (char)rex; code += (char)0xF7; code += (char)(0xC0 | (7 << 3) | (m & 7));
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" idiv ") + reg + "\n");
 }
+inline std::string x86_neg(const char * reg) {
+    int m = x86_rnum(reg); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
+    std::string code; code += (char)rex; code += (char)0xF7; code += (char)(0xC0 | (3 << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" neg ") + reg + "\n");
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_add(const char * reg, long imm) {
     int m = x86_rnum(reg);
@@ -324,6 +329,7 @@ inline std::string x86(const char * mnem, const char * op1) {
     if (!strcmp(mnem, "push")) return x86_push(op1);
     if (!strcmp(mnem, "pop"))  return x86_pop(op1);
     if (!strcmp(mnem, "idiv")) return x86_idiv(op1);
+    if (!strcmp(mnem, "neg"))  return x86_neg(op1);
     return std::string();
 }
 inline std::string x86(const char * mnem, x86_port port) {
@@ -412,6 +418,10 @@ inline std::string x86_bomb(const char * msg) {
     return x86_load_ro("rdi", lbl, (uint64_t)(uintptr_t)(const void *)m)
          + x86_call_ro("rt_bomb", fp)
          + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : s_1asm("ud2"));
+}
+inline std::string x86_pair_jmp(int idx) {
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
+    return s_1asm(emit_fmt("jmp %s", g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??"));
 }
 inline std::string x86_pair_loop() {
     std::string r;

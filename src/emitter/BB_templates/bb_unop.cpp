@@ -96,10 +96,7 @@ std::string bb_unop_str() {
     }
     int is_neg = (uo == UO_NEG);
     std::string neg_op;
-    if (is_neg) {
-        if (MEDIUM_BINARY) neg_op = x86_Lrec(x86_b3(0x48, 0xF7, 0xD8));
-        else               neg_op = std::string(" neg rax\n");
-    }
+    if (is_neg) neg_op = x86("neg", "rax");
     return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
                          + s_comment(emit_fmt("# BOX UNOP %s [x86() stackless slot->slot DESCR]",
                                               is_neg ? "NEG" : "POS")))
