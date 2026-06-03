@@ -478,6 +478,26 @@ static NameSaveEnt g_name_save[NAME_SAVE_MAX];
 static int            g_name_save_top = 0;
 static int64_t        g_proc_frame_nest_arena[PROC_FRAME_NEST_MAX * PROC_FRAME_NEST_QWORDS];
 static int            g_proc_frame_nest_depth = 0;
+int rt_name_save_push(const char **names, DESCR_t *args, int nargs, int n)
+{
+    int base = g_name_save_top;
+    for (int k = 0; k < n; k++) {
+        const char *nm = names ? names[k] : (const char *)0; if (!nm) continue;
+        g_name_save[g_name_save_top].name = nm;
+        g_name_save[g_name_save_top].old  = NV_GET_fn(nm);
+        g_name_save_top++;
+        NV_SET_fn(nm, (k < nargs) ? args[k] : NULVCL);
+    }
+    return base;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_name_restore(int base)
+{
+    for (int k = g_name_save_top - 1; k >= base; k--)
+        NV_SET_fn(g_name_save[k].name, g_name_save[k].old);
+    g_name_save_top = base;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 {
     if (!name) return FAILDESCR;
@@ -489,26 +509,14 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     const char **pn = p->pnames;
     if (g_name_save_top + np + 1 > NAME_SAVE_MAX) return FAILDESCR;
     if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
-    int save_base = g_name_save_top;
-    for (int k = 0; k < np; k++) {
-        const char *nm = pn ? pn[k] : NULL; if (!nm) continue;
-        g_name_save[g_name_save_top].name = nm;
-        g_name_save[g_name_save_top].old  = NV_GET_fn(nm);
-        g_name_save_top++;
-        NV_SET_fn(nm, (k < nargs) ? args[k] : NULVCL);
-    }
-    g_name_save[g_name_save_top].name = name;
-    g_name_save[g_name_save_top].old  = NV_GET_fn(name);
-    g_name_save_top++;
-    NV_SET_fn(name, NULVCL);
+    int save_base = rt_name_save_push(pn, args, nargs, np);
+    rt_name_save_push(&name, (DESCR_t *)0, 0, 1);
     void *fb = (void *)&g_proc_frame_nest_arena[g_proc_frame_nest_depth * PROC_FRAME_NEST_QWORDS];
     g_proc_frame_nest_depth++;
     DESCR_t fret = p->fn(fb, 0);
     g_proc_frame_nest_depth--;
     DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : NV_GET_fn(name);
-    for (int k = g_name_save_top - 1; k >= save_base; k--)
-        NV_SET_fn(g_name_save[k].name, g_name_save[k].old);
-    g_name_save_top = save_base;
+    rt_name_restore(save_base);
     return result;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
