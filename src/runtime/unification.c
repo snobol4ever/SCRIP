@@ -135,3 +135,58 @@ int rt_get_cut_flag(void)
     return g_resolve_cut_flag;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *name; long arity; void *alpha; void *redo; } pl_pred_row_t;
+static pl_pred_row_t *g_pl_pred_table = (pl_pred_row_t *)0;
+static long           g_pl_pred_n     = 0;
+static void          *g_pl_meta_redo  = (void *)0;
+void rt_pl_table_install(void *tbl, long n)
+{
+    g_pl_pred_table = (pl_pred_row_t *)tbl;
+    g_pl_pred_n     = n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_pred_lookup(const char *name, int arity, void **redo_out)
+{
+    if (!g_pl_pred_table || !name) return (void *)0;
+    for (long i = 0; i < g_pl_pred_n; i++) {
+        pl_pred_row_t *r = &g_pl_pred_table[i];
+        if (r->arity == (long)arity && r->name && strcmp(r->name, name) == 0) { if (redo_out) *redo_out = r->redo; return r->alpha; }
+    }
+    return (void *)0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern const char *prolog_atom_name(int id);
+extern int    rt_last_ok(void);
+int rt_call_term(void *goal_v)
+{
+    Term *g = term_deref((Term *)goal_v);
+    if (!g) return 0;
+    const char *name = (const char *)0; int arity = 0; Term **args = (Term **)0;
+    if (g->tag == TERM_ATOM)          { name = prolog_atom_name(g->atom_id); }
+    else if (g->tag == TERM_COMPOUND) { name = prolog_atom_name(g->compound.functor); arity = g->compound.arity; args = g->compound.args; }
+    else return 0;
+    if (!name) return 0;
+    if (strcmp(name, "true") == 0) return 1;
+    if (strcmp(name, "fail") == 0 || strcmp(name, "false") == 0) return 0;
+    void *redo = (void *)0;
+    void *alpha = rt_pl_pred_lookup(name, arity, &redo);
+    if (!alpha) { fprintf(stderr, "rt_call_term: unknown predicate %s/%d\n", name, arity); return 0; }
+    g_pl_meta_redo = redo;
+    Term **caller_env = resolve_bb_env_save_push(arity + 16);
+    for (int i = 0; i < arity; i++) resolve_bb_bind_arg(i, args ? (void *)args[i] : (void *)0);
+    ((void (*)(void))alpha)();
+    if (rt_last_ok()) { Term **cur = resolve_bb_env_install(caller_env); rt_cp_save_caller_env((void *)cur); return 1; }
+    resolve_bb_env_pop(caller_env);
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_redo_meta(void *entry_cp_v)
+{
+    resolve_choice *cp = resolve_cp_current();
+    if (!cp || cp == (resolve_choice *)entry_cp_v || !g_pl_meta_redo) return 0;
+    resolve_bb_env_install(cp->env);
+    ((void (*)(void))g_pl_meta_redo)();
+    if (rt_last_ok()) { cp = resolve_cp_current(); if (cp && cp != (resolve_choice *)entry_cp_v) resolve_bb_env_install(cp->saved_args); return 1; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/

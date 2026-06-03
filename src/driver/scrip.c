@@ -308,6 +308,13 @@ static int pl_rich_node_emittable(const IR_t *nd) {
                                         "float","compound","callable","is_list","ground", NULL };
         for (int k = 0; ttest[k]; k++) if (!strcmp(fn, ttest[k])) return nd->α != NULL;
         if (!strcmp(fn,"succ")) return nd->ival==2 && nd->α && nd->β;
+        if (!strcmp(fn,"findall")) {
+            bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)nd->ival;
+            if (!fs || !fs->goal_node || !fs->tmpl || !fs->result) return 0;
+            if (fs->goal_node->t == IR_FAIL || fs->goal_node->t == IR_SUCCEED) return 1;
+            const char *gn = (fs->goal_node->t == IR_ATOM && fs->goal_node->sval) ? fs->goal_node->sval : (const char *)0;
+            return gn && (!strcmp(gn,"true") || !strcmp(gn,"fail") || !strcmp(gn,"false"));
+        }
         if (!strcmp(fn,"plus")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
         if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;
         if (!strcmp(fn,"format")) return nd->α && (nd->ival==1 || nd->ival==2);
@@ -808,11 +815,18 @@ int main(int argc, char **argv)
                 }
                 printf("  .intel_syntax noprefix\n");
                 printf("  .text\n");
+                extern int codegen_pl_pred_table(FILE * out);
+                int nrows = codegen_pl_pred_table(stdout);
                 printf("  .globl main\n");
                 printf("main:\n");
                 printf("  push rbp\n");
                 printf("  mov rbp, rsp\n");
                 printf("  call rt_main_init@PLT\n");
+                if (nrows > 0) {
+                    printf("  lea rdi, [rip + .Lpl_pred_table]\n");
+                    printf("  mov esi, %d\n", nrows);
+                    printf("  call rt_pl_table_install@PLT\n");
+                }
                 if (pl_main->nslots > 0) {
                     printf("  mov edi, %d\n", pl_main->nslots);
                     printf("  call rt_env_alloc@PLT\n");

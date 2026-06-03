@@ -2398,6 +2398,34 @@ int codegen_clause_dispatch(FILE *out) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int codegen_pl_pred_table(FILE *out) {
+    int npred = resolve_bb_pred_count();
+    int nrows = 0;
+    fprintf(out, "  .section .data\n  .align 8\n.Lpl_pred_table:\n");
+    for (int i = 0; i < npred; i++) {
+        const char *nm = resolve_bb_pred_name_at(i);
+        if (!nm) continue;
+        int ar = resolve_bb_pred_arity_at(i);
+        if (ar == 0 && (strcmp(nm, "main") == 0 || strcmp(nm, "main/0") == 0)) continue;
+        if (!resolve_bb_graph_at(i)) continue;
+        char blbl[160]; resolve_call_block_label(blbl, sizeof blbl, nm, ar);
+        fprintf(out, "  .quad .Lpl_pname_%d\n  .quad %d\n  .quad %s\n  .quad %s_redo\n", i, ar, blbl, blbl);
+        nrows++;
+    }
+    fprintf(out, "  .section .rodata\n");
+    for (int i = 0; i < npred; i++) {
+        const char *nm = resolve_bb_pred_name_at(i);
+        if (!nm) continue;
+        int ar = resolve_bb_pred_arity_at(i);
+        if (ar == 0 && (strcmp(nm, "main") == 0 || strcmp(nm, "main/0") == 0)) continue;
+        if (!resolve_bb_graph_at(i)) continue;
+        const char *slash = strrchr(nm, '/'); int namelen = slash ? (int)(slash - nm) : (int)strlen(nm);
+        fprintf(out, ".Lpl_pname_%d:\n  .asciz \"%.*s\"\n", i, namelen, nm);
+    }
+    fprintf(out, "  .text\n");
+    return nrows;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_register_child_label(IR_t *nd, const char *α_label) {
     bb_box_fn fn = child_cache_get(nd);
     if (fn) child_cache_set_lbl(fn, α_label);

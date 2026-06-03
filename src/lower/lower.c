@@ -1607,6 +1607,7 @@ static IR_t * g_findall(lcx_t cx, const tree_t * tmpl_t, const tree_t * goal_t, 
     IR_t * g = lower_goal(gx, goal_t, NULL, NULL, &gα, &gβ); if (!g) return NULL; (void) gβ;
     gcfg->entry = gα ? gα : g;
     fs->gcfg = gcfg;
+    fs->goal_node = gα ? gα : g;
     bb->ival = (int64_t)(intptr_t)fs;
     set_succ_fail(bb, γ_in, ω_in);
     return ret(bb, α_out, β_out, bb, ω_in  );
