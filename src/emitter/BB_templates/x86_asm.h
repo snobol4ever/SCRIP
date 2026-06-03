@@ -461,6 +461,13 @@ inline std::string x86_pair_loop() {
     return r;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_lit_bytes(const std::string & b) {
+    if (!MEDIUM_BINARY) return b;
+    std::string r; size_t i = 0;
+    while (i < b.size()) { size_t k = b.size()-i; if (k > 255) k = 255; r += x86_Lrec(b.substr(i,k)); i += k; }
+    return r;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
     return id < X86_INTERNAL_BASE ? x86_portlbl(id) : &internal[id - X86_INTERNAL_BASE];
 }

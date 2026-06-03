@@ -435,6 +435,12 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ITE:          bb_ite();                                 return 0;
     case IR_CATCH:        bb_catch();                               return 0;
     case IR_UNIFY:           bb_prepare(nd); bb_unify();           return 0;
+    case IR_GOAL:            bb_prepare(nd); bb_goal(nd);          return 0;
+    case IR_BUILTIN:         bb_prepare(nd); bb_builtin(nd);       return 0;
+    case IR_LOGICVAR:        bb_logicvar(nd);                      return 0;
+    case IR_ATOM:            bb_prepare(nd); bb_atom(nd);          return 0;
+    case IR_CHOICE:          bb_choice(nd);                        return 0;
+    case IR_FAIL:            bb_fail(nd);                          return 0;
     case IR_NEG:
     case IR_POS:
     case IR_NONNULL:
