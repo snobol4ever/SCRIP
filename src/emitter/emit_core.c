@@ -607,7 +607,17 @@ static char ** net_parse_define_proto(const char * proto, char ** out_fname, int
     params[count] = NULL; *out_n = count; return params;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int bb_node_id(IR_t * nd) { return (int)((uintptr_t)nd % 100000u); }
+int g_sno_m4_dense_nid = 0;
+static IR_t * g_nid_key[262144];
+static int    g_nid_val[262144];
+static int    g_nid_count = 0;
+int bb_node_id(IR_t * nd) {
+    if (!nd) return 0;
+    if (!g_sno_m4_dense_nid) return (int)((uintptr_t)nd % 100000u);
+    uintptr_t h = ((uintptr_t)nd >> 4) & 262143u;
+    while (g_nid_key[h]) { if (g_nid_key[h] == nd) return g_nid_val[h]; h = (h + 1u) & 262143u; }
+    g_nid_key[h] = nd; g_nid_val[h] = ++g_nid_count; return g_nid_val[h];
+}
 int bb_is_generator(IR_e k) {
     if (k >= IR_PAT_LIT   && k <= IR_PAT_DEFER)  return 1;
     if (k >= IR_CHOICE && k <= IR_GOAL)      return 1;

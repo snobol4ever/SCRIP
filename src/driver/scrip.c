@@ -811,22 +811,85 @@ int main(int argc, char **argv)
             return rc;
         }
         {
-            extern void xa_file_header(void);
-            extern void emit_io_set_sink(FILE * out);
-            extern void emitter_init_text(FILE * out, int mode);
+            extern int gvar_flat_chain_build_text(IR_graph_t * g, FILE * out, const char * prefix);
+            extern void xa_emit_strtab_rodata(void);
+            extern int g_frame_active;
+            extern void rt_proc_reset(void);
+            extern void rt_proc_register(const char * name, void * entry, const char ** pnames, int nparams);
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
-            IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
-            (void)sbbg;
-            fprintf(stderr, "[SBB] mode-4: sno_ring_to_tree REMOVED (VIOLATION, Lon 2026-05-31). SNOBOL4 "
-                            "mode-4 emission must come from LOWER producing the four-port statement-BB graph "
-                            "directly (no ring->tree adapter); pending that wiring. mode-4 uses the SAME boxes "
-                            "as mode-3 (TEXT vs BINARY medium) — this is a wiring gap, not a design limit.\n");
-            abort();
+            if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
+                fprintf(stderr, "[SBB] FATAL: mode-4 driver: SNOBOL4 main BB graph not found\n");
+                return 1;
+            }
+            IR_graph_t *sbbg = s2->bbp.table[main_bb_idx];
+            extern int g_flat_node_id;
+            extern int g_sno_m4_dense_nid;
+            g_flat_node_id = 0;
+            g_sno_m4_dense_nid = 1;
+            printf("  .intel_syntax noprefix\n");
+            printf("  .text\n");
+            rt_proc_reset();
+            g_frame_active = 1;
+            static int sno_pidx_buf[64];
+            int n_procs = 0;
+            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                const char *pname = s2->proc_table[_pi].name;
+                if (!pname || strcmp(pname, "main") == 0) continue;
+                int idx = s2->proc_table[_pi].bb_idx;
+                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+                int np = s2->proc_table[_pi].nparams;
+                const char **pn = NULL;
+                if (np > 0) {
+                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
+                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+                }
+                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                gvar_flat_chain_build_text(s2->bbp.table[idx], stdout, pname);
+                if (n_procs < 64) sno_pidx_buf[n_procs++] = _pi;
+            }
+            if (n_procs > 0) {
+                printf("  .section .rodata\n");
+                for (int i = 0; i < n_procs; i++) {
+                    ProcEntry *pe = &s2->proc_table[sno_pidx_buf[i]];
+                    printf("  .Lsno_pn%d: .string \"%s\"\n", i, pe->name);
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
+                        printf("  .Lsno_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                    printf("  .Lsno_pnames%d:\n", i);
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) printf("  .quad .Lsno_pp%d_%d\n", i, k);
+                    printf("  .quad 0\n");
+                }
+                printf("  .section .text\n  .intel_syntax noprefix\n");
+                printf("sno_proc_startup:\n  push rbp\n  mov rbp, rsp\n  call rt_proc_reset@PLT\n");
+                for (int i = 0; i < n_procs; i++) {
+                    ProcEntry *pe = &s2->proc_table[sno_pidx_buf[i]];
+                    printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
+                    printf("  xor rsi, rsi\n");
+                    printf("  lea rdx, [rip + .Lsno_pnames%d]\n", i);
+                    printf("  mov ecx, %d\n", pe->nparams);
+                    printf("  call rt_proc_register@PLT\n");
+                    printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
+                    printf("  lea rsi, [rip + %s_\xce\xb1]\n", pe->name);
+                    printf("  call rt_proc_set_fn@PLT\n");
+                }
+                printf("  pop rbp\n  ret\n");
+            }
+            printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n");
+            if (n_procs > 0) printf("  call sno_proc_startup\n");
+            else printf("  call rt_proc_reset@PLT\n");
+            printf("  call rt_frame@PLT\n  mov rdi, rax\n  xor esi, esi\n");
+            printf("  call sno_flat_\xce\xb1\n");
+            printf("  xor eax, eax\n  pop rbp\n  ret\n");
+            int rc = gvar_flat_chain_build_text(sbbg, stdout, "sno_flat");
+            g_frame_active = 0;
+            xa_emit_strtab_rodata();
+            fflush(stdout);
+            return rc;
         }
     }
     if (mode_compile && target_name && strcmp(target_name, "x86") != 0) {
