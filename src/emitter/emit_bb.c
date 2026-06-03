@@ -1108,6 +1108,51 @@ static void flat_drive_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static IR_t *descr_chain_terminal(IR_t *entry) {
+    int guard = 0;
+    while (entry && (entry->t == IR_SUCCEED || entry->t == IR_FAIL) && entry->γ && guard++ < 512) entry = entry->γ;
+    IR_t *last = entry;
+    guard = 0;
+    while (last && last->γ && last->γ->t != IR_SUCCEED && last->γ->t != IR_FAIL && guard++ < 512) last = last->γ;
+    return last;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_scan_glue(IR_t *pBB, int phase, int subj_slot, bb_label_t *γ, bb_label_t *ω, bb_label_t *β) {
+    g_emit.op_sb = phase; g_emit.op_sa = subj_slot;
+    g_emit.lbl_γ = γ->name; g_emit.lbl_ω = ω->name; g_emit.lbl_β = β->name;
+    g_emit.lbl_γ_p = γ; g_emit.lbl_ω_p = ω; g_emit.lbl_β_p = β;
+    walk_bb_node(pBB, emit_outf());
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_gen_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_graph_t *subj_sg = (pBB && pBB->dval == 1.0) ? (IR_graph_t *)(intptr_t) pBB->counter : NULL;
+    IR_graph_t *body_sg = (pBB && pBB->dval == 1.0) ? (IR_graph_t *)(intptr_t) pBB->ival    : NULL;
+    if (!subj_sg || !subj_sg->entry || !body_sg || !body_sg->entry) {
+        emit_label_define_bb(lbl_β); emit_jmp_label(lbl_ω, JMP_JMP); emit_jmp_label(lbl_ω, JMP_JMP); return;
+    }
+    int id = g_flat_node_id++;
+    bb_label_t *subj_done  = emit_label_alloc("xscan%d_subj_done",  id);
+    bb_label_t *body_start = emit_label_alloc("xscan%d_body_start", id);
+    bb_label_t *body_done  = emit_label_alloc("xscan%d_body_done",  id);
+    bb_label_t *body_fail  = emit_label_alloc("xscan%d_body_fail",  id);
+    bb_label_t *enter_β    = emit_label_alloc("xscan%d_enter_β",    id);
+    bb_label_t *leaveok_β  = emit_label_alloc("xscan%d_leaveok_β",  id);
+    bb_label_t *leavef_β   = emit_label_alloc("xscan%d_leavef_β",   id);
+    descr_chain_operand_refs(subj_sg->entry);
+    IR_t *subj_term = descr_chain_terminal(subj_sg->entry);
+    flat_emit_arg_subchain(subj_sg->entry, subj_done, lbl_ω);
+    int subj_slot = bb_slot_get(subj_term);
+    emit_label_define_bb(subj_done);
+    flat_drive_scan_glue(pBB, 1, subj_slot, body_start, lbl_ω, enter_β);
+    emit_label_define_bb(body_start);
+    descr_chain_operand_refs(body_sg->entry);
+    flat_emit_arg_subchain(body_sg->entry, body_done, body_fail);
+    emit_label_define_bb(body_done);
+    flat_drive_scan_glue(pBB, 2, -1, lbl_γ, lbl_ω, leaveok_β);
+    emit_label_define_bb(body_fail);
+    flat_drive_scan_glue(pBB, 2, -1, lbl_ω, lbl_ω, leavef_β);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int gen_bb_is_gen_arg(IR_t *e) {
     if (!e) return 0;
     if (e->t == IR_ASSIGN) return gen_bb_is_gen_arg(e->β);
@@ -1719,8 +1764,10 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO_BY:      flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        if (g_descr_flat_chain) flat_drive_alt_icn_gen(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_gen_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_VAR:        if (g_descr_flat_chain && nd && nd->sval) { extern int g_icn_globals_nv; if (nd->state == 1 && g_icn_globals_nv) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_VAR:        if (g_descr_flat_chain && nd && nd->sval && nd->sval[0] == '&') { g_emit.op_sval = nd->sval; g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else if (g_descr_flat_chain && nd && nd->sval) { extern int g_icn_globals_nv; if (nd->state == 1 && g_icn_globals_nv) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN:     if (g_descr_flat_chain) { extern int g_icn_globals_nv; extern int is_global(const char *); if (g_icn_globals_nv && nd->sval && is_global(nd->sval)) flat_drive_icn_global_assign(nd, lbl_γ, lbl_ω, lbl_β); else FILL(nd, lbl_γ, lbl_ω, lbl_β); } else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR || nd->α->t == IR_CALL)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_KEYWORD:    if (g_descr_flat_chain) { g_emit.op_sval = nd->sval; g_emit.op_off = bb_slot_alloc16(nd); } else { g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_GEN_SCAN:   flat_drive_gen_scan(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SCAN:       flat_drive_scan_stmt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUBJECT:    flat_drive_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_REF_INVARIANT: flat_drive_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
