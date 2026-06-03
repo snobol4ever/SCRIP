@@ -277,6 +277,17 @@ void rt_gvar_assign_var(const char *dst, const char *src)
     NV_SET_fn(dst ? dst : "", NV_GET_fn(src ? src : ""));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
+{
+    DESCR_t d;
+    union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } u;
+    u.q    = lo;
+    d.v    = u.f.v;
+    d.slen = u.f.slen;
+    d.i    = hi;
+    NV_SET_fn(name ? name : "", d);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern DESCR_t VARVAL_d_fn(DESCR_t d);
 typedef struct { const char *base; long len; } rt_subj_t;
 const char *g_subject_dbg_base = 0;
