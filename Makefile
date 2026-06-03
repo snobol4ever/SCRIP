@@ -96,6 +96,17 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_cut.cpp \
     $(SRC)/emitter/BB_templates/bb_goal.cpp \
     $(SRC)/emitter/BB_templates/bb_builtin.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_io.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_is_cmp.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_type_test.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_term_inspect.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_aggregate_nb.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_atom_string.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_term_io.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_findall.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_succ_plus.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_list.cpp \
+    $(SRC)/emitter/BB_templates/bb_builtin_retract_throw.cpp \
     $(SRC)/emitter/BB_templates/bb_choice.cpp \
     $(SRC)/emitter/BB_templates/bb_atom.cpp \
     $(SRC)/emitter/BB_templates/bb_logicvar.cpp \
@@ -263,6 +274,17 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_goal.cpp      -o $(OBJ)/bb_goal.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin.cpp   -o $(OBJ)/bb_builtin.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_io.cpp -o $(OBJ)/bb_builtin_io.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_is_cmp.cpp -o $(OBJ)/bb_builtin_is_cmp.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_type_test.cpp -o $(OBJ)/bb_builtin_type_test.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_term_inspect.cpp -o $(OBJ)/bb_builtin_term_inspect.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_aggregate_nb.cpp -o $(OBJ)/bb_builtin_aggregate_nb.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_atom_string.cpp -o $(OBJ)/bb_builtin_atom_string.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_term_io.cpp -o $(OBJ)/bb_builtin_term_io.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_findall.cpp -o $(OBJ)/bb_builtin_findall.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_succ_plus.cpp -o $(OBJ)/bb_builtin_succ_plus.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_list.cpp -o $(OBJ)/bb_builtin_list.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_builtin_retract_throw.cpp -o $(OBJ)/bb_builtin_retract_throw.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_choice.cpp    -o $(OBJ)/bb_choice.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_atom.cpp      -o $(OBJ)/bb_atom.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_logicvar.cpp  -o $(OBJ)/bb_logicvar.o
