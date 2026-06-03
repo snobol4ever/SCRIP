@@ -15,6 +15,7 @@
 #define LANG_RAKU  3
 #define LANG_SCRIP 4
 #define LANG_REB   5
+#define LANG_PASCAL 6
 typedef struct STMT_t STMT_t;
 struct STMT_t {
     char    *label;

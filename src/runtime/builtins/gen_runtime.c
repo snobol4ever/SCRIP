@@ -377,7 +377,7 @@ DESCR_t proc_as_value(const char *name) {
         }
     }
     static const char *builtins[] = {
-        "write","writes","read","reads","close","open","remove","flush",
+        "__pas_writeln","__pas_write","write","writes","read","reads","close","open","remove","flush",
         "put","get","pull","push","pop","list","image","proc","type","copy",
         "string","integer","real","numeric","ord","char","reverse","sort","sortf",
         "find","match","many","any","upto","bal","move","tab","pos",
@@ -503,6 +503,30 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if (!fn || !out) return 0;
     if (!strcmp(fn, "FAIL"))    { *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "SUCCEED")) { *out = NULVCL;    return 1; }
+    if (!strcmp(fn, "__pas_writeln") || !strcmp(fn, "__pas_write")) {
+        int nl = (fn[6] == 'w' && fn[7] == 'r' && fn[8] == 'i' && fn[9] == 't' && fn[10] == 'e' && fn[11] == 'l');
+        for (int _pi = 0; _pi + 1 < nargs; _pi += 2) {
+            DESCR_t av = args[_pi];
+            DESCR_t aw = args[_pi + 1];
+            int w = (IS_INT_fn(aw) && aw.i >= 0) ? (int)aw.i : -1;
+            if (IS_INT_fn(av)) {
+                char _pb[32];
+                int _pl = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);
+                int _fw = (w < 0) ? 10 : (w > _pl ? w : _pl);
+                fprintf(stdout, "%*s", _fw, _pb);
+            } else if (IS_REAL_fn(av)) {
+                char _rb[64];
+                int _pl = snprintf(_rb, sizeof _rb, "%s", real_str(av.r, _rb, sizeof _rb));
+                int _fw = (w < 0) ? 20 : (w > _pl ? w : _pl);
+                fprintf(stdout, "%*s", _fw, _rb);
+            } else {
+                const char *_ps = VARVAL_fn(av);
+                if (_ps) fputs(_ps, stdout);
+            }
+        }
+        if (nl) fputc('\n', stdout);
+        *out = NULVCL; return 1;
+    }
     if (!strcmp(fn, "write")) {
         int start = 0;
         FILE *dest = stdout;

@@ -40,7 +40,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
     if (!prog) return;
     label_table_build(s2, prog);
     prescan_defines(prog);
-    if (lang_mask & ((1u << LANG_ICN) | (1u << LANG_RAKU))) {
+    if (lang_mask & ((1u << LANG_ICN) | (1u << LANG_RAKU) | (1u << LANG_PASCAL))) {
         g_fi8_gen_init_count++;
         s2->proc_count = 0; global_count = 0;
         frame_depth = 0;
@@ -87,7 +87,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
         }
         tree_t *subj = s_expr(s, ":subj");
         if (!subj) continue;
-        if (s_lang == LANG_ICN || s_lang == LANG_RAKU) {
+        if (s_lang == LANG_ICN || s_lang == LANG_RAKU || s_lang == LANG_PASCAL) {
             tree_t *proc = subj;
             if (proc->t == TT_GLOBAL) {
                 for (int _gi = 0; _gi < proc->n; _gi++)
@@ -125,7 +125,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
                 s2->proc_table[_pi].proc     = proc;
                 s2->proc_table[_pi].entry_pc = -1;
                 s2->proc_table[_pi].bb_idx   = -1;
-                s2->proc_table[_pi].nparams  = (s_lang == LANG_ICN)
+                s2->proc_table[_pi].nparams  = (s_lang == LANG_ICN || s_lang == LANG_PASCAL)
                     ? (proc->t == TT_PROC_DECL && proc->n >= 2 ? proc->c[1]->n : 0)
                     : (int)proc->v.ival;
                 if (mod_idx >= 0) s2->module_registry.mods[mod_idx].nprocs++;
