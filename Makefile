@@ -85,6 +85,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/name_binding.c \
     $(SRC)/runtime/values.c \
     $(SRC)/runtime/invocation.c \
+    $(SRC)/runtime/aggregates.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
     $(SRC)/emitter/emit_str.cpp \
@@ -270,6 +271,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/name_binding.c               -o $(OBJ)/name_binding.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/values.c                     -o $(OBJ)/values.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/invocation.c                 -o $(OBJ)/invocation.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/aggregates.c                 -o $(OBJ)/aggregates.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
