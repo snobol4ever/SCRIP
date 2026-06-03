@@ -54,4 +54,10 @@ struct _PATND_t {
 void patnd_print(const PATND_t *p, FILE *out);
 PATND_t *patnd_make_xchr(const char *lit);
 PATND_t *patnd_make_eps(void);
+/*--------------------------------------------------------------------------------------------------------------------*/
+int patnd_contains_arbno(const PATND_t *pp);
+int patnd_contains_defer(const PATND_t *pp);
+int patnd_is_combinator_root(const PATND_t *pp);
+int patnd_needs_xlate(const PATND_t *pp);
+int patnd_is_pure_altcat(const PATND_t *pp);
 #endif
