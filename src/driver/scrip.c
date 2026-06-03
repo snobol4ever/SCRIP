@@ -123,7 +123,9 @@ static int icn_graph_has_alt(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->t == IR_ALT) return 1;
     return 0;
 }
-static int icn_graph_native_emittable(stage2_t *s2) {
+static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run);
+static int icn_graph_native_emittable(stage2_t *s2) { return icn_graph_native_emittable_mode(s2, 0); }
+static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
     if (!s2) return 0;
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
@@ -133,8 +135,14 @@ static int icn_graph_native_emittable(stage2_t *s2) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
             if (icn_kind_native_stub(nd->t)) return 0;
-            if (nd->t == IR_VAR && nd->state == 1) return 0;
-            if (nd->t == IR_ASSIGN && nd->sval && is_global(nd->sval)) return 0;
+            if (for_run && nd->t == IR_CALL && (nd->dval == 3.0 || (nd->sval && rt_proc_is_registered(nd->sval)))) return 0;
+            { extern int g_icn_globals_nv;
+              if (nd->t == IR_VAR && nd->state == 1 && !g_icn_globals_nv) return 0;
+              if (nd->t == IR_ASSIGN && nd->sval) {
+                  int lhs_global = is_global(nd->sval);
+                  if (lhs_global && g_icn_globals_nv) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
+                  else return 0; /* local assign, or slot-mode global assign: native store box not built -> clean EXCISE, never abort */
+              } }
             if (has_alt) {
                 if (!icn_alt_safe_kind(nd->t)) return 0;
                 if (nd->t == IR_ALT && !icn_alt_arms_all_simple_lit(g, nd)) return 0;
@@ -368,6 +376,14 @@ int main(int argc, char **argv)
         }
         else if (strcmp(argv[argi], "--trace")         == 0) { opt_trace          = 1; argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench          = 1; argi++; }
+        else if (strncmp(argv[argi], "--icn-globals=", 14) == 0) {
+            extern int g_icn_globals_nv;
+            const char * v = argv[argi] + 14;
+            if      (strcmp(v, "nv")   == 0) g_icn_globals_nv = 1;
+            else if (strcmp(v, "slot") == 0) g_icn_globals_nv = 0;
+            else { fprintf(stderr, "scrip: --icn-globals= must be slot or nv\n"); return 1; }
+            argi++;
+        }
         else if (strcmp(argv[argi], "--case-sensitive") == 0) { argi++; }
         else if (strcmp(argv[argi], "--fold-case")     == 0) {
             fprintf(stderr, "scrip: --fold-case is no longer supported; SCRIP is case-sensitive only\n");
@@ -979,7 +995,7 @@ int main(int argc, char **argv)
             extern bb_box_fn descr_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
-            if ((is_icon || is_raku) && !icn_graph_native_emittable(s2)) {
+            if ((is_icon || is_raku) && !icn_graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "
                                 "or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");

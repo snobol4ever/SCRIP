@@ -1,0 +1,5 @@
+global SHARED
+procedure main()
+   SHARED := 99;
+   write(SHARED);
+end
