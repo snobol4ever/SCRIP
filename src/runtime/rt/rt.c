@@ -447,6 +447,54 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     return result;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *name; DESCR_t old; } NameSaveEnt;
+#define NAME_SAVE_MAX 4096
+#define PROC_FRAME_NEST_MAX 256
+#define PROC_FRAME_NEST_QWORDS 512
+static NameSaveEnt g_name_save[NAME_SAVE_MAX];
+static int            g_name_save_top = 0;
+static int64_t        g_proc_frame_nest_arena[PROC_FRAME_NEST_MAX * PROC_FRAME_NEST_QWORDS];
+static int            g_proc_frame_nest_depth = 0;
+DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
+{
+    if (!name) return FAILDESCR;
+    rt_proc_t *p = (rt_proc_t *)0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
+    if (!p || !p->fn) return FAILDESCR;
+    int np = p->nparams;
+    const char **pn = p->pnames;
+    if (g_name_save_top + np + 1 > NAME_SAVE_MAX) return FAILDESCR;
+    if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
+    int save_base = g_name_save_top;
+    for (int k = 0; k < np; k++) {
+        const char *nm = pn ? pn[k] : NULL; if (!nm) continue;
+        g_name_save[g_name_save_top].name = nm;
+        g_name_save[g_name_save_top].old  = NV_GET_fn(nm);
+        g_name_save_top++;
+        NV_SET_fn(nm, (k < nargs) ? args[k] : NULVCL);
+    }
+    g_name_save[g_name_save_top].name = name;
+    g_name_save[g_name_save_top].old  = NV_GET_fn(name);
+    g_name_save_top++;
+    NV_SET_fn(name, NULVCL);
+    void *fb = (void *)&g_proc_frame_nest_arena[g_proc_frame_nest_depth * PROC_FRAME_NEST_QWORDS];
+    g_proc_frame_nest_depth++;
+    DESCR_t fret = p->fn(fb, 0);
+    g_proc_frame_nest_depth--;
+    DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : NV_GET_fn(name);
+    for (int k = g_name_save_top - 1; k >= save_base; k--)
+        NV_SET_fn(g_name_save[k].name, g_name_save[k].old);
+    g_name_save_top = save_base;
+    return result;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_define(const char *spec)
+{
+    (void)spec;
+    return NULVCL;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_call_builtin(const char *name, int nargs)
 {
     (void)name;
