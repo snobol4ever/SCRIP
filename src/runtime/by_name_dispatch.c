@@ -5,6 +5,7 @@
 #include "../parser/raku/raku_re.h"
 #include "core.h"
 #include "pattern_match.h"
+#include "rt/rt.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -690,6 +691,38 @@ int scan_try_call_builtin(tree_t *call, DESCR_t *args, int nargs, DESCR_t *out)
         char *p = strstr(hay, needle);
         *out = p ? INTVAL((long long)(p - hay) + 1) : FAILDESCR;
         return 1;
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int builtin_is_generator(const char *name)
+{
+    if (!name) return 0;
+    return !strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "any")
+        || !strcmp(name, "many") || !strcmp(name, "bal") || !strcmp(name, "key")
+        || !strcmp(name, "seq");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_builtin_is_known(const char *name)
+{
+    if (!name) return 0;
+    if (rt_proc_is_registered(name)) return 0;
+    if (builtin_is_generator(name))  return 0;
+    static const char *known[] = {
+        "write", "writes", "stop",
+        "integer", "real", "string", "numeric", "char", "ord", "cset",
+        "type", "image", "proc", "args", "copy",
+        "abs", "sqrt", "sin", "cos", "tan", "exp", "log",
+        "max", "min",
+        "trim", "reverse", "repl", "map", "left", "center", "right",
+        "table", "list", "set", "sort", "sortf", "get", "pop", "pull",
+        "member", "insert", "delete", "key",
+        "MAKELIST",
+        NULL
+    };
+    for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
+    {
+        if (dat_find_type(name)) return 1;
     }
     return 0;
 }
