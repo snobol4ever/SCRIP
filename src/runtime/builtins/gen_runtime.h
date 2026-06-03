@@ -77,11 +77,7 @@ const char *cset_union(const char *a, const char *b);
 const char *cset_diff(const char *a, const char *b);
 const char *cset_inter(const char *a, const char *b);
 const char *cset_canonical(const char *cs);
-int kw_assign(const char *kw, DESCR_t val);
-int kw_can_assign(const char *kw, DESCR_t val);
-DESCR_t kw_read(const char *kw);
-const char *kw_cset_name(const char *ptr);
-int kw_cset_len(const char *ptr);
+#include "../keywords.h"
 extern int g_sm_dispatch_active;
 extern int g_ast_pump_active;
 #define NO_AST_WALK_GUARD(fn_name) \
