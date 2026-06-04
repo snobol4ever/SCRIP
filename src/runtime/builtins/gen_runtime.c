@@ -90,6 +90,17 @@ void rt_icn_scan_leave(uint64_t *out3) {
     } else if (out3) { out3[0] = 0; out3[1] = 0; out3[2] = 0; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_icn_substr(const char *sigma, int64_t a, int64_t b) {
+    if (!sigma) sigma = "";
+    int64_t lo = a < b ? a : b;
+    int64_t hi = a < b ? b : a;
+    int64_t len = hi - lo;
+    char *buf = (char *)GC_malloc((size_t)len + 1);
+    if (len > 0) memcpy(buf, sigma + lo, (size_t)len);
+    buf[len] = '\0';
+    return STRVAL(buf);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_icn_keyword_subject(void) { return scan_subj ? STRVAL(scan_subj) : NULVCL; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_icn_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
