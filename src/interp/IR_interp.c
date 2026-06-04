@@ -1935,7 +1935,7 @@ IR_t * IR_interp_node(IR_t * bb) {
     }
     case IR_CALL: {
         if (!bb->sval) { bb->value = FAILDESCR; return bb->ω; }
-        if (bb->dval == 2.0) {
+        if (bb->dval == 2.0 || bb->dval == 5.0) {
             int nargs = (int) bb->ival;
             DESCR_t * args = NULL;
             if (nargs > 0) {
