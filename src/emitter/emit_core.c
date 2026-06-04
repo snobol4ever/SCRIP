@@ -422,7 +422,25 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_KEYWORD: { extern void bb_keyword(IR_t *); bb_keyword(nd); return 0; }
     case IR_RETURN: { extern int g_descr_flat_chain; extern void bb_return(IR_t *); if (g_descr_flat_chain) { bb_return(nd); return 0; } fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1; }
     case IR_AUGOP:
-    case IR_CALL:                 bb_call(nd);         return 0;
+    case IR_CALL: {
+        extern int g_icn_scan_regs_live;
+        if (g_icn_scan_regs_live && nd->sval) {
+            extern void bb_scan_pos(IR_t *); extern void bb_scan_any(IR_t *); extern void bb_scan_match(IR_t *);
+            extern void bb_scan_many(IR_t *); extern void bb_scan_tab(IR_t *); extern void bb_scan_move(IR_t *);
+            extern void bb_scan_upto(IR_t *); extern void bb_scan_find(IR_t *); extern void bb_scan_bal(IR_t *);
+            if (!strcmp(nd->sval, "pos"))   { bb_scan_pos(nd);   return 0; }
+            if (!strcmp(nd->sval, "any"))   { bb_scan_any(nd);   return 0; }
+            if (!strcmp(nd->sval, "match")) { bb_scan_match(nd); return 0; }
+            if (!strcmp(nd->sval, "many"))  { bb_scan_many(nd);  return 0; }
+            if (!strcmp(nd->sval, "tab"))   { bb_scan_tab(nd);   return 0; }
+            if (!strcmp(nd->sval, "move"))  { bb_scan_move(nd);  return 0; }
+            if (!strcmp(nd->sval, "upto"))  { bb_scan_upto(nd);  return 0; }
+            if (!strcmp(nd->sval, "find"))  { bb_scan_find(nd);  return 0; }
+            if (!strcmp(nd->sval, "bal"))   { bb_scan_bal(nd);   return 0; }
+        }
+        bb_call(nd);
+        return 0;
+    }
     case IR_BINOP_RELOP:          bb_binop_relop(nd);       return 0;
     case IR_BINOP_ARITH:          bb_binop_arith(nd);       return 0;
     case IR_BINOP_GVAR_ARITH:     bb_binop_gvar_arith(nd);  return 0;
@@ -433,6 +451,15 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_TO_BY:                { extern void bb_to(IR_t *); bb_to(nd); } return 0;
     case IR_LIST_BANG:            bb_iterate(nd);      return 0;
     case IR_ALT:                  { extern void bb_alt(IR_t *); bb_alt(nd); } return 0;
+    case IR_SCAN_POS:             { extern void bb_scan_pos(IR_t *); bb_scan_pos(nd); } return 0;
+    case IR_SCAN_ANY:             { extern void bb_scan_any(IR_t *); bb_scan_any(nd); } return 0;
+    case IR_SCAN_MATCH:           { extern void bb_scan_match(IR_t *); bb_scan_match(nd); } return 0;
+    case IR_SCAN_MANY:            { extern void bb_scan_many(IR_t *); bb_scan_many(nd); } return 0;
+    case IR_SCAN_TAB:             { extern void bb_scan_tab(IR_t *); bb_scan_tab(nd); } return 0;
+    case IR_SCAN_MOVE:            { extern void bb_scan_move(IR_t *); bb_scan_move(nd); } return 0;
+    case IR_SCAN_UPTO:            { extern void bb_scan_upto(IR_t *); bb_scan_upto(nd); } return 0;
+    case IR_SCAN_FIND:            { extern void bb_scan_find(IR_t *); bb_scan_find(nd); } return 0;
+    case IR_SCAN_BAL:             { extern void bb_scan_bal(IR_t *); bb_scan_bal(nd); } return 0;
     case IR_GATHER:               { extern void bb_gather(IR_t *); bb_gather(nd); } return 0;
     case IR_SIZE:                 bb_unop();        return 0;
     case IR_PAT_DEFER:            bb_pat_defer();    return 0;

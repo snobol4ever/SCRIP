@@ -103,7 +103,10 @@ static int icn_kind_native_stub(IR_e t) {
            t == IR_SUSPEND ||
            t == IR_LIST_BANG ||
            t == IR_BINOP_GEN ||
-           t == IR_MAP || t == IR_GREP;
+           t == IR_MAP || t == IR_GREP ||
+           t == IR_SCAN_ANY || t == IR_SCAN_MANY || t == IR_SCAN_MATCH ||
+           t == IR_SCAN_UPTO || t == IR_SCAN_FIND || t == IR_SCAN_BAL ||
+           t == IR_SCAN_TAB || t == IR_SCAN_MOVE || t == IR_SCAN_POS;
 }
 static int icn_alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     int n = 0;

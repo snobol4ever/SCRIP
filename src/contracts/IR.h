@@ -147,6 +147,15 @@ typedef enum {
     IR_BINOP_ARITH,
     IR_BINOP_GVAR_ARITH,
     IR_BINOP_CONCAT,
+    IR_SCAN_ANY,
+    IR_SCAN_MANY,
+    IR_SCAN_MATCH,
+    IR_SCAN_UPTO,
+    IR_SCAN_FIND,
+    IR_SCAN_BAL,
+    IR_SCAN_TAB,
+    IR_SCAN_MOVE,
+    IR_SCAN_POS,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/
