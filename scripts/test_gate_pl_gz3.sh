@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# test_gate_pl_gz3.sh — PL-GZ-3a gate: explicit =/2 + write(Var) on the Proebsting-pure path.
+# test_gate_pl_gz3.sh — PL-GZ-3 gate (3a + 3b): =/2, write(Var), single-clause ground-fact
+# head-unify inlined to CELL_UNIFY chains on the Proebsting-pure path.
 # Logic vars = frame cells [ζ+8+8i]; every binding trailed; trail-mark/unwind = the one spine.
 # Probes A-C (admitted): m2 == m3 == m4 stdout BYTE-IDENTICAL and BOTH took the new path
 #   (m3 stderr has NO INTERP-FALLBACK banner; m4 .s HAS gzq labels + CELL_UNIFY boxes).
@@ -38,6 +39,18 @@ grep -q "CELL_UNIFY" "$TMP/unify_atom.s" || fail "unify_atom m4 .s lacks CELL_UN
 run_admitted unify_int  ':- initialization(main).\nmain :- X = 42, write(X), nl.\n' '42\n'
 run_admitted unify_vv   ':- initialization(main).\nmain :- X = a, Y = X, write(Y), nl.\n' 'a\n'
 run_admitted unify_fail ':- initialization(main).\nmain :- X = a, X = b, write(no), nl.\n' ''
+run_admitted fact_var   ':- initialization(main).\ngreeting(hello).\nmain :- greeting(X), write(X), nl.\n' 'hello\n'
+grep -q "CELL_UNIFY" "$TMP/fact_var.s" || fail "fact_var m4 .s lacks CELL_UNIFY box (fact head-unify not inlined)"
+run_admitted fact_pair  ':- initialization(main).\npair(a, 1).\nmain :- pair(X, Y), write(X), write(Y), nl.\n' 'a1\n'
+run_admitted fact_fold  ':- initialization(main).\npair(a, 1).\nmain :- pair(a, 1), write(yes), nl.\n' 'yes\n'
+run_admitted fact_nofold ':- initialization(main).\ngreeting(hello).\nmain :- greeting(bye), write(yes), nl.\n' ''
+run_admitted fact_zero  ':- initialization(main).\ngo.\nmain :- go, write(ok), nl.\n' 'ok\n'
+
+printf ':- initialization(main).\nfact(a).\nfact(b).\nmain :- fact(X), write(X), nl.\n' > "$TMP/neg2.pl"
+"$SCRIP" --run "$TMP/neg2.pl" </dev/null > "$TMP/n23" 2>"$TMP/ne23" || fail "neg2 m3 rc"
+grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (multi-clause) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
+"$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
+grep -q "gzq" "$TMP/n2.s" && fail "neg2 (multi-clause) m4 .s has gzq labels (GZ wrongly admitted)"
 
 printf ':- initialization(main).\nmain :- X = f(a), write(ok), nl.\n' > "$TMP/neg.pl"
 "$SCRIP" --run "$TMP/neg.pl" </dev/null > "$TMP/n3" 2>"$TMP/ne3" || fail "neg m3 rc"
@@ -45,5 +58,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne3" || fail "neg m3 did NOT show the loud fallb
 "$SCRIP" --compile --target=x86 "$TMP/neg.pl" > "$TMP/n.s" 2>/dev/null || fail "neg m4 compile rc"
 grep -q "gzq" "$TMP/n.s" && fail "neg m4 .s has gzq labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ3 PASS: =/2 (cell↔const, cell↔cell) + write(Var) m2==m3==m4 byte-identical on the GZ path; failure unwinds; compound declined identically by both branches"
+echo "GATE-PL-GZ3 PASS: =/2 (cell↔const, cell↔cell) + write(Var) + single-clause ground-fact head-unify m2==m3==m4 byte-identical on the GZ path; failure unwinds; compound and multi-clause declined identically by both branches"
 exit 0

@@ -42,6 +42,21 @@ static std::string bb_cell_unify_str() {
                      + tail
                      + (cs ? x86_ro_seal_str(0, cs) : std::string());
         }
+        {
+            int lkc = (lk == IR_ATOM || lk == IR_LIT_I), rkc = (rk == IR_ATOM || rk == IR_LIT_I);
+            if (lkc && rkc) {
+                int eq = (lk == rk) && ((lk == IR_LIT_I) ? (li == ri) : (ls && rs && strcmp(ls, rs) == 0));
+                if (eq)
+                    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment("# BOX CELL_UNIFY const=const — folded vacuous success at emit time  [PL-GZ-3b fact head-unify]"))
+                         + x86("jmp", PORT_GAMMA)
+                         + x86("def", PORT_BETA)
+                         + x86("jmp", PORT_OMEGA);
+                return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment("# BOX CELL_UNIFY const≠const — folded fail at emit time  [PL-GZ-3b fact head-unify]"))
+                     + x86("jmp", PORT_OMEGA)
+                     + x86("def", PORT_BETA)
+                     + x86("jmp", PORT_OMEGA);
+            }
+        }
         return x86_bomb("bb_cell_unify: unadmitted operand shape reached the emitter");
     }
     return std::string();
