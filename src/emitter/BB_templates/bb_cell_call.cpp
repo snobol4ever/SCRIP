@@ -30,7 +30,7 @@ static std::string bb_cell_call_str() {
         return x86_bomb("bb_cell_call: unadmitted call shape reached the emitter");
     std::string args = cc_load_args(st);
     if (st->nargs > 0 && args.empty()) return x86_bomb("bb_cell_call: non-slot arg reached the emitter");
-    int nsl = st->callee->arity + st->callee->nlocals;
+    int nsl = st->callee->arity + st->callee->nlocals + st->callee->nchild;
     return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
              + s_comment("# BOX CELL_CALL  [PL-GZ-5b ζ-tree: the call site OWNS a child-frame pointer slot (the seed's &ζ->p2_ζ); rt_enter = reuse-or-alloc; call δ with rdi=child rsi/rdx=arg cell POINTERS; verdict-in-rax λ-test; β re-enters callee β (ε) with rdi=child only — args already live in the child frame]"))
          + x86("lea", "rdi", FR(GZ_CELL_OFF(st->child_slot)))

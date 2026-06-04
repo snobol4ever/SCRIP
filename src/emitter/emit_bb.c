@@ -423,7 +423,19 @@ static void gz_fill_goal(IR_t *g, bb_label_t *gγ, bb_label_t *gω, bb_label_t *
     }
     FILL(g, gγ, gω, gβ);
 }
-static void gz_emit_callee(pl_gz_callee_t *ce) {
+static void gz_callee_labels(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees) {
+    if (!ce || ce->lblA) return;
+    int cid = g_flat_node_id++;
+    ce->lblA = (void *)emit_label_alloc("gzp%d_α", cid);
+    ce->lblB = (void *)emit_label_alloc("gzp%d_β", cid);
+    if (*ncallees < 8) callees[(*ncallees)++] = ce;
+}
+static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees) {
+    for (IR_t *gx = ce->body_head; gx; gx = gx->γ)
+        if (gx->t == IR_CELL_CALL) {
+            pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)gx->ival;
+            if (cs) gz_callee_labels(cs->callee, callees, ncallees);
+        }
     int cid = g_flat_node_id++;
     bb_label_t *cl_γ = emit_label_alloc("gzp%d_γ", cid);
     bb_label_t *cl_ω = emit_label_alloc("gzp%d_ω", cid);
@@ -464,13 +476,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
         gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); gb[i] = emit_label_alloc("gzq%d_g%d_β", id, i); i++;
         if (g->t == IR_CELL_CALL) {
             pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)g->ival;
-            pl_gz_callee_t *ce = cs ? cs->callee : NULL;
-            if (ce && !ce->lblA) {
-                int cid = g_flat_node_id++;
-                ce->lblA = (void *)emit_label_alloc("gzp%d_α", cid);
-                ce->lblB = (void *)emit_label_alloc("gzp%d_β", cid);
-                if (ncallees < 8) callees[ncallees++] = ce;
-            }
+            if (cs) gz_callee_labels(cs->callee, callees, &ncallees);
         }
     }
     g_emit.op_sa = 0;
@@ -487,7 +493,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     g_emit.op_sa = 1;
     g_emit.op_sb = (pBB->dval != 0.0) ? 1 : 0;
     FILL(pBB, land_γ, land_ω, lbl_β);
-    for (int k = 0; k < ncallees; k++) gz_emit_callee(callees[k]);
+    for (int k = 0; k < ncallees; k++) gz_emit_callee(callees[k], callees, &ncallees);
     (void)lbl_γ; (void)lbl_ω;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
