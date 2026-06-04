@@ -21,7 +21,7 @@ static std::string bb_callee_frame_str() {
     static const char * areg[2] = { "rsi", "rdx" };
     if (_.op_sa == 0) {
         std::string s = IF(MEDIUM_TEXT,
-                   s_comment("# BOX CALLEE_FRAME α  [PL-GZ-5b ζ-tree seed ABI: rdi = THIS activation's child frame; push caller ζ (saves r12 AND restores SysV alignment), enter child (mov r12,rdi); head vars ARE slots 0..arity-1 — arg cell POINTERS saved BEFORE rt_trail_mark (rt calls clobber arg regs); mark in [ζ+0] like the query frame; locals = fresh cells per activation (the seed enter() law)]"))
+                   x86("comment", "BOX CALLEE_FRAME α  [PL-GZ-5b ζ-tree seed ABI: rdi = THIS activation's child frame; push caller ζ (saves r12 AND restores SysV alignment), enter child (mov r12,rdi); head vars ARE slots 0..arity-1 — arg cell POINTERS saved BEFORE rt_trail_mark (rt calls clobber arg regs); mark in [ζ+0] like the query frame; locals = fresh cells per activation (the seed enter() law)]"))
              + x86("push", "r12")
              + x86("mov", "r12", "rdi");
         for (int i = 0; i < ce->arity; i++)
@@ -35,7 +35,7 @@ static std::string bb_callee_frame_str() {
         return s + x86("jmp", PORT_GAMMA);
     }
     return IF(MEDIUM_TEXT,
-               s_comment("# BOX CALLEE_FRAME γ/ω landings + β  [verdict-in-rax: γ=1 (bindings stand); ω=trail-unwind([ζ+0])+0; pop restores CALLER ζ; β: push caller ζ, enter the SAME child (rdi), jump into the body redo chain (δ)]"))
+               x86("comment", "BOX CALLEE_FRAME γ/ω landings + β  [verdict-in-rax: γ=1 (bindings stand); ω=trail-unwind([ζ+0])+0; pop restores CALLER ζ; β: push caller ζ, enter the SAME child (rdi), jump into the body redo chain (δ)]"))
          + x86("def", PORT_GAMMA)
          + x86("mov32", "eax", 1L)
          + x86("pop", "r12")

@@ -9,6 +9,12 @@ extern "C" {
 #include "emit_globals.h"
 #include "emit_io.h"
 }
+#ifndef _
+#define _ g_emit
+#endif
+extern "C" {
+#include "emit_bb.h"
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 enum { X86P_ALPHA = 0, X86P_BETA = 1, X86P_GAMMA = 2, X86P_OMEGA = 3, X86P_DELTA = 4, X86P_EPSILON = 5 };
 #define PORT_ALPHA   "\xCE\xB1"
@@ -397,11 +403,19 @@ inline std::string x86_load_mem64(const char * dst, const char * basebr) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", qword ptr [" + rb + "]\n");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+inline const char * x86_strkeep(const std::string & v) {
+    static char ring[16][192]; static int i;
+    i = (i + 1) & 15;
+    size_t n = v.size(); if (n > 191) n = 191;
+    memcpy(ring[i], v.data(), n); ring[i][n] = 0;
+    return ring[i];
+}
 struct xop {
     const char * s; uint64_t u; int tag;
     xop()                    : s(0), u(0), tag(0) {}
     xop(const char * p)      : s(p), u(0), tag(p ? 1 : 0) {}
     xop(char * p)            : s(p), u(0), tag(p ? 1 : 0) {}
+    xop(const std::string & v) : s(x86_strkeep(v)), u(0), tag(1) {}
     xop(int v)               : s(0), u((uint64_t)(int64_t)v), tag(2) {}
     xop(long v)              : s(0), u((uint64_t)v), tag(2) {}
     xop(long long v)         : s(0), u((uint64_t)v), tag(2) {}
@@ -476,6 +490,15 @@ inline void x86_parse(const xop & x, opnd & o) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) {
     opnd a, b; x86_parse(xa, a); x86_parse(xb, b);
+    if (!strcmp(mnem, "label"))     return MEDIUM_BINARY ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
+    if (!strcmp(mnem, "comment"))   return MEDIUM_BINARY ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
+    if (!strcmp(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
+    if (!strcmp(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
+    if (!strcmp(mnem, "ins1"))      return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
+    if (!strcmp(mnem, "ins2"))      return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + "\n");
+    if (!strcmp(mnem, "ins3"))      return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + " " + (xc.s ? xc.s : "") + "\n");
+    if (!strcmp(mnem, "Lins1"))     return MEDIUM_BINARY ? std::string() : (std::string(xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + "\n");
+    if (!strcmp(mnem, "Lins2"))     return MEDIUM_BINARY ? std::string() : (std::string(xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + " " + (xc.s ? xc.s : "") + "\n");
     if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : std::string(" ret\n");
     if (!strcmp(mnem, "cqo")) return x86_cqo();
     if (!strcmp(mnem, "def")) {
@@ -486,17 +509,20 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "jmp")) {
         if (a.kind == XK_PORT) return x86_jmp(a.port);
         if (a.kind == XK_ILBL) return x86_jmp_id(a.lbl);
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" jmp ") + a.sym + "\n";
         return std::string();
     }
     if (mnem[0] == 'j') {
         if (a.kind == XK_PORT) return x86_jcc(mnem, a.port);
         if (a.kind == XK_ILBL) return x86_jcc_id(mnem, a.lbl);
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" ") + mnem + " " + a.sym + "\n";
         return std::string();
     }
     if (!strcmp(mnem, "call")) {
         if (a.kind == XK_PORT) return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
                                                     : (std::string(" call ") + x86_portname(a.port) + "\n");
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" call ") + a.sym + "\n";
         return std::string();
     }
     if (!strcmp(mnem, "push")) return x86_push(a.txt);
@@ -572,11 +598,11 @@ inline std::string x86_bomb(const char * msg) {
     uint64_t     fp  = (uint64_t)(uintptr_t)(void *)rt_bomb;
     return x86_load_ro("rdi", lbl, (uint64_t)(uintptr_t)(const void *)m)
          + x86_call_ro("rt_bomb", fp)
-         + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : s_1asm("ud2"));
+         + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : std::string(" ud2\n"));
 }
 inline std::string x86_pair_jmp(int idx) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
-    return s_1asm(emit_fmt("jmp %s", g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??"));
+    return std::string(" jmp ") + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
 }
 inline std::string x86_pair_loop() {
     std::string r;
@@ -586,7 +612,7 @@ inline std::string x86_pair_loop() {
             if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
         } else {
             if (g_emit.xa_bb_emit_pair_define[i]) r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name);
-            if (g_emit.xa_bb_emit_pair_jmp[i])    r += s_1asm(emit_fmt("jmp %s", g_emit.xa_bb_emit_pair_jmp[i]->name));
+            if (g_emit.xa_bb_emit_pair_jmp[i])    r += std::string(" jmp ") + g_emit.xa_bb_emit_pair_jmp[i]->name + "\n";
         }
     }
     return r;

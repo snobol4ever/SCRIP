@@ -14,8 +14,8 @@ static std::string bb_return_str() {
     if (!PLATFORM_X86) return std::string();
     if (!g_descr_flat_chain) return std::string();
     int src = (_.node && _.node->α) ? bb_slot_get(_.node->α) : -1;
-    std::string head = IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                          + s_comment(emit_fmt("# BOX IR_RETURN [GN x86() stackless: ret-value slot %d -> proc frame result [r12+0]; jmp omega]", src)));
+    std::string head = IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                          + x86("comment", emit_fmt("BOX IR_RETURN [GN x86() stackless: ret-value slot %d -> proc frame result [r12+0]; jmp omega]", src)));
     if (src >= 0)
         return head
              + x86_frame_load64("rax", src)

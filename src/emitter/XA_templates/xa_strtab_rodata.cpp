@@ -1,12 +1,13 @@
 #include <string>
 #include "emit_str.h"
+#include "../BB_templates/x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_strtab_rodata_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_STRTAB_RODATA");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_STRTAB_RODATA");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             if (g_emit.xa_strtab_n <= 0) return std::string();

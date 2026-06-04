@@ -19,22 +19,22 @@ static std::string bb_disj_str() {
         int n = _.resolve_choice_n;
         if (n <= 0)
             return IF(MEDIUM_TEXT,
-                      s_1asm(std::string(_.lbl_α) + ":")
-                    + s_comment("# BOX RESOLVE_ALT (empty)  [x86() self-encoding]")
-                    + s_2asm("jmp", _.lbl_ω)
-                    + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω));
+                      x86("label", _.lbl_α)
+                    + x86("comment", "BOX RESOLVE_ALT (empty)  [x86() self-encoding]")
+                    + x86("ins2", "jmp", _.lbl_ω)
+                    + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω));
         return IF(MEDIUM_TEXT,
-                  s_1asm(std::string(_.lbl_α) + ":")
-                + s_comment(emit_fmt("# BOX RESOLVE_ALT n=%d (mode-4 first-solution)  [x86() self-encoding]", n))
-                + s_2asm("jmp", disj_pre(0).c_str())
-                + s_1asm(disj_pre(0) + ":")
+                  x86("label", _.lbl_α)
+                + x86("comment", emit_fmt("BOX RESOLVE_ALT n=%d (mode-4 first-solution)  [x86() self-encoding]", n))
+                + x86("ins2", "jmp", disj_pre(0).c_str())
+                + x86("ins1", disj_pre(0) + ":")
                 + x86("call", "rt_trail_mark_push", (uint64_t)(uintptr_t)(void*)rt_trail_mark_push)
-                + s_2asm("jmp", disj_body(0).c_str())
+                + x86("ins2", "jmp", disj_body(0).c_str())
                 + FOR(1, n, [](int i){
-                      return s_1asm(disj_pre(i) + ":")
+                      return x86("ins1", disj_pre(i) + ":")
                            + x86("call", "rt_trail_unwind_top", (uint64_t)(uintptr_t)(void*)rt_trail_unwind_top)
-                           + s_2asm("jmp", disj_body(i).c_str()); })
-                + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω));
+                           + x86("ins2", "jmp", disj_body(i).c_str()); })
+                + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω));
     }
     return std::string();
 }

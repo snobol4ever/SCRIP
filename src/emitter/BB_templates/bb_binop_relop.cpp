@@ -31,8 +31,8 @@ std::string bb_binop_relop_str() {
     int sa = _.op_sa, sb = _.op_sb;
     if (sa < 0 || sb < 0) return std::string();
     const char * mnem = rel_fail_mnem(op);
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                          + s_comment(emit_fmt("# BOX IR_BINOP relop [GZ-8 x86() stackless cmp + %s->omega; jmp gamma]", mnem)))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                          + x86("comment", emit_fmt("BOX IR_BINOP relop [GZ-8 x86() stackless cmp + %s->omega; jmp gamma]", mnem)))
          + x86("mov", "rax", FRQ(sa + 8))
          + x86("mov", "rcx", FRQ(sb + 8))
          + x86("cmp", "rax", "rcx")

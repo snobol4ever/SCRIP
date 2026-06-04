@@ -42,8 +42,8 @@ std::string bb_unop_str() {
     unop_op uo = bb_unop_resolve(_.op_node_kind, _.op_ival);
     if (uo == UO_UNHANDLED) return std::string();
     if (uo == UO_NOT) {
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment("# BOX IR_NOT [x86() stackless: operand-fail->NULVCL->γ]"))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", "BOX IR_NOT [x86() stackless: operand-fail->NULVCL->γ]"))
              + x86("mov", FRQ(off),     (long)0)
              + x86("mov", FRQ(off + 8), (long)0)
              + x86("jmp", PORT_GAMMA)
@@ -51,8 +51,8 @@ std::string bb_unop_str() {
              + x86("jmp", PORT_OMEGA);
     }
     if (uo == UO_NONNULL) {
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment("# BOX UNOP NONNULL [x86() stackless: fail/null->ω; DESCR->γ]"))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", "BOX UNOP NONNULL [x86() stackless: fail/null->ω; DESCR->γ]"))
              + x86("mov", "eax", FR(sa))
              + x86("cmp", "eax", (long)99)
              + x86("je",  PORT_OMEGA)
@@ -67,8 +67,8 @@ std::string bb_unop_str() {
              + x86("jmp", PORT_OMEGA);
     }
     if (uo == UO_NULL_TEST) {
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment("# BOX UNOP NULL_TEST [x86() stackless: fail/non-null->ω; null->γ]"))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", "BOX UNOP NULL_TEST [x86() stackless: fail/non-null->ω; null->γ]"))
              + x86("mov", "eax", FR(sa))
              + x86("cmp", "eax", (long)99)
              + x86("je",  PORT_OMEGA)
@@ -83,8 +83,8 @@ std::string bb_unop_str() {
     if (uo == UO_SIZE) {
         struct DESCR_t (*fp)(uint64_t, uint64_t) = rt_size_d;
         uint64_t fptr = (uint64_t)(uintptr_t)(void *)fp;
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment("# BOX UNOP SIZE [x86() stackless: rt_size_d->slot->γ]"))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", "BOX UNOP SIZE [x86() stackless: rt_size_d->slot->γ]"))
              + x86("mov", "rdi", FRQ(sa))
              + x86("mov", "rsi", FRQ(sa + 8))
              + x86("call", "rt_size_d", fptr)
@@ -97,8 +97,8 @@ std::string bb_unop_str() {
     int is_neg = (uo == UO_NEG);
     std::string neg_op;
     if (is_neg) neg_op = x86("neg", "rax");
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                         + s_comment(emit_fmt("# BOX UNOP %s [x86() stackless slot->slot DESCR]",
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", emit_fmt("BOX UNOP %s [x86() stackless slot->slot DESCR]",
                                               is_neg ? "NEG" : "POS")))
          + x86("mov", "rax", FRQ(sa + 8))
          + neg_op

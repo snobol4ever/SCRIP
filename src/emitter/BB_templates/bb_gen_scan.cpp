@@ -16,7 +16,7 @@ static std::string bb_gen_scan_str() {
     if (_.op_sb == 1) {
         int sa = _.op_sa;
         ScanSubjRegs (*fp)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t) = rt_icn_scan_enter; uint64_t fptr = (uint64_t)(uintptr_t)(void *)fp;
-        return IF(MEDIUM_TEXT, s_comment("# BOX ICN IR_GEN_SCAN enter [ICN-SCAN-0: ledger pushes prior triple; subject DESCR slot->rt->SIGMA=r13 delta=r14(0 for pos=1) DELTA=r15->body]"))
+        return IF(MEDIUM_TEXT, x86("comment", "BOX ICN IR_GEN_SCAN enter [ICN-SCAN-0: ledger pushes prior triple; subject DESCR slot->rt->SIGMA=r13 delta=r14(0 for pos=1) DELTA=r15->body]"))
              + x86("mov", "rdi", FRQ(sa))
              + x86("mov", "rsi", FRQ(sa + 8))
              + x86("mov", "rdx", "r13")
@@ -33,7 +33,7 @@ static std::string bb_gen_scan_str() {
     if (_.op_off < 0) return std::string();
     int off = _.op_off;
     void (*fp)(uint64_t *) = rt_icn_scan_leave; uint64_t fptr = (uint64_t)(uintptr_t)(void *)fp;
-    return IF(MEDIUM_TEXT, s_comment("# BOX ICN IR_GEN_SCAN leave [ICN-SCAN-0: rt restores &subject/&pos + pops prior triple through frame out-area -> r13/r14/r15]"))
+    return IF(MEDIUM_TEXT, x86("comment", "BOX ICN IR_GEN_SCAN leave [ICN-SCAN-0: rt restores &subject/&pos + pops prior triple through frame out-area -> r13/r14/r15]"))
          + x86_frame_lea("rdi", off)
          + x86("call", "rt_icn_scan_leave", fptr)
          + x86("mov", "r13", FRQ(off))

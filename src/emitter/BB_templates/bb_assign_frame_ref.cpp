@@ -19,8 +19,8 @@ static std::string bb_assign_frame_ref_str(IR_t * pBB) {
     std::string hop = x86_frame_lea("rcx", 0);
     for (int h = 0; h < hops; h++) hop += x86_reg_disp32_load64("rcx", "rcx", 0);
     hop += x86_reg_disp32_load64("rcx", "rcx", voff + 8);
-    std::string s = IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                  + s_comment(emit_fmt("# BOX IR_ASSIGN_FRAME_REF \"%s\" slot=%d hops=%d deref rhs_kind=%d", _.op_sval ? _.op_sval : "", (int) _.op_ival, hops, k)));
+    std::string s = IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                                  + x86("comment", emit_fmt("BOX IR_ASSIGN_FRAME_REF \"%s\" slot=%d hops=%d deref rhs_kind=%d", _.op_sval ? _.op_sval : "", (int) _.op_ival, hops, k)));
     if (k == (int) IR_LIT_I) {
         s += hop + x86_reg_disp32_store_imm64("rcx", 0, 6) + x86_movabs_r64("rax", (uint64_t) _.op_a_ival_sg) + x86_reg_disp32_store64("rcx", 8, "rax");
     } else if (k == (int) IR_LIT_NUL) {

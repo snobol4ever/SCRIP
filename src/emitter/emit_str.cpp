@@ -37,15 +37,15 @@ std::string bomb_text(const char * msg) {
     const char * m = msg ? msg : "(unimplemented arm)";
     static int seq = 0;
     int id = seq++;
-    return s_comment(std::string("# BOMB: ") + m)
-         + s_directive(".intel_syntax noprefix")
-         + s_directive(".section .rodata")
-         + s_directive(emit_fmt(".Lbomb_msg_%d:", id))
-         + s_directive(std::string(".asciz ") + "\"" + gas_escape_str(m) + "\"")
-         + s_directive(".section .text")
-         + s_2asm("lea", emit_fmt("rdi, [rip + .Lbomb_msg_%d]", id))
-         + s_1asm("call rt_bomb@PLT")
-         + s_1asm("ud2");
+    return std::string("# BOMB: ") + m + "\n"
+         + ".intel_syntax noprefix\n"
+         + ".section .rodata\n"
+         + emit_fmt(".Lbomb_msg_%d:", id) + "\n"
+         + ".asciz " + "\"" + gas_escape_str(m) + "\"" + "\n"
+         + ".section .text\n"
+         + " lea " + emit_fmt("rdi, [rip + .Lbomb_msg_%d]", id) + "\n"
+         + " call rt_bomb@PLT\n"
+         + " ud2\n";
 }
 std::string bomb_bytes(const char * msg) {
     const char * m   = bomb_intern(msg ? msg : "(unimplemented arm)");
@@ -57,13 +57,6 @@ std::string bomb_bytes(const char * msg) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string s_1asm (const std::string & a)                                                            { return std::string(" ") + a + "\n"; }
-std::string s_2asm (const std::string & a, const std::string & b)                                     { return std::string(" ") + a + " " + b + "\n"; }
-std::string s_3asm (const std::string & a, const std::string & b, const std::string & c)              { return std::string(" ") + a + " " + b + " " + c + "\n"; }
-std::string s_L1asm(const std::string & l, const std::string & a)                                     { return l + " " + a + "\n"; }
-std::string s_L2asm(const std::string & l, const std::string & a, const std::string & b)              { return l + " " + a + " " + b + "\n"; }
-std::string s_directive(const std::string & line)                                                     { return line + "\n"; }
-std::string s_comment  (const std::string & line)                                                     { return line + "\n"; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_push_int2_str(long v) {
     if (v == -1) return "    iconst_m1\n";

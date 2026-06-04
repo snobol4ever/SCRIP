@@ -1,12 +1,13 @@
 #include <string>
 #include "emit_str.h"
+#include "../BB_templates/x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_cap_fixup_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_CAP_FIXUP");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_CAP_FIXUP");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             if (!g_emit.xa_cap_dlbl || !g_emit.xa_cap_dlbl[0]) return std::string();

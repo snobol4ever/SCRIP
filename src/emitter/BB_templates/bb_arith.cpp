@@ -15,13 +15,13 @@ static inline int          vacuous() { return _.bb_lk < 0; }
 static std::string bb_arith_str() {
     if (PLATFORM_X86) {
         if (vacuous())
-            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                 + s_comment(emit_fmt("# BOX RESOLVE_ARITH(op='%s')  vacuous [x86() self-encoding]", op_str())))
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                                 + x86("comment", emit_fmt("BOX RESOLVE_ARITH(op='%s')  vacuous [x86() self-encoding]", op_str())))
                  + x86("jmp", PORT_GAMMA)
                  + x86("def", PORT_BETA)
                  + x86("jmp", PORT_OMEGA);
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment(emit_fmt("# BOX RESOLVE_ARITH(op='%s')  [x86() self-encoding]", op_str())))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", emit_fmt("BOX RESOLVE_ARITH(op='%s')  [x86() self-encoding]", op_str())))
              + x86("mov", "edi", (long)_.bb_lk)
              + x86("mov", "esi", (long)_.bb_li)
              + (_.bb_ls ? x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)_.bb_ls, _.bb_ls) : x86("mov", "edx", (long)0))

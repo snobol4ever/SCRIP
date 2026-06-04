@@ -67,30 +67,30 @@ std::string bb_call_proc_staged_str(IR_t * pBB) {
     if (MEDIUM_TEXT) {
         int id2 = _.nid;
         std::string nl = emit_fmt(".Lcall%d_pname", id2);
-        std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
-                       + s_directive(".section .rodata")
-                       + s_directive(nl + ": .string \"" + std::string(fn) + "\"")
-                       + s_directive(".section .text")
-                       + s_directive(".intel_syntax noprefix");
+        std::string s = x86("label", _.lbl_α)
+                       + x86("directive", ".section .rodata")
+                       + x86("directive", nl + ": .string \"" + std::string(fn) + "\"")
+                       + x86("directive", ".section .text")
+                       + x86("directive", ".intel_syntax noprefix");
         for (int i = 0; i < (int)narg; i++) {
             IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL);
             int slot = prod ? bb_slot_get(prod) : -1;
             if (slot < 0) slot = 0;
-            s += s_2asm("mov edi,",  emit_fmt("%d", i))
-              +  s_2asm("mov rsi,",  emit_fmt("[r12+%d]", slot))
-              +  s_2asm("mov rdx,",  emit_fmt("[r12+%d]", slot + 8))
-              +  s_2asm("call",      "rt_arg_stage@PLT");
+            s += x86("ins2", "mov edi,",  emit_fmt("%d", i))
+              +  x86("ins2", "mov rsi,",  emit_fmt("[r12+%d]", slot))
+              +  x86("ins2", "mov rdx,",  emit_fmt("[r12+%d]", slot + 8))
+              +  x86("ins2", "call",      "rt_arg_stage@PLT");
         }
-        s += s_2asm("lea rdi,", "[rip + " + nl + "]")
-          +  s_2asm("mov esi,",  emit_fmt("%d", (int)narg))
-          +  s_2asm("call",      "rt_call_proc_descr@PLT")
-          +  s_2asm("mov",       emit_fmt("[r12+%d], rax", off))
-          +  s_2asm("mov",       emit_fmt("[r12+%d], rdx", off + 8))
-          +  s_2asm("cmp",       "eax, 99")
-          +  s_2asm("je",        _.lbl_ω)
-          +  s_2asm("jmp",       _.lbl_γ)
-          +  s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-          +  s_2asm("jmp",       beta_tgt ? beta_tgt->name : _.lbl_ω);
+        s += x86("ins2", "lea rdi,", "[rip + " + nl + "]")
+          +  x86("ins2", "mov esi,",  emit_fmt("%d", (int)narg))
+          +  x86("ins2", "call",      "rt_call_proc_descr@PLT")
+          +  x86("ins2", "mov",       emit_fmt("[r12+%d], rax", off))
+          +  x86("ins2", "mov",       emit_fmt("[r12+%d], rdx", off + 8))
+          +  x86("ins2", "cmp",       "eax, 99")
+          +  x86("ins2", "je",        _.lbl_ω)
+          +  x86("ins2", "jmp",       _.lbl_γ)
+          +  x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+          +  x86("ins2", "jmp",       beta_tgt ? beta_tgt->name : _.lbl_ω);
         return s;
     }
     return std::string();

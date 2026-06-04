@@ -61,15 +61,15 @@ std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr)
             }
     }
     if (MEDIUM_TEXT) {
-    std::string succ_back = s_2asm("jmp", _.lbl_γ)
-                          + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
+    std::string succ_back = x86("ins2", "jmp", _.lbl_γ)
+                          + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
         if (strcmp(fn, "nl") == 0) {
-            return hdr + s_2asm("mov", "edi, 10") + s_2asm("call", "putchar@PLT") + succ_back;
+            return hdr + x86("ins2", "mov", "edi, 10") + x86("ins2", "call", "putchar@PLT") + succ_back;
         }
         if (strcmp(fn, "halt") == 0) {
-            return hdr + s_2asm("xor", "edi, edi") + s_2asm("call", "exit@PLT")
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
+            return hdr + x86("ins2", "xor", "edi, edi") + x86("ins2", "call", "exit@PLT")
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
         }
         if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0) {
             std::string write_body;
@@ -77,27 +77,27 @@ std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr)
                 IR_t *arg = pBB->α;
                 if (arg->t == IR_ATOM) {
                     write_body = _.bb_ls
-                        ? s_2asm("lea rcx,", emit_fmt("[rip + %s]", _.bb_ls)) + s_2asm("mov", "rdi, rcx")
-                        : s_2asm("xor", "edi, edi");
-                    write_body += s_2asm("call", "rt_write_atom@PLT");
+                        ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", _.bb_ls)) + x86("ins2", "mov", "rdi, rcx")
+                        : x86("ins2", "xor", "edi, edi");
+                    write_body += x86("ins2", "call", "rt_write_atom@PLT");
                 } else if (arg->t == IR_LOGICVAR) {
-                    write_body = s_2asm("mov edi,", emit_fmt("%d", (int)arg->ival))
-                               + s_2asm("call", "rt_write_var@PLT");
+                    write_body = x86("ins2", "mov edi,", emit_fmt("%d", (int)arg->ival))
+                               + x86("ins2", "call", "rt_write_var@PLT");
                 } else if (arg->t == IR_LIT_I) {
                     /* PLG-9j: bare int is a flat-tier arg (PLG-9b gate) — 16-aligned box entry, so a direct */
                     /* rt_write_int with no rsp adjust is correct (a sub rsp,8 here would mis-align the    */
                     /* call and fault). Restores the pre-PLG-9j leaf path; only compounds need pl_write.      */
-                    write_body = s_2asm("mov rdi,", emit_fmt("%ld", (long)arg->ival))
-                               + s_2asm("call", "rt_write_int@PLT");
+                    write_body = x86("ins2", "mov rdi,", emit_fmt("%ld", (long)arg->ival))
+                               + x86("ins2", "call", "rt_write_int@PLT");
                 } else if (arg->t == IR_LIT_F) {
                     /* PLG-9j: bare float — likewise a flat-tier leaf (16-aligned entry). Load the literal's  */
                     /* bits into xmm0 (no .rodata constant) and call rt_write_float directly, no rsp       */
                     /* adjust. emit_build_compound_term hard-codes xmm0=0 for leaves, so the build+pl_write   */
                     /* path below would render 0.0 (and a sub rsp,8 would mis-align the leaf's call → fault).  */
                     uint64_t fb = 0; double dv = arg->dval; memcpy(&fb, &dv, sizeof fb);
-                    write_body = s_2asm("mov rax,", emit_fmt("%llu", (unsigned long long)fb))
-                               + s_2asm("movq", "xmm0, rax")
-                               + s_2asm("call", "rt_write_float@PLT");
+                    write_body = x86("ins2", "mov rax,", emit_fmt("%llu", (unsigned long long)fb))
+                               + x86("ins2", "movq", "xmm0, rax")
+                               + x86("ins2", "call", "rt_write_float@PLT");
                 } else {
                     /* PLG-9j (2026-06-01, Opus 4.8): compound / op-term arg (IR_STRUCT / IR_ARITH — rich     */
                     /* tier, 8-misaligned box entry) → build the Term* via emit_build_compound_term then      */
@@ -106,17 +106,17 @@ std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr)
                     /* the old emit_write_term inline walker, which rendered an IR_STRUCT '.'/2 generically   */
                     /* as functor notation (the m4 write-list gap — rung20 list). Byte-twin of the writeq     */
                     /* TEXT arm. sub rsp,8 realigns to 16 across the build's and writer's internal calls.     */
-                    write_body = s_2asm("sub", "rsp, 8")
+                    write_body = x86("ins2", "sub", "rsp, 8")
                                + emit_build_compound_term(arg)
-                               + s_2asm("mov", "rdi, rax")
-                               + s_2asm("call", "rt_write_term_ptr@PLT")
-                               + s_2asm("add", "rsp, 8");
+                               + x86("ins2", "mov", "rdi, rax")
+                               + x86("ins2", "call", "rt_write_term_ptr@PLT")
+                               + x86("ins2", "add", "rsp, 8");
                 }
             } else {
-                write_body = s_comment("# RESOLVE_BUILTIN write: no arg");
+                write_body = x86("comment", "RESOLVE_BUILTIN write: no arg");
             }
             std::string nl_suffix = (strcmp(fn, "writeln") == 0)
-                ? s_2asm("mov", "edi, 10") + s_2asm("call", "putchar@PLT")
+                ? x86("ins2", "mov", "edi, 10") + x86("ins2", "call", "putchar@PLT")
                 : std::string();
             return hdr + write_body + nl_suffix + succ_back;
         }
@@ -125,11 +125,11 @@ std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr)
                 ? "rt_writeq_term_ptr@PLT"
                 : "rt_write_canonical_term_ptr@PLT";
             return hdr
-                 + s_2asm("sub", "rsp, 8")
+                 + x86("ins2", "sub", "rsp, 8")
                  + emit_build_compound_term(pBB->α)
-                 + s_2asm("mov", "rdi, rax")
-                 + s_2asm("call", writer)
-                 + s_2asm("add", "rsp, 8")
+                 + x86("ins2", "mov", "rdi, rax")
+                 + x86("ins2", "call", writer)
+                 + x86("ins2", "add", "rsp, 8")
                  + succ_back;
         }
     }

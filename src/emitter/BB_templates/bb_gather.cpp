@@ -33,15 +33,15 @@ static std::string gather_vals_rodata() {
     } else {
         q += " .quad 0";
     }
-    return s_directive(".section .rodata") + s_directive(q)
-         + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
+    return x86("directive", ".section .rodata") + x86("directive", q)
+         + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_gather_str() {
     if (!PLATFORM_X86) return std::string();
     return IF(MEDIUM_TEXT,
-               s_1asm(std::string(_.lbl_α) + ":")
-             + s_comment(emit_fmt("# BOX IR_GATHER n=%d [x86() self-encoding, ζ-frame cursor]", gatherN()))
+               x86("label", _.lbl_α)
+             + x86("comment", emit_fmt("BOX IR_GATHER n=%d [x86() self-encoding, ζ-frame cursor]", gatherN()))
              + gather_vals_rodata())
            + x86("def",    L(0))
            + x86("mov",    "rcx", FRQ(cursoff()))

@@ -42,8 +42,8 @@ static std::string bb_gvar_assign_str() {
             int off = _.op_off;
             const char * nm = _.op_sval ? _.op_sval : "";
             uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t) = NV_SET_fn; fptr = (uint64_t)(uintptr_t)(void *)fp; }
-            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                  + s_comment(emit_fmt("# BOX IR_ASSIGN global write(\"%s\") [GN-4 nv x86() stackless: NV_SET_fn(name, rhs slot %d) -> own slot %d; name sealed RO [rip+disp]]", nm, rhs, off)))
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                                  + x86("comment", emit_fmt("BOX IR_ASSIGN global write(\"%s\") [GN-4 nv x86() stackless: NV_SET_fn(name, rhs slot %d) -> own slot %d; name sealed RO [rip+disp]]", nm, rhs, off)))
                  + x86_frame_load64("rsi", rhs)
                  + x86_frame_load64("rdx", rhs + 8)
                  + x86_ro_load_q("rdi", 0)
@@ -56,8 +56,8 @@ static std::string bb_gvar_assign_str() {
                  + x86_ro_seal_str(0, nm);
         }
         if (_.op_a_node_kind == (int)IR_LIT_S)
-            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                 + s_comment("# BOX IR_ASSIGN(lit_s) store = literal [RO ptrs, @PLT]"))
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                                 + x86("comment", "BOX IR_ASSIGN(lit_s) store = literal [RO ptrs, @PLT]"))
                  + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                  + x86("lea",  "rsi", "[rip + __]", rhs_addr(), rhs_label())
                  + x86("call", "rt_gvar_assign_str", fn_lit_s())
@@ -65,8 +65,8 @@ static std::string bb_gvar_assign_str() {
                  + x86("def",  PORT_BETA)
                  + x86("jmp",  PORT_OMEGA);
         if (_.op_a_node_kind == (int)IR_LIT_I)
-            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                 + s_comment("# BOX IR_ASSIGN(lit_i) store = imm64 [RO dst ptr, @PLT]"))
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                                 + x86("comment", "BOX IR_ASSIGN(lit_i) store = imm64 [RO dst ptr, @PLT]"))
                  + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                  + x86_movabs_r64("rsi", (uint64_t)_.op_a_ival_sg)
                  + x86("call", "rt_gvar_assign_int", fn_int())
@@ -74,8 +74,8 @@ static std::string bb_gvar_assign_str() {
                  + x86("def",  PORT_BETA)
                  + x86("jmp",  PORT_OMEGA);
         if (_.op_a_node_kind == (int)IR_VAR)
-            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                 + s_comment("# BOX IR_ASSIGN(var) store = read(src) [RO ptrs, @PLT]"))
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                                 + x86("comment", "BOX IR_ASSIGN(var) store = read(src) [RO ptrs, @PLT]"))
                  + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                  + x86("lea",  "rsi", "[rip + __]", rhs_addr(), rhs_label())
                  + x86("call", "rt_gvar_assign_var", fn_var())
@@ -85,8 +85,8 @@ static std::string bb_gvar_assign_str() {
         if (_.op_a_node_kind == (int)IR_BINOP) {
             int slot = _.op_a_slot;
             if (slot < 0) return x86_bomb("bb_gvar_assign int-binop: op_a_slot==-1 (binop slot not promoted)");
-            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                 + s_comment("# BOX IR_ASSIGN(int-binop) store = binop-int64-slot [RO dst ptr, FRQ slot, @PLT]"))
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                                 + x86("comment", "BOX IR_ASSIGN(int-binop) store = binop-int64-slot [RO dst ptr, FRQ slot, @PLT]"))
                  + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                  + x86("mov",  "rsi", FRQ(slot))
                  + x86("call", "rt_gvar_assign_int", fn_int())
@@ -99,8 +99,8 @@ static std::string bb_gvar_assign_str() {
                 int n = _.op_parts_n;
                 if (n <= 0) return x86_bomb("bb_gvar_assign concat: TEXT(mode-4) value shape not flattenable to lit/var parts (pending)");
                 int off = bb_slot_claim(16 * n);
-                std::string s = s_1asm(std::string(_.lbl_α) + ":")
-                              + s_comment(emit_fmt("# BOX IR_ASSIGN(concat) %d staged parts -> rt_gvar_assign_concat_parts [zeta region, @PLT]", n));
+                std::string s = x86("label", _.lbl_α)
+                              + x86("comment", emit_fmt("BOX IR_ASSIGN(concat) %d staged parts -> rt_gvar_assign_concat_parts [zeta region, @PLT]", n));
                 for (int i = 0; i < n; i++) {
                     const char *ps = _.op_parts_str[i] ? _.op_parts_str[i] : "";
                     const char *pl = emit_intern_str(ps); static char b[64]; if (!pl) { strtab_label(b, sizeof b, ps); pl = b; }
@@ -136,8 +136,8 @@ static std::string bb_gvar_assign_str() {
             int slot = _.op_a_slot;
             if (slot < 0) return x86_bomb("bb_gvar_assign call-result: op_a_slot==-1 (call result slot not promoted)");
             if (MEDIUM_TEXT)
-                return s_1asm(std::string(_.lbl_α) + ":")
-                     + s_comment("# BOX IR_ASSIGN(call-result) store = DESCR from call zeta-slot [RO dst ptr, @PLT]")
+                return x86("label", _.lbl_α)
+                     + x86("comment", "BOX IR_ASSIGN(call-result) store = DESCR from call zeta-slot [RO dst ptr, @PLT]")
                      + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                      + x86_frame_load64("rsi", slot)
                      + x86_frame_load64("rdx", slot + 8)

@@ -9,14 +9,14 @@ extern "C" {
 static std::string bb_var_str() {
     if (!PLATFORM_X86) return std::string();
     if (g_gvar_flat_chain)
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment(emit_fmt("# BOX IR_VAR \"%s\" [gvar flat-chain: by-name pass-through]", _.op_sval ? _.op_sval : "")))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", emit_fmt("BOX IR_VAR \"%s\" [gvar flat-chain: by-name pass-through]", _.op_sval ? _.op_sval : "")))
              + x86("jmp",  PORT_GAMMA)
              + x86("def",  PORT_BETA)
              + x86("jmp",  PORT_OMEGA);
     if (g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0)
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment(emit_fmt("# BOX IR_VAR read(\"%s\") [descr flat-chain: var slot %d -> own slot %d]", _.op_sval ? _.op_sval : "", _.op_sa, _.op_off)))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", emit_fmt("BOX IR_VAR read(\"%s\") [descr flat-chain: var slot %d -> own slot %d]", _.op_sval ? _.op_sval : "", _.op_sa, _.op_off)))
              + x86_frame_load64("rax", _.op_sa)
              + x86_frame_store64(_.op_off, "rax")
              + x86_frame_load64("rax", _.op_sa + 8)

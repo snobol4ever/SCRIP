@@ -24,12 +24,12 @@ static std::string bb_pat_capture_str() {
     if (!vname()[0]) return x86_bomb("IR_PAT_ASSIGN: empty capture variable name");
     if (sub_kind() == 0) {
         return IF(MEDIUM_TEXT,
-                   s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment(emit_fmt("# BOX CAPTURE SAVE(%s)  [delta=r14 -> zeta-slot; falls through into the inline child]", vname())))
+                   x86("label", _.lbl_α)
+                 + x86("comment", emit_fmt("BOX CAPTURE SAVE(%s)  [delta=r14 -> zeta-slot; falls through into the inline child]", vname())))
              + x86("mov", FR(stoff()), "r14d");
     }
     return IF(MEDIUM_TEXT,
-               s_comment(emit_fmt("# BOX CAPTURE %s(%s)  [SPITBOL ch.13: matched substring Sigma[saved..delta) -> variable]",
+               x86("comment", emit_fmt("BOX CAPTURE %s(%s)  [SPITBOL ch.13: matched substring Sigma[saved..delta) -> variable]",
                                    sub_kind() == 2 ? "IMM" : "COND", vname())))
          + x86("lea",  "rdi", "[rip + __]", vaddr(), vlabel())
          + x86("mov",  "esi", FR(stoff()))

@@ -1,5 +1,6 @@
 #include <string>
 #include "emit_str.h"
+#include "../BB_templates/x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 #include "../emit_bb.h"
@@ -7,13 +8,13 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_bb_ptr_slot_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_BB_PTR_SLOT");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_BB_PTR_SLOT");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
-            return s_directive(".section .data")
-                 + s_1asm(std::string(g_emit.bb_ptr_slot_lbl) + ": .quad 0")
-                 + s_directive(".section .text")
-                 + s_directive(".intel_syntax noprefix");
+            return x86("directive", ".section .data")
+                 + x86("ins1", std::string(g_emit.bb_ptr_slot_lbl) + ": .quad 0")
+                 + x86("directive", ".section .text")
+                 + x86("directive", ".intel_syntax noprefix");
         }
     }
     return std::string();

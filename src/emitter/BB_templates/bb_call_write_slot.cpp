@@ -39,14 +39,14 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
         return s;
     }
     if (MEDIUM_TEXT) {
-        return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_comment("# BOX IR_CALL write(op) [GZ-7 flat-chain slot -> rt_write_any_nl]")
-             + s_2asm("mov", emit_fmt("rdi, [r12+%d]", off))
-             + s_2asm("mov", emit_fmt("rsi, [r12+%d]", off + 8))
-             + s_2asm("call", "rt_write_any_nl@PLT")
-             + s_2asm("jmp", _.lbl_γ)
-             + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-             + s_2asm("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
+        return x86("label", _.lbl_α)
+             + x86("comment", "BOX IR_CALL write(op) [GZ-7 flat-chain slot -> rt_write_any_nl]")
+             + x86("ins2", "mov", emit_fmt("rdi, [r12+%d]", off))
+             + x86("ins2", "mov", emit_fmt("rsi, [r12+%d]", off + 8))
+             + x86("ins2", "call", "rt_write_any_nl@PLT")
+             + x86("ins2", "jmp", _.lbl_γ)
+             + x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+             + x86("ins2", "jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
     }
     return std::string();
 }
@@ -78,17 +78,17 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
         return s;
     }
     if (MEDIUM_TEXT) {
-        std::string tail = s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-                         + s_2asm("jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
+        std::string tail = x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+                         + x86("ins2", "jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
         if (a0->t == IR_BINOP && a0->ival == BINOP_CONCAT)
-            return s_1asm(emit_fmt("%s:", _.lbl_α))
-                 + s_2asm("mov rdi,", emit_fmt("[r12 + %d]", off + 8))
-                 + s_2asm("call",     "rt_write_strz_nl@PLT")
-                 + s_2asm("jmp",      _.lbl_γ) + tail;
-        return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_2asm("mov rdi,", emit_fmt("[r12 + %d]", off))
-             + s_2asm("call",     "rt_write_int_nl@PLT")
-             + s_2asm("jmp",      _.lbl_γ) + tail;
+            return x86("label", _.lbl_α)
+                 + x86("ins2", "mov rdi,", emit_fmt("[r12 + %d]", off + 8))
+                 + x86("ins2", "call",     "rt_write_strz_nl@PLT")
+                 + x86("ins2", "jmp",      _.lbl_γ) + tail;
+        return x86("label", _.lbl_α)
+             + x86("ins2", "mov rdi,", emit_fmt("[r12 + %d]", off))
+             + x86("ins2", "call",     "rt_write_int_nl@PLT")
+             + x86("ins2", "jmp",      _.lbl_γ) + tail;
     }
     return std::string();
 }

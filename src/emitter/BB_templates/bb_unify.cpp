@@ -15,7 +15,7 @@ static inline int  u_const_kind(int k){ return k == IR_ATOM || k == IR_LIT_I; }
 static inline int  u_compound_kind(int k){ return k == IR_STRUCT || k == IR_ARITH; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline std::string u_head(const char *msg) {
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment(msg));
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", msg));
 }
 static inline std::string u_vacuous(const char *msg) {
     return u_head(msg) + x86("jmp", PORT_GAMMA) + x86("def", PORT_BETA) + x86("jmp", PORT_OMEGA);

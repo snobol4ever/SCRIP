@@ -16,8 +16,8 @@ static std::string bb_var_global_str() {
     int off = _.op_off;
     const char * nm = _.op_sval ? _.op_sval : "";
     uint64_t fptr; { DESCR_t (*fp)(const char *) = NV_GET_fn; fptr = (uint64_t)(uintptr_t)(void *)fp; }
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                          + s_comment(emit_fmt("# BOX IR_VAR global read(\"%s\") [GN-3 x86() stackless: NV_GET_fn -> own slot %d; name sealed RO [rip+disp]]", nm, off)))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                          + x86("comment", emit_fmt("BOX IR_VAR global read(\"%s\") [GN-3 x86() stackless: NV_GET_fn -> own slot %d; name sealed RO [rip+disp]]", nm, off)))
          + x86_ro_load_q("rdi", 0)
          + x86("call", "NV_GET_fn", fptr)
          + x86_frame_store64(off, "rax")

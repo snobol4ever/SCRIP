@@ -26,8 +26,8 @@ std::string bb_binop_arith_str() {
     case BINOP_MOD: opb = x86("cqo") + x86("idiv", "rcx") + x86("mov", "rax", "rdx"); break;
     default:        opb = x86("add",  "rax", "rcx"); break;
     }
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                          + s_comment(emit_fmt("# BOX IR_BINOP arith op=%lld [GZ-9 x86() self-encoding, stackless slot->slot DESCR]", (long long)op)))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                          + x86("comment", emit_fmt("BOX IR_BINOP arith op=%lld [GZ-9 x86() self-encoding, stackless slot->slot DESCR]", (long long)op)))
          + x86("mov", "rax", FRQ(sa + 8))
          + x86("mov", "rcx", FRQ(sb + 8))
          + opb

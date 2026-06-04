@@ -18,12 +18,12 @@ static std::string bb_cell_unify_str() {
         const char *ls = ln ? ln->sval : (const char *)0, *rs = rn ? rn->sval : (const char *)0;
         std::string tail = x86("test", "eax", "eax") + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("def", PORT_BETA) + x86("jmp", PORT_OMEGA);
         if (lk == IR_LOGICVAR && rk == IR_LOGICVAR && li == ri)
-            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment("# BOX CELL_UNIFY cell=cell self — vacuous success  [PL-GZ-3 frame-cell unify, x86() self-encoding]"))
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY cell=cell self — vacuous success  [PL-GZ-3 frame-cell unify, x86() self-encoding]"))
                  + x86("jmp", PORT_GAMMA)
                  + x86("def", PORT_BETA)
                  + x86("jmp", PORT_OMEGA);
         if (lk == IR_LOGICVAR && rk == IR_LOGICVAR)
-            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment("# BOX CELL_UNIFY cell↔cell  [PL-GZ-3: Term* from [ζ+off], ONE rt VALUE call, binding trailed in rt]"))
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY cell↔cell  [PL-GZ-3: Term* from [ζ+off], ONE rt VALUE call, binding trailed in rt]"))
                  + x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)li)))
                  + x86("mov", "rsi", FRQ(GZ_CELL_OFF((int)ri)))
                  + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void *)rt_unify_terms)
@@ -33,7 +33,7 @@ static std::string bb_cell_unify_str() {
             if      (lk == IR_LOGICVAR && (rk == IR_ATOM || rk == IR_LIT_I)) { slot = (int)li; ck = rk; ci = ri; cs = rs; }
             else if (rk == IR_LOGICVAR && (lk == IR_ATOM || lk == IR_LIT_I)) { slot = (int)ri; ck = lk; ci = li; cs = ls; }
             if (slot >= 0)
-                return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment("# BOX CELL_UNIFY cell↔const  [PL-GZ-3: const sealed RO in-box [rip+disp], binding trailed in rt]"))
+                return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY cell↔const  [PL-GZ-3: const sealed RO in-box [rip+disp], binding trailed in rt]"))
                      + x86("mov", "rdi", FRQ(GZ_CELL_OFF(slot)))
                      + x86("mov", "esi", (long)ck)
                      + x86("mov", "rdx", ci)
@@ -47,11 +47,11 @@ static std::string bb_cell_unify_str() {
             if (lkc && rkc) {
                 int eq = (lk == rk) && ((lk == IR_LIT_I) ? (li == ri) : (ls && rs && strcmp(ls, rs) == 0));
                 if (eq)
-                    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment("# BOX CELL_UNIFY const=const — folded vacuous success at emit time  [PL-GZ-3b fact head-unify]"))
+                    return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY const=const — folded vacuous success at emit time  [PL-GZ-3b fact head-unify]"))
                          + x86("jmp", PORT_GAMMA)
                          + x86("def", PORT_BETA)
                          + x86("jmp", PORT_OMEGA);
-                return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment("# BOX CELL_UNIFY const≠const — folded fail at emit time  [PL-GZ-3b fact head-unify]"))
+                return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY const≠const — folded fail at emit time  [PL-GZ-3b fact head-unify]"))
                      + x86("jmp", PORT_OMEGA)
                      + x86("def", PORT_BETA)
                      + x86("jmp", PORT_OMEGA);

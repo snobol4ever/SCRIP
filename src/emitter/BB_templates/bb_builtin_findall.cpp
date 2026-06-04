@@ -23,7 +23,7 @@ std::string bb_builtin_findall_str(IR_t *pBB, const char *fn, const std::string 
             if (!fs || !fs->goal_node || !fs->tmpl || !fs->result) {
                 extern int g_sm_native_unsupported;
                 g_sm_native_unsupported = 1;
-                return hdr + s_2asm("jmp", _.lbl_ω) + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                return hdr + x86("ins2", "jmp", _.lbl_ω) + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
             const IR_t *gn = fs->goal_node;
             if (fs->gcfg && fs->gcfg->all) {
@@ -36,28 +36,28 @@ std::string bb_builtin_findall_str(IR_t *pBB, const char *fn, const std::string 
             if (gn->t == IR_FAIL || gn->t == IR_SUCCEED) {
                 const char *gs = (gn->t == IR_FAIL) ? "fail" : "true";
                 char slbl[64]; strtab_label(slbl, sizeof slbl, gs);
-                goal_build = s_2asm("mov",  emit_fmt("edi, %d", (int)IR_ATOM))
-                           + s_2asm("xor",  "rsi, rsi")
-                           + s_2asm("lea",  emit_fmt("rdx, [rip + %s]", slbl))
-                           + s_2asm("xorps","xmm0, xmm0")
-                           + s_2asm("call", "rt_node_to_term@PLT");
+                goal_build = x86("ins2", "mov",  emit_fmt("edi, %d", (int)IR_ATOM))
+                           + x86("ins2", "xor",  "rsi, rsi")
+                           + x86("ins2", "lea",  emit_fmt("rdx, [rip + %s]", slbl))
+                           + x86("ins2", "xorps","xmm0, xmm0")
+                           + x86("ins2", "call", "rt_node_to_term@PLT");
             } else {
                 goal_build = emit_build_compound_term(gn);
             }
             return hdr
-                 + goal_build                               + s_2asm("push", "rax")
-                 + emit_build_compound_term(fs->tmpl)      + s_2asm("push", "rax")
-                 + emit_build_compound_term(fs->result)    + s_2asm("push", "rax")
-                 + s_2asm("sub", "rsp, 8")
-                 + s_2asm("mov", "rdx, [rsp + 8]")
-                 + s_2asm("mov", "rsi, [rsp + 16]")
-                 + s_2asm("mov", "rdi, [rsp + 24]")
-                 + s_2asm("call", "rt_findall_term@PLT")
-                 + s_2asm("add", "rsp, 32")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je",   _.lbl_ω)
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + goal_build                               + x86("ins2", "push", "rax")
+                 + emit_build_compound_term(fs->tmpl)      + x86("ins2", "push", "rax")
+                 + emit_build_compound_term(fs->result)    + x86("ins2", "push", "rax")
+                 + x86("ins2", "sub", "rsp, 8")
+                 + x86("ins2", "mov", "rdx, [rsp + 8]")
+                 + x86("ins2", "mov", "rsi, [rsp + 16]")
+                 + x86("ins2", "mov", "rdi, [rsp + 24]")
+                 + x86("ins2", "call", "rt_findall_term@PLT")
+                 + x86("ins2", "add", "rsp, 32")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je",   _.lbl_ω)
+                 + x86("ins2", "jmp",  _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
     }
     return std::string();

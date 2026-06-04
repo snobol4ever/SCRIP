@@ -38,8 +38,8 @@ static std::string bb_alt_str(IR_t * pBB) {
     int off = _.op_off, ctr = _.op_off + 16;
     int Lbase = n;
     std::string body =
-          IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                         + s_comment(emit_fmt("# BOX IR_ALT [x86() stackless %d-arm generator; result [r12+%d], counter [r12+%d]]", n, off, ctr)))
+          IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", emit_fmt("BOX IR_ALT [x86() stackless %d-arm generator; result [r12+%d], counter [r12+%d]]", n, off, ctr)))
         + x86_frame_mov_imm64(ctr, 0)
         + x86("def", L(Lbase));
     for (int i = 0; i < n; i++) {
