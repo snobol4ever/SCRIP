@@ -141,6 +141,28 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
+            && pBB->α->t == IR_LIT_I && pBB->β->α && pBB->β->β) {
+            long  lval = (long)pBB->α->ival;
+            IR_t *L = pBB->β->α, *R = pBB->β->β;
+            int   lk = (int)L->t, rk = (int)R->t;
+            long  li = (long)L->ival, ri = (long)R->ival;
+            std::string load_op = _.bb_op_lbl
+                ? s_2asm("lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
+                : s_2asm("xor", "esi, esi");
+            return hdr
+                 + s_2asm("mov rdi,", emit_fmt("%ld", lval))
+                 + load_op
+                 + s_2asm("mov edx,", emit_fmt("%d", lk))
+                 + s_2asm("mov rcx,", emit_fmt("%ld", li))
+                 + s_2asm("mov r8d,", emit_fmt("%d", rk))
+                 + s_2asm("mov r9,",  emit_fmt("%ld", ri))
+                 + s_2asm("call", "rt_is_lint@PLT")
+                 + s_2asm("test", "eax, eax")
+                 + s_2asm("je", _.lbl_ω)
+                 + s_2asm("jmp", _.lbl_γ)
+                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+        }
+        if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
             && pBB->α->t == IR_LOGICVAR && pBB->β->α && !pBB->β->β) {
             int   dst_slot = (int)pBB->α->ival;
             IR_t *L = pBB->β->α;

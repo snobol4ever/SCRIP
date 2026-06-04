@@ -581,6 +581,15 @@ int rt_is(int dst_slot, const char *op, int lk, long li, int rk, long ri) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_is_lint(long lval, const char *op, int lk, long li, int rk, long ri) {
+    extern Trail g_resolve_trail;
+    long r = rt_arith(lk, li, NULL, rk, ri, NULL, op);
+    Term *vt = term_new_int(r);
+    Term *lt = term_new_int(lval);
+    if (!unify(lt, vt, &g_resolve_trail)) return 0;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_is_eval(void *lhs_bb, void *rhs_bb) {
     extern Term **g_resolve_env; extern Trail g_resolve_trail;
     IR_t *lhs = (IR_t *)lhs_bb;

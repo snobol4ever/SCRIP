@@ -271,6 +271,15 @@ static int pl_ite_then_branch_trivial(const IR_t *then_entry) {
     (void)then_entry;
     return 1;
 }
+static int pl_rich_is_lint_simple(const IR_t *g) {
+    const IR_t *lhs = g->α, *rhs = g->β;
+    if (!lhs || lhs->t != IR_LIT_I || !rhs || rhs->t != IR_ARITH) return 0;
+    const char *rop = rhs->sval ? rhs->sval : "+";
+    if (pl_arith_op_floaty(rop)) return 0;
+    if (!rhs->α || !rhs->β) return 0;
+    if (rhs->α->t == IR_LIT_F || rhs->β->t == IR_LIT_F) return 0;
+    return pl_flat_arith_leaf_simple(rhs->α) && pl_flat_arith_leaf_simple(rhs->β);
+}
 static int pl_findall_term_buildable(const IR_t *a) {
     if (!a) return 0;
     switch (a->t) {
@@ -356,7 +365,7 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         return 1;
     case IR_BUILTIN: {
         const char *fn = nd->sval ? nd->sval : "";
-        if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd);
+        if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd) || pl_rich_is_lint_simple(nd);
         static const char *ok[] = { "write", "writeln", "print", "nl", "halt", NULL };
         for (int k = 0; ok[k]; k++) if (!strcmp(fn, ok[k])) return 1;
         static const char *acmp[] = { ">", "<", ">=", "=<", "<=", "=:=", "=\\=", NULL };
