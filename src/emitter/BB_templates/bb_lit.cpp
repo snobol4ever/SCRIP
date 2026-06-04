@@ -10,7 +10,8 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * lit()        { return _.op_sval ? _.op_sval : ""; }
 static inline long         litlen()     { return (long)strlen(lit()); }
-static inline const char * litlabel()   { return emit_intern_str(lit()); }
+static inline const char * litlabel()   { const char * l = emit_intern_str(lit()); if (l) return l;
+                                          static char b[24]; strtab_label(b, sizeof b, lit()); return b; }
 static inline uint64_t     litaddr()    { return (uint64_t)(uintptr_t)lit(); }
 static inline uint64_t     memcmpaddr() { return (uint64_t)(uintptr_t)memcmp; }
 /*--------------------------------------------------------------------------------------------------------------------*/

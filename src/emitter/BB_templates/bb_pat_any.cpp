@@ -11,7 +11,8 @@ void *rt_cs_new(const char *chars);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * cset_chars() { return _.op_sval ? _.op_sval : ""; }
-static inline const char * cset_label() { return emit_intern_str(cset_chars()); }
+static inline const char * cset_label() { const char * l = emit_intern_str(cset_chars()); if (l) return l;
+                                          static char b[24]; strtab_label(b, sizeof b, cset_chars()); return b; }
 static inline uint64_t     cset_addr()  { return (uint64_t)(uintptr_t)(const void *)cset_chars(); }
 static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/

@@ -9,7 +9,8 @@ extern "C" int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * dvar_chars()  { return _.op_sval ? _.op_sval : ""; }
-static inline const char * dvar_label()  { return emit_intern_str(dvar_chars()); }
+static inline const char * dvar_label()  { const char * l = emit_intern_str(dvar_chars()); if (l) return l;
+                                           static char b[24]; strtab_label(b, sizeof b, dvar_chars()); return b; }
 static inline uint64_t     dvar_addr()   { return (uint64_t)(uintptr_t)(const void *)dvar_chars(); }
 static inline int          defer_ival()  { return (int)(int64_t)_.op_ival; }
 static inline uint64_t     defer_fn()    { int (*fp)(const char *, int, int) = rt_defer_match;

@@ -351,6 +351,8 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int is_pat_chain_elem(IR_e t);
+static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat_out, IR_t *stop);
 static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *ch = (pBB && bb_pat_nkids(pBB) > 0) ? bb_pat_kid(pBB, 0) : (pBB ? pBB->α : NULL);
     if (!ch && pBB) { int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &na); if (aux && na > 0) ch = aux[0]; }
@@ -370,7 +372,17 @@ static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     g_emit.op_off = st;
     pBB->ival = 0;
     EMIT_PAIR_FILL(pBB, cap_γ, lbl_ω, lbl_β);
-    walk_bb_flat(ch, cap_γ, lbl_ω, lbl_β);
+    {
+        IR_t *cat_arms[64]; IR_t *catnd = NULL;
+        int catn = gather_lowered_cat_arms(ch, cat_arms, 64, &catnd, pBB);
+        if (catn >= 2)      flat_drive_cat_arms(catnd, cat_arms, catn, cap_γ, lbl_ω, lbl_β);
+        else if (ch->γ && ch->γ->t == IR_PAT_ALT) {
+            int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, ch->γ, &na);
+            if (aux && na > 0) walk_bb_flat(ch->γ, cap_γ, lbl_ω, lbl_β);
+            else               walk_bb_flat(ch,    cap_γ, lbl_ω, lbl_β);
+        }
+        else walk_bb_flat(ch, cap_γ, lbl_ω, lbl_β);
+    }
     emit_label_define_bb(cap_γ);
     EMIT_PAIR_RESET();
     g_emit.op_off = st;
@@ -1334,6 +1346,30 @@ static int scan_val_is_single_lit(IR_graph_t *g) {
     return nlit == 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    if (!pg || !pg->entry) return 0;
+    IR_t *subj  = IR_node_alloc(pg, IR_SUBJECT);
+    IR_t *match = IR_node_alloc(pg, IR_PAT_MATCH);
+    if (!subj || !match) return 0;
+    subj->sval = pBB->sval;
+    IR_t *elem[1] = { pg->entry };
+    if (bb_operand_aux_set(pg, match, elem, 1) < 0) return 0;
+    IR_graph_t *save_cfg = g_emit_cfg;
+    int save_subject_slot = g_subject_slot;
+    g_emit_cfg = pg;
+    int id = g_flat_node_id++;
+    bb_label_t *subj_γ = emit_label_alloc("xscan%d_sγ", id);
+    bb_label_t *subj_β = emit_label_alloc("xscan%d_sβ", id);
+    flat_drive_subject(subj, subj_γ, lbl_ω, subj_β);
+    emit_label_define_bb(subj_γ);
+    flat_drive_match(match, lbl_γ, lbl_ω, lbl_β);
+    g_emit_cfg = save_cfg;
+    g_subject_slot = save_subject_slot;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int n_aux = 0;
     IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
@@ -1349,6 +1385,9 @@ static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
         else { const char * cc = scan_pat_cat_concat(pg); if (cc)  g_emit.op_scan_pat_lit  = cc; }
         if (scan_val_is_single_lit(sg))                    g_emit.op_scan_subj_lit = sg->entry->sval ? sg->entry->sval : "";
         if (scan_val_is_single_lit(rg))                    g_emit.op_scan_replace_lit = rg->entry->sval ? rg->entry->sval : "";
+        if (MEDIUM_TEXT && !g_emit.op_scan_pat_lit && pBB && pBB->sval && pBB->sval[0] && !pBB->ival) {
+            if (flat_drive_scan_native(pBB, pg, lbl_γ, lbl_ω, lbl_β)) return;
+        }
     }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -1375,10 +1414,22 @@ static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat_out) {
+static int is_pat_chain_elem(IR_e t) {
+    switch (t) {
+    case IR_PAT_LIT: case IR_PAT_ANY: case IR_PAT_NOTANY: case IR_PAT_SPAN: case IR_PAT_BREAK:
+    case IR_PAT_LEN: case IR_PAT_POS: case IR_PAT_TAB: case IR_PAT_ATP: case IR_PAT_REM:
+    case IR_PAT_ARB: case IR_PAT_FENCE: case IR_PAT_ABORT: case IR_PAT_DEFER: case IR_PAT_ARBNO:
+    case IR_PAT_ALT: case IR_PAT_ASSIGN_COND: case IR_PAT_ASSIGN_IMM:
+    case IR_FAIL: case IR_SUCCEED:
+        return 1;
+    default: return 0;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat_out, IR_t *stop) {
     int n = 0;
     IR_t *c = entry;
-    while (c && c->t == IR_PAT_LIT && n < cap) { arms[n++] = c; c = c->γ; }
+    while (c && c != stop && is_pat_chain_elem(c->t) && n < cap) { arms[n++] = c; c = c->γ; }
     if (n >= 2 && c && c->t == IR_PAT_CAT && bb_pat_nkids(c) == 0) { if (cat_out) *cat_out = c; return n; }
     return 0;
 }
@@ -1397,7 +1448,16 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     }
     IR_t *cat_arms[64];
     IR_t *catnd = NULL;
-    int catn = gather_lowered_cat_arms(elem, cat_arms, 64, &catnd);
+    int catn = gather_lowered_cat_arms(elem, cat_arms, 64, &catnd, NULL);
+    if (catn == 0 && elem->γ) {
+        IR_e gt = elem->γ->t;
+        int real_sibling = (gt != IR_SUCCEED && gt != IR_FAIL) &&
+                           (is_pat_chain_elem(gt) || (gt == IR_PAT_CAT && bb_pat_nkids(elem->γ) == 0));
+        if (real_sibling) {
+            fprintf(stderr, "[SBB] FATAL flat_drive_match: lowered chain shape not gatherable (entry kind=%d, next kind=%d) — single-walk would silently drop siblings (PB-RB)\n", (int)elem->t, (int)gt);
+            abort();
+        }
+    }
     int id = g_flat_node_id++;
     bb_label_t *match_retry = emit_label_alloc("smatch%d_retry", id);
     bb_label_t *match_adv   = emit_label_alloc("smatch%d_adv",   id);

@@ -1100,6 +1100,20 @@ void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, i
     NV_SET_fn(varname, matched);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+extern const char *Σ;
+extern int Σlen;
+void rt_subject_load_nv(const char *name, void *slot)
+{
+    DESCR_t v = NV_GET_fn(name ? name : "");
+    if (IS_NAMEVAL(v)) v = NV_GET_fn(v.s);
+    const char *s = ""; int len = 0;
+    if (v.v == DT_S || v.v == DT_SNUL) { s = v.s ? v.s : ""; len = v.slen ? (int)v.slen : (int)strlen(s); }
+    else if (IS_INT_fn(v)) { char *b = (char *)GC_MALLOC_ATOMIC(32); snprintf(b, 32, "%lld", (long long)v.i); s = b; len = (int)strlen(b); }
+    ((const char **)slot)[0] = s;
+    *(int *)((char *)slot + 8) = len;
+    Σ = s; Σlen = len;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_at_cursor(const char *varname, int cur_delta)
 {
     if (!varname || !*varname) return;
