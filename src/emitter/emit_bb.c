@@ -1781,6 +1781,21 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
+        } else if (g_gvar_flat_chain && op_is_rel && nd->α && nd->β &&
+                   ((nd->α->t == IR_LIT_I) || (nd->α->t == IR_VAR && nd->α->sval) || bb_slot_get(nd->α) >= 0) &&
+                   ((nd->β->t == IR_LIT_I) || (nd->β->t == IR_VAR && nd->β->sval) || bb_slot_get(nd->β) >= 0)) {
+            g_emit.bb_lk    = (int)nd->α->t;
+            g_emit.bb_rk    = (int)nd->β->t;
+            g_emit.bb_li    = (nd->α->t == IR_LIT_I) ? nd->α->ival : 0;
+            g_emit.bb_ri    = (nd->β->t == IR_LIT_I) ? nd->β->ival : 0;
+            g_emit.op_name1 = (nd->α->t == IR_VAR) ? nd->α->sval : (const char *)0;
+            g_emit.op_name2 = (nd->β->t == IR_VAR) ? nd->β->sval : (const char *)0;
+            g_emit.op_sa    = (nd->α->t != IR_LIT_I && nd->α->t != IR_VAR) ? bb_slot_get(nd->α) : -1;
+            g_emit.op_sb    = (nd->β->t != IR_LIT_I && nd->β->t != IR_VAR) ? bb_slot_get(nd->β) : -1;
+            g_emit.op_off   = bb_slot_alloc(nd);
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_RELOP; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
         } else if (g_descr_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
             if (op_is_arith || op_is_rel || op_is_concat) {
                 g_emit.op_sa = bb_slot_get(nd->α);
@@ -1800,6 +1815,12 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         break;
     }
     case IR_IF: {
+        if (g_gvar_flat_chain) {
+            emit_label_define_bb(lbl_β);
+            emit_jmp_label(lbl_γ, JMP_JMP);
+            emit_jmp_label(lbl_γ, JMP_JMP);
+            break;
+        }
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
@@ -1838,7 +1859,11 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:
     case IR_UNTIL:
-        if (while_cond_emittable(nd->α)) {
+        if (g_gvar_flat_chain) {
+            emit_label_define_bb(lbl_β);
+            emit_jmp_label(lbl_γ, JMP_JMP);
+            emit_jmp_label(lbl_γ, JMP_JMP);
+        } else if (while_cond_emittable(nd->α)) {
             flat_drive_while(nd, lbl_γ, lbl_ω, lbl_β);
         } else {
             emit_label_define_bb(lbl_β);
@@ -2243,6 +2268,14 @@ static void gvar_chain_operand_refs(IR_graph_t *g) {
         IR_t *L = g->all[i];
         if (!L || L->t != IR_SUCCEED || L->γ == NULL) continue;
         IR_t *h = gvar_chain_resolve(L);
+        if (!gvar_chain_is_real(h)) continue;
+        int dup = 0; for (int k = 0; k < nh; k++) if (heads[k] == h) { dup = 1; break; }
+        if (!dup) heads[nh++] = h;
+    }
+    for (int i = 0; i < g->n && nh < 2048; i++) {
+        IR_t *L = g->all[i];
+        if (!L || !L->ω) continue;
+        IR_t *h = gvar_chain_resolve(L->ω);
         if (!gvar_chain_is_real(h)) continue;
         int dup = 0; for (int k = 0; k < nh; k++) if (heads[k] == h) { dup = 1; break; }
         if (!dup) heads[nh++] = h;

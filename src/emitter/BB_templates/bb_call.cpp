@@ -310,6 +310,7 @@ static std::string bb_call_str(IR_t * pBB) {
     if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
     if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) return bb_call_proc_staged_str(pBB);
     if (g_gvar_flat_chain && pBB->dval == 3.0 && fn && fn[0] && !rt_proc_is_registered(fn)) return bb_call_byname_str(pBB);
+    if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
     if (g_descr_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
         int off = bb_slot_get(a0);
         if (off >= 0) return bb_call_write_slot_str(pBB);

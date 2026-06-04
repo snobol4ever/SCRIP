@@ -152,6 +152,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_binop_relop.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_arith.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_gvar_arith.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_gvar_relop.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_any.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_notany.cpp \
@@ -353,6 +354,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_relop.cpp       -o $(OBJ)/bb_binop_relop.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_arith.cpp       -o $(OBJ)/bb_binop_arith.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_arith.cpp  -o $(OBJ)/bb_binop_gvar_arith.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_relop.cpp  -o $(OBJ)/bb_binop_gvar_relop.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_any.cpp          -o $(OBJ)/bb_pat_any.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_notany.cpp  -o $(OBJ)/bb_pat_notany.o
