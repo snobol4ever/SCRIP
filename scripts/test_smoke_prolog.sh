@@ -24,11 +24,17 @@ pl() {
     local a2; a2=$(timeout 8 "$SCRIP" --interp "$tmp" 2>/dev/null </dev/null)
     if [ "$a2" = "$expected" ]; then r2="m2 PASS"; P2=$((P2+1)); else r2="m2 FAIL"; F2=$((F2+1)); fi
 
-    # mode 3 — --run (tracked; EXCISED until regrown)
-    local o3; o3=$(timeout 8 "$SCRIP" --run "$tmp" 2>/dev/null </dev/null)
-    if echo "$o3" | grep -qE "$SMX_SIG"; then r3="m3 EXCISED"; X3=$((X3+1))
+    # mode 3 — --run (tracked; EXCISED until regrown). PL-GZ-1b(d): a program the native blob does not
+    # cover executes via the mode-2 interpreter and says so on stderr — output is STILL verified
+    # (mismatch = FAIL); a verified fallback counts EXCISED, NOT a native PASS.
+    local e3; e3=$(mktemp /tmp/pl_m3err_XXXXXX)
+    local o3; o3=$(timeout 8 "$SCRIP" --run "$tmp" 2>"$e3" </dev/null)
+    if grep -q "MODE-3 INTERP-FALLBACK" "$e3"; then
+        if [ "$o3" = "$expected" ]; then r3="m3 EXCISED"; X3=$((X3+1)); else r3="m3 FAIL"; F3=$((F3+1)); fi
+    elif echo "$o3" | grep -qE "$SMX_SIG"; then r3="m3 EXCISED"; X3=$((X3+1))
     elif [ "$o3" = "$expected" ];        then r3="m3 PASS";    P3=$((P3+1))
     else                                       r3="m3 FAIL";    F3=$((F3+1)); fi
+    rm -f "$e3"
 
     # mode 4 — --compile --target=x86 (tracked; emit→assemble→run when live)
     local e4; e4=$(timeout 8 "$SCRIP" --compile --target=x86 "$tmp" 2>&1 </dev/null)
