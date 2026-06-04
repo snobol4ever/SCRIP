@@ -1065,6 +1065,10 @@ static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int icn_arg_entry_terminal(IR_t *ae) {
+    return (ae && (!ae->γ || ae->γ->t == IR_SUCCEED)) ? 1 : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
@@ -1730,7 +1734,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         if (g_descr_flat_chain) {
             if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "pos")) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
-                long sn = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_I) ? (long) sblks[0]->entry->ival : -1;
+                long sn = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_I && icn_arg_entry_terminal(sblks[0]->entry)) ? (long) sblks[0]->entry->ival : -1;
                 g_emit.op_sb  = (int) sn;
                 g_emit.op_sa  = -1;
                 g_emit.op_off = bb_slot_alloc16(nd);
@@ -1739,7 +1743,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && (!strcmp(nd->sval, "any") || !strcmp(nd->sval, "match"))) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
-                const char *cs = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_S) ? sblks[0]->entry->sval : (const char *)0;
+                const char *cs = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? sblks[0]->entry->sval : (const char *)0;
                 g_emit.op_name1 = cs;
                 g_emit.op_sa  = -1;
                 g_emit.op_sb  = -1;
@@ -1749,7 +1753,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "many")) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
-                const char *cs = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_S) ? sblks[0]->entry->sval : (const char *)0;
+                const char *cs = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? sblks[0]->entry->sval : (const char *)0;
                 g_emit.op_name1 = cs;
                 g_emit.op_sa  = -1;
                 g_emit.op_sb  = -1;
@@ -1760,9 +1764,9 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "tab")) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
                 IR_t *ae = (sblks && (int)nd->ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
-                long tn = (ae && ae->t == IR_LIT_I && ae->ival >= 1) ? (long) ae->ival : -1;
+                long tn = (ae && ae->t == IR_LIT_I && ae->ival >= 1 && icn_arg_entry_terminal(ae)) ? (long) ae->ival : -1;
                 int  sa = -1;
-                if (tn < 0 && ae && ae->t == IR_CALL) {
+                if (tn < 0 && ae && ae->t == IR_CALL && icn_arg_entry_terminal(ae)) {
                     sa = bb_slot_get(ae);
                     if (sa < 0) {
                         int tid = g_flat_node_id++;
@@ -1775,6 +1779,17 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 }
                 g_emit.op_sb  = (int) tn;
                 g_emit.op_sa  = sa;
+                g_emit.op_off = bb_slot_alloc16(nd);
+                (void) bb_slot_claim(8);
+                FILL(nd, lbl_γ, lbl_ω, lbl_β);
+                break;
+            }
+            if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "move")) {
+                IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
+                IR_t *ae = (sblks && (int)nd->ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
+                int litok = (ae && ae->t == IR_LIT_I && icn_arg_entry_terminal(ae));
+                g_emit.op_sb  = litok ? (int) ae->ival : 0;
+                g_emit.op_sa  = litok ? 1 : -1;
                 g_emit.op_off = bb_slot_alloc16(nd);
                 (void) bb_slot_claim(8);
                 FILL(nd, lbl_γ, lbl_ω, lbl_β);

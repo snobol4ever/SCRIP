@@ -104,8 +104,7 @@ static int icn_kind_native_stub(IR_e t) {
            t == IR_LIST_BANG ||
            t == IR_BINOP_GEN ||
            t == IR_MAP || t == IR_GREP ||
-           t == IR_SCAN_UPTO || t == IR_SCAN_FIND || t == IR_SCAN_BAL ||
-           t == IR_SCAN_MOVE;
+           t == IR_SCAN_UPTO || t == IR_SCAN_FIND || t == IR_SCAN_BAL;
 }
 static int icn_alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     int n = 0;
@@ -135,14 +134,21 @@ static int icn_scan_safe_kind(IR_e t) {
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
            t == IR_VAR || t == IR_KEYWORD || t == IR_GEN_SCAN || t == IR_CALL || t == IR_BINOP;
 }
-static int icn_scan_fn_lit_arg(IR_t *nd, IR_e want) {
+static IR_t *icn_scan_lit_entry(IR_t *nd, IR_e want) {
     IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
-    return sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == want;
+    IR_t *ae = (sblks && (int)nd->ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
+    if (!ae || ae->t != want) return (IR_t *)0;
+    if (ae->γ && ae->γ->t != IR_SUCCEED) return (IR_t *)0;
+    return ae;
+}
+static int icn_scan_fn_lit_arg(IR_t *nd, IR_e want) {
+    return icn_scan_lit_entry(nd, want) != (IR_t *)0;
 }
 static int icn_scan_tab_arg_ok(IR_t *nd) {
     IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
     IR_t *ae = (sblks && (int)nd->ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae) return 0;
+    if (ae->γ && ae->γ->t != IR_SUCCEED) return 0;
     if (ae->t == IR_LIT_I && ae->ival >= 1) return 1;
     if (ae->t == IR_CALL && ae->dval == 3.0 && ae->sval && (!strcmp(ae->sval, "any") || !strcmp(ae->sval, "match") || !strcmp(ae->sval, "many")) && icn_scan_fn_lit_arg(ae, IR_LIT_S)) return 1;
     return 0;
@@ -159,7 +165,9 @@ static int icn_scan_subgraph_safe(IR_graph_t *sg, int depth) {
             if (!nd->sval) return 0;
             if (!strcmp(nd->sval, "any") || !strcmp(nd->sval, "match") || !strcmp(nd->sval, "many")) { if (!(nd->dval == 3.0 && icn_scan_fn_lit_arg(nd, IR_LIT_S))) return 0; }
             else if (!strcmp(nd->sval, "tab")) { if (!(nd->dval == 3.0 && icn_scan_tab_arg_ok(nd))) return 0; }
-            else if (!(!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes") || !strcmp(nd->sval, "pos"))) return 0;
+            else if (!strcmp(nd->sval, "move")) { if (!(nd->dval == 3.0 && icn_scan_fn_lit_arg(nd, IR_LIT_I))) return 0; }
+            else if (!strcmp(nd->sval, "pos")) { IR_t *pe = icn_scan_lit_entry(nd, IR_LIT_I); if (!(nd->dval == 3.0 && pe && pe->ival >= 1)) return 0; }
+            else if (!(!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes"))) return 0;
         }
         if (nd->t == IR_BINOP && nd->ival != BINOP_CONCAT) return 0;
         if (nd->t == IR_GEN_SCAN) {
