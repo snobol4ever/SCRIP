@@ -23,7 +23,7 @@ static const char * gvr_fail_mnem(int64_t op) {
     default:       return "jmp";
     }
 }
-static int gvr_slot_disp(int kind) { return (kind == (int)IR_CALL || kind == (int)IR_VAR_FRAME) ? 8 : 0; }
+static int gvr_slot_disp(int kind) { return (kind == (int)IR_CALL || kind == (int)IR_VAR_FRAME || kind == (int)IR_VAR_FRAME_REF) ? 8 : 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_gvar_relop_str() {
     if (!PLATFORM_X86) return std::string();

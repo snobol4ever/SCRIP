@@ -137,6 +137,9 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
 void rt_proc_set_frame(const char *name, int nslots, int decl_level);
 int  rt_proc_frame_nslots(const char *name);
 int  rt_proc_decl_level(const char *name);
+void rt_proc_set_byref(const char *name, uint64_t mask);
+uint64_t rt_proc_byref_mask(const char *name);
+DESCR_t *rt_gvar_cell(const char *name);
 int64_t rt_gvar_arith(const char *a, const char *b, int op);
 int64_t rt_gvar_get_int(const char *name);
 DESCR_t rt_gvar_get_descr(const char *name);

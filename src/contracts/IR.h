@@ -160,6 +160,8 @@ typedef enum {
     IR_SCAN_POS,
     IR_VAR_FRAME,
     IR_ASSIGN_FRAME,
+    IR_VAR_FRAME_REF,
+    IR_ASSIGN_FRAME_REF,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/
