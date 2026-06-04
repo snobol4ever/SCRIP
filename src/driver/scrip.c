@@ -1066,8 +1066,9 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
-                { extern void rt_proc_set_frame(const char *, int, int); extern int g_emit_frame_caller_dl;
+                { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
+                  rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 gvar_flat_chain_build_text(s2->bbp.table[idx], stdout, pname);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
@@ -1351,8 +1352,9 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
-                { extern void rt_proc_set_frame(const char *, int, int); extern int g_emit_frame_caller_dl;
+                { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
+                  rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 bb_box_fn pfn = gvar_flat_chain_build(s2->bbp.table[idx]);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }

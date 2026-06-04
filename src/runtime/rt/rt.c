@@ -407,7 +407,7 @@ void rt_frame_leave(void)
 #define PROC_FRAME_QWORDS 512
 #define PROC_FRAME_DEPTH  4096
 #define CALL_ARGS_MAX     64
-typedef struct { const char *name; bb_box_fn fn; void *entry; const char **pnames; int nparams; int frame_nslots; int decl_level; } rt_proc_t;
+typedef struct { const char *name; bb_box_fn fn; void *entry; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask; } rt_proc_t;
 static rt_proc_t g_rt_gen_procs[RT_PROC_MAX];
 static int           g_rt_gen_proc_count = 0;
 static bb_box_fn (*g_rt_gen_proc_builder)(void *entry) = NULL;
@@ -425,7 +425,7 @@ void rt_proc_register(const char *name, void *entry, const char **pnames, int np
     }
     if (g_rt_gen_proc_count >= RT_PROC_MAX) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = NULL; p->entry = entry; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0;
+    p->name = name; p->fn = NULL; p->entry = entry; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_reset(void) { g_rt_gen_proc_count = 0; }
@@ -443,7 +443,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].fn = fn; return; }
     if (g_rt_gen_proc_count >= RT_PROC_MAX) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = fn; p->entry = NULL; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0;
+    p->name = name; p->fn = fn; p->entry = NULL; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
@@ -558,6 +558,24 @@ int rt_proc_decl_level(const char *name)
 {
     rt_proc_t *p = rt_proc_find(name);
     return p ? p->decl_level : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_byref(const char *name, uint64_t mask)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    if (p) p->byref_mask = mask;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+uint64_t rt_proc_byref_mask(const char *name)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    return p ? p->byref_mask : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t *rt_gvar_cell(const char *name)
+{
+    extern DESCR_t *NV_PTR_fn(const char *name);
+    return NV_PTR_fn(name);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *sl)

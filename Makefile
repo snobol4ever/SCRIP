@@ -126,6 +126,8 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp \
     $(SRC)/emitter/BB_templates/bb_var_frame.cpp \
     $(SRC)/emitter/BB_templates/bb_assign_frame.cpp \
+    $(SRC)/emitter/BB_templates/bb_var_frame_ref.cpp \
+    $(SRC)/emitter/BB_templates/bb_assign_frame_ref.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp \
     $(SRC)/emitter/BB_templates/bb_gen_scan.cpp \
     $(SRC)/emitter/BB_templates/bb_keyword.cpp \
@@ -331,6 +333,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp        -o $(OBJ)/bb_gvar_assign.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var_frame.cpp          -o $(OBJ)/bb_var_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_frame.cpp       -o $(OBJ)/bb_assign_frame.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var_frame_ref.cpp      -o $(OBJ)/bb_var_frame_ref.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_frame_ref.cpp   -o $(OBJ)/bb_assign_frame_ref.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp               -o $(OBJ)/bb_scan_stmt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gen_scan.cpp          -o $(OBJ)/bb_gen_scan.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_keyword.cpp           -o $(OBJ)/bb_keyword.o

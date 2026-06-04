@@ -453,10 +453,10 @@ static int sno_parse_define_proto(const char *proto, char fname[64],
 }
 /*====================================================================================================================*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int pas_scope_chain(int pi, Scope **scs, int *dls, int maxd) {
+static int pas_scope_chain(int pi, Scope **scs, int *dls, int *pis, int maxd) {
     int n = 0;
     int dl = g_stage2.proc_table[pi].decl_level;
-    scs[n] = &g_stage2.proc_table[pi].lower_sc; dls[n] = dl; n++;
+    scs[n] = &g_stage2.proc_table[pi].lower_sc; dls[n] = dl; pis[n] = pi; n++;
     int want = dl - 1, at = pi;
     while (want >= 1 && n < maxd) {
         int found = -1;
@@ -466,22 +466,25 @@ static int pas_scope_chain(int pi, Scope **scs, int *dls, int maxd) {
             if (g_stage2.proc_table[j].decl_level == want) { found = j; break; }
         }
         if (found < 0) break;
-        scs[n] = &g_stage2.proc_table[found].lower_sc; dls[n] = want; n++;
+        scs[n] = &g_stage2.proc_table[found].lower_sc; dls[n] = want; pis[n] = found; n++;
         at = found; want--;
     }
     return n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int nch);
-static void pas_rewrite_node(IR_t *nd, Scope **scs, int *dls, int nch) {
+static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, int nch);
+static void pas_rewrite_node(IR_t *nd, Scope **scs, int *dls, int *pis, int nch) {
     if (!nd) return;
     if ((nd->t == IR_VAR || nd->t == IR_ASSIGN) && nd->sval) {
         for (int c = 0; c < nch; c++) {
             int slot = scope_get(scs[c], nd->sval);
             if (slot >= 0) {
+                ProcEntry *pe = &g_stage2.proc_table[pis[c]];
+                int isref = (slot < pe->nparams) && ((pe->byref_mask >> slot) & 1ull);
                 nd->ival = slot;
                 nd->dval = (double)(dls[0] - dls[c]);
-                nd->t = (nd->t == IR_VAR) ? IR_VAR_FRAME : IR_ASSIGN_FRAME;
+                if (isref) nd->t = (nd->t == IR_VAR) ? IR_VAR_FRAME_REF : IR_ASSIGN_FRAME_REF;
+                else       nd->t = (nd->t == IR_VAR) ? IR_VAR_FRAME : IR_ASSIGN_FRAME;
                 break;
             }
         }
@@ -489,12 +492,12 @@ static void pas_rewrite_node(IR_t *nd, Scope **scs, int *dls, int nch) {
     }
     if (nd->t == IR_CALL && (nd->dval == 2.0 || nd->dval == 3.0) && nd->counter && nd->ival > 0) {
         IR_graph_t **subs = (IR_graph_t **)(intptr_t) nd->counter;
-        for (int j = 0; j < (int) nd->ival; j++) if (subs[j]) pas_rewrite_graph(subs[j], scs, dls, nch);
+        for (int j = 0; j < (int) nd->ival; j++) if (subs[j]) pas_rewrite_graph(subs[j], scs, dls, pis, nch);
     }
 }
-static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int nch) {
+static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, int nch) {
     if (!g || !g->all) return;
-    for (int i = 0; i < g->n; i++) pas_rewrite_node(g->all[i], scs, dls, nch);
+    for (int i = 0; i < g->n; i++) pas_rewrite_node(g->all[i], scs, dls, pis, nch);
 }
 stage2_t *lower(const tree_t *prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
@@ -672,7 +675,7 @@ stage2_t *lower(const tree_t *prog) {
         int pas_has_nesting = 0;
         for (int pi = 0; pi < g_stage2.proc_count; pi++) {
             const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
-            if (proc && proc->t == TT_PROC_DECL && g_stage2.proc_table[pi].decl_level > 1) { pas_has_nesting = 1; break; }
+            if (proc && proc->t == TT_PROC_DECL && (g_stage2.proc_table[pi].decl_level > 1 || g_stage2.proc_table[pi].byref_mask)) { pas_has_nesting = 1; break; }
         }
         if (pas_has_nesting) {
             for (int pi = 0; pi < g_stage2.proc_count; pi++) {
@@ -681,9 +684,9 @@ stage2_t *lower(const tree_t *prog) {
                 if (!g_stage2.proc_table[pi].name || !strcmp(g_stage2.proc_table[pi].name, "main")) continue;
                 int idx = g_stage2.proc_table[pi].bb_idx;
                 if (idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx]) continue;
-                Scope *scs[16]; int dls[16];
-                int nch = pas_scope_chain(pi, scs, dls, 16);
-                pas_rewrite_graph(g_stage2.bbp.table[idx], scs, dls, nch);
+                Scope *scs[16]; int dls[16]; int pis[16];
+                int nch = pas_scope_chain(pi, scs, dls, pis, 16);
+                pas_rewrite_graph(g_stage2.bbp.table[idx], scs, dls, pis, nch);
                 g_stage2.bbp.table[idx]->nslots = g_stage2.proc_table[pi].lower_sc.n + 1;
             }
         }
