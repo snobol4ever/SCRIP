@@ -1,0 +1,84 @@
+#include <string>
+#include <cstdint>
+#include "emit_str.h"
+extern "C" {
+#include "bb_template_common.h"
+extern int g_gvar_flat_chain;
+#include "emit.h"
+#include "descr.h"
+DESCR_t rt_gvar_get_descr(const char * name);
+}
+#include "x86_asm.h"
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string fr_load64(const char * dst, const char * base, int disp) {
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp);
+        return x86_Lrec(c);
+    }
+    return std::string(" mov ") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+static std::string fr_store64(const char * base, int disp, const char * src) {
+    int g = x86_rnum(src), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x89; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp);
+        return x86_Lrec(c);
+    }
+    return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
+}
+static std::string fr_store_imm(const char * base, int disp, long imm) {
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xC7; c += (char)(0x80 | (b & 7)); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
+        return x86_Lrec(c);
+    }
+    return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_assign_frame_str(IR_t * pBB) {
+    if (!PLATFORM_X86) return std::string();
+    if (!g_gvar_flat_chain) return x86_bomb("bb_assign_frame: gvar flat-chain only");
+    int hops = (int) pBB->dval;
+    int voff = 16 + (int) pBB->ival * 16;
+    int k = _.op_a_node_kind;
+    std::string hop = x86_frame_lea("rcx", 0);
+    for (int h = 0; h < hops; h++) hop += fr_load64("rcx", "rcx", 0);
+    std::string s = IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
+                                  + s_comment(emit_fmt("# BOX IR_ASSIGN_FRAME \"%s\" slot=%d hops=%d rhs_kind=%d", _.op_sval ? _.op_sval : "", (int) pBB->ival, hops, k)));
+    if (k == (int) IR_LIT_I) {
+        s += hop + fr_store_imm("rcx", voff, 6) + x86_movabs_r64("rax", (uint64_t) _.op_a_ival_sg) + fr_store64("rcx", voff + 8, "rax");
+    } else if (k == (int) IR_LIT_NUL) {
+        s += hop + fr_store_imm("rcx", voff, 0) + fr_store_imm("rcx", voff + 8, 0);
+    } else if (k == (int) IR_LIT_S) {
+        const char * rs = _.op_a_sval ? _.op_a_sval : "";
+        const char * rl = emit_intern_str(rs); char rb[80]; if (!rl) { strtab_label(rb, sizeof rb, rs); rl = rb; }
+        s += hop + fr_store_imm("rcx", voff, 1) + x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t) rs, rl) + fr_store64("rcx", voff + 8, "rax");
+    } else if (k == (int) IR_VAR) {
+        const char * rs = _.op_a_sval ? _.op_a_sval : "";
+        const char * rl = emit_intern_str(rs); char rb[80]; if (!rl) { strtab_label(rb, sizeof rb, rs); rl = rb; }
+        uint64_t fptr; { DESCR_t (*fp)(const char *) = rt_gvar_get_descr; fptr = (uint64_t)(uintptr_t)(void *) fp; }
+        s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) rs, rl) + x86("call", "rt_gvar_get_descr", fptr);
+        s += hop + fr_store64("rcx", voff, "rax") + fr_store64("rcx", voff + 8, "rdx");
+    } else if (k == (int) IR_VAR_FRAME) {
+        int rhops = pBB->α ? (int) pBB->α->dval : 0;
+        int rvoff = 16 + (pBB->α ? (int) pBB->α->ival : 0) * 16;
+        s += x86_frame_lea("rax", 0);
+        for (int h = 0; h < rhops; h++) s += fr_load64("rax", "rax", 0);
+        s += fr_load64("rsi", "rax", rvoff) + fr_load64("rdi", "rax", rvoff + 8);
+        s += hop + fr_store64("rcx", voff, "rsi") + fr_store64("rcx", voff + 8, "rdi");
+    } else if (k == (int) IR_BINOP) {
+        if (_.op_a_slot < 0) return x86_bomb("bb_assign_frame int-binop: op_a_slot==-1 (binop slot not promoted)");
+        s += x86_frame_load64("rax", _.op_a_slot) + hop + fr_store_imm("rcx", voff, 6) + fr_store64("rcx", voff + 8, "rax");
+    } else if (k == (int) IR_CALL) {
+        if (_.op_a_slot < 0) return x86_bomb("bb_assign_frame call-result: op_a_slot==-1 (call result slot not promoted)");
+        s += x86_frame_load64("rax", _.op_a_slot) + x86_frame_load64("rdx", _.op_a_slot + 8) + hop + fr_store64("rcx", voff, "rax") + fr_store64("rcx", voff + 8, "rdx");
+    } else {
+        return x86_bomb("bb_assign_frame: unhandled rhs shape");
+    }
+    s += x86("jmp", PORT_GAMMA)
+       + x86("def", PORT_BETA)
+       + x86("jmp", PORT_OMEGA);
+    return s;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_assign_frame(IR_t * pBB) { bb_emit_x86(bb_assign_frame_str(pBB)); }

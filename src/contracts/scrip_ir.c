@@ -131,6 +131,8 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_SCAN_TAB] = "IR_SCAN_TAB",
     [IR_SCAN_MOVE] = "IR_SCAN_MOVE",
     [IR_SCAN_POS] = "IR_SCAN_POS",
+    [IR_VAR_FRAME] = "IR_VAR_FRAME",
+    [IR_ASSIGN_FRAME] = "IR_ASSIGN_FRAME",
     [IR_PAT_MATCH] = "IR_PAT_MATCH",
 };
 /*--------------------------------------------------------------------------------------------------------------------*/

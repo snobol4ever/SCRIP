@@ -12,7 +12,7 @@ extern int64_t rt_gvar_get_int(const char *name);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int gva_is_arith(int64_t op) { return op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD; }
-static int gva_slot_disp(int kind) { return (kind == (int)IR_CALL) ? 8 : 0; }
+static int gva_slot_disp(int kind) { return (kind == (int)IR_CALL || kind == (int)IR_VAR_FRAME) ? 8 : 0; }
 static std::string gva_op_body(int64_t op) {
     switch (op) {
     case BINOP_ADD: return x86("add",  "rax", "rcx");

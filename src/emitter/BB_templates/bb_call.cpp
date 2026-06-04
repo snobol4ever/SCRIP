@@ -20,9 +20,31 @@ DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 int64_t rt_gvar_get_int(const char * name);
 DESCR_t rt_gvar_get_descr(const char * name);
 DESCR_t rt_call_named_proc(const char * name, DESCR_t * args, int nargs);
+DESCR_t rt_call_named_proc_sl(const char * name, DESCR_t * args, int nargs, void * sl);
+int  rt_proc_frame_nslots(const char * name);
+int  rt_proc_decl_level(const char * name);
+extern int g_emit_frame_caller_dl;
 DESCR_t rt_proc_define(const char * spec);
 }
 #include "x86_asm.h"
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bcall_fr_load64(const char * dst, const char * base, int disp) {
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp);
+        return x86_Lrec(c);
+    }
+    return std::string(" mov ") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+static std::string pas_sl_setup(const char * fn) {
+    int callee_dl = rt_proc_decl_level(fn);
+    if (g_emit_frame_caller_dl < 0 || callee_dl < 1) return x86("mov32", "ecx", (long)0);
+    int h = (g_emit_frame_caller_dl + 1) - callee_dl;
+    if (h < 0) h = 0;
+    std::string s = x86_frame_lea("rcx", 0);
+    for (int i = 0; i < h; i++) s += bcall_fr_load64("rcx", "rcx", 0);
+    return s;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern std::string bb_call_proc_staged_str(IR_t *);
 extern std::string bb_call_write_slot_str(IR_t *);
@@ -37,8 +59,8 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
         IR_t * fin = lf; int gg = 0;
         while (fin && fin->γ && fin->γ->t != IR_SUCCEED && fin->γ->t != IR_FAIL && gg++ < 256) fin = fin->γ;
         int fin_arith = (fin && fin->t == IR_BINOP && (fin->ival == BINOP_ADD || fin->ival == BINOP_SUB || fin->ival == BINOP_MUL || fin->ival == BINOP_DIV || fin->ival == BINOP_MOD));
-        int opnd_ok_a = (fin_arith && fin->α && ((fin->α->t == IR_LIT_I) || (fin->α->t == IR_VAR && fin->α->sval)));
-        int opnd_ok_b = (fin_arith && fin->β && ((fin->β->t == IR_LIT_I) || (fin->β->t == IR_VAR && fin->β->sval)));
+        int opnd_ok_a = (fin_arith && fin->α && ((fin->α->t == IR_LIT_I) || (fin->α->t == IR_VAR && fin->α->sval) || (fin->α->t == IR_VAR_FRAME)));
+        int opnd_ok_b = (fin_arith && fin->β && ((fin->β->t == IR_LIT_I) || (fin->β->t == IR_VAR && fin->β->sval) || (fin->β->t == IR_VAR_FRAME)));
         if (fin && fin != lf && fin_arith && opnd_ok_a && opnd_ok_b) {
             int scratch = bb_slot_alloc16(fin);
             std::string s;
@@ -46,11 +68,20 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             if (fin->α->t == IR_VAR) {
                 if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, fin->α->sval); s += s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1)) + s_2asm("call", "rt_gvar_get_int@PLT"); }
                 else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fin->α->sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+            } else if (fin->α->t == IR_VAR_FRAME) {
+                s += x86_frame_lea("rax", 0);
+                for (int h = 0; h < (int) fin->α->dval; h++) s += bcall_fr_load64("rax", "rax", 0);
+                s += bcall_fr_load64("rax", "rax", 16 + (int) fin->α->ival * 16 + 8);
             } else s += x86_movabs_r64("rax", (uint64_t)fin->α->ival);
             s += x86_frame_store64(scratch, "rax");
             if (fin->β->t == IR_VAR) {
                 if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, fin->β->sval); s += s_2asm("lea", emit_fmt("rdi, [rip + %s]", b2)) + s_2asm("call", "rt_gvar_get_int@PLT"); }
                 else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fin->β->sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+                s += x86("mov", "rcx", "rax");
+            } else if (fin->β->t == IR_VAR_FRAME) {
+                s += x86_frame_lea("rax", 0);
+                for (int h = 0; h < (int) fin->β->dval; h++) s += bcall_fr_load64("rax", "rax", 0);
+                s += bcall_fr_load64("rax", "rax", 16 + (int) fin->β->ival * 16 + 8);
                 s += x86("mov", "rcx", "rax");
             } else s += x86("mov", "rcx", (long)fin->β->ival);
             s += x86_frame_load64("rax", scratch);
@@ -78,6 +109,16 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             s += x86_frame_store64(aoff + 8, "rdx");
             return s;
         }
+        if (lf->t == IR_VAR_FRAME) {
+            int hops = (int) lf->dval;
+            int voff = 16 + (int) lf->ival * 16;
+            std::string s = IF(MEDIUM_TEXT, s_comment(emit_fmt("# marshal arg%d = frame var slot=%d hops=%d -> [r12+%d]", idx, (int) lf->ival, hops, aoff)));
+            s += x86_frame_lea("rax", 0);
+            for (int h = 0; h < hops; h++) s += bcall_fr_load64("rax", "rax", 0);
+            s += bcall_fr_load64("rcx", "rax", voff)     + x86_frame_store64(aoff, "rcx");
+            s += bcall_fr_load64("rcx", "rax", voff + 8) + x86_frame_store64(aoff + 8, "rcx");
+            return s;
+        }
     }
     if (lf->t == IR_CALL && (lf->dval == 2.0 || lf->dval == 3.0 || lf->dval == 5.0)) {
         const char * nfn = lf->sval ? lf->sval : "";
@@ -86,7 +127,8 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
         int avbase = (nn > 0) ? bb_slot_alloc16(nsubs[0]->entry) : bb_slot_alloc16(lf);
         for (int j = 1; j < nn; j++) bb_slot_alloc16(nsubs[j]->entry);
         int isreg = (nfn[0] && rt_proc_is_registered(nfn));
-        const char * rsym = isreg ? "rt_call_named_proc" : "rt_call_arr";
+        int nmig  = isreg && rt_proc_frame_nslots(nfn) >= 0;
+        const char * rsym = isreg ? (nmig ? "rt_call_named_proc_sl" : "rt_call_named_proc") : "rt_call_arr";
         std::string s;
         for (int j = 0; j < nn; j++) s += marshal_call_arg(nsubs[j]->entry, avbase + j * 16, lf, j);
         if (MEDIUM_TEXT) {
@@ -97,16 +139,19 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
             s += s_2asm("lea", emit_fmt("rsi, [r12+%d]", avbase));
             s += s_2asm("mov", emit_fmt("edx, %d", nn));
+            if (nmig) s += pas_sl_setup(nfn);
             s += s_2asm("call", emit_fmt("%s@PLT", rsym));
             s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff));
             s += s_2asm("mov", emit_fmt("[r12+%d], rdx", aoff + 8));
         } else if (MEDIUM_BINARY) {
             uint64_t fptr;
-            if (isreg) { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-            else       { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr;        fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            if (nmig)       { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            else if (isreg) { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            else            { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr;        fptr = (uint64_t)(uintptr_t)(void*)fp; }
             s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)nfn);
             s += x86_frame_lea("rsi", avbase);
             s += x86("mov32", "edx", (long)nn);
+            if (nmig) s += pas_sl_setup(nfn);
             s += x86_call_ro(rsym, fptr);
             s += x86_frame_store64(aoff, "rax");
             s += x86_frame_store64(aoff + 8, "rdx");
@@ -220,7 +265,9 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
         s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
         s += s_2asm("lea", emit_fmt("rsi, [r12+%d]", argbase));
         s += s_2asm("mov", emit_fmt("edx, %lld", (long long)narg));
-        s += s_2asm("call", "rt_call_named_proc@PLT");
+        int mig = rt_proc_frame_nslots(fn) >= 0;
+        if (mig) s += pas_sl_setup(fn);
+        s += s_2asm("call", mig ? "rt_call_named_proc_sl@PLT" : "rt_call_named_proc@PLT");
         s += s_2asm("mov", emit_fmt("[r12+%d], rax", resoff));
         s += s_2asm("mov", emit_fmt("[r12+%d], rdx", resoff + 8));
         s += s_2asm("cmp", "eax, 99");
@@ -234,11 +281,15 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
         std::string s;
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
-        uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        int mig = rt_proc_frame_nslots(fn) >= 0;
+        uint64_t fptr;
+        if (mig) { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        else     { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
         s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fn);
         s += x86_frame_lea("rsi", argbase);
         s += x86("mov32", "edx", (long)narg);
-        s += x86_call_ro("rt_call_named_proc", fptr);
+        if (mig) s += pas_sl_setup(fn);
+        s += x86_call_ro(mig ? "rt_call_named_proc_sl" : "rt_call_named_proc", fptr);
         s += x86_frame_store64(resoff, "rax");
         s += x86_frame_store64(resoff + 8, "rdx");
         s += x86("cmp", "eax", (long)99);
