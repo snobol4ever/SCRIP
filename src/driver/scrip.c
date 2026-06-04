@@ -104,7 +104,7 @@ static int icn_kind_native_stub(IR_e t) {
            t == IR_LIST_BANG ||
            t == IR_BINOP_GEN ||
            t == IR_MAP || t == IR_GREP ||
-           t == IR_SCAN_ANY || t == IR_SCAN_MANY || t == IR_SCAN_MATCH ||
+           t == IR_SCAN_MANY || t == IR_SCAN_MATCH ||
            t == IR_SCAN_UPTO || t == IR_SCAN_FIND || t == IR_SCAN_BAL ||
            t == IR_SCAN_TAB || t == IR_SCAN_MOVE;
 }
@@ -136,6 +136,10 @@ static int icn_scan_safe_kind(IR_e t) {
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
            t == IR_VAR || t == IR_KEYWORD || t == IR_GEN_SCAN || t == IR_CALL || t == IR_BINOP;
 }
+static int icn_scan_fn_lit_arg(IR_t *nd, IR_e want) {
+    IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
+    return sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == want;
+}
 static int icn_scan_subgraph_safe(IR_graph_t *sg, int depth) {
     if (!sg || !sg->all || sg->n <= 0 || depth > 16) return 0;
     for (int i = 0; i < sg->n; i++) {
@@ -144,7 +148,11 @@ static int icn_scan_subgraph_safe(IR_graph_t *sg, int depth) {
         if (!icn_scan_safe_kind(nd->t)) return 0;
         if (nd->t == IR_VAR && !(nd->sval && nd->sval[0] == '&' && icn_keyword_supported(nd->sval))) return 0;
         if (nd->t == IR_KEYWORD && !icn_keyword_supported(nd->sval)) return 0;
-        if (nd->t == IR_CALL && !(nd->sval && (!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes") || !strcmp(nd->sval, "pos")))) return 0;
+        if (nd->t == IR_CALL) {
+            if (!nd->sval) return 0;
+            if (!strcmp(nd->sval, "any")) { if (!(nd->dval == 3.0 && icn_scan_fn_lit_arg(nd, IR_LIT_S))) return 0; }
+            else if (!(!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes") || !strcmp(nd->sval, "pos"))) return 0;
+        }
         if (nd->t == IR_BINOP && nd->ival != BINOP_CONCAT) return 0;
         if (nd->t == IR_GEN_SCAN) {
             IR_graph_t *ssg = (IR_graph_t *)(intptr_t) nd->counter;
