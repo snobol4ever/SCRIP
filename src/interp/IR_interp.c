@@ -1102,8 +1102,8 @@ int rt_findall(void *fs_ptr) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern int rt_call_term(void *goal_v);
-extern int rt_redo_meta(void *entry_cp_v);
+extern int rt_meta_solve(void *goal_v, void **root_out);
+extern int rt_meta_redo(void *root_v);
 int rt_findall_term(void *goal_v, void *tmpl_v, void *result_v) {
     extern Trail g_resolve_trail;
     extern int ATOM_DOT;
@@ -1117,11 +1117,12 @@ int rt_findall_term(void *goal_v, void *tmpl_v, void *result_v) {
     resolve_choice *entry_cp = resolve_cp_current();
     Term **acc = (Term **)calloc(4096, sizeof(Term *)); int nacc = 0;
     if (!acc) return 0;
-    int ok = rt_call_term(goal_v);
+    void *mroot = (void *)0;
+    int ok = rt_meta_solve(goal_v, &mroot);
     int fa_safety = 1 << 20;
     while (ok && nacc < 4096 && fa_safety-- > 0) {
         acc[nacc++] = bb_copy_term(term_deref((Term *)tmpl_v));
-        ok = rt_redo_meta((void *)entry_cp);
+        ok = rt_meta_redo(mroot);
     }
     resolve_cp_truncate(entry_cp);
     trail_unwind(&g_resolve_trail, mark);

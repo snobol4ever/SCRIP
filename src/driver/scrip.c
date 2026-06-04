@@ -344,6 +344,45 @@ static int pl_findall_goal_admissible(const IR_t *g) {
     }
     return 0;
 }
+static int pl_findall_conj_member_admissible(const IR_t *g);
+static int pl_findall_goal_conj_admissible(const IR_graph_t *gg, const IR_t *goal) {
+    if (!gg || !gg->all || !goal) return 0;
+    const IR_t *gconj = NULL;
+    for (int i = 0; i < gg->n; i++) {
+        const IR_t *nd = gg->all[i];
+        if (nd && nd->t == IR_GCONJ) { if (gconj) return 0; gconj = nd; }
+    }
+    if (!gconj) return 0;
+    bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)gconj->ival;
+    if (!zs || !zs->goals || zs->ngoals < 1) return 0;
+    for (int i = 0; i < gg->n; i++) {
+        const IR_t *nd = gg->all[i];
+        if (!nd) continue;
+        switch (nd->t) {
+        case IR_GOAL: case IR_GCONJ: case IR_DISJ: case IR_ITE: case IR_CHOICE:
+        case IR_CUT: case IR_BUILTIN: case IR_UNIFY: case IR_FAIL: case IR_SUCCEED: {
+            if (nd == gconj) break;
+            int member = 0;
+            for (int j = 0; j < zs->ngoals; j++) if (zs->goals[j] == nd) { member = 1; break; }
+            if (!member) return 0;
+            break;
+        }
+        default: break;
+        }
+    }
+    for (int j = 0; j < zs->ngoals; j++) if (!pl_findall_conj_member_admissible(zs->goals[j])) return 0;
+    return 1;
+}
+static int pl_findall_conj_member_admissible(const IR_t *g) {
+    if (!g) return 0;
+    if (g->t == IR_GOAL) return pl_findall_goal_admissible(g);
+    if (g->t == IR_BUILTIN && g->sval) {
+        static const char *mset[] = { "is", "=:=", "=\\=", "<", ">", "=<", ">=", NULL };
+        for (int k = 0; mset[k]; k++)
+            if (!strcmp(g->sval, mset[k])) return g->α && g->β && pl_findall_term_buildable(g->α) && pl_findall_term_buildable(g->β);
+    }
+    return 0;
+}
 static int pl_rich_node_emittable(const IR_t *nd) {
     if (!nd) return 1;
     switch (nd->t) {
@@ -385,8 +424,8 @@ static int pl_rich_node_emittable(const IR_t *nd) {
             bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)nd->ival;
             if (!fs || !fs->goal_node || !fs->tmpl || !fs->result) return 0;
             if (!pl_findall_term_buildable(fs->tmpl) || !pl_findall_term_buildable(fs->result)) return 0;
-            if (!pl_findall_goal_graph_simple(fs->gcfg, fs->goal_node)) return 0;
-            return pl_findall_goal_admissible(fs->goal_node);
+            if (pl_findall_goal_graph_simple(fs->gcfg, fs->goal_node)) return pl_findall_goal_admissible(fs->goal_node);
+            return pl_findall_goal_conj_admissible(fs->gcfg, fs->goal_node);
         }
         if (!strcmp(fn,"plus")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
         if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;

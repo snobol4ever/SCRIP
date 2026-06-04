@@ -25,9 +25,16 @@ std::string bb_builtin_findall_str(IR_t *pBB, const char *fn, const std::string 
                 g_sm_native_unsupported = 1;
                 return hdr + s_2asm("jmp", _.lbl_ω) + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
+            const IR_t *gn = fs->goal_node;
+            if (fs->gcfg && fs->gcfg->all) {
+                for (int gi = 0; gi < fs->gcfg->n; gi++) {
+                    IR_t *cand = fs->gcfg->all[gi];
+                    if (cand && cand->t == IR_GCONJ) { gn = cand; break; }
+                }
+            }
             std::string goal_build;
-            if (fs->goal_node->t == IR_FAIL || fs->goal_node->t == IR_SUCCEED) {
-                const char *gs = (fs->goal_node->t == IR_FAIL) ? "fail" : "true";
+            if (gn->t == IR_FAIL || gn->t == IR_SUCCEED) {
+                const char *gs = (gn->t == IR_FAIL) ? "fail" : "true";
                 char slbl[64]; strtab_label(slbl, sizeof slbl, gs);
                 goal_build = s_2asm("mov",  emit_fmt("edi, %d", (int)IR_ATOM))
                            + s_2asm("xor",  "rsi, rsi")
@@ -35,7 +42,7 @@ std::string bb_builtin_findall_str(IR_t *pBB, const char *fn, const std::string 
                            + s_2asm("xorps","xmm0, xmm0")
                            + s_2asm("call", "rt_node_to_term@PLT");
             } else {
-                goal_build = emit_build_compound_term(fs->goal_node);
+                goal_build = emit_build_compound_term(gn);
             }
             return hdr
                  + goal_build                               + s_2asm("push", "rax")
