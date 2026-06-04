@@ -36,6 +36,7 @@ void bb_iterate    (IR_t * pBB);
 void bb_binop_relop      (IR_t * pBB);
 void bb_binop_arith      (IR_t * pBB);
 void bb_binop_gvar_arith (IR_t * pBB);
+void bb_binop_gvar_relop (IR_t * pBB);
 void bb_binop_concat_slot(IR_t * pBB);
 void bb_lit        (void);
 void bb_lit_scalar (IR_t * pBB);
