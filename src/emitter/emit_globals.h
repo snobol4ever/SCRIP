@@ -73,6 +73,7 @@ typedef struct {
     int64_t                      bb_ri;
     void *                       bb_ln;
     void *                       bb_rn;
+    void *                       bb_zn;
     const char *                 flat_lbl_α_body;
     const char *                 flat_lbl_β;
     const char *                 flat_lbl_α;

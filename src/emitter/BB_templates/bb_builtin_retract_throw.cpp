@@ -20,6 +20,28 @@ std::string bb_builtin_retract_throw_str(IR_t *pBB, const char *fn, const std::s
             }
     }
     if (MEDIUM_TEXT) {
+        if (strcmp(fn, "throw") == 0 && pBB->α) {
+            IR_t *a = pBB->α;
+            std::string ball_build;
+            if (a->t == IR_STRUCT) {
+                ball_build = emit_build_compound_term(a);
+            } else {
+                char slbl[64]; slbl[0] = 0;
+                if (a->sval && *a->sval) strtab_label(slbl, sizeof slbl, a->sval);
+                ball_build = s_2asm("mov", emit_fmt("edi, %d", (int)a->t))
+                           + s_2asm("mov", emit_fmt("rsi, %ld", (long)a->ival))
+                           + (slbl[0] ? s_2asm("lea", emit_fmt("rdx, [rip + %s]", slbl))
+                                      : s_2asm("xor", "edx, edx"))
+                           + s_2asm("xorps", "xmm0, xmm0")
+                           + s_2asm("call", "rt_node_to_term@PLT");
+            }
+            return hdr
+                 + ball_build
+                 + s_2asm("mov",  "rdi, rax")
+                 + s_2asm("call", "rt_throw_term@PLT")
+                 + s_2asm("jmp",  _.lbl_ω)
+                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+        }
     }
     return std::string();
 }

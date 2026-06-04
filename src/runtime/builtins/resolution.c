@@ -155,6 +155,7 @@ typedef struct {
     Term    *catcher;
     Term   **env;
     int      trail_mark;
+    void    *cp_mark;
 } Resolve_CatchFrame;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static Resolve_CatchFrame g_resolve_catch_stack[RESOLVE_CATCH_STACK_MAX];
@@ -205,6 +206,7 @@ struct __jmp_buf_tag *resolve_catch_push(Term *catcher, Term **env)
     cf->catcher    = catcher;
     cf->env        = env;
     cf->trail_mark = trail_mark(&g_resolve_trail);
+    cf->cp_mark    = (void *)resolve_cp_current();
     g_resolve_catch_top++;
     return cf->jb;
 }
@@ -224,6 +226,12 @@ Term **resolve_catch_top_env(void)
 {
     if (g_resolve_catch_top <= 0) return NULL;
     return g_resolve_catch_stack[g_resolve_catch_top - 1].env;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void *resolve_catch_top_cp_mark(void)
+{
+    if (g_resolve_catch_top <= 0) return NULL;
+    return g_resolve_catch_stack[g_resolve_catch_top - 1].cp_mark;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int resolve_throw_term(Term *ball)
