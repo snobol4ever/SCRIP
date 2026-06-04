@@ -1795,6 +1795,21 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
+        } else if (g_gvar_flat_chain && op_is_arith && nd->α && nd->β &&
+                   ((nd->α->t == IR_LIT_I) || (nd->α->t == IR_VAR && nd->α->sval) || bb_slot_get(nd->α) >= 0) &&
+                   ((nd->β->t == IR_LIT_I) || (nd->β->t == IR_VAR && nd->β->sval) || bb_slot_get(nd->β) >= 0)) {
+            g_emit.bb_lk    = (int)nd->α->t;
+            g_emit.bb_rk    = (int)nd->β->t;
+            g_emit.bb_li    = (nd->α->t == IR_LIT_I) ? nd->α->ival : 0;
+            g_emit.bb_ri    = (nd->β->t == IR_LIT_I) ? nd->β->ival : 0;
+            g_emit.op_name1 = (nd->α->t == IR_VAR) ? nd->α->sval : (const char *)0;
+            g_emit.op_name2 = (nd->β->t == IR_VAR) ? nd->β->sval : (const char *)0;
+            g_emit.op_sa    = (nd->α->t != IR_LIT_I && nd->α->t != IR_VAR) ? bb_slot_get(nd->α) : -1;
+            g_emit.op_sb    = (nd->β->t != IR_LIT_I && nd->β->t != IR_VAR) ? bb_slot_get(nd->β) : -1;
+            g_emit.op_off   = bb_slot_alloc(nd);
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_ARITH_SLOT; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
         } else if (g_gvar_flat_chain && op_is_rel && nd->α && nd->β &&
                    ((nd->α->t == IR_LIT_I) || (nd->α->t == IR_VAR && nd->α->sval) || bb_slot_get(nd->α) >= 0) &&
                    ((nd->β->t == IR_LIT_I) || (nd->β->t == IR_VAR && nd->β->sval) || bb_slot_get(nd->β) >= 0)) {
@@ -1869,6 +1884,15 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PROG:   flat_drive_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
         if (g_descr_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
+        if (g_gvar_flat_chain) {
+            bb_label_t *slab_succ = g_emit.flat_succ_p ? g_emit.flat_succ_p : lbl_γ;
+            bb_label_t *slab_fail = g_emit.flat_fail_p ? g_emit.flat_fail_p : lbl_ω;
+            bb_label_t *exit_lbl = (nd && nd->dval == 2.0) ? slab_fail : slab_succ;
+            emit_label_define_bb(lbl_β);
+            emit_jmp_label(exit_lbl, JMP_JMP);
+            emit_jmp_label(exit_lbl, JMP_JMP);
+            break;
+        }
         flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:

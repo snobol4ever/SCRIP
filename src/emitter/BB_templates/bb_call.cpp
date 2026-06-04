@@ -79,12 +79,14 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             return s;
         }
     }
-    if (lf->t == IR_CALL && lf->dval == 2.0) {
+    if (lf->t == IR_CALL && (lf->dval == 2.0 || lf->dval == 3.0)) {
         const char * nfn = lf->sval ? lf->sval : "";
         int nn = (int) lf->ival;
         IR_graph_t ** nsubs = (IR_graph_t **)(intptr_t) lf->counter;
         int avbase = (nn > 0) ? bb_slot_alloc16(nsubs[0]->entry) : bb_slot_alloc16(lf);
         for (int j = 1; j < nn; j++) bb_slot_alloc16(nsubs[j]->entry);
+        int isreg = (nfn[0] && rt_proc_is_registered(nfn));
+        const char * rsym = isreg ? "rt_call_named_proc" : "rt_call_arr";
         std::string s;
         for (int j = 0; j < nn; j++) s += marshal_call_arg(nsubs[j]->entry, avbase + j * 16, lf, j);
         if (MEDIUM_TEXT) {
@@ -95,16 +97,17 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             s += s_2asm("lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
             s += s_2asm("lea", emit_fmt("rsi, [r12+%d]", avbase));
             s += s_2asm("mov", emit_fmt("edx, %d", nn));
-            s += s_2asm("call", "rt_call_arr@PLT");
+            s += s_2asm("call", emit_fmt("%s@PLT", rsym));
             s += s_2asm("mov", emit_fmt("[r12+%d], rax", aoff));
             s += s_2asm("mov", emit_fmt("[r12+%d], rdx", aoff + 8));
         } else if (MEDIUM_BINARY) {
-            uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-            s += x86("mov", "rdi", (uint64_t)(uintptr_t)nfn);
-            s += x86("lea", "rsi", "[r12+avbase]", (uint64_t)(uintptr_t)nullptr, emit_fmt("r12+%d", avbase).c_str());
-            s += x86_frame_load64("rsi", avbase);
+            uint64_t fptr;
+            if (isreg) { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            else       { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr;        fptr = (uint64_t)(uintptr_t)(void*)fp; }
+            s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)nfn);
+            s += x86_frame_lea("rsi", avbase);
             s += x86("mov32", "edx", (long)nn);
-            s += x86("call", "rt_call_arr", fptr);
+            s += x86_call_ro(rsym, fptr);
             s += x86_frame_store64(aoff, "rax");
             s += x86_frame_store64(aoff + 8, "rdx");
         }
@@ -307,7 +310,7 @@ static std::string bb_call_str(IR_t * pBB) {
     IR_t       * a0   = pBB->α;
     if (g_descr_flat_chain && pBB->dval == 2.0) return bb_call_rk_arr_str(pBB);
     if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && !strcmp(fn, "DEFINE")) return bb_call_gvar_define_str(pBB);
-    if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
+    if (g_gvar_flat_chain && (pBB->dval == 2.0 || pBB->dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
     if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) return bb_call_proc_staged_str(pBB);
     if (g_gvar_flat_chain && pBB->dval == 3.0 && fn && fn[0] && !rt_proc_is_registered(fn)) return bb_call_byname_str(pBB);
     if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
