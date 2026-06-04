@@ -2,16 +2,16 @@
 
 ## TL;DR
 
-Two gated landings. **(1) `ed3a388` PT-2b-simple:** `findall/3` over **nondeterministic SIMPLE
+Two gated landings. **(1) `ea9e5ea` PT-2b-simple:** `findall/3` over **nondeterministic SIMPLE
 goals** (a single predicate call) now emits and runs natively in mode-4 through the PT meta rail
-(`rt_call_term`/`rt_redo_meta`/`rt_findall_term`, all landed in `62426a6`). **(2) `f62cb00`
+(`rt_call_term`/`rt_redo_meta`/`rt_findall_term`, all landed in `62426a6`). **(2) `c8063ec`
 literal-int-LHS `is/2`** (`0 is X mod 2`), the separable blocker for the filter rung. m4
 **91 → 95 / 0 / 20**; GATE-3 m2/m3 **115/115 held**; **zero FAILs** — every widened admission
 either passes or cleanly EXCISES. New m4 passes: `rung11_findall_findall_{basic,template,filter}`
 + `rung30_dcg_generate` (the `phrase` goal rode along free — DCG translation yields a single
 IR_GOAL). All 20 remaining EXCISED sit squarely on PT-1b / PT-3 / PT-4.
 
-## Landing 1 — PT-2b-simple (`ed3a388`, 3 files)
+## Landing 1 — PT-2b-simple (`ea9e5ea`, 3 files)
 
 1. **`src/emitter/BB_templates/bb_builtin.cpp`** — `emit_build_compound_term` gains an
    **IR_GOAL arm**: builds the goal Term from `bb_goal_state_t` (functor = `zc->callee`, args
@@ -47,7 +47,7 @@ IR_GOAL). All 20 remaining EXCISED sit squarely on PT-1b / PT-3 / PT-4.
    `g_resolve_env` + `g_resolve_cut_flag` + `g_resolve_cut_barrier` around the drive,
    mirroring `rt_findall`'s outer-state discipline (the gcfg-driver sibling directly above it).
 
-## Landing 2 — literal-int-LHS `is/2` (`f62cb00`, 4 files)
+## Landing 2 — literal-int-LHS `is/2` (`c8063ec`, 4 files)
 
 **Canonical grounding** (RULES "CONSULT CANONICAL SOURCES"): gprolog `BipsPl/arith_inl.wam`
 compiles `is/2` as `math_load_value(x(1),1)` + **`get_value(x(0),1)`** — evaluate RHS, then
@@ -68,7 +68,7 @@ TRUE) — which is why this is its own runtime entry and not a rewrite to the cm
   (HANDOFF-…-FLOAT-UNIFY-M4), admitting new shapes to the flat gate makes m3 build them as
   in-process blobs, which is the undebugged hazard. m4-native, m3-interpreted.
 
-## Gate state (HEAD `f62cb00`, all re-verified)
+## Gate state (HEAD `c8063ec`, all re-verified)
 
 | Gate | Before | After |
 |---|---|---|
