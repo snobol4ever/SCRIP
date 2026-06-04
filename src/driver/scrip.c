@@ -298,15 +298,23 @@ static IR_t * pl_gz_det_node(int kind) {
     return nn;
 }
 static IR_t * pl_gz_admit(IR_graph_t *g) {
-    if (!g || !g->all || g->nslots > 0) return NULL;
+    if (!g || !g->all || g->nslots > 64) return NULL;
     IR_t *gconj = NULL;
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
         if (nd->t == IR_GCONJ) { if (gconj) return NULL; gconj = nd; }
-        if (nd->t == IR_GOAL || nd->t == IR_CHOICE || nd->t == IR_UNIFY || nd->t == IR_CUT ||
+        if (nd->t == IR_GOAL || nd->t == IR_CHOICE || nd->t == IR_CUT ||
             nd->t == IR_DISJ || nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_ARITH ||
-            nd->t == IR_LOGICVAR || nd->t == IR_STRUCT) return NULL;
+            nd->t == IR_STRUCT) return NULL;
+        if (nd->t == IR_LOGICVAR && ((int)nd->ival < 0 || (int)nd->ival >= 64)) return NULL;
+        if (nd->t == IR_UNIFY) {
+            IR_t *l = nd->α, *r = nd->β;
+            if (!l || !r) return NULL;
+            int lv = (l->t == IR_LOGICVAR), rv = (r->t == IR_LOGICVAR);
+            int lc = (l->t == IR_ATOM || l->t == IR_LIT_I), rc = (r->t == IR_ATOM || r->t == IR_LIT_I);
+            if (!((lv && (rv || rc)) || (rv && lc))) return NULL;
+        }
     }
     IR_t *goals_buf[64]; int ng = 0;
     if (gconj) {
@@ -321,13 +329,16 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         IR_t *gg = goals_buf[i];
         if (!gg) return NULL;
         if (gg->t == IR_SUCCEED) continue;
-        if (gg->t != IR_BUILTIN || !gg->sval) return NULL;
         IR_t *nn = NULL;
-        if (strcmp(gg->sval, "nl") == 0 && gg->ival == 0) {
+        if (gg->t == IR_UNIFY) {
+            nn = pl_gz_det_node(IR_CELL_UNIFY);
+            if (nn) { nn->α = gg->α; nn->β = gg->β; }
+        } else if (gg->t == IR_BUILTIN && gg->sval && strcmp(gg->sval, "nl") == 0 && gg->ival == 0) {
             nn = pl_gz_det_node(IR_DET_NL);
-        } else if (strcmp(gg->sval, "write") == 0 && gg->ival == 1 && gg->α) {
+        } else if (gg->t == IR_BUILTIN && gg->sval && strcmp(gg->sval, "write") == 0 && gg->ival == 1 && gg->α) {
             if (gg->α->t == IR_ATOM && gg->α->sval) { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) nn->sval = gg->α->sval; }
             else if (gg->α->t == IR_LIT_I)          { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { nn->sval = NULL; nn->ival = gg->α->ival; } }
+            else if (gg->α->t == IR_LOGICVAR)       { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { nn->sval = NULL; nn->ival = 0; nn->α = gg->α; } }
             else return NULL;
         } else {
             return NULL;
@@ -339,6 +350,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
     IR_t *qf = pl_gz_det_node(IR_QUERY_FRAME);
     if (!qf) return NULL;
     qf->α = head;
+    qf->ival = g->nslots;
     return qf;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
