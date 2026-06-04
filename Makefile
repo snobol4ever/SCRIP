@@ -174,6 +174,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_pat_len.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_rem.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_arb.cpp \
+    $(SRC)/emitter/BB_templates/bb_pat_arbno.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_abort.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_fence.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_alt.cpp \
@@ -391,6 +392,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_len.cpp          -o $(OBJ)/bb_pat_len.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_rem.cpp          -o $(OBJ)/bb_pat_rem.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_arb.cpp          -o $(OBJ)/bb_pat_arb.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_arbno.cpp             -o $(OBJ)/bb_pat_arbno.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_abort.cpp     -o $(OBJ)/bb_pat_abort.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_str.cpp                      -o $(OBJ)/emit_str.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_fence.cpp     -o $(OBJ)/bb_pat_fence.o
