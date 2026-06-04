@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-`catch/3` + `throw/1` now **emit and run natively in mode-4**. All 5 rung28_exceptions rungs
+Landing commit `f44c20c` (rebased from 1fe43fd over PB-9d/PB-RB-CONV; gates re-verified at merged HEAD). `catch/3` + `throw/1` now **emit and run natively in mode-4**. All 5 rung28_exceptions rungs
 (catch_atom_match, no_throw, throw_catch_atom, throw_catch_compound, rethrow) PASS m4 with
 m2==m3==m4 byte-identical output. m4 **96 → 101 / 0 / 14**; GATE-3 m2/m3 **115/115 HELD**;
 zero FAILs. The remaining 14 EXCISED are all PT-4 (retract×5, abolish×5, aggregate/nb×4).
