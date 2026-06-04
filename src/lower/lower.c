@@ -805,6 +805,7 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     }
     IR_graph_t * subj_blk = lower_value_subgraph(cx, subj_t);
     if (!subj_blk) { IR_free(pat_blk); return NULL; }
+    if (subj_t->t == TT_VAR) sc->sval = subj_t->v.sval ? subj_t->v.sval : "";
     IR_t * scan_aux[1]; scan_aux[0] = (IR_t *)(void *)subj_blk;
     bb_operand_aux_set(cx.bbg, sc, scan_aux, 1);
     IR_t * sα = NULL, * sβ = NULL;
