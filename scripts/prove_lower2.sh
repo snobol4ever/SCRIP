@@ -8,7 +8,8 @@ cd "$SCRIP"
 INC="-Isrc -Isrc/include -Isrc/contracts -Isrc/lower -Isrc/machine -Isrc/emitter -Isrc/interp -Isrc/runtime/core -Isrc/runtime"
 OUT=/tmp/prove_lower2
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower.c     -o /tmp/p_lower2.o
+gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_prolog.c -o /tmp/p_lower_prolog.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED                   -c src/contracts/scrip_ir.c  -o /tmp/p_scrip_ir.o
 gcc -O0 -g $INC                     -c src/tools/prove_lower2.c -o /tmp/p_prove.o
-gcc /tmp/p_lower2.o /tmp/p_scrip_ir.o /tmp/p_prove.o -lgc -lm -o "$OUT"
+gcc /tmp/p_lower2.o /tmp/p_lower_prolog.o /tmp/p_scrip_ir.o /tmp/p_prove.o -lgc -lm -o "$OUT"
 "$OUT"
