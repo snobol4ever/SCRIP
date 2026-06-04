@@ -10,8 +10,6 @@ extern "C" {
 void rt_write_any_nl(DESCR_t d);
 void rt_write_strz_nl(const char *s);
 void rt_write_int_nl(int64_t v);
-void rt_pop_write_int_nl(void);
-void rt_pop_write_any_nl(void);
 int  bb_slot_get(IR_t * nd);
 }
 #include "x86_asm.h"
@@ -96,26 +94,6 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_legacy_str(IR_t * pBB, int arg_is_any) {
-    if (!PLATFORM_X86) return std::string();
-    bb_label_t * beta_tgt = bb_call_write_beta_target();
-    const char * trailer_sym = arg_is_any ? "rt_pop_write_any_nl@PLT" : "rt_pop_write_int_nl@PLT";
-    if (MEDIUM_TEXT) {
-        return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_2asm("call", trailer_sym)
-             + s_2asm("jmp",  _.lbl_γ)
-             + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-             + s_2asm("jmp",  _.lbl_ω);
-    }
-    if (MEDIUM_BINARY) {
-        uint64_t fptr;
-        if (arg_is_any) { void (*fp)(void) = rt_pop_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        else            { void (*fp)(void) = rt_pop_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        std::string s;
-        s += x86("call", arg_is_any ? "rt_pop_write_any_nl" : "rt_pop_write_int_nl", fptr);
-        s += x86("jmp", PORT_GAMMA); s += x86("def", PORT_BETA);
-        if (beta_tgt == _.lbl_ω_p) s += x86("jmp", PORT_OMEGA);
-        else { s += x86_pair_jmp(0); }
-        return s;
-    }
-    return std::string();
+    (void)pBB; (void)arg_is_any;
+    return x86_bomb("bb_call_write_legacy: write(non-slot arg) not yet supported — awaits bb_var tier");
 }

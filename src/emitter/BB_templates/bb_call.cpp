@@ -9,8 +9,6 @@ extern "C" {
 #include "emit_bb.h"
 #include "../../runtime/builtins/gen.h"
 void rt_write_any_nl(DESCR_t d);
-void rt_pop_write_int_nl(void);
-void rt_pop_write_any_nl(void);
 int  rt_proc_is_registered(const char *name);
 int  rt_builtin_is_known(const char *name);
 int  bb_slot_get(IR_t * nd);
@@ -30,31 +28,14 @@ DESCR_t rt_proc_define(const char * spec);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bcall_fr_load64(const char * dst, const char * base, int disp) {
-    int g = x86_rnum(dst), b = x86_rnum(base);
-    if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp);
-        return x86_Lrec(c);
-    }
-    return std::string(" mov ") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
-}
 static std::string pas_sl_setup(const char * fn) {
     int callee_dl = rt_proc_decl_level(fn);
     if (g_emit_frame_caller_dl < 0 || callee_dl < 1) return x86("mov32", "ecx", (long)0);
     int h = (g_emit_frame_caller_dl + 1) - callee_dl;
     if (h < 0) h = 0;
     std::string s = x86_frame_lea("rcx", 0);
-    for (int i = 0; i < h; i++) s += bcall_fr_load64("rcx", "rcx", 0);
+    for (int i = 0; i < h; i++) s += x86_reg_disp32_load64("rcx", "rcx", 0);
     return s;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bcall_fr_lea64(const char * dst, const char * base, int disp) {
-    int g = x86_rnum(dst), b = x86_rnum(base);
-    if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8D; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp);
-        return x86_Lrec(c);
-    }
-    return std::string(" lea ") + dst + ", [" + base + " + " + std::to_string(disp) + "]\n";
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
@@ -68,15 +49,15 @@ static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
         int voff = 16 + (int) lf->ival * 16;
         if (MEDIUM_TEXT) s += s_comment(emit_fmt("# marshal arg%d = VAR-PARAM cell addr of frame slot=%d hops=%d -> [r12+%d]", idx, (int) lf->ival, hops, aoff));
         s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < hops; h++) s += bcall_fr_load64("rax", "rax", 0);
-        s += bcall_fr_lea64("rax", "rax", voff);
+        for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
+        s += x86_reg_disp32_lea64("rax", "rax", voff);
     } else if (lf->t == IR_VAR_FRAME_REF) {
         int hops = (int) lf->dval;
         int voff = 16 + (int) lf->ival * 16;
         if (MEDIUM_TEXT) s += s_comment(emit_fmt("# marshal arg%d = VAR-PARAM forward cell addr from ref slot=%d hops=%d -> [r12+%d]", idx, (int) lf->ival, hops, aoff));
         s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < hops; h++) s += bcall_fr_load64("rax", "rax", 0);
-        s += bcall_fr_load64("rax", "rax", voff + 8);
+        for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
+        s += x86_reg_disp32_load64("rax", "rax", voff + 8);
     } else if (lf->t == IR_VAR && lf->sval) {
         if (MEDIUM_TEXT) {
             char b1[80]; strtab_label(b1, sizeof b1, lf->sval);
@@ -123,13 +104,13 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
                 else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fin->α->sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
             } else if (fin->α->t == IR_VAR_FRAME) {
                 s += x86_frame_lea("rax", 0);
-                for (int h = 0; h < (int) fin->α->dval; h++) s += bcall_fr_load64("rax", "rax", 0);
-                s += bcall_fr_load64("rax", "rax", 16 + (int) fin->α->ival * 16 + 8);
+                for (int h = 0; h < (int) fin->α->dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
+                s += x86_reg_disp32_load64("rax", "rax", 16 + (int) fin->α->ival * 16 + 8);
             } else if (fin->α->t == IR_VAR_FRAME_REF) {
                 s += x86_frame_lea("rax", 0);
-                for (int h = 0; h < (int) fin->α->dval; h++) s += bcall_fr_load64("rax", "rax", 0);
-                s += bcall_fr_load64("rax", "rax", 16 + (int) fin->α->ival * 16 + 8);
-                s += bcall_fr_load64("rax", "rax", 8);
+                for (int h = 0; h < (int) fin->α->dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
+                s += x86_reg_disp32_load64("rax", "rax", 16 + (int) fin->α->ival * 16 + 8);
+                s += x86_reg_disp32_load64("rax", "rax", 8);
             } else s += x86_movabs_r64("rax", (uint64_t)fin->α->ival);
             s += x86_frame_store64(scratch, "rax");
             if (fin->β->t == IR_VAR) {
@@ -138,14 +119,14 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
                 s += x86("mov", "rcx", "rax");
             } else if (fin->β->t == IR_VAR_FRAME) {
                 s += x86_frame_lea("rax", 0);
-                for (int h = 0; h < (int) fin->β->dval; h++) s += bcall_fr_load64("rax", "rax", 0);
-                s += bcall_fr_load64("rax", "rax", 16 + (int) fin->β->ival * 16 + 8);
+                for (int h = 0; h < (int) fin->β->dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
+                s += x86_reg_disp32_load64("rax", "rax", 16 + (int) fin->β->ival * 16 + 8);
                 s += x86("mov", "rcx", "rax");
             } else if (fin->β->t == IR_VAR_FRAME_REF) {
                 s += x86_frame_lea("rax", 0);
-                for (int h = 0; h < (int) fin->β->dval; h++) s += bcall_fr_load64("rax", "rax", 0);
-                s += bcall_fr_load64("rax", "rax", 16 + (int) fin->β->ival * 16 + 8);
-                s += bcall_fr_load64("rax", "rax", 8);
+                for (int h = 0; h < (int) fin->β->dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
+                s += x86_reg_disp32_load64("rax", "rax", 16 + (int) fin->β->ival * 16 + 8);
+                s += x86_reg_disp32_load64("rax", "rax", 8);
                 s += x86("mov", "rcx", "rax");
             } else s += x86("mov", "rcx", (long)fin->β->ival);
             s += x86_frame_load64("rax", scratch);
@@ -178,9 +159,9 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             int voff = 16 + (int) lf->ival * 16;
             std::string s = IF(MEDIUM_TEXT, s_comment(emit_fmt("# marshal arg%d = frame var slot=%d hops=%d -> [r12+%d]", idx, (int) lf->ival, hops, aoff)));
             s += x86_frame_lea("rax", 0);
-            for (int h = 0; h < hops; h++) s += bcall_fr_load64("rax", "rax", 0);
-            s += bcall_fr_load64("rcx", "rax", voff)     + x86_frame_store64(aoff, "rcx");
-            s += bcall_fr_load64("rcx", "rax", voff + 8) + x86_frame_store64(aoff + 8, "rcx");
+            for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
+            s += x86_reg_disp32_load64("rcx", "rax", voff)     + x86_frame_store64(aoff, "rcx");
+            s += x86_reg_disp32_load64("rcx", "rax", voff + 8) + x86_frame_store64(aoff + 8, "rcx");
             return s;
         }
         if (lf->t == IR_VAR_FRAME_REF) {
@@ -188,10 +169,10 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             int voff = 16 + (int) lf->ival * 16;
             std::string s = IF(MEDIUM_TEXT, s_comment(emit_fmt("# marshal arg%d = frame ref-var deref slot=%d hops=%d -> [r12+%d]", idx, (int) lf->ival, hops, aoff)));
             s += x86_frame_lea("rax", 0);
-            for (int h = 0; h < hops; h++) s += bcall_fr_load64("rax", "rax", 0);
-            s += bcall_fr_load64("rax", "rax", voff + 8);
-            s += bcall_fr_load64("rcx", "rax", 0) + x86_frame_store64(aoff, "rcx");
-            s += bcall_fr_load64("rcx", "rax", 8) + x86_frame_store64(aoff + 8, "rcx");
+            for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
+            s += x86_reg_disp32_load64("rax", "rax", voff + 8);
+            s += x86_reg_disp32_load64("rcx", "rax", 0) + x86_frame_store64(aoff, "rcx");
+            s += x86_reg_disp32_load64("rcx", "rax", 8) + x86_frame_store64(aoff + 8, "rcx");
             return s;
         }
     }

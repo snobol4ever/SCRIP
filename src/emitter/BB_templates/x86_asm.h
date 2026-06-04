@@ -331,6 +331,27 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
 struct x86_frameq { int off; };
 inline x86_frameq FRQ(int off) { return x86_frameq{ off }; }
 /*--------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_load64(const char * dst, const char * base, int disp) {
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp); return x86_Lrec(c); }
+    return std::string(" mov ") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+inline std::string x86_reg_disp32_store64(const char * base, int disp, const char * src) {
+    int g = x86_rnum(src), b = x86_rnum(base);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x89; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp); return x86_Lrec(c); }
+    return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
+}
+inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long imm) {
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xC7; c += (char)(0x80 | (b & 7)); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+}
+inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int disp) {
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8D; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp); return x86_Lrec(c); }
+    return std::string(" lea ") + dst + ", [" + base + " + " + std::to_string(disp) + "]\n";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store64(int off, const char * reg) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
