@@ -162,6 +162,7 @@ int  rt_toby_real(DESCR_t *cur_slot, int64_t lo_bits, int64_t hi_bits, int64_t s
 void *  rt_cs_new    (const char *chars);
 void rt_cap_assign(const char *varname, const char *base, int len);
 void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm);
+void rt_subject_load_nv(const char *name, void *slot);
 int  rt_defer_match(const char *varname, int ival_flag, int cur_delta);
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_is(int dst_slot, const char *op, int lk, long li, int rk, long ri);
