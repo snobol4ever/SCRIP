@@ -180,6 +180,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_match.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_capture.cpp \
     $(SRC)/emitter/BB_templates/bb_gather.cpp \
+    $(SRC)/emitter/BB_templates/bb_assign_local.cpp \
     $(SRC)/emitter/XA_templates/xa_stubs.cpp \
     $(SRC)/emitter/XA_templates/xa_macro_library.cpp \
     $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp \
@@ -395,6 +396,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match.cpp     -o $(OBJ)/bb_match.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_capture.cpp -o $(OBJ)/bb_pat_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp -o $(OBJ)/xa_bb_macro_library.o

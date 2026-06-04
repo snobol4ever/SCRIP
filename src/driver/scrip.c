@@ -181,16 +181,47 @@ static int icn_scan_subgraph_safe(IR_graph_t *sg, int depth) {
 }
 static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run);
 static int icn_graph_native_emittable(stage2_t *s2) { return icn_graph_native_emittable_mode(s2, 0); }
+static int icn_local_assign_rhs_ok(IR_t *nd) {
+    IR_t *r = nd->α;
+    if (!r) return 0;
+    if (r->t == IR_LIT_I || r->t == IR_LIT_S) return 1;
+    if (r->t == IR_VAR && r->sval && r->sval[0] != '&') return 1;
+    return 0;
+}
+static int icn_assign_safe_kind(IR_e t) {
+    return t == IR_ASSIGN || t == IR_VAR || t == IR_CALL || t == IR_SUCCEED || t == IR_FAIL ||
+           t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL;
+}
+static int icn_graph_has_local_assign(const IR_graph_t *g) {
+    extern int g_icn_globals_nv;
+    for (int ni = 0; ni < g->n; ni++) {
+        IR_t *nd = g->all[ni];
+        if (nd && nd->t == IR_ASSIGN && nd->sval && !(g_icn_globals_nv && is_global(nd->sval))) return 1;
+    }
+    return 0;
+}
+static int icn_graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name) {
+    for (int i = 0; i < g->n; i++) { IR_t *m = g->all[i]; if (m && m->t == IR_ASSIGN && m->sval && !strcmp(m->sval, name)) return 1; }
+    for (int p = 0; p < s2->proc_count; p++) {
+        if (s2->proc_table[p].bb_idx != gi) continue;
+        for (int k = 0; k < s2->proc_table[p].nparams && k < s2->proc_table[p].lower_sc.n; k++)
+            if (s2->proc_table[p].lower_sc.e[k].name && !strcmp(s2->proc_table[p].lower_sc.e[k].name, name)) return 1;
+    }
+    return 0;
+}
 static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
     if (!s2) return 0;
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
         if (!g || !g->all) continue;
         int has_alt = icn_graph_has_alt(g);
+        int has_lassign = icn_graph_has_local_assign(g);
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
             if (icn_kind_native_stub(nd->t)) return 0;
+            if (has_lassign && !icn_assign_safe_kind(nd->t)) return 0;
+            if (has_lassign && nd->t == IR_CALL && !(nd->sval && (!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes")))) return 0;
             if (for_run && nd->t == IR_CALL && (nd->dval == 3.0 || (nd->sval && rt_proc_is_registered(nd->sval)))) return 0;
             if (nd->t == IR_GEN_SCAN) {
                 if (nd->dval != 1.0) return 0;
@@ -200,10 +231,12 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
             }
             { extern int g_icn_globals_nv;
               if (nd->t == IR_VAR && nd->state == 1 && !g_icn_globals_nv) return 0;
+              if (nd->t == IR_VAR && nd->sval && nd->sval[0] != '&' && nd->state != 1 && !icn_graph_var_assigned_or_param(s2, gi, g, nd->sval)) return 0;
               if (nd->t == IR_ASSIGN && nd->sval) {
                   int lhs_global = is_global(nd->sval);
                   if (lhs_global && g_icn_globals_nv) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
-                  else return 0; /* local assign, or slot-mode global assign: native store box not built -> clean EXCISE, never abort */
+                  else if (icn_local_assign_rhs_ok(nd)) { /* wave-1 local assign: bb_assign_local (lit/var rhs) */ }
+                  else return 0; /* other rhs shapes: native store arm not built -> clean EXCISE, never abort */
               } }
             if (has_alt) {
                 if (!icn_alt_safe_kind(nd->t)) return 0;
