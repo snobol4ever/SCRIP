@@ -1704,6 +1704,16 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 FILL(nd, lbl_γ, lbl_ω, lbl_β);
                 break;
             }
+            if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "any")) {
+                IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
+                const char *cs = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_S) ? sblks[0]->entry->sval : (const char *)0;
+                g_emit.op_name1 = cs;
+                g_emit.op_sa  = -1;
+                g_emit.op_sb  = -1;
+                g_emit.op_off = bb_slot_alloc16(nd);
+                FILL(nd, lbl_γ, lbl_ω, lbl_β);
+                break;
+            }
             if (nd->dval == 3.0 && (int)nd->ival > 0 && nd->sval && rt_proc_is_registered(nd->sval))
                 flat_drive_userproc(nd, lbl_γ, lbl_ω, lbl_β);
             else
