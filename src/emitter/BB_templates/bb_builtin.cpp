@@ -1,4 +1,7 @@
 #include "bb_builtin_common.h"
+extern "C" {
+#include "IR_interp_state.h"
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_pl_op_floaty(const char *fn) {
     static const char *f[] = { "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "exp", "log",
@@ -48,6 +51,34 @@ std::string emit_build_compound_term(const IR_t *nd) {
         }
         char fnlbl[64]; fnlbl[0] = 0;
         if (nd->sval) strtab_label(fnlbl, sizeof fnlbl, nd->sval);
+        out += (fnlbl[0] ? s_2asm("lea rdi,", emit_fmt("[rip + %s]", fnlbl)) : s_2asm("xor", "edi, edi"))
+             + s_2asm("mov esi,", emit_fmt("%d", arity))
+             + s_2asm("mov", "rdx, rsp")
+             + s_2asm("call", "rt_compound_build_n@PLT")
+             + s_2asm("add rsp,", emit_fmt("%d", frame));
+        return out;
+    }
+    if (nd->t == IR_GOAL) {
+        bb_goal_state_t *zc = (bb_goal_state_t *)(intptr_t)nd->ival;
+        const char *gfn = (zc && zc->callee) ? zc->callee : nd->sval;
+        int arity = zc ? zc->arity : 0;
+        char fnlbl[64]; fnlbl[0] = 0;
+        if (gfn) strtab_label(fnlbl, sizeof fnlbl, gfn);
+        if (arity <= 0 || !zc || !zc->args) {
+            return s_2asm("mov edi,",  emit_fmt("%d", (int)IR_ATOM))
+                 + s_2asm("xor", "rsi, rsi")
+                 + (fnlbl[0] ? s_2asm("lea rdx,", emit_fmt("[rip + %s]", fnlbl)) : s_2asm("xor", "edx, edx"))
+                 + s_2asm("xor", "ecx, ecx")
+                 + s_2asm("call", "rt_node_to_term@PLT");
+        }
+        int navail = zc->nargs < arity ? zc->nargs : arity;
+        int slots_bytes = arity * 8;
+        int frame = (slots_bytes + 15) & ~15;
+        std::string out = s_2asm("sub rsp,", emit_fmt("%d", frame));
+        for (int i = 0; i < navail; i++) {
+            out += emit_build_compound_term(zc->args[i]);
+            out += s_2asm("mov", emit_fmt("qword ptr [rsp + %d], rax", i * 8));
+        }
         out += (fnlbl[0] ? s_2asm("lea rdi,", emit_fmt("[rip + %s]", fnlbl)) : s_2asm("xor", "edi, edi"))
              + s_2asm("mov esi,", emit_fmt("%d", arity))
              + s_2asm("mov", "rdx, rsp")

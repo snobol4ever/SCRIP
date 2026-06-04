@@ -271,6 +271,67 @@ static int pl_ite_then_branch_trivial(const IR_t *then_entry) {
     (void)then_entry;
     return 1;
 }
+static int pl_findall_term_buildable(const IR_t *a) {
+    if (!a) return 0;
+    switch (a->t) {
+    case IR_ATOM: case IR_LIT_I: case IR_LIT_F: case IR_LOGICVAR:
+        return 1;
+    case IR_STRUCT: {
+        int ar = (int)a->ival; const IR_t *c = a->α;
+        for (int i = 0; i < ar; i++) { if (!c || !pl_findall_term_buildable(c)) return 0; c = c->γ; }
+        return 1;
+    }
+    case IR_ARITH: {
+        int ar = (int)a->ival;
+        if (ar >= 1 && (!a->α || !pl_findall_term_buildable(a->α))) return 0;
+        if (ar >= 2 && (!a->β || !pl_findall_term_buildable(a->β))) return 0;
+        return 1;
+    }
+    default: return 0;
+    }
+}
+extern int resolve_bb_pred_count(void);
+extern const char *resolve_bb_pred_name_at(int idx);
+extern int resolve_bb_pred_arity_at(int idx);
+static int pl_findall_goal_graph_simple(const IR_graph_t *gg, const IR_t *goal) {
+    if (!gg || !gg->all || !goal) return 0;
+    int nctl = 0;
+    for (int i = 0; i < gg->n; i++) {
+        const IR_t *nd = gg->all[i];
+        if (!nd) continue;
+        switch (nd->t) {
+        case IR_GOAL: case IR_GCONJ: case IR_DISJ: case IR_ITE: case IR_CHOICE:
+        case IR_CUT: case IR_BUILTIN: case IR_UNIFY: case IR_FAIL: case IR_SUCCEED:
+            nctl++;
+            if (nd != goal) return 0;
+            break;
+        default: break;
+        }
+    }
+    return nctl == 1;
+}
+static int pl_findall_goal_admissible(const IR_t *g) {
+    if (!g) return 0;
+    if (g->t == IR_FAIL || g->t == IR_SUCCEED) return 1;
+    if (g->t == IR_ATOM && g->sval && (!strcmp(g->sval,"true")||!strcmp(g->sval,"fail")||!strcmp(g->sval,"false"))) return 1;
+    if (g->t != IR_GOAL) return 0;
+    bb_goal_state_t *zc = (bb_goal_state_t *)(intptr_t)g->ival;
+    const char *gfn = (zc && zc->callee) ? zc->callee : g->sval;
+    if (!gfn) return 0;
+    int ar = zc ? zc->arity : 0;
+    if (ar > 0 && (!zc || !zc->args || zc->nargs < ar)) return 0;
+    for (int i = 0; i < ar; i++) if (!zc->args[i] || !pl_findall_term_buildable(zc->args[i])) return 0;
+    int npred = resolve_bb_pred_count();
+    int gfn_len = (int)strlen(gfn);
+    for (int i = 0; i < npred; i++) {
+        const char *nm = resolve_bb_pred_name_at(i);
+        if (!nm || resolve_bb_pred_arity_at(i) != ar) continue;
+        const char *slash = strrchr(nm, '/');
+        int nmlen = slash ? (int)(slash - nm) : (int)strlen(nm);
+        if (nmlen == gfn_len && strncmp(nm, gfn, (size_t)nmlen) == 0) return 1;
+    }
+    return 0;
+}
 static int pl_rich_node_emittable(const IR_t *nd) {
     if (!nd) return 1;
     switch (nd->t) {
@@ -311,9 +372,9 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         if (!strcmp(fn,"findall")) {
             bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)nd->ival;
             if (!fs || !fs->goal_node || !fs->tmpl || !fs->result) return 0;
-            if (fs->goal_node->t == IR_FAIL || fs->goal_node->t == IR_SUCCEED) return 1;
-            const char *gn = (fs->goal_node->t == IR_ATOM && fs->goal_node->sval) ? fs->goal_node->sval : (const char *)0;
-            return gn && (!strcmp(gn,"true") || !strcmp(gn,"fail") || !strcmp(gn,"false"));
+            if (!pl_findall_term_buildable(fs->tmpl) || !pl_findall_term_buildable(fs->result)) return 0;
+            if (!pl_findall_goal_graph_simple(fs->gcfg, fs->goal_node)) return 0;
+            return pl_findall_goal_admissible(fs->goal_node);
         }
         if (!strcmp(fn,"plus")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
         if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;
