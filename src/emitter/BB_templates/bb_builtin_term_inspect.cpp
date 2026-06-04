@@ -103,8 +103,6 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
     (void)succ_back;
         if (strcmp(fn,"functor")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
-            /* Name/Arity (a1/a2) are by Prolog semantics never compound literals (atom + int). Only a0    */
-            /* may be a compound literal (e.g. `functor(foo(a,b), N, A)`). */
             int  k1 = (int)a1->t,  k2 = (int)a2->t;
             long i1 = (long)a1->ival, i2 = (long)a2->ival;
             char s1lbl[64]; s1lbl[0] = 0;

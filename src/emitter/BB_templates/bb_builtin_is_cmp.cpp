@@ -74,7 +74,7 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
             int is_floaty = 0;
             if (rhs->t == IR_ARITH) {
                 const char *rop = rhs->sval ? rhs->sval : "+";
-                is_floaty = bb_pl_op_floaty(rop)
+                is_floaty = bb_op_floaty(rop)
                          || (rhs->α && rhs->α->t == IR_LIT_F)
                          || (rhs->β && rhs->β->t == IR_LIT_F);
             }

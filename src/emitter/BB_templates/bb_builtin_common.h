@@ -60,7 +60,7 @@ extern int  rt_throw_term(void *ball_term);
 #include "x86_asm.h"
 std::string emit_build_compound_term(const IR_t *nd);
 std::string emit_term_from_node_bin(const IR_t *nd);
-int bb_pl_op_floaty(const char *fn);
+int bb_op_floaty(const char *fn);
 std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_builtin_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr);

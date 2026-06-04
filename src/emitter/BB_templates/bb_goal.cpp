@@ -1,10 +1,3 @@
-/* bb_goal.cpp — BB template for IR_GOAL: Prolog predicate call (WAM-CP-5).
-   WAM-CP-5 (2026-05-28, Sonnet 4.6): IR_GOAL owns NO CP record.  The CP is owned by the
-   CALLEE's IR_CHOICE, which handles trail unwind between clauses in pre[i>0].  IR_CALL's beta
-   calls _redo WITHOUT pre-unwinding (arg-alias bindings survive; CHOICE pre[i] handles it).
-   caller_env saved into g_resolve_bfr->saved_args via rt_cp_save_caller_env() on first success.
-   IR_STRUCT compound args built via emit_build_compound_term (post-order BB walker).
-   x86 TEXT only per RULES "X86 ONLY". */
 #include <string>
 #include <vector>
 #include "emit_str.h"
@@ -63,7 +56,7 @@ static std::string bb_goal_str(IR_t * pBB) {
             char blbl[160]; resolve_call_block_label(blbl, sizeof blbl, callee, arity);
             char redo_lbl[200]; snprintf(redo_lbl, sizeof redo_lbl, "%s_redo", blbl);
             std::string out = s_1asm(emit_fmt("%s:", _.lbl_α))
-                            + s_comment(emit_fmt("# BOX RESOLVE_CALL %s/%d (WAM-CP-5, n_args=%d)", callee, arity, n_args));
+                            + s_comment(emit_fmt("# BOX RESOLVE_CALL %s/%d (n_args=%d)", callee, arity, n_args));
             /* Phase 1: build caller-side arg Terms via build_arg (handles IR_STRUCT compound),    */
             /* push each on stack.  emit_build_compound_term may sub/add rsp internally but restores  */
             /* it; rax = Term* on exit from each build_arg call.                                       */
