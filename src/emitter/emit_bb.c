@@ -2516,6 +2516,15 @@ static IR_t *gvar_chain_resolve(IR_t *n) {
     while (n && n->t == IR_SUCCEED && n->γ != NULL && guard++ < 4096) n = n->γ;
     return n;
 }
+static IR_t *gvar_chain_resolve_stmt(IR_t *n) {
+    int guard = 0;
+    while (n && guard++ < 4096) {
+        if (n->t == IR_SUCCEED && n->γ != NULL) { n = n->γ; continue; }
+        if ((n->t == IR_SEQ || n->t == IR_SEQ_EXPR) && n->dval == 1.0 && n->γ != NULL) { n = n->γ; continue; }
+        break;
+    }
+    return n;
+}
 static int gvar_chain_is_real(IR_t *n) { return n && n->t != IR_SUCCEED && n->t != IR_FAIL; }
 static int gvar_chain_arity(const IR_t *n) {
     if (n && (n->t == IR_SEQ || n->t == IR_SEQ_EXPR) && n->dval == 1.0) return 0;
@@ -2601,7 +2610,7 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
-    IR_t *e0 = gvar_chain_resolve(entry);
+    IR_t *e0 = gvar_chain_resolve_stmt(entry);
     if (gvar_chain_is_real(e0)) queue[qt++] = e0;
     while (qh < qt) {
         IR_t *c = queue[qh++];
@@ -2609,8 +2618,8 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[SBB] FATAL sno chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        IR_t *g = gvar_chain_resolve(c->γ);
-        IR_t *w = gvar_chain_resolve(c->ω);
+        IR_t *g = gvar_chain_resolve_stmt(c->γ);
+        IR_t *w = gvar_chain_resolve_stmt(c->ω);
         if (gvar_chain_is_real(g) && qt < CH_MAX) queue[qt++] = g;
         if (gvar_chain_is_real(w) && qt < CH_MAX) queue[qt++] = w;
     }
@@ -2625,8 +2634,8 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
-        IR_t *g = gvar_chain_resolve(nodes[i]->γ);
-        IR_t *w = gvar_chain_resolve(nodes[i]->ω);
+        IR_t *g = gvar_chain_resolve_stmt(nodes[i]->γ);
+        IR_t *w = gvar_chain_resolve_stmt(nodes[i]->ω);
         if (gvar_chain_is_real(g)) { for (int k = 0; k < n; k++) if (nodes[k] == g) { node_γ = lbls[k]; break; } }
         else if (g && g->t == IR_FAIL) node_γ = &lbl_ω;
         if (gvar_chain_is_real(w)) { for (int k = 0; k < n; k++) if (nodes[k] == w) { node_ω = lbls[k]; break; } }
