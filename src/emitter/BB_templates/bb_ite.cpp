@@ -7,10 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_ite_str() {
-    if (PLATFORM_X86) {
-        return IF(MEDIUM_TEXT, s_comment("# END RESOLVE_ITE (β-tombstone via EP)  [x86() self-encoding]"))
-             + x86_pair_loop();
-    }
+    if (PLATFORM_X86) return x86_bomb("bb_ite: not yet implemented as self-contained x86() template");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

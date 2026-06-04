@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_cat_str() {
-    if (PLATFORM_X86) return x86_pair_loop();
+    if (PLATFORM_X86) return x86_bomb("bb_pat_cat: not yet implemented as self-contained x86() template");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
