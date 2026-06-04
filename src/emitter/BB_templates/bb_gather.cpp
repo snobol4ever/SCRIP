@@ -60,7 +60,7 @@ static std::string bb_gather_str() {
 extern "C" void bb_gather(IR_t * pBB) {
     if (!PLATFORM_X86) { return; }
     int n = (int)_.op_ival;
-    IR_graph_t ** subs = (IR_graph_t **)(intptr_t)pBB->counter;
+    IR_graph_t ** subs = (IR_graph_t **)(intptr_t)_.op_counter;
     int ok = (n >= 0 && n <= GATHER_MAX_TAKES && (n == 0 || subs != NULL));
     for (int i = 0; ok && i < n; i++) {
         IR_t * lf = subs[i] ? subs[i]->entry : NULL;
