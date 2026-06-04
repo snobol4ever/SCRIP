@@ -46,11 +46,13 @@ run_admitted fact_fold  ':- initialization(main).\npair(a, 1).\nmain :- pair(a, 
 run_admitted fact_nofold ':- initialization(main).\ngreeting(hello).\nmain :- greeting(bye), write(yes), nl.\n' ''
 run_admitted fact_zero  ':- initialization(main).\ngo.\nmain :- go, write(ok), nl.\n' 'ok\n'
 
-printf ':- initialization(main).\np(a) :- write(side), nl.\nmain :- p(X), write(X), nl.\n' > "$TMP/neg2.pl"
+run_admitted consthead  ':- initialization(main).\np(a) :- write(side), nl.\nmain :- p(X), write(X), nl.\n' 'side\na\n'
+
+printf ':- initialization(main).\nq(X) :- Y is X + 1, write(Y), nl.\nmain :- q(1).\n' > "$TMP/neg2.pl"
 "$SCRIP" --run "$TMP/neg2.pl" </dev/null > "$TMP/n23" 2>"$TMP/ne23" || fail "neg2 m3 rc"
-grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (rule clause) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
+grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (arith rule body) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
-grep -q "gzq" "$TMP/n2.s" && fail "neg2 (rule clause) m4 .s has gzq labels (GZ wrongly admitted)"
+grep -q "gzq\|gzp" "$TMP/n2.s" && fail "neg2 (arith rule body) m4 .s has gz labels (GZ wrongly admitted)"
 
 printf ':- initialization(main).\nmain :- X = f(a), write(ok), nl.\n' > "$TMP/neg.pl"
 "$SCRIP" --run "$TMP/neg.pl" </dev/null > "$TMP/n3" 2>"$TMP/ne3" || fail "neg m3 rc"

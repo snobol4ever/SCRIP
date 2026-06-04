@@ -409,6 +409,47 @@ int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
     return k;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void gz_fill_goal(IR_t *g, bb_label_t *gγ, bb_label_t *gω, bb_label_t *gβ) {
+    g_emit.op_sval = (g->t == IR_DET_WRITE) ? g->sval : NULL;
+    g_emit.op_ival = (g->t == IR_CELL_CALL) ? 0 : g->ival;
+    g_emit.op_sb   = (g->t == IR_DET_WRITE && g->α && g->α->t == IR_LOGICVAR) ? 1 : 0;
+    g_emit.op_off  = g_emit.op_sb ? (int)g->α->ival : 0;
+    if (g->t == IR_CELL_CALL) {
+        pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)g->ival;
+        bb_label_t *la = (cs && cs->callee) ? (bb_label_t *)cs->callee->lblA : NULL;
+        bb_label_t *lb = (cs && cs->callee) ? (bb_label_t *)cs->callee->lblB : NULL;
+        g_emit.lbl_δ = la ? la->name : NULL; g_emit.lbl_δ_p = la;
+        g_emit.lbl_ε = lb ? lb->name : NULL; g_emit.lbl_ε_p = lb;
+    }
+    FILL(g, gγ, gω, gβ);
+}
+static void gz_emit_callee(pl_gz_callee_t *ce) {
+    int cid = g_flat_node_id++;
+    bb_label_t *cl_γ = emit_label_alloc("gzp%d_γ", cid);
+    bb_label_t *cl_ω = emit_label_alloc("gzp%d_ω", cid);
+    int nb = 0;
+    for (IR_t *g = ce->body_head; g; g = g->γ) nb++;
+    bb_label_t **pgl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nb > 0 ? nb : 1));
+    bb_label_t **pgb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nb > 0 ? nb : 1));
+    int j = 0;
+    for (IR_t *g = ce->body_head; g; g = g->γ) { pgl[j] = emit_label_alloc("gzp%d_g%d_α", cid, j); pgb[j] = emit_label_alloc("gzp%d_g%d_β", cid, j); j++; }
+    emit_label_define_bb((bb_label_t *)ce->lblA);
+    g_emit.op_sa = 0;
+    g_emit.op_sb = 0;
+    FILL(ce->frame_node, (nb > 0 ? pgl[0] : cl_γ), cl_ω, (bb_label_t *)ce->lblB);
+    j = 0;
+    for (IR_t *g = ce->body_head; g; g = g->γ) {
+        emit_label_define_bb(pgl[j]);
+        bb_label_t *next_γ = (j + 1 < nb) ? pgl[j + 1] : cl_γ;
+        gz_fill_goal(g, next_γ, (j == 0 ? cl_ω : pgb[j - 1]), pgb[j]);
+        j++;
+    }
+    g_emit.op_sa = 1;
+    g_emit.op_sb = 0;
+    bb_label_t *redo = (nb > 0) ? pgb[nb - 1] : cl_ω;
+    g_emit.lbl_δ = redo->name; g_emit.lbl_δ_p = redo;
+    FILL(ce->frame_node, cl_γ, cl_ω, (bb_label_t *)ce->lblB);
+}
 static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int id = g_flat_node_id++;
     bb_label_t *land_γ = emit_label_alloc("gzq%d_γ", id);
@@ -417,8 +458,21 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     for (IR_t *g = pBB->α; g; g = g->γ) n++;
     bb_label_t **gl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **gb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
+    pl_gz_callee_t *callees[8]; int ncallees = 0;
     int i = 0;
-    for (IR_t *g = pBB->α; g; g = g->γ) { gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); gb[i] = emit_label_alloc("gzq%d_g%d_β", id, i); i++; }
+    for (IR_t *g = pBB->α; g; g = g->γ) {
+        gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); gb[i] = emit_label_alloc("gzq%d_g%d_β", id, i); i++;
+        if (g->t == IR_CELL_CALL) {
+            pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)g->ival;
+            pl_gz_callee_t *ce = cs ? cs->callee : NULL;
+            if (ce && !ce->lblA) {
+                int cid = g_flat_node_id++;
+                ce->lblA = (void *)emit_label_alloc("gzp%d_α", cid);
+                ce->lblB = (void *)emit_label_alloc("gzp%d_β", cid);
+                if (ncallees < 8) callees[ncallees++] = ce;
+            }
+        }
+    }
     g_emit.op_sa = 0;
     g_emit.op_sb = 0;
     g_emit.op_ival = pBB->ival;
@@ -427,16 +481,13 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     for (IR_t *g = pBB->α; g; g = g->γ) {
         emit_label_define_bb(gl[i]);
         bb_label_t *next_γ = (i + 1 < n) ? gl[i + 1] : land_γ;
-        g_emit.op_sval = (g->t == IR_DET_WRITE) ? g->sval : NULL;
-        g_emit.op_ival = g->ival;
-        g_emit.op_sb   = (g->t == IR_DET_WRITE && g->α && g->α->t == IR_LOGICVAR) ? 1 : 0;
-        g_emit.op_off  = g_emit.op_sb ? (int)g->α->ival : 0;
-        FILL(g, next_γ, (i == 0 ? land_ω : gb[i - 1]), gb[i]);
+        gz_fill_goal(g, next_γ, (i == 0 ? land_ω : gb[i - 1]), gb[i]);
         i++;
     }
     g_emit.op_sa = 1;
     g_emit.op_sb = (pBB->dval != 0.0) ? 1 : 0;
     FILL(pBB, land_γ, land_ω, lbl_β);
+    for (int k = 0; k < ncallees; k++) gz_emit_callee(callees[k]);
     (void)lbl_γ; (void)lbl_ω;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -716,6 +767,10 @@ void bb_prepare(IR_t *nd) {
         return;
     }
     if (nd->t == IR_CELL_CHOICE) {
+        g_emit.bb_zn = (void *)nd;
+        return;
+    }
+    if (nd->t == IR_CELL_CALL || nd->t == IR_CALLEE_FRAME) {
         g_emit.bb_zn = (void *)nd;
         return;
     }

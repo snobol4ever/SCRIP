@@ -10,7 +10,7 @@ extern "C" {
 #include "emit_io.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-enum x86_port { PORT_ALPHA = 0, PORT_BETA = 1, PORT_GAMMA = 2, PORT_OMEGA = 3 };
+enum x86_port { PORT_ALPHA = 0, PORT_BETA = 1, PORT_GAMMA = 2, PORT_OMEGA = 3, PORT_DELTA = 4, PORT_EPSILON = 5 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline int x86_rnum(const char * r) {
     if (!r) return 0;
@@ -34,11 +34,13 @@ inline int x86_rnum(const char * r) {
 }
 inline const char * x86_portname(int p) {
     switch (p) { case PORT_ALPHA: return _.lbl_α; case PORT_BETA: return _.lbl_β;
-                 case PORT_GAMMA: return _.lbl_γ; default: return _.lbl_ω; }
+                 case PORT_GAMMA: return _.lbl_γ; case PORT_DELTA: return _.lbl_δ;
+                 case PORT_EPSILON: return _.lbl_ε; default: return _.lbl_ω; }
 }
 inline struct bb_label_t * x86_portlbl(int p) {
     switch (p) { case PORT_ALPHA: return _.lbl_α_p; case PORT_BETA: return _.lbl_β_p;
-                 case PORT_GAMMA: return _.lbl_γ_p; default: return _.lbl_ω_p; }
+                 case PORT_GAMMA: return _.lbl_γ_p; case PORT_DELTA: return _.lbl_δ_p;
+                 case PORT_EPSILON: return _.lbl_ε_p; default: return _.lbl_ω_p; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_Lrec(const std::string & b) { std::string r; r += (char)'L'; r += (char)(unsigned char)b.size(); r += b; return r; }
@@ -196,7 +198,7 @@ inline std::string x86_deflabel(int port) {
     return MEDIUM_BINARY ? x86_Drec(port) : (std::string(" ") + x86_portname(port) + ":\n");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-#define X86_INTERNAL_BASE 4
+#define X86_INTERNAL_BASE 6
 #define X86_INTERNAL_MAX  16
 struct x86_lbl { int n; };
 inline x86_lbl L(int n) { return x86_lbl{ n }; }
@@ -404,6 +406,8 @@ inline std::string x86(const char * mnem, const char * op1) {
 inline std::string x86(const char * mnem, x86_port port) {
     if (!strcmp(mnem, "jmp")) return x86_jmp(port);
     if (!strcmp(mnem, "def")) return x86_deflabel(port);
+    if (!strcmp(mnem, "call")) return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(port))
+                                                    : (std::string(" call ") + x86_portname(port) + "\n");
     return x86_jcc(mnem, port);
 }
 inline std::string x86(const char * mnem, x86_lbl lab) {
