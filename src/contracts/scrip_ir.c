@@ -122,6 +122,15 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_GATHER] = "IR_GATHER",
     [IR_MAP] = "IR_MAP",
     [IR_GREP] = "IR_GREP",
+    [IR_SCAN_ANY] = "IR_SCAN_ANY",
+    [IR_SCAN_MANY] = "IR_SCAN_MANY",
+    [IR_SCAN_MATCH] = "IR_SCAN_MATCH",
+    [IR_SCAN_UPTO] = "IR_SCAN_UPTO",
+    [IR_SCAN_FIND] = "IR_SCAN_FIND",
+    [IR_SCAN_BAL] = "IR_SCAN_BAL",
+    [IR_SCAN_TAB] = "IR_SCAN_TAB",
+    [IR_SCAN_MOVE] = "IR_SCAN_MOVE",
+    [IR_SCAN_POS] = "IR_SCAN_POS",
     [IR_PAT_MATCH] = "IR_PAT_MATCH",
 };
 /*--------------------------------------------------------------------------------------------------------------------*/

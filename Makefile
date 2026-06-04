@@ -133,6 +133,15 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_every.cpp \
     $(SRC)/emitter/BB_templates/bb_to.cpp \
     $(SRC)/emitter/BB_templates/bb_alt.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_pos.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_any.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_match.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_many.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_tab.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_move.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_upto.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_find.cpp \
+    $(SRC)/emitter/BB_templates/bb_scan_bal.cpp \
     $(SRC)/emitter/BB_templates/bb_iterate.cpp \
     $(SRC)/emitter/BB_templates/bb_call.cpp \
     $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp \
@@ -325,6 +334,15 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_every.cpp        -o $(OBJ)/bb_every.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_to.cpp           -o $(OBJ)/bb_to.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_alt.cpp          -o $(OBJ)/bb_alt.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_pos.cpp     -o $(OBJ)/bb_scan_pos.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_any.cpp     -o $(OBJ)/bb_scan_any.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_match.cpp   -o $(OBJ)/bb_scan_match.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_many.cpp    -o $(OBJ)/bb_scan_many.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_tab.cpp     -o $(OBJ)/bb_scan_tab.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_move.cpp    -o $(OBJ)/bb_scan_move.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_upto.cpp    -o $(OBJ)/bb_scan_upto.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_find.cpp    -o $(OBJ)/bb_scan_find.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_bal.cpp     -o $(OBJ)/bb_scan_bal.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_iterate.cpp      -o $(OBJ)/bb_iterate.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call.cpp         -o $(OBJ)/bb_call.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp  -o $(OBJ)/bb_call_proc_staged.o
