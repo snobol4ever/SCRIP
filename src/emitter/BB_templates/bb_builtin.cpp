@@ -3,7 +3,7 @@ extern "C" {
 #include "IR_interp_state.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_pl_op_floaty(const char *fn) {
+int bb_op_floaty(const char *fn) {
     static const char *f[] = { "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "exp", "log",
                                "float", "float_integer_part", "float_fractional_part",
                                "truncate", "round", "ceiling", "floor", "integer", "/", NULL };

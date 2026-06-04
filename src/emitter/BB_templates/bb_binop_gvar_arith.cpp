@@ -23,7 +23,7 @@ std::string bb_binop_gvar_arith_str() {
             strtab_label(b1, sizeof b1, _.op_name1);
             strtab_label(b2, sizeof b2, _.op_name2);
             return s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment("# BOX SNO IR_BINOP gvar-arith VAR+VAR [RO name ptrs, FRQ slot, @PLT]")
+                 + s_comment("# BOX IR_BINOP gvar-arith VAR+VAR [RO name ptrs, FRQ slot, @PLT]")
                  + s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1))
                  + s_2asm("lea", emit_fmt("rsi, [rip + %s]", b2))
                  + s_2asm("mov", emit_fmt("rdx, %lld", (long long)op))

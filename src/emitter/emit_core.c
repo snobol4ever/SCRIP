@@ -416,7 +416,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ASSIGN: {
         extern int g_descr_flat_chain; extern void bb_gvar_assign(IR_t *); extern int g_icn_globals_nv; extern int is_global(const char *);
         if (!g_descr_flat_chain && nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_LIT_I || nd->α->t == IR_BINOP || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR || nd->α->t == IR_CALL)) { bb_gvar_assign(nd); return 0; }
-        if (g_descr_flat_chain && g_icn_globals_nv && nd->sval && is_global(nd->sval)) { bb_gvar_assign_icn(nd); return 0; }
+        if (g_descr_flat_chain && g_icn_globals_nv && nd->sval && is_global(nd->sval)) { bb_gvar_assign(nd); return 0; }
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1;
     }
     case IR_SCAN: { extern void bb_scan_stmt(IR_t *); bb_scan_stmt(nd); return 0; }

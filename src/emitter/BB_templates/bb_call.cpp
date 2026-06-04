@@ -128,7 +128,7 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff));
             s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff + 8));
         } else if (lf->t == IR_LIT_S) {
-            std::string sl = emit_fmt(".Lrkarg%d_%d", bb_node_id(owner), idx);
+            std::string sl = emit_fmt(".Lcallarg%d_%d", bb_node_id(owner), idx);
             s += s_directive(".section .rodata")
                + s_directive(sl + ": .string \"" + (lf->sval ? lf->sval : "") + "\"")
                + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
@@ -166,7 +166,6 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
     return s;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern std::string bb_call_rk_arr_str(IR_t *);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_gvar_define_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
@@ -177,7 +176,7 @@ static std::string bb_call_gvar_define_str(IR_t * pBB) {
     if (MEDIUM_TEXT) {
         std::string fl = emit_fmt(".Ldefspec%d", bb_node_id(pBB));
         std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
-            + s_comment("# BOX SNO IR_CALL DEFINE(spec) -> rt_proc_define [single-shot success]")
+            + s_comment("# BOX IR_CALL DEFINE(spec) -> rt_proc_define [single-shot success]")
             + s_directive(".section .rodata")
             + s_directive(fl + ": .string \"" + specstr + "\"")
             + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
@@ -211,7 +210,7 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
     for (int i = 1; i < (int)narg; i++) bb_slot_alloc16(subs[i]->entry);
     if (MEDIUM_TEXT) {
         std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
-            + s_comment(emit_fmt("# BOX SNO IR_CALL %s(...) -> rt_call_named_proc [four-port, FAIL->ω]", fn));
+            + s_comment(emit_fmt("# BOX IR_CALL %s(...) -> rt_call_named_proc [four-port, FAIL->ω]", fn));
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
         std::string fl = emit_fmt(".Lprocfn%d", bb_node_id(pBB));
@@ -308,7 +307,7 @@ static std::string bb_call_str(IR_t * pBB) {
     const char * fn   = pBB->sval ? pBB->sval : "";
     int64_t      narg = pBB->ival;
     IR_t       * a0   = pBB->α;
-    if (g_descr_flat_chain && pBB->dval == 2.0) return bb_call_rk_arr_str(pBB);
+    if (g_descr_flat_chain && pBB->dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
     if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && !strcmp(fn, "DEFINE")) return bb_call_gvar_define_str(pBB);
     if (g_gvar_flat_chain && (pBB->dval == 2.0 || pBB->dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
     if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) return bb_call_proc_staged_str(pBB);

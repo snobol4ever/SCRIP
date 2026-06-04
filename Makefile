@@ -122,7 +122,6 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_lit_scalar.cpp \
     $(SRC)/emitter/BB_templates/bb_var.cpp \
     $(SRC)/emitter/BB_templates/bb_var_global.cpp \
-    $(SRC)/emitter/BB_templates/bb_gvar_assign_icn.cpp \
     $(SRC)/emitter/BB_templates/bb_return.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp \
@@ -148,7 +147,6 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp \
     $(SRC)/emitter/BB_templates/bb_call_userproc.cpp \
     $(SRC)/emitter/BB_templates/bb_call_builtin.cpp \
-    $(SRC)/emitter/BB_templates/bb_call_rk.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_relop.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_arith.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_gvar_arith.cpp \
@@ -327,7 +325,6 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_lit_scalar.cpp        -o $(OBJ)/bb_lit_scalar.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var.cpp               -o $(OBJ)/bb_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var_global.cpp        -o $(OBJ)/bb_var_global.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_icn.cpp    -o $(OBJ)/bb_gvar_assign_icn.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_return.cpp             -o $(OBJ)/bb_return.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp        -o $(OBJ)/bb_gvar_assign.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp               -o $(OBJ)/bb_scan_stmt.o
@@ -353,7 +350,6 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp   -o $(OBJ)/bb_call_write_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_userproc.cpp     -o $(OBJ)/bb_call_userproc.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_builtin.cpp      -o $(OBJ)/bb_call_builtin.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_rk.cpp           -o $(OBJ)/bb_call_rk.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_relop.cpp       -o $(OBJ)/bb_binop_relop.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_arith.cpp       -o $(OBJ)/bb_binop_arith.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_arith.cpp  -o $(OBJ)/bb_binop_gvar_arith.o

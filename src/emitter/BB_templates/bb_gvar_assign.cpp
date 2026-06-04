@@ -3,6 +3,8 @@
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
+extern int g_descr_flat_chain;
+DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 #include "emit.h"
 #include "descr.h"
 void rt_gvar_assign_str(const char * name, const char * str);
@@ -30,9 +32,29 @@ static inline uint64_t     fn_descr()   { void (*f)(const char *, int64_t, int64
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_gvar_assign_str() {
     if (PLATFORM_X86) {
+        if (g_descr_flat_chain) {
+            if (!(_.op_sa >= 0 && _.op_off >= 0)) return x86_bomb("bb_gvar_assign: descr arm needs rhs slot + own slot");
+            x86_begin();
+            int rhs = _.op_sa;
+            int off = _.op_off;
+            const char * nm = _.op_sval ? _.op_sval : "";
+            uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t) = NV_SET_fn; fptr = (uint64_t)(uintptr_t)(void *)fp; }
+            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
+                                  + s_comment(emit_fmt("# BOX IR_ASSIGN global write(\"%s\") [GN-4 nv x86() stackless: NV_SET_fn(name, rhs slot %d) -> own slot %d; name sealed RO [rip+disp]]", nm, rhs, off)))
+                 + x86_frame_load64("rsi", rhs)
+                 + x86_frame_load64("rdx", rhs + 8)
+                 + x86_ro_load_q("rdi", 0)
+                 + x86("call", "NV_SET_fn", fptr)
+                 + x86_frame_store64(off, "rax")
+                 + x86_frame_store64(off + 8, "rdx")
+                 + x86("jmp", PORT_GAMMA)
+                 + x86("def", PORT_BETA)
+                 + x86("jmp", PORT_OMEGA)
+                 + x86_ro_seal_str(0, nm);
+        }
         if (_.op_a_node_kind == (int)IR_LIT_S)
             return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                 + s_comment("# BOX SNO IR_ASSIGN(lit_s) store = literal [RO ptrs, @PLT]"))
+                                 + s_comment("# BOX IR_ASSIGN(lit_s) store = literal [RO ptrs, @PLT]"))
                  + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                  + x86("lea",  "rsi", "[rip + __]", rhs_addr(), rhs_label())
                  + x86("call", "rt_gvar_assign_str", fn_lit_s())
@@ -50,7 +72,7 @@ static std::string bb_gvar_assign_str() {
                  + x86("jmp",  PORT_OMEGA);
         if (_.op_a_node_kind == (int)IR_VAR)
             return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                 + s_comment("# BOX SNO IR_ASSIGN(var) store = read(src) [RO ptrs, @PLT]"))
+                                 + s_comment("# BOX IR_ASSIGN(var) store = read(src) [RO ptrs, @PLT]"))
                  + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                  + x86("lea",  "rsi", "[rip + __]", rhs_addr(), rhs_label())
                  + x86("call", "rt_gvar_assign_var", fn_var())
@@ -61,7 +83,7 @@ static std::string bb_gvar_assign_str() {
             int slot = _.op_a_slot;
             if (slot < 0) return x86_bomb("bb_gvar_assign int-binop: op_a_slot==-1 (binop slot not promoted)");
             return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                 + s_comment("# BOX SNO IR_ASSIGN(int-binop) store = binop-int64-slot [RO dst ptr, FRQ slot, @PLT]"))
+                                 + s_comment("# BOX IR_ASSIGN(int-binop) store = binop-int64-slot [RO dst ptr, FRQ slot, @PLT]"))
                  + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                  + x86("mov",  "rsi", FRQ(slot))
                  + x86("call", "rt_gvar_assign_int", fn_int())
@@ -70,7 +92,7 @@ static std::string bb_gvar_assign_str() {
                  + x86("jmp",  PORT_OMEGA);
         }
         if (_.op_a_node_kind == (int)IR_SEQ) {
-            if (MEDIUM_TEXT) return x86_bomb("bb_gvar_assign concat: TEXT(mode-4) needs relocatable subgraph addrs (SNOBOL m4 pending LOWER four-port wiring)");
+            if (MEDIUM_TEXT) return x86_bomb("bb_gvar_assign concat: TEXT(mode-4) needs relocatable subgraph addrs (pending LOWER four-port wiring)");
             return x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                  + x86_load_ro("rsi", "??", lhs_graph())
                  + x86_load_ro("rdx", "??", rhs_graph())
@@ -84,7 +106,7 @@ static std::string bb_gvar_assign_str() {
             if (slot < 0) return x86_bomb("bb_gvar_assign call-result: op_a_slot==-1 (call result slot not promoted)");
             if (MEDIUM_TEXT)
                 return s_1asm(std::string(_.lbl_α) + ":")
-                     + s_comment("# BOX SNO IR_ASSIGN(call-result) store = DESCR from call zeta-slot [RO dst ptr, @PLT]")
+                     + s_comment("# BOX IR_ASSIGN(call-result) store = DESCR from call zeta-slot [RO dst ptr, @PLT]")
                      + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
                      + x86_frame_load64("rsi", slot)
                      + x86_frame_load64("rdx", slot + 8)

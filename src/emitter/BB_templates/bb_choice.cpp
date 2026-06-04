@@ -1,29 +1,3 @@
-/* bb_choice.cpp — BB template for IR_CHOICE: Prolog multi-clause predicate.
-   WAM-CP-5 (2026-05-28, Sonnet 4.6): migrated from 16-byte rsp stack frame to heap resolve_choice
-   record via resolve_cp_push/pop.  The cursor (next clause to try) lives in cp->cursor (offset 48);
-   the trail mark lives in cp->trail_mark (offset 16, int).  This makes the cursor survive across
-   the α→γ→β cycle: the rsp frame was torn down by exit_γ, but the heap record lives until
-   resolve_cp_pop.  g_resolve_bfr points to this CHOICE's CP for the duration of its life.
-   The driver flat_drive_choice (emit_bb.c) populates g_emit.resolve_choice_id + resolve_choice_n.
-   resolve_choice field offsets (64-bit): trail_mark=16(int), cursor=48(int).
-   WAM-CP-9 (2026-05-28, Opus 4.7): cut-scope nested in the CP record.  Mode-4 cannot use a C-local
-   saved_cut/saved_barrier pair the way mode-2 does (the α→γ→caller→β round-trip discards stack),
-   so the outer cut state lives in cp->saved_cut_flag (+56) and cp->saved_cut_barrier (+64).
-   rt_choice_cut_enter saves and clears at α / β entry; rt_choice_cut_exit restores at the
-   normal γ / exhausted exit; rt_choice_cut_unwind restores AND truncates the CP chain when the
-   body fired `!` (g_resolve_cut_flag observed at dispatch top or at exit_γ).  IR_CUT itself only sets
-   the flag (no truncate); the CHOICE owns the truncate so cp stays alive long enough to read its
-   saved slots on the cut path.
-   Control flow:
-     α  → resolve_cp_push(RESOLVE_CP_CLAUSE, trail_mark, callee_env, NULL, 0) → cp; cut_enter(cp); jmp dispatch
-     β  → resolve_cp_current; if NULL jmp ω_in; cut_enter(cp); jmp dispatch
-     dispatch: if g_resolve_cut_flag → cut_unwind + jmp ω_in; else cursor dispatch
-     pre[0]   → cp->cursor++, jmp body[0]
-     pre[i>0] → trail_unwind(cp->trail_mark), cp->cursor++, jmp body[i]
-     exit_γ   → if g_resolve_cut_flag → cut_unwind + jmp γ_in; else cut_exit + jmp γ_in
-     body[i].γ → jmp exit_γ
-     body[i].ω → jmp dispatch
-     exhausted → cut_exit + trail_unwind + resolve_cp_pop + jmp ω_in */
 #include <string>
 #include <vector>
 #include "emit_str.h"
@@ -53,13 +27,8 @@ static std::string bb_choice_str(IR_t * pBB) {
             char cut_unwind_ω[160]; snprintf(cut_unwind_ω, sizeof cut_unwind_ω, ".Lplch%d_cut_ω", id);
             char cut_unwind_γ[160]; snprintf(cut_unwind_γ, sizeof cut_unwind_γ, ".Lplch%d_cut_γ", id);
             char β_nosol[160];      snprintf(β_nosol,      sizeof β_nosol,      ".Lplch%d_β_nosol", id);
-            /* α: push CP record. resolve_cp_push(RESOLVE_CP_CLAUSE=0, trail_mark, callee_env, NULL, 0). Get      */
-            /* env first, then trail_mark so callee_env (g_resolve_env) is captured after args are bound by  */
-            /* caller. SysV order: rdi=type(0), rsi=trail_mark, rdx=callee_env, rcx=NULL, r8=cursor(0). */
-            /* WAM-CP-9: immediately after push (rax=cp), call rt_choice_cut_enter(cp) to save the   */
-            /* outer cut state into cp->saved_cut_{flag,barrier} and set g_resolve_cut_barrier = cp->parent. */
             std::string out = s_1asm(emit_fmt("%s:", _.lbl_α))
-                            + s_comment(emit_fmt("# BOX RESOLVE_CHOICE n=%d (WAM-CP-5 heap cursor, WAM-CP-9 cut)", n))
+                            + s_comment(emit_fmt("# BOX RESOLVE_CHOICE n=%d (heap cursor, cut save/restore)", n))
                             + s_2asm("call", "rt_env_current@PLT")
                             + s_2asm("mov",  "rdx, rax")
                             + s_2asm("call", "rt_trail_mark@PLT")

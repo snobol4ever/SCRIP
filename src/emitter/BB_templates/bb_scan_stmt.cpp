@@ -37,7 +37,7 @@ static std::string bb_scan_stmt_str() {
             std::string a_patlit =                     x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)scan_pat_lit(),      scan_lbl(scan_pat_lit()));
             std::string a_rlit = scan_replace_lit()   ? x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)scan_replace_lit(), scan_lbl(scan_replace_lit())) : x86("mov", "r8", (long)0);
             return s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment("# BOX SNO IR_SCAN literal-pattern [rt_scan_lit, RO ptrs @PLT]")
+                 + s_comment("# BOX IR_SCAN literal-pattern [rt_scan_lit, RO ptrs @PLT]")
                  + a_subj + a_slit + a_patlit
                  + x86("mov", "rcx", scan_is_repl())
                  + a_rlit
