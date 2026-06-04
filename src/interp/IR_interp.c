@@ -1098,6 +1098,12 @@ extern int rt_redo_meta(void *entry_cp_v);
 int rt_findall_term(void *goal_v, void *tmpl_v, void *result_v) {
     extern Trail g_resolve_trail;
     extern int ATOM_DOT;
+    extern Term **g_resolve_env;
+    extern int g_resolve_cut_flag;
+    extern resolve_choice *g_resolve_cut_barrier;
+    Term **outer_env                 = g_resolve_env;
+    int outer_cut_flag               = g_resolve_cut_flag;
+    resolve_choice *outer_barrier    = g_resolve_cut_barrier;
     int mark = trail_mark(&g_resolve_trail);
     resolve_choice *entry_cp = resolve_cp_current();
     Term **acc = (Term **)calloc(4096, sizeof(Term *)); int nacc = 0;
@@ -1110,6 +1116,9 @@ int rt_findall_term(void *goal_v, void *tmpl_v, void *result_v) {
     }
     resolve_cp_truncate(entry_cp);
     trail_unwind(&g_resolve_trail, mark);
+    g_resolve_env         = outer_env;
+    g_resolve_cut_flag    = outer_cut_flag;
+    g_resolve_cut_barrier = outer_barrier;
     Term *lst = term_new_atom(prolog_atom_intern("[]"));
     for (int i = nacc - 1; i >= 0; i--) {
         Term **c = (Term **)GC_MALLOC(2 * sizeof(Term *)); c[0] = acc[i]; c[1] = lst;
