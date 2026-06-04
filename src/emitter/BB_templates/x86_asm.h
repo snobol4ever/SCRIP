@@ -422,6 +422,7 @@ inline std::string x86(const char * mnem, const char * dst, x86_f64 f) {
 }
 inline std::string x86(const char * mnem) {
     if (!strcmp(mnem, "cqo")) return x86_cqo();
+    if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : std::string(" ret\n");
     return std::string();
 }
 inline std::string x86(const char * mnem, const char * a, const char * b) {

@@ -289,6 +289,59 @@ static IR_t * pl_flat_body_root(IR_graph_t *g) {
     return gconj;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_gz_det_node(int kind) {
+    extern void *GC_malloc(size_t);
+    IR_t *nn = (IR_t *)GC_malloc(sizeof(IR_t));
+    if (!nn) return NULL;
+    memset(nn, 0, sizeof(IR_t));
+    nn->t = (IR_e)kind;
+    return nn;
+}
+static IR_t * pl_gz_admit(IR_graph_t *g) {
+    if (!g || !g->all || g->nslots > 0) return NULL;
+    IR_t *gconj = NULL;
+    for (int i = 0; i < g->n; i++) {
+        IR_t *nd = g->all[i];
+        if (!nd) continue;
+        if (nd->t == IR_GCONJ) { if (gconj) return NULL; gconj = nd; }
+        if (nd->t == IR_GOAL || nd->t == IR_CHOICE || nd->t == IR_UNIFY || nd->t == IR_CUT ||
+            nd->t == IR_DISJ || nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_ARITH ||
+            nd->t == IR_LOGICVAR || nd->t == IR_STRUCT) return NULL;
+    }
+    IR_t *goals_buf[64]; int ng = 0;
+    if (gconj) {
+        bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)gconj->ival;
+        if (!zs || !zs->goals || zs->ngoals <= 0 || zs->ngoals > 64) return NULL;
+        for (int i = 0; i < zs->ngoals; i++) goals_buf[ng++] = zs->goals[i];
+    } else if (!(g->entry && g->entry->t == IR_SUCCEED)) {
+        return NULL;
+    }
+    IR_t *head = NULL, *tail = NULL;
+    for (int i = 0; i < ng; i++) {
+        IR_t *gg = goals_buf[i];
+        if (!gg) return NULL;
+        if (gg->t == IR_SUCCEED) continue;
+        if (gg->t != IR_BUILTIN || !gg->sval) return NULL;
+        IR_t *nn = NULL;
+        if (strcmp(gg->sval, "nl") == 0 && gg->ival == 0) {
+            nn = pl_gz_det_node(IR_DET_NL);
+        } else if (strcmp(gg->sval, "write") == 0 && gg->ival == 1 && gg->α) {
+            if (gg->α->t == IR_ATOM && gg->α->sval) { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) nn->sval = gg->α->sval; }
+            else if (gg->α->t == IR_LIT_I)          { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { nn->sval = NULL; nn->ival = gg->α->ival; } }
+            else return NULL;
+        } else {
+            return NULL;
+        }
+        if (!nn) return NULL;
+        if (!head) head = nn; else tail->γ = nn;
+        tail = nn;
+    }
+    IR_t *qf = pl_gz_det_node(IR_QUERY_FRAME);
+    if (!qf) return NULL;
+    qf->α = head;
+    return qf;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
@@ -955,6 +1008,26 @@ int main(int argc, char **argv)
                 return 1;
             }
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
+            IR_t *gz_root = pl_gz_admit(pl_main);
+            if (gz_root) {
+                extern int pl_gz_codegen(IR_t * nd, FILE * out, const char * prefix);
+                printf("  .intel_syntax noprefix\n");
+                printf("  .text\n");
+                printf("  .globl main\n");
+                printf("main:\n");
+                printf("  push rbp\n");
+                printf("  mov rbp, rsp\n");
+                printf("  call rt_frame@PLT\n");
+                printf("  mov rdi, rax\n");
+                printf("  xor esi, esi\n");
+                printf("  call main_\xce\xb1\n");
+                printf("  xor eax, eax\n");
+                printf("  pop rbp\n");
+                printf("  ret\n");
+                int rc = pl_gz_codegen(gz_root, stdout, "main");
+                fflush(stdout);
+                return rc;
+            }
             IR_t *flat_root = pl_flat_body_root(pl_main);
             if (!flat_root) {
                 IR_t *rich_root = pl_rich_body_root(pl_main);
@@ -1310,6 +1383,12 @@ int main(int argc, char **argv)
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
             int nslots = pl_main->nslots > 0 ? pl_main->nslots : 1;
             g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 8) * sizeof(Term *));
+            IR_t *gz_root = pl_gz_admit(pl_main);
+            if (gz_root) {
+                extern bb_box_fn pl_gz_build(IR_t * nd);
+                bb_box_fn gzfn = pl_gz_build(gz_root);
+                if (gzfn) { (void)gzfn(rt_frame(), 0); goto run_done; }
+            }
             IR_t *flat_root = pl_flat_body_root(pl_main);
             if (flat_root) {
                 g_frame_active = 1;
