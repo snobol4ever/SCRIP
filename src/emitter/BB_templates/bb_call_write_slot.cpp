@@ -23,7 +23,7 @@ static bb_label_t * bb_call_write_beta_target() {
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_slot_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    IR_t * a0 = pBB->α;
+    IR_t * a0 = _.node->α;
     int off = bb_slot_get(a0);
     bb_label_t * beta_tgt = bb_call_write_beta_target();
     if (MEDIUM_BINARY) {
@@ -53,7 +53,7 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_binop_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    IR_t * a0 = pBB->α;
+    IR_t * a0 = _.node->α;
     bb_label_t * beta_tgt = bb_call_write_beta_target();
     int off = bb_slot_get(a0);
     if (off < 0) { fprintf(stderr, "[GZ-3] FATAL bb_call_write_binop: write(binop) — slot miss\n"); abort(); }

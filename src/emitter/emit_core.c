@@ -384,6 +384,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_sval = nd->sval;
     g_emit.op_ival = nd->ival;
     g_emit.op_node_kind = (int)nd->t;
+    g_emit.op_dval = nd->dval;
+    g_emit.op_counter = nd->counter;
     g_emit.op_a_sval = nd->α ? nd->α->sval : (const char *)0;
     g_emit.op_a_node_kind = nd->α ? (int)nd->α->t : -1;
     g_emit.op_a_slot = nd->α ? bb_slot_get(nd->α) : -1;

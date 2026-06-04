@@ -19,12 +19,12 @@ static std::string bb_every_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_EVERY");
     if (MEDIUM_TEXT) {
-        IR_t * body = pBB->α;
+        IR_t * body = _.node->α;
         if (!body) {
-            fprintf(stderr, "[IBB] FATAL bb_every: body (pBB->α) is NULL\n");
+            fprintf(stderr, "[IBB] FATAL bb_every: body (_.node->α) is NULL\n");
             abort();
         }
-        int id = bb_node_id(pBB);
+        int id = _.nid;
         const char * outer_α = _.lbl_α;
         const char * outer_γ = _.lbl_γ;
         const char * outer_ω = _.lbl_ω;

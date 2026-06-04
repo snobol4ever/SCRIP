@@ -271,12 +271,12 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_gvar_define_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    int64_t narg = pBB->ival;
-    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
+    int64_t narg = _.op_ival;
+    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_t * spec = (narg > 0 && subs && subs[0]) ? subs[0]->entry : NULL;
     const char * specstr = (spec && spec->t == IR_LIT_S && spec->sval) ? spec->sval : "";
     if (MEDIUM_TEXT) {
-        std::string fl = emit_fmt(".Ldefspec%d", bb_node_id(pBB));
+        std::string fl = emit_fmt(".Ldefspec%d", _.nid);
         std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
             + s_comment("# BOX IR_CALL DEFINE(spec) -> rt_proc_define [single-shot success]")
             + s_directive(".section .rodata")
@@ -304,10 +304,10 @@ static std::string bb_call_gvar_define_str(IR_t * pBB) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    const char * fn   = pBB->sval ? pBB->sval : "";
-    int64_t      narg = pBB->ival;
-    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
-    int resoff  = bb_slot_alloc16(pBB);
+    const char * fn   = _.op_sval ? _.op_sval : "";
+    int64_t      narg = _.op_ival;
+    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
+    int resoff  = bb_slot_alloc16(_.node);
     int argbase = (narg > 0) ? bb_slot_alloc16(subs[0]->entry) : resoff;
     for (int i = 1; i < (int)narg; i++) bb_slot_alloc16(subs[i]->entry);
     if (MEDIUM_TEXT) {
@@ -315,8 +315,8 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
             + s_comment(emit_fmt("# BOX IR_CALL %s(...) -> rt_call_named_proc [four-port, FAIL->ω]", fn));
         uint64_t brm = rt_proc_byref_mask(fn);
         for (int i = 0; i < (int)narg; i++)
-            s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
-        std::string fl = emit_fmt(".Lprocfn%d", bb_node_id(pBB));
+            s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, argbase + i * 16, _.node, i);
+        std::string fl = emit_fmt(".Lprocfn%d", _.nid);
         s += s_directive(".section .rodata")
            + s_directive(fl + ": .string \"" + fn + "\"")
            + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
@@ -339,7 +339,7 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
         std::string s;
         uint64_t brm = rt_proc_byref_mask(fn);
         for (int i = 0; i < (int)narg; i++)
-            s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, argbase + i * 16, pBB, i);
+            s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, argbase + i * 16, _.node, i);
         int mig = rt_proc_frame_nslots(fn) >= 0;
         uint64_t fptr;
         if (mig) { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
@@ -363,18 +363,18 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    const char * fn   = pBB->sval ? pBB->sval : "";
-    int64_t      narg = pBB->ival;
-    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) pBB->counter;
-    int resoff  = bb_slot_alloc16(pBB);
+    const char * fn   = _.op_sval ? _.op_sval : "";
+    int64_t      narg = _.op_ival;
+    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
+    int resoff  = bb_slot_alloc16(_.node);
     int argbase = (narg > 0 && subs && subs[0]) ? bb_slot_alloc16(subs[0]->entry) : resoff;
     for (int i = 1; i < (int)narg; i++) if (subs && subs[i]) bb_slot_alloc16(subs[i]->entry);
     if (MEDIUM_TEXT) {
         std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
             + s_comment(emit_fmt("# BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω]", fn));
         for (int i = 0; i < (int)narg; i++)
-            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, argbase + i * 16, pBB, i);
-        std::string fl = emit_fmt(".Lbynamefn%d", bb_node_id(pBB));
+            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, argbase + i * 16, _.node, i);
+        std::string fl = emit_fmt(".Lbynamefn%d", _.nid);
         s += s_directive(".section .rodata")
            + s_directive(fl + ": .string \"" + fn + "\"")
            + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
@@ -394,7 +394,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     if (MEDIUM_BINARY) {
         std::string s;
         for (int i = 0; i < (int)narg; i++)
-            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, argbase + i * 16, pBB, i);
+            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, argbase + i * 16, _.node, i);
         uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
         s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fn);
         s += x86_frame_lea("rsi", argbase);
@@ -414,15 +414,15 @@ static std::string bb_call_byname_str(IR_t * pBB) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    const char * fn   = pBB->sval ? pBB->sval : "";
-    int64_t      narg = pBB->ival;
-    IR_t       * a0   = pBB->α;
-    if (g_descr_flat_chain && pBB->dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
-    if (g_gvar_flat_chain && pBB->dval == 5.0) return bb_call_gvar_define_str(pBB);
-    if (g_gvar_flat_chain && (pBB->dval == 2.0 || pBB->dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
-    if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) return bb_call_proc_staged_str(pBB);
-    if (g_gvar_flat_chain && pBB->dval == 3.0 && fn && fn[0] && !rt_proc_is_registered(fn)) return bb_call_byname_str(pBB);
-    if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
+    const char * fn   = _.op_sval ? _.op_sval : "";
+    int64_t      narg = _.op_ival;
+    IR_t       * a0   = _.node->α;
+    if (g_descr_flat_chain && _.op_dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
+    if (g_gvar_flat_chain && _.op_dval == 5.0) return bb_call_gvar_define_str(pBB);
+    if (g_gvar_flat_chain && (_.op_dval == 2.0 || _.op_dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
+    if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && _.op_dval == 3.0) return bb_call_proc_staged_str(pBB);
+    if (g_gvar_flat_chain && _.op_dval == 3.0 && fn && fn[0] && !rt_proc_is_registered(fn)) return bb_call_byname_str(pBB);
+    if (g_gvar_flat_chain && _.op_dval == 2.0 && fn && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
     if (g_descr_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
         int off = bb_slot_get(a0);
         if (off >= 0) return bb_call_write_slot_str(pBB);

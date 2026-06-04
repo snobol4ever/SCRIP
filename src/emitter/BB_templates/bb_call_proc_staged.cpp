@@ -29,10 +29,10 @@ static bb_label_t * bb_call_staged_beta_target() {
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_proc_staged_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    const char * fn   = pBB->sval ? pBB->sval : "";
-    int64_t      narg = pBB->ival;
-    IR_graph_t ** argblks = (IR_graph_t **)(intptr_t) pBB->counter;
-    int off = bb_slot_alloc16(pBB);
+    const char * fn   = _.op_sval ? _.op_sval : "";
+    int64_t      narg = _.op_ival;
+    IR_graph_t ** argblks = (IR_graph_t **)(intptr_t) _.op_counter;
+    int off = bb_slot_alloc16(_.node);
     bb_label_t * beta_tgt = bb_call_staged_beta_target();
     if (MEDIUM_BINARY) {
         uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
@@ -65,7 +65,7 @@ std::string bb_call_proc_staged_str(IR_t * pBB) {
         return stage + tail;
     }
     if (MEDIUM_TEXT) {
-        int id2 = bb_node_id(pBB);
+        int id2 = _.nid;
         std::string nl = emit_fmt(".Lcall%d_pname", id2);
         std::string s = s_1asm(emit_fmt("%s:", _.lbl_α))
                        + s_directive(".section .rodata")
