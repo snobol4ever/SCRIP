@@ -250,7 +250,7 @@ static void bb_fill_alpha(IR_t *nd) {
     g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
-static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static void flat_drive_cat_arms(IR_t *pBB, IR_t * const * arms, int nc, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int id = g_flat_node_id++;
     bb_label_t *mid_γ   = emit_label_alloc("xcat%d_γ",       id);
     bb_label_t *right_ω = emit_label_alloc("xcat%d_right_ω", id);
@@ -258,7 +258,7 @@ static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     bb_label_t *right_β = emit_label_alloc("xcat%d_right_β", id);
     bb_label_t *xcat_ω  = emit_label_alloc("xcat%d_ω",       id);
     EMIT_PAIR_RESET();
-    if (!pBB || bb_pat_nkids(pBB) == 0) {
+    if (!pBB || nc == 0) {
         EMIT_PAIR_JMP(lbl_γ);
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_DEF_JMP(xcat_ω, lbl_ω);
@@ -266,21 +266,20 @@ static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
         EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
         return;
     }
-    if (bb_pat_nkids(pBB) == 1) {
-        walk_bb_flat(bb_pat_kid(pBB, 0), lbl_γ, lbl_ω, left_β);
+    if (nc == 1) {
+        walk_bb_flat(arms ? arms[0] : bb_pat_kid(pBB, 0), lbl_γ, lbl_ω, left_β);
         EMIT_PAIR_DEF_JMP(lbl_β, left_β);
         EMIT_PAIR_DEF_JMP(xcat_ω, lbl_ω);
         EMIT_PAIR_DEF(mid_γ); EMIT_PAIR_DEF(right_ω); EMIT_PAIR_DEF(right_β);
         EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
         return;
     }
-    walk_bb_flat(bb_pat_kid(pBB, 0), mid_γ, xcat_ω, left_β);
+    walk_bb_flat(arms ? arms[0] : bb_pat_kid(pBB, 0), mid_γ, xcat_ω, left_β);
     emit_label_define_bb(mid_γ);
     bb_label_t *last_β = right_β;
-    if (bb_pat_nkids(pBB) == 2) {
-        walk_bb_flat(bb_pat_kid(pBB, 1), lbl_γ, right_ω, right_β);
+    if (nc == 2) {
+        walk_bb_flat(arms ? arms[1] : bb_pat_kid(pBB, 1), lbl_γ, right_ω, right_β);
     } else {
-        int nc = bb_pat_nkids(pBB);
         bb_label_t **mids  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nc - 1));
         bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nc - 1));
         for (int i = 0; i < nc - 1; i++) {
@@ -290,7 +289,7 @@ static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
         for (int i = 1; i < nc; i++) {
             bb_label_t *s = (i < nc-1) ? mids[i-1] : lbl_γ;
             bb_label_t *kid_ω = (i == 1) ? left_β : betas[i-2];
-            walk_bb_flat(bb_pat_kid(pBB, i), s, kid_ω, betas[i-1]);
+            walk_bb_flat(arms ? arms[i] : bb_pat_kid(pBB, i), s, kid_ω, betas[i-1]);
             if (i < nc-1) emit_label_define_bb(mids[i-1]);
         }
         last_β = betas[nc-2];
@@ -300,6 +299,10 @@ static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     EMIT_PAIR_DEF_JMP(lbl_β, last_β);
     EMIT_PAIR_DEF_JMP(xcat_ω, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    flat_drive_cat_arms(pBB, NULL, pBB ? bb_pat_nkids(pBB) : 0, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
@@ -1329,6 +1332,14 @@ static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat_out) {
+    int n = 0;
+    IR_t *c = entry;
+    while (c && c->t == IR_PAT_LIT && n < cap) { arms[n++] = c; c = c->γ; }
+    if (n >= 2 && c && c->t == IR_PAT_CAT && bb_pat_nkids(c) == 0) { if (cat_out) *cat_out = c; return n; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int n_aux = 0;
     IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
@@ -1341,6 +1352,9 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         fprintf(stderr, "[SBB] FATAL flat_drive_match: g_subject_slot unset — a SUBJECT box must precede MATCH in the chain\n");
         abort();
     }
+    IR_t *cat_arms[64];
+    IR_t *catnd = NULL;
+    int catn = gather_lowered_cat_arms(elem, cat_arms, 64, &catnd);
     int id = g_flat_node_id++;
     bb_label_t *match_retry = emit_label_alloc("smatch%d_retry", id);
     bb_label_t *match_adv   = emit_label_alloc("smatch%d_adv",   id);
@@ -1353,7 +1367,8 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
     pBB->ival = 1;
     FILL(pBB, match_retry, lbl_ω, elem_β);
-    walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
+    if (catn >= 2) flat_drive_cat_arms(catnd, cat_arms, catn, lbl_γ, match_adv, elem_β);
+    else           walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
     emit_label_define_bb(match_adv);
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
     pBB->ival = 2;
