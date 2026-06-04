@@ -305,9 +305,11 @@ static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
 static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int id = g_flat_node_id++;
     int nc = pBB ? bb_pat_nkids(pBB) : 0;
+    IR_t * const * arms = NULL;
+    if (nc == 0 && pBB) { int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &na); if (aux && na > 0) { arms = aux; nc = na; } }
     EMIT_PAIR_RESET();
     if (nc == 0) { EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return; }
-    if (nc == 1) { walk_bb_flat(bb_pat_kid(pBB, 0), lbl_γ, lbl_ω, lbl_β); return; }
+    if (nc == 1) { walk_bb_flat(arms ? arms[0] : bb_pat_kid(pBB, 0), lbl_γ, lbl_ω, lbl_β); return; }
     bb_label_t **ci_βs = (bb_label_t **)alloca((size_t)nc * sizeof(bb_label_t *));
     bb_label_t **ci_ωs = (bb_label_t **)alloca((size_t)nc * sizeof(bb_label_t *));
     for (int i = 0; i < nc; i++) {
@@ -316,7 +318,7 @@ static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     }
     for (int i = 0; i < nc; i++) {
         bb_label_t *f = (i < nc-1) ? ci_ωs[i] : ci_ωs[nc-1];
-        walk_bb_flat(bb_pat_kid(pBB, i), lbl_γ, f, ci_βs[i]);
+        walk_bb_flat(arms ? arms[i] : bb_pat_kid(pBB, i), lbl_γ, f, ci_βs[i]);
         if (i < nc-1) emit_label_define_bb(ci_ωs[i]);
         else          emit_label_define_bb(ci_ωs[nc-1]);
     }
