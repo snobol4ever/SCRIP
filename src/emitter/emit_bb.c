@@ -1896,9 +1896,12 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PAT_CAT:    flat_drive_cat(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_ALT:    flat_drive_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_ARBNO: {
-        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        bb_arbno_state_t *az = (bb_arbno_state_t *)(intptr_t)nd->counter;
+        IR_graph_t *inner = az ? az->inner : NULL;
+        IR_t *ch = (inner && inner->entry) ? inner->entry : ((bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α);
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
-        g_emit.child_fn = (void *)cfn;
+        g_emit.child_fn    = (void *)cfn;
+        g_emit.bb_child_lbl = cfn ? child_cache_get_lbl(cfn) : NULL;
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_PAT_ASSIGN_IMM:  flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -2410,7 +2413,14 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
         return;
     }
     if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_CALLOUT) {
-        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = NULL;
+        if (nd->t == IR_PAT_ARBNO) {
+            bb_arbno_state_t *az = (bb_arbno_state_t *)(intptr_t)nd->counter;
+            IR_graph_t *inner = az ? az->inner : NULL;
+            ch = (inner && inner->entry) ? inner->entry : NULL;
+        } else {
+            ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        }
         if (ch && !child_cache_get(ch)) {
             pre_build_children_text(ch, out, base_prefix);
             char child_prefix[120];
@@ -2452,7 +2462,7 @@ static void pre_build_children(IR_t *nd) {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
             pre_build_children(ch);
-            bb_box_fn fn = (nd->t == IR_PAT_ARBNO) ? bb_build_brokered(ch) : bb_build_flat(ch);
+            bb_box_fn fn = bb_build_flat(ch);
             child_cache_put(ch, fn);
         }
         return;
@@ -2622,6 +2632,14 @@ static void gvar_chain_prebuild_children(IR_graph_t *g) {
 static void gvar_chain_prebuild_children_text(IR_graph_t *g, FILE *out, const char *prefix) {
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) pre_build_children_text(g->all[i], out, prefix);
+    for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_PAT_ARBNO) pre_build_children_text(g->all[i], out, prefix);
+    for (int i = 0; i < g->n; i++) {
+        IR_t *nd = g->all[i];
+        if (!nd || nd->t != IR_SCAN) continue;
+        IR_graph_t *pg = (IR_graph_t *)(intptr_t)nd->counter;
+        if (!pg || !pg->all) continue;
+        for (int j = 0; j < pg->n; j++) if (pg->all[j] && pg->all[j]->t == IR_PAT_ARBNO) pre_build_children_text(pg->all[j], out, prefix);
+    }
 }
 static void gvar_chain_operand_refs(IR_graph_t *g) {
     if (!g || !g->all) return;
@@ -2739,7 +2757,13 @@ bb_box_fn gvar_flat_chain_build(IR_graph_t *g) {
 int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     if (!g || !g->entry) return 1;
     IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = g;
-    int has_ref = 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) { has_ref = 1; break; }
+    int has_ref = 0;
+    for (int i = 0; i < g->n && !has_ref; i++) {
+        IR_t *nd = g->all[i];
+        if (!nd) continue;
+        if (nd->t == IR_REF_INVARIANT || nd->t == IR_PAT_ARBNO) { has_ref = 1; break; }
+        if (nd->t == IR_SCAN) { IR_graph_t *pg = (IR_graph_t *)(intptr_t)nd->counter; if (pg && pg->all) { for (int j = 0; j < pg->n; j++) if (pg->all[j] && pg->all[j]->t == IR_PAT_ARBNO) { has_ref = 1; break; } } }
+    }
     if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; gvar_chain_prebuild_children_text(g, out, prefix); }
     gvar_chain_operand_refs(g);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0; g_subject_slot = -1;

@@ -407,6 +407,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PAT_REM:         bb_pat_rem();           return 0;
     case IR_PAT_FENCE:       bb_pat_fence();           return 0;
     case IR_PAT_ABORT:       bb_pat_abort();           return 0;
+    case IR_PAT_ARBNO:       bb_pat_arbno(nd);             return 0;
     case IR_SUBJECT:         bb_subject();             return 0;
     case IR_PAT_MATCH:       bb_match();               return 0;
     case IR_PAT_ASSIGN_COND:

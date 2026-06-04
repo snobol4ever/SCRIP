@@ -13,6 +13,7 @@ void bb_pat_atp    (void);
 void bb_pat_len    (void);
 void bb_pat_rem    (void);
 void bb_pat_arb    (void);
+void bb_pat_arbno(IR_t *pBB);
 void bb_pat_abort  (void);
 void bb_pat_fence  (void);
 void bb_pat_alt    (void);
