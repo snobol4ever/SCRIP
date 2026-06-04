@@ -32,5 +32,6 @@ run_probe probe_pb_rb_3_match_fail "PB-RB-3 EDGES OK"
 run_probe probe_pb_rb_4_cat "PB-RB-4 CAT OK"
 run_probe probe_pb_rb_4_alt "PB-RB-4 ALT OK"
 run_probe probe_pb_rb_conv_alt_lowered "PB-RB-CONV ALT-LOWERED OK"
+run_probe probe_pb_rb_conv_cat_lowered "PB-RB-CONV CAT-LOWERED OK"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
