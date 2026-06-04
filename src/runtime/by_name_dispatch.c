@@ -642,8 +642,7 @@ int scan_try_call_builtin(tree_t *call, DESCR_t *args, int nargs, DESCR_t *out)
         if (!needle) { *out = FAILDESCR; return 1; }
         int p = scan_pos - 1, nl = (int)strlen(needle);
         if (strncmp(hay + p, needle, nl) != 0) { *out = FAILDESCR; return 1; }
-        scan_pos += nl;
-        *out = INTVAL(scan_pos);
+        *out = INTVAL(scan_pos + nl);
         return 1;
     }
     if (!strcmp(fn, "bal") && nargs >= 1) {
@@ -2706,7 +2705,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         int plen = (int)strlen(pat), p0 = scan_pos - 1;
         int slen = (int)strlen(scan_subj);
         if (p0 + plen > slen || strncmp(scan_subj + p0, pat, plen) != 0) { *out = FAILDESCR; return 1; }
-        scan_pos += plen; *out = INTVAL(scan_pos); return 1;
+        *out = INTVAL(scan_pos + plen); return 1;
     }
     if (!strcmp(fn,"bal") && nargs >= 1 && scan_pos > 0) {
         const char *c1; int c1len;

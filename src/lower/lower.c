@@ -809,8 +809,17 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         return v_literal(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_SUCCEED: { IR_t * n = nalloc(cx, IR_SUCCEED); if (!n) return NULL; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_FAIL:    { IR_t * n = nalloc(cx, IR_FAIL);    if (!n) return NULL; lcx_t bx = cx; bx.bounded = 1; return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_MATCH_UNARY:
+        if (cx.lang == IR_LANG_ICN && e->n >= 1 && e->c[0]) {
+            tree_t * mfn = ast_node_new(TT_VAR); mfn->v.sval = "match";
+            tree_t * mcall = ast_node_new(TT_FNC); ast_push(mcall, mfn); ast_push(mcall, (tree_t *) e->c[0]);
+            tree_t * tfn = ast_node_new(TT_VAR); tfn->v.sval = "tab";
+            tree_t * tcall = ast_node_new(TT_FNC); ast_push(tcall, tfn); ast_push(tcall, mcall);
+            return v_det_call(cx, tcall, 1, γ_in, ω_in, α_out, β_out);
+        }
+        return v_unop(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL:
-    case TT_RANDOM: case TT_MATCH_UNARY: case TT_CSET_COMPL: case TT_ITERATE: case TT_INTERROGATE:
+    case TT_RANDOM: case TT_CSET_COMPL: case TT_ITERATE: case TT_INTERROGATE:
         return v_unop(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW:
     case TT_LT:  case TT_LE:  case TT_GT:  case TT_GE:  case TT_EQ:  case TT_NE:
