@@ -284,6 +284,20 @@ int64_t rt_gvar_arith(const char *a, const char *b, int op)
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int64_t rt_gvar_get_int(const char *name)
+{
+    DESCR_t v = NV_GET_fn(name ? name : "");
+    if (v.v == DT_I) return v.i;
+    if (v.v == DT_R) return (int64_t)v.r;
+    if (v.v == DT_S && v.s) return (int64_t)strtoll(v.s, NULL, 10);
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_gvar_get_descr(const char *name)
+{
+    return NV_GET_fn(name ? name : "");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_var(const char *dst, const char *src)
 {
     NV_SET_fn(dst ? dst : "", NV_GET_fn(src ? src : ""));

@@ -17,6 +17,8 @@ int  bb_slot_get(IR_t * nd);
 int  bb_slot_alloc16(IR_t * nd);
 int  bb_varslot(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
+int64_t rt_gvar_get_int(const char * name);
+DESCR_t rt_gvar_get_descr(const char * name);
 DESCR_t rt_call_named_proc(const char * name, DESCR_t * args, int nargs);
 DESCR_t rt_proc_define(const char * spec);
 }
@@ -31,6 +33,52 @@ extern std::string bb_call_builtin_str(IR_t *);
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
     if (!lf) return std::string();
+    if (g_gvar_flat_chain) {
+        IR_t * fin = lf; int gg = 0;
+        while (fin && fin->γ && fin->γ->t != IR_SUCCEED && fin->γ->t != IR_FAIL && gg++ < 256) fin = fin->γ;
+        int fin_arith = (fin && fin->t == IR_BINOP && (fin->ival == BINOP_ADD || fin->ival == BINOP_SUB || fin->ival == BINOP_MUL || fin->ival == BINOP_DIV || fin->ival == BINOP_MOD));
+        int opnd_ok_a = (fin_arith && fin->α && ((fin->α->t == IR_LIT_I) || (fin->α->t == IR_VAR && fin->α->sval)));
+        int opnd_ok_b = (fin_arith && fin->β && ((fin->β->t == IR_LIT_I) || (fin->β->t == IR_VAR && fin->β->sval)));
+        if (fin && fin != lf && fin_arith && opnd_ok_a && opnd_ok_b) {
+            int scratch = bb_slot_alloc16(fin);
+            std::string s;
+            if (MEDIUM_TEXT) s += s_comment(emit_fmt("# marshal arg%d = inline gvar-arith subexpr -> [r12+%d]", idx, aoff));
+            if (fin->α->t == IR_VAR) {
+                if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, fin->α->sval); s += s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1)) + s_2asm("call", "rt_gvar_get_int@PLT"); }
+                else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fin->α->sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+            } else s += x86_movabs_r64("rax", (uint64_t)fin->α->ival);
+            s += x86_frame_store64(scratch, "rax");
+            if (fin->β->t == IR_VAR) {
+                if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, fin->β->sval); s += s_2asm("lea", emit_fmt("rdi, [rip + %s]", b2)) + s_2asm("call", "rt_gvar_get_int@PLT"); }
+                else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fin->β->sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+                s += x86("mov", "rcx", "rax");
+            } else s += x86("mov", "rcx", (long)fin->β->ival);
+            s += x86_frame_load64("rax", scratch);
+            switch ((int)fin->ival) {
+            case BINOP_ADD: s += x86("add",  "rax", "rcx"); break;
+            case BINOP_SUB: s += x86("sub",  "rax", "rcx"); break;
+            case BINOP_MUL: s += x86("imul", "rax", "rcx"); break;
+            case BINOP_DIV: s += x86("cqo") + x86("idiv", "rcx"); break;
+            case BINOP_MOD: s += x86("cqo") + x86("idiv", "rcx") + x86("mov", "rax", "rdx"); break;
+            }
+            s += x86("mov", FRQ(aoff), (long)6);
+            s += x86_frame_store64(aoff + 8, "rax");
+            return s;
+        }
+        if (lf->t == IR_VAR && lf->sval) {
+            std::string s;
+            if (MEDIUM_TEXT) {
+                char b1[80]; strtab_label(b1, sizeof b1, lf->sval);
+                s += s_comment(emit_fmt("# marshal arg%d = gvar read -> [r12+%d]", idx, aoff))
+                   + s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1)) + s_2asm("call", "rt_gvar_get_descr@PLT");
+            } else {
+                s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)lf->sval) + x86("call", "rt_gvar_get_descr", (uint64_t)(uintptr_t)(void *)rt_gvar_get_descr);
+            }
+            s += x86_frame_store64(aoff, "rax");
+            s += x86_frame_store64(aoff + 8, "rdx");
+            return s;
+        }
+    }
     if (lf->t == IR_CALL && lf->dval == 2.0) {
         const char * nfn = lf->sval ? lf->sval : "";
         int nn = (int) lf->ival;
