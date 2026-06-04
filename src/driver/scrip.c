@@ -385,14 +385,23 @@ static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_gz_admit(IR_graph_t *g) {
     if (!g || !g->all || g->nslots > 64) return NULL;
-    IR_t *gconj = NULL;
+    IR_t *gconjs[2] = {NULL, NULL}; int ngconj = 0;
+    IR_t *softdisj = NULL; IR_t *soft_arm0 = NULL;
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
-        if (nd->t == IR_GCONJ) { if (gconj) return NULL; gconj = nd; }
+        if (nd->t == IR_GCONJ) { if (ngconj >= 2) return NULL; gconjs[ngconj++] = nd; }
+        if (nd->t == IR_DISJ) {
+            if (softdisj) return NULL;
+            int na = 0;
+            IR_t * const *arms = bb_operand_aux_get(g, nd, &na);
+            if (!arms || na != 2 || !arms[0] || !arms[1]) return NULL;
+            if (arms[1]->t != IR_SUCCEED) return NULL;
+            softdisj = nd; soft_arm0 = arms[0];
+        }
         if (nd->t == IR_GOAL) { IR_t **uu = NULL; int aa = 0; if (!pl_gz_fact_inline(nd, &uu, &aa) && !pl_gz_choice_inline(nd)) return NULL; }
         if (nd->t == IR_CHOICE || nd->t == IR_CUT ||
-            nd->t == IR_DISJ || nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_ARITH ||
+            nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_ARITH ||
             nd->t == IR_STRUCT) return NULL;
         if (nd->t == IR_LOGICVAR && ((int)nd->ival < 0 || (int)nd->ival >= 64)) return NULL;
         if (nd->t == IR_UNIFY) {
@@ -403,11 +412,32 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
             if (!((lv && (rv || rc)) || (rv && lc))) return NULL;
         }
     }
+    IR_t *gconj = NULL;
+    if (softdisj) {
+        if (!soft_arm0) return NULL;
+        IR_t *outer = NULL;
+        for (int k = 0; k < ngconj; k++) {
+            bb_conj_state_t *zo = (bb_conj_state_t *)(intptr_t)gconjs[k]->ival;
+            if (zo && zo->goals && zo->ngoals == 1 && zo->goals[0] == softdisj) { outer = gconjs[k]; break; }
+        }
+        if (!outer) return NULL;
+        if (soft_arm0->t == IR_GCONJ) {
+            if (ngconj != 2 || soft_arm0 == outer || (soft_arm0 != gconjs[0] && soft_arm0 != gconjs[1])) return NULL;
+            gconj = soft_arm0;
+        } else if (ngconj != 1) {
+            return NULL;
+        }
+    } else {
+        if (ngconj > 1) return NULL;
+        gconj = (ngconj == 1) ? gconjs[0] : NULL;
+    }
     IR_t *goals_buf[64]; int ng = 0;
     if (gconj) {
         bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)gconj->ival;
         if (!zs || !zs->goals || zs->ngoals <= 0 || zs->ngoals > 64) return NULL;
         for (int i = 0; i < zs->ngoals; i++) goals_buf[ng++] = zs->goals[i];
+    } else if (softdisj) {
+        goals_buf[ng++] = soft_arm0;
     } else if (!(g->entry && g->entry->t == IR_SUCCEED)) {
         return NULL;
     }
@@ -471,6 +501,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
     if (!qf) return NULL;
     qf->α = head;
     qf->ival = g->nslots;
+    qf->dval = softdisj ? 1.0 : 0.0;
     return qf;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

@@ -27,7 +27,9 @@ static std::string bb_query_frame_str() {
                  + x86("jmp", PORT_GAMMA);
         }
         return IF(MEDIUM_TEXT,
-                   s_comment("# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1, ω=trail-unwind+0; ret to the query driver]"))
+                   s_comment(_.op_sb
+                     ? "# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1; query tail is (G ; true) so ω = trail-unwind + PROMOTED 1 (entering the true arm with bindings undone); ret to the query driver]"
+                     : "# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1, ω=trail-unwind+0; ret to the query driver]"))
              + x86("def", PORT_GAMMA)
              + x86("mov32", "eax", 1L)
              + x86("pop", "r12")
@@ -35,7 +37,7 @@ static std::string bb_query_frame_str() {
              + x86("def", PORT_OMEGA)
              + x86("mov", "edi", FR(0))
              + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
-             + x86("mov32", "eax", 0L)
+             + x86("mov32", "eax", _.op_sb ? 1L : 0L)
              + x86("pop", "r12")
              + x86("ret");
     }
