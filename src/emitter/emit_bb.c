@@ -351,6 +351,33 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_t *ch = (pBB && bb_pat_nkids(pBB) > 0) ? bb_pat_kid(pBB, 0) : (pBB ? pBB->α : NULL);
+    if (!ch && pBB) { int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &na); if (aux && na > 0) ch = aux[0]; }
+    const char *vn = (pBB && pBB->sval) ? pBB->sval : "";
+    if (!ch) {
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_JMP(lbl_γ);
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        return;
+    }
+    if (!vn[0]) { walk_bb_flat(ch, lbl_γ, lbl_ω, lbl_β); return; }
+    int id = g_flat_node_id++;
+    bb_label_t *cap_γ = emit_label_alloc("xcap%d_γ", id);
+    int st = bb_slot_alloc16(pBB);
+    EMIT_PAIR_RESET();
+    g_emit.op_off = st;
+    pBB->ival = 0;
+    EMIT_PAIR_FILL(pBB, cap_γ, lbl_ω, lbl_β);
+    walk_bb_flat(ch, cap_γ, lbl_ω, lbl_β);
+    emit_label_define_bb(cap_γ);
+    EMIT_PAIR_RESET();
+    g_emit.op_off = st;
+    pBB->ival = (pBB->t == IR_PAT_ASSIGN_IMM) ? 2 : 1;
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int resolve_seq_goals_em(const IR_t *nd, IR_t **out, int max) {
     if (!nd || nd->t != IR_GCONJ) return 0;
     bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)nd->ival;
@@ -1698,20 +1725,8 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         g_emit.child_fn = (void *)cfn;
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_PAT_ASSIGN_IMM: {
-        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
-        bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
-        const char *vn = nd->sval ? nd->sval : "";
-        g_emit.child_fn = (void *)cfn; g_emit.op_name1 = vn; g_emit.op_name2 = NULL;
-        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    }
-    case IR_PAT_ASSIGN_COND: {
-        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
-        bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
-        const char *vn = nd->sval ? nd->sval : "";
-        g_emit.child_fn = (void *)cfn; g_emit.op_name1 = vn; g_emit.op_name2 = NULL;
-        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    }
+    case IR_PAT_ASSIGN_IMM:  flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_ASSIGN_COND: flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GCONJ:     flat_drive_conj(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GOAL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CHOICE:     flat_drive_choice(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -2212,7 +2227,12 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
         }
         return;
     }
-    if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM || nd->t == IR_PAT_CALLOUT) {
+    if (nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM) {
+        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        if (ch) pre_build_children_text(ch, out, base_prefix);
+        return;
+    }
+    if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_CALLOUT) {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
             pre_build_children_text(ch, out, base_prefix);
@@ -2246,11 +2266,16 @@ static void pre_build_children(IR_t *nd) {
         }
         return;
     }
-    if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM || nd->t == IR_PAT_CALLOUT) {
+    if (nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM) {
+        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        if (ch) pre_build_children(ch);
+        return;
+    }
+    if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_CALLOUT) {
         IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
             pre_build_children(ch);
-            bb_box_fn fn = (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM) ? bb_build_brokered(ch) : bb_build_flat(ch);
+            bb_box_fn fn = (nd->t == IR_PAT_ARBNO) ? bb_build_brokered(ch) : bb_build_flat(ch);
             child_cache_put(ch, fn);
         }
         return;
