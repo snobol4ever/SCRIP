@@ -650,10 +650,8 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
                 if (!ce) return NULL;
                 memset(ce, 0, sizeof *ce);
                 ce->graph_key = (void *)cg; ce->arity = ar; ce->nlocals = cg->nslots - ar;
-                int need = ar + ce->nlocals + 1;
-                if (cslot + need > 62) return NULL;
-                ce->base = cslot; ce->mark_slot = cslot + ar + ce->nlocals; cslot += need;
-                if (!pl_gz_rule_callee_body(zs, ar, ce->base, &ce->body_head)) return NULL;
+                ce->base = 0; ce->mark_slot = 0;
+                if (!pl_gz_rule_callee_body(zs, ar, 0, &ce->body_head)) return NULL;
                 ce->frame_node = pl_gz_det_node(IR_CALLEE_FRAME);
                 if (!ce->frame_node) return NULL;
                 ce->frame_node->ival = (int64_t)(intptr_t)ce;
@@ -663,6 +661,8 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
             if (!cs) return NULL;
             memset(cs, 0, sizeof *cs);
             cs->callee = ce; cs->nargs = ar;
+            if (cslot + 1 > 62) return NULL;
+            cs->child_slot = cslot++;
             for (int ai = 0; ai < ar; ai++) {
                 IR_t *a = zc->args[ai];
                 if (a->t == IR_LOGICVAR) { cs->args[ai] = a; continue; }

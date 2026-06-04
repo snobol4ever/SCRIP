@@ -61,6 +61,13 @@ void rt_pl_cells_init(void **cells, int n)
     for (int i = 0; i < n; i++) cells[i] = term_new_var(i);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void * rt_enter(void **slot, int nslots)
+{
+    extern void *GC_malloc(size_t);
+    if (!*slot) *slot = GC_malloc((size_t)(8 + 8 * (nslots > 0 ? nslots : 1)));
+    return *slot;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unify_cell_const(void *cell_term, int kind, long ival, const char *sval)
 {
     return rt_unify_terms(cell_term, rt_node_to_term(kind, ival, sval, 0.0));
