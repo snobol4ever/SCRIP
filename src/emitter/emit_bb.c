@@ -107,6 +107,7 @@ int bb_varslot_peek(const char *name) {
 int g_descr_flat_chain = 0;
 int g_gvar_flat_chain = 0;
 int g_frame_active = 0;
+int g_icn_scan_regs_live = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define FLAT_CHAIN_SET_MAX 512
 static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
@@ -1148,7 +1149,10 @@ static void flat_drive_gen_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     flat_drive_scan_glue(pBB, 1, subj_slot, regs_off, body_start, lbl_ω, enter_β);
     emit_label_define_bb(body_start);
     descr_chain_operand_refs(body_sg->entry);
+    int saved_scan_regs_live = g_icn_scan_regs_live;
+    g_icn_scan_regs_live = 1;
     flat_emit_arg_subchain(body_sg->entry, body_done, body_fail);
+    g_icn_scan_regs_live = saved_scan_regs_live;
     emit_label_define_bb(body_done);
     flat_drive_scan_glue(pBB, 2, -1, regs_off, lbl_γ, lbl_ω, leaveok_β);
     emit_label_define_bb(body_fail);
