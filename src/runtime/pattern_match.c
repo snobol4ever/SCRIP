@@ -1114,6 +1114,29 @@ void rt_subject_load_nv(const char *name, void *slot)
     Σ = s; Σlen = len;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
+{
+    struct part_t { int tag; int pad; const char *s; } *p = (struct part_t *)parts;
+    const char *vals[16]; int lens[16]; size_t total = 0;
+    if (n > 16) n = 16;
+    for (int i = 0; i < n; i++) {
+        const char *s = ""; int len = 0;
+        if (p[i].tag == 0) { s = p[i].s ? p[i].s : ""; len = (int)strlen(s); }
+        else {
+            DESCR_t v = NV_GET_fn(p[i].s ? p[i].s : "");
+            if (IS_NAMEVAL(v)) v = NV_GET_fn(v.s);
+            if (v.v == DT_S || v.v == DT_SNUL) { s = v.s ? v.s : ""; len = v.slen ? (int)v.slen : (int)strlen(s); }
+            else if (IS_INT_fn(v)) { char *b = (char *)GC_MALLOC_ATOMIC(32); snprintf(b, 32, "%lld", (long long)v.i); s = b; len = (int)strlen(b); }
+        }
+        vals[i] = s; lens[i] = len; total += (size_t)len;
+    }
+    char *buf = (char *)GC_MALLOC(total + 1); size_t off = 0;
+    for (int i = 0; i < n; i++) { if (lens[i] > 0) memcpy(buf + off, vals[i], (size_t)lens[i]); off += (size_t)lens[i]; }
+    buf[off] = '\0';
+    DESCR_t d = { .v = DT_S, .slen = (uint32_t)total, .s = buf };
+    NV_SET_fn(dst ? dst : "", d);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_at_cursor(const char *varname, int cur_delta)
 {
     if (!varname || !*varname) return;

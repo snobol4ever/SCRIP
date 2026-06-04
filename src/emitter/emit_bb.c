@@ -1274,7 +1274,27 @@ static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int gvar_seq_flatten(IR_graph_t *g, int *n) {
+    if (!g || !g->entry || *n >= 16) return 0;
+    IR_t *e = g->entry;
+    if (e->t == IR_LIT_S) { g_emit.op_parts_tag[*n] = 0; g_emit.op_parts_str[(*n)++] = e->sval ? e->sval : ""; return 1; }
+    if (e->t == IR_VAR)   { g_emit.op_parts_tag[*n] = 1; g_emit.op_parts_str[(*n)++] = e->sval ? e->sval : ""; return 1; }
+    if (e->t == IR_SEQ)   {
+        IR_graph_t *l = (IR_graph_t *)(intptr_t)e->counter;
+        IR_graph_t *r = (IR_graph_t *)(intptr_t)e->ival;
+        return gvar_seq_flatten(l, n) && gvar_seq_flatten(r, n);
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_gvar_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    g_emit.op_parts_n = 0;
+    if (MEDIUM_TEXT && pBB && pBB->α && pBB->α->t == IR_SEQ) {
+        int n = 0;
+        IR_graph_t *l = (IR_graph_t *)(intptr_t)pBB->α->counter;
+        IR_graph_t *r = (IR_graph_t *)(intptr_t)pBB->α->ival;
+        if (gvar_seq_flatten(l, &n) && gvar_seq_flatten(r, &n)) g_emit.op_parts_n = n;
+    }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
