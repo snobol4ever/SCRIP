@@ -134,6 +134,8 @@ void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 int64_t rt_gvar_arith(const char *a, const char *b, int op);
+int64_t rt_gvar_get_int(const char *name);
+DESCR_t rt_gvar_get_descr(const char *name);
 DESCR_t rt_proc_define(const char *spec);
 void rt_arg_stage(int idx, DESCR_t v);
 extern DESCR_t g_call_args[];

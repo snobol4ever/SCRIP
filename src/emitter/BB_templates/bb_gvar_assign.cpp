@@ -39,6 +39,15 @@ static std::string bb_gvar_assign_str() {
                  + x86("jmp",  PORT_GAMMA)
                  + x86("def",  PORT_BETA)
                  + x86("jmp",  PORT_OMEGA);
+        if (_.op_a_node_kind == (int)IR_LIT_I)
+            return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
+                                 + s_comment("# BOX IR_ASSIGN(lit_i) store = imm64 [RO dst ptr, @PLT]"))
+                 + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
+                 + x86_movabs_r64("rsi", (uint64_t)_.op_a_ival_sg)
+                 + x86("call", "rt_gvar_assign_int", fn_int())
+                 + x86("jmp",  PORT_GAMMA)
+                 + x86("def",  PORT_BETA)
+                 + x86("jmp",  PORT_OMEGA);
         if (_.op_a_node_kind == (int)IR_VAR)
             return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
                                  + s_comment("# BOX SNO IR_ASSIGN(var) store = read(src) [RO ptrs, @PLT]"))
