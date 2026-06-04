@@ -39,6 +39,16 @@ run_admitted mixarg  ':- initialization(main).\nedge(a, b).\nedge(b, c).\nedge(b
 run_admitted midfail ':- initialization(main).\nfact(a).\nfact(b).\nmain :- fact(X), X = b, write(X), nl.\n' 'b\n'
 run_admitted nested  ':- initialization(main).\nfact(a).\nfact(b).\ncolor(x).\ncolor(y).\nmain :- fact(F), color(C), write(F), write(C), nl, fail.\n' 'ax\nay\nbx\nby\n'
 run_admitted nosol   ':- initialization(main).\nfact(a).\nfact(b).\nmain :- fact(c), write(y), nl.\n' ''
+run_admitted softenum ':- initialization(main).\nfact(a).\nfact(b).\nfact(c).\nmain :- fact(X), write(X), nl, fail ; true.\n' 'a\nb\nc\n'
+grep -q "PROMOTED" "$TMP/softenum.s" || fail "softenum m4 .s lacks the promoted ω landing (soft tail not wired)"
+run_admitted softbind ':- initialization(main).\nmain :- X = a, fail ; true.\n' ''
+run_admitted softsemi ':- initialization(main).\nnum(1).\nnum(2).\nmain :- num(N), write(N), nl, N = 2 ; true.\n' '1\n2\n'
+
+printf ':- initialization(main).\nfact(a).\nfact(b).\nmain :- fact(X), write(X), nl, fail ; write(done), nl.\n' > "$TMP/neg2.pl"
+"$SCRIP" --run "$TMP/neg2.pl" </dev/null > "$TMP/n23" 2>"$TMP/ne23" || fail "neg2 m3 rc"
+grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (non-true right arm) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
+"$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
+grep -q "gzq" "$TMP/n2.s" && fail "neg2 (non-true right arm) m4 .s has gzq labels (GZ wrongly admitted)"
 
 printf ':- initialization(main).\nbig(a).\nbig(b).\nbig(c).\nbig(d).\nbig(e).\nmain :- big(X), write(X), nl, fail.\n' > "$TMP/neg.pl"
 "$SCRIP" --run "$TMP/neg.pl" </dev/null > "$TMP/n3" 2>"$TMP/ne3" || fail "neg m3 rc"
@@ -46,5 +56,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne3" || fail "neg (5 clauses) m3 did NOT show th
 "$SCRIP" --compile --target=x86 "$TMP/neg.pl" > "$TMP/n.s" 2>/dev/null || fail "neg m4 compile rc"
 grep -q "gzq" "$TMP/n.s" && fail "neg (5 clauses) m4 .s has gzq labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ4 PASS: multi-clause choice + backtracking (fail-driven enumeration, mixed-arg fold, mid-chain redo, stacked choices) m2==m3==m4 byte-identical on the GZ path; over-cap declined identically by both branches"
+echo "GATE-PL-GZ4 PASS: multi-clause choice + backtracking + query-tail (G ; true) soft-fail promotion (fail-driven enumeration, mixed-arg fold, mid-chain redo, stacked choices, soft tails) m2==m3==m4 byte-identical on the GZ path; over-cap declined identically by both branches"
 exit 0

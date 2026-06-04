@@ -420,6 +420,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     int i = 0;
     for (IR_t *g = pBB->α; g; g = g->γ) { gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); gb[i] = emit_label_alloc("gzq%d_g%d_β", id, i); i++; }
     g_emit.op_sa = 0;
+    g_emit.op_sb = 0;
     g_emit.op_ival = pBB->ival;
     FILL(pBB, (n > 0 ? gl[0] : land_γ), land_ω, lbl_β);
     i = 0;
@@ -434,6 +435,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
         i++;
     }
     g_emit.op_sa = 1;
+    g_emit.op_sb = (pBB->dval != 0.0) ? 1 : 0;
     FILL(pBB, land_γ, land_ω, lbl_β);
     (void)lbl_γ; (void)lbl_ω;
 }
