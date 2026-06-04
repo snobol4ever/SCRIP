@@ -264,8 +264,8 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
         const IR_t *l = g->α, *r = g->β;
         if (!l || !r) return 1;
         int l_var = (l->t == IR_LOGICVAR), r_var = (r->t == IR_LOGICVAR);
-        int l_con = (l->t == IR_ATOM || l->t == IR_LIT_I);
-        int r_con = (r->t == IR_ATOM || r->t == IR_LIT_I);
+        int l_con = (l->t == IR_LIT_I);
+        int r_con = (r->t == IR_LIT_I);
         return (l_var && r_con) || (l_con && r_var);
     }
     default: return 0;
@@ -1317,6 +1317,7 @@ int main(int argc, char **argv)
                 g_frame_active = 0;
                 if (pfn) { (void)pfn(rt_frame(), 0); goto run_done; }
             }
+            fprintf(stderr, "[PBB] MODE-3 INTERP-FALLBACK: --run native blob does not cover this program — executing via mode-2 IR_interp_once (PL-GZ-1b: LOUD since 2026-06-04; silent degrade dies at PL-GZ FENCE)\n");
             (void)IR_interp_once(pl_main);
             goto run_done;
         }
