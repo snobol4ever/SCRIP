@@ -2182,6 +2182,7 @@ static int gvar_chain_is_real(IR_t *n) { return n && n->t != IR_SUCCEED && n->t 
 static int gvar_chain_arity(const IR_t *n) {
     if (n && (n->t == IR_SEQ || n->t == IR_SEQ_EXPR) && n->dval == 1.0) return 0;
     if (n && n->t == IR_SCAN) return 1;
+    if (n && n->t == IR_RETURN && (n->dval == 1.0 || n->dval == 2.0)) return 0;
     return descr_chain_arity(n);
 }
 static void gvar_stmt_operand_refs(IR_t *head) {
