@@ -1185,6 +1185,47 @@ int rt_throw(void *alpha_ptr) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_throw_term(void *ball_v) {
+    Term *b0 = ball_v ? term_deref((Term *)ball_v) : term_new_atom(prolog_atom_intern("error"));
+    Term *ball = bb_copy_term(b0 ? b0 : (Term *)ball_v);
+    resolve_throw_term(ball ? ball : b0);
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_catch_native(void *goal_fn_v, void *rec_fn_v, void *catcher_v) {
+    extern Trail g_resolve_trail; extern Term **g_resolve_env;
+    extern int rt_last_ok(void);
+    Term *catcher = (Term *)catcher_v;
+    if (!goal_fn_v) return 0;
+    jmp_buf *jb_p = (jmp_buf *)resolve_catch_push(catcher, g_resolve_env);
+    if (!jb_p) return 0;
+    if (setjmp(*jb_p) == 0) {
+        ((void (*)(void))goal_fn_v)();
+        resolve_catch_pop_top();
+        return rt_last_ok();
+    } else {
+        int tm = resolve_catch_top_trail_mark();
+        void *cpm = resolve_catch_top_cp_mark();
+        Term **saved_env = resolve_catch_top_env();
+        trail_unwind(&g_resolve_trail, tm);
+        resolve_cp_truncate((resolve_choice *)cpm);
+        if (saved_env) g_resolve_env = saved_env;
+        resolve_catch_pop_top();
+        Term *exc = resolve_catch_take_exception();
+        if (exc) {
+            int mark2 = trail_mark(&g_resolve_trail);
+            if (!unify(catcher, exc, &g_resolve_trail)) {
+                trail_unwind(&g_resolve_trail, mark2);
+                resolve_throw_term(exc);
+                return 0;
+            }
+        }
+        if (!rec_fn_v) return 1;
+        ((void (*)(void))rec_fn_v)();
+        return rt_last_ok();
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_copy_term(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
     extern Trail g_resolve_trail;
     int mark = trail_mark(&g_resolve_trail);

@@ -86,4 +86,5 @@ int                   resolve_throw_term(Term *ball);
 Term                 *resolve_catch_take_exception(void);
 int                   resolve_catch_top_trail_mark(void);
 Term                **resolve_catch_top_env(void);
+void                 *resolve_catch_top_cp_mark(void);
 #endif

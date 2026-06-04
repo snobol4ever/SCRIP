@@ -637,6 +637,10 @@ void bb_prepare(IR_t *nd) {
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, nd->sval ? nd->sval : "");
         return;
     }
+    if (nd->t == IR_CATCH) {
+        g_emit.bb_zn = (void *)nd;
+        return;
+    }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static bb_label_t *seq_node_label(IR_t **nodes, bb_label_t **lbls, int n, IR_t *tgt, bb_label_t *falloff) {
@@ -2468,8 +2472,8 @@ int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) {
     return rc;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int codegen_callee_block(IR_graph_t *g, const char *name, int arity, FILE *out) {
-    if (!g || !g->entry || !name) return 1;
+static int codegen_graph_block(IR_graph_t *g, const char *blbl, const char *redo_lbl, FILE *out) {
+    if (!g || !g->entry || !blbl) return 1;
     IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = g;
     IR_t *body_root = g->entry;
     if (g->body_root) {
@@ -2482,8 +2486,6 @@ static int codegen_callee_block(IR_graph_t *g, const char *name, int arity, FILE
             if (zs && zs->goals && zs->ngoals > 0 && zs->goals[0] == g->entry) { body_root = nd; break; }
         }
     }
-    char blbl[160]; resolve_call_block_label(blbl, sizeof blbl, name, arity);
-    char redo_lbl[200]; snprintf(redo_lbl, sizeof redo_lbl, "%s_redo", blbl);
     g_child_cache_n = 0;
     g_text_child_counter = 0;
     pre_build_children_text(body_root, out, blbl);
@@ -2510,10 +2512,63 @@ static int codegen_callee_block(IR_graph_t *g, const char *name, int arity, FILE
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int codegen_callee_block(IR_graph_t *g, const char *name, int arity, FILE *out) {
+    if (!g || !g->entry || !name) return 1;
+    char blbl[160]; resolve_call_block_label(blbl, sizeof blbl, name, arity);
+    char redo_lbl[200]; snprintf(redo_lbl, sizeof redo_lbl, "%s_redo", blbl);
+    return codegen_graph_block(g, blbl, redo_lbl, out);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+#define PL_CATCH_MAX 64
+static IR_t *g_pl_catch_nodes[PL_CATCH_MAX];
+static int   g_pl_catch_n = 0;
+int pl_catch_block_index(IR_t *nd) {
+    for (int i = 0; i < g_pl_catch_n; i++) if (g_pl_catch_nodes[i] == nd) return i;
+    return -1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void pl_catch_collect_graph(IR_graph_t *g) {
+    if (!g || !g->all) return;
+    for (int i = 0; i < g->n; i++) {
+        IR_t *nd = g->all[i];
+        if (!nd) continue;
+        if (nd->t == IR_CATCH) {
+            bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)nd->ival;
+            if (!zc) continue;
+            if (pl_catch_block_index(nd) < 0 && g_pl_catch_n < PL_CATCH_MAX) g_pl_catch_nodes[g_pl_catch_n++] = nd;
+            pl_catch_collect_graph(zc->goal_g);
+            pl_catch_collect_graph(zc->rec_g);
+        }
+        if (nd->t == IR_CHOICE) {
+            bb_choice_state_t *zs = (bb_choice_state_t *)(intptr_t)nd->ival;
+            if (zs && zs->bodies)
+                for (int b = 0; b < zs->nbodies; b++) pl_catch_collect_graph(zs->bodies[b]);
+        }
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
 extern IR_graph_t *resolve_bb_graph_at(int idx);
+int codegen_pl_catch_blocks(IR_graph_t *main_g, FILE *out) {
+    g_pl_catch_n = 0;
+    pl_catch_collect_graph(main_g);
+    int npred = resolve_bb_pred_count();
+    for (int i = 0; i < npred; i++) pl_catch_collect_graph(resolve_bb_graph_at(i));
+    for (int i = 0; i < g_pl_catch_n; i++) {
+        bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)g_pl_catch_nodes[i]->ival;
+        if (!zc) continue;
+        char glbl[160]; snprintf(glbl, sizeof glbl, ".Lplcatch_%d_goal", i);
+        char grdo[200]; snprintf(grdo, sizeof grdo, "%s_redo", glbl);
+        if (zc->goal_g && codegen_graph_block(zc->goal_g, glbl, grdo, out)) return 1;
+        char rlbl[160]; snprintf(rlbl, sizeof rlbl, ".Lplcatch_%d_rec", i);
+        char rrdo[200]; snprintf(rrdo, sizeof rrdo, "%s_redo", rlbl);
+        if (zc->rec_g && codegen_graph_block(zc->rec_g, rlbl, rrdo, out)) return 1;
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int codegen_clause_dispatch(FILE *out) {
     int npred = resolve_bb_pred_count();
     for (int i = 0; i < npred; i++) {

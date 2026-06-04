@@ -405,6 +405,11 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         if (zi && !pl_ite_then_branch_trivial(zi->then_)) return 0;
         return 1;
     }
+    case IR_CATCH: {
+        bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)nd->ival;
+        if (!zc || !zc->goal_g || !zc->rec_g) return 0;
+        return zc->catcher ? pl_findall_term_buildable(zc->catcher) : 0;
+    }
     case IR_UNIFY: {
         const IR_t *l = nd->α, *r = nd->β;
         int lk = l ? (int)l->t : -1, rk = r ? (int)r->t : -1;
@@ -428,6 +433,7 @@ static int pl_rich_node_emittable(const IR_t *nd) {
                                         "float","compound","callable","is_list","ground", NULL };
         for (int k = 0; ttest[k]; k++) if (!strcmp(fn, ttest[k])) return nd->α != NULL;
         if (!strcmp(fn,"succ")) return nd->ival==2 && nd->α && nd->β;
+        if (!strcmp(fn,"throw")) return nd->ival==1 && nd->α && pl_findall_term_buildable(nd->α);
         if (!strcmp(fn,"findall")) {
             bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)nd->ival;
             if (!fs || !fs->goal_node || !fs->tmpl || !fs->result) return 0;
@@ -470,6 +476,10 @@ static int pl_rich_graph_ok(IR_graph_t *g) {
             if (zc && zc->bodies)
                 for (int b = 0; b < zc->nbodies; b++)
                     if (zc->bodies[b] && !pl_rich_graph_ok(zc->bodies[b])) return 0;
+        }
+        if (nd && nd->t == IR_CATCH) {
+            bb_catch_state_t *zk = (bb_catch_state_t *)(intptr_t)nd->ival;
+            if (!zk || !pl_rich_graph_ok(zk->goal_g) || !pl_rich_graph_ok(zk->rec_g)) return 0;
         }
     }
     return 1;
@@ -959,6 +969,8 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n");
                 printf("  ret\n");
                 g_frame_active = 1;
+                extern int codegen_pl_catch_blocks(IR_graph_t * main_g, FILE * out);
+                int rcc = codegen_pl_catch_blocks(pl_main, stdout);
                 int rcp = codegen_clause_dispatch(stdout);
                 extern IR_graph_t *g_emit_cfg;
                 IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = pl_main;
@@ -967,7 +979,7 @@ int main(int argc, char **argv)
                 g_frame_active = 0;
                 xa_emit_strtab_rodata();
                 fflush(stdout);
-                return (rcp || rcm) ? 1 : 0;
+                return (rcc || rcp || rcm) ? 1 : 0;
             }
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
