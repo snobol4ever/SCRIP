@@ -1304,9 +1304,10 @@ static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    EMIT_PAIR_RESET();
-    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+    int sa = bb_slot_alloc16(pBB);
+    g_emit.op_sa  = sa;
+    g_subject_slot = sa;
+    FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
@@ -1330,16 +1331,27 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         fprintf(stderr, "[SBB] FATAL flat_drive_match: IR_PAT_MATCH has no element in operand_aux\n");
         abort();
     }
+    if (g_subject_slot < 0) {
+        fprintf(stderr, "[SBB] FATAL flat_drive_match: g_subject_slot unset — a SUBJECT box must precede MATCH in the chain\n");
+        abort();
+    }
     int id = g_flat_node_id++;
-    bb_label_t *elem_entry = emit_label_alloc("smatch%d_elem", id);
-    bb_label_t *match_adv  = emit_label_alloc("smatch%d_adv",  id);
-    bb_label_t *elem_β     = emit_label_alloc("smatch%d_elemb", id);
-    g_match_elem_p      = elem_entry; g_match_elem_lbl    = elem_entry->name;
-    g_match_advance_p   = match_adv;  g_match_advance_lbl = match_adv->name;
-    EMIT_PAIR_RESET();
-    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
-    emit_label_define_bb(elem_entry);
+    bb_label_t *match_retry = emit_label_alloc("smatch%d_retry", id);
+    bb_label_t *match_adv   = emit_label_alloc("smatch%d_adv",   id);
+    bb_label_t *elem_β      = emit_label_alloc("smatch%d_elemb", id);
+    int st = bb_slot_alloc16(pBB);
+    g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
+    pBB->ival = 0;
+    FILL(pBB, match_retry, lbl_ω, lbl_β);
+    emit_label_define_bb(match_retry);
+    g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
+    pBB->ival = 1;
+    FILL(pBB, match_retry, lbl_ω, elem_β);
     walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
+    emit_label_define_bb(match_adv);
+    g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
+    pBB->ival = 2;
+    FILL(pBB, match_retry, lbl_ω, elem_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
@@ -2358,7 +2370,7 @@ bb_box_fn gvar_flat_chain_build(IR_graph_t *g) {
     gvar_chain_operand_refs(g);
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) { g_emit_cfg = save_cfg; return NULL; }
-    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0; g_subject_slot = -1;
     g_gvar_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_gvar_flat_chain_body(g->entry, "sno_flat");
@@ -2377,7 +2389,7 @@ int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     int has_ref = 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->t == IR_REF_INVARIANT) { has_ref = 1; break; }
     if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; gvar_chain_prebuild_children_text(g, out, prefix); }
     gvar_chain_operand_refs(g);
-    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0; g_subject_slot = -1;
     g_gvar_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_gvar_flat_chain_body(g->entry, prefix);

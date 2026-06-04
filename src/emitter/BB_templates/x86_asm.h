@@ -365,6 +365,13 @@ inline std::string x86_frame_inc64(int off) {
     std::string code; code += (char)0x49; code += (char)0xFF; code += x86_r12_modrm(0, off);
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" inc qword ptr ") + x86_frame_text_mem(off) + "\n");
 }
+inline std::string x86_load_mem64(const char * dst, const char * basebr) {
+    char rb[8]; int k = 0; for (const char * p = basebr; p && *p && k < 7; ++p) if (*p != '[' && *p != ']' && *p != ' ') rb[k++] = *p; rb[k] = 0;
+    int g = x86_rnum(dst), m = x86_rnum(rb);
+    uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
+    std::string code; code += (char)rex; code += (char)0x8B; code += (char)((0 << 6) | ((g & 7) << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", qword ptr [" + rb + "]\n");
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86(const char * mnem, const char * op1) {
     if (!strcmp(mnem, "push")) return x86_push(op1);
@@ -388,6 +395,7 @@ inline std::string x86(const char * mnem, x86_frame f, const char * reg) {
 }
 inline std::string x86(const char * mnem, const char * reg, x86_frame f) {
     if (!strcmp(mnem, "add")) return x86_frame_add_to_reg(reg, f.off);
+    if (!strcmp(mnem, "lea")) return x86_frame_lea(reg, f.off);
     return x86_frame_load(reg, f.off);
 }
 inline std::string x86(const char * mnem, x86_frame f, long imm) {
@@ -417,7 +425,7 @@ inline std::string x86(const char * mnem) {
     return std::string();
 }
 inline std::string x86(const char * mnem, const char * a, const char * b) {
-    if (!strcmp(mnem, "mov"))    return (a[0] == '[') ? x86_store_cursor_mirror() : x86_mov(a, b);
+    if (!strcmp(mnem, "mov"))    { if (a[0] == '[') return x86_store_cursor_mirror(); if (b[0] == '[') return x86_load_mem64(a, b); return x86_mov(a, b); }
     if (!strcmp(mnem, "add"))    return x86_add_rr(a, b);
     if (!strcmp(mnem, "sub"))    return x86_sub_rr(a, b);
     if (!strcmp(mnem, "imul"))   return x86_imul_rr(a, b);
