@@ -10,11 +10,12 @@ extern int g_descr_flat_chain;
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_to_str(IR_t * pBB) {
+    (void)pBB;
     if (!PLATFORM_X86) return std::string();
     if (!(g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0)) return std::string();
     int lo = _.op_sa, hi = _.op_sb, off = _.op_off, cur = _.op_off + 16;
-    int is_by = (pBB && pBB->t == IR_TO_BY);
-    int64_t by = (is_by && pBB->ival) ? pBB->ival : 1;
+    int is_by = (_.op_node_kind == (int) IR_TO_BY);
+    int64_t by = (is_by && _.op_ival) ? _.op_ival : 1;
     if (by <= 0) return std::string();
     std::string step = (by == 1) ? x86("inc", FRQ(cur)) : (x86("mov", "rax", FRQ(cur)) + x86("add", "rax", (long)by) + x86("mov", FRQ(cur), "rax"));
     return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
