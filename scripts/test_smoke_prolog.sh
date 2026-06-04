@@ -25,7 +25,7 @@ pl() {
     if [ "$a2" = "$expected" ]; then r2="m2 PASS"; P2=$((P2+1)); else r2="m2 FAIL"; F2=$((F2+1)); fi
 
     # mode 3 — --run (tracked; EXCISED until regrown)
-    local o3; o3=$(timeout 8 "$SCRIP" --run "$tmp" 2>&1 </dev/null)
+    local o3; o3=$(timeout 8 "$SCRIP" --run "$tmp" 2>/dev/null </dev/null)
     if echo "$o3" | grep -qE "$SMX_SIG"; then r3="m3 EXCISED"; X3=$((X3+1))
     elif [ "$o3" = "$expected" ];        then r3="m3 PASS";    P3=$((P3+1))
     else                                       r3="m3 FAIL";    F3=$((F3+1)); fi
