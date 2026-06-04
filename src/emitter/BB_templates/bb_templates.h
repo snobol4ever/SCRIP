@@ -17,6 +17,8 @@ void bb_pat_abort  (void);
 void bb_pat_fence  (void);
 void bb_pat_alt    (void);
 void bb_pat_cat    (void);
+void bb_subject    (void);
+void bb_match      (void);
 void bb_unify   (void);
 void bb_arith   (void);
 void bb_conj     (void);
