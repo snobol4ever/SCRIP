@@ -79,7 +79,7 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             return s;
         }
     }
-    if (lf->t == IR_CALL && (lf->dval == 2.0 || lf->dval == 3.0)) {
+    if (lf->t == IR_CALL && (lf->dval == 2.0 || lf->dval == 3.0 || lf->dval == 5.0)) {
         const char * nfn = lf->sval ? lf->sval : "";
         int nn = (int) lf->ival;
         IR_graph_t ** nsubs = (IR_graph_t **)(intptr_t) lf->counter;
@@ -308,7 +308,7 @@ static std::string bb_call_str(IR_t * pBB) {
     int64_t      narg = pBB->ival;
     IR_t       * a0   = pBB->α;
     if (g_descr_flat_chain && pBB->dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
-    if (g_gvar_flat_chain && pBB->dval == 2.0 && fn && !strcmp(fn, "DEFINE")) return bb_call_gvar_define_str(pBB);
+    if (g_gvar_flat_chain && pBB->dval == 5.0) return bb_call_gvar_define_str(pBB);
     if (g_gvar_flat_chain && (pBB->dval == 2.0 || pBB->dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
     if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && pBB->dval == 3.0) return bb_call_proc_staged_str(pBB);
     if (g_gvar_flat_chain && pBB->dval == 3.0 && fn && fn[0] && !rt_proc_is_registered(fn)) return bb_call_byname_str(pBB);

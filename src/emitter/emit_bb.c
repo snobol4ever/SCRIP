@@ -1786,7 +1786,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 FILL(nd, lbl_γ, lbl_ω, lbl_β);
             break;
         }
-        if (g_gvar_flat_chain && nd->dval == 2.0) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
+        if (g_gvar_flat_chain && (nd->dval == 2.0 || nd->dval == 5.0)) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
         if (g_gvar_flat_chain && nd->dval == 3.0) {
             IR_graph_t **csubs = (IR_graph_t **)(intptr_t)nd->counter;
             for (int ci = 0; ci < (int)nd->ival; ci++) if (csubs && csubs[ci] && csubs[ci]->entry) gvar_stmt_operand_refs(csubs[ci]->entry);
@@ -2207,7 +2207,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;
-    case IR_CALL:  return (n->dval == 2.0 || n->dval == 3.0) ? 0 : (int)n->ival;
+    case IR_CALL:  return (n->dval == 2.0 || n->dval == 3.0 || n->dval == 5.0) ? 0 : (int)n->ival;
     default:       return -1;
     }
 }

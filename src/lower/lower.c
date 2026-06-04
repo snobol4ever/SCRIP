@@ -910,7 +910,7 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
             IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
             call->sval = e->v.sval ? e->v.sval : "";
             call->ival = e->n;
-            call->dval = 2.0;
+            call->dval = (e->v.sval && !strcmp(e->v.sval, "DEFINE")) ? 5.0 : 2.0;
             if (e->n > 0) {
                 IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) e->n, sizeof(IR_graph_t *));
                 if (!blks) return NULL;
