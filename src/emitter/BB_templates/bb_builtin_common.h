@@ -46,6 +46,7 @@ extern int  rt_copy_term_terms(void *t0, void *t1);
 extern int  rt_nb_setval_term(void *key, void *val);
 extern int  rt_nb_getval_term(void *key, int kres, long ires, const char *sres);
 extern int  rt_aggregate_all_term(void *tmpl, void *goal, int kres, long ires, const char *sres);
+extern int  rt_aggregate_all_meta(void *tmpl, void *goal, void *result);
 extern int  rt_atom_concat(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
 extern int  rt_atom_chars_codes(int as_codes, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_atom_chars_codes_term(int as_codes, int k0, long i0, const char *s0, void *t1);

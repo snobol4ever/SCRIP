@@ -449,6 +449,10 @@ static int pl_rich_node_emittable(const IR_t *nd) {
             if (pl_findall_goal_graph_simple(fs->gcfg, fs->goal_node)) return pl_findall_goal_admissible(fs->goal_node);
             return pl_findall_goal_conj_admissible(fs->gcfg, fs->goal_node);
         }
+        if (!strcmp(fn,"nb_setval")||!strcmp(fn,"nb_getval"))
+            return nd->ival==2 && nd->α && nd->α->γ && pl_findall_term_buildable(nd->α) && pl_findall_term_buildable(nd->α->γ);
+        if (!strcmp(fn,"aggregate_all"))
+            return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ && pl_findall_term_buildable(nd->α) && pl_findall_term_buildable(nd->α->γ) && pl_findall_term_buildable(nd->α->γ->γ);
         if (!strcmp(fn,"plus")) return nd->ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
         if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;
         if (!strcmp(fn,"format")) return nd->α && (nd->ival==1 || nd->ival==2);
