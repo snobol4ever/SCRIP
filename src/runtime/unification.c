@@ -56,9 +56,27 @@ int rt_unify_var_var(int lslot, int rslot)
     return rt_unify_terms(lt, rt_);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_cells_init(void **cells, int n)
+{
+    for (int i = 0; i < n; i++) cells[i] = term_new_var(i);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_unify_cell_const(void *cell_term, int kind, long ival, const char *sval)
+{
+    return rt_unify_terms(cell_term, rt_node_to_term(kind, ival, sval, 0.0));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_write_cell(void *cell_term)
+{
+    extern void pl_write(Term *);
+    pl_write(term_deref((Term *)cell_term));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_trail_mark(void)
 {
     extern Trail g_resolve_trail;
+    extern void trail_init(Trail *t);
+    if (!g_resolve_trail.stack || g_resolve_trail.capacity <= 0) trail_init(&g_resolve_trail);
     return trail_mark(&g_resolve_trail);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

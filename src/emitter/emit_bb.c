@@ -419,6 +419,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     int i = 0;
     for (IR_t *g = pBB->α; g; g = g->γ) { gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); i++; }
     g_emit.op_sa = 0;
+    g_emit.op_ival = pBB->ival;
     FILL(pBB, (n > 0 ? gl[0] : land_γ), land_ω, lbl_β);
     i = 0;
     for (IR_t *g = pBB->α; g; g = g->γ) {
@@ -427,6 +428,8 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
         bb_label_t *g_β    = emit_label_alloc("gzq%d_g%d_β", id, i);
         g_emit.op_sval = (g->t == IR_DET_WRITE) ? g->sval : NULL;
         g_emit.op_ival = g->ival;
+        g_emit.op_sb   = (g->t == IR_DET_WRITE && g->α && g->α->t == IR_LOGICVAR) ? 1 : 0;
+        g_emit.op_off  = g_emit.op_sb ? (int)g->α->ival : 0;
         FILL(g, next_γ, land_ω, g_β);
         i++;
     }
@@ -684,7 +687,7 @@ void bb_prepare(IR_t *nd) {
         g_emit.bb_rk = (int)nd->β->t; g_emit.bb_ri = (int64_t)nd->β->ival;
         return;
     }
-    if (nd->t == IR_UNIFY) {
+    if (nd->t == IR_UNIFY || nd->t == IR_CELL_UNIFY) {
         if (!nd->α || !nd->β) return;
         g_emit.bb_lk = (int)nd->α->t; g_emit.bb_li = (int64_t)nd->α->ival;
         g_emit.bb_rk = (int)nd->β->t; g_emit.bb_ri = (int64_t)nd->β->ival;

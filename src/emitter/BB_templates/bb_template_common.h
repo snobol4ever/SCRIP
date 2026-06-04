@@ -21,3 +21,4 @@ void net_charset_class(FILE *out, int sid, int nid, const char *tag);
 void net_escape_ldstr(FILE *out, const char *s);
 void js_escape(FILE *out, const char *s);
 #define _ g_emit
+#define GZ_CELL_OFF(slot) (8 + 8 * (slot))

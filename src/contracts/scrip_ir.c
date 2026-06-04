@@ -77,6 +77,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_QUERY_FRAME] = "IR_QUERY_FRAME",
     [IR_DET_WRITE] = "IR_DET_WRITE",
     [IR_DET_NL] = "IR_DET_NL",
+    [IR_CELL_UNIFY] = "IR_CELL_UNIFY",
     [IR_TO] = "IR_TO",
     [IR_UPTO] = "IR_UPTO",
     [IR_ITERATE] = "IR_ITERATE",

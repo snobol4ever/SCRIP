@@ -28,7 +28,7 @@ cmp -s "$TMP/o2" "$TMP/o3" || fail "hello m2 vs m3 stdout differ"
 cmp -s "$TMP/o2" "$TMP/o4" || fail "hello m2 vs m4 stdout differ"
 printf 'hello\n' | cmp -s - "$TMP/o2" || fail "hello m2 output is not 'hello\\n'"
 
-printf ':- initialization(main).\nmain :- X = a, write(X), nl.\n' > "$TMP/neg.pl"
+printf ':- initialization(main).\nmain :- X = f(a), write(X), nl.\n' > "$TMP/neg.pl"
 "$SCRIP" --run "$TMP/neg.pl" </dev/null > "$TMP/n3" 2>"$TMP/ne3" || fail "neg m3 rc"
 grep -q "INTERP-FALLBACK" "$TMP/ne3" || fail "neg m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg.pl" > "$TMP/n.s" 2>/dev/null || fail "neg m4 compile rc"
