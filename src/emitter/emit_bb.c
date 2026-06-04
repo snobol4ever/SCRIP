@@ -1695,6 +1695,15 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_CALL: {
         IR_t *a0 = nd->α;
         if (g_descr_flat_chain) {
+            if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "pos")) {
+                IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
+                long sn = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_I) ? (long) sblks[0]->entry->ival : -1;
+                g_emit.op_sb  = (int) sn;
+                g_emit.op_sa  = -1;
+                g_emit.op_off = bb_slot_alloc16(nd);
+                FILL(nd, lbl_γ, lbl_ω, lbl_β);
+                break;
+            }
             if (nd->dval == 3.0 && (int)nd->ival > 0 && nd->sval && rt_proc_is_registered(nd->sval))
                 flat_drive_userproc(nd, lbl_γ, lbl_ω, lbl_β);
             else

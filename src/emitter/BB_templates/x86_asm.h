@@ -348,7 +348,8 @@ inline x86_f64 F64(double d) { return x86_f64{ d }; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_cmp_imm64(const char * reg, long imm) {
     int m = x86_rnum(reg);
-    std::string code; code += (char)0x48;
+    uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
+    std::string code; code += (char)rex;
     if (imm >= -128 && imm <= 127) { code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
     else                           { code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" cmp ") + reg + ", " + std::to_string(imm) + "\n");
