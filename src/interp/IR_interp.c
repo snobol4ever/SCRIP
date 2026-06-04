@@ -1142,6 +1142,63 @@ int rt_findall_term(void *goal_v, void *tmpl_v, void *result_v) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_aggregate_all_meta(void *tmpl_v, void *goal_v, void *result_v) {
+    extern Trail g_resolve_trail;
+    extern Term **g_resolve_env;
+    extern int g_resolve_cut_flag;
+    extern resolve_choice *g_resolve_cut_barrier;
+    Term *tmpl_d = tmpl_v ? term_deref((Term *)tmpl_v) : NULL;
+    if (!tmpl_d) return 0;
+    int mode_count = 0, mode_sum = 0, mode_max = 0, mode_min = 0;
+    if (tmpl_d->tag == TERM_ATOM) {
+        const char *fn2 = prolog_atom_name(tmpl_d->atom_id);
+        if (fn2 && strcmp(fn2, "count") == 0) mode_count = 1;
+    } else if (tmpl_d->tag == TERM_COMPOUND && tmpl_d->compound.arity == 1) {
+        const char *fn2 = prolog_atom_name(tmpl_d->compound.functor);
+        if      (fn2 && strcmp(fn2, "sum") == 0) mode_sum = 1;
+        else if (fn2 && strcmp(fn2, "max") == 0) mode_max = 1;
+        else if (fn2 && strcmp(fn2, "min") == 0) mode_min = 1;
+    }
+    if (!mode_count && !mode_sum && !mode_max && !mode_min) return 0;
+    Term **outer_env                 = g_resolve_env;
+    int outer_cut_flag               = g_resolve_cut_flag;
+    resolve_choice *outer_barrier    = g_resolve_cut_barrier;
+    int mark = trail_mark(&g_resolve_trail);
+    resolve_choice *entry_cp = resolve_cp_current();
+    int64_t acc_count = 0; double acc_sum = 0, acc_max = 0, acc_min = 0; int acc_first = 1;
+    void *mroot = (void *)0;
+    int ok = rt_meta_solve(goal_v, &mroot);
+    int fa_safety = 1 << 20;
+    while (ok && fa_safety-- > 0) {
+        acc_count++;
+        if (mode_sum || mode_max || mode_min) {
+            if (tmpl_d->tag == TERM_COMPOUND && tmpl_d->compound.arity == 1 && tmpl_d->compound.args[0]) {
+                Term *vt2 = term_deref(tmpl_d->compound.args[0]);
+                double v2 = (vt2 && vt2->tag == TERM_INT) ? (double)vt2->ival : (vt2 && vt2->tag == TERM_FLOAT) ? vt2->fval : 0.0;
+                if (mode_sum) acc_sum += v2;
+                if (mode_max && (acc_first || v2 > acc_max)) acc_max = v2;
+                if (mode_min && (acc_first || v2 < acc_min)) acc_min = v2;
+                acc_first = 0;
+            }
+        }
+        ok = rt_meta_redo(mroot);
+    }
+    resolve_cp_truncate(entry_cp);
+    trail_unwind(&g_resolve_trail, mark);
+    g_resolve_env         = outer_env;
+    g_resolve_cut_flag    = outer_cut_flag;
+    g_resolve_cut_barrier = outer_barrier;
+    Term *result_term = NULL;
+    if (mode_count)      result_term = term_new_int(acc_count);
+    else if (mode_sum)   result_term = (acc_sum == (int64_t)acc_sum) ? term_new_int((int64_t)acc_sum) : term_new_float(acc_sum);
+    else if (mode_max)   result_term = (acc_max == (int64_t)acc_max) ? term_new_int((int64_t)acc_max) : term_new_float(acc_max);
+    else if (mode_min)   result_term = (acc_min == (int64_t)acc_min) ? term_new_int((int64_t)acc_min) : term_new_float(acc_min);
+    if (!result_term) return 0;
+    int mark2 = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref((Term *)result_v), result_term, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark2); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_catch(void *zc_ptr) {
     extern Trail g_resolve_trail; extern Term **g_resolve_env;
     bb_catch_state_t *zc = (bb_catch_state_t *)zc_ptr;
