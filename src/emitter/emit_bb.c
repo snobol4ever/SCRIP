@@ -416,8 +416,9 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     int n = 0;
     for (IR_t *g = pBB->α; g; g = g->γ) n++;
     bb_label_t **gl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
+    bb_label_t **gb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     int i = 0;
-    for (IR_t *g = pBB->α; g; g = g->γ) { gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); i++; }
+    for (IR_t *g = pBB->α; g; g = g->γ) { gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); gb[i] = emit_label_alloc("gzq%d_g%d_β", id, i); i++; }
     g_emit.op_sa = 0;
     g_emit.op_ival = pBB->ival;
     FILL(pBB, (n > 0 ? gl[0] : land_γ), land_ω, lbl_β);
@@ -425,12 +426,11 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     for (IR_t *g = pBB->α; g; g = g->γ) {
         emit_label_define_bb(gl[i]);
         bb_label_t *next_γ = (i + 1 < n) ? gl[i + 1] : land_γ;
-        bb_label_t *g_β    = emit_label_alloc("gzq%d_g%d_β", id, i);
         g_emit.op_sval = (g->t == IR_DET_WRITE) ? g->sval : NULL;
         g_emit.op_ival = g->ival;
         g_emit.op_sb   = (g->t == IR_DET_WRITE && g->α && g->α->t == IR_LOGICVAR) ? 1 : 0;
         g_emit.op_off  = g_emit.op_sb ? (int)g->α->ival : 0;
-        FILL(g, next_γ, land_ω, g_β);
+        FILL(g, next_γ, (i == 0 ? land_ω : gb[i - 1]), gb[i]);
         i++;
     }
     g_emit.op_sa = 1;
@@ -710,6 +710,10 @@ void bb_prepare(IR_t *nd) {
         return;
     }
     if (nd->t == IR_CATCH) {
+        g_emit.bb_zn = (void *)nd;
+        return;
+    }
+    if (nd->t == IR_CELL_CHOICE) {
         g_emit.bb_zn = (void *)nd;
         return;
     }

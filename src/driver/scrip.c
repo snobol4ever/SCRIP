@@ -297,25 +297,7 @@ static IR_t * pl_gz_det_node(int kind) {
     nn->t = (IR_e)kind;
     return nn;
 }
-static int pl_gz_fact_inline(IR_t *gg, IR_t ***units_out, int *arity_out) {
-    bb_goal_state_t *zc = (bb_goal_state_t *)(intptr_t)gg->ival;
-    const char *fn = (zc && zc->callee) ? zc->callee : gg->sval;
-    if (!zc || !fn) return 0;
-    int ar = zc->arity;
-    if (ar < 0 || ar > 8) return 0;
-    if (ar > 0 && (!zc->args || zc->nargs < ar)) return 0;
-    for (int i = 0; i < ar; i++) {
-        IR_t *a = zc->args[i];
-        if (!a) return 0;
-        if (a->t == IR_LOGICVAR) { if ((int)a->ival < 0 || (int)a->ival >= 64) return 0; continue; }
-        if (a->t == IR_ATOM && a->sval) continue;
-        if (a->t == IR_LIT_I) continue;
-        return 0;
-    }
-    char key[256]; snprintf(key, sizeof key, "%s/%d", fn, ar);
-    Resolve_PredEntry_BB *e = resolve_bb_lookup(key, ar);
-    if (!e) return 0;
-    IR_graph_t *cg = bb_graph_of_pred(e);
+static int pl_gz_fact_clause_units(IR_graph_t *cg, int ar, IR_t ***units_out) {
     if (!cg || !cg->entry || !cg->all) return 0;
     for (int i = 0; i < cg->n; i++) {
         IR_t *nd = cg->all[i];
@@ -326,7 +308,7 @@ static int pl_gz_fact_inline(IR_t *gg, IR_t ***units_out, int *arity_out) {
     }
     if (ar == 0) {
         if (cg->entry->t != IR_SUCCEED) return 0;
-        *units_out = NULL; *arity_out = 0; return 1;
+        *units_out = NULL; return 1;
     }
     IR_t *gconj = NULL;
     for (int i = 0; i < cg->n; i++) if (cg->all[i] && cg->all[i]->t == IR_GCONJ) { if (gconj) return 0; gconj = cg->all[i]; }
@@ -341,8 +323,64 @@ static int pl_gz_fact_inline(IR_t *gg, IR_t ***units_out, int *arity_out) {
         if (u->β->t == IR_LIT_I) continue;
         return 0;
     }
-    *units_out = zs->goals; *arity_out = ar;
+    *units_out = zs->goals;
     return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int pl_gz_call_args_ok(bb_goal_state_t *zc, int ar) {
+    if (ar > 0 && (!zc->args || zc->nargs < ar)) return 0;
+    for (int i = 0; i < ar; i++) {
+        IR_t *a = zc->args[i];
+        if (!a) return 0;
+        if (a->t == IR_LOGICVAR) { if ((int)a->ival < 0 || (int)a->ival >= 64) return 0; continue; }
+        if (a->t == IR_ATOM && a->sval) continue;
+        if (a->t == IR_LIT_I) continue;
+        return 0;
+    }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * pl_gz_goal_callee(IR_t *gg, bb_goal_state_t **zc_out, int *ar_out) {
+    bb_goal_state_t *zc = (bb_goal_state_t *)(intptr_t)gg->ival;
+    const char *fn = (zc && zc->callee) ? zc->callee : gg->sval;
+    if (!zc || !fn) return NULL;
+    int ar = zc->arity;
+    if (ar < 0 || ar > 8) return NULL;
+    char key[256]; snprintf(key, sizeof key, "%s/%d", fn, ar);
+    Resolve_PredEntry_BB *e = resolve_bb_lookup(key, ar);
+    if (!e) return NULL;
+    *zc_out = zc; *ar_out = ar;
+    return bb_graph_of_pred(e);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int pl_gz_fact_inline(IR_t *gg, IR_t ***units_out, int *arity_out) {
+    bb_goal_state_t *zc = NULL; int ar = 0;
+    IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
+    if (!cg) return 0;
+    if (!pl_gz_call_args_ok(zc, ar)) return 0;
+    if (!pl_gz_fact_clause_units(cg, ar, units_out)) return 0;
+    *arity_out = ar;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
+    bb_goal_state_t *zc = NULL; int ar = 0;
+    IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
+    if (!cg || !cg->entry || cg->entry->t != IR_CHOICE) return NULL;
+    if (ar > 2) return NULL;
+    if (!pl_gz_call_args_ok(zc, ar)) return NULL;
+    bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)cg->entry->ival;
+    if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 4) return NULL;
+    pl_gz_choice_state_t *st = (pl_gz_choice_state_t *)GC_MALLOC(sizeof *st);
+    if (!st) return NULL;
+    st->nclauses = bc->nbodies; st->arity = ar; st->mark_slot = 0;
+    for (int j = 0; j < ar; j++) st->args[j] = zc->args[j];
+    for (int k = 0; k < bc->nbodies; k++) {
+        IR_t **units = NULL;
+        if (!pl_gz_fact_clause_units(bc->bodies[k], ar, &units)) return NULL;
+        for (int j = 0; j < ar; j++) st->consts[k][j] = units ? units[j]->β : NULL;
+    }
+    return st;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_gz_admit(IR_graph_t *g) {
@@ -352,7 +390,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
         if (nd->t == IR_GCONJ) { if (gconj) return NULL; gconj = nd; }
-        if (nd->t == IR_GOAL) { IR_t **uu = NULL; int aa = 0; if (!pl_gz_fact_inline(nd, &uu, &aa)) return NULL; }
+        if (nd->t == IR_GOAL) { IR_t **uu = NULL; int aa = 0; if (!pl_gz_fact_inline(nd, &uu, &aa) && !pl_gz_choice_inline(nd)) return NULL; }
         if (nd->t == IR_CHOICE || nd->t == IR_CUT ||
             nd->t == IR_DISJ || nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_ARITH ||
             nd->t == IR_STRUCT) return NULL;
@@ -374,22 +412,41 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         return NULL;
     }
     IR_t *head = NULL, *tail = NULL;
+    int cslot = g->nslots;
     for (int i = 0; i < ng; i++) {
         IR_t *gg = goals_buf[i];
         if (!gg) return NULL;
         if (gg->t == IR_SUCCEED) continue;
+        if (gg->t == IR_FAIL) {
+            IR_t *fnode = pl_gz_det_node(IR_FAIL);
+            if (!fnode) return NULL;
+            if (!head) head = fnode; else tail->γ = fnode;
+            tail = fnode;
+            continue;
+        }
         if (gg->t == IR_GOAL) {
             IR_t **units = NULL; int ar = 0;
-            if (!pl_gz_fact_inline(gg, &units, &ar)) return NULL;
-            bb_goal_state_t *zc = (bb_goal_state_t *)(intptr_t)gg->ival;
-            for (int ai = 0; ai < ar; ai++) {
-                IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY);
-                if (!cu) return NULL;
-                cu->α = zc->args[ai];
-                cu->β = units[ai]->β;
-                if (!head) head = cu; else tail->γ = cu;
-                tail = cu;
+            if (pl_gz_fact_inline(gg, &units, &ar)) {
+                bb_goal_state_t *zc = (bb_goal_state_t *)(intptr_t)gg->ival;
+                for (int ai = 0; ai < ar; ai++) {
+                    IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY);
+                    if (!cu) return NULL;
+                    cu->α = zc->args[ai];
+                    cu->β = units[ai]->β;
+                    if (!head) head = cu; else tail->γ = cu;
+                    tail = cu;
+                }
+                continue;
             }
+            pl_gz_choice_state_t *st = pl_gz_choice_inline(gg);
+            if (!st) return NULL;
+            if (cslot + 2 > 62) return NULL;
+            st->mark_slot = cslot; cslot += 2;
+            IR_t *cn = pl_gz_det_node(IR_CELL_CHOICE);
+            if (!cn) return NULL;
+            cn->ival = (int64_t)(intptr_t)st;
+            if (!head) head = cn; else tail->γ = cn;
+            tail = cn;
             continue;
         }
         IR_t *nn = NULL;
