@@ -409,6 +409,32 @@ int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
     return k;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    int id = g_flat_node_id++;
+    bb_label_t *land_γ = emit_label_alloc("gzq%d_γ", id);
+    bb_label_t *land_ω = emit_label_alloc("gzq%d_ω", id);
+    int n = 0;
+    for (IR_t *g = pBB->α; g; g = g->γ) n++;
+    bb_label_t **gl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
+    int i = 0;
+    for (IR_t *g = pBB->α; g; g = g->γ) { gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); i++; }
+    g_emit.op_sa = 0;
+    FILL(pBB, (n > 0 ? gl[0] : land_γ), land_ω, lbl_β);
+    i = 0;
+    for (IR_t *g = pBB->α; g; g = g->γ) {
+        emit_label_define_bb(gl[i]);
+        bb_label_t *next_γ = (i + 1 < n) ? gl[i + 1] : land_γ;
+        bb_label_t *g_β    = emit_label_alloc("gzq%d_g%d_β", id, i);
+        g_emit.op_sval = (g->t == IR_DET_WRITE) ? g->sval : NULL;
+        g_emit.op_ival = g->ival;
+        FILL(g, next_γ, land_ω, g_β);
+        i++;
+    }
+    g_emit.op_sa = 1;
+    FILL(pBB, land_γ, land_ω, lbl_β);
+    (void)lbl_γ; (void)lbl_ω;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_conj(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *goals[256];
     int n = pBB ? resolve_seq_goals_em(pBB, goals, 256) : 0;
@@ -1808,6 +1834,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PAT_ASSIGN_IMM:  flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_ASSIGN_COND: flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GCONJ:     flat_drive_conj(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_QUERY_FRAME: flat_drive_gz_query(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GOAL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CHOICE:     flat_drive_choice(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_DISJ:     flat_drive_disj(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -2645,6 +2672,38 @@ int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     g_gvar_flat_chain = 0;
     g_emit_cfg = save_cfg;
     return rc;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+bb_box_fn pl_gz_build(IR_t *gz_root) {
+    bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
+    if (!buf) return NULL;
+    g_flat_slot_count = 16; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    emitter_init_binary(buf, FLAT_BUF_MAX);
+    bb_label_t lbl_γ, lbl_ω, lbl_β;
+    emit_label_initf(&lbl_γ, "gz_main_γ");
+    emit_label_initf(&lbl_ω, "gz_main_ω");
+    emit_label_initf(&lbl_β, "gz_main_β");
+    walk_bb_flat(gz_root, &lbl_γ, &lbl_ω, &lbl_β);
+    int nbytes = emitter_end();
+    extern int bb_emit_overflow;
+    if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
+    bb_seal(buf, (size_t)nbytes);
+    bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
+    return (bb_box_fn)buf;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int pl_gz_codegen(IR_t *gz_root, FILE *out, const char *prefix) {
+    g_flat_slot_count = 16; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    emitter_init_text(out, TEXT_MODE_INVOCATION);
+    bb_label_t lbl_α, lbl_γ, lbl_ω, lbl_β;
+    emit_label_initf(&lbl_α, "%s_α", prefix);
+    emit_label_initf(&lbl_γ, "%s_gz_γ", prefix);
+    emit_label_initf(&lbl_ω, "%s_gz_ω", prefix);
+    emit_label_initf(&lbl_β, "%s_gz_β", prefix);
+    emit_label_define_bb(&lbl_α);
+    walk_bb_flat(gz_root, &lbl_γ, &lbl_ω, &lbl_β);
+    emitter_end();
+    return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn bb_build_flat(IR_t *nd) {

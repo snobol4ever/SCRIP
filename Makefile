@@ -162,6 +162,9 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_pat_span.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_break.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_pos.cpp \
+    $(SRC)/emitter/BB_templates/bb_query_frame.cpp \
+    $(SRC)/emitter/BB_templates/bb_det_write.cpp \
+    $(SRC)/emitter/BB_templates/bb_det_nl.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_tab.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_atp.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_len.cpp \
@@ -371,6 +374,9 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_span.cpp    -o $(OBJ)/bb_pat_span.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_break.cpp   -o $(OBJ)/bb_pat_break.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_pos.cpp          -o $(OBJ)/bb_pat_pos.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_query_frame.cpp     -o $(OBJ)/bb_query_frame.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_write.cpp        -o $(OBJ)/bb_det_write.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_nl.cpp           -o $(OBJ)/bb_det_nl.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_tab.cpp          -o $(OBJ)/bb_pat_tab.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_atp.cpp          -o $(OBJ)/bb_pat_atp.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_len.cpp          -o $(OBJ)/bb_pat_len.o
