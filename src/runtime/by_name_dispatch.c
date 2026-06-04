@@ -674,9 +674,9 @@ int scan_try_call_builtin(tree_t *call, DESCR_t *args, int nargs, DESCR_t *out)
         int depth = 0;
         while (p < end && p < slen) {
             unsigned char ch = (unsigned char)s[p];
+            if (depth == 0 && cset_has(c1, c1len, ch)) { *out = INTVAL(p + 1); return 1; }
             if (cset_has(c2, c2len, ch)) depth++;
-            else if (cset_has(c3, c3len, ch) && depth > 0) depth--;
-            else if (depth == 0 && cset_has(c1, c1len, ch)) { *out = INTVAL(p + 1); return 1; }
+            else if (cset_has(c3, c3len, ch)) { depth--; if (depth < 0) { *out = FAILDESCR; return 1; } }
             p++;
         }
         *out = FAILDESCR;
@@ -2707,6 +2707,25 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         int slen = (int)strlen(scan_subj);
         if (p0 + plen > slen || strncmp(scan_subj + p0, pat, plen) != 0) { *out = FAILDESCR; return 1; }
         scan_pos += plen; *out = INTVAL(scan_pos); return 1;
+    }
+    if (!strcmp(fn,"bal") && nargs >= 1 && scan_pos > 0) {
+        const char *c1; int c1len;
+        if (!cset_resolve(args[0], &c1, &c1len)) { *out = FAILDESCR; return 1; }
+        const char *c2 = "("; int c2len = 1;
+        const char *c3 = ")"; int c3len = 1;
+        if (nargs >= 2) { const char *v; int vlen; if (cset_resolve(args[1], &v, &vlen) && vlen > 0) { c2 = v; c2len = vlen; } }
+        if (nargs >= 3) { const char *v; int vlen; if (cset_resolve(args[2], &v, &vlen) && vlen > 0) { c3 = v; c3len = vlen; } }
+        const char *s = scan_subj ? scan_subj : ""; int slen = (int)strlen(s);
+        int p = scan_pos - 1; long long cnt = 0;
+        while (p < slen) {
+            unsigned char ch = (unsigned char)s[p];
+            if (cnt == 0 && cset_has(c1, c1len, ch)) { *out = INTVAL(p + 1); return 1; }
+            if (cset_has(c2, c2len, ch)) cnt++;
+            else if (cset_has(c3, c3len, ch)) { cnt--; if (cnt < 0) { *out = FAILDESCR; return 1; } }
+            p++;
+        }
+        *out = FAILDESCR;
+        return 1;
     }
     if (!strcmp(fn,"find") && nargs >= 1 && scan_pos > 0) {
         const char *needle = VARVAL_fn(args[0]); if (!needle) { *out = FAILDESCR; return 1; }
