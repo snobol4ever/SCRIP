@@ -70,7 +70,8 @@ static std::string bb_every_str(IR_t * pBB) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_every(IR_t * pBB) {
-    if (MEDIUM_BINARY) { bb_emit_x86(bb_every_flat_str()); return; }
+    extern int g_descr_flat_chain;
+    if (MEDIUM_BINARY || g_descr_flat_chain) { bb_emit_x86(bb_every_flat_str()); return; }
     std::string s = bb_every_str(pBB);
     if (!s.empty()) emit_text_n(s.data(), s.size());
 }

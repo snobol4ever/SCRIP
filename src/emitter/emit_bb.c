@@ -1070,6 +1070,15 @@ static int icn_arg_entry_terminal(IR_t *ae) {
     return (ae && (!ae->γ || ae->γ->t == IR_SUCCEED)) ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int ir_is_generator_kind(IR_e t);
+static int icn_subchain_node_is_generator(IR_t *nd) {
+    extern int g_icn_scan_regs_live;
+    if (!nd) return 0;
+    if (ir_is_generator_kind(nd->t)) return 1;
+    if (g_icn_scan_regs_live && nd->t == IR_CALL && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "upto")) return 1;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
@@ -1084,7 +1093,9 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         nodes[n++] = c;
         if (c->γ && qt < CH_MAX) queue[qt++] = c->γ;
         if ((c->t == IR_BINOP || c->t == IR_BINOP_GEN) && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
+        { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live && c->t == IR_CALL && c->ω && qt < CH_MAX) queue[qt++] = c->ω; }
     }
+    { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live) for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i]; }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     int id = g_flat_node_id++;
@@ -1096,7 +1107,7 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = succ;
         bb_label_t *node_ω = fail;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ) { node_γ = lbls[k]; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ) { node_γ = (i > k && icn_subchain_node_is_generator(nodes[k])) ? betas[k] : lbls[k]; break; }
         if (nodes[i]->γ == NULL || nodes[i]->γ->t == IR_SUCCEED) node_γ = succ;
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω) { node_ω = lbls[k]; omega_resolved = 1; break; }
@@ -1791,6 +1802,17 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 int litok = (ae && ae->t == IR_LIT_I && icn_arg_entry_terminal(ae));
                 g_emit.op_sb  = litok ? (int) ae->ival : 0;
                 g_emit.op_sa  = litok ? 1 : -1;
+                g_emit.op_off = bb_slot_alloc16(nd);
+                (void) bb_slot_claim(8);
+                FILL(nd, lbl_γ, lbl_ω, lbl_β);
+                break;
+            }
+            if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "upto")) {
+                IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
+                const char *cs = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? sblks[0]->entry->sval : (const char *)0;
+                g_emit.op_name1 = cs;
+                g_emit.op_sa  = -1;
+                g_emit.op_sb  = -1;
                 g_emit.op_off = bb_slot_alloc16(nd);
                 (void) bb_slot_claim(8);
                 FILL(nd, lbl_γ, lbl_ω, lbl_β);
