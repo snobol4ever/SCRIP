@@ -407,7 +407,7 @@ void rt_frame_leave(void)
 #define PROC_FRAME_QWORDS 512
 #define PROC_FRAME_DEPTH  4096
 #define CALL_ARGS_MAX     64
-typedef struct { const char *name; bb_box_fn fn; void *entry; const char **pnames; int nparams; } rt_proc_t;
+typedef struct { const char *name; bb_box_fn fn; void *entry; const char **pnames; int nparams; int frame_nslots; int decl_level; } rt_proc_t;
 static rt_proc_t g_rt_gen_procs[RT_PROC_MAX];
 static int           g_rt_gen_proc_count = 0;
 static bb_box_fn (*g_rt_gen_proc_builder)(void *entry) = NULL;
@@ -425,7 +425,7 @@ void rt_proc_register(const char *name, void *entry, const char **pnames, int np
     }
     if (g_rt_gen_proc_count >= RT_PROC_MAX) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = NULL; p->entry = entry; p->pnames = pnames; p->nparams = nparams;
+    p->name = name; p->fn = NULL; p->entry = entry; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_reset(void) { g_rt_gen_proc_count = 0; }
@@ -443,7 +443,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].fn = fn; return; }
     if (g_rt_gen_proc_count >= RT_PROC_MAX) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = fn; p->entry = NULL; p->pnames = NULL; p->nparams = 0;
+    p->name = name; p->fn = fn; p->entry = NULL; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
@@ -527,6 +527,54 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     rt_name_save_push(&name, (DESCR_t *)0, 0, 1);
     void *fb = (void *)&g_proc_frame_nest_arena[g_proc_frame_nest_depth * PROC_FRAME_NEST_QWORDS];
     g_proc_frame_nest_depth++;
+    DESCR_t fret = p->fn(fb, 0);
+    g_proc_frame_nest_depth--;
+    DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : NV_GET_fn(name);
+    rt_name_restore(save_base);
+    return result;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static rt_proc_t * rt_proc_find(const char *name)
+{
+    if (!name) return (rt_proc_t *)0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return &g_rt_gen_procs[i];
+    return (rt_proc_t *)0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_frame(const char *name, int nslots, int decl_level)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    if (p) { p->frame_nslots = nslots; p->decl_level = decl_level; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_frame_nslots(const char *name)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    return p ? p->frame_nslots : -1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_decl_level(const char *name)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    return p ? p->decl_level : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *sl)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    if (!p || !p->fn) return FAILDESCR;
+    int np = p->nparams;
+    int ns = (p->frame_nslots > np) ? p->frame_nslots : np;
+    if (g_name_save_top + 1 > NAME_SAVE_MAX) return FAILDESCR;
+    if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
+    int save_base = g_name_save_top;
+    rt_name_save_push(&name, (DESCR_t *)0, 0, 1);
+    void *fb = (void *)&g_proc_frame_nest_arena[g_proc_frame_nest_depth * PROC_FRAME_NEST_QWORDS];
+    g_proc_frame_nest_depth++;
+    ((void **)fb)[0] = sl;
+    DESCR_t *slots = (DESCR_t *)((char *)fb + 16);
+    for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
     DESCR_t fret = p->fn(fb, 0);
     g_proc_frame_nest_depth--;
     DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : NV_GET_fn(name);

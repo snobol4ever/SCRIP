@@ -1962,6 +1962,21 @@ IR_t * IR_interp_node(IR_t * bb) {
         bb->value = val;
         return bb->γ;
     }
+    case IR_VAR_FRAME: {
+        GenFrame *f = (frame_depth > 0) ? &FRAME : NULL;
+        for (int h = (int) bb->dval; h > 0 && f; h--) f = f->static_link;
+        bb->value = pas_slot_read(f, (int) bb->ival);
+        return bb->γ;
+    }
+    case IR_ASSIGN_FRAME: {
+        DESCR_t val = ag_ring_peek(g_current_cfg, 0);
+        if (IS_FAIL_fn(val)) { bb->value = FAILDESCR; return bb->ω; }
+        GenFrame *f = (frame_depth > 0) ? &FRAME : NULL;
+        for (int h = (int) bb->dval; h > 0 && f; h--) f = f->static_link;
+        pas_slot_write(f, (int) bb->ival, val);
+        bb->value = val;
+        return bb->γ;
+    }
     case IR_SWAP: {
         if (!bb->α || !bb->β) { bb->value = FAILDESCR; return bb->ω; }
         IR_t *l_var = bb->α;
@@ -2114,7 +2129,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                     if (k >= np) { _f->env[slot] = NULVCL; continue; }
                     _f->env[slot] = (k < nargs) ? args[k] : NULVCL;
                     if ((bmask & (1ull << k)) && k < nargs && call_blks && call_blks[k] && call_blks[k]->entry
-                        && call_blks[k]->entry->t == IR_VAR && call_blks[k]->entry->sval) {
+                        && (call_blks[k]->entry->t == IR_VAR || call_blks[k]->entry->t == IR_VAR_FRAME) && call_blks[k]->entry->sval) {
                         GenFrame * hf; int hs; const char * hn;
                         pas_loc_of_name(caller, call_blks[k]->entry->sval, &hf, &hs, &hn);
                         _f->slotref[slot].is_ref = 1; _f->slotref[slot].frame = hf; _f->slotref[slot].slot = hs; _f->slotref[slot].name = hn;

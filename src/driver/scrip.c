@@ -1065,7 +1065,11 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                { extern void rt_proc_set_frame(const char *, int, int); extern int g_emit_frame_caller_dl;
+                  if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
+                  g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 gvar_flat_chain_build_text(s2->bbp.table[idx], stdout, pname);
+                { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 if (n_procs < 64) sno_pidx_buf[n_procs++] = _pi;
             }
             if (n_procs > 0) {
@@ -1091,6 +1095,13 @@ int main(int argc, char **argv)
                     printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
                     printf("  lea rsi, [rip + %s_\xce\xb1]\n", pe->name);
                     printf("  call rt_proc_set_fn@PLT\n");
+                    int _fidx = pe->bb_idx;
+                    if (_fidx >= 0 && _fidx < s2->bbp.count && s2->bbp.table[_fidx] && s2->bbp.table[_fidx]->nslots > 0) {
+                        printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
+                        printf("  mov esi, %d\n", s2->bbp.table[_fidx]->nslots - 1);
+                        printf("  mov edx, %d\n", pe->decl_level);
+                        printf("  call rt_proc_set_frame@PLT\n");
+                    }
                 }
                 printf("  pop rbp\n  ret\n");
             }
@@ -1339,7 +1350,11 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                { extern void rt_proc_set_frame(const char *, int, int); extern int g_emit_frame_caller_dl;
+                  if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
+                  g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 bb_box_fn pfn = gvar_flat_chain_build(s2->bbp.table[idx]);
+                { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
             g_frame_active = 0;
