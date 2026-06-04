@@ -1,5 +1,6 @@
 #include <string>
 #include "emit_str.h"
+#include "../BB_templates/x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 #include "../emit_bb.h"
@@ -10,7 +11,7 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_ENTRY_DISPATCH");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             if (!g_is_text) return std::string();
@@ -36,7 +37,7 @@ static void xa_emit_one(const std::string & out, int site, bb_label_t * lbl, boo
 static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
     out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_FLAT_PROLOGUE");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_PROLOGUE");
         if (MEDIUM_BINARY) {
             extern int g_frame_active;
             if (g_frame_active) {
@@ -80,7 +81,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
 static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
     out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_FLAT_EPILOGUE");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_EPILOGUE");
         if (MEDIUM_BINARY) {
             extern int g_frame_active;
             std::string unwind = g_frame_active ? bytes(2, "\x41\x5C") : bytes(4, "\x48\x83\xC4\x08");
@@ -154,7 +155,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_data_section_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_FLAT_DATA_SECTION");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_DATA_SECTION");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             if (!g_flat_data_any) return std::string();

@@ -18,8 +18,8 @@ static std::string bb_pat_atp_str() {
     if (PLATFORM_X86) {
         if (!atp_varname()[0]) return std::string();
         return IF(MEDIUM_TEXT,
-                   s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment(emit_fmt("# BOX ATP(@%s)  [REG-3 δ=r14, x86() self-encoding]", atp_varname())))
+                   x86("label", _.lbl_α)
+                 + x86("comment", emit_fmt("BOX ATP(@%s)  [REG-3 δ=r14, x86() self-encoding]", atp_varname())))
              + x86("mov",  "esi", "r14d")
              + x86("lea",  "rdi", "[rip + __]", atp_var_addr(), atp_label())
              + x86("push", "r10")

@@ -22,8 +22,8 @@ static std::string bb_scan_find_str() {
               + x86("cmp64", "rsi", (long)(unsigned char)cs[i])
               + x86("jne", L(1));
     }
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                         + s_comment("# BOX ICN IR_SCAN_FIND find(s1) [ICN-SCAN-10 fstranl.r function{*} SCAN GENERATOR: cursor[r12+cur]<-δ; L0: cursor>Δ-m->ω; unrolled literal byte-compare s[cursor+i]==s1[i] (miss->L1 advance); all match -> {DT_I,cursor+1}->slot->γ (cursor persists); L1: cursor++ ->L0; β RE-PUMPS: cursor++ ->L0]"))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", "BOX ICN IR_SCAN_FIND find(s1) [ICN-SCAN-10 fstranl.r function{*} SCAN GENERATOR: cursor[r12+cur]<-δ; L0: cursor>Δ-m->ω; unrolled literal byte-compare s[cursor+i]==s1[i] (miss->L1 advance); all match -> {DT_I,cursor+1}->slot->γ (cursor persists); L1: cursor++ ->L0; β RE-PUMPS: cursor++ ->L0]"))
          + x86("mov", FRQ(cur), "r14")
          + x86("def", L(0))
          + x86("mov", "rax", FRQ(cur))

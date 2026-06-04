@@ -20,8 +20,8 @@ static std::string bb_pat_notany_str() {
     int nid = _.nid; (void)nid;
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
-                   s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment("# BOX NOTANY()  [REG-2 Σ=r13 δ=r14 Δ=r15, x86() self-encoding]"))
+                   x86("label", _.lbl_α)
+                 + x86("comment", "BOX NOTANY()  [REG-2 Σ=r13 δ=r14 Δ=r15, x86() self-encoding]"))
              + x86("mov",    "eax", "r14d")
              + x86("cmp",    "eax", "r15d")
              + x86("jge",    PORT_OMEGA)
@@ -40,101 +40,6 @@ static std::string bb_pat_notany_str() {
              + x86("jmp",    PORT_OMEGA);
     }
 /*--------------------------------------------------------------------------------------------------------------------*/
-    if (PLATFORM_JVM) {
-        return jvm_class_hdr_str("notany")
-             + s_directive(".field private final chars Ljava/lang/String;")
-             + jvm_init_ms_str_str("notany", "chars")
-             + s_directive(".method public α()Lbb/bb_box$Spec;")
-             + s_directive(".limit stack 5")
-             + s_directive(".limit locals 2")
-             + s_1asm("aload_0")
-             + s_2asm("getfield", "bb/bb_notany/ms Lbb/bb_box$MatchState;")
-             + s_2asm("getfield", "bb/bb_box$MatchState/delta I")
-             + s_1asm("aload_0")
-             + s_2asm("getfield", "bb/bb_notany/ms Lbb/bb_box$MatchState;")
-             + s_2asm("getfield", "bb/bb_box$MatchState/ω I")
-             + s_1asm("if_icmpge " + emit_fmt("notany_%d_%d", 0, _.nid) + "_ω")
-             + s_1asm("aload_0")
-             + s_2asm("getfield", "bb/bb_notany/chars Ljava/lang/String;")
-             + s_1asm("aload_0")
-             + s_2asm("getfield", "bb/bb_notany/ms Lbb/bb_box$MatchState;")
-             + s_2asm("getfield", "bb/bb_box$MatchState/sigma Ljava/lang/String;")
-             + s_1asm("aload_0")
-             + s_2asm("getfield", "bb/bb_notany/ms Lbb/bb_box$MatchState;")
-             + s_2asm("getfield", "bb/bb_box$MatchState/delta I")
-             + s_2asm("invokevirtual", "java/lang/String/charAt(I)C")
-             + s_2asm("invokevirtual", "java/lang/String/indexOf(I)I")
-             + s_1asm(std::string("ifge") + " " + emit_fmt("notany_%d_%d", 0, _.nid) + "_ω")
-             + s_1asm("aload_0")
-             + s_2asm("getfield", "bb/bb_notany/ms Lbb/bb_box$MatchState;")
-             + s_2asm("getfield", "bb/bb_box$MatchState/delta I")
-             + s_1asm("istore_1")
-             + s_1asm("aload_0")
-             + s_2asm("getfield", "bb/bb_notany/ms Lbb/bb_box$MatchState;")
-             + s_1asm("dup")
-             + s_2asm("getfield", "bb/bb_box$MatchState/delta I")
-             + s_1asm("iconst_1")
-             + s_1asm("iadd")
-             + s_2asm("putfield", "bb/bb_box$MatchState/delta I")
-             + s_2asm("new", "bb/bb_box$Spec")
-             + s_1asm("dup")
-             + s_1asm("iload_1")
-             + s_1asm("iconst_1")
-             + s_2asm("invokespecial", "bb/bb_box$Spec/<init>(II)V")
-             + s_1asm("areturn")
-             + s_L1asm(emit_fmt("notany_%d_%d", 0, _.nid) + "_ω:", "aconst_null")
-             + s_1asm("areturn")
-             + s_directive(".end method")
-             + s_directive(".method public β()Lbb/bb_box$Spec;")
-             + s_directive(".limit stack 4")
-             + s_directive(".limit locals 1")
-             + s_1asm("aload_0")
-             + s_2asm("getfield", "bb/bb_notany/ms Lbb/bb_box$MatchState;")
-             + s_1asm("dup")
-             + s_2asm("getfield", "bb/bb_box$MatchState/delta I")
-             + s_1asm("iconst_1")
-             + s_1asm("isub")
-             + s_2asm("putfield", "bb/bb_box$MatchState/delta I")
-             + s_1asm("aconst_null")
-             + s_1asm("areturn")
-             + s_directive(".end method");
-    }
-    if (PLATFORM_JS) {
-        return emit_fmt("function make_pat_%d_%d(ms) { const chars = ", _.op_ival, _.nid)
-             + js_escape_string_str(_.op_sval)
-             + "; let self = { succ: null, fail: null,\n"
-               "α() { if (ms.delta >= ms.omega || chars.indexOf(ms.sigma[ms.delta]) >= 0) { self.fail.α(); return"
-                   "; } const r = ms.sigma.slice(ms.delta, ms.delta + 1); ms.delta++; self.succ.α(); return r; },\n"
-               "β() { ms.delta--; self.fail.α(); }\n"
-               "}; return self; }\n";
-    }
-    if (PLATFORM_NET) {
-        return net_charset_class_str(0, _.nid, "NOTANY")
-             + net_α_hdr_str()
-             + s_2asm(".maxstack", "3")
-             + s_2asm(".locals", "init (valuetype [boxes]Snobol4.Runtime.Boxes.Spec V_r)")
-             + s_1asm("ldarg.1") + net_cursor_load_str()
-             + s_1asm(emit_fmt("ldfld      string pat_%d_%d::_chars", 0, _.nid))
-             + s_2asm("callvirt", "instance bool [boxes]Snobol4.Runtime.Boxes.MatchState::CharInSet(int32, string)")
-             + s_1asm(emit_fmt("brtrue     NOTANY_%d_%d_A_FAIL", 0, _.nid))
-             + net_cursor_load_str() + s_1asm("ldc.i4.1") + net_spec_of_str() + s_1asm("stloc.0")
-             + s_1asm("ldarg.1") + s_1asm("ldarg.1") + net_cursor_load_str()
-             + s_1asm("ldc.i4.1") + s_1asm("add")
-             + s_2asm("stfld", "int32 [boxes]Snobol4.Runtime.Boxes.MatchState::Cursor")
-             + s_1asm("ldloc.0") + s_1asm("ret")
-             + s_directive(emit_fmt("  NOTANY_%d_%d_A_FAIL:", 0, _.nid))
-             + net_fail_ret_str() + s_1asm("}")
-             + net_β_hdr_str()
-             + s_2asm(".maxstack", "3")
-             + s_1asm("ldarg.1") + s_1asm("ldarg.1") + net_cursor_load_str()
-             + s_1asm("ldc.i4.1") + s_1asm("sub")
-             + s_2asm("stfld", "int32 [boxes]Snobol4.Runtime.Boxes.MatchState::Cursor")
-             + net_fail_ret_str() + s_1asm("}")
-             + s_1asm("}")
-             + net_escape_ldstr_str(_.op_sval ? _.op_sval : "")
-             + s_1asm(emit_fmt("newobj     instance void pat_%d_%d::.ctor(string)", 0, _.nid));
-    }
-    if (PLATFORM_WASM) { return "          (call $bb_notany_new)\n"; }
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

@@ -1,19 +1,19 @@
 #include "bb_builtin_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string agg_build_term(IR_t *a) {
-    if (!a) return s_2asm("xor", "eax, eax");
+    if (!a) return x86("ins2", "xor", "eax, eax");
     if (a->t == IR_STRUCT) return emit_build_compound_term(a);
     int kind = (int)a->t;
     long ival = (long)a->ival;
     const char *sval = a->sval;
     char slbl[64]; slbl[0] = 0;
     if (sval && *sval) strtab_label(slbl, sizeof slbl, sval);
-    return s_2asm("mov", emit_fmt("edi, %d", kind))
-         + s_2asm("mov", emit_fmt("rsi, %ld", ival))
-         + (slbl[0] ? s_2asm("lea", emit_fmt("rdx, [rip + %s]", slbl))
-                    : s_2asm("xor", "edx, edx"))
-         + s_2asm("xorps", "xmm0, xmm0")
-         + s_2asm("call", "rt_node_to_term@PLT");
+    return x86("ins2", "mov", emit_fmt("edi, %d", kind))
+         + x86("ins2", "mov", emit_fmt("rsi, %ld", ival))
+         + (slbl[0] ? x86("ins2", "lea", emit_fmt("rdx, [rip + %s]", slbl))
+                    : x86("ins2", "xor", "edx, edx"))
+         + x86("ins2", "xorps", "xmm0, xmm0")
+         + x86("ins2", "call", "rt_node_to_term@PLT");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::string &hdr) {
@@ -75,19 +75,19 @@ std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::st
         if (strcmp(fn, "aggregate_all") == 0 && pBB->α && pBB->α->γ && pBB->α->γ->γ && _.op_ival == 3) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             return hdr
-                 + agg_build_term(a0)                       + s_2asm("push", "rax")
-                 + agg_build_term(a1)                       + s_2asm("push", "rax")
-                 + agg_build_term(a2)                       + s_2asm("push", "rax")
-                 + s_2asm("sub", "rsp, 8")
-                 + s_2asm("mov", "rdx, [rsp + 8]")
-                 + s_2asm("mov", "rsi, [rsp + 16]")
-                 + s_2asm("mov", "rdi, [rsp + 24]")
-                 + s_2asm("call", "rt_aggregate_all_meta@PLT")
-                 + s_2asm("add", "rsp, 32")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je",   _.lbl_ω)
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + agg_build_term(a0)                       + x86("ins2", "push", "rax")
+                 + agg_build_term(a1)                       + x86("ins2", "push", "rax")
+                 + agg_build_term(a2)                       + x86("ins2", "push", "rax")
+                 + x86("ins2", "sub", "rsp, 8")
+                 + x86("ins2", "mov", "rdx, [rsp + 8]")
+                 + x86("ins2", "mov", "rsi, [rsp + 16]")
+                 + x86("ins2", "mov", "rdi, [rsp + 24]")
+                 + x86("ins2", "call", "rt_aggregate_all_meta@PLT")
+                 + x86("ins2", "add", "rsp, 32")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je",   _.lbl_ω)
+                 + x86("ins2", "jmp",  _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if ((strcmp(fn, "nb_setval") == 0 || strcmp(fn, "nb_getval") == 0)
             && pBB->α && pBB->α->γ && _.op_ival == 2) {
@@ -95,17 +95,17 @@ std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::st
             IR_t *a0 = pBB->α, *a1 = a0->γ;
             if (is_set) {
                 return hdr
-                     + agg_build_term(a0)                   + s_2asm("push", "rax")
-                     + s_2asm("sub", "rsp, 8")
+                     + agg_build_term(a0)                   + x86("ins2", "push", "rax")
+                     + x86("ins2", "sub", "rsp, 8")
                      + agg_build_term(a1)
-                     + s_2asm("mov", "rsi, rax")
-                     + s_2asm("mov", "rdi, [rsp + 8]")
-                     + s_2asm("call", "rt_nb_setval_term@PLT")
-                     + s_2asm("add", "rsp, 16")
-                     + s_2asm("test", "eax, eax")
-                     + s_2asm("je",   _.lbl_ω)
-                     + s_2asm("jmp",  _.lbl_γ)
-                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("ins2", "mov", "rsi, rax")
+                     + x86("ins2", "mov", "rdi, [rsp + 8]")
+                     + x86("ins2", "call", "rt_nb_setval_term@PLT")
+                     + x86("ins2", "add", "rsp, 16")
+                     + x86("ins2", "test", "eax, eax")
+                     + x86("ins2", "je",   _.lbl_ω)
+                     + x86("ins2", "jmp",  _.lbl_γ)
+                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
             int  kres = (int)a1->t;
             long ires = (long)a1->ival;
@@ -114,16 +114,16 @@ std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::st
             if (sres && *sres) strtab_label(slbl, sizeof slbl, sres);
             return hdr
                  + agg_build_term(a0)
-                 + s_2asm("mov", "rdi, rax")
-                 + s_2asm("mov", emit_fmt("esi, %d", kres))
-                 + s_2asm("mov", emit_fmt("rdx, %ld", ires))
-                 + (slbl[0] ? s_2asm("lea", emit_fmt("rcx, [rip + %s]", slbl))
-                            : s_2asm("xor", "ecx, ecx"))
-                 + s_2asm("call", "rt_nb_getval_term@PLT")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je",   _.lbl_ω)
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "mov", "rdi, rax")
+                 + x86("ins2", "mov", emit_fmt("esi, %d", kres))
+                 + x86("ins2", "mov", emit_fmt("rdx, %ld", ires))
+                 + (slbl[0] ? x86("ins2", "lea", emit_fmt("rcx, [rip + %s]", slbl))
+                            : x86("ins2", "xor", "ecx, ecx"))
+                 + x86("ins2", "call", "rt_nb_getval_term@PLT")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je",   _.lbl_ω)
+                 + x86("ins2", "jmp",  _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
     }
     return std::string();

@@ -11,8 +11,8 @@ static std::string bb_scan_pos_str() {
     if (!PLATFORM_X86) return std::string();
     int off = _.op_off; long n = (long) _.op_sb;
     if (!(g_descr_flat_chain && off >= 0 && n >= 1)) return std::string();
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                         + s_comment("# BOX ICN IR_SCAN_POS pos(n) [ICN-SCAN-3 fscan.r: succeed iff &pos==n i.e. r14==n-1; {DT_I,n}->slot->γ; single-shot β->ω]"))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", "BOX ICN IR_SCAN_POS pos(n) [ICN-SCAN-3 fscan.r: succeed iff &pos==n i.e. r14==n-1; {DT_I,n}->slot->γ; single-shot β->ω]"))
          + x86("cmp64", "r14", (long)(n - 1))
          + x86("jne", PORT_OMEGA)
          + x86("mov", FRQ(off),     (long)DT_I)

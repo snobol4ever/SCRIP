@@ -98,8 +98,8 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
             }
     }
     if (MEDIUM_TEXT) {
-    std::string succ_back = s_2asm("jmp", _.lbl_γ)
-                          + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
+    std::string succ_back = x86("ins2", "jmp", _.lbl_γ)
+                          + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
         if (strcmp(fn,"functor")==0 && _.op_ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
@@ -112,22 +112,22 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
             if (a0->t == IR_STRUCT) {
                 /* a0 compound-literal path: rt_functor_term(t0, k1,i1,s1, k2,i2,s2) */
                 return hdr
-                     + s_2asm("sub", "rsp, 16")
+                     + x86("ins2", "sub", "rsp, 16")
                      + emit_build_compound_term(a0)
-                     + s_2asm("mov", "rdi, rax")
-                     + s_2asm("mov esi,",  emit_fmt("%d",  k1))
-                     + s_2asm("mov rdx,",  emit_fmt("%ld", i1))
-                     + (s1lbl[0] ? s_2asm("lea rcx,", emit_fmt("[rip + %s]", s1lbl)) : s_2asm("xor", "ecx, ecx"))
-                     + s_2asm("mov r8d,",  emit_fmt("%d",  k2))
-                     + s_2asm("mov r9,",   emit_fmt("%ld", i2))
-                     + (s2lbl[0] ? s_2asm("lea rax,", emit_fmt("[rip + %s]", s2lbl)) : s_2asm("xor", "eax, eax"))
-                     + s_2asm("mov", "qword ptr [rsp + 0], rax")
-                     + s_2asm("call", "rt_functor_term@PLT")
-                     + s_2asm("add", "rsp, 16")
-                     + s_2asm("test", "eax, eax")
-                     + s_2asm("je",   _.lbl_ω)
-                     + s_2asm("jmp",  _.lbl_γ)
-                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("ins2", "mov", "rdi, rax")
+                     + x86("ins2", "mov esi,",  emit_fmt("%d",  k1))
+                     + x86("ins2", "mov rdx,",  emit_fmt("%ld", i1))
+                     + (s1lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "ecx, ecx"))
+                     + x86("ins2", "mov r8d,",  emit_fmt("%d",  k2))
+                     + x86("ins2", "mov r9,",   emit_fmt("%ld", i2))
+                     + (s2lbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s2lbl)) : x86("ins2", "xor", "eax, eax"))
+                     + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
+                     + x86("ins2", "call", "rt_functor_term@PLT")
+                     + x86("ins2", "add", "rsp, 16")
+                     + x86("ins2", "test", "eax, eax")
+                     + x86("ins2", "je",   _.lbl_ω)
+                     + x86("ins2", "jmp",  _.lbl_γ)
+                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
             /* Scalar a0 path: rt_functor(k0,i0,s0, k1,i1,s1, k2,i2,s2). 3 stack args ⇒ sub rsp,32. */
             int  k0 = (int)a0->t;
@@ -135,24 +135,24 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
             char s0lbl[64]; s0lbl[0] = 0;
             if (k0 == IR_ATOM && a0->sval) strtab_label(s0lbl, sizeof s0lbl, a0->sval);
             return hdr
-                 + s_2asm("sub", "rsp, 32")
-                 + s_2asm("mov edi,",  emit_fmt("%d",  k0))
-                 + s_2asm("mov rsi,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? s_2asm("lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : s_2asm("xor", "edx, edx"))
-                 + s_2asm("mov ecx,",  emit_fmt("%d",  k1))
-                 + s_2asm("mov r8,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? s_2asm("lea r9,",  emit_fmt("[rip + %s]", s1lbl)) : s_2asm("xor", "r9d, r9d"))
-                 + s_2asm("mov dword ptr [rsp + 0],", emit_fmt("%d",  k2))
-                 + s_2asm("mov rax,",  emit_fmt("%ld", i2))
-                 + s_2asm("mov", "qword ptr [rsp + 8], rax")
-                 + (s2lbl[0] ? s_2asm("lea rax,", emit_fmt("[rip + %s]", s2lbl)) : s_2asm("xor", "eax, eax"))
-                 + s_2asm("mov", "qword ptr [rsp + 16], rax")
-                 + s_2asm("call", "rt_functor@PLT")
-                 + s_2asm("add", "rsp, 32")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je",   _.lbl_ω)
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "sub", "rsp, 32")
+                 + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
+                 + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
+                 + x86("ins2", "mov ecx,",  emit_fmt("%d",  k1))
+                 + x86("ins2", "mov r8,",   emit_fmt("%ld", i1))
+                 + (s1lbl[0] ? x86("ins2", "lea r9,",  emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "r9d, r9d"))
+                 + x86("ins2", "mov dword ptr [rsp + 0],", emit_fmt("%d",  k2))
+                 + x86("ins2", "mov rax,",  emit_fmt("%ld", i2))
+                 + x86("ins2", "mov", "qword ptr [rsp + 8], rax")
+                 + (s2lbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s2lbl)) : x86("ins2", "xor", "eax, eax"))
+                 + x86("ins2", "mov", "qword ptr [rsp + 16], rax")
+                 + x86("ins2", "call", "rt_functor@PLT")
+                 + x86("ins2", "add", "rsp, 32")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je",   _.lbl_ω)
+                 + x86("ins2", "jmp",  _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (strcmp(fn,"arg")==0 && _.op_ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
@@ -166,22 +166,22 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
             if (a1->t == IR_STRUCT) {
                 /* a1 compound-literal path: rt_arg_term(k0,i0,s0, t1, k2,i2,s2). */
                 return hdr
-                     + s_2asm("sub", "rsp, 16")
+                     + x86("ins2", "sub", "rsp, 16")
                      + emit_build_compound_term(a1)
-                     + s_2asm("mov", "rcx, rax")
-                     + s_2asm("mov edi,",  emit_fmt("%d",  k0))
-                     + s_2asm("mov rsi,",  emit_fmt("%ld", i0))
-                     + (s0lbl[0] ? s_2asm("lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : s_2asm("xor", "edx, edx"))
-                     + s_2asm("mov r8d,",  emit_fmt("%d",  k2))
-                     + s_2asm("mov r9,",   emit_fmt("%ld", i2))
-                     + (s2lbl[0] ? s_2asm("lea rax,", emit_fmt("[rip + %s]", s2lbl)) : s_2asm("xor", "eax, eax"))
-                     + s_2asm("mov", "qword ptr [rsp + 0], rax")
-                     + s_2asm("call", "rt_arg_term@PLT")
-                     + s_2asm("add", "rsp, 16")
-                     + s_2asm("test", "eax, eax")
-                     + s_2asm("je",   _.lbl_ω)
-                     + s_2asm("jmp",  _.lbl_γ)
-                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("ins2", "mov", "rcx, rax")
+                     + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
+                     + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
+                     + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
+                     + x86("ins2", "mov r8d,",  emit_fmt("%d",  k2))
+                     + x86("ins2", "mov r9,",   emit_fmt("%ld", i2))
+                     + (s2lbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s2lbl)) : x86("ins2", "xor", "eax, eax"))
+                     + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
+                     + x86("ins2", "call", "rt_arg_term@PLT")
+                     + x86("ins2", "add", "rsp, 16")
+                     + x86("ins2", "test", "eax, eax")
+                     + x86("ins2", "je",   _.lbl_ω)
+                     + x86("ins2", "jmp",  _.lbl_γ)
+                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
             /* Scalar a1 path: rt_arg(k0,i0,s0, k1,i1,s1, k2,i2,s2). */
             int  k1 = (int)a1->t;
@@ -189,24 +189,24 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
             char s1lbl[64]; s1lbl[0] = 0;
             if (k1 == IR_ATOM && a1->sval) strtab_label(s1lbl, sizeof s1lbl, a1->sval);
             return hdr
-                 + s_2asm("sub", "rsp, 32")
-                 + s_2asm("mov edi,",  emit_fmt("%d",  k0))
-                 + s_2asm("mov rsi,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? s_2asm("lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : s_2asm("xor", "edx, edx"))
-                 + s_2asm("mov ecx,",  emit_fmt("%d",  k1))
-                 + s_2asm("mov r8,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? s_2asm("lea r9,",  emit_fmt("[rip + %s]", s1lbl)) : s_2asm("xor", "r9d, r9d"))
-                 + s_2asm("mov dword ptr [rsp + 0],", emit_fmt("%d",  k2))
-                 + s_2asm("mov rax,",  emit_fmt("%ld", i2))
-                 + s_2asm("mov", "qword ptr [rsp + 8], rax")
-                 + (s2lbl[0] ? s_2asm("lea rax,", emit_fmt("[rip + %s]", s2lbl)) : s_2asm("xor", "eax, eax"))
-                 + s_2asm("mov", "qword ptr [rsp + 16], rax")
-                 + s_2asm("call", "rt_arg@PLT")
-                 + s_2asm("add", "rsp, 32")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je",   _.lbl_ω)
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "sub", "rsp, 32")
+                 + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
+                 + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
+                 + x86("ins2", "mov ecx,",  emit_fmt("%d",  k1))
+                 + x86("ins2", "mov r8,",   emit_fmt("%ld", i1))
+                 + (s1lbl[0] ? x86("ins2", "lea r9,",  emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "r9d, r9d"))
+                 + x86("ins2", "mov dword ptr [rsp + 0],", emit_fmt("%d",  k2))
+                 + x86("ins2", "mov rax,",  emit_fmt("%ld", i2))
+                 + x86("ins2", "mov", "qword ptr [rsp + 8], rax")
+                 + (s2lbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s2lbl)) : x86("ins2", "xor", "eax, eax"))
+                 + x86("ins2", "mov", "qword ptr [rsp + 16], rax")
+                 + x86("ins2", "call", "rt_arg@PLT")
+                 + x86("ins2", "add", "rsp, 32")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je",   _.lbl_ω)
+                 + x86("ins2", "jmp",  _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (strcmp(fn,"=..")==0 && _.op_ival==2 && pBB->α && pBB->α->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ;
@@ -221,66 +221,66 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
             if (compound0 && compound1) {
                 /* Both compound literals: rt_univ_term_term(t0, t1). Save t0 across t1 build.           */
                 return hdr
-                     + s_2asm("sub", "rsp, 16")
+                     + x86("ins2", "sub", "rsp, 16")
                      + emit_build_compound_term(a0)
-                     + s_2asm("mov", "qword ptr [rsp + 0], rax")
+                     + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
                      + emit_build_compound_term(a1)
-                     + s_2asm("mov", "rsi, rax")
-                     + s_2asm("mov", "rdi, qword ptr [rsp + 0]")
-                     + s_2asm("call", "rt_univ_term_term@PLT")
-                     + s_2asm("add", "rsp, 16")
-                     + s_2asm("test", "eax, eax")
-                     + s_2asm("je",   _.lbl_ω)
-                     + s_2asm("jmp",  _.lbl_γ)
-                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("ins2", "mov", "rsi, rax")
+                     + x86("ins2", "mov", "rdi, qword ptr [rsp + 0]")
+                     + x86("ins2", "call", "rt_univ_term_term@PLT")
+                     + x86("ins2", "add", "rsp, 16")
+                     + x86("ins2", "test", "eax, eax")
+                     + x86("ins2", "je",   _.lbl_ω)
+                     + x86("ins2", "jmp",  _.lbl_γ)
+                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
             if (compound0) {
                 /* a0 compound literal: rt_univ_term(t0, k1,i1,s1) — t0=rdi, k1=esi, i1=rdx, s1=rcx. */
                 return hdr
-                     + s_2asm("sub", "rsp, 8")
+                     + x86("ins2", "sub", "rsp, 8")
                      + emit_build_compound_term(a0)
-                     + s_2asm("mov", "rdi, rax")
-                     + s_2asm("mov esi,",  emit_fmt("%d",  k1))
-                     + s_2asm("mov rdx,",  emit_fmt("%ld", i1))
-                     + (s1lbl[0] ? s_2asm("lea rcx,", emit_fmt("[rip + %s]", s1lbl)) : s_2asm("xor", "ecx, ecx"))
-                     + s_2asm("call", "rt_univ_term@PLT")
-                     + s_2asm("add", "rsp, 8")
-                     + s_2asm("test", "eax, eax")
-                     + s_2asm("je",   _.lbl_ω)
-                     + s_2asm("jmp",  _.lbl_γ)
-                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("ins2", "mov", "rdi, rax")
+                     + x86("ins2", "mov esi,",  emit_fmt("%d",  k1))
+                     + x86("ins2", "mov rdx,",  emit_fmt("%ld", i1))
+                     + (s1lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "ecx, ecx"))
+                     + x86("ins2", "call", "rt_univ_term@PLT")
+                     + x86("ins2", "add", "rsp, 8")
+                     + x86("ins2", "test", "eax, eax")
+                     + x86("ins2", "je",   _.lbl_ω)
+                     + x86("ins2", "jmp",  _.lbl_γ)
+                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
             if (compound1) {
                 /* a1 compound literal (list literal): rt_univ_term_list(k0,i0,s0, t1).                  */
                 return hdr
-                     + s_2asm("sub", "rsp, 8")
+                     + x86("ins2", "sub", "rsp, 8")
                      + emit_build_compound_term(a1)
-                     + s_2asm("mov", "rcx, rax")
-                     + s_2asm("mov edi,",  emit_fmt("%d",  k0))
-                     + s_2asm("mov rsi,",  emit_fmt("%ld", i0))
-                     + (s0lbl[0] ? s_2asm("lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : s_2asm("xor", "edx, edx"))
-                     + s_2asm("call", "rt_univ_term_list@PLT")
-                     + s_2asm("add", "rsp, 8")
-                     + s_2asm("test", "eax, eax")
-                     + s_2asm("je",   _.lbl_ω)
-                     + s_2asm("jmp",  _.lbl_γ)
-                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("ins2", "mov", "rcx, rax")
+                     + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
+                     + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
+                     + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
+                     + x86("ins2", "call", "rt_univ_term_list@PLT")
+                     + x86("ins2", "add", "rsp, 8")
+                     + x86("ins2", "test", "eax, eax")
+                     + x86("ins2", "je",   _.lbl_ω)
+                     + x86("ins2", "jmp",  _.lbl_γ)
+                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
             /* Both scalars: rt_univ(k0,i0,s0, k1,i1,s1). All 6 args in registers. */
             return hdr
-                 + s_2asm("sub", "rsp, 8")
-                 + s_2asm("mov edi,",  emit_fmt("%d",  k0))
-                 + s_2asm("mov rsi,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? s_2asm("lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : s_2asm("xor", "edx, edx"))
-                 + s_2asm("mov ecx,",  emit_fmt("%d",  k1))
-                 + s_2asm("mov r8,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? s_2asm("lea r9,",  emit_fmt("[rip + %s]", s1lbl)) : s_2asm("xor", "r9d, r9d"))
-                 + s_2asm("call", "rt_univ@PLT")
-                 + s_2asm("add", "rsp, 8")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je",   _.lbl_ω)
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "sub", "rsp, 8")
+                 + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
+                 + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
+                 + x86("ins2", "mov ecx,",  emit_fmt("%d",  k1))
+                 + x86("ins2", "mov r8,",   emit_fmt("%ld", i1))
+                 + (s1lbl[0] ? x86("ins2", "lea r9,",  emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "r9d, r9d"))
+                 + x86("ins2", "call", "rt_univ@PLT")
+                 + x86("ins2", "add", "rsp, 8")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je",   _.lbl_ω)
+                 + x86("ins2", "jmp",  _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
     }
     return std::string();

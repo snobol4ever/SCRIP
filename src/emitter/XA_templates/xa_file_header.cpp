@@ -1,13 +1,14 @@
 #include <string>
 #include <cstdio>
 #include "emit_str.h"
+#include "../BB_templates/x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_file_header_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_FILE_HEADER");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FILE_HEADER");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             extern int g_lang;
@@ -23,7 +24,7 @@ static std::string xa_file_header_str(void) {
 }
 static std::string xa_file_footer_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_FILE_FOOTER");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FILE_FOOTER");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             return std::string("call rt_finalize@PLT\npop rbp\nret\n.size main, .-main\n.section .note.GNU-stack\n");

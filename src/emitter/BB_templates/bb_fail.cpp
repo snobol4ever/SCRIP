@@ -8,8 +8,8 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_fail_str() {
     if (PLATFORM_X86) {
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                             + s_comment("# BOX FAIL()  [x86() self-encoding]"))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", "BOX FAIL()  [x86() self-encoding]"))
              + x86("jmp", PORT_OMEGA)
              + x86("def", PORT_BETA)
              + x86("jmp", PORT_OMEGA);

@@ -15,8 +15,8 @@ static std::string bb_scan_any_str() {
     if (!PLATFORM_X86) return std::string();
     int off = _.op_off; const char * cs = _.op_name1;
     if (!(g_descr_flat_chain && off >= 0 && cs)) return std::string();
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                         + s_comment("# BOX ICN IR_SCAN_ANY any(c) [ICN-SCAN-4 fstranl.r: δ==Δ->ω; s[δ]∈c via strchr; {DT_I,δ+2}->slot->γ; δ untouched; single-shot β->ω]"))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", "BOX ICN IR_SCAN_ANY any(c) [ICN-SCAN-4 fstranl.r: δ==Δ->ω; s[δ]∈c via strchr; {DT_I,δ+2}->slot->γ; δ untouched; single-shot β->ω]"))
          + x86("mov",    "eax", "r14d")
          + x86("cmp",    "eax", "r15d")
          + x86("jge",    PORT_OMEGA)

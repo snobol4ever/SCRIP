@@ -64,8 +64,8 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
             }
     }
     if (MEDIUM_TEXT) {
-    std::string succ_back = s_2asm("jmp", _.lbl_γ)
-                          + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
+    std::string succ_back = x86("ins2", "jmp", _.lbl_γ)
+                          + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->α->t == IR_LOGICVAR && pBB->β) {
             const IR_t *rhs = pBB->β;
@@ -91,26 +91,26 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
                              double d = (R->t == IR_LIT_F) ? R->dval : 0.0; memcpy(&rb, &d, 8); }
                 }
                 std::string load_op = _.bb_op_lbl
-                    ? s_2asm("lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
-                    : s_2asm("xor", "esi, esi");
+                    ? x86("ins2", "lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
+                    : x86("ins2", "xor", "esi, esi");
                 return hdr
-                     + s_2asm("sub", "rsp, 8")
-                     + s_2asm("mov edi,", emit_fmt("%d", dst_slot))
+                     + x86("ins2", "sub", "rsp, 8")
+                     + x86("ins2", "mov edi,", emit_fmt("%d", dst_slot))
                      + load_op
-                     + s_2asm("mov edx,", emit_fmt("%d", lk))
-                     + s_2asm("mov rcx,", emit_fmt("%ld", li))
-                     + s_2asm("mov rax,", emit_fmt("%llu", (unsigned long long)lb))
-                     + s_2asm("movq", "xmm0, rax")
-                     + s_2asm("mov r8d,", emit_fmt("%d", rk))
-                     + s_2asm("mov r9,",  emit_fmt("%ld", ri))
-                     + s_2asm("mov rax,", emit_fmt("%llu", (unsigned long long)rb))
-                     + s_2asm("movq", "xmm1, rax")
-                     + s_2asm("call", "rt_is_f@PLT")
-                     + s_2asm("add", "rsp, 8")
-                     + s_2asm("test", "eax, eax")
-                     + s_2asm("je", _.lbl_ω)
-                     + s_2asm("jmp", _.lbl_γ)
-                     + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("ins2", "mov edx,", emit_fmt("%d", lk))
+                     + x86("ins2", "mov rcx,", emit_fmt("%ld", li))
+                     + x86("ins2", "mov rax,", emit_fmt("%llu", (unsigned long long)lb))
+                     + x86("ins2", "movq", "xmm0, rax")
+                     + x86("ins2", "mov r8d,", emit_fmt("%d", rk))
+                     + x86("ins2", "mov r9,",  emit_fmt("%ld", ri))
+                     + x86("ins2", "mov rax,", emit_fmt("%llu", (unsigned long long)rb))
+                     + x86("ins2", "movq", "xmm1, rax")
+                     + x86("ins2", "call", "rt_is_f@PLT")
+                     + x86("ins2", "add", "rsp, 8")
+                     + x86("ins2", "test", "eax, eax")
+                     + x86("ins2", "je", _.lbl_ω)
+                     + x86("ins2", "jmp", _.lbl_γ)
+                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
         }
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
@@ -125,20 +125,20 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
             int   lk = (int)L->t, rk = (int)R->t;
             long  li = (long)L->ival, ri = (long)R->ival;
             std::string load_op = _.bb_op_lbl
-                ? s_2asm("lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
-                : s_2asm("xor", "esi, esi");
+                ? x86("ins2", "lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
+                : x86("ins2", "xor", "esi, esi");
             return hdr
-                 + s_2asm("mov edi,", emit_fmt("%d", dst_slot))
+                 + x86("ins2", "mov edi,", emit_fmt("%d", dst_slot))
                  + load_op
-                 + s_2asm("mov edx,", emit_fmt("%d", lk))
-                 + s_2asm("mov rcx,", emit_fmt("%ld", li))
-                 + s_2asm("mov r8d,", emit_fmt("%d", rk))
-                 + s_2asm("mov r9,",  emit_fmt("%ld", ri))
-                 + s_2asm("call", "rt_is@PLT")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je", _.lbl_ω)
-                 + s_2asm("jmp", _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "mov edx,", emit_fmt("%d", lk))
+                 + x86("ins2", "mov rcx,", emit_fmt("%ld", li))
+                 + x86("ins2", "mov r8d,", emit_fmt("%d", rk))
+                 + x86("ins2", "mov r9,",  emit_fmt("%ld", ri))
+                 + x86("ins2", "call", "rt_is@PLT")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je", _.lbl_ω)
+                 + x86("ins2", "jmp", _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
             && pBB->α->t == IR_LIT_I && pBB->β->α && pBB->β->β) {
@@ -147,20 +147,20 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
             int   lk = (int)L->t, rk = (int)R->t;
             long  li = (long)L->ival, ri = (long)R->ival;
             std::string load_op = _.bb_op_lbl
-                ? s_2asm("lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
-                : s_2asm("xor", "esi, esi");
+                ? x86("ins2", "lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
+                : x86("ins2", "xor", "esi, esi");
             return hdr
-                 + s_2asm("mov rdi,", emit_fmt("%ld", lval))
+                 + x86("ins2", "mov rdi,", emit_fmt("%ld", lval))
                  + load_op
-                 + s_2asm("mov edx,", emit_fmt("%d", lk))
-                 + s_2asm("mov rcx,", emit_fmt("%ld", li))
-                 + s_2asm("mov r8d,", emit_fmt("%d", rk))
-                 + s_2asm("mov r9,",  emit_fmt("%ld", ri))
-                 + s_2asm("call", "rt_is_lint@PLT")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je", _.lbl_ω)
-                 + s_2asm("jmp", _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "mov edx,", emit_fmt("%d", lk))
+                 + x86("ins2", "mov rcx,", emit_fmt("%ld", li))
+                 + x86("ins2", "mov r8d,", emit_fmt("%d", rk))
+                 + x86("ins2", "mov r9,",  emit_fmt("%ld", ri))
+                 + x86("ins2", "call", "rt_is_lint@PLT")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je", _.lbl_ω)
+                 + x86("ins2", "jmp", _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
             && pBB->α->t == IR_LOGICVAR && pBB->β->α && !pBB->β->β) {
@@ -169,20 +169,20 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
             int   lk = (int)L->t;
             long  li = (long)L->ival;
             std::string load_op = _.bb_op_lbl
-                ? s_2asm("lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
-                : s_2asm("xor", "esi, esi");
+                ? x86("ins2", "lea rsi,", emit_fmt("[rip + %s]", _.bb_op_lbl))
+                : x86("ins2", "xor", "esi, esi");
             return hdr
-                 + s_2asm("mov edi,", emit_fmt("%d", dst_slot))
+                 + x86("ins2", "mov edi,", emit_fmt("%d", dst_slot))
                  + load_op
-                 + s_2asm("mov edx,", emit_fmt("%d", lk))
-                 + s_2asm("mov rcx,", emit_fmt("%ld", li))
-                 + s_2asm("mov r8d,", "-1")     /* unary sentinel — rk=-1 */
-                 + s_2asm("mov r9,",  "0")      /* ri=0 (unused for unary) */
-                 + s_2asm("call", "rt_is@PLT")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je", _.lbl_ω)
-                 + s_2asm("jmp", _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "mov edx,", emit_fmt("%d", lk))
+                 + x86("ins2", "mov rcx,", emit_fmt("%ld", li))
+                 + x86("ins2", "mov r8d,", "-1")     /* unary sentinel — rk=-1 */
+                 + x86("ins2", "mov r9,",  "0")      /* ri=0 (unused for unary) */
+                 + x86("ins2", "call", "rt_is@PLT")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je", _.lbl_ω)
+                 + x86("ins2", "jmp", _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (pBB->α && pBB->β
             && (pBB->α->t == IR_STRUCT || pBB->β->t == IR_STRUCT)
@@ -190,19 +190,19 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
              || strcmp(fn,"@=<")==0 || strcmp(fn,"@>=")==0)) {
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
             return hdr
-                 + s_2asm("sub", "rsp, 16")
+                 + x86("ins2", "sub", "rsp, 16")
                  + emit_build_compound_term(pBB->α)
-                 + s_2asm("mov", "qword ptr [rsp + 0], rax")
+                 + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
                  + emit_build_compound_term(pBB->β)
-                 + s_2asm("mov", "rdx, rax")
-                 + s_2asm("mov", "rsi, qword ptr [rsp + 0]")
-                 + s_2asm("lea rdi,", emit_fmt("[rip + %s]", op_lbl))
-                 + s_2asm("call", "rt_term_cmp_terms@PLT")
-                 + s_2asm("add", "rsp, 16")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je",   _.lbl_ω)
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "mov", "rdx, rax")
+                 + x86("ins2", "mov", "rsi, qword ptr [rsp + 0]")
+                 + x86("ins2", "lea rdi,", emit_fmt("[rip + %s]", op_lbl))
+                 + x86("ins2", "call", "rt_term_cmp_terms@PLT")
+                 + x86("ins2", "add", "rsp, 16")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je",   _.lbl_ω)
+                 + x86("ins2", "jmp",  _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if (pBB->α && pBB->β &&
             (strcmp(fn,"==")==0   || strcmp(fn,"\\==")==0 || strcmp(fn,"@<")==0 || strcmp(fn,"@>")==0
@@ -221,21 +221,21 @@ std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &
                          || strcmp(fn,">")==0   || strcmp(fn,"=<")==0   || strcmp(fn,"<=")==0 || strcmp(fn,">=")==0);
             const char *callee = is_arith ? "rt_arith_cmp@PLT" : "rt_term_cmp@PLT";
             return hdr
-                 + s_2asm("sub", "rsp, 16")
-                 + s_2asm("lea rdi,", emit_fmt("[rip + %s]", op_lbl))
-                 + s_2asm("mov esi,",  emit_fmt("%d",  k0))
-                 + s_2asm("mov rdx,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? s_2asm("lea rcx,", emit_fmt("[rip + %s]", s0lbl)) : s_2asm("xor", "ecx, ecx"))
-                 + s_2asm("mov r8d,",  emit_fmt("%d",  k1))
-                 + s_2asm("mov r9,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? s_2asm("lea rax,", emit_fmt("[rip + %s]", s1lbl)) : s_2asm("xor", "eax, eax"))
-                 + s_2asm("mov", "qword ptr [rsp + 0], rax")
-                 + s_2asm("call", callee)
-                 + s_2asm("add", "rsp, 16")
-                 + s_2asm("test", "eax, eax")
-                 + s_2asm("je",   _.lbl_ω)
-                 + s_2asm("jmp",  _.lbl_γ)
-                 + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("ins2", "sub", "rsp, 16")
+                 + x86("ins2", "lea rdi,", emit_fmt("[rip + %s]", op_lbl))
+                 + x86("ins2", "mov esi,",  emit_fmt("%d",  k0))
+                 + x86("ins2", "mov rdx,",  emit_fmt("%ld", i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "ecx, ecx"))
+                 + x86("ins2", "mov r8d,",  emit_fmt("%d",  k1))
+                 + x86("ins2", "mov r9,",   emit_fmt("%ld", i1))
+                 + (s1lbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "eax, eax"))
+                 + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
+                 + x86("ins2", "call", callee)
+                 + x86("ins2", "add", "rsp, 16")
+                 + x86("ins2", "test", "eax, eax")
+                 + x86("ins2", "je",   _.lbl_ω)
+                 + x86("ins2", "jmp",  _.lbl_γ)
+                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
     }
     return std::string();

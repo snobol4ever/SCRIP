@@ -9,15 +9,15 @@ extern "C" char * walk_bb_node_str_c(IR_t *);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_every_flat_str() {
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_β) + ":")
-                         + s_comment("# BOX IR_EVERY β [x86() self-encoding — every never backtracks: β -> ω]"))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_β)
+                         + x86("comment", "BOX IR_EVERY β [x86() self-encoding — every never backtracks: β -> ω]"))
          + x86("def", PORT_BETA)
          + x86("jmp", PORT_OMEGA);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_every_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — IR_EVERY");
+    if (MEDIUM_MACRO_DEF) return x86("comment", "no macro form — IR_EVERY");
     if (MEDIUM_TEXT) {
         IR_t * body = _.node->α;
         if (!body) {
@@ -48,21 +48,21 @@ static std::string bb_every_str(IR_t * pBB) {
         g_emit.lbl_ω = outer_ω; g_emit.lbl_ω_p = outer_ω_p;
         g_emit.lbl_β = outer_β;
         std::string head =
-              s_directive(".intel_syntax noprefix")
-            + s_1asm(std::string(outer_α) + ":")
-            + s_comment(emit_fmt("# BOX IR_EVERY id=%d — pump body to exhaustion", id));
+              x86("directive", ".intel_syntax noprefix")
+            + x86("ins1", std::string(outer_α) + ":")
+            + x86("comment", emit_fmt("BOX IR_EVERY id=%d — pump body to exhaustion", id));
         std::string post_body =
-              s_L1asm(std::string(Lbg.name) + ":", "")
-            + s_comment("# every: body yielded a value — re-pump via body.β")
-            + s_1asm(std::string("jmp ") + Lbb.name)
-            + s_L1asm(std::string(Lbo.name) + ":", "")
-            + s_comment("# every: body exhausted — every succeeds")
-            + s_1asm(std::string("jmp ") + outer_γ)
-            + s_L1asm(std::string(outer_β) + ":", "")
-            + s_comment("# every: no backtracking — β -> outer ω")
-            + s_1asm(std::string("jmp ") + outer_ω);
+              x86("Lins1", std::string(Lbg.name) + ":", "")
+            + x86("comment", "every: body yielded a value — re-pump via body.β")
+            + x86("ins1", std::string("jmp ") + Lbb.name)
+            + x86("Lins1", std::string(Lbo.name) + ":", "")
+            + x86("comment", "every: body exhausted — every succeeds")
+            + x86("ins1", std::string("jmp ") + outer_γ)
+            + x86("Lins1", std::string(outer_β) + ":", "")
+            + x86("comment", "every: no backtracking — β -> outer ω")
+            + x86("ins1", std::string("jmp ") + outer_ω);
         return head
-             + s_1asm(std::string("jmp ") + Lba.name)
+             + x86("ins1", std::string("jmp ") + Lba.name)
              + body_text
              + post_body;
     }

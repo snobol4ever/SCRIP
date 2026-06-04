@@ -25,12 +25,12 @@ static std::string gva_op_body(int64_t op) {
 }
 static std::string gva_op_body_text(int64_t op) {
     switch (op) {
-    case BINOP_ADD: return s_2asm("add",  "rax, rcx");
-    case BINOP_SUB: return s_2asm("sub",  "rax, rcx");
-    case BINOP_MUL: return s_2asm("imul", "rax, rcx");
-    case BINOP_DIV: return s_1asm("cqo") + s_2asm("idiv", "rcx");
-    case BINOP_MOD: return s_1asm("cqo") + s_2asm("idiv", "rcx") + s_2asm("mov", "rax, rdx");
-    default:        return s_2asm("add",  "rax, rcx");
+    case BINOP_ADD: return x86("ins2", "add",  "rax, rcx");
+    case BINOP_SUB: return x86("ins2", "sub",  "rax, rcx");
+    case BINOP_MUL: return x86("ins2", "imul", "rax, rcx");
+    case BINOP_DIV: return x86("ins1", "cqo") + x86("ins2", "idiv", "rcx");
+    case BINOP_MOD: return x86("ins1", "cqo") + x86("ins2", "idiv", "rcx") + x86("ins2", "mov", "rax, rdx");
+    default:        return x86("ins2", "add",  "rax, rcx");
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -44,24 +44,24 @@ std::string bb_binop_gvar_arith_slot_str() {
     if (!l_lit && !l_var && _.op_sa < 0) return std::string();
     if (!r_lit && !r_var && _.op_sb < 0) return std::string();
     if (MEDIUM_TEXT) {
-        std::string s = s_1asm(std::string(_.lbl_α) + ":")
-            + s_comment(emit_fmt("# BOX IR_BINOP gvar-arith-slot op=%lld lk=%d rk=%d -> [r12+%d]", (long long)op, lk, rk, _.op_off));
-        if (l_lit)      s += s_2asm("mov", emit_fmt("rax, %lld", (long long)_.bb_li));
+        std::string s = x86("label", _.lbl_α)
+            + x86("comment", emit_fmt("BOX IR_BINOP gvar-arith-slot op=%lld lk=%d rk=%d -> [r12+%d]", (long long)op, lk, rk, _.op_off));
+        if (l_lit)      s += x86("ins2", "mov", emit_fmt("rax, %lld", (long long)_.bb_li));
         else if (l_var) { char b1[80]; strtab_label(b1, sizeof b1, _.op_name1);
-                          s += s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1)) + s_2asm("call", "rt_gvar_get_int@PLT"); }
-        else            s += s_2asm("mov", emit_fmt("rax, [r12 + %d]", _.op_sa + gva_slot_disp(lk)));
-        if (r_lit)      s += s_2asm("mov", emit_fmt("rcx, %lld", (long long)_.bb_ri));
+                          s += x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b1)) + x86("ins2", "call", "rt_gvar_get_int@PLT"); }
+        else            s += x86("ins2", "mov", emit_fmt("rax, [r12 + %d]", _.op_sa + gva_slot_disp(lk)));
+        if (r_lit)      s += x86("ins2", "mov", emit_fmt("rcx, %lld", (long long)_.bb_ri));
         else if (r_var) { char b2[80]; strtab_label(b2, sizeof b2, _.op_name2);
-                          s += s_2asm("mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
-                             + s_2asm("lea", emit_fmt("rdi, [rip + %s]", b2)) + s_2asm("call", "rt_gvar_get_int@PLT")
-                             + s_2asm("mov", "rcx, rax")
-                             + s_2asm("mov", emit_fmt("rax, qword ptr [r12 + %d]", _.op_off)); }
-        else            s += s_2asm("mov", emit_fmt("rcx, [r12 + %d]", _.op_sb + gva_slot_disp(rk)));
+                          s += x86("ins2", "mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
+                             + x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b2)) + x86("ins2", "call", "rt_gvar_get_int@PLT")
+                             + x86("ins2", "mov", "rcx, rax")
+                             + x86("ins2", "mov", emit_fmt("rax, qword ptr [r12 + %d]", _.op_off)); }
+        else            s += x86("ins2", "mov", emit_fmt("rcx, [r12 + %d]", _.op_sb + gva_slot_disp(rk)));
         s += gva_op_body_text(op)
-           + s_2asm("mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
-           + s_2asm("jmp", _.lbl_γ)
-           + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-           + s_2asm("jmp", _.lbl_ω);
+           + x86("ins2", "mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
+           + x86("ins2", "jmp", _.lbl_γ)
+           + x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+           + x86("ins2", "jmp", _.lbl_ω);
         return s;
     }
     std::string s;

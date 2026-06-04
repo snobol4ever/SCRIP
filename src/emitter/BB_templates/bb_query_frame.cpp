@@ -13,8 +13,8 @@ static std::string bb_query_frame_str() {
     if (PLATFORM_X86) {
         if (_.op_sa == 0) {
             return IF(MEDIUM_TEXT,
-                       s_1asm(std::string(_.lbl_α) + ":")
-                     + s_comment("# BOX QUERY_FRAME α  [PL-GZ seed ABI: ζ=r12 activation, trail-mark in frame row [ζ+0], logic vars = frame cells [ζ+8+8i], x86() self-encoding]"))
+                       x86("label", _.lbl_α)
+                     + x86("comment", "BOX QUERY_FRAME α  [PL-GZ seed ABI: ζ=r12 activation, trail-mark in frame row [ζ+0], logic vars = frame cells [ζ+8+8i], x86() self-encoding]"))
                  + x86("push", "r12")
                  + x86("mov", "r12", "rdi")
                  + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
@@ -27,7 +27,7 @@ static std::string bb_query_frame_str() {
                  + x86("jmp", PORT_GAMMA);
         }
         return IF(MEDIUM_TEXT,
-                   s_comment(_.op_sb
+                   x86("comment", _.op_sb
                      ? "# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1; query tail is (G ; true) so ω = trail-unwind + PROMOTED 1 (entering the true arm with bindings undone); ret to the query driver]"
                      : "# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1, ω=trail-unwind+0; ret to the query driver]"))
              + x86("def", PORT_GAMMA)

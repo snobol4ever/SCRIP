@@ -14,8 +14,8 @@ static std::string bb_det_write_str() {
         x86_begin();
         if (_.op_sb) {
             return IF(MEDIUM_TEXT,
-                       s_1asm(std::string(_.lbl_α) + ":")
-                     + s_comment("# BOX DET_WRITE(cell)  [PL-GZ-3: Term* from [ζ+off], deref+print via ONE rt VALUE call]"))
+                       x86("label", _.lbl_α)
+                     + x86("comment", "BOX DET_WRITE(cell)  [PL-GZ-3: Term* from [ζ+off], deref+print via ONE rt VALUE call]"))
                  + x86("mov", "rdi", FRQ(GZ_CELL_OFF(_.op_off)))
                  + x86("call", "rt_pl_write_cell", (uint64_t)(uintptr_t)(void *)rt_pl_write_cell)
                  + x86("jmp", PORT_GAMMA)
@@ -24,8 +24,8 @@ static std::string bb_det_write_str() {
         }
         if (_.op_sval) {
             return IF(MEDIUM_TEXT,
-                       s_1asm(std::string(_.lbl_α) + ":")
-                     + s_comment("# BOX DET_WRITE(atom)  [PL-GZ det VALUE call; operand sealed RO in-box, [rip+disp]]"))
+                       x86("label", _.lbl_α)
+                     + x86("comment", "BOX DET_WRITE(atom)  [PL-GZ det VALUE call; operand sealed RO in-box, [rip+disp]]"))
                  + x86_ro_load_q("rdi", 0)
                  + x86("call", "rt_write_atom", (uint64_t)(uintptr_t)(void *)rt_write_atom)
                  + x86("jmp", PORT_GAMMA)
@@ -34,8 +34,8 @@ static std::string bb_det_write_str() {
                  + x86_ro_seal_str(0, _.op_sval);
         }
         return IF(MEDIUM_TEXT,
-                   s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment("# BOX DET_WRITE(int)  [PL-GZ det VALUE call]"))
+                   x86("label", _.lbl_α)
+                 + x86("comment", "BOX DET_WRITE(int)  [PL-GZ det VALUE call]"))
              + x86("mov", "rdi", (long)_.op_ival)
              + x86("call", "rt_write_int", (uint64_t)(uintptr_t)(void *)rt_write_int)
              + x86("jmp", PORT_GAMMA)

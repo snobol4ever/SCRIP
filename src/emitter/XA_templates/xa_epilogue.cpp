@@ -1,5 +1,6 @@
 #include <string>
 #include "emit_str.h"
+#include "../BB_templates/x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 }
@@ -11,10 +12,10 @@ static std::string xa_epilogue_str(void) {
              + "} rt._finalize();\n";
     }
     if (PLATFORM_NET) {
-        return s_2asm("call", "void SnoRt::_finalize()")
-             + s_1asm("ret")
-             + s_1asm("}")
-             + s_1asm("}");
+        return x86("ins2", "call", "void SnoRt::_finalize()")
+             + x86("ins1", "ret")
+             + x86("ins1", "}")
+             + x86("ins1", "}");
     }
     if (PLATFORM_WASM) {
         return wasm_emit_data_segments_str() + ")\n";

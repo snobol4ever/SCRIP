@@ -36,24 +36,24 @@ std::string bb_binop_gvar_relop_str() {
     if (!r_lit && !r_var && _.op_sb < 0) return std::string();
     const char * mnem = gvr_fail_mnem(op);
     if (MEDIUM_TEXT) {
-        std::string s = s_1asm(std::string(_.lbl_α) + ":")
-            + s_comment(emit_fmt("# BOX IR_BINOP gvar-relop op=%lld lk=%d rk=%d [stackless cmp + %s->omega; jmp gamma]", (long long)op, lk, rk, mnem));
-        if (l_lit)      s += s_2asm("mov", emit_fmt("rax, %lld", (long long)_.bb_li));
+        std::string s = x86("label", _.lbl_α)
+            + x86("comment", emit_fmt("BOX IR_BINOP gvar-relop op=%lld lk=%d rk=%d [stackless cmp + %s->omega; jmp gamma]", (long long)op, lk, rk, mnem));
+        if (l_lit)      s += x86("ins2", "mov", emit_fmt("rax, %lld", (long long)_.bb_li));
         else if (l_var) { char b1[80]; strtab_label(b1, sizeof b1, _.op_name1);
-                          s += s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1)) + s_2asm("call", "rt_gvar_get_int@PLT"); }
-        else            s += s_2asm("mov", emit_fmt("rax, [r12 + %d]", _.op_sa + gvr_slot_disp(lk)));
-        if (r_lit)      s += s_2asm("mov", emit_fmt("rcx, %lld", (long long)_.bb_ri));
+                          s += x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b1)) + x86("ins2", "call", "rt_gvar_get_int@PLT"); }
+        else            s += x86("ins2", "mov", emit_fmt("rax, [r12 + %d]", _.op_sa + gvr_slot_disp(lk)));
+        if (r_lit)      s += x86("ins2", "mov", emit_fmt("rcx, %lld", (long long)_.bb_ri));
         else if (r_var) { char b2[80]; strtab_label(b2, sizeof b2, _.op_name2);
-                          s += s_2asm("mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
-                             + s_2asm("lea", emit_fmt("rdi, [rip + %s]", b2)) + s_2asm("call", "rt_gvar_get_int@PLT")
-                             + s_2asm("mov", "rcx, rax")
-                             + s_2asm("mov", emit_fmt("rax, qword ptr [r12 + %d]", _.op_off)); }
-        else            s += s_2asm("mov", emit_fmt("rcx, [r12 + %d]", _.op_sb + gvr_slot_disp(rk)));
-        s += s_2asm("cmp", "rax, rcx")
-           + s_2asm(mnem,  _.lbl_ω)
-           + s_2asm("jmp", _.lbl_γ)
-           + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-           + s_2asm("jmp", _.lbl_ω);
+                          s += x86("ins2", "mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
+                             + x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b2)) + x86("ins2", "call", "rt_gvar_get_int@PLT")
+                             + x86("ins2", "mov", "rcx, rax")
+                             + x86("ins2", "mov", emit_fmt("rax, qword ptr [r12 + %d]", _.op_off)); }
+        else            s += x86("ins2", "mov", emit_fmt("rcx, [r12 + %d]", _.op_sb + gvr_slot_disp(rk)));
+        s += x86("ins2", "cmp", "rax, rcx")
+           + x86("ins2", mnem,  _.lbl_ω)
+           + x86("ins2", "jmp", _.lbl_γ)
+           + x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+           + x86("ins2", "jmp", _.lbl_ω);
         return s;
     }
     std::string s;

@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdio>
 #include "emit_str.h"
+#include "../BB_templates/x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 }
@@ -21,7 +22,7 @@ static std::string bm_op   (const char *mn, const char *a) { return bm_line("", 
 static std::string bm_jmp  (const char *cond, const char *tgt) { return bm_line("", cond, emit_fmt("\\%s", tgt).c_str()); }
 static std::string xa_bb_macro_library_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_BB_MACRO_LIBRARY (it IS the bb macro-def pass)");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_BB_MACRO_LIBRARY (it IS the bb macro-def pass)");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             return std::string("# === BEGIN bb macro library (EAO-4/xa_bb_macro_library) ===\n")

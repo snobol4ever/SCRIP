@@ -26,8 +26,8 @@ static std::string bb_subject_str() {
     if (sa < 0) return x86_bomb("IR_SUBJECT: subject slot not promoted (flat_drive_subject)");
     if (!subj_chars() && subj_name()[0]) {
         return IF(MEDIUM_TEXT,
-                   s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment(emit_fmt("# BOX SUBJECT VAR(%s)  [NV -> sigma ptr + Delta len -> zeta-slot; sets runtime Sigma]", subj_name())))
+                   x86("label", _.lbl_α)
+                 + x86("comment", emit_fmt("BOX SUBJECT VAR(%s)  [NV -> sigma ptr + Delta len -> zeta-slot; sets runtime Sigma]", subj_name())))
              + x86("lea",  "rdi", "[rip + __]", subj_naddr(), subj_nlbl())
              + x86("lea",  "rsi", FR(sa))
              + x86("push", "r10")
@@ -45,8 +45,8 @@ static std::string bb_subject_str() {
     if (!subj_chars()) return x86_bomb("IR_SUBJECT: non-literal subject (PB-RB ladder)");
     long len = (long)strlen(subj_chars());
     return IF(MEDIUM_TEXT,
-               s_1asm(std::string(_.lbl_α) + ":")
-             + s_comment("# BOX SUBJECT  [REG-0 sigma ptr + Delta len -> zeta-slot, x86() self-encoding]"))
+               x86("label", _.lbl_α)
+             + x86("comment", "BOX SUBJECT  [REG-0 sigma ptr + Delta len -> zeta-slot, x86() self-encoding]"))
          + x86("mov", "rax", "[rip + __]", subj_addr(), subj_label())
          + x86("mov", FRQ(sa), "rax")
          + x86("mov", FR(sa + 8), len)

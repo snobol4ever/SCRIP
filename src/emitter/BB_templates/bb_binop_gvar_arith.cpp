@@ -22,16 +22,16 @@ std::string bb_binop_gvar_arith_str() {
             char b1[80], b2[80];
             strtab_label(b1, sizeof b1, _.op_name1);
             strtab_label(b2, sizeof b2, _.op_name2);
-            return s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment("# BOX IR_BINOP gvar-arith VAR+VAR [RO name ptrs, FRQ slot, @PLT]")
-                 + s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1))
-                 + s_2asm("lea", emit_fmt("rsi, [rip + %s]", b2))
-                 + s_2asm("mov", emit_fmt("rdx, %lld", (long long)op))
-                 + s_2asm("call", "rt_gvar_arith@PLT")
-                 + s_2asm("mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
-                 + s_2asm("jmp", _.lbl_γ)
-                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-                 + s_2asm("jmp", _.lbl_ω);
+            return x86("label", _.lbl_α)
+                 + x86("comment", "BOX IR_BINOP gvar-arith VAR+VAR [RO name ptrs, FRQ slot, @PLT]")
+                 + x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b1))
+                 + x86("ins2", "lea", emit_fmt("rsi, [rip + %s]", b2))
+                 + x86("ins2", "mov", emit_fmt("rdx, %lld", (long long)op))
+                 + x86("ins2", "call", "rt_gvar_arith@PLT")
+                 + x86("ins2", "mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
+                 + x86("ins2", "jmp", _.lbl_γ)
+                 + x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+                 + x86("ins2", "jmp", _.lbl_ω);
         }
         return x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)_.op_name1)
              + x86_load_ro("rsi", "??", (uint64_t)(uintptr_t)_.op_name2)
@@ -59,17 +59,17 @@ std::string bb_binop_gvar_arith_str() {
         if (MEDIUM_TEXT) {
             char b1[80];
             strtab_label(b1, sizeof b1, vn);
-            seq  = s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment(emit_fmt("# BOX IR_BINOP gvar-arith %s op=%lld -> [r12+%d]", _.op_name1 ? "VAR+LIT" : "LIT+VAR", (long long)op, voff))
-                 + s_2asm("lea", emit_fmt("rdi, [rip + %s]", b1))
-                 + s_2asm("call", "rt_gvar_get_int@PLT");
-            if (_.op_name1) seq += s_2asm("mov", emit_fmt("rcx, %ld", imm));
-            else            seq += s_2asm("mov", "rcx, rax") + s_2asm("mov", emit_fmt("rax, %ld", imm));
+            seq  = x86("label", _.lbl_α)
+                 + x86("comment", emit_fmt("BOX IR_BINOP gvar-arith %s op=%lld -> [r12+%d]", _.op_name1 ? "VAR+LIT" : "LIT+VAR", (long long)op, voff))
+                 + x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b1))
+                 + x86("ins2", "call", "rt_gvar_get_int@PLT");
+            if (_.op_name1) seq += x86("ins2", "mov", emit_fmt("rcx, %ld", imm));
+            else            seq += x86("ins2", "mov", "rcx, rax") + x86("ins2", "mov", emit_fmt("rax, %ld", imm));
             seq += opb
-                 + s_2asm("mov", emit_fmt("qword ptr [r12 + %d], rax", voff))
-                 + s_2asm("jmp", _.lbl_γ)
-                 + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-                 + s_2asm("jmp", _.lbl_ω);
+                 + x86("ins2", "mov", emit_fmt("qword ptr [r12 + %d], rax", voff))
+                 + x86("ins2", "jmp", _.lbl_γ)
+                 + x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+                 + x86("ins2", "jmp", _.lbl_ω);
             return seq;
         }
         seq  = x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)vn)
@@ -95,8 +95,8 @@ std::string bb_binop_gvar_arith_str() {
     case BINOP_MOD: opb = x86("cqo") + x86("idiv", "rcx") + x86("mov", "rax", "rdx"); break;
     default:        opb = x86("add",  "rax", "rcx"); break;
     }
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                          + s_comment(emit_fmt("# BOX IR_BINOP gvar-arith lhs=%ld op=%lld rhs=%ld -> [r12+%d]", lhs, (long long)op, rhs, off)))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                          + x86("comment", emit_fmt("BOX IR_BINOP gvar-arith lhs=%ld op=%lld rhs=%ld -> [r12+%d]", lhs, (long long)op, rhs, off)))
          + x86("mov", "rax", lhs)
          + x86("mov", "rcx", rhs)
          + opb

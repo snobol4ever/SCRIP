@@ -18,8 +18,8 @@ static std::string bb_to_str(IR_t * pBB) {
     int64_t by = (is_by && _.op_ival) ? _.op_ival : 1;
     if (by <= 0) return std::string();
     std::string step = (by == 1) ? x86("inc", FRQ(cur)) : (x86("mov", "rax", FRQ(cur)) + x86("add", "rax", (long)by) + x86("mov", FRQ(cur), "rax"));
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                          + s_comment(emit_fmt("# BOX IR_TO [x86() stackless int range pump by=%lld; cursor [r12+%d], lo slot %d, hi slot %d -> result %d]", (long long)by, cur, lo, hi, off)))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                          + x86("comment", emit_fmt("BOX IR_TO [x86() stackless int range pump by=%lld; cursor [r12+%d], lo slot %d, hi slot %d -> result %d]", (long long)by, cur, lo, hi, off)))
          + x86("mov", "rax", FRQ(lo + 8))
          + x86("mov", FRQ(cur), "rax")
          + x86("def", L(0))

@@ -9,8 +9,8 @@ extern "C" {
 static std::string bb_succeed_str() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
-                   s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment("# BOX SUCCEED() [x86() self-encoding — jmp γ; β: jmp ω]"))
+                   x86("label", _.lbl_α)
+                 + x86("comment", "BOX SUCCEED() [x86() self-encoding — jmp γ; β: jmp ω]"))
              + x86("jmp", PORT_GAMMA)
              + x86("def", PORT_BETA)
              + x86("jmp", PORT_OMEGA);

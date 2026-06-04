@@ -15,11 +15,11 @@ std::string bb_call_userproc_str(IR_t * pBB) {
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     if (MEDIUM_TEXT) {
-        return s_1asm(emit_fmt("%s:", _.lbl_α))
-             + s_2asm("call", "rt_call_proc@PLT")
-             + s_2asm("jmp",  _.lbl_γ)
-             + s_L1asm(emit_fmt("%s:", _.lbl_β), "")
-             + s_2asm("jmp",  _.lbl_ω);
+        return x86("label", _.lbl_α)
+             + x86("ins2", "call", "rt_call_proc@PLT")
+             + x86("ins2", "jmp",  _.lbl_γ)
+             + x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+             + x86("ins2", "jmp",  _.lbl_ω);
     }
     if (MEDIUM_BINARY) {
         uint64_t fptr; { void (*fp)(const char *, int) = rt_call_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }

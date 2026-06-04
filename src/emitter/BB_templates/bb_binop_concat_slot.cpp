@@ -18,8 +18,8 @@ std::string bb_binop_concat_slot_str() {
     int sa = _.op_sa, sb = _.op_sb, off = _.op_off;
     if (sa < 0 || sb < 0) return std::string();
     uint64_t fptr; { DESCR_t (*fp)(DESCR_t, DESCR_t) = str_concat_d; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                          + s_comment("# BOX IR_BINOP concat [GZ-11+ x86() stackless slot->slot DESCR]"))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                          + x86("comment", "BOX IR_BINOP concat [GZ-11+ x86() stackless slot->slot DESCR]"))
          + x86("mov", "rdi", FRQ(sa))
          + x86("mov", "rsi", FRQ(sa + 8))
          + x86("mov", "rdx", FRQ(sb))

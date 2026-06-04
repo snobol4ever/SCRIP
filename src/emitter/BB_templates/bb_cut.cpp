@@ -9,7 +9,7 @@ extern "C" void rt_cut_set(void);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_cut_str() {
     if (PLATFORM_X86) {
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment("# BOX RESOLVE_CUT  [x86() self-encoding]"))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX RESOLVE_CUT  [x86() self-encoding]"))
              + x86("call", "rt_cut_set", (uint64_t)(uintptr_t)(void*)rt_cut_set)
              + x86("jmp", PORT_GAMMA)
              + x86("def", PORT_BETA)

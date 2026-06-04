@@ -16,8 +16,8 @@ static std::string bb_scan_tab_str() {
     int off = _.op_off; long n = (long) _.op_sb; int sa = _.op_sa;
     if (!(g_descr_flat_chain && off >= 0 && (n >= 1 || sa >= 0))) return std::string();
     std::string tgt = (n >= 1) ? x86("mov", "rax", n) : x86("mov", "rax", FRQ(sa + 8));
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                         + s_comment("# BOX ICN IR_SCAN_TAB tab(i) [ICN-SCAN-7 fscan.r: target in [1,Δ+1] else ω; save δ->[off+16]; δ<-i-1; rt_icn_substr(Σ,oldδ,newδ)->slot->γ; β REVERSES: δ<-saved->ω]"))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", "BOX ICN IR_SCAN_TAB tab(i) [ICN-SCAN-7 fscan.r: target in [1,Δ+1] else ω; save δ->[off+16]; δ<-i-1; rt_icn_substr(Σ,oldδ,newδ)->slot->γ; β REVERSES: δ<-saved->ω]"))
          + tgt
          + x86("cmp64", "rax", (long)1)
          + x86("jl",   PORT_OMEGA)

@@ -9,7 +9,7 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_logicvar_str(IR_t * pBB) {
     if (PLATFORM_X86) {
-        return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_1asm(emit_fmt("# BOX RESOLVE_VAR(slot=%d) [stackless pass-through]", (int)(pBB ? _.op_ival : 0))))
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("ins1", emit_fmt("# BOX RESOLVE_VAR(slot=%d) [stackless pass-through]", (int)(pBB ? _.op_ival : 0))))
              + x86("jmp", PORT_GAMMA)
              + x86("def", PORT_BETA)
              + x86("jmp", PORT_OMEGA);

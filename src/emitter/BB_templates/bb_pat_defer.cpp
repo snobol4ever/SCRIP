@@ -19,8 +19,8 @@ static inline uint64_t     defer_fn()    { int (*fp)(const char *, int, int) = r
 static std::string bb_pat_defer_str() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
-                   s_1asm(std::string(_.lbl_α) + ":")
-                 + s_comment(emit_fmt("# BOX DEFER(%s%s)  [REG-3 δ=r14, x86() self-encoding]",
+                   x86("label", _.lbl_α)
+                 + x86("comment", emit_fmt("BOX DEFER(%s%s)  [REG-3 δ=r14, x86() self-encoding]",
                                        defer_ival() ? "*" : "", dvar_chars())))
              + x86("lea",  "rdi", "[rip + __]", dvar_addr(), dvar_label())
              + x86("mov",  "esi", (long)defer_ival())

@@ -15,8 +15,8 @@ static std::string bb_scan_many_str() {
     if (!PLATFORM_X86) return std::string();
     int off = _.op_off; const char * cs = _.op_name1;
     if (!(g_descr_flat_chain && off >= 0 && cs)) return std::string();
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                         + s_comment("# BOX ICN IR_SCAN_MANY many(c) [ICN-SCAN-6 fstranl.r: walk p=δ while p<Δ∧s[p]∈c; p==δ->ω; {DT_I,p+1}->slot->γ; δ untouched; β->ω]"))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", "BOX ICN IR_SCAN_MANY many(c) [ICN-SCAN-6 fstranl.r: walk p=δ while p<Δ∧s[p]∈c; p==δ->ω; {DT_I,p+1}->slot->γ; δ untouched; β->ω]"))
          + x86("mov",    "eax", "r14d")
          + x86("def",    L(0))
          + x86("cmp",    "eax", "r15d")

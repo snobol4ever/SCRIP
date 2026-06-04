@@ -15,8 +15,8 @@ static std::string bb_scan_bal_str() {
     if (!PLATFORM_X86) return std::string();
     int off = _.op_off, cur = _.op_off + 16, cnt = _.op_off + 24; const char * cs = _.op_name1;
     if (!(g_descr_flat_chain && off >= 0 && cs && cs[0] && !strchr(cs, '(') && !strchr(cs, ')'))) return std::string();
-    return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                         + s_comment("# BOX ICN IR_SCAN_BAL bal(c1) [ICN-SCAN-11 fstranl.r function{*} wave-1 c2='(' c3=')': cursor[r12+cur]<-δ cnt[r12+cnt]<-0; L0: cursor>=Δ->ω; cnt==0∧s[cursor]∈c1 -> {DT_I,cursor+1}->slot->γ (state persists); L1: '('->cnt++; L2: ')'->cnt--, cnt<0->ω; L3: cursor++->L0; β RE-PUMPS: cursor++->L0 (sound: admission excludes brackets from c1)]"))
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", "BOX ICN IR_SCAN_BAL bal(c1) [ICN-SCAN-11 fstranl.r function{*} wave-1 c2='(' c3=')': cursor[r12+cur]<-δ cnt[r12+cnt]<-0; L0: cursor>=Δ->ω; cnt==0∧s[cursor]∈c1 -> {DT_I,cursor+1}->slot->γ (state persists); L1: '('->cnt++; L2: ')'->cnt--, cnt<0->ω; L3: cursor++->L0; β RE-PUMPS: cursor++->L0 (sound: admission excludes brackets from c1)]"))
          + x86("mov", FRQ(cur), "r14")
          + x86("mov", FRQ(cnt), (long)0)
          + x86("def", L(0))

@@ -1,12 +1,13 @@
 #include <string>
 #include "emit_str.h"
+#include "../BB_templates/x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_macro_library_open_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_MACRO_LIBRARY_OPEN (it IS the macro-def pass)");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_MACRO_LIBRARY_OPEN (it IS the macro-def pass)");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             return std::string("# === BEGIN sm macro library (via MEDIUM_MACRO_DEF template dispatch) ===\n")
@@ -17,7 +18,7 @@ static std::string xa_macro_library_open_str(void) {
 }
 static std::string xa_macro_library_close_str(void) {
     if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — XA_MACRO_LIBRARY_CLOSE");
+        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_MACRO_LIBRARY_CLOSE");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT)      return std::string("# === END sm macro library ===\n");
     }
