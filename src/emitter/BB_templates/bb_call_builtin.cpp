@@ -12,8 +12,8 @@ void rt_call_builtin(const char *name, int nargs);
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_builtin_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    const char * fn   = pBB->sval ? pBB->sval : "";
-    int64_t      narg = pBB->ival;
+    const char * fn   = _.op_sval ? _.op_sval : "";
+    int64_t      narg = _.op_ival;
     if (MEDIUM_TEXT) {
         return s_1asm(emit_fmt("%s:", _.lbl_α))
              + s_2asm("call", "rt_call_builtin@PLT")
