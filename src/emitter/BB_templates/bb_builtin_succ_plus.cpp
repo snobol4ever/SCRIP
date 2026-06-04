@@ -3,7 +3,7 @@
 std::string bb_builtin_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-            if (strcmp(fn, "succ") == 0 && pBB->ival == 2 && pBB->α && pBB->β) {
+            if (strcmp(fn, "succ") == 0 && _.op_ival == 2 && pBB->α && pBB->β) {
                 IR_t *a0 = pBB->α, *a1 = pBB->β;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival;
@@ -22,7 +22,7 @@ std::string bb_builtin_succ_plus_str(IR_t *pBB, const char *fn, const std::strin
                 b += bytes(2, "\x85\xC0");
                 return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
             }
-            if (strcmp(fn, "plus") == 0 && pBB->ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
+            if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  k0 = (int)a0->t,    k1 = (int)a1->t,    k2 = (int)a2->t;
                 long i0 = (long)a0->ival, i1 = (long)a1->ival, i2 = (long)a2->ival;
@@ -55,7 +55,7 @@ std::string bb_builtin_succ_plus_str(IR_t *pBB, const char *fn, const std::strin
     std::string succ_back = s_2asm("jmp", _.lbl_γ)
                           + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
-        if (strcmp(fn, "succ") == 0 && pBB->ival == 2 && pBB->α && pBB->β) {
+        if (strcmp(fn, "succ") == 0 && _.op_ival == 2 && pBB->α && pBB->β) {
             IR_t *a0 = pBB->α, *a1 = pBB->β;
             int  k0 = (int)a0->t,    k1 = (int)a1->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival;
@@ -76,7 +76,7 @@ std::string bb_builtin_succ_plus_str(IR_t *pBB, const char *fn, const std::strin
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
-        if (strcmp(fn, "plus") == 0 && pBB->ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
+        if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             int  k0 = (int)a0->t,    k1 = (int)a1->t,    k2 = (int)a2->t;
             long i0 = (long)a0->ival, i1 = (long)a1->ival, i2 = (long)a2->ival;

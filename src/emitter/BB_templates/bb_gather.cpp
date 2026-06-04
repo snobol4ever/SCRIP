@@ -59,7 +59,7 @@ static std::string bb_gather_str() {
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_gather(IR_t * pBB) {
     if (!PLATFORM_X86) { return; }
-    int n = (int)pBB->ival;
+    int n = (int)_.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t)pBB->counter;
     int ok = (n >= 0 && n <= GATHER_MAX_TAKES && (n == 0 || subs != NULL));
     for (int i = 0; ok && i < n; i++) {
@@ -74,7 +74,7 @@ extern "C" void bb_gather(IR_t * pBB) {
     }
     s_gather_n        = n;
     s_gather_vals_ptr = (uint64_t)(uintptr_t)(const void *)s_gather_vals;
-    snprintf(s_gather_lbl, sizeof(s_gather_lbl), ".Lgather%d_vals", bb_node_id(pBB));
+    snprintf(s_gather_lbl, sizeof(s_gather_lbl), ".Lgather%d_vals", _.nid);
     x86_begin();
     s_gather_resoff  = bb_slot_alloc16(pBB);
     s_gather_cursoff = bb_slot_claim(8);

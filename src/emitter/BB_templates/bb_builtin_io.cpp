@@ -15,7 +15,7 @@ std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr)
             }
             if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0) {
                 std::string b;
-                if (pBB->ival >= 1 && pBB->α) {
+                if (_.op_ival >= 1 && pBB->α) {
                     IR_t *arg = pBB->α;
                     if (arg->t == IR_ATOM) {
                         const char *atom = arg->sval ? arg->sval : "";
@@ -73,7 +73,7 @@ std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr)
         }
         if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0) {
             std::string write_body;
-            if (pBB->ival >= 1 && pBB->α) {
+            if (_.op_ival >= 1 && pBB->α) {
                 IR_t *arg = pBB->α;
                 if (arg->t == IR_ATOM) {
                     write_body = _.bb_ls

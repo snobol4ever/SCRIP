@@ -20,7 +20,7 @@ std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::st
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if (strcmp(fn, "aggregate_all") == 0 && pBB->α && pBB->α->γ
-                && pBB->α->γ->γ && pBB->ival == 3) {
+                && pBB->α->γ->γ && _.op_ival == 3) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  kres = (int)a2->t;
                 long ires = (long)a2->ival;
@@ -42,7 +42,7 @@ std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::st
                 return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
             }
             if ((strcmp(fn, "nb_setval") == 0 || strcmp(fn, "nb_getval") == 0)
-                && pBB->α && pBB->α->γ && pBB->ival == 2) {
+                && pBB->α && pBB->α->γ && _.op_ival == 2) {
                 int   is_set = (strcmp(fn, "nb_setval") == 0);
                 IR_t *a0 = pBB->α, *a1 = a0->γ;
                 std::string b;
@@ -72,7 +72,7 @@ std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::st
             }
     }
     if (MEDIUM_TEXT) {
-        if (strcmp(fn, "aggregate_all") == 0 && pBB->α && pBB->α->γ && pBB->α->γ->γ && pBB->ival == 3) {
+        if (strcmp(fn, "aggregate_all") == 0 && pBB->α && pBB->α->γ && pBB->α->γ->γ && _.op_ival == 3) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             return hdr
                  + agg_build_term(a0)                       + s_2asm("push", "rax")
@@ -90,7 +90,7 @@ std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::st
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if ((strcmp(fn, "nb_setval") == 0 || strcmp(fn, "nb_getval") == 0)
-            && pBB->α && pBB->α->γ && pBB->ival == 2) {
+            && pBB->α && pBB->α->γ && _.op_ival == 2) {
             int   is_set = (strcmp(fn, "nb_setval") == 0);
             IR_t *a0 = pBB->α, *a1 = a0->γ;
             if (is_set) {

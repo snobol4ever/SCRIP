@@ -172,10 +172,10 @@ std::string emit_term_from_node_bin(const IR_t *nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_builtin_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    const char *fn = pBB->sval ? pBB->sval : "";
+    const char *fn = _.op_sval ? _.op_sval : "";
     if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — RESOLVE_BUILTIN");
     std::string hdr = s_1asm(emit_fmt("%s:", _.lbl_α))
-                    + s_1asm(emit_fmt("# BOX RESOLVE_BUILTIN(%s/%d)", fn, pBB->ival));
+                    + s_1asm(emit_fmt("# BOX RESOLVE_BUILTIN(%s/%d)", fn, _.op_ival));
     std::string r;
     r = bb_builtin_io_str(pBB, fn, hdr); if (!r.empty()) return r;
     r = bb_builtin_is_cmp_str(pBB, fn, hdr); if (!r.empty()) return r;

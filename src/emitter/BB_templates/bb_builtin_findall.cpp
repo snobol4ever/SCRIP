@@ -7,7 +7,7 @@ std::string bb_builtin_findall_str(IR_t *pBB, const char *fn, const std::string 
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if (strcmp(fn, "findall") == 0) {
-                void *fs_ptr = (void *)(intptr_t)pBB->ival;
+                void *fs_ptr = (void *)(intptr_t)_.op_ival;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
                 b += bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)fs_ptr);
@@ -19,7 +19,7 @@ std::string bb_builtin_findall_str(IR_t *pBB, const char *fn, const std::string 
     }
     if (MEDIUM_TEXT) {
         if (strcmp(fn, "findall") == 0) {
-            bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)pBB->ival;
+            bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)_.op_ival;
             if (!fs || !fs->goal_node || !fs->tmpl || !fs->result) {
                 extern int g_sm_native_unsupported;
                 g_sm_native_unsupported = 1;
