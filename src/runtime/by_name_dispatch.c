@@ -682,13 +682,15 @@ int scan_try_call_builtin(tree_t *call, DESCR_t *args, int nargs, DESCR_t *out)
         *out = FAILDESCR;
         return 1;
     }
-    if (!strcmp(fn, "find") && nargs >= 2) {
+    if (!strcmp(fn, "find") && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         long pos1; if (frame_lookup(call, &pos1)) { *out = INTVAL(pos1); return 1; }
         const char *needle = VARVAL_fn(args[0]);
-        const char *hay = VARVAL_fn(args[1]);
+        const char *hay; long long base;
+        if (nargs >= 2) { hay = VARVAL_fn(args[1]); base = 0; }
+        else { hay = scan_subj ? scan_subj + (scan_pos - 1) : (const char *)0; base = scan_pos - 1; }
         if (!needle || !hay) { *out = FAILDESCR; return 1; }
         char *p = strstr(hay, needle);
-        *out = p ? INTVAL((long long)(p - hay) + 1) : FAILDESCR;
+        *out = p ? INTVAL((long long)(p - hay) + base + 1) : FAILDESCR;
         return 1;
     }
     return 0;
@@ -2706,9 +2708,9 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (p0 + plen > slen || strncmp(scan_subj + p0, pat, plen) != 0) { *out = FAILDESCR; return 1; }
         scan_pos += plen; *out = INTVAL(scan_pos); return 1;
     }
-    if (!strcmp(fn,"find") && nargs >= 2 && scan_pos > 0) {
+    if (!strcmp(fn,"find") && nargs >= 1 && scan_pos > 0) {
         const char *needle = VARVAL_fn(args[0]); if (!needle) { *out = FAILDESCR; return 1; }
-        const char *hay    = VARVAL_fn(args[1]); if (!hay) hay = scan_subj ? scan_subj : "";
+        const char *hay    = (nargs >= 2) ? VARVAL_fn(args[1]) : (const char *)0; if (!hay) hay = scan_subj ? scan_subj : "";
         int nlen = (int)strlen(needle), hlen = (int)strlen(hay);
         int start = scan_pos - 1;
         for (int i = start; i + nlen <= hlen; i++) {

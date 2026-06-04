@@ -1075,7 +1075,7 @@ static int icn_subchain_node_is_generator(IR_t *nd) {
     extern int g_icn_scan_regs_live;
     if (!nd) return 0;
     if (ir_is_generator_kind(nd->t)) return 1;
-    if (g_icn_scan_regs_live && nd->t == IR_CALL && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "upto")) return 1;
+    if (g_icn_scan_regs_live && nd->t == IR_CALL && nd->dval == 3.0 && nd->sval && (!strcmp(nd->sval, "upto") || !strcmp(nd->sval, "find"))) return 1;
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1808,6 +1808,17 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 break;
             }
             if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "upto")) {
+                IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
+                const char *cs = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? sblks[0]->entry->sval : (const char *)0;
+                g_emit.op_name1 = cs;
+                g_emit.op_sa  = -1;
+                g_emit.op_sb  = -1;
+                g_emit.op_off = bb_slot_alloc16(nd);
+                (void) bb_slot_claim(8);
+                FILL(nd, lbl_γ, lbl_ω, lbl_β);
+                break;
+            }
+            if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "find")) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
                 const char *cs = (sblks && (int)nd->ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->t == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? sblks[0]->entry->sval : (const char *)0;
                 g_emit.op_name1 = cs;
