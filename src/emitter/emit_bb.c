@@ -1757,6 +1757,29 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 FILL(nd, lbl_γ, lbl_ω, lbl_β);
                 break;
             }
+            if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "tab")) {
+                IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
+                IR_t *ae = (sblks && (int)nd->ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
+                long tn = (ae && ae->t == IR_LIT_I && ae->ival >= 1) ? (long) ae->ival : -1;
+                int  sa = -1;
+                if (tn < 0 && ae && ae->t == IR_CALL) {
+                    sa = bb_slot_get(ae);
+                    if (sa < 0) {
+                        int tid = g_flat_node_id++;
+                        bb_label_t *targ_done = emit_label_alloc("xscantab%d_arg_done", tid);
+                        descr_chain_operand_refs(ae);
+                        flat_emit_arg_subchain(ae, targ_done, lbl_ω);
+                        emit_label_define_bb(targ_done);
+                        sa = bb_slot_get(ae);
+                    }
+                }
+                g_emit.op_sb  = (int) tn;
+                g_emit.op_sa  = sa;
+                g_emit.op_off = bb_slot_alloc16(nd);
+                (void) bb_slot_claim(8);
+                FILL(nd, lbl_γ, lbl_ω, lbl_β);
+                break;
+            }
             if (nd->dval == 3.0 && (int)nd->ival > 0 && nd->sval && rt_proc_is_registered(nd->sval))
                 flat_drive_userproc(nd, lbl_γ, lbl_ω, lbl_β);
             else
