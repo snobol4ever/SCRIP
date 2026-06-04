@@ -3,7 +3,7 @@
 std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-            if (strcmp(fn,"functor")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ
+            if (strcmp(fn,"functor")==0 && _.op_ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ
                 && pBB->α->t == IR_STRUCT) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  k1 = (int)a1->t,  k2 = (int)a2->t;
@@ -28,7 +28,7 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
                 b += bytes(2, "\x85\xC0");
                 return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
             }
-            if (strcmp(fn,"arg")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ
+            if (strcmp(fn,"arg")==0 && _.op_ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ
                 && pBB->α->γ->t == IR_STRUCT) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 int  k0 = (int)a0->t,  k2 = (int)a2->t;
@@ -53,7 +53,7 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
                 b += bytes(2, "\x85\xC0");
                 return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
             }
-            if (strcmp(fn,"=..")==0 && pBB->ival==2 && pBB->α && pBB->α->γ
+            if (strcmp(fn,"=..")==0 && _.op_ival==2 && pBB->α && pBB->α->γ
                 && (pBB->α->t == IR_STRUCT || pBB->α->γ->t == IR_STRUCT)) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int compound0 = (a0->t == IR_STRUCT);
@@ -101,7 +101,7 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
     std::string succ_back = s_2asm("jmp", _.lbl_γ)
                           + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
-        if (strcmp(fn,"functor")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
+        if (strcmp(fn,"functor")==0 && _.op_ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             int  k1 = (int)a1->t,  k2 = (int)a2->t;
             long i1 = (long)a1->ival, i2 = (long)a2->ival;
@@ -154,7 +154,7 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
-        if (strcmp(fn,"arg")==0 && pBB->ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
+        if (strcmp(fn,"arg")==0 && _.op_ival==3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             /* arg(N, Term, Arg): N is int, Term is the compound-literal candidate (a1), Arg is var.       */
             int  k0 = (int)a0->t,  k2 = (int)a2->t;
@@ -208,7 +208,7 @@ std::string bb_builtin_term_inspect_str(IR_t *pBB, const char *fn, const std::st
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
-        if (strcmp(fn,"=..")==0 && pBB->ival==2 && pBB->α && pBB->α->γ) {
+        if (strcmp(fn,"=..")==0 && _.op_ival==2 && pBB->α && pBB->α->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ;
             int compound0 = (a0->t == IR_STRUCT);
             int compound1 = (a1->t == IR_STRUCT);

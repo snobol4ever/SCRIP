@@ -194,7 +194,7 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 b += bytes(2, "\x85\xC0");
                 return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
             }
-            if (strcmp(fn,"char_type")==0 && pBB->ival==2 && pBB->α && pBB->α->γ) {
+            if (strcmp(fn,"char_type")==0 && _.op_ival==2 && pBB->α && pBB->α->γ) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int  k0 = (int)a0->t;
                 long i0 = (long)a0->ival;
@@ -439,7 +439,7 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
-        if (strcmp(fn,"char_type")==0 && pBB->ival==2 && pBB->α && pBB->α->γ) {
+        if (strcmp(fn,"char_type")==0 && _.op_ival==2 && pBB->α && pBB->α->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ;
             int  k0 = (int)a0->t;
             long i0 = (long)a0->ival;

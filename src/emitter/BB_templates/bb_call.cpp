@@ -189,7 +189,7 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
         std::string s;
         for (int j = 0; j < nn; j++) s += ((nbrm >> j) & 1ull) ? marshal_varparam_addr(nsubs[j]->entry, avbase + j * 16, j) : marshal_call_arg(nsubs[j]->entry, avbase + j * 16, lf, j);
         if (MEDIUM_TEXT) {
-            std::string fl = emit_fmt(".Lcallfn%d", bb_node_id(lf));
+            std::string fl = emit_fmt(".Lcallfn%d", _.nid);
             s += s_directive(".section .rodata")
                + s_directive(fl + ": .string \"" + nfn + "\"")
                + s_directive(".section .text") + s_directive(".intel_syntax noprefix");
@@ -230,7 +230,7 @@ std::string marshal_call_arg(IR_t * lf, int aoff, IR_t * owner, int idx) {
             s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff));
             s += s_2asm("mov", emit_fmt("qword ptr [r12+%d], 0", aoff + 8));
         } else if (lf->t == IR_LIT_S) {
-            std::string sl = emit_fmt(".Lcallarg%d_%d", bb_node_id(owner), idx);
+            std::string sl = emit_fmt(".Lcallarg%d_%d", _.nid, idx);
             s += s_directive(".section .rodata")
                + s_directive(sl + ": .string \"" + (lf->sval ? lf->sval : "") + "\"")
                + s_directive(".section .text") + s_directive(".intel_syntax noprefix");

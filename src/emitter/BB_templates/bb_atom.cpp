@@ -9,7 +9,7 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_atom_str(IR_t * pBB) {
     if (PLATFORM_X86) {
-        const char *atom = pBB && pBB->sval ? pBB->sval : "";
+        const char *atom = pBB && _.op_sval ? _.op_sval : "";
         return IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":") + s_comment(emit_fmt("# BOX RESOLVE_ATOM('%s') [stackless pass-through]", atom)))
              + x86("jmp", PORT_GAMMA)
              + x86("def", PORT_BETA)

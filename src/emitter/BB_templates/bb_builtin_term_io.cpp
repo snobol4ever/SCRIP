@@ -3,7 +3,7 @@
 std::string bb_builtin_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-            if (strcmp(fn, "numbervars") == 0 && pBB->ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
+            if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
                 long start = (long)a1->ival;
                 int  k2 = (int)a2->t;
@@ -52,8 +52,8 @@ std::string bb_builtin_term_io_str(IR_t *pBB, const char *fn, const std::string 
                 b += bytes(2, "\x85\xC0");                        /* test eax, eax */
                 return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
             }
-            if (strcmp(fn, "format") == 0 && pBB->α && (pBB->ival == 1 || pBB->ival == 2)) {
-                int   arity = (int)pBB->ival;
+            if (strcmp(fn, "format") == 0 && pBB->α && (_.op_ival == 1 || _.op_ival == 2)) {
+                int   arity = (int)_.op_ival;
                 IR_t *a0 = pBB->α;
                 IR_t *a1 = (arity == 2) ? a0->γ : NULL;
                 int   k0 = (int)a0->t;
@@ -98,7 +98,7 @@ std::string bb_builtin_term_io_str(IR_t *pBB, const char *fn, const std::string 
     std::string succ_back = s_2asm("jmp", _.lbl_γ)
                           + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
-        if (strcmp(fn, "numbervars") == 0 && pBB->ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
+        if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
             long start = (long)a1->ival;
             int  k2 = (int)a2->t;
@@ -141,8 +141,8 @@ std::string bb_builtin_term_io_str(IR_t *pBB, const char *fn, const std::string 
                  + s_2asm("jmp",  _.lbl_γ)
                  + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
-        if (strcmp(fn, "format") == 0 && pBB->α && (pBB->ival == 1 || pBB->ival == 2)) {
-            int arity = (int)pBB->ival;
+        if (strcmp(fn, "format") == 0 && pBB->α && (_.op_ival == 1 || _.op_ival == 2)) {
+            int arity = (int)_.op_ival;
             IR_t *a0 = pBB->α;
             IR_t *a1 = (arity == 2) ? a0->γ : NULL;
             int  k0 = (int)a0->t;

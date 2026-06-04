@@ -3,7 +3,7 @@
 std::string bb_builtin_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-            if (pBB->ival == 1 && pBB->α &&
+            if (_.op_ival == 1 && pBB->α &&
                 (strcmp(fn,"var")==0      || strcmp(fn,"nonvar")==0   || strcmp(fn,"atom")==0
               || strcmp(fn,"atomic")==0   || strcmp(fn,"number")==0   || strcmp(fn,"integer")==0
               || strcmp(fn,"float")==0    || strcmp(fn,"compound")==0 || strcmp(fn,"callable")==0
@@ -48,7 +48,7 @@ std::string bb_builtin_type_test_str(IR_t *pBB, const char *fn, const std::strin
     std::string succ_back = s_2asm("jmp", _.lbl_γ)
                           + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
-        if (pBB->ival == 1 && pBB->α &&
+        if (_.op_ival == 1 && pBB->α &&
             (strcmp(fn,"var")==0      || strcmp(fn,"nonvar")==0   || strcmp(fn,"atom")==0
           || strcmp(fn,"atomic")==0   || strcmp(fn,"number")==0   || strcmp(fn,"integer")==0
           || strcmp(fn,"float")==0    || strcmp(fn,"compound")==0 || strcmp(fn,"callable")==0

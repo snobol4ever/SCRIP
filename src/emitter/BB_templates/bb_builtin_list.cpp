@@ -4,8 +4,8 @@ std::string bb_builtin_list_str(IR_t *pBB, const char *fn, const std::string &hd
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0)
-                && pBB->α && (pBB->ival == 2 || pBB->ival == 3)) {
-                int   arity = (int)pBB->ival;
+                && pBB->α && (_.op_ival == 2 || _.op_ival == 3)) {
+                int   arity = (int)_.op_ival;
                 IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1 ? a1->γ : NULL;
                 IR_t *sepN = (arity == 3) ? a1 : NULL;
                 IR_t *resN = (arity == 3) ? a2 : a1;
@@ -82,8 +82,8 @@ std::string bb_builtin_list_str(IR_t *pBB, const char *fn, const std::string &hd
                           + s_L2asm(emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
         if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0)
-            && pBB->α && (pBB->ival == 2 || pBB->ival == 3)) {
-            int   arity = (int)pBB->ival;
+            && pBB->α && (_.op_ival == 2 || _.op_ival == 3)) {
+            int   arity = (int)_.op_ival;
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1 ? a1->γ : NULL;
             IR_t *sepN = (arity == 3) ? a1 : NULL;
             IR_t *resN = (arity == 3) ? a2 : a1;

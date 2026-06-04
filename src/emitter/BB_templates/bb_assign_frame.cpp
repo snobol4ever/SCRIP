@@ -13,13 +13,13 @@ DESCR_t rt_gvar_get_descr(const char * name);
 static std::string bb_assign_frame_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     if (!g_gvar_flat_chain) return x86_bomb("bb_assign_frame: gvar flat-chain only");
-    int hops = (int) pBB->dval;
-    int voff = 16 + (int) pBB->ival * 16;
+    int hops = (int) _.op_dval;
+    int voff = 16 + (int) _.op_ival * 16;
     int k = _.op_a_node_kind;
     std::string hop = x86_frame_lea("rcx", 0);
     for (int h = 0; h < hops; h++) hop += x86_reg_disp32_load64("rcx", "rcx", 0);
     std::string s = IF(MEDIUM_TEXT, s_1asm(std::string(_.lbl_α) + ":")
-                                  + s_comment(emit_fmt("# BOX IR_ASSIGN_FRAME \"%s\" slot=%d hops=%d rhs_kind=%d", _.op_sval ? _.op_sval : "", (int) pBB->ival, hops, k)));
+                                  + s_comment(emit_fmt("# BOX IR_ASSIGN_FRAME \"%s\" slot=%d hops=%d rhs_kind=%d", _.op_sval ? _.op_sval : "", (int) _.op_ival, hops, k)));
     if (k == (int) IR_LIT_I) {
         s += hop + x86_reg_disp32_store_imm64("rcx", voff, 6) + x86_movabs_r64("rax", (uint64_t) _.op_a_ival_sg) + x86_reg_disp32_store64("rcx", voff + 8, "rax");
     } else if (k == (int) IR_LIT_NUL) {

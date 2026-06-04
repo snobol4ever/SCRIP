@@ -44,11 +44,11 @@ static std::string bb_goal_str(IR_t * pBB) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return s_comment("# no macro form — RESOLVE_CALL");
         if (MEDIUM_TEXT) {
-            const char *callee = pBB && pBB->sval ? pBB->sval : "";
+            const char *callee = pBB && _.op_sval ? _.op_sval : "";
             int arity = 0;
             bb_goal_state_t *zc = NULL;
-            if (pBB && pBB->ival) {
-                zc = (bb_goal_state_t *)(intptr_t)pBB->ival;
+            if (pBB && _.op_ival) {
+                zc = (bb_goal_state_t *)(intptr_t)_.op_ival;
                 arity = zc->arity;
             }
             int n_args = (zc && zc->args) ? zc->nargs : 0;
