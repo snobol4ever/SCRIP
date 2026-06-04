@@ -803,6 +803,11 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (cx.lang == IR_LANG_ICN && e->t == TT_AUGOP && (AugOp_e) e->v.ival == AUGOP_SCAN && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[1]) {
+        tree_t * sc = ast_node_new(TT_SCAN); ast_push(sc, (tree_t *) e->c[0]); ast_push(sc, (tree_t *) e->c[1]);
+        tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) e->c[0]); ast_push(as, sc);
+        e = as;
+    }
     switch (e->t) {
     case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_CSET:
     case TT_NUL:  case TT_NULL: case TT_VAR:  case TT_NAME: case TT_KEYWORD:
