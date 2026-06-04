@@ -11,6 +11,23 @@ int bb_pl_op_floaty(const char *fn) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string emit_build_compound_term(const IR_t *nd);
+static std::string emit_build_conj_chain(IR_t **goals, int i, int n) {
+    if (i >= n - 1) return emit_build_compound_term(goals[n - 1]);
+    char clbl[64]; strtab_label(clbl, sizeof clbl, ",");
+    std::string out = s_2asm("sub rsp,", emit_fmt("%d", 16));
+    out += emit_build_compound_term(goals[i]);
+    out += s_2asm("mov", emit_fmt("qword ptr [rsp + %d], rax", 0));
+    out += emit_build_conj_chain(goals, i + 1, n);
+    out += s_2asm("mov", emit_fmt("qword ptr [rsp + %d], rax", 8));
+    out += s_2asm("lea rdi,", emit_fmt("[rip + %s]", clbl))
+         + s_2asm("mov esi,", emit_fmt("%d", 2))
+         + s_2asm("mov", "rdx, rsp")
+         + s_2asm("call", "rt_compound_build_n@PLT")
+         + s_2asm("add rsp,", emit_fmt("%d", 16));
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string emit_build_compound_term(const IR_t *nd) {
     if (!nd) {
         return s_2asm("xor", "eax, eax")
@@ -118,6 +135,30 @@ std::string emit_build_compound_term(const IR_t *nd) {
              + s_2asm("call", "rt_compound_build_n@PLT")
              + s_2asm("add rsp,", emit_fmt("%d", frame));
         return out;
+    }
+    if (nd->t == IR_GCONJ) {
+        bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)nd->ival;
+        if (zs && zs->goals && zs->ngoals >= 1) return emit_build_conj_chain(zs->goals, 0, zs->ngoals);
+    }
+    if (nd->t == IR_BUILTIN && nd->sval) {
+        static const char *mset[] = { "is", "=:=", "=\\=", "<", ">", "=<", ">=", "=", "\\=", NULL };
+        int hit = 0;
+        for (int k = 0; mset[k]; k++) if (!strcmp(nd->sval, mset[k])) { hit = 1; break; }
+        if (hit && nd->α && nd->β) {
+            char fnlbl[64]; fnlbl[0] = 0;
+            strtab_label(fnlbl, sizeof fnlbl, nd->sval);
+            std::string out = s_2asm("sub rsp,", emit_fmt("%d", 16));
+            out += emit_build_compound_term(nd->α);
+            out += s_2asm("mov", emit_fmt("qword ptr [rsp + %d], rax", 0));
+            out += emit_build_compound_term(nd->β);
+            out += s_2asm("mov", emit_fmt("qword ptr [rsp + %d], rax", 8));
+            out += s_2asm("lea rdi,", emit_fmt("[rip + %s]", fnlbl))
+                 + s_2asm("mov esi,", emit_fmt("%d", 2))
+                 + s_2asm("mov", "rdx, rsp")
+                 + s_2asm("call", "rt_compound_build_n@PLT")
+                 + s_2asm("add rsp,", emit_fmt("%d", 16));
+            return out;
+        }
     }
     return s_comment(emit_fmt("# build_compound_term: unhandled kind %d", (int)nd->t));
 }
