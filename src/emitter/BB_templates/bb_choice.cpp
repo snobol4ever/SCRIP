@@ -39,8 +39,6 @@ static std::string bb_choice_str(IR_t * pBB) {
                             + x86("ins2", "call", "resolve_cp_push@PLT")
                             + x86("ins2", "mov",  "rdi, rax")
                             + x86("ins2", "call", "rt_choice_cut_enter@PLT");
-            /* dispatch: cursor → next clause's pre[]. Flag check moved to β/exit_γ entries (the flag */
-            /* is only meaningful BEFORE we re-enter cut scope; here we've just cleared it via _enter). */
             out += x86("label", disp)
                  + x86("ins2", "call", "resolve_cp_current@PLT")
                  + x86("ins2", "mov",  "edi, [rax + 48]")
@@ -52,14 +50,12 @@ static std::string bb_choice_str(IR_t * pBB) {
                      + x86("ins2", "je",  prei);
             }
             out += x86("ins2", "jmp", exhausted);
-            /* pre[0]: no unwind (already at entry mark), cursor++, jmp body[0] */
             char body0[160]; resolve_choice_clause_label(body0, sizeof body0, id, 0, "body");
             char pre0[160];  resolve_choice_clause_label(pre0,  sizeof pre0,  id, 0, "pre");
             out += x86("label", pre0)
                  + x86("ins2", "call", "resolve_cp_current@PLT")
                  + x86("ins2", "inc",  "dword ptr [rax + 48]")
                  + x86("ins2", "jmp",  body0);
-            /* pre[i>0]: unwind trail to cp->trail_mark, cursor++, jmp body[i] */
             for (int i = 1; i < n; i++) {
                 char prei[160], bodyi[160];
                 resolve_choice_clause_label(prei,  sizeof prei,  id, i, "pre");
@@ -72,9 +68,6 @@ static std::string bb_choice_str(IR_t * pBB) {
                      + x86("ins2", "inc",  "dword ptr [rax + 48]")
                      + x86("ins2", "jmp",  bodyi);
             }
-            /* exit_γ: clause body succeeded. Cut-check: if `!` fired during body, restore outer cut    */
-            /* state and truncate cp (no further clauses available). Else restore outer cut state and  */
-            /* keep cp alive for caller's β redo. Either way, jmp γ_in.                                 */
             out += x86("label", exit_γ)
                  + x86("ins2", "call", "rt_get_cut_flag@PLT")
                  + x86("ins2", "test", "eax, eax")
@@ -83,21 +76,16 @@ static std::string bb_choice_str(IR_t * pBB) {
                  + x86("ins2", "mov",  "rdi, rax")
                  + x86("ins2", "call", "rt_choice_cut_exit@PLT")
                  + x86("ins2", "jmp",  _.lbl_γ);
-            /* cut_unwind_γ: cut fired, body succeeded → restore + truncate to cp->parent → jmp γ_in.  */
             out += x86("label", cut_unwind_γ)
                  + x86("ins2", "call", "resolve_cp_current@PLT")
                  + x86("ins2", "mov",  "rdi, rax")
                  + x86("ins2", "call", "rt_choice_cut_unwind@PLT")
                  + x86("ins2", "jmp",  _.lbl_γ);
-            /* cut_unwind_ω: cut fired then body failed → restore + truncate to cp->parent → jmp ω_in. */
             out += x86("label", cut_unwind_ω)
                  + x86("ins2", "call", "resolve_cp_current@PLT")
                  + x86("ins2", "mov",  "rdi, rax")
                  + x86("ins2", "call", "rt_choice_cut_unwind@PLT")
                  + x86("ins2", "jmp",  _.lbl_ω);
-            /* exhausted: all clauses tried, none succeeded. Restore outer cut state, unwind trail to  */
-            /* cp's mark, pop cp, jmp ω_in. cut state SHOULD already be 0 here (would have been caught */
-            /* at dispatch otherwise), but restoring unconditionally keeps the invariant clean.        */
             out += x86("label", exhausted)
                  + x86("ins2", "call", "resolve_cp_current@PLT")
                  + x86("ins2", "mov",  "rdi, rax")
@@ -107,11 +95,6 @@ static std::string bb_choice_str(IR_t * pBB) {
                  + x86("ins2", "call", "rt_trail_unwind@PLT")
                  + x86("ins2", "call", "resolve_cp_pop@PLT")
                  + x86("ins2", "jmp",  _.lbl_ω);
-            /* β: re-entry. Body[i].ω chains here on failure AND caller's IR_GOAL β chains here on  */
-            /* redo. Distinguishing them is the cut flag's job: if the body just executed fired `!`, the */
-            /* flag is set (cut_set was called inside; we haven't called _enter since), and we unwind to */
-            /* ω_in. Otherwise (flag==0): if cp is NULL the outer cut truncated us → ω_in; else re-save */
-            /* the (current outer) cut state into our cp and clear the flag for the next clause attempt. */
             out += x86("label", _.lbl_β)
                  + x86("ins2", "call", "rt_get_cut_flag@PLT")
                  + x86("ins2", "test", "eax, eax")

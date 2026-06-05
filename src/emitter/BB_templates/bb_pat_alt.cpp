@@ -1,7 +1,3 @@
-/* bb_pat_alt.cpp — BB template for IR_PAT_ALT: SNOBOL4 pattern alternation.
-   Driver flat_drive_alt (emit_bb.c) populates xa_bb_emit_pair_* with the
-   alternation glue labels; this template emits them inline.
-   TEXT: x86("label")/x86("ins2","jmp").  BINARY: 'E'/'F' pair-table records. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
