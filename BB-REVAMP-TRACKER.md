@@ -1,5 +1,6 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # v2: no locals · one return/PLATFORM · IF()/FOR() · 1 src line = 1 asm line · real Greek α β γ ω · no MEDIUM_* top-level · no emit_fmt · no comments · no blank lines.
+# v2 ONE-IR-ONE-LOGIC (Lon 2026-06-04): N IR kinds → 1 template allowed (near-identical shapes parameterized); 1 IR → 1 BB the norm; 1 IR kind → MULTIPLE distinct four-port logics in one template FORBIDDEN — break the file out by splitting the IR kind in LOWER into separate IR codes, each → its own template + emit_core dispatch case.
 - [ ] bb_alt.cpp
 - [ ] bb_arith.cpp
 - [ ] bb_assign_frame.cpp
@@ -45,14 +46,14 @@
 - [ ] bb_gather.cpp
 - [ ] bb_gen_scan.cpp
 - [ ] bb_goal.cpp — (v1 done: prose comments stripped; gates green)
-- [ ] bb_gvar_assign.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
+- [ ] bb_gvar_assign.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical)) — ⛔ ONE-IR-ONE-LOGIC VIOLATOR: ONE IR_ASSIGN(gvar) kind → 6 distinct four-port logics (descr-slot/lit_s/lit_i/var/concat/call-result arms). Break out: split in LOWER into per-shape IR codes, each its own template.
 - [ ] bb_ite.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_iterate.cpp
 - [ ] bb_keyword.cpp
 - [ ] bb_lit.cpp
 - [ ] bb_lit_scalar.cpp
 - [ ] bb_logicvar.cpp
-- [ ] bb_match.cpp
+- [ ] bb_match.cpp — ⛔ ONE-IR-ONE-LOGIC VIOLATOR: ONE IR_PAT_MATCH kind → 3 distinct logics (HEAD/RETRY/ADVANCE) selected by op_ival. Break out: three IR codes (MATCH_HEAD/MATCH_RETRY/MATCH_ADVANCE), three templates. AUDIT also: bb_keyword.cpp (4 keyword arms — near-identical or distinct? confirm), bb_scan_stmt.cpp (literal vs non-literal arms).
 - [ ] bb_pat_abort.cpp
 - [ ] bb_pat_alt.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_pat_any.cpp
