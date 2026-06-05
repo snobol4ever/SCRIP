@@ -16,7 +16,8 @@ static std::string bb_scan_upto_str() {
     int off = _.op_off, cur = _.op_off + 16; const char * cs = _.op_name1;
     if (!(g_descr_flat_chain && off >= 0 && cs)) return std::string();
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", "BOX ICN IR_SCAN_UPTO upto(c) [ICN-SCAN-9 fstranl.r function{*} FIRST SCAN GENERATOR: cursor[r12+cur]<-δ; L0: cursor>=Δ->ω; s[cursor]∈c -> {DT_I,cursor+1}->slot->γ (cursor persists); miss cursor++->L0; β RE-PUMPS: cursor++->L0]"))
+                         + x86("comment", "BOX ICN IR_SCAN_UPTO upto(c) [ICN-SCAN-9 fstranl.r function{*} FIRST SCAN GENERATOR: cursor[r12+cur]<-δ; L0: cursor>=Δ->ω; s[cursor]∈c ->"
+                           " {DT_I,cursor+1}->slot->γ (cursor persists); miss cursor++->L0; β RE-PUMPS: cursor++->L0]"))
          + x86("mov", FRQ(cur), "r14")
          + x86("def", L(0))
          + x86("mov", "rax", FRQ(cur))

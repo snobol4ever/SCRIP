@@ -32,7 +32,8 @@ static std::string bb_cell_call_str() {
     if (st->nargs > 0 && args.empty()) return x86_bomb("bb_cell_call: non-slot arg reached the emitter");
     int nsl = st->callee->arity + st->callee->nlocals + st->callee->nchild;
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-             + x86("comment", "BOX CELL_CALL  [PL-GZ-5b ζ-tree: the call site OWNS a child-frame pointer slot (the seed's &ζ->p2_ζ); rt_enter = reuse-or-alloc; call δ with rdi=child rsi/rdx=arg cell POINTERS; verdict-in-rax λ-test; β re-enters callee β (ε) with rdi=child only — args already live in the child frame]"))
+             + x86("comment", "BOX CELL_CALL  [PL-GZ-5b ζ-tree: the call site OWNS a child-frame pointer slot (the seed's &ζ->p2_ζ); rt_enter = reuse-or-alloc; call δ with rdi=child"
+               " rsi/rdx=arg cell POINTERS; verdict-in-rax λ-test; β re-enters callee β (ε) with rdi=child only — args already live in the child frame]"))
          + x86("lea", "rdi", FR(GZ_CELL_OFF(st->child_slot)))
          + x86("mov32", "esi", (long)nsl)
          + x86("call", "rt_enter", (uint64_t)(uintptr_t)(void *)rt_enter)
