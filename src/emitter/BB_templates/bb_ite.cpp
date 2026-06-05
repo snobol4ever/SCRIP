@@ -1,7 +1,3 @@
-/* bb_ite.cpp — BB template for IR_ITE: Prolog (Cond -> Then ; Else).
-   Driver flat_drive_pl_ite (emit_bb.c) mints Then/Else labels and deposits
-   the β-tombstone glue into xa_bb_emit_pair_*; this template emits it inline.
-   TEXT: x86("label")/x86("ins2","jmp").  BINARY: 'E'/'F' pair-table records. */
 #include <string>
 #include "emit_str.h"
 extern "C" {

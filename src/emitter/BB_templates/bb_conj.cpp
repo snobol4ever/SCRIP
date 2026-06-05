@@ -1,7 +1,3 @@
-/* bb_conj.cpp — BB template for IR_GCONJ: Prolog conjunction (a, b, c).
-   Driver flat_drive_pl_seq (emit_bb.c) populates xa_bb_emit_pair_* with the
-   conjunction β-chain glue; this template emits those label-defs + jmps inline.
-   TEXT: x86("label")/x86("ins2","jmp").  BINARY: 'E'/'F' pair-table records. */
 #include <string>
 #include "emit_str.h"
 extern "C" {
