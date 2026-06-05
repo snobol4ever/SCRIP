@@ -28,7 +28,8 @@ static std::string bb_query_frame_str() {
         }
         return IF(MEDIUM_TEXT,
                    x86("comment", _.op_sb
-                     ? "# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1; query tail is (G ; true) so ω = trail-unwind + PROMOTED 1 (entering the true arm with bindings undone); ret to the query driver]"
+                     ? "# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1; query tail is (G ; true) so ω = trail-unwind + PROMOTED 1 (entering the true arm with bindings undone); ret to"
+                       " the query driver]"
                      : "# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1, ω=trail-unwind+0; ret to the query driver]"))
              + x86("def", PORT_GAMMA)
              + x86("mov32", "eax", 1L)

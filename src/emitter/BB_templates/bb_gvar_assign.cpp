@@ -43,7 +43,8 @@ static std::string bb_gvar_assign_str() {
             const char * nm = _.op_sval ? _.op_sval : "";
             uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t) = NV_SET_fn; fptr = (uint64_t)(uintptr_t)(void *)fp; }
             return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                                  + x86("comment", emit_fmt("BOX IR_ASSIGN global write(\"%s\") [GN-4 nv x86() stackless: NV_SET_fn(name, rhs slot %d) -> own slot %d; name sealed RO [rip+disp]]", nm, rhs, off)))
+                                  + x86("comment", emit_fmt("BOX IR_ASSIGN global write(\"%s\") [GN-4 nv x86() stackless: NV_SET_fn(name, rhs slot %d) -> own slot %d; name sealed RO"
+                                    " [rip+disp]]", nm, rhs, off)))
                  + x86_frame_load64("rsi", rhs)
                  + x86_frame_load64("rdx", rhs + 8)
                  + x86_ro_load_q("rdi", 0)

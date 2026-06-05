@@ -11,7 +11,8 @@ static std::string bb_assign_local_str() {
     if (!PLATFORM_X86) return std::string();
     if (g_descr_flat_chain && _.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0)
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                             + x86("comment", emit_fmt("BOX IR_ASSIGN local(\"%s\") [descr flat-chain: rhs slot %d -> varslot %d + own slot %d]", _.op_sval ? _.op_sval : "", _.op_a_slot, _.op_sb, _.op_off)))
+                             + x86("comment", emit_fmt("BOX IR_ASSIGN local(\"%s\") [descr flat-chain: rhs slot %d -> varslot %d + own slot"
+                               " %d]", _.op_sval ? _.op_sval : "", _.op_a_slot, _.op_sb, _.op_off)))
              + x86_frame_load64("rax", _.op_a_slot)
              + x86_frame_load64("rdx", _.op_a_slot + 8)
              + x86_frame_store64(_.op_sb, "rax")

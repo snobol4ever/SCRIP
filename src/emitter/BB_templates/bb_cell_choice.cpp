@@ -32,7 +32,8 @@ static std::string bb_cell_choice_str() {
     int ro_id = N;
     std::string seals;
     std::string s = IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                     + x86("comment", "BOX CELL_CHOICE  [PL-GZ-4 seed transcription: 1-based cursor + trail-mark in the box's OWN frame row; redo unwinds to entry mark; clause k fail falls into clause k+1]"))
+                     + x86("comment", "BOX CELL_CHOICE  [PL-GZ-4 seed transcription: 1-based cursor + trail-mark in the box's OWN frame row; redo unwinds to entry mark; clause k fail falls"
+                       " into clause k+1]"))
         + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
         + x86("mov", FR(mark_off), "eax")
         + x86("mov", FR(cur_off), (long)1);
