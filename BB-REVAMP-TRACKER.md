@@ -1,8 +1,10 @@
+# BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
+# v2: no locals · one return/PLATFORM · IF()/FOR() · 1 src line = 1 asm line · real Greek α β γ ω · no MEDIUM_* top-level · no emit_fmt · no comments · no blank lines.
 - [ ] bb_alt.cpp
 - [ ] bb_arith.cpp
 - [ ] bb_assign_frame.cpp
 - [ ] bb_assign_frame_ref.cpp
-- [x] bb_assign_local.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
+- [ ] bb_assign_local.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_atom.cpp
 - [ ] bb_binop_arith.cpp
 - [ ] bb_binop_concat_slot.cpp
@@ -27,13 +29,13 @@
 - [ ] bb_call_proc_staged.cpp
 - [ ] bb_call_userproc.cpp
 - [ ] bb_call_write_slot.cpp
-- [x] bb_callee_frame.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
+- [ ] bb_callee_frame.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_catch.cpp
-- [x] bb_cell_call.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
-- [x] bb_cell_choice.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
+- [ ] bb_cell_call.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
+- [ ] bb_cell_choice.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_cell_unify.cpp
-- [x] bb_choice.cpp — prose comments stripped; gates green
-- [x] bb_conj.cpp — prose comments stripped; gates green
+- [ ] bb_choice.cpp — (v1 done: prose comments stripped; gates green)
+- [ ] bb_conj.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_cut.cpp
 - [ ] bb_det_nl.cpp
 - [ ] bb_det_write.cpp
@@ -42,9 +44,9 @@
 - [ ] bb_fail.cpp
 - [ ] bb_gather.cpp
 - [ ] bb_gen_scan.cpp
-- [x] bb_goal.cpp — prose comments stripped; gates green
-- [x] bb_gvar_assign.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
-- [x] bb_ite.cpp — prose comments stripped; gates green
+- [ ] bb_goal.cpp — (v1 done: prose comments stripped; gates green)
+- [ ] bb_gvar_assign.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
+- [ ] bb_ite.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_iterate.cpp
 - [ ] bb_keyword.cpp
 - [ ] bb_lit.cpp
@@ -52,14 +54,14 @@
 - [ ] bb_logicvar.cpp
 - [ ] bb_match.cpp
 - [ ] bb_pat_abort.cpp
-- [x] bb_pat_alt.cpp — prose comments stripped; gates green
+- [ ] bb_pat_alt.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_pat_any.cpp
 - [ ] bb_pat_arb.cpp
 - [ ] bb_pat_arbno.cpp
 - [ ] bb_pat_atp.cpp
-- [x] bb_pat_break.cpp — PASS 8/8 hygiene (REG-RO + SNO-HY-1 de-cram deferred to their ladders)
+- [ ] bb_pat_break.cpp — (v1 done: PASS 8/8 hygiene (REG-RO + SNO-HY-1 de-cram deferred to their ladders))
 - [ ] bb_pat_capture.cpp
-- [x] bb_pat_cat.cpp — prose comments stripped; gates green
+- [ ] bb_pat_cat.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_pat_defer.cpp
 - [ ] bb_pat_fence.cpp
 - [ ] bb_pat_len.cpp
@@ -68,18 +70,18 @@
 - [ ] bb_pat_rem.cpp
 - [ ] bb_pat_span.cpp
 - [ ] bb_pat_tab.cpp
-- [x] bb_query_frame.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
+- [ ] bb_query_frame.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_return.cpp
 - [ ] bb_scan_any.cpp
-- [x] bb_scan_bal.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
-- [x] bb_scan_find.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
+- [ ] bb_scan_bal.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
+- [ ] bb_scan_find.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_scan_many.cpp
-- [x] bb_scan_match.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
-- [x] bb_scan_move.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
+- [ ] bb_scan_match.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
+- [ ] bb_scan_move.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_scan_pos.cpp
 - [ ] bb_scan_stmt.cpp
-- [x] bb_scan_tab.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
-- [x] bb_scan_upto.cpp — 8-rule grep-clean; LONG wrapped (string-split, content-identical)
+- [ ] bb_scan_tab.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
+- [ ] bb_scan_upto.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_subject.cpp
 - [ ] bb_succeed.cpp
 - [ ] bb_to.cpp
