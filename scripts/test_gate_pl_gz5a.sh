@@ -47,11 +47,11 @@ run_admitted realpha  ':- initialization(main).\nfact(a).\nfact(b).\nwant(X) :- 
 run_admitted redocall ':- initialization(main).\nfact(1).\nfact(2).\nok(X) :- X = a.\nmain :- fact(N), ok(Z), N = 2, write(N), nl.\n' '2\n'
 run_admitted crossvar ':- initialization(main).\nsame(X, X).\nmain :- same(a, a), write(y), nl, same(b, c).\n' 'y\n'
 
-printf ':- initialization(main).\np(X) :- X = a.\np(X) :- X = b.\nmain :- p(Q), write(Q), nl, fail.\n' > "$TMP/neg1.pl"
+printf ':- initialization(main).\nt3(A,B,C) :- A = B, B = C.\nmain :- t3(a,X,Y), write(X), write(Y), nl.\n' > "$TMP/neg1.pl"
 "$SCRIP" --run "$TMP/neg1.pl" </dev/null > "$TMP/n13" 2>"$TMP/ne13" || fail "neg1 m3 rc"
-grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (2-clause rule pred) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
+grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (arity-3 rule pred) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg1.pl" > "$TMP/n1.s" 2>/dev/null || fail "neg1 m4 compile rc"
-grep -q "gzq\|gzp" "$TMP/n1.s" && fail "neg1 (2-clause rule pred) m4 .s has gz labels (GZ wrongly admitted)"
+grep -q "gzq\|gzp" "$TMP/n1.s" && fail "neg1 (arity-3 rule pred) m4 .s has gz labels (GZ wrongly admitted)"
 
 printf ':- initialization(main).\nq(X) :- X = f(a).\nmain :- q(Z), write(Z), nl.\n' > "$TMP/neg2.pl"
 "$SCRIP" --run "$TMP/neg2.pl" </dev/null > "$TMP/n23" 2>"$TMP/ne23" || fail "neg2 m3 rc"
@@ -59,5 +59,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (compound in rule body) m3 d
 "$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n2.s" && fail "neg2 (compound in rule body) m4 .s has gz labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ5A PASS: user-predicate calls via δ/ε port fills (call box + callee frame: arg cell-pointer marshaling, value flow out through head vars, per-activation locals, trail mark/unwind in the callee row, redo re-entry via ε, choice-driven α re-entry, cross-var heads) m2==m3==m4 byte-identical on the GZ path; 2-clause and compound-body rule preds declined identically by both branches"
+echo "GATE-PL-GZ5A PASS: user-predicate calls via δ/ε port fills (call box + callee frame: arg cell-pointer marshaling, value flow out through head vars, per-activation locals, trail mark/unwind in the callee row, redo re-entry via ε, choice-driven α re-entry, cross-var heads) m2==m3==m4 byte-identical on the GZ path; arity-3 and compound-body rule preds declined identically by both branches"
 exit 0
