@@ -215,6 +215,21 @@ static int tt_to_binop(tree_e t) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_bool_operand(lcx_t cx, const tree_t * child, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out) {
+    IR_t * lit1 = nalloc(cx, IR_LIT_I); if (!lit1) return NULL; lit1->ival = 1;
+    IR_t * lit0 = nalloc(cx, IR_LIT_I); if (!lit0) return NULL; lit0->ival = 0;
+    IR_t * join = nalloc(cx, IR_IF);    if (!join) return NULL;
+    lcx_t cb = cx; cb.bounded = 1;
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * cn = lower2(cb, child, lit1, lit0, &cα, &cβ);
+    if (!cn) return NULL;
+    (void) cβ;
+    lit1->γ = join; lit0->γ = join;
+    set_succ_fail(join, γ_in, ω_in);
+    if (α_out) *α_out = cα ? cα : cn;
+    return join;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * bin = nalloc(cx, IR_BINOP);
@@ -222,16 +237,18 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     bin->sval = e->v.sval;
     bin->ival = (int64_t) tt_to_binop(e->t);
     bin->dval = tt_is_relational(e->t) ? 1.0 : 0.0;
+    int b1 = (cx.lang == IR_LANG_PAS && tt_is_relational(e->c[0]->t));
+    int b2 = (cx.lang == IR_LANG_PAS && tt_is_relational(e->c[1]->t));
     IR_t * e1α=NULL, * e1β=NULL, * e2α=NULL, * e2β=NULL;
-    IR_t * c1 = lower2(cx, e->c[0], NULL  , ω_in, &e1α, &e1β);
+    IR_t * c1 = b1 ? pas_bool_operand(cx, e->c[0], NULL, ω_in, &e1α) : lower2(cx, e->c[0], NULL  , ω_in, &e1α, &e1β);
     if (!c1) return NULL;
-    IR_t * c2 = lower2(cx, e->c[1], bin  , e1β  , &e2α, &e2β);
+    IR_t * c2 = b2 ? pas_bool_operand(cx, e->c[1], bin, ω_in, &e2α) : lower2(cx, e->c[1], bin  , b1 ? ω_in : e1β, &e2α, &e2β);
     if (!c2) return NULL;
     if (!c1->γ) c1->γ = e2α;
     IR_t * binops[2] = { c1, c2 };
     bb_operand_aux_set(cx.bbg, bin, binops, 2);
     set_succ_fail(bin, γ_in, ω_in);
-    return ret(bin, α_out, β_out, e1α, e2β);
+    return ret(bin, α_out, β_out, e1α, b2 ? ω_in : e2β);
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
