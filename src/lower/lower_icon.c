@@ -26,18 +26,7 @@ static lcx_t icn_bounded(lcx_t cx) { cx.bounded = 1; return cx; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static lcx_t icn_with_loop(lcx_t cx, IR_t * lω, IR_t * lnext) { cx.loop_ω = lω; cx.loop_next = lnext; return cx; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_graph_t * icn_subgraph(lcx_t cx, const tree_t * e) {
-    IR_graph_t * sg = IR_alloc(32, cx.lang);
-    if (!sg) return NULL;
-    IR_t * PFAIL = IR_node_alloc(sg, IR_FAIL);
-    if (!PFAIL) return NULL;
-    lcx_t sc = cx; sc.bbg = sg;
-    IR_t * aout = NULL, * bout = NULL;
-    IR_t * n = lower2(sc, e, NULL, PFAIL, &aout, &bout);
-    if (!n) return NULL;
-    sg->entry = aout ? aout : n;
-    return sg;
-}
+/* icn_subgraph DELETED — use lower_value_subgraph() directly (BUG-A fix 2026-06-06) */
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 static tree_e icn_augop_binop_tt(AugOp_e a) {
@@ -54,25 +43,7 @@ static tree_e icn_augop_binop_tt(AugOp_e a) {
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * icn_every(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    if (e->n < 1 || !e->c[0]) return NULL;
-    IR_t * ev = nalloc(cx, IR_EVERY);
-    if (!ev) return NULL;
-    IR_t * g1α = NULL, * g1β = NULL;
-    IR_t * gen = lower2(cx, e->c[0], NULL, ev, &g1α, &g1β);
-    if (!gen) return NULL;
-    if (e->n >= 2 && e->c[1]) {
-        IR_t * b2α = NULL, * b2β = NULL;
-        IR_t * body = lower2(icn_bounded(cx), e->c[1], g1β, g1β, &b2α, &b2β);
-        if (!body) return NULL;
-        if (!gen->γ) gen->γ = b2α;
-    } else {
-        if (!gen->γ) gen->γ = g1β;
-    }
-    ev->α = g1α;
-    set_succ_fail(ev, γ_in, ω_in);
-    return ret(ev, α_out, β_out, g1α, ω_in);
-}
+/* icn_every DELETED — v_every in lower.c handles TT_EVERY for all languages (BUG-B fix 2026-06-06) */
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_loop_break(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     (void) γ_in; (void) e;
@@ -101,14 +72,14 @@ static IR_t * icn_det_call(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
     call->sval = fn;
     int nargs = e->n - 1;
     call->ival = (int64_t) nargs;
-    call->dval = 2.0;
+    call->dval = 3.0;
     int allow_gen = icn_proc_is_generator(fn);
     if (nargs > 0) {
         IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
         if (!blks) return NULL;
         lcx_t mv = icn_bounded(cx);
         for (int i = 0; i < nargs; i++) {
-            blks[i] = icn_subgraph(mv, e->c[i + 1]);
+            blks[i] = lower_value_subgraph(mv, e->c[i + 1]);
             if (!blks[i]) { free(blks); return NULL; }
         }
         call->counter = (int64_t)(intptr_t) blks;
@@ -175,9 +146,9 @@ static IR_t * icn_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (!tm(e, TT_SCAN, 2, &isubj_t, &ibody_t) || !isubj_t || !ibody_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     IR_t * gs = nalloc(cx, IR_GEN_SCAN);
     if (!gs) return NULL;
-    IR_graph_t * subj_sg = icn_subgraph(cx, isubj_t);
+    IR_graph_t * subj_sg = lower_value_subgraph(cx, isubj_t);
     if (!subj_sg) return NULL;
-    IR_graph_t * body_sg = icn_subgraph(cx, ibody_t);
+    IR_graph_t * body_sg = lower_value_subgraph(cx, ibody_t);
     if (!body_sg) return NULL;
     gs->counter = (int64_t)(intptr_t) subj_sg;
     gs->ival    = (int64_t)(intptr_t) body_sg;
@@ -207,12 +178,12 @@ static IR_t * icn_suspend(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     if (!sn) return NULL;
     sn->dval = 1.0;
     if (e->n >= 1 && e->c[0]) {
-        IR_graph_t * eblk = icn_subgraph(cx, e->c[0]);
+        IR_graph_t * eblk = lower_value_subgraph(cx, e->c[0]);
         if (!eblk) return NULL;
         sn->counter = (int64_t)(intptr_t) eblk;
     }
     if (e->n >= 2 && e->c[1]) {
-        IR_graph_t * bblk = icn_subgraph(cx, e->c[1]);
+        IR_graph_t * bblk = lower_value_subgraph(cx, e->c[1]);
         if (!bblk) return NULL;
         sn->ival = (int64_t)(intptr_t) bblk;
     }
@@ -364,8 +335,8 @@ static IR_t * icn_idx(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     IR_graph_t ** blks = (IR_graph_t **) calloc(2, sizeof(IR_graph_t *));
     if (!blks) return NULL;
     lcx_t mv = icn_bounded(cx);
-    blks[0] = icn_subgraph(mv, e->c[0]);
-    blks[1] = icn_subgraph(mv, e->c[1]);
+    blks[0] = lower_value_subgraph(mv, e->c[0]);
+    blks[1] = lower_value_subgraph(mv, e->c[1]);
     if (!blks[0] || !blks[1]) { free(blks); return NULL; }
     call->counter = (int64_t)(intptr_t) blks;
     set_succ_fail(call, γ_in, ω_in);
@@ -383,7 +354,7 @@ static IR_t * icn_makelist(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
     if (!blks) return NULL;
     lcx_t mv = icn_bounded(cx);
     for (int i = 0; i < n; i++) {
-        blks[i] = icn_subgraph(mv, e->c[i] ? e->c[i] : e->c[0]);
+        blks[i] = lower_value_subgraph(mv, e->c[i] ? e->c[i] : e->c[0]);
         if (!blks[i]) { free(blks); return NULL; }
     }
     ml->counter = (int64_t)(intptr_t) blks;
@@ -402,8 +373,8 @@ static IR_t * icn_cset_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω
     IR_graph_t ** blks = (IR_graph_t **) calloc(2, sizeof(IR_graph_t *));
     if (!blks) return NULL;
     lcx_t mv = icn_bounded(cx);
-    blks[0] = icn_subgraph(mv, e->c[0]);
-    blks[1] = icn_subgraph(mv, e->c[1]);
+    blks[0] = lower_value_subgraph(mv, e->c[0]);
+    blks[1] = lower_value_subgraph(mv, e->c[1]);
     if (!blks[0] || !blks[1]) { free(blks); return NULL; }
     call->counter = (int64_t)(intptr_t) blks;
     set_succ_fail(call, γ_in, ω_in);
@@ -425,8 +396,6 @@ IR_t * lower2_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t *
         e = as;
     }
     switch (e->t) {
-    case TT_EVERY:
-        return icn_every(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_LOOP_BREAK:
         return icn_loop_break(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_LOOP_NEXT:
@@ -467,8 +436,12 @@ IR_t * lower2_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t *
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_FNC: case TT_PROC_FAIL: case TT_SWAP: case TT_AUGOP:
-        if (e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval)
+        if (e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            const char * fn = e->c[0]->v.sval;
+            if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))
+                return wire_det_builtin1(cx, e->c[1], fn, γ_in, ω_in, α_out, β_out);
             return icn_det_call(cx, e, γ_in, ω_in, α_out, β_out);
+        }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_LOCAL: case TT_GLOBAL: case TT_STATIC_DECL: {
         IR_t * nop = nalloc(cx, IR_SUCCEED);

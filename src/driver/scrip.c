@@ -248,7 +248,7 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
             if (has_lassign && nd->t == IR_BINOP && !((nd->ival >= BINOP_LT && nd->ival <= BINOP_NE) || nd->ival == BINOP_ADD || nd->ival == BINOP_SUB || nd->ival == BINOP_MUL || nd->ival == BINOP_DIV || nd->ival == BINOP_MOD)) return 0;
             if (has_lassign && has_binop && (nd->t == IR_LIT_F || nd->t == IR_LIT_NUL)) return 0;
             if (has_lassign && nd->t == IR_CALL && !(nd->sval && (!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes")))) return 0;
-            if (for_run && nd->t == IR_CALL && (nd->dval == 3.0 || (nd->sval && rt_proc_is_registered(nd->sval)))) return 0;
+            if (for_run && nd->t == IR_CALL && (nd->dval == 3.0 || (nd->sval && rt_proc_is_registered(nd->sval)))) { int _icn_io = nd->sval && (!strcmp(nd->sval,"write")||!strcmp(nd->sval,"writes")||!strcmp(nd->sval,"writeln")||!strcmp(nd->sval,"nl")||!strcmp(nd->sval,"halt")); if (!_icn_io) return 0; }
             if (nd->t == IR_GEN_SCAN) {
                 if (nd->dval != 1.0) return 0;
                 IR_graph_t *ssg = (IR_graph_t *)(intptr_t) nd->counter;
