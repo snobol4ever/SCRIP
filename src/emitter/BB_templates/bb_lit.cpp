@@ -31,22 +31,19 @@ static std::string bb_lit_str() {
              + x86("lea", "rdi", "[r13 + rcx]")
              + x86("lea", "rsi", "[rip + __]", litaddr(), litlabel())
              + x86("mov", "rdx", litlen())
-             + x86("push", "r10")
+             + x86("sub", "rsp", (long)8)
              + x86("call", "memcmp", memcmpaddr())
-             + x86("pop", "r10")
+             + x86("add", "rsp", (long)8)
              + x86("test", "eax", "eax")
              + x86("jne", PORT_OMEGA)
              + x86("add", "r14d", litlen())
-             + x86("mov", "[r10]", "r14d")
              + x86("jmp", PORT_GAMMA)
              + x86("def", PORT_BETA)
              + x86("sub", "r14d", litlen())
-             + x86("mov", "[r10]", "r14d")
              + x86("jmp", PORT_OMEGA);
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_lit(void) {
     bb_emit_x86(bb_lit_str());
-    if (MEDIUM_TEXT) g_emit_pos += 7;
 }

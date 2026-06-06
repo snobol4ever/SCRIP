@@ -99,7 +99,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                    + bytes(1, "\xC3") )
                  : ( bytes(2, "\x48\xB9") + u64le(ADDR_SIGMA)
                    + bytes(3, "\x48\x8B\x01")
-                   + bytes(3, "\x49\x63\x0A")
+                   + bytes(3, "\x49\x63\xCE")
                    + bytes(4, "\x48\x8D\x04\x08")
                    + bytes(3, "\x48\x89\xC2")
                    + bytes(1, "\xB8") + u32le(1)
@@ -144,7 +144,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
         }
         return std::string("lea rcx, [rip + Σ]\n")
              + "mov rax, [rcx]\n"
-             + "movsxd rcx, dword ptr [r10]\n"
+             + "movsxd rcx, r14d\n"
              + "lea rax, [rax+rcx]\n"
              + "mov rdx, rax\n"
              + "mov eax, 1\n"

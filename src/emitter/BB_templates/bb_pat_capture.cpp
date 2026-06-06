@@ -35,14 +35,12 @@ static std::string bb_pat_capture_str() {
          + x86("mov",  "esi", FR(stoff()))
          + x86("mov",  "edx", "r14d")
          + x86("mov",  "ecx", (long)(sub_kind() == 2 ? 1 : 0))
-         + x86("push", "r10")
          + x86("push", "rbx")
          + x86("mov",  "rbx", "rsp")
          + x86("and",  "rsp", -16L)
          + x86("call", "rt_cap_assign_cursor", cap_fn())
          + x86("mov",  "rsp", "rbx")
          + x86("pop",  "rbx")
-         + x86("pop",  "r10")
          + x86("jmp",  PORT_GAMMA);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
