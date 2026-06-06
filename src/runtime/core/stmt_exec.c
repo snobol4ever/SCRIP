@@ -60,7 +60,6 @@ typedef struct {
 static cache_slot_t g_node_cache[DYNC_CACHE_CAP];
 static int          g_cache_hits   = 0;
 static int          g_cache_misses = 0;
-bb_mode_t           g_bb_mode      = BB_MODE_DRIVER;
 static int          g_bin_hits     = 0;
 static int          g_bin_misses   = 0;
 static int          g_bin_str_hits = 0;
@@ -185,11 +184,11 @@ int exec_stmt(const char  *subj_name,
         if (pat.v == DT_S || pat.v == DT_SNUL) {
             const char *lit = pat.s ? pat.s : "";
             PATND_t *lp = patnd_make_xchr(lit);
-            bb_box_fn bfn2 = bb_build_pure_mode((IR_t *)lp);
+            bb_box_fn bfn2 = bb_build_flat((IR_t *)lp);
             root.fn = bfn2; root.ζ = NULL; root.ζ_size = 0;
         } else if (pat.v == DT_P && pat.p) {
         int bin_done = 0;
-        if (g_bb_mode == BB_MODE_LIVE) {
+        {
             PATND_t *pp = (PATND_t *)pat.p;
             cache_slot_t *bslot = cache_find(pp);
             if (bslot && bslot->key == pp && bslot->template.fn) {
@@ -202,12 +201,11 @@ int exec_stmt(const char  *subj_name,
                 int needs_xlate   = is_combinator || patnd_needs_xlate(pp);
                 IR_graph_t *pp_cfg = NULL;
                 if (is_combinator || needs_xlate) {
-                    fprintf(stderr, "[PATND] exec_stmt(LIVE): PATND->IR bridge removed; SNOBOL4 pattern match not yet BB-native (Track B). Aborting.\n");
+                    fprintf(stderr, "[PATND] exec_stmt: PATND->IR bridge removed; SNOBOL4 pattern match not yet BB-native (Track B). Aborting.\n");
                     abort();
                 }
                 IR_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (IR_t *)pp;
-                int is_cap = pp_bb && (((IR_t*)pp_bb)->t == IR_PAT_ASSIGN_COND || ((IR_t*)pp_bb)->t == IR_PAT_ASSIGN_IMM);
-                bb_box_fn bfn = is_cap ? bb_build_brokered(pp_bb) : bb_build_flat(pp_bb);
+                bb_box_fn bfn = bb_build_flat(pp_bb);
                 if (bfn) {
                     root.fn     = bfn;
                     root.ζ      = NULL;
@@ -218,25 +216,6 @@ int exec_stmt(const char  *subj_name,
                 } else {
                     g_bin_misses++;
                 }
-            }
-        } else if (g_bb_mode == BB_MODE_BROKERED || g_bb_mode == BB_MODE_DRIVER) {
-            PATND_t *pp = (PATND_t *)pat.p;
-            int defer_combinator = patnd_contains_defer(pp) && patnd_is_combinator_root(pp);
-            int pure_altcat      = patnd_is_pure_altcat(pp) && patnd_is_combinator_root(pp);
-            int arbno_combinator = patnd_contains_arbno(pp) && patnd_is_combinator_root(pp);
-            int needs_xlate = patnd_needs_xlate(pp);
-            IR_graph_t *pp_cfg = NULL;
-            if (defer_combinator || pure_altcat || arbno_combinator || needs_xlate) {
-                fprintf(stderr, "[PATND] exec_stmt(BROKERED): PATND->IR bridge removed; SNOBOL4 pattern match not yet BB-native (Track B). Aborting.\n");
-                abort();
-            }
-            IR_t       *pp_bb  = (pp_cfg && pp_cfg->entry) ? pp_cfg->entry : (IR_t *)pp;
-            bb_box_fn bfn = bb_build_brokered(pp_bb);
-            if (bfn) {
-                root.fn     = bfn;
-                root.ζ      = NULL;
-                root.ζ_size = 0;
-                bin_done    = 1;
             }
         }
         if (!bin_done) {
@@ -249,7 +228,7 @@ int exec_stmt(const char  *subj_name,
         }
     } else if (pat.v == DT_S && pat.s) {
         PATND_t *lp = patnd_make_xchr(pat.s);
-        bb_box_fn bfn = bb_build_pure_mode((IR_t *)lp);
+        bb_box_fn bfn = bb_build_flat((IR_t *)lp);
         if (bfn) {
             root.fn  = bfn;
             root.ζ   = NULL;
