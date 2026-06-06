@@ -96,7 +96,6 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                  ? ( bytes(1, "\xB8") + u32le(1)
                    + bytes(2, "\x31\xD2")
                    + unwind
-                   + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
                    + bytes(1, "\xC3") )
                  : ( bytes(2, "\x48\xB9") + u64le(ADDR_SIGMA)
                    + bytes(3, "\x48\x8B\x01")
@@ -105,7 +104,6 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                    + bytes(3, "\x48\x89\xC2")
                    + bytes(1, "\xB8") + u32le(1)
                    + unwind
-                   + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
                    + bytes(1, "\xC3") );
             std::string fail_half = g_frame_active
                  ? ( bytes(4, "\x49\xC7\x84\x24") + u32le(0u) + u32le(99u)
@@ -113,12 +111,10 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                    + bytes(1, "\xB8") + u32le(99)
                    + bytes(2, "\x31\xD2")
                    + unwind
-                   + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
                    + bytes(1, "\xC3") )
                  : ( bytes(1, "\xB8") + u32le(99)
                    + bytes(2, "\x31\xD2")
                    + unwind
-                   + (g_emit.flat_brokered ? bytes(1, "\x5D") : std::string())
                    + bytes(1, "\xC3") );
             out_site = (int)succ_half.size(); out_lbl = g_emit.flat_fail_p; out_def = true;
             return succ_half + fail_half;
@@ -133,7 +129,6 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 return std::string("mov eax, 1\n")
                      + "xor edx, edx\n"
-                     + (g_emit.flat_brokered ? std::string("pop rbp\n") : std::string())
                      + "pop r12\n"
                      + "ret\n"
                      + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
@@ -143,7 +138,6 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                      + "mov qword ptr [r12+8], 0\n"
                      + "mov eax, 99\n"
                      + "xor edx, edx\n"
-                     + (g_emit.flat_brokered ? std::string("pop rbp\n") : std::string())
                      + "pop r12\n"
                      + "ret\n";
             }
@@ -154,12 +148,10 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
              + "lea rax, [rax+rcx]\n"
              + "mov rdx, rax\n"
              + "mov eax, 1\n"
-             + (g_emit.flat_brokered ? std::string("pop rbp\n") : std::string())
              + "ret\n"
              + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
              + "mov eax, 99\n"
              + "xor edx, edx\n"
-             + (g_emit.flat_brokered ? std::string("pop rbp\n") : std::string())
              + "ret\n";
     }
     return std::string();

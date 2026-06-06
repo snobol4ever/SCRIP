@@ -15,7 +15,6 @@ extern "C" {
 typedef enum {
     EMIT_TEXT             = 0,
     EMIT_BINARY_WIRED     = 1,
-    EMIT_BINARY_BROKERED  = 2,
     EMIT_MACRO_DEF        = 3,
     EMIT_TEXT_INLINE      = 4,
     EMIT_JVM              = 5,
@@ -41,7 +40,6 @@ typedef enum {
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern bb_platform_t   g_platform;
 extern bb_medium_t     g_medium;
-extern int             g_bb_brokered;
 extern int             g_use_sm_macros;
 extern int             g_use_bb_macros;
 #define PLATFORM_X86   (g_platform == BB_PLATFORM_X86)
@@ -52,8 +50,6 @@ extern int             g_use_bb_macros;
 #define MEDIUM_TEXT      (g_medium == BB_MEDIUM_TEXT)
 #define MEDIUM_BINARY    (g_medium == BB_MEDIUM_BINARY)
 #define MEDIUM_MACRO_DEF (g_medium == BB_MEDIUM_MACRO_DEF)
-#define BB_BROKERED    (g_bb_brokered)
-#define BB_WIRED       (!g_bb_brokered)
 #define USE_SM_MACROS  (g_use_sm_macros)
 #define USE_BB_MACROS  (g_use_bb_macros)
 #define BB_LABEL_NAME_MAX   80

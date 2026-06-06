@@ -370,7 +370,7 @@ static int emit_one_cell(const char *out_dir,
         emit_mode_set(be->mode, out);
     }
     g_emit.backend  = be->mode;
-    g_emit.is_binary = (be->mode == EMIT_BINARY_WIRED || be->mode == EMIT_BINARY_BROKERED);
+    g_emit.is_binary = (be->mode == EMIT_BINARY_WIRED);
     emit_io_set_sink(out);
     g_emit.node = nd;
     g_emit.sid  = 0;
@@ -485,7 +485,7 @@ static int emit_one_sm_cell(const char *out_dir,
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     emit_mode_set(be->mode, out);
     g_emit.backend  = be->mode;
-    g_emit.is_binary = (be->mode == EMIT_BINARY_WIRED || be->mode == EMIT_BINARY_BROKERED);
+    g_emit.is_binary = (be->mode == EMIT_BINARY_WIRED);
     emit_io_set_sink(out);
     g_emit.instr = ins;
     g_emit.i    = 0;
