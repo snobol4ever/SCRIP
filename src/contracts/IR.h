@@ -95,6 +95,7 @@ typedef enum {
     IR_CELL_CHOICE,
     IR_CELL_CALL,
     IR_CALLEE_FRAME,
+    IR_CELL_CUT,
     IR_TO,
     IR_UPTO,
     IR_ITERATE,

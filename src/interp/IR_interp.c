@@ -1742,6 +1742,20 @@ static int bb_body_has_live_choice(IR_graph_t *bbg) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int bb_body_live_choice_cut_aware(IR_graph_t *bbg) {
+    if (!bbg) return 0;
+    bb_conj_state_t *zs = (bbg->entry && bbg->entry->t == IR_GCONJ) ? (bb_conj_state_t *)(intptr_t)bbg->entry->ival : NULL;
+    if (zs && zs->goals) {
+        int cuti = -1;
+        for (int i = 0; i < zs->ngoals; i++) if (zs->goals[i] && zs->goals[i]->t == IR_CUT && zs->goals[i]->state > 0) cuti = i;
+        if (cuti >= 0) {
+            for (int i = cuti + 1; i < zs->ngoals; i++) { IR_t *p = zs->goals[i]; if (p && (p->t == IR_GOAL || p->t == IR_CHOICE || p->t == IR_DISJ) && p->state > 0) return 1; }
+            return 0;
+        }
+    }
+    return bb_body_has_live_choice(bbg);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_body_cp_free_except_tail(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
@@ -4203,10 +4217,15 @@ IR_t * IR_interp_node(IR_t * bb) {
         } else {
             g_resolve_cut_barrier = (resolve_choice *)zc->cut_barrier;
         }
-        int spine_says_live = (bb->state > 0 && zc->last_body && zc->cp != NULL
+        int cp_cut_away = 0;
+        if (bb->state > 0 && zc->cp) {
+            cp_cut_away = 1;
+            for (resolve_choice *c = resolve_cp_current(); c; c = c->parent) if (c == (resolve_choice *)zc->cp && c->resume == (void *)bb) { cp_cut_away = 0; break; }
+        }
+        int spine_says_live = (bb->state > 0 && zc->last_body && zc->cp != NULL && !cp_cut_away
                                && resolve_cp_current() != (resolve_choice *)zc->cp);
         int inner_live = spine_says_live
-                         || (bb->state > 0 && zc->last_body && bb_body_has_live_choice(zc->last_body));
+                         || (bb->state > 0 && zc->last_body && bb_body_live_choice_cut_aware(zc->last_body));
         if (inner_live) {
             IR_graph_t *lb = zc->last_body;
             DESCR_t res = IR_interp_resume(lb);
@@ -4214,7 +4233,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                 g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
                 bb->value = res; return bb->γ;
             }
-            if (g_resolve_cut_flag) {
+            if (g_resolve_cut_flag || cp_cut_away) {
                 g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
                 bb->state = 0; zc->last_body = NULL; zc->cp = NULL;
                 bb->value = FAILDESCR; return bb->ω;
@@ -4223,6 +4242,11 @@ IR_t * IR_interp_node(IR_t * bb) {
             g_resolve_env = (Term **)zc->saved_env;
             zc->last_body = NULL;
         } else if (bb->state > 0) {
+            if (cp_cut_away) {
+                g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
+                bb->state = 0; zc->last_body = NULL; zc->cp = NULL;
+                bb->value = FAILDESCR; return bb->ω;
+            }
             trail_unwind(&g_resolve_trail, zc->mark);
             g_resolve_env = (Term **)zc->saved_env;
             zc->last_body = NULL;
@@ -4394,7 +4418,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         g_resolve_env = cs->callee_env;
         bb_node_state_t *caller_snap2 = bb_snapshot_state(_bcfg);
         bb_restore_state(_bcfg, cs->act); cs->act = NULL;
-        if (!bb_body_has_live_choice(_bcfg)) {
+        if (!bb_body_live_choice_cut_aware(_bcfg)) {
             bb_restore_state(_bcfg, caller_snap2);
             trail_unwind(&g_resolve_trail, cs->trail_mark);
             g_resolve_env = cs->saved_env; free(cs); zc->cs = NULL; bb->state = 0;
@@ -4414,8 +4438,7 @@ IR_t * IR_interp_node(IR_t * bb) {
     }
     case IR_CUT: {
         extern int g_resolve_cut_flag;
-        resolve_cp_truncate(g_resolve_cut_barrier);
-        g_resolve_cut_flag = 1;
+        if (bb->state == 0) { resolve_cp_truncate(g_resolve_cut_barrier); g_resolve_cut_flag = 1; bb->state = 1; }
         bb->value = INTVAL(1); return bb->γ;
     }
     case IR_ATOM: {

@@ -472,7 +472,7 @@ static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t *
 }
 static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (!gg) return 0;
-    if (gg->t == IR_SUCCEED || gg->t == IR_FAIL) return 1;
+    if (gg->t == IR_SUCCEED || gg->t == IR_FAIL || gg->t == IR_CUT) return 1;
     if (gg->t == IR_GOAL) {
         bb_goal_state_t *zc = NULL; int ar2 = 0;
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc, &ar2);
@@ -500,7 +500,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
     for (int i = 0; i < cg->n; i++) {
         IR_t *nd = cg->all[i];
         if (!nd) continue;
-        if (nd->t == IR_CHOICE || nd->t == IR_CUT || nd->t == IR_DISJ ||
+        if (nd->t == IR_CHOICE || nd->t == IR_DISJ ||
             nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_ARITH || nd->t == IR_STRUCT) return 0;
         if (nd->t == IR_BUILTIN && !((nd->sval && !strcmp(nd->sval, "nl") && nd->ival == 0) ||
                                      (nd->sval && !strcmp(nd->sval, "write") && nd->ival == 1))) return 0;
@@ -613,6 +613,8 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
             nn->ival = (int64_t)(intptr_t)cs2;
         } else if (gg->t == IR_FAIL) {
             nn = pl_gz_det_node(IR_FAIL);
+        } else if (gg->t == IR_CUT) {
+            nn = pl_gz_det_node(IR_CELL_CUT);
         } else if (gg->t == IR_UNIFY) {
             nn = pl_gz_det_node(IR_CELL_UNIFY);
             if (!nn) return 0;

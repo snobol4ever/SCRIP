@@ -466,7 +466,8 @@ static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *nc
         for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ) {
             emit_label_define_bb(pgl[j]);
             bb_label_t *next_γ = (jj + 1 < nb[c]) ? pgl[j + 1] : cl_γ;
-            gz_fill_goal(g, next_γ, (jj == 0 ? failtgt : pgb[j - 1]), pgb[j]);
+            bb_label_t *gw = (g->t == IR_CELL_CUT) ? cl_ω : (jj == 0 ? failtgt : pgb[j - 1]);
+            gz_fill_goal(g, next_γ, gw, pgb[j]);
             j++; jj++;
         }
         redo[c] = (nb[c] > 0) ? pgb[cbase[c] + nb[c] - 1] : failtgt;

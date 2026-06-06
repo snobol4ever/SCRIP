@@ -52,12 +52,12 @@ run_admitted mixed ':- initialization(main).\nr(a).\nr(X) :- s(X).\ns(b).\ns(c).
 # pos4: recursion depth — every activation owns its frame, hence its cursor and child slots.
 run_admitted chain ':- initialization(main).\nedge(a,b).\nedge(b,c).\nedge(c,d).\nedge(d,e).\npath(X,Y) :- edge(X,Y).\npath(X,Z) :- edge(X,Y), path(Y,Z).\nmain :- path(a,Q), write(Q), nl, fail ; true.\n' 'b\nc\nd\ne\n'
 
-# neg1: cut inside a clause — PL-GZ-6 territory; both branches must decline identically.
-printf ':- initialization(main).\nf(X) :- X = a, !.\nf(X) :- X = b.\nmain :- f(Q), write(Q), nl.\n' > "$TMP/neg1.pl"
+# neg1 (ratcheted by PL-GZ-6: cut inside a clause now ADMITS): cut at QUERY level — dynamic territory; both branches must decline identically.
+printf ':- initialization(main).\nf(a).\nf(b).\nmain :- f(Q), !, write(Q), nl.\n' > "$TMP/neg1.pl"
 "$SCRIP" --run "$TMP/neg1.pl" </dev/null > "$TMP/n13" 2>"$TMP/ne13" || fail "neg1 m3 rc"
-grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (cut clause) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
+grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (query-level cut) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg1.pl" > "$TMP/n1.s" 2>/dev/null || fail "neg1 m4 compile rc"
-grep -q "gzq\|gzp" "$TMP/n1.s" && fail "neg1 (cut clause) m4 .s has gz labels (GZ wrongly admitted)"
+grep -q "gzq\|gzp" "$TMP/n1.s" && fail "neg1 (query-level cut) m4 .s has gz labels (GZ wrongly admitted)"
 
 # neg2: compound/list head args (the rung05 member shape) — beyond 5c head-unify law.
 printf ':- initialization(main).\nm(X,[X|_]).\nm(X,[_|T]) :- m(X,T).\nmain :- m(Q,[a,b]), write(Q), nl, fail ; true.\n' > "$TMP/neg2.pl"
