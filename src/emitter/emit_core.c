@@ -426,6 +426,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         if (g_descr_flat_chain && nd->sval) { extern void bb_assign_local(IR_t *); bb_assign_local(nd); return 0; }
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1;
     }
+    case IR_ASSIGN_LIT_S: { extern void bb_gvar_assign_lit_s(void); bb_gvar_assign_lit_s(); return 0; }
+    case IR_ASSIGN_LIT_I: { extern void bb_gvar_assign_lit_i(void); bb_gvar_assign_lit_i(); return 0; }
     case IR_SCAN: { extern void bb_scan_stmt(IR_t *); bb_scan_stmt(nd); return 0; }
     case IR_GEN_SCAN: { extern void bb_gen_scan(IR_t *); bb_gen_scan(nd); return 0; }
     case IR_KEYWORD: { extern void bb_keyword(IR_t *); bb_keyword(nd); return 0; }

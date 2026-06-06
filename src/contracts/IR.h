@@ -78,6 +78,8 @@ typedef enum {
     IR_PAT_BREAKX,
     IR_PAT_RTAB,
     IR_PAT_SPAN_VAR,
+    IR_ASSIGN_LIT_S,
+    IR_ASSIGN_LIT_I,
     IR_CHOICE,
     IR_UNIFY,
     IR_CUT,
