@@ -10,7 +10,7 @@ void rt_call_builtin(const char *name, int nargs);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_call_builtin_str(IR_t * pBB) {
+std::string bb_call_fn_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;

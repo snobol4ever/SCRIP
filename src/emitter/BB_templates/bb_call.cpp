@@ -86,7 +86,7 @@ extern std::string bb_call_write_slot_str(IR_t *);
 extern std::string bb_call_write_binop_str(IR_t *);
 extern std::string bb_call_write_legacy_str(IR_t *, int);
 extern std::string bb_call_userproc_str(IR_t *);
-extern std::string bb_call_builtin_str(IR_t *);
+extern std::string bb_call_fn_str(IR_t *);
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 static std::string marshal_single_call(IR_t * lf, int aoff, int lblid);
@@ -528,7 +528,7 @@ static std::string bb_call_str(IR_t * pBB) {
     int is_userproc = (fn && rt_proc_is_registered(fn) && !is_write_strlit && !is_write_intexpr);
     if (is_userproc) return bb_call_userproc_str(pBB);
     int is_builtin  = (fn && rt_builtin_is_known(fn)       && !is_write_strlit && !is_write_intexpr);
-    if (is_builtin)  return bb_call_builtin_str(pBB);
+    if (is_builtin)  return bb_call_fn_str(pBB);
     if (!is_write_strlit && !is_write_intexpr) {
         fprintf(stderr, "[IBB] FATAL bb_call: unsupported call shape fn='%s' narg=%lld a0=%d\n",
                 fn, (long long)narg, a0 ? (int)a0->t : -1);
