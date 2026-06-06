@@ -85,6 +85,9 @@ gz_pin gzmoney ':- initialization(main).\np(a). p(b).\nmain :- ( ( p(X) -> write
 gz_pin gzarith_cmp  ':- initialization(main).\nmain :- ( 1 >= 2 -> write(y) ; write(n) ), nl.\n'  'n\n'
 gz_pin_noite gzarith_is   ':- initialization(main).\nmain :- X is 2 * 3, write(X), nl.\n'             '6\n'
 gz_pin gzarith_ite  ':- initialization(main).\nmain :- ( 3 < 5 -> write(t) ; write(f) ), nl, ( 5 < 3 -> write(t) ; write(f) ), nl.\n'  't\nf\n'
+# GZ-8b: LOGICVAR operands — CMP with bound variable, IS with Y op C shape.
+gz_pin gzvarith_cmp ':- initialization(main).\nm(1). m(2). m(3).\nmain :- ( m(X), ( X >= 2 -> write(X) ; write(s) ), nl, fail ; true ).\n' 's\n2\n3\n'
+gz_pin_noite gzvarith_is ':- initialization(main).\nmain :- X = 5, Y is X - 3, write(Y), nl.\n' '2\n'
 # CORRUPT-PROOF: swap the two gate-stub ROUTING targets in the emitted .s (Then.α <-> Else.α) — the
 # committed condition must then enter Else: output flips a -> n, LOUD divergence, restore proves liveness.
 # (Gate-VALUE corruption is invisible at the det floor BY DESIGN: β dispatches to tombstones, both routes
@@ -96,4 +99,4 @@ as -o "$TMP/gzcorrupt.o" "$TMP/gzcorrupt.s" 2>/dev/null || fail "corrupt-proof a
 gcc -no-pie "$TMP/gzcorrupt.o" -L out -lscrip_rt -Wl,-rpath,"$PWD/out" -o "$TMP/gzcorrupt.bin" 2>/dev/null || fail "corrupt-proof link"
 "$TMP/gzcorrupt.bin" </dev/null > "$TMP/gzcorrupt.out" || true
 cmp -s "$TMP/gzmoney.o4" "$TMP/gzcorrupt.out" && fail "corrupt-proof: routing swap did NOT diverge (dead wiring)"
-echo "GATE-PL-GZ7 PASS: ITE-commit canon (commit · barecall · reentry · semidet · negbound) + 7b §4.5 box (gzfloor1 · gzfloor2 · gzmoney GZ-asserted · corrupt-proven) + GZ-8 arith (gzarith_cmp · gzarith_is · gzarith_ite GZ-admitted)"
+echo "GATE-PL-GZ7 PASS: ITE-commit canon (commit · barecall · reentry · semidet · negbound) + 7b §4.5 box (gzfloor1 · gzfloor2 · gzmoney GZ-asserted · corrupt-proven) + GZ-8 arith (gzarith_cmp · gzarith_is · gzarith_ite GZ-admitted) + GZ-8b logicvar (gzvarith_cmp · gzvarith_is GZ-admitted)"

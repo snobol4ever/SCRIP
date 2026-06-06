@@ -199,6 +199,8 @@ int rt_term_cmp_terms(const char *op, void *t0, void *t1);
 int rt_pl_is_cell_int(void *lhs_cell, long val);
 int rt_pl_is_cell(void *lhs_cell, void *rhs_node);
 int rt_pl_arith_cmp_cells(const char *op, void *lhs_cell, void *lhs_nd, void *rhs_cell, void *rhs_nd);
+int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void *rhs_cell, long rhs_ival);
+int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival);
 int rt_arith_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
 int rt_term_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
 long size_value(DESCR_t v, int *failed);
