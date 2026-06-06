@@ -1097,8 +1097,6 @@ int main(int argc, char **argv)
     int mode_run           = 0;
     int mode_compile       = 0;
     int mode_monitor       = 0;
-    int bb_driver          = 0;
-    int bb_live            = 0;
     int dump_ast           = 0;
     int dump_ast_bison     = 0;
     int dump_sm            = 0;
@@ -1114,8 +1112,6 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile       = 1; if (!target_name) target_name = "x86"; argi++; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { mode_monitor       = 1; argi++; }
         else if (strncmp(argv[argi], "--target=", 9)   == 0) { target_name = argv[argi] + 9; mode_compile = 1; argi++; }
-        else if (strcmp(argv[argi], "--bb=brokered")   == 0) { bb_driver          = 1; argi++; }
-        else if (strcmp(argv[argi], "--bb=wired")      == 0) { bb_live            = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ast")      == 0) { dump_ast           = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ast-bison") == 0) { dump_ast_bison    = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-sm")       == 0) { dump_sm            = 1; argi++; }
@@ -1150,26 +1146,9 @@ int main(int argc, char **argv)
     }
     if (!mode_interp && !mode_run && !mode_monitor && !mode_compile)
         mode_run = 1;
-    if (bb_driver && (mode_run || mode_compile)) {
-        fprintf(stderr,
-            "scrip: --bb=brokered is only valid under --interp; "
-            "--run and --compile force --bb=wired\n");
-        return 1;
-    }
-    if (bb_driver && bb_live) {
-        fprintf(stderr,
-            "scrip: --bb=brokered and --bb=wired are mutually exclusive\n");
-        return 1;
-    }
-    if (!bb_driver && !bb_live) {
-        if (mode_interp) bb_driver = 1;
-        else             bb_live   = 1;
-    }
-    if (bb_live)   g_bb_mode = BB_MODE_LIVE;
-    if (bb_driver) g_bb_mode = BB_MODE_BROKERED;
     if (argi >= argc) {
         fprintf(stderr,
-            "usage: scrip [mode] [bb] [options] <file> [-- program-args...]\n"
+            "usage: scrip [mode] [options] <file> [-- program-args...]\n"
             "\n"
             "Execution modes (default: --run):\n"
             "  --interp         walk the BB port-graph in-process (Icon)\n"
@@ -1177,10 +1156,6 @@ int main(int argc, char **argv)
             "  --compile        emit standalone x86-64 asm to stdout (links libscrip_rt.so)\n"
             "  --target=ARCH    emit code for the named backend (x86, jvm, js, wasm); implies --compile\n"
             "  --monitor        in-process sync comparator (unavailable)\n"
-            "\n"
-            "Byrd Box mode (under --interp; --run and --compile force wired):\n"
-            "  --bb=brokered    pattern matching via driver/broker  [DEFAULT under --interp]\n"
-            "  --bb=wired       live-wired BB blobs in exec memory (requires M-DYN-B* blobs)\n"
             "\n"
             "Diagnostic options:\n"
             "  --dump-ast       print AST after frontend\n"

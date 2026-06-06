@@ -3049,10 +3049,4 @@ void walk_bb_register_child_label(IR_t *nd, const char *α_label) {
     if (fn) child_cache_set_lbl(fn, α_label);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern bb_mode_t g_bb_mode;
-bb_box_fn bb_build_pure_mode(IR_t *nd) {
-    if (g_bb_mode == BB_MODE_LIVE) return bb_build_flat(nd);
-    return bb_build_brokered(nd);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 void lower_flat_reset(void) { g_flat_slot_count = 0; g_flat_node_id = 0; }

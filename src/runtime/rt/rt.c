@@ -196,7 +196,6 @@ void rt_init(int argc, char **argv)
     core_lib_init();
     trail_init(&g_resolve_trail);
     prolog_atom_init();
-    g_bb_mode = BB_MODE_BROKERED;
     register_fn("IDENT",  _rt_IDENT,  1, 2);
     register_fn("DIFFER", _rt_DIFFER, 1, 2);
     g_user_call_hook = _rt_usercall;
