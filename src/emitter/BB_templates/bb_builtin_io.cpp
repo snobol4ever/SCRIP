@@ -58,19 +58,19 @@ std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr)
             return x86_lit_bytes(
                 bytes(1, "\xBF") + u32le(10)
                 + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)putchar) + bytes(2, "\xFF\xD0")
-            ) + x86("jmp", _.lbl_γ) + x86("def", _.lbl_β) + x86("jmp", _.lbl_γ);
+            ) + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "γ");
         if (strcmp(fn, "halt") == 0)
             return x86_lit_bytes(
                 bytes(2, "\x31\xFF")
                 + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)exit) + bytes(2, "\xFF\xD0")
-            ) + x86("def", _.lbl_β) + x86("jmp", _.lbl_γ);
+            ) + x86("def", "β") + x86("jmp", "γ");
         if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0)
             return x86_lit_bytes(
                 (_.op_ival >= 1 && pBB->α ? bio_bin_write_arg(pBB->α) : std::string())
                 + (strcmp(fn, "writeln") == 0
                    ? bytes(1, "\xBF") + u32le(10) + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)putchar) + bytes(2, "\xFF\xD0")
                    : std::string())
-            ) + x86("jmp", _.lbl_γ) + x86("def", _.lbl_β) + x86("jmp", _.lbl_γ);
+            ) + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "γ");
         if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && pBB->α) {
             void *writer = (strcmp(fn, "writeq") == 0) ? (void*)rt_writeq_term_ptr : (void*)rt_write_canonical_term_ptr;
             return x86_lit_bytes(
@@ -79,7 +79,7 @@ std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr)
                 + bytes(3, "\x48\x89\xC7")
                 + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)writer) + bytes(2, "\xFF\xD0")
                 + bytes(4, "\x48\x83\xC4\x08")
-            ) + x86("jmp", _.lbl_γ) + x86("def", _.lbl_β) + x86("jmp", _.lbl_γ);
+            ) + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "γ");
         }
     }
     if (MEDIUM_TEXT) {
