@@ -371,7 +371,9 @@ statement_list:
     ;
 statement:
     statement_no_label { $$ = $1; }
-    | INTCONST COLON statement_no_label { $$ = $3; }
+    | INTCONST COLON statement_no_label
+        { char _lb[24]; snprintf(_lb, sizeof _lb, "%lld", (long long)$1);
+          tree_t *L = ast_node_new(TT_LABEL_DEF); L->v.sval = strdup(_lb); ast_push(L, $3); $$ = L; }
     ;
 statement_no_label:
     assignment { $$ = $1; }
@@ -430,7 +432,9 @@ compound_statement:
     BEGINSY statement_list ENDSY { $$ = seq_of($2); }
     ;
 goto_statement:
-    GOTOSY INTCONST { $$ = ast_node_new(TT_SUCCEED); }
+    GOTOSY INTCONST
+        { char _gb[24]; snprintf(_gb, sizeof _gb, "%lld", (long long)$2);
+          tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = strdup(_gb); $$ = G; }
     ;
 if_statement:
     IFSY expression THENSY statement { $$ = bin(TT_IF, pas_cond($2), $4); }

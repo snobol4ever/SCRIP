@@ -22,6 +22,7 @@ static IR_t * v_pascal_repeat(lcx_t cx, const tree_t * body_t, const tree_t * co
 static IR_t * v_det_call(lcx_t cx, const tree_t * e, int allow_generator, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_raku_map_grep(lcx_t cx, int is_grep, const tree_t * closure_t, const tree_t * src_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+extern IR_t * bb_label_landing(const char * name);
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 IR_t * nalloc(lcx_t cx, IR_e kind) { return IR_node_alloc(cx.bbg, kind); }
@@ -881,6 +882,26 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         return v_literal(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_SUCCEED: { IR_t * n = nalloc(cx, IR_SUCCEED); if (!n) return NULL; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_FAIL:    { IR_t * n = nalloc(cx, IR_FAIL);    if (!n) return NULL; lcx_t bx = cx; bx.bounded = 1; return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_GOTO_U: {
+        if (cx.lang != IR_LANG_PAS || !e->v.sval) return NULL;
+        IR_t * landing = bb_label_landing(e->v.sval);
+        if (!landing) return NULL;
+        IR_t * n = nalloc(cx, IR_SUCCEED);
+        if (!n) return NULL;
+        n->γ = landing; n->ω = ω_in;
+        return ret(n, α_out, β_out, n, ω_in);
+    }
+    case TT_LABEL_DEF: {
+        if (cx.lang != IR_LANG_PAS || e->n < 1 || !e->c[0] || !e->v.sval) return NULL;
+        IR_t * landing = bb_label_landing(e->v.sval);
+        if (!landing) return NULL;
+        IR_t * iα = NULL, * iβ = NULL;
+        IR_t * inner = lower2(cx, e->c[0], γ_in, ω_in, &iα, &iβ);
+        if (!inner) return NULL;
+        landing->γ = iα ? iα : inner;
+        landing->ω = ω_in;
+        return ret(landing, α_out, β_out, landing, iβ ? iβ : ω_in);
+    }
     case TT_MATCH_UNARY:
         if (cx.lang == IR_LANG_ICN && e->n >= 1 && e->c[0]) {
             tree_t * mfn = ast_node_new(TT_VAR); mfn->v.sval = "match";
@@ -1153,7 +1174,7 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_PRINT_FH: case TT_SAY_FH:
     case TT_GLOBAL: case TT_LOCAL: case TT_STATIC_DECL: case TT_DECL: case TT_INITIAL: case TT_OPSYN:
-    case TT_GOTO_U: case TT_GOTO_S: case TT_GOTO_F:
+    case TT_GOTO_S: case TT_GOTO_F:
     case TT_TRY: case TT_DIE: case TT_UNLESS: case TT_DO_WHILE:
         if (cx.lang == IR_LANG_ICN && (e->t == TT_LOCAL || e->t == TT_GLOBAL || e->t == TT_STATIC_DECL)) {
             IR_t * nop = nalloc(cx, IR_SUCCEED); if (!nop) return NULL;
