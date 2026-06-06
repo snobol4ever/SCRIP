@@ -9,15 +9,17 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline long tabN() { return (long)(int)_.op_ival; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_tab_str() {
+static std::string bb_pat_rtab_str() {
     int nid = _.nid; (void)nid;
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
-                 + x86("comment", "# BOX TAB()  [REG-3 δ=r14, x86() self-encoding]"))
-             + x86("cmp",   "r14d", tabN())
+                 + x86("comment", "# BOX RTAB()  [REG-3 δ=r14 Δ=r15, x86() self-encoding]"))
+             + x86("mov",   "ecx", "r15d")
+             + x86("sub",   "ecx", tabN())
+             + x86("cmp",   "r14d", "ecx")
              + x86("jg",    PORT_OMEGA)
-             + x86("mov32", "r14d", tabN())
+             + x86("mov",   "r14d", "ecx")
              + x86("jmp",  PORT_GAMMA)
              + x86("def",  PORT_BETA)
              + x86("jmp",  PORT_OMEGA);
@@ -25,4 +27,4 @@ static std::string bb_pat_tab_str() {
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_tab(void) { bb_emit_x86(bb_pat_tab_str()); }
+extern "C" void bb_pat_rtab(void) { bb_emit_x86(bb_pat_rtab_str()); }

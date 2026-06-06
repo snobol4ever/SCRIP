@@ -69,6 +69,7 @@ static const kind_entry_t g_kinds[] = {
     { IR_PAT_NOTANY,      "IR_PAT_NOTANY" },
     { IR_PAT_POS,         "IR_PAT_POS" },
     { IR_PAT_TAB,         "IR_PAT_TAB" },
+    { IR_PAT_RTAB,        "IR_PAT_RTAB" },
     { IR_PAT_REM,         "IR_PAT_REM" },
     { IR_PAT_FENCE,       "IR_PAT_FENCE" },
     { IR_PAT_ABORT,       "IR_PAT_ABORT" },
@@ -278,6 +279,7 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     case IR_PAT_LEN:      nd->ival = 5; break;
     case IR_PAT_POS:      nd->ival = 0; break;
     case IR_PAT_TAB:      nd->ival = 10; break;
+    case IR_PAT_RTAB:     nd->ival = 10; break;
     case IR_PAT_ASSIGN_IMM:
     case IR_PAT_ASSIGN_COND:
         nd->sval = "captured";

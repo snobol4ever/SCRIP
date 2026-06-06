@@ -54,7 +54,7 @@ static const char * kname(IR_e t) {
     case IR_PAT_LIT: return "PLIT"; case IR_PAT_REM: return "PREM"; case IR_PAT_ARB: return "PARB";
     case IR_PAT_SPAN: return "PSPAN"; case IR_PAT_ANY: return "PANY"; case IR_PAT_NOTANY: return "PNANY"; case IR_PAT_BREAK: return "PBRK"; case IR_PAT_BREAKX: return "PBRKX";
     case IR_PAT_CAT: return "PCAT"; case IR_PAT_ALT: return "PALT";
-    case IR_PAT_LEN: return "PLEN"; case IR_PAT_POS: return "PPOS"; case IR_PAT_TAB: return "PTAB";
+    case IR_PAT_LEN: return "PLEN"; case IR_PAT_POS: return "PPOS"; case IR_PAT_TAB: return "PTAB"; case IR_PAT_RTAB: return "PRTAB";
     case IR_PAT_FENCE: return "PFNC"; case IR_PAT_ABORT: return "PABT"; case IR_PAT_ARBNO: return "PARBN";
     case IR_PAT_ASSIGN_COND: return "PCAP"; case IR_PAT_ASSIGN_IMM: return "PCAPI"; case IR_PAT_ATP: return "PATP";
     case IR_PAT_DEFER: return "PDEF"; case IR_PAT_BAL: return "PBAL";
@@ -247,7 +247,7 @@ int main(void) {
          un(TT_RPOS, lit(1)), 1);
     dump_pat("SNOBOL4:  TAB(5)   [IR_PAT_TAB: generator, match chars up to cursor 5]",
          un(TT_TAB, lit(5)), 1);
-    dump_pat("SNOBOL4:  RTAB(2)  [IR_PAT_TAB sval=r: generator, match to N-2 from end]",
+    dump_pat("SNOBOL4:  RTAB(2)  [IR_PAT_RTAB: generator, match to N-2 from end]",
          un(TT_RTAB, lit(2)), 1);
     dump_pat("SNOBOL4:  FENCE(bare)  [IR_PAT_FENCE: bounded; commits match, backtrack => fail (SPITBOL ch.9)]",
          ast_node_new(TT_FENCE), 1);

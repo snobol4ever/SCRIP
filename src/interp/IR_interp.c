@@ -3755,7 +3755,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         bb->state = 0; bb->value = FAILDESCR; return bb->ω;
     }
-    case IR_PAT_TAB: {
+    case IR_PAT_TAB: case IR_PAT_RTAB: {
         if (bb->state == 0) {
             int64_t arg      = (bb->dval != 0.0 && bb->sval) ? to_int(NV_GET_fn(bb->sval)) : bb->ival;
             int     from_end = (bb->dval != 0.0) ? (bb->dval == 1.0) : (bb->sval && bb->sval[0] == 'r');

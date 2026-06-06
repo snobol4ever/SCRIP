@@ -76,6 +76,7 @@ typedef enum {
     IR_PAT_CALLOUT,
     IR_PAT_DEFER,
     IR_PAT_BREAKX,
+    IR_PAT_RTAB,
     IR_CHOICE,
     IR_UNIFY,
     IR_CUT,
