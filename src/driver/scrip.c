@@ -152,13 +152,17 @@ static int icn_scan_tab_arg_ok(IR_t *nd) {
     if (ae->t == IR_CALL && ae->dval == 3.0 && ae->sval && (!strcmp(ae->sval, "any") || !strcmp(ae->sval, "match") || !strcmp(ae->sval, "many") || !strcmp(ae->sval, "upto") || !strcmp(ae->sval, "find") || !strcmp(ae->sval, "bal")) && icn_scan_fn_lit_arg(ae, IR_LIT_S)) return 1;
     return 0;
 }
-static int icn_scan_subgraph_safe(IR_graph_t *sg, int depth) {
+static int icn_graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
+static int icn_scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *sg, int depth) {
     if (!sg || !sg->all || sg->n <= 0 || depth > 16) return 0;
     for (int i = 0; i < sg->n; i++) {
         IR_t *nd = sg->all[i];
         if (!nd) continue;
         if (!icn_scan_safe_kind(nd->t)) return 0;
-        if (nd->t == IR_VAR && !(nd->sval && nd->sval[0] == '&' && icn_keyword_supported(nd->sval))) return 0;
+        if (nd->t == IR_VAR) {
+            if (nd->sval && nd->sval[0] == '&') { if (!icn_keyword_supported(nd->sval)) return 0; }
+            else if (nd->state == 1 || !nd->sval || !icn_graph_var_assigned_or_param(s2, gi, g, nd->sval)) return 0;
+        }
         if (nd->t == IR_KEYWORD && !icn_keyword_supported(nd->sval)) return 0;
         if (nd->t == IR_CALL) {
             if (!nd->sval) return 0;
@@ -174,26 +178,38 @@ static int icn_scan_subgraph_safe(IR_graph_t *sg, int depth) {
         if (nd->t == IR_GEN_SCAN) {
             IR_graph_t *ssg = (IR_graph_t *)(intptr_t) nd->counter;
             IR_graph_t *bsg = (IR_graph_t *)(intptr_t) nd->ival;
-            if (!icn_scan_subgraph_safe(ssg, depth + 1) || !icn_scan_subgraph_safe(bsg, depth + 1)) return 0;
+            if (!icn_scan_subgraph_safe(s2, gi, g, ssg, depth + 1) || !icn_scan_subgraph_safe(s2, gi, g, bsg, depth + 1)) return 0;
         }
     }
     return 1;
 }
 static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run);
 static int icn_graph_native_emittable(stage2_t *s2) { return icn_graph_native_emittable_mode(s2, 0); }
+static int icn_gen_scan_body_slotful(IR_t *r) {
+    if (!r || r->t != IR_GEN_SCAN || r->dval != 1.0) return 0;
+    IR_graph_t *bsg = (IR_graph_t *)(intptr_t) r->ival;
+    IR_t *bt = bsg ? bsg->entry : (IR_t *)0;
+    int gd = 0;
+    while (bt && bt->γ && bt->γ->t != IR_SUCCEED && bt->γ->t != IR_FAIL && gd++ < 512) bt = bt->γ;
+    if (bt && (bt->t == IR_LIT_I || bt->t == IR_LIT_S)) return 1;
+    if (bt && bt->t == IR_VAR && bt->sval && bt->sval[0] != '&') return 1;
+    if (bt && bt->t == IR_CALL && bt->dval == 3.0 && bt->sval && (!strcmp(bt->sval, "tab") || !strcmp(bt->sval, "move") || !strcmp(bt->sval, "pos") || !strcmp(bt->sval, "any") || !strcmp(bt->sval, "match") || !strcmp(bt->sval, "many") || !strcmp(bt->sval, "upto") || !strcmp(bt->sval, "find") || !strcmp(bt->sval, "bal"))) return 1;
+    return 0;
+}
 static int icn_local_assign_rhs_ok(IR_t *nd) {
     IR_t *r = nd->α;
     if (!r) return 0;
     if (r->t == IR_LIT_I || r->t == IR_LIT_S) return 1;
     if (r->t == IR_VAR && r->sval && r->sval[0] != '&') return 1;
     if (r->t == IR_BINOP && (r->ival == BINOP_ADD || r->ival == BINOP_SUB || r->ival == BINOP_MUL || r->ival == BINOP_DIV || r->ival == BINOP_MOD)) return 1;
+    if (r->t == IR_GEN_SCAN) return icn_gen_scan_body_slotful(r);
     return 0;
 }
 static int icn_assign_safe_kind(IR_e t) {
     return t == IR_ASSIGN || t == IR_VAR || t == IR_CALL || t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
            t == IR_BINOP || t == IR_IF || t == IR_WHILE || t == IR_UNTIL || t == IR_REPEAT ||
-           t == IR_BREAK || t == IR_NEXT || t == IR_CONJ;
+           t == IR_BREAK || t == IR_NEXT || t == IR_CONJ || t == IR_GEN_SCAN;
 }
 static int icn_graph_has_local_assign(const IR_graph_t *g) {
     extern int g_icn_globals_nv;
@@ -237,7 +253,8 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
                 if (nd->dval != 1.0) return 0;
                 IR_graph_t *ssg = (IR_graph_t *)(intptr_t) nd->counter;
                 IR_graph_t *bsg = (IR_graph_t *)(intptr_t) nd->ival;
-                if (!icn_scan_subgraph_safe(ssg, 0) || !icn_scan_subgraph_safe(bsg, 0)) return 0;
+                if (!icn_scan_subgraph_safe(s2, gi, g, ssg, 0) || !icn_scan_subgraph_safe(s2, gi, g, bsg, 0)) return 0;
+                if (nd->γ && nd->γ->t == IR_CALL && !icn_gen_scan_body_slotful(nd)) return 0;
             }
             { extern int g_icn_globals_nv;
               if (nd->t == IR_VAR && nd->state == 1 && !g_icn_globals_nv) return 0;

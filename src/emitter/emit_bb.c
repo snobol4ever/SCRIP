@@ -1355,6 +1355,9 @@ static void flat_drive_gen_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     g_icn_scan_regs_live = 1;
     flat_emit_arg_subchain(body_sg->entry, body_done, body_fail);
     g_icn_scan_regs_live = saved_scan_regs_live;
+    IR_t *body_term = descr_chain_terminal(body_sg->entry);
+    int body_slot = body_term ? bb_slot_get(body_term) : -1;
+    if (body_slot >= 0 && bb_slot_get(pBB) < 0 && g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = pBB; g_bb_slotmap[g_bb_slotmap_n].off = body_slot; g_bb_slotmap_n++; }
     emit_label_define_bb(body_done);
     flat_drive_scan_glue(pBB, 2, -1, regs_off, lbl_γ, lbl_ω, leaveok_β);
     emit_label_define_bb(body_fail);
@@ -2530,6 +2533,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_VAR:   case IR_KEYWORD: case IR_VAR_FRAME: case IR_VAR_FRAME_REF: return 0;
     case IR_ALT:   return 0;
     case IR_GATHER: return 0;
+    case IR_GEN_SCAN: return 0;
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
