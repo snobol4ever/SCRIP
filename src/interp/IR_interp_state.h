@@ -22,7 +22,7 @@ typedef struct { IR_t * root; int succ_idx; int fail_idx; int is_terminal; } stm
 typedef struct { stmt_t * stmts; int n; int entry_idx; } prog_t;
 typedef struct { IR_t ** kids; int nkids; IR_graph_t * inner; int * pos_stack; int cap; int saved_delta; } bb_arbno_state_t;
 typedef struct { IR_t ** goals; int ngoals; } bb_conj_state_t;
-typedef struct { IR_t * cond; IR_t * then_; IR_t * else_; IR_t * then_root; IR_t * else_root; IR_t * cond_root; } bb_ite_state_t;
+typedef struct { IR_t * cond; IR_t * then_; IR_t * else_; IR_t * then_root; IR_t * else_root; IR_t * cond_root; void * cp_mark; int committed; long seen_seq; } bb_ite_state_t;
 typedef struct { IR_graph_t * goal_g; IR_t * catcher; IR_graph_t * rec_g; } bb_catch_state_t;
 typedef struct { IR_graph_t ** bodies; int nbodies; int cur; int mark; void * saved_env;
                  IR_graph_t * last_body; void * last_act;

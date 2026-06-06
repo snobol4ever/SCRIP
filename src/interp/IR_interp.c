@@ -1731,17 +1731,54 @@ static void resolve_format_float(char *buf, size_t bufsz, double d) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static long g_pl_yield_seq = 1;
+typedef struct { Term **callee_env; Term **saved_env; int trail_mark; int nslots;
+                 bb_node_state_t *act; void *cp_floor; int disj_hint; } PlCallSt;
 static int bb_body_has_live_choice(IR_graph_t *bbg) {
     if (!bbg) return 0;
     for (int i = 0; i < bbg->n; i++) {
         IR_t *bb = bbg->all[i];
         if (!bb) continue;
-        if ((bb->t == IR_GOAL || bb->t == IR_CHOICE || bb->t == IR_DISJ) && bb->state > 0)
+        if (bb->t == IR_CHOICE && bb->state > 0) {
+            bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)bb->ival;
+            if (zc && zc->cp) {
+                int in_ledger = 0;
+                for (resolve_choice *c = resolve_cp_current(); c; c = c->parent) if (c == (resolve_choice *)zc->cp && c->resume == (void *)bb) { in_ledger = 1; break; }
+                if (!in_ledger) continue;
+            }
+            return 1;
+        }
+        if (bb->t == IR_GOAL && bb->state > 0) {
+            bb_goal_state_t *zg = (bb_goal_state_t *)(intptr_t)bb->ival;
+            PlCallSt *cs = zg ? (PlCallSt *)zg->cs : NULL;
+            if (!cs) return 1;
+            if (cs->disj_hint) return 1;
+            resolve_choice *floor_ = (resolve_choice *)cs->cp_floor;
+            if (!floor_) { if (resolve_cp_current()) return 1; continue; }
+            if (resolve_cp_current() == floor_) continue;
+            for (resolve_choice *c = resolve_cp_current(); c; c = c->parent) if (c == floor_) return 1;
+            continue;
+        }
+        if (bb->t == IR_DISJ && bb->state > 0)
             return 1;
     }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int pl_callee_disj_hint(IR_graph_t *bbg) {
+    if (!bbg) return 0;
+    for (int i = 0; i < bbg->n; i++) {
+        IR_t *bb = bbg->all[i];
+        if (!bb) continue;
+        if (bb->t == IR_DISJ && bb->state > 0) return 1;
+        if (bb->t == IR_GOAL && bb->state > 0) {
+            bb_goal_state_t *zg = (bb_goal_state_t *)(intptr_t)bb->ival;
+            PlCallSt *cs = zg ? (PlCallSt *)zg->cs : NULL;
+            if (cs && cs->disj_hint) return 1;
+        }
+    }
+    return 0;
+}
 static int bb_body_live_choice_cut_aware(IR_graph_t *bbg) {
     if (!bbg) return 0;
     bb_conj_state_t *zs = (bbg->entry && bbg->entry->t == IR_GCONJ) ? (bb_conj_state_t *)(intptr_t)bbg->entry->ival : NULL;
@@ -4112,8 +4149,24 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_ITE: {
+        bb_ite_state_t * zi = (bb_ite_state_t *)(intptr_t)bb->ival;
+        if (bb->state > 0 && zi && zi->seen_seq == g_pl_yield_seq) { bb->value = INTVAL(1); return zi->committed ? zi->then_ : zi->else_; }
+        if (zi) { zi->cp_mark = (void *)resolve_cp_current(); zi->committed = 0; zi->seen_seq = g_pl_yield_seq; }
+        bb->state = 1;
         bb->value = INTVAL(1);
         return bb->α;
+    }
+    case IR_ITE_COMMIT: {
+        bb_ite_state_t * zi = (bb_ite_state_t *)(intptr_t)bb->ival;
+        if (zi) { resolve_cp_truncate((resolve_choice *)zi->cp_mark); zi->committed = 1; }
+        bb->value = INTVAL(1);
+        return bb->γ;
+    }
+    case IR_ITE_GATE: {
+        bb_ite_state_t * zi = (bb_ite_state_t *)(intptr_t)bb->ival;
+        if (zi && zi->committed) { bb->value = FAILDESCR; return bb->ω; }
+        bb->value = INTVAL(1);
+        return bb->γ;
     }
     case IR_CATCH: {
         extern Trail g_resolve_trail; extern Term **g_resolve_env;
@@ -4166,6 +4219,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         bb->counter += 1;
         if (bb->counter >= n_arm) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
         bb->ival = (int64_t)trail_mark(&g_resolve_trail);
+        g_pl_yield_seq += 1;
         bb->value = INTVAL(1);
         return pl_disj_arm_enter(arms[(int)bb->counter]);
     }
@@ -4259,6 +4313,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             DESCR_t res = body ? IR_interp_once(body) : FAILDESCR;
             if (!IS_FAIL_fn(res)) {
                 zc->last_body = body;
+                if (start > 0) g_pl_yield_seq += 1;
                 g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
                 bb->state = ci + 1;
                 zc->mark = mark;
@@ -4312,8 +4367,6 @@ IR_t * IR_interp_node(IR_t * bb) {
         Resolve_PredEntry_BB *pe = resolve_bb_lookup(key, carity);
         IR_graph_t *_bcfg = bb_graph_of_pred(pe);
         if (!_bcfg) { bb->value = FAILDESCR; return bb->ω; }
-        typedef struct { Term **callee_env; Term **saved_env; int trail_mark; int nslots;
-                         bb_node_state_t *act; } PlCallSt;
         if (bb->state == 0) {
             resolve_choice *lco_entry_bfr = g_resolve_bfr;
             int lco_tail_pos = (bb->γ == NULL);
@@ -4395,6 +4448,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             cs->callee_env = callee_env; cs->saved_env = saved_env; cs->trail_mark = mark;
             cs->nslots = nslots;
             cs->act = bb_snapshot_state(_bcfg);
+            cs->cp_floor = (void *)lco_entry_bfr; cs->disj_hint = pl_callee_disj_hint(_bcfg);
             bb_restore_state(_bcfg, caller_snap);
             zc->cs = cs;
             bb->state = 1;
@@ -4432,6 +4486,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             bb->value = FAILDESCR; return bb->ω;
         }
         cs->act = bb_snapshot_state(_bcfg);
+        cs->disj_hint = pl_callee_disj_hint(_bcfg);
         bb_restore_state(_bcfg, caller_snap2);
         g_resolve_env = cs->saved_env;
         bb->value = INTVAL(1); return bb->γ;

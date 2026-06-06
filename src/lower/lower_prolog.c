@@ -214,12 +214,18 @@ static IR_t * g_ite(lcx_t cx, const tree_t * cond, const tree_t * then_, const t
     else       { b = nalloc(cx, IR_FAIL); if (!b) return NULL; b = emit_leaf(cx, b, γ_in, ω_in, &bα, &bβ); if (!b) return NULL; }
     IR_t * tα = NULL, * tβ = NULL;
     IR_t * t = lower_goal(cx, then_, γ_in, ω_in, &tα, &tβ); if (!t) return NULL; (void) tβ;
+    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi); if (!zi) return NULL;
+    IR_t * cm = nalloc(cx, IR_ITE_COMMIT); if (!cm) return NULL;
+    cm->ival = (int64_t)(intptr_t)zi;
+    set_succ_fail(cm, tα, ω_in);
+    IR_t * gv = nalloc(cx, IR_ITE_GATE); if (!gv) return NULL;
+    gv->ival = (int64_t)(intptr_t)zi;
+    set_succ_fail(gv, bα, ω_in);
     IR_t * cα = NULL, * cβ = NULL;
-    IR_t * c = lower_goal(cx, cond, tα  , bα  , &cα, &cβ); if (!c) return NULL; (void) cβ;
+    IR_t * c = lower_goal(cx, cond, cm  , gv  , &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
-    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
-    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = t; zi->else_root = b; zi->cond_root = c; ite->ival = (int64_t)(intptr_t)zi; }
+    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = t; zi->else_root = b; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; ite->ival = (int64_t)(intptr_t)zi;
     set_succ_fail(ite, γ_in, ω_in);
     return ret(ite, α_out, β_out, ite, ω_in  );
 }
@@ -231,12 +237,18 @@ static IR_t * g_neg_goal(lcx_t cx, const tree_t * goal_t, IR_t * γ_in, IR_t * �
     IR_t * bα = NULL, * bβ = NULL; if (!emit_leaf(cx, suc, γ_in, ω_in, &bα, &bβ)) return NULL;
     IR_t * fal = nalloc(cx, IR_FAIL);  if (!fal) return NULL;
     IR_t * tα = NULL, * tβ = NULL; if (!emit_leaf(cx, fal, γ_in, ω_in, &tα, &tβ)) return NULL;
+    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi); if (!zi) return NULL;
+    IR_t * cm = nalloc(cx, IR_ITE_COMMIT); if (!cm) return NULL;
+    cm->ival = (int64_t)(intptr_t)zi;
+    set_succ_fail(cm, tα, ω_in);
+    IR_t * gv = nalloc(cx, IR_ITE_GATE); if (!gv) return NULL;
+    gv->ival = (int64_t)(intptr_t)zi;
+    set_succ_fail(gv, bα, ω_in);
     IR_t * cα = NULL, * cβ = NULL;
-    IR_t * c = lower_goal(cx, goal_t, tα, bα, &cα, &cβ); if (!c) return NULL; (void) cβ;
+    IR_t * c = lower_goal(cx, goal_t, cm, gv, &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
-    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
-    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; ite->ival = (int64_t)(intptr_t)zi; }
+    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; ite->ival = (int64_t)(intptr_t)zi;
     set_succ_fail(ite, γ_in, ω_in);
     return ret(ite, α_out, β_out, ite, ω_in);
 }
@@ -248,12 +260,18 @@ static IR_t * g_not_unify(lcx_t cx, const tree_t * A, const tree_t * B, IR_t * �
     IR_t * bα = NULL, * bβ = NULL; if (!emit_leaf(cx, suc, γ_in, ω_in, &bα, &bβ)) return NULL;
     IR_t * fal = nalloc(cx, IR_FAIL);  if (!fal) return NULL;
     IR_t * tα = NULL, * tβ = NULL; if (!emit_leaf(cx, fal, γ_in, ω_in, &tα, &tβ)) return NULL;
+    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi); if (!zi) return NULL;
+    IR_t * cm = nalloc(cx, IR_ITE_COMMIT); if (!cm) return NULL;
+    cm->ival = (int64_t)(intptr_t)zi;
+    set_succ_fail(cm, tα, ω_in);
+    IR_t * gv = nalloc(cx, IR_ITE_GATE); if (!gv) return NULL;
+    gv->ival = (int64_t)(intptr_t)zi;
+    set_succ_fail(gv, bα, ω_in);
     IR_t * cα = NULL, * cβ = NULL;
-    IR_t * c = g_unify(cx, A, B, tα, bα, &cα, &cβ); if (!c) return NULL; (void) cβ;
+    IR_t * c = g_unify(cx, A, B, cm, gv, &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
-    bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi);
-    if (zi) { zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; ite->ival = (int64_t)(intptr_t)zi; }
+    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; ite->ival = (int64_t)(intptr_t)zi;
     set_succ_fail(ite, γ_in, ω_in);
     return ret(ite, α_out, β_out, ite, ω_in);
 }

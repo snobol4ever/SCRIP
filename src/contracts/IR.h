@@ -98,6 +98,8 @@ typedef enum {
     IR_CELL_CALL,
     IR_CALLEE_FRAME,
     IR_CELL_CUT,
+    IR_ITE_COMMIT,
+    IR_ITE_GATE,
     IR_TO,
     IR_UPTO,
     IR_ITERATE,
