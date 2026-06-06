@@ -21,34 +21,45 @@ static bb_label_t * bb_call_write_beta_target() {
     return _.lbl_ω_p;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bcws_slot_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    return x86_frame_load64("rdi", off)
+         + x86_frame_load64("rsi", off + 8)
+         + x86("call", "rt_write_any_nl", fptr)
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_slot_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    IR_t * a0 = _.node->α;
-    int off = bb_slot_get(a0);
+    int off = bb_slot_get(_.node->α);
     bb_label_t * beta_tgt = bb_call_write_beta_target();
-    if (MEDIUM_BINARY) {
-        uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        std::string s;
-        s += x86_frame_load64("rdi", off);
-        s += x86_frame_load64("rsi", off + 8);
-        s += x86("call", "rt_write_any_nl", fptr);
-        s += x86("jmp", PORT_GAMMA);
-        s += x86("def", PORT_BETA);
-        if (beta_tgt == _.lbl_ω_p) { s += x86("jmp", PORT_OMEGA); }
-        else { s += x86_pair_jmp(0); }
-        return s;
-    }
-    if (MEDIUM_TEXT) {
-        return x86("label", _.lbl_α)
-             + x86("comment", "BOX IR_CALL write(op) [GZ-7 flat-chain slot -> rt_write_any_nl]")
-             + x86("ins2", "mov", emit_fmt("rdi, [r12+%d]", off))
-             + x86("ins2", "mov", emit_fmt("rsi, [r12+%d]", off + 8))
-             + x86("ins2", "call", "rt_write_any_nl@PLT")
-             + x86("ins2", "jmp", _.lbl_γ)
-             + x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
-             + x86("ins2", "jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
-    }
+    if (MEDIUM_BINARY) return bcws_slot_bin(off, beta_tgt);
+    if (MEDIUM_TEXT) return x86("label", _.lbl_α)
+                          + x86("comment", "BOX IR_CALL write(op) [GZ-7 flat-chain slot -> rt_write_any_nl]")
+                          + x86("ins2", "mov", "rdi, [r12+" + std::to_string(off) + "]")
+                          + x86("ins2", "mov", "rsi, [r12+" + std::to_string(off + 8) + "]")
+                          + x86("ins2", "call", "rt_write_any_nl@PLT")
+                          + x86("ins2", "jmp", _.lbl_γ)
+                          + x86("Lins1", std::string(_.lbl_β) + ":", "")
+                          + x86("ins2", "jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
     return std::string();
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bcws_binop_concat_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(const char *) = rt_write_strz_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    return x86_frame_load64("rdi", off + 8)
+         + x86("call", "rt_write_strz_nl", fptr)
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bcws_binop_int_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(int64_t) = rt_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    return x86_frame_load64("rdi", off)
+         + x86("call", "rt_write_int_nl", fptr)
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_binop_str(IR_t * pBB) {
@@ -57,36 +68,19 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
     bb_label_t * beta_tgt = bb_call_write_beta_target();
     int off = bb_slot_get(a0);
     if (off < 0) { fprintf(stderr, "[GZ-3] FATAL bb_call_write_binop: write(binop) — slot miss\n"); abort(); }
-    if (MEDIUM_BINARY) {
-        if (a0->t == IR_BINOP && a0->ival == BINOP_CONCAT) {
-            uint64_t fptr; { void (*fp)(const char *) = rt_write_strz_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-            std::string s;
-            s += x86_frame_load64("rdi", off + 8);
-            s += x86("call", "rt_write_strz_nl", fptr);
-            s += x86("jmp", PORT_GAMMA); s += x86("def", PORT_BETA);
-            if (beta_tgt == _.lbl_ω_p) s += x86("jmp", PORT_OMEGA);
-            else { s += x86_pair_jmp(0); }
-            return s;
-        }
-        uint64_t fptr; { void (*fp)(int64_t) = rt_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        std::string s;
-        s += x86_frame_load64("rdi", off);
-        s += x86("call", "rt_write_int_nl", fptr);
-        s += x86("jmp", PORT_GAMMA); s += x86("def", PORT_BETA);
-        if (beta_tgt == _.lbl_ω_p) s += x86("jmp", PORT_OMEGA);
-        else { s += x86_pair_jmp(0); }
-        return s;
-    }
+    if (MEDIUM_BINARY) return (a0->t == IR_BINOP && a0->ival == BINOP_CONCAT)
+                              ? bcws_binop_concat_bin(off, beta_tgt)
+                              : bcws_binop_int_bin(off, beta_tgt);
     if (MEDIUM_TEXT) {
-        std::string tail = x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
+        std::string tail = x86("Lins1", std::string(_.lbl_β) + ":", "")
                          + x86("ins2", "jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
         if (a0->t == IR_BINOP && a0->ival == BINOP_CONCAT)
             return x86("label", _.lbl_α)
-                 + x86("ins2", "mov rdi,", emit_fmt("[r12 + %d]", off + 8))
+                 + x86("ins2", "mov rdi,", "[r12 + " + std::to_string(off + 8) + "]")
                  + x86("ins2", "call",     "rt_write_strz_nl@PLT")
                  + x86("ins2", "jmp",      _.lbl_γ) + tail;
         return x86("label", _.lbl_α)
-             + x86("ins2", "mov rdi,", emit_fmt("[r12 + %d]", off))
+             + x86("ins2", "mov rdi,", "[r12 + " + std::to_string(off) + "]")
              + x86("ins2", "call",     "rt_write_int_nl@PLT")
              + x86("ins2", "jmp",      _.lbl_γ) + tail;
     }
