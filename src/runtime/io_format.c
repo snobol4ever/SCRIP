@@ -27,10 +27,12 @@ void rt_write_int_nl(int64_t v)
     fprintf(stdout, "%lld\n", (long long)v);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void rt_format_float(char *buf, size_t bufsz, double d);
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_write_any_nl(DESCR_t d)
 {
     if (d.v == DT_I)       fprintf(stdout, "%lld\n", (long long)d.i);
-    else if (d.v == DT_R)  fprintf(stdout, "%g\n", d.r);
+    else if (d.v == DT_R)  { char b[64]; rt_format_float(b, sizeof b, d.r); fprintf(stdout, "%s\n", b); }
     else if (d.v == DT_FAIL) fputc('\n', stdout);
     else {
         char *s = VARVAL_fn(d);

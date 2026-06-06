@@ -74,7 +74,7 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     IR_t *chain[256]; int nc = 0;
     for (IR_t *cur = g->entry; cur && cur->t != IR_SUCCEED && cur->t != IR_FAIL && nc < 256; cur = cur->γ) chain[nc++] = cur;
     if (nc == 0 || nc >= 256) return NULL;
-    for (int i = 0; i < nc; i++) if (chain[i]->t == IR_BINOP || chain[i]->t == IR_LIT_I || chain[i]->t == IR_LIT_S) return NULL;
+    for (int i = 0; i < nc; i++) if (chain[i]->t == IR_BINOP || chain[i]->t == IR_LIT_I || chain[i]->t == IR_LIT_S || chain[i]->t == IR_LIT_F || chain[i]->t == IR_LIT_NUL) return NULL;
     IR_t *stk[256]; int sp = 0;
     for (int i = 0; i < nc; i++) {
         IR_t *n = chain[i];

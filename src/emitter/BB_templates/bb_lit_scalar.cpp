@@ -1,4 +1,5 @@
 #include <string>
+#include <string.h>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
@@ -37,6 +38,31 @@ static std::string bb_lit_scalar_str() {
                  + x86("def", PORT_BETA)
                  + x86("jmp", PORT_OMEGA)
                  + x86_ro_seal_str(0, lit);
+        }
+        if ((g_descr_flat_chain || g_gvar_callarg_live) && _.op_node_kind == (int)IR_LIT_F && _.op_off >= 0) {
+            int off = _.op_off;
+            uint64_t bits; double d = _.op_dval; memcpy(&bits, &d, 8);
+            return IF(MEDIUM_TEXT,
+                       x86("label", _.lbl_α)
+                     + x86("comment", "BOX BB_LIT_scalar IR_LIT_F [HY-7f x86() stackless: {DT_R,bits}->[r12+off]; bits sealed RO [rip+disp] (REG-RO)]"))
+                 + x86_frame_mov_imm64(off, (long)DT_R)
+                 + x86_ro_load_q("rax", 0)
+                 + x86_frame_store64(off + 8, "rax")
+                 + x86("jmp", PORT_GAMMA)
+                 + x86("def", PORT_BETA)
+                 + x86("jmp", PORT_OMEGA)
+                 + x86_ro_seal_q(0, bits);
+        }
+        if ((g_descr_flat_chain || g_gvar_callarg_live) && _.op_node_kind == (int)IR_LIT_NUL && _.op_off >= 0) {
+            int off = _.op_off;
+            return IF(MEDIUM_TEXT,
+                       x86("label", _.lbl_α)
+                     + x86("comment", "BOX BB_LIT_scalar IR_LIT_NUL [HY-7f x86() stackless: {DT_SNUL,0}->[r12+off] (null = two zero immediates, no RO seal)]"))
+                 + x86_frame_mov_imm64(off, (long)DT_SNUL)
+                 + x86_frame_mov_imm64(off + 8, (long)0)
+                 + x86("jmp", PORT_GAMMA)
+                 + x86("def", PORT_BETA)
+                 + x86("jmp", PORT_OMEGA);
         }
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
