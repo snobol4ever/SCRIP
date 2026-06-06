@@ -501,12 +501,18 @@ static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *nc
 }
 static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int id = g_flat_node_id++;
+    int twoseg = (pBB->dval == 2.0 && pBB->β != NULL);
     bb_label_t *land_γ = emit_label_alloc("gzq%d_γ", id);
     bb_label_t *land_ω = emit_label_alloc("gzq%d_ω", id);
+    bb_label_t *soft_ω = twoseg ? emit_label_alloc("gzq%d_s\xcf\x89", id) : land_ω;
     int n = 0;
     for (IR_t *g = pBB->α; g; g = g->γ) n++;
+    int nB = 0;
+    for (IR_t *g = twoseg ? pBB->β : NULL; g; g = g->γ) nB++;
     bb_label_t **gl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **gb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
+    bb_label_t **hl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nB > 0 ? nB : 1));
+    bb_label_t **hb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nB > 0 ? nB : 1));
     pl_gz_callee_t *callees[8]; int ncallees = 0;
     int i = 0;
     for (IR_t *g = pBB->α; g; g = g->γ) {
@@ -516,19 +522,41 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
             if (cs) gz_callee_labels(cs->callee, callees, &ncallees);
         }
     }
+    i = 0;
+    for (IR_t *g = twoseg ? pBB->β : NULL; g; g = g->γ) {
+        hl[i] = emit_label_alloc("gzq%d_b%d_α", id, i); hb[i] = emit_label_alloc("gzq%d_b%d_β", id, i); i++;
+        if (g->t == IR_CELL_CALL) {
+            pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)g->ival;
+            if (cs) gz_callee_labels(cs->callee, callees, &ncallees);
+        }
+    }
     g_emit.op_sa = 0;
     g_emit.op_sb = 0;
     g_emit.op_ival = pBB->ival;
-    FILL(pBB, (n > 0 ? gl[0] : land_γ), land_ω, lbl_β);
+    FILL(pBB, (n > 0 ? gl[0] : land_γ), soft_ω, lbl_β);
     i = 0;
     for (IR_t *g = pBB->α; g; g = g->γ) {
         emit_label_define_bb(gl[i]);
-        bb_label_t *next_γ = (i + 1 < n) ? gl[i + 1] : land_γ;
-        gz_fill_goal(g, next_γ, (i == 0 ? land_ω : gb[i - 1]), gb[i]);
+        bb_label_t *next_γ = (i + 1 < n) ? gl[i + 1] : ((twoseg && nB > 0) ? hl[0] : land_γ);
+        gz_fill_goal(g, next_γ, (i == 0 ? soft_ω : gb[i - 1]), gb[i]);
         i++;
     }
+    if (twoseg) {
+        bb_label_t *bcont = (nB > 0) ? hl[0] : land_γ;
+        g_emit.op_sa = 1;
+        g_emit.op_sb = 2;
+        g_emit.lbl_δ = bcont->name; g_emit.lbl_δ_p = bcont;
+        FILL(pBB, land_γ, soft_ω, lbl_β);
+        i = 0;
+        for (IR_t *g = pBB->β; g; g = g->γ) {
+            emit_label_define_bb(hl[i]);
+            bb_label_t *next_γ = (i + 1 < nB) ? hl[i + 1] : land_γ;
+            gz_fill_goal(g, next_γ, (i == 0 ? land_ω : hb[i - 1]), hb[i]);
+            i++;
+        }
+    }
     g_emit.op_sa = 1;
-    g_emit.op_sb = (pBB->dval != 0.0) ? 1 : 0;
+    g_emit.op_sb = twoseg ? 0 : ((pBB->dval != 0.0) ? 1 : 0);
     FILL(pBB, land_γ, land_ω, lbl_β);
     for (int k = 0; k < ncallees; k++) gz_emit_callee(callees[k], callees, &ncallees);
     (void)lbl_γ; (void)lbl_ω;

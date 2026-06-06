@@ -26,6 +26,14 @@ static std::string bb_query_frame_str() {
                      : std::string())
                  + x86("jmp", PORT_GAMMA);
         }
+        if (_.op_sb == 2) {
+            return IF(MEDIUM_TEXT,
+                       x86("comment", "# BOX QUERY_FRAME soft-ω landing  [PL-GZ-6b two-segment query: the (arm0 ; true) PREFIX exhausted -> unwind(query mark) + jmp B0 α (δ); the soft-fall CONTINUES into the query tail instead of ret]"))
+                 + x86("def", PORT_OMEGA)
+                 + x86("mov", "edi", FR(0))
+                 + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
+                 + x86("jmp", PORT_DELTA);
+        }
         return IF(MEDIUM_TEXT,
                    x86("comment", _.op_sb
                      ? "# BOX QUERY_FRAME γ/ω landings  [verdict-in-rax: γ=1; query tail is (G ; true) so ω = trail-unwind + PROMOTED 1 (entering the true arm with bindings undone); ret to"
