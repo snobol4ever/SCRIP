@@ -33,6 +33,8 @@
 - [ ] bb_catch.cpp
 - [ ] bb_cell_call.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_cell_choice.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
+- [ ] bb_cell_cut.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
+- [ ] bb_cell_ite.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
 - [ ] bb_cell_unify.cpp
 - [ ] bb_choice.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_conj.cpp — (v1 done: prose comments stripped; gates green)
@@ -47,6 +49,8 @@
 - [ ] bb_gen_scan.cpp
 - [ ] bb_goal.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_gvar_assign.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical)) — ⛔ ONE-IR-ONE-LOGIC VIOLATOR, SHRINKING (SNO-HY-3a 2026-06-06): lit_s+lit_i arms SPLIT OUT — LOWER v_assign (SNO statement path) mints IR_ASSIGN_LIT_S/IR_ASSIGN_LIT_I → own SPEC-v2 templates bb_gvar_assign_lit_s/lit_i.cpp (faithful twins, stash-asm-diff EMPTY ×6 programs); old lit arms RETAINED for plain IR_ASSIGN from synthesized creators (lower.c 224/441/532/680/688 Icon/loop assigns) + non-SNO langs — delete only after creator audit. Remaining to split: descr-slot/var/concat/call-result (4 arms).
+- [ ] bb_gvar_assign_lit_i.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
+- [ ] bb_gvar_assign_lit_s.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
 - [ ] bb_io.cpp — (TIER H 2026-06-06: ef 6→0, pe 4→0 (BINARY ports→literal Greek glyphs, XK_PORT-preserving), lv 8→0 (bio_succ/bio_write_body/bio_fbits_str/bio_bin_write_arg helpers); eb 8→6; asm-diff EMPTY (label-normalized); 51→30) — [S] eb=6: pBB->α admission/operand reads → LOWER _.op_*/ζ-slots, design not pinned — [S] rb=24: MEDIUM_BINARY raw-byte arms, owner GOAL-PROLOG-BB
 - [ ] bb_is_cmp.cpp — (TIER H 2026-06-06: ef 39→0 (emit_fmt→std::to_string/concat), pe 2→0 (BINARY tails→literal Greek glyphs, XK_PORT-preserving), lv 28→0 (icm_arith/icm_ord/icm_cmp/icm_op/icm_tail/icm_k/icm_i/icm_fb/icm_floaty helpers; dead succ_back excised; std::string b ×2 inlined), V-2 prose + byte-annotation comments purged (history: HANDOFF-2026-05-27-OPUS-SONNET docs); asm-diff EMPTY (label-normalized, LIVE check — is/2 + >= fire in corpus mode-4); 121→64) — [S] eb=34 nw=8 (UP from 28/2: de-aliasing exposed grandkid pBB->β->α/β reads to the counter — honest visibility, same semantics): is/2 shape admission + operand fusion → LOWER _.op_*/ζ-slot plumbing, design not pinned — [S] rb=22: MEDIUM_BINARY raw-byte arms, owner GOAL-PROLOG-BB
 - [ ] bb_ite.cpp — (v1 done: prose comments stripped; gates green)
@@ -64,6 +68,7 @@
 - [ ] bb_pat_arbno.cpp
 - [ ] bb_pat_atp.cpp
 - [ ] bb_pat_break.cpp — (v1 done: PASS 8/8 hygiene (REG-RO + SNO-HY-1 de-cram deferred to their ladders))
+- [ ] bb_pat_breakx.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
 - [ ] bb_pat_capture.cpp
 - [ ] bb_pat_cat.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_pat_defer.cpp
@@ -72,7 +77,9 @@
 - [ ] bb_pat_notany.cpp
 - [ ] bb_pat_pos.cpp
 - [ ] bb_pat_rem.cpp
+- [ ] bb_pat_rtab.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
 - [ ] bb_pat_span.cpp
+- [ ] bb_pat_span_var.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
 - [ ] bb_pat_tab.cpp
 - [ ] bb_query_frame.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_resolve.cpp — (TIER H 2026-06-06: ef 40→0 (emit_fmt→inline to_string/concat), lv 20→0 (signature-line decls + bfrm/bnth/briplbl/bslot/bmset one-line helpers + FOR() child loops + bterm_goal/arith/mset branch helpers), PLR-K-9 prose block purged (history in HANDOFF-2026-05-29-OPUS48-PROLOG-BB-PLRK789.md), dispatch first-match short-circuit preserved verbatim; asm-diff EMPTY on 18-file prolog-heavy corpus incl. ancestor.pl which fires emit_build_compound_term; 63→2) — [S] rb=2 residue: emit_term_from_node_bin raw movabs node-ptr bytes + bunknown() MEDIUM_BINARY E9-rel32-0 fall-through placeholder (≠ TEXT jmp-γ stub — collapse NOT behavior-neutral, medium-invisible conversion belongs to GOAL-PROLOG-BB owning session per gate note) — [S] emit_build_compound_term/_conj_chain nd-> IR-walkers are emitter-side lowering (EMIT-BLIND in spirit, missed by nw alias list); LOWER term-spec plumbing design not pinned
