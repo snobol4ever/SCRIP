@@ -103,6 +103,7 @@ typedef enum {
     IR_CELL_CUT,
     IR_ITE_COMMIT,
     IR_ITE_GATE,
+    IR_CELL_ITE,
     IR_TO,
     IR_UPTO,
     IR_ITERATE,

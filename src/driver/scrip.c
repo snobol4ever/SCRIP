@@ -698,25 +698,93 @@ static pl_gz_callee_t * pl_gz_callee_get_any(IR_t *gg, IR_graph_t *cg, int ar, p
     return pl_gz_callee_get(cg, ar, zs, callees, ncallees);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int pl_gz_count_synth(IR_t **buf, int n, int *nsynth) {
-    for (int i = 0; i < n; i++) {
-        IR_t *gg = buf[i];
-        if (!gg || gg->t != IR_GOAL) continue;
-        IR_t **uu = NULL; int aa = 0;
-        if (pl_gz_fact_inline(gg, &uu, &aa)) continue;
-        if (pl_gz_choice_inline(gg)) continue;
-        bb_goal_state_t *zc = NULL; int ar = 0;
-        IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
-        if (!cg) return 0;
-        for (int ai = 0; ai < ar && ai < 2; ai++)
-            if (zc->args[ai] && zc->args[ai]->t != IR_LOGICVAR) (*nsynth)++;
+static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth);
+static int pl_gz_count_synth_root(IR_t *root, int *nsynth) {
+    if (!root || root->t == IR_SUCCEED) return 1;
+    if (root->t == IR_GCONJ) {
+        bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)root->ival;
+        if (!zs || !zs->goals || zs->ngoals <= 0 || zs->ngoals > 64) return 0;
+        for (int i = 0; i < zs->ngoals; i++)
+            if (!pl_gz_count_synth_goal(zs->goals[i], nsynth)) return 0;
+        return 1;
     }
+    return pl_gz_count_synth_goal(root, nsynth);
+}
+static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
+    if (!gg) return 1;
+    if (gg->t == IR_ITE) {
+        bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)gg->ival;
+        if (!zi) return 0;
+        if (!pl_gz_count_synth_root(zi->cond_root, nsynth)) return 0;
+        if (!pl_gz_count_synth_root(zi->then_root, nsynth)) return 0;
+        if (!pl_gz_count_synth_root(zi->else_root, nsynth)) return 0;
+        return 1;
+    }
+    if (gg->t != IR_GOAL) return 1;
+    IR_t **uu = NULL; int aa = 0;
+    if (pl_gz_fact_inline(gg, &uu, &aa)) return 1;
+    if (pl_gz_choice_inline(gg)) return 1;
+    bb_goal_state_t *zc = NULL; int ar = 0;
+    IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
+    if (!cg) return 0;
+    for (int ai = 0; ai < ar && ai < 2; ai++)
+        if (zc->args[ai] && zc->args[ai]->t != IR_LOGICVAR) (*nsynth)++;
+    return 1;
+}
+static int pl_gz_count_synth(IR_t **buf, int n, int *nsynth) {
+    for (int i = 0; i < n; i++)
+        if (!pl_gz_count_synth_goal(buf[i], nsynth)) return 0;
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees);
+static int pl_gz_build_root(IR_t *root, IR_t **rhead, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees) {
+    IR_t *h = NULL, *t = NULL;
+    *rhead = NULL;
+    if (!root || root->t == IR_SUCCEED) return 1;
+    if (root->t == IR_GCONJ) {
+        bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)root->ival;
+        if (!zs || !zs->goals || zs->ngoals <= 0 || zs->ngoals > 64) return 0;
+        for (int i = 0; i < zs->ngoals; i++)
+            if (!pl_gz_build_goal(zs->goals[i], &h, &t, synth_next, cslot, callees, ncallees)) return 0;
+    } else {
+        if (!pl_gz_build_goal(root, &h, &t, synth_next, cslot, callees, ncallees)) return 0;
+    }
+    *rhead = h;
+    return 1;
+}
+static int pl_gz_chain_det(IR_t *head) {
+    for (IR_t *g = head; g; g = g->γ) {
+        if (g->t == IR_CELL_CHOICE || g->t == IR_CELL_CALL) return 0;
+        if (g->t == IR_CELL_ITE) {
+            pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)(intptr_t)g->ival;
+            if (!is || !pl_gz_chain_det(is->then_head) || !pl_gz_chain_det(is->else_head)) return 0;
+        }
+    }
+    return 1;
+}
 static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees) {
     if (!gg) return 0;
     if (gg->t == IR_SUCCEED) return 1;
+    if (gg->t == IR_ITE) {
+        bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)gg->ival;
+        if (!zi) return 0;
+        pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)GC_MALLOC(sizeof *is);
+        if (!is) return 0;
+        memset(is, 0, sizeof *is);
+        if (!pl_gz_build_root(zi->cond_root, &is->cond_head, synth_next, cslot, callees, ncallees)) return 0;
+        if (!pl_gz_build_root(zi->then_root, &is->then_head, synth_next, cslot, callees, ncallees)) return 0;
+        if (!pl_gz_build_root(zi->else_root, &is->else_head, synth_next, cslot, callees, ncallees)) return 0;
+        if (!pl_gz_chain_det(is->then_head) || !pl_gz_chain_det(is->else_head)) return 0;
+        if (*cslot + 1 > 62) return 0;
+        is->gate_slot = (*cslot)++;
+        IR_t *cn = pl_gz_det_node(IR_CELL_ITE);
+        if (!cn) return 0;
+        cn->ival = (int64_t)(intptr_t)is;
+        if (!*head) *head = cn; else (*tail)->γ = cn;
+        *tail = cn;
+        return 1;
+    }
     if (gg->t == IR_FAIL) {
         IR_t *fnode = pl_gz_det_node(IR_FAIL);
         if (!fnode) return 0;
@@ -804,10 +872,24 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
     if (!g || !g->all || g->nslots > 64) return NULL;
     IR_t *gconjs[2] = {NULL, NULL}; int ngconj = 0;
     IR_t *softdisj = NULL; IR_t *soft_arm0 = NULL;
+    IR_t *claimed[8]; int nclaimed = 0;
+    for (int i = 0; i < g->n; i++) {
+        IR_t *nd = g->all[i];
+        if (!nd || nd->t != IR_ITE) continue;
+        bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)nd->ival;
+        if (!zi) return NULL;
+        IR_t *rr[3] = { zi->cond_root, zi->then_root, zi->else_root };
+        for (int k = 0; k < 3; k++)
+            if (rr[k] && rr[k]->t == IR_GCONJ) { if (nclaimed >= 8) return NULL; claimed[nclaimed++] = rr[k]; }
+    }
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
-        if (nd->t == IR_GCONJ) { if (ngconj >= 2) return NULL; gconjs[ngconj++] = nd; }
+        if (nd->t == IR_GCONJ) {
+            int cl = 0;
+            for (int k = 0; k < nclaimed; k++) if (claimed[k] == nd) { cl = 1; break; }
+            if (!cl) { if (ngconj >= 2) return NULL; gconjs[ngconj++] = nd; }
+        }
         if (nd->t == IR_DISJ) {
             if (softdisj) return NULL;
             int na = 0;
@@ -818,7 +900,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         }
         if (nd->t == IR_GOAL) { IR_t **uu = NULL; int aa = 0; if (!pl_gz_fact_inline(nd, &uu, &aa) && !pl_gz_choice_inline(nd) && !pl_gz_rule_inline_check(nd)) return NULL; }
         if (nd->t == IR_CHOICE || nd->t == IR_CUT ||
-            nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_ARITH ||
+            nd->t == IR_CATCH || nd->t == IR_ARITH ||
             nd->t == IR_STRUCT) return NULL;
         if (nd->t == IR_LOGICVAR && ((int)nd->ival < 0 || (int)nd->ival >= 64)) return NULL;
         if (nd->t == IR_UNIFY) {

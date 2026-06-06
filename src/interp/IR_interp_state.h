@@ -47,6 +47,7 @@ typedef struct { int nclauses; int arity; int mark_slot; IR_t * args[2]; IR_t * 
 typedef struct { void * graph_key; int base; int arity; int nlocals; int mark_slot; IR_t * body_head; IR_t * frame_node; void * lblA; void * lblB; int nchild;
                  int nclauses; IR_t * clause_head[4]; } pl_gz_callee_t;
 typedef struct { pl_gz_callee_t * callee; int nargs; IR_t * args[2]; int child_slot; } pl_gz_call_state_t;
+typedef struct { IR_t * cond_head; IR_t * then_head; IR_t * else_head; int gate_slot; } pl_gz_ite_state_t;
 typedef struct { IR_graph_t * gcfg; IR_t * tmpl; IR_t * result; IR_t * goal_node; } bb_findall_state_t;
 typedef struct { IR_t ** kids; int nkids; } bb_pat_kids_state_t;
 static inline int bb_pat_nkids(const IR_t * nd) {
