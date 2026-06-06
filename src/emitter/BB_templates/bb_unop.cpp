@@ -41,6 +41,7 @@ std::string bb_unop_str() {
     int sa = _.op_sa;
     unop_op uo = bb_unop_resolve(_.op_node_kind, _.op_ival);
     if (uo == UO_UNHANDLED) return std::string();
+    if (uo != UO_NOT && sa < 0) return x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)");
     if (uo == UO_NOT) {
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                              + x86("comment", "BOX IR_NOT [x86() stackless: operand-fail->NULVCL->γ]"))

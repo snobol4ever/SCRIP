@@ -914,6 +914,10 @@ static IR_e binop_slot_kind(IR_t *nd) {
     return IR_BINOP;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int descr_binop_opnd_slot(IR_t *o) {
+    return (o && o->t != IR_LIT_F && o->t != IR_LIT_NUL) ? bb_slot_get(o) : -1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || !pBB->α || !pBB->β) {
         fprintf(stderr, "[IBB] FATAL flat_drive_binop_tree: missing α or β child\n");
@@ -950,8 +954,8 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     }
     emit_label_define_bb(rhs_done);
     if (g_descr_flat_chain) {
-        g_emit.op_sa = bb_slot_get(pBB->α);
-        g_emit.op_sb = bb_slot_get(pBB->β);
+        g_emit.op_sa = descr_binop_opnd_slot(pBB->α);
+        g_emit.op_sb = descr_binop_opnd_slot(pBB->β);
         if (g_emit.op_sa >= 0 && g_emit.op_sb >= 0) g_emit.op_off = bb_slot_alloc16(pBB);
         else g_emit.op_off = -1;
     }
@@ -1323,7 +1327,7 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
     }
 }
 static int gvar_callarg_admit(IR_t *ae) {
-    return (ae && (ae->t == IR_LIT_I || ae->t == IR_LIT_S) && icn_arg_entry_terminal(ae)) ? 1 : 0;
+    return (ae && (ae->t == IR_LIT_I || ae->t == IR_LIT_S || ae->t == IR_LIT_F || ae->t == IR_LIT_NUL) && icn_arg_entry_terminal(ae)) ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
@@ -2047,8 +2051,8 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_I:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_S:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_LIT_F:
-    case IR_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_F:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_NUL:    if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: {
         IR_t *a0 = nd->α;
         g_emit.op_arg_slot_n = 0;
@@ -2249,13 +2253,13 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_RELOP; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
         } else if (g_descr_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
-            int needs_walk = (nd->α && nd->α->t != IR_LIT_I && nd->α->t != IR_LIT_S && bb_slot_get(nd->α) < 0)
-                          || (nd->β && nd->β->t != IR_LIT_I && nd->β->t != IR_LIT_S && bb_slot_get(nd->β) < 0);
+            int needs_walk = (nd->α && nd->α->t != IR_LIT_I && nd->α->t != IR_LIT_S && descr_binop_opnd_slot(nd->α) < 0)
+                          || (nd->β && nd->β->t != IR_LIT_I && nd->β->t != IR_LIT_S && descr_binop_opnd_slot(nd->β) < 0);
             if (needs_walk) {
                 flat_drive_binop_tree(nd, lbl_γ, lbl_ω, lbl_β);
             } else {
-                g_emit.op_sa = bb_slot_get(nd->α);
-                g_emit.op_sb = bb_slot_get(nd->β);
+                g_emit.op_sa = descr_binop_opnd_slot(nd->α);
+                g_emit.op_sb = descr_binop_opnd_slot(nd->β);
                 if (g_emit.op_sa >= 0 && g_emit.op_sb >= 0) g_emit.op_off = bb_slot_alloc16(nd);
                 EMIT_PAIR_RESET();
                 EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -2346,7 +2350,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SIZE:
     case IR_NOT:
         if (g_descr_flat_chain) {
-            g_emit.op_sa   = (nd->α) ? bb_slot_get(nd->α) : -1;
+            g_emit.op_sa   = descr_binop_opnd_slot(nd->α);
             g_emit.op_off  = bb_slot_alloc16(nd);
             FILL(nd, lbl_γ, lbl_ω, lbl_β);
         } else {
