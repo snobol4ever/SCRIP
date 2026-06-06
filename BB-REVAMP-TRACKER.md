@@ -1,6 +1,6 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # WORK QUEUE FOR: .github/GOAL-BB-FIXUP.md (the continuous fixup session / routine). Protocol, laws, ladder live THERE; per-file state lives HERE.
-# CURSOR: bb_assign_frame_ref.cpp
+# CURSOR: bb_assign_local.cpp
 # CURSOR semantics (GOAL-BB-FIXUP.md THE CURSOR): the round-robin position. Fix file at cursor -> advance cursor IN THE SAME COMMIT as the tick/note -> push -> next. End of list wraps (laps). Ticked files get a cheap re-audit on later laps. Attended sessions only; cursor makes every session resume from cold.
 # v2: no locals · one return/PLATFORM · IF()/FOR() · 1 src line = 1 asm line · real Greek α β γ ω · no MEDIUM_* top-level · no emit_fmt · no comments · no blank lines.
 # v2 ONE-IR-ONE-LOGIC (Lon 2026-06-04): N IR kinds → 1 template allowed (near-identical shapes parameterized); 1 IR → 1 BB the norm; 1 IR kind → MULTIPLE distinct four-port logics in one template FORBIDDEN — break the file out by splitting the IR kind in LOWER into separate IR codes, each → its own template + emit_core dispatch case.
@@ -9,7 +9,7 @@
 - [ ] bb_alt.cpp — (TIER H 2026-06-06: emit_fmt→inline to_string, PORT_*→literal Greek, locals 6→3 via FOR()/inline; asm-equiv diff EMPTY on smoke+pat corpus (corpus does not exercise bb_alt mode-4)) — [S] EMIT-BLIND residue: operand-aux arm->t/ival/sval walk (emit_arm/seal_arm + admission loop, nw=4 lv=3) needs LOWER operand plumbing via _.op_*/ζ-slots; design not pinned
 - [x] bb_arith.cpp — (v2 REGENERATED 2026-06-06: ONE return per PLATFORM via IF() nesting, emit_fmt→inline std::string concat, PORT_*→literal Greek "β" "γ" "ω", zero locals; audit_bb_fixup_file rc=0 CLEAN; asm-equiv diff EMPTY incl. arith.sno mode-4 which exercises this template)
 - [ ] bb_assign_frame.cpp — (FIX-2 EMIT-BLIND DONE 2026-06-06: pBB->α->dval/ival fusion -> _.op_a_dval/_.op_a_ival_sg driver plumbing, eb 4->0; TIER H: emit_fmt->inline, PORT_*->Greek; asm-diff EMPTY; lv residue 10 = k-ladder locals, later lap)
-- [ ] bb_assign_frame_ref.cpp
+- [ ] bb_assign_frame_ref.cpp — (FIX-2 EMIT-BLIND DONE 2026-06-06: pBB->α->dval/ival fusion -> _.op_a_dval/_.op_a_ival_sg driver plumbing, eb 4->0; TIER H: emit_fmt->inline, PORT_*->Greek; asm-diff EMPTY; lv residue 10 = k-ladder locals, later lap)
 - [ ] bb_assign_local.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
 - [ ] bb_atom.cpp
 - [ ] bb_binop_arith.cpp

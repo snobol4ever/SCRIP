@@ -20,7 +20,8 @@ static std::string bb_assign_frame_ref_str(IR_t * pBB) {
     for (int h = 0; h < hops; h++) hop += x86_reg_disp32_load64("rcx", "rcx", 0);
     hop += x86_reg_disp32_load64("rcx", "rcx", voff + 8);
     std::string s = IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                                  + x86("comment", emit_fmt("BOX IR_ASSIGN_FRAME_REF \"%s\" slot=%d hops=%d deref rhs_kind=%d", _.op_sval ? _.op_sval : "", (int) _.op_ival, hops, k)));
+                                  + x86("comment", std::string("BOX IR_ASSIGN_FRAME_REF \"") + (_.op_sval ? _.op_sval : "") + "\" slot=" + std::to_string((int) _.op_ival)
+                                  + " hops=" + std::to_string(hops) + " deref rhs_kind=" + std::to_string(k)));
     if (k == (int) IR_LIT_I) {
         s += hop + x86_reg_disp32_store_imm64("rcx", 0, 6) + x86_movabs_r64("rax", (uint64_t) _.op_a_ival_sg) + x86_reg_disp32_store64("rcx", 8, "rax");
     } else if (k == (int) IR_LIT_NUL) {
@@ -36,18 +37,15 @@ static std::string bb_assign_frame_ref_str(IR_t * pBB) {
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) rs, rl) + x86("call", "rt_gvar_get_descr", fptr);
         s += hop + x86_reg_disp32_store64("rcx", 0, "rax") + x86_reg_disp32_store64("rcx", 8, "rdx");
     } else if (k == (int) IR_VAR_FRAME) {
-        int rhops = pBB->α ? (int) pBB->α->dval : 0;
-        int rvoff = 16 + (pBB->α ? (int) pBB->α->ival : 0) * 16;
         s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < rhops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-        s += x86_reg_disp32_load64("rsi", "rax", rvoff) + x86_reg_disp32_load64("rdi", "rax", rvoff + 8);
+        s += FOR(0, (int) _.op_a_dval, [&](int h) { (void) h; return x86_reg_disp32_load64("rax", "rax", 0); });
+        s += x86_reg_disp32_load64("rsi", "rax", 16 + (int) _.op_a_ival_sg * 16)
+           + x86_reg_disp32_load64("rdi", "rax", 16 + (int) _.op_a_ival_sg * 16 + 8);
         s += hop + x86_reg_disp32_store64("rcx", 0, "rsi") + x86_reg_disp32_store64("rcx", 8, "rdi");
     } else if (k == (int) IR_VAR_FRAME_REF) {
-        int rhops = pBB->α ? (int) pBB->α->dval : 0;
-        int rvoff = 16 + (pBB->α ? (int) pBB->α->ival : 0) * 16;
         s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < rhops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-        s += x86_reg_disp32_load64("rax", "rax", rvoff + 8);
+        s += FOR(0, (int) _.op_a_dval, [&](int h) { (void) h; return x86_reg_disp32_load64("rax", "rax", 0); });
+        s += x86_reg_disp32_load64("rax", "rax", 16 + (int) _.op_a_ival_sg * 16 + 8);
         s += x86_reg_disp32_load64("rsi", "rax", 0) + x86_reg_disp32_load64("rdi", "rax", 8);
         s += hop + x86_reg_disp32_store64("rcx", 0, "rsi") + x86_reg_disp32_store64("rcx", 8, "rdi");
     } else if (k == (int) IR_BINOP) {
@@ -59,9 +57,9 @@ static std::string bb_assign_frame_ref_str(IR_t * pBB) {
     } else {
         return x86_bomb("bb_assign_frame_ref: unhandled rhs shape");
     }
-    s += x86("jmp", PORT_GAMMA)
-       + x86("def", PORT_BETA)
-       + x86("jmp", PORT_OMEGA);
+    s += x86("jmp", "γ")
+       + x86("def", "β")
+       + x86("jmp", "ω");
     return s;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
