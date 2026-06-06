@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # scripts/test_snobol4_pat_rung_suite.sh — SBL-G-1: SNOBOL4 pattern rung suite
-# Runs every test/snobol4/patterns/*.sno (rungs 038-057) via --interp (mode 2)
-# and --compile (mode 4). Reports PASS-M2 and PASS-M4 separately.
+# Runs every test/snobol4/patterns/*.sno (rungs 038-057) via --interp (mode 2),
+# --run (mode 3), and --compile (mode 4). Reports PASS-M2/M3/M4 separately.
 # Expected output is the SPITBOL x64 oracle output, baked inline so the script
 # is self-contained and does not require the oracle at run time.
-# Gate: M2 must not drop below baseline. M4 climbs with each filled template.
+# Gate: M2 must not drop below baseline. M3 and M4 climb with each filled template.
 # Self-contained per RULES.md: paths from $0, timeout on every run.
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet 4.6  DATE: 2026-05-27
 
@@ -58,8 +58,9 @@ compile_mode4() {
 }
 
 PASS_M2=0; FAIL_M2=0
+PASS_M3=0; FAIL_M3=0; SKIP_M3=0
 PASS_M4=0; FAIL_M4=0; SKIP_M4=0
-FAILS_M2=""; FAILS_M4=""
+FAILS_M2=""; FAILS_M3=""; FAILS_M4=""
 
 for sno in "$PATDIR"/*.sno; do
     [ -f "$sno" ] || continue
@@ -71,6 +72,11 @@ for sno in "$PATDIR"/*.sno; do
     got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < /dev/null 2>/dev/null || true)
     if [ "$got2" = "$exp" ]; then PASS_M2=$((PASS_M2+1))
     else FAIL_M2=$((FAIL_M2+1)); FAILS_M2="${FAILS_M2}  FAIL-M2 ${name} (got: $(printf '%s' "$got2" | head -1))\n"; fi
+
+    # ── Mode 3: --run ──────────────────────────────────────────────────────
+    got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true)
+    if [ "$got3" = "$exp" ]; then PASS_M3=$((PASS_M3+1))
+    else FAIL_M3=$((FAIL_M3+1)); FAILS_M3="${FAILS_M3}  FAIL-M3 ${name} (got: $(printf '%s' "$got3" | head -1))\n"; fi
 
     # ── Mode 4: --compile → assemble → link → run ──────────────────────────
     bin="$WORKDIR/${name}.bin"
@@ -84,7 +90,8 @@ for sno in "$PATDIR"/*.sno; do
 done
 
 echo "=== SNOBOL4 pattern rung suite (038-057) ==="
-echo "PASS-M2=$PASS_M2 FAIL-M2=$FAIL_M2   PASS-M4=$PASS_M4 FAIL-M4=$FAIL_M4 SKIP-M4=$SKIP_M4"
+echo "PASS-M2=$PASS_M2 FAIL-M2=$FAIL_M2   PASS-M3=$PASS_M3 FAIL-M3=$FAIL_M3   PASS-M4=$PASS_M4 FAIL-M4=$FAIL_M4 SKIP-M4=$SKIP_M4"
 [ -n "$FAILS_M2" ] && printf "$FAILS_M2"
+[ -n "$FAILS_M3" ] && printf "$FAILS_M3"
 [ -n "$FAILS_M4" ] && printf "$FAILS_M4"
 exit 0
