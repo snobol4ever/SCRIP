@@ -1,12 +1,12 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # WORK QUEUE FOR: .github/GOAL-BB-FIXUP.md (the continuous fixup session / routine). Protocol, laws, ladder live THERE; per-file state lives HERE.
-# CURSOR: bb_alt.cpp
+# CURSOR: bb_arith.cpp
 # CURSOR semantics (GOAL-BB-FIXUP.md THE CURSOR): the round-robin position. Fix file at cursor -> advance cursor IN THE SAME COMMIT as the tick/note -> push -> next. End of list wraps (laps). Ticked files get a cheap re-audit on later laps. Attended sessions only; cursor makes every session resume from cold.
 # v2: no locals · one return/PLATFORM · IF()/FOR() · 1 src line = 1 asm line · real Greek α β γ ω · no MEDIUM_* top-level · no emit_fmt · no comments · no blank lines.
 # v2 ONE-IR-ONE-LOGIC (Lon 2026-06-04): N IR kinds → 1 template allowed (near-identical shapes parameterized); 1 IR → 1 BB the norm; 1 IR kind → MULTIPLE distinct four-port logics in one template FORBIDDEN — break the file out by splitting the IR kind in LOWER into separate IR codes, each → its own template + emit_core dispatch case.
 # v2 EMIT-BLIND / NO NEIGHBOR INQUIRY (Lon 2026-06-04): a template never dereferences a neighboring IR node (pBB->α/β/γ/ω->t kind tests, neighbor ->ival/sval/dval reads, neighbor kids/aux walks) to ADMIT a shape or CHOOSE an emission — that is IR LOWERING done in the emitter, a lowering-stage design flaw. Fix upstream: LOWER splits the IR shape (ONE-IR-ONE-LOGIC) and delivers operands via _.op_*/ζ-slots; graph inspection lives in the driver, never a template. LOWER decides, templates emit.
 # EMIT-BLIND violator snapshot 2026-06-04 (grep 'pBB->[αβγω]' refs per file): bb_builtin_is_cmp(28) bb_builtin_atom_string(28) bb_builtin_term_inspect(15) bb_builtin_term_io(12) bb_builtin_aggregate_nb(9) bb_builtin_succ_plus(8) bb_builtin_list(8) bb_builtin_io(8) bb_builtin_type_test(4) bb_builtin_retract_throw(4) bb_assign_frame(4) bb_assign_frame_ref(4) — plus local-var neighbor walks (lf->t / fin->α->t / a0->t) in bb_call, bb_call_proc_staged, bb_call_write_slot, bb_return, bb_every.
-- [ ] bb_alt.cpp
+- [ ] bb_alt.cpp — (TIER H 2026-06-06: emit_fmt→inline to_string, PORT_*→literal Greek, locals 6→3 via FOR()/inline; asm-equiv diff EMPTY on smoke+pat corpus (corpus does not exercise bb_alt mode-4)) — [S] EMIT-BLIND residue: operand-aux arm->t/ival/sval walk (emit_arm/seal_arm + admission loop, nw=4 lv=3) needs LOWER operand plumbing via _.op_*/ζ-slots; design not pinned
 - [ ] bb_arith.cpp
 - [ ] bb_assign_frame.cpp
 - [ ] bb_assign_frame_ref.cpp
