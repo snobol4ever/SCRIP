@@ -41,9 +41,6 @@ static std::string pas_sl_setup(const char * fn) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
     if (!lf) return x86_bomb("marshal_varparam_addr: null arg head");
-    IR_t * fin = lf; int gg = 0;
-    while (fin && fin->γ && fin->γ->t != IR_SUCCEED && fin->γ->t != IR_FAIL && gg++ < 256) fin = fin->γ;
-    if (fin) lf = fin;
     std::string s;
     if (lf->t == IR_VAR_FRAME) {
         int hops = (int) lf->dval;
@@ -244,6 +241,15 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
         return s;
     }
+    {
+        int ps = bb_slot_get(lf);
+        if (ps >= 0) {
+            std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [r12+%d] -> [r12+%d]", idx, ps, aoff)));
+            s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
+            s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
+            return s;
+        }
+    }
     if (g_gvar_flat_chain) {
         IR_t * fin = lf; int gg = 0;
         while (fin && fin->γ && fin->γ->t != IR_SUCCEED && fin->γ->t != IR_FAIL && gg++ < 256) fin = fin->γ;
@@ -293,40 +299,6 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
                 }
                 return s;
             }
-        }
-        if (lf->t == IR_VAR && lf->sval) {
-            std::string s;
-            if (MEDIUM_TEXT) {
-                char b1[80]; strtab_label(b1, sizeof b1, lf->sval);
-                s += x86("comment", emit_fmt("marshal arg%d = gvar read -> [r12+%d]", idx, aoff))
-                   + x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b1)) + x86("ins2", "call", "rt_gvar_get_descr@PLT");
-            } else {
-                s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)lf->sval) + x86("call", "rt_gvar_get_descr", (uint64_t)(uintptr_t)(void *)rt_gvar_get_descr);
-            }
-            s += x86_frame_store64(aoff, "rax");
-            s += x86_frame_store64(aoff + 8, "rdx");
-            return s;
-        }
-        if (lf->t == IR_VAR_FRAME) {
-            int hops = (int) lf->dval;
-            int voff = 16 + (int) lf->ival * 16;
-            std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = frame var slot=%d hops=%d -> [r12+%d]", idx, (int) lf->ival, hops, aoff)));
-            s += x86_frame_lea("rax", 0);
-            for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-            s += x86_reg_disp32_load64("rcx", "rax", voff)     + x86_frame_store64(aoff, "rcx");
-            s += x86_reg_disp32_load64("rcx", "rax", voff + 8) + x86_frame_store64(aoff + 8, "rcx");
-            return s;
-        }
-        if (lf->t == IR_VAR_FRAME_REF) {
-            int hops = (int) lf->dval;
-            int voff = 16 + (int) lf->ival * 16;
-            std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = frame ref-var deref slot=%d hops=%d -> [r12+%d]", idx, (int) lf->ival, hops, aoff)));
-            s += x86_frame_lea("rax", 0);
-            for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-            s += x86_reg_disp32_load64("rax", "rax", voff + 8);
-            s += x86_reg_disp32_load64("rcx", "rax", 0) + x86_frame_store64(aoff, "rcx");
-            s += x86_reg_disp32_load64("rcx", "rax", 8) + x86_frame_store64(aoff + 8, "rcx");
-            return s;
         }
     }
     if (lf->t == IR_CALL && (lf->dval == 2.0 || lf->dval == 3.0 || lf->dval == 5.0)) return marshal_single_call(lf, aoff, bb_node_id(lf));
