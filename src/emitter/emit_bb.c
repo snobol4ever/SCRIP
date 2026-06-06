@@ -1379,7 +1379,11 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
     }
 }
 static int gvar_callarg_admit(IR_t *ae) {
-    return (ae && (ae->t == IR_LIT_I || ae->t == IR_LIT_S || ae->t == IR_LIT_F || ae->t == IR_LIT_NUL) && icn_arg_entry_terminal(ae)) ? 1 : 0;
+    if (!ae || !icn_arg_entry_terminal(ae)) return 0;
+    if (ae->t == IR_LIT_I || ae->t == IR_LIT_S || ae->t == IR_LIT_F || ae->t == IR_LIT_NUL) return 1;
+    if (ae->t == IR_VAR_FRAME || ae->t == IR_VAR_FRAME_REF) return 1;
+    if (ae->t == IR_VAR && ae->sval && ae->sval[0] != '&') return 1;
+    return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
@@ -2356,7 +2360,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO_BY:      flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        if (g_descr_flat_chain) flat_drive_alt_icn_gen(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_gen_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_VAR:        if (g_descr_flat_chain && nd && nd->sval && nd->sval[0] == '&') { g_emit.op_sval = nd->sval; g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else if (g_descr_flat_chain && nd && nd->sval) { extern int g_icn_globals_nv; if (nd->state == 1 && g_icn_globals_nv) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_VAR:        if (g_descr_flat_chain && nd && nd->sval && nd->sval[0] == '&') { g_emit.op_sval = nd->sval; g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else if (g_descr_flat_chain && nd && nd->sval) { extern int g_icn_globals_nv; if (nd->state == 1 && g_icn_globals_nv) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else { int voff = bb_varslot_peek(nd->sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } } else if (g_gvar_flat_chain && nd && nd->sval && nd->sval[0] != '&') { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); g_emit.op_sval = nd->sval; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I:
     case IR_ASSIGN:     if (g_descr_flat_chain) { extern int g_icn_globals_nv; extern int is_global(const char *); if (g_icn_globals_nv && nd->sval && is_global(nd->sval)) flat_drive_icn_global_assign(nd, lbl_γ, lbl_ω, lbl_β); else { g_emit.op_sb = bb_varslot(nd->sval); g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); } } else if (nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_LIT_I || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR || nd->α->t == IR_CALL)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); else if (nd->sval && nd->α && nd->α->t == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR_FRAME: case IR_VAR_FRAME_REF: g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
