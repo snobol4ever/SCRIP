@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
-# scripts/test_snobol4_pat_rung_suite.sh — SBL-G-1: SNOBOL4 pattern rung suite
-# Runs every test/snobol4/patterns/*.sno (rungs 038-057) via --interp (mode 2),
-# --run (mode 3), and --compile (mode 4). Reports PASS-M2/M3/M4 separately.
-# Expected output is the SPITBOL x64 oracle output, baked inline so the script
-# is self-contained and does not require the oracle at run time.
-# Gate: M2 must not drop below baseline. M3 and M4 climb with each filled template.
-# Self-contained per RULES.md: paths from $0, timeout on every run.
-# AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet 4.6  DATE: 2026-05-27
-
+# test_snobol4_pat_rung_suite.sh — SNOBOL4 pattern rung suite, MODE-4 ONLY (Lon directive 2026-06-06)
+# Runs every test/snobol4/patterns/*.sno (rungs 038-057) via --compile (mode 4 only).
+# Gate: M4 must not drop below baseline. Oracle: SPITBOL x64, baked inline.
+# AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet 4.6  DATE: 2026-06-06
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
@@ -20,7 +15,6 @@ if [ ! -d "$PATDIR" ]; then echo "SKIP pattern dir not found at $PATDIR"; exit 0
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
-# Expected outputs — SPITBOL x64 oracle (sbl -b), captured 2026-05-27.
 expected_for() {
     case "$1" in
         038_pat_literal)    printf 'matched' ;;
@@ -57,46 +51,32 @@ compile_mode4() {
     rm -rf "$tmp"
 }
 
-PASS_M2=0; FAIL_M2=0
-PASS_M3=0; FAIL_M3=0; SKIP_M3=0
 PASS_M4=0; FAIL_M4=0; SKIP_M4=0
-FAILS_M2=""; FAILS_M3=""; FAILS_M4=""
-T_M2=0; T_M3=0; T_M4=0; T0_ALL=$SECONDS
+FAIL_LIST=""
+T0=$SECONDS
 
 for sno in "$PATDIR"/*.sno; do
     [ -f "$sno" ] || continue
-    name=$(basename "$sno" .sno)
-    exp=$(expected_for "$name")
-    [ "$exp" = $'\x00__NO_ORACLE__' ] && continue
-
-    # ── Mode 2: --interp ───────────────────────────────────────────────────
-    T0=$SECONDS; got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < /dev/null 2>/dev/null || true); T_M2=$((T_M2+SECONDS-T0))
-    if [ "$got2" = "$exp" ]; then PASS_M2=$((PASS_M2+1))
-    else FAIL_M2=$((FAIL_M2+1)); FAILS_M2="${FAILS_M2}  FAIL-M2 ${name} (got: $(printf '%s' "$got2" | head -1))\n"; fi
-
-    # ── Mode 3: --run ──────────────────────────────────────────────────────
-    T0=$SECONDS; got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true); T_M3=$((T_M3+SECONDS-T0))
-    if [ "$got3" = "$exp" ]; then PASS_M3=$((PASS_M3+1))
-    else FAIL_M3=$((FAIL_M3+1)); FAILS_M3="${FAILS_M3}  FAIL-M3 ${name} (got: $(printf '%s' "$got3" | head -1))\n"; fi
-
-    # ── Mode 4: --compile → assemble → link → run ──────────────────────────
-    T0=$SECONDS
-    bin="$WORKDIR/${name}.bin"
+    base="${sno##*/}"; base="${base%.sno}"
+    exp="$(expected_for "$base")"
+    if [ "$exp" = $'\x00__NO_ORACLE__' ]; then continue; fi
+    bin="$WORKDIR/${base}.bin"
     if compile_mode4 "$sno" "$bin"; then
-        got4=$(timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
-        if [ "$got4" = "$exp" ]; then PASS_M4=$((PASS_M4+1))
-        else FAIL_M4=$((FAIL_M4+1)); FAILS_M4="${FAILS_M4}  FAIL-M4 ${name} (got: $(printf '%s' "$got4" | head -1))\n"; fi
+        actual=$(timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null)
+        if [ "$actual" = "$exp" ]; then
+            PASS_M4=$((PASS_M4+1))
+        else
+            FAIL_M4=$((FAIL_M4+1))
+            FAIL_LIST="$FAIL_LIST\n  FAIL-M4 $base (got: $actual)"
+        fi
     else
-        SKIP_M4=$((SKIP_M4+1)); FAILS_M4="${FAILS_M4}  SKIP-M4 ${name} (compile/link failed)\n"
+        SKIP_M4=$((SKIP_M4+1))
+        FAIL_LIST="$FAIL_LIST\n  SKIP-M4 $base (compile/link failed)"
     fi
-    T_M4=$((T_M4+SECONDS-T0))
 done
 
-T_ALL=$((SECONDS-T0_ALL))
-echo "=== SNOBOL4 pattern rung suite (038-057) ==="
-echo "PASS-M2=$PASS_M2 FAIL-M2=$FAIL_M2   PASS-M3=$PASS_M3 FAIL-M3=$FAIL_M3   PASS-M4=$PASS_M4 FAIL-M4=$FAIL_M4 SKIP-M4=$SKIP_M4"
-[ -n "$FAILS_M2" ] && printf "$FAILS_M2"
-[ -n "$FAILS_M3" ] && printf "$FAILS_M3"
-[ -n "$FAILS_M4" ] && printf "$FAILS_M4"
-printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"
-exit 0
+T_M4=$((SECONDS-T0))
+echo "=== SNOBOL4 pattern rung suite (038-057) — MODE-4 ONLY ==="
+echo "PASS-M4=$PASS_M4 FAIL-M4=$FAIL_M4 SKIP-M4=$SKIP_M4"
+[ -n "$FAIL_LIST" ] && printf '%b\n' "$FAIL_LIST"
+printf "TIME M4=%ds TOTAL=%ds\n" "$T_M4" "$T_M4"
