@@ -898,6 +898,17 @@ void bb_prepare(IR_t *nd) {
         g_emit.bb_zn = (void *)nd;
         return;
     }
+    if (nd->t == IR_DET_IS) {
+        g_emit.bb_ln = (void *)nd->α;
+        g_emit.bb_rn = (void *)nd->β;
+        return;
+    }
+    if (nd->t == IR_DET_CMP) {
+        g_emit.op_sval = nd->sval;
+        g_emit.bb_ln = (void *)nd->α;
+        g_emit.bb_rn = (void *)nd->β;
+        return;
+    }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static bb_label_t *seq_node_label(IR_t **nodes, bb_label_t **lbls, int n, IR_t *tgt, bb_label_t *falloff) {

@@ -63,21 +63,28 @@ gz_pin() { # $1=name $2=program $3=expected — like pin(), PLUS asserts the GZ 
   cmp -s "$TMP/$NM.o2" "$TMP/$NM.o3" || fail "$NM m2 vs m3 stdout differ"
   cmp -s "$TMP/$NM.o2" "$TMP/$NM.o4" || fail "$NM m2 vs m4 stdout differ"
 }
+gz_pin_noite() { # like gz_pin() but no gzi label check — for GZ programs without ITE
+  local NM=$1 PRG=$2 EXP=$3
+  printf "$PRG" > "$TMP/$NM.pl"
+  "$SCRIP" --interp "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
+  "$SCRIP" --run    "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o3" 2>"$TMP/$NM.e3" || fail "$NM m3 rc"
+  grep -q "INTERP-FALLBACK" "$TMP/$NM.e3" && fail "$NM m3 fell back to interp (not GZ-admitted)"
+  m4_run "$NM"
+  grep -q "rt_bomb" "$TMP/$NM.s" && fail "$NM m4 .s contains a bomb"
+  printf "$EXP" | cmp -s - "$TMP/$NM.o2" || fail "$NM m2 output not canon"
+  cmp -s "$TMP/$NM.o2" "$TMP/$NM.o3" || fail "$NM m2 vs m3 differ"
+  cmp -s "$TMP/$NM.o2" "$TMP/$NM.o4" || fail "$NM m2 vs m4 differ"
+}
 # floor: fact-unify condition commits (Then) / const-mismatch condition exhausts (Else) — det branches.
 gz_pin gzfloor1 ':- initialization(main).\np(a).\nmain :- ( p(X) -> write(X) ; write(n) ), nl.\n' 'a\n'
 gz_pin gzfloor2 ':- initialization(main).\np(a).\nmain :- ( p(b) -> write(y) ; write(n) ), nl.\n' 'n\n'
 # MONEY: choice condition commits at first success inside a fail-driven soft-disj — exactly one a.
 # E1 resume label UNREFERENCED = the bounded condition (Delete_Choice_Point by wiring).
 gz_pin gzmoney ':- initialization(main).\np(a). p(b).\nmain :- ( ( p(X) -> write(X) ; write(n) ), nl, fail ; true ).\n' 'a\n'
-# DECLINE: arith conditions wait for GZ-8 — verdicts equal across modes but m3 MUST fall back (legacy).
-printf ':- initialization(main).\nmain :- ( 1 >= 2 -> write(y) ; write(n) ), nl.\n' > "$TMP/gzdecl.pl"
-"$SCRIP" --interp "$TMP/gzdecl.pl" </dev/null > "$TMP/gzdecl.o2" 2>/dev/null || fail "gzdecl m2 rc"
-"$SCRIP" --run    "$TMP/gzdecl.pl" </dev/null > "$TMP/gzdecl.o3" 2>"$TMP/gzdecl.e3" || fail "gzdecl m3 rc"
-grep -q "INTERP-FALLBACK" "$TMP/gzdecl.e3" || fail "gzdecl: arith cond was GZ-admitted (must wait for GZ-8)"
-m4_run gzdecl
-printf 'n\n' | cmp -s - "$TMP/gzdecl.o2" || fail "gzdecl m2 not canon"
-cmp -s "$TMP/gzdecl.o2" "$TMP/gzdecl.o3" || fail "gzdecl m2 vs m3 differ"
-cmp -s "$TMP/gzdecl.o2" "$TMP/gzdecl.o4" || fail "gzdecl m2 vs m4 differ"
+# GZ-8: arith conditions now GZ-admitted — const-fold in the box, no INTERP-FALLBACK.
+gz_pin gzarith_cmp  ':- initialization(main).\nmain :- ( 1 >= 2 -> write(y) ; write(n) ), nl.\n'  'n\n'
+gz_pin_noite gzarith_is   ':- initialization(main).\nmain :- X is 2 * 3, write(X), nl.\n'             '6\n'
+gz_pin gzarith_ite  ':- initialization(main).\nmain :- ( 3 < 5 -> write(t) ; write(f) ), nl, ( 5 < 3 -> write(t) ; write(f) ), nl.\n'  't\nf\n'
 # CORRUPT-PROOF: swap the two gate-stub ROUTING targets in the emitted .s (Then.α <-> Else.α) — the
 # committed condition must then enter Else: output flips a -> n, LOUD divergence, restore proves liveness.
 # (Gate-VALUE corruption is invisible at the det floor BY DESIGN: β dispatches to tombstones, both routes
@@ -89,4 +96,4 @@ as -o "$TMP/gzcorrupt.o" "$TMP/gzcorrupt.s" 2>/dev/null || fail "corrupt-proof a
 gcc -no-pie "$TMP/gzcorrupt.o" -L out -lscrip_rt -Wl,-rpath,"$PWD/out" -o "$TMP/gzcorrupt.bin" 2>/dev/null || fail "corrupt-proof link"
 "$TMP/gzcorrupt.bin" </dev/null > "$TMP/gzcorrupt.out" || true
 cmp -s "$TMP/gzmoney.o4" "$TMP/gzcorrupt.out" && fail "corrupt-proof: routing swap did NOT diverge (dead wiring)"
-echo "GATE-PL-GZ7 PASS: ITE-commit canon m2 == m3 == m4 (commit · barecall · reentry · semidet · negbound) + 7b new-path §4.5 box (gzfloor1 · gzfloor2 · gzmoney GZ-asserted · arith-decline · corrupt-proven)"
+echo "GATE-PL-GZ7 PASS: ITE-commit canon (commit · barecall · reentry · semidet · negbound) + 7b §4.5 box (gzfloor1 · gzfloor2 · gzmoney GZ-asserted · corrupt-proven) + GZ-8 arith (gzarith_cmp · gzarith_is · gzarith_ite GZ-admitted)"

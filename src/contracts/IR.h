@@ -100,6 +100,8 @@ typedef enum {
     IR_QUERY_FRAME,
     IR_DET_WRITE,
     IR_DET_NL,
+    IR_DET_IS,
+    IR_DET_CMP,
     IR_CELL_UNIFY,
     IR_CELL_CHOICE,
     IR_CELL_CALL,

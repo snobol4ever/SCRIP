@@ -1560,6 +1560,93 @@ int rt_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_is_cell_int(void *lhs_cell, long val) {
+    extern Trail g_resolve_trail;
+    Term *lhs = (Term *)lhs_cell;
+    if (!lhs) return 0;
+    Term *vt = term_new_int(val);
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_is_cell(void *lhs_cell, void *rhs_node) {
+    extern Trail g_resolve_trail;
+    IR_t *rhs = (IR_t *)rhs_node;
+    Term *lhs = (Term *)lhs_cell;
+    if (!lhs || !rhs) return 0;
+    DESCR_t v = resolve_arith_eval(rhs);
+    if (IS_FAIL_fn(v)) return 0;
+    Term *vt = (v.v == DT_R) ? term_new_float(v.r) : term_new_int(v.i);
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static double gz_eval_cell(void *cell, const IR_t *nd, int *ok) {
+    *ok = 1;
+    if (!nd) { *ok = 0; return 0.0; }
+    if (nd->t == IR_LIT_I) return (double)nd->ival;
+    if (nd->t == IR_LIT_F) return nd->dval;
+    if (nd->t == IR_LOGICVAR) {
+        Term *t = cell ? term_deref((Term *)cell) : (Term *)0;
+        if (!t) { *ok = 0; return 0.0; }
+        if (t->tag == TERM_INT)   return (double)t->ival;
+        if (t->tag == TERM_FLOAT) return t->fval;
+        *ok = 0; return 0.0;
+    }
+    DESCR_t v = resolve_arith_eval((IR_t *)nd);
+    if (IS_FAIL_fn(v)) { *ok = 0; return 0.0; }
+    return (v.v == DT_R) ? v.r : (double)v.i;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_arith_cmp_cells(const char *op, void *lhs_cell, void *lhs_nd, void *rhs_cell, void *rhs_nd) {
+    if (!op) return 0;
+    int lo = 0, ro = 0;
+    double l = gz_eval_cell(lhs_cell, (IR_t *)lhs_nd, &lo);
+    double r = gz_eval_cell(rhs_cell, (IR_t *)rhs_nd, &ro);
+    if (!lo || !ro) return 0;
+    if (strcmp(op,"=:=")==0) return (l==r)?1:0;
+    if (strcmp(op,"=\=")==0) return (l!=r)?1:0;
+    if (strcmp(op,"<"  )==0) return (l< r)?1:0;
+    if (strcmp(op,">"  )==0) return (l> r)?1:0;
+    if (strcmp(op,"=<" )==0) return (l<=r)?1:0;
+    if (strcmp(op,"<=" )==0) return (l<=r)?1:0;
+    if (strcmp(op,">=" )==0) return (l>=r)?1:0;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_arith_cmp_nodes(const char *op, void *lhs_node, void *rhs_node) {
+    if (!op || !lhs_node || !rhs_node) return 0;
+    DESCR_t lv = resolve_arith_eval((IR_t *)lhs_node);
+    DESCR_t rv = resolve_arith_eval((IR_t *)rhs_node);
+    if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) return 0;
+    double l = (lv.v == DT_R) ? lv.r : (double)lv.i;
+    double r = (rv.v == DT_R) ? rv.r : (double)rv.i;
+    if (strcmp(op, "=:=") == 0) return (l == r) ? 1 : 0;
+    if (strcmp(op, "=\\=") == 0) return (l != r) ? 1 : 0;
+    if (strcmp(op, "<")   == 0) return (l <  r) ? 1 : 0;
+    if (strcmp(op, ">")   == 0) return (l >  r) ? 1 : 0;
+    if (strcmp(op, "=<")  == 0) return (l <= r) ? 1 : 0;
+    if (strcmp(op, "<=")  == 0) return (l <= r) ? 1 : 0;
+    if (strcmp(op, ">=")  == 0) return (l >= r) ? 1 : 0;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_term_cmp_nodes(const char *op, void *lhs_node, void *rhs_node) {
+    if (!op || !lhs_node || !rhs_node) return 0;
+    Term *lt = (Term *)resolve_node_to_term((IR_t *)lhs_node);
+    Term *rt = (Term *)resolve_node_to_term((IR_t *)rhs_node);
+    int c = resolve_term_compare(lt, rt);
+    if (strcmp(op, "==")   == 0) return (c == 0) ? 1 : 0;
+    if (strcmp(op, "\\==")  == 0) return (c != 0) ? 1 : 0;
+    if (strcmp(op, "@<")   == 0) return (c <  0) ? 1 : 0;
+    if (strcmp(op, "@>")   == 0) return (c >  0) ? 1 : 0;
+    if (strcmp(op, "@=<")  == 0) return (c <= 0) ? 1 : 0;
+    if (strcmp(op, "@>=")  == 0) return (c >= 0) ? 1 : 0;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
     Term **args_in = (Term **)args_ptr;
     Term **args = (Term **)GC_MALLOC(arity * sizeof(Term *));
