@@ -61,6 +61,7 @@ static tree_t *mk_deref(tree_t *ptr) {
     return e;
 }
 static tree_t *mk_call(const char *name, PNodeList *args) {
+    if (name && !strcmp(name, "ord") && args && args->count >= 1) return args->items[0];
     if (name && !strcmp(name, "new") && args && args->count >= 1) {
         tree_t *pv = args->items[0];
         const char *rt = pas_ptrexpr_target(pv);
@@ -312,7 +313,12 @@ type:
     ;
 packed_opt: PACKEDSY | ;
 simple_type:
-    LPARENT id_list RPARENT { $$ = -1; }
+    LPARENT id_list RPARENT
+        { int _eo = 0;
+          if ($2) for (int i = 0; i < $2->count; i++) {
+              tree_t *_id = $2->items[i];
+              if (_id && _id->v.sval) pas_const_add(_id->v.sval, (long long)(_eo++)); }
+          $$ = -1; }
     | IDENT { g_pas_pend_typename = strdup($1); const char *_pt = pas_ptrtype_target($1); if (_pt) { g_pas_pend_ptrtarget = strdup(_pt); $$ = -3; } else { pas_rectype_to_pend($1); $$ = -1; } }
     | constant DOTDOT constant { $$ = $3; }
     ;
