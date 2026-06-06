@@ -802,10 +802,27 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
+static tree_e icn_augop_binop_tt(AugOp_e a) {
+    switch (a) {
+    case AUGOP_ADD: return TT_ADD;  case AUGOP_SUB: return TT_SUB;  case AUGOP_MUL: return TT_MUL;
+    case AUGOP_DIV: return TT_DIV;  case AUGOP_MOD: return TT_MOD;  case AUGOP_POW: return TT_POW;
+    case AUGOP_CONCAT: return TT_CAT;
+    case AUGOP_EQ: return TT_EQ;    case AUGOP_LT: return TT_LT;    case AUGOP_LE: return TT_LE;
+    case AUGOP_GT: return TT_GT;    case AUGOP_GE: return TT_GE;    case AUGOP_NE: return TT_NE;
+    case AUGOP_SEQ: return TT_LEQ;  case AUGOP_SLT: return TT_LLT;  case AUGOP_SLE: return TT_LLE;
+    case AUGOP_SGT: return TT_LGT;  case AUGOP_SGE: return TT_LGE;  case AUGOP_SNE: return TT_LNE;
+    default: return (tree_e)0;
+    }
+}
 static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (cx.lang == IR_LANG_ICN && e->t == TT_AUGOP && (AugOp_e) e->v.ival == AUGOP_SCAN && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[1]) {
         tree_t * sc = ast_node_new(TT_SCAN); ast_push(sc, (tree_t *) e->c[0]); ast_push(sc, (tree_t *) e->c[1]);
         tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) e->c[0]); ast_push(as, sc);
+        e = as;
+    }
+    if (cx.lang == IR_LANG_ICN && e->t == TT_AUGOP && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[1] && icn_augop_binop_tt((AugOp_e) e->v.ival) != (tree_e)0) {
+        tree_t * bo = ast_node_new(icn_augop_binop_tt((AugOp_e) e->v.ival)); ast_push(bo, (tree_t *) e->c[0]); ast_push(bo, (tree_t *) e->c[1]);
+        tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) e->c[0]); ast_push(as, bo);
         e = as;
     }
     switch (e->t) {
