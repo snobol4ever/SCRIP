@@ -11,74 +11,53 @@ extern int64_t rt_gvar_get_int(const char *name);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int gvr_is_numrel(int64_t op) { return op >= BINOP_LT && op <= BINOP_NE; }
-static const char * gvr_fail_mnem(int64_t op) {
-    switch (op) {
-    case BINOP_LT: return "jge";
-    case BINOP_LE: return "jg";
-    case BINOP_GT: return "jle";
-    case BINOP_GE: return "jl";
-    case BINOP_EQ: return "jne";
-    case BINOP_NE: return "je";
-    default:       return "jmp";
-    }
+static inline int gvr_numrel() { return _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE; }
+static inline int gvr_llit() { return _.bb_lk == (int)IR_LIT_I; }
+static inline int gvr_lvar() { return _.bb_lk == (int)IR_VAR && _.op_name1 != 0; }
+static inline int gvr_rlit() { return _.bb_rk == (int)IR_LIT_I; }
+static inline int gvr_rvar() { return _.bb_rk == (int)IR_VAR && _.op_name2 != 0; }
+static inline int gvr_disp(int kind) { return (kind == (int)IR_CALL || kind == (int)IR_VAR_FRAME || kind == (int)IR_VAR_FRAME_REF) ? 8 : 0; }
+static inline int gvr_ok() { return g_gvar_flat_chain && _.op_off >= 0 && gvr_numrel() && (gvr_llit() || gvr_lvar() || _.op_sa >= 0) && (gvr_rlit() || gvr_rvar() || _.op_sb >= 0); }
+static inline const char * gvr_mnem() {
+    return _.op_ival == BINOP_LT ? "jge" : _.op_ival == BINOP_LE ? "jg" : _.op_ival == BINOP_GT ? "jle"
+         : _.op_ival == BINOP_GE ? "jl"  : _.op_ival == BINOP_EQ ? "jne" : "je";
 }
-static int gvr_slot_disp(int kind) { return (kind == (int)IR_CALL || kind == (int)IR_VAR_FRAME || kind == (int)IR_VAR_FRAME_REF) ? 8 : 0; }
+static std::string gvr_name(const char *reg, const char *n) { char b[80]; strtab_label(b, sizeof b, n); return x86_load_ro(reg, b, (uint64_t)(uintptr_t)n); }
+static std::string gvr_jcc() {
+    return IF(_.op_ival == BINOP_LT, x86("jge", "ω"))
+         + IF(_.op_ival == BINOP_LE, x86("jg",  "ω"))
+         + IF(_.op_ival == BINOP_GT, x86("jle", "ω"))
+         + IF(_.op_ival == BINOP_GE, x86("jl",  "ω"))
+         + IF(_.op_ival == BINOP_EQ, x86("jne", "ω"))
+         + IF(_.op_ival == BINOP_NE, x86("je",  "ω"));
+}
+static std::string gvr_lhs() {
+    return IF(gvr_llit(), x86("mov", "rax", (long)_.bb_li))
+         + IF(gvr_lvar(), gvr_name("rdi", _.op_name1) + x86_call_ro("rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int))
+         + IF(!gvr_llit() && !gvr_lvar(), x86("mov", "rax", FRQ(_.op_sa + gvr_disp(_.bb_lk))));
+}
+static std::string gvr_rhs() {
+    return IF(gvr_rlit(), x86("mov", "rcx", (long)_.bb_ri))
+         + IF(gvr_rvar(), x86("mov", FRQ(_.op_off), "rax")
+                        + gvr_name("rdi", _.op_name2)
+                        + x86_call_ro("rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int)
+                        + x86("mov", "rcx", "rax")
+                        + x86("mov", "rax", FRQ(_.op_off)))
+         + IF(!gvr_rlit() && !gvr_rvar(), x86("mov", "rcx", FRQ(_.op_sb + gvr_disp(_.bb_rk))));
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_gvar_relop_str() {
-    if (!PLATFORM_X86) return std::string();
-    int64_t op = _.op_ival;
-    if (!(g_gvar_flat_chain && _.op_off >= 0 && gvr_is_numrel(op))) return std::string();
-    int lk = _.bb_lk, rk = _.bb_rk;
-    int l_lit = (lk == (int)IR_LIT_I), l_var = (lk == (int)IR_VAR && _.op_name1);
-    int r_lit = (rk == (int)IR_LIT_I), r_var = (rk == (int)IR_VAR && _.op_name2);
-    if (!l_lit && !l_var && _.op_sa < 0) return std::string();
-    if (!r_lit && !r_var && _.op_sb < 0) return std::string();
-    const char * mnem = gvr_fail_mnem(op);
-    if (MEDIUM_TEXT) {
-        std::string s = x86("label", _.lbl_α)
-            + x86("comment", emit_fmt("BOX IR_BINOP gvar-relop op=%lld lk=%d rk=%d [stackless cmp + %s->omega; jmp gamma]", (long long)op, lk, rk, mnem));
-        if (l_lit)      s += x86("ins2", "mov", emit_fmt("rax, %lld", (long long)_.bb_li));
-        else if (l_var) { char b1[80]; strtab_label(b1, sizeof b1, _.op_name1);
-                          s += x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b1)) + x86("ins2", "call", "rt_gvar_get_int@PLT"); }
-        else            s += x86("ins2", "mov", emit_fmt("rax, [r12 + %d]", _.op_sa + gvr_slot_disp(lk)));
-        if (r_lit)      s += x86("ins2", "mov", emit_fmt("rcx, %lld", (long long)_.bb_ri));
-        else if (r_var) { char b2[80]; strtab_label(b2, sizeof b2, _.op_name2);
-                          s += x86("ins2", "mov", emit_fmt("qword ptr [r12 + %d], rax", _.op_off))
-                             + x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b2)) + x86("ins2", "call", "rt_gvar_get_int@PLT")
-                             + x86("ins2", "mov", "rcx, rax")
-                             + x86("ins2", "mov", emit_fmt("rax, qword ptr [r12 + %d]", _.op_off)); }
-        else            s += x86("ins2", "mov", emit_fmt("rcx, [r12 + %d]", _.op_sb + gvr_slot_disp(rk)));
-        s += x86("ins2", "cmp", "rax, rcx")
-           + x86("ins2", mnem,  _.lbl_ω)
-           + x86("ins2", "jmp", _.lbl_γ)
-           + x86("Lins1", emit_fmt("%s:", _.lbl_β), "")
-           + x86("ins2", "jmp", _.lbl_ω);
-        return s;
-    }
-    std::string s;
-    if (l_lit)      s += x86("mov", "rax", (long)_.bb_li);
-    else if (l_var) s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)_.op_name1)
-                       + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
-    else            s += x86("mov", "rax", FRQ(_.op_sa + gvr_slot_disp(lk)));
-    if (r_lit)      s += x86("mov", "rcx", (long)_.bb_ri);
-    else if (r_var) s += x86("mov", FRQ(_.op_off), "rax")
-                       + x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)_.op_name2)
-                       + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int)
-                       + x86("mov", "rcx", "rax")
-                       + x86("mov", "rax", FRQ(_.op_off));
-    else            s += x86("mov", "rcx", FRQ(_.op_sb + gvr_slot_disp(rk)));
-    s += x86("cmp", "rax", "rcx")
-       + x86(mnem,  PORT_OMEGA)
-       + x86("jmp", PORT_GAMMA)
-       + x86("def", PORT_BETA)
-       + x86("jmp", PORT_OMEGA);
-    return s;
+    return IF(PLATFORM_X86,
+           IF(gvr_ok(),
+              IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                            + x86("comment", std::string("BOX IR_BINOP gvar-relop op=") + std::to_string(_.op_ival)
+                            + " lk=" + std::to_string(_.bb_lk) + " rk=" + std::to_string(_.bb_rk) + " [stackless cmp + " + gvr_mnem() + "->omega; jmp gamma]"))
+            + gvr_lhs()
+            + gvr_rhs()
+            + x86("cmp", "rax", "rcx")
+            + gvr_jcc()
+            + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"))
+         + IF(!gvr_ok(), x86_bomb("bb_binop_gvar_relop: shape mismatch (dispatch chose this arm but predicate failed)")));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_binop_gvar_relop(IR_t * pBB) {
-    (void)pBB;
-    std::string s = bb_binop_gvar_relop_str();
-    if (s.empty()) { bb_emit_x86(x86_bomb("bb_binop_gvar_relop: shape mismatch (dispatch chose this arm but predicate failed)")); return; }
-    bb_emit_x86(s);
-}
+extern "C" void bb_binop_gvar_relop(IR_t * pBB) { (void)pBB; bb_emit_x86(bb_binop_gvar_relop_str()); }
