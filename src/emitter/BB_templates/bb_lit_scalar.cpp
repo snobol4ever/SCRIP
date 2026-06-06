@@ -24,7 +24,7 @@ static std::string bb_lit_scalar_str() {
                  + x86("jmp", PORT_OMEGA)
                  + x86_ro_seal_q(0, (uint64_t) _.op_ival);
         }
-        if (g_descr_flat_chain && _.op_node_kind == (int)IR_LIT_S && _.op_off >= 0) {
+        if ((g_descr_flat_chain || g_gvar_callarg_live) && _.op_node_kind == (int)IR_LIT_S && _.op_off >= 0) {
             int off = _.op_off;
             const char * lit = _.op_sval ? _.op_sval : "";
             return IF(MEDIUM_TEXT,

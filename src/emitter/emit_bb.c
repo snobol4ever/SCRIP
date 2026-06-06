@@ -1323,7 +1323,7 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
     }
 }
 static int gvar_callarg_admit(IR_t *ae) {
-    return (ae && ae->t == IR_LIT_I && icn_arg_entry_terminal(ae)) ? 1 : 0;
+    return (ae && (ae->t == IR_LIT_I || ae->t == IR_LIT_S) && icn_arg_entry_terminal(ae)) ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
@@ -2045,7 +2045,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_I:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_LIT_S:      if (g_descr_flat_chain) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_S:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_F:
     case IR_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: {
