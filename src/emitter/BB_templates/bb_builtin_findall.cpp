@@ -24,7 +24,7 @@ std::string bb_builtin_findall_str(IR_t *pBB, const char *fn, const std::string 
                 + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_findall) + bytes(2, "\xFF\xD0")
                 + bytes(4, "\x48\x83\xC4\x10")
                 + bytes(2, "\x85\xC0")
-            ) + x86("je", _.lbl_ω) + x86("jmp", _.lbl_γ) + x86("jmp", _.lbl_ω);
+            ) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
     }
     if (MEDIUM_TEXT) {
         if (strcmp(fn, "findall") == 0) {
