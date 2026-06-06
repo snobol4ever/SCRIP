@@ -11,6 +11,9 @@
 #include "bb_box.h"
 #include "../runtime/builtins/gen.h"
 /*====================================================================================================================*/
+extern int g_icn_globals_nv;
+extern int g_icn_postfix_resume;
+/*====================================================================================================================*/
 char *kw_canonicalize(const char *raw);
 void expression_scope_walk(Scope *sc, tree_t *e);
 #define T0(t) ((t)->n > 0 ? (t)->c[0] : NULL)
