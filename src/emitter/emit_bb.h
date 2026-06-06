@@ -10,7 +10,6 @@ extern "C" {
 #include "IR.h"
 #include <stdio.h>
 bb_box_fn bb_build_flat    (IR_t * nd);
-bb_box_fn bb_build_brokered(IR_t * nd);
 bb_box_fn descr_flat_chain_build(IR_t * entry);
 int  descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
 int  bb_varslot(const char * name);

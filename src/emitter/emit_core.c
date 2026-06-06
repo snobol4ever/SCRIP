@@ -15,7 +15,6 @@ int             g_sm_native_unsupported = 0;
 FILE           *bb_emit_out  = NULL;
 bb_platform_t   g_platform      = BB_PLATFORM_X86;
 bb_medium_t     g_medium        = BB_MEDIUM_BINARY;
-int             g_bb_brokered   = 0;
 int             g_use_sm_macros = 0;
 int             g_use_bb_macros = 0;
 void emit_mode_set(bb_emit_mode_t m, FILE *out)
@@ -23,15 +22,14 @@ void emit_mode_set(bb_emit_mode_t m, FILE *out)
     bb_emit_mode = m;
     bb_emit_out  = out;
     switch (m) {
-    case EMIT_TEXT:             g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
-    case EMIT_TEXT_INLINE:      g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=1; break;
-    case EMIT_MACRO_DEF:        g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_MACRO_DEF; g_bb_brokered=0; g_use_sm_macros=0; break;
-    case EMIT_BINARY_WIRED:     g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_BINARY;    g_bb_brokered=0; g_use_sm_macros=0; break;
-    case EMIT_BINARY_BROKERED:  g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_BINARY;    g_bb_brokered=1; g_use_sm_macros=0; break;
-    case EMIT_JVM:              g_platform=BB_PLATFORM_JVM;  g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
-    case EMIT_JS:               g_platform=BB_PLATFORM_JS;   g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
-    case EMIT_NET:              g_platform=BB_PLATFORM_NET;  g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
-    case EMIT_WASM:             g_platform=BB_PLATFORM_WASM; g_medium=BB_MEDIUM_TEXT;      g_bb_brokered=0; g_use_sm_macros=0; break;
+    case EMIT_TEXT:             g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
+    case EMIT_TEXT_INLINE:      g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=1; break;
+    case EMIT_MACRO_DEF:        g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_MACRO_DEF; g_use_sm_macros=0; break;
+    case EMIT_BINARY_WIRED:     g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_BINARY;    g_use_sm_macros=0; break;
+    case EMIT_JVM:              g_platform=BB_PLATFORM_JVM;  g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
+    case EMIT_JS:               g_platform=BB_PLATFORM_JS;   g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
+    case EMIT_NET:              g_platform=BB_PLATFORM_NET;  g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
+    case EMIT_WASM:             g_platform=BB_PLATFORM_WASM; g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -266,7 +264,6 @@ void emit_text_stno_banner(int stno, int lineno, const char *src_text)
     "#=======================================================================================================================\n"
     switch (bb_emit_mode) {
     case EMIT_BINARY_WIRED:
-    case EMIT_BINARY_BROKERED:
         return;
     case EMIT_TEXT_INLINE:
     case EMIT_TEXT:
