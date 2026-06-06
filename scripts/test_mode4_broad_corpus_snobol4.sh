@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# scripts/test_mode4_broad_corpus_snobol4.sh — M4SN-4a: broad corpus SNOBOL4 mode-4 parity
-# Runs the same set as test_interp_broad_corpus_and_beauty.sh but via
-# emit->assemble->link->run (mode-4 ELF pipeline) instead of --interp.
-# Compares output against .ref files.
-# Target: PASS >= --interp PASS count (128/280). No regression vs --interp.
+# scripts/test_mode4_broad_corpus_snobol4.sh — M4SN-4a: broad corpus SNOBOL4 all-mode parity
+# Runs the same set as test_interp_broad_corpus_and_beauty.sh via all three modes:
+# --interp (mode 2), --run (mode 3), and emit→assemble→link→run (mode 4).
+# Compares output against .ref files. Reports PASS/FAIL/SKIP per mode.
 #
 # Self-contained per RULES.md: paths from $0, timeout on every run.
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6   DATE: 2026-05-14
@@ -18,11 +17,12 @@ BEAUTY="$CORPUS/programs/snobol4/beauty_suite"
 DEMO="$CORPUS/programs/snobol4/demo"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
-if [ ! -f "$RT_DIR/libscrip_rt.so" ]; then echo "SKIP libscrip_rt.so not built at $RT_DIR"; exit 0; fi
 if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi
 
-PASS=0; FAIL=0; SKIP=0
-FAILURES=""
+PASS2=0; FAIL2=0
+PASS3=0; FAIL3=0
+PASS4=0; FAIL4=0; SKIP4=0
+FAILURES2=""; FAILURES3=""; FAILURES4=""
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -41,26 +41,44 @@ run_test() {
     local label="$1" sno="$2" ref="$3" input="${4:-}" filter="${5:-}"
     [ ! -f "$ref" ] && return
     [ ! -f "$sno" ] && return
-    local bin="$WORKDIR/$(echo "$label" | tr '/' '_').bin"
-    if ! compile_mode4 "$sno" "$bin"; then
-        SKIP=$((SKIP+1)); return
-    fi
-    local got exp
+    local exp; exp=$(cat "$ref")
+    local slug; slug=$(echo "$label" | tr '/: ' '_')
+
+    # ── Mode 2: --interp ──────────────────────────────────────────────────
+    local got2
     if [ -n "$input" ] && [ -f "$input" ]; then
-        got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
+        got2=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < "$input" 2>/dev/null || true)
     else
-        got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
+        got2=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < /dev/null 2>/dev/null || true)
     fi
-    if [ -n "$filter" ]; then
-        got=$(printf '%s\n' "$got" | grep -v "$filter" || true)
-    fi
-    exp=$(cat "$ref")
-    if [ "$got" = "$exp" ]; then
-        PASS=$((PASS+1))
+    [ -n "$filter" ] && got2=$(printf '%s\n' "$got2" | grep -v "$filter" || true)
+    if [ "$got2" = "$exp" ]; then PASS2=$((PASS2+1))
+    else FAIL2=$((FAIL2+1)); FAILURES2="${FAILURES2}  FAIL ${label}\n"; fi
+
+    # ── Mode 3: --run ─────────────────────────────────────────────────────
+    local got3
+    if [ -n "$input" ] && [ -f "$input" ]; then
+        got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$input" 2>/dev/null || true)
     else
-        FAIL=$((FAIL+1))
-        FAILURES="${FAILURES}  FAIL ${label}\n"
+        got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true)
     fi
+    [ -n "$filter" ] && got3=$(printf '%s\n' "$got3" | grep -v "$filter" || true)
+    if [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1))
+    else FAIL3=$((FAIL3+1)); FAILURES3="${FAILURES3}  FAIL ${label}\n"; fi
+
+    # ── Mode 4: --compile → assemble → link → run ─────────────────────────
+    if [ ! -f "$RT_DIR/libscrip_rt.so" ]; then SKIP4=$((SKIP4+1)); return; fi
+    local bin="$WORKDIR/${slug}.bin"
+    if ! compile_mode4 "$sno" "$bin"; then SKIP4=$((SKIP4+1)); return; fi
+    local got4
+    if [ -n "$input" ] && [ -f "$input" ]; then
+        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
+    else
+        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
+    fi
+    [ -n "$filter" ] && got4=$(printf '%s\n' "$got4" | grep -v "$filter" || true)
+    if [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1))
+    else FAIL4=$((FAIL4+1)); FAILURES4="${FAILURES4}  FAIL ${label}\n"; fi
 }
 
 # ── Crosscheck corpus ──────────────────────────────────────────────────────────
@@ -87,5 +105,10 @@ run_test "demo_claws5"    "$DEMO/claws5.sno"    "$DEMO/claws5.ref"    "$DEMO/cla
 TIMEOUT=30 \
 run_test "demo_roman"     "$DEMO/roman.sno"     "$DEMO/roman.ref"     ""                      "^ms:"
 
-echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP  ($((PASS+FAIL+SKIP)) total)"
-[ -n "$FAILURES" ] && printf "$FAILURES" | head -40
+TOTAL=$((PASS2+FAIL2))
+echo "mode-2 (--interp):  PASS=$PASS2 FAIL=$FAIL2  ($TOTAL total)"
+echo "mode-3 (--run):     PASS=$PASS3 FAIL=$FAIL3  ($TOTAL total)"
+echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
+[ -n "$FAILURES2" ] && printf "$FAILURES2" | head -40
+[ -n "$FAILURES3" ] && printf "$FAILURES3" | head -40
+[ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40

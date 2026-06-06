@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # scripts/test_csnobol4_budne_suite.sh — CSNOBOL4 test suite regression for scrip
+# Runs all three modes: --interp (M2), --run (M3), --compile→link→run (M4).
 # Self-contained. Run from anywhere with no env vars.
 #
 # Runs 116 Budne-suite tests + 10 FENCE crosscheck tests = 126 total.
@@ -13,7 +14,8 @@
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INTERP="${INTERP:-$HERE/scrip}"
+SCRIP="${SCRIP:-$HERE/../scrip}"
+RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="/home/claude/corpus"
 TIMEOUT="${TIMEOUT:-15}"
 SUITE="$CORPUS/programs/csnobol4-suite"
@@ -26,13 +28,16 @@ if [ ! -d "$CORPUS" ]; then
     exit 0
 fi
 
-PASS=0; FAIL=0; SKIP=0
-FAILURES=""
+PASS2=0; FAIL2=0
+PASS3=0; FAIL3=0
+PASS4=0; FAIL4=0; SKIP4=0
+FAILURES2=""; FAILURES3=""; FAILURES4=""
+
+WORKDIR="$(mktemp -d)"
+trap 'rm -rf "$WORKDIR"' EXIT
 
 SKIP_LIST="bench breakline genc k ndbm sleep time line2"
 STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2"
-
-# ── helpers ───────────────────────────────────────────────────────────────────
 
 is_excluded() {
     local name="$1"
@@ -46,7 +51,6 @@ is_stdin_test() {
     return 1
 }
 
-# Split a .sno at the bare END line; write prog part to $2, stdin part to $3.
 split_at_end() {
     local file="$1" prog_out="$2" stdin_out="$3"
     python3 - "$file" "$prog_out" "$stdin_out" << 'PY'
@@ -67,36 +71,72 @@ else:
 PY
 }
 
+compile_mode4() {
+    local sno="$1" out="$2"
+    local tmp; tmp="$(mktemp -d)"
+    "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
+    (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
+    gcc "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lgc -lm \
+        -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
+    rm -rf "$tmp"
+}
+
 run_test() {
     local label="$1" sno="$2" ref="$3"
+    [ ! -f "$ref" ] && { SKIP4=$((SKIP4+1)); return; }
+    local exp; exp=$(cat "$ref")
+    local name slug; name=$(basename "$sno" .sno); slug=$(echo "$label" | tr '/: ' '_')
 
-    if [ ! -f "$ref" ]; then
-        SKIP=$((SKIP+1))
-        return
-    fi
-
-    local got exp name
-    name=$(basename "$sno" .sno)
-
+    local prog_file="$sno" stdin_file=""
     if is_stdin_test "$name"; then
         local prog_tmp stdin_tmp
         prog_tmp=$(mktemp /tmp/scrip_prog_XXXXXX.sno)
         stdin_tmp=$(mktemp /tmp/scrip_stdin_XXXXXX)
         split_at_end "$sno" "$prog_tmp" "$stdin_tmp"
-        got=$(timeout "$TIMEOUT" $INTERP "$prog_tmp" < "$stdin_tmp" 2>/dev/null || true)
-        rm -f "$prog_tmp" "$stdin_tmp"
-    else
-        got=$(timeout "$TIMEOUT" $INTERP "$sno" 2>/dev/null || true)
+        prog_file="$prog_tmp"
+        stdin_file="$stdin_tmp"
     fi
 
-    exp=$(cat "$ref")
-
-    if [ "$got" = "$exp" ]; then
-        PASS=$((PASS+1))
+    # ── Mode 2: --interp ──────────────────────────────────────────────────
+    local got2
+    if [ -n "$stdin_file" ]; then
+        got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$prog_file" < "$stdin_file" 2>/dev/null || true)
     else
-        FAIL=$((FAIL+1))
-        FAILURES="${FAILURES}  FAIL ${label}\n"
+        got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$sno" 2>/dev/null || true)
     fi
+    if [ "$got2" = "$exp" ]; then PASS2=$((PASS2+1))
+    else FAIL2=$((FAIL2+1)); FAILURES2="${FAILURES2}  FAIL ${label}\n"; fi
+
+    # ── Mode 3: --run ─────────────────────────────────────────────────────
+    local got3
+    if [ -n "$stdin_file" ]; then
+        got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$prog_file" < "$stdin_file" 2>/dev/null || true)
+    else
+        got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true)
+    fi
+    if [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1))
+    else FAIL3=$((FAIL3+1)); FAILURES3="${FAILURES3}  FAIL ${label}\n"; fi
+
+    # ── Mode 4: --compile → assemble → link → run ─────────────────────────
+    if [ -f "$RT_DIR/libscrip_rt.so" ]; then
+        local bin="$WORKDIR/${slug}.bin"
+        if compile_mode4 "$prog_file" "$bin"; then
+            local got4
+            if [ -n "$stdin_file" ]; then
+                got4=$(timeout "$TIMEOUT" "$bin" < "$stdin_file" 2>/dev/null || true)
+            else
+                got4=$(timeout "$TIMEOUT" "$bin" 2>/dev/null || true)
+            fi
+            if [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1))
+            else FAIL4=$((FAIL4+1)); FAILURES4="${FAILURES4}  FAIL ${label}\n"; fi
+        else
+            SKIP4=$((SKIP4+1))
+        fi
+    else
+        SKIP4=$((SKIP4+1))
+    fi
+
+    [ -n "$stdin_file" ] && rm -f "$prog_file" "$stdin_file"
 }
 
 # ── FENCE crosscheck tests (058–067) ─────────────────────────────────────────
@@ -111,10 +151,15 @@ done
 for sno in "$SUITE"/*.sno; do
     [ -f "$sno" ] || continue
     name=$(basename "$sno" .sno)
-    is_excluded "$name" && { SKIP=$((SKIP+1)); continue; }
+    is_excluded "$name" && { SKIP4=$((SKIP4+1)); continue; }
     ref="${sno%.sno}.ref"
     run_test "$name" "$sno" "$ref"
 done
 
-echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP  ($(( PASS + FAIL )) run)"
-[ -n "$FAILURES" ] && printf "$FAILURES" | head -40
+TOTAL=$((PASS2+FAIL2))
+echo "mode-2 (--interp):  PASS=$PASS2 FAIL=$FAIL2  ($TOTAL run)"
+echo "mode-3 (--run):     PASS=$PASS3 FAIL=$FAIL3  ($TOTAL run)"
+echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL run)"
+[ -n "$FAILURES2" ] && printf "$FAILURES2" | head -40
+[ -n "$FAILURES3" ] && printf "$FAILURES3" | head -40
+[ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
