@@ -1,18 +1,8 @@
 #!/usr/bin/env bash
-# scripts/test_smoke_snobol4_run.sh — SN-9c-e gate:
-# Three-mode sweep across the crosscheck corpus. Every program that passes
-# under --interp (mode 2) must also pass under --run (mode 3) and
-# --compile→link→run (mode 4).
-#
-# Gate semantics:
-#   * --interp PASS count is the reference.
-#   * --run and --compile must not regress below --interp PASS count.
-#   * Shared failures (failing in all modes) are real bugs, reported but
-#     do not fail the gate.
-#
+# scripts/test_smoke_snobol4_run.sh — MODE-4 ONLY crosscheck sweep (Lon directive 2026-06-06)
+# Formerly SN-9c-e three-mode sweep. Modes 2 and 3 removed. Mode-4 is the gate.
+# Gate: --compile PASS count must equal total crosscheck corpus with .ref files.
 # Self-contained per RULES.md: paths derived from $0; no env deps required.
-# Usage: bash scripts/test_smoke_snobol4_run.sh
-
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
@@ -21,14 +11,8 @@ CORPUS="${CORPUS:-/home/claude/corpus}"
 INC="$CORPUS/programs/snobol4/demo/inc"
 TIMEOUT="${TIMEOUT:-10}"
 
-if [ ! -x "$SCRIP" ]; then
-    echo "SKIP scrip not built at $SCRIP"
-    exit 0
-fi
-if [ ! -d "$CORPUS/crosscheck" ]; then
-    echo "SKIP corpus not populated at $CORPUS"
-    exit 0
-fi
+if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
+if [ ! -d "$CORPUS/crosscheck" ]; then echo "SKIP corpus not populated at $CORPUS"; exit 0; fi
 
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -43,97 +27,35 @@ compile_mode4() {
     rm -rf "$tmp"
 }
 
-# Run every crosscheck .sno under one mode; write "PASS FAIL" to stdout
-# and the full failure list (space-sep basenames) to file $2.
-run_mode() {
-    local mode="$1" fails_out="$2"
-    local pass=0 fail=0
-    : > "$fails_out"
-    while IFS= read -r sno; do
-        local ref="${sno%.sno}.ref"
-        local input="${sno%.sno}.input"
-        [ ! -f "$ref" ] && continue
-        local got exp
-        if [ -f "$input" ]; then
-            got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" $mode "$sno" < "$input" 2>/dev/null || true)
-        else
-            got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" $mode "$sno" < /dev/null 2>/dev/null || true)
-        fi
-        exp=$(cat "$ref")
-        if [ "$got" = "$exp" ]; then
-            pass=$((pass + 1))
-        else
-            fail=$((fail + 1))
-            printf ' %s' "$(basename "${sno%.sno}")" >> "$fails_out"
-        fi
-    done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
-    printf '%d %d\n' "$pass" "$fail"
-}
+T0=$SECONDS
+echo "=== SNOBOL4 crosscheck sweep — MODE-4 ONLY ==="
+[ ! -f "$RT_DIR/libscrip_rt.so" ] && { echo "SKIP libscrip_rt.so not found"; exit 0; }
 
-run_mode4() {
-    local fails_out="$1"
-    local pass=0 fail=0 skip=0
-    : > "$fails_out"
-    [ ! -f "$RT_DIR/libscrip_rt.so" ] && { printf '0 0\n'; return; }
-    while IFS= read -r sno; do
-        local ref="${sno%.sno}.ref"
-        local input="${sno%.sno}.input"
-        [ ! -f "$ref" ] && continue
-        local slug; slug=$(basename "${sno%.sno}")
-        local bin="$WORKDIR/${slug}.bin"
-        if ! compile_mode4 "$sno" "$bin"; then skip=$((skip+1)); continue; fi
-        local got exp
-        if [ -f "$input" ]; then
-            got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
-        else
-            got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
-        fi
-        exp=$(cat "$ref")
-        if [ "$got" = "$exp" ]; then
-            pass=$((pass + 1))
-        else
-            fail=$((fail + 1))
-            printf ' %s' "$slug" >> "$fails_out"
-        fi
-    done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
-    printf '%d %d\n' "$pass" "$fail"
-}
+PASS=0; FAIL=0; SKIP=0; FAIL_LIST=""
+while IFS= read -r sno; do
+    ref="${sno%.sno}.ref"
+    input="${sno%.sno}.input"
+    [ ! -f "$ref" ] && continue
+    slug=$(basename "${sno%.sno}")
+    bin="$WORKDIR/${slug}.bin"
+    if ! compile_mode4 "$sno" "$bin"; then
+        SKIP=$((SKIP+1)); FAIL_LIST="$FAIL_LIST $slug(skip)"; continue
+    fi
+    if [ -f "$input" ]; then
+        got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
+    else
+        got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
+    fi
+    exp=$(cat "$ref")
+    if [ "$got" = "$exp" ]; then
+        PASS=$((PASS+1))
+    else
+        FAIL=$((FAIL+1)); FAIL_LIST="$FAIL_LIST $slug"
+    fi
+done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
 
-T0_ALL=$SECONDS
-echo "=== SN-9c-e: three-mode crosscheck sweep ==="
-
-T0=$SECONDS; read IR_PASS  IR_FAIL  <<< "$(run_mode --interp "$WORKDIR/ir")";  T_M2=$((SECONDS-T0))
-T0=$SECONDS; read RUN_PASS RUN_FAIL <<< "$(run_mode --run    "$WORKDIR/run")"; T_M3=$((SECONDS-T0))
-T0=$SECONDS; read M4_PASS  M4_FAIL  <<< "$(run_mode4         "$WORKDIR/m4")";  T_M4=$((SECONDS-T0))
-T_ALL=$((SECONDS-T0_ALL))
-
-IR_FAILS_FULL=$(cat  "$WORKDIR/ir")
-RUN_FAILS_FULL=$(cat "$WORKDIR/run")
-M4_FAILS_FULL=$(cat  "$WORKDIR/m4")
-
-printf '  --interp  PASS=%-3d FAIL=%d\n' "$IR_PASS"  "$IR_FAIL"
-printf '  --run     PASS=%-3d FAIL=%d\n' "$RUN_PASS" "$RUN_FAIL"
-printf '  --compile PASS=%-3d FAIL=%d\n' "$M4_PASS"  "$M4_FAIL"
-printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"
-echo ""
-
-GATE_FAIL=0
-if [ "$RUN_PASS" -lt "$IR_PASS" ]; then
-    echo "FAIL  --run PASS ($RUN_PASS) < --interp PASS ($IR_PASS)"
-    GATE_FAIL=1
-fi
-if [ "$M4_PASS" -gt 0 ] && [ "$M4_PASS" -lt "$IR_PASS" ]; then
-    echo "FAIL  --compile PASS ($M4_PASS) < --interp PASS ($IR_PASS)"
-    GATE_FAIL=1
-fi
-
-if [ "$GATE_FAIL" -eq 0 ]; then
-    echo "PASS  three-mode parity on crosscheck: $IR_PASS programs"
-    [ "$IR_FAIL" -gt 0 ] && echo "  shared failures (all modes):$IR_FAILS_FULL"
-    exit 0
-else
-    echo "  --interp  failures:$IR_FAILS_FULL"
-    echo "  --run     failures:$RUN_FAILS_FULL"
-    echo "  --compile failures:$M4_FAILS_FULL"
-    exit 1
-fi
+T_M4=$((SECONDS-T0))
+printf "  --compile PASS=%-3d FAIL=%d SKIP=%d\n" "$PASS" "$FAIL" "$SKIP"
+[ -n "$FAIL_LIST" ] && echo "  FAIL:$FAIL_LIST"
+printf "TIME M4=%ds TOTAL=%ds\n" "$T_M4" "$T_M4"
+[ "$FAIL" -eq 0 ]

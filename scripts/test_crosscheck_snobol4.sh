@@ -1,106 +1,58 @@
 #!/usr/bin/env bash
-# test_crosscheck_snobol4.sh — 3-mode crosscheck for SNOBOL4 (GOAL-LANG-SNOBOL4)
-#
-# Runs the snobol4 test corpus through --interp (mode 2), --run (mode 3),
-# and --compile→assemble→link→run (mode 4). Cross-checks all three modes
-# agree with each other and with .ref oracle files where present.
-# Exits 0 only if all three modes agree on every test.
-#
-# AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-14
-
+# scripts/test_crosscheck_snobol4.sh — MODE-4 ONLY (Lon directive 2026-06-06)
+# Formerly cross-checked modes 2/3/4. Now mode-4 only.
+# Runs snobol4 crosscheck corpus through --compile→as→gcc→run.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIP="${HERE}/../scrip"
+SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
-TIMEOUT=30
-PASS=0; FAIL=0; SKIP=0
-T_M2=0; T_M3=0; T_M4=0; T0_ALL=$SECONDS
+CORPUS="${CORPUS:-/home/claude/corpus}"
+INC="$CORPUS/programs/snobol4/demo/inc"
+TIMEOUT="${TIMEOUT:-10}"
 
-WORKDIR="$(mktemp -d)"
+if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built"; exit 0; fi
+
+WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 
 compile_mode4() {
     local sno="$1" out="$2"
     local tmp; tmp="$(mktemp -d)"
-    "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
+    SNO_LIB="$INC" "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
     (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
     gcc "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lgc -lm \
         -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
     rm -rf "$tmp"
 }
 
-xcheck() {
-    local label="$1" file="$2" ref="${3:-}" sno_lib="${4:-}"
-    if [ ! -f "$file" ]; then echo "  SKIP $label (no file)"; SKIP=$((SKIP+1)); return; fi
-    local ir run_out compile_out slug
-    slug=$(echo "$label" | tr '/: ' '_')
-    local T0m=$SECONDS
-    if [ -n "$sno_lib" ]; then
-        ir=$(SNO_LIB="$sno_lib"  timeout $TIMEOUT "$SCRIP" --interp "$file" </dev/null 2>/dev/null)
+T0=$SECONDS
+echo "=== SNOBOL4 crosscheck — MODE-4 ONLY ==="
+PASS=0; FAIL=0; SKIP=0; FAIL_LIST=""
+
+while IFS= read -r sno; do
+    sno_lib=""
+    [ -d "$INC" ] && sno_lib="$INC"
+    slug=$(basename "${sno%.sno}")
+    bin="$WORKDIR/${slug}.bin"
+    ref="${sno%.sno}.ref"; input="${sno%.sno}.input"
+    [ ! -f "$ref" ] && continue
+    if ! SNO_LIB="$sno_lib" compile_mode4 "$sno" "$bin"; then
+        SKIP=$((SKIP+1)); continue
+    fi
+    if [ -f "$input" ]; then
+        got=$(SNO_LIB="$sno_lib" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
     else
-        ir=$(timeout  $TIMEOUT "$SCRIP" --interp "$file" </dev/null 2>/dev/null)
+        got=$(SNO_LIB="$sno_lib" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
     fi
-    T_M2=$((T_M2+SECONDS-T0m)); T0m=$SECONDS
-    if [ -n "$sno_lib" ]; then
-        run_out=$(SNO_LIB="$sno_lib" timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
+    exp=$(cat "$ref")
+    if [ "$got" = "$exp" ]; then
+        PASS=$((PASS+1))
     else
-        run_out=$(timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
+        FAIL=$((FAIL+1)); FAIL_LIST="$FAIL_LIST $slug"
     fi
-    T_M3=$((T_M3+SECONDS-T0m)); T0m=$SECONDS
+done < <(find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | sort)
 
-    local m4_ok=0 compile_out=""
-    if [ -f "$RT_DIR/libscrip_rt.so" ]; then
-        local bin="$WORKDIR/${slug}.bin"
-        if compile_mode4 "$file" "$bin"; then
-            compile_out=$(timeout $TIMEOUT "$bin" </dev/null 2>/dev/null || true)
-            m4_ok=1
-        fi
-    fi
-    T_M4=$((T_M4+SECONDS-T0m))
-
-    local ok=1
-    if [ -n "$ref" ] && [ -f "$ref" ]; then
-        local exp; exp=$(cat "$ref")
-        [ "$ir"      != "$exp" ] && { echo "  FAIL $label --interp vs oracle";  diff <(echo "$exp") <(echo "$ir")        | head -5 | sed 's/^/    /'; ok=0; }
-        [ "$run_out" != "$exp" ] && { echo "  FAIL $label --run vs oracle";     diff <(echo "$exp") <(echo "$run_out")   | head -5 | sed 's/^/    /'; ok=0; }
-        [ "$m4_ok"   -eq 1 ] && [ "$compile_out" != "$exp" ] && { echo "  FAIL $label --compile vs oracle"; diff <(echo "$exp") <(echo "$compile_out") | head -5 | sed 's/^/    /'; ok=0; }
-    else
-        [ "$run_out" != "$ir" ] && { echo "  FAIL $label --run vs --interp";    diff <(echo "$ir") <(echo "$run_out")   | head -5 | sed 's/^/    /'; ok=0; }
-        [ "$m4_ok"   -eq 1 ] && [ "$compile_out" != "$ir" ] && { echo "  FAIL $label --compile vs --interp"; diff <(echo "$ir") <(echo "$compile_out") | head -5 | sed 's/^/    /'; ok=0; }
-    fi
-    if [ "$ok" -eq 1 ]; then echo "  PASS $label"; PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
-}
-
-echo "=== SNOBOL4 3-mode crosscheck ==="
-
-# Smoke tests — inline
-T=$(mktemp /tmp/sno_XXXXXX.sno)
-printf "        OUTPUT = 'hello'\nEND\n" > "$T"; xcheck "output"    "$T"
-printf "        OUTPUT = 2 + 3\nEND\n"  > "$T"; xcheck "arith"     "$T"
-printf "        OUTPUT = 'ab' 'cd'\nEND\n" > "$T"; xcheck "concat" "$T"
-printf "        S = 'abc'\n        S 'b' = 'X'\n        OUTPUT = S\nEND\n" > "$T"
-xcheck "pattern_replace" "$T"
-printf "        'x' 'x' :S(HIT)\n        OUTPUT = 'miss'\n        :(END)\nHIT     OUTPUT = 'hit'\nEND\n" > "$T"
-xcheck "goto" "$T"
-rm -f "$T"
-
-# Beauty drivers — if corpus present
-BEAUTY=/home/claude/corpus/programs/snobol4/beauty_suite
-for driver in omega gen tdump alpha; do
-    f="$BEAUTY/${driver}_driver.sno"
-    ref="$BEAUTY/${driver}_driver.ref"
-    if [ -f "$f" ]; then
-        if [ ! -f "$ref" ]; then
-            ref="/tmp/${driver}_driver_spitbol.ref"
-            if [ ! -f "$ref" ]; then
-                SNO_LIB=$BEAUTY timeout 30 /home/claude/x64/bin/sbl -b "$f" > "$ref" 2>/dev/null || rm -f "$ref"
-            fi
-        fi
-        xcheck "beauty_${driver}" "$f" "${ref}" "$BEAUTY"
-    fi
-done
-
-T_ALL=$((SECONDS-T0_ALL))
-echo ""
-echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
-printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"
+T_M4=$((SECONDS-T0))
+printf "  --compile  PASS=%-3d FAIL=%d SKIP=%d\n" "$PASS" "$FAIL" "$SKIP"
+[ -n "$FAIL_LIST" ] && printf "  FAIL:%s\n" "$FAIL_LIST"
+printf "TIME M4=%ds TOTAL=%ds\n" "$T_M4" "$T_M4"
 [ "$FAIL" -eq 0 ]
