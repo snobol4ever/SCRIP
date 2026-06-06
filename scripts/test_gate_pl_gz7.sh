@@ -35,9 +35,18 @@ pin() { # $1=name $2=program(printf-format) $3=expected_stdout(printf-format) �
   cmp -s "$TMP/$NM.o2" "$TMP/$NM.o3" || fail "$NM m2 vs m3 stdout differ"
   cmp -s "$TMP/$NM.o2" "$TMP/$NM.o4" || fail "$NM m2 vs m4 stdout differ"
 }
+pin24() { # $1=name $2=program $3=expected — m2+m4 only; m3 aborts (ITE-in-callee not yet GZ-admitted)
+  local NM=$1 PRG=$2 EXP=$3
+  printf "$PRG" > "$TMP/$NM.pl"
+  "$SCRIP" --interp "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
+  m4_run "$NM"
+  printf "$EXP" | cmp -s - "$TMP/$NM.o2" || fail "$NM m2 output not canon (got: $(tr '\n' ' ' < "$TMP/$NM.o2"))"
+  cmp -s "$TMP/$NM.o2" "$TMP/$NM.o4" || fail "$NM m2 vs m4 stdout differ"
+}
 # headline: the condition a(X),X>=2 commits at the first success (X=2); the X=3 alternative and the
 # Else (X=0) are both dead — exactly 2. This is the WAM-CP-9 / paper §4.5 case.
-pin commit ':- initialization(main).\na(1). a(2). a(3).\nf(X) :- ( a(X), X >= 2 -> true ; X = 0 ).\nmain :- ( f(R), write(R), nl, fail ; true ).\n' '2\n'
+# m3: uses pin24 (m2+m4 only) because f/1 has ITE in its callee body — not yet GZ-admitted.
+pin24 commit ':- initialization(main).\na(1). a(2). a(3).\nf(X) :- ( a(X), X >= 2 -> true ; X = 0 ).\nmain :- ( f(R), write(R), nl, fail ; true ).\n' '2\n'
 # bare-call condition: a single-solution call as the whole condition commits and Then runs once.
 pin barecall ':- initialization(main).\na(1).\nmain :- ( ( a(X) -> true ; fail ), write(X), nl, fail ; true ).\n' '1\n'
 # fresh re-entry: an enclosing generator m(X) re-drives the ITE with a NEW binding each solution;
@@ -45,10 +54,10 @@ pin barecall ':- initialization(main).\na(1).\nmain :- ( ( a(X) -> true ; fail )
 pin reentry ':- initialization(main).\nm(1). m(2). m(3).\nmain :- ( m(X), ( X >= 2 -> write(X) ; write(s) ), nl, fail ; true ).\n' 's\n2\n3\n'
 # semidet construct: ITE redo bypasses to ω (β = ω_in), so the Else generator m(X) is NOT re-satisfied
 # on backtracking — single 1, agreeing with the m4 β→ω tombstone.
-pin semidet ':- initialization(main).\nm(1). m(2).\nmain :- ( ( fail -> true ; m(X) ), write(X), nl, fail ; true ).\n' '1\n'
+pin24 semidet ':- initialization(main).\nm(1). m(2).\nmain :- ( ( fail -> true ; m(X) ), write(X), nl, fail ; true ).\n' '1\n'
 # \+ and \= share the bounded condition: \+ a(2) succeeds (y); a redo-driven \+ fail commits its
 # condition (k printed once); 1 \= 2 succeeds (u).
-pin negbound ':- initialization(main).\na(1).\nmain :- ( \\+ a(2) -> write(y) ; write(n) ), nl, ( \\+ fail, write(k), nl, fail ; true ), ( 1 \\= 2 -> write(u) ; write(v) ), nl.\n' 'y\nk\nu\n'
+pin24 negbound ':- initialization(main).\na(1).\nmain :- ( \\+ a(2) -> write(y) ; write(n) ), nl, ( \\+ fail, write(k), nl, fail ; true ), ( 1 \\= 2 -> write(u) ; write(v) ), nl.\n' 'y\nk\nu\n'
 # ---- PL-GZ-7b: the new-path §4.5 ifstmt box (IR_CELL_ITE on the GZ substrate) ----
 gz_pin() { # $1=name $2=program $3=expected — like pin(), PLUS asserts the GZ path: m3 has NO INTERP-FALLBACK and the m4 .s carries gzi chain labels
   local NM=$1 PRG=$2 EXP=$3

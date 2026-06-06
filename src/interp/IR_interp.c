@@ -1667,6 +1667,29 @@ int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op) {
+    extern Trail g_resolve_trail;
+    Term *lhs = (Term *)lhs_cell;
+    if (!lhs || !cell1 || !cell2) return 0;
+    Term *t1 = term_deref((Term *)cell1), *t2 = term_deref((Term *)cell2);
+    if (!t1 || !t2) return 0;
+    double a = (t1->tag == TERM_INT) ? (double)t1->ival : (t1->tag == TERM_FLOAT) ? t1->fval : -1e300;
+    double b = (t2->tag == TERM_INT) ? (double)t2->ival : (t2->tag == TERM_FLOAT) ? t2->fval : -1e300;
+    if (a == -1e300 || b == -1e300) return 0;
+    double rv;
+    if (!op || strcmp(op,"+")==0) rv = a + b;
+    else if (strcmp(op,"-")==0) rv = a - b;
+    else if (strcmp(op,"*")==0) rv = a * b;
+    else if (strcmp(op,"/")==0) { if (!b) return 0; rv = a / b; }
+    else if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { long la=(long)a,lb=(long)b; if (!lb) return 0; rv=(double)(la%lb); }
+    else return 0;
+    long ival = (long)rv;
+    Term *vt = ((double)ival == rv) ? term_new_int(ival) : term_new_float(rv);
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_arith_cmp_nodes(const char *op, void *lhs_node, void *rhs_node) {
     if (!op || !lhs_node || !rhs_node) return 0;
     DESCR_t lv = resolve_arith_eval((IR_t *)lhs_node);

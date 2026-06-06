@@ -9,6 +9,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int rt_pl_is_cell_int(void *lhs_cell, long val);
 extern "C" int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival);
+extern "C" int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int gz_arith_const_eval(const IR_t *nd, long *out) {
     if (!nd) return 0;
@@ -46,8 +47,20 @@ static int gz_arith_var_plus_const(const IR_t *nd, int *var_slot, const char **o
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char **op_out) {
+    if (!nd || nd->t != IR_ARITH || !nd->sval || !nd->α || !nd->β) return 0;
+    const char *op = nd->sval;
+    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
+        if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_LOGICVAR) {
+            *slot1 = (int)nd->α->ival; *slot2 = (int)nd->β->ival; *op_out = op; return 1;
+        }
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_det_is_str() {
     if (!PLATFORM_X86) return std::string();
+    x86_begin();
     const IR_t *lhs = (const IR_t *)_.bb_ln;
     const IR_t *rhs = (const IR_t *)_.bb_rn;
     if (!lhs || lhs->t != IR_LOGICVAR) return x86_bomb("bb_det_is: lhs not LOGICVAR");
@@ -82,6 +95,23 @@ static std::string bb_det_is_str() {
              + x86("def", PORT_BETA)
              + x86("jmp", PORT_OMEGA)
              + x86_ro_seal_str(0, rop);
+    }
+    int bslot1 = -1, bslot2 = -1; const char *bop = NULL;
+    if (gz_arith_var_bivar(rhs, &bslot1, &bslot2, &bop)) {
+        return IF(MEDIUM_TEXT,
+                   x86("label", _.lbl_α)
+                 + x86("comment", "BOX DET_IS(X is Y op Z)  [PL-GZ-9b: rt_pl_is_cell_bivar]"))
+             + x86("mov", "rdi", FRQ(GZ_CELL_OFF(slot)))
+             + x86("mov", "rsi", FRQ(GZ_CELL_OFF(bslot1)))
+             + x86("mov", "rdx", FRQ(GZ_CELL_OFF(bslot2)))
+             + x86_ro_load_q("rcx", 0)
+             + x86("call", "rt_pl_is_cell_bivar", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_bivar)
+             + x86("test", "eax", "eax")
+             + x86("je", PORT_OMEGA)
+             + x86("jmp", PORT_GAMMA)
+             + x86("def", PORT_BETA)
+             + x86("jmp", PORT_OMEGA)
+             + x86_ro_seal_str(0, bop);
     }
     return x86_bomb("bb_det_is: unsupported rhs shape in GZ");
 }

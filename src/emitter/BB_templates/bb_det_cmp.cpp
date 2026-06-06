@@ -31,6 +31,7 @@ static int gz_cmp_fold(const char *op, long a, long b) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_det_cmp_str() {
     if (!PLATFORM_X86) return std::string();
+    x86_begin();
     const char *op = _.op_sval ? _.op_sval : "<";
     if (!dcm_is_arith(op)) return x86_bomb("bb_det_cmp: term-order cmp not yet supported in GZ");
     const IR_t *la = (const IR_t *)_.bb_ln;
