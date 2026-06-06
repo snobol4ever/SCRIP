@@ -166,6 +166,10 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_pat_span_var.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_i.cpp \
+    $(SRC)/emitter/BB_templates/bb_gvar_assign_var.cpp \
+    $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp \
+    $(SRC)/emitter/BB_templates/bb_gvar_assign_call.cpp \
+    $(SRC)/emitter/BB_templates/bb_gvar_assign_descr.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_pos.cpp \
     $(SRC)/emitter/BB_templates/bb_query_frame.cpp \
     $(SRC)/emitter/BB_templates/bb_det_write.cpp \
@@ -391,6 +395,10 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_span_var.cpp -o $(OBJ)/bb_pat_span_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp -o $(OBJ)/bb_gvar_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_i.cpp -o $(OBJ)/bb_gvar_assign_lit_i.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_var.cpp    -o $(OBJ)/bb_gvar_assign_var.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp -o $(OBJ)/bb_gvar_assign_concat.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_call.cpp   -o $(OBJ)/bb_gvar_assign_call.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_descr.cpp  -o $(OBJ)/bb_gvar_assign_descr.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_pos.cpp          -o $(OBJ)/bb_pat_pos.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_query_frame.cpp     -o $(OBJ)/bb_query_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_write.cpp        -o $(OBJ)/bb_det_write.o

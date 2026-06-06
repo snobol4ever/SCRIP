@@ -51,6 +51,8 @@ static const char * kname(IR_e t) {
     case IR_CONJ: return "CONJ"; case IR_ALT: return "ALT"; case IR_EVERY: return "EVERY"; case IR_WHILE: return "WHILE";
     case IR_UNTIL: return "UNTIL"; case IR_REPEAT: return "REPEAT"; case IR_NOT: return "NOT";
     case IR_ASSIGN: return "ASGN"; case IR_CALL: return "CALL"; case IR_LIT_S: return "LIT_S";
+    case IR_ASSIGN_LIT_S: return "ASGN_LS"; case IR_ASSIGN_LIT_I: return "ASGN_LI";
+    case IR_ASSIGN_VAR: return "ASGN_V"; case IR_ASSIGN_CONCAT: return "ASGN_C"; case IR_ASSIGN_CALL: return "ASGN_K";
     case IR_PAT_LIT: return "PLIT"; case IR_PAT_REM: return "PREM"; case IR_PAT_ARB: return "PARB";
     case IR_PAT_SPAN: return "PSPAN"; case IR_PAT_SPAN_VAR: return "PSPANV"; case IR_PAT_ANY: return "PANY"; case IR_PAT_NOTANY: return "PNANY"; case IR_PAT_BREAK: return "PBRK"; case IR_PAT_BREAKX: return "PBRKX";
     case IR_PAT_CAT: return "PCAT"; case IR_PAT_ALT: return "PALT";
@@ -231,6 +233,12 @@ int main(void) {
          un(TT_NOT, bin(TT_TO, lit(1), lit(3))), 4);
     dump("SNOBOL4:  OUTPUT = \"hello world\"   [v_assign: rhs.gamma->ASGN, ASGN.sval=OUTPUT, bounded]",
          bin(TT_ASSIGN, var("OUTPUT"), slit("hello world")), 2);
+    dump_sno_value("SNOBOL4:  A = B   [v_assign IR_ASSIGN_VAR: VAR(B).gamma->ASGN_V, ASGN_V.sval=A; SNO kind-select]",
+         bin(TT_ASSIGN, var("A"), var("B")), 2);
+    dump_sno_value("SNOBOL4:  A = F('x')   [v_assign IR_ASSIGN_CALL: CALL(F,1arg).gamma->ASGN_K, ASGN_K.sval=A; SNO kind-select]",
+         bin(TT_ASSIGN, var("A"), fnc1("F", slit("x"))), 2);
+    dump_sno_value("SNOBOL4:  A = B 'x'   [v_assign IR_ASSIGN_CONCAT: SEQ(B,'x').gamma->ASGN_C, ASGN_C.sval=A; non-foldable concat]",
+         bin(TT_ASSIGN, var("A"), bin(TT_SEQ, var("B"), slit("x"))), 2);
     dump_sno_value("SNOBOL4:  &ANCHOR = 1   [v_assign keyword lhs: ASGN.sval=ANCHOR (& stripped), routes NV_SET_fn kw dispatch; SPITBOL ch.16]",
          bin(TT_ASSIGN, kw("ANCHOR"), lit(1)), 2);
     dump_goal("Prolog:   write('hello world')   [g_det_builtin1: arg.gamma->CALL, CALL.sval=write, det]",
