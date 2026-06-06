@@ -142,7 +142,7 @@ int kind_is_resumable(IR_e t) {
            t == IR_EVERY || t == IR_REPEAT || t == IR_SUSPEND || t == IR_SCAN || t == IR_LIST_BANG || t == IR_KEY_GEN || t == IR_FIND_GEN || t == IR_SEQ_GEN || t == IR_GATHER ||
            t == IR_GEN_SCAN || t == IR_CONJ || t == IR_MAP || t == IR_GREP ||
            t == IR_PAT_LIT || t == IR_PAT_ARB || t == IR_PAT_REM || t == IR_PAT_SPAN || t == IR_PAT_ANY || t == IR_PAT_NOTANY ||
-           t == IR_PAT_BREAK || t == IR_PAT_BREAKX || t == IR_PAT_LEN || t == IR_PAT_TAB || t == IR_PAT_ARBNO || t == IR_PAT_DEFER ||
+           t == IR_PAT_BREAK || t == IR_PAT_BREAKX || t == IR_PAT_LEN || t == IR_PAT_TAB || t == IR_PAT_RTAB || t == IR_PAT_ARBNO || t == IR_PAT_DEFER ||
            t == IR_PAT_BAL ||
            t == IR_PAT_ASSIGN_COND || t == IR_PAT_ASSIGN_IMM || t == IR_PAT_ATP;
 }
@@ -1192,8 +1192,8 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
     }
     case TT_TAB: case TT_RTAB: {
         if (e->n < 1 || !e->c[0]) return NULL;
-        n = nalloc(cx, IR_PAT_TAB); if (!n) return NULL;
         int is_rtab = (e->t == TT_RTAB);
+        n = nalloc(cx, is_rtab ? IR_PAT_RTAB : IR_PAT_TAB); if (!n) return NULL;
         if (e->c[0]->t == TT_VAR) {
             n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
             n->dval = is_rtab ? 1.0 : 2.0;
