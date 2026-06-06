@@ -456,6 +456,6 @@ IR_t * lower2_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t *
         return ret(nop, α_out, β_out, nop, ω_in);
     }
     default:
-        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+        return lower_value(cx, e, γ_in, ω_in, α_out, β_out);
     }
 }
