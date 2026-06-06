@@ -371,6 +371,10 @@ inline std::string x86_rsp_store64(int off, const char * reg) {
     if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov qword ptr [rsp + ") + std::to_string(off) + "], " + reg + "\n";
 }
+inline std::string x86_rsp_store32_imm(int off, long imm) {
+    if (MEDIUM_BINARY) { std::string c; c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    return std::string(" mov dword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string((uint32_t)imm) + "\n";
+}
 inline std::string x86_rsp_load64(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
@@ -554,6 +558,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         return std::string();
     }
     if (!strcmp(mnem, "mov32")) { if (a.kind == XK_REG && b.kind == XK_IMM) return x86_movimm32(a.txt, b.imm); return std::string(); }
+    if (!strcmp(mnem, "stk32")) { if (a.kind == XK_IMM && b.kind == XK_IMM) return x86_rsp_store32_imm((int)a.imm, b.imm); return std::string(); }
     if (!strcmp(mnem, "movabs")) { if (a.kind == XK_REG && xb.tag == 2) return x86_movabs_r64(a.txt, xb.u); return std::string(); }
     if (!strcmp(mnem, "xor"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
     if (!strcmp(mnem, "lea")) {
