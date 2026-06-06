@@ -14,7 +14,7 @@
 /*====================================================================================================================*/
 #include "lower_internal.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+/* wire_det_builtin1 forward decl removed — now non-static, declared in lower_internal.h */
 static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static IR_t * v_pascal_repeat(lcx_t cx, const tree_t * body_t, const tree_t * cond_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
@@ -338,7 +338,7 @@ static lcx_t bounded(lcx_t cx) { cx.bounded = 1; return cx; }
 static lcx_t with_loop(lcx_t cx, IR_t * lω, IR_t * lnext) { cx.loop_ω = lω; cx.loop_next = lnext; return cx; }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e) {
+IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e) {
     IR_graph_t * blk = IR_alloc(256, cx.lang);
     if (!blk) return NULL;
     IR_t * vfail = IR_node_alloc(blk, IR_FAIL);
@@ -879,7 +879,6 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_ALTERNATE: case TT_ALT:
         return v_alt(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_EVERY:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         if (cx.lang == IR_LANG_RKU && e->n >= 1 && e->c[0] && e->c[0]->t == TT_ITERATE
             && e->c[0]->n >= 1 && e->c[0]->c[0]
             && (e->c[0]->c[0]->t == TT_TO || e->c[0]->c[0]->t == TT_TO_BY || e->c[0]->c[0]->t == TT_GATHER
@@ -1324,7 +1323,7 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!arg_t) return NULL;
     IR_t * call = nalloc(cx, IR_CALL);
     if (!call) return NULL;
