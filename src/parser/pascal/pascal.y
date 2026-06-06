@@ -396,7 +396,14 @@ argument:
     | expression COLON expression { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool($1)); pnl_push(_al, $3); $$ = _al; }
     ;
 assignment:
-    selector BECOMES expression { $$ = mk_assign($1, pas_bool($3)); }
+    selector BECOMES expression
+        { if ($1 && $1->t == TT_VAR && pas_is_rel($3)) {
+              tree_t *e = ast_node_new(TT_IF);
+              ast_push(e, $3);
+              ast_push(e, mk_assign($1, ilit(1)));
+              ast_push(e, mk_assign(leaf_s(TT_VAR, $1->v.sval), ilit(0)));
+              $$ = e;
+          } else { $$ = mk_assign($1, pas_bool($3)); } }
     ;
 selector:
     selector LBRACK expression_list RBRACK { tree_t *e = ast_node_new(TT_IDX); ast_push(e, $1); if ($3) for (int i = 0; i < $3->count; i++) ast_push(e, $3->items[i]); $$ = e; }
