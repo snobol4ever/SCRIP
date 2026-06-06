@@ -106,6 +106,7 @@ int bb_varslot_peek(const char *name) {
 }
 int g_descr_flat_chain = 0;
 int g_gvar_flat_chain = 0;
+int g_gvar_callarg_live = 0;
 int g_emit_frame_caller_dl = -1;
 int g_frame_active = 0;
 int g_icn_scan_regs_live = 0;
@@ -1321,6 +1322,41 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
 }
+static int gvar_callarg_admit(IR_t *ae) {
+    return (ae && ae->t == IR_LIT_I && icn_arg_entry_terminal(ae)) ? 1 : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
+    g_emit.op_arg_slot_n = 0;
+    int nargs = (int)(nd ? nd->ival : 0);
+    IR_graph_t **subs = nd ? (IR_graph_t **)(intptr_t) nd->counter : NULL;
+    if (nargs > OP_ARG_SLOT_MAX) return;
+    IR_t *res[OP_ARG_SLOT_MAX]; int nadmit = 0;
+    for (int i = 0; i < nargs; i++) {
+        IR_t *ae = (subs && subs[i]) ? subs[i]->entry : NULL;
+        { int guard = 0; while (ae && (ae->t == IR_SUCCEED || ae->t == IR_FAIL) && ae->γ && guard++ < 64) ae = ae->γ; }
+        res[i] = gvar_callarg_admit(ae) ? ae : NULL;
+        if (res[i]) nadmit++;
+    }
+    if (!nadmit) return;
+    if (g_flat_slot_count < 16) (void)bb_slot_claim(16 - g_flat_slot_count);
+    int slots[OP_ARG_SLOT_MAX];
+    for (int i = 0; i < nargs; i++) {
+        slots[i] = -1;
+        if (!res[i]) continue;
+        int id = g_flat_node_id++;
+        bb_label_t *arg_done = emit_label_alloc("xgvarg%d_done", id);
+        bb_label_t *arg_β    = emit_label_alloc("xgvarg%d_β",    id);
+        g_gvar_callarg_live = 1;
+        walk_bb_flat(res[i], arg_done, lbl_ω, arg_β);
+        g_gvar_callarg_live = 0;
+        emit_label_define_bb(arg_done);
+        slots[i] = bb_slot_get(res[i]);
+    }
+    for (int i = 0; i < nargs; i++) g_emit.op_arg_slot[i] = slots[i];
+    g_emit.op_arg_slot_n = nargs;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int nargs = (int)(pBB ? pBB->ival : 0);
     IR_graph_t **blks = pBB ? (IR_graph_t **)(intptr_t) pBB->counter : NULL;
@@ -2008,12 +2044,13 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     }
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_LIT_I:      if (g_descr_flat_chain) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_I:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_S:      if (g_descr_flat_chain) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_F:
     case IR_LIT_NUL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: {
         IR_t *a0 = nd->α;
+        g_emit.op_arg_slot_n = 0;
         if (g_descr_flat_chain) {
             if (g_icn_scan_regs_live && nd->dval == 3.0 && nd->sval && !strcmp(nd->sval, "pos")) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) nd->counter;
@@ -2118,10 +2155,11 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 FILL(nd, lbl_γ, lbl_ω, lbl_β);
             break;
         }
-        if (g_gvar_flat_chain && (nd->dval == 2.0 || nd->dval == 5.0)) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
+        if (g_gvar_flat_chain && (nd->dval == 2.0 || nd->dval == 5.0)) { if (nd->dval == 2.0) gvar_drive_call_arg_slots(nd, lbl_ω); FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
         if (g_gvar_flat_chain && nd->dval == 3.0) {
             IR_graph_t **csubs = (IR_graph_t **)(intptr_t)nd->counter;
             for (int ci = 0; ci < (int)nd->ival; ci++) if (csubs && csubs[ci] && csubs[ci]->entry) gvar_stmt_operand_refs(csubs[ci]->entry);
+            gvar_drive_call_arg_slots(nd, lbl_ω);
             FILL(nd, lbl_γ, lbl_ω, lbl_β);
             break;
         }

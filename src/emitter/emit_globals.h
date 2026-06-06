@@ -119,6 +119,9 @@ typedef struct {
     int                          xa_bb_emit_pair_n;
     int                          x86_uid;
     int                          x86_scratch_off;
+#define OP_ARG_SLOT_MAX 16
+    int                          op_arg_slot[OP_ARG_SLOT_MAX];
+    int                          op_arg_slot_n;
 } sm_emit_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern sm_emit_t g_emit;

@@ -237,6 +237,13 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (!lf) return std::string();
+    if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
+        int ps = _.op_arg_slot[idx];
+        std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = producer-box slot [r12+%d] -> [r12+%d]", idx, ps, aoff)));
+        s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
+        s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
+        return s;
+    }
     if (g_gvar_flat_chain) {
         IR_t * fin = lf; int gg = 0;
         while (fin && fin->γ && fin->γ->t != IR_SUCCEED && fin->γ->t != IR_FAIL && gg++ < 256) fin = fin->γ;
