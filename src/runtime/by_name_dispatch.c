@@ -1880,7 +1880,7 @@ DESCR_t proc_as_value(const char *name) {
         }
     }
     static const char *builtins[] = {
-        "__pas_writeln","__pas_write","__pas_chr","write","writes","read","reads","close","open","remove","flush",
+        "__pas_writeln","__pas_write","__pas_chr","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","write","writes","read","reads","close","open","remove","flush",
         "put","get","pull","push","pop","list","image","proc","type","copy",
         "string","integer","real","numeric","ord","char","reverse","sort","sortf",
         "find","match","many","any","upto","bal","move","tab","pos",
@@ -1906,6 +1906,33 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (cv < 0) cv = 0; if (cv > 255) cv = 255;
         char *s = (char *)GC_malloc(2); s[0] = (char)(unsigned char)cv; s[1] = '\0';
         *out = (DESCR_t){ .v = DT_S, .s = s }; return 1;
+    }
+    if (!strcmp(fn, "__pas_read_i") && nargs == 0) {
+        long long v = 0; scanf(" %lld", &v); *out = INTVAL(v); return 1;
+    }
+    if (!strcmp(fn, "__pas_read_c") && nargs == 0) {
+        int c = getchar(); if (c == EOF) c = 0; *out = INTVAL((long long)(unsigned char)c); return 1;
+    }
+    if (!strcmp(fn, "__pas_readln") && nargs == 0) {
+        int c; while ((c = getchar()) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__pas_eof") && nargs == 0) {
+        int c = getchar();
+        if (c == EOF) { *out = INTVAL(1); return 1; }
+        ungetc(c, stdin); *out = INTVAL(0); return 1;
+    }
+    if (!strcmp(fn, "__pas_eoln") && nargs == 0) {
+        int c = getchar();
+        if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, stdin); *out = INTVAL(1); return 1; }
+        ungetc(c, stdin); *out = INTVAL(0); return 1;
+    }
+    if (!strcmp(fn, "__pas_trunc") && nargs == 1) {
+        double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        *out = INTVAL((long long)d); return 1;
+    }
+    if (!strcmp(fn, "__pas_abs") && nargs == 1) {
+        if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d < 0 ? -d : d; *out = r; return 1; }
+        long long v = IS_INT_fn(args[0]) ? args[0].i : 0; *out = INTVAL(v < 0 ? -v : v); return 1;
     }
     if (!strcmp(fn, "__pas_writeln") || !strcmp(fn, "__pas_write")) {
         int nl = (fn[6] == 'w' && fn[7] == 'r' && fn[8] == 'i' && fn[9] == 't' && fn[10] == 'e' && fn[11] == 'l');
