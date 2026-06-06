@@ -58,6 +58,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_PAT_POS] = "IR_PAT_POS",
     [IR_PAT_TAB] = "IR_PAT_TAB",
     [IR_PAT_RTAB]        = "IR_PAT_RTAB",
+    [IR_PAT_SPAN_VAR]    = "IR_PAT_SPAN_VAR",
     [IR_PAT_REM] = "IR_PAT_REM",
     [IR_PAT_FENCE] = "IR_PAT_FENCE",
     [IR_PAT_ABORT] = "IR_PAT_ABORT",

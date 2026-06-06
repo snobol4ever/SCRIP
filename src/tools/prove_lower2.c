@@ -52,7 +52,7 @@ static const char * kname(IR_e t) {
     case IR_UNTIL: return "UNTIL"; case IR_REPEAT: return "REPEAT"; case IR_NOT: return "NOT";
     case IR_ASSIGN: return "ASGN"; case IR_CALL: return "CALL"; case IR_LIT_S: return "LIT_S";
     case IR_PAT_LIT: return "PLIT"; case IR_PAT_REM: return "PREM"; case IR_PAT_ARB: return "PARB";
-    case IR_PAT_SPAN: return "PSPAN"; case IR_PAT_ANY: return "PANY"; case IR_PAT_NOTANY: return "PNANY"; case IR_PAT_BREAK: return "PBRK"; case IR_PAT_BREAKX: return "PBRKX";
+    case IR_PAT_SPAN: return "PSPAN"; case IR_PAT_SPAN_VAR: return "PSPANV"; case IR_PAT_ANY: return "PANY"; case IR_PAT_NOTANY: return "PNANY"; case IR_PAT_BREAK: return "PBRK"; case IR_PAT_BREAKX: return "PBRKX";
     case IR_PAT_CAT: return "PCAT"; case IR_PAT_ALT: return "PALT";
     case IR_PAT_LEN: return "PLEN"; case IR_PAT_POS: return "PPOS"; case IR_PAT_TAB: return "PTAB"; case IR_PAT_RTAB: return "PRTAB";
     case IR_PAT_FENCE: return "PFNC"; case IR_PAT_ABORT: return "PABT"; case IR_PAT_ARBNO: return "PARBN";
@@ -249,6 +249,8 @@ int main(void) {
          un(TT_TAB, lit(5)), 1);
     dump_pat("SNOBOL4:  RTAB(2)  [IR_PAT_RTAB: generator, match to N-2 from end]",
          un(TT_RTAB, lit(2)), 1);
+    dump_pat("SNOBOL4:  SPAN(V)  [IR_PAT_SPAN_VAR: by-var cset, fetched at match time]",
+         un(TT_SPAN, var("V")), 1);
     dump_pat("SNOBOL4:  FENCE(bare)  [IR_PAT_FENCE: bounded; commits match, backtrack => fail (SPITBOL ch.9)]",
          ast_node_new(TT_FENCE), 1);
     { tree_t * fence_with = un(TT_FENCE, slit("if")); dump_pat("SNOBOL4:  FENCE('if')  [IR_PAT_LIT + IR_PAT_FENCE: inner.gamma->FENCE, FENCE bounded successor]", fence_with, 2); }

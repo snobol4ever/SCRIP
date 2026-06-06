@@ -1642,7 +1642,7 @@ static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int is_pat_chain_elem(IR_e t) {
     switch (t) {
-    case IR_PAT_LIT: case IR_PAT_ANY: case IR_PAT_NOTANY: case IR_PAT_SPAN: case IR_PAT_BREAK: case IR_PAT_BREAKX:
+    case IR_PAT_LIT: case IR_PAT_ANY: case IR_PAT_NOTANY: case IR_PAT_SPAN: case IR_PAT_SPAN_VAR: case IR_PAT_BREAK: case IR_PAT_BREAKX:
     case IR_PAT_LEN: case IR_PAT_POS: case IR_PAT_TAB: case IR_PAT_RTAB: case IR_PAT_ATP: case IR_PAT_REM:
     case IR_PAT_ARB: case IR_PAT_FENCE: case IR_PAT_ABORT: case IR_PAT_DEFER: case IR_PAT_ARBNO:
     case IR_PAT_ALT: case IR_PAT_ASSIGN_COND: case IR_PAT_ASSIGN_IMM:
@@ -1993,6 +1993,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PAT_ARB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_REM:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_SPAN:   g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_span";   g_emit.op_kind = "SPAN";   FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_SPAN_VAR: g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_spanv"; g_emit.op_kind = "SPANV"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_ANY:    g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_any";    g_emit.op_kind = "ANY";    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_BREAK:  g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_brk";    g_emit.op_kind = "BREAK";  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_BREAKX: g_emit.op_name1 = nd->sval ? nd->sval : ""; g_emit.op_name2 = "bb_brkx";   g_emit.op_kind = "BREAKX"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
