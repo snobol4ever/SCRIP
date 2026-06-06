@@ -1,6 +1,6 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # WORK QUEUE FOR: .github/GOAL-BB-FIXUP.md (the continuous fixup session / routine). Protocol, laws, ladder live THERE; per-file state lives HERE.
-# CURSOR: bb_is_cmp.cpp
+# CURSOR: bb_list.cpp
 # CURSOR semantics (GOAL-BB-FIXUP.md THE CURSOR): the round-robin position. Fix file at cursor -> advance cursor IN THE SAME COMMIT as the tick/note -> push -> next. End of list wraps (laps). Ticked files get a cheap re-audit on later laps. Attended sessions only; cursor makes every session resume from cold.
 # v2: no locals · one return/PLATFORM · IF()/FOR() · 1 src line = 1 asm line · real Greek α β γ ω · no MEDIUM_* top-level · no emit_fmt · no comments · no blank lines.
 # v2 ONE-IR-ONE-LOGIC (Lon 2026-06-04): N IR kinds → 1 template allowed (near-identical shapes parameterized); 1 IR → 1 BB the norm; 1 IR kind → MULTIPLE distinct four-port logics in one template FORBIDDEN — break the file out by splitting the IR kind in LOWER into separate IR codes, each → its own template + emit_core dispatch case.
@@ -23,7 +23,7 @@
 - [ ] bb_atom_string.cpp — (TIER H 2026-06-06: emit_fmt(59)→0 (std::to_string + std::string("[rip + ")+lbl+"]" + std::string(_.lbl_β)+":"), PORT_*→Greek (6→0), dead succ_back local excised (lv 50→49); 265→199; asm-diff EMPTY 27-file corpus; all gates at floors) — [S] eb=28 nw=21: pBB->α/a0->t neighbor reads in every arm → LOWER _.op_*/ζ-slot plumbing, design not pinned — [S] rb=101: MEDIUM_BINARY raw-byte arms, owner GOAL-PROLOG-BB — [S] lv=49: all locals entangled with TIER S neighbor reads
 - [ ] bb_findall.cpp — (TIER H 2026-06-06: ef 4→0 (emit_fmt→std::string concat), pe 1→0 (PORT_*→literal Greek), lv 2→0 (std::string b inlined, std::string goal_build→static bff_goal() helper); asm-diff EMPTY (label-normalized, corpus does not exercise bb_findall mode-4); 13→6) — [S] rb=6: MEDIUM_BINARY raw-byte arms = medium-invisible conversion, owner GOAL-PROLOG-BB — [S] IR walk (gn->t/cand->t via fs->gcfg): EMIT-BLIND in spirit, design not pinned
 - [ ] bb_io.cpp — (TIER H 2026-06-06: ef 6→0, pe 4→0 (BINARY ports→literal Greek glyphs, XK_PORT-preserving), lv 8→0 (bio_succ/bio_write_body/bio_fbits_str/bio_bin_write_arg helpers); eb 8→6; asm-diff EMPTY (label-normalized); 51→30) — [S] eb=6: pBB->α admission/operand reads → LOWER _.op_*/ζ-slots, design not pinned — [S] rb=24: MEDIUM_BINARY raw-byte arms, owner GOAL-PROLOG-BB
-- [ ] bb_is_cmp.cpp
+- [ ] bb_is_cmp.cpp — (TIER H 2026-06-06: ef 39→0 (emit_fmt→std::to_string/concat), pe 2→0 (BINARY tails→literal Greek glyphs, XK_PORT-preserving), lv 28→0 (icm_arith/icm_ord/icm_cmp/icm_op/icm_tail/icm_k/icm_i/icm_fb/icm_floaty helpers; dead succ_back excised; std::string b ×2 inlined), V-2 prose + byte-annotation comments purged (history: HANDOFF-2026-05-27-OPUS-SONNET docs); asm-diff EMPTY (label-normalized, LIVE check — is/2 + >= fire in corpus mode-4); 121→64) — [S] eb=34 nw=8 (UP from 28/2: de-aliasing exposed grandkid pBB->β->α/β reads to the counter — honest visibility, same semantics): is/2 shape admission + operand fusion → LOWER _.op_*/ζ-slot plumbing, design not pinned — [S] rb=22: MEDIUM_BINARY raw-byte arms, owner GOAL-PROLOG-BB
 - [ ] bb_list.cpp
 - [ ] bb_retract_throw.cpp
 - [ ] bb_succ_plus.cpp
