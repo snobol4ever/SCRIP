@@ -180,6 +180,12 @@ static int pas_is_func(const char *name) { if (!name) return 0; for (int i = 0; 
 static struct { char *name; long long val; } g_pas_consts[256]; static int g_pas_nconst;
 static void pas_const_add(const char *name, long long v) { if (g_pas_nconst < 256 && name) { g_pas_consts[g_pas_nconst].name = strdup(name); g_pas_consts[g_pas_nconst].val = v; g_pas_nconst++; } }
 static int pas_const_get(const char *name, long long *out) { if (!name) return 0; for (int i = 0; i < g_pas_nconst; i++) if (g_pas_consts[i].name && !strcmp(g_pas_consts[i].name, name)) { *out = g_pas_consts[i].val; return 1; } return 0; }
+static struct { char *name; double val; } g_pas_rconsts[64]; static int g_pas_nrconst;
+static void pas_rconst_add(const char *name, double v) { if (g_pas_nrconst < 64 && name) { g_pas_rconsts[g_pas_nrconst].name = strdup(name); g_pas_rconsts[g_pas_nrconst].val = v; g_pas_nrconst++; } }
+static int pas_rconst_get(const char *name, double *out) { if (!name) return 0; for (int i = 0; i < g_pas_nrconst; i++) if (g_pas_rconsts[i].name && !strcmp(g_pas_rconsts[i].name, name)) { *out = g_pas_rconsts[i].val; return 1; } return 0; }
+static struct { char *name; char *val; } g_pas_sconsts[64]; static int g_pas_nsconst;
+static void pas_sconst_add(const char *name, const char *v) { if (g_pas_nsconst < 64 && name && v) { g_pas_sconsts[g_pas_nsconst].name = strdup(name); g_pas_sconsts[g_pas_nsconst].val = strdup(v); g_pas_nsconst++; } }
+static const char *pas_sconst_get(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nsconst; i++) if (g_pas_sconsts[i].name && !strcmp(g_pas_sconsts[i].name, name)) return g_pas_sconsts[i].val; return 0; }
 static struct { char *name; long long high; } g_pas_arrays[256]; static int g_pas_narray;
 static void pas_array_add(const char *name, long long high) { if (g_pas_narray < 256 && name) { g_pas_arrays[g_pas_narray].name = strdup(name); g_pas_arrays[g_pas_narray].high = high; g_pas_narray++; } }
 #define PAS_REC_MAX 64
@@ -268,6 +274,8 @@ static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "eof"))   return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln"))  return mk_fnc0("__pas_eoln");
     long long cv; if (pas_const_get(name, &cv)) return ilit(cv);
+    double rv; if (pas_rconst_get(name, &rv)) return flit(rv);
+    const char *sv = pas_sconst_get(name); if (sv) return leaf_s(TT_QLIT, sv);
     if (pas_is_func(name)) return mk_call(name, NULL);
     for (int wi = g_with_depth - 1; wi >= 0; wi--) {
         tree_t *wsel = g_with_stk[wi].sel; const char *rt = g_with_stk[wi].rtype;
@@ -368,7 +376,11 @@ const_decl_list:
     const_decl_list const_decl
     | const_decl
     ;
-const_decl: IDENT EQOP constant SEMICOLON { pas_const_add($1, $3); } ;
+const_decl: IDENT EQOP REALCONST SEMICOLON { pas_rconst_add($1, $3); }
+    | IDENT EQOP PLUS REALCONST SEMICOLON { pas_rconst_add($1, $4); }
+    | IDENT EQOP MINUS REALCONST SEMICOLON { pas_rconst_add($1, -$4); }
+    | IDENT EQOP STRINGCONST SEMICOLON { if ($3 && strlen($3)==1) pas_const_add($1,(long long)(unsigned char)$3[0]); else pas_sconst_add($1,$3); }
+    | IDENT EQOP constant SEMICOLON { pas_const_add($1, $3); } ;
 constant:
     scalar_constant { $$ = $1; } | PLUS scalar_constant { $$ = $2; } | MINUS scalar_constant { $$ = -$2; } ;
 scalar_constant: IDENT { long long cv = 0; pas_const_get($1, &cv); $$ = cv; } | INTCONST { $$ = $1; } | REALCONST { $$ = (long long)$1; } | STRINGCONST { $$ = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0; } ;
