@@ -1023,7 +1023,7 @@ static int pl_rich_node_emittable(const IR_t *nd) {
     switch (nd->t) {
     case IR_GCONJ: case IR_GOAL:
     case IR_CHOICE: case IR_DISJ:
-    case IR_SUCCEED: case IR_FAIL: case IR_CUT:
+    case IR_SUCCEED: case IR_FAIL: case IR_CUT: case IR_ITE_COMMIT: case IR_ITE_GATE:
     case IR_LOGICVAR: case IR_ATOM: case IR_STRUCT:
     case IR_LIT_I: case IR_LIT_F: case IR_LIT_S: case IR_LIT_NUL:
         return 1;
