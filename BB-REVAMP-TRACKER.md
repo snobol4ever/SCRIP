@@ -1,6 +1,6 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # WORK QUEUE FOR: .github/GOAL-BB-FIXUP.md (the continuous fixup session / routine). Protocol, laws, ladder live THERE; per-file state lives HERE.
-# CURSOR: bb_call.cpp
+# CURSOR: bb_call_fn.cpp
 # LAP RESTART (Lon 2026-06-06, end of 6th run): RING RE-SORTED ALPHABETICALLY (lap-end re-sort on Lon word) + cursor at ring TOP bb_aggregate_nb.cpp for the corrected-rule lap — every file (incl. ticked-clean) re-audited against ZERO-BINARY-IN-bb_*.cpp; rb is ABSOLUTE; conversion to x86() (encoders added to x86_asm.h, byte-verified vs as) is sweep scope; pin the encoder-gap list with Lon before the first conversion stop.
 # INHERITED RED 2026-06-06 (5th run): prove_lower2 on origin/main 9193511 = 66 PASS + 2 FAIL (cases #49 nodes=10 vs expected 8, #50 nodes=9 vs expected 7) and script still exits rc=0 (no hard gate on FAIL). Present IDENTICALLY with/without fixup edits (stash A/B, verdict-list diff EMPTY) — not fixup-caused. Suspect: PL-GZ-7 3d9ccfd IR_ITE_COMMIT/IR_ITE_GATE +2-node insertion vs hardcoded prove-harness expected counts; SNO-HY-2b 9193511's "prove_lower2 67->68" claim measured pre-rebase. Semantic call (fix lowering vs update counts) — owner PL-GZ / Lon, NOT swept per law 5. Evidence: HANDOFF-2026-06-06-OPUS48-BB-FIXUP-LAP1-STOPS-15-16.md
 # INHERITED RED 2026-06-06 (5th run cont., stop 18): prove_lower2 harness NO LONGER LINKS on origin/main 0a614f2 — PB-12 added bb_label_landing calls to src/lower/lower.c (defined in src/lower/lower_program.c) but scripts/prove_lower2.sh links only lower.c+lower_prolog.c+scrip_ir.c+prove_lower2.c, NOT lower_program.c → ld undefined-reference, zero verdicts. Pre-PB-12 (d85d8f3) lower.c has 0 refs; not fixup-caused (bb_term_inspect.cpp is not in that link; pre-rebase run with the fixup edit was 66 PASS + 2 FAIL green). Fix is one link-line addition — owner PASCAL-BB / harness owner / Lon, NOT swept per law 5. This supersedes/buries the rc=0 2-FAIL issue above until the harness links again.
@@ -24,7 +24,7 @@
 - [x] bb_binop_gvar_arith_slot.cpp — (✅ v2 2026-06-06; asm-diff EMPTY; details in git)
 - [x] bb_binop_gvar_relop.cpp — (✅ v2 2026-06-06; asm-diff EMPTY; details in git)
 - [x] bb_binop_relop.cpp — (✅ v2 2026-06-06; asm-diff EMPTY; details in git)
-- [ ] bb_call.cpp — LONG wrapped; OPEN: pBB refs + a0->t AST-walk in emitter (RULES violation), 3 bombs
+- [ ] bb_call.cpp — LONG wrapped; OPEN: pBB refs + a0->t AST-walk in emitter (RULES violation), 3 bombs — (LAP 2 arrival 2026-06-06 8th run: HOT skipped law 4 — ICN-HY-7g bc95d97 + ICN-HY-7d 1ec4252 rewrote marshal_call_arg/marshal_varparam_addr inside 6h window; fresh counts post-rewrite: ef=47 pe=11 lv=80 nw=19 eb=0 rb=0 TOTAL=157 — old counts dead, eb went 0 and rb 0 via the HY de-aliasing itself; FIX-3 FLAG stands: two-level neighbor classification → LOWER is TIER S design NOT pinned, awaiting Lon IR-shape pin before any rung; caught next lap)
 - [ ] bb_call_fn.cpp
 - [ ] bb_call_proc_staged.cpp
 - [ ] bb_call_userproc.cpp
