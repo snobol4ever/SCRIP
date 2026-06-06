@@ -828,7 +828,7 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     switch (e->t) {
     case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_CSET:
     case TT_NUL:  case TT_NULL: case TT_VAR:  case TT_NAME: case TT_KEYWORD:
@@ -1323,6 +1323,7 @@ IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t *
 /*====================================================================================================================*/
 IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!e) { return ret(NULL, α_out, β_out, γ_in, ω_in); }
+    if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
     switch (cx.role) {
     case ROLE_PATTERN: return lower_pattern(cx, e, γ_in, ω_in, α_out, β_out);
     case ROLE_GOAL:    return lower_goal(cx, e, γ_in, ω_in, α_out, β_out);
