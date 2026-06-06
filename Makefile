@@ -161,6 +161,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_pat_notany.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_span.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_break.cpp \
+    $(SRC)/emitter/BB_templates/bb_pat_breakx.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_pos.cpp \
     $(SRC)/emitter/BB_templates/bb_query_frame.cpp \
     $(SRC)/emitter/BB_templates/bb_det_write.cpp \
@@ -380,6 +381,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_notany.cpp  -o $(OBJ)/bb_pat_notany.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_span.cpp    -o $(OBJ)/bb_pat_span.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_break.cpp   -o $(OBJ)/bb_pat_break.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_breakx.cpp  -o $(OBJ)/bb_pat_breakx.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_pos.cpp          -o $(OBJ)/bb_pat_pos.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_query_frame.cpp     -o $(OBJ)/bb_query_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_write.cpp        -o $(OBJ)/bb_det_write.o
