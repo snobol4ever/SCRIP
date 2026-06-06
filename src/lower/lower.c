@@ -215,19 +215,26 @@ static int tt_to_binop(tree_e t) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pas_bool_operand(lcx_t cx, const tree_t * child, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out) {
+static IR_t * pas_bool_diamond(lcx_t cx, const tree_t * child, IR_t * ω_in, IR_t ** entry_out, IR_t ** as1_out, IR_t ** as0_out) {
+    static int g_pas_bool_tmp = 0;
+    char * tn = (char *) GC_malloc(16); if (!tn) return NULL;
+    snprintf(tn, 16, "__pbt%d", g_pas_bool_tmp++);
     IR_t * lit1 = nalloc(cx, IR_LIT_I); if (!lit1) return NULL; lit1->ival = 1;
     IR_t * lit0 = nalloc(cx, IR_LIT_I); if (!lit0) return NULL; lit0->ival = 0;
-    IR_t * join = nalloc(cx, IR_IF);    if (!join) return NULL;
+    IR_t * as1  = nalloc(cx, IR_ASSIGN); if (!as1) return NULL; as1->sval = tn;
+    IR_t * as0  = nalloc(cx, IR_ASSIGN); if (!as0) return NULL; as0->sval = tn;
+    IR_t * rd   = nalloc(cx, IR_VAR);    if (!rd)  return NULL; rd->sval  = tn;
     lcx_t cb = cx; cb.bounded = 1;
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * cn = lower2(cb, child, lit1, lit0, &cα, &cβ);
     if (!cn) return NULL;
     (void) cβ;
-    lit1->γ = join; lit0->γ = join;
-    set_succ_fail(join, γ_in, ω_in);
-    if (α_out) *α_out = cα ? cα : cn;
-    return join;
+    lit1->γ = as1; lit0->γ = as0;
+    as1->ω = ω_in; as0->ω = ω_in;
+    if (entry_out) *entry_out = cα ? cα : cn;
+    if (as1_out) *as1_out = as1;
+    if (as0_out) *as0_out = as0;
+    return rd;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
@@ -239,16 +246,37 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     bin->dval = tt_is_relational(e->t) ? 1.0 : 0.0;
     int b1 = (cx.lang == IR_LANG_PAS && tt_is_relational(e->c[0]->t));
     int b2 = (cx.lang == IR_LANG_PAS && tt_is_relational(e->c[1]->t));
+    if (b1 || b2) {
+        IR_t * d1e=NULL,*d1a1=NULL,*d1a0=NULL,*rd1=NULL, * d2e=NULL,*d2a1=NULL,*d2a0=NULL,*rd2=NULL;
+        if (b1) { rd1 = pas_bool_diamond(cx, e->c[0], ω_in, &d1e, &d1a1, &d1a0); if (!rd1) return NULL; }
+        if (b2) { rd2 = pas_bool_diamond(cx, e->c[1], ω_in, &d2e, &d2a1, &d2a0); if (!rd2) return NULL; }
+        IR_t * e1α=NULL,*e1β=NULL,*e2α=NULL,*e2β=NULL;
+        IR_t * c1 = b1 ? rd1 : lower2(cx, e->c[0], NULL, ω_in, &e1α, &e1β);
+        if (!c1) return NULL;
+        IR_t * c2 = b2 ? rd2 : lower2(cx, e->c[1], bin, ω_in, &e2α, &e2β);
+        if (!c2) return NULL;
+        IR_t * x1entry = b1 ? rd1 : e1α;
+        IR_t * x2entry = b2 ? rd2 : e2α;
+        if (b2) rd2->γ = bin;
+        if (b1) rd1->γ = x2entry; else if (!c1->γ) c1->γ = x2entry;
+        IR_t * entry = x1entry;
+        if (b2) { d2a1->γ = entry; d2a0->γ = entry; entry = d2e; }
+        if (b1) { d1a1->γ = entry; d1a0->γ = entry; entry = d1e; }
+        IR_t * binops[2] = { c1, c2 };
+        bb_operand_aux_set(cx.bbg, bin, binops, 2);
+        set_succ_fail(bin, γ_in, ω_in);
+        return ret(bin, α_out, β_out, entry, ω_in);
+    }
     IR_t * e1α=NULL, * e1β=NULL, * e2α=NULL, * e2β=NULL;
-    IR_t * c1 = b1 ? pas_bool_operand(cx, e->c[0], NULL, ω_in, &e1α) : lower2(cx, e->c[0], NULL  , ω_in, &e1α, &e1β);
+    IR_t * c1 = lower2(cx, e->c[0], NULL  , ω_in, &e1α, &e1β);
     if (!c1) return NULL;
-    IR_t * c2 = b2 ? pas_bool_operand(cx, e->c[1], bin, ω_in, &e2α) : lower2(cx, e->c[1], bin  , b1 ? ω_in : e1β, &e2α, &e2β);
+    IR_t * c2 = lower2(cx, e->c[1], bin  , e1β  , &e2α, &e2β);
     if (!c2) return NULL;
     if (!c1->γ) c1->γ = e2α;
     IR_t * binops[2] = { c1, c2 };
     bb_operand_aux_set(cx.bbg, bin, binops, 2);
     set_succ_fail(bin, γ_in, ω_in);
-    return ret(bin, α_out, β_out, e1α, b2 ? ω_in : e2β);
+    return ret(bin, α_out, β_out, e1α, e2β);
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
