@@ -214,7 +214,7 @@ static IR_t * icn_limit(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, 
     IR_t * bα = NULL, * bβ = NULL;
     IR_t * body = lower2(cx, e->c[0], lim, ω_in, &bα, &bβ);
     if (!body) return NULL;
-    lim->α = body;
+    lim->α = bα ? bα : body;
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * cnt = lower2(icn_bounded(cx), e->c[1], lim, ω_in, &cα, &cβ);
     if (!cnt) return NULL;

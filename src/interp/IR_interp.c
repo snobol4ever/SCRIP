@@ -2902,18 +2902,22 @@ IR_t * IR_interp_node(IR_t * bb) {
             int64_t mx = IS_INT_fn(mv) ? mv.i : (mv.v == DT_R ? (int64_t)mv.r : 0);
             if (mx <= 0) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
             bb->counter = 0;
-            bb->α->state = 0;
             bb->state   = 1;
         }
         DESCR_t mvc = bb->β->value;
         int64_t mxc = IS_INT_fn(mvc) ? mvc.i : (mvc.v == DT_R ? (int64_t)mvc.r : 0);
         if (bb->counter >= mxc) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->α);
-        DESCR_t gv = bb->α->value;
-        if (IS_FAIL_fn(gv)) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
-        bb->counter++;
-        bb->value = gv;
-        return bb->γ;
+        IR_t * cur = bb->α;
+        int safety_lim = (g_current_cfg ? g_current_cfg->n : 64) * 128 + 512;
+        while (cur && safety_lim-- > 0) {
+            IR_t * nxt = IR_interp_node(cur);
+            if (IS_FAIL_fn(cur->value)) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+            if (nxt == bb->γ || nxt == bb) { bb->counter++; bb->value = cur->value; return bb->γ; }
+            if (nxt == bb->ω || !nxt) { bb->state = 0; bb->value = FAILDESCR; return bb->ω; }
+            ag_ring_push(g_current_cfg, cur->value);
+            cur = nxt;
+        }
+        bb->state = 0; bb->value = FAILDESCR; return bb->ω;
     }
     case IR_ALT: {
         if (!bb->α) {
@@ -2926,12 +2930,22 @@ IR_t * IR_interp_node(IR_t * bb) {
                 return bb->γ;
             }
             if (bb->state == 0) {
-                DESCR_t v = ag_ring_peek(g_current_cfg, 0);
-                if (IS_FAIL_fn(v)) { bb->value = FAILDESCR; return bb->ω; }
-                bb->value   = v;
-                bb->counter = 0;
-                bb->state   = 1;
-                return bb->γ;
+                int safety0 = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
+                IR_t * cur0 = (n_arm > 0 && arms[0]) ? arms[0] : NULL;
+                while (cur0 && safety0-- > 0) {
+                    if (cur0 == bb->ω) { bb->value = FAILDESCR; return bb->ω; }
+                    IR_t * nxt0 = IR_interp_node(cur0);
+                    if (nxt0 == bb) {
+                        bb->value = cur0->value;
+                        for (int j = 0; j < n_arm; j++) if (arms[j] == cur0) { bb->counter = j; break; }
+                        bb->state = 1;
+                        return bb->γ;
+                    }
+                    if (!nxt0) { bb->value = FAILDESCR; return bb->ω; }
+                    ag_ring_push(g_current_cfg, cur0->value);
+                    cur0 = nxt0;
+                }
+                bb->value = FAILDESCR; return bb->ω;
             }
             int ci = (int)bb->counter;
             IR_t * cur;
