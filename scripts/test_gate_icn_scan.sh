@@ -9,8 +9,8 @@
 #                 multi-result; the m2 oracle is one-shot for every scan builtin; native matches the oracle
 #                 bit-for-bit and is pump-ready. Making m2 generative SHIFTS THE 129 BASELINE — Lon's call.
 #                 Until that re-baseline rung, this gate pins three-mode AGREEMENT on the one-shot value.)
-#         X34     m2==expected AND m3 AND m4 each print [SMX] with rc=0 (LOUD EXCISE — the SCAN-13b
-#                 bb_var deferral, the =s var-operand shape, the wave-1 dynamic-arg declines)
+#         X34     m2==expected AND m3 AND m4 each print [SMX] with rc=0 (LOUD EXCISE — the =s var-operand
+#                 shape, the wave-1 dynamic-arg declines; SCAN-13b deferral PROMOTED to STRICT at ICN-VAR-3)
 #   (c) the corpus scan bucket — every corpus .icn whose --dump-bb graph carries IR_GEN_SCAN, all three
 #       modes vs .expected, with ratchet floors (EXCISED->PASS deltas land here as future boxes light up);
 #   (d) standing structural gates: no_bb_bin_t . no_handencoded --strict . icn_no_stack .
@@ -25,8 +25,8 @@ SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
 CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
 SCAN_M2_MIN="${SCAN_M2_MIN:-31}"
-SCAN_M3_MIN="${SCAN_M3_MIN:-7}"
-SCAN_M4_MIN="${SCAN_M4_MIN:-7}"
+SCAN_M3_MIN="${SCAN_M3_MIN:-11}"
+SCAN_M4_MIN="${SCAN_M4_MIN:-11}"
 BAD=0
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP — run scripts/build_scrip.sh"; exit 0; }
 
@@ -210,14 +210,14 @@ procedure main()
   "hello" ? write(=s);
 end
 EOF
-probe augop_scan X34 "he" << 'EOF'
+probe augop_scan STRICT "he" << 'EOF'
 procedure main()
   s := "hello";
   s ?:= tab(3);
   write(s);
 end
 EOF
-probe augop_scan_fail X34 "hello" << 'EOF'
+probe augop_scan_fail STRICT "hello" << 'EOF'
 procedure main()
   s := "hello";
   s ?:= tab(99);
