@@ -8,29 +8,29 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                 IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int  a1_compound = (a1->t == IR_STRUCT || a1->t == IR_ARITH);
                 std::string b;
-                b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
+                b += x86("sub", "rsp", 16L);
                 if (a1_compound) {
-                    b += emit_term_from_node_bin(a0);        /* build arg0 → rax */
-                    b += bytes(4, "\x48\x89\x04\x24");            /* mov [rsp+0], rax (hold across build) */
-                    b += emit_term_from_node_bin(a1);        /* build arg1 → rax */
-                    b += bytes(3, "\x48\x89\xC6");                /* mov rsi, rax (t1) */
-                    b += bytes(4, "\x48\x8B\x3C\x24");            /* mov rdi, [rsp+0] (t0) */
-                    b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_copy_term_terms) + bytes(2, "\xFF\xD0");
+                    b += x86_lit_bytes(emit_term_from_node_bin(a0));
+                    b += x86("mov", RSP(0), "rax");
+                    b += x86_lit_bytes(emit_term_from_node_bin(a1));
+                    b += x86("mov", "rsi", "rax");
+                    b += x86("mov", "rdi", RSP(0));
+                    b += x86("call", "rt_copy_term_terms", (unsigned long long)(uintptr_t)(void*)rt_copy_term_terms);
                 } else {
                     int  k1 = (int)a1->t;
                     long i1 = (long)a1->ival;
                     const char *s1 = (k1 == IR_ATOM) ? a1->sval : NULL;
-                    b += emit_term_from_node_bin(a0);        /* build arg0 → rax */
-                    b += bytes(3, "\x48\x89\xC7");                /* mov rdi, rax */
-                    b += bytes(1, "\xBE") + u32le((uint32_t)k1);  /* mov esi, k1 */
-                    b += bytes(2, "\x48\xBA") + u64le((uint64_t)i1);  /* mov rdx, i1 */
-                    if (s1) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s1);  /* mov rcx, s1 */
-                    else    b += bytes(2, "\x31\xC9");            /* xor ecx, ecx */
-                    b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_copy_term_term) + bytes(2, "\xFF\xD0");
+                    b += x86_lit_bytes(emit_term_from_node_bin(a0));
+                    b += x86("mov", "rdi", "rax");
+                    b += x86("mov32", "esi", (long)k1);
+                    b += x86("movabs", "rdx", (unsigned long long)(uint64_t)i1);
+                    if (s1) b += x86("movabs", "rcx", (unsigned long long)(uintptr_t)s1);
+                    else    b += x86("xor", "ecx", "ecx");
+                    b += x86("call", "rt_copy_term_term", (unsigned long long)(uintptr_t)(void*)rt_copy_term_term);
                 }
-                b += bytes(4, "\x48\x83\xC4\x10");                /* add rsp, 16 */
-                b += bytes(2, "\x85\xC0");                        /* test eax, eax */
-                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
+                b += x86("add", "rsp", 16L);
+                b += x86("test", "eax", "eax");
+                return b + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if ((strcmp(fn,"atom_length")==0   || strcmp(fn,"upcase_atom")==0   || strcmp(fn,"downcase_atom")==0
               || strcmp(fn,"string_length")==0 || strcmp(fn,"string_upper")==0  || strcmp(fn,"string_lower")==0
@@ -48,25 +48,17 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                     (strcmp(fn,"copy_term")==0)                                      ? (void*)rt_copy_term     :
                                                                                        (void*)rt_atom_string_pair;
                 std::string b;
-                /* mov edi, k0    BF [4]                                                                 */
-                b += bytes(1, "\xBF") + u32le((uint32_t)k0);
-                /* mov rsi, i0    48 BE [8]                                                              */
-                b += bytes(2, "\x48\xBE") + u64le((uint64_t)i0);
-                /* mov rdx, s0    48 BA [8]   (or xor edx,edx  31 D2)                                    */
-                if (s0) b += bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)s0);
-                else    b += bytes(2, "\x31\xD2");
-                /* mov ecx, k1    B9 [4]                                                                 */
-                b += bytes(1, "\xB9") + u32le((uint32_t)k1);
-                /* mov r8, i1     49 B8 [8]                                                              */
-                b += bytes(2, "\x49\xB8") + u64le((uint64_t)i1);
-                /* mov r9, s1     49 B9 [8]   (or xor r9d,r9d  45 31 C9)                                 */
-                if (s1) b += bytes(2, "\x49\xB9") + u64le((uint64_t)(uintptr_t)s1);
-                else    b += bytes(3, "\x45\x31\xC9");
-                /* movabs rax, &callee; call rax   48 B8 [8] FF D0                                       */
-                b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)callee) + bytes(2, "\xFF\xD0");
-                /* test eax, eax   85 C0                                                                 */
-                b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
+                b += x86("mov32", "edi", (long)k0);
+                b += x86("movabs", "rsi", (unsigned long long)(uint64_t)i0);
+                if (s0) b += x86("movabs", "rdx", (unsigned long long)(uintptr_t)s0);
+                else    b += x86("xor", "edx", "edx");
+                b += x86("mov32", "ecx", (long)k1);
+                b += x86("movabs", "r8", (unsigned long long)(uint64_t)i1);
+                if (s1) b += x86("movabs", "r9", (unsigned long long)(uintptr_t)s1);
+                else    b += x86("xor", "r9d", "r9d");
+                b += x86("call", "rt_atom_string_family", (unsigned long long)(uintptr_t)callee);
+                b += x86("test", "eax", "eax");
+                return b + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if ((strcmp(fn,"number_string")==0 || strcmp(fn,"atom_number")==0)
                 && pBB->α && pBB->α->γ) {
@@ -77,32 +69,21 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                 const char *s0 = (k0 == IR_ATOM) ? a0->sval : NULL;
                 const char *s1 = (k1 == IR_ATOM) ? a1->sval : NULL;
                 std::string b;
-                /* sub rsp, 16     48 83 EC 10                                                           */
-                b += bytes(4, "\x48\x83\xEC\x10");
-                /* mov edi, num_first    BF [4]                                                          */
-                b += bytes(1, "\xBF") + u32le((uint32_t)num_first);
-                /* mov esi, k0    BE [4]                                                                 */
-                b += bytes(1, "\xBE") + u32le((uint32_t)k0);
-                /* mov rdx, i0    48 BA [8]                                                              */
-                b += bytes(2, "\x48\xBA") + u64le((uint64_t)i0);
-                /* mov rcx, s0    48 B9 [8]   (or xor ecx,ecx  31 C9)                                    */
-                if (s0) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s0);
-                else    b += bytes(2, "\x31\xC9");
-                /* mov r8d, k1    41 B8 [4]                                                              */
-                b += bytes(2, "\x41\xB8") + u32le((uint32_t)k1);
-                /* mov r9, i1     49 B9 [8]                                                              */
-                b += bytes(2, "\x49\xB9") + u64le((uint64_t)i1);
-                /* mov rax, s1 (or xor eax,eax) ; mov [rsp+0], rax    48 B8[8]/31 C0 ; 48 89 04 24       */
-                if (s1) b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)s1);
-                else    b += bytes(2, "\x31\xC0");
-                b += bytes(4, "\x48\x89\x04\x24");
-                /* movabs rax, &rt_number_string_pair; call rax                                       */
-                b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_number_string_pair) + bytes(2, "\xFF\xD0");
-                /* add rsp, 16     48 83 C4 10                                                           */
-                b += bytes(4, "\x48\x83\xC4\x10");
-                /* test eax, eax   85 C0                                                                 */
-                b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
+                b += x86("sub", "rsp", 16L);
+                b += x86("mov32", "edi", (long)num_first);
+                b += x86("mov32", "esi", (long)k0);
+                b += x86("movabs", "rdx", (unsigned long long)(uint64_t)i0);
+                if (s0) b += x86("movabs", "rcx", (unsigned long long)(uintptr_t)s0);
+                else    b += x86("xor", "ecx", "ecx");
+                b += x86("mov32", "r8d", (long)k1);
+                b += x86("movabs", "r9", (unsigned long long)(uint64_t)i1);
+                if (s1) b += x86("movabs", "rax", (unsigned long long)(uintptr_t)s1);
+                else    b += x86("xor", "eax", "eax");
+                b += x86("mov", RSP(0), "rax");
+                b += x86("call", "rt_number_string_pair", (unsigned long long)(uintptr_t)(void*)rt_number_string_pair);
+                b += x86("add", "rsp", 16L);
+                b += x86("test", "eax", "eax");
+                return b + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if ((strcmp(fn,"atom_concat")==0 || strcmp(fn,"string_concat")==0)
                 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
@@ -113,34 +94,25 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                 const char *s1 = (k1 == IR_ATOM) ? a1->sval : NULL;
                 const char *s2 = (k2 == IR_ATOM) ? a2->sval : NULL;
                 std::string b;
-                /* sub rsp, 32     48 83 EC 20                                                           */
-                b += bytes(4, "\x48\x83\xEC\x20");
-                /* mov edi, k0 ; mov rsi, i0 ; mov rdx, s0                                               */
-                b += bytes(1, "\xBF") + u32le((uint32_t)k0);
-                b += bytes(2, "\x48\xBE") + u64le((uint64_t)i0);
-                if (s0) b += bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)s0);
-                else    b += bytes(2, "\x31\xD2");
-                /* mov ecx, k1 ; mov r8, i1 ; mov r9, s1                                                 */
-                b += bytes(1, "\xB9") + u32le((uint32_t)k1);
-                b += bytes(2, "\x49\xB8") + u64le((uint64_t)i1);
-                if (s1) b += bytes(2, "\x49\xB9") + u64le((uint64_t)(uintptr_t)s1);
-                else    b += bytes(3, "\x45\x31\xC9");
-                /* mov dword ptr [rsp+0], k2    C7 04 24 [4]                                             */
-                b += bytes(3, "\xC7\x04\x24") + u32le((uint32_t)k2);
-                /* mov rax, i2 ; mov [rsp+8], rax    48 B8 [8] ; 48 89 44 24 08                          */
-                b += bytes(2, "\x48\xB8") + u64le((uint64_t)i2);
-                b += bytes(5, "\x48\x89\x44\x24\x08");
-                /* mov rax, s2 (or xor eax,eax) ; mov [rsp+16], rax    48 B8[8]/31 C0 ; 48 89 44 24 10   */
-                if (s2) b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)s2);
-                else    b += bytes(2, "\x31\xC0");
-                b += bytes(5, "\x48\x89\x44\x24\x10");
-                /* movabs rax, &rt_atom_concat; call rax                                              */
-                b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_atom_concat) + bytes(2, "\xFF\xD0");
-                /* add rsp, 32     48 83 C4 20                                                           */
-                b += bytes(4, "\x48\x83\xC4\x20");
-                /* test eax, eax   85 C0                                                                 */
-                b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
+                b += x86("sub", "rsp", 32L);
+                b += x86("mov32", "edi", (long)k0);
+                b += x86("movabs", "rsi", (unsigned long long)(uint64_t)i0);
+                if (s0) b += x86("movabs", "rdx", (unsigned long long)(uintptr_t)s0);
+                else    b += x86("xor", "edx", "edx");
+                b += x86("mov32", "ecx", (long)k1);
+                b += x86("movabs", "r8", (unsigned long long)(uint64_t)i1);
+                if (s1) b += x86("movabs", "r9", (unsigned long long)(uintptr_t)s1);
+                else    b += x86("xor", "r9d", "r9d");
+                b += x86("stk32", 0L, (long)k2);
+                b += x86("movabs", "rax", (unsigned long long)(uint64_t)i2);
+                b += x86("mov", RSP(8), "rax");
+                if (s2) b += x86("movabs", "rax", (unsigned long long)(uintptr_t)s2);
+                else    b += x86("xor", "eax", "eax");
+                b += x86("mov", RSP(16), "rax");
+                b += x86("call", "rt_atom_concat", (unsigned long long)(uintptr_t)(void*)rt_atom_concat);
+                b += x86("add", "rsp", 32L);
+                b += x86("test", "eax", "eax");
+                return b + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if ((strcmp(fn,"atom_chars")==0 || strcmp(fn,"atom_codes")==0
               || strcmp(fn,"string_chars")==0 || strcmp(fn,"string_codes")==0)
@@ -152,47 +124,36 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                 int  as_codes = (strcmp(fn,"atom_codes")==0 || strcmp(fn,"string_codes")==0) ? 1 : 0;
                 std::string b;
                 if (a1->t == IR_STRUCT) {
-                    /* Path B: build the list Term* then call the _term helper.                          */
-                    /* sub rsp, 8     48 83 EC 08   (align: one odd push to balance the build's call)     */
-                    b += bytes(4, "\x48\x83\xEC\x08");
-                    b += emit_term_from_node_bin(a1);
-                    /* mov r8, rax    49 89 C0                                                            */
-                    b += bytes(3, "\x49\x89\xC0");
-                    /* mov edi, as_codes ; mov esi, k0 ; mov rdx, i0 ; mov rcx, s0                        */
-                    b += bytes(1, "\xBF") + u32le((uint32_t)as_codes);
-                    b += bytes(1, "\xBE") + u32le((uint32_t)k0);
-                    b += bytes(2, "\x48\xBA") + u64le((uint64_t)i0);
-                    if (s0) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s0);
-                    else    b += bytes(2, "\x31\xC9");
-                    b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_atom_chars_codes_term) + bytes(2, "\xFF\xD0");
-                    /* add rsp, 8     48 83 C4 08                                                         */
-                    b += bytes(4, "\x48\x83\xC4\x08");
+                    b += x86("sub", "rsp", 8L);
+                    b += x86_lit_bytes(emit_term_from_node_bin(a1));
+                    b += x86("mov", "r8", "rax");
+                    b += x86("mov32", "edi", (long)as_codes);
+                    b += x86("mov32", "esi", (long)k0);
+                    b += x86("movabs", "rdx", (unsigned long long)(uint64_t)i0);
+                    if (s0) b += x86("movabs", "rcx", (unsigned long long)(uintptr_t)s0);
+                    else    b += x86("xor", "ecx", "ecx");
+                    b += x86("call", "rt_atom_chars_codes_term", (unsigned long long)(uintptr_t)(void*)rt_atom_chars_codes_term);
+                    b += x86("add", "rsp", 8L);
                 } else {
-                    /* Path A: scalar a1 (VAR or ATOM). 7th arg s1 on the stack.                         */
                     int  k1 = (int)a1->t;
                     long i1 = (long)a1->ival;
                     const char *s1 = (k1 == IR_ATOM) ? a1->sval : NULL;
-                    /* sub rsp, 16    48 83 EC 10                                                         */
-                    b += bytes(4, "\x48\x83\xEC\x10");
-                    /* mov edi, as_codes ; mov esi, k0 ; mov rdx, i0 ; mov rcx, s0                        */
-                    b += bytes(1, "\xBF") + u32le((uint32_t)as_codes);
-                    b += bytes(1, "\xBE") + u32le((uint32_t)k0);
-                    b += bytes(2, "\x48\xBA") + u64le((uint64_t)i0);
-                    if (s0) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s0);
-                    else    b += bytes(2, "\x31\xC9");
-                    /* mov r8d, k1 ; mov r9, i1                                                           */
-                    b += bytes(2, "\x41\xB8") + u32le((uint32_t)k1);
-                    b += bytes(2, "\x49\xB9") + u64le((uint64_t)i1);
-                    /* mov rax, s1 (or xor eax,eax) ; mov [rsp+0], rax                                    */
-                    if (s1) b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)s1);
-                    else    b += bytes(2, "\x31\xC0");
-                    b += bytes(4, "\x48\x89\x04\x24");
-                    b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_atom_chars_codes) + bytes(2, "\xFF\xD0");
-                    /* add rsp, 16    48 83 C4 10                                                         */
-                    b += bytes(4, "\x48\x83\xC4\x10");
+                    b += x86("sub", "rsp", 16L);
+                    b += x86("mov32", "edi", (long)as_codes);
+                    b += x86("mov32", "esi", (long)k0);
+                    b += x86("movabs", "rdx", (unsigned long long)(uint64_t)i0);
+                    if (s0) b += x86("movabs", "rcx", (unsigned long long)(uintptr_t)s0);
+                    else    b += x86("xor", "ecx", "ecx");
+                    b += x86("mov32", "r8d", (long)k1);
+                    b += x86("movabs", "r9", (unsigned long long)(uint64_t)i1);
+                    if (s1) b += x86("movabs", "rax", (unsigned long long)(uintptr_t)s1);
+                    else    b += x86("xor", "eax", "eax");
+                    b += x86("mov", RSP(0), "rax");
+                    b += x86("call", "rt_atom_chars_codes", (unsigned long long)(uintptr_t)(void*)rt_atom_chars_codes);
+                    b += x86("add", "rsp", 16L);
                 }
-                b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
+                b += x86("test", "eax", "eax");
+                return b + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if (strcmp(fn,"char_type")==0 && _.op_ival==2 && pBB->α && pBB->α->γ) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ;
@@ -206,34 +167,24 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                 long ii = inner ? (long)inner->ival : 0;
                 const char *si = (inner && inner->t == IR_ATOM) ? inner->sval : NULL;
                 std::string b;
-                /* sub rsp, 16    48 83 EC 10                                                          */
-                b += bytes(4, "\x48\x83\xEC\x10");
-                /* mov edi, k0 ; mov rsi, i0 ; mov rdx, s0 (or xor edx,edx)                            */
-                b += bytes(1, "\xBF") + u32le((uint32_t)k0);
-                b += bytes(2, "\x48\xBE") + u64le((uint64_t)i0);
-                if (s0) b += bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)s0);
-                else    b += bytes(2, "\x31\xD2");
-                /* mov rcx, ty (or xor ecx,ecx)    48 B9 [8] / 31 C9                                   */
-                if (ty) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)ty);
-                else    b += bytes(2, "\x31\xC9");
-                /* mov r8d, is_compound    41 B8 [4]                                                   */
-                b += bytes(2, "\x41\xB8") + u32le((uint32_t)is_compound);
-                /* mov r9d, ki             41 B9 [4]                                                   */
-                b += bytes(2, "\x41\xB9") + u32le((uint32_t)ki);
-                /* mov rax, ii ; mov [rsp+0], rax    48 B8 [8] ; 48 89 04 24                           */
-                b += bytes(2, "\x48\xB8") + u64le((uint64_t)ii);
-                b += bytes(4, "\x48\x89\x04\x24");
-                /* mov rax, si (or xor eax,eax) ; mov [rsp+8], rax                                     */
-                if (si) b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)si);
-                else    b += bytes(2, "\x31\xC0");
-                b += bytes(5, "\x48\x89\x44\x24\x08");
-                /* movabs rax, &rt_char_type; call rax                                              */
-                b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_char_type) + bytes(2, "\xFF\xD0");
-                /* add rsp, 16    48 83 C4 10                                                          */
-                b += bytes(4, "\x48\x83\xC4\x10");
-                /* test eax, eax   85 C0                                                               */
-                b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
+                b += x86("sub", "rsp", 16L);
+                b += x86("mov32", "edi", (long)k0);
+                b += x86("movabs", "rsi", (unsigned long long)(uint64_t)i0);
+                if (s0) b += x86("movabs", "rdx", (unsigned long long)(uintptr_t)s0);
+                else    b += x86("xor", "edx", "edx");
+                if (ty) b += x86("movabs", "rcx", (unsigned long long)(uintptr_t)ty);
+                else    b += x86("xor", "ecx", "ecx");
+                b += x86("mov32", "r8d", (long)is_compound);
+                b += x86("mov32", "r9d", (long)ki);
+                b += x86("movabs", "rax", (unsigned long long)(uint64_t)ii);
+                b += x86("mov", RSP(0), "rax");
+                if (si) b += x86("movabs", "rax", (unsigned long long)(uintptr_t)si);
+                else    b += x86("xor", "eax", "eax");
+                b += x86("mov", RSP(8), "rax");
+                b += x86("call", "rt_char_type", (unsigned long long)(uintptr_t)(void*)rt_char_type);
+                b += x86("add", "rsp", 16L);
+                b += x86("test", "eax", "eax");
+                return b + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
     }
     if (MEDIUM_TEXT) {
