@@ -8,11 +8,10 @@
 # TWO TIERS (mirrors test_gate_no_vstack.sh / test_gate_no_handencoded_bytes.sh house style):
 #   TIER 1 — TEMPLATE_ADDR_SIG* : HARD. Already at ZERO family-wide (the &Σ/&Σlen bake removal is DONE).
 #            --strict exits 1 if any reappears. This is the convention-compliance invariant the gate LOCKS.
-#   TIER 2 — r10 residue        : INFORMATIONAL until REG-RO completes. The cursor is r14, but the pattern
-#            family still carries r10 in two dead-but-present forms: the [r10] cursor-MIRROR writes in bb_lit
-#            (still read by the SHARED xa_flat non-frame epilogue — see GOAL REG-RO/REG-LADDER notes) and the
-#            push r10 / pop r10 guards around memcmp/strchr. REG-RO removes both (and migrates xa_flat's
-#            `movsxd rcx, dword ptr [r10]` cursor read to r14) — at which point this tier flips to HARD.
+#   TIER 2 — r10 residue        : HARD (REG-RO landed 2026-06-06). The cursor is r14; the [r10] cursor-MIRROR
+#            writes in bb_lit, the shared xa_flat non-frame epilogue's [r10] cursor read (migrated to r14d,
+#            TEXT + BINARY), and the push r10 / pop r10 guards around memcmp/strchr are all GONE — call-site
+#            16-byte alignment is sub/add rsp,8. Any r10 reappearance in the family fails this gate.
 #
 # Usage: bash scripts/test_gate_sno_pat_reg.sh [--strict]
 #   (no --strict) : report both tiers; exit 0 unless TIER 1 is non-zero.
@@ -53,7 +52,7 @@ echo ""
 echo "TIER 1 (HARD) — TEMPLATE_ADDR_SIGMA / TEMPLATE_ADDR_SIGLEN bake: ${sig_total}  (MUST be 0)"
 if [ "$sig_total" -gt 0 ]; then printf "%b" "$sig_report" | sort -rn; fi
 echo ""
-echo "TIER 2 (informational until REG-RO) — r10 references: ${r10_total}"
+echo "TIER 2 (HARD) — r10 references: ${r10_total}  (MUST be 0)"
 if [ "$r10_total" -gt 0 ]; then printf "%b" "$r10_report" | sort -rn; fi
 echo ""
 
@@ -62,12 +61,14 @@ if [ "$sig_total" -ne 0 ]; then
   exit 1
 fi
 
+if [ "$r10_total" -ne 0 ]; then
+  echo "FAIL (TIER 2): r10 reappeared in the SNOBOL pattern family — REG-RO landed 2026-06-06; the cursor is r14, no [r10] mirror or push/pop guard is permitted (use sub/add rsp,8 for call alignment)."
+  exit 1
+fi
+
 if [ "$strict" -eq 1 ]; then
-  # NOTE: REG-RO is not yet complete; TIER 2 stays informational even under --strict until xa_flat's [r10]
-  # cursor read is migrated to r14 and the bb_lit mirror writes + memcmp/strchr push/pop r10 guards are dropped.
-  # When REG-RO lands, change the next line to enforce r10_total == 0.
-  echo "OK (TIER 1 strict): zero &Σ/&Σlen bake in the SNOBOL pattern family. TIER 2 (r10=${r10_total}) informational pending REG-RO."
+  echo "OK (strict): zero &Σ/&Σlen bake AND zero r10 references in the SNOBOL pattern family (TIER 1 + TIER 2 both HARD)."
 else
-  echo "OK (TIER 1): zero &Σ/&Σlen bake in the SNOBOL pattern family."
+  echo "OK: zero &Σ/&Σlen bake AND zero r10 references in the SNOBOL pattern family (TIER 1 + TIER 2 both HARD)."
 fi
 exit 0
