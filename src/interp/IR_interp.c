@@ -3602,7 +3602,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         bb->value = FAILDESCR;
         return bb->ω;
     }
-    case IR_PAT_BREAK: {
+    case IR_PAT_BREAK: case IR_PAT_BREAKX: {
         const char *chars = bb->sval ? bb->sval : "";
         if (bb->dval == 1.0 && bb->sval) { const char *cv = VARVAL_fn(NV_GET_fn(bb->sval)); chars = cv ? cv : ""; }
         if (bb->state == 0) {

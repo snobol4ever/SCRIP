@@ -58,6 +58,7 @@ static const kind_entry_t g_kinds[] = {
     { IR_PAT_ANY,         "IR_PAT_ANY" },
     { IR_PAT_SPAN,        "IR_PAT_SPAN" },
     { IR_PAT_BREAK,       "IR_PAT_BREAK" },
+    { IR_PAT_BREAKX,      "IR_PAT_BREAKX" },
     { IR_PAT_ARB,         "IR_PAT_ARB" },
     { IR_PAT_ARBNO,       "IR_PAT_ARBNO" },
     { IR_PAT_CAT,         "IR_PAT_CAT" },
@@ -272,6 +273,7 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     case IR_PAT_ANY:      nd->sval = "abc"; break;
     case IR_PAT_SPAN:     nd->sval = "0123"; break;
     case IR_PAT_BREAK:    nd->sval = "."; break;
+    case IR_PAT_BREAKX:   nd->sval = "."; break;
     case IR_PAT_NOTANY:   nd->sval = "xyz"; break;
     case IR_PAT_LEN:      nd->ival = 5; break;
     case IR_PAT_POS:      nd->ival = 0; break;

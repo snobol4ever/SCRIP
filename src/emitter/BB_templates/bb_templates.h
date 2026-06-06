@@ -7,6 +7,7 @@ void bb_pat_any    (void);
 void bb_pat_notany (void);
 void bb_pat_span   (void);
 void bb_pat_break  (void);
+void bb_pat_breakx (void);
 void bb_pat_pos    (void);
 void bb_pat_tab    (void);
 void bb_pat_atp    (void);
