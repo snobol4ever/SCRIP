@@ -52,7 +52,7 @@
 - [ ] bb_gather.cpp
 - [ ] bb_gen_scan.cpp
 - [ ] bb_goal.cpp — (v1 done: prose comments stripped; gates green)
-- [ ] bb_gvar_assign.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical)) — ⛔ ONE-IR-ONE-LOGIC VIOLATOR: ONE IR_ASSIGN(gvar) kind → 6 distinct four-port logics (descr-slot/lit_s/lit_i/var/concat/call-result arms). Break out: split in LOWER into per-shape IR codes, each its own template.
+- [ ] bb_gvar_assign.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical)) — ⛔ ONE-IR-ONE-LOGIC VIOLATOR, SHRINKING (SNO-HY-3a 2026-06-06): lit_s+lit_i arms SPLIT OUT — LOWER v_assign (SNO statement path) mints IR_ASSIGN_LIT_S/IR_ASSIGN_LIT_I → own SPEC-v2 templates bb_gvar_assign_lit_s/lit_i.cpp (faithful twins, stash-asm-diff EMPTY ×6 programs); old lit arms RETAINED for plain IR_ASSIGN from synthesized creators (lower.c 224/441/532/680/688 Icon/loop assigns) + non-SNO langs — delete only after creator audit. Remaining to split: descr-slot/var/concat/call-result (4 arms).
 - [ ] bb_ite.cpp — (v1 done: prose comments stripped; gates green)
 - [ ] bb_iterate.cpp
 - [ ] bb_keyword.cpp

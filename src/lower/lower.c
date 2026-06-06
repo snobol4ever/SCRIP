@@ -770,7 +770,12 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
         && !strcmp(rhs_t->c[0]->v.sval, "pop") && rhs_t->c[1] && rhs_t->c[1]->t == TT_VAR) {
         return v_raku_pop(cx, lhs_t->v.sval, rhs_t->c[1], γ_in, ω_in, α_out, β_out);
     }
-    IR_t * as = nalloc(cx, IR_ASSIGN);
+    IR_e ak = IR_ASSIGN;
+    if (cx.lang == IR_LANG_SNO && lhs_is_var && rhs_t) {
+        if      (rhs_t->t == TT_QLIT || rhs_t->t == TT_CSET) ak = IR_ASSIGN_LIT_S;
+        else if (rhs_t->t == TT_ILIT)                        ak = IR_ASSIGN_LIT_I;
+    }
+    IR_t * as = nalloc(cx, ak);
     if (!as) return NULL;
     as->sval = lhs_t->v.sval ? lhs_t->v.sval : "";
     IR_t * rα = NULL, * rβ = NULL;
