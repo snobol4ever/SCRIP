@@ -99,11 +99,13 @@ run_mode4() {
     printf '%d %d\n' "$pass" "$fail"
 }
 
+T0_ALL=$SECONDS
 echo "=== SN-9c-e: three-mode crosscheck sweep ==="
 
-read IR_PASS  IR_FAIL  <<< "$(run_mode --interp "$WORKDIR/ir")"
-read RUN_PASS RUN_FAIL <<< "$(run_mode --run    "$WORKDIR/run")"
-read M4_PASS  M4_FAIL  <<< "$(run_mode4         "$WORKDIR/m4")"
+T0=$SECONDS; read IR_PASS  IR_FAIL  <<< "$(run_mode --interp "$WORKDIR/ir")";  T_M2=$((SECONDS-T0))
+T0=$SECONDS; read RUN_PASS RUN_FAIL <<< "$(run_mode --run    "$WORKDIR/run")"; T_M3=$((SECONDS-T0))
+T0=$SECONDS; read M4_PASS  M4_FAIL  <<< "$(run_mode4         "$WORKDIR/m4")";  T_M4=$((SECONDS-T0))
+T_ALL=$((SECONDS-T0_ALL))
 
 IR_FAILS_FULL=$(cat  "$WORKDIR/ir")
 RUN_FAILS_FULL=$(cat "$WORKDIR/run")
@@ -112,6 +114,7 @@ M4_FAILS_FULL=$(cat  "$WORKDIR/m4")
 printf '  --interp  PASS=%-3d FAIL=%d\n' "$IR_PASS"  "$IR_FAIL"
 printf '  --run     PASS=%-3d FAIL=%d\n' "$RUN_PASS" "$RUN_FAIL"
 printf '  --compile PASS=%-3d FAIL=%d\n' "$M4_PASS"  "$M4_FAIL"
+printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"
 echo ""
 
 GATE_FAIL=0

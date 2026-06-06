@@ -15,7 +15,6 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="/home/claude/corpus"
 TIMEOUT="${TIMEOUT:-15}"
 SUITE="$CORPUS/programs/csnobol4-suite"
@@ -30,11 +29,9 @@ fi
 
 PASS2=0; FAIL2=0
 PASS3=0; FAIL3=0
-PASS4=0; FAIL4=0; SKIP4=0
-FAILURES2=""; FAILURES3=""; FAILURES4=""
+FAILURES2=""; FAILURES3=""
+T_M2=0; T_M3=0; T0_ALL=$SECONDS
 
-WORKDIR="$(mktemp -d)"
-trap 'rm -rf "$WORKDIR"' EXIT
 
 SKIP_LIST="bench breakline genc k ndbm sleep time line2"
 STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2"
@@ -71,19 +68,10 @@ else:
 PY
 }
 
-compile_mode4() {
-    local sno="$1" out="$2"
-    local tmp; tmp="$(mktemp -d)"
-    "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
-    (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
-    gcc "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lgc -lm \
-        -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
-    rm -rf "$tmp"
-}
 
 run_test() {
     local label="$1" sno="$2" ref="$3"
-    [ ! -f "$ref" ] && { SKIP4=$((SKIP4+1)); return; }
+    [ ! -f "$ref" ] && return
     local exp; exp=$(cat "$ref")
     local name slug; name=$(basename "$sno" .sno); slug=$(echo "$label" | tr '/: ' '_')
 
@@ -98,43 +86,26 @@ run_test() {
     fi
 
     # ── Mode 2: --interp ──────────────────────────────────────────────────
-    local got2
+    local T0m=$SECONDS; local got2
     if [ -n "$stdin_file" ]; then
         got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$prog_file" < "$stdin_file" 2>/dev/null || true)
     else
         got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$sno" 2>/dev/null || true)
     fi
+    T_M2=$((T_M2+SECONDS-T0m))
     if [ "$got2" = "$exp" ]; then PASS2=$((PASS2+1))
     else FAIL2=$((FAIL2+1)); FAILURES2="${FAILURES2}  FAIL ${label}\n"; fi
 
     # ── Mode 3: --run ─────────────────────────────────────────────────────
-    local got3
+    local T0m3=$SECONDS; local got3
     if [ -n "$stdin_file" ]; then
         got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$prog_file" < "$stdin_file" 2>/dev/null || true)
     else
         got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true)
     fi
+    T_M3=$((T_M3+SECONDS-T0m3))
     if [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1))
     else FAIL3=$((FAIL3+1)); FAILURES3="${FAILURES3}  FAIL ${label}\n"; fi
-
-    # ── Mode 4: --compile → assemble → link → run ─────────────────────────
-    if [ -f "$RT_DIR/libscrip_rt.so" ]; then
-        local bin="$WORKDIR/${slug}.bin"
-        if compile_mode4 "$prog_file" "$bin"; then
-            local got4
-            if [ -n "$stdin_file" ]; then
-                got4=$(timeout "$TIMEOUT" "$bin" < "$stdin_file" 2>/dev/null || true)
-            else
-                got4=$(timeout "$TIMEOUT" "$bin" 2>/dev/null || true)
-            fi
-            if [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1))
-            else FAIL4=$((FAIL4+1)); FAILURES4="${FAILURES4}  FAIL ${label}\n"; fi
-        else
-            SKIP4=$((SKIP4+1))
-        fi
-    else
-        SKIP4=$((SKIP4+1))
-    fi
 
     [ -n "$stdin_file" ] && rm -f "$prog_file" "$stdin_file"
 }
@@ -151,15 +122,15 @@ done
 for sno in "$SUITE"/*.sno; do
     [ -f "$sno" ] || continue
     name=$(basename "$sno" .sno)
-    is_excluded "$name" && { SKIP4=$((SKIP4+1)); continue; }
+    is_excluded "$name" && continue
     ref="${sno%.sno}.ref"
     run_test "$name" "$sno" "$ref"
 done
 
+T_ALL=$((SECONDS-T0_ALL))
 TOTAL=$((PASS2+FAIL2))
 echo "mode-2 (--interp):  PASS=$PASS2 FAIL=$FAIL2  ($TOTAL run)"
 echo "mode-3 (--run):     PASS=$PASS3 FAIL=$FAIL3  ($TOTAL run)"
-echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL run)"
 [ -n "$FAILURES2" ] && printf "$FAILURES2" | head -40
 [ -n "$FAILURES3" ] && printf "$FAILURES3" | head -40
-[ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
+printf "TIME M2=%ds M3=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_ALL"

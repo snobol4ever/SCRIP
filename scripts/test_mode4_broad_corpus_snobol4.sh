@@ -8,7 +8,7 @@
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6   DATE: 2026-05-14
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIP="${SCRIP:-$HERE/scrip}"
+SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="/home/claude/corpus"
 TIMEOUT="${TIMEOUT:-10}"
@@ -26,6 +26,7 @@ FAILURES2=""; FAILURES3=""; FAILURES4=""
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
+T_M2=0; T_M3=0; T_M4=0; T0_ALL=$SECONDS
 
 compile_mode4() {
     local sno="$1" out="$2"
@@ -45,28 +46,31 @@ run_test() {
     local slug; slug=$(echo "$label" | tr '/: ' '_')
 
     # ── Mode 2: --interp ──────────────────────────────────────────────────
-    local got2
+    local T0m=$SECONDS; local got2
     if [ -n "$input" ] && [ -f "$input" ]; then
         got2=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < "$input" 2>/dev/null || true)
     else
         got2=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < /dev/null 2>/dev/null || true)
     fi
     [ -n "$filter" ] && got2=$(printf '%s\n' "$got2" | grep -v "$filter" || true)
+    T_M2=$((T_M2+SECONDS-T0m))
     if [ "$got2" = "$exp" ]; then PASS2=$((PASS2+1))
     else FAIL2=$((FAIL2+1)); FAILURES2="${FAILURES2}  FAIL ${label}\n"; fi
 
     # ── Mode 3: --run ─────────────────────────────────────────────────────
-    local got3
+    local T0m3=$SECONDS; local got3
     if [ -n "$input" ] && [ -f "$input" ]; then
         got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$input" 2>/dev/null || true)
     else
         got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true)
     fi
     [ -n "$filter" ] && got3=$(printf '%s\n' "$got3" | grep -v "$filter" || true)
+    T_M3=$((T_M3+SECONDS-T0m3))
     if [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1))
     else FAIL3=$((FAIL3+1)); FAILURES3="${FAILURES3}  FAIL ${label}\n"; fi
 
     # ── Mode 4: --compile → assemble → link → run ─────────────────────────
+    local T0m4=$SECONDS
     if [ ! -f "$RT_DIR/libscrip_rt.so" ]; then SKIP4=$((SKIP4+1)); return; fi
     local bin="$WORKDIR/${slug}.bin"
     if ! compile_mode4 "$sno" "$bin"; then SKIP4=$((SKIP4+1)); return; fi
@@ -77,6 +81,7 @@ run_test() {
         got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
     fi
     [ -n "$filter" ] && got4=$(printf '%s\n' "$got4" | grep -v "$filter" || true)
+    T_M4=$((T_M4+SECONDS-T0m4))
     if [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1))
     else FAIL4=$((FAIL4+1)); FAILURES4="${FAILURES4}  FAIL ${label}\n"; fi
 }
@@ -105,6 +110,7 @@ run_test "demo_claws5"    "$DEMO/claws5.sno"    "$DEMO/claws5.ref"    "$DEMO/cla
 TIMEOUT=30 \
 run_test "demo_roman"     "$DEMO/roman.sno"     "$DEMO/roman.ref"     ""                      "^ms:"
 
+T_ALL=$((SECONDS-T0_ALL))
 TOTAL=$((PASS2+FAIL2))
 echo "mode-2 (--interp):  PASS=$PASS2 FAIL=$FAIL2  ($TOTAL total)"
 echo "mode-3 (--run):     PASS=$PASS3 FAIL=$FAIL3  ($TOTAL total)"
@@ -112,3 +118,5 @@ echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
 [ -n "$FAILURES2" ] && printf "$FAILURES2" | head -40
 [ -n "$FAILURES3" ] && printf "$FAILURES3" | head -40
 [ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
+
+printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"

@@ -61,6 +61,7 @@ PASS_M2=0; FAIL_M2=0
 PASS_M3=0; FAIL_M3=0; SKIP_M3=0
 PASS_M4=0; FAIL_M4=0; SKIP_M4=0
 FAILS_M2=""; FAILS_M3=""; FAILS_M4=""
+T_M2=0; T_M3=0; T_M4=0; T0_ALL=$SECONDS
 
 for sno in "$PATDIR"/*.sno; do
     [ -f "$sno" ] || continue
@@ -69,16 +70,17 @@ for sno in "$PATDIR"/*.sno; do
     [ "$exp" = $'\x00__NO_ORACLE__' ] && continue
 
     # ── Mode 2: --interp ───────────────────────────────────────────────────
-    got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < /dev/null 2>/dev/null || true)
+    T0=$SECONDS; got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < /dev/null 2>/dev/null || true); T_M2=$((T_M2+SECONDS-T0))
     if [ "$got2" = "$exp" ]; then PASS_M2=$((PASS_M2+1))
     else FAIL_M2=$((FAIL_M2+1)); FAILS_M2="${FAILS_M2}  FAIL-M2 ${name} (got: $(printf '%s' "$got2" | head -1))\n"; fi
 
     # ── Mode 3: --run ──────────────────────────────────────────────────────
-    got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true)
+    T0=$SECONDS; got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true); T_M3=$((T_M3+SECONDS-T0))
     if [ "$got3" = "$exp" ]; then PASS_M3=$((PASS_M3+1))
     else FAIL_M3=$((FAIL_M3+1)); FAILS_M3="${FAILS_M3}  FAIL-M3 ${name} (got: $(printf '%s' "$got3" | head -1))\n"; fi
 
     # ── Mode 4: --compile → assemble → link → run ──────────────────────────
+    T0=$SECONDS
     bin="$WORKDIR/${name}.bin"
     if compile_mode4 "$sno" "$bin"; then
         got4=$(timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
@@ -87,11 +89,14 @@ for sno in "$PATDIR"/*.sno; do
     else
         SKIP_M4=$((SKIP_M4+1)); FAILS_M4="${FAILS_M4}  SKIP-M4 ${name} (compile/link failed)\n"
     fi
+    T_M4=$((T_M4+SECONDS-T0))
 done
 
+T_ALL=$((SECONDS-T0_ALL))
 echo "=== SNOBOL4 pattern rung suite (038-057) ==="
 echo "PASS-M2=$PASS_M2 FAIL-M2=$FAIL_M2   PASS-M3=$PASS_M3 FAIL-M3=$FAIL_M3   PASS-M4=$PASS_M4 FAIL-M4=$FAIL_M4 SKIP-M4=$SKIP_M4"
 [ -n "$FAILS_M2" ] && printf "$FAILS_M2"
 [ -n "$FAILS_M3" ] && printf "$FAILS_M3"
 [ -n "$FAILS_M4" ] && printf "$FAILS_M4"
+printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"
 exit 0

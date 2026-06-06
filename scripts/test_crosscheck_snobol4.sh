@@ -13,6 +13,7 @@ SCRIP="${HERE}/../scrip"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 TIMEOUT=30
 PASS=0; FAIL=0; SKIP=0
+T_M2=0; T_M3=0; T_M4=0; T0_ALL=$SECONDS
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -32,14 +33,19 @@ xcheck() {
     if [ ! -f "$file" ]; then echo "  SKIP $label (no file)"; SKIP=$((SKIP+1)); return; fi
     local ir run_out compile_out slug
     slug=$(echo "$label" | tr '/: ' '_')
-
+    local T0m=$SECONDS
     if [ -n "$sno_lib" ]; then
         ir=$(SNO_LIB="$sno_lib"  timeout $TIMEOUT "$SCRIP" --interp "$file" </dev/null 2>/dev/null)
-        run_out=$(SNO_LIB="$sno_lib" timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
     else
         ir=$(timeout  $TIMEOUT "$SCRIP" --interp "$file" </dev/null 2>/dev/null)
+    fi
+    T_M2=$((T_M2+SECONDS-T0m)); T0m=$SECONDS
+    if [ -n "$sno_lib" ]; then
+        run_out=$(SNO_LIB="$sno_lib" timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
+    else
         run_out=$(timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
     fi
+    T_M3=$((T_M3+SECONDS-T0m)); T0m=$SECONDS
 
     local m4_ok=0 compile_out=""
     if [ -f "$RT_DIR/libscrip_rt.so" ]; then
@@ -49,6 +55,7 @@ xcheck() {
             m4_ok=1
         fi
     fi
+    T_M4=$((T_M4+SECONDS-T0m))
 
     local ok=1
     if [ -n "$ref" ] && [ -f "$ref" ]; then
@@ -92,6 +99,8 @@ for driver in omega gen tdump alpha; do
     fi
 done
 
+T_ALL=$((SECONDS-T0_ALL))
 echo ""
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
+printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"
 [ "$FAIL" -eq 0 ]
