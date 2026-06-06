@@ -78,24 +78,31 @@ DOUBLE  DOUBLE = X + X
 END" "42" "$mode"
 }
 
+T0_ALL=$SECONDS
 echo "=== SNOBOL4 smoke (Mode 2 --interp) — HARD GATE ==="
-TAG=2; smoke_six "--interp"
+T0=$SECONDS; TAG=2; smoke_six "--interp"
 run_file "arith_sm" "        OUTPUT = 2 + 3
 END" "5" "--interp"
+T_M2=$((SECONDS-T0))
 
 echo ""
 echo "=== SNOBOL4 smoke (Mode 3 --run / SB-LINEAR) — tracked (floor MODE3_MIN=$MODE3_MIN) ==="
-TAG=3; smoke_six "--run"
+T0=$SECONDS; TAG=3; smoke_six "--run"
+T_M3=$((SECONDS-T0))
 
 echo ""
 echo "=== SNOBOL4 smoke (Mode 4 --compile --target=x86 -> as -> gcc -> run) — tracked (floor MODE4_MIN=$MODE4_MIN) ==="
-TAG=4; smoke_six "mode4"
+T0=$SECONDS; TAG=4; smoke_six "mode4"
+T_M4=$((SECONDS-T0))
+T_ALL=$((SECONDS-T0_ALL))
 
 echo ""
 echo "mode-2 (--interp):  PASS=$P2 FAIL=$F2   (HARD GATE)"
 echo "mode-3 (--run):     PASS=$P3 FAIL=$F3   (tracked; floor MODE3_MIN=$MODE3_MIN)"
 echo "mode-4 (--compile): PASS=$P4 FAIL=$F4   (tracked; floor MODE4_MIN=$MODE4_MIN)"
 echo "PASS=$((P2+P3+P4)) FAIL=$((F2+F3+F4))"
+printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"
 
 # Gate: mode-2 must be all-pass; modes 3 & 4 must meet their tracked floors.
 [ "$F2" -eq 0 ] && [ "$P3" -ge "$MODE3_MIN" ] && [ "$P4" -ge "$MODE4_MIN" ]
+# Timing appended by unified-runner update 2026-06-06
