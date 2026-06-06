@@ -1870,8 +1870,9 @@ DESCR_t call_builtin(tree_t *call, DESCR_t *args, int nargs) {
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void pas_real_str(double r, char *buf, int bufsz) {
-    char tmp[64]; snprintf(tmp, sizeof tmp, "%.12E", r);
+static void pas_real_str(double r, char *buf, int bufsz, int prec) {
+    if (prec < 1) prec = 1; if (prec > 16) prec = 16;
+    char tmp[64]; snprintf(tmp, sizeof tmp, "%.*E", prec, r);
     char *ep = strchr(tmp, 'E');
     if (!ep) { snprintf(buf, bufsz, "%s", tmp); return; }
     char sign = ep[1]; const char *digits = ep + 2; int ndig = (int)strlen(digits);
@@ -1969,9 +1970,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 fprintf(stdout, "%*s", _fw, _pb);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
-                pas_real_str(av.r, _rb, sizeof _rb);
+                int _prec = (w < 0) ? 12 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
+                pas_real_str(av.r, _rb, sizeof _rb, _prec);
                 int _pfmtlen = (int)strlen(_rb);
-                int _fw = (w < 0) ? 20 : (w > _pfmtlen ? w : _pfmtlen);
+                int _fw = (w < 0) ? 20 : (_pfmtlen + 1 > w ? _pfmtlen + 1 : w);
                 fprintf(stdout, "%*s", _fw, _rb);
             } else {
                 const char *_ps = VARVAL_fn(av);
