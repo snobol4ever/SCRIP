@@ -280,54 +280,35 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     }
     if (lf->t == IR_CALL && (lf->dval == 2.0 || lf->dval == 3.0 || lf->dval == 5.0)) return marshal_single_call(lf, aoff, bb_node_id(lf));
     std::string s;
-    if (MEDIUM_TEXT) {
-        if (lf->t == IR_LIT_I) {
-            s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], 6", aoff));
-            s += x86("ins2", "movabs", emit_fmt("rax, %lld", (long long)lf->ival));
-            s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", aoff + 8));
-        } else if (lf->t == IR_LIT_F) {
-            uint64_t bits; double d = lf->dval; memcpy(&bits, &d, 8);
-            s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], 7", aoff));
-            s += x86("ins2", "movabs", emit_fmt("rax, %llu", (unsigned long long)bits));
-            s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", aoff + 8));
-        } else if (lf->t == IR_LIT_NUL) {
-            s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], 0", aoff));
-            s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], 0", aoff + 8));
-        } else if (lf->t == IR_LIT_S) {
-            std::string sl = emit_fmt(".Lcallarg%d_%d", _.nid, idx);
-            s += x86("directive", ".section .rodata")
-               + x86("directive", sl + ": .string \"" + (lf->sval ? lf->sval : "") + "\"")
-               + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-            s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], 1", aoff));
-            s += x86("ins2", "lea", emit_fmt("rax, [rip+%s]", sl.c_str()));
-            s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", aoff + 8));
-        } else {
-            int voff = bb_varslot(lf->sval ? lf->sval : "");
-            s += x86("ins2", "mov", emit_fmt("rax, [r12+%d]", voff));
-            s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", aoff));
-            s += x86("ins2", "mov", emit_fmt("rax, [r12+%d]", voff + 8));
-            s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", aoff + 8));
-        }
-    } else if (MEDIUM_BINARY) {
-        uint32_t aoffu = (uint32_t) aoff;
-        if (lf->t == IR_LIT_I || lf->t == IR_LIT_F || lf->t == IR_LIT_NUL || lf->t == IR_LIT_S) {
-            uint64_t tag = (lf->t == IR_LIT_I) ? 6 : (lf->t == IR_LIT_F) ? 7 : (lf->t == IR_LIT_S) ? 1 : 0;
-            s += x86("mov", FRQ(aoff), (long)tag);
-            if (lf->t == IR_LIT_NUL) {
-                s += x86("mov", FRQ(aoff + 8), (long)0);
-            } else {
-                uint64_t v;
-                if (lf->t == IR_LIT_I)      v = (uint64_t)lf->ival;
-                else if (lf->t == IR_LIT_F) { double d = lf->dval; memcpy(&v, &d, 8); }
-                else                        v = (uint64_t)(uintptr_t)(lf->sval ? lf->sval : "");
-                s += x86_load_ro("rax", "??", (uint64_t)v);
-                s += x86_frame_store64(aoff + 8, "rax");
-            }
-        } else {
-            uint32_t voff = (uint32_t) bb_varslot(lf->sval ? lf->sval : "");
-            s += x86_frame_load64("rax", voff)   + x86_frame_store64(aoffu, "rax");
-            s += x86_frame_load64("rax", voff+8) + x86_frame_store64(aoffu+8, "rax");
-        }
+    if (lf->t == IR_LIT_I) {
+        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_I -> [r12+%d]", idx, aoff)));
+        s += x86("mov", FRQ(aoff), (long)6);
+        s += x86_movabs_r64("rax", (uint64_t)lf->ival);
+        s += x86_frame_store64(aoff + 8, "rax");
+    } else if (lf->t == IR_LIT_F) {
+        uint64_t bits; double d = lf->dval; memcpy(&bits, &d, 8);
+        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_F -> [r12+%d]", idx, aoff)));
+        s += x86("mov", FRQ(aoff), (long)7);
+        s += x86_movabs_r64("rax", bits);
+        s += x86_frame_store64(aoff + 8, "rax");
+    } else if (lf->t == IR_LIT_NUL) {
+        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_NUL -> [r12+%d]", idx, aoff)));
+        s += x86("mov", FRQ(aoff), (long)0);
+        s += x86("mov", FRQ(aoff + 8), (long)0);
+    } else if (lf->t == IR_LIT_S) {
+        int nseal = idx * 2, nskip = idx * 2 + 1;
+        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_S (string REG-RO sealed in-band) -> [r12+%d]", idx, aoff)));
+        s += x86("mov", FRQ(aoff), (long)1);
+        s += x86_ro_load_q("rax", nseal);
+        s += x86_frame_store64(aoff + 8, "rax");
+        s += x86_jmp_id(nskip);
+        s += x86_ro_seal_str(nseal, lf->sval ? lf->sval : "");
+        s += x86_deflabel_id(nskip);
+    } else {
+        int voff = bb_varslot(lf->sval ? lf->sval : "");
+        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = varslot [r12+%d] -> [r12+%d]", idx, voff, aoff)));
+        s += x86_frame_load64("rax", voff)     + x86_frame_store64(aoff, "rax");
+        s += x86_frame_load64("rax", voff + 8) + x86_frame_store64(aoff + 8, "rax");
     }
     return s;
 }
