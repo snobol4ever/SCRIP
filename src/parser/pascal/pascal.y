@@ -176,6 +176,10 @@ static void pas_local_add(const char *name) { if (g_pas_level < 2 || g_pas_ldept
 static struct { char *name; } g_pas_setvars[256]; static int g_pas_nsetvar;
 static void pas_setvar_add(const char *name) { if (g_pas_nsetvar < 256 && name) { g_pas_setvars[g_pas_nsetvar++].name = strdup(name); } }
 static int pas_is_setvar(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nsetvar; i++) if (g_pas_setvars[i].name && !strcmp(g_pas_setvars[i].name, name)) return 1; return 0; }
+static char g_pas_case_tmp[8][24]; static int g_pas_case_depth; static int g_pas_case_ctr;
+static void pas_case_push(void) { if (g_pas_case_depth < 8) snprintf(g_pas_case_tmp[g_pas_case_depth], sizeof g_pas_case_tmp[0], "__pct%d", g_pas_case_ctr++); g_pas_case_depth++; }
+static const char *pas_case_cur(void) { int d = g_pas_case_depth - 1; if (d < 0) d = 0; if (d > 7) d = 7; return strdup(g_pas_case_tmp[d]); }
+static void pas_case_pop(void) { if (g_pas_case_depth > 0) g_pas_case_depth--; }
 static int pas_is_setexpr(tree_t *e) { if (!e) return 0;
     if (e->t == TT_VAR && e->v.sval) return pas_is_setvar(e->v.sval);
     if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->v.sval) { const char *f = e->c[0]->v.sval;
@@ -241,6 +245,8 @@ static tree_t *mk_array_fill(long long high) {
 %type <node> assignment call call_with_args if_statement while_statement
 %type <node> repeat_statement for_statement with_statement case_statement goto_statement
 %type <node> expression simple_expression term factor selector
+%type <node> case_elem constant_list
+%type <list> case_list
 %type <list> statement_list argument_list expression_list expression_list_opt id_list argument
 %type <list> parameter_list_opt parameter_decl_list parameter_decl
 %type <ival> constant scalar_constant simple_type type
@@ -431,19 +437,26 @@ if_statement:
     | IFSY expression THENSY statement ELSESY statement { tree_t *e = ast_node_new(TT_IF); ast_push(e, pas_cond($2)); ast_push(e, $4); ast_push(e, $6); $$ = e; }
     ;
 case_statement:
-    CASESY expression OFSY case_list ENDSY { $$ = ast_node_new(TT_SUCCEED); }
+    CASESY expression OFSY { pas_case_push(); } case_list ENDSY
+        { tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+          ast_push(seq, bin(TT_ASSIGN, leaf_s(TT_VAR, pas_case_cur()), $2));
+          tree_t *chain = NULL;
+          if ($5) for (int i = $5->count - 1; i >= 0; i--) { tree_t *e = $5->items[i]; if (!e) continue; if (chain) ast_push(e, chain); chain = e; }
+          ast_push(seq, chain ? chain : ast_node_new(TT_SUCCEED));
+          pas_case_pop();
+          $$ = seq; }
     ;
 case_list:
-    case_list SEMICOLON case_elem
-    | case_elem
+    case_list SEMICOLON case_elem { if ($3) pnl_push($1, $3); $$ = $1; }
+    | case_elem { PNodeList *l = pnl_new(); if ($1) pnl_push(l, $1); $$ = l; }
     ;
 case_elem:
-    constant_list COLON statement
-    |
+    constant_list COLON statement { $$ = bin(TT_IF, pas_cond($1), $3); }
+    | { $$ = NULL; }
     ;
 constant_list:
-    constant_list COMMA constant
-    | constant
+    constant_list COMMA constant { $$ = bin(TT_ADD, $1, bin(TT_EQ, leaf_s(TT_VAR, pas_case_cur()), ilit($3))); }
+    | constant { $$ = bin(TT_EQ, leaf_s(TT_VAR, pas_case_cur()), ilit($1)); }
     ;
 while_statement:
     WHILESY expression DOSY statement { $$ = bin(TT_WHILE, pas_cond($2), $4); }
@@ -513,7 +526,7 @@ tree_t *pascal_parse_string(const char *src) {
     g_pas_nconst = 0; g_pas_narray = 0; g_pas_nfunc = 0;
     g_pas_nrectype = 0; g_pas_nrecvar = 0; g_pas_pend_nf = 0; g_pas_nsetvar = 0;
     g_pas_nptrtype = 0; g_pas_nptrvar = 0; g_pas_pend_ptrtarget = NULL; g_pas_pend_typename = NULL;
-    g_pas_level = 1; g_pas_ldepth = 0;
+    g_pas_level = 1; g_pas_ldepth = 0; g_pas_case_depth = 0; g_pas_case_ctr = 0;
     void *buf = pascal_yy_scan_string(src);
     pascal_yyparse();
     pascal_yy_delete_buffer(buf);
