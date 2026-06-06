@@ -470,6 +470,7 @@ static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t *
     if (ok && bc_out) *bc_out = bc;
     return ok;
 }
+static int pl_gz_arith_const(const IR_t *nd);
 static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (!gg) return 0;
     if (gg->t == IR_SUCCEED || gg->t == IR_FAIL || gg->t == IR_CUT) return 1;
@@ -492,6 +493,20 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (gg->t == IR_BUILTIN && gg->sval && !strcmp(gg->sval, "nl") && gg->ival == 0) return 1;
     if (gg->t == IR_BUILTIN && gg->sval && !strcmp(gg->sval, "write") && gg->ival == 1 && gg->α)
         return gg->α->t == IR_ATOM || gg->α->t == IR_LIT_I || gg->α->t == IR_LOGICVAR;
+    if (gg->t == IR_BUILTIN && gg->sval && !strcmp(gg->sval, "is") && gg->ival == 2 && gg->α && gg->β) {
+        if (gg->α->t != IR_LOGICVAR) return 0;
+        IR_t *rhs = gg->β;
+        int rhs_const = (rhs->t == IR_LIT_I) || ((rhs->t == IR_ARITH) && pl_gz_arith_const(rhs));
+        int rhs_varop = (rhs->t == IR_LOGICVAR) || (rhs->t == IR_ARITH && rhs->sval && rhs->α && rhs->β && rhs->α->t == IR_LOGICVAR && rhs->β->t == IR_LIT_I);
+        int rhs_bivar = (rhs->t == IR_ARITH && rhs->sval && rhs->α && rhs->β && rhs->α->t == IR_LOGICVAR && rhs->β->t == IR_LOGICVAR);
+        return rhs_const || rhs_varop || rhs_bivar;
+    }
+    if (gg->t == IR_BUILTIN && gg->sval && gg->ival == 2 && gg->α && gg->β) {
+        const char *fn = gg->sval;
+        int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
+        if (!is_cmp) return 0;
+        return (gg->α->t == IR_LIT_I || gg->α->t == IR_LOGICVAR) && (gg->β->t == IR_LIT_I || gg->β->t == IR_LOGICVAR);
+    }
     return 0;
 }
 static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
@@ -501,9 +516,15 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
         IR_t *nd = cg->all[i];
         if (!nd) continue;
         if (nd->t == IR_CHOICE || nd->t == IR_DISJ ||
-            nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_ARITH || nd->t == IR_STRUCT) return 0;
-        if (nd->t == IR_BUILTIN && !((nd->sval && !strcmp(nd->sval, "nl") && nd->ival == 0) ||
-                                     (nd->sval && !strcmp(nd->sval, "write") && nd->ival == 1))) return 0;
+            nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_STRUCT) return 0;
+        if (nd->t == IR_BUILTIN) {
+            if (nd->sval && !strcmp(nd->sval, "nl") && nd->ival == 0) continue;
+            if (nd->sval && !strcmp(nd->sval, "write") && nd->ival == 1) continue;
+            if (nd->sval && !strcmp(nd->sval, "is") && nd->ival == 2) continue;
+            const char *fn = nd->sval ? nd->sval : "";
+            int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
+            if (!is_cmp) return 0;
+        }
         if (nd->t == IR_LOGICVAR && ((int)nd->ival < 0 || (int)nd->ival >= cg->nslots)) return 0;
     }
     IR_t *gconj = NULL;
@@ -551,6 +572,19 @@ static int pl_gz_clause_nsynth(bb_conj_state_t *zs, int ar) {
             if (zc2->args[ai] && zc2->args[ai]->t != IR_LOGICVAR) nsynth++;
     }
     return nsynth;
+}
+static IR_t * pl_gz_arith_slot_map(const IR_t *nd, int ar, int lbase) {
+    if (!nd) return NULL;
+    if (nd->t == IR_LIT_I) { IR_t *c = pl_gz_det_node(IR_LIT_I); if (c) c->ival = nd->ival; return c; }
+    if (nd->t == IR_LOGICVAR) { return pl_gz_lv(pl_gz_slot_map((int)nd->ival, ar, lbase)); }
+    if (nd->t == IR_ARITH) {
+        IR_t *c = pl_gz_det_node(IR_ARITH); if (!c) return NULL;
+        c->sval = nd->sval; c->ival = nd->ival;
+        if (nd->α) { c->α = pl_gz_arith_slot_map(nd->α, ar, lbase); if (!c->α) return NULL; }
+        if (nd->β) { c->β = pl_gz_arith_slot_map(nd->β, ar, lbase); if (!c->β) return NULL; }
+        return c;
+    }
+    return NULL;
 }
 static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_callee_t *ce, int clause_idx, int lbase, pl_gz_callee_t **callees, int *ncallees) {
     IR_t *head = NULL, *tail = NULL;
@@ -623,6 +657,22 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
             if (!nn->α || !nn->β) return 0;
         } else if (gg->sval && !strcmp(gg->sval, "nl")) {
             nn = pl_gz_det_node(IR_DET_NL);
+        } else if (gg->t == IR_BUILTIN && gg->sval && !strcmp(gg->sval, "is") && gg->ival == 2 && gg->α && gg->β) {
+            nn = pl_gz_det_node(IR_DET_IS);
+            if (!nn) return 0;
+            nn->α = pl_gz_lv(pl_gz_slot_map((int)gg->α->ival, ar, lbase));
+            nn->β = pl_gz_arith_slot_map(gg->β, ar, lbase);
+            if (!nn->α || !nn->β) return 0;
+        } else if (gg->t == IR_BUILTIN && gg->sval && gg->ival == 2 && gg->α && gg->β) {
+            const char *fn = gg->sval;
+            int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
+            if (!is_cmp) return 0;
+            nn = pl_gz_det_node(IR_DET_CMP);
+            if (!nn) return 0;
+            nn->sval = fn;
+            nn->α = (gg->α->t == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)gg->α->ival, ar, lbase)) : gg->α;
+            nn->β = (gg->β->t == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)gg->β->ival, ar, lbase)) : gg->β;
+            if (!nn->α || !nn->β) return 0;
         } else {
             nn = pl_gz_det_node(IR_DET_WRITE);
             if (!nn) return 0;
@@ -2059,9 +2109,10 @@ int main(int argc, char **argv)
                 g_frame_active = 0;
                 if (pfn) { (void)pfn(rt_frame(), 0); goto run_done; }
             }
-            fprintf(stderr, "[PBB] MODE-3 INTERP-FALLBACK: --run native blob does not cover this program — executing via mode-2 IR_interp_once (PL-GZ-1b: LOUD since 2026-06-04; silent degrade dies at PL-GZ FENCE)\n");
-            (void)IR_interp_once(pl_main);
-            goto run_done;
+            fprintf(stderr, "[PBB] FATAL: --run: program not admitted by pl_gz_admit or pl_flat_body_root — "
+                            "no native blob covers it. This is a bug in the GZ admission layer or the flat tier. "
+                            "Aborting (PL-GZ FENCE: interp fallback deleted 2026-06-06).\n");
+            abort();
         }
         {
             if (is_prolog) {

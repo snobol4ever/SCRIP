@@ -49,7 +49,7 @@ run_prog() {
     local mode="$1" pl="$2" tmo="$3"
     case "$mode" in
         interp)  timeout "$tmo" "$SCRIP" --interp "$pl" < /dev/null 2>/dev/null ;;
-        run)     timeout "$tmo" "$SCRIP" --run    "$pl" < /dev/null 2>"$ERRTMP" ;;
+        run)     timeout "$tmo" "$SCRIP" --run    "$pl" < /dev/null 2>/dev/null ;;
         compile) timeout "$tmo" bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null 2>/dev/null ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;
     esac
@@ -113,20 +113,6 @@ run_corpus() {
             [ "$VERBOSE" = 1 ] && echo "EXCISED $name"
             EXCISED=$((EXCISED+1)); continue
         fi
-        # PL-GZ-1b(d): mode-3 truth — a program the native blob does not cover executes via the mode-2
-        # interpreter and says so on stderr. Output is STILL verified (an interp regression is a FAIL);
-        # a verified fallback counts EXCISED (pending PL-GZ regrow), NOT a native PASS.
-        if [ "$mode" = "run" ] && grep -q "MODE-3 INTERP-FALLBACK" "$ERRTMP" 2>/dev/null; then
-            want=$(cat "$exp")
-            if [ "$got" = "$want" ]; then
-                [ "$VERBOSE" = 1 ] && echo "EXCISED $name (interp-fallback; output verified)"
-                EXCISED=$((EXCISED+1))
-            else
-                [ "$VERBOSE" = 1 ] && echo "FAIL $name (interp-fallback output mismatch)"
-                FAIL=$((FAIL+1)); MODE_FAIL=1
-            fi
-            continue
-        fi
         want=$(cat "$exp")
         if [ "$got" = "$want" ]; then
             [ "$VERBOSE" = 1 ] && echo "PASS $name"
@@ -149,8 +135,7 @@ run_corpus() {
 
 PROBE="$(mktemp /tmp/plprobe_XXXXXX.pl)"
 printf ':- initialization(main).\nmain :- write(ok), nl.\n' > "$PROBE"
-ERRTMP="$(mktemp /tmp/plrunerr_XXXXXX)"
-trap 'rm -f "$PROBE" "$ERRTMP"' EXIT
+trap 'rm -f "$PROBE"' EXIT
 
 collect_files
 # verbose per-file output only for single-mode runs; the all-modes sweep prints summaries only

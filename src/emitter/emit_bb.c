@@ -497,6 +497,8 @@ static IR_t * gz_clause_head_of(pl_gz_callee_t *ce, int c) {
     return ce->nclauses > 1 ? ce->clause_head[c] : ce->body_head;
 }
 static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees) {
+    if (!ce || ce->body_emitted) return;
+    ce->body_emitted = 1;
     int NC = ce->nclauses > 0 ? ce->nclauses : 1;
     for (int c = 0; c < NC; c++)
         gz_collect_callees(gz_clause_head_of(ce, c), callees, ncallees);
