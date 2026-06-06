@@ -397,11 +397,15 @@ argument:
     ;
 assignment:
     selector BECOMES expression
-        { if ($1 && $1->t == TT_VAR && pas_is_rel($3)) {
+        { int _fnsel = ($1 && $1->t == TT_FNC && $1->n == 1 && $1->c[0] && $1->c[0]->t == TT_VAR && $1->c[0]->v.sval);
+          if ($1 && ($1->t == TT_VAR || _fnsel) && pas_is_rel($3)) {
               tree_t *e = ast_node_new(TT_IF);
               ast_push(e, $3);
               ast_push(e, mk_assign($1, ilit(1)));
-              ast_push(e, mk_assign(leaf_s(TT_VAR, $1->v.sval), ilit(0)));
+              tree_t *s2;
+              if (_fnsel) { s2 = ast_node_new(TT_FNC); ast_push(s2, leaf_s(TT_VAR, $1->c[0]->v.sval)); }
+              else s2 = leaf_s(TT_VAR, $1->v.sval);
+              ast_push(e, mk_assign(s2, ilit(0)));
               $$ = e;
           } else { $$ = mk_assign($1, pas_bool($3)); } }
     ;
