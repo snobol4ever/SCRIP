@@ -1,6 +1,6 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # WORK QUEUE FOR: .github/GOAL-BB-FIXUP.md (the continuous fixup session / routine). Protocol, laws, ladder live THERE; per-file state lives HERE.
-# CURSOR: bb_builtin_io.cpp
+# CURSOR: bb_builtin_is_cmp.cpp
 # CURSOR semantics (GOAL-BB-FIXUP.md THE CURSOR): the round-robin position. Fix file at cursor -> advance cursor IN THE SAME COMMIT as the tick/note -> push -> next. End of list wraps (laps). Ticked files get a cheap re-audit on later laps. Attended sessions only; cursor makes every session resume from cold.
 # v2: no locals · one return/PLATFORM · IF()/FOR() · 1 src line = 1 asm line · real Greek α β γ ω · no MEDIUM_* top-level · no emit_fmt · no comments · no blank lines.
 # v2 ONE-IR-ONE-LOGIC (Lon 2026-06-04): N IR kinds → 1 template allowed (near-identical shapes parameterized); 1 IR → 1 BB the norm; 1 IR kind → MULTIPLE distinct four-port logics in one template FORBIDDEN — break the file out by splitting the IR kind in LOWER into separate IR codes, each → its own template + emit_core dispatch case.
