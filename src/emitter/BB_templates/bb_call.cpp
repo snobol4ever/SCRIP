@@ -112,6 +112,14 @@ static int arith_kind_ok(IR_t * nd) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int arith_is_relop(IR_t * nd) {
+    return nd && nd->t == IR_BINOP && nd->ival >= BINOP_LT && nd->ival <= BINOP_NE;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static const char * relop_fail_mnem(IR_t * nd) {
+    return nd->ival == BINOP_LT ? "jge" : nd->ival == BINOP_LE ? "jg" : nd->ival == BINOP_GT ? "jle" : nd->ival == BINOP_GE ? "jl" : nd->ival == BINOP_EQ ? "jne" : "je";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
     std::string s;
     if (a->t == IR_VAR && a->sval) {
@@ -242,6 +250,42 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             s += x86("mov", FRQ(aoff), (long)6);
             s += x86_frame_store64(aoff + 8, "rax");
             return s;
+        }
+        IR_t * relnd = NULL;
+        { IR_t * rp = lf; int rg = 0; while (rp && rg++ < 256) { if (arith_is_relop(rp)) { relnd = rp; break; } if (!rp->γ || rp->γ->t == IR_SUCCEED || rp->γ->t == IR_FAIL) break; rp = rp->γ; } }
+        if (relnd && fin && fin->t == IR_LIT_I && fin->ival == 1 && relnd->ω && relnd->ω->t == IR_LIT_I && relnd->ω->ival == 0) {
+            IR_t * ra = NULL, * rb = NULL;
+            arith_operands(sg, relnd, &ra, &rb);
+            if (ra && rb && arith_kind_ok(ra) && arith_kind_ok(rb)) {
+                if (idx * 2 + 1 >= X86_INTERNAL_MAX) return x86_bomb("marshal boolean-relop: arg index exceeds internal label capacity");
+                std::string s;
+                if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = boolean relop value INTVAL(0/1) -> [r12+%d]", idx, aoff));
+                int scratch = bb_slot_alloc16(relnd);
+                s += arith_opnd_a(sg, ra);
+                s += x86_frame_store64(scratch, "rax");
+                s += arith_opnd_b(sg, rb);
+                s += x86("mov", FRQ(aoff), (long)6);
+                s += x86_frame_load64("rax", scratch);
+                s += x86("cmp", "rax", "rcx");
+                if (MEDIUM_TEXT) {
+                    std::string tl = emit_fmt(".Lbrel%d_f", bb_node_id(relnd));
+                    std::string el = emit_fmt(".Lbrel%d_e", bb_node_id(relnd));
+                    s += x86("ins2", relop_fail_mnem(relnd), tl.c_str());
+                    s += x86("mov", FRQ(aoff + 8), (long)1);
+                    s += x86("ins2", "jmp", el.c_str());
+                    s += x86("Lins1", emit_fmt("%s:", tl.c_str()), "");
+                    s += x86("mov", FRQ(aoff + 8), (long)0);
+                    s += x86("Lins1", emit_fmt("%s:", el.c_str()), "");
+                } else {
+                    s += x86_jcc_id(relop_fail_mnem(relnd), idx * 2);
+                    s += x86("mov", FRQ(aoff + 8), (long)1);
+                    s += x86_jmp_id(idx * 2 + 1);
+                    s += x86_deflabel_id(idx * 2);
+                    s += x86("mov", FRQ(aoff + 8), (long)0);
+                    s += x86_deflabel_id(idx * 2 + 1);
+                }
+                return s;
+            }
         }
         if (lf->t == IR_VAR && lf->sval) {
             std::string s;
