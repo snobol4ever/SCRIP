@@ -214,6 +214,16 @@ static int lower_icon_body(const tree_t *proc) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void pas_register_labels(IR_graph_t *g, const tree_t *n) {
+    if (!n) return;
+    if (n->t == TT_PROC_DECL || n->t == TT_SUB_DECL) return;
+    if (n->t == TT_LABEL_DEF && n->v.sval) {
+        IR_t *landing = IR_node_alloc(g, IR_SUCCEED);
+        if (landing) bb_label_registry_add(n->v.sval, landing);
+    }
+    for (int i = 0; i < n->n; i++) pas_register_labels(g, n->c[i]);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_pascal_body(const tree_t *proc) {
     if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
     const tree_t *body = proc->c[2];
@@ -221,6 +231,8 @@ static int lower_pascal_body(const tree_t *proc) {
     int is_function = (proc->n >= 4 && proc->c[3] && proc->c[3]->t == TT_VAR && proc->c[3]->v.sval);
     IR_graph_t *g = IR_alloc(256, IR_LANG_PAS);
     if (!g) return -1;
+    bb_label_registry_reset();
+    for (int i = 0; i < body->n; i++) pas_register_labels(g, body->c[i]);
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t *chain_end = PSUCC;
