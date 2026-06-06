@@ -253,6 +253,12 @@ void rt_nv_set(const char *name)
     STACKLESS_ABORT("rt_nv_set");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+const char *rt_nv_cstr(const char *name)
+{
+    const char *s = VARVAL_fn(NV_GET_fn(name ? name : ""));
+    return s ? s : "";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_str(const char *name, const char *str)
 {
     DESCR_t d;
