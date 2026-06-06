@@ -775,6 +775,9 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (cx.lang == IR_LANG_SNO && lhs_is_var && rhs_t) {
         if      (rhs_t->t == TT_QLIT || rhs_t->t == TT_CSET) ak = IR_ASSIGN_LIT_S;
         else if (rhs_t->t == TT_ILIT)                        ak = IR_ASSIGN_LIT_I;
+        else if (rhs_t->t == TT_VAR || rhs_t->t == TT_NAME)  ak = IR_ASSIGN_VAR;
+        else if (rhs_t->t == TT_SEQ || rhs_t->t == TT_SEQ_EXPR) ak = IR_ASSIGN_CONCAT;
+        else if (rhs_t->t == TT_FNC)                          ak = IR_ASSIGN_CALL;
     }
     IR_t * as = nalloc(cx, ak);
     if (!as) return NULL;

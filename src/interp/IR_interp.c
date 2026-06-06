@@ -310,13 +310,13 @@ static int bb_is_gen_kind_raw(IR_e k) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e) {
     if (!e) return 0;
-    if (e->t == IR_ASSIGN || e->t == IR_ASSIGN_LIT_S || e->t == IR_ASSIGN_LIT_I) return bb_is_gen_node(e->β);
+    if (e->t == IR_ASSIGN || e->t == IR_ASSIGN_LIT_S || e->t == IR_ASSIGN_LIT_I || e->t == IR_ASSIGN_VAR || e->t == IR_ASSIGN_CONCAT || e->t == IR_ASSIGN_CALL) return bb_is_gen_node(e->β);
     return bb_is_gen_kind_raw(e->t);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * gen_resume_target(IR_t * e) {
     if (!e) return NULL;
-    if (e->t == IR_ASSIGN || e->t == IR_ASSIGN_LIT_S || e->t == IR_ASSIGN_LIT_I) return gen_resume_target(e->β);
+    if (e->t == IR_ASSIGN || e->t == IR_ASSIGN_LIT_S || e->t == IR_ASSIGN_LIT_I || e->t == IR_ASSIGN_VAR || e->t == IR_ASSIGN_CONCAT || e->t == IR_ASSIGN_CALL) return gen_resume_target(e->β);
     if (bb_is_gen_kind_raw(e->t)) return e;
     if (e->t == IR_BINOP) {
         int n2 = 0;
@@ -1995,6 +1995,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I:
+    case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL:
     case IR_ASSIGN: {
         DESCR_t val = ag_ring_peek(g_current_cfg, 0);
         if (IS_FAIL_fn(val)) { bb->value = FAILDESCR; return bb->ω; }
