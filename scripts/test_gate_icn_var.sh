@@ -1,0 +1,274 @@
+#!/usr/bin/env bash
+# scripts/test_gate_icn_var.sh — ICN-VAR-FENCE gate (GOAL-ICON-BB.md, ICN-VAR ladder close-out).
+# Four sections per the FENCE spec:
+#   (a) IR_ASSIGN + IR_VAR absent from icn_kind_native_stub (they have real templates);
+#   (b) ladder probe sweep — VAR-1/VAR-2/VAR-AUGOP/VAR-3 probes, STRICT (m2==m3==m4==expected)
+#       except: augop_concat X34 (the ||:= concat BINOP is outside the VAR-2 numrel+arith lens —
+#       m2-correct + clean native EXCISE, documented in the AUGOP handoff) and neg_unassigned X34
+#       (an unassigned local var read must LOUDLY EXCISE, never the op_off=-1 runtime bomb);
+#   (c) corpus IR_ASSIGN bucket — every corpus rung*.icn whose --dump-bb carries IR_ASSIGN,
+#       all three modes vs .expected, with ratchet floors (m3/m4 = PASS or EXCISED, never FAIL);
+#   (d) standing structural gates: no_bb_bin_t . no_handencoded --strict . icn_no_stack .
+#       icn_one_reg_frame . prove_lower2 (HARD); no_vstack informational; medium-invisible
+#       scoped to the var-family templates (bb_assign_local, bb_var_frame).
+# Exit 0 iff (a) + (b) + (c floors) + (d) all hold.
+# Authors: LCherryholmes . Jeffrey Cooper M.D. . Claude Opus 4.8   DATE: 2026-06-06
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/.." && pwd)"
+SCRIP="${SCRIP:-$ROOT/scrip}"
+RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
+CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
+VAR_M2_MIN="${VAR_M2_MIN:-62}"
+VAR_M3_MIN="${VAR_M3_MIN:-12}"
+VAR_M4_MIN="${VAR_M4_MIN:-22}"
+BAD=0
+[ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP — run scripts/build_scrip.sh"; exit 0; }
+
+A2=""; A3=""; A4=""; SMX3=0; SMX4=0; RC3=0
+run3() {
+    local f="$1" TO="${2:-8}"
+    A2=$(timeout "$TO" "$SCRIP" --interp "$f" 2>/dev/null </dev/null)
+    local e3; e3=$(mktemp)
+    A3=$(timeout "$TO" "$SCRIP" --run "$f" 2>"$e3" </dev/null); RC3=$?
+    SMX3=0; grep -q '\[SMX\]' "$e3" && SMX3=1; rm -f "$e3"
+    A4=""; SMX4=0
+    local s4 b4 e4; s4=$(mktemp --suffix=.s); b4=$(mktemp); rm -f "$b4"; e4=$(mktemp)
+    timeout "$TO" "$SCRIP" --compile "$f" >"$s4" 2>"$e4" </dev/null || true
+    grep -q '\[SMX\]' "$e4" && SMX4=1
+    if [ "$SMX4" = 0 ] && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
+        if gcc -no-pie "$s4" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$b4" 2>/dev/null; then
+            A4=$(timeout "$TO" "$b4" 2>/dev/null </dev/null)
+        fi
+    fi
+    rm -f "$s4" "$b4" "$e4"
+}
+
+PP=0; PF=0
+probe() {
+    local name="$1" policy="$2" exp="$3"
+    local f; f=$(mktemp /tmp/icnvar_XXXXXX.icn); cat > "$f"
+    run3 "$f"; rm -f "$f"
+    local ok=1 note=""
+    case "$policy" in
+        STRICT) { [ "$A2" = "$exp" ] && [ "$A3" = "$exp" ] && [ "$A4" = "$exp" ] && [ "$SMX3" = 0 ] && [ "$SMX4" = 0 ]; } || ok=0 ;;
+        X34)    { [ "$A2" = "$exp" ] && [ "$SMX3" = 1 ] && [ "$SMX4" = 1 ] && [ "$RC3" = 0 ]; } || ok=0
+                note="(m3/m4 LOUD EXCISED by design)" ;;
+    esac
+    if [ "$ok" = 1 ]; then PP=$((PP+1)); printf "  OK   %-30s %s\n" "$name" "$note"
+    else PF=$((PF+1)); BAD=1; printf "  FAIL %-30s m2='%s' m3='%s'(smx=%s) m4='%s'(smx=%s) exp='%s' %s\n" "$name" "$A2" "$A3" "$SMX3" "$A4" "$SMX4" "$exp" "$note"; fi
+}
+
+echo "=== ICN-VAR-FENCE gate ==="
+echo "--- (a) IR_ASSIGN / IR_VAR absent from icn_kind_native_stub ---"
+stub_assign=$(awk '/static int icn_kind_native_stub/{f=1} f{print} f&&/^}/{exit}' "$ROOT/src/driver/scrip.c" | grep -c 'IR_ASSIGN\|IR_VAR\b' || true)
+if [ "$stub_assign" = 0 ]; then echo "  OK   stub-list IR_ASSIGN/IR_VAR count = 0"
+else echo "  FAIL stub-list IR_ASSIGN/IR_VAR count = $stub_assign (must be 0)"; BAD=1; fi
+grep -rq 'IR_ASSIGN' "$ROOT/src/contracts/" || { echo "  FAIL IR_ASSIGN missing from src/contracts/"; BAD=1; }
+grep -rq 'IR_VAR\b' "$ROOT/src/contracts/" || { echo "  FAIL IR_VAR missing from src/contracts/"; BAD=1; }
+echo "  OK   IR_ASSIGN and IR_VAR present in src/contracts/"
+
+echo "--- (b) ladder probe sweep (three modes per probe) ---"
+
+# VAR-1: local assign + read, basic shapes
+probe var1_assign_int STRICT "42" << 'EOF'
+procedure main()
+  x := 42;
+  write(x);
+end
+EOF
+
+probe var1_assign_str STRICT "hello" << 'EOF'
+procedure main()
+  s := "hello";
+  write(s);
+end
+EOF
+
+probe var1_var_to_var STRICT "42" << 'EOF'
+procedure main()
+  x := 42;
+  y := x;
+  write(y);
+end
+EOF
+
+probe var1_reassign STRICT "99" << 'EOF'
+procedure main()
+  x := 42;
+  x := 99;
+  write(x);
+end
+EOF
+
+# VAR-2: binop/relop with var operands
+probe var2_var_binop_arith STRICT "7" << 'EOF'
+procedure main()
+  x := 3;
+  write(x + 4);
+end
+EOF
+
+probe var2_var_accumulate STRICT "6" << 'EOF'
+procedure main()
+  x := 1;
+  x := x + 1;
+  x := x + 1;
+  x := x + 1;
+  x := x + 1;
+  x := x + 1;
+  write(x);
+end
+EOF
+
+probe var2_var_relop_pass STRICT "yes" << 'EOF'
+procedure main()
+  x := 10;
+  if x > 5 then write("yes");
+end
+EOF
+
+probe var2_var_relop_fail STRICT "" << 'EOF'
+procedure main()
+  x := 3;
+  if x > 5 then write("yes");
+end
+EOF
+
+probe var2_var_while STRICT $'0\n1\n2' << 'EOF'
+procedure main()
+  i := 0;
+  while i < 3 do {
+    write(i);
+    i := i + 1;
+  };
+end
+EOF
+
+probe var2_var_until STRICT "3" << 'EOF'
+procedure main()
+  i := 0;
+  until i >= 3 do i := i + 1;
+  write(i);
+end
+EOF
+
+# VAR-AUGOP: augmented assignment
+probe augop_plus STRICT "6" << 'EOF'
+procedure main()
+  x := 1;
+  x +:= 5;
+  write(x);
+end
+EOF
+
+probe augop_star STRICT "12" << 'EOF'
+procedure main()
+  x := 3;
+  x *:= 4;
+  write(x);
+end
+EOF
+
+probe augop_sub_mod STRICT "3" << 'EOF'
+procedure main()
+  x := 10;
+  x -:= 3;
+  x %:= 4;
+  write(x);
+end
+EOF
+
+probe augop_concat X34 "helloworld" << 'EOF'
+procedure main()
+  s := "hello";
+  s ||:= "world";
+  write(s);
+end
+EOF
+
+# VAR-3: var-subject scans
+probe var3_augop_scan STRICT "he" << 'EOF'
+procedure main()
+  s := "hello";
+  s ?:= tab(3);
+  write(s);
+end
+EOF
+
+probe var3_augop_scan_fail STRICT "hello" << 'EOF'
+procedure main()
+  s := "hello";
+  s ?:= tab(99);
+  write(s);
+end
+EOF
+
+probe var3_var_subject_scan STRICT "he" << 'EOF'
+procedure main()
+  s := "hello";
+  s ? write(tab(3));
+end
+EOF
+
+# NEGATIVE: unassigned var must EXCISE (not crash)
+probe neg_unassigned X34 "" << 'EOF'
+procedure main()
+  write(undef_var);
+end
+EOF
+
+# static in a single call behaves as local (TT_STATIC_DECL lowers as no-op IR_SUCCEED; the var
+# routes through the same bb_varslot path). Cross-call persistence = its own future tier.
+probe static_single_call STRICT "hello" << 'EOF'
+procedure main()
+  static s;
+  s := "hello";
+  write(s);
+end
+EOF
+
+echo "  probes: PASS=$PP FAIL=$PF"
+
+echo "--- (c) corpus IR_ASSIGN bucket (ratchet floors m2>=$VAR_M2_MIN m3>=$VAR_M3_MIN m4>=$VAR_M4_MIN) ---"
+C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
+while IFS= read -r f; do
+    dump=$(timeout 30 "$SCRIP" --dump-bb "$f" 2>/dev/null </dev/null) || true
+    case "$dump" in *IR_ASSIGN*) ;; *) continue ;; esac
+    CN=$((CN+1))
+    exp=$(cat "${f%.icn}.expected" 2>/dev/null || true)
+    run3 "$f" 30
+    if [ "$A2" = "$exp" ]; then r2=PASS; C2P=$((C2P+1)); else r2=FAIL; C2F=$((C2F+1)); fi
+    if [ "$SMX3" = 1 ]; then r3=EXCISED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
+    if [ "$SMX4" = 1 ]; then r4=EXCISED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
+    printf "  %-46s m2=%-4s m3=%-7s m4=%s\n" "$(basename "$f" .icn)" "$r2" "$r3" "$r4"
+done < <(find "$CORPUS" -maxdepth 1 -name 'rung*.icn' | sort)
+echo "  bucket: N=$CN | m2 PASS=$C2P FAIL=$C2F | m3 PASS=$C3P FAIL=$C3F EXCISED=$C3E | m4 PASS=$C4P FAIL=$C4F EXCISED=$C4E"
+[ "$C2P" -ge "$VAR_M2_MIN" ] || { echo "  FLOOR FAIL m2 $C2P < $VAR_M2_MIN"; BAD=1; }
+[ "$C3P" -ge "$VAR_M3_MIN" ] || { echo "  FLOOR FAIL m3 $C3P < $VAR_M3_MIN"; BAD=1; }
+[ "$C4P" -ge "$VAR_M4_MIN" ] || { echo "  FLOOR FAIL m4 $C4P < $VAR_M4_MIN"; BAD=1; }
+[ "$C3F" -eq 0 ] || { echo "  HARD FAIL m3 has $C3F unexpected FAILs (must be 0 — only PASS or EXCISED)"; BAD=1; }
+[ "$C4F" -eq 0 ] || { echo "  HARD FAIL m4 has $C4F unexpected FAILs (must be 0 — only PASS or EXCISED)"; BAD=1; }
+
+echo "--- (d) standing structural gates ---"
+gate_hard() {
+    local label="$1"; shift
+    if "$@" >/dev/null 2>&1; then echo "  OK   $label"
+    else echo "  FAIL $label"; BAD=1; fi
+}
+gate_hard "no_bb_bin_t"            bash "$HERE/test_gate_no_bb_bin_t.sh"
+gate_hard "no_handencoded --strict" bash "$HERE/test_gate_no_handencoded_bytes.sh" --strict
+gate_hard "icn_no_stack"           bash "$HERE/test_gate_icn_no_stack.sh"
+gate_hard "icn_one_reg_frame"      bash "$HERE/test_gate_icn_one_reg_frame.sh"
+gate_hard "prove_lower2"           bash "$HERE/prove_lower2.sh"
+bash "$HERE/test_gate_no_vstack.sh" 2>/dev/null | tail -1 | sed 's/^/  INFO /'
+mi_line=$(bash "$HERE/test_gate_template_medium_invisible.sh" 2>/dev/null | grep '^REMAINING:' || true)
+if echo "$mi_line" | grep -qE 'bb_assign_local|bb_var_frame|bb_var_frame_ref|bb_assign_frame'; then
+    echo "  FAIL medium-invisible: a var-family template carries raw-byte/medium-branch sites"; BAD=1
+else
+    echo "  OK   medium-invisible (var-family templates clean; global --strict RED = documented Prolog-lane bb_builtin_* WIP)"
+fi
+
+echo "==="
+if [ "$BAD" = 0 ]; then echo "ICN-VAR-FENCE GATE: PASS"; exit 0
+else echo "ICN-VAR-FENCE GATE: FAIL"; exit 1; fi
