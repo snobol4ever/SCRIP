@@ -8,6 +8,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int rt_unify_terms(void *l, void *r);
 extern "C" int rt_pl_unify_cell_const(void *cell_term, int kind, long ival, const char *sval);
+extern "C" int rt_pl_unify_struct_gz(void *frame, const void *lnd, const void *rnd);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_cell_unify_str() {
     if (PLATFORM_X86) {
@@ -17,6 +18,15 @@ static std::string bb_cell_unify_str() {
         const IR_t *ln = (const IR_t *)_.bb_ln, *rn = (const IR_t *)_.bb_rn;
         const char *ls = ln ? ln->sval : (const char *)0, *rs = rn ? rn->sval : (const char *)0;
         std::string tail = x86("test", "eax", "eax") + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("def", PORT_BETA) + x86("jmp", PORT_OMEGA);
+        if (lk == IR_STRUCT || rk == IR_STRUCT)
+            return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY struct-unify  [PL-GZ-9a: rdi=r12 GZ frame, rsi/rdx=sealed IR_t* trees [rip+disp]; rt_pl_unify_struct_gz builds Term*s from frame cells then unifies]"))
+                 + x86("mov", "rdi", "r12")
+                 + x86_ro_load_q("rsi", 0)
+                 + x86_ro_load_q("rdx", 1)
+                 + x86("call", "rt_pl_unify_struct_gz", (uint64_t)(uintptr_t)(void *)rt_pl_unify_struct_gz)
+                 + tail
+                 + x86_ro_seal_q(0, (uint64_t)(uintptr_t)(const void *)ln)
+                 + x86_ro_seal_q(1, (uint64_t)(uintptr_t)(const void *)rn);
         if (lk == IR_LOGICVAR && rk == IR_LOGICVAR && li == ri)
             return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY cell=cell self — vacuous success  [PL-GZ-3 frame-cell unify, x86() self-encoding]"))
                  + x86("jmp", PORT_GAMMA)

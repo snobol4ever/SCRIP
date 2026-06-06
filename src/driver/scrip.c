@@ -899,6 +899,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int g_gz_no_struct_ptr = 0;
 static IR_t * pl_gz_admit(IR_graph_t *g) {
     if (!g || !g->all || g->nslots > 64) return NULL;
     IR_t *gconjs[2] = {NULL, NULL}; int ngconj = 0;
@@ -931,12 +932,27 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         }
         if (nd->t == IR_GOAL) { IR_t **uu = NULL; int aa = 0; if (!pl_gz_fact_inline(nd, &uu, &aa) && !pl_gz_choice_inline(nd) && !pl_gz_rule_inline_check(nd)) return NULL; }
         if (nd->t == IR_CHOICE || nd->t == IR_CUT ||
-            nd->t == IR_CATCH ||
-            nd->t == IR_STRUCT) return NULL;
+            nd->t == IR_CATCH) return NULL;
+        if (nd->t == IR_STRUCT) {
+            if (g_gz_no_struct_ptr) return NULL;
+            int parent_unify = 0;
+            for (int j = 0; j < g->n; j++) {
+                IR_t *p = g->all[j];
+                if (p && p->t == IR_UNIFY && (p->α == nd || p->β == nd)) { parent_unify = 1; break; }
+            }
+            if (!parent_unify) return NULL;
+        }
         if (nd->t == IR_LOGICVAR && ((int)nd->ival < 0 || (int)nd->ival >= 64)) return NULL;
         if (nd->t == IR_UNIFY) {
             IR_t *l = nd->α, *r = nd->β;
             if (!l || !r) return NULL;
+            int ls = (l->t == IR_STRUCT), rs = (r->t == IR_STRUCT);
+            if (ls || rs) {
+                int lok = ls || l->t == IR_LOGICVAR || l->t == IR_ATOM || l->t == IR_LIT_I;
+                int rok = rs || r->t == IR_LOGICVAR || r->t == IR_ATOM || r->t == IR_LIT_I;
+                if (!lok || !rok) return NULL;
+                continue;
+            }
             int lv = (l->t == IR_LOGICVAR), rv = (r->t == IR_LOGICVAR);
             int lc = (l->t == IR_ATOM || l->t == IR_LIT_I), rc = (r->t == IR_ATOM || r->t == IR_LIT_I);
             if (!((lv && (rv || rc)) || (rv && lc))) return NULL;
@@ -1653,7 +1669,9 @@ int main(int argc, char **argv)
                 return 1;
             }
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
+            g_gz_no_struct_ptr = 1;
             IR_t *gz_root = pl_gz_admit(pl_main);
+            g_gz_no_struct_ptr = 0;
             if (gz_root) {
                 extern int pl_gz_codegen(IR_t * nd, FILE * out, const char * prefix);
                 printf("  .intel_syntax noprefix\n");
