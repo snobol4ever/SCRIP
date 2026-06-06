@@ -1,4 +1,4 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string anlbl(const char *s) { char b[64]; b[0] = 0; if (s && *s) strtab_label(b, sizeof b, s); return std::string(b); }
 static std::string agg_build_term(IR_t *a) {
@@ -97,7 +97,7 @@ static std::string agg_txt_nbget(const std::string &hdr, IR_t *a, IR_t *b) { int
          + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_builtin_aggregate_nb_str(IR_t *pBB, const char *fn, const std::string &hdr) {
+std::string bb_aggregate_nb_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     if (MEDIUM_BINARY) {
         return IF(!strcmp(fn, "aggregate_all") && pBB->α && pBB->α->γ && pBB->α->γ->γ && _.op_ival == 3, agg_bin_all(pBB->α, pBB->α->γ, pBB->α->γ->γ))
              + IF(!strcmp(fn, "nb_setval") && pBB->α && pBB->α->γ && _.op_ival == 2, agg_bin_nbset(pBB->α, pBB->α->γ))

@@ -1,6 +1,6 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_builtin_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
+std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if (strcmp(fn, "is") == 0 && pBB->α && pBB->α->t == IR_LOGICVAR && pBB->β

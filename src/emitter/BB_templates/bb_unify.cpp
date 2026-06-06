@@ -5,7 +5,7 @@ extern "C" {
 #include "emit.h"
 #include "emit_bb.h"
 }
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 extern "C" int   rt_unify_terms(void *l, void *r);
 extern "C" int   rt_unify_const(int slot, int kind, long ival, const char *sval, double dval);
 extern "C" int   rt_unify_var_var(int lslot, int rslot);

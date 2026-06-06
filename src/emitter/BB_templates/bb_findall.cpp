@@ -1,4 +1,4 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 extern "C" {
 #include "IR_interp_state.h"
 }
@@ -14,7 +14,7 @@ static std::string bff_goal(const IR_t *gn) {
          + x86("ins2", "call", "rt_node_to_term@PLT");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_builtin_findall_str(IR_t *pBB, const char *fn, const std::string &hdr) {
+std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
         if (strcmp(fn, "findall") == 0)

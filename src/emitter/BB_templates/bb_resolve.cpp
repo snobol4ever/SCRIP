@@ -1,4 +1,4 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 extern "C" {
 #include "IR_interp_state.h"
 }
@@ -117,28 +117,28 @@ std::string emit_term_from_node_bin(const IR_t *nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static const char * bfn() { return _.op_sval ? _.op_sval : ""; }
-static std::string bhdr() { return x86("label", _.lbl_α) + x86("ins1", std::string("# BOX RESOLVE_BUILTIN(") + bfn() + "/" + std::to_string((int)_.op_ival) + ")"); }
+static std::string bhdr() { return x86("label", _.lbl_α) + x86("ins1", std::string("# BOX RESOLVE(") + bfn() + "/" + std::to_string((int)_.op_ival) + ")"); }
 static std::string bunknown(const std::string &hdr) {
     if (MEDIUM_BINARY) return bytes(1, "\xE9") + u32le(0) + bytes(1, "\xE9") + u32le(0);
-    return IF(MEDIUM_TEXT, hdr + x86("ins1", std::string("# RESOLVE_BUILTIN: unknown '") + bfn() + "' — stub") + x86("ins2", "jmp", _.lbl_γ) + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_γ));
+    return IF(MEDIUM_TEXT, hdr + x86("ins1", std::string("# RESOLVE: unknown '") + bfn() + "' — stub") + x86("ins2", "jmp", _.lbl_γ) + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_γ));
 }
 static std::string bdisp(IR_t *pBB) { const char *fn = bfn(); std::string hdr = bhdr(); std::string r;
-    if (!(r = bb_builtin_io_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_is_cmp_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_type_test_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_term_inspect_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_aggregate_nb_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_atom_string_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_term_io_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_findall_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_succ_plus_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_list_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_builtin_retract_throw_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_io_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_is_cmp_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_type_test_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_term_inspect_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_aggregate_nb_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_atom_string_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_term_io_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_findall_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_succ_plus_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_list_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_retract_throw_str(pBB, fn, hdr)).empty()) return r;
     return bunknown(hdr);
 }
-static std::string bb_builtin_str(IR_t * pBB) {
-    return IF(PLATFORM_X86 && MEDIUM_MACRO_DEF, x86("comment", "no macro form — RESOLVE_BUILTIN"))
+static std::string bb_resolve_str(IR_t * pBB) {
+    return IF(PLATFORM_X86 && MEDIUM_MACRO_DEF, x86("comment", "no macro form — RESOLVE"))
          + IF(PLATFORM_X86 && !MEDIUM_MACRO_DEF, bdisp(pBB));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_builtin(IR_t * pBB) { bb_emit_x86(bb_builtin_str(pBB)); }
+extern "C" void bb_resolve(IR_t * pBB) { bb_emit_x86(bb_resolve_str(pBB)); }

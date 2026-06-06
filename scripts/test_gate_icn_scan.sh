@@ -15,7 +15,7 @@
 #       modes vs .expected, with ratchet floors (EXCISED->PASS deltas land here as future boxes light up);
 #   (d) standing structural gates: no_bb_bin_t . no_handencoded --strict . icn_no_stack .
 #       icn_one_reg_frame . prove_lower2 (HARD); no_vstack informational; medium-invisible scoped to the
-#       scan-family templates (the global --strict RED is the documented Prolog-lane bb_builtin_* WIP).
+#       scan-family templates (the global --strict RED is the documented Prolog-lane bb_* WIP).
 # Exit 0 iff (a) + (b) + (c floors) + (d) all hold.
 # Authors: LCherryholmes . Jeffrey Cooper M.D. . Claude Opus 4.8   DATE: 2026-06-04
 set -uo pipefail
@@ -260,7 +260,7 @@ mi_line=$(bash "$HERE/test_gate_template_medium_invisible.sh" 2>/dev/null | grep
 if echo "$mi_line" | grep -qE 'bb_scan_|bb_gen_scan|bb_keyword'; then
     echo "  FAIL medium-invisible: a scan-family template carries raw-byte/medium-branch sites"; BAD=1
 else
-    echo "  OK   medium-invisible (scan-family templates clean; global --strict RED = documented Prolog-lane bb_builtin_* WIP)"
+    echo "  OK   medium-invisible (scan-family templates clean; global --strict RED = documented Prolog-lane bb_* WIP)"
 fi
 
 echo "==="

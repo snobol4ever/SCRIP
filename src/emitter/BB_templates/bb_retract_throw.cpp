@@ -1,6 +1,6 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_builtin_retract_throw_str(IR_t *pBB, const char *fn, const std::string &hdr) {
+std::string bb_retract_throw_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if ((strcmp(fn, "retract") == 0 || strcmp(fn, "retractall") == 0) && pBB->α) {

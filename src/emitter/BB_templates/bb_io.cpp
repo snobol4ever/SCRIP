@@ -1,4 +1,4 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bio_succ(const char *lγ, const char *lβ) {
     return x86("ins2", "jmp", lγ) + x86("Lins2", std::string(lβ) + ":", "jmp", lγ);
@@ -31,7 +31,7 @@ static std::string bio_bin_write_arg(IR_t *arg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bio_write_body(const char *bb_ls, long op_ival, IR_t *α) {
     if (op_ival < 1 || !α)
-        return x86("comment", "RESOLVE_BUILTIN write: no arg");
+        return x86("comment", "RESOLVE write: no arg");
     if (α->t == IR_ATOM)
         return (bb_ls ? x86("ins2", "lea rcx,", std::string("[rip + ") + bb_ls + "]") + x86("ins2", "mov", "rdi, rcx")
                       : x86("ins2", "xor", "edi, edi"))
@@ -51,7 +51,7 @@ static std::string bio_write_body(const char *bb_ls, long op_ival, IR_t *α) {
          + x86("ins2", "add", "rsp, 8");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_builtin_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
+std::string bb_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
         if (strcmp(fn, "nl") == 0)
