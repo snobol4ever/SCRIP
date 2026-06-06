@@ -737,6 +737,18 @@ static int pl_gz_count_synth(IR_t **buf, int n, int *nsynth) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int pl_gz_arith_const(const IR_t *nd) {
+    if (!nd) return 0;
+    if (nd->t == IR_LIT_I) return 1;
+    if (nd->t != IR_ARITH || !nd->sval) return 0;
+    const char *op = nd->sval;
+    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"/")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0||strcmp(op,"abs")==0) {
+        if (nd->α && !pl_gz_arith_const(nd->α)) return 0;
+        if (nd->β && !pl_gz_arith_const(nd->β)) return 0;
+        return 1;
+    }
+    return 0;
+}
 static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees);
 static int pl_gz_build_root(IR_t *root, IR_t **rhead, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees) {
     IR_t *h = NULL, *t = NULL;
@@ -859,6 +871,21 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         else if (gg->α->t == IR_LIT_I)          { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { nn->sval = NULL; nn->ival = gg->α->ival; } }
         else if (gg->α->t == IR_LOGICVAR)       { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { nn->sval = NULL; nn->ival = 0; nn->α = gg->α; } }
         else return 0;
+    } else if (gg->t == IR_BUILTIN && gg->sval && strcmp(gg->sval, "is") == 0 && gg->ival == 2 && gg->α && gg->β) {
+        IR_t *lhs = gg->α, *rhs = gg->β;
+        if (lhs->t != IR_LOGICVAR) return 0;
+        if (rhs->t != IR_ARITH && rhs->t != IR_LIT_I) return 0;
+        if (!pl_gz_arith_const(rhs)) return 0;
+        nn = pl_gz_det_node(IR_DET_IS);
+        if (nn) { nn->α = lhs; nn->β = rhs; }
+    } else if (gg->t == IR_BUILTIN && gg->sval && gg->ival == 2 && gg->α && gg->β) {
+        const char *fn = gg->sval;
+        int is_arith_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
+        if (!is_arith_cmp) return 0;
+        IR_t *la = gg->α, *ra = gg->β;
+        if (la->t != IR_LIT_I || ra->t != IR_LIT_I) return 0;
+        nn = pl_gz_det_node(IR_DET_CMP);
+        if (nn) { nn->sval = fn; nn->α = la; nn->β = ra; }
     } else {
         return 0;
     }
@@ -900,7 +927,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         }
         if (nd->t == IR_GOAL) { IR_t **uu = NULL; int aa = 0; if (!pl_gz_fact_inline(nd, &uu, &aa) && !pl_gz_choice_inline(nd) && !pl_gz_rule_inline_check(nd)) return NULL; }
         if (nd->t == IR_CHOICE || nd->t == IR_CUT ||
-            nd->t == IR_CATCH || nd->t == IR_ARITH ||
+            nd->t == IR_CATCH ||
             nd->t == IR_STRUCT) return NULL;
         if (nd->t == IR_LOGICVAR && ((int)nd->ival < 0 || (int)nd->ival >= 64)) return NULL;
         if (nd->t == IR_UNIFY) {

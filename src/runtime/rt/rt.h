@@ -196,6 +196,11 @@ int rt_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1
 int rt_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr);
 int rt_term_cmp_terms(const char *op, void *t0, void *t1);
+int rt_pl_is_cell_int(void *lhs_cell, long val);
+int rt_pl_is_cell(void *lhs_cell, void *rhs_node);
+int rt_pl_arith_cmp_cells(const char *op, void *lhs_cell, void *lhs_nd, void *rhs_cell, void *rhs_nd);
+int rt_arith_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
+int rt_term_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
 long size_value(DESCR_t v, int *failed);
 #ifdef __cplusplus
 }
