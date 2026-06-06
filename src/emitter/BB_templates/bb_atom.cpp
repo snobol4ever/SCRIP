@@ -8,14 +8,12 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_atom_str(IR_t * pBB) {
-    if (PLATFORM_X86) {
-        const char *atom = pBB && _.op_sval ? _.op_sval : "";
-        return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", emit_fmt("BOX RESOLVE_ATOM('%s') [stackless pass-through]", atom)))
-             + x86("jmp", PORT_GAMMA)
-             + x86("def", PORT_BETA)
-             + x86("jmp", PORT_OMEGA);
-    }
-    return std::string();
+    return IF(PLATFORM_X86,
+           IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", std::string("BOX RESOLVE_ATOM('") + (pBB && _.op_sval ? _.op_sval : "") + "') [stackless pass-through]"))
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + x86("jmp", "ω"));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_atom(IR_t * pBB) { bb_emit_x86(bb_atom_str(pBB)); }
