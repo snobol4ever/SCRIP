@@ -1,6 +1,6 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_builtin_list_str(IR_t *pBB, const char *fn, const std::string &hdr) {
+std::string bb_list_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0)

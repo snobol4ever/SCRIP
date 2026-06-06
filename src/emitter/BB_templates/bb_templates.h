@@ -29,7 +29,7 @@ void bb_ite     (void);
 void bb_catch   (void);
 void bb_cut     (void);
 void bb_goal     (IR_t * pBB);
-void bb_builtin  (IR_t * pBB);
+void bb_resolve  (IR_t * pBB);
 void bb_choice   (IR_t * pBB);
 void bb_atom     (IR_t * pBB);
 void bb_logicvar (IR_t * pBB);

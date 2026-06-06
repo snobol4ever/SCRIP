@@ -35,7 +35,7 @@ pl_boxes="src/emitter/BB_templates/bb_atom.cpp \
           src/emitter/BB_templates/bb_logicvar.cpp \
           src/emitter/BB_templates/bb_unify.cpp \
           src/emitter/BB_templates/bb_arith.cpp \
-          src/emitter/BB_templates/bb_builtin.cpp \
+          src/emitter/BB_templates/bb_resolve.cpp \
           src/emitter/BB_templates/bb_goal.cpp \
           src/emitter/BB_templates/bb_choice.cpp \
           src/emitter/BB_templates/bb_disj.cpp \

@@ -1,6 +1,6 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_builtin_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) {
+std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if (_.op_ival == 1 && pBB->α &&

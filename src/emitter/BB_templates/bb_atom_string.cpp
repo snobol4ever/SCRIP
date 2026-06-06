@@ -1,6 +1,6 @@
-#include "bb_builtin_common.h"
+#include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr) {
+std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if (strcmp(fn, "copy_term") == 0 && pBB->α && pBB->α->γ

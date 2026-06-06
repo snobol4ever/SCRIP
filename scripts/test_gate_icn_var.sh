@@ -266,7 +266,7 @@ mi_line=$(bash "$HERE/test_gate_template_medium_invisible.sh" 2>/dev/null | grep
 if echo "$mi_line" | grep -qE 'bb_assign_local|bb_var_frame|bb_var_frame_ref|bb_assign_frame'; then
     echo "  FAIL medium-invisible: a var-family template carries raw-byte/medium-branch sites"; BAD=1
 else
-    echo "  OK   medium-invisible (var-family templates clean; global --strict RED = documented Prolog-lane bb_builtin_* WIP)"
+    echo "  OK   medium-invisible (var-family templates clean; global --strict RED = documented Prolog-lane bb_* WIP)"
 fi
 
 echo "==="
