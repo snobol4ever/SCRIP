@@ -35,31 +35,24 @@ static std::string bb_alt_str(IR_t * pBB) {
     if (!arms || n <= 0 || n > 5) return std::string();
     for (int i = 0; i < n; i++)
         if (!arms[i] || (arms[i]->t != (IR_e)IR_LIT_I && arms[i]->t != (IR_e)IR_LIT_S)) return std::string();
-    int off = _.op_off, ctr = _.op_off + 16;
-    int Lbase = n;
-    std::string body =
-          IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", emit_fmt("BOX IR_ALT [x86() stackless %d-arm generator; result [r12+%d], counter [r12+%d]]", n, off, ctr)))
-        + x86_frame_mov_imm64(ctr, 0)
-        + x86("def", L(Lbase));
-    for (int i = 0; i < n; i++) {
-        body += x86("mov", "rax", FRQ(ctr))
-              + x86("cmp", "rax", (long)i)
-              + x86("je",  L(Lbase + 1 + i));
-    }
-    body += x86("jmp", PORT_OMEGA);
-    for (int i = 0; i < n; i++) {
-        body += x86("def", L(Lbase + 1 + i))
-              + bb_alt_emit_arm(arms[i], i, off)
-              + x86("mov", "rax", FRQ(ctr))
-              + x86("add", "rax", 1L)
-              + x86("mov", FRQ(ctr), "rax")
-              + x86("jmp", PORT_GAMMA);
-    }
-    body += x86("def", PORT_BETA)
-          + x86("jmp", L(Lbase));
-    for (int i = 0; i < n; i++) body += bb_alt_seal_arm(arms[i], i);
-    return body;
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+              + x86("comment", "BOX IR_ALT [x86() stackless " + std::to_string(n) + "-arm generator; result [r12+"
+              + std::to_string(_.op_off) + "], counter [r12+" + std::to_string(_.op_off + 16) + "]]"))
+         + x86_frame_mov_imm64(_.op_off + 16, 0)
+         + x86("def", L(n))
+         + FOR(0, n, [&](int i) { return x86("mov", "rax", FRQ(_.op_off + 16))
+                                       + x86("cmp", "rax", (long)i)
+                                       + x86("je",  L(n + 1 + i)); })
+         + x86("jmp", "ω")
+         + FOR(0, n, [&](int i) { return x86("def", L(n + 1 + i))
+                                       + bb_alt_emit_arm(arms[i], i, _.op_off)
+                                       + x86("mov", "rax", FRQ(_.op_off + 16))
+                                       + x86("add", "rax", 1L)
+                                       + x86("mov", FRQ(_.op_off + 16), "rax")
+                                       + x86("jmp", "γ"); })
+         + x86("def", "β")
+         + x86("jmp", L(n))
+         + FOR(0, n, [&](int i) { return bb_alt_seal_arm(arms[i], i); });
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_alt(IR_t * pBB) {
