@@ -89,6 +89,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CELL_CUT] = "IR_CELL_CUT",
     [IR_ITE_COMMIT] = "IR_ITE_COMMIT",
     [IR_ITE_GATE] = "IR_ITE_GATE",
+    [IR_CELL_ITE] = "IR_CELL_ITE",
     [IR_TO] = "IR_TO",
     [IR_UPTO] = "IR_UPTO",
     [IR_ITERATE] = "IR_ITERATE",

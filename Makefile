@@ -175,6 +175,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_cell_call.cpp \
     $(SRC)/emitter/BB_templates/bb_callee_frame.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_cut.cpp \
+    $(SRC)/emitter/BB_templates/bb_cell_ite.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_tab.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_atp.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_len.cpp \
@@ -399,6 +400,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_call.cpp        -o $(OBJ)/bb_cell_call.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_callee_frame.cpp     -o $(OBJ)/bb_callee_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_cut.cpp         -o $(OBJ)/bb_cell_cut.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_ite.cpp         -o $(OBJ)/bb_cell_ite.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_tab.cpp          -o $(OBJ)/bb_pat_tab.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_atp.cpp          -o $(OBJ)/bb_pat_atp.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_len.cpp          -o $(OBJ)/bb_pat_len.o

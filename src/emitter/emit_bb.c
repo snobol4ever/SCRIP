@@ -431,17 +431,75 @@ static void gz_callee_labels(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *
     ce->lblB = (void *)emit_label_alloc("gzp%d_β", cid);
     if (*ncallees < 8) callees[(*ncallees)++] = ce;
 }
+static void gz_collect_callees(IR_t *head, pl_gz_callee_t **callees, int *ncallees) {
+    for (IR_t *g = head; g; g = g->γ) {
+        if (g->t == IR_CELL_CALL) {
+            pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)g->ival;
+            if (cs) gz_callee_labels(cs->callee, callees, ncallees);
+        }
+        if (g->t == IR_CELL_ITE) {
+            pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)(intptr_t)g->ival;
+            if (is) { gz_collect_callees(is->cond_head, callees, ncallees); gz_collect_callees(is->then_head, callees, ncallees); gz_collect_callees(is->else_head, callees, ncallees); }
+        }
+    }
+}
+static void gz_emit_cell(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_t **callees, int *ncallees);
+static bb_label_t * gz_emit_chain(IR_t *head, bb_label_t *chain_γ, bb_label_t *chain_ω, bb_label_t *cut_ω, bb_label_t *entry, pl_gz_callee_t **callees, int *ncallees) {
+    int n = 0;
+    for (IR_t *g = head; g; g = g->γ) n++;
+    if (n == 0) return NULL;
+    int cid = g_flat_node_id++;
+    bb_label_t **cl = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **cb = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    for (int i = 0; i < n; i++) { cl[i] = emit_label_alloc("gzi%d_g%d_α", cid, i); cb[i] = emit_label_alloc("gzi%d_g%d_β", cid, i); }
+    if (entry) emit_label_define_bb(entry);
+    int i = 0;
+    for (IR_t *g = head; g; g = g->γ) {
+        emit_label_define_bb(cl[i]);
+        bb_label_t *next_γ = (i + 1 < n) ? cl[i + 1] : chain_γ;
+        bb_label_t *gw = (g->t == IR_CELL_CUT && cut_ω) ? cut_ω : (i == 0 ? chain_ω : cb[i - 1]);
+        gz_emit_cell(g, next_γ, gw, cb[i], cut_ω, callees, ncallees);
+        i++;
+    }
+    return cb[n - 1];
+}
+static void gz_emit_ite(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_t **callees, int *ncallees) {
+    pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)(intptr_t)g->ival;
+    int cid = g_flat_node_id++;
+    bb_label_t *Lg1 = emit_label_alloc("gzi%d_c1", cid);
+    bb_label_t *Lg2 = emit_label_alloc("gzi%d_c2", cid);
+    bb_label_t *E2a = is && is->then_head ? emit_label_alloc("gzi%d_t", cid) : NULL;
+    bb_label_t *E3a = is && is->else_head ? emit_label_alloc("gzi%d_e", cid) : NULL;
+    g_emit.op_sa = 0; g_emit.op_sb = 0; g_emit.op_sval = NULL; g_emit.op_ival = 0; g_emit.op_off = 0;
+    FILL(g, Lg1, Lg2, gβ);
+    if (is) (void)gz_emit_chain(is->cond_head, Lg1, Lg2, cut_ω, NULL, callees, ncallees);
+    emit_label_define_bb(Lg1);
+    g_emit.op_sa = 1;
+    { bb_label_t *d = E2a ? E2a : next_γ; g_emit.lbl_δ = d->name; g_emit.lbl_δ_p = d; }
+    FILL(g, next_γ, gw, gβ);
+    emit_label_define_bb(Lg2);
+    g_emit.op_sa = 2;
+    { bb_label_t *d = E3a ? E3a : next_γ; g_emit.lbl_δ = d->name; g_emit.lbl_δ_p = d; }
+    FILL(g, next_γ, gw, gβ);
+    bb_label_t *tβ = is ? gz_emit_chain(is->then_head, next_γ, gw, cut_ω, E2a, callees, ncallees) : NULL;
+    bb_label_t *eβ = is ? gz_emit_chain(is->else_head, next_γ, gw, cut_ω, E3a, callees, ncallees) : NULL;
+    g_emit.op_sa = 3;
+    { bb_label_t *d = tβ ? tβ : gw; g_emit.lbl_δ = d->name; g_emit.lbl_δ_p = d; }
+    { bb_label_t *e = eβ ? eβ : gw; g_emit.lbl_ε = e->name; g_emit.lbl_ε_p = e; }
+    FILL(g, next_γ, gw, gβ);
+    g_emit.op_sa = 0;
+}
+static void gz_emit_cell(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_t **callees, int *ncallees) {
+    if (g->t == IR_CELL_ITE) { gz_emit_ite(g, next_γ, gw, gβ, cut_ω, callees, ncallees); return; }
+    gz_fill_goal(g, next_γ, gw, gβ);
+}
 static IR_t * gz_clause_head_of(pl_gz_callee_t *ce, int c) {
     return ce->nclauses > 1 ? ce->clause_head[c] : ce->body_head;
 }
 static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees) {
     int NC = ce->nclauses > 0 ? ce->nclauses : 1;
     for (int c = 0; c < NC; c++)
-        for (IR_t *gx = gz_clause_head_of(ce, c); gx; gx = gx->γ)
-            if (gx->t == IR_CELL_CALL) {
-                pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)gx->ival;
-                if (cs) gz_callee_labels(cs->callee, callees, ncallees);
-            }
+        gz_collect_callees(gz_clause_head_of(ce, c), callees, ncallees);
     int cid = g_flat_node_id++;
     bb_label_t *cl_γ = emit_label_alloc("gzp%d_γ", cid);
     bb_label_t *cl_ω = emit_label_alloc("gzp%d_ω", cid);
@@ -468,7 +526,7 @@ static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *nc
             emit_label_define_bb(pgl[j]);
             bb_label_t *next_γ = (jj + 1 < nb[c]) ? pgl[j + 1] : cl_γ;
             bb_label_t *gw = (g->t == IR_CELL_CUT) ? cl_ω : (jj == 0 ? failtgt : pgb[j - 1]);
-            gz_fill_goal(g, next_γ, gw, pgb[j]);
+            gz_emit_cell(g, next_γ, gw, pgb[j], cl_ω, callees, ncallees);
             j++; jj++;
         }
         redo[c] = (nb[c] > 0) ? pgb[cbase[c] + nb[c] - 1] : failtgt;
@@ -518,19 +576,13 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     int i = 0;
     for (IR_t *g = pBB->α; g; g = g->γ) {
         gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); gb[i] = emit_label_alloc("gzq%d_g%d_β", id, i); i++;
-        if (g->t == IR_CELL_CALL) {
-            pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)g->ival;
-            if (cs) gz_callee_labels(cs->callee, callees, &ncallees);
-        }
     }
     i = 0;
     for (IR_t *g = twoseg ? pBB->β : NULL; g; g = g->γ) {
         hl[i] = emit_label_alloc("gzq%d_b%d_α", id, i); hb[i] = emit_label_alloc("gzq%d_b%d_β", id, i); i++;
-        if (g->t == IR_CELL_CALL) {
-            pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)g->ival;
-            if (cs) gz_callee_labels(cs->callee, callees, &ncallees);
-        }
     }
+    gz_collect_callees(pBB->α, callees, &ncallees);
+    if (twoseg) gz_collect_callees(pBB->β, callees, &ncallees);
     g_emit.op_sa = 0;
     g_emit.op_sb = 0;
     g_emit.op_ival = pBB->ival;
@@ -539,7 +591,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     for (IR_t *g = pBB->α; g; g = g->γ) {
         emit_label_define_bb(gl[i]);
         bb_label_t *next_γ = (i + 1 < n) ? gl[i + 1] : ((twoseg && nB > 0) ? hl[0] : land_γ);
-        gz_fill_goal(g, next_γ, (i == 0 ? soft_ω : gb[i - 1]), gb[i]);
+        gz_emit_cell(g, next_γ, (i == 0 ? soft_ω : gb[i - 1]), gb[i], NULL, callees, &ncallees);
         i++;
     }
     if (twoseg) {
@@ -552,7 +604,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
         for (IR_t *g = pBB->β; g; g = g->γ) {
             emit_label_define_bb(hl[i]);
             bb_label_t *next_γ = (i + 1 < nB) ? hl[i + 1] : land_γ;
-            gz_fill_goal(g, next_γ, (i == 0 ? land_ω : hb[i - 1]), hb[i]);
+            gz_emit_cell(g, next_γ, (i == 0 ? land_ω : hb[i - 1]), hb[i], NULL, callees, &ncallees);
             i++;
         }
     }
@@ -842,7 +894,7 @@ void bb_prepare(IR_t *nd) {
         g_emit.bb_zn = (void *)nd;
         return;
     }
-    if (nd->t == IR_CELL_CALL || nd->t == IR_CALLEE_FRAME) {
+    if (nd->t == IR_CELL_CALL || nd->t == IR_CALLEE_FRAME || nd->t == IR_CELL_ITE) {
         g_emit.bb_zn = (void *)nd;
         return;
     }
