@@ -1,6 +1,6 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # WORK QUEUE FOR: .github/GOAL-BB-FIXUP.md (the continuous fixup session / routine). Protocol, laws, ladder live THERE; per-file state lives HERE.
-# CURSOR: bb_binop_arith.cpp
+# CURSOR: bb_binop_concat_slot.cpp
 # CURSOR semantics (GOAL-BB-FIXUP.md THE CURSOR): the round-robin position. Fix file at cursor -> advance cursor IN THE SAME COMMIT as the tick/note -> push -> next. End of list wraps (laps). Ticked files get a cheap re-audit on later laps. Attended sessions only; cursor makes every session resume from cold.
 # v2: no locals · one return/PLATFORM · IF()/FOR() · 1 src line = 1 asm line · real Greek α β γ ω · no MEDIUM_* top-level · no emit_fmt · no comments · no blank lines.
 # v2 ONE-IR-ONE-LOGIC (Lon 2026-06-04): N IR kinds → 1 template allowed (near-identical shapes parameterized); 1 IR → 1 BB the norm; 1 IR kind → MULTIPLE distinct four-port logics in one template FORBIDDEN — break the file out by splitting the IR kind in LOWER into separate IR codes, each → its own template + emit_core dispatch case.
@@ -12,7 +12,7 @@
 - [ ] bb_assign_frame_ref.cpp — (FIX-2 EMIT-BLIND DONE 2026-06-06: pBB->α->dval/ival fusion -> _.op_a_dval/_.op_a_ival_sg driver plumbing, eb 4->0; TIER H: emit_fmt->inline, PORT_*->Greek; asm-diff EMPTY; lv residue 10 = k-ladder locals, later lap)
 - [x] bb_assign_local.cpp — (v2 REGENERATED 2026-06-06: ONE return per PLATFORM via IF() nesting + al_ok() admission helper, emit_fmt→inline std::string, PORT_*→literal Greek; audit_bb_fixup_file rc=0 CLEAN; asm-equiv diff EMPTY (bbNNN label-id normalized) on icon+sno corpus incl. local-assign probe which exercises this template in mode-4)
 - [x] bb_atom.cpp — (v2 REGENERATED 2026-06-06: ONE return per PLATFORM via IF() nesting, emit_fmt→inline std::string, PORT_*→literal Greek, local atom inlined; audit_bb_fixup_file rc=0 CLEAN; asm-equiv diff EMPTY on icon+sno+prolog corpus — corpus does not exercise bb_atom mode-4, transform byte-identical by construction)
-- [ ] bb_binop_arith.cpp
+- [x] bb_binop_arith.cpp — (v2 REGENERATED 2026-06-06: switch→IF() opcode chain, locals (op/sa/sb/off/opb + wrapper s) inlined, emit_fmt→inline std::string, PORT_*→literal Greek, ONE return per PLATFORM·shape via IF(); dead switch-default dropped (admission predicate already excludes it); audit rc=0 CLEAN; asm-diff EMPTY — corpus does not exercise bb_binop_arith mode-4 (probes EXCISED), byte-identical by construction)
 - [ ] bb_binop_concat_slot.cpp
 - [ ] bb_binop_gvar_arith.cpp
 - [ ] bb_binop_gvar_arith_slot.cpp

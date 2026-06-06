@@ -11,36 +11,29 @@ extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
+static inline long long bo()    { return (long long)_.op_ival; }
+static inline int       ba_ok() { return g_descr_flat_chain && _.op_off >= 0 && (bo() == BINOP_ADD || bo() == BINOP_SUB || bo() == BINOP_MUL || bo() == BINOP_DIV || bo() == BINOP_MOD); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith_str() {
-    if (!PLATFORM_X86) return std::string();
-    if (!(g_descr_flat_chain && _.op_off >= 0)) return std::string();
-    int64_t op  = _.op_ival;
-    if (!(op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD)) return std::string();
-    int     sa  = _.op_sa, sb = _.op_sb, off = _.op_off;
-    std::string opb;
-    switch (op) {
-    case BINOP_ADD: opb = x86("add",  "rax", "rcx"); break;
-    case BINOP_SUB: opb = x86("sub",  "rax", "rcx"); break;
-    case BINOP_MUL: opb = x86("imul", "rax", "rcx"); break;
-    case BINOP_DIV: opb = x86("cqo") + x86("idiv", "rcx"); break;
-    case BINOP_MOD: opb = x86("cqo") + x86("idiv", "rcx") + x86("mov", "rax", "rdx"); break;
-    default:        opb = x86("add",  "rax", "rcx"); break;
-    }
-    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                          + x86("comment", emit_fmt("BOX IR_BINOP arith op=%lld [GZ-9 x86() self-encoding, stackless slot->slot DESCR]", (long long)op)))
-         + x86("mov", "rax", FRQ(sa + 8))
-         + x86("mov", "rcx", FRQ(sb + 8))
-         + opb
-         + x86("mov", FRQ(off),     (long)DT_I)
-         + x86("mov", FRQ(off + 8), "rax")
-         + x86("jmp", PORT_GAMMA)
-         + x86("def", PORT_BETA)
-         + x86("jmp", PORT_OMEGA);
+    return IF(PLATFORM_X86 && ba_ok(),
+           IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", std::string("BOX IR_BINOP arith op=") + std::to_string(bo()) + " [GZ-9 x86() self-encoding, stackless slot->slot DESCR]"))
+         + x86("mov", "rax", FRQ(_.op_sa + 8))
+         + x86("mov", "rcx", FRQ(_.op_sb + 8))
+         + IF(bo() == BINOP_ADD, x86("add",  "rax", "rcx"))
+         + IF(bo() == BINOP_SUB, x86("sub",  "rax", "rcx"))
+         + IF(bo() == BINOP_MUL, x86("imul", "rax", "rcx"))
+         + IF(bo() == BINOP_DIV, x86("cqo") + x86("idiv", "rcx"))
+         + IF(bo() == BINOP_MOD, x86("cqo") + x86("idiv", "rcx") + x86("mov", "rax", "rdx"))
+         + x86("mov", FRQ(_.op_off),     (long)DT_I)
+         + x86("mov", FRQ(_.op_off + 8), "rax")
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + x86("jmp", "ω"));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_binop_arith(IR_t * pBB) {
     (void)pBB;
-    std::string s = bb_binop_arith_str();
-    if (s.empty()) { bb_emit_x86(x86_bomb("bb_binop_arith: shape mismatch (dispatch chose this arm but predicate failed)")); return; }
-    bb_emit_x86(s);
+    bb_emit_x86(IF(!(PLATFORM_X86 && ba_ok()), x86_bomb("bb_binop_arith: shape mismatch (dispatch chose this arm but predicate failed)"))
+              + bb_binop_arith_str());
 }
