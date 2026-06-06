@@ -57,14 +57,46 @@ static int pas_rectype_nf(const char *rn);
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs);
 static tree_t *mk_chr_wrap(tree_t *e);
 static int pas_is_charexpr(tree_t *e);
+static int pas_is_charvar(const char *name);
+static int pas_is_rel(tree_t *e);
+static tree_t *pas_bool(tree_t *e);
 static tree_t *mk_deref(tree_t *ptr) {
     tree_t *e = ast_node_new(TT_FNC);
     ast_push(e, leaf_s(TT_VAR, "__pas_deref")); ast_push(e, ptr);
     return e;
 }
+static tree_t *mk_fnc0(const char *fn) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); return e; }
+static tree_t *mk_fnc1(const char *fn, tree_t *a) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); return e; }
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "ord") && args && args->count >= 1) return args->items[0];
     if (name && !strcmp(name, "chr") && args && args->count >= 1) return args->items[0];
+    if (name && !strcmp(name, "pred") && args && args->count >= 1) return bin(TT_SUB, args->items[0], ilit(1));
+    if (name && !strcmp(name, "succ") && args && args->count >= 1) return bin(TT_ADD, args->items[0], ilit(1));
+    if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc1("__pas_trunc", args->items[0]);
+    if (name && !strcmp(name, "abs") && args && args->count >= 1) return mk_fnc1("__pas_abs", args->items[0]);
+    if (name && !strcmp(name, "odd") && args && args->count >= 1) return bin(TT_NE, bin(TT_MOD, args->items[0], ilit(2)), ilit(0));
+    if (name && !strcmp(name, "eof") && (!args || args->count == 0)) return mk_fnc0("__pas_eof");
+    if (name && !strcmp(name, "eoln") && (!args || args->count == 0)) return mk_fnc0("__pas_eoln");
+    if (name && !strcmp(name, "readln") && (!args || args->count == 0)) return mk_fnc0("__pas_readln");
+    if (name && !strcmp(name, "readln") && args && args->count >= 1) {
+        PNodeList *stmts = pnl_new();
+        for (int i = 0; i + 1 < args->count; i += 2) {
+            tree_t *v = args->items[i];
+            const char *rfn = (v && v->t == TT_VAR && v->v.sval && pas_is_charvar(v->v.sval)) ? "__pas_read_c" : "__pas_read_i";
+            pnl_push(stmts, mk_assign(v, mk_fnc0(rfn)));
+        }
+        pnl_push(stmts, mk_fnc0("__pas_readln"));
+        return seq_of(stmts);
+    }
+    if (name && !strcmp(name, "read") && args && args->count >= 1) {
+        PNodeList *stmts = pnl_new();
+        for (int i = 0; i + 1 < args->count; i += 2) {
+            tree_t *v = args->items[i];
+            const char *rfn = (v && v->t == TT_VAR && v->v.sval && pas_is_charvar(v->v.sval)) ? "__pas_read_c" : "__pas_read_i";
+            pnl_push(stmts, mk_assign(v, mk_fnc0(rfn)));
+        }
+        return seq_of(stmts);
+    }
     if (name && !strcmp(name, "new") && args && args->count >= 1) {
         tree_t *pv = args->items[0];
         const char *rt = pas_ptrexpr_target(pv);
@@ -223,6 +255,8 @@ static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "true"))  return ilit(1);
     if (name && !strcmp(name, "false")) return ilit(0);
     if (name && !strcmp(name, "nil"))   return ilit(0);
+    if (name && !strcmp(name, "eof"))   return mk_fnc0("__pas_eof");
+    if (name && !strcmp(name, "eoln"))  return mk_fnc0("__pas_eoln");
     long long cv; if (pas_const_get(name, &cv)) return ilit(cv);
     if (pas_is_func(name)) return mk_call(name, NULL);
     for (int wi = g_with_depth - 1; wi >= 0; wi--) {
