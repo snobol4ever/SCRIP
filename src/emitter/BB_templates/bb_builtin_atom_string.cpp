@@ -30,7 +30,7 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 }
                 b += bytes(4, "\x48\x83\xC4\x10");                /* add rsp, 16 */
                 b += bytes(2, "\x85\xC0");                        /* test eax, eax */
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
+                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if ((strcmp(fn,"atom_length")==0   || strcmp(fn,"upcase_atom")==0   || strcmp(fn,"downcase_atom")==0
               || strcmp(fn,"string_length")==0 || strcmp(fn,"string_upper")==0  || strcmp(fn,"string_lower")==0
@@ -66,7 +66,7 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)callee) + bytes(2, "\xFF\xD0");
                 /* test eax, eax   85 C0                                                                 */
                 b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
+                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if ((strcmp(fn,"number_string")==0 || strcmp(fn,"atom_number")==0)
                 && pBB->α && pBB->α->γ) {
@@ -102,7 +102,7 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 b += bytes(4, "\x48\x83\xC4\x10");
                 /* test eax, eax   85 C0                                                                 */
                 b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
+                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if ((strcmp(fn,"atom_concat")==0 || strcmp(fn,"string_concat")==0)
                 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
@@ -140,7 +140,7 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 b += bytes(4, "\x48\x83\xC4\x20");
                 /* test eax, eax   85 C0                                                                 */
                 b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
+                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if ((strcmp(fn,"atom_chars")==0 || strcmp(fn,"atom_codes")==0
               || strcmp(fn,"string_chars")==0 || strcmp(fn,"string_codes")==0)
@@ -192,7 +192,7 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                     b += bytes(4, "\x48\x83\xC4\x10");
                 }
                 b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
+                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
             if (strcmp(fn,"char_type")==0 && _.op_ival==2 && pBB->α && pBB->α->γ) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ;
@@ -233,13 +233,10 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 b += bytes(4, "\x48\x83\xC4\x10");
                 /* test eax, eax   85 C0                                                               */
                 b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
+                return x86_lit_bytes(b) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
             }
     }
     if (MEDIUM_TEXT) {
-    std::string succ_back = x86("ins2", "jmp", _.lbl_γ)
-                          + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
-    (void)succ_back;
         if ((strcmp(fn,"atom_length")==0   || strcmp(fn,"upcase_atom")==0   || strcmp(fn,"downcase_atom")==0
           || strcmp(fn,"string_length")==0 || strcmp(fn,"string_upper")==0  || strcmp(fn,"string_lower")==0)
             && pBB->α && pBB->α->γ) {
@@ -266,17 +263,17 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 (strcmp(fn,"upcase_atom")==0   || strcmp(fn,"string_upper")==0)  ? "rt_upcase_atom@PLT"   :
                                                                                    "rt_downcase_atom@PLT";
             return hdr
-                 + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
-                 + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
-                 + x86("ins2", "mov ecx,",  emit_fmt("%d",  k1))
-                 + x86("ins2", "mov r8,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? x86("ins2", "lea r9,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "r9d, r9d"))
+                 + x86("ins2", "mov edi,",  std::to_string(k0))
+                 + x86("ins2", "mov rsi,",  std::to_string(i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rdx,", std::string("[rip + ") + s0lbl + "]") : x86("ins2", "xor", "edx, edx"))
+                 + x86("ins2", "mov ecx,",  std::to_string(k1))
+                 + x86("ins2", "mov r8,",   std::to_string(i1))
+                 + (s1lbl[0] ? x86("ins2", "lea r9,", std::string("[rip + ") + s1lbl + "]") : x86("ins2", "xor", "r9d, r9d"))
                  + x86("ins2", "call", helper)
                  + x86("ins2", "test", "eax, eax")
                  + x86("ins2", "je",   _.lbl_ω)
                  + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
         }
         if (strcmp(fn, "copy_term") == 0 && pBB->α && pBB->α->γ
             && (pBB->α->t == IR_STRUCT || pBB->α->t == IR_ARITH)) {
@@ -297,16 +294,16 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 if (k1 == IR_ATOM && a1->sval) strtab_label(s1lbl, sizeof s1lbl, a1->sval);
                 b += emit_build_compound_term(a0)
                    + x86("ins2", "mov", "rdi, rax")
-                   + x86("ins2", "mov esi,", emit_fmt("%d", k1))
-                   + x86("ins2", "mov rdx,", emit_fmt("%ld", i1))
-                   + (s1lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "ecx, ecx"))
+                   + x86("ins2", "mov esi,", std::to_string(k1))
+                   + x86("ins2", "mov rdx,", std::to_string(i1))
+                   + (s1lbl[0] ? x86("ins2", "lea rcx,", std::string("[rip + ") + s1lbl + "]") : x86("ins2", "xor", "ecx, ecx"))
                    + x86("ins2", "call", "rt_copy_term_term@PLT");
             }
             return b + x86("ins2", "add", "rsp, 16")
                      + x86("ins2", "test", "eax, eax")
                      + x86("ins2", "je",   _.lbl_ω)
                      + x86("ins2", "jmp",  _.lbl_γ)
-                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
         }
         if ((strcmp(fn,"atom_string")==0 || strcmp(fn,"string_to_atom")==0 || strcmp(fn,"copy_term")==0)
             && pBB->α && pBB->α->γ) {
@@ -321,17 +318,17 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                 (strcmp(fn,"copy_term")==0) ? "rt_copy_term@PLT"
                                             : "rt_atom_string_pair@PLT";
             return hdr
-                 + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
-                 + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
-                 + x86("ins2", "mov ecx,",  emit_fmt("%d",  k1))
-                 + x86("ins2", "mov r8,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? x86("ins2", "lea r9,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "r9d, r9d"))
+                 + x86("ins2", "mov edi,",  std::to_string(k0))
+                 + x86("ins2", "mov rsi,",  std::to_string(i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rdx,", std::string("[rip + ") + s0lbl + "]") : x86("ins2", "xor", "edx, edx"))
+                 + x86("ins2", "mov ecx,",  std::to_string(k1))
+                 + x86("ins2", "mov r8,",   std::to_string(i1))
+                 + (s1lbl[0] ? x86("ins2", "lea r9,", std::string("[rip + ") + s1lbl + "]") : x86("ins2", "xor", "r9d, r9d"))
                  + x86("ins2", "call", helper2)
                  + x86("ins2", "test", "eax, eax")
                  + x86("ins2", "je",   _.lbl_ω)
                  + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
         }
         if ((strcmp(fn,"number_string")==0 || strcmp(fn,"atom_number")==0)
             && pBB->α && pBB->α->γ) {
@@ -345,20 +342,20 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
             if (k1 == IR_ATOM && a1->sval) strtab_label(s1lbl, sizeof s1lbl, a1->sval);
             return hdr
                  + x86("ins2", "sub", "rsp, 16")
-                 + x86("ins2", "mov edi,",  emit_fmt("%d",  num_first))
-                 + x86("ins2", "mov esi,",  emit_fmt("%d",  k0))
-                 + x86("ins2", "mov rdx,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "ecx, ecx"))
-                 + x86("ins2", "mov r8d,",  emit_fmt("%d",  k1))
-                 + x86("ins2", "mov r9,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "eax, eax"))
+                 + x86("ins2", "mov edi,",  std::to_string(num_first))
+                 + x86("ins2", "mov esi,",  std::to_string(k0))
+                 + x86("ins2", "mov rdx,",  std::to_string(i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rcx,", std::string("[rip + ") + s0lbl + "]") : x86("ins2", "xor", "ecx, ecx"))
+                 + x86("ins2", "mov r8d,",  std::to_string(k1))
+                 + x86("ins2", "mov r9,",   std::to_string(i1))
+                 + (s1lbl[0] ? x86("ins2", "lea rax,", std::string("[rip + ") + s1lbl + "]") : x86("ins2", "xor", "eax, eax"))
                  + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
                  + x86("ins2", "call", "rt_number_string_pair@PLT")
                  + x86("ins2", "add", "rsp, 16")
                  + x86("ins2", "test", "eax, eax")
                  + x86("ins2", "je",   _.lbl_ω)
                  + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
         }
         if ((strcmp(fn,"atom_concat")==0 || strcmp(fn,"string_concat")==0)
             && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
@@ -373,23 +370,23 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
             if (k2 == IR_ATOM && a2->sval) strtab_label(s2lbl, sizeof s2lbl, a2->sval);
             return hdr
                  + x86("ins2", "sub", "rsp, 32")
-                 + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
-                 + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
-                 + x86("ins2", "mov ecx,",  emit_fmt("%d",  k1))
-                 + x86("ins2", "mov r8,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? x86("ins2", "lea r9,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "r9d, r9d"))
-                 + x86("ins2", "mov dword ptr [rsp + 0],", emit_fmt("%d",  k2))
-                 + x86("ins2", "mov rax,",  emit_fmt("%ld", i2))
+                 + x86("ins2", "mov edi,",  std::to_string(k0))
+                 + x86("ins2", "mov rsi,",  std::to_string(i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rdx,", std::string("[rip + ") + s0lbl + "]") : x86("ins2", "xor", "edx, edx"))
+                 + x86("ins2", "mov ecx,",  std::to_string(k1))
+                 + x86("ins2", "mov r8,",   std::to_string(i1))
+                 + (s1lbl[0] ? x86("ins2", "lea r9,", std::string("[rip + ") + s1lbl + "]") : x86("ins2", "xor", "r9d, r9d"))
+                 + x86("ins2", "mov dword ptr [rsp + 0],", std::to_string(k2))
+                 + x86("ins2", "mov rax,",  std::to_string(i2))
                  + x86("ins2", "mov", "qword ptr [rsp + 8], rax")
-                 + (s2lbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s2lbl)) : x86("ins2", "xor", "eax, eax"))
+                 + (s2lbl[0] ? x86("ins2", "lea rax,", std::string("[rip + ") + s2lbl + "]") : x86("ins2", "xor", "eax, eax"))
                  + x86("ins2", "mov", "qword ptr [rsp + 16], rax")
                  + x86("ins2", "call", "rt_atom_concat@PLT")
                  + x86("ins2", "add", "rsp, 32")
                  + x86("ins2", "test", "eax, eax")
                  + x86("ins2", "je",   _.lbl_ω)
                  + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
         }
         if ((strcmp(fn,"atom_chars")==0 || strcmp(fn,"atom_codes")==0
           || strcmp(fn,"string_chars")==0 || strcmp(fn,"string_codes")==0)
@@ -406,16 +403,16 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
                      + x86("ins2", "sub", "rsp, 16")
                      + emit_build_compound_term(a1)
                      + x86("ins2", "mov", "r8, rax")
-                     + x86("ins2", "mov edi,",  emit_fmt("%d",  as_codes))
-                     + x86("ins2", "mov esi,",  emit_fmt("%d",  k0))
-                     + x86("ins2", "mov rdx,",  emit_fmt("%ld", i0))
-                     + (s0lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "ecx, ecx"))
+                     + x86("ins2", "mov edi,",  std::to_string(as_codes))
+                     + x86("ins2", "mov esi,",  std::to_string(k0))
+                     + x86("ins2", "mov rdx,",  std::to_string(i0))
+                     + (s0lbl[0] ? x86("ins2", "lea rcx,", std::string("[rip + ") + s0lbl + "]") : x86("ins2", "xor", "ecx, ecx"))
                      + x86("ins2", "call", "rt_atom_chars_codes_term@PLT")
                      + x86("ins2", "add", "rsp, 16")
                      + x86("ins2", "test", "eax, eax")
                      + x86("ins2", "je",   _.lbl_ω)
                      + x86("ins2", "jmp",  _.lbl_γ)
-                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
             }
             /* Path A: scalar a1 (VAR or ATOM). */
             int  k1 = (int)a1->t;
@@ -424,20 +421,20 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
             if (k1 == IR_ATOM && a1->sval) strtab_label(s1lbl, sizeof s1lbl, a1->sval);
             return hdr
                  + x86("ins2", "sub", "rsp, 16")
-                 + x86("ins2", "mov edi,",  emit_fmt("%d",  as_codes))
-                 + x86("ins2", "mov esi,",  emit_fmt("%d",  k0))
-                 + x86("ins2", "mov rdx,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "ecx, ecx"))
-                 + x86("ins2", "mov r8d,",  emit_fmt("%d",  k1))
-                 + x86("ins2", "mov r9,",   emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "eax, eax"))
+                 + x86("ins2", "mov edi,",  std::to_string(as_codes))
+                 + x86("ins2", "mov esi,",  std::to_string(k0))
+                 + x86("ins2", "mov rdx,",  std::to_string(i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rcx,", std::string("[rip + ") + s0lbl + "]") : x86("ins2", "xor", "ecx, ecx"))
+                 + x86("ins2", "mov r8d,",  std::to_string(k1))
+                 + x86("ins2", "mov r9,",   std::to_string(i1))
+                 + (s1lbl[0] ? x86("ins2", "lea rax,", std::string("[rip + ") + s1lbl + "]") : x86("ins2", "xor", "eax, eax"))
                  + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
                  + x86("ins2", "call", "rt_atom_chars_codes@PLT")
                  + x86("ins2", "add", "rsp, 16")
                  + x86("ins2", "test", "eax, eax")
                  + x86("ins2", "je",   _.lbl_ω)
                  + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
         }
         if (strcmp(fn,"char_type")==0 && _.op_ival==2 && pBB->α && pBB->α->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ;
@@ -455,22 +452,22 @@ std::string bb_builtin_atom_string_str(IR_t *pBB, const char *fn, const std::str
             if (inner && inner->t == IR_ATOM && inner->sval) strtab_label(silbl, sizeof silbl, inner->sval);
             return hdr
                  + x86("ins2", "sub", "rsp, 16")
-                 + x86("ins2", "mov edi,",  emit_fmt("%d",  k0))
-                 + x86("ins2", "mov rsi,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("ins2", "lea rdx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "edx, edx"))
-                 + (tylbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", tylbl)) : x86("ins2", "xor", "ecx, ecx"))
-                 + x86("ins2", "mov r8d,",  emit_fmt("%d",  is_compound))
-                 + x86("ins2", "mov r9d,",  emit_fmt("%d",  ki))
-                 + x86("ins2", "mov rax,",  emit_fmt("%ld", ii))
+                 + x86("ins2", "mov edi,",  std::to_string(k0))
+                 + x86("ins2", "mov rsi,",  std::to_string(i0))
+                 + (s0lbl[0] ? x86("ins2", "lea rdx,", std::string("[rip + ") + s0lbl + "]") : x86("ins2", "xor", "edx, edx"))
+                 + (tylbl[0] ? x86("ins2", "lea rcx,", std::string("[rip + ") + tylbl + "]") : x86("ins2", "xor", "ecx, ecx"))
+                 + x86("ins2", "mov r8d,",  std::to_string(is_compound))
+                 + x86("ins2", "mov r9d,",  std::to_string(ki))
+                 + x86("ins2", "mov rax,",  std::to_string(ii))
                  + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
-                 + (silbl[0] ? x86("ins2", "lea rax,", emit_fmt("[rip + %s]", silbl)) : x86("ins2", "xor", "eax, eax"))
+                 + (silbl[0] ? x86("ins2", "lea rax,", std::string("[rip + ") + silbl + "]") : x86("ins2", "xor", "eax, eax"))
                  + x86("ins2", "mov", "qword ptr [rsp + 8], rax")
                  + x86("ins2", "call", "rt_char_type@PLT")
                  + x86("ins2", "add", "rsp, 16")
                  + x86("ins2", "test", "eax, eax")
                  + x86("ins2", "je",   _.lbl_ω)
                  + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
         }
     }
     return std::string();
