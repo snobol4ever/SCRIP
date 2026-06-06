@@ -206,6 +206,12 @@ static int pas_is_rel(tree_t *e) {
     switch (e->t) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: return 1; default: return 0; }
 }
 static tree_t *pas_cond(tree_t *e) { return pas_is_rel(e) ? e : bin(TT_NE, e, ilit(0)); }
+static tree_t *pas_bool(tree_t *e) { if (!pas_is_rel(e)) return e; tree_t *r = ast_node_new(TT_IF); ast_push(r, e); ast_push(r, ilit(1)); ast_push(r, ilit(0)); return r; }
+static tree_t *pas_flip_rel(tree_t *e) {
+    switch (e->t) { case TT_LT: e->t = TT_GE; break; case TT_GE: e->t = TT_LT; break; case TT_LE: e->t = TT_GT; break;
+                    case TT_GT: e->t = TT_LE; break; case TT_EQ: e->t = TT_NE; break; case TT_NE: e->t = TT_EQ; break; default: break; }
+    return e;
+}
 static tree_t *mk_array_fill(long long high) {
     long long n = high + 1; if (n < 1) n = 1;
     size_t len = (size_t)(n * 2 - 1);
@@ -386,11 +392,11 @@ argument_list:
     | argument { $$ = $1; }
     ;
 argument:
-    expression { PNodeList *_al = pnl_new(); pnl_push(_al, $1); pnl_push(_al, ilit(-1)); $$ = _al; }
-    | expression COLON expression { PNodeList *_al = pnl_new(); pnl_push(_al, $1); pnl_push(_al, $3); $$ = _al; }
+    expression { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool($1)); pnl_push(_al, ilit(-1)); $$ = _al; }
+    | expression COLON expression { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool($1)); pnl_push(_al, $3); $$ = _al; }
     ;
 assignment:
-    selector BECOMES expression { $$ = mk_assign($1, $3); }
+    selector BECOMES expression { $$ = mk_assign($1, pas_bool($3)); }
     ;
 selector:
     selector LBRACK expression_list RBRACK { tree_t *e = ast_node_new(TT_IDX); ast_push(e, $1); if ($3) for (int i = 0; i < $3->count; i++) ast_push(e, $3->items[i]); $$ = e; }
@@ -480,7 +486,7 @@ factor:
     | REALCONST { $$ = flit($1); }
     | STRINGCONST { $$ = leaf_s(TT_QLIT, $1); }
     | LPARENT expression RPARENT { $$ = $2; }
-    | NOTSY factor { $$ = un(TT_NOT, $2); }
+    | NOTSY factor { $$ = pas_flip_rel(pas_cond($2)); }
     | LBRACK expression_list_opt RBRACK { $$ = mk_set_ctor($2); }
     ;
 expression_list_opt:
