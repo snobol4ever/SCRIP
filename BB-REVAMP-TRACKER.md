@@ -48,7 +48,7 @@
 - [ ] bb_gather.cpp
 - [ ] bb_gen_scan.cpp
 - [ ] bb_goal.cpp — (v1 done: prose comments stripped; gates green)
-- [ ] bb_gvar_assign.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical)) — ⛔ ONE-IR-ONE-LOGIC VIOLATOR, SHRINKING (SNO-HY-3a 2026-06-06): lit_s+lit_i arms SPLIT OUT — LOWER v_assign (SNO statement path) mints IR_ASSIGN_LIT_S/IR_ASSIGN_LIT_I → own SPEC-v2 templates bb_gvar_assign_lit_s/lit_i.cpp (faithful twins, stash-asm-diff EMPTY ×6 programs); old lit arms RETAINED for plain IR_ASSIGN from synthesized creators (lower.c 224/441/532/680/688 Icon/loop assigns) + non-SNO langs — delete only after creator audit. Remaining to split: descr-slot/var/concat/call-result (4 arms).
+- [ ] bb_gvar_assign.cpp — (v1 done: 8-rule grep-clean; LONG wrapped) — ⛔ ONE-IR-ONE-LOGIC VIOLATOR, SHRINKING (3a `75b5bd6`: lit_s+lit_i split; 3b `d3d5688`: var+concat+call+descr split → IR_ASSIGN_VAR/CONCAT/CALL/DESCR, 4 new SPEC-v2 templates). Old arms RETAINED for plain IR_ASSIGN creators (lower.c 224/441/532/680/688) + non-SNO. Remaining: binop arm; 3c capture design not pinned (Lon).
 - [ ] bb_gvar_assign_lit_i.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
 - [ ] bb_gvar_assign_lit_s.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
 - [ ] bb_io.cpp — (TIER H 2026-06-06: ef 6→0, pe 4→0 (BINARY ports→literal Greek glyphs, XK_PORT-preserving), lv 8→0 (bio_succ/bio_write_body/bio_fbits_str/bio_bin_write_arg helpers); eb 8→6; asm-diff EMPTY (label-normalized); 51→30) — [S] eb=6: pBB->α admission/operand reads → LOWER _.op_*/ζ-slots, design not pinned — [S] rb=24: MEDIUM_BINARY raw-byte arms, owner GOAL-PROLOG-BB
