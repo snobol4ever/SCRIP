@@ -10,36 +10,39 @@ void *rt_cs_new(const char *chars);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline const char * cset_chars() { return _.op_sval ? _.op_sval : ""; }
-static inline const char * cset_label() { const char * l = emit_intern_str(cset_chars()); if (l) return l;
-                                          static char b[24]; strtab_label(b, sizeof b, cset_chars()); return b; }
-static inline uint64_t     cset_addr()  { return (uint64_t)(uintptr_t)(const void *)cset_chars(); }
-static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
+static inline const char * cs()       { return _.op_sval ? _.op_sval : ""; }
+static inline const char * cs_lbl()   { const char * l = emit_intern_str(cs()); if (l) return l;
+                                        static char b[24]; strtab_label(b, sizeof b, cs()); return b; }
+static inline uint64_t     cs_addr()  { return (uint64_t)(uintptr_t)(const void *)cs(); }
+static inline long         cs_byte()  { return (long)(unsigned char)cs()[0]; }
+static inline uint64_t     strchr_fn(){ const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
+static inline std::string  cs_test_notany() {
+    if (strlen(cs()) == 1)
+        return x86("cmp",  "sil", cs_byte())
+             + x86("je",   "\xCF\x89");
+    return x86("lea",  "rdi", "[rip + __]", cs_addr(), cs_lbl())
+         + x86("sub",  "rsp", (long)8)
+         + x86("call", "strchr", strchr_fn())
+         + x86("add",  "rsp", (long)8)
+         + x86("test", "rax", "rax")
+         + x86("jne",  "\xCF\x89");
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_notany_str() {
-    int nid = _.nid; (void)nid;
-    if (PLATFORM_X86) {
-        return IF(MEDIUM_TEXT,
-                   x86("label", _.lbl_α)
-                 + x86("comment", "BOX NOTANY()  [REG-2 Σ=r13 δ=r14 Δ=r15, x86() self-encoding]"))
+    if (PLATFORM_X86)
+        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                             + x86("comment", "BOX NOTANY — match one char not in cset [Σ=r13 δ=r14 Δ=r15]"))
              + x86("mov",    "eax", "r14d")
              + x86("cmp",    "eax", "r15d")
-             + x86("jge",    PORT_OMEGA)
+             + x86("jge",    "\xCF\x89")
              + x86("movsxd", "rcx", "r14d")
              + x86("movzx",  "esi", "[r13+rcx]")
-             + x86("lea",    "rdi", "[rip + __]", cset_addr(), cset_label())
-             + x86("sub",    "rsp", (long)8)
-             + x86("call",   "strchr", strchr_ptr())
-             + x86("add",    "rsp", (long)8)
-             + x86("test",   "rax", "rax")
-             + x86("jne",  PORT_OMEGA)
+             + cs_test_notany()
              + x86("add",    "r14d", (long)1)
-             + x86("jmp",    PORT_GAMMA)
-             + x86("def",    PORT_BETA)
+             + x86("jmp",    "\xCE\xB3")
+             + x86("def",    "\xCE\xB2")
              + x86("sub",    "r14d", (long)1)
-             + x86("jmp",    PORT_OMEGA);
-    }
-/*--------------------------------------------------------------------------------------------------------------------*/
+             + x86("jmp",    "\xCF\x89");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
