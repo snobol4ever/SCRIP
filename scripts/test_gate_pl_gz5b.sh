@@ -10,7 +10,7 @@
 # zeroed by GC_malloc / the query frame by BSS). Recursion depth works because every activation has
 # its own frame, hence its own child slots. Admit-time recursion terminates via the shell-first memo;
 # emission discovers nested callees via a worklist. Probes: m2 == m3 == m4 BYTE-IDENTICAL on the new
-# path. Negatives: 2-clause rule preds still decline (PL-GZ-5c territory); arith bodies decline.
+# path. Negatives: arity-3 rule preds decline (ar>2 is outside the rsi/rdx arg ABI); arith bodies decline.
 set -u
 cd "$(dirname "$0")/.."
 SCRIP=./scrip
@@ -42,11 +42,11 @@ grep -q "rt_enter" "$TMP/nested.s" || fail "nested m4 .s lacks the rt_enter chil
 run_admitted calleesynth ':- initialization(main).\nb(Y) :- Y = done.\na(X) :- write(X), nl, b(done).\nmain :- a(hi), write(ok), nl.\n' 'hi\nok\n'
 run_admitted selfrec  ':- initialization(main).\nr(X) :- write(X), nl, X = go, r(stop).\nmain :- r(go).\n' 'go\nstop\n'
 
-printf ':- initialization(main).\np(X) :- X = a.\np(X) :- X = b.\nmain :- p(Q), write(Q), nl, fail.\n' > "$TMP/neg1.pl"
+printf ':- initialization(main).\nt3(A,B,C) :- A = B, B = C.\nmain :- t3(a,X,Y), write(X), write(Y), nl.\n' > "$TMP/neg1.pl"
 "$SCRIP" --run "$TMP/neg1.pl" </dev/null > "$TMP/n13" 2>"$TMP/ne13" || fail "neg1 m3 rc"
-grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (2-clause rule pred) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
+grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (arity-3 rule pred) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg1.pl" > "$TMP/n1.s" 2>/dev/null || fail "neg1 m4 compile rc"
-grep -q "gzq\|gzp" "$TMP/n1.s" && fail "neg1 (2-clause rule pred) m4 .s has gz labels (GZ wrongly admitted)"
+grep -q "gzq\|gzp" "$TMP/n1.s" && fail "neg1 (arity-3 rule pred) m4 .s has gz labels (GZ wrongly admitted)"
 
 printf ':- initialization(main).\nf(X) :- Y is X + 1, write(Y), nl.\ng(Z) :- f(Z).\nmain :- g(1).\n' > "$TMP/neg2.pl"
 "$SCRIP" --run "$TMP/neg2.pl" </dev/null > "$TMP/n23" 2>"$TMP/ne23" || fail "neg2 m3 rc"
@@ -54,5 +54,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (arith body behind a nested 
 "$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n2.s" && fail "neg2 (arith body behind a nested call) m4 .s has gz labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ5B PASS: ζ-tree child frames (rt_enter reuse-or-alloc, per-site child slots, caller-ζ push/restore) + nested and self-recursive user-predicate calls (callee-frame synth cells for nested const args; per-activation frames make depth sound) m2==m3==m4 byte-identical on the GZ path; 2-clause and deep-arith rule preds declined identically by both branches"
+echo "GATE-PL-GZ5B PASS: ζ-tree child frames (rt_enter reuse-or-alloc, per-site child slots, caller-ζ push/restore) + nested and self-recursive user-predicate calls (callee-frame synth cells for nested const args; per-activation frames make depth sound) m2==m3==m4 byte-identical on the GZ path; arity-3 and deep-arith rule preds declined identically by both branches"
 exit 0

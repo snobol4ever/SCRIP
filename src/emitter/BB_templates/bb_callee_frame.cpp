@@ -19,40 +19,59 @@ static std::string bb_callee_frame_str() {
     if (!ce || ce->arity < 0 || ce->arity > 2 || ce->nlocals < 0)
         return x86_bomb("bb_callee_frame: unadmitted callee shape reached the emitter");
     static const char * areg[2] = { "rsi", "rdx" };
+    int NC = ce->nclauses > 0 ? ce->nclauses : 1;
     if (_.op_sa == 0) {
         std::string s = IF(MEDIUM_TEXT,
                    x86("comment", "BOX CALLEE_FRAME α  [PL-GZ-5b ζ-tree seed ABI: rdi = THIS activation's child frame; push caller ζ (saves r12 AND restores SysV alignment), enter child"
                      " (mov r12,rdi); head vars ARE slots 0..arity-1 — arg cell POINTERS saved BEFORE rt_trail_mark (rt calls clobber arg regs); mark in [ζ+0] like the query frame; locals"
-                       " = fresh cells per activation (the seed enter() law)]"))
+                       " = fresh cells per activation (the seed enter() law); PL-GZ-5c: multi-clause cursor in [ζ+4] (the seed's ζ->i), 1-based, init at α]"))
              + x86("push", "r12")
              + x86("mov", "r12", "rdi");
         for (int i = 0; i < ce->arity; i++)
             s += x86("mov", FRQ(GZ_CELL_OFF(i)), areg[i]);
         s += x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
            + x86("mov", FR(0), "eax");
+        if (NC > 1)
+            s += x86("mov", FR(4), (long)1);
         if (ce->nlocals > 0)
             s += x86("lea", "rdi", FR(GZ_CELL_OFF(ce->arity)))
                + x86("mov32", "esi", (long)ce->nlocals)
                + x86("call", "rt_pl_cells_init", (uint64_t)(uintptr_t)(void *)rt_pl_cells_init);
         return s + x86("jmp", PORT_GAMMA);
     }
-    return IF(MEDIUM_TEXT,
-               x86("comment", "BOX CALLEE_FRAME γ/ω landings + β  [verdict-in-rax: γ=1 (bindings stand); ω=trail-unwind([ζ+0])+0; pop restores CALLER ζ; β: push caller ζ, enter the SAME"
-                 " child (rdi), jump into the body redo chain (δ)]"))
-         + x86("def", PORT_GAMMA)
-         + x86("mov32", "eax", 1L)
-         + x86("pop", "r12")
-         + x86("ret")
-         + x86("def", PORT_OMEGA)
-         + x86("mov", "edi", FR(0))
-         + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
-         + x86("mov32", "eax", 0L)
-         + x86("pop", "r12")
-         + x86("ret")
-         + x86("def", PORT_BETA)
-         + x86("push", "r12")
-         + x86("mov", "r12", "rdi")
-         + x86("jmp", PORT_DELTA);
+    if (_.op_sa == 1) {
+        std::string s = IF(MEDIUM_TEXT,
+                   x86("comment", "BOX CALLEE_FRAME γ/ω landings + β  [verdict-in-rax: γ=1 (bindings stand); ω=trail-unwind([ζ+0])+0; pop restores CALLER ζ; β: push caller ζ, enter the SAME"
+                     " child (rdi); single-clause: jump into the body redo chain (δ); multi-clause (PL-GZ-5c): fall into the driver-sequenced cursor cmp-chain that follows]"))
+             + x86("def", PORT_GAMMA)
+             + x86("mov32", "eax", 1L)
+             + x86("pop", "r12")
+             + x86("ret")
+             + x86("def", PORT_OMEGA)
+             + x86("mov", "edi", FR(0))
+             + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
+             + x86("mov32", "eax", 0L)
+             + x86("pop", "r12")
+             + x86("ret")
+             + x86("def", PORT_BETA)
+             + x86("push", "r12")
+             + x86("mov", "r12", "rdi");
+        if (NC <= 1) s += x86("jmp", PORT_DELTA);
+        return s;
+    }
+    if (_.op_sa == 2)   /* PL-GZ-5c β dispatch test: cursor == op_ival → clause's redo (δ) — bb_cell_choice's cmp-chain shape */
+        return x86("mov", "eax", FR(4))
+             + x86("cmp", "eax", (long)_.op_off)
+             + x86("je", PORT_DELTA);
+    if (_.op_sa == 3)   /* PL-GZ-5c β dispatch tail: last clause's redo */
+        return x86("jmp", PORT_DELTA);
+    if (_.op_sa == 4)   /* PL-GZ-5c clause advance (the seed's fK_ω): cursor = op_ival; unwind to entry mark; next clause α (δ) */
+        return IF(MEDIUM_TEXT, x86("comment", "CALLEE_FRAME clause-advance  [seed fK_ω: ζ->i = k+2; trail_unwind(ζ->mark); goto fK+1_α]"))
+             + x86("mov", FR(4), (long)_.op_off)
+             + x86("mov", "edi", FR(0))
+             + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
+             + x86("jmp", PORT_DELTA);
+    return x86_bomb("bb_callee_frame: unknown aspect");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_callee_frame(void) { bb_emit_x86(bb_callee_frame_str()); }
