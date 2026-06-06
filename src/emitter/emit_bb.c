@@ -2401,7 +2401,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise, int brokered) {
+static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise, int brokered, int wired) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
     emit_label_initf(&lbl_α_body, "%s_α_body", prefix);
@@ -2418,15 +2418,17 @@ static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise,
     g_emit.flat_succ_p        = &lbl_γ;
     g_emit.flat_fail_p        = &lbl_ω;
     g_emit.flat_text_externalise = text_externalise;
+    g_emit.flat_wired         = wired;
     if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
     xa_dispatch(XA_FLAT_PROLOGUE);
-    if (g_is_text) g_emit_pos += 7;
+    if (g_is_text && !wired) g_emit_pos += 7;
     emit_label_define_bb(&lbl_α_body);
     nd = ir_skip_alt_arms(nd);
     walk_bb_flat(nd, &lbl_γ, &lbl_ω, &lbl_β);
     g_emit.flat_brokered = brokered;
     emit_label_define_bb(&lbl_γ);
     xa_dispatch(XA_FLAT_EPILOGUE);
+    g_emit.flat_wired = 0;
     if (text_externalise && g_is_text) {
         data_buf_flush_pending_label();
         xa_dispatch(XA_FLAT_DATA_SECTION);
@@ -2448,7 +2450,7 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
             char child_prefix[120];
             snprintf(child_prefix, sizeof(child_prefix), "%s_c%d", base_prefix, g_text_child_counter++);
             emitter_init_text(out, TEXT_MODE_INVOCATION);
-            codegen_flat_body(ch, child_prefix, 1, 0);
+            codegen_flat_body(ch, child_prefix, 1, 0, 0);
             emitter_end();
             char α_lbl[128];
             snprintf(α_lbl, sizeof(α_lbl), "%s_α", child_prefix);
@@ -2481,7 +2483,7 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
             IR_graph_t *save_cfg = g_emit_cfg;
             if (chg) g_emit_cfg = chg;
             emitter_init_text(out, TEXT_MODE_INVOCATION);
-            codegen_flat_body(ch, child_prefix, 1, 0);
+            codegen_flat_body(ch, child_prefix, 1, 0, nd->t == IR_PAT_ARBNO ? 1 : 0);
             emitter_end();
             g_emit_cfg = save_cfg;
             char α_lbl[128];
@@ -2872,7 +2874,7 @@ bb_box_fn bb_build_flat(IR_t *nd) {
     if (!buf) return NULL;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     emitter_init_binary(buf, FLAT_BUF_MAX);
-    codegen_flat_body(nd, "pat_flat", 0, 0);
+    codegen_flat_body(nd, "pat_flat", 0, 0, 0);
     int nbytes = emitter_end();
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
@@ -2889,7 +2891,7 @@ bb_box_fn bb_build_brokered(IR_t *nd) {
     emit_mode_set(EMIT_BINARY_BROKERED, NULL);
     emitter_init_binary(buf, FLAT_BUF_MAX);
     bb_emit_byte(0x55); bb_emit_byte(0x48); bb_emit_byte(0x89); bb_emit_byte(0xE5);
-    codegen_flat_body(nd, "pat_brok", 0, 1);
+    codegen_flat_body(nd, "pat_brok", 0, 1, 0);
     int nbytes = emitter_end();
     emit_mode_set(EMIT_BINARY_WIRED, NULL);
     extern int bb_emit_overflow;
@@ -2904,7 +2906,7 @@ int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) {
     g_text_child_counter = 0;
     pre_build_children_text(nd, out, prefix);
     emitter_init_text(out, TEXT_MODE_INVOCATION);
-    int rc = codegen_flat_body(nd, prefix, 1, 0);
+    int rc = codegen_flat_body(nd, prefix, 1, 0, 0);
     emitter_end();
     return rc;
 }

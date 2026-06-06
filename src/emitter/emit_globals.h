@@ -93,6 +93,7 @@ typedef struct {
     const char *                 enclosing_fname;
     const char *                 prev_instr_name;
     int                          flat_brokered;
+    int                          flat_wired;
     struct bb_label_t *          flat_succ_p;
     struct bb_label_t *          flat_fail_p;
     struct bb_label_t *          flat_β_p;
