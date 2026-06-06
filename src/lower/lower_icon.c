@@ -396,6 +396,12 @@ IR_t * lower2_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t *
         e = as;
     }
     switch (e->t) {
+    case TT_ILIT: { IR_t * n = nalloc(cx, IR_LIT_I); if (n) n->ival = e->v.ival; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_FLIT: { IR_t * n = nalloc(cx, IR_LIT_F); if (n) n->dval = e->v.dval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_QLIT: case TT_CSET: { IR_t * n = nalloc(cx, IR_LIT_S); if (n) n->sval = e->v.sval ? e->v.sval : ""; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_NUL: case TT_NULL: { IR_t * n = nalloc(cx, IR_LIT_NUL); return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_VAR: case TT_NAME: { IR_t * n = nalloc(cx, IR_VAR); if (n) { n->sval = e->v.sval; if (icn_is_global(n->sval)) n->state = 1; } return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_KEYWORD: { IR_t * n = nalloc(cx, IR_KEYWORD); if (n) n->sval = e->v.sval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_LOOP_BREAK:
         return icn_loop_break(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_LOOP_NEXT:

@@ -156,7 +156,6 @@ static IR_t * v_literal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, 
     case TT_KEYWORD: n = nalloc(cx, IR_KEYWORD); if (n) n->sval = e->v.sval; break;
     default: return NULL;
     }
-    if (n && n->t == IR_VAR && cx.lang == IR_LANG_ICN && is_global(n->sval)) n->state = 1;
     return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
 }
 /*====================================================================================================================*/
@@ -751,7 +750,6 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
         set_succ_fail(as, γ_in, ω_in);
         return ret(as, α_out, β_out, rα, ω_in);
     }
-    if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
     int lhs_is_var = (lhs_t->t == TT_VAR);
     int lhs_is_kw  = (cx.lang == IR_LANG_SNO && lhs_t->t == TT_KEYWORD);
     if (!lhs_is_var && !lhs_is_kw) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
@@ -781,7 +779,6 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
     const tree_t * subj_t = NULL, * pat_t = NULL;
     if (!tm(e, TT_SCAN, 2, &subj_t, &pat_t) || !subj_t || !pat_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     const tree_t * repl_t = (e->n >= 3) ? e->c[2] : NULL;
@@ -832,7 +829,6 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    if (cx.lang == IR_LANG_ICN && e->t == TT_AUGOP) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
     switch (e->t) {
     case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_CSET:
     case TT_NUL:  case TT_NULL: case TT_VAR:  case TT_NAME: case TT_KEYWORD:
@@ -860,7 +856,6 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         return ret(landing, α_out, β_out, landing, iβ ? iβ : ω_in);
     }
     case TT_MATCH_UNARY:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         return v_unop(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL:
     case TT_RANDOM: case TT_CSET_COMPL: case TT_ITERATE: case TT_INTERROGATE:
@@ -898,33 +893,25 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_NOT:
         return v_not(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_LOOP_BREAK:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         break;
     case TT_LOOP_NEXT:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         break;
     case TT_ASSIGN:
         return v_assign(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_RETURN:
     case TT_NRETURN:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_SUSPEND:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_INITIAL:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_LIMIT:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         /* fall through for non-ICN */
     case TT_CASE:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         /* fall through for non-ICN */
     case TT_PROC_FAIL:
     case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP:
     case TT_FNC: {
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         if (cx.lang == IR_LANG_SNO) {
             IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
             call->sval = e->v.sval ? e->v.sval : "";
@@ -1070,7 +1057,6 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_SCAN:
         return v_scan(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_IDX:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         if (cx.lang == IR_LANG_PAS && e->n >= 2 && e->c[0] && e->c[1]) {
             const tree_t * k[2] = { e->c[0], e->c[1] };
             return v_raku_det_call(cx, "arr_get", k, 2, γ_in, ω_in, α_out, β_out);
@@ -1096,17 +1082,13 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_FIELD:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         /* fall through for non-ICN */
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         /* fall through for non-ICN */
     case TT_INDIRECT: case TT_IDENTICAL:
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         /* fall through for non-ICN */
     case TT_MAKELIST: case TT_VLIST: case TT_RECORD: case TT_NEW:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         /* fall through for non-ICN */
     case TT_FOR:
         if (cx.lang == IR_LANG_PAS)
@@ -1116,7 +1098,6 @@ static IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     case TT_GLOBAL: case TT_LOCAL: case TT_STATIC_DECL: case TT_DECL: case TT_OPSYN:
     case TT_GOTO_S: case TT_GOTO_F:
     case TT_TRY: case TT_DIE: case TT_UNLESS: case TT_DO_WHILE:
-        if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_FOR_RANGE:
         if (cx.lang == IR_LANG_RKU && e->n >= 4 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
