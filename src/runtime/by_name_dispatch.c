@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <gc/gc.h>
+#include <math.h>
 int script_try_call_builtin(tree_t *call, DESCR_t *out_descr) {
     if (!call || call->n < 1 || !call->c[0]) return 0;
     const char *fn = call->c[0]->v.sval;
@@ -1869,6 +1870,16 @@ DESCR_t call_builtin(tree_t *call, DESCR_t *args, int nargs) {
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void pas_real_str(double r, char *buf, int bufsz) {
+    char tmp[64]; snprintf(tmp, sizeof tmp, "%.12E", r);
+    char *ep = strchr(tmp, 'E');
+    if (!ep) { snprintf(buf, bufsz, "%s", tmp); return; }
+    char sign = ep[1]; const char *digits = ep + 2; int ndig = (int)strlen(digits);
+    char mant[48]; int ml = (int)(ep - tmp); if (ml >= 48) ml = 47; memcpy(mant, tmp, ml); mant[ml] = '\0';
+    if (ndig < 3) snprintf(buf, bufsz, "%sE%c%0*d", mant, sign, 3, atoi(digits));
+    else snprintf(buf, bufsz, "%s", tmp);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t proc_as_value(const char *name) {
     if (!name || name[0] == '&') return FAILDESCR;
     for (int i = 0; i < g_stage2.proc_count; i++) {
@@ -1880,7 +1891,7 @@ DESCR_t proc_as_value(const char *name) {
         }
     }
     static const char *builtins[] = {
-        "__pas_writeln","__pas_write","__pas_chr","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","write","writes","read","reads","close","open","remove","flush",
+        "__pas_writeln","__pas_write","__pas_chr","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin","__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","write","writes","read","reads","close","open","remove","flush",
         "put","get","pull","push","pop","list","image","proc","type","copy",
         "string","integer","real","numeric","ord","char","reverse","sort","sortf",
         "find","match","many","any","upto","bal","move","tab","pos",
@@ -1934,6 +1945,17 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d < 0 ? -d : d; *out = r; return 1; }
         long long v = IS_INT_fn(args[0]) ? args[0].i : 0; *out = INTVAL(v < 0 ? -v : v); return 1;
     }
+    if (nargs == 1 && (!strcmp(fn,"__pas_sin")||!strcmp(fn,"__pas_cos")||!strcmp(fn,"__pas_exp")||!strcmp(fn,"__pas_sqrt")||!strcmp(fn,"__pas_ln")||!strcmp(fn,"__pas_arctan"))) {
+        double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        double r;
+        if      (!strcmp(fn,"__pas_sin"))    r = sin(d);
+        else if (!strcmp(fn,"__pas_cos"))    r = cos(d);
+        else if (!strcmp(fn,"__pas_exp"))    r = exp(d);
+        else if (!strcmp(fn,"__pas_sqrt"))   r = sqrt(d);
+        else if (!strcmp(fn,"__pas_ln"))     r = log(d);
+        else                                 r = atan(d);
+        DESCR_t rv; rv.v = DT_R; rv.r = r; *out = rv; return 1;
+    }
     if (!strcmp(fn, "__pas_writeln") || !strcmp(fn, "__pas_write")) {
         int nl = (fn[6] == 'w' && fn[7] == 'r' && fn[8] == 'i' && fn[9] == 't' && fn[10] == 'e' && fn[11] == 'l');
         for (int _pi = 0; _pi + 1 < nargs; _pi += 2) {
@@ -1947,7 +1969,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 fprintf(stdout, "%*s", _fw, _pb);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
-                int _pfmtlen = snprintf(_rb, sizeof _rb, "%s", real_str(av.r, _rb, sizeof _rb));
+                pas_real_str(av.r, _rb, sizeof _rb);
+                int _pfmtlen = (int)strlen(_rb);
                 int _fw = (w < 0) ? 20 : (w > _pfmtlen ? w : _pfmtlen);
                 fprintf(stdout, "%*s", _fw, _rb);
             } else {
