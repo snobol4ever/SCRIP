@@ -391,6 +391,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_a_slot = nd->α ? bb_slot_get(nd->α) : -1;
     g_emit.op_a_counter = nd->α ? nd->α->counter : 0;
     g_emit.op_a_ival_sg = nd->α ? nd->α->ival : 0;
+    g_emit.op_a_dval = nd->α ? nd->α->dval : 0;
     switch (nd->t) {
     case IR_PAT_LIT:         bb_lit();               return 0;
     case IR_PAT_ANY:         bb_pat_any();           return 0;
