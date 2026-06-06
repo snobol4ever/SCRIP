@@ -31,7 +31,7 @@
 - [ ] bb_term_io.cpp
 - [ ] bb_type_test.cpp
 - [ ] bb_call.cpp — LONG wrapped; OPEN: pBB refs + a0->t AST-walk in emitter (RULES violation), 3 bombs
-- [ ] bb_call_builtin.cpp
+- [ ] bb_call_fn.cpp
 - [ ] bb_call_proc_staged.cpp
 - [ ] bb_call_userproc.cpp
 - [ ] bb_call_write_slot.cpp
