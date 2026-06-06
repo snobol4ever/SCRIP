@@ -1,6 +1,6 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # WORK QUEUE FOR: .github/GOAL-BB-FIXUP.md (the continuous fixup session / routine). Protocol, laws, ladder live THERE; per-file state lives HERE.
-# CURSOR: bb_binop_relop.cpp
+# CURSOR: bb_builtin.cpp
 # CURSOR semantics (GOAL-BB-FIXUP.md THE CURSOR): the round-robin position. Fix file at cursor -> advance cursor IN THE SAME COMMIT as the tick/note -> push -> next. End of list wraps (laps). Ticked files get a cheap re-audit on later laps. Attended sessions only; cursor makes every session resume from cold.
 # v2: no locals · one return/PLATFORM · IF()/FOR() · 1 src line = 1 asm line · real Greek α β γ ω · no MEDIUM_* top-level · no emit_fmt · no comments · no blank lines.
 # v2 ONE-IR-ONE-LOGIC (Lon 2026-06-04): N IR kinds → 1 template allowed (near-identical shapes parameterized); 1 IR → 1 BB the norm; 1 IR kind → MULTIPLE distinct four-port logics in one template FORBIDDEN — break the file out by splitting the IR kind in LOWER into separate IR codes, each → its own template + emit_core dispatch case.
@@ -17,7 +17,7 @@
 - [x] bb_binop_gvar_arith.cpp — (v2 REGENERATED 2026-06-06: bga_ok() admission + bga_name()/bga_arith() helpers, IF() shape chains, ONE return per PLATFORM via IF() nesting, zero locals in _str, emit_fmt→inline std::to_string, PORT_*→literal Greek, bomb folded into _str via IF(!bga_ok()); audit_bb_fixup_file rc=0 CLEAN; asm-diff EMPTY (git-stash baseline, bbN-normalized) on icon+sno+prolog corpus — corpus does not exercise mode-4, byte-identical by construction)
 - [x] bb_binop_gvar_arith_slot.cpp — (v2 REGENERATED 2026-06-06: gvs_ok() admission + gvs_lhs()/gvs_rhs()/gvs_op() operand-matrix helpers, MEDIUM_TEXT ins2/emit_fmt arms collapsed into unified x86() calls (sanctioned collapse), ONE return per PLATFORM via IF() nesting, zero locals in _str, PORT_*→literal Greek, dead switch-default dropped (admission excludes), bomb folded into _str; audit rc=0 CLEAN; asm-diff EMPTY (git-stash baseline, bbN-normalized, 11-file corpus) — template does not fire in corpus mode-4, byte-identical by construction)
 - [x] bb_binop_gvar_relop.cpp — (v2 REGENERATED 2026-06-06: gvr_ok() admission + gvr_lhs()/gvr_rhs() operand-matrix + gvr_jcc() fail-branch IF() chain, MEDIUM_TEXT ins2/emit_fmt arms collapsed into unified x86(), ONE return per PLATFORM via IF() nesting, zero locals in _str, PORT_*→literal Greek, dead jmp-default dropped; audit rc=0 CLEAN; asm-diff EMPTY (git-stash baseline, bbN-normalized, 11-file corpus) — template does not fire in corpus mode-4, byte-identical by construction)
-- [ ] bb_binop_relop.cpp
+- [x] bb_binop_relop.cpp — (v2 REGENERATED 2026-06-06: brr_ok() admission helper, IF() nesting one-return-per-PLATFORM, locals (op/sa/sb/mnem) inlined, emit_fmt→std::string concat, PORT_*→literal Greek; audit rc=0 CLEAN; asm-diff EMPTY — corpus does not exercise mode-4, byte-identical by construction)
 - [ ] bb_builtin.cpp
 - [ ] bb_builtin_aggregate_nb.cpp
 - [ ] bb_builtin_atom_string.cpp
