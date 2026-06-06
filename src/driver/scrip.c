@@ -874,8 +874,11 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
     } else if (gg->t == IR_BUILTIN && gg->sval && strcmp(gg->sval, "is") == 0 && gg->ival == 2 && gg->α && gg->β) {
         IR_t *lhs = gg->α, *rhs = gg->β;
         if (lhs->t != IR_LOGICVAR) return 0;
-        if (rhs->t != IR_ARITH && rhs->t != IR_LIT_I) return 0;
-        if (!pl_gz_arith_const(rhs)) return 0;
+        int rhs_is_const = (rhs->t == IR_LIT_I) || ((rhs->t == IR_ARITH) && pl_gz_arith_const(rhs));
+        int rhs_is_var_op = (rhs->t == IR_LOGICVAR) ||
+                            (rhs->t == IR_ARITH && rhs->sval && rhs->α && rhs->β &&
+                             rhs->α->t == IR_LOGICVAR && rhs->β->t == IR_LIT_I);
+        if (!rhs_is_const && !rhs_is_var_op) return 0;
         nn = pl_gz_det_node(IR_DET_IS);
         if (nn) { nn->α = lhs; nn->β = rhs; }
     } else if (gg->t == IR_BUILTIN && gg->sval && gg->ival == 2 && gg->α && gg->β) {
@@ -883,7 +886,8 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         int is_arith_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
         if (!is_arith_cmp) return 0;
         IR_t *la = gg->α, *ra = gg->β;
-        if (la->t != IR_LIT_I || ra->t != IR_LIT_I) return 0;
+        if (la->t != IR_LIT_I && la->t != IR_LOGICVAR) return 0;
+        if (ra->t != IR_LIT_I && ra->t != IR_LOGICVAR) return 0;
         nn = pl_gz_det_node(IR_DET_CMP);
         if (nn) { nn->sval = fn; nn->α = la; nn->β = ra; }
     } else {

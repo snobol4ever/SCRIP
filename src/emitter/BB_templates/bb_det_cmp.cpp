@@ -7,7 +7,7 @@ extern "C" {
 #include "emit_bb.h"
 }
 #include "x86_asm.h"
-extern "C" int rt_pl_arith_cmp_cells(const char *op, void *lhs_cell, void *lhs_nd, void *rhs_cell, void *rhs_nd);
+extern "C" int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void *rhs_cell, long rhs_ival);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int dcm_is_arith(const char *op) {
     return op && (strcmp(op,"<")==0||strcmp(op,">")==0||strcmp(op,">=")==0||strcmp(op,"=<")==0||strcmp(op,"=:=")==0||strcmp(op,"=\\=")==0);
@@ -49,18 +49,18 @@ static std::string bb_det_cmp_str() {
     bool l_var = (la->t == IR_LOGICVAR), r_var = (ra->t == IR_LOGICVAR);
     int lslot = l_var ? (int)la->ival : -1;
     int rslot = r_var ? (int)ra->ival : -1;
+    long l_ival = (!l_var && la->t == IR_LIT_I) ? (long)la->ival : 0L;
+    long r_ival = (!r_var && ra->t == IR_LIT_I) ? (long)ra->ival : 0L;
     return IF(MEDIUM_TEXT,
                x86("label", _.lbl_α)
-             + x86("comment", std::string("BOX DET_CMP(") + op + ")  [PL-GZ-8: rt_pl_arith_cmp_cells]"))
+             + x86("comment", std::string("BOX DET_CMP(") + op + ")  [PL-GZ-8: rt_pl_arith_cmp_cell_val]"))
          + x86_ro_load_q("rdi", 0)
-         + (l_var ? x86("mov", "rsi", FRQ(GZ_CELL_OFF(lslot))) : x86("mov32", "esi", (long)0))
-         + IF(MEDIUM_BINARY, x86("mov", "rdx", (uint64_t)(uintptr_t)(void *)la))
-         + IF(MEDIUM_TEXT,   x86("mov", "rdx", (uint64_t)(uintptr_t)(void *)la))
-         + (r_var ? x86("mov", "rcx", FRQ(GZ_CELL_OFF(rslot))) : x86("mov32", "ecx", (long)0))
-         + IF(MEDIUM_BINARY, x86("mov", "r8",  (uint64_t)(uintptr_t)(void *)ra))
-         + IF(MEDIUM_TEXT,   x86("mov", "r8",  (uint64_t)(uintptr_t)(void *)ra))
-         + x86("call", "rt_pl_arith_cmp_cells", (uint64_t)(uintptr_t)(void *)rt_pl_arith_cmp_cells)
-         + x86("test32", "eax", "eax")
+         + (l_var ? x86("mov", "rsi", FRQ(GZ_CELL_OFF(lslot))) : x86("xor", "esi", "esi"))
+         + x86("mov", "rdx", l_ival)
+         + (r_var ? x86("mov", "rcx", FRQ(GZ_CELL_OFF(rslot))) : x86("xor", "ecx", "ecx"))
+         + x86("mov", "r8", r_ival)
+         + x86("call", "rt_pl_arith_cmp_cell_val", (uint64_t)(uintptr_t)(void *)rt_pl_arith_cmp_cell_val)
+         + x86("test", "eax", "eax")
          + x86("je", PORT_OMEGA)
          + x86("jmp", PORT_GAMMA)
          + x86("def", PORT_BETA)

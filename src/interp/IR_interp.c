@@ -1616,6 +1616,57 @@ int rt_pl_arith_cmp_cells(const char *op, void *lhs_cell, void *lhs_nd, void *rh
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void *rhs_cell, long rhs_ival) {
+    if (!op) return 0;
+    double l = 0.0, r = 0.0;
+    if (lhs_cell) {
+        Term *t = term_deref((Term *)lhs_cell);
+        if (!t) return 0;
+        if (t->tag == TERM_INT)   l = (double)t->ival;
+        else if (t->tag == TERM_FLOAT) l = t->fval;
+        else return 0;
+    } else { l = (double)lhs_ival; }
+    if (rhs_cell) {
+        Term *t = term_deref((Term *)rhs_cell);
+        if (!t) return 0;
+        if (t->tag == TERM_INT)   r = (double)t->ival;
+        else if (t->tag == TERM_FLOAT) r = t->fval;
+        else return 0;
+    } else { r = (double)rhs_ival; }
+    if (strcmp(op,"=:=")==0) return (l==r)?1:0;
+    if (strcmp(op,"=\\=")==0) return (l!=r)?1:0;
+    if (strcmp(op,"<"  )==0) return (l< r)?1:0;
+    if (strcmp(op,">"  )==0) return (l> r)?1:0;
+    if (strcmp(op,"=<" )==0) return (l<=r)?1:0;
+    if (strcmp(op,"<=" )==0) return (l<=r)?1:0;
+    if (strcmp(op,">=" )==0) return (l>=r)?1:0;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival) {
+    extern Trail g_resolve_trail;
+    Term *lhs = (Term *)lhs_cell;
+    if (!lhs) return 0;
+    double rv = 0.0;
+    if (rhs_cell) {
+        Term *t = term_deref((Term *)rhs_cell);
+        if (!t) return 0;
+        if (t->tag == TERM_INT)   rv = (double)t->ival;
+        else if (t->tag == TERM_FLOAT) rv = t->fval;
+        else return 0;
+        if (!op) { }
+        else if (strcmp(op,"+")==0) rv = rv + (double)rhs_ival;
+        else if (strcmp(op,"-")==0) rv = rv - (double)rhs_ival;
+        else if (strcmp(op,"*")==0) rv = rv * (double)rhs_ival;
+        else if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { long li=(long)rv; if (!rhs_ival) return 0; rv=(double)(li%rhs_ival); }
+    } else { rv = (double)rhs_ival; }
+    long ival = (long)rv;
+    Term *vt = ((double)ival == rv) ? term_new_int(ival) : term_new_float(rv);
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_arith_cmp_nodes(const char *op, void *lhs_node, void *rhs_node) {
     if (!op || !lhs_node || !rhs_node) return 0;
     DESCR_t lv = resolve_arith_eval((IR_t *)lhs_node);
