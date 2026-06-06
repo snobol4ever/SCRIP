@@ -919,6 +919,12 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
         walk_bb_flat(pBB->β, rhs_done, lbl_ω, rhs_β);
     }
     emit_label_define_bb(rhs_done);
+    if (g_descr_flat_chain) {
+        g_emit.op_sa = bb_slot_get(pBB->α);
+        g_emit.op_sb = bb_slot_get(pBB->β);
+        if (g_emit.op_sa >= 0 && g_emit.op_sb >= 0) g_emit.op_off = bb_slot_alloc16(pBB);
+        else g_emit.op_off = -1;
+    }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     { IR_e _sk = pBB->t; pBB->t = binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); pBB->t = _sk; }
@@ -2170,14 +2176,18 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->t; nd->t = IR_BINOP_GVAR_RELOP; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
         } else if (g_descr_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
-            if (op_is_arith || op_is_rel || op_is_concat) {
+            int needs_walk = (nd->α && nd->α->t != IR_LIT_I && nd->α->t != IR_LIT_S && bb_slot_get(nd->α) < 0)
+                          || (nd->β && nd->β->t != IR_LIT_I && nd->β->t != IR_LIT_S && bb_slot_get(nd->β) < 0);
+            if (needs_walk) {
+                flat_drive_binop_tree(nd, lbl_γ, lbl_ω, lbl_β);
+            } else {
                 g_emit.op_sa = bb_slot_get(nd->α);
                 g_emit.op_sb = bb_slot_get(nd->β);
                 if (g_emit.op_sa >= 0 && g_emit.op_sb >= 0) g_emit.op_off = bb_slot_alloc16(nd);
+                EMIT_PAIR_RESET();
+                EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+                { IR_e _sk = nd->t; nd->t = binop_slot_kind(nd); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
             }
-            EMIT_PAIR_RESET();
-            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-            { IR_e _sk = nd->t; nd->t = binop_slot_kind(nd); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->t = _sk; }
         } else if (!nd->α && !nd->β) {
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -2188,7 +2198,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         break;
     }
     case IR_IF: {
-        if (g_gvar_flat_chain) {
+        if (g_gvar_flat_chain || g_descr_flat_chain) {
             emit_label_define_bb(lbl_β);
             emit_jmp_label(lbl_γ, JMP_JMP);
             emit_jmp_label(lbl_γ, JMP_JMP);
@@ -2243,7 +2253,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:
     case IR_UNTIL:
-        if (g_gvar_flat_chain) {
+        if (g_gvar_flat_chain || g_descr_flat_chain) {
             emit_label_define_bb(lbl_β);
             emit_jmp_label(lbl_γ, JMP_JMP);
             emit_jmp_label(lbl_γ, JMP_JMP);

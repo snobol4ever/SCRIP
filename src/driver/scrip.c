@@ -186,11 +186,14 @@ static int icn_local_assign_rhs_ok(IR_t *nd) {
     if (!r) return 0;
     if (r->t == IR_LIT_I || r->t == IR_LIT_S) return 1;
     if (r->t == IR_VAR && r->sval && r->sval[0] != '&') return 1;
+    if (r->t == IR_BINOP && (r->ival == BINOP_ADD || r->ival == BINOP_SUB || r->ival == BINOP_MUL || r->ival == BINOP_DIV || r->ival == BINOP_MOD)) return 1;
     return 0;
 }
 static int icn_assign_safe_kind(IR_e t) {
     return t == IR_ASSIGN || t == IR_VAR || t == IR_CALL || t == IR_SUCCEED || t == IR_FAIL ||
-           t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL;
+           t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
+           t == IR_BINOP || t == IR_IF || t == IR_WHILE || t == IR_UNTIL || t == IR_REPEAT ||
+           t == IR_BREAK || t == IR_NEXT || t == IR_CONJ;
 }
 static int icn_graph_has_local_assign(const IR_graph_t *g) {
     extern int g_icn_globals_nv;
@@ -198,6 +201,10 @@ static int icn_graph_has_local_assign(const IR_graph_t *g) {
         IR_t *nd = g->all[ni];
         if (nd && nd->t == IR_ASSIGN && nd->sval && !(g_icn_globals_nv && is_global(nd->sval))) return 1;
     }
+    return 0;
+}
+static int icn_graph_has_binop(const IR_graph_t *g) {
+    for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->t == IR_BINOP) return 1;
     return 0;
 }
 static int icn_graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name) {
@@ -216,11 +223,14 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
         if (!g || !g->all) continue;
         int has_alt = icn_graph_has_alt(g);
         int has_lassign = icn_graph_has_local_assign(g);
+        int has_binop = icn_graph_has_binop(g);
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
             if (icn_kind_native_stub(nd->t)) return 0;
             if (has_lassign && !icn_assign_safe_kind(nd->t)) return 0;
+            if (has_lassign && nd->t == IR_BINOP && !((nd->ival >= BINOP_LT && nd->ival <= BINOP_NE) || nd->ival == BINOP_ADD || nd->ival == BINOP_SUB || nd->ival == BINOP_MUL || nd->ival == BINOP_DIV || nd->ival == BINOP_MOD)) return 0;
+            if (has_lassign && has_binop && (nd->t == IR_LIT_F || nd->t == IR_LIT_NUL)) return 0;
             if (has_lassign && nd->t == IR_CALL && !(nd->sval && (!strcmp(nd->sval, "write") || !strcmp(nd->sval, "writes")))) return 0;
             if (for_run && nd->t == IR_CALL && (nd->dval == 3.0 || (nd->sval && rt_proc_is_registered(nd->sval)))) return 0;
             if (nd->t == IR_GEN_SCAN) {
