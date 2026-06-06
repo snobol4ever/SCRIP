@@ -2264,7 +2264,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_node_is_alt_arm(IR_t *nd) {
     if (!nd || !g_emit_cfg) return 0;
-    if (!(nd->γ && nd->γ->t == IR_ALT)) return 0;
+    if (!(nd->γ && (nd->γ->t == IR_ALT || nd->γ->t == IR_PAT_ALT))) return 0;
     int na = 0;
     IR_t * const * arms = bb_operand_aux_get(g_emit_cfg, nd->γ, &na);
     for (int i = 0; i < na && arms; i++) if (arms[i] == nd) return 1;
@@ -2372,6 +2372,7 @@ static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise,
     xa_dispatch(XA_FLAT_PROLOGUE);
     if (g_is_text) g_emit_pos += 7;
     emit_label_define_bb(&lbl_α_body);
+    nd = ir_skip_alt_arms(nd);
     walk_bb_flat(nd, &lbl_γ, &lbl_ω, &lbl_β);
     g_emit.flat_brokered = brokered;
     emit_label_define_bb(&lbl_γ);
@@ -2414,10 +2415,12 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
     }
     if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_CALLOUT) {
         IR_t *ch = NULL;
+        IR_graph_t *chg = NULL;
         if (nd->t == IR_PAT_ARBNO) {
             bb_arbno_state_t *az = (bb_arbno_state_t *)(intptr_t)nd->counter;
             IR_graph_t *inner = az ? az->inner : NULL;
             ch = (inner && inner->entry) ? inner->entry : NULL;
+            chg = inner;
         } else {
             ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
         }
@@ -2425,9 +2428,12 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
             pre_build_children_text(ch, out, base_prefix);
             char child_prefix[120];
             snprintf(child_prefix, sizeof(child_prefix), "%s_c%d", base_prefix, g_text_child_counter++);
+            IR_graph_t *save_cfg = g_emit_cfg;
+            if (chg) g_emit_cfg = chg;
             emitter_init_text(out, TEXT_MODE_INVOCATION);
             codegen_flat_body(ch, child_prefix, 1, 0);
             emitter_end();
+            g_emit_cfg = save_cfg;
             char α_lbl[128];
             snprintf(α_lbl, sizeof(α_lbl), "%s_α", child_prefix);
             bb_box_fn sentinel = (bb_box_fn)(uintptr_t)ch;
