@@ -24,6 +24,10 @@ static std::string xa_entry_dispatch_str(void) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define BB_BANNER_RULE_LEN 119
+static std::string xa_wired_base(void) {
+    std::string s(g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "");
+    return s.size() > 3 ? s.substr(0, s.size() - 3) : s;
+}
 static void xa_emit_one(const std::string & out, int site, bb_label_t * lbl, bool is_def) {
     if (!MEDIUM_BINARY) { if (!out.empty()) emit_text_n(out.data(), out.size()); return; }
     int pos = 0;
@@ -65,6 +69,9 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                        + "    .global " + (g_emit.flat_lbl_ω ? g_emit.flat_lbl_ω : "") + "\n";
             }
             extern int g_frame_active;
+            if (g_emit.flat_wired) {
+                return banner;
+            }
             if (g_frame_active) {
                 return banner + "push r12\n  mov r12, rdi\n  lea r10, [rip + Δ]\n";
             }
@@ -118,6 +125,11 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
         }
         {
             extern int g_frame_active;
+            if (g_emit.flat_wired) {
+                return std::string(" jmp ") + xa_wired_base() + "_wγ\n"
+                     + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                     + " jmp " + xa_wired_base() + "_wω\n";
+            }
             if (g_frame_active) {
                 return std::string("mov eax, 1\n")
                      + "xor edx, edx\n"
