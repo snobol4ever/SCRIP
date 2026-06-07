@@ -193,6 +193,7 @@ void rt_init(int argc, char **argv)
     (void)argc; (void)argv;
     setvbuf(stdout, NULL, _IOLBF, 0);
     bb_pool_init();
+    { extern void pat_pool_init(void); pat_pool_init(); }
     core_lib_init();
     trail_init(&g_resolve_trail);
     prolog_atom_init();

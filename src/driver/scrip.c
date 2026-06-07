@@ -1572,6 +1572,7 @@ int main(int argc, char **argv)
     {
         extern void bb_pool_init(void);
         bb_pool_init();
+        { extern void pat_pool_init(void); pat_pool_init(); }
     }
     setvbuf(stdout, NULL, _IOLBF, 0);
     extern void core_lib_init(void);
