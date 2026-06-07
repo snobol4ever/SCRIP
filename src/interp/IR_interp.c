@@ -293,9 +293,11 @@ static int ir_is_single_shot(IR_t * e) {
         for (IR_t * a = e->α; a; a = a->γ) if (!ir_is_single_shot(a)) return 0;
         return 1;
     }
+    case IR_SCAN: return 1;
     default: {
         if (e->α && !ir_is_single_shot(e->α)) return 0;
         if (e->β && !ir_is_single_shot(e->β)) return 0;
+        for (int _oi = 0; _oi < e->n_operands; _oi++) if (e->operands[_oi] && !ir_is_single_shot(e->operands[_oi])) return 0;
         return 1;
     }
     }
@@ -3171,9 +3173,8 @@ IR_t * IR_interp_node(IR_t * bb) {
     case IR_REF_INVARIANT: {
         if (IR_EXEC(bb).state == 0) {
             const char *lit = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
-            int n_aux = 0;
-            IR_t * const * aux = bb_operand_aux_get(g_current_cfg, bb, &n_aux);
-            if (n_aux > 0 && aux && aux[0] && IR_LIT(aux[0]).sval) lit = IR_LIT(aux[0]).sval;
+            IR_t * in0 = bb->n_operands > 0 ? bb->operands[0] : NULL;
+            if (in0 && IR_LIT(in0).sval) lit = IR_LIT(in0).sval;
             IR_EXEC(bb).state = 1;
             DESCR_t vd = { .v = DT_S, .slen = (uint32_t)strlen(lit), .s = (char *)lit };
             IR_EXEC(bb).value = vd;
@@ -4021,12 +4022,13 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).value = NULVCL;
         return bb->γ;
     case IR_PAT_ASSIGN_COND: {
-        int fresh = (IR_EXEC(bb).state == 0) && (!bb->α || IR_EXEC(bb->α).state == 0);
+        IR_t * in0 = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        int fresh = (IR_EXEC(bb).state == 0) && (!in0 || IR_EXEC(in0).state == 0);
         if (fresh) {
             IR_EXEC(bb).counter = Δ;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = NULVCL;
-            return bb->α;
+            return in0;
         }
         if (IR_LIT(bb).sval && *IR_LIT(bb).sval) {
             int matched_len = Δ - (int)IR_EXEC(bb).counter;
@@ -4045,12 +4047,13 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_PAT_ASSIGN_IMM: {
-        int fresh = (IR_EXEC(bb).state == 0) && (!bb->α || IR_EXEC(bb->α).state == 0);
+        IR_t * in0 = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        int fresh = (IR_EXEC(bb).state == 0) && (!in0 || IR_EXEC(in0).state == 0);
         if (fresh) {
             IR_EXEC(bb).counter = Δ;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = NULVCL;
-            return bb->α;
+            return in0;
         }
         if (IR_LIT(bb).sval && *IR_LIT(bb).sval) {
             int matched_len = Δ - (int)IR_EXEC(bb).counter;

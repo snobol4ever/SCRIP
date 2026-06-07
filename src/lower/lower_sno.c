@@ -769,7 +769,7 @@ IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α
         IR_graph_t * repl_blk = lower_value_subgraph(cx, repl_t);
         if (!repl_blk) { IR_free(pat_blk); return NULL; }
         IR_t * scan_aux[2]; scan_aux[0] = (IR_t *)(void *)subj_blk; scan_aux[1] = (IR_t *)(void *)repl_blk;
-        bb_operand_aux_set(cx.bbg, sc, scan_aux, 2);
+        if (!ir_operand_push(sc, scan_aux[0]) || !ir_operand_push(sc, scan_aux[1])) { IR_free(pat_blk); return NULL; }
         IR_t * rα = NULL, * rβ = NULL;
         IR_t * repln = lower_program(cx, repl_t, sc, ω_in, &rα, &rβ);
         if (!repln) { IR_free(pat_blk); return NULL; }
@@ -781,7 +781,7 @@ IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α
     if (!subj_blk) { IR_free(pat_blk); return NULL; }
     if (subj_t->t == TT_VAR) IR_LIT(sc).sval = subj_t->v.sval ? subj_t->v.sval : "";
     IR_t * scan_aux[1]; scan_aux[0] = (IR_t *)(void *)subj_blk;
-    bb_operand_aux_set(cx.bbg, sc, scan_aux, 1);
+    if (!ir_operand_push(sc, scan_aux[0])) { IR_free(pat_blk); return NULL; }
     IR_t * sα = NULL, * sβ = NULL;
     IR_t * subj = lower_program(cx, subj_t, sc, ω_in, &sα, &sβ);
     if (!subj) { IR_free(pat_blk); return NULL; }
@@ -926,7 +926,7 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         IR_t * iα = NULL, * iβ = NULL;
         IR_t * inner = lower_program(cx, e->c[0], n, ω_in, &iα, &iβ);
         if (!inner) return NULL;
-        n->α = iα;
+        if (!ir_operand_push(n, iα)) return NULL;
         return ret(n, α_out, β_out, n, iβ ? iβ : ω_in);
     }
     case TT_CAPT_IMMED_ASGN: {
@@ -937,7 +937,7 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         IR_t * iα = NULL, * iβ = NULL;
         IR_t * inner = lower_program(cx, e->c[0], n, ω_in, &iα, &iβ);
         if (!inner) return NULL;
-        n->α = iα;
+        if (!ir_operand_push(n, iα)) return NULL;
         return ret(n, α_out, β_out, n, iβ ? iβ : ω_in);
     }
     case TT_CAPT_CURSOR: {
