@@ -2193,9 +2193,9 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_SWAP: {
-        if (!bb->α || !bb->β) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_t *l_var = bb->α;
-        IR_t *r_var = bb->β;
+        IR_t *l_var = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        IR_t *r_var = bb->n_operands > 1 ? bb->operands[1] : NULL;
+        if (!l_var || !r_var) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         if (l_var->t != IR_VAR || r_var->t != IR_VAR || !IR_LIT(l_var).sval || !IR_LIT(r_var).sval) {
             IR_EXEC(bb).value = FAILDESCR; return bb->ω;
         }
@@ -3506,7 +3506,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_SECTION: {
-        if (!bb->α && !bb->β) {
+        if (bb->n_operands == 0) {
             DESCR_t i2   = ag_ring_peek(g_current_cfg, 0);
             DESCR_t i1   = ag_ring_peek(g_current_cfg, 1);
             DESCR_t base = ag_ring_peek(g_current_cfg, 2);
@@ -3518,13 +3518,15 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).value = r;
             return bb->γ;
         }
-        IR_t *i2_box = bb->β ? bb->β->γ : NULL;
-        if (!bb->α || !bb->β || !i2_box) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->α);
-        DESCR_t base = IR_EXEC(bb->α).value;
+        IR_t *base_box = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        IR_t *i1_box   = bb->n_operands > 1 ? bb->operands[1] : NULL;
+        IR_t *i2_box   = bb->n_operands > 2 ? bb->operands[2] : NULL;
+        if (!base_box || !i1_box || !i2_box) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        IR_interp_node(base_box);
+        DESCR_t base = IR_EXEC(base_box).value;
         if (IS_FAIL_fn(base)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->β);
-        DESCR_t i1 = IR_EXEC(bb->β).value;
+        IR_interp_node(i1_box);
+        DESCR_t i1 = IR_EXEC(i1_box).value;
         if (IS_FAIL_fn(i1)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         IR_interp_node(i2_box);
         DESCR_t i2 = IR_EXEC(i2_box).value;
@@ -3569,9 +3571,10 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_FIELD_GET: {
-        if (!bb->α || !IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->α);
-        DESCR_t obj = IR_EXEC(bb->α).value;
+        IR_t *obj_box = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        if (!obj_box || !IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        IR_interp_node(obj_box);
+        DESCR_t obj = IR_EXEC(obj_box).value;
         if (IS_FAIL_fn(obj)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         DESCR_t *cell = data_field_ptr(IR_LIT(bb).sval, obj);
         if (!cell) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
@@ -3579,12 +3582,14 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_FIELD_SET: {
-        if (!bb->α || !bb->β || !IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->β);
-        DESCR_t rhs = IR_EXEC(bb->β).value;
+        IR_t *obj_box = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        IR_t *rhs_box = bb->n_operands > 1 ? bb->operands[1] : NULL;
+        if (!obj_box || !rhs_box || !IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        IR_interp_node(rhs_box);
+        DESCR_t rhs = IR_EXEC(rhs_box).value;
         if (IS_FAIL_fn(rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->α);
-        DESCR_t obj = IR_EXEC(bb->α).value;
+        IR_interp_node(obj_box);
+        DESCR_t obj = IR_EXEC(obj_box).value;
         if (IS_FAIL_fn(obj)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         DESCR_t *cell = data_field_ptr(IR_LIT(bb).sval, obj);
         if (!cell) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
@@ -3593,7 +3598,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_IDX_SET: {
-        if (!bb->α && !bb->β) {
+        if (bb->n_operands == 0) {
             DESCR_t rhs  = ag_ring_peek(g_current_cfg, 0);
             DESCR_t idx  = ag_ring_peek(g_current_cfg, 1);
             DESCR_t base = ag_ring_peek(g_current_cfg, 2);
@@ -3602,13 +3607,15 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).value = rhs;
             return bb->γ;
         }
-        IR_t *rhs_box = bb->β ? bb->β->γ : NULL;
-        if (!bb->α || !bb->β || !rhs_box) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->α);
-        DESCR_t base = IR_EXEC(bb->α).value;
+        IR_t *base_box = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        IR_t *idx_box  = bb->n_operands > 1 ? bb->operands[1] : NULL;
+        IR_t *rhs_box  = bb->n_operands > 2 ? bb->operands[2] : NULL;
+        if (!base_box || !idx_box || !rhs_box) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        IR_interp_node(base_box);
+        DESCR_t base = IR_EXEC(base_box).value;
         if (IS_FAIL_fn(base)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->β);
-        DESCR_t idx = IR_EXEC(bb->β).value;
+        IR_interp_node(idx_box);
+        DESCR_t idx = IR_EXEC(idx_box).value;
         if (IS_FAIL_fn(idx)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         IR_interp_node(rhs_box);
         DESCR_t rhs = IR_EXEC(rhs_box).value;
