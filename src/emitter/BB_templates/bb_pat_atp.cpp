@@ -19,15 +19,15 @@ static std::string bb_pat_atp_str() {
         if (!atp_varname()[0]) return std::string();
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
-                 + x86("comment", emit_fmt("BOX ATP(@%s)  [REG-3 δ=r14, x86() self-encoding]", atp_varname())))
+                 + x86("comment", "BOX ATP(@" + std::string(atp_varname()) + ")  [REG-3 δ=r14, x86() self-encoding]"))
              + x86("mov",  "esi", "r14d")
              + x86("lea",  "rdi", "[rip + __]", atp_var_addr(), atp_label())
              + x86("sub",  "rsp", (long)8)
              + x86("call", "rt_at_cursor", atp_fn_ptr())
              + x86("add",  "rsp", (long)8)
-             + x86("jmp",  PORT_GAMMA)
-             + x86("def",  PORT_BETA)
-             + x86("jmp",  PORT_OMEGA);
+             + x86("jmp",  "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
     }
     return std::string();
 }
