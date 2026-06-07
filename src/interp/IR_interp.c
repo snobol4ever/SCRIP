@@ -284,13 +284,13 @@ static int ir_is_single_shot(IR_t * e) {
             if (!g_stage2.proc_table[_pi].name || strcmp(g_stage2.proc_table[_pi].name, IR_LIT(e).sval) != 0) continue;
             if (!bb_graph_of_proc(&g_stage2.proc_table[_pi])) return 0;
             if (g_stage2.proc_table[_pi].is_generator) return 0;
-            for (IR_t * a = e->α; a; a = a->γ) if (!ir_is_single_shot(a)) return 0;
+            for (int _ci = 0; ; _ci++) { IR_t * a = ir_call_arg(e, _ci); if (!a) break; if (!ir_is_single_shot(a)) return 0; }
             return 1;
         }
         if (!strcmp(IR_LIT(e).sval, "find") || !strcmp(IR_LIT(e).sval, "upto") || !strcmp(IR_LIT(e).sval, "any")
             || !strcmp(IR_LIT(e).sval, "many") || !strcmp(IR_LIT(e).sval, "bal") || !strcmp(IR_LIT(e).sval, "key")
             || !strcmp(IR_LIT(e).sval, "seq")) return 0;
-        for (IR_t * a = e->α; a; a = a->γ) if (!ir_is_single_shot(a)) return 0;
+        for (int _ci = 0; ; _ci++) { IR_t * a = ir_call_arg(e, _ci); if (!a) break; if (!ir_is_single_shot(a)) return 0; }
         return 1;
     }
     case IR_SCAN: return 1;
@@ -2397,7 +2397,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         int nargs   = (int)IR_LIT(bb).ival;
         int has_gen_arg = 0;
         if (nargs > 0 && !is_deep) {
-            IR_t *gx = bb->α; for (int j = 0; j < nargs && gx; j++, gx = gx->γ) if (!ir_is_single_shot(gx)) { has_gen_arg = 1; break; }
+            for (int j = 0; j < nargs; j++) { IR_t *gx = ir_call_arg(bb, j); if (!gx) break; if (!ir_is_single_shot(gx)) { has_gen_arg = 1; break; } }
         }
         int is_plain_builtin = 0;
         if (has_gen_arg) {
@@ -2410,7 +2410,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             DESCR_t *oargs = (DESCR_t *)GC_malloc((size_t)nargs * sizeof(DESCR_t));
             if (IR_EXEC(bb).state == 2) {
                 IR_t **argv = (IR_t **)GC_malloc((size_t)nargs * sizeof(IR_t *));
-                { IR_t *ax = bb->α; for (int j = 0; j < nargs && ax; j++, ax = ax->γ) argv[j] = ax; }
+                for (int j = 0; j < nargs; j++) argv[j] = ir_call_arg(bb, j);
                 int advanced = 0;
                 for (int j = nargs - 1; j >= 0; j--) {
                     if (ir_is_single_shot(argv[j])) continue;
@@ -2425,13 +2425,12 @@ IR_t * IR_interp_node(IR_t * bb) {
                     if (IS_FAIL_fn(oargs[j])) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                 }
             } else {
-                IR_t *ax = bb->α;
                 for (int j = 0; j < nargs; j++) {
+                    IR_t *ax = ir_call_arg(bb, j);
                     if (!ax) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                     IR_EXEC(ax).state = 0; IR_interp_node(ax);
                     oargs[j] = IR_EXEC(ax).value;
                     if (IS_FAIL_fn(oargs[j])) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-                    ax = ax->γ;
                 }
                 IR_EXEC(bb).state = 2;
             }
@@ -2451,13 +2450,12 @@ IR_t * IR_interp_node(IR_t * bb) {
                     if (IS_FAIL_fn(args[j])) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                 }
             } else {
-                IR_t *ax = bb->α;
                 for (int j = 0; j < nargs; j++) {
+                    IR_t *ax = ir_call_arg(bb, j);
                     if (!ax) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                     IR_interp_node(ax);
                     args[j] = IR_EXEC(ax).value;
                     if (IS_FAIL_fn(args[j])) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-                    ax = ax->γ;
                 }
             }
         }

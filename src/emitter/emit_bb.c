@@ -1073,7 +1073,8 @@ static void flat_drive_binop_gen_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t 
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || !pBB->α) {
+    IR_t *a0 = ir_call_arg(pBB, 0);
+    if (!pBB || !a0) {
         fprintf(stderr, "[IBB] FATAL flat_drive_call_intexpr: missing arg0\n");
         abort();
     }
@@ -1081,7 +1082,7 @@ static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     bb_label_t *arg_done = emit_label_alloc("xcall%d_arg_done", id);
     bb_label_t *arg_β    = emit_label_alloc("xcall%d_arg_β",    id);
     if (IR_LIT(pBB).dval != 1.0) {
-        walk_bb_flat(pBB->α, arg_done, lbl_ω, arg_β);
+        walk_bb_flat(a0, arg_done, lbl_ω, arg_β);
         emit_label_define_bb(arg_done);
     }
     EMIT_PAIR_RESET();
@@ -1334,16 +1335,16 @@ static void flat_drive_return(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int nargs = (int)(pBB ? IR_LIT(pBB).ival : 0);
-    IR_t *ax = pBB ? pBB->α : NULL;
     bb_label_t *prev_done = NULL;
-    for (int j = 0; j < nargs && ax; j++) {
+    for (int j = 0; j < nargs; j++) {
+        IR_t *ax = ir_call_arg(pBB, j);
+        if (!ax) break;
         int id = g_flat_node_id++;
         bb_label_t *arg_done = emit_label_alloc("xupcall%d_arg_done", id);
         bb_label_t *arg_β    = emit_label_alloc("xupcall%d_arg_β",    id);
         if (prev_done) emit_label_define_bb(prev_done);
         walk_bb_flat(ax, arg_done, lbl_ω, arg_β);
         prev_done = arg_done;
-        ax = ax->γ;
     }
     if (prev_done) emit_label_define_bb(prev_done);
     EMIT_PAIR_RESET();
@@ -1537,24 +1538,22 @@ static int ir_is_generator_kind(IR_e t) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int call_args_single_shot(IR_t *pBB) {
     int nargs = (int)(pBB ? IR_LIT(pBB).ival : 0);
-    IR_t *ax = pBB ? pBB->α : NULL;
-    for (int j = 0; j < nargs && ax; j++, ax = ax->γ)
-        if (gen_bb_is_gen_arg(ax)) return 0;
+    for (int j = 0; j < nargs; j++) { IR_t *ax = ir_call_arg(pBB, j); if (!ax) break; if (gen_bb_is_gen_arg(ax)) return 0; }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int nargs = (int)(pBB ? IR_LIT(pBB).ival : 0);
-    IR_t *ax = pBB ? pBB->α : NULL;
     bb_label_t *prev_done = NULL;
-    for (int j = 0; j < nargs && ax; j++) {
+    for (int j = 0; j < nargs; j++) {
+        IR_t *ax = ir_call_arg(pBB, j);
+        if (!ax) break;
         int id = g_flat_node_id++;
         bb_label_t *arg_done = emit_label_alloc("xbicall%d_arg_done", id);
         bb_label_t *arg_β    = emit_label_alloc("xbicall%d_arg_β",    id);
         if (prev_done) emit_label_define_bb(prev_done);
         walk_bb_flat(ax, arg_done, lbl_ω, arg_β);
         prev_done = arg_done;
-        ax = ax->γ;
     }
     if (prev_done) emit_label_define_bb(prev_done);
     EMIT_PAIR_RESET();
@@ -2137,7 +2136,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_LIT_F:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_NUL:    if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: {
-        IR_t *a0 = nd->α;
+        IR_t *a0 = ir_call_arg(nd, 0);
         g_emit.op_arg_slot_n = 0;
         if (g_descr_flat_chain) {
             if (g_icn_scan_regs_live && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "pos")) {
@@ -2728,8 +2727,8 @@ static void descr_chain_operand_refs(IR_t *entry) {
         IR_t *n = chain[i];
         int ar = descr_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
-        if (ar == 2 && sp >= 2) { if (n->t != IR_CALL) { n->n_operands = 0; ir_operand_push(n, stk[sp - 2]); ir_operand_push(n, stk[sp - 1]); } else { n->β = stk[sp - 1]; n->α = stk[sp - 2]; } sp -= 2; }
-        else if (ar == 1 && sp >= 1) { if (n->t != IR_CALL && n->t != IR_SCAN) { n->n_operands = 0; ir_operand_push(n, stk[sp - 1]); } else { n->α = stk[sp - 1]; } sp -= 1; }
+        if (ar == 2 && sp >= 2) { n->n_operands = 0; ir_operand_push(n, stk[sp - 2]); ir_operand_push(n, stk[sp - 1]); sp -= 2; }
+        else if (ar == 1 && sp >= 1) { if (n->t != IR_SCAN) { n->n_operands = 0; ir_operand_push(n, stk[sp - 1]); } else { n->α = stk[sp - 1]; } sp -= 1; }
         else if (ar >= 1) { sp = 0; }
         stk[sp++] = n;
     }
@@ -2839,8 +2838,8 @@ static void gvar_stmt_operand_refs(IR_t *head) {
         IR_t *n = chain[i];
         int ar = gvar_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
-        if (ar == 2 && sp >= 2) { if (n->t != IR_CALL) { n->n_operands = 0; ir_operand_push(n, stk[sp - 2]); ir_operand_push(n, stk[sp - 1]); } else { n->β = stk[sp - 1]; n->α = stk[sp - 2]; } sp -= 2; }
-        else if (ar == 1 && sp >= 1) { if (n->t != IR_CALL && n->t != IR_SCAN) { n->n_operands = 0; ir_operand_push(n, stk[sp - 1]); } else { n->α = stk[sp - 1]; } sp -= 1; }
+        if (ar == 2 && sp >= 2) { n->n_operands = 0; ir_operand_push(n, stk[sp - 2]); ir_operand_push(n, stk[sp - 1]); sp -= 2; }
+        else if (ar == 1 && sp >= 1) { if (n->t != IR_SCAN) { n->n_operands = 0; ir_operand_push(n, stk[sp - 1]); } else { n->α = stk[sp - 1]; } sp -= 1; }
         else if (ar >= 1) { sp = 0; }
         stk[sp++] = n;
     }
