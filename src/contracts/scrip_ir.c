@@ -158,6 +158,9 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_VAR_FRAME_REF] = "IR_VAR_FRAME_REF",
     [IR_ASSIGN_FRAME_REF] = "IR_ASSIGN_FRAME_REF",
     [IR_PAT_MATCH] = "IR_PAT_MATCH",
+    [IR_PAT_MATCH_HEAD] = "IR_PAT_MATCH_HEAD",
+    [IR_PAT_MATCH_RETRY] = "IR_PAT_MATCH_RETRY",
+    [IR_PAT_MATCH_ADVANCE] = "IR_PAT_MATCH_ADVANCE",
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
