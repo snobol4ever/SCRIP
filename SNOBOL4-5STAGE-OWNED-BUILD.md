@@ -105,18 +105,19 @@ requirement when built.
   four-port format; statement grouping headers (stmt #, label, goto targets); later S3 extension: dump
   built instance graphs (π cells) the same way. Gate: dump of the SPAN probe shows every pattern element
   with all four ports.
-- [x] **DUMP-V2 ✅ (Lon 2026-06-07, line-format revamp)** — ONE BB per line:
-  `[n] OP  γ=Nα  ω=Nβ  ops:[..] payload`. Operator strips the `IR_` prefix; α/β COLUMNS DROPPED (dying
-  fields — lower_sno verified zero α/β usage); instruction number = node `idx` (dense allocation order,
-  deterministic — never pointer-derived, the bbN lesson); ports print TARGET idx + entry letter, `·` for
-  NULL; `operands[]` printed as idx refs (IR_SCAN excluded — its type-punned graphs render via the
-  preserved `pat:`/`subj:`/`repl:` recursion); literal/var payloads kept. LETTER SOURCE (design call,
-  stated for veto): bare `IR_t*` ports carry no per-edge entry selector yet — letters render the PORT-LAW
-  convention (γ⇒target-α, ω⇒target-β); when IRD-4 retypes γ/ω to `IR_ref_t` the dump reads `ref.sz`
-  instead — a one-line swap, recorded here so IRD-4 picks it up. Steps: (1) `IR_`-strip ✅ (2) γ/ω
-  renderer idx+letter ✅ (3) `ops:[..]` SCAN-guarded ✅ (4) S0 headers+recursion preserved ✅
-  (5) print_port/α/β columns deleted ✅ (6) gate: POS+SPAN+capture probe dumps every element, both ports
-  lettered, capture operand visible ✅; m4 battery at floors ✅.
+- [x] **DUMP-V2 ✅ + V2b CORRECTION (Lon 2026-06-07; first cut VETOED live — nested/indented output was wrong)** —
+  FLAT LINEAR COLUMNAR listing: ONE BB per line `[n] OP  γ=Nα  ω=Nβ  ops:[..] payload`, column 0, ZERO
+  indentation, ZERO `pat:`/`subj:`/`repl:` labels. EVERY slot 0..n-1 prints — NULL slots render `[n] ·`,
+  never skipped. Operator strips `IR_`; α/β columns DELETED; instruction number = node `idx` (dense,
+  deterministic); ports = TARGET idx + entry letter (PORT-LAW convention until IRD-4 `IR_ref_t.sz` — one-line
+  swap recorded here); `operands[]` as idx refs (SCAN-guarded). Sub-graphs still produced by the lowering
+  (SCAN pat/subj/repl via `IR_alloc` lower_sno.c:753) print as SIBLING flat tables — a stopgap: the
+  architecture is ONE linear slot sequence, reached when builder slots (ILIT/POS/ILIT/LEN…) inline into the
+  one graph; the sub-graph tables then vanish on their own. ⛔ KNOWN RESIDUE: ARBNO inner graphs hang off a
+  lower-internal `az` sidecar punned into EXEC.counter (lower_sno.c:902-911) — NOT reachable from contracts
+  without a layering violation, so they remain undumped; dies with the linear-builder lowering (same S0
+  residue note). Gate: POS+SPAN+capture probe dumps 24/24 slots across 3 flat tables, both ports lettered ✅;
+  m4 battery at floors ✅.
 - [ ] **V2-GUI (DEFERRED — on Lon's word only).** Steps, not work: (a) `--dump-bb-json` machine mode off
   the SAME walker as S0-DUMP (nodes: id/kind/ops; edges: port-typed α/β/γ/ω); (b) Python renderer:
   networkx spring_layout (FORCE-DIRECTED, required) → SVG/PNG; node glyph = box with 4 REAL port
