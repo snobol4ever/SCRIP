@@ -50,22 +50,22 @@ static std::string bb_pat_span_var_str() {
              + x86("def",    L(1))
              + x86("mov",    "eax", FR(zoff()))
              + x86("test",   "eax", "eax")
-             + x86("jle",    PORT_OMEGA)
+             + x86("jle",    "ω")
              + x86("mov",    "edx", "r14d")
              + x86("mov",    FR(zooff()), "edx")
              + x86("add",    "edx", "eax")
              + x86("mov",    "r14d", "edx")
-             + x86("jmp",    PORT_GAMMA)
-             + x86("def",    PORT_BETA)
+             + x86("jmp",    "γ")
+             + x86("def",    "β")
              + x86("mov",    "eax", FR(zoff()))
              + x86("sub",    "eax", (long)1)
              + x86("cmp",    "eax", (long)1)
-             + x86("jl",     PORT_OMEGA)
+             + x86("jl",     "ω")
              + x86("mov",    FR(zoff()), "eax")
              + x86("mov",    "edx", FR(zooff()))
              + x86("add",    "edx", "eax")
              + x86("mov",    "r14d", "edx")
-             + x86("jmp",    PORT_GAMMA);
+             + x86("jmp",    "γ");
     }
     return std::string();
 }
