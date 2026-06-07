@@ -4376,7 +4376,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (zi) { zi->cp_mark = (void *)resolve_cp_current(); zi->committed = 0; zi->seen_seq = g_pl_yield_seq; }
         IR_EXEC(bb).state = 1;
         IR_EXEC(bb).value = INTVAL(1);
-        return bb->α;
+        return ir_call_arg(bb, 0);
     }
     case IR_ITE_COMMIT: {
         bb_ite_state_t * zi = (bb_ite_state_t *)(intptr_t)IR_LIT(bb).ival;

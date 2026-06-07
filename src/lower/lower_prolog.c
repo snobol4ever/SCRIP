@@ -309,7 +309,7 @@ static IR_t * g_ite(plcx_t cx, const tree_t * cond, const tree_t * then_, const 
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * c = pl_lower_goal(cx, cond, cm, gv, &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = pl_nalloc(cx, IR_ITE); if (!ite) return NULL;
-    ite->α = cα;
+    if (!ir_operand_push(ite, cα)) return NULL;
     zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = t; zi->else_root = b; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; IR_LIT(ite).ival = (int64_t)(intptr_t)zi;
     pl_set_succ_fail(ite, γ_in, ω_in);
     return pl_ret(ite, α_out, β_out, ite, ω_in);
@@ -330,7 +330,7 @@ static IR_t * g_neg_goal(plcx_t cx, const tree_t * goal_t, IR_t * γ_in, IR_t * 
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * c = pl_lower_goal(cx, goal_t, cm, gv, &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = pl_nalloc(cx, IR_ITE); if (!ite) return NULL;
-    ite->α = cα;
+    if (!ir_operand_push(ite, cα)) return NULL;
     zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; IR_LIT(ite).ival = (int64_t)(intptr_t)zi;
     pl_set_succ_fail(ite, γ_in, ω_in);
     return pl_ret(ite, α_out, β_out, ite, ω_in);
@@ -351,7 +351,7 @@ static IR_t * g_not_unify(plcx_t cx, const tree_t * A, const tree_t * B, IR_t * 
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * c = g_unify(cx, A, B, cm, gv, &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = pl_nalloc(cx, IR_ITE); if (!ite) return NULL;
-    ite->α = cα;
+    if (!ir_operand_push(ite, cα)) return NULL;
     zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; IR_LIT(ite).ival = (int64_t)(intptr_t)zi;
     pl_set_succ_fail(ite, γ_in, ω_in);
     return pl_ret(ite, α_out, β_out, ite, ω_in);
