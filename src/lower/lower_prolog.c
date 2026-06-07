@@ -373,7 +373,7 @@ static IR_t * g_catch(plcx_t cx, const tree_t * goal_t, const tree_t * catcher_t
     IR_t * r = pl_lower_goal(rx, rec_t, NULL, NULL, &rα, &rβ); if (!r) return NULL; (void) rβ;
     rcfg->entry = rα ? rα : r;
     zc->rec_g = rcfg;
-    IR_LIT(bb).ival = (int64_t)(intptr_t)zc; bb->α = cα;
+    IR_LIT(bb).ival = (int64_t)(intptr_t)zc; if (!ir_operand_push(bb, cα)) return NULL;
     pl_set_succ_fail(bb, γ_in, ω_in);
     return pl_ret(bb, α_out, β_out, bb, ω_in);
 }
