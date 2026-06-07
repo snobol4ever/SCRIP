@@ -69,3 +69,26 @@ the shims when the native chain covers the corpus.
 
 **Completion test (= the goal's):** smoke m4 7/7 · pat-rung M4 19/19 no-SKIP · test_mode4_only_corpus_snobol4.sh
 280/280 · beauty subsystems m4 17/17. Then Lon rewrites Snocone.
+
+## ⛔ RULES OF ENGAGEMENT (Lon 2026-06-06 — the game rules; violations = rejection)
+
+1. **BBs and XAs ONLY, through TEMPLATES** (emit_core dispatch). No instruction emission anywhere else.
+2. **One BB template MAY serve multiple IR kinds — but usually does not** (ONE-IR-ONE-LOGIC holds; N→1 is
+   the exception, 1→1 the norm, 1→N never).
+3. **NO calls from emitted code into the SCRIP runtime without EXPRESS PERMISSION** — per-symbol,
+   Lon-stamped, recorded in the ledger below. The logic lives in BBs; the runtime is not an escape hatch.
+
+### Permission ledger (rule 3: symbol · who needs it · status)
+- **nv get/set** (named-variable read/write from emitted code) — S2 operand fetch (`SPAN(cvar)`),
+  S3 DT_P assign/fetch, S5 capture-commit stores + substitution write-back. STATUS: **REQUESTED**.
+- **raw allocator** (GC_MALLOC-equivalent, bytes in/ptr out, no logic) — S5 substitution splice only
+  (new subject string, unbounded size). NOT needed for S3 builds (see D5). STATUS: **REQUESTED**.
+- Grandfathered shim calls (`rt_scan*`, `rt_defer_match`, `rt_cap_assign_cursor`): die at their S-rungs;
+  zero new uses.
+
+### D5 (forced by rule 3) — instance allocation WITHOUT runtime calls
+A build expression's instance count is COMPILE-TIME-KNOWN (the structure is static; only operand values
+are dynamic). Builders allocate instances from a compile-time-sized ζ-frame arena (`bb_slot_claim` region),
+rebuilt in place on each execution — mirroring SPITBOL's rebuild-per-statement for variable patterns. No
+malloc, no runtime call. Escape edge (pattern built in a per-activation frame, stored to a global, used
+after return): probe at S3; if live, ledger-request the allocator for that one shape.
