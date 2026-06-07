@@ -349,8 +349,7 @@ static Term *resolve_node_to_term(IR_t *bb) {
         int arity = (int)IR_LIT(bb).ival;
         if (arity <= 0) return term_new_atom(prolog_atom_intern(IR_LIT(bb).sval ? IR_LIT(bb).sval : "[]"));
         Term **args = (Term **)GC_MALLOC((size_t)arity * sizeof(Term *));
-        IR_t *a = bb->α;
-        for (int i = 0; i < arity && a; i++) { args[i] = resolve_node_to_term(a); a = a->γ; }
+        for (int i = 0; i < arity; i++) { IR_t *a = ir_call_arg(bb, i); if (!a) break; args[i] = resolve_node_to_term(a); }
         return term_new_compound(prolog_atom_intern(IR_LIT(bb).sval ? IR_LIT(bb).sval : "[]"), arity, args);
     }
     case IR_ARITH: {
@@ -4760,7 +4759,7 @@ IR_t * IR_interp_node(IR_t * bb) {
     case IR_BUILTIN: {
         const char *fn = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
         if (strcmp(fn,"throw")==0) {
-            Term *ball = bb->α ? resolve_node_to_term(bb->α) : term_new_atom(prolog_atom_intern("error"));
+            IR_t *thr0 = ir_call_arg(bb,0); Term *ball = thr0 ? resolve_node_to_term(thr0) : term_new_atom(prolog_atom_intern("error"));
             resolve_throw_term(ball);
             IR_EXEC(bb).value = FAILDESCR; return bb->ω;
         }
@@ -4833,7 +4832,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (strcmp(fn,"plus")==0 && IR_LIT(bb).ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
             if (!a0||!a1||!a2) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             Term *t0=resolve_node_to_term(a0); Term *t1=resolve_node_to_term(a1); Term *t2=resolve_node_to_term(a2);
             Term *d0=t0?term_deref(t0):NULL; Term *d1=t1?term_deref(t1):NULL; Term *d2=t2?term_deref(t2):NULL;
@@ -4848,7 +4847,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if ((strcmp(fn,"nb_setval")==0||strcmp(fn,"nb_getval")==0) && IR_LIT(bb).ival==2) {
             extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1);
             if (!a0||!a1) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             Term *kt=resolve_node_to_term(a0); Term *kd=kt?term_deref(kt):NULL;
             if (!kd||kd->tag!=TERM_ATOM) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
@@ -4868,7 +4867,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (strcmp(fn,"aggregate_all")==0 && IR_LIT(bb).ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
             if (!a0||!a1||!a2) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             Term *tmpl_t=resolve_node_to_term(a0); Term *tmpl_d=tmpl_t?term_deref(tmpl_t):NULL;
             if (!tmpl_d) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
@@ -4934,11 +4933,11 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (!unify(res_t,result_term,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark2); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             IR_EXEC(bb).value=INTVAL(1); return bb->γ;
         }
-        if (bb->α && IR_LIT(bb).ival==1 &&
+        if (ir_call_arg(bb,0) && IR_LIT(bb).ival==1 &&
             (strcmp(fn,"var")==0||strcmp(fn,"nonvar")==0||strcmp(fn,"atom")==0||strcmp(fn,"atomic")==0
              ||strcmp(fn,"number")==0||strcmp(fn,"integer")==0||strcmp(fn,"float")==0||strcmp(fn,"compound")==0
              ||strcmp(fn,"callable")==0||strcmp(fn,"is_list")==0||strcmp(fn,"ground")==0)) {
-            Term *t = resolve_node_to_term(bb->α); Term *d = t ? term_deref(t) : NULL;
+            Term *t = resolve_node_to_term(ir_call_arg(bb,0)); Term *d = t ? term_deref(t) : NULL;
             int ok = 0;
             int isvar = (!d || d->tag==TERM_VAR);
             if (strcmp(fn,"var")==0)            ok =  isvar;
@@ -4957,7 +4956,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (strcmp(fn,"functor")==0 && IR_LIT(bb).ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
             Term *t0 = resolve_node_to_term(a0); Term *d0 = t0?term_deref(t0):NULL;
             int mark = trail_mark(&g_resolve_trail);
             if (d0 && d0->tag!=TERM_VAR) {
@@ -4989,7 +4988,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (strcmp(fn,"arg")==0 && IR_LIT(bb).ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
             Term *nT=resolve_node_to_term(a0); Term *nd0=nT?term_deref(nT):NULL;
             Term *tT=resolve_node_to_term(a1); Term *td=tT?term_deref(tT):NULL;
             if (!nd0||nd0->tag!=TERM_INT||!td||td->tag!=TERM_COMPOUND) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
@@ -5002,7 +5001,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (strcmp(fn,"=..")==0 && IR_LIT(bb).ival==2) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1);
             Term *t0=resolve_node_to_term(a0); Term *d0=t0?term_deref(t0):NULL;
             int mark = trail_mark(&g_resolve_trail);
             if (d0 && d0->tag!=TERM_VAR) {
@@ -5044,15 +5043,15 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_EXEC(bb).value=INTVAL(1); return bb->γ;
             }
         }
-        if (strcmp(fn,"char_type")==0 && IR_LIT(bb).ival==2 && bb->α) {
+        if (strcmp(fn,"char_type")==0 && IR_LIT(bb).ival==2 && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1);
             char b0[256]; const char *cs = resolve_atomic_text(resolve_node_to_term(a0), b0, sizeof b0);
             if (!cs || !cs[0]) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             unsigned char ch = (unsigned char)cs[0];
             int mark = trail_mark(&g_resolve_trail);
             if (a1 && (a1->t==IR_STRUCT || a1->t==IR_ARITH) && IR_LIT(a1).sval) {
-                const char *ty = IR_LIT(a1).sval; IR_t *inner = a1->α;
+                const char *ty = IR_LIT(a1).sval; IR_t *inner = ir_call_arg(a1,0);
                 Term *out = NULL;
                 if (strcmp(ty,"digit")==0)         { if (!isdigit(ch)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; } out=term_new_int((long)(ch-'0')); }
                 else if (strcmp(ty,"to_lower")==0) { char c2[2]={(char)tolower(ch),0}; out=term_new_atom(prolog_atom_intern(c2)); }
@@ -5088,9 +5087,9 @@ IR_t * IR_interp_node(IR_t * bb) {
              ||strcmp(fn,"string_chars")==0||strcmp(fn,"string_codes")==0||strcmp(fn,"term_to_atom")==0
              ||strcmp(fn,"term_string")==0
              ||strcmp(fn,"atom_number")==0||strcmp(fn,"copy_term")==0||strcmp(fn,"atomic_list_concat")==0
-             ||strcmp(fn,"concat_atom")==0||strcmp(fn,"string_to_atom")==0) && bb->α) {
+             ||strcmp(fn,"concat_atom")==0||strcmp(fn,"string_to_atom")==0) && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
             int mark = trail_mark(&g_resolve_trail);
             if (strcmp(fn,"string_length")==0) {
                 char b[256]; const char *s=resolve_atomic_text(resolve_node_to_term(a0),b,sizeof b);
@@ -5227,9 +5226,9 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if ((strcmp(fn,"atom_length")==0||strcmp(fn,"atom_concat")==0||strcmp(fn,"atom_chars")==0
              ||strcmp(fn,"atom_codes")==0||strcmp(fn,"upcase_atom")==0||strcmp(fn,"downcase_atom")==0)
-            && bb->α) {
+            && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=bb->α, *a1=a0?a0->γ:NULL, *a2=a1?a1->γ:NULL;
+            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
             int mark = trail_mark(&g_resolve_trail);
             if (strcmp(fn,"atom_length")==0) {
                 char buf[256]; const char *s = resolve_atomic_text(resolve_node_to_term(a0), buf, sizeof buf);
@@ -5294,14 +5293,15 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_EXEC(bb).value=INTVAL(1); return bb->γ;
             }
         }
-        if (bb->α) {
+        if (ir_call_arg(bb,0)) {
+            IR_t *b0 = ir_call_arg(bb,0);
             if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0) {
                 extern void pl_write(Term *);
-                if (bb->α->t == IR_ARITH && IR_LIT(bb->α).ival > 0) {
-                    Term *wt = resolve_node_to_term(bb->α);
+                if (b0->t == IR_ARITH && IR_LIT(b0).ival > 0) {
+                    Term *wt = resolve_node_to_term(b0);
                     if (wt) pl_write(term_deref(wt));
                 } else {
-                    IR_interp_node(bb->α); DESCR_t av = IR_EXEC(bb->α).value;
+                    IR_interp_node(b0); DESCR_t av = IR_EXEC(b0).value;
                     if (av.v == DT_I) printf("%ld", (long)av.i);
                     else if (av.v == DT_R) { char fb[64]; resolve_format_float(fb, sizeof fb, av.r); fputs(fb, stdout); }
                     else if ((av.v == DT_S || av.v == DT_SNUL) && av.s) fputs(av.s, stdout);
@@ -5310,21 +5310,21 @@ IR_t * IR_interp_node(IR_t * bb) {
                 if (strcmp(fn, "writeln") == 0) putchar('\n');
                 IR_EXEC(bb).value = INTVAL(1); return bb->γ;
             }
-            IR_interp_node(bb->α); DESCR_t av = IR_EXEC(bb->α).value;
+            IR_interp_node(b0); DESCR_t av = IR_EXEC(b0).value;
             if (strcmp(fn, "is") == 0 && bb->β) {
                 extern Term **g_resolve_env; extern Trail g_resolve_trail;
                 DESCR_t rv = resolve_arith_eval(bb->β);
                 if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                 Term *vt = (rv.v == DT_I) ? term_new_int((long)rv.i) : term_new_float(rv.r);
-                Term *lhs = resolve_node_to_term(bb->α);
+                Term *lhs = resolve_node_to_term(b0);
                 if (lhs) { if (!unify(lhs, vt, &g_resolve_trail)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; } }
                 IR_EXEC(bb).value = INTVAL(1); return bb->γ;
             }
         }
-        if ((strcmp(fn,"sort")==0||strcmp(fn,"msort")==0) && bb->α) {
+        if ((strcmp(fn,"sort")==0||strcmp(fn,"msort")==0) && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             int do_msort = (strcmp(fn,"msort")==0);
-            Term *lst = resolve_node_to_term(bb->α);
+            Term *lst = resolve_node_to_term(ir_call_arg(bb,0));
             if (!lst) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             lst = term_deref(lst);
             Term **elems = (Term **)GC_MALLOC(4096 * sizeof(Term *)); int n=0;
@@ -5341,7 +5341,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             }
             Term *result = term_new_atom(ATOM_NIL);
             for (int i=m-1;i>=0;i--) { Term **args=(Term**)GC_MALLOC(2*sizeof(Term*)); args[0]=elems[out_idx[i]]; args[1]=result; result=term_new_compound(ATOM_DOT,2,args); }
-            IR_t *a1 = bb->α ? bb->α->γ : NULL;
+            IR_t *a1 = ir_call_arg(bb,1);
             Term *out_var = a1 ? resolve_node_to_term(a1) : NULL;
             if (!out_var) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             int mark = trail_mark(&g_resolve_trail);
@@ -5349,7 +5349,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).value=INTVAL(1); return bb->γ;
         }
         if (strcmp(fn,"format")==0) {
-            Term *fmt_t = bb->α ? resolve_node_to_term(bb->α) : NULL;
+            IR_t *f0 = ir_call_arg(bb,0); Term *fmt_t = f0 ? resolve_node_to_term(f0) : NULL;
             if (!fmt_t) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             fmt_t = term_deref(fmt_t);
             const char *fmt = NULL;
@@ -5367,7 +5367,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             }
             if (!fmt) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             Term *args_list = NULL;
-            if (IR_LIT(bb).ival==2 && bb->α && bb->α->γ) args_list = term_deref(resolve_node_to_term(bb->α->γ));
+            if (IR_LIT(bb).ival==2 && ir_call_arg(bb,1)) args_list = term_deref(resolve_node_to_term(ir_call_arg(bb,1)));
             Term *arg_cur = args_list;
             for (const char *p = fmt; *p; p++) {
                 if (*p=='~' && *(p+1)) {
@@ -5396,11 +5396,11 @@ IR_t * IR_interp_node(IR_t * bb) {
             }
             IR_EXEC(bb).value=INTVAL(1); return bb->γ;
         }
-        if (strcmp(fn,"numbervars")==0 && bb->α) {
+        if (strcmp(fn,"numbervars")==0 && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            Term *term_arg = resolve_node_to_term(bb->α);
-            IR_t *a1_nd = bb->α->γ;
-            IR_t *a2_nd = a1_nd ? a1_nd->γ : NULL;
+            Term *term_arg = resolve_node_to_term(ir_call_arg(bb,0));
+            IR_t *a1_nd = ir_call_arg(bb,1);
+            IR_t *a2_nd = ir_call_arg(bb,2);
             if (!a1_nd || !a2_nd) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             Term *start_t = term_deref(resolve_node_to_term(a1_nd));
             if (!start_t || start_t->tag!=TERM_INT) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
@@ -5425,18 +5425,18 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (end_var && !unify(end_var, term_new_int(counter), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             IR_EXEC(bb).value=INTVAL(1); return bb->γ;
         }
-        if ((strcmp(fn,"writeq")==0||strcmp(fn,"write_canonical")==0||strcmp(fn,"print")==0) && bb->α) {
+        if ((strcmp(fn,"writeq")==0||strcmp(fn,"write_canonical")==0||strcmp(fn,"print")==0) && ir_call_arg(bb,0)) {
             extern void pl_writeq(Term *); extern void pl_write_canonical(Term *); extern void pl_write(Term *);
-            Term *t = term_deref(resolve_node_to_term(bb->α));
+            Term *t = term_deref(resolve_node_to_term(ir_call_arg(bb,0)));
             if (strcmp(fn,"writeq")==0) pl_writeq(t);
             else if (strcmp(fn,"write_canonical")==0) pl_write_canonical(t);
             else pl_write(t);
             IR_EXEC(bb).value=INTVAL(1); return bb->γ;
         }
-        if ((strcmp(fn,"retract")==0||strcmp(fn,"retractall")==0) && bb->α) {
+        if ((strcmp(fn,"retract")==0||strcmp(fn,"retractall")==0) && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             int do_all = (strcmp(fn,"retractall")==0);
-            Term *head_t = term_deref(resolve_node_to_term(bb->α));
+            Term *head_t = term_deref(resolve_node_to_term(ir_call_arg(bb,0)));
             if (!head_t) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
             const char *pred_name = NULL; int pred_arity = 0;
             if (head_t->tag==TERM_ATOM) { pred_name=prolog_atom_name(head_t->atom_id); pred_arity=0; }
@@ -5488,16 +5488,16 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (removed>0) { IR_EXEC(bb).value=INTVAL(1); return bb->γ; }
             IR_EXEC(bb).value=FAILDESCR; return bb->ω;
         }
-        if ((strcmp(fn,"assertz")==0||strcmp(fn,"asserta")==0||strcmp(fn,"assert")==0) && bb->α) {
+        if ((strcmp(fn,"assertz")==0||strcmp(fn,"asserta")==0||strcmp(fn,"assert")==0) && ir_call_arg(bb,0)) {
             extern int pl_rt_assertz(Term *clause_term, int prepend);
-            Term *clause_t = resolve_node_to_term(bb->α);
+            Term *clause_t = resolve_node_to_term(ir_call_arg(bb,0));
             int prepend = (strcmp(fn,"asserta")==0);
             int ok = clause_t ? pl_rt_assertz(clause_t, prepend) : 0;
             if (ok) { IR_EXEC(bb).value=INTVAL(1); return bb->γ; }
             IR_EXEC(bb).value=FAILDESCR; return bb->ω;
         }
-        if (strcmp(fn,"abolish")==0 && bb->α) {
-            Term *spec = term_deref(resolve_node_to_term(bb->α));
+        if (strcmp(fn,"abolish")==0 && ir_call_arg(bb,0)) {
+            Term *spec = term_deref(resolve_node_to_term(ir_call_arg(bb,0)));
             const char *pred_name = NULL; int pred_arity = 0;
             if (spec && spec->tag==TERM_COMPOUND && spec->compound.arity==2
                     && strcmp(prolog_atom_name(spec->compound.functor),"/")==0) {

@@ -322,8 +322,8 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
             int a1ok = (g->β->t == IR_LOGICVAR || g->β->t == IR_LIT_I);
             return a0ok && a1ok;
         }
-        if (!strcmp(fn, "plus") && IR_LIT(g).ival == 3 && g->α && g->α->γ && g->α->γ->γ) {
-            IR_t *a0 = g->α, *a1 = a0->γ, *a2 = a1->γ;
+        if (!strcmp(fn, "plus") && IR_LIT(g).ival == 3 && ir_call_arg(g,0) && ir_call_arg(g,1) && ir_call_arg(g,2)) {
+            IR_t *a0 = ir_call_arg(g,0), *a1 = ir_call_arg(g,1), *a2 = ir_call_arg(g,2);
             int a0ok = (a0->t == IR_LOGICVAR || a0->t == IR_LIT_I);
             int a1ok = (a1->t == IR_LOGICVAR || a1->t == IR_LIT_I);
             int a2ok = (a2->t == IR_LOGICVAR || a2->t == IR_LIT_I);
@@ -331,7 +331,7 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
         }
         int is_io = (!strcmp(fn, "write") || !strcmp(fn, "writeln") || !strcmp(fn, "print") || !strcmp(fn, "nl") || !strcmp(fn, "halt"));
         if (!is_io) return 0;
-        if (IR_LIT(g).ival >= 1) { const IR_t *a = g->α; if (!a || (a->t != IR_ATOM && a->t != IR_LIT_I && a->t != IR_LIT_F && a->t != IR_LOGICVAR)) return 0; }
+        if (IR_LIT(g).ival >= 1) { const IR_t *a = ir_call_arg(g,0); if (!a || (a->t != IR_ATOM && a->t != IR_LIT_I && a->t != IR_LIT_F && a->t != IR_LOGICVAR)) return 0; }
         return 1;
     }
     case IR_UNIFY: {
@@ -503,8 +503,10 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         return (lv && (rv || rc)) || (rv && lc) || (lc && rc);
     }
     if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "nl") && IR_LIT(gg).ival == 0) return 1;
-    if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "write") && IR_LIT(gg).ival == 1 && gg->α)
-        return gg->α->t == IR_ATOM || gg->α->t == IR_LIT_I || gg->α->t == IR_LIT_F || gg->α->t == IR_LOGICVAR;
+    if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "write") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+        const IR_t *wa0 = ir_call_arg(gg,0);
+        return wa0->t == IR_ATOM || wa0->t == IR_LIT_I || wa0->t == IR_LIT_F || wa0->t == IR_LOGICVAR;
+    }
     if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && gg->α && gg->β) {
         if (gg->α->t != IR_LOGICVAR) return 0;
         IR_t *rhs = gg->β;
@@ -934,10 +936,11 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (nn) { nn->α = (gg->n_operands > 0) ? gg->operands[0] : NULL; nn->β = (gg->n_operands > 1) ? gg->operands[1] : NULL; }
     } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "nl") == 0 && IR_LIT(gg).ival == 0) {
         nn = pl_gz_det_node(IR_DET_NL);
-    } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "write") == 0 && IR_LIT(gg).ival == 1 && gg->α) {
-        if (gg->α->t == IR_ATOM && IR_LIT(gg->α).sval) { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) IR_LIT(nn).sval = IR_LIT(gg->α).sval; }
-        else if (gg->α->t == IR_LIT_I)          { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = IR_LIT(gg->α).ival; } }
-        else if (gg->α->t == IR_LOGICVAR)       { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = 0; nn->α = gg->α; } }
+    } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "write") == 0 && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+        IR_t *wz0 = ir_call_arg(gg,0);
+        if (wz0->t == IR_ATOM && IR_LIT(wz0).sval) { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) IR_LIT(nn).sval = IR_LIT(wz0).sval; }
+        else if (wz0->t == IR_LIT_I)          { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = IR_LIT(wz0).ival; } }
+        else if (wz0->t == IR_LOGICVAR)       { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = 0; nn->α = wz0; } }
         else return 0;
     } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "is") == 0 && IR_LIT(gg).ival == 2 && gg->α && gg->β) {
         IR_t *lhs = gg->α, *rhs = gg->β;
@@ -1129,8 +1132,8 @@ static int pl_findall_term_buildable(const IR_t *a) {
     case IR_ATOM: case IR_LIT_I: case IR_LIT_F: case IR_LOGICVAR:
         return 1;
     case IR_STRUCT: {
-        int ar = (int)IR_LIT(a).ival; const IR_t *c = a->α;
-        for (int i = 0; i < ar; i++) { if (!c || !pl_findall_term_buildable(c)) return 0; c = c->γ; }
+        int ar = (int)IR_LIT(a).ival;
+        for (int i = 0; i < ar; i++) { const IR_t *c = ir_call_arg(a, i); if (!c || !pl_findall_term_buildable(c)) return 0; }
         return 1;
     }
     case IR_ARITH: {
@@ -1264,9 +1267,9 @@ static int pl_rich_node_emittable(const IR_t *nd) {
             return 1;
         static const char *ttest[] = { "var","nonvar","atom","atomic","number","integer",
                                         "float","compound","callable","is_list","ground", NULL };
-        for (int k = 0; ttest[k]; k++) if (!strcmp(fn, ttest[k])) return nd->α != NULL;
+        for (int k = 0; ttest[k]; k++) if (!strcmp(fn, ttest[k])) return ir_call_arg(nd,0) != NULL;
         if (!strcmp(fn,"succ")) return IR_LIT(nd).ival==2 && nd->α && nd->β;
-        if (!strcmp(fn,"throw")) return IR_LIT(nd).ival==1 && nd->α && pl_findall_term_buildable(nd->α);
+        if (!strcmp(fn,"throw")) return IR_LIT(nd).ival==1 && ir_call_arg(nd,0) && pl_findall_term_buildable(ir_call_arg(nd,0));
         if (!strcmp(fn,"findall")) {
             bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)IR_LIT(nd).ival;
             if (!fs || !fs->goal_node || !fs->tmpl || !fs->result) return 0;
@@ -1275,28 +1278,28 @@ static int pl_rich_node_emittable(const IR_t *nd) {
             return pl_findall_goal_conj_admissible(fs->gcfg, fs->goal_node);
         }
         if (!strcmp(fn,"nb_setval")||!strcmp(fn,"nb_getval"))
-            return IR_LIT(nd).ival==2 && nd->α && nd->α->γ && pl_findall_term_buildable(nd->α) && pl_findall_term_buildable(nd->α->γ);
+            return IR_LIT(nd).ival==2 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && pl_findall_term_buildable(ir_call_arg(nd,0)) && pl_findall_term_buildable(ir_call_arg(nd,1));
         if (!strcmp(fn,"aggregate_all"))
-            return IR_LIT(nd).ival==3 && nd->α && nd->α->γ && nd->α->γ->γ && pl_findall_term_buildable(nd->α) && pl_findall_term_buildable(nd->α->γ) && pl_findall_term_buildable(nd->α->γ->γ);
-        if (!strcmp(fn,"plus")) return IR_LIT(nd).ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
-        if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return nd->α && nd->α->γ;
-        if (!strcmp(fn,"format")) return nd->α && (IR_LIT(nd).ival==1 || IR_LIT(nd).ival==2);
-        if (!strcmp(fn,"numbervars")) return IR_LIT(nd).ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
-        if (!strcmp(fn,"copy_term")) return nd->α && nd->α->γ;
+            return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2) && pl_findall_term_buildable(ir_call_arg(nd,0)) && pl_findall_term_buildable(ir_call_arg(nd,1)) && pl_findall_term_buildable(ir_call_arg(nd,2));
+        if (!strcmp(fn,"plus")) return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
+        if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
+        if (!strcmp(fn,"format")) return ir_call_arg(nd,0) && (IR_LIT(nd).ival==1 || IR_LIT(nd).ival==2);
+        if (!strcmp(fn,"numbervars")) return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
+        if (!strcmp(fn,"copy_term")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
         static const char *atom2[] = { "atom_length","upcase_atom","downcase_atom","string_length",
             "string_upper","string_lower","atom_string","string_to_atom", NULL };
-        for (int k = 0; atom2[k]; k++) if (!strcmp(fn, atom2[k])) return nd->α && nd->α->γ;
-        if (!strcmp(fn,"atom_concat")||!strcmp(fn,"string_concat")) return nd->α && nd->α->γ && nd->α->γ->γ;
+        for (int k = 0; atom2[k]; k++) if (!strcmp(fn, atom2[k])) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
+        if (!strcmp(fn,"atom_concat")||!strcmp(fn,"string_concat")) return ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
         static const char *achars[] = { "atom_chars","atom_codes","string_chars","string_codes", NULL };
-        for (int k = 0; achars[k]; k++) if (!strcmp(fn, achars[k])) return nd->α && nd->α->γ;
-        if (!strcmp(fn,"char_type")) return IR_LIT(nd).ival==2 && nd->α && nd->α->γ;
-        if (!strcmp(fn,"number_string")||!strcmp(fn,"atom_number")) return nd->α && nd->α->γ;
-        if (!strcmp(fn,"functor")) return IR_LIT(nd).ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
-        if (!strcmp(fn,"arg")) return IR_LIT(nd).ival==3 && nd->α && nd->α->γ && nd->α->γ->γ;
-        if (!strcmp(fn,"=..")) return nd->α && nd->α->γ;
-        if (!strcmp(fn,"term_to_atom")||!strcmp(fn,"term_string")) return nd->α && nd->α->γ;
-        if (!strcmp(fn,"writeq")||!strcmp(fn,"write_canonical")) return nd->α != NULL;
-        if (!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) return nd->α && (IR_LIT(nd).ival==2 || IR_LIT(nd).ival==3);
+        for (int k = 0; achars[k]; k++) if (!strcmp(fn, achars[k])) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
+        if (!strcmp(fn,"char_type")) return IR_LIT(nd).ival==2 && ir_call_arg(nd,0) && ir_call_arg(nd,1);
+        if (!strcmp(fn,"number_string")||!strcmp(fn,"atom_number")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
+        if (!strcmp(fn,"functor")) return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
+        if (!strcmp(fn,"arg")) return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
+        if (!strcmp(fn,"=..")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
+        if (!strcmp(fn,"term_to_atom")||!strcmp(fn,"term_string")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
+        if (!strcmp(fn,"writeq")||!strcmp(fn,"write_canonical")) return ir_call_arg(nd,0) != NULL;
+        if (!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) return ir_call_arg(nd,0) && (IR_LIT(nd).ival==2 || IR_LIT(nd).ival==3);
         return 0;
     }
     default:
