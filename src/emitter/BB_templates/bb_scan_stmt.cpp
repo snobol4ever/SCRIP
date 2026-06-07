@@ -27,40 +27,43 @@ static inline uint64_t     fn_scan_lit()     { int (*f)(const char *, const char
 static inline const char * scan_lbl(const char * s) { s = s ? s : ""; const char * l = emit_intern_str(s); if (l) return l; static char b[24]; strtab_label(b, sizeof b, s); return b; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_scan_stmt_str() {
-    if (PLATFORM_X86) {
-        if (MEDIUM_TEXT) {
-            if (!scan_pat_lit()) return x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)");
-            if (!scan_has_name() && !scan_subj_lit()) return x86_bomb("bb_scan: TEXT(mode-4) non-literal subject needs native PB-RB graph (pending)");
-            if (scan_is_repl() && !scan_replace_lit()) return x86_bomb("bb_scan: TEXT(mode-4) non-literal replacement needs native PB-RB graph (pending)");
-            std::string a_subj = scan_has_name()    ? x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)scan_subj_name(),    scan_lbl(scan_subj_name()))    : x86("mov", "rdi", (long)0);
-            std::string a_slit = scan_subj_lit()     ? x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)scan_subj_lit(),     scan_lbl(scan_subj_lit()))     : x86("mov", "rsi", (long)0);
-            std::string a_patlit =                     x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)scan_pat_lit(),      scan_lbl(scan_pat_lit()));
-            std::string a_rlit = scan_replace_lit()   ? x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)scan_replace_lit(), scan_lbl(scan_replace_lit())) : x86("mov", "r8", (long)0);
-            return x86("label", _.lbl_α)
-                 + x86("comment", "BOX IR_SCAN literal-pattern [rt_scan_lit, RO ptrs @PLT]")
-                 + a_subj + a_slit + a_patlit
-                 + x86("mov", "rcx", scan_is_repl())
-                 + a_rlit
-                 + x86("call", "rt_scan_lit", fn_scan_lit())
-                 + x86("test", "eax", "eax")
-                 + x86("je",   PORT_OMEGA)
-                 + x86("jmp",  PORT_GAMMA)
-                 + x86("def",  PORT_BETA)
-                 + x86("jmp",  PORT_OMEGA);
-        }
-        return x86_load_ro("rdi", "??", scan_pat_graph())
+    if (!PLATFORM_X86) return std::string();
+    return IF(MEDIUM_TEXT && !scan_pat_lit(),
+              x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)"))
+         + IF(MEDIUM_TEXT && scan_pat_lit() && !scan_has_name() && !scan_subj_lit(),
+              x86_bomb("bb_scan: TEXT(mode-4) non-literal subject needs native PB-RB graph (pending)"))
+         + IF(MEDIUM_TEXT && scan_pat_lit() && (scan_has_name() || scan_subj_lit()) && scan_is_repl() && !scan_replace_lit(),
+              x86_bomb("bb_scan: TEXT(mode-4) non-literal replacement needs native PB-RB graph (pending)"))
+         + IF(MEDIUM_TEXT && scan_pat_lit() && (scan_has_name() || scan_subj_lit()) && (!scan_is_repl() || scan_replace_lit()),
+               x86("label", _.lbl_α)
+             + x86("comment", "BOX IR_SCAN literal-pattern [rt_scan_lit, RO ptrs @PLT]")
+             + FOR(0, 5, [&](int i) {
+                   return IF(i == 0 && scan_has_name(),  x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)scan_subj_name(), scan_lbl(scan_subj_name())))
+                        + IF(i == 0 && !scan_has_name(), x86("mov", "rdi", (long)0))
+                        + IF(i == 1 && (scan_subj_lit() != 0),  x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)scan_subj_lit(), scan_lbl(scan_subj_lit())))
+                        + IF(i == 1 && !scan_subj_lit(), x86("mov", "rsi", (long)0))
+                        + IF(i == 2, x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)scan_pat_lit(), scan_lbl(scan_pat_lit())))
+                        + IF(i == 3, x86("mov", "rcx", scan_is_repl()))
+                        + IF(i == 4 && (scan_replace_lit() != 0),  x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)scan_replace_lit(), scan_lbl(scan_replace_lit())))
+                        + IF(i == 4 && !scan_replace_lit(), x86("mov", "r8", (long)0)); })
+             + x86("call", "rt_scan_lit", fn_scan_lit())
+             + x86("test", "eax", "eax")
+             + x86("je",   "ω")
+             + x86("jmp",  "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω"))
+         + IF(!MEDIUM_TEXT,
+               x86_load_ro("rdi", "??", scan_pat_graph())
              + x86_load_ro("rsi", "??", scan_subj_graph())
              + x86("mov",  "rdx", scan_is_repl())
              + x86("lea",  "rcx", "[rip + __]", scan_subj_addr(), scan_subj_label())
              + x86_load_ro("r8", "??", scan_repl_graph())
              + x86("call", "rt_scan", fn_scan())
              + x86("test", "eax", "eax")
-             + x86("je",   PORT_OMEGA)
-             + x86("jmp",  PORT_GAMMA)
-             + x86("def",  PORT_BETA)
-             + x86("jmp",  PORT_OMEGA);
-    }
-    return std::string();
+             + x86("je",   "ω")
+             + x86("jmp",  "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω"));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_scan_stmt(IR_t * pBB) { (void)pBB; bb_emit_x86(bb_scan_stmt_str()); }
