@@ -175,7 +175,7 @@ static IR_t * g_compare(plcx_t cx, const tree_t * l_t, const tree_t * r_t, const
     IR_t * rα = NULL, * rβ = NULL;
     IR_t * r = g_arith_expr(cx, r_t, NULL, ω_in, &rα, &rβ); if (!r) return NULL;
     (void) lβ; (void) rβ;
-    cmp->α = lα; cmp->β = rα;
+    if (!ir_operand_push(cmp, lα) || !ir_operand_push(cmp, rα)) return NULL;
     pl_set_succ_fail(cmp, γ_in, ω_in);
     return pl_ret(cmp, α_out, β_out, cmp, ω_in);
 }
@@ -190,7 +190,7 @@ static IR_t * g_term_compare(plcx_t cx, const tree_t * l_t, const tree_t * r_t, 
     IR_t * rα = NULL, * rβ = NULL;
     IR_t * r = g_term(cx, r_t, NULL, NULL, &rα, &rβ); if (!r) return NULL;
     (void) lβ; (void) rβ;
-    cmp->α = lα; cmp->β = rα;
+    if (!ir_operand_push(cmp, lα) || !ir_operand_push(cmp, rα)) return NULL;
     pl_set_succ_fail(cmp, γ_in, ω_in);
     return pl_ret(cmp, α_out, β_out, cmp, ω_in);
 }
@@ -205,7 +205,7 @@ static IR_t * g_is(plcx_t cx, const tree_t * lhs_t, const tree_t * rhs_t, IR_t *
     IR_t * raα = NULL, * raβ = NULL;
     IR_t * r = g_arith_expr(cx, rhs_t, NULL, ω_in, &raα, &raβ); if (!r) return NULL;
     (void) laβ; (void) raβ;
-    bb->α = laα; bb->β = raα;
+    if (!ir_operand_push(bb, laα) || !ir_operand_push(bb, raα)) return NULL;
     pl_set_succ_fail(bb, γ_in, ω_in);
     return pl_ret(bb, α_out, β_out, bb, ω_in);
 }
