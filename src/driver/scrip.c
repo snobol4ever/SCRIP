@@ -696,9 +696,10 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
         } else {
             nn = pl_gz_det_node(IR_DET_WRITE);
             if (!nn) return 0;
-            if      (gg->α->t == IR_ATOM)  IR_LIT(nn).sval = IR_LIT(gg->α).sval;
-            else if (gg->α->t == IR_LIT_I) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = IR_LIT(gg->α).ival; }
-            else { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = 0; nn->α = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(gg->α).ival, ar, lbase)); if (!nn->α) return 0; }
+            IR_t *w0 = ir_call_arg(gg, 0);
+            if      (w0->t == IR_ATOM)  IR_LIT(nn).sval = IR_LIT(w0).sval;
+            else if (w0->t == IR_LIT_I) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = IR_LIT(w0).ival; }
+            else { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = 0; nn->α = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(w0).ival, ar, lbase)); if (!nn->α) return 0; }
         }
         if (!nn) return 0;
         if (!head) head = nn; else tail->γ = nn;

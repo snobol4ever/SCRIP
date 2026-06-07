@@ -221,12 +221,10 @@ static IR_t * g_term(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     case TT_FNC: {
         IR_t * st = pl_nalloc(cx, IR_STRUCT); if (!st) return NULL;
         IR_LIT(st).sval = e->v.sval ? e->v.sval : "[]"; IR_LIT(st).ival = e->n;
-        IR_t * prev = NULL;
         for (int i = 0; i < e->n; i++) {
             IR_t * cα = NULL, * cβ = NULL;
             IR_t * c = g_term(cx, e->c[i], NULL, NULL, &cα, &cβ); if (!c) return NULL;
-            if (i == 0) st->α = cα; else prev->γ = cα;
-            prev = cα;
+            if (!ir_operand_push(st, cα)) return NULL;
         }
         pl_set_succ_fail(st, γ_in, ω_in);
         return pl_ret(st, α_out, β_out, st, ω_in);
@@ -250,7 +248,7 @@ static IR_t * g_term(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
             IR_t * h = g_term(cx, e->c[i], NULL, NULL, &hα, &hβ); if (!h) return NULL; (void) hβ;
             IR_t * cell = pl_nalloc(cx, IR_STRUCT); if (!cell) return NULL;
             IR_LIT(cell).sval = "."; IR_LIT(cell).ival = 2;
-            cell->α = hα; hα->γ = suffix; suffix = cell;
+            if (!ir_operand_push(cell, hα) || !ir_operand_push(cell, suffix)) return NULL; suffix = cell;
         }
         pl_set_succ_fail(suffix, γ_in, ω_in);
         return pl_ret(suffix, α_out, β_out, suffix, ω_in);
@@ -264,12 +262,10 @@ static IR_t * g_term(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
 static IR_t * g_builtin(plcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * bb = pl_nalloc(cx, IR_BUILTIN); if (!bb) return NULL;
     IR_LIT(bb).sval = fn; IR_LIT(bb).ival = e ? e->n : 0;
-    IR_t * prev = NULL;
     if (e) for (int i = 0; i < e->n; i++) {
         IR_t * aα = NULL, * aβ = NULL;
         IR_t * a = g_term(cx, e->c[i], NULL, NULL, &aα, &aβ); if (!a) return NULL;
-        if (i == 0) bb->α = aα; else prev->γ = aα;
-        prev = aα;
+        if (!ir_operand_push(bb, aα)) return NULL;
     }
     pl_set_succ_fail(bb, γ_in, ω_in);
     return pl_ret(bb, α_out, β_out, bb, ω_in);
