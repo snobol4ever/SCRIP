@@ -255,6 +255,14 @@ static inline IR_t * IR_sidecar_own(IR_t * nd) {
 #define IR_LIT(nd)  ((IR_sidecar_own((IR_t *)(nd)))->own->lit[(nd)->idx])
 #define IR_EXEC(nd) ((IR_sidecar_own((IR_t *)(nd)))->own->exec[(nd)->idx])
 /*--------------------------------------------------------------------------------------------------------------------*/
+static inline IR_t * ir_call_arg(const IR_t * nd, int j) {
+    if (!nd || j < 0) return NULL;
+    if (nd->n_operands > 0) return (j < nd->n_operands) ? nd->operands[j] : NULL;
+    IR_t * a = nd->α;
+    while (a && j-- > 0) a = a->γ;
+    return a;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static inline void ag_ring_push(IR_graph_t * cfg, DESCR_t v) {
     if (!cfg) return;
     cfg->ring_head = (cfg->ring_head + 1) % AG_RING;

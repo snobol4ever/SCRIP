@@ -32,7 +32,7 @@ static std::string bcws_slot_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_slot_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    int off = bb_slot_get(_.node->α);
+    int off = bb_slot_get(ir_call_arg(_.node, 0));
     bb_label_t * beta_tgt = bb_call_write_beta_target();
     if (MEDIUM_BINARY) return bcws_slot_bin(off, beta_tgt);
     if (MEDIUM_TEXT) return x86("label", _.lbl_α)
@@ -64,7 +64,7 @@ static std::string bcws_binop_int_bin(int off, bb_label_t * beta_tgt) { uint64_t
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_binop_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    IR_t * a0 = _.node->α;
+    IR_t * a0 = ir_call_arg(_.node, 0);
     bb_label_t * beta_tgt = bb_call_write_beta_target();
     int off = bb_slot_get(a0);
     if (off < 0) { fprintf(stderr, "[GZ-3] FATAL bb_call_write_binop: write(binop) — slot miss\n"); abort(); }

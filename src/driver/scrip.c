@@ -82,7 +82,7 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
         if (ar < 0 || ar > sp) return NULL;
         if (n->t == IR_CALL) {
             if (ar != 1) return NULL;
-            n->α = stk[sp - 1]; sp -= 1;
+            n->n_operands = 0; if (!ir_operand_push(n, stk[sp - 1])) return NULL; sp -= 1;
             IR_LIT(n).dval = 0.0;
         } else if (ar == 2) {
             n->β = stk[sp - 1];

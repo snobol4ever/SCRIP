@@ -484,7 +484,7 @@ static std::string bb_call_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
-    IR_t       * a0   = _.node->α;
+    IR_t       * a0   = ir_call_arg(_.node, 0);
     if (g_descr_flat_chain && _.op_dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
     if (g_gvar_flat_chain && _.op_dval == 5.0) return bb_call_gvar_define_str(pBB);
     if (g_gvar_flat_chain && (_.op_dval == 2.0 || _.op_dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
