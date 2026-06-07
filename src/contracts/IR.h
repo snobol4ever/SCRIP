@@ -3,6 +3,7 @@
 #define SCRIP_IR_H
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "descr.h"
 #ifndef NULVCL
 #  define NULVCL       ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
@@ -200,6 +201,7 @@ struct IR_t {
     DESCR_t      value;
     int64_t      counter;
     int          state;
+    int          idx;
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
@@ -207,6 +209,18 @@ typedef struct {
     IR_t     **operands;
     int        n;
 } bb_operand_aux_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    const char * sval;
+    int64_t      ival;
+    double       dval;
+} IR_lit_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    DESCR_t      value;
+    int64_t      counter;
+    int          state;
+} IR_exec_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct IR_graph_t {
     IR_t    * entry;
@@ -216,6 +230,8 @@ typedef struct IR_graph_t {
     int            lang;
     int            nslots;
     IR_t         * body_root;
+    IR_lit_t     * lit;
+    IR_exec_t    * exec;
     bb_operand_aux_t *operand_aux;
     int              operand_aux_n;
     int              operand_aux_max;
@@ -226,6 +242,16 @@ typedef struct IR_graph_t {
 } IR_graph_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * IR_alloc(int max_nodes, int lang);
+/*--------------------------------------------------------------------------------------------------------------------*/
+static inline void IR_sidecar_own(const IR_graph_t * g, const IR_t * nd) {
+    if (!g || !nd || nd->idx < 0 || nd->idx >= g->n || g->all[nd->idx] != nd) {
+        fprintf(stderr, "IR sidecar ownership violation: g=%p nd=%p idx=%d n=%d\n", (const void *)g, (const void *)nd, nd ? nd->idx : -1, g ? g->n : -1);
+        abort();
+    }
+}
+#define IR_LIT(g,nd)  (*(IR_sidecar_own((g),(nd)), &(g)->lit[(nd)->idx]))
+#define IR_EXEC(g,nd) (*(IR_sidecar_own((g),(nd)), &(g)->exec[(nd)->idx]))
+/*--------------------------------------------------------------------------------------------------------------------*/
 static inline void ag_ring_push(IR_graph_t * cfg, DESCR_t v) {
     if (!cfg) return;
     cfg->ring_head = (cfg->ring_head + 1) % AG_RING;
