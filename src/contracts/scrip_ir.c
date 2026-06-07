@@ -170,6 +170,9 @@ IR_graph_t * IR_alloc(int max_nodes, int lang) {
     if (!bbg) return NULL;
     bbg->all  = calloc((size_t)max_nodes, sizeof(IR_t *));
     if (!bbg->all) { free(bbg); return NULL; }
+    bbg->lit  = calloc((size_t)max_nodes, sizeof(IR_lit_t));
+    bbg->exec = calloc((size_t)max_nodes, sizeof(IR_exec_t));
+    if (!bbg->lit || !bbg->exec) { free(bbg->lit); free(bbg->exec); free(bbg->all); free(bbg); return NULL; }
     bbg->n    = 0;
     bbg->max  = max_nodes;
     bbg->lang = lang;
@@ -189,7 +192,9 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     bb->counter = 0;
     bb->state   = 0;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
+    bb->idx = bbg->n;
     bbg->all[bbg->n++] = bb;
+    bbg->exec[bb->idx].value = FAILDESCR;
     return bb;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
