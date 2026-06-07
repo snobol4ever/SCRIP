@@ -1,6 +1,6 @@
 # BB-REVAMP-TRACKER — SPEC v2 (Lon 2026-06-04). Tick ONLY when the file is REGENERATED to v2 and gated.
 # WORK QUEUE FOR: .github/GOAL-BB-FIXUP.md (the continuous fixup session / routine). Protocol, laws, ladder live THERE; per-file state lives HERE.
-# CURSOR: bb_pat_span.cpp
+# CURSOR: bb_pat_span_var.cpp
 # LAP RESTART (Lon 2026-06-06, end of 6th run): RING RE-SORTED ALPHABETICALLY (lap-end re-sort on Lon word) + cursor at ring TOP bb_aggregate_nb.cpp for the corrected-rule lap — every file (incl. ticked-clean) re-audited against ZERO-BINARY-IN-bb_*.cpp; rb is ABSOLUTE; conversion to x86() (encoders added to x86_asm.h, byte-verified vs as) is sweep scope; pin the encoder-gap list with Lon before the first conversion stop.
 # INHERITED RED 2026-06-06 (5th run): prove_lower2 on origin/main 9193511 = 66 PASS + 2 FAIL (cases #49 nodes=10 vs expected 8, #50 nodes=9 vs expected 7) and script still exits rc=0 (no hard gate on FAIL). Present IDENTICALLY with/without fixup edits (stash A/B, verdict-list diff EMPTY) — not fixup-caused. Suspect: PL-GZ-7 3d9ccfd IR_ITE_COMMIT/IR_ITE_GATE +2-node insertion vs hardcoded prove-harness expected counts; SNO-HY-2b 9193511's "prove_lower2 67->68" claim measured pre-rebase. Semantic call (fix lowering vs update counts) — owner PL-GZ / Lon, NOT swept per law 5. Evidence: HANDOFF-2026-06-06-OPUS48-BB-FIXUP-LAP1-STOPS-15-16.md
 # INHERITED RED 2026-06-06 (5th run cont., stop 18): prove_lower2 harness NO LONGER LINKS on origin/main 0a614f2 — PB-12 added bb_label_landing calls to src/lower/lower.c (defined in src/lower/lower_program.c) but scripts/prove_lower2.sh links only lower.c+lower_prolog.c+scrip_ir.c+prove_lower2.c, NOT lower_program.c → ld undefined-reference, zero verdicts. Pre-PB-12 (d85d8f3) lower.c has 0 refs; not fixup-caused (bb_term_inspect.cpp is not in that link; pre-rebase run with the fixup edit was 66 PASS + 2 FAIL green). Fix is one link-line addition — owner PASCAL-BB / harness owner / Lon, NOT swept per law 5. This supersedes/buries the rc=0 2-FAIL issue above until the harness links again.
@@ -81,7 +81,7 @@
 - [x] bb_pat_pos.cpp — (✅ v2 2026-06-07 13th run: first audit CLEAN — all counters 0; free advance)
 - [x] bb_pat_rem.cpp — (✅ v2 2026-06-07 13th run: lv 1→0 (dead nid excised), pe 3→0 (PORT_*→Greek), misplaced separator corrected; asm-diff EMPTY ×1 stash A/B (REM probe, LIVE); gates at floors)
 - [x] bb_pat_rtab.cpp — (✅ v2 2026-06-07 13th run: first audit lv 1→0 (dead nid excised), pe 4→0 (PORT_*→Greek); asm-diff EMPTY ×1 stash A/B (RTAB(5) probe, LIVE); gates at floors)
-- [ ] bb_pat_span.cpp
+- [x] bb_pat_span.cpp — (✅ v2 2026-06-07 13th run: pe 5→0 (PORT_*→Greek, XK_PORT byte-identical, 3 locations); asm-diff EMPTY ×1 stash A/B (SPAN probe, LIVE); gates at floors)
 - [ ] bb_pat_span_var.cpp — (ADDED TO RING at lap-end re-sort 2026-06-06: generator-created, never audited)
 - [ ] bb_pat_tab.cpp
 - [ ] bb_query_frame.cpp — (v1 done: 8-rule grep-clean; LONG wrapped (string-split, content-identical))
