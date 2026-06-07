@@ -105,6 +105,18 @@ requirement when built.
   four-port format; statement grouping headers (stmt #, label, goto targets); later S3 extension: dump
   built instance graphs (π cells) the same way. Gate: dump of the SPAN probe shows every pattern element
   with all four ports.
+- [x] **DUMP-V2 ✅ (Lon 2026-06-07, line-format revamp)** — ONE BB per line:
+  `[n] OP  γ=Nα  ω=Nβ  ops:[..] payload`. Operator strips the `IR_` prefix; α/β COLUMNS DROPPED (dying
+  fields — lower_sno verified zero α/β usage); instruction number = node `idx` (dense allocation order,
+  deterministic — never pointer-derived, the bbN lesson); ports print TARGET idx + entry letter, `·` for
+  NULL; `operands[]` printed as idx refs (IR_SCAN excluded — its type-punned graphs render via the
+  preserved `pat:`/`subj:`/`repl:` recursion); literal/var payloads kept. LETTER SOURCE (design call,
+  stated for veto): bare `IR_t*` ports carry no per-edge entry selector yet — letters render the PORT-LAW
+  convention (γ⇒target-α, ω⇒target-β); when IRD-4 retypes γ/ω to `IR_ref_t` the dump reads `ref.sz`
+  instead — a one-line swap, recorded here so IRD-4 picks it up. Steps: (1) `IR_`-strip ✅ (2) γ/ω
+  renderer idx+letter ✅ (3) `ops:[..]` SCAN-guarded ✅ (4) S0 headers+recursion preserved ✅
+  (5) print_port/α/β columns deleted ✅ (6) gate: POS+SPAN+capture probe dumps every element, both ports
+  lettered, capture operand visible ✅; m4 battery at floors ✅.
 - [ ] **V2-GUI (DEFERRED — on Lon's word only).** Steps, not work: (a) `--dump-bb-json` machine mode off
   the SAME walker as S0-DUMP (nodes: id/kind/ops; edges: port-typed α/β/γ/ω); (b) Python renderer:
   networkx spring_layout (FORCE-DIRECTED, required) → SVG/PNG; node glyph = box with 4 REAL port
