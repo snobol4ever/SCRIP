@@ -1,4 +1,5 @@
 #include "rt/rt.h"
+#include "dtp.h"
 #include "core.h"
 #include "builtins/resolution.h"
 #include "bb_pool.h"
@@ -17,6 +18,7 @@ void rt_main_init(void)
     extern Trail g_resolve_trail;
     setvbuf(stdout, NULL, _IOLBF, 0);
     bb_pool_init();
+    pat_pool_init();
     trail_init(&g_resolve_trail);
     prolog_atom_init();
 }

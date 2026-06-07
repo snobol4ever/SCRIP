@@ -68,6 +68,7 @@ libscrip_rt: out/libscrip_rt.so
 RT_PIC_SRCS := \
     $(RT)/rt/rt.c \
     $(RT)/rt/rt_protected.c \
+    $(RT)/rt/pat_pool.c \
     $(SRC)/runtime/core/core.c \
     $(SRC)/runtime/core/invoke.c \
     $(SRC)/runtime/core/argval.c \
@@ -501,6 +502,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_bb.c -o $(OBJ)/emit_bb.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
 	$(CC) $(CRT)   -c $(SRC)/driver/interp_globals.c -o $(OBJ)/interp_globals.o
 	$(CC) $(CRT)   -c $(SRC)/driver/interp_label.c   -o $(OBJ)/interp_label.o
 	$(CC) $(CRT)   -c $(SRC)/driver/interp_hooks.c   -o $(OBJ)/interp_hooks.o
