@@ -188,6 +188,12 @@ static void pas_sconst_add(const char *name, const char *v) { if (g_pas_nsconst 
 static const char *pas_sconst_get(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nsconst; i++) if (g_pas_sconsts[i].name && !strcmp(g_pas_sconsts[i].name, name)) return g_pas_sconsts[i].val; return 0; }
 static struct { char *name; long long high; } g_pas_arrays[256]; static int g_pas_narray;
 static void pas_array_add(const char *name, long long high) { if (g_pas_narray < 256 && name) { g_pas_arrays[g_pas_narray].name = strdup(name); g_pas_arrays[g_pas_narray].high = high; g_pas_narray++; } }
+static struct { char *name; long long high; } g_pas_enumtypes[64]; static int g_pas_nenum; static long long g_pas_pend_enum_max;
+static void pas_enumtype_add(const char *n, long long h) { if (g_pas_nenum < 64 && n) { g_pas_enumtypes[g_pas_nenum].name = strdup(n); g_pas_enumtypes[g_pas_nenum].high = h; g_pas_nenum++; } }
+static long long pas_enumtype_high(const char *n) { if (!n) return -1; for (int i = 0; i < g_pas_nenum; i++) if (g_pas_enumtypes[i].name && !strcmp(g_pas_enumtypes[i].name, n)) return g_pas_enumtypes[i].high; return -1; }
+static struct { char *name; long long low; long long high; } g_pas_subtypes[64]; static int g_pas_nsubtype; static long long g_pas_pend_sub_low; static long long g_pas_pend_sub_high;
+static void pas_subtype_add(const char *n, long long lo, long long hi) { if (g_pas_nsubtype < 64 && n) { g_pas_subtypes[g_pas_nsubtype].name = strdup(n); g_pas_subtypes[g_pas_nsubtype].low = lo; g_pas_subtypes[g_pas_nsubtype].high = hi; g_pas_nsubtype++; } }
+static long long pas_subtype_high(const char *n) { if (!n) return -1; for (int i = 0; i < g_pas_nsubtype; i++) if (g_pas_subtypes[i].name && !strcmp(g_pas_subtypes[i].name, n)) return g_pas_subtypes[i].high; return -1; }
 #define PAS_REC_MAX 64
 #define PAS_FIELD_MAX 32
 static struct { char *tname; char *fields[PAS_FIELD_MAX]; char *fldptrto[PAS_FIELD_MAX]; int nf; } g_pas_rectypes[PAS_REC_MAX]; static int g_pas_nrectype;
@@ -200,7 +206,7 @@ static const char *pas_ptrtype_target(const char *p) { if (!p) return NULL; for 
 static struct { char *vname; char *rname; } g_pas_ptrvars[PAS_REC_MAX]; static int g_pas_nptrvar;
 static void pas_ptrvar_add(const char *v, const char *r) { if (g_pas_nptrvar < PAS_REC_MAX && v && r) { int k = g_pas_nptrvar++; g_pas_ptrvars[k].vname = strdup(v); g_pas_ptrvars[k].rname = strdup(r); } }
 static const char *pas_ptrvar_target(const char *v) { if (!v) return NULL; for (int i = 0; i < g_pas_nptrvar; i++) if (g_pas_ptrvars[i].vname && !strcmp(g_pas_ptrvars[i].vname, v)) return g_pas_ptrvars[i].rname; return NULL; }
-static void pas_pend_reset(void) { g_pas_pend_nf = 0; g_pas_pend_ptrtarget = NULL; g_pas_pend_typename = NULL; g_pas_pend_ischar = 0; }
+static void pas_pend_reset(void) { g_pas_pend_nf = 0; g_pas_pend_ptrtarget = NULL; g_pas_pend_typename = NULL; g_pas_pend_ischar = 0; g_pas_pend_enum_max = -1; g_pas_pend_sub_low = 0; g_pas_pend_sub_high = -1; }
 static void pas_pend_add(const char *f) { if (g_pas_pend_nf < PAS_FIELD_MAX && f) { g_pas_pend_fldptrto[g_pas_pend_nf] = g_pas_pend_ptrtarget; g_pas_pend_fields[g_pas_pend_nf++] = strdup(f); } }
 static void pas_rectype_add(const char *tn) { if (g_pas_nrectype >= PAS_REC_MAX || !tn) return; int k = g_pas_nrectype++; g_pas_rectypes[k].tname = strdup(tn); g_pas_rectypes[k].nf = g_pas_pend_nf;
     for (int i = 0; i < g_pas_pend_nf; i++) { g_pas_rectypes[k].fields[i] = g_pas_pend_fields[i]; g_pas_rectypes[k].fldptrto[i] = g_pas_pend_fldptrto[i]; } }
@@ -388,7 +394,7 @@ type_decl_list:
     type_decl_list type_decl
     | type_decl
     ;
-type_decl: IDENT EQOP type SEMICOLON { if (g_pas_pend_ptrtarget) pas_ptrtype_add($1, g_pas_pend_ptrtarget); else if (g_pas_pend_nf > 0) pas_rectype_add($1); pas_pend_reset(); } ;
+type_decl: IDENT EQOP type SEMICOLON { if (g_pas_pend_ptrtarget) pas_ptrtype_add($1, g_pas_pend_ptrtarget); else if (g_pas_pend_nf > 0) pas_rectype_add($1); if (g_pas_pend_enum_max >= 0) pas_enumtype_add($1, g_pas_pend_enum_max); if (g_pas_pend_sub_high >= 0) pas_subtype_add($1, g_pas_pend_sub_low, g_pas_pend_sub_high); pas_pend_reset(); } ;
 type:
     simple_type { $$ = (g_pas_pend_ptrtarget ? -3 : -1); }
     | ARROW IDENT { g_pas_pend_ptrtarget = strdup($2); $$ = -3; }
@@ -404,9 +410,10 @@ simple_type:
           if ($2) for (int i = 0; i < $2->count; i++) {
               tree_t *_id = $2->items[i];
               if (_id && _id->v.sval) pas_const_add(_id->v.sval, (long long)(_eo++)); }
-          $$ = -1; }
-    | IDENT { g_pas_pend_typename = strdup($1); g_pas_pend_ischar = !strcmp($1, "char"); const char *_pt = pas_ptrtype_target($1); if (_pt) { g_pas_pend_ptrtarget = strdup(_pt); $$ = -3; } else { pas_rectype_to_pend($1); $$ = -1; } }
-    | constant DOTDOT constant { $$ = $3; }
+          g_pas_pend_enum_max = (long long)(_eo - 1);
+          $$ = _eo > 0 ? (long long)(_eo - 1) : -1; }
+    | IDENT { g_pas_pend_typename = strdup($1); g_pas_pend_ischar = !strcmp($1, "char"); const char *_pt = pas_ptrtype_target($1); if (_pt) { g_pas_pend_ptrtarget = strdup(_pt); $$ = -3; } else { long long _eh = pas_enumtype_high($1); long long _sh = pas_subtype_high($1); if (_eh >= 0) { $$ = _eh; } else if (_sh >= 0) { $$ = _sh; } else { pas_rectype_to_pend($1); $$ = -1; } } }
+    | constant DOTDOT constant { g_pas_pend_sub_low = $1; g_pas_pend_sub_high = $3; $$ = $3; }
     ;
 record_body:
     record_field_list
@@ -626,6 +633,7 @@ tree_t *pascal_parse_string(const char *src) {
     g_pas_nconst = 0; g_pas_narray = 0; g_pas_nfunc = 0;
     g_pas_nrectype = 0; g_pas_nrecvar = 0; g_pas_pend_nf = 0; g_pas_nsetvar = 0; g_pas_ncharvar = 0;
     g_pas_nptrtype = 0; g_pas_nptrvar = 0; g_pas_pend_ptrtarget = NULL; g_pas_pend_typename = NULL;
+    g_pas_nenum = 0; g_pas_pend_enum_max = -1; g_pas_nsubtype = 0; g_pas_pend_sub_low = 0; g_pas_pend_sub_high = -1;
     g_pas_level = 1; g_pas_ldepth = 0; g_pas_case_depth = 0; g_pas_case_ctr = 0; g_with_depth = 0;
     void *buf = pascal_yy_scan_string(src);
     pascal_yyparse();
