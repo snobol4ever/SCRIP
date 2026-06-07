@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# scripts/test_mode4_broad_corpus_snobol4.sh — M4SN-4a: broad corpus SNOBOL4 all-mode parity
+# MODE-4 ONLY corpus runner (Lon pivot 2026-06-06): emit→assemble→link→run. No m2/m3.
+# Compares output against .ref files. Reports PASS/FAIL/SKIP per mode.
+#
+# Self-contained per RULES.md: paths from $0, timeout on every run.
+# AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6   DATE: 2026-05-14
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIP="${SCRIP:-$HERE/../scrip}"
+RT_DIR="${RT_DIR:-$HERE/../out}"
+CORPUS="/home/claude/corpus"
+TIMEOUT="${TIMEOUT:-10}"
+INC="$CORPUS/programs/snobol4/demo/inc"
+BEAUTY="$CORPUS/programs/snobol4/beauty_suite"
+DEMO="$CORPUS/programs/snobol4/demo"
+
+if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
+if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi
+
+PASS2=0; FAIL2=0
+PASS3=0; FAIL3=0
+PASS4=0; FAIL4=0; SKIP4=0
+
+WORKDIR="$(mktemp -d)"
+trap 'rm -rf "$WORKDIR"' EXIT
+T_M2=0; T_M3=0; T_M4=0; T0_ALL=$SECONDS
+
+compile_mode4() {
+    local sno="$1" out="$2"
+    local tmp; tmp="$(mktemp -d)"
+    SNO_LIB="$INC" "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
+    (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
+    gcc "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lgc -lm \
+        -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
+    rm -rf "$tmp"
+}
+
+run_test() {
+    local label="$1" sno="$2" ref="$3" input="${4:-}" filter="${5:-}"
+    [ ! -f "$ref" ] && return
+    [ ! -f "$sno" ] && return
+    local exp; exp=$(cat "$ref")
+    local slug; slug=$(echo "$label" | tr '/: ' '_')
+
+    # ── Mode 4: --compile → assemble → link → run ─────────────────────────
+    local T0m4=$SECONDS
+    if [ ! -f "$RT_DIR/libscrip_rt.so" ]; then SKIP4=$((SKIP4+1)); return; fi
+    local bin="$WORKDIR/${slug}.bin"
+    if ! compile_mode4 "$sno" "$bin"; then SKIP4=$((SKIP4+1)); FAILURES4="${FAILURES4}  SKIP(compile/link) ${label}\n"; return; fi
+    local got4
+    if [ -n "$input" ] && [ -f "$input" ]; then
+        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
+    else
+        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
+    fi
+    [ -n "$filter" ] && got4=$(printf '%s\n' "$got4" | grep -v "$filter" || true)
+    T_M4=$((T_M4+SECONDS-T0m4))
+    if [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1))
+    else FAIL4=$((FAIL4+1)); FAILURES4="${FAILURES4}  FAIL ${label}\n"; fi
+}
+
+# ── Crosscheck corpus ──────────────────────────────────────────────────────────
+while IFS= read -r sno; do
+    ref="${sno%.sno}.ref"
+    input="${sno%.sno}.input"
+    [ ! -f "$ref" ] && continue
+    label=$(basename "$sno" .sno)
+    run_test "$label" "$sno" "$ref" "$input" ""
+done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
+
+# ── Beauty library drivers ─────────────────────────────────────────────────────
+for sno in "$BEAUTY"/*_driver.sno; do
+    [ ! -f "$sno" ] && continue
+    name=$(basename "$sno" .sno)
+    ref="$BEAUTY/${name}.ref"
+    run_test "$name" "$sno" "$ref" "" ""
+done
+
+# ── Demo programs ─────────────────────────────────────────────────────────────
+run_test "demo_wordcount" "$DEMO/wordcount.sno" "$DEMO/wordcount.ref" "$DEMO/wordcount.input" ""
+run_test "demo_treebank"  "$DEMO/treebank.sno"  "$DEMO/treebank.ref"  "$DEMO/treebank.input"  ""
+run_test "demo_claws5"    "$DEMO/claws5.sno"    "$DEMO/claws5.ref"    "$DEMO/claws5.input"    ""
+TIMEOUT=30 \
+run_test "demo_roman"     "$DEMO/roman.sno"     "$DEMO/roman.ref"     ""                      "^ms:"
+
+T_ALL=$((SECONDS-T0_ALL))
+TOTAL=$((PASS4+FAIL4+SKIP4))
+echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
+[ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
+
+printf "TIME M2=%ds M3=%ds M4=%ds TOTAL=%ds\n" "$T_M2" "$T_M3" "$T_M4" "$T_ALL"
