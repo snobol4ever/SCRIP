@@ -13,11 +13,11 @@ static IR_t * pas_bool_diamond(lcx_t cx, const tree_t * child, IR_t * ω_in, IR_
     static int g_pas_bool_tmp = 0;
     char * tn = (char *) GC_malloc(16); if (!tn) return NULL;
     snprintf(tn, 16, "__pbt%d", g_pas_bool_tmp++);
-    IR_t * lit1 = nalloc(cx, IR_LIT_I); if (!lit1) return NULL; lit1->ival = 1;
-    IR_t * lit0 = nalloc(cx, IR_LIT_I); if (!lit0) return NULL; lit0->ival = 0;
-    IR_t * as1  = nalloc(cx, IR_ASSIGN); if (!as1) return NULL; as1->sval = tn;
-    IR_t * as0  = nalloc(cx, IR_ASSIGN); if (!as0) return NULL; as0->sval = tn;
-    IR_t * rd   = nalloc(cx, IR_VAR);    if (!rd)  return NULL; rd->sval  = tn;
+    IR_t * lit1 = nalloc(cx, IR_LIT_I); if (!lit1) return NULL; IR_LIT(lit1).ival = 1;
+    IR_t * lit0 = nalloc(cx, IR_LIT_I); if (!lit0) return NULL; IR_LIT(lit0).ival = 0;
+    IR_t * as1  = nalloc(cx, IR_ASSIGN); if (!as1) return NULL; IR_LIT(as1).sval = tn;
+    IR_t * as0  = nalloc(cx, IR_ASSIGN); if (!as0) return NULL; IR_LIT(as0).sval = tn;
+    IR_t * rd   = nalloc(cx, IR_VAR);    if (!rd)  return NULL; IR_LIT(rd).sval  = tn;
     lcx_t cb = cx; cb.bounded = 1;
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * cn = lower(cb, child, lit1, lit0, &cα, &cβ);
@@ -56,14 +56,14 @@ IR_t * pas_binop_bool(lcx_t cx, const tree_t * e, IR_t * bin, int b1, int b2, IR
 /*====================================================================================================================*/
 static IR_t * pas_leaf_node(lcx_t cx, IR_e kind, const char * name, long long iv) {
     IR_t * n = nalloc(cx, kind); if (!n) return NULL;
-    if (kind == IR_VAR) n->sval = (char *) name; else n->ival = iv;
+    if (kind == IR_VAR) IR_LIT(n).sval = (char *) name; else IR_LIT(n).ival = iv;
     return n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_binop_ll(lcx_t cx, int code, int is_rel, IR_t * op0, IR_t * op1, IR_t * γ_in, IR_t * ω_in) {
     if (!op0 || !op1) return NULL;
     IR_t * bin = nalloc(cx, IR_BINOP); if (!bin) return NULL;
-    bin->ival = (int64_t) code; bin->dval = is_rel ? 1.0 : 0.0;
+    IR_LIT(bin).ival = (int64_t) code; IR_LIT(bin).dval = is_rel ? 1.0 : 0.0;
     set_succ_fail(op0, op1, ω_in); set_succ_fail(op1, bin, ω_in);
     IR_t * ops[2] = { op0, op1 }; bb_operand_aux_set(cx.bbg, bin, ops, 2);
     set_succ_fail(bin, γ_in, ω_in);
@@ -73,7 +73,7 @@ static IR_t * pas_binop_ll(lcx_t cx, int code, int is_rel, IR_t * op0, IR_t * op
 static IR_t * pas_binop_lt(lcx_t cx, int code, int is_rel, IR_t * op0, const tree_t * op1_t, IR_t * γ_in, IR_t * ω_in) {
     if (!op0 || !op1_t) return NULL;
     IR_t * bin = nalloc(cx, IR_BINOP); if (!bin) return NULL;
-    bin->ival = (int64_t) code; bin->dval = is_rel ? 1.0 : 0.0;
+    IR_LIT(bin).ival = (int64_t) code; IR_LIT(bin).dval = is_rel ? 1.0 : 0.0;
     IR_t * p1α = NULL, * p1β = NULL;
     IR_t * p1 = lower(cx, op1_t, bin, ω_in, &p1α, &p1β); if (!p1) return NULL;
     set_succ_fail(op0, p1α, ω_in);
@@ -91,7 +91,7 @@ IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t
     IR_t * cond_v = pas_leaf_node(cb, IR_VAR, vname, 0); if (!cond_v) return NULL;
     IR_t * cond = pas_binop_lt(cb, down ? BINOP_GE : BINOP_LE, 1, cond_v, to, NULL, γ_in); if (!cond) return NULL;
     IR_t * cond_entry = cond_v;
-    IR_t * incr = nalloc(cb, IR_ASSIGN); if (!incr) return NULL; incr->sval = (char *) vname;
+    IR_t * incr = nalloc(cb, IR_ASSIGN); if (!incr) return NULL; IR_LIT(incr).sval = (char *) vname;
     IR_t * step_v = pas_leaf_node(cb, IR_VAR, vname, 0); IR_t * step_one = pas_leaf_node(cb, IR_LIT_I, NULL, 1);
     IR_t * step = pas_binop_ll(cb, down ? BINOP_SUB : BINOP_ADD, 0, step_v, step_one, incr, ω_in); if (!step) return NULL;
     set_succ_fail(incr, cond_entry, ω_in);
@@ -99,7 +99,7 @@ IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t
     IR_t * bα = NULL, * bβ = NULL;
     IR_t * bnode = lower(cb, body, incr_entry, incr_entry, &bα, &bβ); if (!bnode) return NULL;
     if (!cond->γ) cond->γ = bα ? bα : bnode;
-    IR_t * init = nalloc(cb, IR_ASSIGN); if (!init) return NULL; init->sval = (char *) vname;
+    IR_t * init = nalloc(cb, IR_ASSIGN); if (!init) return NULL; IR_LIT(init).sval = (char *) vname;
     IR_t * fα = NULL, * fβ = NULL;
     IR_t * fnode = lower(cb, from, init, ω_in, &fα, &fβ); if (!fnode) return NULL;
     set_succ_fail(init, cond_entry, ω_in);
@@ -123,7 +123,7 @@ IR_t * v_pascal_repeat(lcx_t cx, const tree_t * body_t, const tree_t * cond_t, I
 IR_t * pas_assign_fnc_lhs(lcx_t cx, const tree_t * lhs_t, const tree_t * rhs_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * as = nalloc(cx, IR_ASSIGN);
     if (!as) return NULL;
-    as->sval = lhs_t->c[0]->v.sval;
+    IR_LIT(as).sval = lhs_t->c[0]->v.sval;
     IR_t * rα = NULL, * rβ = NULL;
     IR_t * rhs = lower(cx, rhs_t, as, ω_in, &rα, &rβ);
     if (!rhs) return NULL;

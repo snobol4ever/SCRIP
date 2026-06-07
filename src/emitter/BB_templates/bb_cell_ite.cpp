@@ -10,7 +10,7 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static const pl_gz_ite_state_t *bcit_st() { const IR_t *nd = (const IR_t *)_.bb_zn; return nd ? (const pl_gz_ite_state_t *)(intptr_t)nd->ival : (const pl_gz_ite_state_t *)0; }
+static const pl_gz_ite_state_t *bcit_st() { const IR_t *nd = (const IR_t *)_.bb_zn; return nd ? (const pl_gz_ite_state_t *)(intptr_t)IR_LIT(nd).ival : (const pl_gz_ite_state_t *)0; }
 static int bcit_gate_off() { return GZ_CELL_OFF(bcit_st()->gate_slot); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_cell_ite_str() {

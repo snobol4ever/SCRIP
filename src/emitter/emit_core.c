@@ -378,17 +378,17 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     emit_io_set_sink(out);
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
-    g_emit.op_sval = nd->sval;
-    g_emit.op_ival = nd->ival;
+    g_emit.op_sval = IR_LIT(nd).sval;
+    g_emit.op_ival = IR_LIT(nd).ival;
     g_emit.op_node_kind = (int)nd->t;
-    g_emit.op_dval = nd->dval;
-    g_emit.op_counter = nd->counter;
-    g_emit.op_a_sval = nd->α ? nd->α->sval : (const char *)0;
+    g_emit.op_dval = IR_LIT(nd).dval;
+    g_emit.op_counter = IR_EXEC(nd).counter;
+    g_emit.op_a_sval = nd->α ? IR_LIT(nd->α).sval : (const char *)0;
     g_emit.op_a_node_kind = nd->α ? (int)nd->α->t : -1;
     g_emit.op_a_slot = (nd->α && nd->α->t != IR_LIT_F && nd->α->t != IR_LIT_NUL) ? bb_slot_get(nd->α) : -1;
-    g_emit.op_a_counter = nd->α ? nd->α->counter : 0;
-    g_emit.op_a_ival_sg = nd->α ? nd->α->ival : 0;
-    g_emit.op_a_dval = nd->α ? nd->α->dval : 0;
+    g_emit.op_a_counter = nd->α ? IR_EXEC(nd->α).counter : 0;
+    g_emit.op_a_ival_sg = nd->α ? IR_LIT(nd->α).ival : 0;
+    g_emit.op_a_dval = nd->α ? IR_LIT(nd->α).dval : 0;
     switch (nd->t) {
     case IR_PAT_LIT:         bb_lit();               return 0;
     case IR_PAT_ANY:         bb_pat_any();           return 0;
@@ -418,11 +418,11 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_LIT_S:
     case IR_LIT_F:
     case IR_LIT_NUL:              bb_lit_scalar(nd);         return 0;
-    case IR_VAR:                  { extern int g_icn_globals_nv; extern void bb_keyword(IR_t *); if (nd->sval && nd->sval[0] == '&') bb_keyword(nd); else if (nd->state == 1 && g_icn_globals_nv) bb_var_global(nd); else bb_var(nd); } return 0;
+    case IR_VAR:                  { extern int g_icn_globals_nv; extern void bb_keyword(IR_t *); if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_keyword(nd); else if (IR_EXEC(nd).state == 1 && g_icn_globals_nv) bb_var_global(nd); else bb_var(nd); } return 0;
     case IR_ASSIGN: {
         extern int g_descr_flat_chain; extern void bb_gvar_assign(IR_t *);
-        if (!g_descr_flat_chain && nd->sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_LIT_I || nd->α->t == IR_BINOP || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR || nd->α->t == IR_CALL)) { bb_gvar_assign(nd); return 0; }
-        if (g_descr_flat_chain && nd->sval) { extern void bb_assign_local(IR_t *); bb_assign_local(nd); return 0; }
+        if (!g_descr_flat_chain && IR_LIT(nd).sval && nd->α && (nd->α->t == IR_LIT_S || nd->α->t == IR_LIT_I || nd->α->t == IR_BINOP || nd->α->t == IR_VAR || nd->α->t == IR_SEQ || nd->α->t == IR_SEQ_EXPR || nd->α->t == IR_CALL)) { bb_gvar_assign(nd); return 0; }
+        if (g_descr_flat_chain && IR_LIT(nd).sval) { extern void bb_assign_local(IR_t *); bb_assign_local(nd); return 0; }
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1;
     }
     case IR_ASSIGN_LIT_S: { extern void bb_gvar_assign_lit_s(void); bb_gvar_assign_lit_s(); return 0; }
@@ -438,19 +438,19 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_AUGOP:
     case IR_CALL: {
         extern int g_icn_scan_regs_live;
-        if (g_icn_scan_regs_live && nd->sval) {
+        if (g_icn_scan_regs_live && IR_LIT(nd).sval) {
             extern void bb_scan_pos(IR_t *); extern void bb_scan_any(IR_t *); extern void bb_scan_match(IR_t *);
             extern void bb_scan_many(IR_t *); extern void bb_scan_tab(IR_t *); extern void bb_scan_move(IR_t *);
             extern void bb_scan_upto(IR_t *); extern void bb_scan_find(IR_t *); extern void bb_scan_bal(IR_t *);
-            if (!strcmp(nd->sval, "pos"))   { bb_scan_pos(nd);   return 0; }
-            if (!strcmp(nd->sval, "any"))   { bb_scan_any(nd);   return 0; }
-            if (!strcmp(nd->sval, "match")) { bb_scan_match(nd); return 0; }
-            if (!strcmp(nd->sval, "many"))  { bb_scan_many(nd);  return 0; }
-            if (!strcmp(nd->sval, "tab"))   { bb_scan_tab(nd);   return 0; }
-            if (!strcmp(nd->sval, "move"))  { bb_scan_move(nd);  return 0; }
-            if (!strcmp(nd->sval, "upto"))  { bb_scan_upto(nd);  return 0; }
-            if (!strcmp(nd->sval, "find"))  { bb_scan_find(nd);  return 0; }
-            if (!strcmp(nd->sval, "bal"))   { bb_scan_bal(nd);   return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "pos"))   { bb_scan_pos(nd);   return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "any"))   { bb_scan_any(nd);   return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "match")) { bb_scan_match(nd); return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "many"))  { bb_scan_many(nd);  return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "tab"))   { bb_scan_tab(nd);   return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "move"))  { bb_scan_move(nd);  return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "upto"))  { bb_scan_upto(nd);  return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "find"))  { bb_scan_find(nd);  return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "bal"))   { bb_scan_bal(nd);   return 0; }
         }
         bb_call(nd);
         return 0;

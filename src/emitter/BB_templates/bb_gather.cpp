@@ -65,7 +65,7 @@ extern "C" void bb_gather(IR_t * pBB) {
     for (int i = 0; ok && i < n; i++) {
         IR_t * lf = subs[i] ? subs[i]->entry : NULL;
         if (!lf || lf->t != IR_LIT_I) { ok = 0; break; }
-        s_gather_vals[i] = lf->ival;
+        s_gather_vals[i] = IR_LIT(lf).ival;
     }
     if (!ok) {
         fprintf(stderr, "[RK] FATAL bb_gather: gather requires 0..%d literal-int take payloads (FLAT-take model); n=%d\n",

@@ -27,8 +27,8 @@ static std::string build_arg(IR_t *a) {
     if (!a) return x86("ins2", "xor", "eax, eax");
     if (a->t == IR_STRUCT) return emit_build_compound_term(a);
     int kind = (int)a->t;
-    long ival = (long)a->ival;
-    const char *sval = a->sval;
+    long ival = (long)IR_LIT(a).ival;
+    const char *sval = IR_LIT(a).sval;
     char slbl[64]; slbl[0] = 0;
     if (sval && *sval) strtab_label(slbl, sizeof slbl, sval);
     return x86("ins2", "mov", emit_fmt("edi, %d", kind))

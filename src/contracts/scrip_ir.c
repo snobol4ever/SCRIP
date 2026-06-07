@@ -188,11 +188,9 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     bb->β       = NULL;
     bb->γ       = NULL;
     bb->ω       = NULL;
-    bb->value   = FAILDESCR;
-    bb->counter = 0;
-    bb->state   = 0;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
     bb->idx = bbg->n;
+    bb->own = bbg;
     bbg->all[bbg->n++] = bb;
     bbg->exec[bb->idx].value = FAILDESCR;
     return bb;
@@ -247,9 +245,9 @@ void bb_reset(IR_graph_t * bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
-        bb->value   = FAILDESCR;
-        if (bb->t != IR_PAT_ARBNO && bb->t != IR_SCAN && bb->t != IR_GEN_SCAN && bb->t != IR_GOTO && bb->t != IR_GATHER && bb->t != IR_MAP && bb->t != IR_GREP && bb->t != IR_PROG && bb->t != IR_SUSPEND && !(bb->t == IR_SEQ && bb->dval == 1.0) && !(bb->t == IR_CALL && (bb->dval == 2.0 || bb->dval == 3.0))) bb->counter = 0;
-        bb->state   = 0;
+        IR_EXEC(bb).value   = FAILDESCR;
+        if (bb->t != IR_PAT_ARBNO && bb->t != IR_SCAN && bb->t != IR_GEN_SCAN && bb->t != IR_GOTO && bb->t != IR_GATHER && bb->t != IR_MAP && bb->t != IR_GREP && bb->t != IR_PROG && bb->t != IR_SUSPEND && !(bb->t == IR_SEQ && IR_LIT(bb).dval == 1.0) && !(bb->t == IR_CALL && (IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 3.0))) IR_EXEC(bb).counter = 0;
+        IR_EXEC(bb).state   = 0;
     }
     ag_ring_clear(bbg);
 }
@@ -261,18 +259,18 @@ bb_node_state_t * bb_snapshot_state(IR_graph_t * bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t * bb = bbg->all[i];
         if (!bb) { memset(&snap[i], 0, sizeof snap[i]); snap[i].value = FAILDESCR; continue; }
-        snap[i].value   = bb->value;
-        snap[i].counter = bb->counter;
-        snap[i].state   = bb->state;
+        snap[i].value   = IR_EXEC(bb).value;
+        snap[i].counter = IR_EXEC(bb).counter;
+        snap[i].state   = IR_EXEC(bb).state;
         snap[i].resolve_cs = NULL; snap[i].ch_cur = 0; snap[i].ch_mark = 0; snap[i].ch_saved_env = NULL;
         snap[i].ch_last_body = NULL; snap[i].ch_last_act = NULL;
         snap[i].ch_cp = NULL; snap[i].ch_cut_barrier = NULL;
         snap[i].ch_body_snaps = NULL; snap[i].ch_nbodies = 0;
         if (bb->t == IR_GOAL) {
-            bb_goal_state_t * zc = (bb_goal_state_t *)(intptr_t)bb->ival;
+            bb_goal_state_t * zc = (bb_goal_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc) snap[i].resolve_cs = zc->cs;
         } else if (bb->t == IR_CHOICE) {
-            bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)bb->ival;
+            bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc) { snap[i].ch_cur = zc->cur; snap[i].ch_mark = zc->mark; snap[i].ch_saved_env = zc->saved_env;
                       snap[i].ch_last_body = zc->last_body; snap[i].ch_last_act = zc->last_act;
                       snap[i].ch_cp = zc->cp; snap[i].ch_cut_barrier = zc->cut_barrier;
@@ -293,14 +291,14 @@ void bb_restore_state(IR_graph_t * bbg, bb_node_state_t * snap) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
-        bb->value   = snap[i].value;
-        bb->counter = snap[i].counter;
-        bb->state   = snap[i].state;
+        IR_EXEC(bb).value   = snap[i].value;
+        IR_EXEC(bb).counter = snap[i].counter;
+        IR_EXEC(bb).state   = snap[i].state;
         if (bb->t == IR_GOAL) {
-            bb_goal_state_t * zc = (bb_goal_state_t *)(intptr_t)bb->ival;
+            bb_goal_state_t * zc = (bb_goal_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc) zc->cs = snap[i].resolve_cs;
         } else if (bb->t == IR_CHOICE) {
-            bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)bb->ival;
+            bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc) { zc->cur = snap[i].ch_cur; zc->mark = snap[i].ch_mark; zc->saved_env = snap[i].ch_saved_env;
                       zc->last_body = (IR_graph_t *)snap[i].ch_last_body; zc->last_act = snap[i].ch_last_act;
                       zc->cp = snap[i].ch_cp; zc->cut_barrier = snap[i].ch_cut_barrier;
@@ -384,21 +382,21 @@ static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx) {
         print_port(fp, bbg, "γ", bb->γ);
         print_port(fp, bbg, "ω", bb->ω);
         switch (bb->t) {
-            case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)bb->ival); break;
-            case IR_LIT_F: fprintf(fp, " dval=%g",   bb->dval);             break;
-            case IR_LIT_S: fprintf(fp, " sval=\"%s\"", bb->sval ? bb->sval : ""); break;
-            case IR_VAR:   fprintf(fp, " var=\"%s\"%s",  bb->sval ? bb->sval : "", bb->state == 1 ? " scope=global" : ""); break;
+            case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
+            case IR_LIT_F: fprintf(fp, " dval=%g",   IR_LIT(bb).dval);             break;
+            case IR_LIT_S: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+            case IR_VAR:   fprintf(fp, " var=\"%s\"%s",  IR_LIT(bb).sval ? IR_LIT(bb).sval : "", IR_EXEC(bb).state == 1 ? " scope=global" : ""); break;
             case IR_FIELD_GET:
-            case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", bb->sval ? bb->sval : ""); break;
+            case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
             default:
-                if (bb->sval) fprintf(fp, " sval=\"%s\"", bb->sval);
-                if (bb->ival) fprintf(fp, " ival=%lld", (long long)bb->ival);
+                if (IR_LIT(bb).sval) fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval);
+                if (IR_LIT(bb).ival) fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival);
                 break;
         }
         fprintf(fp, "\n");
         if (bb->t == IR_SCAN) {
             snprintf(sub, sizeof sub, "%s      ", pfx);
-            IR_graph_t * pg = (IR_graph_t *)(intptr_t) bb->counter;
+            IR_graph_t * pg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
             int na = 0; IR_t * const * aux = bb_operand_aux_get((IR_graph_t *) bbg, (IR_t *) bb, &na);
             if (pg)             { fprintf(fp, "%s    pat:\n",  pfx); bb_print_pfx(pg, fp, sub); }
             if (na > 0 && aux && aux[0]) { fprintf(fp, "%s    subj:\n", pfx); bb_print_pfx((IR_graph_t *)(void *) aux[0], fp, sub); }

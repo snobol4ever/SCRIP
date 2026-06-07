@@ -5,10 +5,10 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     if (MEDIUM_BINARY) {
             if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
-                long start = (long)a1->ival;
+                long start = (long)IR_LIT(a1).ival;
                 int  k2 = (int)a2->t;
-                long i2 = (long)a2->ival;
-                const char *s2 = (k2 == IR_ATOM) ? a2->sval : NULL;
+                long i2 = (long)IR_LIT(a2).ival;
+                const char *s2 = (k2 == IR_ATOM) ? IR_LIT(a2).sval : NULL;
                 std::string b;
                 /* sub rsp, 8 (keep 16-alignment across the build's internal calls)   48 83 EC 08      */
                 b += bytes(4, "\x48\x83\xEC\x08");
@@ -37,8 +37,8 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                 && pBB->α && pBB->α->γ) {
                 IR_t *a0 = pBB->α, *a1 = a0->γ;
                 int   k1 = (int)a1->t;
-                long  i1 = (long)a1->ival;
-                const char *s1 = (k1 == IR_ATOM) ? a1->sval : NULL;
+                long  i1 = (long)IR_LIT(a1).ival;
+                const char *s1 = (k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
                 b += emit_term_from_node_bin(a0);            /* build a0's term → rax */
@@ -57,8 +57,8 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                 IR_t *a0 = pBB->α;
                 IR_t *a1 = (arity == 2) ? a0->γ : NULL;
                 int   k0 = (int)a0->t;
-                long  i0 = (long)a0->ival;
-                const char *s0 = (k0 == IR_ATOM) ? a0->sval : NULL;
+                long  i0 = (long)IR_LIT(a0).ival;
+                const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
                 int   compound1 = (a1 && a1->t == IR_STRUCT);
                 std::string b;
                 b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
@@ -75,8 +75,8 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                 } else {
                     /* Path A: scalar args1 (variable, atom, or absent for arity 1). */
                     int   k1 = a1 ? (int)a1->t : 0;
-                    long  i1 = a1 ? (long)a1->ival : 0;
-                    const char *s1 = (a1 && k1 == IR_ATOM) ? a1->sval : NULL;
+                    long  i1 = a1 ? (long)IR_LIT(a1).ival : 0;
+                    const char *s1 = (a1 && k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
                     b += bytes(1, "\xBF") + u32le((uint32_t)arity);          /* mov edi, arity */
                     b += bytes(1, "\xBE") + u32le((uint32_t)k0);             /* mov esi, k0 */
                     b += bytes(2, "\x48\xBA") + u64le((uint64_t)i0);         /* mov rdx, i0 */
@@ -100,11 +100,11 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)succ_back;
         if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
-            long start = (long)a1->ival;
+            long start = (long)IR_LIT(a1).ival;
             int  k2 = (int)a2->t;
-            long i2 = (long)a2->ival;
+            long i2 = (long)IR_LIT(a2).ival;
             char s2lbl[64]; s2lbl[0] = 0;
-            if (k2 == IR_ATOM && a2->sval) strtab_label(s2lbl, sizeof s2lbl, a2->sval);
+            if (k2 == IR_ATOM && IR_LIT(a2).sval) strtab_label(s2lbl, sizeof s2lbl, IR_LIT(a2).sval);
             return hdr
                  + x86("ins2", "sub", "rsp, 8")
                  + emit_build_compound_term(a0)
@@ -124,9 +124,9 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             && pBB->α && pBB->α->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ;
             int   k1 = (int)a1->t;
-            long  i1 = (long)a1->ival;
+            long  i1 = (long)IR_LIT(a1).ival;
             char s1lbl[64]; s1lbl[0] = 0;
-            if (k1 == IR_ATOM && a1->sval) strtab_label(s1lbl, sizeof s1lbl, a1->sval);
+            if (k1 == IR_ATOM && IR_LIT(a1).sval) strtab_label(s1lbl, sizeof s1lbl, IR_LIT(a1).sval);
             return hdr
                  + x86("ins2", "sub", "rsp, 16")
                  + emit_build_compound_term(a0)
@@ -146,9 +146,9 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             IR_t *a0 = pBB->α;
             IR_t *a1 = (arity == 2) ? a0->γ : NULL;
             int  k0 = (int)a0->t;
-            long i0 = (long)a0->ival;
+            long i0 = (long)IR_LIT(a0).ival;
             char s0lbl[64]; s0lbl[0] = 0;
-            if (k0 == IR_ATOM && a0->sval) strtab_label(s0lbl, sizeof s0lbl, a0->sval);
+            if (k0 == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
             int compound1 = (a1 && a1->t == IR_STRUCT);
             if (compound1) {
                 /* Path B: build args-list Term* in rax, then call rt_format_term(arity, k0,i0,s0, args). */
@@ -169,9 +169,9 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             }
             /* Path A: scalar args1 (variable, atom, or absent for arity 1). */
             int  k1 = a1 ? (int)a1->t : 0;
-            long i1 = a1 ? (long)a1->ival : 0;
+            long i1 = a1 ? (long)IR_LIT(a1).ival : 0;
             char s1lbl[64]; s1lbl[0] = 0;
-            if (a1 && k1 == IR_ATOM && a1->sval) strtab_label(s1lbl, sizeof s1lbl, a1->sval);
+            if (a1 && k1 == IR_ATOM && IR_LIT(a1).sval) strtab_label(s1lbl, sizeof s1lbl, IR_LIT(a1).sval);
             return hdr
                  + x86("ins2", "sub", "rsp, 16")
                  + x86("ins2", "mov edi,",  emit_fmt("%d", arity))

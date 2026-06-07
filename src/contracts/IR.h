@@ -189,19 +189,15 @@ typedef enum {
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct IR_t IR_t;
+typedef struct IR_graph_t IR_graph_t;
 struct IR_t {
     IR_e      t;
     IR_t       * α;
     IR_t       * β;
     IR_t       * γ;
     IR_t       * ω;
-    const char * sval;
-    int64_t      ival;
-    double       dval;
-    DESCR_t      value;
-    int64_t      counter;
-    int          state;
     int          idx;
+    IR_graph_t * own;
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
@@ -222,7 +218,7 @@ typedef struct {
     int          state;
 } IR_exec_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
-typedef struct IR_graph_t {
+struct IR_graph_t {
     IR_t    * entry;
     IR_t   ** all;
     int            n;
@@ -239,18 +235,19 @@ typedef struct IR_graph_t {
     DESCR_t        ring[AG_RING];
     int            ring_head;
     int            ring_depth;
-} IR_graph_t;
+};
 /*--------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * IR_alloc(int max_nodes, int lang);
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline void IR_sidecar_own(const IR_graph_t * g, const IR_t * nd) {
-    if (!g || !nd || nd->idx < 0 || nd->idx >= g->n || g->all[nd->idx] != nd) {
-        fprintf(stderr, "IR sidecar ownership violation: g=%p nd=%p idx=%d n=%d\n", (const void *)g, (const void *)nd, nd ? nd->idx : -1, g ? g->n : -1);
+static inline IR_t * IR_sidecar_own(IR_t * nd) {
+    if (!nd || !nd->own || nd->idx < 0 || nd->idx >= nd->own->n || nd->own->all[nd->idx] != nd) {
+        fprintf(stderr, "IR sidecar ownership violation: nd=%p own=%p idx=%d\n", (void *)nd, nd ? (void *)nd->own : NULL, nd ? nd->idx : -1);
         abort();
     }
+    return nd;
 }
-#define IR_LIT(g,nd)  (*(IR_sidecar_own((g),(nd)), &(g)->lit[(nd)->idx]))
-#define IR_EXEC(g,nd) (*(IR_sidecar_own((g),(nd)), &(g)->exec[(nd)->idx]))
+#define IR_LIT(nd)  ((IR_sidecar_own((IR_t *)(nd)))->own->lit[(nd)->idx])
+#define IR_EXEC(nd) ((IR_sidecar_own((IR_t *)(nd)))->own->exec[(nd)->idx])
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline void ag_ring_push(IR_graph_t * cfg, DESCR_t v) {
     if (!cfg) return;

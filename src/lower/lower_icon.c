@@ -69,10 +69,10 @@ static IR_t * icn_det_call(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
     const char * fn = e->c[0]->v.sval;
     IR_t * call = nalloc(cx, IR_CALL);
     if (!call) return NULL;
-    call->sval = fn;
+    IR_LIT(call).sval = fn;
     int nargs = e->n - 1;
-    call->ival = (int64_t) nargs;
-    call->dval = 3.0;
+    IR_LIT(call).ival = (int64_t) nargs;
+    IR_LIT(call).dval = 3.0;
     int allow_gen = icn_proc_is_generator(fn);
     if (nargs > 0) {
         IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
@@ -82,7 +82,7 @@ static IR_t * icn_det_call(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
             blks[i] = lower_value_subgraph(mv, e->c[i + 1]);
             if (!blks[i]) { free(blks); return NULL; }
         }
-        call->counter = (int64_t)(intptr_t) blks;
+        IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
     }
     IR_t * call_beta = allow_gen ? call : ω_in;
     set_succ_fail(call, γ_in, ω_in);
@@ -115,7 +115,7 @@ static IR_t * icn_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
     if (lhs_t->t == TT_FIELD && lhs_t->n >= 2 && lhs_t->c[0] && lhs_t->c[1] && lhs_t->c[1]->v.sval) {
         IR_t * fs = nalloc(cx, IR_FIELD_SET);
         if (!fs) return NULL;
-        fs->sval = lhs_t->c[1]->v.sval;
+        IR_LIT(fs).sval = lhs_t->c[1]->v.sval;
         IR_t * aα = NULL, * aβ = NULL;
         IR_t * obj = lower(icn_bounded(cx), lhs_t->c[0], fs, ω_in, &aα, &aβ);
         if (!obj) return NULL;
@@ -130,7 +130,7 @@ static IR_t * icn_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
     if (lhs_t->t != TT_VAR) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     IR_t * as = nalloc(cx, IR_ASSIGN);
     if (!as) return NULL;
-    as->sval = lhs_t->v.sval ? lhs_t->v.sval : "";
+    IR_LIT(as).sval = lhs_t->v.sval ? lhs_t->v.sval : "";
     IR_t * rα = NULL, * rβ = NULL;
     IR_t * rhs = lower(cx, rhs_t, as, ω_in, &rα, &rβ);
     if (!rhs) return NULL;
@@ -150,9 +150,9 @@ static IR_t * icn_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (!subj_sg) return NULL;
     IR_graph_t * body_sg = lower_value_subgraph(cx, ibody_t);
     if (!body_sg) return NULL;
-    gs->counter = (int64_t)(intptr_t) subj_sg;
-    gs->ival    = (int64_t)(intptr_t) body_sg;
-    gs->dval    = 1.0;
+    IR_EXEC(gs).counter = (int64_t)(intptr_t) subj_sg;
+    IR_LIT(gs).ival    = (int64_t)(intptr_t) body_sg;
+    IR_LIT(gs).dval    = 1.0;
     set_succ_fail(gs, γ_in, ω_in);
     return ret(gs, α_out, β_out, gs, ω_in);
 }
@@ -161,7 +161,7 @@ static IR_t * icn_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
 static IR_t * icn_return(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * rn = nalloc(cx, IR_RETURN);
     if (!rn) return NULL;
-    rn->dval = 0.0;
+    IR_LIT(rn).dval = 0.0;
     IR_t * vα = NULL, * vβ = NULL;
     if (e->n >= 1 && e->c[0]) {
         lcx_t vc = cx; vc.role = ROLE_VALUE;
@@ -176,16 +176,16 @@ static IR_t * icn_return(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
 static IR_t * icn_suspend(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * sn = nalloc(cx, IR_SUSPEND);
     if (!sn) return NULL;
-    sn->dval = 1.0;
+    IR_LIT(sn).dval = 1.0;
     if (e->n >= 1 && e->c[0]) {
         IR_graph_t * eblk = lower_value_subgraph(cx, e->c[0]);
         if (!eblk) return NULL;
-        sn->counter = (int64_t)(intptr_t) eblk;
+        IR_EXEC(sn).counter = (int64_t)(intptr_t) eblk;
     }
     if (e->n >= 2 && e->c[1]) {
         IR_graph_t * bblk = lower_value_subgraph(cx, e->c[1]);
         if (!bblk) return NULL;
-        sn->ival = (int64_t)(intptr_t) bblk;
+        IR_LIT(sn).ival = (int64_t)(intptr_t) bblk;
     }
     set_succ_fail(sn, γ_in, ω_in);
     return ret(sn, α_out, β_out, sn, ω_in);
@@ -294,11 +294,11 @@ static IR_t * icn_swap(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (!sw) return NULL;
     IR_t * lv = nalloc(cx, IR_VAR);
     if (!lv) return NULL;
-    lv->sval = (e->c[0]->t == TT_VAR && e->c[0]->v.sval) ? e->c[0]->v.sval : "";
+    IR_LIT(lv).sval = (e->c[0]->t == TT_VAR && e->c[0]->v.sval) ? e->c[0]->v.sval : "";
     lv->γ = sw; lv->ω = ω_in;
     IR_t * rv = nalloc(cx, IR_VAR);
     if (!rv) return NULL;
-    rv->sval = (e->c[1]->t == TT_VAR && e->c[1]->v.sval) ? e->c[1]->v.sval : "";
+    IR_LIT(rv).sval = (e->c[1]->t == TT_VAR && e->c[1]->v.sval) ? e->c[1]->v.sval : "";
     rv->γ = sw; rv->ω = ω_in;
     sw->α = lv;
     sw->β = rv;
@@ -315,7 +315,7 @@ static IR_t * icn_field_get(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
     if (!fname || !obj_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     IR_t * fg = nalloc(cx, IR_FIELD_GET);
     if (!fg) return NULL;
-    fg->sval = fname;
+    IR_LIT(fg).sval = fname;
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * obj = lower(icn_bounded(cx), obj_t, fg, ω_in, &aα, &aβ);
     if (!obj) return NULL;
@@ -328,7 +328,7 @@ static IR_t * icn_section(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     if (e->n < 3 || !e->c[0] || !e->c[1] || !e->c[2]) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     IR_t * sec = nalloc(cx, IR_SECTION);
     if (!sec) return NULL;
-    sec->ival = (e->t == TT_SECTION_PLUS) ? 1 : (e->t == TT_SECTION_MINUS) ? 2 : 0;
+    IR_LIT(sec).ival = (e->t == TT_SECTION_PLUS) ? 1 : (e->t == TT_SECTION_MINUS) ? 2 : 0;
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * obj = lower(icn_bounded(cx), e->c[0], sec, ω_in, &aα, &aβ);
     if (!obj) return NULL;
@@ -349,16 +349,16 @@ static IR_t * icn_idx(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     if (e->n < 2 || !e->c[0] || !e->c[1]) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     IR_t * call = nalloc(cx, IR_CALL);
     if (!call) return NULL;
-    call->sval = "[]";
-    call->ival = 2;
-    call->dval = 2.0;
+    IR_LIT(call).sval = "[]";
+    IR_LIT(call).ival = 2;
+    IR_LIT(call).dval = 2.0;
     IR_graph_t ** blks = (IR_graph_t **) calloc(2, sizeof(IR_graph_t *));
     if (!blks) return NULL;
     lcx_t mv = icn_bounded(cx);
     blks[0] = lower_value_subgraph(mv, e->c[0]);
     blks[1] = lower_value_subgraph(mv, e->c[1]);
     if (!blks[0] || !blks[1]) { free(blks); return NULL; }
-    call->counter = (int64_t)(intptr_t) blks;
+    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
     set_succ_fail(call, γ_in, ω_in);
     return ret(call, α_out, β_out, call, ω_in);
 }
@@ -367,9 +367,9 @@ static IR_t * icn_makelist(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
     int n = e->n;
     IR_t * ml = nalloc(cx, IR_CALL);
     if (!ml) return NULL;
-    ml->sval = GC_strdup("MAKELIST");
-    ml->ival = (int64_t) n;
-    ml->dval = 2.0;
+    IR_LIT(ml).sval = GC_strdup("MAKELIST");
+    IR_LIT(ml).ival = (int64_t) n;
+    IR_LIT(ml).dval = 2.0;
     IR_graph_t ** blks = (IR_graph_t **) calloc((size_t)(n > 0 ? n : 1), sizeof(IR_graph_t *));
     if (!blks) return NULL;
     lcx_t mv = icn_bounded(cx);
@@ -377,7 +377,7 @@ static IR_t * icn_makelist(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
         blks[i] = lower_value_subgraph(mv, e->c[i] ? e->c[i] : e->c[0]);
         if (!blks[i]) { free(blks); return NULL; }
     }
-    ml->counter = (int64_t)(intptr_t) blks;
+    IR_EXEC(ml).counter = (int64_t)(intptr_t) blks;
     set_succ_fail(ml, γ_in, ω_in);
     return ret(ml, α_out, β_out, ml, ω_in);
 }
@@ -387,16 +387,16 @@ static IR_t * icn_cset_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω
     const char * fn = (e->t == TT_CSET_UNION) ? "++" : (e->t == TT_CSET_DIFF) ? "--" : "**";
     IR_t * call = nalloc(cx, IR_CALL);
     if (!call) return NULL;
-    call->sval = fn;
-    call->ival = 2;
-    call->dval = 2.0;
+    IR_LIT(call).sval = fn;
+    IR_LIT(call).ival = 2;
+    IR_LIT(call).dval = 2.0;
     IR_graph_t ** blks = (IR_graph_t **) calloc(2, sizeof(IR_graph_t *));
     if (!blks) return NULL;
     lcx_t mv = icn_bounded(cx);
     blks[0] = lower_value_subgraph(mv, e->c[0]);
     blks[1] = lower_value_subgraph(mv, e->c[1]);
     if (!blks[0] || !blks[1]) { free(blks); return NULL; }
-    call->counter = (int64_t)(intptr_t) blks;
+    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
     set_succ_fail(call, γ_in, ω_in);
     return ret(call, α_out, β_out, call, ω_in);
 }
@@ -416,12 +416,12 @@ IR_t * lower_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t **
         e = as;
     }
     switch (e->t) {
-    case TT_ILIT: { IR_t * n = nalloc(cx, IR_LIT_I); if (n) n->ival = e->v.ival; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_FLIT: { IR_t * n = nalloc(cx, IR_LIT_F); if (n) n->dval = e->v.dval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_QLIT: case TT_CSET: { IR_t * n = nalloc(cx, IR_LIT_S); if (n) n->sval = e->v.sval ? e->v.sval : ""; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_ILIT: { IR_t * n = nalloc(cx, IR_LIT_I); if (n) IR_LIT(n).ival = e->v.ival; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_FLIT: { IR_t * n = nalloc(cx, IR_LIT_F); if (n) IR_LIT(n).dval = e->v.dval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_QLIT: case TT_CSET: { IR_t * n = nalloc(cx, IR_LIT_S); if (n) IR_LIT(n).sval = e->v.sval ? e->v.sval : ""; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_NUL: case TT_NULL: { IR_t * n = nalloc(cx, IR_LIT_NUL); return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_VAR: case TT_NAME: { IR_t * n = nalloc(cx, IR_VAR); if (n) { n->sval = e->v.sval; if (icn_is_global(n->sval)) n->state = 1; } return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_KEYWORD: { IR_t * n = nalloc(cx, IR_KEYWORD); if (n) n->sval = e->v.sval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_VAR: case TT_NAME: { IR_t * n = nalloc(cx, IR_VAR); if (n) { IR_LIT(n).sval = e->v.sval; if (icn_is_global(IR_LIT(n).sval)) IR_EXEC(n).state = 1; } return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_KEYWORD: { IR_t * n = nalloc(cx, IR_KEYWORD); if (n) IR_LIT(n).sval = e->v.sval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_LOOP_BREAK:
         return icn_loop_break(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_LOOP_NEXT:

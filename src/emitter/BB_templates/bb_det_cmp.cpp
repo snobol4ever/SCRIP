@@ -27,12 +27,12 @@ static const IR_t *dcm_la()   { return (const IR_t *)_.bb_ln; }
 static const IR_t *dcm_ra()   { return (const IR_t *)_.bb_rn; }
 static int  dcm_l_var()       { return dcm_la()->t == IR_LOGICVAR; }
 static int  dcm_r_var()       { return dcm_ra()->t == IR_LOGICVAR; }
-static int  dcm_lslot()       { return dcm_l_var() ? (int)dcm_la()->ival : -1; }
-static int  dcm_rslot()       { return dcm_r_var() ? (int)dcm_ra()->ival : -1; }
-static long dcm_l_ival()      { return (!dcm_l_var() && dcm_la()->t == IR_LIT_I) ? (long)dcm_la()->ival : 0L; }
-static long dcm_r_ival()      { return (!dcm_r_var() && dcm_ra()->t == IR_LIT_I) ? (long)dcm_ra()->ival : 0L; }
+static int  dcm_lslot()       { return dcm_l_var() ? (int)IR_LIT(dcm_la()).ival : -1; }
+static int  dcm_rslot()       { return dcm_r_var() ? (int)IR_LIT(dcm_ra()).ival : -1; }
+static long dcm_l_ival()      { return (!dcm_l_var() && dcm_la()->t == IR_LIT_I) ? (long)IR_LIT(dcm_la()).ival : 0L; }
+static long dcm_r_ival()      { return (!dcm_r_var() && dcm_ra()->t == IR_LIT_I) ? (long)IR_LIT(dcm_ra()).ival : 0L; }
 static int  dcm_both_lit_i()  { return dcm_la()->t == IR_LIT_I && dcm_ra()->t == IR_LIT_I; }
-static int  dcm_fold_result() { return gz_cmp_fold(dcm_op(), (long)dcm_la()->ival, (long)dcm_ra()->ival); }
+static int  dcm_fold_result() { return gz_cmp_fold(dcm_op(), (long)IR_LIT(dcm_la()).ival, (long)IR_LIT(dcm_ra()).ival); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string dcm_const_fold() {
     return IF(MEDIUM_TEXT,

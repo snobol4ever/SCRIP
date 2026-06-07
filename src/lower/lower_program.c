@@ -36,7 +36,7 @@ static IR_t * make_computed_goto(IR_graph_t * g, const tree_t * gexpr, IR_t * fa
     sub->entry = eα ? eα : en;
     IR_t * gt = IR_node_alloc(g, IR_GOTO);
     if (!gt) { IR_free(sub); return NULL; }
-    gt->counter = (int64_t)(intptr_t) sub;
+    IR_EXEC(gt).counter = (int64_t)(intptr_t) sub;
     gt->ω = fall;
     return gt;
 }
@@ -135,7 +135,7 @@ IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
     if (!bbg) return NULL;
     IR_t *bb = IR_node_alloc(bbg, IR_PROC_GEN);
     if (!bb) return NULL;
-    bb->counter = (int64_t)(uintptr_t)gs;
+    IR_EXEC(bb).counter = (int64_t)(uintptr_t)gs;
     bb->α      = bb;
     bb->β      = bb;
     bb->γ      = NULL;
@@ -220,8 +220,8 @@ static int lower_pascal_body(const tree_t *proc) {
         IR_t *PRET = IR_node_alloc(g, IR_RETURN);
         IR_t *PVAR = IR_node_alloc(g, IR_VAR);
         if (!PRET || !PVAR) return -1;
-        PRET->dval = 0.0;
-        PVAR->sval = proc->c[3]->v.sval;
+        IR_LIT(PRET).dval = 0.0;
+        IR_LIT(PVAR).sval = proc->c[3]->v.sval;
         PRET->α = PVAR;
         PRET->γ = PSUCC; PRET->ω = PSUCC;
         chain_end = PRET;
@@ -297,7 +297,7 @@ static int lower_pl_choice_graph(const tree_t *choice) {
     memset(zc, 0, sizeof *zc);
     zc->bodies = bodies; zc->nbodies = n; zc->last_body = NULL; zc->cp = NULL; zc->cut_barrier = NULL;
     zc->idx_ok = 0; zc->idx_key = NULL;
-    nd->ival = (int64_t)(intptr_t)zc;
+    IR_LIT(nd).ival = (int64_t)(intptr_t)zc;
     nd->γ = PSUCC; nd->ω = PFAIL;
     g->entry = nd;
     return bb_program_add(&g_stage2.bbp, g);
@@ -373,7 +373,7 @@ int pl_rt_assertz(Term *clause_term, int prepend) {
             zc0->bodies = NULL; zc0->nbodies = 0;
         }
         zc0->idx_ok = 0; zc0->idx_key = NULL;
-        nd->ival = (int64_t)(intptr_t)zc0;
+        IR_LIT(nd).ival = (int64_t)(intptr_t)zc0;
         nd->γ = PSUCC; nd->ω = PFAIL;
         (void)PSUCC; (void)PFAIL;
         cg->entry = nd;
@@ -382,7 +382,7 @@ int pl_rt_assertz(Term *clause_term, int prepend) {
         resolve_bb_register(key, arity, cg_idx);
         pred_cfg = g_stage2.bbp.table[cg_idx];
     }
-    bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)pred_cfg->entry->ival;
+    bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(pred_cfg->entry).ival;
     if (!zc) return 0;
     int n = zc->nbodies;
     IR_graph_t **nb = (IR_graph_t **)GC_MALLOC((size_t)(n + 1) * sizeof(IR_graph_t *));
@@ -467,14 +467,14 @@ static int pas_scope_chain(int pi, Scope **scs, int *dls, int *pis, int maxd) {
 static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, int nch);
 static void pas_rewrite_node(IR_t *nd, Scope **scs, int *dls, int *pis, int nch) {
     if (!nd) return;
-    if ((nd->t == IR_VAR || nd->t == IR_ASSIGN) && nd->sval) {
+    if ((nd->t == IR_VAR || nd->t == IR_ASSIGN) && IR_LIT(nd).sval) {
         for (int c = 0; c < nch; c++) {
-            int slot = scope_get(scs[c], nd->sval);
+            int slot = scope_get(scs[c], IR_LIT(nd).sval);
             if (slot >= 0) {
                 ProcEntry *pe = &g_stage2.proc_table[pis[c]];
                 int isref = (slot < pe->nparams) && ((pe->byref_mask >> slot) & 1ull);
-                nd->ival = slot;
-                nd->dval = (double)(dls[0] - dls[c]);
+                IR_LIT(nd).ival = slot;
+                IR_LIT(nd).dval = (double)(dls[0] - dls[c]);
                 if (isref) nd->t = (nd->t == IR_VAR) ? IR_VAR_FRAME_REF : IR_ASSIGN_FRAME_REF;
                 else       nd->t = (nd->t == IR_VAR) ? IR_VAR_FRAME : IR_ASSIGN_FRAME;
                 break;
@@ -482,9 +482,9 @@ static void pas_rewrite_node(IR_t *nd, Scope **scs, int *dls, int *pis, int nch)
         }
         return;
     }
-    if (nd->t == IR_CALL && (nd->dval == 2.0 || nd->dval == 3.0) && nd->counter && nd->ival > 0) {
-        IR_graph_t **subs = (IR_graph_t **)(intptr_t) nd->counter;
-        for (int j = 0; j < (int) nd->ival; j++) if (subs[j]) pas_rewrite_graph(subs[j], scs, dls, pis, nch);
+    if (nd->t == IR_CALL && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0) && IR_EXEC(nd).counter && IR_LIT(nd).ival > 0) {
+        IR_graph_t **subs = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+        for (int j = 0; j < (int) IR_LIT(nd).ival; j++) if (subs[j]) pas_rewrite_graph(subs[j], scs, dls, pis, nch);
     }
 }
 static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, int nch) {
@@ -501,8 +501,8 @@ stage2_t *lower_program(const tree_t *prog) {
         if (g) {
             IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
             IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-            IR_t *RET  = IR_node_alloc(g, IR_RETURN); RET->dval  = 1.0; RET->α = NULL; RET->ω = PFAIL;
-            IR_t *FRET = IR_node_alloc(g, IR_RETURN); FRET->dval = 2.0; FRET->α = NULL; FRET->ω = PFAIL;
+            IR_t *RET  = IR_node_alloc(g, IR_RETURN); IR_LIT(RET).dval  = 1.0; RET->α = NULL; RET->ω = PFAIL;
+            IR_t *FRET = IR_node_alloc(g, IR_RETURN); IR_LIT(FRET).dval = 2.0; FRET->α = NULL; FRET->ω = PFAIL;
             const tree_t *stmts[1024]; IR_t *land[1024]; int ns = 0;
             for (int i = 0; i < prog->n && ns < 1024; i++) {
                 const tree_t *s = prog->c[i];

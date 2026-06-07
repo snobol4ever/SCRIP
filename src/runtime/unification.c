@@ -86,22 +86,22 @@ static Term *pl_build_term_gz_r(void *frame, const void *ir_node)
     if (!nd) return (Term *)0;
     switch (nd->t) {
     case IR_LOGICVAR: {
-        int slot = (int)nd->ival;
+        int slot = (int)IR_LIT(nd).ival;
         if (slot < 0) return (Term *)0;
         Term **cells = (Term **)(((char *)frame) + 8);
         return cells[slot] ? term_deref(cells[slot]) : (Term *)0;
     }
-    case IR_ATOM:  return term_new_atom(prolog_atom_intern(nd->sval ? nd->sval : "[]"));
-    case IR_LIT_I: return term_new_int((long)nd->ival);
-    case IR_LIT_F: return term_new_float(nd->dval);
+    case IR_ATOM:  return term_new_atom(prolog_atom_intern(IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]"));
+    case IR_LIT_I: return term_new_int((long)IR_LIT(nd).ival);
+    case IR_LIT_F: return term_new_float(IR_LIT(nd).dval);
     case IR_STRUCT: {
-        int arity = (int)nd->ival;
-        if (arity <= 0) return term_new_atom(prolog_atom_intern(nd->sval ? nd->sval : "[]"));
+        int arity = (int)IR_LIT(nd).ival;
+        if (arity <= 0) return term_new_atom(prolog_atom_intern(IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]"));
         Term **args = (Term **)GC_malloc((size_t)arity * sizeof(Term *));
         if (!args) return (Term *)0;
         const IR_t *a = nd->α;
         for (int i = 0; i < arity && a; i++) { args[i] = pl_build_term_gz_r(frame, a); a = a->γ; }
-        return term_new_compound(prolog_atom_intern(nd->sval ? nd->sval : "[]"), arity, args);
+        return term_new_compound(prolog_atom_intern(IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]"), arity, args);
     }
     default: return (Term *)0;
     }

@@ -76,7 +76,7 @@ IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_
         bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
         if (zs) {
             zs->goals = (IR_t **)GC_MALLOC((size_t)nkids * sizeof(IR_t *));
-            if (zs->goals) { for (int i = 0; i < nkids; i++) zs->goals[i] = apply[i]; zs->ngoals = nkids; node->ival = (int64_t)(intptr_t)zs; }
+            if (zs->goals) { for (int i = 0; i < nkids; i++) zs->goals[i] = apply[i]; zs->ngoals = nkids; IR_LIT(node).ival = (int64_t)(intptr_t)zs; }
         }
     }
     set_succ_fail(node, γ_in, ω_in);
@@ -157,14 +157,14 @@ IR_t * emit_leaf(lcx_t cx, IR_t * n, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out,
 static IR_t * v_literal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * n = NULL;
     switch (e->t) {
-    case TT_ILIT:    n = nalloc(cx, IR_LIT_I);   if (n) n->ival = e->v.ival; break;
-    case TT_FLIT:    n = nalloc(cx, IR_LIT_F);   if (n) n->dval = e->v.dval; break;
-    case TT_QLIT:    n = nalloc(cx, IR_LIT_S);   if (n) n->sval = e->v.sval ? e->v.sval : ""; break;
-    case TT_CSET:    n = nalloc(cx, IR_LIT_S);   if (n) n->sval = e->v.sval ? e->v.sval : ""; break;
+    case TT_ILIT:    n = nalloc(cx, IR_LIT_I);   if (n) IR_LIT(n).ival = e->v.ival; break;
+    case TT_FLIT:    n = nalloc(cx, IR_LIT_F);   if (n) IR_LIT(n).dval = e->v.dval; break;
+    case TT_QLIT:    n = nalloc(cx, IR_LIT_S);   if (n) IR_LIT(n).sval = e->v.sval ? e->v.sval : ""; break;
+    case TT_CSET:    n = nalloc(cx, IR_LIT_S);   if (n) IR_LIT(n).sval = e->v.sval ? e->v.sval : ""; break;
     case TT_NUL: case TT_NULL: n = nalloc(cx, IR_LIT_NUL); break;
-    case TT_VAR:     n = nalloc(cx, IR_VAR);     if (n) n->sval = e->v.sval; break;
-    case TT_NAME:    n = nalloc(cx, IR_VAR);     if (n) n->sval = e->v.sval; break;
-    case TT_KEYWORD: n = nalloc(cx, IR_KEYWORD); if (n) n->sval = e->v.sval; break;
+    case TT_VAR:     n = nalloc(cx, IR_VAR);     if (n) IR_LIT(n).sval = e->v.sval; break;
+    case TT_NAME:    n = nalloc(cx, IR_VAR);     if (n) IR_LIT(n).sval = e->v.sval; break;
+    case TT_KEYWORD: n = nalloc(cx, IR_KEYWORD); if (n) IR_LIT(n).sval = e->v.sval; break;
     default: return NULL;
     }
     return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
@@ -185,8 +185,8 @@ static IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     }
     IR_t * un = nalloc(cx, IR_UNOP);
     if (!un) return NULL;
-    un->sval = e->v.sval;
-    un->ival = (int64_t) e->t;
+    IR_LIT(un).sval = e->v.sval;
+    IR_LIT(un).ival = (int64_t) e->t;
     IR_t * eα = NULL, * eβ = NULL;
     IR_t * child = lower(cx, e->c[0], un  , ω_in, &eα, &eβ);
     if (!child) return NULL;
@@ -218,9 +218,9 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * bin = nalloc(cx, IR_BINOP);
     if (!bin) return NULL;
-    bin->sval = e->v.sval;
-    bin->ival = (int64_t) tt_to_binop(e->t);
-    bin->dval = tt_is_relational(e->t) ? 1.0 : 0.0;
+    IR_LIT(bin).sval = e->v.sval;
+    IR_LIT(bin).ival = (int64_t) tt_to_binop(e->t);
+    IR_LIT(bin).dval = tt_is_relational(e->t) ? 1.0 : 0.0;
     int b1 = (cx.lang == IR_LANG_PAS && tt_is_relational(e->c[0]->t));
     int b2 = (cx.lang == IR_LANG_PAS && tt_is_relational(e->c[1]->t));
     if (b1 || b2) return pas_binop_bool(cx, e, bin, b1, b2, γ_in, ω_in, α_out, β_out);
@@ -255,10 +255,10 @@ static IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * node = nalloc(cx, (e->t == TT_TO_BY) ? IR_TO_BY : IR_TO);
     if (!node) return NULL;
-    node->sval = "ag";
+    IR_LIT(node).sval = "ag";
     if (e->t == TT_TO_BY && e->n >= 3 && e->c[2]) {
         int64_t bits = 0; int isr = 0;
-        if (to_by_const_step(e->c[2], &bits, &isr)) { node->ival = bits; if (isr) node->sval = "ar"; }
+        if (to_by_const_step(e->c[2], &bits, &isr)) { IR_LIT(node).ival = bits; if (isr) IR_LIT(node).sval = "ar"; }
     }
     IR_t * fα=NULL,*fβ=NULL,*tα=NULL,*tβ=NULL;
     IR_t * lo = lower(cx, e->c[0], NULL  , ω_in, &fα, &fβ);
@@ -358,9 +358,9 @@ IR_t * v_raku_det_call(lcx_t cx, const char * fn, const tree_t * const * kids, i
     if (!fn || nkids < 0) return NULL;
     IR_t * call = nalloc(cx, IR_CALL);
     if (!call) return NULL;
-    call->sval = GC_strdup(fn);
-    call->ival = nkids;
-    call->dval = 2.0;
+    IR_LIT(call).sval = GC_strdup(fn);
+    IR_LIT(call).ival = nkids;
+    IR_LIT(call).dval = 2.0;
     IR_graph_t ** blks = (IR_graph_t **) calloc((size_t)(nkids > 0 ? nkids : 1), sizeof(IR_graph_t *));
     if (!blks) return NULL;
     lcx_t mv = cx; mv.role = ROLE_VALUE;
@@ -369,7 +369,7 @@ IR_t * v_raku_det_call(lcx_t cx, const char * fn, const tree_t * const * kids, i
         blks[i] = lower_value_subgraph(mv, kids[i]);
         if (!blks[i]) { free(blks); return NULL; }
     }
-    call->counter = (int64_t)(intptr_t) blks;
+    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
     set_succ_fail(call, γ_in, ω_in);
     return ret(call, α_out, β_out, call  , ω_in  );
 }
@@ -379,7 +379,7 @@ IR_t * v_raku_mutate_writeback(lcx_t cx, const char * target, const char * pure_
     if (!target || !pure_fn || nkids < 1) return NULL;
     IR_t * as = nalloc(cx, IR_ASSIGN);
     if (!as) return NULL;
-    as->sval = GC_strdup(target);
+    IR_LIT(as).sval = GC_strdup(target);
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * call = v_raku_det_call(cx, pure_fn, kids, nkids, as  , ω_in, &cα, &cβ);
     if (!call) return NULL;
@@ -449,10 +449,10 @@ static IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
 /*====================================================================================================================*/
 IR_t * v_det_call(lcx_t cx, const tree_t * e, int allow_generator, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
-    call->sval = e->c[0]->v.sval;
+    IR_LIT(call).sval = e->c[0]->v.sval;
     int nargs = e->n - 1;
-    call->ival = nargs;
-    call->dval = 3.0;
+    IR_LIT(call).ival = nargs;
+    IR_LIT(call).dval = 3.0;
     if (nargs > 0) {
         IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
         if (!blks) return NULL;
@@ -461,7 +461,7 @@ IR_t * v_det_call(lcx_t cx, const tree_t * e, int allow_generator, IR_t * γ_in,
             blks[i] = lower_value_subgraph(ac, e->c[i + 1]);
             if (!blks[i]) { free(blks); return NULL; }
         }
-        call->counter = (int64_t)(intptr_t) blks;
+        IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
     }
     set_succ_fail(call, γ_in, ω_in);
     IR_t * call_beta = (allow_generator) ? call : ω_in;
@@ -528,7 +528,7 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (cx.lang == IR_LANG_SNO && lhs_is_var && rhs_t) ak = sno_assign_kind(rhs_t);
     IR_t * as = nalloc(cx, ak);
     if (!as) return NULL;
-    as->sval = lhs_t->v.sval ? lhs_t->v.sval : "";
+    IR_LIT(as).sval = lhs_t->v.sval ? lhs_t->v.sval : "";
     IR_t * rα = NULL, * rβ = NULL;
     IR_t * rhs = lower(cx, rhs_t, as  , ω_in, &rα, &rβ);
     if (!rhs) return NULL;
@@ -748,9 +748,9 @@ IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t *
     if (!arg_t) return NULL;
     IR_t * call = nalloc(cx, IR_CALL);
     if (!call) return NULL;
-    call->sval = fn;
-    call->ival = 1;
-    call->dval = 1.0;
+    IR_LIT(call).sval = fn;
+    IR_LIT(call).ival = 1;
+    IR_LIT(call).dval = 1.0;
     lcx_t av = cx; av.role = ROLE_VALUE;
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * a = lower(av, arg_t, call  , ω_in, &aα, &aβ);
@@ -803,10 +803,10 @@ IR_t * lower_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, I
     const char * lit = e->v.sval ? e->v.sval : "";
     IR_t * sealed = nalloc(cx, IR_PAT_LIT);
     if (!sealed) return NULL;
-    sealed->sval = lit;
+    IR_LIT(sealed).sval = lit;
     IR_t * ref = nalloc(cx, IR_REF_INVARIANT);
     if (!ref) return NULL;
-    ref->sval = lit;
+    IR_LIT(ref).sval = lit;
     IR_t * aux[1] = { sealed };
     bb_operand_aux_set(bbg, ref, aux, 1);
     lcx_t bx = cx; bx.bounded = 1;
