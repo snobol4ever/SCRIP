@@ -100,17 +100,17 @@ static IR_t * icn_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         IR_t * bα = NULL, * bβ = NULL;
         IR_t * base = lower_program(icn_bounded(cx), lhs_t->c[0], idx, ω_in, &bα, &bβ);
         if (!base) return NULL;
-        idx->α = bα ? bα : base;
+        if (!ir_operand_push(idx, bα ? bα : base)) return NULL;
         IR_t * kα = NULL, * kβ = NULL;
         IR_t * key = lower_program(icn_bounded(cx), lhs_t->c[1], idx, ω_in, &kα, &kβ);
         if (!key) return NULL;
-        idx->β = kα ? kα : key;
+        if (!ir_operand_push(idx, kα ? kα : key)) return NULL;
         IR_t * rα = NULL, * rβ = NULL;
         IR_t * rhs = lower_program(icn_bounded(cx), rhs_t, idx, ω_in, &rα, &rβ);
         if (!rhs) return NULL;
-        idx->β->γ = rα ? rα : rhs;
+        if (!ir_operand_push(idx, rα ? rα : rhs)) return NULL;
         set_succ_fail(idx, γ_in, ω_in);
-        return ret(idx, α_out, β_out, idx->α, ω_in);
+        return ret(idx, α_out, β_out, idx->operands[0], ω_in);
     }
     if (lhs_t->t == TT_FIELD && lhs_t->n >= 2 && lhs_t->c[0] && lhs_t->c[1] && lhs_t->c[1]->v.sval) {
         IR_t * fs = nalloc(cx, IR_FIELD_SET);
@@ -119,13 +119,13 @@ static IR_t * icn_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         IR_t * aα = NULL, * aβ = NULL;
         IR_t * obj = lower_program(icn_bounded(cx), lhs_t->c[0], fs, ω_in, &aα, &aβ);
         if (!obj) return NULL;
-        fs->α = aα ? aα : obj;
+        if (!ir_operand_push(fs, aα ? aα : obj)) return NULL;
         IR_t * rα = NULL, * rβ = NULL;
         IR_t * rhs = lower_program(icn_bounded(cx), rhs_t, fs, ω_in, &rα, &rβ);
         if (!rhs) return NULL;
-        fs->β = rα ? rα : rhs;
+        if (!ir_operand_push(fs, rα ? rα : rhs)) return NULL;
         set_succ_fail(fs, γ_in, ω_in);
-        return ret(fs, α_out, β_out, fs->α, ω_in);
+        return ret(fs, α_out, β_out, fs->operands[0], ω_in);
     }
     if (lhs_t->t != TT_VAR) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     IR_t * as = nalloc(cx, IR_ASSIGN);
@@ -300,8 +300,8 @@ static IR_t * icn_swap(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (!rv) return NULL;
     IR_LIT(rv).sval = (e->c[1]->t == TT_VAR && e->c[1]->v.sval) ? e->c[1]->v.sval : "";
     rv->γ = sw; rv->ω = ω_in;
-    sw->α = lv;
-    sw->β = rv;
+    if (!ir_operand_push(sw, lv)) return NULL;
+    if (!ir_operand_push(sw, rv)) return NULL;
     set_succ_fail(sw, γ_in, ω_in);
     return ret(sw, α_out, β_out, lv, ω_in);
 }
@@ -319,9 +319,9 @@ static IR_t * icn_field_get(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * obj = lower_program(icn_bounded(cx), obj_t, fg, ω_in, &aα, &aβ);
     if (!obj) return NULL;
-    fg->α = aα ? aα : obj;
+    if (!ir_operand_push(fg, aα ? aα : obj)) return NULL;
     set_succ_fail(fg, γ_in, ω_in);
-    return ret(fg, α_out, β_out, fg->α, ω_in);
+    return ret(fg, α_out, β_out, fg->operands[0], ω_in);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_section(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
@@ -332,17 +332,17 @@ static IR_t * icn_section(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * obj = lower_program(icn_bounded(cx), e->c[0], sec, ω_in, &aα, &aβ);
     if (!obj) return NULL;
-    sec->α = aα ? aα : obj;
+    if (!ir_operand_push(sec, aα ? aα : obj)) return NULL;
     IR_t * bα = NULL, * bβ = NULL;
     IR_t * i1 = lower_program(icn_bounded(cx), e->c[1], sec, ω_in, &bα, &bβ);
     if (!i1) return NULL;
-    sec->β = bα ? bα : i1;
+    if (!ir_operand_push(sec, bα ? bα : i1)) return NULL;
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * i2 = lower_program(icn_bounded(cx), e->c[2], sec, ω_in, &cα, &cβ);
     if (!i2) return NULL;
-    sec->β->γ = cα ? cα : i2;
+    if (!ir_operand_push(sec, cα ? cα : i2)) return NULL;
     set_succ_fail(sec, γ_in, ω_in);
-    return ret(sec, α_out, β_out, sec->α, ω_in);
+    return ret(sec, α_out, β_out, sec->operands[0], ω_in);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_idx(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {

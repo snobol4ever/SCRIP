@@ -1140,14 +1140,15 @@ static void flat_drive_alt_icn_gen(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lb
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || !pBB->α || !IR_LIT(pBB).sval) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_field_get: IR_FIELD_GET needs α (object) and sval (field)\n");
+    IR_t *obj_box = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
+    if (!obj_box || !IR_LIT(pBB).sval) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_field_get: IR_FIELD_GET needs operands[0] (object) and sval (field)\n");
         abort();
     }
     int id = g_flat_node_id++;
     bb_label_t *obj_done = emit_label_alloc("xfget%d_obj_done", id);
     bb_label_t *obj_β    = emit_label_alloc("xfget%d_obj_β",    id);
-    walk_bb_flat(pBB->α, obj_done, lbl_ω, obj_β);
+    walk_bb_flat(obj_box, obj_done, lbl_ω, obj_β);
     emit_label_define_bb(obj_done);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -1155,8 +1156,10 @@ static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || !pBB->α || !pBB->β || !IR_LIT(pBB).sval) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_field_set: IR_FIELD_SET needs α (object), β (rhs), sval (field)\n");
+    IR_t *obj_box = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
+    IR_t *rhs_box = (pBB && pBB->n_operands > 1) ? pBB->operands[1] : NULL;
+    if (!obj_box || !rhs_box || !IR_LIT(pBB).sval) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_field_set: IR_FIELD_SET needs operands[0] (object), operands[1] (rhs), sval (field)\n");
         abort();
     }
     int id = g_flat_node_id++;
@@ -1164,9 +1167,9 @@ static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     bb_label_t *rhs_β    = emit_label_alloc("xfset%d_rhs_β",    id);
     bb_label_t *obj_done = emit_label_alloc("xfset%d_obj_done", id);
     bb_label_t *obj_β    = emit_label_alloc("xfset%d_obj_β",    id);
-    walk_bb_flat(pBB->β, rhs_done, lbl_ω, rhs_β);
+    walk_bb_flat(rhs_box, rhs_done, lbl_ω, rhs_β);
     emit_label_define_bb(rhs_done);
-    walk_bb_flat(pBB->α, obj_done, lbl_ω, obj_β);
+    walk_bb_flat(obj_box, obj_done, lbl_ω, obj_β);
     emit_label_define_bb(obj_done);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -1191,16 +1194,18 @@ static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (pBB && pBB->α && pBB->β) {
+    if (pBB && pBB->n_operands >= 2) {
         int id = g_flat_node_id++;
-        IR_t *rhs_box = pBB->β ? pBB->β->γ : NULL;
+        IR_t *base_box = pBB->operands[0];
+        IR_t *idx_box  = pBB->operands[1];
+        IR_t *rhs_box  = pBB->n_operands > 2 ? pBB->operands[2] : NULL;
         bb_label_t *base_done = emit_label_alloc("xidxs%d_base_done", id);
         bb_label_t *base_β    = emit_label_alloc("xidxs%d_base_b",    id);
         bb_label_t *idx_done  = emit_label_alloc("xidxs%d_idx_done",  id);
         bb_label_t *idx_β     = emit_label_alloc("xidxs%d_idx_b",     id);
-        walk_bb_flat(pBB->α, base_done, lbl_ω, base_β);
+        walk_bb_flat(base_box, base_done, lbl_ω, base_β);
         emit_label_define_bb(base_done);
-        walk_bb_flat(pBB->β, idx_done, lbl_ω, idx_β);
+        walk_bb_flat(idx_box, idx_done, lbl_ω, idx_β);
         emit_label_define_bb(idx_done);
         if (rhs_box) {
             bb_label_t *rhs_done = emit_label_alloc("xidxs%d_rhs_done", id);
@@ -1850,9 +1855,9 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     if (pBB->β) {
         if (IR_LIT(pBB).ival == 0 && pBB->β &&
             (pBB->α->t == IR_FIELD_SET || pBB->α->t == IR_IDX_SET) &&
-            gen_bb_is_gen_arg(pBB->α->β)) {
+            pBB->α->n_operands > 1 && gen_bb_is_gen_arg(pBB->α->operands[1])) {
             IR_t *lval_node = pBB->α;
-            IR_t *inner_gen = lval_node->β;
+            IR_t *inner_gen = lval_node->operands[1];
             int id0 = g_flat_node_id++;
             bb_label_t *gen_resume  = emit_label_alloc("xev0%d_gen_resume",  id0);
             bb_label_t *store_α     = emit_label_alloc("xev0%d_store_α",     id0);
@@ -1864,7 +1869,7 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
             if (lval_node->t == IR_FIELD_SET) {
                 bb_label_t *obj_done = emit_label_alloc("xev0%d_obj_done", id0);
                 bb_label_t *obj_β    = emit_label_alloc("xev0%d_obj_β",    id0);
-                walk_bb_flat(lval_node->α, obj_done, lbl_γ, obj_β);
+                walk_bb_flat(lval_node->operands[0], obj_done, lbl_γ, obj_β);
                 emit_label_define_bb(obj_done);
                 EMIT_PAIR_RESET();
                 EMIT_PAIR_DEF_JMP(store_βw, lbl_γ);
@@ -1948,9 +1953,11 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || !pBB->α || !pBB->β ||
-        pBB->α->t != IR_VAR || !IR_LIT(pBB->α).sval ||
-        pBB->β->t != IR_VAR || !IR_LIT(pBB->β).sval) {
+    IR_t *l_var = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
+    IR_t *r_var = (pBB && pBB->n_operands > 1) ? pBB->operands[1] : NULL;
+    if (!l_var || !r_var ||
+        l_var->t != IR_VAR || !IR_LIT(l_var).sval ||
+        r_var->t != IR_VAR || !IR_LIT(r_var).sval) {
         fprintf(stderr, "[IBB] FATAL flat_drive_swap: x:=:y requires two IR_VAR operands\n");
         abort();
     }
@@ -1959,9 +1966,9 @@ static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     bb_label_t *y_done = emit_label_alloc("xswap%d_y",  id);
     bb_label_t *x_β    = emit_label_alloc("xswap%d_xb", id);
     bb_label_t *y_β    = emit_label_alloc("xswap%d_yb", id);
-    walk_bb_flat(pBB->α, x_done, lbl_ω, x_β);
+    walk_bb_flat(l_var, x_done, lbl_ω, x_β);
     emit_label_define_bb(x_done);
-    walk_bb_flat(pBB->β, y_done, lbl_ω, y_β);
+    walk_bb_flat(r_var, y_done, lbl_ω, y_β);
     emit_label_define_bb(y_done);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
