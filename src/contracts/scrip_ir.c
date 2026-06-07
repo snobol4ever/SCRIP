@@ -369,13 +369,6 @@ static int bb_index_of(const IR_graph_t * bbg, const IR_t * bb) {
     return -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void print_port(FILE * fp, const IR_graph_t * bbg, const char * label, const IR_t * bb) {
-    int idx = bb_index_of(bbg, bb);
-    if (!bb) fprintf(fp, " %s=.", label);
-    else if (idx >= 0) fprintf(fp, " %s=%d", label, idx);
-    else fprintf(fp, " %s=set", label);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx);
 void bb_print(const IR_graph_t * bbg, FILE * fp) { bb_print_pfx(bbg, fp, ""); }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -388,11 +381,16 @@ static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx) {
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         if (!bb) continue;
-        fprintf(fp, "%s  [%d] %s", pfx, i, bb_op_name(bb->t));
-        print_port(fp, bbg, "α", bb->α);
-        print_port(fp, bbg, "β", bb->β);
-        print_port(fp, bbg, "γ", bb->γ);
-        print_port(fp, bbg, "ω", bb->ω);
+        const char * opn = bb_op_name(bb->t); if (strncmp(opn, "IR_", 3) == 0) opn += 3;
+        char gp[16], wp[16];
+        if (bb->γ) snprintf(gp, sizeof gp, "%dα", bb->γ->idx); else snprintf(gp, sizeof gp, "·");
+        if (bb->ω) snprintf(wp, sizeof wp, "%dβ", bb->ω->idx); else snprintf(wp, sizeof wp, "·");
+        fprintf(fp, "%s  [%3d] %-16s γ=%-5s ω=%-5s", pfx, i, opn, gp, wp);
+        if (bb->t != IR_SCAN && bb->n_operands > 0) {
+            fprintf(fp, " ops:[");
+            for (int j = 0; j < bb->n_operands; j++) fprintf(fp, "%s%d", j ? "," : "", bb->operands[j] ? bb->operands[j]->idx : -1);
+            fprintf(fp, "]");
+        }
         switch (bb->t) {
             case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
             case IR_LIT_F: fprintf(fp, " dval=%g",   IR_LIT(bb).dval);             break;
