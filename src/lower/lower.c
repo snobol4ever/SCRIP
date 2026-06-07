@@ -289,7 +289,7 @@ IR_t * wire_if(lcx_t cx, const tree_t * e, int else_succeeds, IR_t * γ_in, IR_t
     }
     IR_t * c1 = lower_program(cb, e->c[0], thenα  , elseα  , &c1α, &c1β);
     if (!c1) return NULL;
-    node->α = c1α;
+    if (!ir_operand_push(node, c1α)) return NULL;
     set_succ_fail(node, γ_in, ω_in);
     return ret(node, α_out, β_out, c1α, node  );
 }
@@ -400,7 +400,7 @@ IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** �
     } else {
         if (!cond->γ) cond->γ = c1α;
     }
-    wh->α = c1α;
+    if (!ir_operand_push(wh, c1α)) return NULL;
     set_succ_fail(wh, γ_in, ω_in);
     return ret(wh, α_out, β_out, c1α, ω_in);
 }
