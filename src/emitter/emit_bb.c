@@ -2006,11 +2006,11 @@ static int while_cond_emittable(IR_t *cond) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_while(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || !pBB->α) {
+    if (!pBB || !bb_child0(pBB)) {
         fprintf(stderr, "[IBB] FATAL flat_drive_while: missing cond (bb->α)\n");
         abort();
     }
-    IR_t *cond = pBB->α;
+    IR_t *cond = bb_child0(pBB);
     IR_t *body = pBB->β;
     int is_until = (pBB->t == IR_UNTIL);
     int cond_is_relop = (cond->t == IR_BINOP && IR_EXEC(cond).state >= 1);
@@ -2422,7 +2422,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             emit_label_define_bb(lbl_β);
             emit_jmp_label(lbl_γ, JMP_JMP);
             emit_jmp_label(lbl_γ, JMP_JMP);
-        } else if (while_cond_emittable(nd->α)) {
+        } else if (while_cond_emittable(bb_child0(nd))) {
             flat_drive_while(nd, lbl_γ, lbl_ω, lbl_β);
         } else {
             emit_label_define_bb(lbl_β);

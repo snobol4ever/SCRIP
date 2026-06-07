@@ -2784,14 +2784,15 @@ IR_t * IR_interp_node(IR_t * bb) {
         return land;
     }
     case IR_IF: {
-        if (!bb->α && !bb->β) {
+        IR_t * cnd = bb->n_operands > 0 ? bb->operands[0] : bb->α;
+        if (!cnd && !bb->β) {
             DESCR_t cv = ag_ring_peek(g_current_cfg, 0);
             IR_EXEC(bb).value = IS_FAIL_fn(cv) ? FAILDESCR : cv;
             return IS_FAIL_fn(cv) ? bb->ω : bb->γ;
         }
-        if (!bb->α) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
-        IR_interp_node(bb->α);
-        DESCR_t cv = IR_EXEC(bb->α).value;
+        if (!cnd) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        IR_interp_node(cnd);
+        DESCR_t cv = IR_EXEC(cnd).value;
         if (!IS_FAIL_fn(cv)) {
             if (bb->β) { IR_EXEC(bb->β).state = 0; IR_interp_node(bb->β); IR_EXEC(bb).value = IR_EXEC(bb->β).value; }
             else IR_EXEC(bb).value = NULVCL;
@@ -2882,15 +2883,16 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_WHILE: {
-        if (!bb->α) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        IR_t * cnd = bb->n_operands > 0 ? bb->operands[0] : bb->α;
+        if (!cnd) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
         int saved_brk_w = frame_depth > 0 ? FRAME.loop_break : 0;
         int saved_nxt_w = frame_depth > 0 ? FRAME.loop_next  : 0;
         if (frame_depth > 0) { FRAME.loop_break = 0; FRAME.loop_next = 0; }
         int safety = 1000000;
         while (safety-- > 0) {
-            IR_EXEC(bb->α).state = 0;
-            IR_interp_node(bb->α);
-            DESCR_t cv = IR_EXEC(bb->α).value;
+            IR_EXEC(cnd).state = 0;
+            IR_interp_node(cnd);
+            DESCR_t cv = IR_EXEC(cnd).value;
             if (IS_FAIL_fn(cv)) break;
             if (frame_depth > 0 && FRAME.loop_break) break;
             if (bb->β) { IR_EXEC(bb->β).state = 0; IR_interp_node(bb->β); }
