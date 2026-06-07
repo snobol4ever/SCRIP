@@ -981,6 +981,69 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
+static IR_t * sno_value_shared(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    switch (e->t) {
+    case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_CSET:
+    case TT_NUL:  case TT_NULL: case TT_VAR:  case TT_NAME: case TT_KEYWORD:
+        return v_literal(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_SUCCEED: { IR_t * n = nalloc(cx, IR_SUCCEED); if (!n) return NULL; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_FAIL:    { IR_t * n = nalloc(cx, IR_FAIL);    if (!n) return NULL; lcx_t bx = cx; bx.bounded = 1; return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_MATCH_UNARY:
+        return v_unop(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL:
+    case TT_RANDOM: case TT_CSET_COMPL: case TT_ITERATE: case TT_INTERROGATE:
+        return v_unop(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW:
+    case TT_LT:  case TT_LE:  case TT_GT:  case TT_GE:  case TT_EQ:  case TT_NE:
+    case TT_CAT: case TT_LCONCAT:
+    case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE:
+        return v_binop(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_TO: case TT_TO_BY:
+        return v_to(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_IF:
+        return v_if(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_SEQ: case TT_SEQ_EXPR:
+        return v_conj(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_ALTERNATE: case TT_ALT:
+        return v_alt(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_EVERY:
+        return v_every(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_WHILE:
+        return v_while(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_UNTIL:
+        return v_until(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_REPEAT:
+        return v_repeat(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_NOT:
+        return v_not(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_LOOP_BREAK:
+        return v_loop_break(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_LOOP_NEXT:
+        return v_loop_next(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_ASSIGN:
+        return v_assign(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_RETURN:
+    case TT_NRETURN:
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_SUSPEND:
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_INITIAL:
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    case TT_FNC: case TT_PROC_FAIL: case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP: case TT_LIMIT: case TT_CASE: {
+        if (e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            const char * fn = e->c[0]->v.sval;
+            if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))
+                return wire_det_builtin1(cx, e->c[1], fn, γ_in, ω_in, α_out, β_out);
+        }
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    }
+    case TT_SCAN:
+        return v_scan(cx, e, γ_in, ω_in, α_out, β_out);
+    default:
+        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_sno_assign(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_t ** α, IR_t ** β) {
     const tree_t * lhs_t = NULL, * rhs_t = NULL;
     if (!tm(e, TT_ASSIGN, 2, &lhs_t, &rhs_t)) return NULL;
@@ -1013,7 +1076,7 @@ static IR_t * lower_sno_value(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, 
     case TT_ASSIGN:
         return lower_sno_assign(cx, e, γ, ω, α, β);
     default:
-        return lower_value_shared(cx, e, γ, ω, α, β);
+        return sno_value_shared(cx, e, γ, ω, α, β);
     }
 }
 /*====================================================================================================================*/

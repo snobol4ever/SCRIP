@@ -154,7 +154,7 @@ IR_t * emit_leaf(lcx_t cx, IR_t * n, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out,
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_literal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_literal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * n = NULL;
     switch (e->t) {
     case TT_ILIT:    n = nalloc(cx, IR_LIT_I);   if (n) IR_LIT(n).ival = e->v.ival; break;
@@ -171,7 +171,7 @@ static IR_t * v_literal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, 
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     if (e->t == TT_ITERATE) {
         IR_t * bang = nalloc(cx, IR_LIST_BANG);
@@ -214,7 +214,7 @@ int tt_to_binop(tree_e t) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * bin = nalloc(cx, IR_BINOP);
     if (!bin) return NULL;
@@ -248,7 +248,7 @@ static int to_by_const_step(const tree_t * s, int64_t * out_bits, int * is_real)
     }
     return 0;
 }
-static IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * node = nalloc(cx, (e->t == TT_TO_BY) ? IR_TO_BY : IR_TO);
     if (!node) return NULL;
@@ -294,7 +294,7 @@ IR_t * wire_if(lcx_t cx, const tree_t * e, int else_succeeds, IR_t * γ_in, IR_t
     return ret(node, α_out, β_out, c1α, node  );
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     return wire_if(cx, e, 0, γ_in, ω_in, α_out, β_out);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -315,7 +315,7 @@ IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e) {
     blk->entry = eα ? eα : en;
     return blk;
 }
-static IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     const tree_t * kids[64];
     int nk = flatten_seq(e, e->t, kids, 64);
     if (nk < 1) return NULL;
@@ -323,13 +323,13 @@ static IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_alt(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_alt(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1) return NULL;
     return wire_alt(cx, IR_ALT, (const tree_t * const *) e->c, e->n, γ_in, ω_in, α_out, β_out);
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_every(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_every(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t * ev = nalloc(cx, IR_EVERY);
     if (!ev) return NULL;
@@ -385,7 +385,7 @@ IR_t * v_raku_mutate_writeback(lcx_t cx, const char * target, const char * pure_
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t * wh = nalloc(cx, IR_WHILE);
     if (!wh) return NULL;
@@ -406,7 +406,7 @@ static IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_until(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_until(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t * un = nalloc(cx, IR_UNTIL);
     if (!un) return NULL;
@@ -427,7 +427,7 @@ static IR_t * v_until(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t * rp = nalloc(cx, IR_REPEAT);
     if (!rp) return NULL;
@@ -465,7 +465,7 @@ IR_t * v_det_call(lcx_t cx, const tree_t * e, int allow_generator, IR_t * γ_in,
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_loop_break(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_loop_break(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     (void)γ_in;
     IR_t * br = nalloc(cx, IR_BREAK);
     if (!br) return NULL;
@@ -475,7 +475,7 @@ static IR_t * v_loop_break(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_loop_next(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_loop_next(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     (void)γ_in; (void)e;
     IR_t * nx = nalloc(cx, IR_NEXT);
     if (!nx) return NULL;
@@ -485,7 +485,7 @@ static IR_t * v_loop_next(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_not(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_not(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 1 || !e->c[0]) return NULL;
     IR_t * nt = nalloc(cx, IR_NOT);
     if (!nt) return NULL;
@@ -498,7 +498,7 @@ static IR_t * v_not(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     const tree_t * lhs_t = NULL, * rhs_t = NULL;
     if (!tm(e, TT_ASSIGN, 2, &lhs_t, &rhs_t)) return NULL;
     if (!lhs_t || !rhs_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
