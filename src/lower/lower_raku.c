@@ -178,6 +178,8 @@ IR_t * rku_for_range(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 /*====================================================================================================================*/
 static IR_t * lower_rku_value(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_t ** α, IR_t ** β) {
     switch (e->t) {
+    case TT_IF:
+        return wire_if(cx, e, 1, γ, ω, α, β);
     case TT_EVERY:
         if (e->n >= 1 && e->c[0] && e->c[0]->t == TT_ITERATE
             && e->c[0]->n >= 1 && e->c[0]->c[0]

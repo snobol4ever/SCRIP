@@ -158,6 +158,23 @@ IR_t * pas_label_def(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 /*====================================================================================================================*/
 static IR_t * lower_pas_value(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_t ** α, IR_t ** β) {
     switch (e->t) {
+    case TT_IF:
+        return wire_if(cx, e, 1, γ, ω, α, β);
+    case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW:
+    case TT_LT:  case TT_LE:  case TT_GT:  case TT_GE:  case TT_EQ:  case TT_NE:
+    case TT_CAT: case TT_LCONCAT:
+    case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE: {
+        if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
+        int b1 = tt_is_relational(e->c[0]->t);
+        int b2 = tt_is_relational(e->c[1]->t);
+        if (!b1 && !b2) return lower_value_shared(cx, e, γ, ω, α, β);
+        IR_t * bin = nalloc(cx, IR_BINOP);
+        if (!bin) return NULL;
+        IR_LIT(bin).sval = e->v.sval;
+        IR_LIT(bin).ival = (int64_t) tt_to_binop(e->t);
+        IR_LIT(bin).dval = tt_is_relational(e->t) ? 1.0 : 0.0;
+        return pas_binop_bool(cx, e, bin, b1, b2, γ, ω, α, β);
+    }
     case TT_GOTO_U:
         if (!e->v.sval) return NULL;
         return pas_goto_u(cx, e, γ, ω, α, β);

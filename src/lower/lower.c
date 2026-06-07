@@ -195,13 +195,13 @@ static IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static int tt_is_relational(tree_e t) {
+int tt_is_relational(tree_e t) {
     return t==TT_LT||t==TT_LE||t==TT_GT||t==TT_GE||t==TT_EQ||t==TT_NE
          ||t==TT_LLT||t==TT_LLE||t==TT_LGT||t==TT_LGE||t==TT_LEQ||t==TT_LNE;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int tt_to_binop(tree_e t) {
+int tt_to_binop(tree_e t) {
     switch (t) {
     case TT_ADD: return BINOP_ADD; case TT_SUB: return BINOP_SUB; case TT_MUL: return BINOP_MUL;
     case TT_DIV: return BINOP_DIV; case TT_MOD: return BINOP_MOD; case TT_POW: return BINOP_POW;
@@ -221,9 +221,6 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     IR_LIT(bin).sval = e->v.sval;
     IR_LIT(bin).ival = (int64_t) tt_to_binop(e->t);
     IR_LIT(bin).dval = tt_is_relational(e->t) ? 1.0 : 0.0;
-    int b1 = (cx.lang == IR_LANG_PAS && tt_is_relational(e->c[0]->t));
-    int b2 = (cx.lang == IR_LANG_PAS && tt_is_relational(e->c[1]->t));
-    if (b1 || b2) return pas_binop_bool(cx, e, bin, b1, b2, γ_in, ω_in, α_out, β_out);
     IR_t * e1α=NULL, * e1β=NULL, * e2α=NULL, * e2β=NULL;
     IR_t * c1 = lower_program(cx, e->c[0], NULL  , ω_in, &e1α, &e1β);
     if (!c1) return NULL;
@@ -273,7 +270,7 @@ static IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * wire_if(lcx_t cx, const tree_t * e, int else_succeeds, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * node = nalloc(cx, IR_IF);
     if (!node) return NULL;
@@ -288,17 +285,17 @@ static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
         if (!c3) return NULL;
         elseα = c3α;
     } else {
-        switch (cx.lang) {
-        case IR_LANG_RKU:
-        case IR_LANG_PAS: elseα = γ_in; break;
-        default:          elseα = ω_in; break;
-        }
+        elseα = else_succeeds ? γ_in : ω_in;
     }
     IR_t * c1 = lower_program(cb, e->c[0], thenα  , elseα  , &c1α, &c1β);
     if (!c1) return NULL;
     node->α = c1α;
     set_succ_fail(node, γ_in, ω_in);
     return ret(node, α_out, β_out, c1α, node  );
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    return wire_if(cx, e, 0, γ_in, ω_in, α_out, β_out);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 lcx_t bounded(lcx_t cx) { cx.bounded = 1; return cx; }
