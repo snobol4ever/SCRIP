@@ -28,7 +28,7 @@ static std::string bb_pat_breakx_str() {
              + x86("mov",    "eax", "r14d")
              + x86("add",    "eax", FR(zoff()))
              + x86("cmp",    "eax", "r15d")
-             + x86("jge",    PORT_OMEGA)
+             + x86("jge",    "ω")
              + x86("movsxd", "rcx", "eax")
              + x86("movzx",  "esi", "[r13+rcx]")
              + x86("lea",    "rdi", "[rip + __]", cset_addr(), cset_label())
@@ -43,8 +43,8 @@ static std::string bb_pat_breakx_str() {
              + x86("mov",    "eax", "r14d")
              + x86("add",    "eax", FR(zoff()))
              + x86("mov",    "r14d", "eax")
-             + x86("jmp",    PORT_GAMMA)
-             + x86("def",    PORT_BETA)
+             + x86("jmp",    "γ")
+             + x86("def",    "β")
              + x86("mov",    "eax", "r14d")
              + x86("sub",    "eax", FR(zoff()))
              + x86("mov",    FR(zooff()), "eax")
@@ -68,10 +68,10 @@ static std::string bb_pat_breakx_str() {
              + x86("mov",    "eax", FR(zooff()))
              + x86("add",    "eax", FR(zoff()))
              + x86("mov",    "r14d", "eax")
-             + x86("jmp",    PORT_GAMMA)
+             + x86("jmp",    "γ")
              + x86("def",    L(4))
              + x86("mov",    "r14d", FR(zooff()))
-             + x86("jmp",    PORT_OMEGA);
+             + x86("jmp",    "ω");
     }
     return std::string();
 }
