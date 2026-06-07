@@ -450,7 +450,7 @@ static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
     for (int k = 0; k < bc->nbodies; k++) {
         IR_t **units = NULL;
         if (!pl_gz_fact_clause_units(bc->bodies[k], ar, &units)) return NULL;
-        for (int j = 0; j < ar; j++) st->consts[k][j] = units ? units[j]->β : NULL;
+        for (int j = 0; j < ar; j++) st->consts[k][j] = units ? ((units[j]->n_operands > 1) ? units[j]->operands[1] : NULL) : NULL;
     }
     return st;
 }
