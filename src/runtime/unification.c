@@ -74,6 +74,11 @@ int rt_pl_unify_cell_const(void *cell_term, int kind, long ival, const char *sva
     return rt_unify_terms(cell_term, rt_node_to_term(kind, ival, sval, 0.0));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_unify_cell_float(void *cell_term, double dval)
+{
+    return rt_unify_terms(cell_term, rt_node_to_term(IR_LIT_F, 0, (const char *)0, dval));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static Term *pl_build_term_gz_r(void *frame, const void *ir_node)
 {
     extern void *GC_malloc(size_t);
