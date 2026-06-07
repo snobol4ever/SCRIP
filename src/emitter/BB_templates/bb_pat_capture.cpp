@@ -25,12 +25,11 @@ static std::string bb_pat_capture_str() {
     if (sub_kind() == 0) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
-                 + x86("comment", emit_fmt("BOX CAPTURE SAVE(%s)  [delta=r14 -> zeta-slot; falls through into the inline child]", vname())))
+                 + x86("comment", "BOX CAPTURE SAVE(" + std::string(vname()) + ")  [delta=r14 -> zeta-slot; falls through into the inline child]"))
              + x86("mov", FR(stoff()), "r14d");
     }
     return IF(MEDIUM_TEXT,
-               x86("comment", emit_fmt("BOX CAPTURE %s(%s)  [SPITBOL ch.13: matched substring Sigma[saved..delta) -> variable]",
-                                   sub_kind() == 2 ? "IMM" : "COND", vname())))
+               x86("comment", "BOX CAPTURE " + std::string(sub_kind() == 2 ? "IMM" : "COND") + "(" + std::string(vname()) + ")  [SPITBOL ch.13: matched substring Sigma[saved..delta) -> variable]"))
          + x86("lea",  "rdi", "[rip + __]", vaddr(), vlabel())
          + x86("mov",  "esi", FR(stoff()))
          + x86("mov",  "edx", "r14d")
@@ -41,7 +40,7 @@ static std::string bb_pat_capture_str() {
          + x86("call", "rt_cap_assign_cursor", cap_fn())
          + x86("mov",  "rsp", "rbx")
          + x86("pop",  "rbx")
-         + x86("jmp",  PORT_GAMMA);
+         + x86("jmp",  "γ");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_pat_capture(void) {
