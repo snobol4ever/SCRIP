@@ -1760,19 +1760,23 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     bb_label_t *match_adv   = emit_label_alloc("smatch%d_adv",   id);
     bb_label_t *elem_β      = emit_label_alloc("smatch%d_elemb", id);
     int st = bb_slot_alloc16(pBB);
+    IR_e _sk = pBB->t;
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
-    IR_LIT(pBB).ival = 0;
+    pBB->t = IR_PAT_MATCH_HEAD;
     FILL(pBB, match_retry, lbl_ω, lbl_β);
+    pBB->t = _sk;
     emit_label_define_bb(match_retry);
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
-    IR_LIT(pBB).ival = 1;
+    pBB->t = IR_PAT_MATCH_RETRY;
     FILL(pBB, match_retry, lbl_ω, elem_β);
+    pBB->t = _sk;
     if (catn >= 2) flat_drive_cat_arms(catnd, cat_arms, catn, lbl_γ, match_adv, elem_β);
     else           walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
     emit_label_define_bb(match_adv);
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
-    IR_LIT(pBB).ival = 2;
+    pBB->t = IR_PAT_MATCH_ADVANCE;
     FILL(pBB, match_retry, lbl_ω, elem_β);
+    pBB->t = _sk;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_program(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {

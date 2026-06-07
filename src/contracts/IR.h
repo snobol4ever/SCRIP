@@ -185,6 +185,9 @@ typedef enum {
     IR_ASSIGN_FRAME,
     IR_VAR_FRAME_REF,
     IR_ASSIGN_FRAME_REF,
+    IR_PAT_MATCH_HEAD,
+    IR_PAT_MATCH_RETRY,
+    IR_PAT_MATCH_ADVANCE,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/

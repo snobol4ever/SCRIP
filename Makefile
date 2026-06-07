@@ -193,7 +193,9 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_pat_alt.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_cat.cpp \
     $(SRC)/emitter/BB_templates/bb_subject.cpp \
-    $(SRC)/emitter/BB_templates/bb_match.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_head.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_retry.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_advance.cpp \
     $(SRC)/emitter/BB_templates/bb_pat_capture.cpp \
     $(SRC)/emitter/BB_templates/bb_gather.cpp \
     $(SRC)/emitter/BB_templates/bb_assign_local.cpp \
@@ -428,7 +430,9 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_alt.cpp    -o $(OBJ)/bb_pat_alt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_cat.cpp    -o $(OBJ)/bb_pat_cat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_subject.cpp   -o $(OBJ)/bb_subject.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match.cpp     -o $(OBJ)/bb_match.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_head.cpp    -o $(OBJ)/bb_match_head.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_retry.cpp   -o $(OBJ)/bb_match_retry.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_advance.cpp -o $(OBJ)/bb_match_advance.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_capture.cpp -o $(OBJ)/bb_pat_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
