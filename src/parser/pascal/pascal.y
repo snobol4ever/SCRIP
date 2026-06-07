@@ -416,7 +416,7 @@ simple_type:
     | constant DOTDOT constant { g_pas_pend_sub_low = $1; g_pas_pend_sub_high = $3; $$ = $3; }
     ;
 record_body:
-    record_field_list
+    record_field_list record_case_opt
     ;
 record_field_list:
     record_field_list SEMICOLON record_field
@@ -424,6 +424,18 @@ record_field_list:
     ;
 record_field:
     id_list COLON type { if ($1) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_pend_add($1->items[i]->v.sval); }
+    |
+    ;
+record_case_opt:
+    CASESY IDENT COLON IDENT OFSY record_case_list { if ($2) pas_pend_add($2); }
+    |
+    ;
+record_case_list:
+    record_case_list SEMICOLON record_case_arm
+    | record_case_arm
+    ;
+record_case_arm:
+    constant_list COLON LPARENT record_body RPARENT
     |
     ;
 var_decl_list:
