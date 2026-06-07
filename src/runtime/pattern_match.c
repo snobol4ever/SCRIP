@@ -15,57 +15,57 @@
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_lit(const char *s) {
-    fprintf(stderr, "[B0] BOMB pat_lit: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_lit: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_span(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_span: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_span: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_break_(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_break_: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_break_: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_breakx(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_breakx: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_breakx: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_any_cs(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_any_cs: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_any_cs: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_notany(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_notany: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_notany: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_len(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_len: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_len: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_pos(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_pos: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_pos: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_rpos(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_rpos: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_rpos: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_tab(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_tab: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_tab: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_rtab(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_rtab: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_rtab: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -75,7 +75,7 @@ DESCR_t pat_arb(void) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_arbno(DESCR_t inner) {
-    fprintf(stderr, "[B0] BOMB pat_arbno: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_arbno: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -85,7 +85,7 @@ DESCR_t pat_rem(void) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_fence_p(DESCR_t inner) {
-    fprintf(stderr, "[B0] BOMB pat_fence_p: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_fence_p: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -120,57 +120,57 @@ DESCR_t pat_epsilon(void) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
-    fprintf(stderr, "[B0] BOMB pat_cat: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_cat: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_alt(DESCR_t left, DESCR_t right) {
-    fprintf(stderr, "[B0] BOMB pat_alt: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_alt: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_ref(const char *name) {
-    fprintf(stderr, "[B0] BOMB pat_ref: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_ref: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_assign_imm(DESCR_t child, DESCR_t var) {
-    fprintf(stderr, "[B0] BOMB pat_assign_imm: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_assign_imm: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var) {
-    fprintf(stderr, "[B0] BOMB pat_assign_cond: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_assign_cond: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_assign_callcap(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs) {
-    fprintf(stderr, "[B0] BOMB pat_assign_callcap: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_assign_callcap: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_assign_callcap_named(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs, char **arg_names, int n_arg_names) {
-    fprintf(stderr, "[B0] BOMB pat_assign_callcap_named: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_assign_callcap_named: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_assign_callcap_named_imm(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs, char **arg_names, int n_arg_names) {
-    fprintf(stderr, "[B0] BOMB pat_assign_callcap_named_imm: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_assign_callcap_named_imm: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t var_as_pattern(DESCR_t v) {
-    fprintf(stderr, "[B0] BOMB var_as_pattern: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB var_as_pattern: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs) {
-    fprintf(stderr, "[B0] BOMB pat_user_call: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_user_call: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_at_cursor(const char *varname) {
-    fprintf(stderr, "[B0] BOMB pat_at_cursor: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    fprintf(stderr, "[B0] BOMB pat_at_cursor: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
