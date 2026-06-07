@@ -136,8 +136,6 @@ IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
     IR_t *bb = IR_node_alloc(bbg, IR_PROC_GEN);
     if (!bb) return NULL;
     IR_EXEC(bb).counter = (int64_t)(uintptr_t)gs;
-    bb->α      = bb;
-    bb->β      = bb;
     bb->γ      = NULL;
     bb->ω      = NULL;
     bbg->entry = bb;
