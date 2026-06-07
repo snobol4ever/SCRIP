@@ -18,13 +18,12 @@ std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
         if (strcmp(fn, "findall") == 0)
-            return x86_lit_bytes(
-                bytes(4, "\x48\x83\xEC\x10")
-                + bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)(void *)(intptr_t)_.op_ival)
-                + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_findall) + bytes(2, "\xFF\xD0")
-                + bytes(4, "\x48\x83\xC4\x10")
-                + bytes(2, "\x85\xC0")
-            ) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
+            return x86("sub", "rsp", 16L)
+                 + x86("movabs", "rdi", (uint64_t)(uintptr_t)(void *)(intptr_t)_.op_ival)
+                 + x86("call", "rt_findall", (uint64_t)(uintptr_t)(void*)rt_findall)
+                 + x86("add", "rsp", 16L)
+                 + x86("test", "eax", "eax")
+                 + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
     }
     if (MEDIUM_TEXT) {
         if (strcmp(fn, "findall") == 0) {
