@@ -11,9 +11,9 @@ static std::string bb_succeed_str() {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
                  + x86("comment", "BOX SUCCEED() [x86() self-encoding — jmp γ; β: jmp ω]"))
-             + x86("jmp", PORT_GAMMA)
-             + x86("def", PORT_BETA)
-             + x86("jmp", PORT_OMEGA);
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω");
     }
     return std::string();
 }
