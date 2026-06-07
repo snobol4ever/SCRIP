@@ -43,4 +43,12 @@ find "$REPO/test/prolog" -name '*.pl' | sort | while read -r f; do
     printf '%s rc=%d md5=%s\n' "${f#$REPO/}" "$rc" "$(printf '%s' "$out" | md5sum | cut -d' ' -f1)" >> "$PLSWEEP"
 done
 echo "  pl_interp_sweep done ($(wc -l < "$PLSWEEP") files)"
+# snocone per-file interp sweep (test/snocone + corpus/crosscheck/snocone)
+SCOSWEEP="$OUT/sco_interp_sweep.txt"; : > "$SCOSWEEP"
+{ find "$REPO/test/snocone" -name '*.sc' 2>/dev/null; find /home/claude/corpus/crosscheck/snocone -name '*.sc' 2>/dev/null; } | sort | while read -r f; do
+    out=$(timeout 8 "$SCRIP" --interp "$f" < /dev/null 2>/dev/null); rc=$?
+    printf '%s rc=%d md5=%s\n' "${f#$REPO/}" "$rc" "$(printf '%s' "$out" | md5sum | cut -d' ' -f1)" >> "$SCOSWEEP"
+done
+echo "  sco_interp_sweep done ($(wc -l < "$SCOSWEEP") files)"
+run smoke_rebus   bash "$HERE/test_smoke_rebus.sh"
 echo "BASELINE BAKED at $OUT"
