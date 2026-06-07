@@ -436,7 +436,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SCAN: { extern void bb_scan_stmt(IR_t *); bb_scan_stmt(nd); return 0; }
     case IR_GEN_SCAN: { extern void bb_gen_scan(IR_t *); bb_gen_scan(nd); return 0; }
     case IR_KEYWORD: { extern void bb_keyword(IR_t *); bb_keyword(nd); return 0; }
-    case IR_RETURN: { extern int g_descr_flat_chain; extern void bb_return(IR_t *); if (g_descr_flat_chain) { bb_return(nd); return 0; } fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1; }
+    case IR_RETURN: { extern int g_descr_flat_chain; extern void bb_return(IR_t *);
+        if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : nd->α; g_emit.op_sa = rv ? bb_slot_get(rv) : -1; bb_return(nd); return 0; }
+        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1; }
     case IR_AUGOP:
     case IR_CALL: {
         extern int g_icn_scan_regs_live;
