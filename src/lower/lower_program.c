@@ -491,7 +491,7 @@ static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, in
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) pas_rewrite_node(g->all[i], scs, dls, pis, nch);
 }
-stage2_t *lower_program(const tree_t *prog) {
+stage2_t *lower_stage2(const tree_t *prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     stage2_reset();
     uint32_t mask = polyglot_lang_mask(prog);

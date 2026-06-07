@@ -3,6 +3,7 @@
 #ifndef LOWER_INTERNAL_H
 #define LOWER_INTERNAL_H
 #include "lower.h"
+#include <string.h>
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef enum { ROLE_VALUE = 0, ROLE_PATTERN = 1, ROLE_GOAL = 2 } lower_role_e;
 typedef struct { int count; } pl_vars_t;
@@ -16,9 +17,18 @@ typedef struct {
     pl_vars_t  * pl_vars;
 } lcx_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+IR_t * lower(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β);
+IR_t * lower_program(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 IR_t * lower_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
-IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+IR_t * lower_value_shared(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+IR_t * lower_sno(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β);
+IR_t * lower_rku(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β);
+IR_t * lower_pas(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β);
+static inline IR_t * iref(IR_t * n, IR_ref_t * α, IR_ref_t * β, IR_t * na, IR_t * nb) {
+    if (α) { α->node = na; memcpy(α->sz, "α", 3); }
+    if (β) { β->node = nb; memcpy(β->sz, "β", 3); }
+    return n;
+}
 lcx_t  bounded(lcx_t cx);
 IR_t * v_det_call(lcx_t cx, const tree_t * e, int allow_generator, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 IR_t * v_raku_det_call(lcx_t cx, const char * fn, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);

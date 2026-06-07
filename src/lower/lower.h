@@ -20,7 +20,7 @@ void expression_scope_walk(Scope *sc, tree_t *e);
 #define T1(t) ((t)->n > 1 ? (t)->c[1] : NULL)
 #define T2(t) ((t)->n > 2 ? (t)->c[2] : NULL)
 /*====================================================================================================================*/
-stage2_t *lower_program(const tree_t *prog);
+stage2_t *lower_stage2(const tree_t *prog);
 /*====================================================================================================================*/
 struct tree_t;
 IR_graph_t *lower_pl_predicate(struct tree_t *choice);

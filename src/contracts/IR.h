@@ -190,6 +190,7 @@ typedef enum {
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
+typedef struct { IR_t * node; char sz[4]; } IR_ref_t;
 struct IR_t {
     IR_e      t;
     IR_t       * α;
