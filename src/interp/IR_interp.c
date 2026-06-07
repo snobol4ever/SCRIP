@@ -548,7 +548,6 @@ static DESCR_t resolve_arith_eval(IR_t *bb) {
             return REALVAL(pow(ld,rd));
         }
         if (strcmp(fn,"^")==0) {
-            if (!lf && !rf && ri>=0) { int64_t b=li,ex=ri,acc=1; while(ex-->0) acc*=b; return INTVAL(acc); }
             return REALVAL(pow(ld,rd));
         }
         if (strcmp(fn,"min")==0) return anyf ? (ld<=rd?lv:rv) : (li<=ri?lv:rv);
@@ -2681,11 +2680,20 @@ IR_t * IR_interp_node(IR_t * bb) {
         bb->value = NULVCL;
         return bb->γ;
     case IR_INITIAL: {
-        if (bb->ival == 0) {
-            bb->ival = 1;
-            if (bb->α) {
-                IR_interp_node(bb->α);
-                if (IS_FAIL_fn(bb->α->value)) { bb->value = FAILDESCR; return bb->ω; }
+        char _init_key[32];
+        snprintf(_init_key, sizeof(_init_key), "__init_%p", (void*)bb);
+        DESCR_t _init_flag = NV_GET_fn(_init_key);
+        if (!IS_FAIL_fn(_init_flag) && IS_INT_fn(_init_flag) && _init_flag.i != 0) { bb->value = NULVCL; return bb->γ; }
+        NV_SET_fn(_init_key, INTVAL(1));
+        if (bb->α) {
+            int ini_safe = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
+            IR_t *ic = bb->α;
+            while (ic && ini_safe-- > 0) {
+                IR_t *in = IR_interp_node(ic);
+                if (IS_FAIL_fn(ic->value)) { bb->value = FAILDESCR; return bb->ω; }
+                if (!in || in == bb->γ || in == bb->ω || in == ic) break;
+                ag_ring_push(g_current_cfg, ic->value);
+                ic = in;
             }
         }
         bb->value = NULVCL;
@@ -3785,33 +3793,57 @@ IR_t * IR_interp_node(IR_t * bb) {
     }
     case IR_CASE: {
         if (!bb->α) { bb->value = FAILDESCR; return bb->ω; }
-        IR_interp_node(bb->α);
-        DESCR_t sel = bb->α->value;
+        int case_safe = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
+        IR_t *scur = bb->α;
+        DESCR_t sel = FAILDESCR;
+        while (scur && case_safe-- > 0) {
+            IR_t *snxt = IR_interp_node(scur);
+            if (IS_FAIL_fn(scur->value)) { bb->value = FAILDESCR; return bb->ω; }
+            sel = scur->value;
+            if (snxt == bb || !snxt || snxt == bb->γ || snxt == bb->ω) break;
+            ag_ring_push(g_current_cfg, scur->value); scur = snxt;
+        }
         if (IS_FAIL_fn(sel)) { bb->value = FAILDESCR; return bb->ω; }
-        IR_t *cur = bb->α->γ;
-        while (cur) {
-            IR_t *key_nd = cur;
-            IR_t *val_nd = cur->γ;
-            if (!val_nd) {
-                IR_interp_node(key_nd);
-                bb->value = key_nd->value;
+        for (IR_t *arm = bb->β; arm; arm = arm->ω) {
+            IR_t *key_sub = arm->γ;
+            IR_t *val_sub = arm->β;
+            if (!val_sub) {
+                int ds = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
+                IR_t *dc = key_sub; DESCR_t dv = NULVCL;
+                while (dc && ds-- > 0) {
+                    IR_t *dn = IR_interp_node(dc);
+                    if (IS_FAIL_fn(dc->value)) { bb->value = FAILDESCR; return bb->ω; }
+                    dv = dc->value;
+                    if (!dn || dn == bb->γ || dn == bb->ω || dn == dc) break;
+                    ag_ring_push(g_current_cfg, dc->value); dc = dn;
+                }
+                bb->value = dv;
                 return IS_FAIL_fn(bb->value) ? bb->ω : bb->γ;
             }
-            IR_interp_node(key_nd);
-            DESCR_t kv = key_nd->value;
+            int ks = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
+            IR_t *kc = key_sub; DESCR_t kv = NULVCL;
+            while (kc && ks-- > 0) {
+                IR_t *kn = IR_interp_node(kc);
+                if (!IS_FAIL_fn(kc->value)) kv = kc->value;
+                if (!kn || kn == bb->γ || kn == bb->ω || kn == kc) break;
+                ag_ring_push(g_current_cfg, kc->value); kc = kn;
+            }
             int match = 0;
             if (IS_INT_fn(sel) && IS_INT_fn(kv)) match = (sel.i == kv.i);
-            else {
-                const char *ss = VARVAL_fn(sel); if (!ss) ss = "";
-                const char *ks = VARVAL_fn(kv);  if (!ks) ks = "";
-                match = (strcmp(ss, ks) == 0);
-            }
+            else { const char *ss = VARVAL_fn(sel); const char *ks2 = VARVAL_fn(kv); match = (ss && ks2) ? !strcmp(ss,ks2) : (ss==ks2); }
             if (match) {
-                IR_interp_node(val_nd);
-                bb->value = val_nd->value;
+                int vs = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
+                IR_t *vc = val_sub; DESCR_t vv = NULVCL;
+                while (vc && vs-- > 0) {
+                    IR_t *vn = IR_interp_node(vc);
+                    if (IS_FAIL_fn(vc->value)) { bb->value = FAILDESCR; return bb->ω; }
+                    vv = vc->value;
+                    if (!vn || vn == bb->γ || vn == bb->ω || vn == vc) break;
+                    ag_ring_push(g_current_cfg, vc->value); vc = vn;
+                }
+                bb->value = vv;
                 return IS_FAIL_fn(bb->value) ? bb->ω : bb->γ;
             }
-            cur = val_nd->γ;
         }
         bb->value = FAILDESCR;
         return bb->ω;
