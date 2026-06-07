@@ -16,10 +16,10 @@ static std::string bb_pat_fence_str() {
                    x86("label", _.lbl_α)
                  + x86("comment", "BOX FENCE()  [REG-3 δ=r14, ζ-frame saved_δ, x86() self-encoding]"))
              + x86("mov", FR(sdoff()), "r14d")
-             + x86("jmp", PORT_GAMMA)
-             + x86("def", PORT_BETA)
+             + x86("jmp", "γ")
+             + x86("def", "β")
              + x86("mov", "r14d", FR(sdoff()))
-             + x86("jmp", PORT_OMEGA);
+             + x86("jmp", "ω");
     }
     return std::string();
 }
