@@ -92,3 +92,21 @@ are dynamic). Builders allocate instances from a compile-time-sized ζ-frame are
 rebuilt in place on each execution — mirroring SPITBOL's rebuild-per-statement for variable patterns. No
 malloc, no runtime call. Escape edge (pattern built in a per-activation frame, stored to a global, used
 after return): probe at S3; if live, ledger-request the allocator for that one shape.
+
+### RULE 4 — BB DUMP VISIBILITY (Lon 2026-06-06)
+Lon sees the BB dump of the program under work, every session. `--dump-bb` EXISTS (driver scrip.c:1366;
+one line per box: `[n] KIND α β γ ω operands`) and is READABLE at statement level but BLIND at pattern
+level — IR_SCAN hides its pattern/subject/repl subgraphs (first-look probe 2026-06-06: SPAN statement =
+opaque node [10]). GUI deferred (Lon: "do not do it now. Make steps"); FORCE-DIRECTED layout is a hard
+requirement when built.
+
+- [ ] **S0-DUMP (text, FIRST RUNG — the instrument before the surgery)** — extend `--dump-bb`: recurse
+  into IR_SCAN pattern/subject/repl subgraphs (indented, labeled `pat:`/`subj:`/`repl:`), same one-line
+  four-port format; statement grouping headers (stmt #, label, goto targets); later S3 extension: dump
+  built instance graphs (π cells) the same way. Gate: dump of the SPAN probe shows every pattern element
+  with all four ports.
+- [ ] **V2-GUI (DEFERRED — on Lon's word only).** Steps, not work: (a) `--dump-bb-json` machine mode off
+  the SAME walker as S0-DUMP (nodes: id/kind/ops; edges: port-typed α/β/γ/ω); (b) Python renderer:
+  networkx spring_layout (FORCE-DIRECTED, required) → SVG/PNG; node glyph = box with 4 REAL port
+  vertices/sides (α=W in, β=S in, γ=E out, ω=N out), edges colored per port; (c) per-statement cluster
+  hulls; (d) optional interactive HTML (d3-force) later. No code before Lon says go.
