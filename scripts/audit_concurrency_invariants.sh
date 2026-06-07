@@ -2,7 +2,7 @@
 # audit_concurrency_invariants.sh — the SHARED herding gate for the 3 concurrent BB sessions.
 # Enforces the COMPLETION TESTs of both FACT RULES (SHARED-LOWERER + TEMPLATE-ONLY EMISSION) so LOWER
 # (one file) and EMITTER (one dispatch + per-box templates) cannot drift into a mess. Run before every
-# commit alongside prove_lower2.sh and the emitter gates. Exit non-zero on ANY violation.
+# commit alongside prove_lower.sh and the emitter gates. Exit non-zero on ANY violation.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HQ="${HQ:-$ROOT/../.github}"
@@ -72,7 +72,7 @@ check_block(){ # $1=start-regex $2=end-regex $3=label  (ASCII-only anchors: a mu
     [ "$h" != "$first" ] && bad "$3: block md5 differs in $g ($h != $first)"
   done
 }
-check_block 'SHARED-LOWERER ONE-FILE' 'prove_lower2.sh green' 'LOWER FACT RULE'
+check_block 'SHARED-LOWERER ONE-FILE' 'prove_lower.sh green' 'LOWER FACT RULE'
 check_block 'ONE-DISPATCH CONCURRENCY .FACT RULE' 'util_template_purity_audit.sh clean' 'EMITTER FACT RULE'
 
 [ "$fail" -eq 0 ] && say "OK: concurrency invariants hold (LOWER one-per-role, EMITTER one-dispatch, no stray bytes, FACT RULES byte-identical x3)."

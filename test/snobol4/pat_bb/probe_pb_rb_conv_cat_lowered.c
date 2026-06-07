@@ -2,13 +2,13 @@
    The live lowerer (lower.c wire_seq) sets NO sidecar for IR_PAT_CAT (only IR_GCONJ gets ival
    state) and never populates the legacy counter-held bb_pat_kids_state_t that flat_drive_cat
    read: the arms are PORT-CHAINED — kid i's gamma -> kid i+1's entry, last kid's gamma -> the
-   CAT node — and lower2_match_entry hands MATCH entry[0] (the FIRST arm), not the CAT node.
+   CAT node — and lower_match_entry hands MATCH entry[0] (the FIRST arm), not the CAT node.
    Before this probe's fix a lowered CAT walked as ONE leaf box whose gamma was the scan's
    success — matching only the first arm, silent wrong. This probe builds CAT('a','b') exactly
-   as wire_seq does under lower2_match_entry (la.gamma=lb, lb.gamma=cat, gamma_in=omega_in=match,
+   as wire_seq does under lower_match_entry (la.gamma=lb, lb.gamma=cat, gamma_in=omega_in=match,
    no sidecar, counter zero, MATCH aux[0]=la) over subject 'aab' and expects the start-1 match
    after the right-fail / left-undo / ch.18 outer slide (result.v==1) — proving the native
-   chain drives the REAL lower2 wire_seq output. */
+   chain drives the REAL lower wire_seq output. */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>

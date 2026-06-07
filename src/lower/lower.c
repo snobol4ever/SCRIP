@@ -50,7 +50,7 @@ IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_
         if (!kids[i]) return NULL;
         IR_t * γi = (i + 1 < nkids) ? entry[i + 1] : node;
         IR_t * αi = NULL, * βi = NULL;
-        IR_t * c = lower2(cx, kids[i], γi, ω_in  , &αi, &βi);
+        IR_t * c = lower(cx, kids[i], γi, ω_in  , &αi, &βi);
         if (!c) return NULL;
         apply[i] = c; entry[i] = αi ? αi : c; resume[i] = βi;
     }
@@ -84,7 +84,7 @@ IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_
         if (!kids[j]) return NULL;
         IR_t * ωj = (j + 1 < nkids) ? entry[j + 1] : ω_in;
         IR_t * αj = NULL, * βj = NULL;
-        IR_t * arm = lower2(cx, kids[j], arm_succ, ωj, &αj, &βj);
+        IR_t * arm = lower(cx, kids[j], arm_succ, ωj, &αj, &βj);
         if (!arm) return NULL;
         if (!arm->γ) arm->γ = arm_succ;
         apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
@@ -166,7 +166,7 @@ static IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         IR_t * bang = nalloc(cx, IR_LIST_BANG);
         if (!bang) return NULL;
         IR_t * oα = NULL, * oβ = NULL;
-        IR_t * operand = lower2(cx, e->c[0], NULL, ω_in, &oα, &oβ);
+        IR_t * operand = lower(cx, e->c[0], NULL, ω_in, &oα, &oβ);
         if (!operand) return NULL;
         bang->α = oα ? oα : operand;
         set_succ_fail(bang, γ_in, ω_in);
@@ -177,7 +177,7 @@ static IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     un->sval = e->v.sval;
     un->ival = (int64_t) e->t;
     IR_t * eα = NULL, * eβ = NULL;
-    IR_t * child = lower2(cx, e->c[0], un  , ω_in, &eα, &eβ);
+    IR_t * child = lower(cx, e->c[0], un  , ω_in, &eα, &eβ);
     if (!child) return NULL;
     set_succ_fail(un, γ_in, ω_in);
     return ret(un, α_out, β_out, eα, eβ);
@@ -214,7 +214,7 @@ static IR_t * pas_bool_diamond(lcx_t cx, const tree_t * child, IR_t * ω_in, IR_
     IR_t * rd   = nalloc(cx, IR_VAR);    if (!rd)  return NULL; rd->sval  = tn;
     lcx_t cb = cx; cb.bounded = 1;
     IR_t * cα = NULL, * cβ = NULL;
-    IR_t * cn = lower2(cb, child, lit1, lit0, &cα, &cβ);
+    IR_t * cn = lower(cb, child, lit1, lit0, &cα, &cβ);
     if (!cn) return NULL;
     (void) cβ;
     lit1->γ = as1; lit0->γ = as0;
@@ -239,9 +239,9 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
         if (b1) { rd1 = pas_bool_diamond(cx, e->c[0], ω_in, &d1e, &d1a1, &d1a0); if (!rd1) return NULL; }
         if (b2) { rd2 = pas_bool_diamond(cx, e->c[1], ω_in, &d2e, &d2a1, &d2a0); if (!rd2) return NULL; }
         IR_t * e1α=NULL,*e1β=NULL,*e2α=NULL,*e2β=NULL;
-        IR_t * c1 = b1 ? rd1 : lower2(cx, e->c[0], NULL, ω_in, &e1α, &e1β);
+        IR_t * c1 = b1 ? rd1 : lower(cx, e->c[0], NULL, ω_in, &e1α, &e1β);
         if (!c1) return NULL;
-        IR_t * c2 = b2 ? rd2 : lower2(cx, e->c[1], bin, ω_in, &e2α, &e2β);
+        IR_t * c2 = b2 ? rd2 : lower(cx, e->c[1], bin, ω_in, &e2α, &e2β);
         if (!c2) return NULL;
         IR_t * x1entry = b1 ? rd1 : e1α;
         IR_t * x2entry = b2 ? rd2 : e2α;
@@ -256,9 +256,9 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
         return ret(bin, α_out, β_out, entry, ω_in);
     }
     IR_t * e1α=NULL, * e1β=NULL, * e2α=NULL, * e2β=NULL;
-    IR_t * c1 = lower2(cx, e->c[0], NULL  , ω_in, &e1α, &e1β);
+    IR_t * c1 = lower(cx, e->c[0], NULL  , ω_in, &e1α, &e1β);
     if (!c1) return NULL;
-    IR_t * c2 = lower2(cx, e->c[1], bin  , e1β  , &e2α, &e2β);
+    IR_t * c2 = lower(cx, e->c[1], bin  , e1β  , &e2α, &e2β);
     if (!c2) return NULL;
     if (!c1->γ) c1->γ = e2α;
     IR_t * binops[2] = { c1, c2 };
@@ -292,9 +292,9 @@ static IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
         if (to_by_const_step(e->c[2], &bits, &isr)) { node->ival = bits; if (isr) node->sval = "ar"; }
     }
     IR_t * fα=NULL,*fβ=NULL,*tα=NULL,*tβ=NULL;
-    IR_t * lo = lower2(cx, e->c[0], NULL  , ω_in, &fα, &fβ);
+    IR_t * lo = lower(cx, e->c[0], NULL  , ω_in, &fα, &fβ);
     if (!lo) return NULL;
-    IR_t * hi = lower2(cx, e->c[1], node  , fβ  , &tα, &tβ);
+    IR_t * hi = lower(cx, e->c[1], node  , fβ  , &tα, &tβ);
     if (!hi) return NULL;
     if (!lo->γ) lo->γ = tα;
     IR_t * bounds[2] = { lo, hi };
@@ -311,11 +311,11 @@ static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
     lcx_t cb = cx; cb.bounded = 1;
     IR_t * c1α=NULL,*c1β=NULL, *c2α=NULL,*c2β=NULL, *c3α=NULL,*c3β=NULL;
     IR_t * thenα = NULL, * elseα = NULL;
-    IR_t * c2 = lower2(cx, e->c[1], γ_in, ω_in, &c2α, &c2β);
+    IR_t * c2 = lower(cx, e->c[1], γ_in, ω_in, &c2α, &c2β);
     if (!c2) return NULL;
     thenα = c2α;
     if (e->n >= 3 && e->c[2]) {
-        IR_t * c3 = lower2(cx, e->c[2], γ_in, ω_in, &c3α, &c3β);
+        IR_t * c3 = lower(cx, e->c[2], γ_in, ω_in, &c3α, &c3β);
         if (!c3) return NULL;
         elseα = c3α;
     } else {
@@ -325,7 +325,7 @@ static IR_t * v_if(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
         default:          elseα = ω_in; break;
         }
     }
-    IR_t * c1 = lower2(cb, e->c[0], thenα  , elseα  , &c1α, &c1β);
+    IR_t * c1 = lower(cb, e->c[0], thenα  , elseα  , &c1α, &c1β);
     if (!c1) return NULL;
     node->α = c1α;
     set_succ_fail(node, γ_in, ω_in);
@@ -343,7 +343,7 @@ IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e) {
     IR_t * vfail = IR_node_alloc(blk, IR_FAIL);
     lcx_t vcx = cx; vcx.bbg = blk;
     IR_t * eα = NULL, * eβ = NULL;
-    IR_t * en = lower2(vcx, e, NULL, vfail, &eα, &eβ);
+    IR_t * en = lower(vcx, e, NULL, vfail, &eα, &eβ);
     if (!en) { IR_free(blk); return NULL; }
     (void) eβ;
     blk->entry = eα ? eα : en;
@@ -384,7 +384,7 @@ static IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     int nk = flatten_seq(e, e->t, kids, 64);
     if (nk < 1) return NULL;
     if (cx.lang != IR_LANG_SNO) return wire_seq(cx, IR_CONJ, kids, nk, γ_in, ω_in, α_out, β_out);
-    if (nk == 1) return lower2(cx, kids[0], γ_in, ω_in, α_out, β_out);
+    if (nk == 1) return lower(cx, kids[0], γ_in, ω_in, α_out, β_out);
     tree_t * left = (tree_t *) kids[0];
     for (int i = 1; i < nk; i++) {
         tree_t * pair = ast_node_new(TT_SEQ);
@@ -408,11 +408,11 @@ static IR_t * v_every(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     IR_t * ev = nalloc(cx, IR_EVERY);
     if (!ev) return NULL;
     IR_t * g1α=NULL,*g1β=NULL;
-    IR_t * gen = lower2(cx, e->c[0], NULL  , ev  , &g1α, &g1β);
+    IR_t * gen = lower(cx, e->c[0], NULL  , ev  , &g1α, &g1β);
     if (!gen) return NULL;
     if (e->n >= 2 && e->c[1]) {
         IR_t * b2α=NULL,*b2β=NULL;
-        IR_t * body = lower2(bounded(cx), e->c[1], g1β  , g1β  , &b2α, &b2β);
+        IR_t * body = lower(bounded(cx), e->c[1], g1β  , g1β  , &b2α, &b2β);
         if (!body) return NULL;
         if (!gen->γ) gen->γ = b2α;
     } else {
@@ -430,10 +430,10 @@ static IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, con
     if (!bind) return NULL;
     bind->sval = var;
     IR_t * gα = NULL, * gβ = NULL;
-    IR_t * gen = lower2(cx, range_t, bind  , γ_in  , &gα, &gβ);
+    IR_t * gen = lower(cx, range_t, bind  , γ_in  , &gα, &gβ);
     if (!gen) return NULL;
     IR_t * bα = NULL, * bβ = NULL;
-    IR_t * body = body_t ? lower2(bounded(cx), body_t, gβ  , gβ  , &bα, &bβ) : NULL;
+    IR_t * body = body_t ? lower(bounded(cx), body_t, gβ  , gβ  , &bα, &bβ) : NULL;
     if (body_t && !body) return NULL;
     set_succ_fail(bind, body_t ? bα : gβ  , ω_in  );
     return ret(gen, α_out, β_out, gα  , ω_in  );
@@ -553,11 +553,11 @@ static IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     IR_t * wh = nalloc(cx, IR_WHILE);
     if (!wh) return NULL;
     IR_t * c1α=NULL,*c1β=NULL;
-    IR_t * cond = lower2(bounded(cx), e->c[0], NULL  , wh  , &c1α, &c1β);
+    IR_t * cond = lower(bounded(cx), e->c[0], NULL  , wh  , &c1α, &c1β);
     if (!cond) return NULL;
     if (e->n >= 2 && e->c[1]) {
         IR_t * b2α=NULL,*b2β=NULL;
-        IR_t * body = lower2(with_loop(bounded(cx), γ_in, c1α), e->c[1], c1α  , c1α  , &b2α, &b2β);
+        IR_t * body = lower(with_loop(bounded(cx), γ_in, c1α), e->c[1], c1α  , c1α  , &b2α, &b2β);
         if (!body) return NULL;
         if (!cond->γ) cond->γ = b2α;
     } else {
@@ -574,11 +574,11 @@ static IR_t * v_until(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
     IR_t * un = nalloc(cx, IR_UNTIL);
     if (!un) return NULL;
     IR_t * c1α=NULL,*c1β=NULL;
-    IR_t * cond = lower2(bounded(cx), e->c[0], un  , NULL  , &c1α, &c1β);
+    IR_t * cond = lower(bounded(cx), e->c[0], un  , NULL  , &c1α, &c1β);
     if (!cond) return NULL;
     if (e->n >= 2 && e->c[1]) {
         IR_t * b2α=NULL,*b2β=NULL;
-        IR_t * body = lower2(with_loop(bounded(cx), γ_in, c1α), e->c[1], c1α  , c1α  , &b2α, &b2β);
+        IR_t * body = lower(with_loop(bounded(cx), γ_in, c1α), e->c[1], c1α  , c1α  , &b2α, &b2β);
         if (!body) return NULL;
         if (!cond->ω) cond->ω = b2α;
     } else {
@@ -595,7 +595,7 @@ static IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     IR_t * rp = nalloc(cx, IR_REPEAT);
     if (!rp) return NULL;
     IR_t * eα=NULL,*eβ=NULL;
-    IR_t * body = lower2(with_loop(bounded(cx), γ_in, rp), e->c[0], rp  , rp  , &eα, &eβ);
+    IR_t * body = lower(with_loop(bounded(cx), γ_in, rp), e->c[0], rp  , rp  , &eα, &eβ);
     if (!body) return NULL;
     rp->α = eα;
     set_succ_fail(rp, γ_in, ω_in);
@@ -649,7 +649,7 @@ static IR_t * pas_binop_lt(lcx_t cx, int code, int is_rel, IR_t * op0, const tre
     IR_t * bin = nalloc(cx, IR_BINOP); if (!bin) return NULL;
     bin->ival = (int64_t) code; bin->dval = is_rel ? 1.0 : 0.0;
     IR_t * p1α = NULL, * p1β = NULL;
-    IR_t * p1 = lower2(cx, op1_t, bin, ω_in, &p1α, &p1β); if (!p1) return NULL;
+    IR_t * p1 = lower(cx, op1_t, bin, ω_in, &p1α, &p1β); if (!p1) return NULL;
     set_succ_fail(op0, p1α, ω_in);
     IR_t * ops[2] = { op0, p1 }; bb_operand_aux_set(cx.bbg, bin, ops, 2);
     set_succ_fail(bin, γ_in, ω_in);
@@ -671,11 +671,11 @@ static IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
     set_succ_fail(incr, cond_entry, ω_in);
     IR_t * incr_entry = step_v;
     IR_t * bα = NULL, * bβ = NULL;
-    IR_t * bnode = lower2(cb, body, incr_entry, incr_entry, &bα, &bβ); if (!bnode) return NULL;
+    IR_t * bnode = lower(cb, body, incr_entry, incr_entry, &bα, &bβ); if (!bnode) return NULL;
     if (!cond->γ) cond->γ = bα ? bα : bnode;
     IR_t * init = nalloc(cb, IR_ASSIGN); if (!init) return NULL; init->sval = (char *) vname;
     IR_t * fα = NULL, * fβ = NULL;
-    IR_t * fnode = lower2(cb, from, init, ω_in, &fα, &fβ); if (!fnode) return NULL;
+    IR_t * fnode = lower(cb, from, init, ω_in, &fα, &fβ); if (!fnode) return NULL;
     set_succ_fail(init, cond_entry, ω_in);
     return ret(init, α_out, β_out, fα ? fα : fnode, ω_in);
 }
@@ -684,10 +684,10 @@ static IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
 static IR_t * v_pascal_repeat(lcx_t cx, const tree_t * body_t, const tree_t * cond_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!body_t || !cond_t) return NULL;
     IR_t * cα = NULL, * cβ = NULL;
-    IR_t * cond = lower2(bounded(cx), cond_t, γ_in, NULL, &cα, &cβ);
+    IR_t * cond = lower(bounded(cx), cond_t, γ_in, NULL, &cα, &cβ);
     if (!cond) return NULL;
     IR_t * bα = NULL, * bβ = NULL;
-    IR_t * body = lower2(bounded(cx), body_t, cα, ω_in, &bα, &bβ);
+    IR_t * body = lower(bounded(cx), body_t, cα, ω_in, &bα, &bβ);
     if (!body) return NULL;
     if (!cond->ω) cond->ω = bα;
     return ret(body, α_out, β_out, bα, ω_in);
@@ -719,7 +719,7 @@ static IR_t * v_not(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t
     IR_t * nt = nalloc(cx, IR_NOT);
     if (!nt) return NULL;
     IR_t * eα=NULL,*eβ=NULL;
-    IR_t * ce = lower2(bounded(cx), e->c[0], ω_in  , nt  , &eα, &eβ);
+    IR_t * ce = lower(bounded(cx), e->c[0], ω_in  , nt  , &eα, &eβ);
     if (!ce) return NULL;
     bb_operand_aux_set(cx.bbg, nt, &ce, 1);
     set_succ_fail(nt, γ_in, ω_in);
@@ -744,7 +744,7 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
         if (!as) return NULL;
         as->sval = lhs_t->c[0]->v.sval;
         IR_t * rα = NULL, * rβ = NULL;
-        IR_t * rhs = lower2(cx, rhs_t, as, ω_in, &rα, &rβ);
+        IR_t * rhs = lower(cx, rhs_t, as, ω_in, &rα, &rβ);
         if (!rhs) return NULL;
         (void) rβ;
         set_succ_fail(as, γ_in, ω_in);
@@ -770,7 +770,7 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (!as) return NULL;
     as->sval = lhs_t->v.sval ? lhs_t->v.sval : "";
     IR_t * rα = NULL, * rβ = NULL;
-    IR_t * rhs = lower2(cx, rhs_t, as  , ω_in, &rα, &rβ);
+    IR_t * rhs = lower(cx, rhs_t, as  , ω_in, &rα, &rβ);
     if (!rhs) return NULL;
     (void) rβ;
     set_succ_fail(as, γ_in, ω_in);
@@ -791,7 +791,7 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     IR_t * pfail = IR_node_alloc(pat_blk, IR_FAIL);
     IR_t * pα = NULL, * pβ = NULL;
     lcx_t pcx = { pat_blk, ROLE_PATTERN, 0, IR_LANG_SNO, NULL, NULL };
-    IR_t * pat_entry = lower2(pcx, pat_t, psucc, pfail, &pα, &pβ);
+    IR_t * pat_entry = lower(pcx, pat_t, psucc, pfail, &pα, &pβ);
     if (!pat_entry) { IR_free(pat_blk); return NULL; }
     (void) pβ;
     pat_blk->entry = pα ? pα : pat_entry;
@@ -806,7 +806,7 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         IR_t * scan_aux[2]; scan_aux[0] = (IR_t *)(void *)subj_blk; scan_aux[1] = (IR_t *)(void *)repl_blk;
         bb_operand_aux_set(cx.bbg, sc, scan_aux, 2);
         IR_t * rα = NULL, * rβ = NULL;
-        IR_t * repln = lower2(cx, repl_t, sc, ω_in, &rα, &rβ);
+        IR_t * repln = lower(cx, repl_t, sc, ω_in, &rα, &rβ);
         if (!repln) { IR_free(pat_blk); return NULL; }
         (void) rβ;
         set_succ_fail(sc, γ_in, ω_in);
@@ -818,7 +818,7 @@ static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     IR_t * scan_aux[1]; scan_aux[0] = (IR_t *)(void *)subj_blk;
     bb_operand_aux_set(cx.bbg, sc, scan_aux, 1);
     IR_t * sα = NULL, * sβ = NULL;
-    IR_t * subj = lower2(cx, subj_t, sc, ω_in, &sα, &sβ);
+    IR_t * subj = lower(cx, subj_t, sc, ω_in, &sα, &sβ);
     if (!subj) { IR_free(pat_blk); return NULL; }
     (void) sβ;
     set_succ_fail(sc, γ_in, ω_in);
@@ -849,7 +849,7 @@ IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
         IR_t * landing = bb_label_landing(e->v.sval);
         if (!landing) return NULL;
         IR_t * iα = NULL, * iβ = NULL;
-        IR_t * inner = lower2(cx, e->c[0], γ_in, ω_in, &iα, &iβ);
+        IR_t * inner = lower(cx, e->c[0], γ_in, ω_in, &iα, &iβ);
         if (!inner) return NULL;
         landing->γ = iα ? iα : inner;
         landing->ω = ω_in;
@@ -1150,7 +1150,7 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
         const tree_t * kids[64];
         int nk = flatten_seq(e, e->t, kids, 64);
         if (nk < 1) return NULL;
-        if (nk == 1) return lower2(cx, kids[0], γ_in, ω_in, α_out, β_out);
+        if (nk == 1) return lower(cx, kids[0], γ_in, ω_in, α_out, β_out);
         return wire_seq(cx, IR_PAT_CAT, kids, nk, γ_in, ω_in, α_out, β_out);
     }
     case TT_ALT:
@@ -1198,7 +1198,7 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
             IR_t * fα = NULL, * fβ = NULL;
             lcx_t bx = cx; bx.bounded = 1;
             set_succ_fail(n, γ_in, ω_in);
-            IR_t * inner = lower2(cx, e->c[0], n, ω_in, &fα, &fβ);
+            IR_t * inner = lower(cx, e->c[0], n, ω_in, &fα, &fβ);
             if (!inner) return NULL;
             return ret(n, α_out, β_out, fα, ω_in  );
         }
@@ -1228,7 +1228,7 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
         IR_t * ifail = IR_node_alloc(inner_blk, IR_FAIL);
         IR_t * iα = NULL, * iβ = NULL;
         lcx_t icx = { inner_blk, ROLE_PATTERN, 0, 0 };
-        IR_t * inner_entry = lower2(icx, e->c[0], isucc, ifail, &iα, &iβ);
+        IR_t * inner_entry = lower(icx, e->c[0], isucc, ifail, &iα, &iβ);
         if (!inner_entry) { IR_free(inner_blk); return NULL; }
         inner_blk->entry = iα;
         n = nalloc(cx, IR_PAT_ARBNO); if (!n) { IR_free(inner_blk); return NULL; }
@@ -1247,7 +1247,7 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
         n->sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
         set_succ_fail(n, γ_in, ω_in);
         IR_t * iα = NULL, * iβ = NULL;
-        IR_t * inner = lower2(cx, e->c[0], n, ω_in, &iα, &iβ);
+        IR_t * inner = lower(cx, e->c[0], n, ω_in, &iα, &iβ);
         if (!inner) return NULL;
         n->α = iα;
         return ret(n, α_out, β_out, n, iβ ? iβ : ω_in);
@@ -1258,7 +1258,7 @@ static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
         n->sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
         set_succ_fail(n, γ_in, ω_in);
         IR_t * iα = NULL, * iβ = NULL;
-        IR_t * inner = lower2(cx, e->c[0], n, ω_in, &iα, &iβ);
+        IR_t * inner = lower(cx, e->c[0], n, ω_in, &iα, &iβ);
         if (!inner) return NULL;
         n->α = iα;
         return ret(n, α_out, β_out, n, iβ ? iβ : ω_in);
@@ -1313,7 +1313,7 @@ IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t *
     call->dval = 1.0;
     lcx_t av = cx; av.role = ROLE_VALUE;
     IR_t * aα = NULL, * aβ = NULL;
-    IR_t * a = lower2(av, arg_t, call  , ω_in, &aα, &aβ);
+    IR_t * a = lower(av, arg_t, call  , ω_in, &aα, &aβ);
     if (!a) return NULL;
     set_succ_fail(call, γ_in, ω_in);
     IR_t * call_resume = g_icn_postfix_resume ? aβ : ω_in;
@@ -1321,9 +1321,9 @@ IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t *
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!e) { return ret(NULL, α_out, β_out, γ_in, ω_in); }
-    if (cx.lang == IR_LANG_ICN) return lower2_icn(cx, e, γ_in, ω_in, α_out, β_out);
+    if (cx.lang == IR_LANG_ICN) return lower_icn(cx, e, γ_in, ω_in, α_out, β_out);
     switch (cx.role) {
     case ROLE_PATTERN: return lower_pattern(cx, e, γ_in, ω_in, α_out, β_out);
     case ROLE_GOAL:    return lower_goal(cx, e, γ_in, ω_in, α_out, β_out);
@@ -1335,29 +1335,29 @@ IR_t * lower2(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α
 /*====================================================================================================================*/
 IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     (void) γ_in; (void) ω_in;
-    fprintf(stderr, "[lower2] UNHANDLED role=%d kind=%d\n", (int)cx.role, e ? (int)e->t : -1);
+    fprintf(stderr, "[lower] UNHANDLED role=%d kind=%d\n", (int)cx.role, e ? (int)e->t : -1);
     return ret(NULL, α_out, β_out, NULL, NULL);
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_VALUE, 0, bbg ? bbg->lang : 0, NULL, NULL };
-    return lower2(cx, e, γ_in, ω_in, α_out, β_out);
+    return lower(cx, e, γ_in, ω_in, α_out, β_out);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower2_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_VALUE, 0, bbg ? bbg->lang : 0, NULL, NULL };
     IR_t * subj = nalloc(cx, IR_SUBJECT);
     if (!subj) return NULL;
     IR_t * oα = NULL, * oβ = NULL;
-    IR_t * op = lower2(cx, e, subj, ω_in, &oα, &oβ);
+    IR_t * op = lower(cx, e, subj, ω_in, &oα, &oβ);
     if (!op) return NULL;
     (void) oβ;
     set_succ_fail(subj, γ_in, ω_in);
     return ret(subj, α_out, β_out, oα ? oα : subj, ω_in);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
     if (!e || e->t != TT_QLIT) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     const char * lit = e->v.sval ? e->v.sval : "";
@@ -1373,12 +1373,12 @@ IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, 
     return emit_leaf(bx, ref, γ_in, ω_in, α_out, β_out);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower2_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
     IR_t * m = nalloc(cx, IR_PAT_MATCH);
     if (!m) return NULL;
     IR_t * eα = NULL, * eβ = NULL;
-    IR_t * el = lower2(cx, e, m, m, &eα, &eβ);
+    IR_t * el = lower(cx, e, m, m, &eα, &eβ);
     if (!el) return NULL;
     (void) eβ;
     IR_t * entry = eα ? eα : el;
@@ -1388,7 +1388,7 @@ IR_t * lower2_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t
     return ret(m, α_out, β_out, m, ω_in);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
-    return lower2(cx, e, γ_in, ω_in, α_out, β_out);
+    return lower(cx, e, γ_in, ω_in, α_out, β_out);
 }

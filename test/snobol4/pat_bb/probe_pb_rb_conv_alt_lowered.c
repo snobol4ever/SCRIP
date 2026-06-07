@@ -5,7 +5,7 @@
    Before this probe's fix a lowered ALT read nkids==0 and emitted the DEGENERATE arm —
    silent wrong. This probe builds ALT('q','b') exactly as wire_alt does (aux arms, ports
    set, counter zero) over subject 'abc' and expects the within-position second-alternative
-   match at start 1 (result.v==1) — proving the native chain drives the REAL lower2 output. */
+   match at start 1 (result.v==1) — proving the native chain drives the REAL lower output. */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
