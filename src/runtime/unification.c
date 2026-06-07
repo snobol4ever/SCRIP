@@ -99,8 +99,7 @@ static Term *pl_build_term_gz_r(void *frame, const void *ir_node)
         if (arity <= 0) return term_new_atom(prolog_atom_intern(IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]"));
         Term **args = (Term **)GC_malloc((size_t)arity * sizeof(Term *));
         if (!args) return (Term *)0;
-        const IR_t *a = nd->α;
-        for (int i = 0; i < arity && a; i++) { args[i] = pl_build_term_gz_r(frame, a); a = a->γ; }
+        for (int i = 0; i < arity; i++) { const IR_t *a = ir_call_arg(nd, i); if (!a) break; args[i] = pl_build_term_gz_r(frame, a); }
         return term_new_compound(prolog_atom_intern(IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]"), arity, args);
     }
     default: return (Term *)0;

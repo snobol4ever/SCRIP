@@ -880,8 +880,9 @@ void bb_prepare(IR_t *nd) {
         return;
     }
     if (nd->t == IR_BUILTIN) {
-        if (nd->α && nd->α->t == IR_ATOM)
-            g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd->α).sval ? IR_LIT(nd->α).sval : "");
+        IR_t *bu0 = ir_call_arg(nd, 0);
+        if (bu0 && bu0->t == IR_ATOM)
+            g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(bu0).sval ? IR_LIT(bu0).sval : "");
         if (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "is") == 0 && nd->β && nd->β->t == IR_ARITH)
             g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(nd->β).sval ? IR_LIT(nd->β).sval : "+");
         if (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "is") == 0 && nd->β && nd->β->t == IR_ATOM)
