@@ -178,7 +178,7 @@ IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α
         IR_t * oα = NULL, * oβ = NULL;
         IR_t * operand = lower_program(cx, e->c[0], NULL, ω_in, &oα, &oβ);
         if (!operand) return NULL;
-        bang->α = oα ? oα : operand;
+        if (!ir_operand_push(bang, oα ? oα : operand)) return NULL;
         set_succ_fail(bang, γ_in, ω_in);
         return ret(bang, α_out, β_out, bang, bang);
     }
@@ -343,7 +343,7 @@ IR_t * v_every(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** �
     } else {
         if (!gen->γ) gen->γ = g1β;
     }
-    ev->α = g1α;
+    if (!ir_operand_push(ev, g1α)) return NULL;
     set_succ_fail(ev, γ_in, ω_in);
     return ret(ev, α_out, β_out, g1α, ω_in  );
 }
@@ -420,7 +420,7 @@ IR_t * v_until(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** �
     } else {
         if (!cond->ω) cond->ω = c1α;
     }
-    un->α = c1α;
+    if (!ir_operand_push(un, c1α)) return NULL;
     set_succ_fail(un, γ_in, ω_in);
     return ret(un, α_out, β_out, c1α, ω_in);
 }
@@ -433,7 +433,7 @@ IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** 
     IR_t * eα=NULL,*eβ=NULL;
     IR_t * body = lower_program(with_loop(bounded(cx), γ_in, rp), e->c[0], rp  , rp  , &eα, &eβ);
     if (!body) return NULL;
-    rp->α = eα;
+    if (!ir_operand_push(rp, eα)) return NULL;
     set_succ_fail(rp, γ_in, ω_in);
     rp->γ = eα;
     return ret(rp, α_out, β_out, eα, ω_in);

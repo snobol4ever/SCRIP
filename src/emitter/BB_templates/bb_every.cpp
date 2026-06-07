@@ -19,7 +19,7 @@ static std::string bb_every_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return x86("comment", "no macro form — IR_EVERY");
     if (MEDIUM_TEXT) {
-        if (!_.node->α) {
+        if (!ir_call_arg(_.node, 0)) {
             fprintf(stderr, "[IBB] FATAL bb_every: body (_.node->α) is NULL\n");
             abort();
         }
@@ -38,7 +38,7 @@ static std::string bb_every_str(IR_t * pBB) {
         g_emit.lbl_γ = Lbg.name; g_emit.lbl_γ_p = &Lbg;
         g_emit.lbl_ω = Lbo.name; g_emit.lbl_ω_p = &Lbo;
         g_emit.lbl_β = Lbb.name; g_emit.lbl_β_p = &Lbb;
-        char * c = walk_bb_node_str_c(_.node->α);
+        char * c = walk_bb_node_str_c(ir_call_arg(_.node, 0));
         std::string body_text = c ? c : "";
         if (c) free(c);
         g_emit.lbl_α = outer_α;
