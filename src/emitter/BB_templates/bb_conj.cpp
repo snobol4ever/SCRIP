@@ -14,8 +14,8 @@ static std::string bb_conj_str() {
             if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; }
             if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
         } else {
-            if (g_emit.xa_bb_emit_pair_define[i]) r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name);
-            if (g_emit.xa_bb_emit_pair_jmp[i])    r += x86("ins1", emit_fmt("jmp %s", g_emit.xa_bb_emit_pair_jmp[i]->name));
+            if (g_emit.xa_bb_emit_pair_define[i]) r += std::string(g_emit.xa_bb_emit_pair_define[i]->name) + ":\n";
+            if (g_emit.xa_bb_emit_pair_jmp[i])    r += x86("ins1", std::string("jmp ") + g_emit.xa_bb_emit_pair_jmp[i]->name);
         }
     }
     return r;
