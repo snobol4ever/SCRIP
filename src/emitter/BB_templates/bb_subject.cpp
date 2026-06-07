@@ -22,14 +22,13 @@ static inline uint64_t     subj_nv_fn() { void (*fp)(const char *, void *) = rt_
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_subject_str() {
     if (!PLATFORM_X86) return std::string();
-    int sa = _.op_sa;
-    if (sa < 0) return x86_bomb("IR_SUBJECT: subject slot not promoted (flat_drive_subject)");
+    if (_.op_sa < 0) return x86_bomb("IR_SUBJECT: subject slot not promoted (flat_drive_subject)");
     if (!subj_chars() && subj_name()[0]) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
-                 + x86("comment", emit_fmt("BOX SUBJECT VAR(%s)  [NV -> sigma ptr + Delta len -> zeta-slot; sets runtime Sigma]", subj_name())))
+                 + x86("comment", std::string("BOX SUBJECT VAR(") + subj_name() + ")  [NV -> sigma ptr + Delta len -> zeta-slot; sets runtime Sigma]"))
              + x86("lea",  "rdi", "[rip + __]", subj_naddr(), subj_nlbl())
-             + x86("lea",  "rsi", FR(sa))
+             + x86("lea",  "rsi", FR(_.op_sa))
              + x86("push", "r10")
              + x86("push", "rbx")
              + x86("mov",  "rbx", "rsp")
@@ -38,21 +37,20 @@ static std::string bb_subject_str() {
              + x86("mov",  "rsp", "rbx")
              + x86("pop",  "rbx")
              + x86("pop",  "r10")
-             + x86("jmp",  PORT_GAMMA)
-             + x86("def",  PORT_BETA)
-             + x86("jmp",  PORT_OMEGA);
+             + x86("jmp",  "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
     }
     if (!subj_chars()) return x86_bomb("IR_SUBJECT: non-literal subject (PB-RB ladder)");
-    long len = (long)strlen(subj_chars());
     return IF(MEDIUM_TEXT,
                x86("label", _.lbl_α)
              + x86("comment", "BOX SUBJECT  [REG-0 sigma ptr + Delta len -> zeta-slot, x86() self-encoding]"))
          + x86("mov", "rax", "[rip + __]", subj_addr(), subj_label())
-         + x86("mov", FRQ(sa), "rax")
-         + x86("mov", FR(sa + 8), len)
-         + x86("jmp", PORT_GAMMA)
-         + x86("def", PORT_BETA)
-         + x86("jmp", PORT_OMEGA);
+         + x86("mov", FRQ(_.op_sa), "rax")
+         + x86("mov", FR(_.op_sa + 8), (long)strlen(subj_chars()))
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + x86("jmp", "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_subject(void) {
