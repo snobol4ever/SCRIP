@@ -1,0 +1,71 @@
+# SNOBOL4-5STAGE-OWNED-BUILD.md — Claude-owned design + execution plan
+
+**Mandate (Lon 2026-06-06):** Lon sets boundaries; Claude designs and builds, any way it wants, inside them.
+No design questions back to Lon. Done = 100% PASS on all SNOBOL4 mode-4 suites.
+
+**Boundaries (Lon's words):** 5-stage statements using BBs · build a new BB when you need a new piece ·
+link them in LOWER any way you want, following the convention all other boxes are lowered and wired ·
+read the manual (SPITBOL = semantic authority) · mode 4 only.
+
+**Standing law:** all FACT RULES in GOAL-SNOBOL4-BB.md + RULES.md govern the HOW (template-only emission,
+one medium, four Greek ports, no value stack, no C byrd-box calls, per-box ζ/RO storage, language-blind
+templates). Sister docs read first: `.github/ARCH-SNOBOL4.md` (native pattern section, Lon-corrected
+2026-06-01 — ADOPTED as base), one4all/archive/doc/IR_LOWER_SNOBOL4.md + M-G4-SHARED-CAPTURE.md
+(convention lineage: ENMI four-port capture box), HANDOFF-2026-05-31 EUREKA.
+
+## DECISIONS (made by Claude under the mandate; recorded so no session re-litigates)
+
+**D1 — Drive = jmp-threaded INSTANCES (replaces the stale "via bb_broker.c" clause; broker is eradicated,
+BROK-3 fence 0 HARD).** A built pattern is a graph of box-INSTANCE records; SEAL at element granularity,
+WIRE at instance level (per ARCH-SNOBOL4.md). Instance record (GC-alloc, built by BB_PAT_BUILD/STITCH
+boxes): `{ void* α_code; void* β_code; inst* γ_inst; inst* ω_inst; operand fields (sval/ival/child head);
+per-instance RW state (saved δ, ARBNO depth/counters) }`. Element matchers get an INSTANCE-MODE twin
+template family (own IR kinds per ONE-IR-ONE-LOGIC; same SPITBOL semantics; operands read `[π+off]`
+instead of `_.op_*`/rip). A dedicated instance register π carries the current instance; port exits are
+pure jmp-threading: γ-exit = `mov π,[π+γ_inst]; jmp [π+α_code]` · ω-exit = `mov π,[π+ω_inst];
+jmp [π+β_code]`. Boundary instances at the scan site carry baked-code addresses (match-success label /
+RETRY-ADVANCE label), so entering and leaving the built graph is the same two instructions. No broker, no
+C-call boxes, no walker loop, no value stack. π register chosen at S3 start against ARCH-x86.md free-reg
+map (candidate rbx; must not collide with Σ=r13 δ=r14 Δ=r15 ζ=r12).
+
+**D2 — STITCH_SEQ/STITCH_ALT = runtime wire_seq/wire_alt, same port equations.** Fragment handle =
+`{head_inst, γ_dangle (success-exit slot to patch), resume_inst (rightmost β-capable, may be NULL)}`.
+CAT: patch a.γ_dangle→b.head; b.head.ω_inst→a.resume (nearest-left-resume, exactly lower.c:57-63 one
+layer down). ALT: tiny JOIN instance funnels arm γ-exits (mirrors the IR_PAT_ALT join node); arm_j.ω→
+arm_{j+1}.head; last→outer ω. DT_P value = head instance pointer in descr `.p`. Baseline wires even
+invariant subtrees at instance level (correctness first); blob freeze is S7.
+
+**D3 — Capture commit (fixes M4-CAPTURE-COND).** COND (`.`): pending ring in the statement ζ frame;
+SAVE shell records {ring-mark, δ}; WRITE shell at element-γ APPENDS {nv-ref, sδ, eδ} (no NV_SET);
+β-retreat through the capture truncates the ring to its mark; a CAPTURE_COMMIT BB at overall match-γ
+flushes the ring (one rt_cap_commit call). IMM (`$`) stays element-γ direct write. `rt_cap_assign_cursor`
+keeps is_imm and routes accordingly.
+
+**D4 — Shim policy.** rt_scan/rt_scan_lit/exec_stmt-defer stay as per-shape fallback until S6; every rung
+strictly GROWS the native share; m4-only corpus count is a non-decreasing HARD gate per commit. S6 deletes
+the shims when the native chain covers the corpus.
+
+## THE LADDER (S-rungs; each = probe-first vs sbl oracle, one commit, m4 gates only)
+
+- [ ] **S1 SUBJECT-EVERYWHERE** — SUBJECT BB on all routes: literal + computed subjects evaluate through
+  the value chain into ζ, then Σ/δ/Δ load; drop the named-var-only guard in `flat_drive_scan_native`.
+  Kills probe-B BOMB class for invariant patterns. (ph.1)
+- [ ] **S2 OPERAND-VARIANCE** — PB-RB-5: `LEN(N)`/`SPAN(cvar)`/`ANY(expr)` read operands late from ζ
+  filled by the pre-match value chain; same element boxes; retire by-name string fetch for these shapes. (ph.2a)
+- [ ] **S3 INSTANCES+BUILDERS** — D1+D2: instance record, π convention, instance-mode element twins,
+  BB_PAT_BUILD + STITCH_SEQ/ALT + REF_INVARIANT boxes, DT_P assign/fetch, pattern-rhs arm in
+  flat_drive_assign (kills 053 FATAL), defer box consumes DT_P natively with REAL β re-entry
+  (kills exec_stmt landmine + star-var family). (ph.2b)
+- [ ] **S4 CH18-CORRECTNESS** — BB_MATCH drives baked AND built graphs; then: one-shot β audit
+  (SPAN twins β→ω; ANY/NOTANY/BREAK/LEN/TAB/RTAB/POS/RPOS), FENCE semantics (M4-FENCE cluster),
+  ARBNO child-β re-entry. (ph.3)
+- [ ] **S5 REPLACEMENT+SUBSTITUTION** — PB-RB-7: REPLACEMENT BB (value chain → ζ, can fail) +
+  SUBSTITUTION BB (lvalue check → ω for literal/number subject; splice Σ[0:s]+repl+Σ[e:]; assign back)
+  + CAPTURE_COMMIT (D3). Smoke: `S 'b' = 'X'` → `aXc` in m4. (ph.4+5)
+- [ ] **S6 CONV** — retire IR_SCAN, rt_scan, rt_scan_lit, exec_stmt defer arm; everything through the
+  native chain; delete shim code. (= PB-RB-CONV)
+- [ ] **S7 OPT+SWEEP** — invariant blob freeze (PB-RB-OPT) + the non-pattern m4 clusters to 100%:
+  M4-DATA (ARRAY/TABLE/DATA), M4-DEFINE, M4-BUILTIN, M4-BEAUTY, remaining M4-CRASH buckets.
+
+**Completion test (= the goal's):** smoke m4 7/7 · pat-rung M4 19/19 no-SKIP · test_mode4_only_corpus_snobol4.sh
+280/280 · beauty subsystems m4 17/17. Then Lon rewrites Snocone.
