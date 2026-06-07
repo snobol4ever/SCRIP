@@ -134,7 +134,7 @@ static IR_t * icn_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
     IR_t * rα = NULL, * rβ = NULL;
     IR_t * rhs = lower_program(cx, rhs_t, as, ω_in, &rα, &rβ);
     if (!rhs) return NULL;
-    as->α = rhs;
+    if (!ir_operand_push(as, rhs)) return NULL;
     set_succ_fail(as, γ_in, ω_in);
     IR_t * resume = (!cx.bounded && rβ && rβ != ω_in) ? rβ : ω_in;
     return ret(as, α_out, β_out, rα, resume);
@@ -167,7 +167,7 @@ static IR_t * icn_return(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in,
         lcx_t vc = cx; vc.role = ROLE_VALUE;
         IR_t * v = lower_program(vc, e->c[0], rn, ω_in, &vα, &vβ);
         if (!v) return NULL;
-        rn->α = v;
+        if (!ir_operand_push(rn, v)) return NULL;
     }
     set_succ_fail(rn, γ_in, ω_in);
     return ret(rn, α_out, β_out, vα ? vα : rn, ω_in);
@@ -199,7 +199,7 @@ static IR_t * icn_initial(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         lcx_t bc = icn_bounded(cx);
         IR_t * body = lower_program(bc, e->c[0], NULL, ω_in, &bα, &bβ);
         if (!body) return NULL;
-        ini->α = bα ? bα : body;
+        if (!ir_operand_push(ini, bα ? bα : body)) return NULL;
         if (!body->γ) body->γ = γ_in;
         if (!body->ω) body->ω = γ_in;
     }
@@ -214,11 +214,11 @@ static IR_t * icn_limit(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, 
     IR_t * bα = NULL, * bβ = NULL;
     IR_t * body = lower_program(cx, e->c[0], lim, ω_in, &bα, &bβ);
     if (!body) return NULL;
-    lim->α = bα ? bα : body;
+    if (!ir_operand_push(lim, bα ? bα : body)) return NULL;
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * cnt = lower_program(icn_bounded(cx), e->c[1], lim, ω_in, &cα, &cβ);
     if (!cnt) return NULL;
-    lim->β = cnt;
+    if (!ir_operand_push(lim, cnt)) return NULL;
     set_succ_fail(lim, γ_in, ω_in);
     IR_t * entry = cα ? cα : cnt;
     return ret(lim, α_out, β_out, entry, lim);
@@ -233,10 +233,8 @@ static IR_t * icn_case(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     IR_t * sel = lower_program(bv, e->c[0], NULL, ω_in, &sα, &sβ);
     if (!sel) return NULL;
     IR_t * sel_entry = sα ? sα : sel;
-    cas->α = sel_entry;
+    if (!ir_operand_push(cas, sel_entry)) return NULL;
     sel->γ = cas;
-    IR_t * chain = NULL;
-    IR_t * prev_key = NULL;
     int i = 1;
     while (i < e->n) {
         int remaining = e->n - i;
@@ -249,11 +247,8 @@ static IR_t * icn_case(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
             def_nd->γ = γ_in;
             IR_t * def_key = nalloc(cx, IR_LIT_NUL);
             if (!def_key) continue;
-            def_key->γ = dα ? dα : def_nd;
-            def_key->ω = NULL;
-            if (!chain) chain = def_key;
-            if (prev_key) prev_key->ω = def_key;
-            prev_key = def_key;
+            if (!ir_operand_push(def_key, dα ? dα : def_nd)) return NULL;
+            if (!ir_operand_push(cas, def_key)) return NULL;
         } else {
             const tree_t * key_t = e->c[i++];
             const tree_t * val_t = (i < e->n) ? e->c[i++] : NULL;
@@ -275,15 +270,11 @@ static IR_t * icn_case(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
             key_nd->ω = NULL;
             IR_t * arm_key = nalloc(cx, IR_LIT_NUL);
             if (!arm_key) continue;
-            arm_key->γ = key_entry;
-            arm_key->β = val_entry;
-            arm_key->ω = NULL;
-            if (!chain) chain = arm_key;
-            if (prev_key) prev_key->ω = arm_key;
-            prev_key = arm_key;
+            if (!ir_operand_push(arm_key, key_entry)) return NULL;
+            if (val_entry && !ir_operand_push(arm_key, val_entry)) return NULL;
+            if (!ir_operand_push(cas, arm_key)) return NULL;
         }
     }
-    cas->β = chain;
     set_succ_fail(cas, γ_in, ω_in);
     return ret(cas, α_out, β_out, sel_entry, ω_in);
 }

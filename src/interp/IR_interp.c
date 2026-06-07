@@ -2687,9 +2687,9 @@ IR_t * IR_interp_node(IR_t * bb) {
         DESCR_t _init_flag = NV_GET_fn(_init_key);
         if (!IS_FAIL_fn(_init_flag) && IS_INT_fn(_init_flag) && _init_flag.i != 0) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
         NV_SET_fn(_init_key, INTVAL(1));
-        if (bb->α) {
+        if (bb->n_operands > 0 && bb->operands[0]) {
             int ini_safe = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
-            IR_t *ic = bb->α;
+            IR_t *ic = bb->operands[0];
             while (ic && ini_safe-- > 0) {
                 IR_t *in = IR_interp_node(ic);
                 if (IS_FAIL_fn(IR_EXEC(ic).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
@@ -2733,7 +2733,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
         } else {
             rv = NULVCL;
-            if (bb->α) { IR_interp_node(bb->α); rv = IR_EXEC(bb->α).value; }
+            if (bb->n_operands > 0 && bb->operands[0]) { IR_interp_node(bb->operands[0]); rv = IR_EXEC(bb->operands[0]).value; }
             else { DESCR_t pv = ag_ring_peek(g_current_cfg, 0); if (!IS_FAIL_fn(pv)) rv = pv; }
             g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
         }
@@ -2927,20 +2927,20 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->α;
     }
     case IR_LIMIT: {
-        if (!bb->α || !bb->β) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (bb->n_operands < 2 || !bb->operands[0] || !bb->operands[1]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         if (IR_EXEC(bb).state == 0) {
-            IR_interp_node(bb->β);
-            DESCR_t mv = IR_EXEC(bb->β).value;
+            IR_interp_node(bb->operands[1]);
+            DESCR_t mv = IR_EXEC(bb->operands[1]).value;
             if (IS_FAIL_fn(mv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
             int64_t mx = IS_INT_fn(mv) ? mv.i : (mv.v == DT_R ? (int64_t)mv.r : 0);
             if (mx <= 0) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
             IR_EXEC(bb).counter = 0;
             IR_EXEC(bb).state   = 1;
         }
-        DESCR_t mvc = IR_EXEC(bb->β).value;
+        DESCR_t mvc = IR_EXEC(bb->operands[1]).value;
         int64_t mxc = IS_INT_fn(mvc) ? mvc.i : (mvc.v == DT_R ? (int64_t)mvc.r : 0);
         if (IR_EXEC(bb).counter >= mxc) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_t * cur = bb->α;
+        IR_t * cur = bb->operands[0];
         int safety_lim = (g_current_cfg ? g_current_cfg->n : 64) * 128 + 512;
         while (cur && safety_lim-- > 0) {
             IR_t * nxt = IR_interp_node(cur);
@@ -3800,9 +3800,9 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
     }
     case IR_CASE: {
-        if (!bb->α) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (bb->n_operands < 1 || !bb->operands[0]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         int case_safe = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
-        IR_t *scur = bb->α;
+        IR_t *scur = bb->operands[0];
         DESCR_t sel = FAILDESCR;
         while (scur && case_safe-- > 0) {
             IR_t *snxt = IR_interp_node(scur);
@@ -3812,9 +3812,12 @@ IR_t * IR_interp_node(IR_t * bb) {
             ag_ring_push(g_current_cfg, IR_EXEC(scur).value); scur = snxt;
         }
         if (IS_FAIL_fn(sel)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        for (IR_t *arm = bb->β; arm; arm = arm->ω) {
-            IR_t *key_sub = arm->γ;
-            IR_t *val_sub = arm->β;
+        for (int ai = 1; ai < bb->n_operands; ai++) {
+            IR_t *arm = bb->operands[ai];
+            if (!arm) continue;
+            IR_t *key_sub = (arm->n_operands > 0) ? arm->operands[0] : NULL;
+            IR_t *val_sub = (arm->n_operands > 1) ? arm->operands[1] : NULL;
+            if (!key_sub) continue;
             if (!val_sub) {
                 int ds = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
                 IR_t *dc = key_sub; DESCR_t dv = NULVCL;

@@ -197,7 +197,7 @@ static int icn_gen_scan_body_slotful(IR_t *r) {
     return 0;
 }
 static int icn_local_assign_rhs_ok(IR_t *nd) {
-    IR_t *r = nd->α;
+    IR_t *r = (nd->n_operands > 0) ? nd->operands[0] : nd->α;
     if (!r) return 0;
     if (r->t == IR_LIT_I || r->t == IR_LIT_S) return 1;
     if (r->t == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;

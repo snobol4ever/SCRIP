@@ -222,7 +222,7 @@ static int lower_pascal_body(const tree_t *proc) {
         if (!PRET || !PVAR) return -1;
         IR_LIT(PRET).dval = 0.0;
         IR_LIT(PVAR).sval = proc->c[3]->v.sval;
-        PRET->α = PVAR;
+        if (!ir_operand_push(PRET, PVAR)) return -1;
         PRET->γ = PSUCC; PRET->ω = PSUCC;
         chain_end = PRET;
     }
@@ -501,8 +501,8 @@ stage2_t *lower_stage2(const tree_t *prog) {
         if (g) {
             IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
             IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-            IR_t *RET  = IR_node_alloc(g, IR_RETURN); IR_LIT(RET).dval  = 1.0; RET->α = NULL; RET->ω = PFAIL;
-            IR_t *FRET = IR_node_alloc(g, IR_RETURN); IR_LIT(FRET).dval = 2.0; FRET->α = NULL; FRET->ω = PFAIL;
+            IR_t *RET  = IR_node_alloc(g, IR_RETURN); IR_LIT(RET).dval  = 1.0; RET->ω = PFAIL;
+            IR_t *FRET = IR_node_alloc(g, IR_RETURN); IR_LIT(FRET).dval = 2.0; FRET->ω = PFAIL;
             const tree_t *stmts[1024]; IR_t *land[1024]; int ns = 0;
             for (int i = 0; i < prog->n && ns < 1024; i++) {
                 const tree_t *s = prog->c[i];
