@@ -114,7 +114,6 @@ static IR_t * pl_wire_alt(plcx_t cx, IR_e kind, const tree_t * const * kids, int
     }
     bb_operand_aux_set(cx.bbg, node, apply, nkids);
     pl_set_succ_fail(node, γ_in, ω_in);
-    if (kind == IR_DISJ) node->α = entry[0];
     return pl_ret(node, α_out, β_out, entry[0], node);
 }
 /*====================================================================================================================*/

@@ -102,7 +102,6 @@ IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_
     }
     bb_operand_aux_set(cx.bbg, node, apply, nkids);
     set_succ_fail(node, γ_in, ω_in);
-    if (kind == IR_DISJ) node->α = entry[0];
     return ret(node, α_out, β_out, entry[0], node  );
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
