@@ -138,7 +138,7 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             return btio_bin_term_to_atom(a0, a1) + btio_bin_ports();
         }
         if (strcmp(fn, "format") == 0 && ir_call_arg(pBB,0) && (_.op_ival == 1 || _.op_ival == 2)) {
-            IR_t *a0 = ir_call_arg(pBB,0); IR_t *a1 = (_.op_ival == 2) ? a0->γ : (IR_t*)0;
+            IR_t *a0 = ir_call_arg(pBB,0); IR_t *a1 = (_.op_ival == 2) ? ir_call_arg(pBB,1) : (IR_t*)0;
             return (a1 && a1->t == IR_STRUCT ? btio_bin_format_b(a0, a1, (long)_.op_ival) : btio_bin_format_a(a0, a1, (long)_.op_ival)) + btio_bin_ports();
         }
     }
@@ -152,7 +152,7 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             return btio_txt_term_to_atom(a0, a1, hdr);
         }
         if (strcmp(fn, "format") == 0 && ir_call_arg(pBB,0) && (_.op_ival == 1 || _.op_ival == 2)) {
-            IR_t *a0 = ir_call_arg(pBB,0); IR_t *a1 = (_.op_ival == 2) ? a0->γ : (IR_t*)0;
+            IR_t *a0 = ir_call_arg(pBB,0); IR_t *a1 = (_.op_ival == 2) ? ir_call_arg(pBB,1) : (IR_t*)0;
             return a1 && a1->t == IR_STRUCT ? btio_txt_format_b(a0, a1, (long)_.op_ival, hdr) : btio_txt_format_a(a0, a1, (long)_.op_ival, hdr);
         }
     }
