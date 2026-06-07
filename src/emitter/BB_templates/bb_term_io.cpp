@@ -3,8 +3,8 @@
 std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-            if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-                IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+            if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
+                IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
                 long start = (long)IR_LIT(a1).ival;
                 int  k2 = (int)a2->t;
                 long i2 = (long)IR_LIT(a2).ival;
@@ -34,8 +34,8 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                 return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
             }
             if ((strcmp(fn, "term_to_atom") == 0 || strcmp(fn, "term_string") == 0)
-                && pBB->α && pBB->α->γ) {
-                IR_t *a0 = pBB->α, *a1 = a0->γ;
+                && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
+                IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
                 int   k1 = (int)a1->t;
                 long  i1 = (long)IR_LIT(a1).ival;
                 const char *s1 = (k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
@@ -52,9 +52,9 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                 b += bytes(2, "\x85\xC0");                        /* test eax, eax */
                 return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
             }
-            if (strcmp(fn, "format") == 0 && pBB->α && (_.op_ival == 1 || _.op_ival == 2)) {
+            if (strcmp(fn, "format") == 0 && ir_call_arg(pBB,0) && (_.op_ival == 1 || _.op_ival == 2)) {
                 int   arity = (int)_.op_ival;
-                IR_t *a0 = pBB->α;
+                IR_t *a0 = ir_call_arg(pBB,0);
                 IR_t *a1 = (arity == 2) ? a0->γ : NULL;
                 int   k0 = (int)a0->t;
                 long  i0 = (long)IR_LIT(a0).ival;
@@ -98,8 +98,8 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     std::string succ_back = x86("ins2", "jmp", _.lbl_γ)
                           + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
-        if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+        if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             long start = (long)IR_LIT(a1).ival;
             int  k2 = (int)a2->t;
             long i2 = (long)IR_LIT(a2).ival;
@@ -121,8 +121,8 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
         if ((strcmp(fn, "term_to_atom") == 0 || strcmp(fn, "term_string") == 0)
-            && pBB->α && pBB->α->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ;
+            && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
             int   k1 = (int)a1->t;
             long  i1 = (long)IR_LIT(a1).ival;
             char s1lbl[64]; s1lbl[0] = 0;
@@ -141,9 +141,9 @@ std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("ins2", "jmp",  _.lbl_γ)
                  + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
         }
-        if (strcmp(fn, "format") == 0 && pBB->α && (_.op_ival == 1 || _.op_ival == 2)) {
+        if (strcmp(fn, "format") == 0 && ir_call_arg(pBB,0) && (_.op_ival == 1 || _.op_ival == 2)) {
             int arity = (int)_.op_ival;
-            IR_t *a0 = pBB->α;
+            IR_t *a0 = ir_call_arg(pBB,0);
             IR_t *a1 = (arity == 2) ? a0->γ : NULL;
             int  k0 = (int)a0->t;
             long i0 = (long)IR_LIT(a0).ival;

@@ -81,8 +81,8 @@ std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) 
             IR_t *a0 = pBB->α, *a1 = pBB->β;
             return bsp_bin_succ(a0, a1) + bsp_bin_ports();
         }
-        if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+        if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             return bsp_bin_plus(a0, a1, a2) + bsp_bin_ports();
         }
     }
@@ -91,8 +91,8 @@ std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) 
             IR_t *a0 = pBB->α, *a1 = pBB->β;
             return bsp_txt_succ(a0, a1, hdr);
         }
-        if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+        if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             return bsp_txt_plus(a0, a1, a2, hdr);
         }
     }

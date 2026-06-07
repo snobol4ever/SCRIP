@@ -212,30 +212,30 @@ static std::string bti_txt_univ_ss(IR_t *a0, IR_t *a1, const std::string &hdr) {
 std::string bb_term_inspect_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-        if (strcmp(fn, "functor") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ && pBB->α->t == IR_STRUCT) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+        if (strcmp(fn, "functor") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2) && ir_call_arg(pBB,0)->t == IR_STRUCT) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             return bti_bin_functor(a0, a1, a2) + bti_bin_ports();
         }
-        if (strcmp(fn, "arg") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ && pBB->α->γ->t == IR_STRUCT) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+        if (strcmp(fn, "arg") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2) && ir_call_arg(pBB,1)->t == IR_STRUCT) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             return bti_bin_arg(a0, a1, a2) + bti_bin_ports();
         }
-        if (strcmp(fn, "=..") == 0 && _.op_ival == 2 && pBB->α && pBB->α->γ && (pBB->α->t == IR_STRUCT || pBB->α->γ->t == IR_STRUCT)) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ;
+        if (strcmp(fn, "=..") == 0 && _.op_ival == 2 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && (ir_call_arg(pBB,0)->t == IR_STRUCT || ir_call_arg(pBB,1)->t == IR_STRUCT)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
             return (a0->t == IR_STRUCT && a1->t == IR_STRUCT ? bti_bin_univ_tt(a0, a1) : a0->t == IR_STRUCT ? bti_bin_univ_t1(a0, a1) : bti_bin_univ_1t(a0, a1)) + bti_bin_ports();
         }
     }
     if (MEDIUM_TEXT) {
-        if (strcmp(fn, "functor") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+        if (strcmp(fn, "functor") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             return a0->t == IR_STRUCT ? bti_txt_functor_t(a0, a1, a2, hdr) : bti_txt_functor_s(a0, a1, a2, hdr);
         }
-        if (strcmp(fn, "arg") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
+        if (strcmp(fn, "arg") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             return a1->t == IR_STRUCT ? bti_txt_arg_t(a0, a1, a2, hdr) : bti_txt_arg_s(a0, a1, a2, hdr);
         }
-        if (strcmp(fn, "=..") == 0 && _.op_ival == 2 && pBB->α && pBB->α->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ;
+        if (strcmp(fn, "=..") == 0 && _.op_ival == 2 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
             return a0->t == IR_STRUCT && a1->t == IR_STRUCT ? bti_txt_univ_tt(a0, a1, hdr) : a0->t == IR_STRUCT ? bti_txt_univ_t1(a0, a1, hdr) : a1->t == IR_STRUCT ? bti_txt_univ_1t(a0, a1, hdr) : bti_txt_univ_ss(a0, a1, hdr);
         }
     }
