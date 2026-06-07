@@ -1,195 +1,159 @@
 #include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_lbl(IR_t *nd) {
+    if (!(nd->t == IR_ATOM && IR_LIT(nd).sval)) return std::string();
+    char l[64]; l[0] = 0; strtab_label(l, sizeof l, IR_LIT(nd).sval);
+    return std::string(l);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_bin_ports() { return x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_txt_tail() { return x86("ins2", "test", "eax, eax") + x86("ins2", "je", _.lbl_ω) + x86("ins2", "jmp", _.lbl_γ) + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_bin_numbervars(IR_t *a0, IR_t *a1, IR_t *a2) {
+    const char *s2 = (a2->t == IR_ATOM) ? IR_LIT(a2).sval : NULL;
+    return x86("sub", "rsp", 8L)
+         + x86_lit_bytes(emit_term_from_node_bin(a0))
+         + x86("mov", "rdi", "rax")
+         + x86("movabs", "rsi", (unsigned long long)(uint64_t)(long)IR_LIT(a1).ival)
+         + x86("mov32", "edx", (long)(int)a2->t)
+         + x86("movabs", "rcx", (unsigned long long)(uint64_t)(long)IR_LIT(a2).ival)
+         + (s2 ? x86("movabs", "r8", (unsigned long long)(uintptr_t)s2) : x86("xor", "r8d", "r8d"))
+         + x86("call", "rt_numbervars_term", (unsigned long long)(uintptr_t)(void*)rt_numbervars_term)
+         + x86("add", "rsp", 8L)
+         + x86("test", "eax", "eax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_bin_term_to_atom(IR_t *a0, IR_t *a1) {
+    const char *s1 = (a1->t == IR_ATOM) ? IR_LIT(a1).sval : NULL;
+    return x86("sub", "rsp", 16L)
+         + x86_lit_bytes(emit_term_from_node_bin(a0))
+         + x86("mov", "rdi", "rax")
+         + x86("mov32", "esi", (long)(int)a1->t)
+         + x86("movabs", "rdx", (unsigned long long)(uint64_t)(long)IR_LIT(a1).ival)
+         + (s1 ? x86("movabs", "rcx", (unsigned long long)(uintptr_t)s1) : x86("xor", "ecx", "ecx"))
+         + x86("call", "rt_term_to_atom_term", (unsigned long long)(uintptr_t)(void*)rt_term_to_atom_term)
+         + x86("add", "rsp", 16L)
+         + x86("test", "eax", "eax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_bin_format_b(IR_t *a0, IR_t *a1, long arity) {
+    const char *s0 = (a0->t == IR_ATOM) ? IR_LIT(a0).sval : NULL;
+    return x86("sub", "rsp", 16L)
+         + x86_lit_bytes(emit_term_from_node_bin(a1))
+         + x86("mov", "r8", "rax")
+         + x86("mov32", "edi", arity)
+         + x86("mov32", "esi", (long)(int)a0->t)
+         + x86("movabs", "rdx", (unsigned long long)(uint64_t)(long)IR_LIT(a0).ival)
+         + (s0 ? x86("movabs", "rcx", (unsigned long long)(uintptr_t)s0) : x86("xor", "ecx", "ecx"))
+         + x86("call", "rt_format_term", (unsigned long long)(uintptr_t)(void*)rt_format_term)
+         + x86("add", "rsp", 16L)
+         + x86("test", "eax", "eax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_bin_format_a(IR_t *a0, IR_t *a1, long arity) {
+    const char *s0 = (a0->t == IR_ATOM) ? IR_LIT(a0).sval : NULL;
+    const char *s1 = (a1 && a1->t == IR_ATOM) ? IR_LIT(a1).sval : NULL;
+    return x86("sub", "rsp", 16L)
+         + x86("mov32", "edi", arity)
+         + x86("mov32", "esi", (long)(int)a0->t)
+         + x86("movabs", "rdx", (unsigned long long)(uint64_t)(long)IR_LIT(a0).ival)
+         + (s0 ? x86("movabs", "rcx", (unsigned long long)(uintptr_t)s0) : x86("xor", "ecx", "ecx"))
+         + x86("mov32", "r8d", (long)(a1 ? (int)a1->t : 0))
+         + x86("movabs", "r9", (unsigned long long)(uint64_t)(a1 ? (long)IR_LIT(a1).ival : 0L))
+         + (s1 ? x86("movabs", "rax", (unsigned long long)(uintptr_t)s1) : x86("xor", "eax", "eax"))
+         + x86("mov", RSP(0), "rax")
+         + x86("call", "rt_format", (unsigned long long)(uintptr_t)(void*)rt_format)
+         + x86("add", "rsp", 16L)
+         + x86("test", "eax", "eax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_txt_numbervars(IR_t *a0, IR_t *a1, IR_t *a2, const std::string &hdr) { std::string l2 = btio_lbl(a2);
+    return hdr
+         + x86("ins2", "sub", "rsp, 8")
+         + emit_build_compound_term(a0)
+         + x86("ins2", "mov", "rdi, rax")
+         + x86("ins2", "mov rsi,", std::to_string((long)IR_LIT(a1).ival))
+         + x86("ins2", "mov edx,", std::to_string((int)a2->t))
+         + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(a2).ival))
+         + (l2.size() ? x86("ins2", "lea r8,", std::string("[rip + ") + l2 + "]") : x86("ins2", "xor", "r8d, r8d"))
+         + x86("ins2", "call", "rt_numbervars_term@PLT")
+         + x86("ins2", "add", "rsp, 8")
+         + btio_txt_tail();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_txt_term_to_atom(IR_t *a0, IR_t *a1, const std::string &hdr) { std::string l1 = btio_lbl(a1);
+    return hdr
+         + x86("ins2", "sub", "rsp, 16")
+         + emit_build_compound_term(a0)
+         + x86("ins2", "mov", "rdi, rax")
+         + x86("ins2", "mov esi,", std::to_string((int)a1->t))
+         + x86("ins2", "mov rdx,", std::to_string((long)IR_LIT(a1).ival))
+         + (l1.size() ? x86("ins2", "lea rcx,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "ecx, ecx"))
+         + x86("ins2", "call", "rt_term_to_atom_term@PLT")
+         + x86("ins2", "add", "rsp, 16")
+         + btio_txt_tail();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_txt_format_b(IR_t *a0, IR_t *a1, long arity, const std::string &hdr) { std::string l0 = btio_lbl(a0);
+    return hdr
+         + x86("ins2", "sub", "rsp, 16")
+         + emit_build_compound_term(a1)
+         + x86("ins2", "mov", "r8, rax")
+         + x86("ins2", "mov edi,", std::to_string(arity))
+         + x86("ins2", "mov esi,", std::to_string((int)a0->t))
+         + x86("ins2", "mov rdx,", std::to_string((long)IR_LIT(a0).ival))
+         + (l0.size() ? x86("ins2", "lea rcx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "ecx, ecx"))
+         + x86("ins2", "call", "rt_format_term@PLT")
+         + x86("ins2", "add", "rsp, 16")
+         + btio_txt_tail();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string btio_txt_format_a(IR_t *a0, IR_t *a1, long arity, const std::string &hdr) { std::string l0 = btio_lbl(a0), l1 = a1 ? btio_lbl(a1) : std::string();
+    return hdr
+         + x86("ins2", "sub", "rsp, 16")
+         + x86("ins2", "mov edi,", std::to_string(arity))
+         + x86("ins2", "mov esi,", std::to_string((int)a0->t))
+         + x86("ins2", "mov rdx,", std::to_string((long)IR_LIT(a0).ival))
+         + (l0.size() ? x86("ins2", "lea rcx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "ecx, ecx"))
+         + x86("ins2", "mov r8d,", std::to_string(a1 ? (int)a1->t : 0))
+         + x86("ins2", "mov r9,", std::to_string(a1 ? (long)IR_LIT(a1).ival : 0L))
+         + (l1.size()
+               ? (x86("ins2", "lea rax,", std::string("[rip + ") + l1 + "]") + x86("ins2", "mov", "[rsp + 0], rax"))
+               : x86("ins2", "mov", "qword ptr [rsp + 0], 0"))
+         + x86("ins2", "call", "rt_format@PLT")
+         + x86("ins2", "add", "rsp, 16")
+         + btio_txt_tail();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-            if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
-                IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
-                long start = (long)IR_LIT(a1).ival;
-                int  k2 = (int)a2->t;
-                long i2 = (long)IR_LIT(a2).ival;
-                const char *s2 = (k2 == IR_ATOM) ? IR_LIT(a2).sval : NULL;
-                std::string b;
-                /* sub rsp, 8 (keep 16-alignment across the build's internal calls)   48 83 EC 08      */
-                b += bytes(4, "\x48\x83\xEC\x08");
-                /* build a0's term → rax                                                               */
-                b += emit_term_from_node_bin(a0);
-                /* mov rdi, rax    48 89 C7                                                             */
-                b += bytes(3, "\x48\x89\xC7");
-                /* mov rsi, start    48 BE [8]                                                          */
-                b += bytes(2, "\x48\xBE") + u64le((uint64_t)start);
-                /* mov edx, k2    BA [4]                                                                */
-                b += bytes(1, "\xBA") + u32le((uint32_t)k2);
-                /* mov rcx, i2    48 B9 [8]                                                             */
-                b += bytes(2, "\x48\xB9") + u64le((uint64_t)i2);
-                /* mov r8, s2 (or xor r8d,r8d)    49 B8 [8] / 45 31 C0                                  */
-                if (s2) b += bytes(2, "\x49\xB8") + u64le((uint64_t)(uintptr_t)s2);
-                else    b += bytes(3, "\x45\x31\xC0");
-                /* movabs rax, &rt_numbervars_term; call rax                                         */
-                b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_numbervars_term) + bytes(2, "\xFF\xD0");
-                /* add rsp, 8    48 83 C4 08                                                            */
-                b += bytes(4, "\x48\x83\xC4\x08");
-                /* test eax, eax    85 C0                                                               */
-                b += bytes(2, "\x85\xC0");
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
-            }
-            if ((strcmp(fn, "term_to_atom") == 0 || strcmp(fn, "term_string") == 0)
-                && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
-                IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-                int   k1 = (int)a1->t;
-                long  i1 = (long)IR_LIT(a1).ival;
-                const char *s1 = (k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
-                std::string b;
-                b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
-                b += emit_term_from_node_bin(a0);            /* build a0's term → rax */
-                b += bytes(3, "\x48\x89\xC7");                    /* mov rdi, rax */
-                b += bytes(1, "\xBE") + u32le((uint32_t)k1);      /* mov esi, k1 */
-                b += bytes(2, "\x48\xBA") + u64le((uint64_t)i1);  /* mov rdx, i1 */
-                if (s1) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s1);  /* mov rcx, s1 */
-                else    b += bytes(2, "\x31\xC9");                /* xor ecx, ecx */
-                b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_term_to_atom_term) + bytes(2, "\xFF\xD0");
-                b += bytes(4, "\x48\x83\xC4\x10");                /* add rsp, 16 */
-                b += bytes(2, "\x85\xC0");                        /* test eax, eax */
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
-            }
-            if (strcmp(fn, "format") == 0 && ir_call_arg(pBB,0) && (_.op_ival == 1 || _.op_ival == 2)) {
-                int   arity = (int)_.op_ival;
-                IR_t *a0 = ir_call_arg(pBB,0);
-                IR_t *a1 = (arity == 2) ? a0->γ : NULL;
-                int   k0 = (int)a0->t;
-                long  i0 = (long)IR_LIT(a0).ival;
-                const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
-                int   compound1 = (a1 && a1->t == IR_STRUCT);
-                std::string b;
-                b += bytes(4, "\x48\x83\xEC\x10");                /* sub rsp, 16 */
-                if (compound1) {
-                    /* Path B: build args-list Term* (→ rax), move to r8, then scalar fmt args. */
-                    b += emit_term_from_node_bin(a1);
-                    b += bytes(3, "\x49\x89\xC0");                /* mov r8, rax */
-                    b += bytes(1, "\xBF") + u32le((uint32_t)arity);          /* mov edi, arity */
-                    b += bytes(1, "\xBE") + u32le((uint32_t)k0);             /* mov esi, k0 */
-                    b += bytes(2, "\x48\xBA") + u64le((uint64_t)i0);         /* mov rdx, i0 */
-                    if (s0) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s0);  /* mov rcx, s0 */
-                    else    b += bytes(2, "\x31\xC9");                       /* xor ecx, ecx */
-                    b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_format_term) + bytes(2, "\xFF\xD0");
-                } else {
-                    /* Path A: scalar args1 (variable, atom, or absent for arity 1). */
-                    int   k1 = a1 ? (int)a1->t : 0;
-                    long  i1 = a1 ? (long)IR_LIT(a1).ival : 0;
-                    const char *s1 = (a1 && k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
-                    b += bytes(1, "\xBF") + u32le((uint32_t)arity);          /* mov edi, arity */
-                    b += bytes(1, "\xBE") + u32le((uint32_t)k0);             /* mov esi, k0 */
-                    b += bytes(2, "\x48\xBA") + u64le((uint64_t)i0);         /* mov rdx, i0 */
-                    if (s0) b += bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s0);  /* mov rcx, s0 */
-                    else    b += bytes(2, "\x31\xC9");                       /* xor ecx, ecx */
-                    b += bytes(2, "\x41\xB8") + u32le((uint32_t)k1);         /* mov r8d, k1 */
-                    b += bytes(2, "\x49\xB9") + u64le((uint64_t)i1);         /* mov r9, i1 */
-                    if (s1) b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)s1);  /* mov rax, s1 */
-                    else    b += bytes(2, "\x31\xC0");                       /* xor eax, eax */
-                    b += bytes(4, "\x48\x89\x04\x24");                       /* mov [rsp+0], rax */
-                    b += bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_format) + bytes(2, "\xFF\xD0");
-                }
-                b += bytes(4, "\x48\x83\xC4\x10");                /* add rsp, 16 */
-                b += bytes(2, "\x85\xC0");                        /* test eax, eax */
-                return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
-            }
-    }
-    if (MEDIUM_TEXT) {
-    std::string succ_back = x86("ins2", "jmp", _.lbl_γ)
-                          + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
-    (void)succ_back;
         if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
-            long start = (long)IR_LIT(a1).ival;
-            int  k2 = (int)a2->t;
-            long i2 = (long)IR_LIT(a2).ival;
-            char s2lbl[64]; s2lbl[0] = 0;
-            if (k2 == IR_ATOM && IR_LIT(a2).sval) strtab_label(s2lbl, sizeof s2lbl, IR_LIT(a2).sval);
-            return hdr
-                 + x86("ins2", "sub", "rsp, 8")
-                 + emit_build_compound_term(a0)
-                 + x86("ins2", "mov", "rdi, rax")
-                 + x86("ins2", "mov rsi,", emit_fmt("%ld", start))
-                 + x86("ins2", "mov edx,", emit_fmt("%d", k2))
-                 + x86("ins2", "mov rcx,", emit_fmt("%ld", i2))
-                 + (s2lbl[0] ? x86("ins2", "lea r8,", emit_fmt("[rip + %s]", s2lbl)) : x86("ins2", "xor", "r8d, r8d"))
-                 + x86("ins2", "call", "rt_numbervars_term@PLT")
-                 + x86("ins2", "add", "rsp, 8")
-                 + x86("ins2", "test", "eax, eax")
-                 + x86("ins2", "je",   _.lbl_ω)
-                 + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+            return btio_bin_numbervars(a0, a1, a2) + btio_bin_ports();
         }
-        if ((strcmp(fn, "term_to_atom") == 0 || strcmp(fn, "term_string") == 0)
-            && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
+        if ((strcmp(fn, "term_to_atom") == 0 || strcmp(fn, "term_string") == 0) && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-            int   k1 = (int)a1->t;
-            long  i1 = (long)IR_LIT(a1).ival;
-            char s1lbl[64]; s1lbl[0] = 0;
-            if (k1 == IR_ATOM && IR_LIT(a1).sval) strtab_label(s1lbl, sizeof s1lbl, IR_LIT(a1).sval);
-            return hdr
-                 + x86("ins2", "sub", "rsp, 16")
-                 + emit_build_compound_term(a0)
-                 + x86("ins2", "mov", "rdi, rax")
-                 + x86("ins2", "mov esi,",  emit_fmt("%d",  k1))
-                 + x86("ins2", "mov rdx,",  emit_fmt("%ld", i1))
-                 + (s1lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s1lbl)) : x86("ins2", "xor", "ecx, ecx"))
-                 + x86("ins2", "call", "rt_term_to_atom_term@PLT")
-                 + x86("ins2", "add", "rsp, 16")
-                 + x86("ins2", "test", "eax, eax")
-                 + x86("ins2", "je",   _.lbl_ω)
-                 + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+            return btio_bin_term_to_atom(a0, a1) + btio_bin_ports();
         }
         if (strcmp(fn, "format") == 0 && ir_call_arg(pBB,0) && (_.op_ival == 1 || _.op_ival == 2)) {
-            int arity = (int)_.op_ival;
-            IR_t *a0 = ir_call_arg(pBB,0);
-            IR_t *a1 = (arity == 2) ? a0->γ : NULL;
-            int  k0 = (int)a0->t;
-            long i0 = (long)IR_LIT(a0).ival;
-            char s0lbl[64]; s0lbl[0] = 0;
-            if (k0 == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
-            int compound1 = (a1 && a1->t == IR_STRUCT);
-            if (compound1) {
-                /* Path B: build args-list Term* in rax, then call rt_format_term(arity, k0,i0,s0, args). */
-                return hdr
-                     + x86("ins2", "sub", "rsp, 16")          /* 16B alignment + scratch */
-                     + emit_build_compound_term(a1)
-                     + x86("ins2", "mov", "r8, rax")          /* args-list Term* → r8 */
-                     + x86("ins2", "mov edi,",  emit_fmt("%d", arity))
-                     + x86("ins2", "mov esi,",  emit_fmt("%d", k0))
-                     + x86("ins2", "mov rdx,",  emit_fmt("%ld", i0))
-                     + (s0lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "ecx, ecx"))
-                     + x86("ins2", "call", "rt_format_term@PLT")
-                     + x86("ins2", "add", "rsp, 16")
-                     + x86("ins2", "test", "eax, eax")
-                     + x86("ins2", "je",   _.lbl_ω)
-                     + x86("ins2", "jmp",  _.lbl_γ)
-                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
-            }
-            /* Path A: scalar args1 (variable, atom, or absent for arity 1). */
-            int  k1 = a1 ? (int)a1->t : 0;
-            long i1 = a1 ? (long)IR_LIT(a1).ival : 0;
-            char s1lbl[64]; s1lbl[0] = 0;
-            if (a1 && k1 == IR_ATOM && IR_LIT(a1).sval) strtab_label(s1lbl, sizeof s1lbl, IR_LIT(a1).sval);
-            return hdr
-                 + x86("ins2", "sub", "rsp, 16")
-                 + x86("ins2", "mov edi,",  emit_fmt("%d", arity))
-                 + x86("ins2", "mov esi,",  emit_fmt("%d", k0))
-                 + x86("ins2", "mov rdx,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "ecx, ecx"))
-                 + x86("ins2", "mov r8d,",  emit_fmt("%d", k1))
-                 + x86("ins2", "mov r9,",   emit_fmt("%ld", i1))
-                 /* s1 (7th arg) lives at [rsp+0]; if absent, NULL */
-                 + (s1lbl[0]
-                       ? (x86("ins2", "lea rax,", emit_fmt("[rip + %s]", s1lbl)) + x86("ins2", "mov", "[rsp + 0], rax"))
-                       : x86("ins2", "mov", "qword ptr [rsp + 0], 0"))
-                 + x86("ins2", "call", "rt_format@PLT")
-                 + x86("ins2", "add", "rsp, 16")
-                 + x86("ins2", "test", "eax, eax")
-                 + x86("ins2", "je",   _.lbl_ω)
-                 + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+            IR_t *a0 = ir_call_arg(pBB,0); IR_t *a1 = (_.op_ival == 2) ? a0->γ : (IR_t*)0;
+            return (a1 && a1->t == IR_STRUCT ? btio_bin_format_b(a0, a1, (long)_.op_ival) : btio_bin_format_a(a0, a1, (long)_.op_ival)) + btio_bin_ports();
+        }
+    }
+    if (MEDIUM_TEXT) {
+        if (strcmp(fn, "numbervars") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
+            return btio_txt_numbervars(a0, a1, a2, hdr);
+        }
+        if ((strcmp(fn, "term_to_atom") == 0 || strcmp(fn, "term_string") == 0) && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
+            return btio_txt_term_to_atom(a0, a1, hdr);
+        }
+        if (strcmp(fn, "format") == 0 && ir_call_arg(pBB,0) && (_.op_ival == 1 || _.op_ival == 2)) {
+            IR_t *a0 = ir_call_arg(pBB,0); IR_t *a1 = (_.op_ival == 2) ? a0->γ : (IR_t*)0;
+            return a1 && a1->t == IR_STRUCT ? btio_txt_format_b(a0, a1, (long)_.op_ival, hdr) : btio_txt_format_a(a0, a1, (long)_.op_ival, hdr);
         }
     }
     return std::string();
