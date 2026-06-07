@@ -20,8 +20,7 @@ static std::string bb_pat_defer_str() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
-                 + x86("comment", emit_fmt("BOX DEFER(%s%s)  [REG-3 δ=r14, x86() self-encoding]",
-                                       defer_ival() ? "*" : "", dvar_chars())))
+                 + x86("comment", "BOX DEFER(" + std::string(defer_ival() ? "*" : "") + std::string(dvar_chars()) + ")  [REG-3 δ=r14, x86() self-encoding]"))
              + x86("lea",  "rdi", "[rip + __]", dvar_addr(), dvar_label())
              + x86("mov",  "esi", (long)defer_ival())
              + x86("mov",  "edx", "r14d")
@@ -32,11 +31,11 @@ static std::string bb_pat_defer_str() {
              + x86("mov", "rsp", "rbx")
              + x86("pop",  "rbx")
              + x86("test", "eax", "eax")
-             + x86("js",   PORT_OMEGA)
+             + x86("js",   "ω")
              + x86("mov",  "r14d", "eax")
-             + x86("jmp",  PORT_GAMMA)
-             + x86("def",  PORT_BETA)
-             + x86("jmp",  PORT_OMEGA);
+             + x86("jmp",  "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
     }
     return std::string();
 }
