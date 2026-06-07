@@ -369,23 +369,19 @@ static int bb_index_of(const IR_graph_t * bbg, const IR_t * bb) {
     return -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx);
-void bb_print(const IR_graph_t * bbg, FILE * fp) { bb_print_pfx(bbg, fp, ""); }
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx) {
-    if (!bbg) { fprintf(fp, "%s(null IR_graph_t)\n", pfx); return; }
+void bb_print(const IR_graph_t * bbg, FILE * fp) {
+    if (!bbg) { fprintf(fp, "(null IR_graph_t)\n"); return; }
     static const char * lang_names[] = { "?", "SNO", "SCO", "REB", "ICN", "PL", "RKU" };
     const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
-    char sub[64];
-    fprintf(fp, "%sIR_graph_t lang=%s n=%d entry=%d\n", pfx, lname, bbg->n, bb_index_of(bbg, bbg->entry));
+    fprintf(fp, "IR_graph_t lang=%s n=%d entry=%d\n", lname, bbg->n, bb_index_of(bbg, bbg->entry));
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
-        if (!bb) continue;
+        if (!bb) { fprintf(fp, "[%4d] ·\n", i); continue; }
         const char * opn = bb_op_name(bb->t); if (strncmp(opn, "IR_", 3) == 0) opn += 3;
         char gp[16], wp[16];
         if (bb->γ) snprintf(gp, sizeof gp, "%dα", bb->γ->idx); else snprintf(gp, sizeof gp, "·");
         if (bb->ω) snprintf(wp, sizeof wp, "%dβ", bb->ω->idx); else snprintf(wp, sizeof wp, "·");
-        fprintf(fp, "%s  [%3d] %-16s γ=%-5s ω=%-5s", pfx, i, opn, gp, wp);
+        fprintf(fp, "[%4d] %-18s γ=%-6s ω=%-6s", i, opn, gp, wp);
         if (bb->t != IR_SCAN && bb->n_operands > 0) {
             fprintf(fp, " ops:[");
             for (int j = 0; j < bb->n_operands; j++) fprintf(fp, "%s%d", j ? "," : "", bb->operands[j] ? bb->operands[j]->idx : -1);
@@ -404,13 +400,12 @@ static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx) {
                 break;
         }
         fprintf(fp, "\n");
-        if (bb->t == IR_SCAN) {
-            snprintf(sub, sizeof sub, "%s      ", pfx);
-            IR_graph_t * pg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
-            int na = bb->n_operands; IR_t * const * aux = bb->operands;
-            if (pg)             { fprintf(fp, "%s    pat:\n",  pfx); bb_print_pfx(pg, fp, sub); }
-            if (na > 0 && aux && aux[0]) { fprintf(fp, "%s    subj:\n", pfx); bb_print_pfx((IR_graph_t *)(void *) aux[0], fp, sub); }
-            if (na > 1 && aux && aux[1]) { fprintf(fp, "%s    repl:\n", pfx); bb_print_pfx((IR_graph_t *)(void *) aux[1], fp, sub); }
-        }
+    }
+    for (int i = 0; i < bbg->n; i++) {
+        const IR_t * bb = bbg->all[i];
+        if (!bb || bb->t != IR_SCAN) continue;
+        IR_graph_t * pg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
+        if (pg) bb_print(pg, fp);
+        for (int j = 0; j < bb->n_operands; j++) if (bb->operands[j]) bb_print((IR_graph_t *)(void *) bb->operands[j], fp);
     }
 }
