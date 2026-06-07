@@ -123,3 +123,34 @@ requirement when built.
   networkx spring_layout (FORCE-DIRECTED, required) → SVG/PNG; node glyph = box with 4 REAL port
   vertices/sides (α=W in, β=S in, γ=E out, ω=N out), edges colored per port; (c) per-statement cluster
   hulls; (d) optional interactive HTML (d3-force) later. No code before Lon says go.
+
+## D6 — DT_P = EXECUTABLE CODE SEGMENTS (Lon 2026-06-07 session 2; SUPERSEDES D1 instance records + D2-as-data)
+
+Builders build THE REAL THING: BB_PATTERN_* boxes copy position-independent PROTOTYPE BLOBS (.rodata, emitted
+at compile time by element templates: code + co-located operand/RW slots, rip-internal only, CALL-FREE) into the
+RWX pattern pool (pat_pool.c, B1), fill operand slots, leave the two outbound ports as patch sites. STITCH = patch
+linkage (runtime wire_seq/wire_alt on rel32/abs64 sites). DT_P value = head block DTP_t {entry, out_γ, out_ω}
+written in-segment (dtp.h). Match: jmp entry, exits jmp through out slots. NO IR_t at runtime, NO instance records,
+NO interpreter near a pattern. **TRANSIENT-OVERHEAD RULE (Lon):** fragment handles DTP_FRAG_t {entry, γ_site,
+ω_site} are ζ-resident during the building statement and DISCARDED after stitch — builder parts exist solely to
+build the bigger pattern; only the head block survives. Like strings: intermediates are garbage after concat.
+Constraints this imposes (healthy): prototypes call-free (capture/NV work forced to statement boundary = D3);
+rebuild-per-evaluation (SPITBOL's own behavior for variable patterns); collection deferred (bump alloc, reset
+groundwork in pat_pool_reset; true reclamation B11).
+
+## B-LADDER (ground zero, Lon 2026-06-07 session 2; one rung = one commit, probe-first vs sbl, m4 gates, corpus non-decreasing HARD)
+
+- [x] **B0 PATND-DELETE** ✅ 07698c7+27c797f — patnd.h/constructors/cache/type-puns deleted (−781); .p → struct _DTP_t*; 8 nullary primitives → NULL-head DT_P placeholders (startup NV init survives, use-time bombs); grep PATND == 0.
+- [x] **B0b AST-WALK DELETE** ✅ b7a2717 — eval_node + interp_eval_pat → bombs (−471; Lon: nothing interprets tree_t at runtime).
+- [x] **B1 SEGMENT SUBSTRATE** ✅ fa0ebcc — dtp.h (DTP_t head + DTP_FRAG_t handle) + pat_pool.c (4MB RWX arena, g_pat_pool_base/cur/end exported for pure-store bump alloc; rule-3 clean); init at all three bb_pool_init sites.
+- [ ] **B2 PROTO-LIT** — .rodata PIC prototype for LIT element + metadata {size, operand offsets, γ/ω patch offsets, entry offset}; bb_pattern_lit builder template (copy/fill via rep movsb + stores); IR_PATTERN_* kinds + lower_sno value-role arms; rest of family bomb-stubbed (the stubs-en-masse commit; BOMB messages become the work queue).
+- [ ] **B3 STITCH-ALT + DTP-ASSIGN + DEFER-RUN** — bb_pattern_alt patches ω-chain (D2 port equations one layer down); rt_gvar_assign_pat (same sanctioned family as rt_gvar_assign_str); defer shim drives DT_P: load Σ/δ/Δ, jmp entry, out slots → return trampolines. GATE: **053 PASSES, pat-rung 19/19 no-SKIP**.
+- [ ] **B4 UNARY_I protos** — LEN/POS/RPOS/TAB/RTAB (`P = LEN(3)`, 073 family).
+- [ ] **B5 UNARY_S protos** — ANY/NOTANY/SPAN/BREAK/BREAKX.
+- [ ] **B6 STITCH-CAT** — nearest-left-resume β wiring (`P = 'a' LEN(2)`).
+- [ ] **B7 NULLARY protos** — ARB/REM/BAL/FENCE/FAIL/SUCCEED/ABORT (replaces the B0 NULL-head placeholders).
+- [ ] **B8 CAPTURE in built patterns** — `.`/`$` inside DT_P; D3 commit ring (061/064).
+- [ ] **B9 ARBNO + FENCE(P)** — structural unary_p, child fragment embedded (070/075, 059-067).
+- [ ] **B10 DEFER-IN-BUILD** — *V/*E slots re-fetched at match.
+- [ ] **B11 SEAL-FLIP + COLLECT** — W^X per-segment flip at match (seal-on-match physical); partial reclamation.
+- [ ] **B-CONV** — retire defer thunk + shim arms into native statement-level match driver (merges into S6).
