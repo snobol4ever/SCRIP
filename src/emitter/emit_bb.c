@@ -271,18 +271,18 @@ static void flat_drive_cat_arms(IR_t *pBB, IR_t * const * arms, int nc, bb_label
         return;
     }
     if (nc == 1) {
-        walk_bb_flat(arms ? arms[0] : bb_pat_kid(pBB, 0), lbl_γ, lbl_ω, left_β);
+        walk_bb_flat(arms ? arms[0] : bb_match_kid(pBB, 0), lbl_γ, lbl_ω, left_β);
         EMIT_PAIR_DEF_JMP(lbl_β, left_β);
         EMIT_PAIR_DEF_JMP(xcat_ω, lbl_ω);
         EMIT_PAIR_DEF(mid_γ); EMIT_PAIR_DEF(right_ω); EMIT_PAIR_DEF(right_β);
         EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
         return;
     }
-    walk_bb_flat(arms ? arms[0] : bb_pat_kid(pBB, 0), mid_γ, xcat_ω, left_β);
+    walk_bb_flat(arms ? arms[0] : bb_match_kid(pBB, 0), mid_γ, xcat_ω, left_β);
     emit_label_define_bb(mid_γ);
     bb_label_t *last_β = right_β;
     if (nc == 2) {
-        walk_bb_flat(arms ? arms[1] : bb_pat_kid(pBB, 1), lbl_γ, right_ω, right_β);
+        walk_bb_flat(arms ? arms[1] : bb_match_kid(pBB, 1), lbl_γ, right_ω, right_β);
     } else {
         bb_label_t **mids  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nc - 1));
         bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nc - 1));
@@ -293,7 +293,7 @@ static void flat_drive_cat_arms(IR_t *pBB, IR_t * const * arms, int nc, bb_label
         for (int i = 1; i < nc; i++) {
             bb_label_t *s = (i < nc-1) ? mids[i-1] : lbl_γ;
             bb_label_t *kid_ω = (i == 1) ? left_β : betas[i-2];
-            walk_bb_flat(arms ? arms[i] : bb_pat_kid(pBB, i), s, kid_ω, betas[i-1]);
+            walk_bb_flat(arms ? arms[i] : bb_match_kid(pBB, i), s, kid_ω, betas[i-1]);
             if (i < nc-1) emit_label_define_bb(mids[i-1]);
         }
         last_β = betas[nc-2];
@@ -306,17 +306,17 @@ static void flat_drive_cat_arms(IR_t *pBB, IR_t * const * arms, int nc, bb_label
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_cat(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    flat_drive_cat_arms(pBB, NULL, pBB ? bb_pat_nkids(pBB) : 0, lbl_γ, lbl_ω, lbl_β);
+    flat_drive_cat_arms(pBB, NULL, pBB ? bb_match_nkids(pBB) : 0, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int id = g_flat_node_id++;
-    int nc = pBB ? bb_pat_nkids(pBB) : 0;
+    int nc = pBB ? bb_match_nkids(pBB) : 0;
     IR_t * const * arms = NULL;
     if (nc == 0 && pBB) { int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &na); if (aux && na > 0) { arms = aux; nc = na; } }
     EMIT_PAIR_RESET();
     if (nc == 0) { EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); return; }
-    if (nc == 1) { walk_bb_flat(arms ? arms[0] : bb_pat_kid(pBB, 0), lbl_γ, lbl_ω, lbl_β); return; }
+    if (nc == 1) { walk_bb_flat(arms ? arms[0] : bb_match_kid(pBB, 0), lbl_γ, lbl_ω, lbl_β); return; }
     bb_label_t **ci_βs = (bb_label_t **)alloca((size_t)nc * sizeof(bb_label_t *));
     bb_label_t **ci_ωs = (bb_label_t **)alloca((size_t)nc * sizeof(bb_label_t *));
     for (int i = 0; i < nc; i++) {
@@ -325,7 +325,7 @@ static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     }
     for (int i = 0; i < nc; i++) {
         bb_label_t *f = (i < nc-1) ? ci_ωs[i] : ci_ωs[nc-1];
-        walk_bb_flat(arms ? arms[i] : bb_pat_kid(pBB, i), lbl_γ, f, ci_βs[i]);
+        walk_bb_flat(arms ? arms[i] : bb_match_kid(pBB, i), lbl_γ, f, ci_βs[i]);
         if (i < nc-1) emit_label_define_bb(ci_ωs[i]);
         else          emit_label_define_bb(ci_ωs[nc-1]);
     }
@@ -336,7 +336,7 @@ static void flat_drive_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || bb_pat_nkids(pBB) == 0) {
+    if (!pBB || bb_match_nkids(pBB) == 0) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(lbl_γ);
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -346,7 +346,7 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     int id = g_flat_node_id++;
     bb_label_t *child_γ = emit_label_alloc("xfnce%d_γ", id);
     bb_label_t *child_ω = emit_label_alloc("xfnce%d_ω", id);
-    walk_bb_flat(bb_pat_kid(pBB, 0), child_γ, child_ω, lbl_β);
+    walk_bb_flat(bb_match_kid(pBB, 0), child_γ, child_ω, lbl_β);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(child_γ, lbl_γ);
     EMIT_PAIR_DEF_JMP(child_ω, lbl_ω);
@@ -357,7 +357,7 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
 static int is_pat_chain_elem(IR_e t);
 static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat_out, IR_t *stop);
 static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    IR_t *ch = (pBB && bb_pat_nkids(pBB) > 0) ? bb_pat_kid(pBB, 0) : (pBB && pBB->n_operands > 0 ? pBB->operands[0] : NULL);
+    IR_t *ch = (pBB && bb_match_nkids(pBB) > 0) ? bb_match_kid(pBB, 0) : (pBB && pBB->n_operands > 0 ? pBB->operands[0] : NULL);
     if (!ch && pBB) { int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &na); if (aux && na > 0) ch = aux[0]; }
     const char *vn = (pBB && IR_LIT(pBB).sval) ? IR_LIT(pBB).sval : "";
     if (!ch) {
@@ -1734,7 +1734,7 @@ static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat
     int n = 0;
     IR_t *c = entry;
     while (c && c != stop && is_pat_chain_elem(c->t) && n < cap) { arms[n++] = c; c = c->γ; }
-    if (n >= 2 && c && c->t == IR_PAT_CAT && bb_pat_nkids(c) == 0) { if (cat_out) *cat_out = c; return n; }
+    if (n >= 2 && c && c->t == IR_PAT_CAT && bb_match_nkids(c) == 0) { if (cat_out) *cat_out = c; return n; }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1754,7 +1754,7 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     if (catn == 0 && elem->γ) {
         IR_e gt = elem->γ->t;
         int real_sibling = (gt != IR_SUCCEED && gt != IR_FAIL) &&
-                           (is_pat_chain_elem(gt) || (gt == IR_PAT_CAT && bb_pat_nkids(elem->γ) == 0));
+                           (is_pat_chain_elem(gt) || (gt == IR_PAT_CAT && bb_match_nkids(elem->γ) == 0));
         if (real_sibling) {
             fprintf(stderr, "[SBB] FATAL flat_drive_match: lowered chain shape not gatherable (entry kind=%d, next kind=%d) — single-walk would silently drop siblings (PB-RB)\n", (int)elem->t, (int)gt);
             abort();
@@ -2097,7 +2097,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PAT_ARBNO: {
         bb_arbno_state_t *az = (bb_arbno_state_t *)(intptr_t)IR_EXEC(nd).counter;
         IR_graph_t *inner = az ? az->inner : NULL;
-        IR_t *ch = (inner && inner->entry) ? inner->entry : ((bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α);
+        IR_t *ch = (inner && inner->entry) ? inner->entry : ((bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : nd->α);
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
         g_emit.child_fn    = (void *)cfn;
         g_emit.bb_child_lbl = cfn ? child_cache_get_lbl(cfn) : NULL;
@@ -2621,7 +2621,7 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
         return;
     }
     if (nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM) {
-        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : nd->α;
         if (ch) pre_build_children_text(ch, out, base_prefix);
         return;
     }
@@ -2634,7 +2634,7 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
             ch = (inner && inner->entry) ? inner->entry : NULL;
             chg = inner;
         } else {
-            ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+            ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : nd->α;
         }
         if (ch && !child_cache_get(ch)) {
             pre_build_children_text(ch, out, base_prefix);
@@ -2654,8 +2654,8 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
         }
         return;
     }
-    if (bb_pat_nkids(nd) == 0) return;
-    for (int i = 0; i < bb_pat_nkids(nd); i++) pre_build_children_text(bb_pat_kid(nd, i), out, base_prefix);
+    if (bb_match_nkids(nd) == 0) return;
+    for (int i = 0; i < bb_match_nkids(nd); i++) pre_build_children_text(bb_match_kid(nd, i), out, base_prefix);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void pre_build_children(IR_t *nd) {
@@ -2672,12 +2672,12 @@ static void pre_build_children(IR_t *nd) {
         return;
     }
     if (nd->t == IR_PAT_ASSIGN_COND || nd->t == IR_PAT_ASSIGN_IMM) {
-        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : nd->α;
         if (ch) pre_build_children(ch);
         return;
     }
     if (nd->t == IR_PAT_ARBNO || nd->t == IR_PAT_CALLOUT) {
-        IR_t *ch = (bb_pat_nkids(nd) > 0) ? bb_pat_kid(nd, 0) : nd->α;
+        IR_t *ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : nd->α;
         if (ch && !child_cache_get(ch)) {
             pre_build_children(ch);
             bb_box_fn fn = bb_build_flat(ch);
@@ -2685,8 +2685,8 @@ static void pre_build_children(IR_t *nd) {
         }
         return;
     }
-    if (bb_pat_nkids(nd) == 0) return;
-    for (int i = 0; i < bb_pat_nkids(nd); i++) pre_build_children(bb_pat_kid(nd, i));
+    if (bb_match_nkids(nd) == 0) return;
+    for (int i = 0; i < bb_match_nkids(nd); i++) pre_build_children(bb_match_kid(nd, i));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/

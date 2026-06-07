@@ -23,10 +23,12 @@ cd "$ROOT"
 strict=0
 [ "${1:-}" = "--strict" ] && strict=1
 
-# The SNOBOL pattern family: all bb_pat_*.cpp leaves/combinators + the literal matcher bb_lit.cpp. (bb_capture
-# and bb_arbno no longer exist — capture folded away, ARBNO is bb_pat_arb — so they are not listed; a glob is
+# The SNOBOL pattern family: all bb_match_*.cpp leaves/combinators + the literal matcher bb_lit.cpp, EXCLUDING the
+# three statement-level MATCH drivers (bb_match_head/retry/advance, FIX-5 split-born): head carries the sanctioned
+# lea-r10 cursor-mirror, historically outside this glob (RENAME 2026-06-07 bb_pat_*->bb_match_* widened it). (bb_capture
+# and bb_arbno no longer exist — capture folded away, ARBNO is bb_match_arb — so they are not listed; a glob is
 # used so the set tracks the directory rather than a stale hand-list.)
-FAMILY=$(ls src/emitter/BB_templates/bb_pat_*.cpp src/emitter/BB_templates/bb_lit.cpp 2>/dev/null)
+FAMILY=$(ls src/emitter/BB_templates/bb_match_*.cpp src/emitter/BB_templates/bb_lit.cpp 2>/dev/null | grep -v 'bb_match_head\.cpp\|bb_match_retry\.cpp\|bb_match_advance\.cpp')
 
 # strip_comments FILE — code only (so a comment naming a token does not count as a live reference).
 strip_comments() { sed -E 's://.*$::' "$1" | perl -0777 -pe 's{/\*.*?\*/}{}gs'; }

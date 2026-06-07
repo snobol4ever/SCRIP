@@ -392,30 +392,30 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
     switch (nd->t) {
     case IR_PAT_LIT:         bb_lit();               return 0;
-    case IR_PAT_ANY:         bb_pat_any();           return 0;
-    case IR_PAT_NOTANY:      bb_pat_notany();        return 0;
-    case IR_PAT_SPAN:        bb_pat_span();            return 0;
-    case IR_PAT_BREAK:       bb_pat_break();           return 0;
-    case IR_PAT_BREAKX:      bb_pat_breakx();          return 0;
-    case IR_PAT_ARB:         bb_pat_arb();             return 0;
-    case IR_PAT_CAT:         bb_pat_cat();             return 0;
-    case IR_PAT_ALT:         bb_pat_alt();             return 0;
-    case IR_PAT_LEN:         bb_pat_len();           return 0;
-    case IR_PAT_POS:         bb_pat_pos();             return 0;
-    case IR_PAT_TAB:         bb_pat_tab();             return 0;
-    case IR_PAT_RTAB:        bb_pat_rtab();            return 0;
-    case IR_PAT_SPAN_VAR:    bb_pat_span_var();        return 0;
-    case IR_PAT_ATP:         bb_pat_atp();             return 0;
-    case IR_PAT_REM:         bb_pat_rem();           return 0;
-    case IR_PAT_FENCE:       bb_pat_fence();           return 0;
-    case IR_PAT_ABORT:       bb_pat_abort();           return 0;
-    case IR_PAT_ARBNO:       bb_pat_arbno(nd);             return 0;
+    case IR_PAT_ANY:         bb_match_any();           return 0;
+    case IR_PAT_NOTANY:      bb_match_notany();        return 0;
+    case IR_PAT_SPAN:        bb_match_span();            return 0;
+    case IR_PAT_BREAK:       bb_match_break();           return 0;
+    case IR_PAT_BREAKX:      bb_match_breakx();          return 0;
+    case IR_PAT_ARB:         bb_match_arb();             return 0;
+    case IR_PAT_CAT:         bb_match_cat();             return 0;
+    case IR_PAT_ALT:         bb_match_alt();             return 0;
+    case IR_PAT_LEN:         bb_match_len();           return 0;
+    case IR_PAT_POS:         bb_match_pos();             return 0;
+    case IR_PAT_TAB:         bb_match_tab();             return 0;
+    case IR_PAT_RTAB:        bb_match_rtab();            return 0;
+    case IR_PAT_SPAN_VAR:    bb_match_span_var();        return 0;
+    case IR_PAT_ATP:         bb_match_atp();             return 0;
+    case IR_PAT_REM:         bb_match_rem();           return 0;
+    case IR_PAT_FENCE:       bb_match_fence();           return 0;
+    case IR_PAT_ABORT:       bb_match_abort();           return 0;
+    case IR_PAT_ARBNO:       bb_match_arbno(nd);             return 0;
     case IR_SUBJECT:         bb_subject();             return 0;
     case IR_PAT_MATCH_HEAD:    bb_match_head();        return 0;
     case IR_PAT_MATCH_RETRY:   bb_match_retry();       return 0;
     case IR_PAT_MATCH_ADVANCE: bb_match_advance();     return 0;
     case IR_PAT_ASSIGN_COND:
-    case IR_PAT_ASSIGN_IMM:  bb_pat_capture();         return 0;
+    case IR_PAT_ASSIGN_IMM:  bb_match_capture();         return 0;
     case IR_ARITH:           bb_prepare(nd); bb_arith();           return 0;
     case IR_LIT_I:
     case IR_LIT_S:
@@ -487,7 +487,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SCAN_BAL:             { extern void bb_scan_bal(IR_t *); bb_scan_bal(nd); } return 0;
     case IR_GATHER:               { extern void bb_gather(IR_t *); bb_gather(nd); } return 0;
     case IR_SIZE:                 bb_unop();        return 0;
-    case IR_PAT_DEFER:            bb_pat_defer();    return 0;
+    case IR_PAT_DEFER:            bb_match_defer();    return 0;
     case IR_CUT:             bb_cut();                                 return 0;
     case IR_DISJ:          bb_disj();                                 return 0;
     case IR_GCONJ:          bb_conj();                                 return 0;

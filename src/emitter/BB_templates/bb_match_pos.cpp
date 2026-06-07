@@ -9,7 +9,7 @@ extern "C" {
 static inline long posN()    { return (long)(int)_.op_ival; }
 static inline int  is_rpos() { return _.op_sval && _.op_sval[0] == 'r'; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_pos_str() {
+static std::string bb_match_pos_str() {
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                              + x86("comment", is_rpos() ? "BOX RPOS()  [Σ=r13 δ=r14 Δ=r15, x86() self-encoding]"
@@ -26,4 +26,4 @@ static std::string bb_pat_pos_str() {
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_pos(void) { bb_emit_x86(bb_pat_pos_str()); }
+extern "C" void bb_match_pos(void) { bb_emit_x86(bb_match_pos_str()); }

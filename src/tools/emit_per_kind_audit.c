@@ -18,9 +18,9 @@ static IR_t  g_audit_child_lit_s;
 static IR_t  g_audit_child_var;
 static IR_t *g_audit_child2[2];
 static IR_t *g_audit_child3[3];
-static bb_pat_kids_state_t g_audit_kids1;
-static bb_pat_kids_state_t g_audit_kids2;
-static bb_pat_kids_state_t g_audit_kids3;
+static bb_match_kids_state_t g_audit_kids1;
+static bb_match_kids_state_t g_audit_kids2;
+static bb_match_kids_state_t g_audit_kids3;
 typedef struct { IR_e kind; const char *name; } kind_entry_t;
 static const kind_entry_t g_kinds[] = {
     { IR_LIT_I,           "IR_LIT_I" },

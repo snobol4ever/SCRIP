@@ -14,7 +14,7 @@ static inline const char * atp_label()   { return emit_intern_str(atp_varname())
 static inline uint64_t     atp_var_addr(){ return (uint64_t)(uintptr_t)(const void *)atp_varname(); }
 static inline uint64_t     atp_fn_ptr()  { void (*fp)(const char *, int) = rt_at_cursor; return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_atp_str() {
+static std::string bb_match_atp_str() {
     if (PLATFORM_X86) {
         if (!atp_varname()[0]) return std::string();
         return IF(MEDIUM_TEXT,
@@ -32,4 +32,4 @@ static std::string bb_pat_atp_str() {
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_atp(void) { bb_emit_x86(bb_pat_atp_str()); }
+extern "C" void bb_match_atp(void) { bb_emit_x86(bb_match_atp_str()); }

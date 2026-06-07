@@ -93,7 +93,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_globals.c \
     $(SRC)/emitter/emit_io.c \
-    $(SRC)/emitter/BB_templates/bb_pat_defer.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_defer.cpp \
     $(SRC)/emitter/BB_templates/bb_lit.cpp \
     $(SRC)/emitter/BB_templates/bb_unify.cpp \
     $(SRC)/emitter/BB_templates/bb_arith.cpp \
@@ -157,20 +157,20 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_binop_gvar_relop.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_gvar_arith_slot.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_any.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_notany.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_span.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_break.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_breakx.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_rtab.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_span_var.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_any.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_notany.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_span.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_break.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_breakx.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_rtab.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_span_var.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_i.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_var.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_call.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_descr.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_pos.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_pos.cpp \
     $(SRC)/emitter/BB_templates/bb_query_frame.cpp \
     $(SRC)/emitter/BB_templates/bb_det_write.cpp \
     $(SRC)/emitter/BB_templates/bb_det_nl.cpp \
@@ -182,21 +182,21 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_callee_frame.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_cut.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_ite.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_tab.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_atp.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_len.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_rem.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_arb.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_arbno.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_abort.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_fence.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_alt.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_cat.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_tab.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_atp.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_len.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_rem.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_arb.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_arbno.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_abort.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_fence.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_alt.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_cat.cpp \
     $(SRC)/emitter/BB_templates/bb_subject.cpp \
     $(SRC)/emitter/BB_templates/bb_match_head.cpp \
     $(SRC)/emitter/BB_templates/bb_match_retry.cpp \
     $(SRC)/emitter/BB_templates/bb_match_advance.cpp \
-    $(SRC)/emitter/BB_templates/bb_pat_capture.cpp \
+    $(SRC)/emitter/BB_templates/bb_match_capture.cpp \
     $(SRC)/emitter/BB_templates/bb_gather.cpp \
     $(SRC)/emitter/BB_templates/bb_assign_local.cpp \
     $(SRC)/emitter/XA_templates/xa_stubs.cpp \
@@ -329,7 +329,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_defer.cpp   -o $(OBJ)/bb_pat_defer.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_defer.cpp   -o $(OBJ)/bb_match_defer.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_lit.cpp        -o $(OBJ)/bb_lit.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_unify.cpp     -o $(OBJ)/bb_unify.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_arith.cpp     -o $(OBJ)/bb_arith.o
@@ -393,20 +393,20 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_relop.cpp  -o $(OBJ)/bb_binop_gvar_relop.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_arith_slot.cpp -o $(OBJ)/bb_binop_gvar_arith_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_any.cpp          -o $(OBJ)/bb_pat_any.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_notany.cpp  -o $(OBJ)/bb_pat_notany.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_span.cpp    -o $(OBJ)/bb_pat_span.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_break.cpp   -o $(OBJ)/bb_pat_break.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_breakx.cpp  -o $(OBJ)/bb_pat_breakx.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_rtab.cpp    -o $(OBJ)/bb_pat_rtab.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_span_var.cpp -o $(OBJ)/bb_pat_span_var.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_any.cpp          -o $(OBJ)/bb_match_any.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_notany.cpp  -o $(OBJ)/bb_match_notany.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_span.cpp    -o $(OBJ)/bb_match_span.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_break.cpp   -o $(OBJ)/bb_match_break.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_breakx.cpp  -o $(OBJ)/bb_match_breakx.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_rtab.cpp    -o $(OBJ)/bb_match_rtab.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_span_var.cpp -o $(OBJ)/bb_match_span_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp -o $(OBJ)/bb_gvar_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_i.cpp -o $(OBJ)/bb_gvar_assign_lit_i.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_var.cpp    -o $(OBJ)/bb_gvar_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp -o $(OBJ)/bb_gvar_assign_concat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_call.cpp   -o $(OBJ)/bb_gvar_assign_call.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_descr.cpp  -o $(OBJ)/bb_gvar_assign_descr.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_pos.cpp          -o $(OBJ)/bb_pat_pos.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_pos.cpp          -o $(OBJ)/bb_match_pos.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_query_frame.cpp     -o $(OBJ)/bb_query_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_write.cpp        -o $(OBJ)/bb_det_write.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_nl.cpp           -o $(OBJ)/bb_det_nl.o
@@ -418,22 +418,22 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_callee_frame.cpp     -o $(OBJ)/bb_callee_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_cut.cpp         -o $(OBJ)/bb_cell_cut.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_ite.cpp         -o $(OBJ)/bb_cell_ite.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_tab.cpp          -o $(OBJ)/bb_pat_tab.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_atp.cpp          -o $(OBJ)/bb_pat_atp.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_len.cpp          -o $(OBJ)/bb_pat_len.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_rem.cpp          -o $(OBJ)/bb_pat_rem.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_arb.cpp          -o $(OBJ)/bb_pat_arb.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_arbno.cpp             -o $(OBJ)/bb_pat_arbno.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_abort.cpp     -o $(OBJ)/bb_pat_abort.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_tab.cpp          -o $(OBJ)/bb_match_tab.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_atp.cpp          -o $(OBJ)/bb_match_atp.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_len.cpp          -o $(OBJ)/bb_match_len.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_rem.cpp          -o $(OBJ)/bb_match_rem.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_arb.cpp          -o $(OBJ)/bb_match_arb.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_arbno.cpp             -o $(OBJ)/bb_match_arbno.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_abort.cpp     -o $(OBJ)/bb_match_abort.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_str.cpp                      -o $(OBJ)/emit_str.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_fence.cpp     -o $(OBJ)/bb_pat_fence.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_alt.cpp    -o $(OBJ)/bb_pat_alt.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_cat.cpp    -o $(OBJ)/bb_pat_cat.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_fence.cpp     -o $(OBJ)/bb_match_fence.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_alt.cpp    -o $(OBJ)/bb_match_alt.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_cat.cpp    -o $(OBJ)/bb_match_cat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_subject.cpp   -o $(OBJ)/bb_subject.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_head.cpp    -o $(OBJ)/bb_match_head.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_retry.cpp   -o $(OBJ)/bb_match_retry.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_advance.cpp -o $(OBJ)/bb_match_advance.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pat_capture.cpp -o $(OBJ)/bb_pat_capture.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o

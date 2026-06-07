@@ -2,25 +2,29 @@
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
+#include "bb_templates.h"
 #include "emit.h"
+int bb_slot_claim(int bytes);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline long lenN() { return (long)(int)_.op_ival; }
+static inline int sdoff() { return _.x86_scratch_off; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_len_str() {
-    if (PLATFORM_X86)
-        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                             + x86("comment", "BOX LEN(" + std::to_string(lenN()) + ")  [Σ=r13 δ=r14 Δ=r15, x86() self-encoding]"))
-             + x86("mov", "eax", "r14d")
-             + x86("add", "eax", lenN())
-             + x86("cmp", "eax", "r15d")
-             + x86("jg",  "ω")
-             + x86("add", "r14d", lenN())
+static std::string bb_match_fence_str() {
+    if (PLATFORM_X86) {
+        return IF(MEDIUM_TEXT,
+                   x86("label", _.lbl_α)
+                 + x86("comment", "BOX FENCE()  [REG-3 δ=r14, ζ-frame saved_δ, x86() self-encoding]"))
+             + x86("mov", FR(sdoff()), "r14d")
              + x86("jmp", "γ")
              + x86("def", "β")
+             + x86("mov", "r14d", FR(sdoff()))
              + x86("jmp", "ω");
+    }
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_len(void) { bb_emit_x86(bb_pat_len_str()); }
+extern "C" void bb_match_fence(void) {
+    _.x86_scratch_off = bb_slot_claim(4);
+    bb_emit_x86(bb_match_fence_str());
+}
