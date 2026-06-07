@@ -7,19 +7,8 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_ite_str() {
-    if (!PLATFORM_X86) return std::string();
-    std::string r;
-    r += IF(MEDIUM_TEXT, x86("comment", "END RESOLVE_ITE (β-tombstone via pair table)"));
-    for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
-        if (MEDIUM_BINARY) {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; }
-            if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
-        } else {
-            if (g_emit.xa_bb_emit_pair_define[i]) r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name);
-            if (g_emit.xa_bb_emit_pair_jmp[i])    r += x86("ins1", emit_fmt("jmp %s", g_emit.xa_bb_emit_pair_jmp[i]->name));
-        }
-    }
-    return r;
+    if (PLATFORM_X86) { return x86("comment", "END RESOLVE_ITE (β-tombstone via pair table)") + x86_pair_loop(); }
+    return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_ite(void) { bb_emit_x86(bb_ite_str()); }
