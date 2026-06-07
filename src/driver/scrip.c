@@ -297,7 +297,7 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
     case IR_BUILTIN: {
         const char *fn = IR_LIT(g).sval ? IR_LIT(g).sval : "";
         if (!strcmp(fn, "is")) {
-            const IR_t *lhs = g->α, *rhs = g->β;
+            const IR_t *lhs = ir_pair_arg(g,0), *rhs = ir_pair_arg(g,1);
             if (!lhs || lhs->t != IR_LOGICVAR || !rhs) return 0;
             if (rhs->t == IR_ATOM)
                 return IR_LIT(rhs).sval && (!strcmp(IR_LIT(rhs).sval, "pi") || !strcmp(IR_LIT(rhs).sval, "e"));
@@ -317,9 +317,9 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
             if (r0 && !r1) return pl_flat_arith_leaf_simple(r0);
             return 0;
         }
-        if (!strcmp(fn, "succ") && IR_LIT(g).ival == 2 && g->α && g->β) {
-            int a0ok = (g->α->t == IR_LOGICVAR || g->α->t == IR_LIT_I);
-            int a1ok = (g->β->t == IR_LOGICVAR || g->β->t == IR_LIT_I);
+        if (!strcmp(fn, "succ") && IR_LIT(g).ival == 2 && ir_pair_arg(g,0) && ir_pair_arg(g,1)) {
+            int a0ok = (ir_pair_arg(g,0)->t == IR_LOGICVAR || ir_pair_arg(g,0)->t == IR_LIT_I);
+            int a1ok = (ir_pair_arg(g,1)->t == IR_LOGICVAR || ir_pair_arg(g,1)->t == IR_LIT_I);
             return a0ok && a1ok;
         }
         if (!strcmp(fn, "plus") && IR_LIT(g).ival == 3 && ir_call_arg(g,0) && ir_call_arg(g,1) && ir_call_arg(g,2)) {
@@ -507,20 +507,20 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         const IR_t *wa0 = ir_call_arg(gg,0);
         return wa0->t == IR_ATOM || wa0->t == IR_LIT_I || wa0->t == IR_LIT_F || wa0->t == IR_LOGICVAR;
     }
-    if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && gg->α && gg->β) {
-        if (gg->α->t != IR_LOGICVAR) return 0;
-        IR_t *rhs = gg->β;
+    if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
+        if (ir_pair_arg(gg,0)->t != IR_LOGICVAR) return 0;
+        IR_t *rhs = ir_pair_arg(gg,1);
         IR_t *q0 = (rhs->n_operands > 0) ? rhs->operands[0] : NULL, *q1 = (rhs->n_operands > 1) ? rhs->operands[1] : NULL;
         int rhs_const = (rhs->t == IR_LIT_I) || ((rhs->t == IR_ARITH) && pl_gz_arith_const(rhs));
         int rhs_varop = (rhs->t == IR_LOGICVAR) || (rhs->t == IR_ARITH && IR_LIT(rhs).sval && q0 && q1 && q0->t == IR_LOGICVAR && q1->t == IR_LIT_I);
         int rhs_bivar = (rhs->t == IR_ARITH && IR_LIT(rhs).sval && q0 && q1 && q0->t == IR_LOGICVAR && q1->t == IR_LOGICVAR);
         return rhs_const || rhs_varop || rhs_bivar;
     }
-    if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && gg->α && gg->β) {
+    if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         const char *fn = IR_LIT(gg).sval;
         int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
         if (!is_cmp) return 0;
-        return (gg->α->t == IR_LIT_I || gg->α->t == IR_LOGICVAR) && (gg->β->t == IR_LIT_I || gg->β->t == IR_LOGICVAR);
+        return (ir_pair_arg(gg,0)->t == IR_LIT_I || ir_pair_arg(gg,0)->t == IR_LOGICVAR) && (ir_pair_arg(gg,1)->t == IR_LIT_I || ir_pair_arg(gg,1)->t == IR_LOGICVAR);
     }
     return 0;
 }
@@ -677,21 +677,22 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
             if (!nn->α || !nn->β) return 0;
         } else if (IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "nl")) {
             nn = pl_gz_det_node(IR_DET_NL);
-        } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && gg->α && gg->β) {
+        } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
             nn = pl_gz_det_node(IR_DET_IS);
             if (!nn) return 0;
-            nn->α = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(gg->α).ival, ar, lbase));
-            nn->β = pl_gz_arith_slot_map(gg->β, ar, lbase);
+            nn->α = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(ir_pair_arg(gg,0)).ival, ar, lbase));
+            nn->β = pl_gz_arith_slot_map(ir_pair_arg(gg,1), ar, lbase);
             if (!nn->α || !nn->β) return 0;
-        } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && gg->α && gg->β) {
+        } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
             const char *fn = IR_LIT(gg).sval;
             int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
             if (!is_cmp) return 0;
             nn = pl_gz_det_node(IR_DET_CMP);
             if (!nn) return 0;
             IR_LIT(nn).sval = fn;
-            nn->α = (gg->α->t == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(gg->α).ival, ar, lbase)) : gg->α;
-            nn->β = (gg->β->t == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(gg->β).ival, ar, lbase)) : gg->β;
+            IR_t *pc0 = ir_pair_arg(gg,0), *pc1 = ir_pair_arg(gg,1);
+            nn->α = (pc0->t == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(pc0).ival, ar, lbase)) : pc0;
+            nn->β = (pc1->t == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(pc1).ival, ar, lbase)) : pc1;
             if (!nn->α || !nn->β) return 0;
         } else {
             nn = pl_gz_det_node(IR_DET_WRITE);
@@ -943,8 +944,8 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         else if (wz0->t == IR_LIT_I)          { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = IR_LIT(wz0).ival; } }
         else if (wz0->t == IR_LOGICVAR)       { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = 0; nn->α = wz0; } }
         else return 0;
-    } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "is") == 0 && IR_LIT(gg).ival == 2 && gg->α && gg->β) {
-        IR_t *lhs = gg->α, *rhs = gg->β;
+    } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "is") == 0 && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
+        IR_t *lhs = ir_pair_arg(gg,0), *rhs = ir_pair_arg(gg,1);
         if (lhs->t != IR_LOGICVAR) return 0;
         int rhs_is_const = (rhs->t == IR_LIT_I) || ((rhs->t == IR_ARITH) && pl_gz_arith_const(rhs));
         IR_t *w0 = (rhs->n_operands > 0) ? rhs->operands[0] : NULL, *w1 = (rhs->n_operands > 1) ? rhs->operands[1] : NULL;
@@ -954,11 +955,11 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (!rhs_is_const && !rhs_is_var_op) return 0;
         nn = pl_gz_det_node(IR_DET_IS);
         if (nn) { nn->α = lhs; nn->β = rhs; }
-    } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && gg->α && gg->β) {
+    } else if (gg->t == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         const char *fn = IR_LIT(gg).sval;
         int is_arith_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
         if (!is_arith_cmp) return 0;
-        IR_t *la = gg->α, *ra = gg->β;
+        IR_t *la = ir_pair_arg(gg,0), *ra = ir_pair_arg(gg,1);
         if (la->t != IR_LIT_I && la->t != IR_LOGICVAR) return 0;
         if (ra->t != IR_LIT_I && ra->t != IR_LOGICVAR) return 0;
         nn = pl_gz_det_node(IR_DET_CMP);
@@ -1118,7 +1119,7 @@ static int pl_ite_then_branch_trivial(const IR_t *then_entry) {
     return 1;
 }
 static int pl_rich_is_lint_simple(const IR_t *g) {
-    const IR_t *lhs = g->α, *rhs = g->β;
+    const IR_t *lhs = ir_pair_arg(g,0), *rhs = ir_pair_arg(g,1);
     if (!lhs || lhs->t != IR_LIT_I || !rhs || rhs->t != IR_ARITH) return 0;
     const char *rop = IR_LIT(rhs).sval ? IR_LIT(rhs).sval : "+";
     if (pl_arith_op_floaty(rop)) return 0;
@@ -1224,7 +1225,7 @@ static int pl_findall_conj_member_admissible(const IR_t *g) {
     if (g->t == IR_BUILTIN && IR_LIT(g).sval) {
         static const char *mset[] = { "is", "=:=", "=\\=", "<", ">", "=<", ">=", NULL };
         for (int k = 0; mset[k]; k++)
-            if (!strcmp(IR_LIT(g).sval, mset[k])) return g->α && g->β && pl_findall_term_buildable(g->α) && pl_findall_term_buildable(g->β);
+            if (!strcmp(IR_LIT(g).sval, mset[k])) return ir_pair_arg(g,0) && ir_pair_arg(g,1) && pl_findall_term_buildable(ir_pair_arg(g,0)) && pl_findall_term_buildable(ir_pair_arg(g,1));
     }
     return 0;
 }
@@ -1262,14 +1263,14 @@ static int pl_rich_node_emittable(const IR_t *nd) {
         for (int k = 0; ok[k]; k++) if (!strcmp(fn, ok[k])) return 1;
         static const char *acmp[] = { ">", "<", ">=", "=<", "<=", "=:=", "=\\=", NULL };
         for (int k = 0; acmp[k]; k++)
-            if (!strcmp(fn, acmp[k])) return pl_flat_arith_leaf_simple(nd->α) && pl_flat_arith_leaf_simple(nd->β);
-        if (nd->α && nd->β &&
+            if (!strcmp(fn, acmp[k])) return pl_flat_arith_leaf_simple(ir_pair_arg(nd,0)) && pl_flat_arith_leaf_simple(ir_pair_arg(nd,1));
+        if (ir_pair_arg(nd,0) && ir_pair_arg(nd,1) &&
             (!strcmp(fn,"==")||!strcmp(fn,"\\==")||!strcmp(fn,"@<")||!strcmp(fn,"@>")||!strcmp(fn,"@=<")||!strcmp(fn,"@>=")))
             return 1;
         static const char *ttest[] = { "var","nonvar","atom","atomic","number","integer",
                                         "float","compound","callable","is_list","ground", NULL };
         for (int k = 0; ttest[k]; k++) if (!strcmp(fn, ttest[k])) return ir_call_arg(nd,0) != NULL;
-        if (!strcmp(fn,"succ")) return IR_LIT(nd).ival==2 && nd->α && nd->β;
+        if (!strcmp(fn,"succ")) return IR_LIT(nd).ival==2 && ir_pair_arg(nd,0) && ir_pair_arg(nd,1);
         if (!strcmp(fn,"throw")) return IR_LIT(nd).ival==1 && ir_call_arg(nd,0) && pl_findall_term_buildable(ir_call_arg(nd,0));
         if (!strcmp(fn,"findall")) {
             bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)IR_LIT(nd).ival;

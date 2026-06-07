@@ -262,6 +262,11 @@ static inline IR_t * ir_call_arg(const IR_t * nd, int j) {
     while (a && j-- > 0) a = a->γ;
     return a;
 }
+static inline IR_t * ir_pair_arg(const IR_t * nd, int j) {
+    if (!nd || j < 0 || j > 1) return NULL;
+    if (nd->n_operands > 0) return (j < nd->n_operands) ? nd->operands[j] : NULL;
+    return j ? nd->β : nd->α;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline void ag_ring_push(IR_graph_t * cfg, DESCR_t v) {
     if (!cfg) return;

@@ -61,9 +61,9 @@ static std::string bterm_arith(const IR_t *nd) { int arity = (int)IR_LIT(nd).iva
 }
 static std::string bterm_mset(const IR_t *nd) {
     return x86("ins2", "sub rsp,", "16")
-         + emit_build_compound_term(nd->α)
+         + emit_build_compound_term(ir_pair_arg(nd,0))
          + x86("ins2", "mov", bslot(0))
-         + emit_build_compound_term(nd->β)
+         + emit_build_compound_term(ir_pair_arg(nd,1))
          + x86("ins2", "mov", bslot(8))
          + x86("ins2", "lea rdi,", briplbl(IR_LIT(nd).sval))
          + x86("ins2", "mov esi,", "2")
@@ -107,7 +107,7 @@ std::string emit_build_compound_term(const IR_t *nd) {
         bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)IR_LIT(nd).ival;
         if (zs && zs->goals && zs->ngoals >= 1) return emit_build_conj_chain(zs->goals, 0, zs->ngoals);
     }
-    if (nd->t == IR_BUILTIN && IR_LIT(nd).sval && bmset(IR_LIT(nd).sval) && nd->α && nd->β) return bterm_mset(nd);
+    if (nd->t == IR_BUILTIN && IR_LIT(nd).sval && bmset(IR_LIT(nd).sval) && ir_pair_arg(nd,0) && ir_pair_arg(nd,1)) return bterm_mset(nd);
     return x86("comment", std::string("build_compound_term: unhandled kind ") + std::to_string((int)nd->t));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
