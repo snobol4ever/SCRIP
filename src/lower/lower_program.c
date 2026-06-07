@@ -2,6 +2,7 @@
 /*====================================================================================================================*/
 #define BB_DEFINE_NAMES
 #include "lower.h"
+#include "lower_internal.h"
 #include "IR_interp_state.h"
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
@@ -23,26 +24,6 @@ extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask
 extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
-static bb_label_entry_t g_bb_labels[1024];
-static int              g_bb_label_n = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void bb_label_registry_reset(void) { g_bb_label_n = 0; }
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void bb_label_registry_add(const char * name, IR_t * landing) {
-    if (!name || !landing || g_bb_label_n >= 1024) return;
-    g_bb_labels[g_bb_label_n].name = name; g_bb_labels[g_bb_label_n].landing = landing; g_bb_label_n++;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * bb_label_landing(const char * name) {
-    if (!name) return NULL;
-    for (int i = 0; i < g_bb_label_n; i++)
-        if (g_bb_labels[i].name && !strcmp(g_bb_labels[i].name, name)) return g_bb_labels[i].landing;
-    if (!strcmp(name, "END")) return NULL;
-    return NULL;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * make_computed_goto(IR_graph_t * g, const tree_t * gexpr, IR_t * fall) {
     if (!g || !gexpr) return NULL;
     IR_graph_t * sub = IR_alloc(64, IR_LANG_SNO);
