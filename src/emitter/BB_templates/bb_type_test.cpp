@@ -3,12 +3,12 @@
 std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-            if (_.op_ival == 1 && pBB->α &&
+            if (_.op_ival == 1 && ir_call_arg(pBB,0) &&
                 (strcmp(fn,"var")==0      || strcmp(fn,"nonvar")==0   || strcmp(fn,"atom")==0
               || strcmp(fn,"atomic")==0   || strcmp(fn,"number")==0   || strcmp(fn,"integer")==0
               || strcmp(fn,"float")==0    || strcmp(fn,"compound")==0 || strcmp(fn,"callable")==0
               || strcmp(fn,"is_list")==0  || strcmp(fn,"ground")==0)) {
-                IR_t *a0 = pBB->α;
+                IR_t *a0 = ir_call_arg(pBB,0);
                 if (a0->t == IR_STRUCT || a0->t == IR_ARITH) {
                     /* PLR-K-5 (Opus 4.8, 2026-05-29): compound-literal arg, e.g. is_list([1,2,3]) /   */
                     /* compound(f(a)) / ground(g(X,Y)). Build the Term* via emit_build_compound_term_bin */
@@ -48,13 +48,13 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
     std::string succ_back = x86("ins2", "jmp", _.lbl_γ)
                           + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
     (void)succ_back;
-        if (_.op_ival == 1 && pBB->α &&
+        if (_.op_ival == 1 && ir_call_arg(pBB,0) &&
             (strcmp(fn,"var")==0      || strcmp(fn,"nonvar")==0   || strcmp(fn,"atom")==0
           || strcmp(fn,"atomic")==0   || strcmp(fn,"number")==0   || strcmp(fn,"integer")==0
           || strcmp(fn,"float")==0    || strcmp(fn,"compound")==0 || strcmp(fn,"callable")==0
           || strcmp(fn,"is_list")==0  || strcmp(fn,"ground")==0)) {
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
-            IR_t *a0 = pBB->α;
+            IR_t *a0 = ir_call_arg(pBB,0);
             if (a0->t == IR_STRUCT) {
                 return hdr
                      + x86("ins2", "sub", "rsp, 16")

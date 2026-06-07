@@ -12,7 +12,6 @@ int bb_op_floaty(const char *fn) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int bfrm(int n) { return (n * 8 + 15) & ~15; }
-static const IR_t * bnth(const IR_t *c, int i) { while (i-- > 0 && c) c = c->γ; return c; }
 static std::string briplbl(const char *s) { char b[64]; b[0] = 0; if (s) strtab_label(b, sizeof b, s); return std::string("[rip + ") + b + "]"; }
 static std::string bslot(int i) { return std::string("qword ptr [rsp + ") + std::to_string(i) + "], rax"; }
 static int bmset(const char *s) { static const char *m[] = { "is", "=:=", "=\\=", "<", ">", "=<", ">=", "=", "\\=", NULL }; for (int k = 0; m[k]; k++) if (!strcmp(s, m[k])) return 1; return 0; }
@@ -90,9 +89,9 @@ std::string emit_build_compound_term(const IR_t *nd) {
              + x86("ins2", "call", "rt_node_to_term@PLT");
     }
     if (nd->t == IR_STRUCT) {
-        if ((int)IR_LIT(nd).ival <= 0 || !nd->α) return bterm_atomform((int)IR_ATOM, IR_LIT(nd).sval);
+        if ((int)IR_LIT(nd).ival <= 0 || !ir_call_arg(nd,0)) return bterm_atomform((int)IR_ATOM, IR_LIT(nd).sval);
         return x86("ins2", "sub rsp,", std::to_string(bfrm((int)IR_LIT(nd).ival)))
-             + FOR(0, (int)IR_LIT(nd).ival, [&](int i) { return IF(bnth(nd->α, i) != NULL, emit_build_compound_term(bnth(nd->α, i)) + x86("ins2", "mov", bslot(i * 8))); })
+             + FOR(0, (int)IR_LIT(nd).ival, [&](int i) { return IF(ir_call_arg(nd, i) != NULL, emit_build_compound_term(ir_call_arg(nd, i)) + x86("ins2", "mov", bslot(i * 8))); })
              + IF(IR_LIT(nd).sval != NULL, x86("ins2", "lea rdi,", briplbl(IR_LIT(nd).sval))) + IF(IR_LIT(nd).sval == NULL, x86("ins2", "xor", "edi, edi"))
              + x86("ins2", "mov esi,", std::to_string((int)IR_LIT(nd).ival))
              + x86("ins2", "mov", "rdx, rsp")

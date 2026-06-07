@@ -99,14 +99,14 @@ static std::string agg_txt_nbget(const std::string &hdr, IR_t *a, IR_t *b) { int
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_aggregate_nb_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     if (MEDIUM_BINARY) {
-        return IF(!strcmp(fn, "aggregate_all") && pBB->α && pBB->α->γ && pBB->α->γ->γ && _.op_ival == 3, agg_bin_all(pBB->α, pBB->α->γ, pBB->α->γ->γ))
-             + IF(!strcmp(fn, "nb_setval") && pBB->α && pBB->α->γ && _.op_ival == 2, agg_bin_nbset(pBB->α, pBB->α->γ))
-             + IF(!strcmp(fn, "nb_getval") && pBB->α && pBB->α->γ && _.op_ival == 2, agg_bin_nbget(pBB->α, pBB->α->γ));
+        return IF(!strcmp(fn, "aggregate_all") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2) && _.op_ival == 3, agg_bin_all(ir_call_arg(pBB,0), ir_call_arg(pBB,1), ir_call_arg(pBB,2)))
+             + IF(!strcmp(fn, "nb_setval") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && _.op_ival == 2, agg_bin_nbset(ir_call_arg(pBB,0), ir_call_arg(pBB,1)))
+             + IF(!strcmp(fn, "nb_getval") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && _.op_ival == 2, agg_bin_nbget(ir_call_arg(pBB,0), ir_call_arg(pBB,1)));
     }
     if (MEDIUM_TEXT) {
-        return IF(!strcmp(fn, "aggregate_all") && pBB->α && pBB->α->γ && pBB->α->γ->γ && _.op_ival == 3, agg_txt_all(hdr, pBB->α, pBB->α->γ, pBB->α->γ->γ))
-             + IF(!strcmp(fn, "nb_setval") && pBB->α && pBB->α->γ && _.op_ival == 2, agg_txt_nbset(hdr, pBB->α, pBB->α->γ))
-             + IF(!strcmp(fn, "nb_getval") && pBB->α && pBB->α->γ && _.op_ival == 2, agg_txt_nbget(hdr, pBB->α, pBB->α->γ));
+        return IF(!strcmp(fn, "aggregate_all") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2) && _.op_ival == 3, agg_txt_all(hdr, ir_call_arg(pBB,0), ir_call_arg(pBB,1), ir_call_arg(pBB,2)))
+             + IF(!strcmp(fn, "nb_setval") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && _.op_ival == 2, agg_txt_nbset(hdr, ir_call_arg(pBB,0), ir_call_arg(pBB,1)))
+             + IF(!strcmp(fn, "nb_getval") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && _.op_ival == 2, agg_txt_nbget(hdr, ir_call_arg(pBB,0), ir_call_arg(pBB,1)));
     }
     return std::string();
 }

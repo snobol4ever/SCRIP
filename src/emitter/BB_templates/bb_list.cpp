@@ -107,22 +107,22 @@ static std::string bls_txt_sort(IR_t *a0, IR_t *a1, int do_msort, const std::str
 std::string bb_list_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-        if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0) && pBB->α && (_.op_ival == 2 || _.op_ival == 3)) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1 ? a1->γ : NULL;
+        if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0) && ir_call_arg(pBB,0) && (_.op_ival == 2 || _.op_ival == 3)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             return x86_lit_bytes(bls_bin_alc(a0, (_.op_ival == 3) ? a1 : NULL, (_.op_ival == 3) ? a2 : a1, (int)_.op_ival)) + bls_bin_ports();
         }
-        if ((strcmp(fn, "sort") == 0 || strcmp(fn, "msort") == 0) && pBB->α && pBB->α->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ;
+        if ((strcmp(fn, "sort") == 0 || strcmp(fn, "msort") == 0) && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
             return x86_lit_bytes(IF(a0->t == IR_STRUCT, bls_bin_sort_term(a0, a1, (strcmp(fn, "msort") == 0) ? 1 : 0)) + IF(a0->t != IR_STRUCT, bls_bin_sort_scalar(a0, a1, (strcmp(fn, "msort") == 0) ? 1 : 0))) + bls_bin_ports();
         }
     }
     if (MEDIUM_TEXT) {
-        if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0) && pBB->α && (_.op_ival == 2 || _.op_ival == 3)) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1 ? a1->γ : NULL;
+        if ((strcmp(fn, "atomic_list_concat") == 0 || strcmp(fn, "concat_atom") == 0) && ir_call_arg(pBB,0) && (_.op_ival == 2 || _.op_ival == 3)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             return bls_txt_alc(a0, (_.op_ival == 3) ? a1 : NULL, (_.op_ival == 3) ? a2 : a1, (int)_.op_ival, hdr);
         }
-        if ((strcmp(fn, "sort") == 0 || strcmp(fn, "msort") == 0) && pBB->α && pBB->α->γ) {
-            IR_t *a0 = pBB->α, *a1 = a0->γ;
+        if ((strcmp(fn, "sort") == 0 || strcmp(fn, "msort") == 0) && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
+            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
             return bls_txt_sort(a0, a1, (strcmp(fn, "msort") == 0) ? 1 : 0, hdr);
         }
     }

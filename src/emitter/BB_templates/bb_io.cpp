@@ -66,16 +66,16 @@ std::string bb_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             ) + x86("def", "β") + x86("jmp", "γ");
         if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0)
             return x86_lit_bytes(
-                (_.op_ival >= 1 && pBB->α ? bio_bin_write_arg(pBB->α) : std::string())
+                (_.op_ival >= 1 && ir_call_arg(pBB,0) ? bio_bin_write_arg(ir_call_arg(pBB,0)) : std::string())
                 + (strcmp(fn, "writeln") == 0
                    ? bytes(1, "\xBF") + u32le(10) + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)putchar) + bytes(2, "\xFF\xD0")
                    : std::string())
             ) + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "γ");
-        if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && pBB->α) {
+        if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && ir_call_arg(pBB,0)) {
             void *writer = (strcmp(fn, "writeq") == 0) ? (void*)rt_writeq_term_ptr : (void*)rt_write_canonical_term_ptr;
             return x86_lit_bytes(
                 bytes(4, "\x48\x83\xEC\x08")
-                + emit_term_from_node_bin(pBB->α)
+                + emit_term_from_node_bin(ir_call_arg(pBB,0))
                 + bytes(3, "\x48\x89\xC7")
                 + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)writer) + bytes(2, "\xFF\xD0")
                 + bytes(4, "\x48\x83\xC4\x08")
@@ -90,13 +90,13 @@ std::string bb_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_γ);
         if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0)
             return hdr
-                 + bio_write_body(_.bb_ls, _.op_ival, pBB->α)
+                 + bio_write_body(_.bb_ls, _.op_ival, ir_call_arg(pBB,0))
                  + ((strcmp(fn, "writeln") == 0) ? x86("ins2", "mov", "edi, 10") + x86("ins2", "call", "putchar@PLT") : std::string())
                  + bio_succ(_.lbl_γ, _.lbl_β);
-        if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && pBB->α)
+        if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && ir_call_arg(pBB,0))
             return hdr
                  + x86("ins2", "sub", "rsp, 8")
-                 + emit_build_compound_term(pBB->α)
+                 + emit_build_compound_term(ir_call_arg(pBB,0))
                  + x86("ins2", "mov", "rdi, rax")
                  + x86("ins2", "call", (strcmp(fn, "writeq") == 0) ? "rt_writeq_term_ptr@PLT" : "rt_write_canonical_term_ptr@PLT")
                  + x86("ins2", "add", "rsp, 8")
