@@ -8,6 +8,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int rt_unify_terms(void *l, void *r);
 extern "C" int rt_pl_unify_cell_const(void *cell_term, int kind, long ival, const char *sval);
+extern "C" int rt_pl_unify_cell_float(void *cell_term, double dval);
 extern "C" int rt_pl_unify_struct_gz(void *frame, const void *lnd, const void *rnd);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_cell_unify_str() {
@@ -39,6 +40,17 @@ static std::string bb_cell_unify_str() {
                  + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void *)rt_unify_terms)
                  + tail;
         {
+            int fslot = -1; double fval = 0.0;
+            if (lk == IR_LOGICVAR && rk == IR_LIT_F && rn) { fslot = (int)li; fval = rn->dval; }
+            else if (rk == IR_LOGICVAR && lk == IR_LIT_F && ln) { fslot = (int)ri; fval = ln->dval; }
+            if (fslot >= 0)
+                return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY cell↔float  [PL-GZ: float sealed RO; rt_pl_unify_cell_float(cell,dval)]"))
+                     + x86("mov", "rdi", FRQ(GZ_CELL_OFF(fslot)))
+                     + x86("movsd", "xmm0", F64(fval))
+                     + x86("call", "rt_pl_unify_cell_float", (uint64_t)(uintptr_t)(void *)rt_pl_unify_cell_float)
+                     + tail;
+        }
+        {
             int slot = -1, ck = 0; long ci = 0; const char *cs = (const char *)0;
             if      (lk == IR_LOGICVAR && (rk == IR_ATOM || rk == IR_LIT_I)) { slot = (int)li; ck = rk; ci = ri; cs = rs; }
             else if (rk == IR_LOGICVAR && (lk == IR_ATOM || lk == IR_LIT_I)) { slot = (int)ri; ck = lk; ci = li; cs = ls; }
@@ -53,9 +65,13 @@ static std::string bb_cell_unify_str() {
                      + (cs ? x86_ro_seal_str(0, cs) : std::string());
         }
         {
-            int lkc = (lk == IR_ATOM || lk == IR_LIT_I), rkc = (rk == IR_ATOM || rk == IR_LIT_I);
+            int lkc = (lk == IR_ATOM || lk == IR_LIT_I || lk == IR_LIT_F), rkc = (rk == IR_ATOM || rk == IR_LIT_I || rk == IR_LIT_F);
             if (lkc && rkc) {
-                int eq = (lk == rk) && ((lk == IR_LIT_I) ? (li == ri) : (ls && rs && strcmp(ls, rs) == 0));
+                int eq;
+                if (lk != rk) { eq = 0; }
+                else if (lk == IR_LIT_F) { double ld = ln ? ln->dval : 0.0, rd = rn ? rn->dval : 0.0; eq = (ld == rd); }
+                else if (lk == IR_LIT_I) { eq = (li == ri); }
+                else { eq = (ls && rs && strcmp(ls, rs) == 0); }
                 if (eq)
                     return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY const=const — folded vacuous success at emit time  [PL-GZ-3b fact head-unify]"))
                          + x86("jmp", PORT_GAMMA)
