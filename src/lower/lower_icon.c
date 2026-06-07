@@ -228,44 +228,64 @@ static IR_t * icn_case(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (e->n < 1 || !e->c[0]) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     IR_t * cas = nalloc(cx, IR_CASE);
     if (!cas) return NULL;
-    IR_t * sα = NULL, * sβ = NULL;
     lcx_t bv = icn_bounded(cx);
-    IR_t * sel = lower2(bv, e->c[0], cas, ω_in, &sα, &sβ);
+    IR_t * sα = NULL, * sβ = NULL;
+    IR_t * sel = lower2(bv, e->c[0], NULL, ω_in, &sα, &sβ);
     if (!sel) return NULL;
-    cas->α = sα ? sα : sel;
+    IR_t * sel_entry = sα ? sα : sel;
+    cas->α = sel_entry;
+    sel->γ = cas;
     IR_t * chain = NULL;
-    IR_t * chain_tail = NULL;
-    int narms = e->n - 1;
-    for (int i = 0; i < narms; i++) {
-        const tree_t * arm = e->c[i + 1];
-        if (!arm) continue;
-        int is_default = (arm->t == TT_QLIT && arm->v.sval && !strcmp(arm->v.sval, "default")) || (arm->n == 1 && !arm->c[0]);
-        IR_t * key_nd = NULL;
-        if (!is_default && arm->n >= 1 && arm->c[0]) {
-            IR_t * kα = NULL, * kβ = NULL;
-            key_nd = lower2(bv, arm->c[0], NULL, ω_in, &kα, &kβ);
-            if (!key_nd) continue;
-            key_nd = kα ? kα : key_nd;
+    IR_t * prev_key = NULL;
+    int i = 1;
+    while (i < e->n) {
+        int remaining = e->n - i;
+        if (remaining == 1) {
+            const tree_t * def_t = e->c[i]; i++;
+            if (!def_t) continue;
+            IR_t * dα = NULL, * dβ = NULL;
+            IR_t * def_nd = lower2(bv, def_t, NULL, ω_in, &dα, &dβ);
+            if (!def_nd) continue;
+            def_nd->γ = γ_in;
+            IR_t * def_key = nalloc(cx, IR_LIT_NUL);
+            if (!def_key) continue;
+            def_key->γ = dα ? dα : def_nd;
+            def_key->ω = NULL;
+            if (!chain) chain = def_key;
+            if (prev_key) prev_key->ω = def_key;
+            prev_key = def_key;
         } else {
-            key_nd = nalloc(cx, IR_LIT_NUL);
+            const tree_t * key_t = e->c[i++];
+            const tree_t * val_t = (i < e->n) ? e->c[i++] : NULL;
+            if (!key_t) continue;
+            IR_t * kα = NULL, * kβ = NULL;
+            IR_t * key_nd = lower2(bv, key_t, NULL, ω_in, &kα, &kβ);
             if (!key_nd) continue;
-            key_nd->γ = key_nd;
-            key_nd->ω = ω_in;
+            IR_t * key_entry = kα ? kα : key_nd;
+            IR_t * val_entry = NULL;
+            if (val_t) {
+                IR_t * vα = NULL, * vβ = NULL;
+                IR_t * val_nd = lower2(bv, val_t, NULL, ω_in, &vα, &vβ);
+                if (val_nd) {
+                    val_nd->γ = γ_in;
+                    val_entry = vα ? vα : val_nd;
+                }
+            }
+            key_nd->γ = NULL;
+            key_nd->ω = NULL;
+            IR_t * arm_key = nalloc(cx, IR_LIT_NUL);
+            if (!arm_key) continue;
+            arm_key->γ = key_entry;
+            arm_key->β = val_entry;
+            arm_key->ω = NULL;
+            if (!chain) chain = arm_key;
+            if (prev_key) prev_key->ω = arm_key;
+            prev_key = arm_key;
         }
-        IR_t * val_nd = NULL;
-        const tree_t * val_t = (arm->n >= 2) ? arm->c[1] : (arm->n == 1 ? arm->c[0] : NULL);
-        if (val_t) {
-            IR_t * vα = NULL, * vβ = NULL;
-            val_nd = lower2(cx, val_t, γ_in, ω_in, &vα, &vβ);
-            if (val_nd) val_nd = vα ? vα : val_nd;
-        }
-        if (val_nd) { key_nd->γ = val_nd; } else { key_nd->γ = γ_in; }
-        if (!chain) { chain = key_nd; } else { chain_tail->γ = key_nd; }
-        chain_tail = val_nd ? val_nd : key_nd;
     }
-    if (!cas->α->γ) cas->α->γ = chain ? chain : γ_in;
+    cas->β = chain;
     set_succ_fail(cas, γ_in, ω_in);
-    return ret(cas, α_out, β_out, cas->α, ω_in);
+    return ret(cas, α_out, β_out, sel_entry, ω_in);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_swap(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
@@ -420,7 +440,7 @@ IR_t * lower2_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t *
         return icn_limit(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_CASE:
         return icn_case(cx, e, γ_in, ω_in, α_out, β_out);
-    case TT_REVASSIGN: case TT_REVSWAP:
+    case TT_REVASSIGN: case TT_REVSWAP: case TT_SWAP:
         return icn_swap(cx, e, γ_in, ω_in, α_out, β_out);
     case TT_FIELD:
         return icn_field_get(cx, e, γ_in, ω_in, α_out, β_out);
@@ -441,7 +461,7 @@ IR_t * lower2_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t *
             return icn_det_call(cx, tc, γ_in, ω_in, α_out, β_out);
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
-    case TT_FNC: case TT_PROC_FAIL: case TT_SWAP: case TT_AUGOP:
+    case TT_FNC: case TT_PROC_FAIL: case TT_AUGOP:
         if (e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
             const char * fn = e->c[0]->v.sval;
             if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))
