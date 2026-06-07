@@ -21,9 +21,9 @@ static std::string bb_gvar_assign_lit_i_str() {
              + x86("lea",  "rdi", "[rip + __]", dst_addr(), dst_label())
              + x86_movabs_r64("rsi", (uint64_t)_.op_a_ival_sg)
              + x86("call", "rt_gvar_assign_int", fn_lit_i())
-             + x86("jmp",  "\xCE\xB3")
-             + x86("def",  "\xCE\xB2")
-             + x86("jmp",  "\xCF\x89");
+             + x86("jmp",  "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
