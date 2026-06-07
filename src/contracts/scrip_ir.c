@@ -406,7 +406,7 @@ static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx) {
         if (bb->t == IR_SCAN) {
             snprintf(sub, sizeof sub, "%s      ", pfx);
             IR_graph_t * pg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
-            int na = 0; IR_t * const * aux = bb_operand_aux_get((IR_graph_t *) bbg, (IR_t *) bb, &na);
+            int na = bb->n_operands; IR_t * const * aux = bb->operands;
             if (pg)             { fprintf(fp, "%s    pat:\n",  pfx); bb_print_pfx(pg, fp, sub); }
             if (na > 0 && aux && aux[0]) { fprintf(fp, "%s    subj:\n", pfx); bb_print_pfx((IR_graph_t *)(void *) aux[0], fp, sub); }
             if (na > 1 && aux && aux[1]) { fprintf(fp, "%s    repl:\n", pfx); bb_print_pfx((IR_graph_t *)(void *) aux[1], fp, sub); }

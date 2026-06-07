@@ -355,7 +355,7 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
 static int is_pat_chain_elem(IR_e t);
 static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat_out, IR_t *stop);
 static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    IR_t *ch = (pBB && bb_pat_nkids(pBB) > 0) ? bb_pat_kid(pBB, 0) : (pBB ? pBB->α : NULL);
+    IR_t *ch = (pBB && bb_pat_nkids(pBB) > 0) ? bb_pat_kid(pBB, 0) : (pBB && pBB->n_operands > 0 ? pBB->operands[0] : NULL);
     if (!ch && pBB) { int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &na); if (aux && na > 0) ch = aux[0]; }
     const char *vn = (pBB && IR_LIT(pBB).sval) ? IR_LIT(pBB).sval : "";
     if (!ch) {
@@ -1653,8 +1653,7 @@ static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ,
     IR_t *match = IR_node_alloc(pg, IR_PAT_MATCH);
     if (!subj || !match) return 0;
     IR_LIT(subj).sval = IR_LIT(pBB).sval;
-    IR_t *elem[1] = { pg->entry };
-    if (bb_operand_aux_set(pg, match, elem, 1) < 0) return 0;
+    if (!ir_operand_push(match, pg->entry)) return 0;
     IR_graph_t *save_cfg = g_emit_cfg;
     int save_subject_slot = g_subject_slot;
     g_emit_cfg = pg;
@@ -1670,11 +1669,9 @@ static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ,
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    int n_aux = 0;
-    IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
     g_emit.op_scan_pat  = pBB ? IR_EXEC(pBB).counter : 0;
-    g_emit.op_scan_subj = (n_aux > 0 && aux) ? (int64_t)(intptr_t)aux[0] : 0;
-    g_emit.op_scan_repl = (n_aux > 1 && aux) ? (int64_t)(intptr_t)aux[1] : 0;
+    g_emit.op_scan_subj = (pBB && pBB->n_operands > 0) ? (int64_t)(intptr_t)pBB->operands[0] : 0;
+    g_emit.op_scan_repl = (pBB && pBB->n_operands > 1) ? (int64_t)(intptr_t)pBB->operands[1] : 0;
     g_emit.op_scan_pat_lit = NULL; g_emit.op_scan_subj_lit = NULL; g_emit.op_scan_replace_lit = NULL;
     {
         IR_graph_t * pg = (IR_graph_t *)(intptr_t)g_emit.op_scan_pat;
@@ -1701,9 +1698,7 @@ static void flat_drive_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    int n_aux = 0;
-    IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
-    IR_t *ch = (n_aux > 0 && aux) ? aux[0] : NULL;
+    IR_t *ch = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
     bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
     g_emit.child_fn    = (void *)cfn;
     g_emit.bb_child_fn = (void *)cfn;
@@ -1734,11 +1729,9 @@ static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    int n_aux = 0;
-    IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
-    IR_t *elem = (n_aux > 0 && aux) ? aux[0] : NULL;
+    IR_t *elem = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
     if (!elem) {
-        fprintf(stderr, "[SBB] FATAL flat_drive_match: IR_PAT_MATCH has no element in operand_aux\n");
+        fprintf(stderr, "[SBB] FATAL flat_drive_match: IR_PAT_MATCH has no element in operands\n");
         abort();
     }
     if (g_subject_slot < 0) {

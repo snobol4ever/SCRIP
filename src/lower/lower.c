@@ -659,8 +659,7 @@ IR_t * lower_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, I
     IR_t * ref = nalloc(cx, IR_REF_INVARIANT);
     if (!ref) return NULL;
     IR_LIT(ref).sval = lit;
-    IR_t * aux[1] = { sealed };
-    bb_operand_aux_set(bbg, ref, aux, 1);
+    if (!ir_operand_push(ref, sealed)) return NULL;
     lcx_t bx = cx; bx.bounded = 1;
     return emit_leaf(bx, ref, γ_in, ω_in, α_out, β_out);
 }
@@ -674,8 +673,7 @@ IR_t * lower_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t 
     if (!el) return NULL;
     (void) eβ;
     IR_t * entry = eα ? eα : el;
-    IR_t * aux[1] = { entry };
-    bb_operand_aux_set(bbg, m, aux, 1);
+    if (!ir_operand_push(m, entry)) return NULL;
     set_succ_fail(m, γ_in, ω_in);
     return ret(m, α_out, β_out, m, ω_in);
 }
