@@ -361,15 +361,19 @@ static void print_port(FILE * fp, const IR_graph_t * bbg, const char * label, co
     else fprintf(fp, " %s=set", label);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void bb_print(const IR_graph_t * bbg, FILE * fp) {
-    if (!bbg) { fprintf(fp, "(null IR_graph_t)\n"); return; }
+static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx);
+void bb_print(const IR_graph_t * bbg, FILE * fp) { bb_print_pfx(bbg, fp, ""); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void bb_print_pfx(const IR_graph_t * bbg, FILE * fp, const char * pfx) {
+    if (!bbg) { fprintf(fp, "%s(null IR_graph_t)\n", pfx); return; }
     static const char * lang_names[] = { "?", "SNO", "SCO", "REB", "ICN", "PL", "RKU" };
     const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
-    fprintf(fp, "IR_graph_t lang=%s n=%d entry=%d\n", lname, bbg->n, bb_index_of(bbg, bbg->entry));
+    char sub[64];
+    fprintf(fp, "%sIR_graph_t lang=%s n=%d entry=%d\n", pfx, lname, bbg->n, bb_index_of(bbg, bbg->entry));
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         if (!bb) continue;
-        fprintf(fp, "  [%d] %s", i, bb_op_name(bb->t));
+        fprintf(fp, "%s  [%d] %s", pfx, i, bb_op_name(bb->t));
         print_port(fp, bbg, "α", bb->α);
         print_port(fp, bbg, "β", bb->β);
         print_port(fp, bbg, "γ", bb->γ);
@@ -381,8 +385,19 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
             case IR_VAR:   fprintf(fp, " var=\"%s\"%s",  bb->sval ? bb->sval : "", bb->state == 1 ? " scope=global" : ""); break;
             case IR_FIELD_GET:
             case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", bb->sval ? bb->sval : ""); break;
-            default: break;
+            default:
+                if (bb->sval) fprintf(fp, " sval=\"%s\"", bb->sval);
+                if (bb->ival) fprintf(fp, " ival=%lld", (long long)bb->ival);
+                break;
         }
         fprintf(fp, "\n");
+        if (bb->t == IR_SCAN) {
+            snprintf(sub, sizeof sub, "%s      ", pfx);
+            IR_graph_t * pg = (IR_graph_t *)(intptr_t) bb->counter;
+            int na = 0; IR_t * const * aux = bb_operand_aux_get((IR_graph_t *) bbg, (IR_t *) bb, &na);
+            if (pg)             { fprintf(fp, "%s    pat:\n",  pfx); bb_print_pfx(pg, fp, sub); }
+            if (na > 0 && aux && aux[0]) { fprintf(fp, "%s    subj:\n", pfx); bb_print_pfx((IR_graph_t *)(void *) aux[0], fp, sub); }
+            if (na > 1 && aux && aux[1]) { fprintf(fp, "%s    repl:\n", pfx); bb_print_pfx((IR_graph_t *)(void *) aux[1], fp, sub); }
+        }
     }
 }
