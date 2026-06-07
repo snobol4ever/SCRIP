@@ -10,17 +10,16 @@ extern "C" {
 static inline long tabN() { return (long)(int)_.op_ival; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pat_tab_str() {
-    int nid = _.nid; (void)nid;
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
                  + x86("comment", "# BOX TAB()  [REG-3 δ=r14, x86() self-encoding]"))
              + x86("cmp",   "r14d", tabN())
-             + x86("jg",    PORT_OMEGA)
+             + x86("jg",    "ω")
              + x86("mov32", "r14d", tabN())
-             + x86("jmp",  PORT_GAMMA)
-             + x86("def",  PORT_BETA)
-             + x86("jmp",  PORT_OMEGA);
+             + x86("jmp",  "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
     }
     return std::string();
 }
