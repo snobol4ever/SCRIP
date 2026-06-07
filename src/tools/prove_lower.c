@@ -13,12 +13,12 @@ stage2_t g_stage2;
 /*--------------------------------------------------------------------------------------------------------------------*/
 int is_global(const char * name) { (void) name; return 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower2_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower2_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower2_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower2_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t * lit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * bin(tree_e op, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(op); ast_push(n, a); ast_push(n, b); return n; }
@@ -76,7 +76,7 @@ static void dump(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    IR_t * top = lower_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -93,7 +93,7 @@ static void dump_sno_value(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    IR_t * top = lower_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -110,7 +110,7 @@ static void dump_raku_value(const char * title, tree_t * ast, int expect_nodes) 
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    IR_t * top = lower_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -127,7 +127,7 @@ static void dump_goal(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_goal_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    IR_t * top = lower_goal_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -144,7 +144,7 @@ static void dump_subject(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_subject_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    IR_t * top = lower_subject_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -161,7 +161,7 @@ static void dump_ref_invariant(const char * title, tree_t * ast, int expect_node
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_pat_build_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    IR_t * top = lower_pat_build_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -178,7 +178,7 @@ static void dump_match(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_match_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    IR_t * top = lower_match_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -195,7 +195,7 @@ static void dump_pat(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower2_pattern_entry(g, ast, PSUCC, PFAIL, &a, &b);
+    IR_t * top = lower_pattern_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");

@@ -14,7 +14,7 @@
 #   (c) the corpus scan bucket — every corpus .icn whose --dump-bb graph carries IR_GEN_SCAN, all three
 #       modes vs .expected, with ratchet floors (EXCISED->PASS deltas land here as future boxes light up);
 #   (d) standing structural gates: no_bb_bin_t . no_handencoded --strict . icn_no_stack .
-#       icn_one_reg_frame . prove_lower2 (HARD); no_vstack informational; medium-invisible scoped to the
+#       icn_one_reg_frame . prove_lower (HARD); no_vstack informational; medium-invisible scoped to the
 #       scan-family templates (the global --strict RED is the documented Prolog-lane bb_* WIP).
 # Exit 0 iff (a) + (b) + (c floors) + (d) all hold.
 # Authors: LCherryholmes . Jeffrey Cooper M.D. . Claude Opus 4.8   DATE: 2026-06-04
@@ -254,7 +254,7 @@ gate_hard "no_bb_bin_t"            bash "$HERE/test_gate_no_bb_bin_t.sh"
 gate_hard "no_handencoded --strict" bash "$HERE/test_gate_no_handencoded_bytes.sh" --strict
 gate_hard "icn_no_stack"           bash "$HERE/test_gate_icn_no_stack.sh"
 gate_hard "icn_one_reg_frame"      bash "$HERE/test_gate_icn_one_reg_frame.sh"
-gate_hard "prove_lower2"           bash "$HERE/prove_lower2.sh"
+gate_hard "prove_lower"           bash "$HERE/prove_lower.sh"
 bash "$HERE/test_gate_no_vstack.sh" 2>/dev/null | tail -1 | sed 's/^/  INFO /'
 mi_line=$(bash "$HERE/test_gate_template_medium_invisible.sh" 2>/dev/null | grep '^REMAINING:' || true)
 if echo "$mi_line" | grep -qE 'bb_scan_|bb_gen_scan|bb_keyword'; then

@@ -2755,7 +2755,7 @@ static void sc_finalize_if_no_else_pst(ScParseState *st, struct IfHead *h)
     tree_t *if_node    = ast_node_new(TT_IF);
     ast_push(if_node, h->cond);
     ast_push(if_node, then_block);
-    /* wrap TT_IF in a STMT_t so it reaches lower() via the normal CODE_t → TT_PROGRAM path */
+    /* wrap TT_IF in a STMT_t so it reaches lower_program() via the normal CODE_t → TT_PROGRAM path */
     sc_append_stmt(st, if_node);
     free(h);
 }

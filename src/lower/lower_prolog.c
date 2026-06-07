@@ -568,7 +568,7 @@ IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t *
     return pl_lower_goal(pcx, e, γ_in, ω_in, α_out, β_out);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower2_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     plcx_t cx; cx.bbg = bbg; cx.role = PL_ROLE_GOAL; cx.bounded = 0; cx.lang = bbg ? bbg->lang : 0; cx.loop_ω = NULL; cx.loop_next = NULL; cx.pl_vars = NULL;
     return pl_lower_goal(cx, e, γ_in, ω_in, α_out, β_out);
 }
@@ -586,7 +586,7 @@ static IR_t * g_head_unify(plcx_t cx, int slot, const tree_t * head_arg, IR_t * 
     return pl_ret(uni, α_out, β_out, uni, ω_in);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+IR_t * lower_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     int arity = (int)clause->v.dval; if (arity < 0) arity = 0;
     int nbody = clause->n - arity; if (nbody < 0) nbody = 0;

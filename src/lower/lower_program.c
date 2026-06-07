@@ -20,7 +20,7 @@ extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern uint32_t polyglot_lang_mask(const tree_t * prog);
 extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask);
-extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
@@ -49,7 +49,7 @@ static IR_t * make_computed_goto(IR_graph_t * g, const tree_t * gexpr, IR_t * fa
     if (!sub) return NULL;
     IR_t * vfail = IR_node_alloc(sub, IR_FAIL);
     IR_t * eα = NULL, * eβ = NULL;
-    IR_t * en = lower2_value_entry(sub, gexpr, NULL  , vfail, &eα, &eβ);
+    IR_t * en = lower_value_entry(sub, gexpr, NULL  , vfail, &eα, &eβ);
     if (!en) { IR_free(sub); return NULL; }
     (void) eβ;
     sub->entry = eα ? eα : en;
@@ -168,7 +168,7 @@ static int lp_s_int(const tree_t *s, const char *tag) { const char *v = stmt_att
 static tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt_attr_find(s, tag)); }
 /*====================================================================================================================*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern IR_t * lower2_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
+extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int proc_subtree_has_suspend(const tree_t *n) {
     if (!n) return 0;
@@ -202,7 +202,7 @@ static int lower_icon_body(const tree_t *proc) {
         n_stmts++;
         IR_t *a = NULL, *b = NULL;
         IR_t *ω = is_last ? PFAIL : next_a;
-        IR_t *top = lower2_value_entry(g, (const tree_t *) expr, next_a, ω, &a, &b);
+        IR_t *top = lower_value_entry(g, (const tree_t *) expr, next_a, ω, &a, &b);
         if (!top || !a) return -1;
         next_a = a;
         is_last = 0;
@@ -254,7 +254,7 @@ static int lower_pascal_body(const tree_t *proc) {
         if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
         n_stmts++;
         IR_t *a = NULL, *b = NULL;
-        IR_t *top = lower2_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
+        IR_t *top = lower_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
         if (!top || !a) return -1;
         next_a = a;
     }
@@ -282,7 +282,7 @@ static int lower_raku_body(const tree_t *proc) {
         if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
         n_stmts++;
         IR_t *a = NULL, *b = NULL;
-        IR_t *top = lower2_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
+        IR_t *top = lower_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
         if (!top || !a) return -1;
         next_a = a;
     }
@@ -343,7 +343,7 @@ static void lower_pl_register_all_preds(void) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern IR_t * lower2_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+extern IR_t * lower_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 static int lower_pl_clause_graph(const tree_t *clause) {
     if (!clause || clause->t != TT_CLAUSE) return -1;
@@ -352,7 +352,7 @@ static int lower_pl_clause_graph(const tree_t *clause) {
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t *α = NULL, *β = NULL;
-    IR_t *top = lower2_clause_body_entry(g, clause, PSUCC, PFAIL, &α, &β);
+    IR_t *top = lower_clause_body_entry(g, clause, PSUCC, PFAIL, &α, &β);
     if (!top || !α) return -1;
     g->entry = α;
     return bb_program_add(&g_stage2.bbp, g);
@@ -510,7 +510,7 @@ static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, in
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) pas_rewrite_node(g->all[i], scs, dls, pis, nch);
 }
-stage2_t *lower(const tree_t *prog) {
+stage2_t *lower_program(const tree_t *prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     stage2_reset();
     uint32_t mask = polyglot_lang_mask(prog);
@@ -601,7 +601,7 @@ stage2_t *lower(const tree_t *prog) {
                     }
                 }
                 IR_t *α = NULL, *β = NULL;
-                IR_t *top = lower2_value_entry(g, expr, γ_tgt, ω_tgt, &α, &β);
+                IR_t *top = lower_value_entry(g, expr, γ_tgt, ω_tgt, &α, &β);
                 if (!top || !α) { land[i]->γ = fall; continue; }
                 land[i]->γ = α;
                 built = 1;
