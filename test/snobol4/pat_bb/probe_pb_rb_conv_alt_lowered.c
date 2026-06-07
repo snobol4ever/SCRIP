@@ -1,7 +1,7 @@
 /* PB-RB-CONV groundwork probe — BB_MATCH drives an IR_PAT_ALT in the LOWERED encoding.
    The live lowerer (lower.c wire_alt) carries alternation arms in the operand_aux sidecar
    (PEERS RULE) and port-wires them (arm.gamma -> ALT node, arm0.omega -> arm1 entry); it
-   never populates the legacy counter-held bb_pat_kids_state_t that flat_drive_alt read.
+   never populates the legacy counter-held bb_match_kids_state_t that flat_drive_alt read.
    Before this probe's fix a lowered ALT read nkids==0 and emitted the DEGENERATE arm —
    silent wrong. This probe builds ALT('q','b') exactly as wire_alt does (aux arms, ports
    set, counter zero) over subject 'abc' and expects the within-position second-alternative

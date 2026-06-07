@@ -12,7 +12,7 @@ static int g_saved_off, g_prev_off;
 static inline int an_ok() { return g_emit.bb_child_lbl && g_emit.bb_child_lbl[0]; }
 static inline std::string an_base() { std::string s(g_emit.bb_child_lbl ? g_emit.bb_child_lbl : ""); return s.size() > 3 ? s.substr(0, s.size() - 3) : s; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_arbno_str() {
+static std::string bb_match_arbno_str() {
     return IF(PLATFORM_X86 && MEDIUM_TEXT && an_ok(),
            x86("label", _.lbl_α)
          + x86("comment", "BOX ARBNO() [BROK-2 wired generator, shy per SPITBOL pp.121/212: null first, each retry adds one instance; child entered jmp child_α, child returns jmp _wγ/_wω; δ=r14d, saved/prev in ζ-frame]")
@@ -32,11 +32,11 @@ static std::string bb_pat_arbno_str() {
          + x86("jmp", "ω"));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_arbno(IR_t *pBB) {
+extern "C" void bb_match_arbno(IR_t *pBB) {
     (void)pBB; x86_begin();
     g_saved_off = bb_slot_claim(4);
     g_prev_off  = bb_slot_claim(4);
-    bb_emit_x86(IF(!an_ok(), x86_bomb("bb_pat_arbno: no child label"))
-              + IF(an_ok() && MEDIUM_BINARY, x86_bomb("bb_pat_arbno: BINARY arm not yet implemented"))
-              + bb_pat_arbno_str());
+    bb_emit_x86(IF(!an_ok(), x86_bomb("bb_match_arbno: no child label"))
+              + IF(an_ok() && MEDIUM_BINARY, x86_bomb("bb_match_arbno: BINARY arm not yet implemented"))
+              + bb_match_arbno_str());
 }

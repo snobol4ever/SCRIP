@@ -6,23 +6,31 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 #include "emit.h"
+const char * rt_nv_cstr(const char * name);
 int bb_slot_claim(int bytes);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline const char * cset_chars() { return _.op_sval ? _.op_sval : ""; }
-static inline const char * cset_label() { const char * l = emit_intern_str(cset_chars()); if (l) return l;
-                                          static char b[24]; strtab_label(b, sizeof b, cset_chars()); return b; }
-static inline uint64_t     cset_addr()  { return (uint64_t)(uintptr_t)(const void *)cset_chars(); }
+static inline const char * var_name()   { return _.op_sval ? _.op_sval : ""; }
+static inline const char * name_label() { const char * l = emit_intern_str(var_name()); if (l) return l;
+                                          static char b[24]; strtab_label(b, sizeof b, var_name()); return b; }
+static inline uint64_t     name_addr()  { return (uint64_t)(uintptr_t)(const void *)var_name(); }
+static inline uint64_t     nv_ptr()     { const char *(*fp)(const char *) = rt_nv_cstr; return (uint64_t)(uintptr_t)(void *)fp; }
 static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
-static inline int          zoff()  { return _.x86_scratch_off; }
-static inline int          zooff() { return _.x86_scratch_off + 4; }
+static inline int          csoff() { return _.x86_scratch_off; }
+static inline int          zoff()  { return _.x86_scratch_off + 8; }
+static inline int          zooff() { return _.x86_scratch_off + 12; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_span_str() {
+static std::string bb_match_span_var_str() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
-                 + x86("comment", "BOX SPAN()  [REG-4 Σ=r13 δ=r14 Δ=r15, ζ-frame z/zo, x86() self-encoding]"))
+                 + x86("comment", "BOX SPAN(var)  [REG-4 Σ=r13 δ=r14 Δ=r15, ζ-frame cs/z/zo, cset via rt_nv_cstr at match time]"))
+             + x86("lea",    "rdi", "[rip + __]", name_addr(), name_label())
+             + x86("sub",    "rsp", (long)8)
+             + x86("call",   "rt_nv_cstr", nv_ptr())
+             + x86("add",    "rsp", (long)8)
+             + x86_frame_store64(csoff(), "rax")
              + x86("mov",    FR(zoff()), (long)0)
              + x86("def",    L(0))
              + x86("mov",    "eax", "r14d")
@@ -31,7 +39,7 @@ static std::string bb_pat_span_str() {
              + x86("jge",    L(1))
              + x86("movsxd", "rcx", "eax")
              + x86("movzx",  "esi", "[r13+rcx]")
-             + x86("lea",    "rdi", "[rip + __]", cset_addr(), cset_label())
+             + x86_frame_load64("rdi", csoff())
              + x86("sub",    "rsp", (long)8)
              + x86("call",   "strchr", strchr_ptr())
              + x86("add",    "rsp", (long)8)
@@ -62,8 +70,8 @@ static std::string bb_pat_span_str() {
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_span(void) {
+extern "C" void bb_match_span_var(void) {
     x86_begin();
     _.x86_scratch_off = bb_slot_claim(16);
-    bb_emit_x86(bb_pat_span_str());
+    bb_emit_x86(bb_match_span_var_str());
 }

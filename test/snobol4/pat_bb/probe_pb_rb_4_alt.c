@@ -17,7 +17,7 @@ extern int g_frame_active;
 extern void bb_pool_init(void);
 
 static IR_t *g_kids[2];
-static bb_pat_kids_state_t g_ks;
+static bb_match_kids_state_t g_ks;
 
 int main(void) {
     bb_pool_init();

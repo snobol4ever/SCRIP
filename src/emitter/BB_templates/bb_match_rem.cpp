@@ -6,16 +6,16 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pat_abort_str() {
-    if (PLATFORM_X86) {
+static std::string bb_match_rem_str() {
+    if (PLATFORM_X86)
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
-                 + x86("comment", "BOX ABORT()  [x86() self-encoding]"))
-             + x86("jmp",  PORT_OMEGA)
-             + x86("def",  PORT_BETA)
-             + x86("jmp",  PORT_OMEGA);
-    }
+                 + x86("comment", "BOX REM()  [REG-2 δ=r14 Δ=r15, x86() self-encoding]"))
+             + x86("mov", "r14d", "r15d")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pat_abort(void) { bb_emit_x86(bb_pat_abort_str()); }
+extern "C" void bb_match_rem(void) { bb_emit_x86(bb_match_rem_str()); }

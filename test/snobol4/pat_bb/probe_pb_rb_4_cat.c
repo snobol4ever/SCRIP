@@ -3,7 +3,7 @@
    restored 3-piece bb_match (PB-RB-3): at start 0, 'a' matches (delta 0->1), 'b' fails vs
    subject[1]=='a' -> right_omega -> left_beta -> lit'a' beta undoes delta -> xcat_omega ->
    match_advance (ch.18 step 6); at start 1, 'a' then 'b' both match -> SUCCEED (result.v==1).
-   Kids ride the counter-held bb_pat_kids_state_t exactly as src/tools/emit_per_kind_audit.c. */
+   Kids ride the counter-held bb_match_kids_state_t exactly as src/tools/emit_per_kind_audit.c. */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -17,7 +17,7 @@ extern int g_frame_active;
 extern void bb_pool_init(void);
 
 static IR_t *g_kids[2];
-static bb_pat_kids_state_t g_ks;
+static bb_match_kids_state_t g_ks;
 
 int main(void) {
     bb_pool_init();

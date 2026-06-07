@@ -1,6 +1,6 @@
 /* PB-RB-CONV groundwork probe — BB_MATCH drives an IR_PAT_CAT in the LOWERED (wire_seq) encoding.
    The live lowerer (lower.c wire_seq) sets NO sidecar for IR_PAT_CAT (only IR_GCONJ gets ival
-   state) and never populates the legacy counter-held bb_pat_kids_state_t that flat_drive_cat
+   state) and never populates the legacy counter-held bb_match_kids_state_t that flat_drive_cat
    read: the arms are PORT-CHAINED — kid i's gamma -> kid i+1's entry, last kid's gamma -> the
    CAT node — and lower_match_entry hands MATCH entry[0] (the FIRST arm), not the CAT node.
    Before this probe's fix a lowered CAT walked as ONE leaf box whose gamma was the scan's
