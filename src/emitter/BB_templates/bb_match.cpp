@@ -26,9 +26,9 @@ static std::string bb_match_str() {
              + x86("mov", "r15d", FR(saoff() + 8))
              + x86("mov", FR(stoff()), (long)0)
              + x86("lea", "r10", FR(stoff() + 8))
-             + x86("jmp", PORT_GAMMA)
-             + x86("def", PORT_BETA)
-             + x86("jmp", PORT_OMEGA);
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω");
     }
     if (sub_kind() == 1) {
         return IF(MEDIUM_TEXT, x86("comment", "BOX MATCH RETRY  [delta=r14 <- start; falls through into the inline element]"))
@@ -38,12 +38,12 @@ static std::string bb_match_str() {
          + x86("add", FR(stoff()), (long)1)
          + x86("mov", "eax", FR(stoff()))
          + x86("cmp", "eax", "r15d")
-         + x86("jg",  PORT_OMEGA)
+         + x86("jg",  "ω")
          + x86("mov", "rcx", "[rip + __]", kw_anchor_addr(), "kw_anchor")
          + x86("mov", "rax", "[rcx]")
          + x86("cmp64", "rax", (long)0)
-         + x86("jne", PORT_OMEGA)
-         + x86("jmp", PORT_GAMMA);
+         + x86("jne", "ω")
+         + x86("jmp", "γ");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_match(void) {
