@@ -128,7 +128,8 @@ static IR_t * g_unify(plcx_t cx, const tree_t * l_t, const tree_t * r_t, IR_t * 
     IR_t * l = g_term(cx, l_t, NULL, NULL, &lα, &lβ); if (!l) return NULL;
     IR_t * r = g_term(cx, r_t, NULL, NULL, &rα, &rβ); if (!r) return NULL;
     (void) lβ; (void) rβ;
-    uni->α = lα; uni->β = rα;
+    if (!ir_operand_push(uni, lα)) return NULL;
+    if (!ir_operand_push(uni, rα)) return NULL;
     pl_set_succ_fail(uni, γ_in, ω_in);
     return pl_ret(uni, α_out, β_out, uni, ω_in);
 }
@@ -146,13 +147,13 @@ static IR_t * g_arith_expr(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
             IR_t * aα = NULL, * aβ = NULL;
             IR_t * a = g_arith_expr(cx, e->c[0], NULL, ω_in, &aα, &aβ);
             if (!a) return NULL; (void) aβ;
-            nd->α = aα;
+            if (!ir_operand_push(nd, aα)) return NULL;
         }
         if (ar >= 2 && e->c[1]) {
             IR_t * bα = NULL, * bβ = NULL;
             IR_t * b = g_arith_expr(cx, e->c[1], NULL, ω_in, &bα, &bβ);
             if (!b) return NULL; (void) bβ;
-            nd->β = bα;
+            if (!ir_operand_push(nd, bα)) return NULL;
         }
         pl_set_succ_fail(nd, γ_in, ω_in);
         return pl_ret(nd, α_out, β_out, nd, ω_in);
@@ -581,7 +582,8 @@ static IR_t * g_head_unify(plcx_t cx, int slot, const tree_t * head_arg, IR_t * 
     if (cx.pl_vars && slot + 1 > cx.pl_vars->count) cx.pl_vars->count = slot + 1;
     IR_t * rα = NULL, * rβ = NULL;
     IR_t * r = g_term(cx, head_arg, NULL, NULL, &rα, &rβ); if (!r) return NULL; (void) rβ;
-    uni->α = lv; uni->β = rα;
+    if (!ir_operand_push(uni, lv)) return NULL;
+    if (!ir_operand_push(uni, rα)) return NULL;
     pl_set_succ_fail(uni, γ_in, ω_in);
     return pl_ret(uni, α_out, β_out, uni, ω_in);
 }

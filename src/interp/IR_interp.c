@@ -357,8 +357,8 @@ static Term *resolve_node_to_term(IR_t *bb) {
         int arity = (int)IR_LIT(bb).ival;
         const char *f = IR_LIT(bb).sval ? IR_LIT(bb).sval : "+";
         if (arity == 0) return term_new_atom(prolog_atom_intern(f));
-        if (arity == 1) { Term **a=(Term**)GC_MALLOC(sizeof(Term*)); a[0]=resolve_node_to_term(bb->α); return term_new_compound(prolog_atom_intern(f),1,a); }
-        Term **a=(Term**)GC_MALLOC(2*sizeof(Term*)); a[0]=resolve_node_to_term(bb->α); a[1]=resolve_node_to_term(bb->β);
+        if (arity == 1) { Term **a=(Term**)GC_MALLOC(sizeof(Term*)); a[0]=resolve_node_to_term(bb->n_operands>0?bb->operands[0]:NULL); return term_new_compound(prolog_atom_intern(f),1,a); }
+        Term **a=(Term**)GC_MALLOC(2*sizeof(Term*)); a[0]=resolve_node_to_term(bb->n_operands>0?bb->operands[0]:NULL); a[1]=resolve_node_to_term(bb->n_operands>1?bb->operands[1]:NULL);
         return term_new_compound(prolog_atom_intern(f),2,a);
     }
     default: {
@@ -491,17 +491,17 @@ static DESCR_t resolve_arith_eval(IR_t *bb) {
     case IR_ARITH: {
         const char *fn = IR_LIT(bb).sval ? IR_LIT(bb).sval : "+";
         int arity = (int)IR_LIT(bb).ival;
-        if (arity == 0 || (!bb->α && !bb->β)) {
+        if (arity == 0 || bb->n_operands == 0) {
             if (strcmp(fn,"pi")==0) return REALVAL(M_PI);
             if (strcmp(fn,"e")==0)  return REALVAL(M_E);
             return FAILDESCR;
         }
-        DESCR_t lv = resolve_arith_eval(bb->α);
+        DESCR_t lv = resolve_arith_eval(bb->operands[0]);
         if (IS_FAIL_fn(lv)) return FAILDESCR;
         int lf = (lv.v == DT_R);
         double ld = lf ? lv.r : (double)lv.i;
         int64_t li = lf ? (int64_t)lv.r : lv.i;
-        if (arity == 1 || !bb->β) {
+        if (arity == 1 || bb->n_operands < 2 || !bb->operands[1]) {
             if (strcmp(fn,"-")==0)  return lf ? REALVAL(-ld) : INTVAL(-li);
             if (strcmp(fn,"+")==0)  return lv;
             if (strcmp(fn,"abs")==0)  return lf ? REALVAL(fabs(ld)) : INTVAL(li<0?-li:li);
@@ -527,7 +527,7 @@ static DESCR_t resolve_arith_eval(IR_t *bb) {
             if (strcmp(fn,"msb")==0)      { int64_t v=li; int m=-1; while(v){v>>=1;m++;} return INTVAL(m); }
             return FAILDESCR;
         }
-        DESCR_t rv = resolve_arith_eval(bb->β);
+        DESCR_t rv = resolve_arith_eval(bb->operands[1]);
         if (IS_FAIL_fn(rv)) return FAILDESCR;
         int rf = (rv.v == DT_R);
         double rd = rf ? rv.r : (double)rv.i;
@@ -4748,9 +4748,9 @@ IR_t * IR_interp_node(IR_t * bb) {
     }
     case IR_UNIFY: {
         extern Term **g_resolve_env; extern Trail g_resolve_trail;
-        if (!bb->α || !bb->β) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        Term *lt = resolve_node_to_term(bb->α);
-        Term *rt = resolve_node_to_term(bb->β);
+        if (bb->n_operands < 2 || !bb->operands[0] || !bb->operands[1]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        Term *lt = resolve_node_to_term(bb->operands[0]);
+        Term *rt = resolve_node_to_term(bb->operands[1]);
         if (!lt || !rt) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         int mark = trail_mark(&g_resolve_trail);
         if (!unify(lt, rt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); IR_EXEC(bb).value = FAILDESCR; return bb->ω; }

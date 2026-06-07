@@ -859,21 +859,23 @@ void bb_prepare(IR_t *nd) {
         return;
     }
     if (nd->t == IR_ARITH) {
-        if (!nd->α || !nd->β) return;
-        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd->α).sval);
-        g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(nd->β).sval);
+        IR_t *l = (nd->n_operands > 0) ? nd->operands[0] : nd->α, *r = (nd->n_operands > 1) ? nd->operands[1] : nd->β;
+        if (!l || !r) return;
+        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(l).sval);
+        g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(r).sval);
         g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "+");
-        g_emit.bb_lk = (int)nd->α->t; g_emit.bb_li = (int64_t)IR_LIT(nd->α).ival;
-        g_emit.bb_rk = (int)nd->β->t; g_emit.bb_ri = (int64_t)IR_LIT(nd->β).ival;
+        g_emit.bb_lk = (int)l->t; g_emit.bb_li = (int64_t)IR_LIT(l).ival;
+        g_emit.bb_rk = (int)r->t; g_emit.bb_ri = (int64_t)IR_LIT(r).ival;
         return;
     }
     if (nd->t == IR_UNIFY || nd->t == IR_CELL_UNIFY) {
-        if (!nd->α || !nd->β) return;
-        g_emit.bb_lk = (int)nd->α->t; g_emit.bb_li = (int64_t)IR_LIT(nd->α).ival;
-        g_emit.bb_rk = (int)nd->β->t; g_emit.bb_ri = (int64_t)IR_LIT(nd->β).ival;
-        g_emit.bb_ln = (void *)nd->α; g_emit.bb_rn = (void *)nd->β;
-        if (nd->α->t == IR_ATOM) g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd->α).sval ? IR_LIT(nd->α).sval : "");
-        if (nd->β->t == IR_ATOM) g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(nd->β).sval ? IR_LIT(nd->β).sval : "");
+        IR_t *l = (nd->n_operands > 0) ? nd->operands[0] : nd->α, *r = (nd->n_operands > 1) ? nd->operands[1] : nd->β;
+        if (!l || !r) return;
+        g_emit.bb_lk = (int)l->t; g_emit.bb_li = (int64_t)IR_LIT(l).ival;
+        g_emit.bb_rk = (int)r->t; g_emit.bb_ri = (int64_t)IR_LIT(r).ival;
+        g_emit.bb_ln = (void *)l; g_emit.bb_rn = (void *)r;
+        if (l->t == IR_ATOM) g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(l).sval ? IR_LIT(l).sval : "");
+        if (r->t == IR_ATOM) g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(r).sval ? IR_LIT(r).sval : "");
         return;
     }
     if (nd->t == IR_BUILTIN) {
