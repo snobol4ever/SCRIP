@@ -1108,16 +1108,16 @@ static void flat_drive_unop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_list_bang(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || !pBB->α) {
+    if (!pBB || !bb_child0(pBB)) {
         fprintf(stderr, "[IBB] FATAL flat_drive_list_bang: missing iterable (α)\n");
         abort();
     }
     int id = g_flat_node_id++;
     bb_label_t *iter_done = emit_label_alloc("xbang%d_iter_done", id);
     bb_label_t *iter_β    = emit_label_alloc("xbang%d_iter_β",    id);
-    walk_bb_flat(pBB->α, iter_done, lbl_ω, iter_β);
+    walk_bb_flat(bb_child0(pBB), iter_done, lbl_ω, iter_β);
     emit_label_define_bb(iter_done);
-    g_emit.op_sa  = bb_slot_get(pBB->α);
+    g_emit.op_sa  = bb_slot_get(bb_child0(pBB));
     g_emit.op_sb  = bb_slot_claim(8);
     g_emit.op_off = bb_slot_alloc16(pBB);
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
@@ -1861,15 +1861,15 @@ static void flat_drive_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     (void)lbl_ω;
-    if (!pBB || !pBB->α) {
+    if (!pBB || !bb_child0(pBB)) {
         fprintf(stderr, "[IBB] FATAL flat_drive_every: missing body (bb->α)\n");
         abort();
     }
     if (pBB->β) {
         if (IR_LIT(pBB).ival == 0 && pBB->β &&
-            (pBB->α->t == IR_FIELD_SET || pBB->α->t == IR_IDX_SET) &&
-            pBB->α->n_operands > 1 && gen_bb_is_gen_arg(pBB->α->operands[1])) {
-            IR_t *lval_node = pBB->α;
+            (bb_child0(pBB)->t == IR_FIELD_SET || bb_child0(pBB)->t == IR_IDX_SET) &&
+            bb_child0(pBB)->n_operands > 1 && gen_bb_is_gen_arg(bb_child0(pBB)->operands[1])) {
+            IR_t *lval_node = bb_child0(pBB);
             IR_t *inner_gen = lval_node->operands[1];
             int id0 = g_flat_node_id++;
             bb_label_t *gen_resume  = emit_label_alloc("xev0%d_gen_resume",  id0);
@@ -1902,9 +1902,9 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
             fprintf(stderr, "[IBB] FATAL flat_drive_every: do-body ival=%lld not yet flat-wired (only ival=1/2)\n", (long long)IR_LIT(pBB).ival);
             abort();
         }
-        if (IR_LIT(pBB).ival == 2 && pBB->α && pBB->α->t == IR_ASSIGN &&
-            bb_child0(pBB->α) && bb_child0(pBB->α)->t == IR_VAR && pBB->α->β && gen_bb_is_gen_arg(pBB->α->β)) {
-            IR_t *gen_assign = pBB->α;
+        if (IR_LIT(pBB).ival == 2 && bb_child0(pBB) && bb_child0(pBB)->t == IR_ASSIGN &&
+            bb_child0(bb_child0(pBB)) && bb_child0(bb_child0(pBB))->t == IR_VAR && bb_child0(pBB)->β && gen_bb_is_gen_arg(bb_child0(pBB)->β)) {
+            IR_t *gen_assign = bb_child0(pBB);
             IR_t *gen        = gen_assign->β;
             int idw = g_flat_node_id++;
             bb_label_t *gen_resume = emit_label_alloc("xevery%d_gen_resume", idw);
@@ -1930,7 +1930,7 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         bb_label_t *β  = emit_label_alloc("xevery%d_gen_β",  id2);
         bb_label_t *body_α = emit_label_alloc("xevery%d_body_α", id2);
         bb_label_t *body_β = emit_label_alloc("xevery%d_body_β", id2);
-        walk_bb_flat(pBB->α, body_α, lbl_γ, β);
+        walk_bb_flat(bb_child0(pBB), body_α, lbl_γ, β);
         emit_label_define_bb(body_α);
         if (pBB->β && pBB->β->t == IR_ASSIGN && IR_LIT(pBB->β).ival == 1 && pBB->β->γ) {
             bb_label_t *actual_body_α = emit_label_alloc("xevery%d_abody_α", id2);
@@ -1950,7 +1950,7 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         fprintf(stderr, "[IBB] FATAL flat_drive_every: bodyless lower-ival=%lld not yet flat-wired (only ival=0)\n", (long long)IR_LIT(pBB).ival);
         abort();
     }
-    if (flat_chain_set_has(pBB->α)) {
+    if (flat_chain_set_has(bb_child0(pBB))) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(lbl_γ);
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
@@ -1959,7 +1959,7 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     }
     int id = g_flat_node_id++;
     bb_label_t *body_β = emit_label_alloc("xevery%d_body_β", id);
-    walk_bb_flat(pBB->α, body_β, lbl_γ, body_β);
+    walk_bb_flat(bb_child0(pBB), body_β, lbl_γ, body_β);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);

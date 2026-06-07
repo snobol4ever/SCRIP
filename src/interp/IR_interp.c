@@ -2822,7 +2822,8 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_EVERY: {
-        if (!bb->α) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        IR_t * ev0 = bb->n_operands > 0 ? bb->operands[0] : bb->α;
+        if (!ev0) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
         if (IR_LIT(bb).ival == 0) {
             if (frame_depth > 0 && FRAME.loop_break) FRAME.loop_break = 0;
             IR_EXEC(bb).value = NULVCL;
@@ -2832,7 +2833,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (IR_EXEC(bb).state == 0) {
                 IR_EXEC(bb).state = 1;
                 IR_EXEC(bb).value = NULVCL;
-                return bb->α;
+                return ev0;
             }
             if (frame_depth > 0) FRAME.loop_break = 0;
             IR_EXEC(bb).state = 0;
@@ -2840,12 +2841,12 @@ IR_t * IR_interp_node(IR_t * bb) {
             return bb->γ;
         }
         if (IR_LIT(bb).ival == 3) {
-            if (IR_EXEC(bb).state == 0) { IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->α; }
+            if (IR_EXEC(bb).state == 0) { IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return ev0; }
             if (IR_EXEC(bb).state == 1) {
-                DESCR_t gv = IR_EXEC(bb->α).value;
+                DESCR_t gv = IR_EXEC(ev0).value;
                 if (IS_FAIL_fn(gv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = NULVCL; return bb->γ; }
                 if (frame_depth > 0 && FRAME.loop_break) { FRAME.loop_break = 0; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = NULVCL; return bb->γ; }
-                if (!bb->β) { IR_EXEC(bb).value = NULVCL; return bb->α; }
+                if (!bb->β) { IR_EXEC(bb).value = NULVCL; return ev0; }
                 IR_EXEC(bb->β).state = 0;
                 IR_EXEC(bb).state = 2;
                 IR_EXEC(bb).value = NULVCL;
@@ -2858,7 +2859,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (frame_depth > 0) FRAME.loop_next = 0;
             IR_EXEC(bb).state = 1;
             IR_EXEC(bb).value = NULVCL;
-            return bb->α;
+            return ev0;
         }
         int single_shot_call = ir_is_single_shot(bb->α);
         int saved_brk = frame_depth > 0 ? FRAME.loop_break : 0;
@@ -2901,15 +2902,16 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_UNTIL: {
-        if (!bb->α) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        IR_t * ucnd = bb->n_operands > 0 ? bb->operands[0] : bb->α;
+        if (!ucnd) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
         int saved_brk_u = frame_depth > 0 ? FRAME.loop_break : 0;
         int saved_nxt_u = frame_depth > 0 ? FRAME.loop_next  : 0;
         if (frame_depth > 0) { FRAME.loop_break = 0; FRAME.loop_next = 0; }
         int safety_u = 1000000;
         while (safety_u-- > 0) {
-            IR_EXEC(bb->α).state = 0;
-            IR_interp_node(bb->α);
-            DESCR_t cv = IR_EXEC(bb->α).value;
+            IR_EXEC(ucnd).state = 0;
+            IR_interp_node(ucnd);
+            DESCR_t cv = IR_EXEC(ucnd).value;
             if (!IS_FAIL_fn(cv)) break;
             if (frame_depth > 0 && FRAME.loop_break) break;
             if (bb->β) { IR_EXEC(bb->β).state = 0; IR_interp_node(bb->β); }
@@ -2921,9 +2923,10 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_REPEAT: {
-        if (!bb->α) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        IR_t * r0 = bb->n_operands > 0 ? bb->operands[0] : bb->α;
+        if (!r0) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
         IR_EXEC(bb).value = NULVCL;
-        return bb->α;
+        return r0;
     }
     case IR_LIMIT: {
         if (bb->n_operands < 2 || !bb->operands[0] || !bb->operands[1]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
@@ -3543,10 +3546,11 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ;
     }
     case IR_LIST_BANG: {
-        if (!bb->α) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        IR_t * lb0 = bb->n_operands > 0 ? bb->operands[0] : bb->α;
+        if (!lb0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
         if (IR_EXEC(bb).state == 0) {
-            IR_interp_node(bb->α);
-            DESCR_t obj0 = IR_EXEC(bb->α).value;
+            IR_interp_node(lb0);
+            DESCR_t obj0 = IR_EXEC(lb0).value;
             if (IS_FAIL_fn(obj0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
             IR_EXEC(bb).counter = 0;
             IR_EXEC(bb).state   = 1;
@@ -3554,7 +3558,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).counter++;
         }
         {
-            DESCR_t obj = IR_EXEC(bb->α).value;
+            DESCR_t obj = IR_EXEC(lb0).value;
             DESCR_t out;
             if (list_bang_at(obj, IR_EXEC(bb).counter, &out)) { IR_EXEC(bb).value = out; return bb->γ; }
             IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
