@@ -100,7 +100,7 @@ level — IR_SCAN hides its pattern/subject/repl subgraphs (first-look probe 202
 opaque node [10]). GUI deferred (Lon: "do not do it now. Make steps"); FORCE-DIRECTED layout is a hard
 requirement when built.
 
-- [ ] **S0-DUMP (text, FIRST RUNG — the instrument before the surgery)** — extend `--dump-bb`: recurse
+- [x] **S0-DUMP ✅ d312290 (text, FIRST RUNG — the instrument before the surgery)** — extend `--dump-bb`: recurse
   into IR_SCAN pattern/subject/repl subgraphs (indented, labeled `pat:`/`subj:`/`repl:`), same one-line
   four-port format; statement grouping headers (stmt #, label, goto targets); later S3 extension: dump
   built instance graphs (π cells) the same way. Gate: dump of the SPAN probe shows every pattern element
