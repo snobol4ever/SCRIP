@@ -31,6 +31,26 @@ IR_t * ret(IR_t * n, IR_t ** α_out, IR_t ** β_out, IR_t * α, IR_t * β) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
+static bb_label_entry_t g_bb_labels[1024];
+static int              g_bb_label_n = 0;
+/*--------------------------------------------------------------------------------------------------------------------*/
+void bb_label_registry_reset(void) { g_bb_label_n = 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void bb_label_registry_add(const char * name, IR_t * landing) {
+    if (!name || !landing || g_bb_label_n >= 1024) return;
+    g_bb_labels[g_bb_label_n].name = name; g_bb_labels[g_bb_label_n].landing = landing; g_bb_label_n++;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+IR_t * bb_label_landing(const char * name) {
+    if (!name) return NULL;
+    for (int i = 0; i < g_bb_label_n; i++)
+        if (g_bb_labels[i].name && !strcmp(g_bb_labels[i].name, name)) return g_bb_labels[i].landing;
+    if (!strcmp(name, "END")) return NULL;
+    return NULL;
+}
+
+/*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (nkids < 1) return NULL;
     IR_t * node = nalloc(cx, kind);
