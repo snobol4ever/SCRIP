@@ -196,6 +196,15 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     return bb;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int ir_operand_push(IR_t * nd, IR_t * child) {
+    if (!nd) return 0;
+    IR_t ** p = realloc(nd->operands, (size_t)(nd->n_operands + 1) * sizeof(IR_t *));
+    if (!p) return 0;
+    nd->operands = p;
+    nd->operands[nd->n_operands++] = child;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n) {
     if (!bbg || !bb) return -1;
     int slot = -1;
