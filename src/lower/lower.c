@@ -9,7 +9,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <gc/gc.h>
-
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 #include "lower_internal.h"
@@ -32,7 +31,6 @@ IR_t * ret(IR_t * n, IR_t ** α_out, IR_t ** β_out, IR_t * α, IR_t * β) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-
 IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (nkids < 1) return NULL;
     IR_t * node = nalloc(cx, kind);
@@ -89,7 +87,7 @@ IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int flatten_seq(const tree_t * e, tree_e kind, const tree_t ** out, int cap) {
+int flatten_seq(const tree_t * e, tree_e kind, const tree_t ** out, int cap) {
     int n = 0;
     if (!e) return 0;
     if (e->t == kind) {
@@ -300,51 +298,12 @@ IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e) {
     blk->entry = eα ? eα : en;
     return blk;
 }
-static int fold_concat_const(const tree_t * e, char * buf, size_t cap, size_t * len) {
-    if (!e) return 0;
-    if (e->t == TT_QLIT) { const char * s = e->v.sval ? e->v.sval : ""; size_t n = strlen(s); if (*len + n >= cap) return 0; memcpy(buf + *len, s, n); *len += n; return 1; }
-    if (e->t == TT_SEQ && e->n == 2) return fold_concat_const(e->c[0], buf, cap, len) && fold_concat_const(e->c[1], buf, cap, len);
-    return 0;
-}
-static IR_t * v_seq_concat_pair(lcx_t cx, const tree_t * lhs, const tree_t * rhs, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    if (cx.lang == IR_LANG_SNO) {
-        char fbuf[8192]; size_t flen = 0;
-        if (fold_concat_const(lhs, fbuf, sizeof fbuf, &flen) && fold_concat_const(rhs, fbuf, sizeof fbuf, &flen)) {
-            fbuf[flen] = '\0';
-            IR_t * lit = nalloc(cx, IR_LIT_S);
-            if (!lit) return NULL;
-            lit->sval = GC_strdup(fbuf);
-            set_succ_fail(lit, γ_in, ω_in);
-            return ret(lit, α_out, β_out, lit, ω_in);
-        }
-    }
-    IR_t * node = nalloc(cx, IR_SEQ);
-    if (!node) return NULL;
-    node->dval = 1.0;
-    IR_graph_t * lblk = lower_value_subgraph(cx, lhs);
-    if (!lblk) return NULL;
-    IR_graph_t * rblk = lower_value_subgraph(cx, rhs);
-    if (!rblk) { IR_free(lblk); return NULL; }
-    node->counter = (int64_t)(intptr_t) lblk;
-    node->ival    = (int64_t)(intptr_t) rblk;
-    set_succ_fail(node, γ_in, ω_in);
-    return ret(node, α_out, β_out, node  , ω_in  );
-}
 static IR_t * v_conj(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     const tree_t * kids[64];
     int nk = flatten_seq(e, e->t, kids, 64);
     if (nk < 1) return NULL;
     if (cx.lang != IR_LANG_SNO) return wire_seq(cx, IR_CONJ, kids, nk, γ_in, ω_in, α_out, β_out);
-    if (nk == 1) return lower(cx, kids[0], γ_in, ω_in, α_out, β_out);
-    tree_t * left = (tree_t *) kids[0];
-    for (int i = 1; i < nk; i++) {
-        tree_t * pair = ast_node_new(TT_SEQ);
-        if (!pair) return NULL;
-        ast_push(pair, left);
-        ast_push(pair, (tree_t *) kids[i]);
-        left = pair;
-    }
-    return v_seq_concat_pair(cx, left->c[0], left->c[1], γ_in, ω_in, α_out, β_out);
+    return sno_conj(cx, kids, nk, γ_in, ω_in, α_out, β_out);
 }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
@@ -546,13 +505,7 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
         return v_raku_pop(cx, lhs_t->v.sval, rhs_t->c[1], γ_in, ω_in, α_out, β_out);
     }
     IR_e ak = IR_ASSIGN;
-    if (cx.lang == IR_LANG_SNO && lhs_is_var && rhs_t) {
-        if      (rhs_t->t == TT_QLIT || rhs_t->t == TT_CSET) ak = IR_ASSIGN_LIT_S;
-        else if (rhs_t->t == TT_ILIT)                        ak = IR_ASSIGN_LIT_I;
-        else if (rhs_t->t == TT_VAR || rhs_t->t == TT_NAME)  ak = IR_ASSIGN_VAR;
-        else if (rhs_t->t == TT_SEQ || rhs_t->t == TT_SEQ_EXPR) ak = IR_ASSIGN_CONCAT;
-        else if (rhs_t->t == TT_FNC)                          ak = IR_ASSIGN_CALL;
-    }
+    if (cx.lang == IR_LANG_SNO && lhs_is_var && rhs_t) ak = sno_assign_kind(rhs_t);
     IR_t * as = nalloc(cx, ak);
     if (!as) return NULL;
     as->sval = lhs_t->v.sval ? lhs_t->v.sval : "";
@@ -565,56 +518,6 @@ static IR_t * v_assign(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    const tree_t * subj_t = NULL, * pat_t = NULL;
-    if (!tm(e, TT_SCAN, 2, &subj_t, &pat_t) || !subj_t || !pat_t) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
-    const tree_t * repl_t = (e->n >= 3) ? e->c[2] : NULL;
-    if (repl_t && subj_t->t != TT_VAR) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
-    IR_t * sc = nalloc(cx, IR_SCAN);
-    if (!sc) return NULL;
-    IR_graph_t * pat_blk = IR_alloc(256, IR_LANG_SNO);
-    if (!pat_blk) return NULL;
-    IR_t * psucc = IR_node_alloc(pat_blk, IR_SUCCEED);
-    IR_t * pfail = IR_node_alloc(pat_blk, IR_FAIL);
-    IR_t * pα = NULL, * pβ = NULL;
-    lcx_t pcx = { pat_blk, ROLE_PATTERN, 0, IR_LANG_SNO, NULL, NULL };
-    IR_t * pat_entry = lower(pcx, pat_t, psucc, pfail, &pα, &pβ);
-    if (!pat_entry) { IR_free(pat_blk); return NULL; }
-    (void) pβ;
-    pat_blk->entry = pα ? pα : pat_entry;
-    sc->counter = (int64_t)(intptr_t)pat_blk;
-    if (repl_t) {
-        sc->sval = subj_t->v.sval ? subj_t->v.sval : "";
-        sc->ival = 1;
-        IR_graph_t * subj_blk = lower_value_subgraph(cx, subj_t);
-        if (!subj_blk) { IR_free(pat_blk); return NULL; }
-        IR_graph_t * repl_blk = lower_value_subgraph(cx, repl_t);
-        if (!repl_blk) { IR_free(pat_blk); return NULL; }
-        IR_t * scan_aux[2]; scan_aux[0] = (IR_t *)(void *)subj_blk; scan_aux[1] = (IR_t *)(void *)repl_blk;
-        bb_operand_aux_set(cx.bbg, sc, scan_aux, 2);
-        IR_t * rα = NULL, * rβ = NULL;
-        IR_t * repln = lower(cx, repl_t, sc, ω_in, &rα, &rβ);
-        if (!repln) { IR_free(pat_blk); return NULL; }
-        (void) rβ;
-        set_succ_fail(sc, γ_in, ω_in);
-        return ret(sc, α_out, β_out, rα ? rα : sc, ω_in);
-    }
-    IR_graph_t * subj_blk = lower_value_subgraph(cx, subj_t);
-    if (!subj_blk) { IR_free(pat_blk); return NULL; }
-    if (subj_t->t == TT_VAR) sc->sval = subj_t->v.sval ? subj_t->v.sval : "";
-    IR_t * scan_aux[1]; scan_aux[0] = (IR_t *)(void *)subj_blk;
-    bb_operand_aux_set(cx.bbg, sc, scan_aux, 1);
-    IR_t * sα = NULL, * sβ = NULL;
-    IR_t * subj = lower(cx, subj_t, sc, ω_in, &sα, &sβ);
-    if (!subj) { IR_free(pat_blk); return NULL; }
-    (void) sβ;
-    set_succ_fail(sc, γ_in, ω_in);
-    return ret(sc, α_out, β_out, sα ? sα : sc, ω_in);
-}
-/*====================================================================================================================*/
-/*====================================================================================================================*/
-/*====================================================================================================================*/
-/*====================================================================================================================*/
 IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     switch (e->t) {
     case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_CSET:
@@ -685,23 +588,8 @@ IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
     case TT_PROC_FAIL:
     case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP:
     case TT_FNC: {
-        if (cx.lang == IR_LANG_SNO) {
-            IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
-            call->sval = e->v.sval ? e->v.sval : "";
-            call->ival = e->n;
-            call->dval = (e->v.sval && !strcmp(e->v.sval, "DEFINE")) ? 5.0 : 2.0;
-            if (e->n > 0) {
-                IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) e->n, sizeof(IR_graph_t *));
-                if (!blks) return NULL;
-                for (int i = 0; i < e->n; i++) {
-                    blks[i] = lower_value_subgraph(cx, e->c[i]);
-                    if (!blks[i]) { free(blks); return NULL; }
-                }
-                call->counter = (int64_t)(intptr_t) blks;
-            }
-            set_succ_fail(call, γ_in, ω_in);
-            return ret(call, α_out, β_out, call  , ω_in  );
-        }
+        if (cx.lang == IR_LANG_SNO)
+            return sno_fnc_call(cx, e, γ_in, ω_in, α_out, β_out);
         if (cx.lang == IR_LANG_RKU && e->v.sval && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR) {
             const char * flav = e->v.sval;
             if (!strcmp(flav, "any") || !strcmp(flav, "all") || !strcmp(flav, "one") || !strcmp(flav, "none"))
@@ -830,192 +718,6 @@ IR_t * lower_value(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t 
         if (cx.lang == IR_LANG_RKU && e->n >= 4 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval)
             return rku_for_range(cx, e, γ_in, ω_in, α_out, β_out);
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
-    default:
-        return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
-    }
-}
-/*====================================================================================================================*/
-/*====================================================================================================================*/
-char * cset_try_fold(const tree_t * t) { (void) t; return NULL; }
-static int pat_cset_arg(const tree_t * arg, const char ** sval_out, double * varflag_out) {
-    if (!arg) return 0;
-    if (arg->t == TT_QLIT) { *sval_out = arg->v.sval ? arg->v.sval : ""; *varflag_out = 0.0; return 1; }
-    if (arg->t == TT_VAR)  { *sval_out = arg->v.sval ? arg->v.sval : ""; *varflag_out = 1.0; return 1; }
-    { char * cs = cset_try_fold(arg); if (!cs) return 0; *sval_out = cs; *varflag_out = 0.0; return 1; }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    IR_t * n = NULL;
-    switch (e->t) {
-    case TT_QLIT: n = nalloc(cx, IR_PAT_LIT); if (n) n->sval = e->v.sval ? e->v.sval : ""; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    case TT_ARB:  return emit_leaf(cx, nalloc(cx, IR_PAT_ARB), γ_in, ω_in, α_out, β_out);
-    case TT_REM:  return emit_leaf(cx, nalloc(cx, IR_PAT_REM), γ_in, ω_in, α_out, β_out);
-    case TT_BAL:  return emit_leaf(cx, nalloc(cx, IR_PAT_BAL), γ_in, ω_in, α_out, β_out);
-    case TT_SPAN: case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_BREAKX: {
-        if (e->n < 1 || !e->c[0]) return NULL;
-        const char * sv = NULL; double vf = 0.0;
-        if (!pat_cset_arg(e->c[0], &sv, &vf)) return NULL;
-        IR_e k = (e->t==TT_SPAN)?((vf!=0.0)?IR_PAT_SPAN_VAR:IR_PAT_SPAN) : (e->t==TT_ANY)?IR_PAT_ANY
-               : (e->t==TT_NOTANY)?IR_PAT_NOTANY : (e->t==TT_BREAKX)?IR_PAT_BREAKX : IR_PAT_BREAK;
-        n = nalloc(cx, k); if (!n) return NULL;
-        n->sval = sv;
-        if (e->t==TT_SPAN) n->ival = (vf!=0.0)?1:0;
-        else               n->dval = vf;
-        if (e->t==TT_BREAKX) n->ival = 1; else if (e->t==TT_BREAK) n->ival = 0;
-        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_SEQ: case TT_CAT: {
-        const tree_t * kids[64];
-        int nk = flatten_seq(e, e->t, kids, 64);
-        if (nk < 1) return NULL;
-        if (nk == 1) return lower(cx, kids[0], γ_in, ω_in, α_out, β_out);
-        return wire_seq(cx, IR_PAT_CAT, kids, nk, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_ALT:
-        if (e->n < 1) return NULL;
-        return wire_alt(cx, IR_PAT_ALT, (const tree_t * const *) e->c, e->n, γ_in, ω_in, α_out, β_out);
-    case TT_LEN: {
-        if (e->n < 1 || !e->c[0]) return NULL;
-        n = nalloc(cx, IR_PAT_LEN); if (!n) return NULL;
-        if (e->c[0]->t == TT_VAR) { n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : ""; n->dval = 1.0; }
-        else { n->ival = e->c[0]->v.ival; n->dval = 0.0; }
-        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_POS: case TT_RPOS: {
-        if (e->n < 1 || !e->c[0]) return NULL;
-        n = nalloc(cx, IR_PAT_POS); if (!n) return NULL;
-        int is_rpos = (e->t == TT_RPOS);
-        if (e->c[0]->t == TT_VAR) {
-            n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
-            n->dval = is_rpos ? 1.0 : 2.0;
-        } else {
-            n->ival = e->c[0]->v.ival;
-            n->sval = is_rpos ? "r" : NULL;
-            n->dval = 0.0;
-        }
-        lcx_t bx = cx; bx.bounded = 1;
-        return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_TAB: case TT_RTAB: {
-        if (e->n < 1 || !e->c[0]) return NULL;
-        int is_rtab = (e->t == TT_RTAB);
-        n = nalloc(cx, is_rtab ? IR_PAT_RTAB : IR_PAT_TAB); if (!n) return NULL;
-        if (e->c[0]->t == TT_VAR) {
-            n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
-            n->dval = is_rtab ? 1.0 : 2.0;
-        } else {
-            n->ival = e->c[0]->v.ival;
-            n->sval = is_rtab ? "r" : NULL;
-            n->dval = 0.0;
-        }
-        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_FENCE: {
-        n = nalloc(cx, IR_PAT_FENCE); if (!n) return NULL;
-        if (e->n > 0 && e->c[0]) {
-            IR_t * fα = NULL, * fβ = NULL;
-            lcx_t bx = cx; bx.bounded = 1;
-            set_succ_fail(n, γ_in, ω_in);
-            IR_t * inner = lower(cx, e->c[0], n, ω_in, &fα, &fβ);
-            if (!inner) return NULL;
-            return ret(n, α_out, β_out, fα, ω_in  );
-        }
-        lcx_t bx = cx; bx.bounded = 1;
-        return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_ABORT: {
-        n = nalloc(cx, IR_PAT_ABORT); if (!n) return NULL;
-        lcx_t bx = cx; bx.bounded = 1;
-        return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_FAIL: {
-        n = nalloc(cx, IR_FAIL); if (!n) return NULL;
-        lcx_t bx = cx; bx.bounded = 1;
-        return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_SUCCEED: {
-        n = nalloc(cx, IR_SUCCEED); if (!n) return NULL;
-        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_ARBNO: {
-        if (e->n < 1 || !e->c[0]) return NULL;
-        int inner_cap = 64;
-        IR_graph_t * inner_blk = IR_alloc(inner_cap, IR_LANG_SNO);
-        if (!inner_blk) return NULL;
-        IR_t * isucc = IR_node_alloc(inner_blk, IR_SUCCEED);
-        IR_t * ifail = IR_node_alloc(inner_blk, IR_FAIL);
-        IR_t * iα = NULL, * iβ = NULL;
-        lcx_t icx = { inner_blk, ROLE_PATTERN, 0, 0 };
-        IR_t * inner_entry = lower(icx, e->c[0], isucc, ifail, &iα, &iβ);
-        if (!inner_entry) { IR_free(inner_blk); return NULL; }
-        inner_blk->entry = iα;
-        n = nalloc(cx, IR_PAT_ARBNO); if (!n) { IR_free(inner_blk); return NULL; }
-        int stack_cap = 64;
-        bb_arbno_state_t * az = (bb_arbno_state_t *)GC_MALLOC(sizeof *az);
-        az->inner = inner_blk;
-        az->pos_stack = (int *)GC_MALLOC((size_t)stack_cap * sizeof(int));
-        az->cap = stack_cap;
-        az->saved_delta = 0;
-        n->counter = (int64_t)(intptr_t)az;
-        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_CAPT_COND_ASGN: {
-        if (e->n < 1 || !e->c[0]) return NULL;
-        n = nalloc(cx, IR_PAT_ASSIGN_COND); if (!n) return NULL;
-        n->sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
-        set_succ_fail(n, γ_in, ω_in);
-        IR_t * iα = NULL, * iβ = NULL;
-        IR_t * inner = lower(cx, e->c[0], n, ω_in, &iα, &iβ);
-        if (!inner) return NULL;
-        n->α = iα;
-        return ret(n, α_out, β_out, n, iβ ? iβ : ω_in);
-    }
-    case TT_CAPT_IMMED_ASGN: {
-        if (e->n < 1 || !e->c[0]) return NULL;
-        n = nalloc(cx, IR_PAT_ASSIGN_IMM); if (!n) return NULL;
-        n->sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
-        set_succ_fail(n, γ_in, ω_in);
-        IR_t * iα = NULL, * iβ = NULL;
-        IR_t * inner = lower(cx, e->c[0], n, ω_in, &iα, &iβ);
-        if (!inner) return NULL;
-        n->α = iα;
-        return ret(n, α_out, β_out, n, iβ ? iβ : ω_in);
-    }
-    case TT_CAPT_CURSOR: {
-        if (e->n < 1 || !e->c[0] || !e->c[0]->v.sval) return NULL;
-        n = nalloc(cx, IR_PAT_ATP); if (!n) return NULL;
-        n->sval = e->c[0]->v.sval;
-        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_DEFER: {
-        if (e->n < 1 || !e->c[0] || !e->c[0]->v.sval) return NULL;
-        n = nalloc(cx, IR_PAT_DEFER); if (!n) return NULL;
-        n->sval = e->c[0]->v.sval;
-        n->ival = 1;
-        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    }
-    case TT_VAR: {
-        if (!e->v.sval) return NULL;
-        const char * nm = e->v.sval;
-        IR_e pk = (IR_e) 0; int is_prim = 1; int bnd = 0;
-        if      (!strcmp(nm, "ARB"))     pk = IR_PAT_ARB;
-        else if (!strcmp(nm, "REM"))     pk = IR_PAT_REM;
-        else if (!strcmp(nm, "BAL"))     pk = IR_PAT_BAL;
-        else if (!strcmp(nm, "ABORT"))   { pk = IR_PAT_ABORT; bnd = 1; }
-        else if (!strcmp(nm, "FAIL"))    { pk = IR_FAIL;      bnd = 1; }
-        else if (!strcmp(nm, "SUCCEED")) pk = IR_SUCCEED;
-        else if (!strcmp(nm, "FENCE"))   { pk = IR_PAT_FENCE; bnd = 1; }
-        else is_prim = 0;
-        if (is_prim) {
-            n = nalloc(cx, pk); if (!n) return NULL;
-            lcx_t bx = cx; if (bnd) bx.bounded = 1;
-            return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
-        }
-        n = nalloc(cx, IR_PAT_DEFER); if (!n) return NULL;
-        n->sval = nm;
-        n->ival = 0;
-        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
-    }
     default:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     }
