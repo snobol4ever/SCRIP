@@ -16,17 +16,15 @@ static inline uint64_t     litaddr()    { return (uint64_t)(uintptr_t)lit(); }
 static inline uint64_t     memcmpaddr() { return (uint64_t)(uintptr_t)memcmp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_lit_str() {
-    int nid = _.nid; int sid = 0;
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
-                 + x86("comment", emit_fmt("BOX LIT(%s)  [REG-1 Σ=r13 δ=r14 Δ=r15]",
-                                      litlen() > 24 ? emit_fmt("'%.24s...'", lit()).c_str()
-                                                    : emit_fmt("'%s'", lit()).c_str())))
+                 + x86("comment", std::string("BOX LIT(") + (litlen() > 24 ? std::string("'") + std::string(lit(), 24) + "...'"
+                                                                           : std::string("'") + lit() + "'") + ")  [REG-1 Σ=r13 δ=r14 Δ=r15]"))
              + x86("mov", "eax", "r14d")
              + x86("add", "eax", litlen())
              + x86("cmp", "eax", "r15d")
-             + x86("jg", PORT_OMEGA)
+             + x86("jg", "ω")
              + x86("movsxd", "rcx", "r14d")
              + x86("lea", "rdi", "[r13 + rcx]")
              + x86("lea", "rsi", "[rip + __]", litaddr(), litlabel())
@@ -35,12 +33,12 @@ static std::string bb_lit_str() {
              + x86("call", "memcmp", memcmpaddr())
              + x86("add", "rsp", (long)8)
              + x86("test", "eax", "eax")
-             + x86("jne", PORT_OMEGA)
+             + x86("jne", "ω")
              + x86("add", "r14d", litlen())
-             + x86("jmp", PORT_GAMMA)
-             + x86("def", PORT_BETA)
+             + x86("jmp", "γ")
+             + x86("def", "β")
              + x86("sub", "r14d", litlen())
-             + x86("jmp", PORT_OMEGA);
+             + x86("jmp", "ω");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
