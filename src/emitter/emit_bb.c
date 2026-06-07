@@ -54,7 +54,6 @@ extern DESCR_t gen_bb_proccode(void*,int);      extern proccode_state_t    *proc
 extern atp_t    * bb_atp_new                (const char *varname);
 extern cap_t    * bb_cap_new_call           (bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
 extern cap_t    * bb_cap_new                (bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
-extern void     * bb_dvar_bin_new           (const char *name);
 void (*g_cap_fixup_cb)(void *cap_ptr, const char *child_α_label) = NULL;
 const char *child_cache_get_lbl(bb_box_fn fn);
 #define FLAT_BUF_MAX  (256 * 1024)

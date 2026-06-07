@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <gc/gc.h>
 #include "descr.h"
-#include "patnd.h"
 static inline size_t descr_slen(DESCR_t d) {
     if (d.v == DT_S) {
         if (d.slen) return (size_t)d.slen;

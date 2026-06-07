@@ -2,7 +2,6 @@
 #define RUNTIME_X86_TEMPLATES_EMIT_TEMPLATES_H
 #include "core.h"
 #include "emit.h"
-#include "patnd.h"
 void emit_sm_halt           ();
 void emit_sm_push_lit_i     (int64_t val);
 void emit_sm_push_lit_s     (const char * str_lbl, uint64_t str_ptr, int len);

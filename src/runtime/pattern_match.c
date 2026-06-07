@@ -13,375 +13,165 @@
          abort(); } while (0)
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
-static PATND_t *spat_new(XKIND_t kind) {
-    PATND_t *p = (PATND_t *)GC_MALLOC(sizeof(PATND_t));
-    memset(p, 0, sizeof(PATND_t));
-    p->kind = kind;
-    return p;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void patnd_set_children(PATND_t *p, PATND_t **ch, int n) {
-    int count = 0;
-    for (int i = 0; i < n; i++) if (ch[i]) count++;
-    if (count == 0) return;
-    p->children = (PATND_t **)GC_MALLOC((size_t)count * sizeof(PATND_t *));
-    int j = 0;
-    for (int i = 0; i < n; i++) if (ch[i]) p->children[j++] = ch[i];
-    p->nchildren = count;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void patnd_append_child(PATND_t *p, PATND_t *ch) {
-    if (!ch) return;
-    p->children = (PATND_t **)GC_REALLOC(p->children,
-                      (size_t)(p->nchildren + 1) * sizeof(PATND_t *));
-    p->children[p->nchildren++] = ch;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t spat_val(PATND_t *p) {
-    DESCR_t v;
-    v.v = DT_P;
-    v.p    = (struct _PATND_t *)p;
-    return v;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static inline PATND_t *spat_of(DESCR_t v) {
-    if (v.v != DT_P) return NULL;
-    return (PATND_t *)v.p;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_lit(const char *s) {
-    PATND_t *p = spat_new(XCHR);
-    p->STRVAL_fn = s ? GC_strdup(s) : "";
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_lit: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_span(const char *chars) {
-    PATND_t *p = spat_new(XSPNC);
-    p->STRVAL_fn = chars ? GC_strdup(chars) : "";
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_span: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_break_(const char *chars) {
-    PATND_t *p = spat_new(XBRKC);
-    p->STRVAL_fn = chars ? GC_strdup(chars) : "";
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_break_: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_breakx(const char *chars) {
-    PATND_t *p = spat_new(XBRKX);
-    p->STRVAL_fn = chars ? GC_strdup(chars) : "";
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_breakx: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_any_cs(const char *chars) {
-    PATND_t *p = spat_new(XANYC);
-    p->STRVAL_fn = chars ? GC_strdup(chars) : "";
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_any_cs: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_notany(const char *chars) {
-    PATND_t *p = spat_new(XNNYC);
-    p->STRVAL_fn = chars ? GC_strdup(chars) : "";
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_notany: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_len(int64_t n) {
-    if (n < 0) { core_runtime_error(14, NULL); return FAILDESCR; }
-    PATND_t *p = spat_new(XLNTH);
-    p->num = n;
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_len: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_pos(int64_t n) {
-    if (n < 0) { core_runtime_error(14, NULL); return FAILDESCR; }
-    PATND_t *p = spat_new(XPOSI);
-    p->num = n;
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_pos: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_rpos(int64_t n) {
-    if (n < 0) { core_runtime_error(14, NULL); return FAILDESCR; }
-    PATND_t *p = spat_new(XRPSI);
-    p->num = n;
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_rpos: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_tab(int64_t n) {
-    if (n < 0) { core_runtime_error(14, NULL); return FAILDESCR; }
-    PATND_t *p = spat_new(XTB);
-    p->num = n;
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_tab: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_rtab(int64_t n) {
-    if (n < 0) { core_runtime_error(14, NULL); return FAILDESCR; }
-    PATND_t *p = spat_new(XRTB);
-    p->num = n;
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_rtab: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_arb(void) {
-    return spat_val(spat_new(XFARB));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    return v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_arbno(DESCR_t inner) {
-    PATND_t *p = spat_new(XARBN);
-    PATND_t *ch = spat_of(inner);
-    if (!ch && inner.v == DT_S) ch = spat_of(pat_lit(inner.s));
-    PATND_t *arr[1] = { ch };
-    patnd_set_children(p, arr, 1);
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_arbno: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_rem(void) {
-    return spat_val(spat_new(XSTAR));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    return v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_fence_p(DESCR_t inner) {
-    PATND_t *p = spat_new(XFNCE);
-    PATND_t *ch = spat_of(inner);
-    if (!ch && inner.v == DT_S && inner.s) ch = spat_of(pat_lit(inner.s));
-    if (!ch && inner.v == DT_SNUL)         ch = spat_of(pat_lit(""));
-    if (!ch && inner.v == DT_I)            { char buf[32]; snprintf(buf,sizeof buf,"%lld",(long long)inner.i); ch = spat_of(pat_lit(buf)); }
-    if (!ch && inner.v == DT_R)            { char buf[64]; snprintf(buf,sizeof buf,"%.14g",inner.r); ch = spat_of(pat_lit(buf)); }
-    PATND_t *arr[1] = { ch };
-    patnd_set_children(p, arr, 1);
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_fence_p: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_fence(void) {
-    return spat_val(spat_new(XFNCE));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    return v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_fail(void) {
-    return spat_val(spat_new(XFAIL));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    return v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_abort(void) {
-    return spat_val(spat_new(XABRT));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    return v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_succeed(void) {
-    return spat_val(spat_new(XSUCF));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    return v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_bal(void) {
-    return spat_val(spat_new(XBAL));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    return v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_epsilon(void) {
-    return spat_val(spat_new(XEPS));
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-PATND_t *patnd_make_xchr(const char *lit) {
-    PATND_t *p = (PATND_t *)GC_MALLOC(sizeof(PATND_t));
-    memset(p, 0, sizeof(PATND_t));
-    p->kind = XCHR;
-    p->STRVAL_fn = lit ? GC_strdup(lit) : "";
-    return p;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-PATND_t *patnd_make_eps(void) {
-    PATND_t *p = (PATND_t *)GC_MALLOC(sizeof(PATND_t));
-    memset(p, 0, sizeof(PATND_t));
-    p->kind = XEPS;
-    return p;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern DESCR_t eval_node(tree_t *e);
-static PATND_t *pat_to_patnd(DESCR_t v) {
-    if (v.v == DT_E) {
-        if (v.slen == 1) {
-            v = EXPVAL_fn(v);
-            goto coerce;
-        }
-        tree_t *frozen = (tree_t *)v.ptr;
-        if (!frozen) return NULL;
-        if (frozen->t == TT_FNC) {
-            int nargs = frozen->n;
-            DESCR_t *args = NULL;
-            if (nargs > 0) {
-                args = (DESCR_t *)alloca((size_t)nargs * sizeof(DESCR_t));
-                for (int i = 0; i < nargs; i++)
-                    args[i] = eval_node(frozen->c[i]);
-            }
-            const char *fname = frozen->v.sval ? frozen->v.sval : "";
-            DESCR_t pv = pat_user_call(fname, args, nargs);
-            if (IS_FAIL_fn(pv)) return NULL;
-            PATND_t *pp = spat_of(pv);
-            if (pp) return pp;
-            v = pv;
-        }
-        if (frozen->t == TT_VAR && frozen->v.sval) {
-            DESCR_t name_d = STRVAL(frozen->v.sval);
-            DESCR_t pv = var_as_pattern(name_d);
-            return spat_of(pv);
-        }
-        v = PATVAL_fn(v);
-        if (v.v == DT_FAIL) return NULL;
-    }
-    coerce:
-    if (v.v == DT_N) {
-        if (v.slen == 1 && v.ptr) v = *(DESCR_t *)v.ptr;
-        else if (v.slen == 0 && v.s) v = NV_GET_fn(v.s);
-        else v = NULVCL;
-    }
-    PATND_t *p = spat_of(v);
-    if (!p && v.v == DT_S) p = (v.s && v.s[0]) ? spat_of(pat_lit(v.s)) : spat_of(pat_lit(""));
-    if (!p && v.v == DT_I) { char buf[32]; snprintf(buf,sizeof buf,"%lld",(long long)v.i); p = spat_of(pat_lit(buf)); }
-    if (!p && v.v == DT_R) { char buf[64]; snprintf(buf,sizeof buf,"%.14g",v.r); p = spat_of(pat_lit(buf)); }
-    if (!p && v.v == DT_SNUL) p = spat_of(pat_lit(""));
-    return p;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    return v;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
-    PATND_t *l = pat_to_patnd(left);
-    PATND_t *r = pat_to_patnd(right);
-    if (!l && left.v  != DT_SNUL) {
-        fprintf(stderr, "pat_cat: left is not a pattern (DT=%d) — dropping\n", left.v);
-    }
-    if (!r && right.v != DT_SNUL) {
-        fprintf(stderr, "pat_cat: right is not a pattern (DT=%d) — dropping\n", right.v);
-    }
-    if (!l) return r ? spat_val(r) : pat_epsilon();
-    if (!r) return spat_val(l);
-    PATND_t *p = spat_new(XCAT);
-    if (l->kind == XCAT) {
-        for (int i = 0; i < l->nchildren; i++) patnd_append_child(p, l->children[i]);
-    } else {
-        patnd_append_child(p, l);
-    }
-    if (r->kind == XCAT) {
-        for (int i = 0; i < r->nchildren; i++) patnd_append_child(p, r->children[i]);
-    } else {
-        patnd_append_child(p, r);
-    }
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_cat: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_alt(DESCR_t left, DESCR_t right) {
-    PATND_t *l = pat_to_patnd(left);
-    PATND_t *r = pat_to_patnd(right);
-    if (!l && left.v  == DT_SNUL) l = spat_of(pat_epsilon());
-    if (!r && right.v == DT_SNUL) r = spat_of(pat_epsilon());
-    if (!l) return r ? spat_val(r) : pat_epsilon();
-    if (!r) return spat_val(l);
-    PATND_t *p = spat_new(XOR);
-    if (l->kind == XOR) {
-        for (int i = 0; i < l->nchildren; i++) patnd_append_child(p, l->children[i]);
-    } else {
-        patnd_append_child(p, l);
-    }
-    if (r->kind == XOR) {
-        for (int i = 0; i < r->nchildren; i++) patnd_append_child(p, r->children[i]);
-    } else {
-        patnd_append_child(p, r);
-    }
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_alt: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_ref(const char *name) {
-    PATND_t *p = spat_new(XDSAR);
-    p->STRVAL_fn = name ? GC_strdup(name) : "";
-    return spat_val(p);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static const char *_assign_varname_str(DESCR_t var) {
-    if (var.v != DT_N) return "";
-    if (var.slen == 0 && var.s && *var.s) return GC_strdup(var.s);
-    if (var.slen == 1 && var.ptr) {
-        const char *nm = NV_name_from_ptr((const DESCR_t *)var.ptr);
-        if (nm && *nm) return GC_strdup(nm);
-    }
-    return "";
+    fprintf(stderr, "[B0] BOMB pat_ref: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_assign_imm(DESCR_t child, DESCR_t var) {
-    PATND_t *p = spat_new(XFNME);
-    PATND_t *ch = pat_to_patnd(child);
-    PATND_t *arr[1] = { ch };
-    patnd_set_children(p, arr, 1);
-    p->var  = var;
-    p->STRVAL_fn = _assign_varname_str(var);
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_assign_imm: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var) {
-    PATND_t *p = spat_new(XNME);
-    PATND_t *ch = pat_to_patnd(child);
-    PATND_t *arr[1] = { ch };
-    patnd_set_children(p, arr, 1);
-    p->var  = var;
-    p->STRVAL_fn = _assign_varname_str(var);
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_assign_cond: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_assign_callcap(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs) {
-    return pat_assign_callcap_named(child, fnc_name, args, nargs, NULL, 0);
+    fprintf(stderr, "[B0] BOMB pat_assign_callcap: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_assign_callcap_named(DESCR_t child, const char *fnc_name,
-                                  DESCR_t *args, int nargs,
-                                  char **arg_names, int n_arg_names) {
-    PATND_t *p = spat_new(XCALLCAP);
-    PATND_t *ch = pat_to_patnd(child);
-    PATND_t *arr[1] = { ch };
-    patnd_set_children(p, arr, 1);
-    p->STRVAL_fn = fnc_name ? GC_strdup(fnc_name) : "";
-    p->args  = args;
-    p->nargs = nargs;
-    p->arg_names   = arg_names;
-    p->n_arg_names = n_arg_names;
-    p->imm = 0;
-    return spat_val(p);
+DESCR_t pat_assign_callcap_named(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs, char **arg_names, int n_arg_names) {
+    fprintf(stderr, "[B0] BOMB pat_assign_callcap_named: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_assign_callcap_named_imm(DESCR_t child, const char *fnc_name,
-                                      DESCR_t *args, int nargs,
-                                      char **arg_names, int n_arg_names) {
-    PATND_t *p = spat_new(XCALLCAP);
-    PATND_t *ch = pat_to_patnd(child);
-    PATND_t *arr[1] = { ch };
-    patnd_set_children(p, arr, 1);
-    p->STRVAL_fn = fnc_name ? GC_strdup(fnc_name) : "";
-    p->args  = args;
-    p->nargs = nargs;
-    p->arg_names   = arg_names;
-    p->n_arg_names = n_arg_names;
-    p->imm = 1;
-    return spat_val(p);
+DESCR_t pat_assign_callcap_named_imm(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs, char **arg_names, int n_arg_names) {
+    fprintf(stderr, "[B0] BOMB pat_assign_callcap_named_imm: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t var_as_pattern(DESCR_t v) {
-    if (v.v == DT_P) return v;
-    if (v.v == DT_S || v.v == DT_SNUL) {
-        return pat_lit(VARVAL_fn(v));
-    }
-    PATND_t *p = spat_new(XVAR);
-    p->var = v;
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB var_as_pattern: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs) {
-    PATND_t *p = spat_new(XATP);
-    p->STRVAL_fn   = name ? GC_strdup(name) : "";
-    p->nargs = nargs;
-    if (nargs > 0) {
-        p->args = (DESCR_t *)GC_MALLOC(nargs * sizeof(DESCR_t));
-        memcpy(p->args, args, nargs * sizeof(DESCR_t));
-    }
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_user_call: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_at_cursor(const char *varname) {
-    PATND_t *p = spat_new(XATP);
-    p->STRVAL_fn = "@";
-    p->nargs = 1;
-    p->args  = (DESCR_t *)GC_MALLOC(sizeof(DESCR_t));
-    p->args[0].v    = DT_S;
-    p->args[0].s    = varname ? GC_strdup(varname) : "";
-    p->args[0].slen = varname ? (uint32_t)strlen(varname) : 0;
-    return spat_val(p);
+    fprintf(stderr, "[B0] BOMB pat_at_cursor: PATND deleted; pattern value needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
@@ -728,60 +518,6 @@ DESCR_t rsort_fn(DESCR_t arr) {
     return sorted;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-#include <stdio.h>
-static const char *xkind_name(XKIND_t k) {
-    switch (k) {
-        case XCHR:     return "CHR";
-        case XSPNC:    return "SPAN";
-        case XBRKC:    return "BREAK";
-        case XANYC:    return "ANY";
-        case XNNYC:    return "NOTANY";
-        case XLNTH:    return "LEN";
-        case XPOSI:    return "POS";
-        case XRPSI:    return "RPOS";
-        case XTB:      return "TAB";
-        case XRTB:     return "RTAB";
-        case XFARB:    return "ARB";
-        case XARBN:    return "ARBNO";
-        case XSTAR:    return "REM";
-        case XFNCE:    return "FENCE";
-        case XFAIL:    return "FAIL";
-        case XABRT:    return "ABORT";
-        case XSUCF:    return "SUCCEED";
-        case XBAL:     return "BAL";
-        case XEPS:     return "EPS";
-        case XCAT:     return "CAT";
-        case XOR:      return "ALT";
-        case XDSAR:    return "DEREF";
-        case XFNME:    return "CAP_IMM";
-        case XNME:     return "CAP_COND";
-        case XCALLCAP: return "CALLCAP";
-        case XVAR:     return "VAR";
-        case XATP:     return "USERPAT";
-        case XBRKX:    return "BREAKX";
-        default:       return "?";
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void patnd_print_r(const PATND_t *p, FILE *out, int depth) {
-    if (!p) { fprintf(out, "%*s(null)\n", depth*2, ""); return; }
-    fprintf(out, "%*s(%s", depth*2, "", xkind_name(p->kind));
-    if (p->STRVAL_fn) fprintf(out, " \"%s\"", p->STRVAL_fn);
-    if (p->num)       fprintf(out, " %lld", (long long)p->num);
-    if (p->nchildren == 0) {
-        fprintf(out, ")\n");
-    } else {
-        fprintf(out, "\n");
-        for (int i = 0; i < p->nchildren; i++)
-            patnd_print_r(p->children[i], out, depth + 1);
-        fprintf(out, "%*s)\n", depth*2, "");
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void patnd_print(const PATND_t *p, FILE *out) {
-    patnd_print_r(p, out, 0);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t NAME_DEREF(DESCR_t d) {
     if (IS_NAME(d)) {
         if (IS_NAMEPTR(d)) return NAME_DEREF_PTR(d);
@@ -789,6 +525,8 @@ static inline DESCR_t NAME_DEREF(DESCR_t d) {
     }
     return d;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern DESCR_t eval_node(tree_t *e);
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t interp_eval_pat(tree_t *e)
 {
@@ -1162,17 +900,8 @@ int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
         return cur_delta + llen;
     }
     if (val.v == DT_P && val.p) {
-        const char *save_Σ = Σ; int save_Σlen = Σlen;
-        extern int Ω; int save_Ω = Ω;
-        extern int Δ; int save_Δ = Δ;
-        const char *sub = Σ + cur_delta; int sublen = Σlen - cur_delta;
-        Σ = sub; Σlen = sublen; Ω = sublen; Δ = 0;
-        DESCR_t sub_d = { .v = DT_S, .slen = (uint32_t)sublen, .s = (char *)sub };
-        int ok = exec_stmt(NULL, &sub_d, val, NULL, 0);
-        int matched = ok ? Δ : 0;
-        Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ;
-        if (!ok) return -1;
-        return cur_delta + matched;
+        fprintf(stderr, "[B0] BOMB rt_defer_match: DT_P arm removed (B0); native DT_P match lands at B3 (B-ladder)\n");
+        abort();
     }
     return -1;
 }
@@ -1267,92 +996,6 @@ void rt_match_variant(const char *subj_name, int has_repl)
     (void)subj_name;
     (void)has_repl;
     STACKLESS_ABORT("rt_match_variant");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int patnd_contains_arbno(const PATND_t *pp) {
-    if (!pp) return 0;
-    if (pp->kind == XARBN) return 1;
-    for (int i = 0; i < pp->nchildren; i++) if (patnd_contains_arbno(pp->children[i])) return 1;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int patnd_contains_defer(const PATND_t *pp) {
-    if (!pp) return 0;
-    if (pp->kind == XDSAR) return 1;
-    for (int i = 0; i < pp->nchildren; i++) if (patnd_contains_defer(pp->children[i])) return 1;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int patnd_is_simple_atom(const PATND_t *pp) {
-    if (!pp) return 0;
-    switch (pp->kind) {
-    case XCHR: case XSPNC: case XBRKC: case XBRKX: case XANYC: case XNNYC:
-    case XLNTH: case XPOSI: case XRPSI: case XTB: case XRTB: case XFARB: case XSTAR:
-    case XDSAR:
-    case XATP:
-    case XEPS:
-        return 1;
-    default: return 0;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int patnd_is_capture_wrapped_safe(const PATND_t *pp) {
-    if (!pp) return 0;
-    if (pp->kind != XNME && pp->kind != XFNME) return 0;
-    if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return 0;
-    const PATND_t *inner = pp->children[0];
-    return patnd_is_simple_atom(inner) || patnd_contains_arbno(inner);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int patnd_tree_eligible(const PATND_t *pp) {
-    if (!pp) return 0;
-    if (patnd_is_simple_atom(pp)) return 1;
-    switch (pp->kind) {
-    case XCAT: case XOR: case XFNCE:
-    case XNME: case XFNME:
-        break;
-    case XARBN:
-        if (pp->nchildren < 1 || !pp->children || !pp->children[0]) return 0;
-        return patnd_tree_eligible(pp->children[0]);
-    default:
-        return 0;
-    }
-    for (int i = 0; i < pp->nchildren; i++) {
-        if (!patnd_tree_eligible(pp->children ? pp->children[i] : NULL)) return 0;
-    }
-    return 1;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int patnd_is_combinator_root(const PATND_t *pp) {
-    if (!pp) return 0;
-    switch (pp->kind) {
-    case XCAT: case XOR: case XFNCE:
-    case XNME: case XFNME:
-    case XARBN:
-        return patnd_tree_eligible(pp);
-    default:
-        return 0;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int patnd_needs_xlate(const PATND_t *pp) {
-    return patnd_contains_arbno(pp) || patnd_contains_defer(pp) || patnd_is_simple_atom(pp) || patnd_is_capture_wrapped_safe(pp);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int patnd_is_pure_altcat_leaf(const PATND_t *pp) {
-    if (!pp) return 0;
-    if (pp->kind == XCHR || pp->kind == XEPS) return 1;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int patnd_is_pure_altcat(const PATND_t *pp) {
-    if (!pp) return 0;
-    if (patnd_is_pure_altcat_leaf(pp)) return 1;
-    if (pp->kind != XCAT && pp->kind != XOR) return 0;
-    for (int i = 0; i < pp->nchildren; i++) {
-        if (!patnd_is_pure_altcat(pp->children ? pp->children[i] : NULL)) return 0;
-    }
-    return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {

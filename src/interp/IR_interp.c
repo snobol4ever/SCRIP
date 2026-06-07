@@ -4144,7 +4144,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             return bb->γ;
         }
         if (val.v == DT_P && val.p) {
-            fprintf(stderr, "[PATND] IR_PAT_DEFER pattern-valued *var deref used the removed PATND->IR bridge; SNOBOL4 patterns are not yet BB-native (Track B). Aborting.\n");
+            fprintf(stderr, "[B0] BOMB IR_PAT_DEFER: pattern-valued *var needs DT_P builders (B-ladder).\n");
             abort();
         }
         IR_EXEC(bb).value = FAILDESCR;

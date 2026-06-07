@@ -73,11 +73,7 @@ DESCR_t PATVAL_fn(DESCR_t d)
     }
     DESCR_t s = VARVAL_d_fn(d);
     if (s.v == DT_FAIL) return FAILDESCR;
-    {
-        extern DESCR_t pat_lit(const char *s);
-        const char *sp = (s.v == DT_SNUL || !s.s) ? "" : s.s;
-        return pat_lit(sp);
-    }
+    return s;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t VARVUP_fn(DESCR_t d)
