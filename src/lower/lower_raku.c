@@ -15,10 +15,10 @@ IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree
     if (!bind) return NULL;
     IR_LIT(bind).sval = var;
     IR_t * gα = NULL, * gβ = NULL;
-    IR_t * gen = lower(cx, range_t, bind  , γ_in  , &gα, &gβ);
+    IR_t * gen = lower_program(cx, range_t, bind  , γ_in  , &gα, &gβ);
     if (!gen) return NULL;
     IR_t * bα = NULL, * bβ = NULL;
-    IR_t * body = body_t ? lower(bounded(cx), body_t, gβ  , gβ  , &bα, &bβ) : NULL;
+    IR_t * body = body_t ? lower_program(bounded(cx), body_t, gβ  , gβ  , &bα, &bβ) : NULL;
     if (body_t && !body) return NULL;
     set_succ_fail(bind, body_t ? bα : gβ  , ω_in  );
     return ret(gen, α_out, β_out, gα  , ω_in  );
@@ -173,4 +173,109 @@ IR_t * rku_for_range(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     }
     tree_t * rng = ast_node_new(TT_TO); ast_push(rng, (tree_t *) lo); ast_push(rng, hi_eff);
     return v_raku_for(cx, rng, e->c[0]->v.sval, body, γ_in, ω_in, α_out, β_out);
+}
+/*====================================================================================================================*/
+/*====================================================================================================================*/
+static IR_t * lower_rku_value(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_t ** α, IR_t ** β) {
+    switch (e->t) {
+    case TT_EVERY:
+        if (e->n >= 1 && e->c[0] && e->c[0]->t == TT_ITERATE
+            && e->c[0]->n >= 1 && e->c[0]->c[0]
+            && (e->c[0]->c[0]->t == TT_TO || e->c[0]->c[0]->t == TT_TO_BY || e->c[0]->c[0]->t == TT_GATHER
+                || e->c[0]->c[0]->t == TT_MAP || e->c[0]->c[0]->t == TT_GREP)) {
+            const char * v = (e->c[0]->v.sval && e->c[0]->v.sval[0]) ? e->c[0]->v.sval : "_";
+            return v_raku_for(cx, e->c[0]->c[0], v, (e->n >= 2 ? e->c[1] : NULL), γ, ω, α, β);
+        }
+        return lower_value_shared(cx, e, γ, ω, α, β);
+    case TT_FNC: case TT_PROC_FAIL: case TT_SWAP: case TT_AUGOP: case TT_REVASSIGN: case TT_REVSWAP: case TT_LIMIT: case TT_CASE: {
+        if (e->v.sval && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR) {
+            const char * flav = e->v.sval;
+            if (!strcmp(flav, "any") || !strcmp(flav, "all") || !strcmp(flav, "one") || !strcmp(flav, "none"))
+                return rku_fnc_junction(cx, flav, e, γ, ω, α, β);
+        }
+        if (e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            const char * fn = e->c[0]->v.sval;
+            if (e->n == 2 && (!strcmp(fn, "write") || !strcmp(fn, "writes")))
+                return wire_det_builtin1(cx, e->c[1], fn, γ, ω, α, β);
+        }
+        if (e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+            int handled = 0;
+            IR_t * r = rku_fnc_calls(cx, e, γ, ω, α, β, &handled);
+            if (handled) return r;
+        }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    }
+    case TT_SAY: case TT_PRINT:
+        if (e->n >= 1 && e->c[0]) return rku_say_print(cx, e, γ, ω, α, β);
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_GATHER:
+        if (e->n >= 1 && e->c[0]) return v_raku_gather(cx, e->c[0], γ, ω, α, β);
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_MAP: case TT_GREP:
+        if (e->n >= 2 && e->c[0] && e->c[1]) return v_raku_map_grep(cx, (e->t == TT_GREP), e->c[0], e->c[1], γ, ω, α, β);
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_HASH_GET:
+        if (e->n >= 2 && e->c[0] && e->c[1]) { const tree_t * k[2] = { e->c[0], e->c[1] }; return v_raku_det_call(cx, "hash_get", k, 2, γ, ω, α, β); }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_HASH_EXISTS:
+        if (e->n >= 2 && e->c[0] && e->c[1]) { const tree_t * k[2] = { e->c[0], e->c[1] }; return v_raku_det_call(cx, "hash_exists", k, 2, γ, ω, α, β); }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_ARR_GET:
+        if (e->n >= 2 && e->c[0] && e->c[1]) { const tree_t * k[2] = { e->c[0], e->c[1] }; return v_raku_det_call(cx, "arr_get", k, 2, γ, ω, α, β); }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_SORT:
+        if (e->n >= 1 && e->c[0]) { const tree_t * k[1] = { e->c[0] }; return v_raku_det_call(cx, "array_sort", k, 1, γ, ω, α, β); }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_HASH_SET:
+        if (e->n >= 3 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[2]) {
+            const tree_t * k[3] = { e->c[0], e->c[1], e->c[2] };
+            return v_raku_mutate_writeback(cx, e->c[0]->v.sval, "hash_set_pure", k, 3, γ, ω, α, β);
+        }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_HASH_DELETE:
+        if (e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1]) {
+            const tree_t * k[2] = { e->c[0], e->c[1] };
+            return v_raku_mutate_writeback(cx, e->c[0]->v.sval, "hash_delete_pure", k, 2, γ, ω, α, β);
+        }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_ARR_SET:
+        if (e->n >= 3 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[2]) {
+            const tree_t * k[3] = { e->c[0], e->c[1], e->c[2] };
+            return v_raku_mutate_writeback(cx, e->c[0]->v.sval, "arr_set_pure", k, 3, γ, ω, α, β);
+        }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_SMATCH:
+        if (e->n >= 3 && e->c[0] && e->c[1] && e->c[2]
+            && e->c[2]->t == TT_QLIT && e->c[2]->v.sval && strcmp(e->c[2]->v.sval, "match") == 0) {
+            const tree_t * k[2] = { e->c[0], e->c[1] };
+            return v_raku_det_call(cx, "re_match", k, 2, γ, ω, α, β);
+        }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_CAPTURE:
+        if (e->n >= 1 && e->c[0]) { const tree_t * k[1] = { e->c[0] }; return v_raku_det_call(cx, "re_capture", k, 1, γ, ω, α, β); }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_NAMED_CAPTURE:
+        if (e->n >= 1 && e->c[0]) { const tree_t * k[1] = { e->c[0] }; return v_raku_det_call(cx, "re_named_capture", k, 1, γ, ω, α, β); }
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_FOR_RANGE:
+        if (e->n >= 4 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) return rku_for_range(cx, e, γ, ω, α, β);
+        return lower_unhandled(cx, e, γ, ω, α, β);
+    case TT_ASSIGN: {
+        const tree_t * lhs_t = NULL, * rhs_t = NULL;
+        if (tm(e, TT_ASSIGN, 2, &lhs_t, &rhs_t) && lhs_t && rhs_t && lhs_t->t == TT_VAR && lhs_t->v.sval
+            && rhs_t->t == TT_FNC && rhs_t->n >= 2 && rhs_t->c[0] && rhs_t->c[0]->t == TT_VAR && rhs_t->c[0]->v.sval
+            && !strcmp(rhs_t->c[0]->v.sval, "pop") && rhs_t->c[1] && rhs_t->c[1]->t == TT_VAR)
+            return v_raku_pop(cx, lhs_t->v.sval, rhs_t->c[1], γ, ω, α, β);
+        return lower_value_shared(cx, e, γ, ω, α, β);
+    }
+    default:
+        return lower_value_shared(cx, e, γ, ω, α, β);
+    }
+}
+/*====================================================================================================================*/
+/*====================================================================================================================*/
+IR_t * lower_rku(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β) {
+    IR_t * aα = NULL, * aβ = NULL;
+    IR_t * r = lower_rku_value(cx, e, γ, ω, &aα, &aβ);
+    return iref(r, α, β, aα, aβ);
 }

@@ -22,7 +22,7 @@ static void sm_resolve_proc_entry_pcs(stage2_t *s2)
 /*--------------------------------------------------------------------------------------------------------------------*/
 stage2_t *sm_preamble(const tree_t *ast_prog){
     g_core_err_active = 1;
-    stage2_t *s2 = lower_program(ast_prog);
+    stage2_t *s2 = lower_stage2(ast_prog);
     if (!s2) {
         fprintf(stderr, "scrip: sm_lower failed\n");
         return NULL;

@@ -32,7 +32,7 @@ static IR_t * v_unop(lcx_t cx, const tree_t * e, IR_t * g, IR_t * w, IR_t ** ao,
     IR_t * un = nalloc(cx, IR_UNOP); if (!un) return NULL;
     un->sval = e->v.sval; un->ival = (int64_t) e->t;
     IR_t * ea=NULL,*eb=NULL;
-    if (!lower(cx, e->c[0], un, w, &ea, &eb)) return NULL;
+    if (!lower_program(cx, e->c[0], un, w, &ea, &eb)) return NULL;
     set_succ_fail(un, g, w);
     return ret(un, ao, bo, ea, eb);
 }
@@ -40,7 +40,7 @@ static IR_t * p_unop(lcx_t cx, const tree_t * e, IR_t * g, IR_t * w, IR_t ** ao,
     const tree_t * E;
     if (!tm(e, e->t, 1, &E)) return NULL;
     IR_t * un = nalloc(cx, IR_UNOP); un->sval = e->v.sval; un->ival = (int64_t) e->t;
-    IR_t * ea=NULL,*eb=NULL; lower(cx, E, un, w, &ea, &eb);
+    IR_t * ea=NULL,*eb=NULL; lower_program(cx, E, un, w, &ea, &eb);
     set_succ_fail(un, g, w);
     return ret(un, ao, bo, ea, eb);
 }
@@ -48,8 +48,8 @@ static IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * g, IR_t * w, IR_t ** ao
     if (e->n < 2 || !e->c[0] || !e->c[1]) return NULL;
     IR_t * bin = nalloc(cx, IR_BINOP); bin->sval=e->v.sval; bin->ival=(int64_t)e->t; bin->dval=tt_is_relational(e->t)?1.0:0.0;
     IR_t * a1=NULL,*b1=NULL,*a2=NULL,*b2=NULL;
-    if (!lower(cx, e->c[0], NULL, w, &a1, &b1)) return NULL;
-    if (!lower(cx, e->c[1], bin, b1, &a2, &b2)) return NULL;
+    if (!lower_program(cx, e->c[0], NULL, w, &a1, &b1)) return NULL;
+    if (!lower_program(cx, e->c[1], bin, b1, &a2, &b2)) return NULL;
     if (!((IR_t*)0)) { }
     set_succ_fail(bin, g, w);
     return ret(bin, ao, bo, a1, b2);
@@ -59,8 +59,8 @@ static IR_t * p_binop(lcx_t cx, const tree_t * e, IR_t * g, IR_t * w, IR_t ** ao
     if (!tm(e, e->t, 2, &E1, &E2)) return NULL;
     IR_t * bin = nalloc(cx, IR_BINOP); bin->sval=e->v.sval; bin->ival=(int64_t)e->t; bin->dval=tt_is_relational(e->t)?1.0:0.0;
     IR_t * a1=NULL,*b1=NULL,*a2=NULL,*b2=NULL;
-    lower(cx, E1, NULL, w, &a1, &b1);
-    lower(cx, E2, bin, b1, &a2, &b2);
+    lower_program(cx, E1, NULL, w, &a1, &b1);
+    lower_program(cx, E2, bin, b1, &a2, &b2);
     IR_t * c1 = a1; (void)c1;
     set_succ_fail(bin, g, w);
     return ret(bin, ao, bo, a1, b2);
