@@ -22,8 +22,8 @@ static std::string bb_alt_emit_arm(const IR_t * arm, int dslot, int off) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_alt_seal_arm(const IR_t * arm, int dslot) {
     if (!arm) return std::string();
-    if (arm->t == (IR_e)IR_LIT_I) return x86_ro_seal_q(dslot, (uint64_t) arm->ival);
-    if (arm->t == (IR_e)IR_LIT_S) return x86_ro_seal_str(dslot, arm->sval ? arm->sval : "");
+    if (arm->t == (IR_e)IR_LIT_I) return x86_ro_seal_q(dslot, (uint64_t) IR_LIT(arm).ival);
+    if (arm->t == (IR_e)IR_LIT_S) return x86_ro_seal_str(dslot, IR_LIT(arm).sval ? IR_LIT(arm).sval : "");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

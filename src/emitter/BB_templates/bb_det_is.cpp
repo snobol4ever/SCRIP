@@ -13,9 +13,9 @@ extern "C" int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, con
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int gz_arith_const_eval(const IR_t *nd, long *out) {
     if (!nd) return 0;
-    if (nd->t == IR_LIT_I) { *out = (long)nd->ival; return 1; }
+    if (nd->t == IR_LIT_I) { *out = (long)IR_LIT(nd).ival; return 1; }
     if (nd->t != IR_ARITH || !nd->α) return 0;
-    const char *op = nd->sval ? nd->sval : "+";
+    const char *op = IR_LIT(nd).sval ? IR_LIT(nd).sval : "+";
     if (!nd->β) {
         long a = 0;
         if (!gz_arith_const_eval(nd->α, &a)) return 0;
@@ -35,22 +35,22 @@ static int gz_arith_const_eval(const IR_t *nd, long *out) {
 }
 static int gz_arith_var_plus_const(const IR_t *nd, int *var_slot, const char **op_out, long *c_out) {
     if (!nd) return 0;
-    if (nd->t == IR_LOGICVAR) { *var_slot = (int)nd->ival; *op_out = NULL; *c_out = 0; return 1; }
-    if (nd->t != IR_ARITH || !nd->sval || !nd->α || !nd->β) return 0;
-    const char *op = nd->sval;
+    if (nd->t == IR_LOGICVAR) { *var_slot = (int)IR_LIT(nd).ival; *op_out = NULL; *c_out = 0; return 1; }
+    if (nd->t != IR_ARITH || !IR_LIT(nd).sval || !nd->α || !nd->β) return 0;
+    const char *op = IR_LIT(nd).sval;
     if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
         if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_LIT_I) {
-            *var_slot = (int)nd->α->ival; *op_out = op; *c_out = (long)nd->β->ival; return 1;
+            *var_slot = (int)IR_LIT(nd->α).ival; *op_out = op; *c_out = (long)IR_LIT(nd->β).ival; return 1;
         }
     }
     return 0;
 }
 static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char **op_out) {
-    if (!nd || nd->t != IR_ARITH || !nd->sval || !nd->α || !nd->β) return 0;
-    const char *op = nd->sval;
+    if (!nd || nd->t != IR_ARITH || !IR_LIT(nd).sval || !nd->α || !nd->β) return 0;
+    const char *op = IR_LIT(nd).sval;
     if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
         if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_LOGICVAR) {
-            *slot1 = (int)nd->α->ival; *slot2 = (int)nd->β->ival; *op_out = op; return 1;
+            *slot1 = (int)IR_LIT(nd->α).ival; *slot2 = (int)IR_LIT(nd->β).ival; *op_out = op; return 1;
         }
     }
     return 0;
@@ -58,7 +58,7 @@ static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char
 /*--------------------------------------------------------------------------------------------------------------------*/
 static const IR_t *bdis_lhs() { return (const IR_t *)_.bb_ln; }
 static const IR_t *bdis_rhs() { return (const IR_t *)_.bb_rn; }
-static int bdis_slot()        { return (int)bdis_lhs()->ival; }
+static int bdis_slot()        { return (int)IR_LIT(bdis_lhs()).ival; }
 static std::string bdis_tail() { return x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bdis_const_fold(long cval) {

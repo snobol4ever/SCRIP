@@ -12,7 +12,7 @@ extern "C" int  rt_trail_mark(void);
 extern "C" void rt_trail_unwind(int mark);
 extern "C" void rt_pl_cells_init(void ** cells, int n);
 /*--------------------------------------------------------------------------------------------------------------------*/
-static const pl_gz_callee_t *bcf_ce() { const IR_t *nd = (const IR_t *)_.bb_zn; return nd ? (const pl_gz_callee_t *)(intptr_t)nd->ival : (const pl_gz_callee_t *)0; }
+static const pl_gz_callee_t *bcf_ce() { const IR_t *nd = (const IR_t *)_.bb_zn; return nd ? (const pl_gz_callee_t *)(intptr_t)IR_LIT(nd).ival : (const pl_gz_callee_t *)0; }
 static int bcf_NC(const pl_gz_callee_t *ce) { return ce->nclauses > 0 ? ce->nclauses : 1; }
 static const char *bcf_areg(int i) { static const char * t[2] = { "rsi", "rdx" }; return t[i]; }
 /*--------------------------------------------------------------------------------------------------------------------*/

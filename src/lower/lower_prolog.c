@@ -91,7 +91,7 @@ static IR_t * pl_wire_seq(plcx_t cx, IR_e kind, const tree_t * const * kids, int
         bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
         if (zs) {
             zs->goals = (IR_t **)GC_MALLOC((size_t)nkids * sizeof(IR_t *));
-            if (zs->goals) { for (int i = 0; i < nkids; i++) zs->goals[i] = apply[i]; zs->ngoals = nkids; node->ival = (int64_t)(intptr_t)zs; }
+            if (zs->goals) { for (int i = 0; i < nkids; i++) zs->goals[i] = apply[i]; zs->ngoals = nkids; IR_LIT(node).ival = (int64_t)(intptr_t)zs; }
         }
     }
     pl_set_succ_fail(node, γ_in, ω_in);
@@ -141,7 +141,7 @@ static IR_t * g_arith_expr(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
         if (!op) return pl_lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
         int ar = e->n;
         IR_t * nd = pl_nalloc(cx, IR_ARITH); if (!nd) return NULL;
-        nd->sval = op; nd->ival = ar;
+        IR_LIT(nd).sval = op; IR_LIT(nd).ival = ar;
         if (ar >= 1 && e->c[0]) {
             IR_t * aα = NULL, * aβ = NULL;
             IR_t * a = g_arith_expr(cx, e->c[0], NULL, ω_in, &aα, &aβ);
@@ -169,7 +169,7 @@ static IR_t * g_arith_expr(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_
 static IR_t * g_compare(plcx_t cx, const tree_t * l_t, const tree_t * r_t, const char * op_str, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!l_t || !r_t) return NULL;
     IR_t * cmp = pl_nalloc(cx, IR_BUILTIN); if (!cmp) return NULL;
-    cmp->sval = op_str; cmp->ival = 2;
+    IR_LIT(cmp).sval = op_str; IR_LIT(cmp).ival = 2;
     IR_t * lα = NULL, * lβ = NULL;
     IR_t * l = g_arith_expr(cx, l_t, NULL, ω_in, &lα, &lβ); if (!l) return NULL;
     IR_t * rα = NULL, * rβ = NULL;
@@ -184,7 +184,7 @@ static IR_t * g_compare(plcx_t cx, const tree_t * l_t, const tree_t * r_t, const
 static IR_t * g_term_compare(plcx_t cx, const tree_t * l_t, const tree_t * r_t, const char * op_str, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!l_t || !r_t) return NULL;
     IR_t * cmp = pl_nalloc(cx, IR_BUILTIN); if (!cmp) return NULL;
-    cmp->sval = op_str; cmp->ival = 2;
+    IR_LIT(cmp).sval = op_str; IR_LIT(cmp).ival = 2;
     IR_t * lα = NULL, * lβ = NULL;
     IR_t * l = g_term(cx, l_t, NULL, NULL, &lα, &lβ); if (!l) return NULL;
     IR_t * rα = NULL, * rβ = NULL;
@@ -199,7 +199,7 @@ static IR_t * g_term_compare(plcx_t cx, const tree_t * l_t, const tree_t * r_t, 
 static IR_t * g_is(plcx_t cx, const tree_t * lhs_t, const tree_t * rhs_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!lhs_t || !rhs_t) return NULL;
     IR_t * bb = pl_nalloc(cx, IR_BUILTIN); if (!bb) return NULL;
-    bb->sval = "is"; bb->ival = 2;
+    IR_LIT(bb).sval = "is"; IR_LIT(bb).ival = 2;
     IR_t * laα = NULL, * laβ = NULL;
     IR_t * l = g_term(cx, lhs_t, NULL, ω_in, &laα, &laβ); if (!l) return NULL;
     IR_t * raα = NULL, * raβ = NULL;
@@ -214,13 +214,13 @@ static IR_t * g_is(plcx_t cx, const tree_t * lhs_t, const tree_t * rhs_t, IR_t *
 static IR_t * g_term(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!e) return NULL;
     switch (e->t) {
-    case TT_ILIT: { IR_t * n = pl_nalloc(cx, IR_LIT_I); if (!n) return NULL; n->ival = e->v.ival; return pl_emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_FLIT: { IR_t * n = pl_nalloc(cx, IR_LIT_F); if (!n) return NULL; n->dval = e->v.dval; return pl_emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_QLIT: case TT_NAME: { IR_t * n = pl_nalloc(cx, IR_ATOM); if (!n) return NULL; n->sval = e->v.sval ? e->v.sval : "[]"; return pl_emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_VAR: { IR_t * n = pl_nalloc(cx, IR_LOGICVAR); if (!n) return NULL; int slot = (int)e->v.ival; n->ival = slot; n->sval = NULL; if (cx.pl_vars && slot + 1 > cx.pl_vars->count) cx.pl_vars->count = slot + 1; return pl_emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_ILIT: { IR_t * n = pl_nalloc(cx, IR_LIT_I); if (!n) return NULL; IR_LIT(n).ival = e->v.ival; return pl_emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_FLIT: { IR_t * n = pl_nalloc(cx, IR_LIT_F); if (!n) return NULL; IR_LIT(n).dval = e->v.dval; return pl_emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_QLIT: case TT_NAME: { IR_t * n = pl_nalloc(cx, IR_ATOM); if (!n) return NULL; IR_LIT(n).sval = e->v.sval ? e->v.sval : "[]"; return pl_emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_VAR: { IR_t * n = pl_nalloc(cx, IR_LOGICVAR); if (!n) return NULL; int slot = (int)e->v.ival; IR_LIT(n).ival = slot; IR_LIT(n).sval = NULL; if (cx.pl_vars && slot + 1 > cx.pl_vars->count) cx.pl_vars->count = slot + 1; return pl_emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_FNC: {
         IR_t * st = pl_nalloc(cx, IR_STRUCT); if (!st) return NULL;
-        st->sval = e->v.sval ? e->v.sval : "[]"; st->ival = e->n;
+        IR_LIT(st).sval = e->v.sval ? e->v.sval : "[]"; IR_LIT(st).ival = e->n;
         IR_t * prev = NULL;
         for (int i = 0; i < e->n; i++) {
             IR_t * cα = NULL, * cβ = NULL;
@@ -241,7 +241,7 @@ static IR_t * g_term(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
             tail = g_term(cx, e->c[e->n - 1], NULL, NULL, &tα, &tβ);
             if (!tail) return NULL; (void) tβ; tail = tα;
         } else {
-            tail = pl_nalloc(cx, IR_ATOM); if (!tail) return NULL; tail->sval = "[]";
+            tail = pl_nalloc(cx, IR_ATOM); if (!tail) return NULL; IR_LIT(tail).sval = "[]";
         }
         if (nelem == 0) return pl_emit_leaf(cx, tail, γ_in, ω_in, α_out, β_out);
         IR_t * suffix = tail;
@@ -249,7 +249,7 @@ static IR_t * g_term(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
             IR_t * hα = NULL, * hβ = NULL;
             IR_t * h = g_term(cx, e->c[i], NULL, NULL, &hα, &hβ); if (!h) return NULL; (void) hβ;
             IR_t * cell = pl_nalloc(cx, IR_STRUCT); if (!cell) return NULL;
-            cell->sval = "."; cell->ival = 2;
+            IR_LIT(cell).sval = "."; IR_LIT(cell).ival = 2;
             cell->α = hα; hα->γ = suffix; suffix = cell;
         }
         pl_set_succ_fail(suffix, γ_in, ω_in);
@@ -263,7 +263,7 @@ static IR_t * g_term(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR
 /*====================================================================================================================*/
 static IR_t * g_builtin(plcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * bb = pl_nalloc(cx, IR_BUILTIN); if (!bb) return NULL;
-    bb->sval = fn; bb->ival = e ? e->n : 0;
+    IR_LIT(bb).sval = fn; IR_LIT(bb).ival = e ? e->n : 0;
     IR_t * prev = NULL;
     if (e) for (int i = 0; i < e->n; i++) {
         IR_t * aα = NULL, * aβ = NULL;
@@ -280,7 +280,7 @@ static IR_t * g_goal(plcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in,
     int ar = e ? e->n : 0;
     IR_t * nd = pl_nalloc(cx, IR_GOAL); if (!nd) return NULL;
     bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc); if (!zc) return NULL;
-    zc->callee = fn; zc->arity = ar; zc->nargs = ar; zc->cs = NULL; nd->sval = fn;
+    zc->callee = fn; zc->arity = ar; zc->nargs = ar; zc->cs = NULL; IR_LIT(nd).sval = fn;
     zc->args = ar > 0 ? (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *)) : NULL;
     for (int ai = 0; ai < ar; ai++) {
         if (!e->c[ai]) { zc->args[ai] = NULL; continue; }
@@ -288,7 +288,7 @@ static IR_t * g_goal(plcx_t cx, const char * fn, const tree_t * e, IR_t * γ_in,
         g_term(cx, e->c[ai], NULL, NULL, &aaα, &aaβ);
         zc->args[ai] = aaα;
     }
-    nd->ival = (int64_t)(intptr_t)zc;
+    IR_LIT(nd).ival = (int64_t)(intptr_t)zc;
     pl_set_succ_fail(nd, γ_in, ω_in);
     return pl_ret(nd, α_out, β_out, nd, nd);
 }
@@ -303,14 +303,14 @@ static IR_t * g_ite(plcx_t cx, const tree_t * cond, const tree_t * then_, const 
     IR_t * t = pl_lower_goal(cx, then_, γ_in, ω_in, &tα, &tβ); if (!t) return NULL; (void) tβ;
     bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi); if (!zi) return NULL;
     IR_t * cm = pl_nalloc(cx, IR_ITE_COMMIT); if (!cm) return NULL;
-    cm->ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(cm, tα, ω_in);
+    IR_LIT(cm).ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(cm, tα, ω_in);
     IR_t * gv = pl_nalloc(cx, IR_ITE_GATE); if (!gv) return NULL;
-    gv->ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(gv, bα, ω_in);
+    IR_LIT(gv).ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(gv, bα, ω_in);
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * c = pl_lower_goal(cx, cond, cm, gv, &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = pl_nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
-    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = t; zi->else_root = b; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; ite->ival = (int64_t)(intptr_t)zi;
+    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = t; zi->else_root = b; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; IR_LIT(ite).ival = (int64_t)(intptr_t)zi;
     pl_set_succ_fail(ite, γ_in, ω_in);
     return pl_ret(ite, α_out, β_out, ite, ω_in);
 }
@@ -324,14 +324,14 @@ static IR_t * g_neg_goal(plcx_t cx, const tree_t * goal_t, IR_t * γ_in, IR_t * 
     IR_t * tα = NULL, * tβ = NULL; if (!pl_emit_leaf(cx, fal, γ_in, ω_in, &tα, &tβ)) return NULL;
     bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi); if (!zi) return NULL;
     IR_t * cm = pl_nalloc(cx, IR_ITE_COMMIT); if (!cm) return NULL;
-    cm->ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(cm, tα, ω_in);
+    IR_LIT(cm).ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(cm, tα, ω_in);
     IR_t * gv = pl_nalloc(cx, IR_ITE_GATE); if (!gv) return NULL;
-    gv->ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(gv, bα, ω_in);
+    IR_LIT(gv).ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(gv, bα, ω_in);
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * c = pl_lower_goal(cx, goal_t, cm, gv, &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = pl_nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
-    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; ite->ival = (int64_t)(intptr_t)zi;
+    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; IR_LIT(ite).ival = (int64_t)(intptr_t)zi;
     pl_set_succ_fail(ite, γ_in, ω_in);
     return pl_ret(ite, α_out, β_out, ite, ω_in);
 }
@@ -345,14 +345,14 @@ static IR_t * g_not_unify(plcx_t cx, const tree_t * A, const tree_t * B, IR_t * 
     IR_t * tα = NULL, * tβ = NULL; if (!pl_emit_leaf(cx, fal, γ_in, ω_in, &tα, &tβ)) return NULL;
     bb_ite_state_t * zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi); if (!zi) return NULL;
     IR_t * cm = pl_nalloc(cx, IR_ITE_COMMIT); if (!cm) return NULL;
-    cm->ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(cm, tα, ω_in);
+    IR_LIT(cm).ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(cm, tα, ω_in);
     IR_t * gv = pl_nalloc(cx, IR_ITE_GATE); if (!gv) return NULL;
-    gv->ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(gv, bα, ω_in);
+    IR_LIT(gv).ival = (int64_t)(intptr_t)zi; pl_set_succ_fail(gv, bα, ω_in);
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * c = g_unify(cx, A, B, cm, gv, &cα, &cβ); if (!c) return NULL; (void) cβ;
     IR_t * ite = pl_nalloc(cx, IR_ITE); if (!ite) return NULL;
     ite->α = cα;
-    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; ite->ival = (int64_t)(intptr_t)zi;
+    zi->cond = cα; zi->then_ = tα; zi->else_ = bα; zi->then_root = fal; zi->else_root = suc; zi->cond_root = c; zi->cp_mark = NULL; zi->committed = 0; IR_LIT(ite).ival = (int64_t)(intptr_t)zi;
     pl_set_succ_fail(ite, γ_in, ω_in);
     return pl_ret(ite, α_out, β_out, ite, ω_in);
 }
@@ -377,7 +377,7 @@ static IR_t * g_catch(plcx_t cx, const tree_t * goal_t, const tree_t * catcher_t
     IR_t * r = pl_lower_goal(rx, rec_t, NULL, NULL, &rα, &rβ); if (!r) return NULL; (void) rβ;
     rcfg->entry = rα ? rα : r;
     zc->rec_g = rcfg;
-    bb->ival = (int64_t)(intptr_t)zc; bb->α = cα;
+    IR_LIT(bb).ival = (int64_t)(intptr_t)zc; bb->α = cα;
     pl_set_succ_fail(bb, γ_in, ω_in);
     return pl_ret(bb, α_out, β_out, bb, ω_in);
 }
@@ -386,7 +386,7 @@ static IR_t * g_catch(plcx_t cx, const tree_t * goal_t, const tree_t * catcher_t
 static IR_t * g_findall(plcx_t cx, const tree_t * tmpl_t, const tree_t * goal_t, const tree_t * result_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!tmpl_t || !goal_t || !result_t) return NULL;
     IR_t * bb = pl_nalloc(cx, IR_BUILTIN); if (!bb) return NULL;
-    bb->sval = "findall"; bb->ival = 0;
+    IR_LIT(bb).sval = "findall"; IR_LIT(bb).ival = 0;
     bb_findall_state_t * fs = (bb_findall_state_t *)GC_MALLOC(sizeof *fs); if (!fs) return NULL;
     IR_t * tα = NULL, * tβ = NULL;
     IR_t * t = g_term(cx, tmpl_t, NULL, NULL, &tα, &tβ); if (!t) return NULL; (void) tβ; fs->tmpl = tα;
@@ -398,7 +398,7 @@ static IR_t * g_findall(plcx_t cx, const tree_t * tmpl_t, const tree_t * goal_t,
     IR_t * g = pl_lower_goal(gx, goal_t, NULL, NULL, &gα, &gβ); if (!g) return NULL; (void) gβ;
     gcfg->entry = gα ? gα : g;
     fs->gcfg = gcfg; fs->goal_node = gα ? gα : g;
-    bb->ival = (int64_t)(intptr_t)fs;
+    IR_LIT(bb).ival = (int64_t)(intptr_t)fs;
     pl_set_succ_fail(bb, γ_in, ω_in);
     return pl_ret(bb, α_out, β_out, bb, ω_in);
 }
@@ -417,7 +417,7 @@ static IR_t * g_phrase(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, 
     int ar = orig_ar + 2;
     IR_t * nd = pl_nalloc(cx, IR_GOAL); if (!nd) return NULL;
     bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc); if (!zc) return NULL;
-    zc->callee = callee; zc->arity = ar; zc->nargs = ar; zc->cs = NULL; nd->sval = callee;
+    zc->callee = callee; zc->arity = ar; zc->nargs = ar; zc->cs = NULL; IR_LIT(nd).sval = callee;
     zc->args = (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *));
     for (int ai = 0; ai < orig_ar; ai++) {
         IR_t * aaα = NULL, * aaβ = NULL;
@@ -426,8 +426,8 @@ static IR_t * g_phrase(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, 
     }
     { IR_t * aaα = NULL, * aaβ = NULL; g_term(cx, inp, NULL, NULL, &aaα, &aaβ); zc->args[orig_ar] = aaα; }
     if (rest) { IR_t * aaα = NULL, * aaβ = NULL; g_term(cx, rest, NULL, NULL, &aaα, &aaβ); zc->args[orig_ar + 1] = aaα; }
-    else { IR_t * nil = pl_nalloc(cx, IR_ATOM); if (!nil) return NULL; nil->sval = "[]"; zc->args[orig_ar + 1] = nil; }
-    nd->ival = (int64_t)(intptr_t)zc;
+    else { IR_t * nil = pl_nalloc(cx, IR_ATOM); if (!nil) return NULL; IR_LIT(nil).sval = "[]"; zc->args[orig_ar + 1] = nil; }
+    IR_LIT(nd).ival = (int64_t)(intptr_t)zc;
     pl_set_succ_fail(nd, γ_in, ω_in);
     return pl_ret(nd, α_out, β_out, nd, nd);
 }
@@ -540,7 +540,7 @@ static IR_t * pl_lower_goal(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω
             if (fn && ar >= 0) {
                 IR_t * nd = pl_nalloc(cx, IR_GOAL); if (!nd) return pl_lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
                 bb_goal_state_t * zc = (bb_goal_state_t *)GC_MALLOC(sizeof *zc); if (!zc) return NULL;
-                zc->callee = fn; zc->arity = ar; zc->nargs = ar; zc->cs = NULL; nd->sval = fn;
+                zc->callee = fn; zc->arity = ar; zc->nargs = ar; zc->cs = NULL; IR_LIT(nd).sval = fn;
                 zc->args = ar > 0 ? (IR_t **)GC_MALLOC((size_t)ar * sizeof(IR_t *)) : NULL;
                 for (int ai = 0; ai < ar; ai++) {
                     if (!e->c[ai]) { zc->args[ai] = NULL; continue; }
@@ -548,7 +548,7 @@ static IR_t * pl_lower_goal(plcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω
                     g_term(cx, e->c[ai], NULL, NULL, &aaα, &aaβ);
                     zc->args[ai] = aaα;
                 }
-                nd->ival = (int64_t)(intptr_t)zc;
+                IR_LIT(nd).ival = (int64_t)(intptr_t)zc;
                 pl_set_succ_fail(nd, γ_in, ω_in);
                 return pl_ret(nd, α_out, β_out, nd, nd);
             }
@@ -577,7 +577,7 @@ static IR_t * g_head_unify(plcx_t cx, int slot, const tree_t * head_arg, IR_t * 
     if (!head_arg) return NULL;
     IR_t * uni = pl_nalloc(cx, IR_UNIFY); if (!uni) return NULL;
     IR_t * lv = pl_nalloc(cx, IR_LOGICVAR); if (!lv) return NULL;
-    lv->ival = slot; lv->sval = NULL;
+    IR_LIT(lv).ival = slot; IR_LIT(lv).sval = NULL;
     if (cx.pl_vars && slot + 1 > cx.pl_vars->count) cx.pl_vars->count = slot + 1;
     IR_t * rα = NULL, * rβ = NULL;
     IR_t * r = g_term(cx, head_arg, NULL, NULL, &rα, &rβ); if (!r) return NULL; (void) rβ;
@@ -620,7 +620,7 @@ IR_t * lower_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * �
         bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
         if (zs) {
             zs->goals = (IR_t **)GC_MALLOC((size_t)total * sizeof(IR_t *));
-            if (zs->goals) { for (int i = 0; i < total; i++) zs->goals[i] = apply[i]; zs->ngoals = total; node->ival = (int64_t)(intptr_t)zs; }
+            if (zs->goals) { for (int i = 0; i < total; i++) zs->goals[i] = apply[i]; zs->ngoals = total; IR_LIT(node).ival = (int64_t)(intptr_t)zs; }
         }
     }
     pl_set_succ_fail(node, γ_in, ω_in);

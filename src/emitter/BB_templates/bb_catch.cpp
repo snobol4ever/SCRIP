@@ -18,13 +18,13 @@ static std::string bb_catch_build_catcher(IR_t *a) {
     if (!a) return x86("ins2", "xor", "eax, eax");
     if (a->t == IR_STRUCT) return emit_build_compound_term(a);
     return x86("ins2", "mov", std::string("edi, ") + std::to_string((int)a->t))
-         + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)a->ival))
-         + bcc_sval_lea(a->sval)
+         + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)IR_LIT(a).ival))
+         + bcc_sval_lea(IR_LIT(a).sval)
          + x86("ins2", "xorps", "xmm0, xmm0")
          + x86("ins2", "call", "rt_node_to_term@PLT");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static bb_catch_state_t *bcc_zc() { IR_t *nd = (IR_t *)g_emit.bb_zn; return nd ? (bb_catch_state_t *)(intptr_t)nd->ival : (bb_catch_state_t *)0; }
+static bb_catch_state_t *bcc_zc() { IR_t *nd = (IR_t *)g_emit.bb_zn; return nd ? (bb_catch_state_t *)(intptr_t)IR_LIT(nd).ival : (bb_catch_state_t *)0; }
 static int bcc_idx() { IR_t *nd = (IR_t *)g_emit.bb_zn; return nd ? pl_catch_block_index(nd) : -1; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bcc_admitted(bb_catch_state_t *zc, int idx) {

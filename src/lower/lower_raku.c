@@ -13,7 +13,7 @@ IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree
     if (!range_t || !var) return NULL;
     IR_t * bind = nalloc(cx, IR_ASSIGN);
     if (!bind) return NULL;
-    bind->sval = var;
+    IR_LIT(bind).sval = var;
     IR_t * gα = NULL, * gβ = NULL;
     IR_t * gen = lower(cx, range_t, bind  , γ_in  , &gα, &gβ);
     if (!gen) return NULL;
@@ -35,7 +35,7 @@ IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in
     }
     IR_t * g = nalloc(cx, IR_GATHER);
     if (!g) return NULL;
-    g->ival = n;
+    IR_LIT(g).ival = n;
     if (n > 0) {
         IR_graph_t ** subs = (IR_graph_t **) calloc((size_t) n, sizeof(IR_graph_t *));
         if (!subs) return NULL;
@@ -56,7 +56,7 @@ IR_t * v_raku_gather(lcx_t cx, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in
             subs[0] = lower_value_subgraph(cx, payload);
             if (!subs[0]) { free(subs); return NULL; }
         }
-        g->counter = (int64_t)(intptr_t) subs;
+        IR_EXEC(g).counter = (int64_t)(intptr_t) subs;
     }
     set_succ_fail(g, γ_in, ω_in);
     return ret(g, α_out, β_out, g  , g  );
@@ -71,9 +71,9 @@ IR_t * v_raku_map_grep(lcx_t cx, int is_grep, const tree_t * closure_t, const tr
     if (!src_sg) return NULL;
     IR_graph_t * body_sg = lower_value_subgraph(cx, closure_t);
     if (!body_sg) { IR_free(src_sg); return NULL; }
-    mg->counter = (int64_t)(intptr_t) src_sg;
-    mg->ival    = (int64_t)(intptr_t) body_sg;
-    mg->state   = 0;
+    IR_EXEC(mg).counter = (int64_t)(intptr_t) src_sg;
+    IR_LIT(mg).ival    = (int64_t)(intptr_t) body_sg;
+    IR_EXEC(mg).state   = 0;
     set_succ_fail(mg, γ_in, ω_in);
     return ret(mg, α_out, β_out, mg  , mg  );
 }
@@ -88,7 +88,7 @@ IR_t * v_raku_pop(lcx_t cx, const char * dst, const tree_t * arr, IR_t * γ_in, 
     (void) o2β;
     IR_t * as = nalloc(cx, IR_ASSIGN);
     if (!as) return NULL;
-    as->sval = GC_strdup(dst);
+    IR_LIT(as).sval = GC_strdup(dst);
     IR_t * cα = NULL, * cβ = NULL;
     IR_t * call = v_raku_det_call(cx, "arr_last", k, 1, as  , ω_in, &cα, &cβ);
     if (!call) return NULL;
@@ -104,9 +104,9 @@ IR_t * rku_fnc_junction(lcx_t cx, const char * flav, const tree_t * e, IR_t * γ
     int nmembers = e->n - 1;
     IR_t * call = nalloc(cx, IR_CALL);
     if (!call) return NULL;
-    call->sval = GC_strdup(jfn);
-    call->ival = nmembers;
-    call->dval = 2.0;
+    IR_LIT(call).sval = GC_strdup(jfn);
+    IR_LIT(call).ival = nmembers;
+    IR_LIT(call).dval = 2.0;
     IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nmembers, sizeof(IR_graph_t *));
     if (!blks) return NULL;
     lcx_t mv = cx; mv.role = ROLE_VALUE;
@@ -114,7 +114,7 @@ IR_t * rku_fnc_junction(lcx_t cx, const char * flav, const tree_t * e, IR_t * γ
         blks[i - 1] = lower_value_subgraph(mv, e->c[i]);
         if (!blks[i - 1]) { free(blks); return NULL; }
     }
-    call->counter = (int64_t)(intptr_t) blks;
+    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
     set_succ_fail(call, γ_in, ω_in);
     return ret(call, α_out, β_out, call  , ω_in  );
 }

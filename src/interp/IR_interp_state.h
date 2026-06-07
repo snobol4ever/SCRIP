@@ -1,6 +1,7 @@
 #ifndef SCRIP_IR_INTERP_STATE_H
 #define SCRIP_IR_INTERP_STATE_H
 /*--------------------------------------------------------------------------------------------------------------------*/
+extern IR_graph_t * g_current_cfg;
 #include "IR.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
@@ -52,13 +53,13 @@ typedef struct { IR_graph_t * gcfg; IR_t * tmpl; IR_t * result; IR_t * goal_node
 typedef struct { IR_t ** kids; int nkids; } bb_pat_kids_state_t;
 static inline int bb_pat_nkids(const IR_t * nd) {
     if (!nd) return 0;
-    bb_pat_kids_state_t * zk = (bb_pat_kids_state_t *)(intptr_t)nd->counter;
+    bb_pat_kids_state_t * zk = (bb_pat_kids_state_t *)(intptr_t)IR_EXEC(nd).counter;
     return zk ? zk->nkids : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t * bb_pat_kid(const IR_t * nd, int i) {
     if (!nd) return (IR_t *)0;
-    bb_pat_kids_state_t * zk = (bb_pat_kids_state_t *)(intptr_t)nd->counter;
+    bb_pat_kids_state_t * zk = (bb_pat_kids_state_t *)(intptr_t)IR_EXEC(nd).counter;
     if (!zk || i < 0 || i >= zk->nkids) return (IR_t *)0;
     return zk->kids[i];
 }

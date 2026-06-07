@@ -15,11 +15,11 @@ static std::string cc_load_args(const pl_gz_call_state_t *st) {
     return FOR(0, (st->nargs < 2 ? st->nargs : 2), [&](int i) -> std::string {
         const IR_t *a = st->args[i];
         if (!a || a->t != IR_LOGICVAR) return std::string();
-        return x86("mov", bcc_areg(i), FRQ(GZ_CELL_OFF((int)a->ival)));
+        return x86("mov", bcc_areg(i), FRQ(GZ_CELL_OFF((int)IR_LIT(a).ival)));
     });
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static const pl_gz_call_state_t *bcc_st() { const IR_t *nd = (const IR_t *)_.bb_zn; return nd ? (const pl_gz_call_state_t *)(intptr_t)nd->ival : (const pl_gz_call_state_t *)0; }
+static const pl_gz_call_state_t *bcc_st() { const IR_t *nd = (const IR_t *)_.bb_zn; return nd ? (const pl_gz_call_state_t *)(intptr_t)IR_LIT(nd).ival : (const pl_gz_call_state_t *)0; }
 static int bcc_nsl(const pl_gz_call_state_t *st) { return st->callee->arity + st->callee->nlocals + st->callee->nchild; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_cell_call_str() {

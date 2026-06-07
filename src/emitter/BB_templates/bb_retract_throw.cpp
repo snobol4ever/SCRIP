@@ -1,14 +1,14 @@
 #include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string rtt_lbl(IR_t *a) {
-    if (!(a->sval && *a->sval)) return std::string();
-    char l[64]; l[0] = 0; strtab_label(l, sizeof l, a->sval);
+    if (!(IR_LIT(a).sval && *IR_LIT(a).sval)) return std::string();
+    char l[64]; l[0] = 0; strtab_label(l, sizeof l, IR_LIT(a).sval);
     return std::string(l);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string rtt_ball_scalar(IR_t *a) { std::string sl = rtt_lbl(a);
     return x86("ins2", "mov", std::string("edi, ") + std::to_string((int)a->t))
-         + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)a->ival))
+         + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)IR_LIT(a).ival))
          + (sl.size() ? x86("ins2", "lea", std::string("rdx, [rip + ") + sl + "]") : x86("ins2", "xor", "edx, edx"))
          + x86("ins2", "xorps", "xmm0, xmm0")
          + x86("ins2", "call", "rt_node_to_term@PLT");

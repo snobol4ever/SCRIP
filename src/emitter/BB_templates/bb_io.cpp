@@ -12,13 +12,13 @@ static std::string bio_fbits_str(double d) {
 static std::string bio_bin_write_arg(IR_t *arg) {
     if (!arg) return std::string();
     if (arg->t == IR_ATOM) {
-        const char *atom = arg->sval ? arg->sval : "";
+        const char *atom = IR_LIT(arg).sval ? IR_LIT(arg).sval : "";
         return bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)atom)
              + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_atom)
              + bytes(2, "\xFF\xD0");
     }
     if (arg->t == IR_LOGICVAR)
-        return bytes(1, "\xBF") + u32le((uint32_t)(int)arg->ival)
+        return bytes(1, "\xBF") + u32le((uint32_t)(int)IR_LIT(arg).ival)
              + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_var)
              + bytes(2, "\xFF\xD0");
     return bytes(4, "\x48\x83\xEC\x08")
@@ -37,11 +37,11 @@ static std::string bio_write_body(const char *bb_ls, long op_ival, IR_t *α) {
                       : x86("ins2", "xor", "edi, edi"))
              + x86("ins2", "call", "rt_write_atom@PLT");
     if (α->t == IR_LOGICVAR)
-        return x86("ins2", "mov edi,", std::to_string((int)α->ival)) + x86("ins2", "call", "rt_write_var@PLT");
+        return x86("ins2", "mov edi,", std::to_string((int)IR_LIT(α).ival)) + x86("ins2", "call", "rt_write_var@PLT");
     if (α->t == IR_LIT_I)
-        return x86("ins2", "mov rdi,", std::to_string((long)α->ival)) + x86("ins2", "call", "rt_write_int@PLT");
+        return x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(α).ival)) + x86("ins2", "call", "rt_write_int@PLT");
     if (α->t == IR_LIT_F)
-        return x86("ins2", "mov rax,", bio_fbits_str(α->dval))
+        return x86("ins2", "mov rax,", bio_fbits_str(IR_LIT(α).dval))
              + x86("ins2", "movq", "xmm0, rax")
              + x86("ins2", "call", "rt_write_float@PLT");
     return x86("ins2", "sub", "rsp, 8")

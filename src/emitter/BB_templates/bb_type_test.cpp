@@ -25,8 +25,8 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
                     return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
                 }
                 int  k0 = (int)a0->t;
-                long i0 = (long)a0->ival;
-                const char *s0 = (k0 == IR_ATOM) ? a0->sval : NULL;
+                long i0 = (long)IR_LIT(a0).ival;
+                const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
                 std::string b;
                 /* mov rdi, fn (ptr)     48 BF [8]                                                    */
                 b += bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)fn);
@@ -69,9 +69,9 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
                      + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
             int  k0 = (int)a0->t;
-            long i0 = (long)a0->ival;
+            long i0 = (long)IR_LIT(a0).ival;
             char s0lbl[64]; s0lbl[0] = 0;
-            if (k0 == IR_ATOM && a0->sval) strtab_label(s0lbl, sizeof s0lbl, a0->sval);
+            if (k0 == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
             return hdr
                  + x86("ins2", "lea rdi,", emit_fmt("[rip + %s]", op_lbl))
                  + x86("ins2", "mov esi,",  emit_fmt("%d",  k0))

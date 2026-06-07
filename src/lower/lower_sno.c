@@ -680,20 +680,20 @@ static IR_t * v_seq_concat_pair(lcx_t cx, const tree_t * lhs, const tree_t * rhs
             fbuf[flen] = '\0';
             IR_t * lit = nalloc(cx, IR_LIT_S);
             if (!lit) return NULL;
-            lit->sval = GC_strdup(fbuf);
+            IR_LIT(lit).sval = GC_strdup(fbuf);
             set_succ_fail(lit, γ_in, ω_in);
             return ret(lit, α_out, β_out, lit, ω_in);
         }
     }
     IR_t * node = nalloc(cx, IR_SEQ);
     if (!node) return NULL;
-    node->dval = 1.0;
+    IR_LIT(node).dval = 1.0;
     IR_graph_t * lblk = lower_value_subgraph(cx, lhs);
     if (!lblk) return NULL;
     IR_graph_t * rblk = lower_value_subgraph(cx, rhs);
     if (!rblk) { IR_free(lblk); return NULL; }
-    node->counter = (int64_t)(intptr_t) lblk;
-    node->ival    = (int64_t)(intptr_t) rblk;
+    IR_EXEC(node).counter = (int64_t)(intptr_t) lblk;
+    IR_LIT(node).ival    = (int64_t)(intptr_t) rblk;
     set_succ_fail(node, γ_in, ω_in);
     return ret(node, α_out, β_out, node  , ω_in  );
 }
@@ -726,9 +726,9 @@ IR_e sno_assign_kind(const tree_t * rhs_t) {
 /*====================================================================================================================*/
 IR_t * sno_fnc_call(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * call = nalloc(cx, IR_CALL); if (!call) return NULL;
-    call->sval = e->v.sval ? e->v.sval : "";
-    call->ival = e->n;
-    call->dval = (e->v.sval && !strcmp(e->v.sval, "DEFINE")) ? 5.0 : 2.0;
+    IR_LIT(call).sval = e->v.sval ? e->v.sval : "";
+    IR_LIT(call).ival = e->n;
+    IR_LIT(call).dval = (e->v.sval && !strcmp(e->v.sval, "DEFINE")) ? 5.0 : 2.0;
     if (e->n > 0) {
         IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) e->n, sizeof(IR_graph_t *));
         if (!blks) return NULL;
@@ -736,7 +736,7 @@ IR_t * sno_fnc_call(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t
             blks[i] = lower_value_subgraph(cx, e->c[i]);
             if (!blks[i]) { free(blks); return NULL; }
         }
-        call->counter = (int64_t)(intptr_t) blks;
+        IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
     }
     set_succ_fail(call, γ_in, ω_in);
     return ret(call, α_out, β_out, call  , ω_in  );
@@ -760,10 +760,10 @@ IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α
     if (!pat_entry) { IR_free(pat_blk); return NULL; }
     (void) pβ;
     pat_blk->entry = pα ? pα : pat_entry;
-    sc->counter = (int64_t)(intptr_t)pat_blk;
+    IR_EXEC(sc).counter = (int64_t)(intptr_t)pat_blk;
     if (repl_t) {
-        sc->sval = subj_t->v.sval ? subj_t->v.sval : "";
-        sc->ival = 1;
+        IR_LIT(sc).sval = subj_t->v.sval ? subj_t->v.sval : "";
+        IR_LIT(sc).ival = 1;
         IR_graph_t * subj_blk = lower_value_subgraph(cx, subj_t);
         if (!subj_blk) { IR_free(pat_blk); return NULL; }
         IR_graph_t * repl_blk = lower_value_subgraph(cx, repl_t);
@@ -779,7 +779,7 @@ IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α
     }
     IR_graph_t * subj_blk = lower_value_subgraph(cx, subj_t);
     if (!subj_blk) { IR_free(pat_blk); return NULL; }
-    if (subj_t->t == TT_VAR) sc->sval = subj_t->v.sval ? subj_t->v.sval : "";
+    if (subj_t->t == TT_VAR) IR_LIT(sc).sval = subj_t->v.sval ? subj_t->v.sval : "";
     IR_t * scan_aux[1]; scan_aux[0] = (IR_t *)(void *)subj_blk;
     bb_operand_aux_set(cx.bbg, sc, scan_aux, 1);
     IR_t * sα = NULL, * sβ = NULL;
@@ -806,7 +806,7 @@ static int pat_cset_arg(const tree_t * arg, const char ** sval_out, double * var
 IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * n = NULL;
     switch (e->t) {
-    case TT_QLIT: n = nalloc(cx, IR_PAT_LIT); if (n) n->sval = e->v.sval ? e->v.sval : ""; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    case TT_QLIT: n = nalloc(cx, IR_PAT_LIT); if (n) IR_LIT(n).sval = e->v.sval ? e->v.sval : ""; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     case TT_ARB:  return emit_leaf(cx, nalloc(cx, IR_PAT_ARB), γ_in, ω_in, α_out, β_out);
     case TT_REM:  return emit_leaf(cx, nalloc(cx, IR_PAT_REM), γ_in, ω_in, α_out, β_out);
     case TT_BAL:  return emit_leaf(cx, nalloc(cx, IR_PAT_BAL), γ_in, ω_in, α_out, β_out);
@@ -817,10 +817,10 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         IR_e k = (e->t==TT_SPAN)?((vf!=0.0)?IR_PAT_SPAN_VAR:IR_PAT_SPAN) : (e->t==TT_ANY)?IR_PAT_ANY
                : (e->t==TT_NOTANY)?IR_PAT_NOTANY : (e->t==TT_BREAKX)?IR_PAT_BREAKX : IR_PAT_BREAK;
         n = nalloc(cx, k); if (!n) return NULL;
-        n->sval = sv;
-        if (e->t==TT_SPAN) n->ival = (vf!=0.0)?1:0;
-        else               n->dval = vf;
-        if (e->t==TT_BREAKX) n->ival = 1; else if (e->t==TT_BREAK) n->ival = 0;
+        IR_LIT(n).sval = sv;
+        if (e->t==TT_SPAN) IR_LIT(n).ival = (vf!=0.0)?1:0;
+        else               IR_LIT(n).dval = vf;
+        if (e->t==TT_BREAKX) IR_LIT(n).ival = 1; else if (e->t==TT_BREAK) IR_LIT(n).ival = 0;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
     case TT_SEQ: case TT_CAT: {
@@ -836,8 +836,8 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     case TT_LEN: {
         if (e->n < 1 || !e->c[0]) return NULL;
         n = nalloc(cx, IR_PAT_LEN); if (!n) return NULL;
-        if (e->c[0]->t == TT_VAR) { n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : ""; n->dval = 1.0; }
-        else { n->ival = e->c[0]->v.ival; n->dval = 0.0; }
+        if (e->c[0]->t == TT_VAR) { IR_LIT(n).sval = e->c[0]->v.sval ? e->c[0]->v.sval : ""; IR_LIT(n).dval = 1.0; }
+        else { IR_LIT(n).ival = e->c[0]->v.ival; IR_LIT(n).dval = 0.0; }
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
     case TT_POS: case TT_RPOS: {
@@ -845,12 +845,12 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         n = nalloc(cx, IR_PAT_POS); if (!n) return NULL;
         int is_rpos = (e->t == TT_RPOS);
         if (e->c[0]->t == TT_VAR) {
-            n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
-            n->dval = is_rpos ? 1.0 : 2.0;
+            IR_LIT(n).sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
+            IR_LIT(n).dval = is_rpos ? 1.0 : 2.0;
         } else {
-            n->ival = e->c[0]->v.ival;
-            n->sval = is_rpos ? "r" : NULL;
-            n->dval = 0.0;
+            IR_LIT(n).ival = e->c[0]->v.ival;
+            IR_LIT(n).sval = is_rpos ? "r" : NULL;
+            IR_LIT(n).dval = 0.0;
         }
         lcx_t bx = cx; bx.bounded = 1;
         return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
@@ -860,12 +860,12 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         int is_rtab = (e->t == TT_RTAB);
         n = nalloc(cx, is_rtab ? IR_PAT_RTAB : IR_PAT_TAB); if (!n) return NULL;
         if (e->c[0]->t == TT_VAR) {
-            n->sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
-            n->dval = is_rtab ? 1.0 : 2.0;
+            IR_LIT(n).sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
+            IR_LIT(n).dval = is_rtab ? 1.0 : 2.0;
         } else {
-            n->ival = e->c[0]->v.ival;
-            n->sval = is_rtab ? "r" : NULL;
-            n->dval = 0.0;
+            IR_LIT(n).ival = e->c[0]->v.ival;
+            IR_LIT(n).sval = is_rtab ? "r" : NULL;
+            IR_LIT(n).dval = 0.0;
         }
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
@@ -915,13 +915,13 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
         az->pos_stack = (int *)GC_MALLOC((size_t)stack_cap * sizeof(int));
         az->cap = stack_cap;
         az->saved_delta = 0;
-        n->counter = (int64_t)(intptr_t)az;
+        IR_EXEC(n).counter = (int64_t)(intptr_t)az;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
     case TT_CAPT_COND_ASGN: {
         if (e->n < 1 || !e->c[0]) return NULL;
         n = nalloc(cx, IR_PAT_ASSIGN_COND); if (!n) return NULL;
-        n->sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
+        IR_LIT(n).sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
         set_succ_fail(n, γ_in, ω_in);
         IR_t * iα = NULL, * iβ = NULL;
         IR_t * inner = lower(cx, e->c[0], n, ω_in, &iα, &iβ);
@@ -932,7 +932,7 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     case TT_CAPT_IMMED_ASGN: {
         if (e->n < 1 || !e->c[0]) return NULL;
         n = nalloc(cx, IR_PAT_ASSIGN_IMM); if (!n) return NULL;
-        n->sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
+        IR_LIT(n).sval = (e->n > 1 && e->c[1] && e->c[1]->v.sval) ? e->c[1]->v.sval : NULL;
         set_succ_fail(n, γ_in, ω_in);
         IR_t * iα = NULL, * iβ = NULL;
         IR_t * inner = lower(cx, e->c[0], n, ω_in, &iα, &iβ);
@@ -943,14 +943,14 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     case TT_CAPT_CURSOR: {
         if (e->n < 1 || !e->c[0] || !e->c[0]->v.sval) return NULL;
         n = nalloc(cx, IR_PAT_ATP); if (!n) return NULL;
-        n->sval = e->c[0]->v.sval;
+        IR_LIT(n).sval = e->c[0]->v.sval;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
     case TT_DEFER: {
         if (e->n < 1 || !e->c[0] || !e->c[0]->v.sval) return NULL;
         n = nalloc(cx, IR_PAT_DEFER); if (!n) return NULL;
-        n->sval = e->c[0]->v.sval;
-        n->ival = 1;
+        IR_LIT(n).sval = e->c[0]->v.sval;
+        IR_LIT(n).ival = 1;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
     case TT_VAR: {
@@ -971,8 +971,8 @@ IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
             return emit_leaf(bx, n, γ_in, ω_in, α_out, β_out);
         }
         n = nalloc(cx, IR_PAT_DEFER); if (!n) return NULL;
-        n->sval = nm;
-        n->ival = 0;
+        IR_LIT(n).sval = nm;
+        IR_LIT(n).ival = 0;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
     default:

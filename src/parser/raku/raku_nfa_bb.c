@@ -25,7 +25,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
        (node,pos) subtree yields nothing new on revisit. As a bonus the memo bounds total work at
        n*(slen+1), so the ordered walk no longer degrades to exponential backtracking. */
     {
-        int vi = (int)s->counter * stride + pos;
+        int vi = (int)IR_EXEC(s).counter * stride + pos;
         if (vis[vi]) return -1;
         vis[vi] = 1;
     }
@@ -35,7 +35,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
         case IR_NFA_EPS:
             return nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
         case IR_NFA_CAP_OPEN: {
-            int idx = (int)s->ival;
+            int idx = (int)IR_LIT(s).ival;
             int save_gs = -2, save_ge = -2;
             if (idx >= 0 && idx < MAX_GROUPS) { save_gs = cap->gs[idx]; save_ge = cap->ge[idx]; cap->gs[idx] = pos; cap->ge[idx] = -1; }
             int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
@@ -43,7 +43,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
             return r;
         }
         case IR_NFA_CAP_CLOSE: {
-            int idx = (int)s->ival;
+            int idx = (int)IR_LIT(s).ival;
             int save_ge = -2;
             if (idx >= 0 && idx < MAX_GROUPS) { save_ge = cap->ge[idx]; cap->ge[idx] = pos; }
             int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
@@ -55,7 +55,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
         case IR_NFA_EOL:
             return (pos == slen) ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride) : -1;
         case IR_NFA_CHAR:
-            if (pos < slen && (unsigned char)subj[pos] == (unsigned char)s->ival)
+            if (pos < slen && (unsigned char)subj[pos] == (unsigned char)IR_LIT(s).ival)
                 return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap, vis, stride);
             return -1;
         case IR_NFA_ANY:
@@ -63,7 +63,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
                 return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap, vis, stride);
             return -1;
         case IR_NFA_CLASS: {
-            const unsigned char *bits = (const unsigned char *)s->sval;
+            const unsigned char *bits = (const unsigned char *)IR_LIT(s).sval;
             if (pos < slen && bits) {
                 unsigned char c = (unsigned char)subj[pos];
                 if ((bits[c >> 3] >> (c & 7)) & 1)
@@ -95,7 +95,7 @@ void raku_nfa_bb_exec(const Raku_nfa *nfa, const char *subject, Raku_match *resu
     int anchored_bol = (start->t == IR_NFA_BOL);
     int n = bbg->n;
     int stride = slen + 1;
-    for (int i = 0; i < n; i++) if (bbg->all[i]) bbg->all[i]->counter = i; /* node id for the (node,pos) memo */
+    for (int i = 0; i < n; i++) if (bbg->all[i]) IR_EXEC(bbg->all[i]).counter = i; /* node id for the (node,pos) memo */
     char *vis = (char *)GC_malloc((size_t)n * (size_t)stride);             /* (node,pos) visited grid */
     for (int sp = 0; sp <= slen; sp++) {
         if (vis) memset(vis, 0, (size_t)n * (size_t)stride);               /* fresh memo per leftmost-sweep iteration */
@@ -152,16 +152,16 @@ IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
         IR_t *b = node[i];
         const Nfa_state *s = &st[i];
         b->α = b; b->β = NULL; b->γ = NULL; b->ω = NULL;
-        b->ival = 0; b->sval = NULL; b->counter = 0; b->state = 0;
+        IR_LIT(b).ival = 0; IR_LIT(b).sval = NULL; IR_EXEC(b).counter = 0; IR_EXEC(b).state = 0;
         if (s->out1 != NFA_NULL && s->out1 < ns) b->γ = node[s->out1];
         if (s->kind == NK_SPLIT) {
             if (s->out2 != NFA_NULL && s->out2 < ns) b->β = node[s->out2];
         }
         switch (s->kind) {
-            case NK_CHAR:      b->ival = (int64_t)(unsigned char)s->ch; break;
-            case NK_CLASS:   { char *blob = (char *)GC_malloc(32); memcpy(blob, s->cc.bits, 32); b->sval = blob; } break;
+            case NK_CHAR:      IR_LIT(b).ival = (int64_t)(unsigned char)s->ch; break;
+            case NK_CLASS:   { char *blob = (char *)GC_malloc(32); memcpy(blob, s->cc.bits, 32); IR_LIT(b).sval = blob; } break;
             case NK_CAP_OPEN:
-            case NK_CAP_CLOSE: b->ival = (int64_t)s->cap_idx; break;
+            case NK_CAP_CLOSE: IR_LIT(b).ival = (int64_t)s->cap_idx; break;
             default: break;
         }
     }

@@ -63,7 +63,7 @@ static std::string bb_unify_str() {
                      + u_tail();
         }
         {
-            double lf = ln ? ln->dval : 0.0, rf = rn ? rn->dval : 0.0;
+            double lf = ln ? IR_LIT(ln).dval : 0.0, rf = rn ? IR_LIT(rn).dval : 0.0;
             std::string lbuild = u_compound_kind(lk)
                 ? emit_build_compound_term(ln)
                 : u_build_scalar(lk, li, lf, ls);

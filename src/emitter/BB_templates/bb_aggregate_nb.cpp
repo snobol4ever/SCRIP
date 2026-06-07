@@ -5,14 +5,14 @@ static std::string agg_build_term(IR_t *a) {
     if (!a) return x86("ins2", "xor", "eax, eax");
     if (a->t == IR_STRUCT) return emit_build_compound_term(a);
     return x86("ins2", "mov", std::string("edi, ") + std::to_string((int)a->t))
-         + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)a->ival))
-         + IF(a->sval && *a->sval, x86("ins2", "lea", std::string("rdx, [rip + ") + anlbl(a->sval) + "]"))
-         + IF(!(a->sval && *a->sval), x86("ins2", "xor", "edx, edx"))
+         + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)IR_LIT(a).ival))
+         + IF(IR_LIT(a).sval && *IR_LIT(a).sval, x86("ins2", "lea", std::string("rdx, [rip + ") + anlbl(IR_LIT(a).sval) + "]"))
+         + IF(!(IR_LIT(a).sval && *IR_LIT(a).sval), x86("ins2", "xor", "edx, edx"))
          + x86("ins2", "xorps", "xmm0, xmm0")
          + x86("ins2", "call", "rt_node_to_term@PLT");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string agg_bin_all(IR_t *a, IR_t *b, IR_t *c) { int kres = (int)c->t; long ires = (long)c->ival; const char *sres = (kres == IR_ATOM) ? c->sval : NULL;
+static std::string agg_bin_all(IR_t *a, IR_t *b, IR_t *c) { int kres = (int)c->t; long ires = (long)IR_LIT(c).ival; const char *sres = (kres == IR_ATOM) ? IR_LIT(c).sval : NULL;
     return x86("sub", "rsp", 16L)
          + x86_lit_bytes(emit_term_from_node_bin(a))
          + x86("mov", RSP(0), "rax")
@@ -39,7 +39,7 @@ static std::string agg_bin_nbset(IR_t *a, IR_t *b) {
          + x86("test", "eax", "eax")
          + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
 }
-static std::string agg_bin_nbget(IR_t *a, IR_t *b) { int kres = (int)b->t; long ires = (long)b->ival; const char *sres = (kres == IR_ATOM) ? b->sval : NULL;
+static std::string agg_bin_nbget(IR_t *a, IR_t *b) { int kres = (int)b->t; long ires = (long)IR_LIT(b).ival; const char *sres = (kres == IR_ATOM) ? IR_LIT(b).sval : NULL;
     return x86("sub", "rsp", 16L)
          + x86_lit_bytes(emit_term_from_node_bin(a))
          + x86("mov", "rdi", "rax")
@@ -82,7 +82,7 @@ static std::string agg_txt_nbset(const std::string &hdr, IR_t *a, IR_t *b) {
          + x86("ins2", "jmp",  _.lbl_γ)
          + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
 }
-static std::string agg_txt_nbget(const std::string &hdr, IR_t *a, IR_t *b) { int kres = (int)b->t; long ires = (long)b->ival; const char *sres = (kres == IR_ATOM) ? b->sval : NULL;
+static std::string agg_txt_nbget(const std::string &hdr, IR_t *a, IR_t *b) { int kres = (int)b->t; long ires = (long)IR_LIT(b).ival; const char *sres = (kres == IR_ATOM) ? IR_LIT(b).sval : NULL;
     return hdr
          + agg_build_term(a)
          + x86("ins2", "mov", "rdi, rax")

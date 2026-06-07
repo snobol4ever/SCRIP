@@ -17,8 +17,8 @@ static long   bcu_li()  { return (long)_.bb_li; }
 static long   bcu_ri()  { return (long)_.bb_ri; }
 static const IR_t *bcu_ln() { return (const IR_t *)_.bb_ln; }
 static const IR_t *bcu_rn() { return (const IR_t *)_.bb_rn; }
-static const char *bcu_ls() { return bcu_ln() ? bcu_ln()->sval : (const char *)0; }
-static const char *bcu_rs() { return bcu_rn() ? bcu_rn()->sval : (const char *)0; }
+static const char *bcu_ls() { return bcu_ln() ? IR_LIT(bcu_ln()).sval : (const char *)0; }
+static const char *bcu_rs() { return bcu_rn() ? IR_LIT(bcu_rn()).sval : (const char *)0; }
 static std::string bcu_tail() { return x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bcu_struct() {
@@ -48,8 +48,8 @@ static int bcu_fslot() {
     return -1;
 }
 static double bcu_fval() {
-    if (bcu_lk() == IR_LOGICVAR && bcu_rk() == IR_LIT_F && bcu_rn()) return bcu_rn()->dval;
-    return bcu_ln() ? bcu_ln()->dval : 0.0;
+    if (bcu_lk() == IR_LOGICVAR && bcu_rk() == IR_LIT_F && bcu_rn()) return IR_LIT(bcu_rn()).dval;
+    return bcu_ln() ? IR_LIT(bcu_ln()).dval : 0.0;
 }
 static std::string bcu_cell_float() {
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX CELL_UNIFY cell↔float  [PL-GZ: float sealed RO; rt_pl_unify_cell_float(cell,dval)]"))
@@ -78,7 +78,7 @@ static std::string bcu_cell_const() {
 }
 static int bcu_const_eq() {
     if (bcu_lk() != bcu_rk()) return 0;
-    if (bcu_lk() == IR_LIT_F) return bcu_ln() && bcu_rn() && bcu_ln()->dval == bcu_rn()->dval;
+    if (bcu_lk() == IR_LIT_F) return bcu_ln() && bcu_rn() && IR_LIT(bcu_ln()).dval == IR_LIT(bcu_rn()).dval;
     if (bcu_lk() == IR_LIT_I) return bcu_li() == bcu_ri();
     return bcu_ls() && bcu_rs() && strcmp(bcu_ls(), bcu_rs()) == 0;
 }

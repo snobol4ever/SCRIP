@@ -1,8 +1,8 @@
 #include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bti_lbl(IR_t *nd) {
-    if (!(nd->t == IR_ATOM && nd->sval)) return std::string();
-    char l[64]; l[0] = 0; strtab_label(l, sizeof l, nd->sval);
+    if (!(nd->t == IR_ATOM && IR_LIT(nd).sval)) return std::string();
+    char l[64]; l[0] = 0; strtab_label(l, sizeof l, IR_LIT(nd).sval);
     return std::string(l);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -11,16 +11,16 @@ static std::string bti_bin_ports() { return x86("je", "ω") + x86("jmp", "γ") +
 static std::string bti_txt_tail() { return x86("ins2", "test", "eax, eax") + x86("ins2", "je", _.lbl_ω) + x86("ins2", "jmp", _.lbl_γ) + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bti_bin_functor(IR_t *a0, IR_t *a1, IR_t *a2) {
-    const char *s1 = (a1->t == IR_ATOM) ? a1->sval : NULL;
-    const char *s2 = (a2->t == IR_ATOM) ? a2->sval : NULL;
+    const char *s1 = (a1->t == IR_ATOM) ? IR_LIT(a1).sval : NULL;
+    const char *s2 = (a2->t == IR_ATOM) ? IR_LIT(a2).sval : NULL;
     return bytes(4, "\x48\x83\xEC\x10")
          + emit_term_from_node_bin(a0)
          + bytes(3, "\x48\x89\xC7")
          + bytes(1, "\xBE") + u32le((uint32_t)(int)a1->t)
-         + bytes(2, "\x48\xBA") + u64le((uint64_t)(long)a1->ival)
+         + bytes(2, "\x48\xBA") + u64le((uint64_t)(long)IR_LIT(a1).ival)
          + (s1 ? bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s1) : bytes(2, "\x31\xC9"))
          + bytes(2, "\x41\xB8") + u32le((uint32_t)(int)a2->t)
-         + bytes(2, "\x49\xB9") + u64le((uint64_t)(long)a2->ival)
+         + bytes(2, "\x49\xB9") + u64le((uint64_t)(long)IR_LIT(a2).ival)
          + (s2 ? bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)s2) : bytes(2, "\x31\xC0"))
          + bytes(4, "\x48\x89\x04\x24")
          + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_functor_term) + bytes(2, "\xFF\xD0")
@@ -29,16 +29,16 @@ static std::string bti_bin_functor(IR_t *a0, IR_t *a1, IR_t *a2) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bti_bin_arg(IR_t *a0, IR_t *a1, IR_t *a2) {
-    const char *s0 = (a0->t == IR_ATOM) ? a0->sval : NULL;
-    const char *s2 = (a2->t == IR_ATOM) ? a2->sval : NULL;
+    const char *s0 = (a0->t == IR_ATOM) ? IR_LIT(a0).sval : NULL;
+    const char *s2 = (a2->t == IR_ATOM) ? IR_LIT(a2).sval : NULL;
     return bytes(4, "\x48\x83\xEC\x10")
          + emit_term_from_node_bin(a1)
          + bytes(3, "\x48\x89\xC1")
          + bytes(1, "\xBF") + u32le((uint32_t)(int)a0->t)
-         + bytes(2, "\x48\xBE") + u64le((uint64_t)(long)a0->ival)
+         + bytes(2, "\x48\xBE") + u64le((uint64_t)(long)IR_LIT(a0).ival)
          + (s0 ? bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)s0) : bytes(2, "\x31\xD2"))
          + bytes(2, "\x41\xB8") + u32le((uint32_t)(int)a2->t)
-         + bytes(2, "\x49\xB9") + u64le((uint64_t)(long)a2->ival)
+         + bytes(2, "\x49\xB9") + u64le((uint64_t)(long)IR_LIT(a2).ival)
          + (s2 ? bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)s2) : bytes(2, "\x31\xC0"))
          + bytes(4, "\x48\x89\x04\x24")
          + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_arg_term) + bytes(2, "\xFF\xD0")
@@ -59,12 +59,12 @@ static std::string bti_bin_univ_tt(IR_t *a0, IR_t *a1) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bti_bin_univ_t1(IR_t *a0, IR_t *a1) {
-    const char *s1 = (a1->t == IR_ATOM) ? a1->sval : NULL;
+    const char *s1 = (a1->t == IR_ATOM) ? IR_LIT(a1).sval : NULL;
     return bytes(4, "\x48\x83\xEC\x08")
          + emit_term_from_node_bin(a0)
          + bytes(3, "\x48\x89\xC7")
          + bytes(1, "\xBE") + u32le((uint32_t)(int)a1->t)
-         + bytes(2, "\x48\xBA") + u64le((uint64_t)(long)a1->ival)
+         + bytes(2, "\x48\xBA") + u64le((uint64_t)(long)IR_LIT(a1).ival)
          + (s1 ? bytes(2, "\x48\xB9") + u64le((uint64_t)(uintptr_t)s1) : bytes(2, "\x31\xC9"))
          + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_univ_term) + bytes(2, "\xFF\xD0")
          + bytes(4, "\x48\x83\xC4\x08")
@@ -72,12 +72,12 @@ static std::string bti_bin_univ_t1(IR_t *a0, IR_t *a1) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bti_bin_univ_1t(IR_t *a0, IR_t *a1) {
-    const char *s0 = (a0->t == IR_ATOM) ? a0->sval : NULL;
+    const char *s0 = (a0->t == IR_ATOM) ? IR_LIT(a0).sval : NULL;
     return bytes(4, "\x48\x83\xEC\x08")
          + emit_term_from_node_bin(a1)
          + bytes(3, "\x48\x89\xC1")
          + bytes(1, "\xBF") + u32le((uint32_t)(int)a0->t)
-         + bytes(2, "\x48\xBE") + u64le((uint64_t)(long)a0->ival)
+         + bytes(2, "\x48\xBE") + u64le((uint64_t)(long)IR_LIT(a0).ival)
          + (s0 ? bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)s0) : bytes(2, "\x31\xD2"))
          + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_univ_term_list) + bytes(2, "\xFF\xD0")
          + bytes(4, "\x48\x83\xC4\x08")
@@ -90,10 +90,10 @@ static std::string bti_txt_functor_t(IR_t *a0, IR_t *a1, IR_t *a2, const std::st
          + emit_build_compound_term(a0)
          + x86("ins2", "mov", "rdi, rax")
          + x86("ins2", "mov esi,", std::to_string((int)a1->t))
-         + x86("ins2", "mov rdx,", std::to_string((long)a1->ival))
+         + x86("ins2", "mov rdx,", std::to_string((long)IR_LIT(a1).ival))
          + (l1.size() ? x86("ins2", "lea rcx,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "ecx, ecx"))
          + x86("ins2", "mov r8d,", std::to_string((int)a2->t))
-         + x86("ins2", "mov r9,", std::to_string((long)a2->ival))
+         + x86("ins2", "mov r9,", std::to_string((long)IR_LIT(a2).ival))
          + (l2.size() ? x86("ins2", "lea rax,", std::string("[rip + ") + l2 + "]") : x86("ins2", "xor", "eax, eax"))
          + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
          + x86("ins2", "call", "rt_functor_term@PLT")
@@ -105,13 +105,13 @@ static std::string bti_txt_functor_s(IR_t *a0, IR_t *a1, IR_t *a2, const std::st
     return hdr
          + x86("ins2", "sub", "rsp, 32")
          + x86("ins2", "mov edi,", std::to_string((int)a0->t))
-         + x86("ins2", "mov rsi,", std::to_string((long)a0->ival))
+         + x86("ins2", "mov rsi,", std::to_string((long)IR_LIT(a0).ival))
          + (l0.size() ? x86("ins2", "lea rdx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "edx, edx"))
          + x86("ins2", "mov ecx,", std::to_string((int)a1->t))
-         + x86("ins2", "mov r8,", std::to_string((long)a1->ival))
+         + x86("ins2", "mov r8,", std::to_string((long)IR_LIT(a1).ival))
          + (l1.size() ? x86("ins2", "lea r9,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "r9d, r9d"))
          + x86("ins2", "mov dword ptr [rsp + 0],", std::to_string((int)a2->t))
-         + x86("ins2", "mov rax,", std::to_string((long)a2->ival))
+         + x86("ins2", "mov rax,", std::to_string((long)IR_LIT(a2).ival))
          + x86("ins2", "mov", "qword ptr [rsp + 8], rax")
          + (l2.size() ? x86("ins2", "lea rax,", std::string("[rip + ") + l2 + "]") : x86("ins2", "xor", "eax, eax"))
          + x86("ins2", "mov", "qword ptr [rsp + 16], rax")
@@ -126,10 +126,10 @@ static std::string bti_txt_arg_t(IR_t *a0, IR_t *a1, IR_t *a2, const std::string
          + emit_build_compound_term(a1)
          + x86("ins2", "mov", "rcx, rax")
          + x86("ins2", "mov edi,", std::to_string((int)a0->t))
-         + x86("ins2", "mov rsi,", std::to_string((long)a0->ival))
+         + x86("ins2", "mov rsi,", std::to_string((long)IR_LIT(a0).ival))
          + (l0.size() ? x86("ins2", "lea rdx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "edx, edx"))
          + x86("ins2", "mov r8d,", std::to_string((int)a2->t))
-         + x86("ins2", "mov r9,", std::to_string((long)a2->ival))
+         + x86("ins2", "mov r9,", std::to_string((long)IR_LIT(a2).ival))
          + (l2.size() ? x86("ins2", "lea rax,", std::string("[rip + ") + l2 + "]") : x86("ins2", "xor", "eax, eax"))
          + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
          + x86("ins2", "call", "rt_arg_term@PLT")
@@ -141,13 +141,13 @@ static std::string bti_txt_arg_s(IR_t *a0, IR_t *a1, IR_t *a2, const std::string
     return hdr
          + x86("ins2", "sub", "rsp, 32")
          + x86("ins2", "mov edi,", std::to_string((int)a0->t))
-         + x86("ins2", "mov rsi,", std::to_string((long)a0->ival))
+         + x86("ins2", "mov rsi,", std::to_string((long)IR_LIT(a0).ival))
          + (l0.size() ? x86("ins2", "lea rdx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "edx, edx"))
          + x86("ins2", "mov ecx,", std::to_string((int)a1->t))
-         + x86("ins2", "mov r8,", std::to_string((long)a1->ival))
+         + x86("ins2", "mov r8,", std::to_string((long)IR_LIT(a1).ival))
          + (l1.size() ? x86("ins2", "lea r9,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "r9d, r9d"))
          + x86("ins2", "mov dword ptr [rsp + 0],", std::to_string((int)a2->t))
-         + x86("ins2", "mov rax,", std::to_string((long)a2->ival))
+         + x86("ins2", "mov rax,", std::to_string((long)IR_LIT(a2).ival))
          + x86("ins2", "mov", "qword ptr [rsp + 8], rax")
          + (l2.size() ? x86("ins2", "lea rax,", std::string("[rip + ") + l2 + "]") : x86("ins2", "xor", "eax, eax"))
          + x86("ins2", "mov", "qword ptr [rsp + 16], rax")
@@ -175,7 +175,7 @@ static std::string bti_txt_univ_t1(IR_t *a0, IR_t *a1, const std::string &hdr) {
          + emit_build_compound_term(a0)
          + x86("ins2", "mov", "rdi, rax")
          + x86("ins2", "mov esi,", std::to_string((int)a1->t))
-         + x86("ins2", "mov rdx,", std::to_string((long)a1->ival))
+         + x86("ins2", "mov rdx,", std::to_string((long)IR_LIT(a1).ival))
          + (l1.size() ? x86("ins2", "lea rcx,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "ecx, ecx"))
          + x86("ins2", "call", "rt_univ_term@PLT")
          + x86("ins2", "add", "rsp, 8")
@@ -188,7 +188,7 @@ static std::string bti_txt_univ_1t(IR_t *a0, IR_t *a1, const std::string &hdr) {
          + emit_build_compound_term(a1)
          + x86("ins2", "mov", "rcx, rax")
          + x86("ins2", "mov edi,", std::to_string((int)a0->t))
-         + x86("ins2", "mov rsi,", std::to_string((long)a0->ival))
+         + x86("ins2", "mov rsi,", std::to_string((long)IR_LIT(a0).ival))
          + (l0.size() ? x86("ins2", "lea rdx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "edx, edx"))
          + x86("ins2", "call", "rt_univ_term_list@PLT")
          + x86("ins2", "add", "rsp, 8")
@@ -199,10 +199,10 @@ static std::string bti_txt_univ_ss(IR_t *a0, IR_t *a1, const std::string &hdr) {
     return hdr
          + x86("ins2", "sub", "rsp, 8")
          + x86("ins2", "mov edi,", std::to_string((int)a0->t))
-         + x86("ins2", "mov rsi,", std::to_string((long)a0->ival))
+         + x86("ins2", "mov rsi,", std::to_string((long)IR_LIT(a0).ival))
          + (l0.size() ? x86("ins2", "lea rdx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "edx, edx"))
          + x86("ins2", "mov ecx,", std::to_string((int)a1->t))
-         + x86("ins2", "mov r8,", std::to_string((long)a1->ival))
+         + x86("ins2", "mov r8,", std::to_string((long)IR_LIT(a1).ival))
          + (l1.size() ? x86("ins2", "lea r9,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "r9d, r9d"))
          + x86("ins2", "call", "rt_univ@PLT")
          + x86("ins2", "add", "rsp, 8")
