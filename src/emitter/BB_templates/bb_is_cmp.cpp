@@ -44,19 +44,19 @@ static int icm_floaty(const IR_t *rhs) {
 std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-        if (strcmp(fn, "is") == 0 && pBB->α && pBB->α->t == IR_LOGICVAR && pBB->β
-            && (pBB->β->t == IR_ARITH || pBB->β->t == IR_LIT_I || pBB->β->t == IR_LIT_F
-                || pBB->β->t == IR_LOGICVAR || pBB->β->t == IR_ATOM))
+        if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(pBB,1)
+            && (ir_pair_arg(pBB,1)->t == IR_ARITH || ir_pair_arg(pBB,1)->t == IR_LIT_I || ir_pair_arg(pBB,1)->t == IR_LIT_F
+                || ir_pair_arg(pBB,1)->t == IR_LOGICVAR || ir_pair_arg(pBB,1)->t == IR_ATOM))
             return x86_lit_bytes(
                 bytes(4, "\x48\x83\xEC\x10")
-                + bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)(void*)pBB->α)
-                + bytes(2, "\x48\xBE") + u64le((uint64_t)(uintptr_t)(void*)pBB->β)
+                + bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)(void*)ir_pair_arg(pBB,0))
+                + bytes(2, "\x48\xBE") + u64le((uint64_t)(uintptr_t)(void*)ir_pair_arg(pBB,1))
                 + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_is_eval) + bytes(2, "\xFF\xD0")
                 + bytes(4, "\x48\x83\xC4\x10")
                 + bytes(2, "\x85\xC0")
             ) + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
-        if (pBB->α && pBB->β && icm_cmp(fn)) {
-            IR_t *a0 = pBB->α, *a1 = pBB->β;
+        if (ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && icm_cmp(fn)) {
+            IR_t *a0 = ir_pair_arg(pBB,0), *a1 = ir_pair_arg(pBB,1);
             return x86_lit_bytes(
                 bytes(4, "\x48\x83\xEC\x10")
                 + bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)fn)
@@ -76,11 +76,11 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
         }
     }
     if (MEDIUM_TEXT) {
-        if (strcmp(fn, "is") == 0 && pBB->α && pBB->α->t == IR_LOGICVAR && pBB->β && icm_floaty(pBB->β)) {
-            const IR_t *rhs = pBB->β;
+        if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(pBB,1) && icm_floaty(ir_pair_arg(pBB,1))) {
+            const IR_t *rhs = ir_pair_arg(pBB,1);
             return hdr
                  + x86("ins2", "sub", "rsp, 8")
-                 + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(pBB->α).ival))
+                 + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
                  + x86("ins2", "mov edx,", std::to_string((rhs->t == IR_ARITH) ? icm_k(rhs->α) : -1))
                  + x86("ins2", "mov rcx,", std::to_string((rhs->t == IR_ARITH) ? icm_i(rhs->α) : 0))
@@ -94,46 +94,46 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("ins2", "add", "rsp, 8")
                  + icm_tail();
         }
-        if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
-            && pBB->α->t == IR_LOGICVAR && pBB->β->α && pBB->β->β)
+        if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
+            && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(pBB,1)->α && ir_pair_arg(pBB,1)->β)
             return hdr
-                 + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(pBB->α).ival))
+                 + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)pBB->β->α->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(pBB->β->α).ival))
-                 + x86("ins2", "mov r8d,", std::to_string((int)pBB->β->β->t))
-                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(pBB->β->β).ival))
+                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(pBB,1)->α->t))
+                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->α).ival))
+                 + x86("ins2", "mov r8d,", std::to_string((int)ir_pair_arg(pBB,1)->β->t))
+                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->β).ival))
                  + x86("ins2", "call", "rt_is@PLT")
                  + icm_tail();
-        if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
-            && pBB->α->t == IR_LIT_I && pBB->β->α && pBB->β->β)
+        if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
+            && ir_pair_arg(pBB,0)->t == IR_LIT_I && ir_pair_arg(pBB,1)->α && ir_pair_arg(pBB,1)->β)
             return hdr
-                 + x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(pBB->α).ival))
+                 + x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)pBB->β->α->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(pBB->β->α).ival))
-                 + x86("ins2", "mov r8d,", std::to_string((int)pBB->β->β->t))
-                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(pBB->β->β).ival))
+                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(pBB,1)->α->t))
+                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->α).ival))
+                 + x86("ins2", "mov r8d,", std::to_string((int)ir_pair_arg(pBB,1)->β->t))
+                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->β).ival))
                  + x86("ins2", "call", "rt_is_lint@PLT")
                  + icm_tail();
-        if (strcmp(fn, "is") == 0 && pBB->α && pBB->β && pBB->β->t == IR_ARITH
-            && pBB->α->t == IR_LOGICVAR && pBB->β->α && !pBB->β->β)
+        if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
+            && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(pBB,1)->α && !ir_pair_arg(pBB,1)->β)
             return hdr
-                 + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(pBB->α).ival))
+                 + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)pBB->β->α->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(pBB->β->α).ival))
+                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(pBB,1)->α->t))
+                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->α).ival))
                  + x86("ins2", "mov r8d,", "-1")
                  + x86("ins2", "mov r9,",  "0")
                  + x86("ins2", "call", "rt_is@PLT")
                  + icm_tail();
-        if (pBB->α && pBB->β && (pBB->α->t == IR_STRUCT || pBB->β->t == IR_STRUCT) && icm_ord(fn)) {
+        if (ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && (ir_pair_arg(pBB,0)->t == IR_STRUCT || ir_pair_arg(pBB,1)->t == IR_STRUCT) && icm_ord(fn)) {
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
             return hdr
                  + x86("ins2", "sub", "rsp, 16")
-                 + emit_build_compound_term(pBB->α)
+                 + emit_build_compound_term(ir_pair_arg(pBB,0))
                  + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
-                 + emit_build_compound_term(pBB->β)
+                 + emit_build_compound_term(ir_pair_arg(pBB,1))
                  + x86("ins2", "mov", "rdx, rax")
                  + x86("ins2", "mov", "rsi, qword ptr [rsp + 0]")
                  + x86("ins2", "lea rdi,", std::string("[rip + ") + op_lbl + "]")
@@ -141,8 +141,8 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("ins2", "add", "rsp, 16")
                  + icm_tail();
         }
-        if (pBB->α && pBB->β && icm_cmp(fn)) {
-            IR_t *a0 = pBB->α, *a1 = pBB->β;
+        if (ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && icm_cmp(fn)) {
+            IR_t *a0 = ir_pair_arg(pBB,0), *a1 = ir_pair_arg(pBB,1);
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
             char s0lbl[64]; s0lbl[0] = 0;
             char s1lbl[64]; s1lbl[0] = 0;

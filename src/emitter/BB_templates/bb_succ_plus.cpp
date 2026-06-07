@@ -77,8 +77,8 @@ static std::string bsp_txt_plus(IR_t *a0, IR_t *a1, IR_t *a2, const std::string 
 std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-        if (strcmp(fn, "succ") == 0 && _.op_ival == 2 && pBB->α && pBB->β) {
-            IR_t *a0 = pBB->α, *a1 = pBB->β;
+        if (strcmp(fn, "succ") == 0 && _.op_ival == 2 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1)) {
+            IR_t *a0 = ir_pair_arg(pBB,0), *a1 = ir_pair_arg(pBB,1);
             return bsp_bin_succ(a0, a1) + bsp_bin_ports();
         }
         if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
@@ -87,8 +87,8 @@ std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) 
         }
     }
     if (MEDIUM_TEXT) {
-        if (strcmp(fn, "succ") == 0 && _.op_ival == 2 && pBB->α && pBB->β) {
-            IR_t *a0 = pBB->α, *a1 = pBB->β;
+        if (strcmp(fn, "succ") == 0 && _.op_ival == 2 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1)) {
+            IR_t *a0 = ir_pair_arg(pBB,0), *a1 = ir_pair_arg(pBB,1);
             return bsp_txt_succ(a0, a1, hdr);
         }
         if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {

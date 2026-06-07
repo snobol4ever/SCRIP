@@ -4790,10 +4790,10 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).value=INTVAL(1); return bb->γ;
         }
         if (strcmp(fn, "nl") == 0) { putchar('\n'); IR_EXEC(bb).value = INTVAL(1); return bb->γ; }
-        if (bb->α && bb->β &&
+        if (ir_pair_arg(bb,0) && ir_pair_arg(bb,1) &&
             (strcmp(fn,">")==0||strcmp(fn,"<")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"<=")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0)) {
-            DESCR_t lv = resolve_arith_eval(bb->α);
-            DESCR_t rv = resolve_arith_eval(bb->β);
+            DESCR_t lv = resolve_arith_eval(ir_pair_arg(bb,0));
+            DESCR_t rv = resolve_arith_eval(ir_pair_arg(bb,1));
             if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
             double l = (lv.v == DT_I) ? (double)lv.i : lv.r;
             double r = (rv.v == DT_I) ? (double)rv.i : rv.r;
@@ -4801,19 +4801,19 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (ok) { IR_EXEC(bb).value = INTVAL(1); return bb->γ; }
             IR_EXEC(bb).value = FAILDESCR; return bb->ω;
         }
-        if (bb->α && bb->β &&
+        if (ir_pair_arg(bb,0) && ir_pair_arg(bb,1) &&
             (strcmp(fn,"==")==0||strcmp(fn,"\\==")==0||strcmp(fn,"@<")==0||strcmp(fn,"@>")==0
              ||strcmp(fn,"@=<")==0||strcmp(fn,"@>=")==0)) {
-            int c = resolve_term_compare(resolve_node_to_term(bb->α), resolve_node_to_term(bb->β));
+            int c = resolve_term_compare(resolve_node_to_term(ir_pair_arg(bb,0)), resolve_node_to_term(ir_pair_arg(bb,1)));
             int ok = (strcmp(fn,"==")==0)?(c==0):(strcmp(fn,"\\==")==0)?(c!=0)
                    :(strcmp(fn,"@<")==0)?(c<0):(strcmp(fn,"@>")==0)?(c>0)
                    :(strcmp(fn,"@=<")==0)?(c<=0):(c>=0);
             if (ok) { IR_EXEC(bb).value=INTVAL(1); return bb->γ; }
             IR_EXEC(bb).value=FAILDESCR; return bb->ω;
         }
-        if (bb->α && bb->β && strcmp(fn,"succ")==0) {
+        if (ir_pair_arg(bb,0) && ir_pair_arg(bb,1) && strcmp(fn,"succ")==0) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            Term *xt = resolve_node_to_term(bb->α); Term *yt = resolve_node_to_term(bb->β);
+            Term *xt = resolve_node_to_term(ir_pair_arg(bb,0)); Term *yt = resolve_node_to_term(ir_pair_arg(bb,1));
             Term *xd = xt ? term_deref(xt) : NULL; Term *yd = yt ? term_deref(yt) : NULL;
             int mark = trail_mark(&g_resolve_trail);
             if (xd && xd->tag == TERM_INT) {
@@ -5311,9 +5311,9 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_EXEC(bb).value = INTVAL(1); return bb->γ;
             }
             IR_interp_node(b0); DESCR_t av = IR_EXEC(b0).value;
-            if (strcmp(fn, "is") == 0 && bb->β) {
+            if (strcmp(fn, "is") == 0 && ir_pair_arg(bb,1)) {
                 extern Term **g_resolve_env; extern Trail g_resolve_trail;
-                DESCR_t rv = resolve_arith_eval(bb->β);
+                DESCR_t rv = resolve_arith_eval(ir_pair_arg(bb,1));
                 if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                 Term *vt = (rv.v == DT_I) ? term_new_int((long)rv.i) : term_new_float(rv.r);
                 Term *lhs = resolve_node_to_term(b0);
