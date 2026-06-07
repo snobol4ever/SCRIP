@@ -13,35 +13,35 @@ static std::string bsp_txt_tail() { return x86("ins2", "test", "eax, eax") + x86
 static std::string bsp_bin_succ(IR_t *a0, IR_t *a1) {
     const char *s0 = (a0->t == IR_ATOM) ? IR_LIT(a0).sval : NULL;
     const char *s1 = (a1->t == IR_ATOM) ? IR_LIT(a1).sval : NULL;
-    return bytes(1, "\xBF") + u32le((uint32_t)(int)a0->t)
-         + bytes(2, "\x48\xBE") + u64le((uint64_t)(long)IR_LIT(a0).ival)
-         + (s0 ? bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)s0) : bytes(2, "\x31\xD2"))
-         + bytes(1, "\xB9") + u32le((uint32_t)(int)a1->t)
-         + bytes(2, "\x49\xB8") + u64le((uint64_t)(long)IR_LIT(a1).ival)
-         + (s1 ? bytes(2, "\x49\xB9") + u64le((uint64_t)(uintptr_t)s1) : bytes(3, "\x45\x31\xC9"))
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_succ) + bytes(2, "\xFF\xD0")
-         + bytes(2, "\x85\xC0");
+    return x86("mov32", "edi", (long)(int)a0->t)
+         + x86("movabs", "rsi", (unsigned long long)(uint64_t)(long)IR_LIT(a0).ival)
+         + (s0 ? x86("movabs", "rdx", (unsigned long long)(uintptr_t)s0) : x86("xor", "edx", "edx"))
+         + x86("mov32", "ecx", (long)(int)a1->t)
+         + x86("movabs", "r8", (unsigned long long)(uint64_t)(long)IR_LIT(a1).ival)
+         + (s1 ? x86("movabs", "r9", (unsigned long long)(uintptr_t)s1) : x86("xor", "r9d", "r9d"))
+         + x86("call", "rt_succ", (unsigned long long)(uintptr_t)(void*)rt_succ)
+         + x86("test", "eax", "eax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bsp_bin_plus(IR_t *a0, IR_t *a1, IR_t *a2) {
     const char *s0 = (a0->t == IR_ATOM) ? IR_LIT(a0).sval : NULL;
     const char *s1 = (a1->t == IR_ATOM) ? IR_LIT(a1).sval : NULL;
     const char *s2 = (a2->t == IR_ATOM) ? IR_LIT(a2).sval : NULL;
-    return bytes(4, "\x48\x83\xEC\x20")
-         + bytes(1, "\xBF") + u32le((uint32_t)(int)a0->t)
-         + bytes(2, "\x48\xBE") + u64le((uint64_t)(long)IR_LIT(a0).ival)
-         + (s0 ? bytes(2, "\x48\xBA") + u64le((uint64_t)(uintptr_t)s0) : bytes(2, "\x31\xD2"))
-         + bytes(1, "\xB9") + u32le((uint32_t)(int)a1->t)
-         + bytes(2, "\x49\xB8") + u64le((uint64_t)(long)IR_LIT(a1).ival)
-         + (s1 ? bytes(2, "\x49\xB9") + u64le((uint64_t)(uintptr_t)s1) : bytes(3, "\x45\x31\xC9"))
-         + bytes(3, "\xC7\x04\x24") + u32le((uint32_t)(int)a2->t)
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(long)IR_LIT(a2).ival)
-         + bytes(5, "\x48\x89\x44\x24\x08")
-         + (s2 ? bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)s2) : bytes(2, "\x31\xC0"))
-         + bytes(5, "\x48\x89\x44\x24\x10")
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_plus) + bytes(2, "\xFF\xD0")
-         + bytes(4, "\x48\x83\xC4\x20")
-         + bytes(2, "\x85\xC0");
+    return x86("sub", "rsp", 32L)
+         + x86("mov32", "edi", (long)(int)a0->t)
+         + x86("movabs", "rsi", (unsigned long long)(uint64_t)(long)IR_LIT(a0).ival)
+         + (s0 ? x86("movabs", "rdx", (unsigned long long)(uintptr_t)s0) : x86("xor", "edx", "edx"))
+         + x86("mov32", "ecx", (long)(int)a1->t)
+         + x86("movabs", "r8", (unsigned long long)(uint64_t)(long)IR_LIT(a1).ival)
+         + (s1 ? x86("movabs", "r9", (unsigned long long)(uintptr_t)s1) : x86("xor", "r9d", "r9d"))
+         + x86("stk32", 0L, (long)(int)a2->t)
+         + x86("movabs", "rax", (unsigned long long)(uint64_t)(long)IR_LIT(a2).ival)
+         + x86("mov", RSP(8), "rax")
+         + (s2 ? x86("movabs", "rax", (unsigned long long)(uintptr_t)s2) : x86("xor", "eax", "eax"))
+         + x86("mov", RSP(16), "rax")
+         + x86("call", "rt_plus", (unsigned long long)(uintptr_t)(void*)rt_plus)
+         + x86("add", "rsp", 32L)
+         + x86("test", "eax", "eax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bsp_txt_succ(IR_t *a0, IR_t *a1, const std::string &hdr) { std::string l0 = bsp_lbl(a0), l1 = bsp_lbl(a1);
@@ -79,11 +79,11 @@ std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) 
     if (MEDIUM_BINARY) {
         if (strcmp(fn, "succ") == 0 && _.op_ival == 2 && pBB->α && pBB->β) {
             IR_t *a0 = pBB->α, *a1 = pBB->β;
-            return x86_lit_bytes(bsp_bin_succ(a0, a1)) + bsp_bin_ports();
+            return bsp_bin_succ(a0, a1) + bsp_bin_ports();
         }
         if (strcmp(fn, "plus") == 0 && _.op_ival == 3 && pBB->α && pBB->α->γ && pBB->α->γ->γ) {
             IR_t *a0 = pBB->α, *a1 = a0->γ, *a2 = a1->γ;
-            return x86_lit_bytes(bsp_bin_plus(a0, a1, a2)) + bsp_bin_ports();
+            return bsp_bin_plus(a0, a1, a2) + bsp_bin_ports();
         }
     }
     if (MEDIUM_TEXT) {
