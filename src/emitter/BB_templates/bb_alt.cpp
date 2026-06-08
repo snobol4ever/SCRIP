@@ -13,17 +13,17 @@ extern IR_graph_t * g_emit_cfg;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_alt_emit_arm(const IR_t * arm, int dslot, int off) {
     if (!arm) return std::string();
-    if (arm->t == (IR_e)IR_LIT_I)
+    if (arm->op == (IR_e)IR_LIT_I)
         return x86_frame_mov_imm64(off, (long)DT_I) + x86_ro_load_q("rax", dslot) + x86_frame_store64(off + 8, "rax");
-    if (arm->t == (IR_e)IR_LIT_S)
+    if (arm->op == (IR_e)IR_LIT_S)
         return x86_frame_mov_imm64(off, (long)DT_S) + x86_ro_load_q("rax", dslot) + x86_frame_store64(off + 8, "rax");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_alt_seal_arm(const IR_t * arm, int dslot) {
     if (!arm) return std::string();
-    if (arm->t == (IR_e)IR_LIT_I) return x86_ro_seal_q(dslot, (uint64_t) IR_LIT(arm).ival);
-    if (arm->t == (IR_e)IR_LIT_S) return x86_ro_seal_str(dslot, IR_LIT(arm).sval ? IR_LIT(arm).sval : "");
+    if (arm->op == (IR_e)IR_LIT_I) return x86_ro_seal_q(dslot, (uint64_t) IR_LIT(arm).ival);
+    if (arm->op == (IR_e)IR_LIT_S) return x86_ro_seal_str(dslot, IR_LIT(arm).sval ? IR_LIT(arm).sval : "");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -34,7 +34,7 @@ static std::string bb_alt_str(IR_t * pBB) {
     IR_t * const * arms = (pBB && g_emit_cfg) ? bb_operand_aux_get(g_emit_cfg, pBB, &n) : NULL;
     if (!arms || n <= 0 || n > 5) return std::string();
     for (int i = 0; i < n; i++)
-        if (!arms[i] || (arms[i]->t != (IR_e)IR_LIT_I && arms[i]->t != (IR_e)IR_LIT_S)) return std::string();
+        if (!arms[i] || (arms[i]->op != (IR_e)IR_LIT_I && arms[i]->op != (IR_e)IR_LIT_S)) return std::string();
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
               + x86("comment", "BOX IR_ALT [x86() stackless " + std::to_string(n) + "-arm generator; result [r12+"
               + std::to_string(_.op_off) + "], counter [r12+" + std::to_string(_.op_off + 16) + "]]"))

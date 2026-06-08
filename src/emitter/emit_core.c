@@ -380,17 +380,17 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.nid  = bb_node_id(nd);
     g_emit.op_sval = IR_LIT(nd).sval;
     g_emit.op_ival = IR_LIT(nd).ival;
-    g_emit.op_node_kind = (int)nd->t;
+    g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;
     g_emit.op_counter = IR_EXEC(nd).counter;
-    IR_t *op_a = (nd->t != IR_SCAN) ? ((nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0) : ((nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0);
+    IR_t *op_a = (nd->op != IR_SCAN) ? ((nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0) : ((nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0);
     g_emit.op_a_sval = op_a ? IR_LIT(op_a).sval : (const char *)0;
-    g_emit.op_a_node_kind = op_a ? (int)op_a->t : -1;
-    g_emit.op_a_slot = (op_a && op_a->t != IR_LIT_F && op_a->t != IR_LIT_NUL) ? bb_slot_get(op_a) : -1;
+    g_emit.op_a_node_kind = op_a ? (int)op_a->op : -1;
+    g_emit.op_a_slot = (op_a && op_a->op != IR_LIT_F && op_a->op != IR_LIT_NUL) ? bb_slot_get(op_a) : -1;
     g_emit.op_a_counter = op_a ? IR_EXEC(op_a).counter : 0;
     g_emit.op_a_ival_sg = op_a ? IR_LIT(op_a).ival : 0;
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
-    switch (nd->t) {
+    switch (nd->op) {
     case IR_PAT_LIT:         bb_lit();               return 0;
     case IR_PAT_ANY:         bb_match_any();           return 0;
     case IR_PAT_NOTANY:      bb_match_notany();        return 0;
@@ -449,9 +449,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_VAR:                  { extern int g_icn_globals_nv; extern void bb_keyword(IR_t *); if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_keyword(nd); else if (IR_EXEC(nd).state == 1 && g_icn_globals_nv) bb_var_global(nd); else bb_var(nd); } return 0;
     case IR_ASSIGN: {
         extern int g_descr_flat_chain; extern void bb_gvar_assign(IR_t *);
-        if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->t == IR_LIT_S || op_a->t == IR_LIT_I || op_a->t == IR_BINOP || op_a->t == IR_VAR || op_a->t == IR_SEQ || op_a->t == IR_SEQ_EXPR || op_a->t == IR_CALL)) { bb_gvar_assign(nd); return 0; }
+        if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_BINOP || op_a->op == IR_VAR || op_a->op == IR_SEQ || op_a->op == IR_SEQ_EXPR || op_a->op == IR_CALL)) { bb_gvar_assign(nd); return 0; }
         if (g_descr_flat_chain && IR_LIT(nd).sval) { extern void bb_assign_local(IR_t *); bb_assign_local(nd); return 0; }
-        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1;
+        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
     case IR_ASSIGN_LIT_S: { extern void bb_gvar_assign_lit_s(void); bb_gvar_assign_lit_s(); return 0; }
     case IR_ASSIGN_LIT_I: { extern void bb_gvar_assign_lit_i(void); bb_gvar_assign_lit_i(); return 0; }
@@ -464,7 +464,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_KEYWORD: { extern void bb_keyword(IR_t *); bb_keyword(nd); return 0; }
     case IR_RETURN: { extern int g_descr_flat_chain; extern void bb_return(IR_t *);
         if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0; g_emit.op_sa = rv ? bb_slot_get(rv) : -1; bb_return(nd); return 0; }
-        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t); return 1; }
+        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_AUGOP:
     case IR_CALL: {
         extern int g_icn_scan_regs_live;
@@ -543,7 +543,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_UNOP:
     case IR_NOT:                  bb_unop();           return 0;
     default:
-        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->t);
+        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op);
         return 1;
     }
 }
@@ -728,7 +728,7 @@ static void bb_walk_rec(IR_t * nd, void (*visit)(IR_t *, void *), void * ctx) {
     for (int i = 0; i < g_vcount; i++) if (g_visited[i] == id) return;
     if (g_vcount < IR_WALK_MAX) g_visited[g_vcount++] = id;
     visit(nd, ctx);
-    if (nd->t != IR_SCAN) for (int i = 0; i < nd->n_operands; i++) bb_walk_rec(nd->operands[i], visit, ctx);
+    if (nd->op != IR_SCAN) for (int i = 0; i < nd->n_operands; i++) bb_walk_rec(nd->operands[i], visit, ctx);
     bb_walk_rec(nd->γ, visit, ctx); bb_walk_rec(nd->ω, visit, ctx);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

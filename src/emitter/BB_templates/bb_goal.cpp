@@ -24,8 +24,8 @@ void  *resolve_cp_current(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string build_arg(IR_t *a) {
     if (!a) return x86("ins2", "xor", "eax, eax");
-    if (a->t == IR_STRUCT) return emit_build_compound_term(a);
-    int kind = (int)a->t;
+    if (a->op == IR_STRUCT) return emit_build_compound_term(a);
+    int kind = (int)a->op;
     long ival = (long)IR_LIT(a).ival;
     const char *sval = IR_LIT(a).sval;
     char slbl[64]; slbl[0] = 0;

@@ -29,7 +29,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
         if (vis[vi]) return -1;
         vis[vi] = 1;
     }
-    switch (s->t) {
+    switch (s->op) {
         case IR_NFA_ACCEPT:
             return pos;
         case IR_NFA_EPS:
@@ -92,7 +92,7 @@ void raku_nfa_bb_exec(const Raku_nfa *nfa, const char *subject, Raku_match *resu
     if (!bbg || !bbg->entry) return;
     IR_t *start = bbg->entry;
     int slen = (int)strlen(subject);
-    int anchored_bol = (start->t == IR_NFA_BOL);
+    int anchored_bol = (start->op == IR_NFA_BOL);
     int n = bbg->n;
     int stride = slen + 1;
     for (int i = 0; i < n; i++) if (bbg->all[i]) IR_EXEC(bbg->all[i]).counter = i; /* node id for the (node,pos) memo */

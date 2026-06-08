@@ -14,7 +14,7 @@ static const char *bcc_areg(int i) { static const char * t[2] = { "rsi", "rdx" }
 static std::string cc_load_args(const pl_gz_call_state_t *st) {
     return FOR(0, (st->nargs < 2 ? st->nargs : 2), [&](int i) -> std::string {
         const IR_t *a = st->args[i];
-        if (!a || a->t != IR_LOGICVAR) return std::string();
+        if (!a || a->op != IR_LOGICVAR) return std::string();
         return x86("mov", bcc_areg(i), FRQ(GZ_CELL_OFF((int)IR_LIT(a).ival)));
     });
 }

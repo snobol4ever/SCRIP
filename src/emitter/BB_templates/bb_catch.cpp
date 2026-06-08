@@ -16,8 +16,8 @@ extern "C" int pl_catch_block_index(IR_t *nd);
 static std::string bcc_sval_lea(const char *sval) { char sl[64]; sl[0] = 0; if (sval && *sval) strtab_label(sl, sizeof sl, sval); return sl[0] ? x86("ins2", "lea", std::string("rdx, [rip + ") + sl + "]") : x86("ins2", "xor", "edx, edx"); }
 static std::string bb_catch_build_catcher(IR_t *a) {
     if (!a) return x86("ins2", "xor", "eax, eax");
-    if (a->t == IR_STRUCT) return emit_build_compound_term(a);
-    return x86("ins2", "mov", std::string("edi, ") + std::to_string((int)a->t))
+    if (a->op == IR_STRUCT) return emit_build_compound_term(a);
+    return x86("ins2", "mov", std::string("edi, ") + std::to_string((int)a->op))
          + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)IR_LIT(a).ival))
          + bcc_sval_lea(IR_LIT(a).sval)
          + x86("ins2", "xorps", "xmm0, xmm0")

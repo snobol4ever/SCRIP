@@ -9,7 +9,7 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
               || strcmp(fn,"float")==0    || strcmp(fn,"compound")==0 || strcmp(fn,"callable")==0
               || strcmp(fn,"is_list")==0  || strcmp(fn,"ground")==0)) {
                 IR_t *a0 = ir_call_arg(pBB,0);
-                if (a0->t == IR_STRUCT || a0->t == IR_ARITH) {
+                if (a0->op == IR_STRUCT || a0->op == IR_ARITH) {
                     /* PLR-K-5 (Opus 4.8, 2026-05-29): compound-literal arg, e.g. is_list([1,2,3]) /   */
                     /* compound(f(a)) / ground(g(X,Y)). Build the Term* via emit_build_compound_term_bin */
                     /* (→ rax), pass as t0=rsi, fn ptr=rdi, call rt_type_test_term. sub rsp,8 keeps   */
@@ -24,7 +24,7 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
                     b += bytes(2, "\x85\xC0");                  /* test eax, eax */
                     return x86_lit_bytes(b) + x86("je", PORT_OMEGA) + x86("jmp", PORT_GAMMA) + x86("jmp", PORT_OMEGA);
                 }
-                int  k0 = (int)a0->t;
+                int  k0 = (int)a0->op;
                 long i0 = (long)IR_LIT(a0).ival;
                 const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
                 std::string b;
@@ -55,7 +55,7 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
           || strcmp(fn,"is_list")==0  || strcmp(fn,"ground")==0)) {
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
             IR_t *a0 = ir_call_arg(pBB,0);
-            if (a0->t == IR_STRUCT) {
+            if (a0->op == IR_STRUCT) {
                 return hdr
                      + x86("ins2", "sub", "rsp, 16")
                      + emit_build_compound_term(a0)
@@ -68,7 +68,7 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
                      + x86("ins2", "jmp",  _.lbl_γ)
                      + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
             }
-            int  k0 = (int)a0->t;
+            int  k0 = (int)a0->op;
             long i0 = (long)IR_LIT(a0).ival;
             char s0lbl[64]; s0lbl[0] = 0;
             if (k0 == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);

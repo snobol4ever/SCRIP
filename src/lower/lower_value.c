@@ -106,7 +106,7 @@ int kind_is_resumable(IR_e t) {
 IR_t * emit_leaf(lcx_t cx, IR_t * n, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!n) return NULL;
     set_succ_fail(n, γ_in, ω_in);
-    IR_t * resume = (!cx.bounded && kind_is_resumable(n->t)) ? n : ω_in;
+    IR_t * resume = (!cx.bounded && kind_is_resumable(n->op)) ? n : ω_in;
     return ret(n, α_out, β_out, n, resume);
 }
 /*====================================================================================================================*/

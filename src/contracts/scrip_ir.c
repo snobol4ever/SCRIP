@@ -211,7 +211,7 @@ IR_graph_t * IR_alloc(int max_nodes, int lang) {
 IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     IR_t * bb = calloc(1, sizeof(IR_t));
     if (!bb) return NULL;
-    bb->t       = t;
+    bb->op       = t;
     bb->γ       = NULL;
     bb->ω       = NULL;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
@@ -281,7 +281,7 @@ void bb_reset(IR_graph_t * bbg) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
         IR_EXEC(bb).value   = FAILDESCR;
-        if (bb->t != IR_PAT_ARBNO && bb->t != IR_SCAN && bb->t != IR_GEN_SCAN && bb->t != IR_GOTO && bb->t != IR_GATHER && bb->t != IR_MAP && bb->t != IR_GREP && bb->t != IR_PROG && bb->t != IR_SUSPEND && !(bb->t == IR_SEQ && IR_LIT(bb).dval == 1.0) && !(bb->t == IR_CALL && (IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 3.0))) IR_EXEC(bb).counter = 0;
+        if (bb->op != IR_PAT_ARBNO && bb->op != IR_SCAN && bb->op != IR_GEN_SCAN && bb->op != IR_GOTO && bb->op != IR_GATHER && bb->op != IR_MAP && bb->op != IR_GREP && bb->op != IR_PROG && bb->op != IR_SUSPEND && !(bb->op == IR_SEQ && IR_LIT(bb).dval == 1.0) && !(bb->op == IR_CALL && (IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 3.0))) IR_EXEC(bb).counter = 0;
         IR_EXEC(bb).state   = 0;
     }
     ag_ring_clear(bbg);
@@ -301,10 +301,10 @@ bb_node_state_t * bb_snapshot_state(IR_graph_t * bbg) {
         snap[i].ch_last_body = NULL; snap[i].ch_last_act = NULL;
         snap[i].ch_cp = NULL; snap[i].ch_cut_barrier = NULL;
         snap[i].ch_body_snaps = NULL; snap[i].ch_nbodies = 0;
-        if (bb->t == IR_GOAL) {
+        if (bb->op == IR_GOAL) {
             bb_goal_state_t * zc = (bb_goal_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc) snap[i].resolve_cs = zc->cs;
-        } else if (bb->t == IR_CHOICE) {
+        } else if (bb->op == IR_CHOICE) {
             bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc) { snap[i].ch_cur = zc->cur; snap[i].ch_mark = zc->mark; snap[i].ch_saved_env = zc->saved_env;
                       snap[i].ch_last_body = zc->last_body; snap[i].ch_last_act = zc->last_act;
@@ -329,10 +329,10 @@ void bb_restore_state(IR_graph_t * bbg, bb_node_state_t * snap) {
         IR_EXEC(bb).value   = snap[i].value;
         IR_EXEC(bb).counter = snap[i].counter;
         IR_EXEC(bb).state   = snap[i].state;
-        if (bb->t == IR_GOAL) {
+        if (bb->op == IR_GOAL) {
             bb_goal_state_t * zc = (bb_goal_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc) zc->cs = snap[i].resolve_cs;
-        } else if (bb->t == IR_CHOICE) {
+        } else if (bb->op == IR_CHOICE) {
             bb_choice_state_t * zc = (bb_choice_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc) { zc->cur = snap[i].ch_cur; zc->mark = snap[i].ch_mark; zc->saved_env = snap[i].ch_saved_env;
                       zc->last_body = (IR_graph_t *)snap[i].ch_last_body; zc->last_act = snap[i].ch_last_act;
@@ -400,17 +400,17 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         if (!bb) { fprintf(fp, "[%4d] ·\n", i); continue; }
-        const char * opn = bb_op_name(bb->t); if (strncmp(opn, "IR_", 3) == 0) opn += 3;
+        const char * opn = bb_op_name(bb->op); if (strncmp(opn, "IR_", 3) == 0) opn += 3;
         char gp[16], wp[16];
         if (bb->γ) snprintf(gp, sizeof gp, "%dα", bb->γ->idx); else snprintf(gp, sizeof gp, "·");
         if (bb->ω) snprintf(wp, sizeof wp, "%dβ", bb->ω->idx); else snprintf(wp, sizeof wp, "·");
         fprintf(fp, "[%4d] %-18s γ=%-6s ω=%-6s", i, opn, gp, wp);
-        if (bb->t != IR_SCAN && bb->n_operands > 0) {
+        if (bb->op != IR_SCAN && bb->n_operands > 0) {
             fprintf(fp, " ops:[");
             for (int j = 0; j < bb->n_operands; j++) fprintf(fp, "%s%d", j ? "," : "", bb->operands[j] ? bb->operands[j]->idx : -1);
             fprintf(fp, "]");
         }
-        switch (bb->t) {
+        switch (bb->op) {
             case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
             case IR_LIT_F: fprintf(fp, " dval=%g",   IR_LIT(bb).dval);             break;
             case IR_LIT_S: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
@@ -426,7 +426,7 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
     }
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
-        if (!bb || bb->t != IR_SCAN) continue;
+        if (!bb || bb->op != IR_SCAN) continue;
         IR_graph_t * pg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
         if (pg) bb_print(pg, fp);
         for (int j = 0; j < bb->n_operands; j++) if (bb->operands[j]) bb_print((IR_graph_t *)(void *) bb->operands[j], fp);

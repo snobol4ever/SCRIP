@@ -64,7 +64,7 @@ extern "C" void bb_gather(IR_t * pBB) {
     int ok = (n >= 0 && n <= GATHER_MAX_TAKES && (n == 0 || subs != NULL));
     for (int i = 0; ok && i < n; i++) {
         IR_t * lf = subs[i] ? subs[i]->entry : NULL;
-        if (!lf || lf->t != IR_LIT_I) { ok = 0; break; }
+        if (!lf || lf->op != IR_LIT_I) { ok = 0; break; }
         s_gather_vals[i] = IR_LIT(lf).ival;
     }
     if (!ok) {
