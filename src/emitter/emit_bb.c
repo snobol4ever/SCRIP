@@ -80,6 +80,12 @@ int bb_slot_alloc24(IR_t *nd) {
     if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
     return off;
 }
+int bb_slot_alloc32(IR_t *nd) {
+    int off = g_flat_slot_count;
+    g_flat_slot_count += 32;
+    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    return off;
+}
 int bb_slot_get(IR_t *nd) {
     for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
     return -1;
@@ -2354,6 +2360,9 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PATTERN_FAIL:    g_emit.op_kind = "FAIL";    g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_REM:     g_emit.op_kind = "REM";     g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_SUCCEED: g_emit.op_kind = "SUCCEED"; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_ARB:     g_emit.op_kind = "ARB";     g_emit.op_off = bb_slot_alloc32(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_FENCE:   g_emit.op_kind = "FENCE";   g_emit.op_off = bb_slot_alloc32(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_ABORT:   g_emit.op_kind = "ABORT";   g_emit.op_off = bb_slot_alloc32(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_CAT: g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; g_emit.op_sb = (nd->n_operands > 1) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_ALT: g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; g_emit.op_sb = (nd->n_operands > 1) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_DTP_ASSIGN:  g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
