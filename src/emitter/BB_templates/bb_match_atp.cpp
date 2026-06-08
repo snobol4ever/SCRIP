@@ -10,7 +10,8 @@ extern "C" {
 extern "C" void rt_at_cursor(const char *varname, int cur_delta);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline const char * atp_varname() { return _.op_sval ? _.op_sval : ""; }
-static inline const char * atp_label()   { return emit_intern_str(atp_varname()); }
+static inline const char * atp_label()   { const char * l = emit_intern_str(atp_varname()); if (l) return l;
+                                           static char b[24]; strtab_label(b, sizeof b, atp_varname()); return b; }
 static inline uint64_t     atp_var_addr(){ return (uint64_t)(uintptr_t)(const void *)atp_varname(); }
 static inline uint64_t     atp_fn_ptr()  { void (*fp)(const char *, int) = rt_at_cursor; return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/

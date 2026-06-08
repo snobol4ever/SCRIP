@@ -420,11 +420,11 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_SPAN:    bb_pattern_stub("bb_pattern_span: builder pending (B5)");                    return 0;
     case IR_PATTERN_BREAK:   bb_pattern_stub("bb_pattern_break: builder pending (B5)");                   return 0;
     case IR_PATTERN_BREAKX:  bb_pattern_stub("bb_pattern_breakx: builder pending (B5)");                  return 0;
-    case IR_PATTERN_LEN:     bb_pattern_stub("bb_pattern_len: builder pending (B4)");                     return 0;
-    case IR_PATTERN_POS:     bb_pattern_stub("bb_pattern_pos: builder pending (B4)");                     return 0;
-    case IR_PATTERN_RPOS:    bb_pattern_stub("bb_pattern_rpos: builder pending (B4)");                    return 0;
-    case IR_PATTERN_TAB:     bb_pattern_stub("bb_pattern_tab: builder pending (B4)");                     return 0;
-    case IR_PATTERN_RTAB:    bb_pattern_stub("bb_pattern_rtab: builder pending (B4)");                    return 0;
+    case IR_PATTERN_LEN:     bb_pattern_unary_i();                                                        return 0;
+    case IR_PATTERN_POS:     bb_pattern_unary_i();                                                        return 0;
+    case IR_PATTERN_RPOS:    bb_pattern_unary_i();                                                        return 0;
+    case IR_PATTERN_TAB:     bb_pattern_unary_i();                                                        return 0;
+    case IR_PATTERN_RTAB:    bb_pattern_unary_i();                                                        return 0;
     case IR_PATTERN_ARB:     bb_pattern_stub("bb_pattern_arb: builder pending (B7)");                     return 0;
     case IR_PATTERN_REM:     bb_pattern_stub("bb_pattern_rem: builder pending (B7)");                     return 0;
     case IR_PATTERN_BAL:     bb_pattern_stub("bb_pattern_bal: builder pending (B7)");                     return 0;
