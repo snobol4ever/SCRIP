@@ -23,8 +23,8 @@ static IR_t * pas_bool_diamond(lcx_t cx, const tree_t * child, IR_t * ω_in, IR_
     IR_t * cn = lower_program(cb, child, lit1, lit0, &cα, &cβ);
     if (!cn) return NULL;
     (void) cβ;
-    lit1->γ = as1; lit0->γ = as0;
-    as1->ω = ω_in; as0->ω = ω_in;
+    lit1->γ.node = as1; memcpy(lit1->γ.sz, "α", 3); lit0->γ.node = as0; memcpy(lit0->γ.sz, "α", 3);
+    as1->ω.node = ω_in; memcpy(as1->ω.sz, "α", 3); as0->ω.node = ω_in; memcpy(as0->ω.sz, "α", 3);
     if (entry_out) *entry_out = cα ? cα : cn;
     if (as1_out) *as1_out = as1;
     if (as0_out) *as0_out = as0;
@@ -42,11 +42,11 @@ IR_t * pas_binop_bool(lcx_t cx, const tree_t * e, IR_t * bin, int b1, int b2, IR
     if (!c2) return NULL;
     IR_t * x1entry = b1 ? rd1 : e1α;
     IR_t * x2entry = b2 ? rd2 : e2α;
-    if (b2) rd2->γ = bin;
-    if (b1) rd1->γ = x2entry; else if (!c1->γ) c1->γ = x2entry;
+    if (b2) { rd2->γ.node = bin; memcpy(rd2->γ.sz, "α", 3); }
+    if (b1) { rd1->γ.node = x2entry; memcpy(rd1->γ.sz, "α", 3); } else if (!c1->γ.node) { c1->γ.node = x2entry; memcpy(c1->γ.sz, "α", 3); }
     IR_t * entry = x1entry;
-    if (b2) { d2a1->γ = entry; d2a0->γ = entry; entry = d2e; }
-    if (b1) { d1a1->γ = entry; d1a0->γ = entry; entry = d1e; }
+    if (b2) { d2a1->γ.node = entry; memcpy(d2a1->γ.sz, "α", 3); d2a0->γ.node = entry; memcpy(d2a0->γ.sz, "α", 3); entry = d2e; }
+    if (b1) { d1a1->γ.node = entry; memcpy(d1a1->γ.sz, "α", 3); d1a0->γ.node = entry; memcpy(d1a0->γ.sz, "α", 3); entry = d1e; }
     IR_t * binops[2] = { c1, c2 };
     bb_operand_aux_set(cx.bbg, bin, binops, 2);
     set_succ_fail(bin, γ_in, ω_in);
@@ -98,7 +98,7 @@ IR_t * v_pascal_for(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t
     IR_t * incr_entry = step_v;
     IR_t * bα = NULL, * bβ = NULL;
     IR_t * bnode = lower_program(cb, body, incr_entry, incr_entry, &bα, &bβ); if (!bnode) return NULL;
-    if (!cond->γ) cond->γ = bα ? bα : bnode;
+    if (!cond->γ.node) { cond->γ.node = bα ? bα : bnode; memcpy(cond->γ.sz, "α", 3); }
     IR_t * init = nalloc(cb, IR_ASSIGN); if (!init) return NULL; IR_LIT(init).sval = (char *) vname;
     IR_t * fα = NULL, * fβ = NULL;
     IR_t * fnode = lower_program(cb, from, init, ω_in, &fα, &fβ); if (!fnode) return NULL;
@@ -115,7 +115,7 @@ IR_t * v_pascal_repeat(lcx_t cx, const tree_t * body_t, const tree_t * cond_t, I
     IR_t * bα = NULL, * bβ = NULL;
     IR_t * body = lower_program(bounded(cx), body_t, cα, ω_in, &bα, &bβ);
     if (!body) return NULL;
-    if (!cond->ω) cond->ω = bα;
+    if (!cond->ω.node) { cond->ω.node = bα; memcpy(cond->ω.sz, "α", 3); }
     return ret(body, α_out, β_out, bα, ω_in);
 }
 /*====================================================================================================================*/
@@ -139,7 +139,7 @@ IR_t * pas_goto_u(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t *
     if (!landing) return NULL;
     IR_t * n = nalloc(cx, IR_SUCCEED);
     if (!n) return NULL;
-    n->γ = landing; n->ω = ω_in;
+    n->γ.node = landing; memcpy(n->γ.sz, "α", 3); n->ω.node = ω_in; memcpy(n->ω.sz, "α", 3);
     return ret(n, α_out, β_out, n, ω_in);
 }
 /*====================================================================================================================*/
@@ -150,8 +150,8 @@ IR_t * pas_label_def(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_
     IR_t * iα = NULL, * iβ = NULL;
     IR_t * inner = lower_program(cx, e->c[0], γ_in, ω_in, &iα, &iβ);
     if (!inner) return NULL;
-    landing->γ = iα ? iα : inner;
-    landing->ω = ω_in;
+    landing->γ.node = iα ? iα : inner; memcpy(landing->γ.sz, "α", 3);
+    landing->ω.node = ω_in; memcpy(landing->ω.sz, "α", 3);
     return ret(landing, α_out, β_out, landing, iβ ? iβ : ω_in);
 }
 /*====================================================================================================================*/

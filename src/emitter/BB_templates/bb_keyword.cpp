@@ -28,19 +28,19 @@ static std::string bb_keyword_str() {
     if (!strcmp(bkw(), "subject")) {
         return IF(g_icn_scan_regs_live,
                    IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                                 + x86("comment", "BOX ICN IR_KEYWORD &subject [ICN-SCAN-1 reg arm: {DT_S,0,r13}->slot->γ; r13=Σ subject base]"))
+                                 + x86("comment", "BOX ICN IR_KEYWORD &subject [ICN-SCAN-1 reg arm: {DT_S,0,r13}->slot->γ.node; r13=Σ subject base]"))
                  + x86("mov", FRQ(_.op_off),     (long)DT_S)
                  + x86("mov", FRQ(_.op_off + 8), "r13")
                  + bkw_tail())
              + IF(!g_icn_scan_regs_live,
                    IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                                 + x86("comment", "BOX ICN IR_KEYWORD &subject [x86() stackless: rt_icn_keyword_subject->slot->γ]"))
+                                 + x86("comment", "BOX ICN IR_KEYWORD &subject [x86() stackless: rt_icn_keyword_subject->slot->γ.node]"))
                  + bkw_call_slot("rt_icn_keyword_subject", (uint64_t)(uintptr_t)(void *)rt_icn_keyword_subject));
     }
     if (!strcmp(bkw(), "pos")) {
         return IF(g_icn_scan_regs_live,
                    IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                                 + x86("comment", "BOX ICN IR_KEYWORD &pos [ICN-SCAN-1 reg arm: {DT_I, r14+1}->slot->γ; r14=δ 0-based cursor so &pos = δ+1]"))
+                                 + x86("comment", "BOX ICN IR_KEYWORD &pos [ICN-SCAN-1 reg arm: {DT_I, r14+1}->slot->γ.node; r14=δ 0-based cursor so &pos = δ+1]"))
                  + x86("mov", FRQ(_.op_off), (long)DT_I)
                  + x86("mov", "rax", "r14")
                  + x86("add", "rax", (long)1)
@@ -48,19 +48,19 @@ static std::string bb_keyword_str() {
                  + bkw_tail())
              + IF(!g_icn_scan_regs_live,
                    IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                                 + x86("comment", "BOX ICN IR_KEYWORD &pos [x86() stackless: rt_icn_keyword_pos->slot->γ]"))
+                                 + x86("comment", "BOX ICN IR_KEYWORD &pos [x86() stackless: rt_icn_keyword_pos->slot->γ.node]"))
                  + bkw_call_slot("rt_icn_keyword_pos", (uint64_t)(uintptr_t)(void *)rt_icn_keyword_pos));
     }
     if (!strcmp(bkw(), "null")) {
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                             + x86("comment", "BOX ICN IR_KEYWORD &null [x86() stackless: {DT_SNUL,0}->slot->γ]"))
+                             + x86("comment", "BOX ICN IR_KEYWORD &null [x86() stackless: {DT_SNUL,0}->slot->γ.node]"))
              + x86("mov", FRQ(_.op_off),     (long)DT_SNUL)
              + x86("mov", FRQ(_.op_off + 8), (long)0)
              + bkw_tail();
     }
     if (!strcmp(bkw(), "fail")) {
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                             + x86("comment", "BOX ICN IR_KEYWORD &fail [x86() stackless: ->ω]"))
+                             + x86("comment", "BOX ICN IR_KEYWORD &fail [x86() stackless: ->ω.node]"))
              + x86("jmp", "ω")
              + x86("def", "β")
              + x86("jmp", "ω");

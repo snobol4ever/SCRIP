@@ -14,8 +14,8 @@ static inline uint64_t substr_ptr() { DESCR_t (*fp)(const char *, int64_t, int64
 static std::string bb_scan_tab_str() {
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && ((long)_.op_sb >= 1 || _.op_sa >= 0))) return x86_bomb("bb_scan_tab: unhandled (needs literal positive n or sibling scan-producer slot + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", "BOX ICN IR_SCAN_TAB tab(i) [ICN-SCAN-7 fscan.r: target in [1,Δ+1] else ω; save δ->[off+16]; δ<-i-1; rt_icn_substr(Σ,oldδ,newδ)->slot->γ; β"
-                           " REVERSES: δ<-saved->ω]"))
+                         + x86("comment", "BOX ICN IR_SCAN_TAB tab(i) [ICN-SCAN-7 fscan.r: target in [1,Δ+1] else ω; save δ->[off+16]; δ<-i-1; rt_icn_substr(Σ,oldδ,newδ)->slot->γ.node; β"
+                           " REVERSES: δ<-saved->ω.node]"))
          + IF((long)_.op_sb >= 1, x86("mov", "rax", (long)_.op_sb))
          + IF((long)_.op_sb < 1,  x86("mov", "rax", FRQ(_.op_sa + 8)))
          + x86("cmp64", "rax", (long)1)

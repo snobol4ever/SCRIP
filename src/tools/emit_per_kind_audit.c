@@ -263,8 +263,8 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     nd->op = kind;
     nd->α = nd;
     nd->β = nd;
-    nd->γ = NULL;
-    nd->ω = NULL;
+    nd->γ.node = NULL;
+    nd->ω.node = NULL;
     switch (kind) {
     case IR_LIT_I:        nd->ival = 42; break;
     case IR_LIT_F:        nd->dval = 3.14; break;
@@ -312,7 +312,7 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
         break;
     case IR_SECTION:
         nd->ival = 0;
-        nd->α = g_audit_child3[0]; nd->β = g_audit_child3[1]; nd->γ = g_audit_child3[2];
+        nd->α = g_audit_child3[0]; nd->β = g_audit_child3[1]; nd->γ.node = g_audit_child3[2]; memcpy(nd->γ.sz, "α", 3);
         break;
     case IR_BINOP:
     case IR_AUGOP:

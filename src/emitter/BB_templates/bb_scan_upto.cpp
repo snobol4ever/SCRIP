@@ -14,8 +14,8 @@ static inline uint64_t strchr_ptr() { const char *(*fp)(const char *, int) = str
 static std::string bb_scan_upto_str() {
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_upto: unhandled (needs literal cset arg + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", "BOX ICN IR_SCAN_UPTO upto(c) [ICN-SCAN-9 fstranl.r function{*} FIRST SCAN GENERATOR: cursor[r12+cur]<-δ; L0: cursor>=Δ->ω; s[cursor]∈c ->"
-                           " {DT_I,cursor+1}->slot->γ (cursor persists); miss cursor++->L0; β RE-PUMPS: cursor++->L0]"))
+                         + x86("comment", "BOX ICN IR_SCAN_UPTO upto(c) [ICN-SCAN-9 fstranl.r function{*} FIRST SCAN GENERATOR: cursor[r12+cur]<-δ; L0: cursor>=Δ->ω.node; s[cursor]∈c ->"
+                           " {DT_I,cursor+1}->slot->γ.node (cursor persists); miss cursor++->L0; β RE-PUMPS: cursor++->L0]"))
          + x86("mov", FRQ(_.op_off + 16), "r14")
          + x86("def", L(0))
          + x86("mov", "rax", FRQ(_.op_off + 16))

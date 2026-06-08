@@ -27,8 +27,8 @@ static IR_t * pl_nalloc(plcx_t cx, IR_e kind) { return IR_node_alloc(cx.bbg, kin
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void pl_set_succ_fail(IR_t * n, IR_t * γ_in, IR_t * ω_in) {
     if (!n) return;
-    if (!n->γ && γ_in) n->γ = γ_in;
-    if (!n->ω && ω_in) n->ω = ω_in;
+    if (!n->γ.node && γ_in) { n->γ.node = γ_in; memcpy(n->γ.sz, "α", 3); }
+    if (!n->ω.node && ω_in) { n->ω.node = ω_in; memcpy(n->ω.sz, "α", 3); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_ret(IR_t * n, IR_t ** α_out, IR_t ** β_out, IR_t * α, IR_t * β) {
@@ -85,7 +85,7 @@ static IR_t * pl_wire_seq(plcx_t cx, IR_e kind, const tree_t * const * kids, int
         for (int j = i - 1; j >= 0; j--) {
             if (resume[j] && resume[j] != ω_in) { tgt = resume[j]; break; }
         }
-        apply[i]->ω = tgt;
+        apply[i]->ω.node = tgt; memcpy(apply[i]->ω.sz, "α", 3);
     }
     if (kind == IR_GCONJ) {
         bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
@@ -109,7 +109,7 @@ static IR_t * pl_wire_alt(plcx_t cx, IR_e kind, const tree_t * const * kids, int
         IR_t * αj = NULL, * βj = NULL;
         IR_t * arm = pl_lower_goal(cx, kids[j], arm_succ, ωj, &αj, &βj);
         if (!arm) return NULL;
-        if (!arm->γ) arm->γ = arm_succ;
+        if (!arm->γ.node) { arm->γ.node = arm_succ; memcpy(arm->γ.sz, "α", 3); }
         apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
     }
     bb_operand_aux_set(cx.bbg, node, apply, nkids);
@@ -604,7 +604,7 @@ IR_t * lower_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * �
         for (int j = i - 1; j >= 0; j--) {
             if (resume[j] && resume[j] != ω_in) { tgt = resume[j]; break; }
         }
-        apply[i]->ω = tgt;
+        apply[i]->ω.node = tgt; memcpy(apply[i]->ω.sz, "α", 3);
     }
     {
         bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);

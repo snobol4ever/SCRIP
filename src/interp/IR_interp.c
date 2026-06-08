@@ -2046,7 +2046,7 @@ static int bb_body_cp_free_except_tail(IR_graph_t *bbg) {
         IR_t *bb = bbg->all[i];
         if (!bb) continue;
         if (bb->op == IR_CHOICE || bb->op == IR_DISJ) return 0;
-        if (bb->op == IR_GOAL && bb->γ != NULL)     return 0;
+        if (bb->op == IR_GOAL && bb->γ.node != NULL)     return 0;
     }
     return 1;
 }
@@ -2220,32 +2220,32 @@ IR_t * IR_interp_node(IR_t * bb) {
     switch (bb->op) {
     case IR_LIT_I:
         IR_EXEC(bb).value = INTVAL(IR_LIT(bb).ival);
-        return bb->γ;
+        return bb->γ.node;
     case IR_VAR: {
         if (frame_depth > 0 && IR_LIT(bb).sval) {
             int slot = scope_get(&FRAME.sc, IR_LIT(bb).sval);
             if (slot >= 0 && slot < FRAME.env_n) {
-                if (FRAME.slotref[slot].is_ref) { IR_EXEC(bb).value = pas_slot_read(&FRAME, slot); return bb->γ; }
+                if (FRAME.slotref[slot].is_ref) { IR_EXEC(bb).value = pas_slot_read(&FRAME, slot); return bb->γ.node; }
                 DESCR_t sv = FRAME.env[slot];
-                if (sv.v != 0) { IR_EXEC(bb).value = sv; return bb->γ; }
+                if (sv.v != 0) { IR_EXEC(bb).value = sv; return bb->γ.node; }
             } else if (g_current_cfg && g_current_cfg->lang == IR_LANG_PAS) {
                 GenFrame *uf; int us;
-                if (pas_uplevel_find(&FRAME, IR_LIT(bb).sval, &uf, &us)) { IR_EXEC(bb).value = pas_slot_read(uf, us); return bb->γ; }
+                if (pas_uplevel_find(&FRAME, IR_LIT(bb).sval, &uf, &us)) { IR_EXEC(bb).value = pas_slot_read(uf, us); return bb->γ.node; }
             }
         }
         if (IR_LIT(bb).sval) {
             DESCR_t gv = NV_GET_fn(IR_LIT(bb).sval);
             IR_EXEC(bb).value = gv;
-            return IS_FAIL_fn(gv) ? bb->ω : bb->γ;
+            return IS_FAIL_fn(gv) ? bb->ω.node : bb->γ.node;
         }
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I:
     case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL:
     case IR_ASSIGN: {
         DESCR_t val = ag_ring_peek(g_current_cfg, 0);
-        if (IS_FAIL_fn(val)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(val)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         const char *name = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
         int stored = 0;
         if (frame_depth > 0) {
@@ -2260,36 +2260,36 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (!stored) NV_SET_fn(name, val);
         IR_EXEC(bb).value = val;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_VAR_FRAME: case IR_VAR_FRAME_REF: {
         GenFrame *f = (frame_depth > 0) ? &FRAME : NULL;
         for (int h = (int) IR_LIT(bb).dval; h > 0 && f; h--) f = f->static_link;
         IR_EXEC(bb).value = pas_slot_read(f, (int) IR_LIT(bb).ival);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: {
         DESCR_t val = ag_ring_peek(g_current_cfg, 0);
-        if (IS_FAIL_fn(val)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(val)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         GenFrame *f = (frame_depth > 0) ? &FRAME : NULL;
         for (int h = (int) IR_LIT(bb).dval; h > 0 && f; h--) f = f->static_link;
         pas_slot_write(f, (int) IR_LIT(bb).ival, val);
         IR_EXEC(bb).value = val;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_SWAP: {
         IR_t *l_var = bb->n_operands > 0 ? bb->operands[0] : NULL;
         IR_t *r_var = bb->n_operands > 1 ? bb->operands[1] : NULL;
-        if (!l_var || !r_var) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!l_var || !r_var) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (l_var->op != IR_VAR || r_var->op != IR_VAR || !IR_LIT(l_var).sval || !IR_LIT(r_var).sval) {
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         IR_interp_node(l_var);
         DESCR_t lv = IR_EXEC(l_var).value;
-        if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(r_var);
         DESCR_t rv = IR_EXEC(r_var).value;
-        if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int wrote_l = 0;
         if (frame_depth > 0) {
             int slot = scope_get(&FRAME.sc, IR_LIT(l_var).sval);
@@ -2303,10 +2303,10 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (!wrote_r) NV_SET_fn(IR_LIT(r_var).sval, lv);
         IR_EXEC(bb).value = rv;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_CALL: {
-        if (!IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 5.0) {
             int nargs = (int) IR_LIT(bb).ival;
             DESCR_t * args = NULL;
@@ -2315,10 +2315,10 @@ IR_t * IR_interp_node(IR_t * bb) {
                 args = (DESCR_t *) GC_malloc((size_t) nargs * sizeof(DESCR_t));
                 for (int j = 0; j < nargs; j++) {
                     IR_graph_t * ab = blks ? blks[j] : NULL;
-                    if (!ab) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (!ab) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     bb_reset(ab);
                     DESCR_t av = IR_interp_once(ab);
-                    if (IS_FAIL_fn(av)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(av)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     args[j] = av;
                 }
             }
@@ -2331,7 +2331,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                 Scope * sc = &g_stage2.proc_table[upi].lower_sc;
                 int np = g_stage2.proc_table[upi].nparams;
                 if (!fg || frame_depth >= FRAME_STACK_MAX || g_sno_save_top + sc->n > SNO_SAVE_MAX) {
-                    IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                    IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
                 }
                 int save_base = g_sno_save_top;
                 for (int k = 0; k < sc->n; k++) {
@@ -2361,20 +2361,20 @@ IR_t * IR_interp_node(IR_t * bb) {
                     NV_SET_fn(g_sno_save[k].name, g_sno_save[k].old);
                 g_sno_save_top = save_base;
                 IR_EXEC(bb).value = out;
-                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+                return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
             }
             DESCR_t out = FAILDESCR;
             if (try_call_builtin_by_name(IR_LIT(bb).sval, args, nargs, &out)) {
                 IR_EXEC(bb).value = out;
-                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+                return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
             }
             if (FNCEX_fn(IR_LIT(bb).sval)) {
                 out = APPLY_fn(IR_LIT(bb).sval, args, nargs);
                 IR_EXEC(bb).value = out;
-                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+                return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
             }
             IR_EXEC(bb).value = FAILDESCR;
-            return bb->ω;
+            return bb->ω.node;
         }
         if (IR_LIT(bb).dval == 3.0) {
             if (IR_EXEC(bb).state == 1) {
@@ -2382,10 +2382,10 @@ IR_t * IR_interp_node(IR_t * bb) {
                 if (IR_EXEC(bb).counter < (int64_t) gc->count) {
                     IR_EXEC(bb).value = gc->items[IR_EXEC(bb).counter];
                     IR_EXEC(bb).counter++;
-                    return bb->γ;
+                    return bb->γ.node;
                 }
                 IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR;
-                return bb->ω;
+                return bb->ω.node;
             }
             int nargs = (int) IR_LIT(bb).ival;
             DESCR_t * args = NULL;
@@ -2394,10 +2394,10 @@ IR_t * IR_interp_node(IR_t * bb) {
                 args = (DESCR_t *) GC_malloc((size_t) nargs * sizeof(DESCR_t));
                 for (int j = 0; j < nargs; j++) {
                     IR_graph_t * ab = blks ? blks[j] : NULL;
-                    if (!ab) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (!ab) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     bb_reset(ab);
                     DESCR_t av = IR_interp_once(ab);
-                    if (IS_FAIL_fn(av)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(av)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     args[j] = av;
                 }
             }
@@ -2407,7 +2407,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                     && g_stage2.proc_table[_pi].bb_idx >= 0) { upi = _pi; break; }
             if (upi >= 0) {
                 IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
-                if (!fg || frame_depth >= FRAME_STACK_MAX) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (!fg || frame_depth >= FRAME_STACK_MAX) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 int is_gen = g_stage2.proc_table[upi].is_generator;
                 GenFrame * caller = (frame_depth > 0) ? &FRAME : NULL;
                 uint64_t bmask = g_stage2.proc_table[upi].byref_mask;
@@ -2456,27 +2456,27 @@ IR_t * IR_interp_node(IR_t * bb) {
                     gc->items = (collected > 0) ? (DESCR_t *) GC_malloc((size_t) collected * sizeof(DESCR_t)) : NULL;
                     if (gc->items && collected > 0) memcpy(gc->items, g_suspend_buf.items, (size_t) collected * sizeof(DESCR_t));
                     g_suspend_buf = _sb_save;
-                    if (collected > 0) { IR_EXEC(bb).state = 1; IR_EXEC(bb).counter = 1; IR_EXEC(bb).value = gc->items[0]; return bb->γ; }
-                    IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                    if (collected > 0) { IR_EXEC(bb).state = 1; IR_EXEC(bb).counter = 1; IR_EXEC(bb).value = gc->items[0]; return bb->γ.node; }
+                    IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
                 }
                 IR_EXEC(bb).value = out;
-                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+                return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
             }
             DESCR_t out = FAILDESCR;
             if (try_call_builtin_by_name(IR_LIT(bb).sval, args, nargs, &out)) {
                 IR_EXEC(bb).value = out;
-                return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+                return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
             }
             IR_EXEC(bb).value = FAILDESCR;
-            return bb->ω;
+            return bb->ω.node;
         }
         if (IR_EXEC(bb).state == 1 && IR_EXEC(bb).counter) {
             GeneratorState *gs = (GeneratorState *)(intptr_t)IR_EXEC(bb).counter;
             DESCR_t v;
             int ok = bb_broker_drive_sm_one(gs, &v);
-            if (!ok) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!ok) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = v;
-            return bb->γ;
+            return bb->γ.node;
         }
         int is_deep = (IR_LIT(bb).dval == 1.0) ? 1 : 0;
         int nargs   = (int)IR_LIT(bb).ival;
@@ -2504,27 +2504,27 @@ IR_t * IR_interp_node(IR_t * bb) {
                     IR_EXEC(argv[j]).state = 0; IR_interp_node(argv[j]);
                     if (IS_FAIL_fn(IR_EXEC(argv[j]).value)) { advanced = 0; break; }
                 }
-                if (!advanced) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (!advanced) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 for (int j = 0; j < nargs; j++) {
                     oargs[j] = IR_EXEC(argv[j]).value;
-                    if (IS_FAIL_fn(oargs[j])) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(oargs[j])) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 }
             } else {
                 for (int j = 0; j < nargs; j++) {
                     IR_t *ax = ir_call_arg(bb, j);
-                    if (!ax) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (!ax) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_EXEC(ax).state = 0; IR_interp_node(ax);
                     oargs[j] = IR_EXEC(ax).value;
-                    if (IS_FAIL_fn(oargs[j])) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(oargs[j])) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 }
                 IR_EXEC(bb).state = 2;
             }
             DESCR_t oout = FAILDESCR;
             if (try_call_builtin_by_name(IR_LIT(bb).sval, oargs, nargs, &oout)) {
                 IR_EXEC(bb).value = oout;
-                return IS_FAIL_fn(oout) ? bb->ω : bb->γ;
+                return IS_FAIL_fn(oout) ? bb->ω.node : bb->γ.node;
             }
-            IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         DESCR_t *args = NULL;
         if (nargs > 0) {
@@ -2532,15 +2532,15 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (is_deep) {
                 for (int j = 0; j < nargs; j++) {
                     args[j] = ag_ring_peek(g_current_cfg, nargs - 1 - j);
-                    if (IS_FAIL_fn(args[j])) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(args[j])) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 }
             } else {
                 for (int j = 0; j < nargs; j++) {
                     IR_t *ax = ir_call_arg(bb, j);
-                    if (!ax) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (!ax) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_interp_node(ax);
                     args[j] = IR_EXEC(ax).value;
-                    if (IS_FAIL_fn(args[j])) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(args[j])) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 }
             }
         }
@@ -2553,16 +2553,16 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (!pgs) break;
             DESCR_t v;
             int ok = bb_broker_drive_sm_one(pgs, &v);
-            if (!ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = (int64_t)(intptr_t)pgs;
             IR_EXEC(bb).state  = 1;
             IR_EXEC(bb).value  = v;
-            return bb->γ;
+            return bb->γ.node;
         }
         DESCR_t out = FAILDESCR;
         if (try_call_builtin_by_name(IR_LIT(bb).sval, args, nargs, &out)) {
             IR_EXEC(bb).value = out;
-            return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+            return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
         }
         for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) {
             if (!g_stage2.proc_table[_pi].name || strcmp(g_stage2.proc_table[_pi].name, IR_LIT(bb).sval) != 0) continue;
@@ -2584,31 +2584,31 @@ IR_t * IR_interp_node(IR_t * bb) {
             frame_depth--;
             bb_restore_state(_cfg, _snap);
             IR_EXEC(bb).value = out;
-            return IS_FAIL_fn(out) ? bb->ω : bb->γ;
+            return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
         }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_SEQ: {
         if (IR_LIT(bb).dval == 1.0) {
             IR_graph_t * lblk = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
             IR_graph_t * rblk = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
-            if (!lblk || !rblk) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!lblk || !rblk) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             bb_reset(lblk); DESCR_t lv = IR_interp_once(lblk);
-            if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             bb_reset(rblk); DESCR_t rv = IR_interp_once(rblk);
-            if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             int rel_fail = 0;
             DESCR_t result = binop_apply(BINOP_CONCAT, lv, rv, &rel_fail);
-            if (IS_FAIL_fn(result)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(result)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = result;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).value = NULVCL;
         return NULL;
     }
     case IR_SEQ_EXPR: {
-        IR_EXEC(bb).value = NULVCL; return bb->γ;
+        IR_EXEC(bb).value = NULVCL; return bb->γ.node;
     }
     case IR_BINOP: {
         if (!((IR_t*)0) && !((IR_t*)0)) {
@@ -2626,7 +2626,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                 rv = ag_ring_peek(g_current_cfg, 0);
                 lv = ag_ring_peek(g_current_cfg, 1);
             }
-            if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             int rel_fail = 0;
             DESCR_t result = binop_apply((BinopKind)IR_LIT(bb).ival, lv, rv, &rel_fail);
             if (IS_FAIL_fn(result)) {
@@ -2636,138 +2636,138 @@ IR_t * IR_interp_node(IR_t * bb) {
                     rt_tgt = gen_resume_target(aux[0]);
                     if (rt_tgt) { IR_EXEC(bb).value = FAILDESCR; return rt_tgt; }
                 }
-                IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
             IR_EXEC(bb).value = result;
-            return bb->γ;
+            return bb->γ.node;
         }
-        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t lv = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t rv = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int rel_fail = 0;
         DESCR_t result = binop_apply((BinopKind)IR_LIT(bb).ival, lv, rv, &rel_fail);
-        if (IS_FAIL_fn(result)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(result)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = result;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_BINOP_GEN: {
         IR_t * Lc = ir_pair_arg(bb, 0);
         IR_t * Rc = ir_pair_arg(bb, 1);
-        if (!Lc || !Rc) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!Lc || !Rc) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int l_gen = bb_is_gen_node(Lc);
         int r_gen = bb_is_gen_node(Rc);
         if (IR_EXEC(bb).state == 0) {
             IR_EXEC(Lc).state = 0;
             IR_EXEC(Rc).state = 0;
             IR_interp_node(Lc);
-            if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_interp_node(Rc);
-            if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).state = 1;
         } else {
             if (r_gen) {
                 IR_interp_node(Rc);
                 if (IS_FAIL_fn(IR_EXEC(Rc).value)) {
-                    if (!l_gen) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (!l_gen) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_interp_node(Lc);
-                    if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_EXEC(Rc).state = 0;
                     IR_interp_node(Rc);
-                    if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 }
                 if (!l_gen && (Lc->op == IR_VAR || Lc->op == IR_KEYWORD)) {
                     IR_interp_node(Lc);
-                    if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 }
             } else if (l_gen) {
                 IR_interp_node(Lc);
-                if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 if (Rc->op == IR_VAR || Rc->op == IR_KEYWORD) {
                     IR_interp_node(Rc);
-                    if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 }
             } else {
-                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
         }
         for (;;) {
             int rel_fail = 0;
             DESCR_t result = binop_apply((BinopKind)IR_LIT(bb).ival, IR_EXEC(Lc).value, IR_EXEC(Rc).value, &rel_fail);
-            if (!IS_FAIL_fn(result)) { IR_EXEC(bb).value = result; return bb->γ; }
-            if (!rel_fail) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!IS_FAIL_fn(result)) { IR_EXEC(bb).value = result; return bb->γ.node; }
+            if (!rel_fail) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             if (r_gen) {
                 IR_interp_node(Rc);
                 if (IS_FAIL_fn(IR_EXEC(Rc).value)) {
-                    if (!l_gen) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (!l_gen) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_interp_node(Lc);
-                    if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_EXEC(Rc).state = 0;
                     IR_interp_node(Rc);
-                    if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 }
             } else if (l_gen) {
                 IR_interp_node(Lc);
-                if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             } else {
-                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
         }
     }
     case IR_LIT_F:
         IR_EXEC(bb).value = REALVAL(IR_LIT(bb).dval);
-        return bb->γ;
+        return bb->γ.node;
     case IR_LIT_S:
         IR_EXEC(bb).value = STRVAL(IR_LIT(bb).sval ? IR_LIT(bb).sval : "");
-        return bb->γ;
+        return bb->γ.node;
     case IR_LIT_NUL:
     case IR_SUCCEED:
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     case IR_INITIAL: {
         char _init_key[32];
         snprintf(_init_key, sizeof(_init_key), "__init_%p", (void*)bb);
         DESCR_t _init_flag = NV_GET_fn(_init_key);
-        if (!IS_FAIL_fn(_init_flag) && IS_INT_fn(_init_flag) && _init_flag.i != 0) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!IS_FAIL_fn(_init_flag) && IS_INT_fn(_init_flag) && _init_flag.i != 0) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         NV_SET_fn(_init_key, INTVAL(1));
         if (bb->n_operands > 0 && bb->operands[0]) {
             int ini_safe = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
             IR_t *ic = bb->operands[0];
             while (ic && ini_safe-- > 0) {
                 IR_t *in = IR_interp_node(ic);
-                if (IS_FAIL_fn(IR_EXEC(ic).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-                if (!in || in == bb->γ || in == bb->ω || in == ic) break;
+                if (IS_FAIL_fn(IR_EXEC(ic).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+                if (!in || in == bb->γ.node || in == bb->ω.node || in == ic) break;
                 ag_ring_push(g_current_cfg, IR_EXEC(ic).value);
                 ic = in;
             }
         }
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_LCONCAT: {
         if (!((IR_t*)0) && !((IR_t*)0)) {
             DESCR_t b = ag_ring_peek(g_current_cfg, 0);
             DESCR_t a = ag_ring_peek(g_current_cfg, 1);
-            if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             DESCR_t r = lconcat_d(a, b);
-            if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = r;
-            return bb->γ;
+            return bb->γ.node;
         }
-        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t a = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(a)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(a)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t b = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(b)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(b)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         DESCR_t r = lconcat_d(a, b);
-        if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = r;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_RETURN: {
         DESCR_t rv;
@@ -2785,7 +2785,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (frame_depth > 0) FRAME.returning = 1;
         IR_EXEC(bb).value = g_ir_return_val;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_SUSPEND: {
         if (IR_LIT(bb).dval == 1.0) {
@@ -2808,24 +2808,24 @@ IR_t * IR_interp_node(IR_t * bb) {
                 g_current_cfg = save_cfg;
             }
             IR_EXEC(bb).value = last;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_FAIL:
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     case IR_GOTO: {
         extern IR_t * bb_label_landing(const char * name);
         IR_graph_t * sub = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
-        if (!sub || !sub->entry) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!sub || !sub->entry) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         bb_reset(sub);
         DESCR_t lv = IR_interp_once(sub);
-        if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         char * lname = VARVAL_fn(lv);
         IR_t * land = lname ? bb_label_landing(lname) : NULL;
-        if (!land) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!land) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = NULVCL;
         return land;
     }
@@ -2834,49 +2834,49 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (!cnd && !((IR_t*)0)) {
             DESCR_t cv = ag_ring_peek(g_current_cfg, 0);
             IR_EXEC(bb).value = IS_FAIL_fn(cv) ? FAILDESCR : cv;
-            return IS_FAIL_fn(cv) ? bb->ω : bb->γ;
+            return IS_FAIL_fn(cv) ? bb->ω.node : bb->γ.node;
         }
-        if (!cnd) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!cnd) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         IR_interp_node(cnd);
         DESCR_t cv = IR_EXEC(cnd).value;
         if (!IS_FAIL_fn(cv)) {
             if (((IR_t*)0)) { IR_EXEC(((IR_t*)0)).state = 0; IR_interp_node(((IR_t*)0)); IR_EXEC(bb).value = IR_EXEC(((IR_t*)0)).value; }
             else IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
-        if (bb->ω) {
-            IR_t *else_box = bb->ω;
+        if (bb->ω.node) {
+            IR_t *else_box = bb->ω.node;
             IR_EXEC(else_box).state = 0;
             IR_interp_node(else_box);
             IR_EXEC(bb).value = IR_EXEC(else_box).value;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_CONJ: {
         if (!((IR_t*)0) && !((IR_t*)0)) {
             DESCR_t rv = ag_ring_peek(g_current_cfg, 0);
-            if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = rv;
-            return bb->γ;
+            return bb->γ.node;
         }
-        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) { IR_EXEC(((IR_t*)0)).state = 0; IR_EXEC(bb).state = 1; }
         IR_interp_node(((IR_t*)0));
         DESCR_t cv = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(cv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(cv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (((IR_t*)0)) { IR_EXEC(((IR_t*)0)).state = 0; IR_interp_node(((IR_t*)0)); IR_EXEC(bb).value = IR_EXEC(((IR_t*)0)).value; }
         else IR_EXEC(bb).value = cv;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_EVERY: {
         IR_t * ev0 = bb->n_operands > 0 ? bb->operands[0] : ((IR_t*)0);
-        if (!ev0) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!ev0) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         if (IR_LIT(bb).ival == 0) {
             if (frame_depth > 0 && FRAME.loop_break) FRAME.loop_break = 0;
             IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
         if (IR_LIT(bb).ival == 1 || IR_LIT(bb).ival == 2) {
             if (IR_EXEC(bb).state == 0) {
@@ -2887,14 +2887,14 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (frame_depth > 0) FRAME.loop_break = 0;
             IR_EXEC(bb).state = 0;
             IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
         if (IR_LIT(bb).ival == 3) {
             if (IR_EXEC(bb).state == 0) { IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return ev0; }
             if (IR_EXEC(bb).state == 1) {
                 DESCR_t gv = IR_EXEC(ev0).value;
-                if (IS_FAIL_fn(gv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = NULVCL; return bb->γ; }
-                if (frame_depth > 0 && FRAME.loop_break) { FRAME.loop_break = 0; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = NULVCL; return bb->γ; }
+                if (IS_FAIL_fn(gv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
+                if (frame_depth > 0 && FRAME.loop_break) { FRAME.loop_break = 0; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
                 if (!((IR_t*)0)) { IR_EXEC(bb).value = NULVCL; return ev0; }
                 IR_EXEC(((IR_t*)0)).state = 0;
                 IR_EXEC(bb).state = 2;
@@ -2902,8 +2902,8 @@ IR_t * IR_interp_node(IR_t * bb) {
                 return ((IR_t*)0);
             }
             if (frame_depth > 0 && (FRAME.loop_break || FRAME.returning)) {
-                if (FRAME.returning) return bb->γ;
-                FRAME.loop_break = 0; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = NULVCL; return bb->γ;
+                if (FRAME.returning) return bb->γ.node;
+                FRAME.loop_break = 0; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
             }
             if (frame_depth > 0) FRAME.loop_next = 0;
             IR_EXEC(bb).state = 1;
@@ -2927,11 +2927,11 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (frame_depth > 0) { FRAME.loop_break = saved_brk; FRAME.loop_next = saved_nxt; }
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_WHILE: {
         IR_t * cnd = bb->n_operands > 0 ? bb->operands[0] : ((IR_t*)0);
-        if (!cnd) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!cnd) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         int saved_brk_w = frame_depth > 0 ? FRAME.loop_break : 0;
         int saved_nxt_w = frame_depth > 0 ? FRAME.loop_next  : 0;
         if (frame_depth > 0) { FRAME.loop_break = 0; FRAME.loop_next = 0; }
@@ -2948,11 +2948,11 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (frame_depth > 0) { FRAME.loop_break = saved_brk_w; FRAME.loop_next = saved_nxt_w; }
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_UNTIL: {
         IR_t * ucnd = bb->n_operands > 0 ? bb->operands[0] : ((IR_t*)0);
-        if (!ucnd) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!ucnd) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         int saved_brk_u = frame_depth > 0 ? FRAME.loop_break : 0;
         int saved_nxt_u = frame_depth > 0 ? FRAME.loop_next  : 0;
         if (frame_depth > 0) { FRAME.loop_break = 0; FRAME.loop_next = 0; }
@@ -2969,39 +2969,39 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (frame_depth > 0) { FRAME.loop_break = saved_brk_u; FRAME.loop_next = saved_nxt_u; }
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_REPEAT: {
         IR_t * r0 = bb->n_operands > 0 ? bb->operands[0] : ((IR_t*)0);
-        if (!r0) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!r0) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         IR_EXEC(bb).value = NULVCL;
         return r0;
     }
     case IR_LIMIT: {
-        if (bb->n_operands < 2 || !bb->operands[0] || !bb->operands[1]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (bb->n_operands < 2 || !bb->operands[0] || !bb->operands[1]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             IR_interp_node(bb->operands[1]);
             DESCR_t mv = IR_EXEC(bb->operands[1]).value;
-            if (IS_FAIL_fn(mv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(mv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             int64_t mx = IS_INT_fn(mv) ? mv.i : (mv.v == DT_R ? (int64_t)mv.r : 0);
-            if (mx <= 0) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (mx <= 0) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = 0;
             IR_EXEC(bb).state   = 1;
         }
         DESCR_t mvc = IR_EXEC(bb->operands[1]).value;
         int64_t mxc = IS_INT_fn(mvc) ? mvc.i : (mvc.v == DT_R ? (int64_t)mvc.r : 0);
-        if (IR_EXEC(bb).counter >= mxc) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IR_EXEC(bb).counter >= mxc) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_t * cur = bb->operands[0];
         int safety_lim = (g_current_cfg ? g_current_cfg->n : 64) * 128 + 512;
         while (cur && safety_lim-- > 0) {
             IR_t * nxt = IR_interp_node(cur);
-            if (IS_FAIL_fn(IR_EXEC(cur).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            if (nxt == bb->γ || nxt == bb) { IR_EXEC(bb).counter++; IR_EXEC(bb).value = IR_EXEC(cur).value; return bb->γ; }
-            if (nxt == bb->ω || !nxt) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(IR_EXEC(cur).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            if (nxt == bb->γ.node || nxt == bb) { IR_EXEC(bb).counter++; IR_EXEC(bb).value = IR_EXEC(cur).value; return bb->γ.node; }
+            if (nxt == bb->ω.node || !nxt) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             ag_ring_push(g_current_cfg, IR_EXEC(cur).value);
             cur = nxt;
         }
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_ALT: {
         if (!((IR_t*)0)) {
@@ -3009,94 +3009,94 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_t * const * arms = bb_operand_aux_get(g_current_cfg, bb, &n_arm);
             if (!arms || n_arm <= 0) {
                 DESCR_t v = ag_ring_peek(g_current_cfg, 0);
-                if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 IR_EXEC(bb).value = v;
-                return bb->γ;
+                return bb->γ.node;
             }
             if (IR_EXEC(bb).state == 0) {
                 int safety0 = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
                 IR_t * cur0 = (n_arm > 0 && arms[0]) ? arms[0] : NULL;
                 while (cur0 && safety0-- > 0) {
-                    if (cur0 == bb->ω) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (cur0 == bb->ω.node) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_t * nxt0 = IR_interp_node(cur0);
                     if (nxt0 == bb) {
                         IR_EXEC(bb).value = IR_EXEC(cur0).value;
                         for (int j = 0; j < n_arm; j++) if (arms[j] == cur0) { IR_EXEC(bb).counter = j; break; }
                         IR_EXEC(bb).state = 1;
-                        return bb->γ;
+                        return bb->γ.node;
                     }
-                    if (!nxt0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (!nxt0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     ag_ring_push(g_current_cfg, IR_EXEC(cur0).value);
                     cur0 = nxt0;
                 }
-                IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
             int ci = (int)IR_EXEC(bb).counter;
             IR_t * cur;
             if (ci >= 0 && ci < n_arm && arms[ci] && bb_is_gen_node(arms[ci])) {
                 IR_interp_node(arms[ci]);
-                if (!IS_FAIL_fn(IR_EXEC(arms[ci]).value)) { IR_EXEC(bb).value = IR_EXEC(arms[ci]).value; return bb->γ; }
-                cur = arms[ci]->ω;
+                if (!IS_FAIL_fn(IR_EXEC(arms[ci]).value)) { IR_EXEC(bb).value = IR_EXEC(arms[ci]).value; return bb->γ.node; }
+                cur = arms[ci]->ω.node;
             } else {
-                cur = (ci >= 0 && ci < n_arm && arms[ci]) ? arms[ci]->ω : NULL;
+                cur = (ci >= 0 && ci < n_arm && arms[ci]) ? arms[ci]->ω.node : NULL;
             }
             int safety2 = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
             while (cur && safety2-- > 0) {
-                if (cur == bb->ω) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (cur == bb->ω.node) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 IR_t * nxt = IR_interp_node(cur);
                 if (nxt == bb) {
                     IR_EXEC(bb).value = IR_EXEC(cur).value;
                     for (int j = 0; j < n_arm; j++) if (arms[j] == cur) { IR_EXEC(bb).counter = j; break; }
-                    return bb->γ;
+                    return bb->γ.node;
                 }
-                if (!nxt) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (!nxt) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 ag_ring_push(g_current_cfg, IR_EXEC(cur).value);
                 cur = nxt;
             }
-            IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         #define ALT_IS_GEN(k) ( \
             (k) == IR_TO || (k) == IR_TO_BY || (k) == IR_UPTO || \
             (k) == IR_ALT    || (k) == IR_BINOP_GEN || \
             (k) == IR_ITERATE || (k) == IR_LIMIT || (k) == IR_PROC_GEN || \
             (k) == IR_LIST_BANG || (k) == IR_KEY_GEN || (k) == IR_FIND_GEN || (k) == IR_SEQ_GEN || (k) == IR_TO_BY  || (k) == IR_GEN_ALT || (k) == IR_GATHER || (k) == IR_MAP || (k) == IR_GREP)
-        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             int i = 0;
-            for (IR_t * arm = ((IR_t*)0); arm; arm = arm->ω, i++) {
+            for (IR_t * arm = ((IR_t*)0); arm; arm = arm->ω.node, i++) {
                 IR_EXEC(arm).state = 0;
                 IR_interp_node(arm);
                 if (!IS_FAIL_fn(IR_EXEC(arm).value)) {
                     IR_EXEC(bb).value   = IR_EXEC(arm).value;
                     IR_EXEC(bb).counter = i;
                     IR_EXEC(bb).state   = 1;
-                    return bb->γ;
+                    return bb->γ.node;
                 }
             }
             IR_EXEC(bb).value = FAILDESCR;
-            return bb->ω;
+            return bb->ω.node;
         }
         int ci = (int)IR_EXEC(bb).counter;
         IR_t * cur = ((IR_t*)0);
-        for (int j = 0; j < ci && cur; j++) cur = cur->ω;
+        for (int j = 0; j < ci && cur; j++) cur = cur->ω.node;
         if (cur && ALT_IS_GEN(cur->op)) {
             IR_interp_node(cur);
-            if (!IS_FAIL_fn(IR_EXEC(cur).value)) { IR_EXEC(bb).value = IR_EXEC(cur).value; return bb->γ; }
+            if (!IS_FAIL_fn(IR_EXEC(cur).value)) { IR_EXEC(bb).value = IR_EXEC(cur).value; return bb->γ.node; }
         }
         int i = ci + 1;
-        for (IR_t * arm = (cur ? cur->ω : NULL); arm; arm = arm->ω, i++) {
+        for (IR_t * arm = (cur ? cur->ω.node : NULL); arm; arm = arm->ω.node, i++) {
             IR_EXEC(arm).state = 0;
             IR_interp_node(arm);
             if (!IS_FAIL_fn(IR_EXEC(arm).value)) {
                 IR_EXEC(bb).value   = IR_EXEC(arm).value;
                 IR_EXEC(bb).counter = i;
-                return bb->γ;
+                return bb->γ.node;
             }
         }
         IR_EXEC(bb).state = 0;
         IR_EXEC(bb).value = FAILDESCR;
         #undef ALT_IS_GEN
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_TO_BY: {
         IR_t * Lc = ir_pair_arg(bb, 0);
@@ -3106,7 +3106,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (IR_EXEC(bb).state == 0) {
                 DESCR_t lv = ag_ring_peek(g_current_cfg, 1);
                 DESCR_t hv = ag_ring_peek(g_current_cfg, 0);
-                if (IS_FAIL_fn(lv) || IS_FAIL_fn(hv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(lv) || IS_FAIL_fn(hv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 if (is_real_ag) {
                     double lo_r = (lv.v == DT_R) ? lv.r : (double)(IS_INT_fn(lv) ? lv.i : 0);
                     double hi_r = (hv.v == DT_R) ? hv.r : (double)(IS_INT_fn(hv) ? hv.i : 0);
@@ -3125,20 +3125,20 @@ IR_t * IR_interp_node(IR_t * bb) {
                 if (by_r == 0.0) by_r = 1.0;
                 double hi_r; memcpy(&hi_r, &IR_EXEC(bb).counter, 8);
                 if (by_r >= 0.0 ? IR_LIT(bb).dval > hi_r + 1e-12 : IR_LIT(bb).dval < hi_r - 1e-12) {
-                    IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                    IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
                 }
                 DESCR_t rv; rv.v = DT_R; rv.r = IR_LIT(bb).dval; IR_EXEC(bb).value = rv;
                 IR_LIT(bb).dval += by_r;
-                return bb->γ;
+                return bb->γ.node;
             }
             int64_t by_i = IR_LIT(bb).ival ? IR_LIT(bb).ival : 1;
             int64_t hi_i; memcpy(&hi_i, &IR_LIT(bb).dval, 8);
             if (by_i >= 0 ? IR_EXEC(bb).counter > hi_i : IR_EXEC(bb).counter < hi_i) {
-                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
             IR_EXEC(bb).value    = INTVAL(IR_EXEC(bb).counter);
             IR_EXEC(bb).counter += by_i;
-            return bb->γ;
+            return bb->γ.node;
         }
         int is_real = (IR_LIT(bb).sval && IR_LIT(bb).sval[0] == 'r');
         if (IR_EXEC(bb).state == 0) {
@@ -3156,21 +3156,21 @@ IR_t * IR_interp_node(IR_t * bb) {
             double by_r; memcpy(&by_r, &IR_LIT(bb).ival, sizeof(double));
             if (by_r == 0.0) by_r = 1.0;
             double to_r = Hc ? ((IR_EXEC(Hc).value.v == DT_R) ? IR_EXEC(Hc).value.r : (double)(IS_INT_fn(IR_EXEC(Hc).value) ? IR_EXEC(Hc).value.i : 0)) : 0.0;
-            if (by_r >= 0.0 ? IR_LIT(bb).dval > to_r + 1e-12 : IR_LIT(bb).dval < to_r - 1e-12) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (by_r >= 0.0 ? IR_LIT(bb).dval > to_r + 1e-12 : IR_LIT(bb).dval < to_r - 1e-12) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             DESCR_t rv; rv.v = DT_R; rv.r = IR_LIT(bb).dval; IR_EXEC(bb).value = rv;
             IR_LIT(bb).dval += by_r;
-            return bb->γ;
+            return bb->γ.node;
         }
         int64_t by = IR_LIT(bb).ival ? IR_LIT(bb).ival : 1;
         int64_t to_val = Hc ? (IS_INT_fn(IR_EXEC(Hc).value) ? IR_EXEC(Hc).value.i : 0) : 0;
-        if (by >= 0 ? IR_EXEC(bb).counter > to_val : IR_EXEC(bb).counter < to_val) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (by >= 0 ? IR_EXEC(bb).counter > to_val : IR_EXEC(bb).counter < to_val) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value    = INTVAL(IR_EXEC(bb).counter);
         IR_EXEC(bb).counter += by;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_SCAN: {
         IR_graph_t *pat = (IR_graph_t *)(intptr_t)IR_EXEC(bb).counter;
-        if (!pat || !pat->entry) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!pat || !pat->entry) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int is_repl = (IR_LIT(bb).ival != 0);
         DESCR_t subj_d = is_repl ? NV_GET_fn(IR_LIT(bb).sval ? IR_LIT(bb).sval : "") : ag_ring_peek(g_current_cfg, 0);
         DESCR_t sv = VARVAL_d_fn(subj_d);
@@ -3203,9 +3203,9 @@ IR_t * IR_interp_node(IR_t * bb) {
             NV_SET_fn(IR_LIT(bb).sval, nv);
         }
         Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ; g_dcap_active = save_dca; g_dcap_n = save_dcn;
-        if (!matched) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!matched) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = mspan;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_SUBJECT: {
         if (IR_EXEC(bb).state == 0) {
@@ -3217,11 +3217,11 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).state = 1;
             DESCR_t vd = { .v = DT_S, .slen = (uint32_t)subj_len, .s = (char *)subj_str };
             IR_EXEC(bb).value = vd;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).state = 0;
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_REF_INVARIANT: {
         if (IR_EXEC(bb).state == 0) {
@@ -3231,11 +3231,11 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).state = 1;
             DESCR_t vd = { .v = DT_S, .slen = (uint32_t)strlen(lit), .s = (char *)lit };
             IR_EXEC(bb).value = vd;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).state = 0;
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_LIT: {
         const char *lit = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
@@ -3243,18 +3243,18 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (IR_EXEC(bb).state == 0) {
             if (Δ + len > Σlen || (len > 0 && memcmp(Σ + Δ, lit, (size_t)len) != 0)) {
                 IR_EXEC(bb).value = FAILDESCR;
-                return bb->ω;
+                return bb->ω.node;
             }
             IR_EXEC(bb).counter = len;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = descr_match_span(Σ + Δ, len);
             Δ += len;
-            return bb->γ;
+            return bb->γ.node;
         }
         Δ -= (int)IR_EXEC(bb).counter;
         IR_EXEC(bb).state = 0;
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_ANY: {
         const char *chars = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
@@ -3262,52 +3262,52 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (IR_EXEC(bb).state == 0) {
             if (Δ >= Σlen || !strchr(chars, Σ[Δ])) {
                 IR_EXEC(bb).value = FAILDESCR;
-                return bb->ω;
+                return bb->ω.node;
             }
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = descr_match_span(Σ + Δ, 1);
             Δ++;
-            return bb->γ;
+            return bb->γ.node;
         }
         Δ--;
         IR_EXEC(bb).state = 0;
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_NOT: {
         IR_t * c0 = (bb->n_operands > 0) ? bb->operands[0] : ((IR_t*)0);
-        if (!c0) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!c0) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         IR_EXEC(c0).state = 0;
         IR_interp_node(c0);
-        if (IS_FAIL_fn(IR_EXEC(c0).value)) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (IS_FAIL_fn(IR_EXEC(c0).value)) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_BREAK: {
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ ? bb->γ : bb->ω;
+        return bb->γ.node ? bb->γ.node : bb->ω.node;
     }
     case IR_NEXT: {
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ ? bb->γ : bb->ω;
+        return bb->γ.node ? bb->γ.node : bb->ω.node;
     }
     case IR_NONNULL: {
         IR_t * c0 = (bb->n_operands > 0) ? bb->operands[0] : ((IR_t*)0);
-        if (!c0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!c0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(c0);
         DESCR_t v = IR_EXEC(c0).value;
-        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        if (v.v == DT_SNUL) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        if (v.v == DT_SNUL) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = v;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_IDENTICAL: {
-        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t lv = IR_EXEC(((IR_t*)0)).value;
         IR_interp_node(((IR_t*)0));
         DESCR_t rv = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int ident = 0;
         if (lv.v == rv.v) {
             if (lv.v == DT_SNUL) ident = 1;
@@ -3317,117 +3317,117 @@ IR_t * IR_interp_node(IR_t * bb) {
             else if (lv.v == DT_T) ident = (lv.tbl == rv.tbl);
             else ident = (lv.i == rv.i);
         }
-        if (!ident) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!ident) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = rv;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_NULL_TEST: {
-        if (!((IR_t*)0)) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!((IR_t*)0)) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t v = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        if (v.v == DT_SNUL) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        if (v.v == DT_SNUL) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_RANDOM: {
-        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t v = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         extern uint64_t bb_rnd_seed;
         bb_rnd_seed = bb_rnd_seed * 6364136223846793005UL + 1442695040888963407UL;
         unsigned long rnd = (unsigned long)(bb_rnd_seed >> 33);
         if (IS_INT_fn(v)) {
             int64_t n = v.i;
-            if (n <= 0) { IR_EXEC(bb).value = INTVAL(0); return bb->γ; }
+            if (n <= 0) { IR_EXEC(bb).value = INTVAL(0); return bb->γ.node; }
             IR_EXEC(bb).value = INTVAL((int64_t)(rnd % (unsigned long)n) + 1);
-            return bb->γ;
+            return bb->γ.node;
         }
         if (v.v == DT_T) {
-            if (!v.tbl || v.tbl->size <= 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!v.tbl || v.tbl->size <= 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             int target = (int)(rnd % (unsigned long)v.tbl->size);
             int seen = 0;
             for (int b = 0; b < TABLE_BUCKETS; b++) {
                 for (TBPAIR_t *p = v.tbl->buckets[b]; p; p = p->next) {
-                    if (seen == target) { IR_EXEC(bb).value = p->val; return bb->γ; }
+                    if (seen == target) { IR_EXEC(bb).value = p->val; return bb->γ.node; }
                     seen++;
                 }
             }
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         const char *s = VARVAL_fn(v);
         if (s) {
             long slen = v.slen > 0 ? v.slen : (long)strlen(s);
-            if (slen <= 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (slen <= 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             int idx = (int)(rnd % (unsigned long)slen);
             char buf[2] = { s[idx], '\0' };
             IR_EXEC(bb).value = STRVAL(GC_strdup(buf));
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_UNOP: {
         DESCR_t v;
         IR_t * c0 = (bb->n_operands > 0) ? bb->operands[0] : ((IR_t*)0);
         if (c0) { IR_interp_node(c0); v = IR_EXEC(c0).value; }
         else    { v = ag_ring_peek(g_current_cfg, 0); }
-        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int rel_fail = 0;
         switch ((tree_e) IR_LIT(bb).ival) {
-        case TT_MNS: { DESCR_t r = binop_apply(BINOP_SUB, INTVAL(0), v, &rel_fail); if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; } IR_EXEC(bb).value = r; return bb->γ; }
-        case TT_PLS: { DESCR_t r = binop_apply(BINOP_ADD, INTVAL(0), v, &rel_fail); if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; } IR_EXEC(bb).value = r; return bb->γ; }
-        case TT_SIZE: { int failed = 0; long len = size_value(v, &failed); if (failed) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; } IR_EXEC(bb).value = INTVAL(len); return bb->γ; }
-        case TT_NONNULL: { if (v.v == DT_SNUL) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; } IR_EXEC(bb).value = v; return bb->γ; }
-        case TT_CSET_COMPL: { if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str(v); const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v); IR_EXEC(bb).value = CSETVAL(cset_complement(cs ? cs : "")); return bb->γ; }
-        default: IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        case TT_MNS: { DESCR_t r = binop_apply(BINOP_SUB, INTVAL(0), v, &rel_fail); if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; } IR_EXEC(bb).value = r; return bb->γ.node; }
+        case TT_PLS: { DESCR_t r = binop_apply(BINOP_ADD, INTVAL(0), v, &rel_fail); if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; } IR_EXEC(bb).value = r; return bb->γ.node; }
+        case TT_SIZE: { int failed = 0; long len = size_value(v, &failed); if (failed) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; } IR_EXEC(bb).value = INTVAL(len); return bb->γ.node; }
+        case TT_NONNULL: { if (v.v == DT_SNUL) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; } IR_EXEC(bb).value = v; return bb->γ.node; }
+        case TT_CSET_COMPL: { if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str(v); const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v); IR_EXEC(bb).value = CSETVAL(cset_complement(cs ? cs : "")); return bb->γ.node; }
+        default: IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
     }
     case IR_NEG: {
         IR_t * c0 = (bb->n_operands > 0) ? bb->operands[0] : ((IR_t*)0);
-        if (!c0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!c0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(c0);
         DESCR_t v = IR_EXEC(c0).value;
-        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int rel_fail = 0;
         DESCR_t result = binop_apply(BINOP_SUB, INTVAL(0), v, &rel_fail);
-        if (IS_FAIL_fn(result)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(result)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = result;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_POS: {
         IR_t * c0 = (bb->n_operands > 0) ? bb->operands[0] : ((IR_t*)0);
-        if (!c0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!c0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(c0);
         DESCR_t v = IR_EXEC(c0).value;
-        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int rel_fail = 0;
         DESCR_t result = binop_apply(BINOP_ADD, INTVAL(0), v, &rel_fail);
-        if (IS_FAIL_fn(result)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(result)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = result;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_CSET_COMPL: {
-        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t v = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IS_INT_fn(v) || IS_REAL_fn(v)) v = descr_to_str(v);
         const char *cs = IS_NULL_fn(v) ? "" : VARVAL_fn(v);
         IR_EXEC(bb).value = CSETVAL(cset_complement(cs ? cs : ""));
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_CSET_UNION:
     case IR_CSET_DIFF:
     case IR_CSET_INTER: {
-        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t lv = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(lv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t rv = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IS_INT_fn(lv) || IS_REAL_fn(lv)) lv = descr_to_str(lv);
         if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
         const char *a = IS_NULL_fn(lv) ? "" : VARVAL_fn(lv); if (!a) a = "";
@@ -3436,18 +3436,18 @@ IR_t * IR_interp_node(IR_t * bb) {
                         : (bb->op == IR_CSET_DIFF)  ? cset_diff (a, b)
                                                    : cset_inter(a, b);
         IR_EXEC(bb).value = CSETVAL(cset_canonical(raw));
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_GEN_SCAN: {
         if (IR_LIT(bb).dval == 1.0) {
             IR_graph_t * subj_sg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
             IR_graph_t * body_sg = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
-            if (!subj_sg || !subj_sg->entry) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!subj_sg || !subj_sg->entry) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_graph_t * save_cfg = g_current_cfg;
             bb_reset(subj_sg);
             DESCR_t sv = IR_interp_once(subj_sg);
             g_current_cfg = save_cfg;
-            if (IS_FAIL_fn(sv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(sv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
             const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
             if (!s) s = "";
@@ -3471,14 +3471,14 @@ IR_t * IR_interp_node(IR_t * bb) {
                 scan_subj = scan_stack[scan_depth].subj;
                 scan_pos  = scan_stack[scan_depth].pos;
             }
-            if (!body_ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!body_ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = body_val;
-            return bb->γ;
+            return bb->γ.node;
         }
-        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t sv = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(sv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(sv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         const char *s = VARVAL_fn(sv);
         if (!s) s = "";
         if (scan_depth < SCAN_STACK_MAX) {
@@ -3500,96 +3500,96 @@ IR_t * IR_interp_node(IR_t * bb) {
             scan_subj = scan_stack[scan_depth].subj;
             scan_pos  = scan_stack[scan_depth].pos;
         }
-        if (!body_ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!body_ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = body_val;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_KEYWORD: {
-        if (!IR_LIT(bb).sval) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!IR_LIT(bb).sval) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         const char *kw = IR_LIT(bb).sval[0] == '&' ? IR_LIT(bb).sval + 1 : IR_LIT(bb).sval;
         if (!strcmp(kw, "subject")) {
             IR_EXEC(bb).value = scan_subj ? STRVAL(scan_subj) : NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
         if (!strcmp(kw, "pos")) {
             IR_EXEC(bb).value = INTVAL((int64_t)scan_pos);
-            return bb->γ;
+            return bb->γ.node;
         }
         if (!strcmp(kw, "null")) {
             IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
         if (!strcmp(kw, "fail")) {
             IR_EXEC(bb).value = FAILDESCR;
-            return bb->ω;
+            return bb->ω.node;
         }
         DESCR_t kv = kw_read(kw);
         if (!IS_FAIL_fn(kv)) {
             IR_EXEC(bb).value = kv;
-            return bb->γ;
+            return bb->γ.node;
         }
         DESCR_t gv = NV_GET_fn(IR_LIT(bb).sval);
         IR_EXEC(bb).value = gv;
-        return IS_FAIL_fn(gv) ? bb->ω : bb->γ;
+        return IS_FAIL_fn(gv) ? bb->ω.node : bb->γ.node;
     }
     case IR_SIZE: {
         IR_t * c0 = (bb->n_operands > 0) ? bb->operands[0] : ((IR_t*)0);
-        if (!c0) { IR_EXEC(bb).value = INTVAL(0); return bb->γ; }
+        if (!c0) { IR_EXEC(bb).value = INTVAL(0); return bb->γ.node; }
         IR_interp_node(c0);
         int  failed = 0;
         long len    = size_value(IR_EXEC(c0).value, &failed);
-        if (failed) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (failed) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = INTVAL(len);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_IDX: {
         if (!((IR_t*)0) && !((IR_t*)0)) {
             DESCR_t idx  = ag_ring_peek(g_current_cfg, 0);
             DESCR_t base = ag_ring_peek(g_current_cfg, 1);
-            if (IS_FAIL_fn(base) || IS_FAIL_fn(idx)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(base) || IS_FAIL_fn(idx)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             DESCR_t r = subscript_get(base, idx);
-            if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = r;
-            return bb->γ;
+            return bb->γ.node;
         }
-        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t base = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(base)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(base)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(((IR_t*)0));
         DESCR_t idx = IR_EXEC(((IR_t*)0)).value;
-        if (IS_FAIL_fn(idx)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(idx)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         DESCR_t r = subscript_get(base, idx);
-        if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = r;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_SECTION: {
         if (bb->n_operands == 0) {
             DESCR_t i2   = ag_ring_peek(g_current_cfg, 0);
             DESCR_t i1   = ag_ring_peek(g_current_cfg, 1);
             DESCR_t base = ag_ring_peek(g_current_cfg, 2);
-            if (IS_FAIL_fn(base) || IS_FAIL_fn(i1) || IS_FAIL_fn(i2)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(base) || IS_FAIL_fn(i1) || IS_FAIL_fn(i2)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             if (IR_LIT(bb).ival == 1 && IS_INT_fn(i1) && IS_INT_fn(i2)) { i2 = INTVAL(i1.i + i2.i); }
             else if (IR_LIT(bb).ival == 2 && IS_INT_fn(i1) && IS_INT_fn(i2)) { int64_t lo = i1.i - i2.i; i2 = i1; i1 = INTVAL(lo); }
             DESCR_t r = subscript_get2(base, i1, i2);
-            if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = r;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_t *base_box = bb->n_operands > 0 ? bb->operands[0] : NULL;
         IR_t *i1_box   = bb->n_operands > 1 ? bb->operands[1] : NULL;
         IR_t *i2_box   = bb->n_operands > 2 ? bb->operands[2] : NULL;
-        if (!base_box || !i1_box || !i2_box) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!base_box || !i1_box || !i2_box) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(base_box);
         DESCR_t base = IR_EXEC(base_box).value;
-        if (IS_FAIL_fn(base)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(base)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(i1_box);
         DESCR_t i1 = IR_EXEC(i1_box).value;
-        if (IS_FAIL_fn(i1)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(i1)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(i2_box);
         DESCR_t i2 = IR_EXEC(i2_box).value;
-        if (IS_FAIL_fn(i2)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(i2)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_LIT(bb).ival == 1 && IS_INT_fn(i1) && IS_INT_fn(i2)) {
             i2 = INTVAL(i1.i + i2.i);
         } else if (IR_LIT(bb).ival == 2 && IS_INT_fn(i1) && IS_INT_fn(i2)) {
@@ -3598,17 +3598,17 @@ IR_t * IR_interp_node(IR_t * bb) {
             i1 = INTVAL(lo);
         }
         DESCR_t r = subscript_get2(base, i1, i2);
-        if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(r)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = r;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_LIST_BANG: {
         IR_t * lb0 = bb->n_operands > 0 ? bb->operands[0] : ((IR_t*)0);
-        if (!lb0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!lb0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             IR_interp_node(lb0);
             DESCR_t obj0 = IR_EXEC(lb0).value;
-            if (IS_FAIL_fn(obj0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(obj0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = 0;
             IR_EXEC(bb).state   = 1;
         } else {
@@ -3617,8 +3617,8 @@ IR_t * IR_interp_node(IR_t * bb) {
         {
             DESCR_t obj = IR_EXEC(lb0).value;
             DESCR_t out;
-            if (list_bang_at(obj, IR_EXEC(bb).counter, &out)) { IR_EXEC(bb).value = out; return bb->γ; }
-            IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            if (list_bang_at(obj, IR_EXEC(bb).counter, &out)) { IR_EXEC(bb).value = out; return bb->γ.node; }
+            IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
     }
     case IR_RECORD_DEF: {
@@ -3628,68 +3628,68 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).state = 1;
         }
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_FIELD_GET: {
         IR_t *obj_box = bb->n_operands > 0 ? bb->operands[0] : NULL;
-        if (!obj_box || !IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!obj_box || !IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(obj_box);
         DESCR_t obj = IR_EXEC(obj_box).value;
-        if (IS_FAIL_fn(obj)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(obj)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         DESCR_t *cell = data_field_ptr(IR_LIT(bb).sval, obj);
-        if (!cell) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!cell) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = *cell;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_FIELD_SET: {
         IR_t *obj_box = bb->n_operands > 0 ? bb->operands[0] : NULL;
         IR_t *rhs_box = bb->n_operands > 1 ? bb->operands[1] : NULL;
-        if (!obj_box || !rhs_box || !IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!obj_box || !rhs_box || !IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(rhs_box);
         DESCR_t rhs = IR_EXEC(rhs_box).value;
-        if (IS_FAIL_fn(rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(obj_box);
         DESCR_t obj = IR_EXEC(obj_box).value;
-        if (IS_FAIL_fn(obj)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(obj)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         DESCR_t *cell = data_field_ptr(IR_LIT(bb).sval, obj);
-        if (!cell) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!cell) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         *cell = rhs;
         IR_EXEC(bb).value = rhs;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_IDX_SET: {
         if (bb->n_operands == 0) {
             DESCR_t rhs  = ag_ring_peek(g_current_cfg, 0);
             DESCR_t idx  = ag_ring_peek(g_current_cfg, 1);
             DESCR_t base = ag_ring_peek(g_current_cfg, 2);
-            if (IS_FAIL_fn(base) || IS_FAIL_fn(idx) || IS_FAIL_fn(rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            if (!subscript_set(base, idx, rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(base) || IS_FAIL_fn(idx) || IS_FAIL_fn(rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            if (!subscript_set(base, idx, rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = rhs;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_t *base_box = bb->n_operands > 0 ? bb->operands[0] : NULL;
         IR_t *idx_box  = bb->n_operands > 1 ? bb->operands[1] : NULL;
         IR_t *rhs_box  = bb->n_operands > 2 ? bb->operands[2] : NULL;
-        if (!base_box || !idx_box || !rhs_box) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!base_box || !idx_box || !rhs_box) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(base_box);
         DESCR_t base = IR_EXEC(base_box).value;
-        if (IS_FAIL_fn(base)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(base)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(idx_box);
         DESCR_t idx = IR_EXEC(idx_box).value;
-        if (IS_FAIL_fn(idx)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(idx)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_interp_node(rhs_box);
         DESCR_t rhs = IR_EXEC(rhs_box).value;
-        if (IS_FAIL_fn(rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        if (!subscript_set(base, idx, rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        if (!subscript_set(base, idx, rhs)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = rhs;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_KEY_GEN: {
-        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             IR_interp_node(((IR_t*)0));
             DESCR_t tv = IR_EXEC(((IR_t*)0)).value;
-            if (IS_FAIL_fn(tv) || tv.v != DT_T || !tv.tbl) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(tv) || tv.v != DT_T || !tv.tbl) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = 0;
             IR_EXEC(bb).state   = 1;
         } else {
@@ -3697,43 +3697,43 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         DESCR_t tvc = IR_EXEC(((IR_t*)0)).value;
         TBBLK_t *tbl = (tvc.v == DT_T) ? tvc.tbl : NULL;
-        if (!tbl) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!tbl) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int64_t target = IR_EXEC(bb).counter, seen = 0;
         for (int b = 0; b < TABLE_BUCKETS; b++) {
             for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
                 if (seen == target) {
                     IR_EXEC(bb).value = ep->key_descr;
-                    return bb->γ;
+                    return bb->γ.node;
                 }
                 seen++;
             }
         }
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_FIND_GEN: {
         typedef struct { const char *needle; const char *hay; int nlen; int hlen; int stop; int pos; } find_gen_state_t;
-        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0) || !((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         find_gen_state_t *st = (find_gen_state_t *)(intptr_t)IR_EXEC(bb).counter;
         if (IR_EXEC(bb).state == 0) {
             IR_interp_node(((IR_t*)0));
             DESCR_t nv = IR_EXEC(((IR_t*)0)).value;
-            if (IS_FAIL_fn(nv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(nv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_interp_node(((IR_t*)0));
             DESCR_t hv = IR_EXEC(((IR_t*)0)).value;
-            if (IS_FAIL_fn(hv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(hv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             const char *ns = VARVAL_fn(nv); if (!ns) ns = "";
             const char *hs = VARVAL_fn(hv); if (!hs) hs = "";
             int start1 = 1;
-            if (IR_LIT(bb).ival >= 3 && bb->γ) {
-                IR_interp_node(bb->γ);
-                DESCR_t sv = IR_EXEC(bb->γ).value;
+            if (IR_LIT(bb).ival >= 3 && bb->γ.node) {
+                IR_interp_node(bb->γ.node);
+                DESCR_t sv = IR_EXEC(bb->γ.node).value;
                 if (!IS_FAIL_fn(sv) && IS_INT_fn(sv)) start1 = (int)sv.i;
             }
             int hlen = (int)strlen(hs);
             int stop1 = hlen + 1;
-            if (IR_LIT(bb).ival >= 4 && bb->ω) {
-                IR_interp_node(bb->ω);
-                DESCR_t sv = IR_EXEC(bb->ω).value;
+            if (IR_LIT(bb).ival >= 4 && bb->ω.node) {
+                IR_interp_node(bb->ω.node);
+                DESCR_t sv = IR_EXEC(bb->ω.node).value;
                 if (!IS_FAIL_fn(sv) && IS_INT_fn(sv)) stop1 = (int)sv.i;
             }
             if (start1 == 0) start1 = hlen + 1;
@@ -3751,24 +3751,24 @@ IR_t * IR_interp_node(IR_t * bb) {
             st->pos    = start1 - 1;
             IR_EXEC(bb).state  = 1;
         }
-        if (!st) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!st) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (st->nlen == 0) {
             int pos1 = st->pos + 1;
-            if (pos1 > st->stop) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (pos1 > st->stop) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             st->pos     = pos1;
             IR_EXEC(bb).value   = INTVAL(pos1);
-            return bb->γ;
+            return bb->γ.node;
         }
         int search_from = st->pos;
         if (search_from < 0) search_from = 0;
-        if (search_from + st->nlen > st->hlen) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (search_from + st->nlen > st->hlen) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         const char *hit = strstr(st->hay + search_from, st->needle);
-        if (!hit) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!hit) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int pos1 = (int)(hit - st->hay) + 1;
-        if (pos1 + st->nlen - 1 >= st->stop) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (pos1 + st->nlen - 1 >= st->stop) { IR_EXEC(bb).state = 0; IR_EXEC(bb).counter = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         st->pos     = pos1;
         IR_EXEC(bb).value   = INTVAL(pos1);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_SEQ_GEN: {
         if (IR_EXEC(bb).state == 0) {
@@ -3776,14 +3776,14 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (IR_LIT(bb).ival >= 1 && ((IR_t*)0)) {
                 IR_interp_node(((IR_t*)0));
                 DESCR_t sv = IR_EXEC(((IR_t*)0)).value;
-                if (IS_FAIL_fn(sv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(sv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 if (IS_INT_fn(sv)) start = sv.i;
                 else if (IS_REAL_fn(sv)) start = (int64_t)sv.r;
             }
             if (IR_LIT(bb).ival >= 2 && ((IR_t*)0)) {
                 IR_interp_node(((IR_t*)0));
                 DESCR_t sv = IR_EXEC(((IR_t*)0)).value;
-                if (IS_FAIL_fn(sv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(sv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 if (IS_INT_fn(sv)) step = sv.i;
                 else if (IS_REAL_fn(sv)) step = (int64_t)sv.r;
             }
@@ -3791,7 +3791,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).counter = start;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = INTVAL(start);
-            return bb->γ;
+            return bb->γ.node;
         }
         {
             int64_t step = 1;
@@ -3804,26 +3804,26 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).counter += step;
         }
         IR_EXEC(bb).value    = INTVAL(IR_EXEC(bb).counter);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_GATHER: {
         int n = (int) IR_LIT(bb).ival;
         IR_graph_t ** subs = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
         int idx = IR_EXEC(bb).state;
-        if (idx >= n || !subs) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (idx >= n || !subs) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_graph_t * sg = subs[idx];
         DESCR_t tv = NULVCL;
         if (sg) { bb_reset(sg); tv = IR_interp_once(sg); }
-        if (IS_FAIL_fn(tv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(tv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).state = idx + 1;
         IR_EXEC(bb).value = tv;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_MAP:
     case IR_GREP: {
         IR_graph_t * src_sg  = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
         IR_graph_t * body_sg = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
-        if (!src_sg || !body_sg) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!src_sg || !body_sg) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         rk_seq_cache_t * sc = rk_seq_cache_find(bb);
         if (IR_EXEC(bb).state == 0 || !sc) {
             sc = rk_seq_cache_get(bb);
@@ -3850,28 +3850,28 @@ IR_t * IR_interp_node(IR_t * bb) {
                 if (IS_FAIL_fn(bv)) continue;
                 IR_EXEC(bb).state = cur + 2;
                 IR_EXEC(bb).value = sc->items[cur];
-                return bb->γ;
+                return bb->γ.node;
             } else {
                 IR_EXEC(bb).state = cur + 2;
                 IR_EXEC(bb).value = IS_FAIL_fn(bv) ? NULVCL : bv;
-                return bb->γ;
+                return bb->γ.node;
             }
         }
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_CASE: {
-        if (bb->n_operands < 1 || !bb->operands[0]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (bb->n_operands < 1 || !bb->operands[0]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int case_safe = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
         IR_t *scur = bb->operands[0];
         DESCR_t sel = FAILDESCR;
         while (scur && case_safe-- > 0) {
             IR_t *snxt = IR_interp_node(scur);
-            if (IS_FAIL_fn(IR_EXEC(scur).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(IR_EXEC(scur).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             sel = IR_EXEC(scur).value;
-            if (snxt == bb || !snxt || snxt == bb->γ || snxt == bb->ω) break;
+            if (snxt == bb || !snxt || snxt == bb->γ.node || snxt == bb->ω.node) break;
             ag_ring_push(g_current_cfg, IR_EXEC(scur).value); scur = snxt;
         }
-        if (IS_FAIL_fn(sel)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(sel)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         for (int ai = 1; ai < bb->n_operands; ai++) {
             IR_t *arm = bb->operands[ai];
             if (!arm) continue;
@@ -3883,20 +3883,20 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_t *dc = key_sub; DESCR_t dv = NULVCL;
                 while (dc && ds-- > 0) {
                     IR_t *dn = IR_interp_node(dc);
-                    if (IS_FAIL_fn(IR_EXEC(dc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(dc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     dv = IR_EXEC(dc).value;
-                    if (!dn || dn == bb->γ || dn == bb->ω || dn == dc) break;
+                    if (!dn || dn == bb->γ.node || dn == bb->ω.node || dn == dc) break;
                     ag_ring_push(g_current_cfg, IR_EXEC(dc).value); dc = dn;
                 }
                 IR_EXEC(bb).value = dv;
-                return IS_FAIL_fn(IR_EXEC(bb).value) ? bb->ω : bb->γ;
+                return IS_FAIL_fn(IR_EXEC(bb).value) ? bb->ω.node : bb->γ.node;
             }
             int ks = (g_current_cfg ? g_current_cfg->n : 64) * 64 + 256;
             IR_t *kc = key_sub; DESCR_t kv = NULVCL;
             while (kc && ks-- > 0) {
                 IR_t *kn = IR_interp_node(kc);
                 if (!IS_FAIL_fn(IR_EXEC(kc).value)) kv = IR_EXEC(kc).value;
-                if (!kn || kn == bb->γ || kn == bb->ω || kn == kc) break;
+                if (!kn || kn == bb->γ.node || kn == bb->ω.node || kn == kc) break;
                 ag_ring_push(g_current_cfg, IR_EXEC(kc).value); kc = kn;
             }
             int match = 0;
@@ -3907,17 +3907,17 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_t *vc = val_sub; DESCR_t vv = NULVCL;
                 while (vc && vs-- > 0) {
                     IR_t *vn = IR_interp_node(vc);
-                    if (IS_FAIL_fn(IR_EXEC(vc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(vc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     vv = IR_EXEC(vc).value;
-                    if (!vn || vn == bb->γ || vn == bb->ω || vn == vc) break;
+                    if (!vn || vn == bb->γ.node || vn == bb->ω.node || vn == vc) break;
                     ag_ring_push(g_current_cfg, IR_EXEC(vc).value); vc = vn;
                 }
                 IR_EXEC(bb).value = vv;
-                return IS_FAIL_fn(IR_EXEC(bb).value) ? bb->ω : bb->γ;
+                return IS_FAIL_fn(IR_EXEC(bb).value) ? bb->ω.node : bb->γ.node;
             }
         }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_BREAK: case IR_PAT_BREAKX: {
         const char *chars = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
@@ -3925,27 +3925,27 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (IR_EXEC(bb).state == 0) {
             int i = 0;
             while (Δ + i < Σlen && !strchr(chars, Σ[Δ + i])) i++;
-            if (Δ + i >= Σlen) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (Δ + i >= Σlen) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = i;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = descr_match_span(Σ + Δ, i);
             Δ += i;
-            return bb->γ;
+            return bb->γ.node;
         }
         if (IR_LIT(bb).ival == 1) {
             int origin = Δ - (int)IR_EXEC(bb).counter;
             int i = (int)IR_EXEC(bb).counter + 1;
             while (origin + i < Σlen && !strchr(chars, Σ[origin + i])) i++;
-            if (origin + i >= Σlen || i <= (int)IR_EXEC(bb).counter) { Δ = origin; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (origin + i >= Σlen || i <= (int)IR_EXEC(bb).counter) { Δ = origin; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = i;
             IR_EXEC(bb).value   = descr_match_span(Σ + origin, i);
             Δ = origin + i;
-            return bb->γ;
+            return bb->γ.node;
         }
         Δ -= (int)IR_EXEC(bb).counter;
         IR_EXEC(bb).state = 0;
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_SPAN: case IR_PAT_SPAN_VAR: {
         const char *chars = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
@@ -3953,30 +3953,30 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (IR_EXEC(bb).state == 0) {
             int i = 0;
             while (Δ + i < Σlen && strchr(chars, Σ[Δ + i])) i++;
-            if (i == 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (i == 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = i;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = descr_match_span(Σ + Δ, i);
             Δ += i;
-            return bb->γ;
+            return bb->γ.node;
         }
         if (IR_EXEC(bb).state == 1) {
             Δ -= (int)IR_EXEC(bb).counter;
             IR_EXEC(bb).counter--;
-            if (IR_EXEC(bb).counter < 1) { IR_EXEC(bb).state = 2; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IR_EXEC(bb).counter < 1) { IR_EXEC(bb).state = 2; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).value = descr_match_span(Σ + Δ, (int)IR_EXEC(bb).counter);
             Δ += (int)IR_EXEC(bb).counter;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_ARB: {
         if (IR_EXEC(bb).state == 0) {
             IR_EXEC(bb).counter = 0;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = descr_match_span(Σ + Δ, 0);
-            return bb->γ;
+            return bb->γ.node;
         }
         if (IR_EXEC(bb).state == 1) {
             Δ -= (int)IR_EXEC(bb).counter;
@@ -3984,14 +3984,14 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (Δ + (int)IR_EXEC(bb).counter > Σlen) {
                 IR_EXEC(bb).state = 2;
                 IR_EXEC(bb).value = FAILDESCR;
-                return bb->ω;
+                return bb->ω.node;
             }
             IR_EXEC(bb).value = descr_match_span(Σ + Δ, (int)IR_EXEC(bb).counter);
             Δ += (int)IR_EXEC(bb).counter;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_REM: {
         if (IR_EXEC(bb).state == 0) {
@@ -4000,65 +4000,65 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = descr_match_span(Σ + Δ, rem);
             Δ = Σlen;
-            return bb->γ;
+            return bb->γ.node;
         }
         Δ -= (int)IR_EXEC(bb).counter;
         IR_EXEC(bb).state = 0;
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_FENCE: {
         if (IR_EXEC(bb).state == 0) {
             IR_EXEC(bb).counter = Δ;
             IR_EXEC(bb).state = 1;
             IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
         Δ = (int)IR_EXEC(bb).counter;
         IR_EXEC(bb).state = 0;
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_ABORT: {
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_PAT_LEN: {
         int64_t n = (IR_LIT(bb).dval == 1.0 && IR_LIT(bb).sval) ? to_int(NV_GET_fn(IR_LIT(bb).sval)) : IR_LIT(bb).ival;
         if (IR_EXEC(bb).state == 0) {
-            if (n < 0 || Δ + (int)n > Σlen) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (n < 0 || Δ + (int)n > Σlen) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = n;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = descr_match_span(Σ + Δ, (int)n);
             Δ += (int)n;
-            return bb->γ;
+            return bb->γ.node;
         }
         Δ -= (int)IR_EXEC(bb).counter;
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_PAT_NOTANY: {
         const char *chars = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
         if (IR_LIT(bb).dval == 1.0 && IR_LIT(bb).sval) { const char *cv = VARVAL_fn(NV_GET_fn(IR_LIT(bb).sval)); chars = cv ? cv : ""; }
         if (IR_EXEC(bb).state == 0) {
-            if (Δ >= Σlen || strchr(chars, Σ[Δ])) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (Δ >= Σlen || strchr(chars, Σ[Δ])) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).state = 1;
             IR_EXEC(bb).value = descr_match_span(Σ + Δ, 1);
             Δ++;
-            return bb->γ;
+            return bb->γ.node;
         }
-        Δ--; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        Δ--; IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_PAT_POS: {
         if (IR_EXEC(bb).state == 0) {
             int64_t arg      = (IR_LIT(bb).dval != 0.0 && IR_LIT(bb).sval) ? to_int(NV_GET_fn(IR_LIT(bb).sval)) : IR_LIT(bb).ival;
             int     from_end = (IR_LIT(bb).dval != 0.0) ? (IR_LIT(bb).dval == 1.0) : (IR_LIT(bb).sval && IR_LIT(bb).sval[0] == 'r');
             int     pos = from_end ? (Σlen - (int)arg) : (int)arg;
-            if (pos < 0 || pos > Σlen || Δ != pos) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (pos < 0 || pos > Σlen || Δ != pos) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).state = 1;
             IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_PAT_ATP: {
         if (IR_EXEC(bb).state == 0) {
@@ -4068,29 +4068,29 @@ IR_t * IR_interp_node(IR_t * bb) {
             }
             IR_EXEC(bb).state = 1;
             IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_PAT_TAB: case IR_PAT_RTAB: {
         if (IR_EXEC(bb).state == 0) {
             int64_t arg      = (IR_LIT(bb).dval != 0.0 && IR_LIT(bb).sval) ? to_int(NV_GET_fn(IR_LIT(bb).sval)) : IR_LIT(bb).ival;
             int     from_end = (IR_LIT(bb).dval != 0.0) ? (IR_LIT(bb).dval == 1.0) : (IR_LIT(bb).sval && IR_LIT(bb).sval[0] == 'r');
             int     target = from_end ? (Σlen - (int)arg) : (int)arg;
-            if (target < 0 || target > Σlen || Δ > target) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (target < 0 || target > Σlen || Δ > target) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = Δ;
             IR_EXEC(bb).state   = 1;
             IR_EXEC(bb).value   = descr_match_span(Σ + Δ, target - Δ);
             Δ = target;
-            return bb->γ;
+            return bb->γ.node;
         }
         Δ = (int)IR_EXEC(bb).counter;
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_PAT_CAT:
     case IR_PAT_ALT:
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     case IR_PAT_ASSIGN_COND: {
         IR_t * in0 = bb->n_operands > 0 ? bb->operands[0] : NULL;
         int fresh = (IR_EXEC(bb).state == 0) && (!in0 || IR_EXEC(in0).state == 0);
@@ -4114,7 +4114,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         IR_EXEC(bb).state = 1;
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_PAT_ASSIGN_IMM: {
         IR_t * in0 = bb->n_operands > 0 ? bb->operands[0] : NULL;
@@ -4139,13 +4139,13 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         IR_EXEC(bb).state = 1;
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_PAT_ARBNO: {
         bb_arbno_state_t * az = (bb_arbno_state_t *)(intptr_t)IR_EXEC(bb).counter;
         IR_graph_t * inner_blk = az ? az->inner : NULL;
         int       * pos_stack = az ? az->pos_stack : NULL;
-        if (!inner_blk || !pos_stack) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!inner_blk || !pos_stack) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             int depth = 0;
             int cap   = az->cap;
@@ -4158,20 +4158,20 @@ IR_t * IR_interp_node(IR_t * bb) {
             }
             IR_EXEC(bb).state = depth;
             IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
         IR_EXEC(bb).state--;
-        if (IR_EXEC(bb).state < 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IR_EXEC(bb).state < 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         Δ = (IR_EXEC(bb).state > 0) ? pos_stack[IR_EXEC(bb).state - 1] : az->saved_delta;
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_PAT_DEFER: {
         if (IR_EXEC(bb).state == 1) {
             IR_graph_t *sub_bb = NULL;
             memcpy(&sub_bb, &IR_LIT(bb).dval, sizeof sub_bb);
             int origin = (int)IR_EXEC(bb).counter;
-            if (!sub_bb || !sub_bb->entry) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!sub_bb || !sub_bb->entry) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             const char *save_Σ = Σ; int save_Σlen = Σlen; int save_Ω = Ω; int save_Δ = Δ;
             int prev_match = save_Δ - origin;
             Σ = save_Σ + origin; Σlen = save_Σlen - origin; Ω = Σlen; Δ = prev_match;
@@ -4179,12 +4179,12 @@ IR_t * IR_interp_node(IR_t * bb) {
             int ok = !IS_FAIL_fn(result);
             int new_match = ok ? Δ : 0;
             Σ = save_Σ; Σlen = save_Σlen; Ω = save_Ω; Δ = save_Δ;
-            if (!ok) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!ok) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             Δ = origin + new_match;
             IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
-        if (IR_EXEC(bb).state >= 2) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IR_EXEC(bb).state >= 2) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         const char *vname = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
         DESCR_t val = NV_GET_fn(vname);
         if (IR_LIT(bb).ival) {
@@ -4194,18 +4194,18 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (val.v == DT_S || val.v == DT_SNUL) {
             const char *lit = val.s ? val.s : "";
             int llen = val.slen ? (int)val.slen : (int)strlen(lit);
-            if (Δ + llen > Σlen) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            if (llen > 0 && strncmp(Σ + Δ, lit, (size_t)llen) != 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (Δ + llen > Σlen) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            if (llen > 0 && strncmp(Σ + Δ, lit, (size_t)llen) != 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             Δ += llen;
             IR_EXEC(bb).state = 2; IR_EXEC(bb).value = NULVCL;
-            return bb->γ;
+            return bb->γ.node;
         }
         if (val.v == DT_P && val.p) {
             fprintf(stderr, "[B0] BOMB IR_PAT_DEFER: pattern-valued *var needs DT_P builders (B-ladder).\n");
             abort();
         }
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
     case IR_UPTO: {
         if (IR_EXEC(bb).state == 0) IR_EXEC(bb).counter = 0;
@@ -4218,10 +4218,10 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).counter++;
             if (strchr(cset, c)) {
                 IR_EXEC(bb).value = INTVAL((int64_t)IR_EXEC(bb).counter);
-                return bb->γ;
+                return bb->γ.node;
             }
         }
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_TO: {
         IR_t * Lc = ir_pair_arg(bb, 0);
@@ -4231,7 +4231,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (IR_EXEC(bb).state == 0) {
                 DESCR_t lv = have_ops ? IR_EXEC(Lc).value : ag_ring_peek(g_current_cfg, 1);
                 DESCR_t hv = have_ops ? IR_EXEC(Hc).value : ag_ring_peek(g_current_cfg, 0);
-                if (IS_FAIL_fn(lv) || IS_FAIL_fn(hv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(lv) || IS_FAIL_fn(hv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 int64_t lo = IS_INT_fn(lv) ? lv.i : (lv.v == DT_R ? (int64_t)lv.r : 0);
                 int64_t hi = IS_INT_fn(hv) ? hv.i : (hv.v == DT_R ? (int64_t)hv.r : 0);
                 IR_EXEC(bb).counter = lo;
@@ -4249,10 +4249,10 @@ IR_t * IR_interp_node(IR_t * bb) {
                     rt_tgt = gen_resume_target(Lc);
                     if (rt_tgt) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return rt_tgt; }
                 }
-                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
             IR_EXEC(bb).value = INTVAL(IR_EXEC(bb).counter);
-            return bb->γ;
+            return bb->γ.node;
         }
         #define IR_IS_GEN_KIND_TO(k) ( \
             (k) == IR_TO || (k) == IR_TO_BY || (k) == IR_UPTO || \
@@ -4266,9 +4266,9 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (IR_EXEC(bb).state == 0) {
             if (has_dyn) {
                 IR_interp_node(Lc);
-                if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 IR_interp_node(Hc);
-                if (IS_FAIL_fn(IR_EXEC(Hc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(IR_EXEC(Hc).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 IR_EXEC(bb).counter = IR_EXEC(Lc).value.i;
             } else {
                 int64_t lo;
@@ -4284,38 +4284,38 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (hi_gen) {
                 IR_interp_node(Hc);
                 if (IS_FAIL_fn(IR_EXEC(Hc).value)) {
-                    if (!lo_gen) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (!lo_gen) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_interp_node(Lc);
-                    if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_EXEC(Hc).state = 0;
                     IR_interp_node(Hc);
-                    if (IS_FAIL_fn(IR_EXEC(Hc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                    if (IS_FAIL_fn(IR_EXEC(Hc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                     IR_EXEC(bb).counter = IR_EXEC(Lc).value.i;
                 } else {
                     IR_EXEC(bb).counter = Lc ? IR_EXEC(Lc).value.i : IR_LIT(bb).ival;
                 }
                 hi = IR_EXEC(Hc).value.i;
-                if (IR_EXEC(bb).counter > hi) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IR_EXEC(bb).counter > hi) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             } else if (lo_gen) {
                 IR_interp_node(Lc);
-                if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 IR_EXEC(bb).counter = IR_EXEC(Lc).value.i;
-                if (IR_EXEC(bb).counter > hi) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IR_EXEC(bb).counter > hi) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             } else {
-                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
         }
         IR_EXEC(bb).value = INTVAL(IR_EXEC(bb).counter);
-        return bb->γ;
+        return bb->γ.node;
         #undef IR_IS_GEN_KIND_TO
     }
     case IR_ITERATE: {
         if (IR_LIT(bb).sval) {
             DESCR_t src = NV_GET_fn(IR_LIT(bb).sval);
-            if (src.v != DT_S || !src.s) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (src.v != DT_S || !src.s) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             if (IR_EXEC(bb).state == 0) { IR_EXEC(bb).counter = 0; IR_EXEC(bb).state = 1; }
             int64_t total = (int64_t)(src.slen > 0 ? src.slen : (int64_t)strlen(src.s));
-            if (IR_EXEC(bb).counter >= total) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IR_EXEC(bb).counter >= total) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             int64_t end = IR_EXEC(bb).counter;
             while (end < total && src.s[end] != '\x01') end++;
             int64_t seg_len = end - IR_EXEC(bb).counter;
@@ -4325,12 +4325,12 @@ IR_t * IR_interp_node(IR_t * bb) {
             DESCR_t out = (DESCR_t){ .v = DT_S, .slen = (uint32_t)seg_len, .s = seg };
             IR_EXEC(bb).counter = end + 1;
             IR_EXEC(bb).value = out;
-            return bb->γ;
+            return bb->γ.node;
         }
-        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!((IR_t*)0)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             IR_interp_node(((IR_t*)0));
-            if (IS_FAIL_fn(IR_EXEC(((IR_t*)0)).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(IR_EXEC(((IR_t*)0)).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).counter = 0;
         } else {
             IR_EXEC(bb).counter++;
@@ -4339,96 +4339,96 @@ IR_t * IR_interp_node(IR_t * bb) {
         DESCR_t sv = IR_EXEC(((IR_t*)0)).value;
         const char *str = (sv.v == DT_S && sv.s) ? sv.s : "";
         int64_t len = (sv.v == DT_S) ? (int64_t)(sv.slen > 0 ? sv.slen : (int64_t)strlen(str)) : 0;
-        if (IR_EXEC(bb).counter >= len) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IR_EXEC(bb).counter >= len) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         char *ch = GC_malloc(2);
         ch[0] = str[IR_EXEC(bb).counter];
         ch[1] = '\0';
         IR_EXEC(bb).value = (DESCR_t){ .v = DT_S, .slen = 1, .s = ch };
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_GEN_ALT: {
         alt_dcg_t *z = (alt_dcg_t *)(intptr_t)IR_EXEC(bb).counter;
-        if (!z) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!z) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             z->which = 0;
             DESCR_t v = z->gen[0].fn(z->gen[0].ζ, α);
-            if (!IS_FAIL_fn(v)) { IR_EXEC(bb).value = v; IR_EXEC(bb).state = 1; return bb->γ; }
+            if (!IS_FAIL_fn(v)) { IR_EXEC(bb).value = v; IR_EXEC(bb).state = 1; return bb->γ.node; }
             z->which = 1;
             DESCR_t v2 = z->gen[1].fn(z->gen[1].ζ, α);
-            if (!IS_FAIL_fn(v2)) { IR_EXEC(bb).value = v2; IR_EXEC(bb).state = 1; return bb->γ; }
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            if (!IS_FAIL_fn(v2)) { IR_EXEC(bb).value = v2; IR_EXEC(bb).state = 1; return bb->γ.node; }
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         DESCR_t v = z->gen[z->which].fn(z->gen[z->which].ζ, β);
-        if (!IS_FAIL_fn(v)) { IR_EXEC(bb).value = v; return bb->γ; }
+        if (!IS_FAIL_fn(v)) { IR_EXEC(bb).value = v; return bb->γ.node; }
         if (z->which == 0) {
             z->which = 1;
             DESCR_t v2 = z->gen[1].fn(z->gen[1].ζ, α);
-            if (!IS_FAIL_fn(v2)) { IR_EXEC(bb).value = v2; return bb->γ; }
+            if (!IS_FAIL_fn(v2)) { IR_EXEC(bb).value = v2; return bb->γ.node; }
         }
-        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_GEN_BINOP: {
         binop_dcg_t *z = (binop_dcg_t *)(intptr_t)IR_EXEC(bb).counter;
-        if (!z) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!z) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             z->left_val = z->left.fn(z->left.ζ, α);
-            if (IS_FAIL_fn(z->left_val)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(z->left_val)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             z->right_val = z->right.fn(z->right.ζ, α);
-            if (IS_FAIL_fn(z->right_val)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(z->right_val)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).state = 1;
         } else {
             for (;;) {
                 DESCR_t rv = z->right.fn(z->right.ζ, β);
                 if (!IS_FAIL_fn(rv)) { z->right_val = rv; break; }
                 DESCR_t lv = z->left.fn(z->left.ζ, β);
-                if (IS_FAIL_fn(lv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(lv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 z->left_val = lv;
                 z->right_val = z->right.fn(z->right.ζ, α);
                 if (!IS_FAIL_fn(z->right_val)) break;
-                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
         }
         for (;;) {
             int rel_fail = 0;
             DESCR_t result = binop_apply(z->op, z->left_val, z->right_val, &rel_fail);
-            if (!IS_FAIL_fn(result)) { IR_EXEC(bb).value = result; return bb->γ; }
-            if (!rel_fail) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!IS_FAIL_fn(result)) { IR_EXEC(bb).value = result; return bb->γ.node; }
+            if (!rel_fail) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             DESCR_t rv = z->right.fn(z->right.ζ, β);
             if (!IS_FAIL_fn(rv)) { z->right_val = rv; continue; }
             DESCR_t lv = z->left.fn(z->left.ζ, β);
-            if (IS_FAIL_fn(lv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(lv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             z->left_val = lv;
             z->right_val = z->right.fn(z->right.ζ, α);
-            if (IS_FAIL_fn(z->right_val)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(z->right_val)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         }
     }
     case IR_TO_NESTED: {
         to_nested_state_t *z = (to_nested_state_t *)(intptr_t)IR_EXEC(bb).counter;
-        if (!z || z->nlo == 0 || z->nhi == 0) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!z || z->nlo == 0 || z->nhi == 0) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) { z->li = 0; z->hi2 = 0; z->cur = z->lo_vals[0]; IR_EXEC(bb).state = 1; }
         else z->cur++;
         while (z->cur > z->hi_vals[z->hi2]) {
             z->hi2++;
             if (z->hi2 >= z->nhi) { z->hi2 = 0; z->li++; }
-            if (z->li >= z->nlo) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (z->li >= z->nlo) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             z->cur = z->lo_vals[z->li];
         }
         IR_EXEC(bb).value = INTVAL(z->cur);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_PROC_GEN: {
         GeneratorState *gs = (GeneratorState *)(intptr_t)IR_EXEC(bb).counter;
-        if (!gs) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!gs) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         DESCR_t v;
         int ok = bb_broker_drive_sm_one(gs, &v);
-        if (!ok) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!ok) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).state = 1;
         IR_EXEC(bb).value = v;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_GCONJ: {
         IR_EXEC(bb).value = INTVAL(1);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_ITE: {
         bb_ite_state_t * zi = (bb_ite_state_t *)(intptr_t)IR_LIT(bb).ival;
@@ -4442,27 +4442,27 @@ IR_t * IR_interp_node(IR_t * bb) {
         bb_ite_state_t * zi = (bb_ite_state_t *)(intptr_t)IR_LIT(bb).ival;
         if (zi) { resolve_cp_truncate((resolve_choice *)zi->cp_mark); zi->committed = 1; }
         IR_EXEC(bb).value = INTVAL(1);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_ITE_GATE: {
         bb_ite_state_t * zi = (bb_ite_state_t *)(intptr_t)IR_LIT(bb).ival;
-        if (zi && zi->committed) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (zi && zi->committed) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = INTVAL(1);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_CATCH: {
         extern Trail g_resolve_trail; extern Term **g_resolve_env;
         bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)IR_LIT(bb).ival;
-        if (!zc || !zc->goal_g) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!zc || !zc->goal_g) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         Term *catcher = resolve_node_to_term(zc->catcher);
         jmp_buf *jb_p = (jmp_buf *)resolve_catch_push(catcher, g_resolve_env);
-        if (!jb_p) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!jb_p) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (setjmp(*jb_p) == 0) {
             bb_reset(zc->goal_g);
             DESCR_t res = IR_interp_once(zc->goal_g);
             resolve_catch_pop_top();
-            if (IS_FAIL_fn(res)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value = res; return bb->γ;
+            if (IS_FAIL_fn(res)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value = res; return bb->γ.node;
         } else {
             int tm = resolve_catch_top_trail_mark();
             Term **saved_env = resolve_catch_top_env();
@@ -4475,21 +4475,21 @@ IR_t * IR_interp_node(IR_t * bb) {
                 if (!unify(catcher, exc, &g_resolve_trail)) {
                     trail_unwind(&g_resolve_trail, mark2);
                     resolve_throw_term(exc);
-                    IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                    IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
                 }
             }
-            if (!zc->rec_g) { IR_EXEC(bb).value = INTVAL(1); return bb->γ; }
+            if (!zc->rec_g) { IR_EXEC(bb).value = INTVAL(1); return bb->γ.node; }
             bb_reset(zc->rec_g);
             DESCR_t res = IR_interp_once(zc->rec_g);
-            if (IS_FAIL_fn(res)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value = res; return bb->γ;
+            if (IS_FAIL_fn(res)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value = res; return bb->γ.node;
         }
     }
     case IR_DISJ: {
         extern Trail g_resolve_trail; extern Term **g_resolve_env;
         int n_arm = 0;
         IR_t * const * arms = bb_operand_aux_get(g_current_cfg, bb, &n_arm);
-        if (!arms || n_arm <= 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!arms || n_arm <= 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             IR_EXEC(bb).state = 1;
             IR_EXEC(bb).counter = 0;
@@ -4499,7 +4499,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         trail_unwind(&g_resolve_trail, (int)IR_LIT(bb).ival);
         IR_EXEC(bb).counter += 1;
-        if (IR_EXEC(bb).counter >= n_arm) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IR_EXEC(bb).counter >= n_arm) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_LIT(bb).ival = (int64_t)trail_mark(&g_resolve_trail);
         g_pl_yield_seq += 1;
         IR_EXEC(bb).value = INTVAL(1);
@@ -4508,7 +4508,7 @@ IR_t * IR_interp_node(IR_t * bb) {
     case IR_CHOICE: {
         extern Trail g_resolve_trail; extern Term **g_resolve_env; extern int g_resolve_cut_flag;
         bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(bb).ival;
-        if (!zc || zc->nbodies == 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!zc || zc->nbodies == 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0 && zc->idx_ok && zc->idx_key) {
             long ckey = resolve_term_first_arg_key((g_resolve_env && g_resolve_env[0]) ? g_resolve_env[0] : NULL);
             if (ckey != RESOLVE_IDX_NOKEY) {
@@ -4517,7 +4517,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                     long k = zc->idx_key[ci];
                     if (k == RESOLVE_IDX_VAR || k == ckey) { ncand++; if (ncand == 1) cand = ci; else break; }
                 }
-                if (ncand == 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (ncand == 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 if (ncand == 1 && (bb_body_single_solution(zc->bodies[cand])
                                    || bb_body_cp_free_except_tail(zc->bodies[cand]))) {
                     extern int g_resolve_cut_flag;
@@ -4534,12 +4534,12 @@ IR_t * IR_interp_node(IR_t * bb) {
                     DESCR_t res = body ? IR_interp_once(body) : FAILDESCR;
                     if (!IS_FAIL_fn(res)) {
                         g_resolve_cut_flag = idx_saved_cut; g_resolve_cut_barrier = idx_saved_barrier;
-                        IR_EXEC(bb).value = res; return bb->γ;
+                        IR_EXEC(bb).value = res; return bb->γ.node;
                     }
                     g_resolve_cut_flag = idx_saved_cut; g_resolve_cut_barrier = idx_saved_barrier;
                     trail_unwind(&g_resolve_trail, mark);
                     g_resolve_env = saved_env_idx;
-                    IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                    IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
                 }
             }
         }
@@ -4567,12 +4567,12 @@ IR_t * IR_interp_node(IR_t * bb) {
             DESCR_t res = IR_interp_resume(lb);
             if (!IS_FAIL_fn(res)) {
                 g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
-                IR_EXEC(bb).value = res; return bb->γ;
+                IR_EXEC(bb).value = res; return bb->γ.node;
             }
             if (g_resolve_cut_flag || cp_cut_away) {
                 g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
                 IR_EXEC(bb).state = 0; zc->last_body = NULL; zc->cp = NULL;
-                IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
             trail_unwind(&g_resolve_trail, zc->mark);
             g_resolve_env = (Term **)zc->saved_env;
@@ -4581,7 +4581,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (cp_cut_away) {
                 g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
                 IR_EXEC(bb).state = 0; zc->last_body = NULL; zc->cp = NULL;
-                IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
             trail_unwind(&g_resolve_trail, zc->mark);
             g_resolve_env = (Term **)zc->saved_env;
@@ -4601,12 +4601,12 @@ IR_t * IR_interp_node(IR_t * bb) {
                 zc->mark = mark;
                 zc->saved_env = (void *)saved_for_retry;
                 if (zc->cp && resolve_cp_current() == (resolve_choice *)zc->cp) { ((resolve_choice *)zc->cp)->cursor = ci + 1; ((resolve_choice *)zc->cp)->trail_mark = mark; }
-                IR_EXEC(bb).value = res; return bb->γ;
+                IR_EXEC(bb).value = res; return bb->γ.node;
             }
             if (g_resolve_cut_flag) {
                 g_resolve_cut_flag = saved_cut; g_resolve_cut_barrier = saved_barrier;
                 IR_EXEC(bb).state = 0; zc->last_body = NULL; zc->cp = NULL;
-                IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
             trail_unwind(&g_resolve_trail, mark);
             g_resolve_env = saved_for_retry;
@@ -4615,21 +4615,21 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).state = 0; zc->last_body = NULL;
         if (zc->cp && resolve_cp_current() == (resolve_choice *)zc->cp) resolve_cp_pop();
         zc->cp = NULL;
-        IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     case IR_GOAL: {
         extern Term **g_resolve_env; extern Trail g_resolve_trail;
         bb_goal_state_t *zc = (bb_goal_state_t *)(intptr_t)IR_LIT(bb).ival;
-        if (!zc) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!zc) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         const char *callee = zc->callee; int carity = zc->arity;
-        if (!callee) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!callee) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         char key[128]; snprintf(key, sizeof key, "%s/%d", callee, carity);
         if ((carity >= 1 && strcmp(callee, "call") == 0) ||
             (carity == 1 && strcmp(callee, "once") == 0)) {
-            if (IR_EXEC(bb).state != 0) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IR_EXEC(bb).state != 0) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             Term *gt = (zc->nargs >= 1 && zc->args && zc->args[0]) ? resolve_node_to_term(zc->args[0]) : NULL;
             gt = term_deref(gt);
-            if (!gt) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (!gt) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             int ok;
             if (carity == 1) {
                 ok = resolve_call_term(gt);
@@ -4643,15 +4643,15 @@ IR_t * IR_interp_node(IR_t * bb) {
                 ok = resolve_call_term_n(gt, n_extra, extras);
                 free(extras);
             }
-            if (!ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).state = 1; IR_EXEC(bb).value = INTVAL(1); return bb->γ;
+            if (!ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).state = 1; IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
         }
         Resolve_PredEntry_BB *pe = resolve_bb_lookup(key, carity);
         IR_graph_t *_bcfg = bb_graph_of_pred(pe);
-        if (!_bcfg) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!_bcfg) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if (IR_EXEC(bb).state == 0) {
             resolve_choice *lco_entry_bfr = g_resolve_bfr;
-            int lco_tail_pos = (bb->γ == NULL);
+            int lco_tail_pos = (bb->γ.node == NULL);
             if (lco_tail_pos && g_resolve_bfr == NULL) {
                 int redirect_ready = 0;
                 IR_graph_t *redirect_body = NULL;
@@ -4724,7 +4724,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (IS_FAIL_fn(res)) {
                 bb_restore_state(_bcfg, caller_snap);
                 trail_unwind(&g_resolve_trail, mark); g_resolve_env = saved_env; free(callee_env);
-                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
             }
             PlCallSt *cs = malloc(sizeof(PlCallSt));
             cs->callee_env = callee_env; cs->saved_env = saved_env; cs->trail_mark = mark;
@@ -4747,10 +4747,10 @@ IR_t * IR_interp_node(IR_t * bb) {
                             (void*)lco_entry_bfr, (void*)g_resolve_bfr);
                 }
             }
-            IR_EXEC(bb).value = INTVAL(1); return bb->γ;
+            IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
         }
         PlCallSt *cs = (PlCallSt *)zc->cs;
-        if (!cs) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!cs) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         g_resolve_env = cs->callee_env;
         bb_node_state_t *caller_snap2 = bb_snapshot_state(_bcfg);
         bb_restore_state(_bcfg, cs->act); cs->act = NULL;
@@ -4758,76 +4758,76 @@ IR_t * IR_interp_node(IR_t * bb) {
             bb_restore_state(_bcfg, caller_snap2);
             trail_unwind(&g_resolve_trail, cs->trail_mark);
             g_resolve_env = cs->saved_env; free(cs); zc->cs = NULL; IR_EXEC(bb).state = 0;
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         DESCR_t res2 = IR_interp_resume(_bcfg);
         if (IS_FAIL_fn(res2)) {
             bb_restore_state(_bcfg, caller_snap2);
             trail_unwind(&g_resolve_trail, cs->trail_mark);
             g_resolve_env = cs->saved_env; free(cs); zc->cs = NULL; IR_EXEC(bb).state = 0;
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         cs->act = bb_snapshot_state(_bcfg);
         cs->disj_hint = pl_callee_disj_hint(_bcfg);
         bb_restore_state(_bcfg, caller_snap2);
         g_resolve_env = cs->saved_env;
-        IR_EXEC(bb).value = INTVAL(1); return bb->γ;
+        IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
     }
     case IR_CUT: {
         extern int g_resolve_cut_flag;
         if (IR_EXEC(bb).state == 0) { resolve_cp_truncate(g_resolve_cut_barrier); g_resolve_cut_flag = 1; IR_EXEC(bb).state = 1; }
-        IR_EXEC(bb).value = INTVAL(1); return bb->γ;
+        IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
     }
     case IR_ATOM: {
         IR_EXEC(bb).value = IR_LIT(bb).sval ? STRVAL(IR_LIT(bb).sval) : NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_STRUCT: {
         Term *t = resolve_node_to_term(bb);
         IR_EXEC(bb).value = (DESCR_t){ .v = DT_DATA, .ptr = t };
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_LOGICVAR: {
         extern Term **g_resolve_env;
         int slot = (int)IR_LIT(bb).ival;
-        if (!g_resolve_env || slot < 0) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
+        if (!g_resolve_env || slot < 0) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
         Term *t = g_resolve_env[slot] ? term_deref(g_resolve_env[slot]) : NULL;
-        if (!t) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
-        if (t->tag == TERM_INT)   { IR_EXEC(bb).value = INTVAL(t->ival);  return bb->γ; }
-        if (t->tag == TERM_FLOAT) { IR_EXEC(bb).value = REALVAL(t->fval); return bb->γ; }
-        if (t->tag == TERM_ATOM)  { const char *nm = prolog_atom_name(t->atom_id); IR_EXEC(bb).value = nm ? STRVAL(nm) : NULVCL; return bb->γ; }
-        if (t->tag == TERM_COMPOUND) { IR_EXEC(bb).value = (DESCR_t){ .v = DT_DATA, .ptr = t }; return bb->γ; }
+        if (!t) { IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
+        if (t->tag == TERM_INT)   { IR_EXEC(bb).value = INTVAL(t->ival);  return bb->γ.node; }
+        if (t->tag == TERM_FLOAT) { IR_EXEC(bb).value = REALVAL(t->fval); return bb->γ.node; }
+        if (t->tag == TERM_ATOM)  { const char *nm = prolog_atom_name(t->atom_id); IR_EXEC(bb).value = nm ? STRVAL(nm) : NULVCL; return bb->γ.node; }
+        if (t->tag == TERM_COMPOUND) { IR_EXEC(bb).value = (DESCR_t){ .v = DT_DATA, .ptr = t }; return bb->γ.node; }
         IR_EXEC(bb).value = NULVCL;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_ARITH: {
         DESCR_t v = resolve_arith_eval(bb);
-        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (IS_FAIL_fn(v)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = v;
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_UNIFY: {
         extern Term **g_resolve_env; extern Trail g_resolve_trail;
-        if (bb->n_operands < 2 || !bb->operands[0] || !bb->operands[1]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (bb->n_operands < 2 || !bb->operands[0] || !bb->operands[1]) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         Term *lt = resolve_node_to_term(bb->operands[0]);
         Term *rt = resolve_node_to_term(bb->operands[1]);
-        if (!lt || !rt) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!lt || !rt) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         int mark = trail_mark(&g_resolve_trail);
-        if (!unify(lt, rt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+        if (!unify(lt, rt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value = INTVAL(1);
-        return bb->γ;
+        return bb->γ.node;
     }
     case IR_BUILTIN: {
         const char *fn = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
         if (strcmp(fn,"throw")==0) {
             IR_t *thr0 = ir_call_arg(bb,0); Term *ball = thr0 ? resolve_node_to_term(thr0) : term_new_atom(prolog_atom_intern("error"));
             resolve_throw_term(ball);
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         if (strcmp(fn,"findall")==0) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)IR_LIT(bb).ival;
-            if (!fs || !fs->gcfg) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!fs || !fs->gcfg) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             int mark = trail_mark(&g_resolve_trail);
             Term **acc = (Term **)GC_MALLOC(4096 * sizeof(Term *)); int nacc=0;
             bb_reset(fs->gcfg);
@@ -4847,20 +4847,20 @@ IR_t * IR_interp_node(IR_t * bb) {
             }
             int mark2 = trail_mark(&g_resolve_trail);
             if (!unify(resolve_node_to_term(fs->result), lst, &g_resolve_trail)) {
-                trail_unwind(&g_resolve_trail,mark2); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                trail_unwind(&g_resolve_trail,mark2); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
-        if (strcmp(fn, "nl") == 0) { putchar('\n'); IR_EXEC(bb).value = INTVAL(1); return bb->γ; }
+        if (strcmp(fn, "nl") == 0) { putchar('\n'); IR_EXEC(bb).value = INTVAL(1); return bb->γ.node; }
         if (ir_pair_arg(bb,0) && ir_pair_arg(bb,1) &&
             (strcmp(fn,">")==0||strcmp(fn,"<")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"<=")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0)) {
             DESCR_t lv = resolve_arith_eval(ir_pair_arg(bb,0));
             DESCR_t rv = resolve_arith_eval(ir_pair_arg(bb,1));
-            if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+            if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             double l = (lv.v == DT_I) ? (double)lv.i : lv.r;
             double r = (rv.v == DT_I) ? (double)rv.i : rv.r;
             int ok = (strcmp(fn,">")==0)?(l>r):(strcmp(fn,"<")==0)?(l<r):(strcmp(fn,">=")==0)?(l>=r):(strcmp(fn,"=<")==0||strcmp(fn,"<=")==0)?(l<=r):(strcmp(fn,"=:=")==0)?(l==r):(l!=r);
-            if (ok) { IR_EXEC(bb).value = INTVAL(1); return bb->γ; }
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            if (ok) { IR_EXEC(bb).value = INTVAL(1); return bb->γ.node; }
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         if (ir_pair_arg(bb,0) && ir_pair_arg(bb,1) &&
             (strcmp(fn,"==")==0||strcmp(fn,"\\==")==0||strcmp(fn,"@<")==0||strcmp(fn,"@>")==0
@@ -4869,8 +4869,8 @@ IR_t * IR_interp_node(IR_t * bb) {
             int ok = (strcmp(fn,"==")==0)?(c==0):(strcmp(fn,"\\==")==0)?(c!=0)
                    :(strcmp(fn,"@<")==0)?(c<0):(strcmp(fn,"@>")==0)?(c>0)
                    :(strcmp(fn,"@=<")==0)?(c<=0):(c>=0);
-            if (ok) { IR_EXEC(bb).value=INTVAL(1); return bb->γ; }
-            IR_EXEC(bb).value=FAILDESCR; return bb->ω;
+            if (ok) { IR_EXEC(bb).value=INTVAL(1); return bb->γ.node; }
+            IR_EXEC(bb).value=FAILDESCR; return bb->ω.node;
         }
         if (ir_pair_arg(bb,0) && ir_pair_arg(bb,1) && strcmp(fn,"succ")==0) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
@@ -4878,23 +4878,23 @@ IR_t * IR_interp_node(IR_t * bb) {
             Term *xd = xt ? term_deref(xt) : NULL; Term *yd = yt ? term_deref(yt) : NULL;
             int mark = trail_mark(&g_resolve_trail);
             if (xd && xd->tag == TERM_INT) {
-                if (xd->ival < 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (xd->ival < 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 Term *vt = term_new_int(xd->ival + 1);
-                if (!unify(yt, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value = INTVAL(1); return bb->γ;
+                if (!unify(yt, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
             }
             if (yd && yd->tag == TERM_INT) {
-                if (yd->ival <= 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (yd->ival <= 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 Term *vt = term_new_int(yd->ival - 1);
-                if (!unify(xt, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value = INTVAL(1); return bb->γ;
+                if (!unify(xt, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
             }
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         if (strcmp(fn,"plus")==0 && IR_LIT(bb).ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
-            if (!a0||!a1||!a2) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!a0||!a1||!a2) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             Term *t0=resolve_node_to_term(a0); Term *t1=resolve_node_to_term(a1); Term *t2=resolve_node_to_term(a2);
             Term *d0=t0?term_deref(t0):NULL; Term *d1=t1?term_deref(t1):NULL; Term *d2=t2?term_deref(t2):NULL;
             int v0=(d0&&d0->tag==TERM_INT), v1=(d1&&d1->tag==TERM_INT), v2=(d2&&d2->tag==TERM_INT);
@@ -4903,35 +4903,35 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (v0&&v1) { Term *r=term_new_int(d0->ival+d1->ival); ok=unify(t2,r,&g_resolve_trail); }
             else if (v0&&v2) { Term *r=term_new_int(d2->ival-d0->ival); ok=unify(t1,r,&g_resolve_trail); }
             else if (v1&&v2) { Term *r=term_new_int(d2->ival-d1->ival); ok=unify(t0,r,&g_resolve_trail); }
-            if (!ok) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+            if (!ok) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
         if ((strcmp(fn,"nb_setval")==0||strcmp(fn,"nb_getval")==0) && IR_LIT(bb).ival==2) {
             extern Trail g_resolve_trail;
             IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1);
-            if (!a0||!a1) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!a0||!a1) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             Term *kt=resolve_node_to_term(a0); Term *kd=kt?term_deref(kt):NULL;
-            if (!kd||kd->tag!=TERM_ATOM) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!kd||kd->tag!=TERM_ATOM) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             int aid=kd->atom_id;
             if (strcmp(fn,"nb_setval")==0) {
                 Term *vt=resolve_node_to_term(a1); Term *vd=vt?term_deref(vt):NULL;
                 resolve_nb_set(aid, vd ? vd : vt);
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             } else {
                 Term *stored=resolve_nb_get(aid);
-                if (!stored) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (!stored) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 int mark=trail_mark(&g_resolve_trail);
                 Term *vt=resolve_node_to_term(a1);
-                if (!unify(vt,stored,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!unify(vt,stored,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
         }
         if (strcmp(fn,"aggregate_all")==0 && IR_LIT(bb).ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
-            if (!a0||!a1||!a2) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!a0||!a1||!a2) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             Term *tmpl_t=resolve_node_to_term(a0); Term *tmpl_d=tmpl_t?term_deref(tmpl_t):NULL;
-            if (!tmpl_d) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!tmpl_d) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             int mode_count=0, mode_sum=0, mode_max=0, mode_min=0;
             IR_t *agg_arg=NULL;
             if (tmpl_d->tag==TERM_ATOM) {
@@ -4943,16 +4943,16 @@ IR_t * IR_interp_node(IR_t * bb) {
                 else if (fn2&&strcmp(fn2,"max")==0) mode_max=1;
                 else if (fn2&&strcmp(fn2,"min")==0) mode_min=1;
             }
-            if (!mode_count&&!mode_sum&&!mode_max&&!mode_min) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!mode_count&&!mode_sum&&!mode_max&&!mode_min) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             bb_findall_state_t *fs_tmp = NULL;
             Term *goal_t=resolve_node_to_term(a1); Term *goal_d=goal_t?term_deref(goal_t):NULL;
-            if (!goal_d||(goal_d->tag!=TERM_ATOM&&goal_d->tag!=TERM_COMPOUND)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!goal_d||(goal_d->tag!=TERM_ATOM&&goal_d->tag!=TERM_COMPOUND)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             const char *gfn=(goal_d->tag==TERM_ATOM)?prolog_atom_name(goal_d->atom_id):prolog_atom_name(goal_d->compound.functor);
             int garity=(goal_d->tag==TERM_COMPOUND)?goal_d->compound.arity:0;
             char gkey[128]; snprintf(gkey,sizeof gkey,"%s/%d",gfn,garity);
             Resolve_PredEntry_BB *gpe=resolve_bb_lookup(gkey,garity);
             IR_graph_t *gcfg=bb_graph_of_pred(gpe);
-            if (!gcfg) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!gcfg) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             int mark0=trail_mark(&g_resolve_trail);
             int gnslots=garity+16;
             Term **genv=(Term**)calloc((size_t)gnslots,sizeof(Term*));
@@ -4988,11 +4988,11 @@ IR_t * IR_interp_node(IR_t * bb) {
             else if (mode_sum) result_term=(acc_sum==(int64_t)acc_sum)?term_new_int((int64_t)acc_sum):term_new_float(acc_sum);
             else if (mode_max) result_term=(acc_max==(int64_t)acc_max)?term_new_int((int64_t)acc_max):term_new_float(acc_max);
             else if (mode_min) result_term=(acc_min==(int64_t)acc_min)?term_new_int((int64_t)acc_min):term_new_float(acc_min);
-            if (!result_term) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!result_term) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             int mark2=trail_mark(&g_resolve_trail);
             Term *res_t=resolve_node_to_term(a2);
-            if (!unify(res_t,result_term,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark2); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+            if (!unify(res_t,result_term,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark2); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
         if (ir_call_arg(bb,0) && IR_LIT(bb).ival==1 &&
             (strcmp(fn,"var")==0||strcmp(fn,"nonvar")==0||strcmp(fn,"atom")==0||strcmp(fn,"atomic")==0
@@ -5012,8 +5012,8 @@ IR_t * IR_interp_node(IR_t * bb) {
             else if (strcmp(fn,"callable")==0)  ok = (d && (d->tag==TERM_ATOM||d->tag==TERM_COMPOUND));
             else if (strcmp(fn,"ground")==0)    ok = resolve_term_is_ground(d);
             else if (strcmp(fn,"is_list")==0)   ok = resolve_term_is_proper_list(d);
-            if (ok) { IR_EXEC(bb).value = INTVAL(1); return bb->γ; }
-            IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+            if (ok) { IR_EXEC(bb).value = INTVAL(1); return bb->γ.node; }
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         if (strcmp(fn,"functor")==0 && IR_LIT(bb).ival==3) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
@@ -5026,25 +5026,25 @@ IR_t * IR_interp_node(IR_t * bb) {
                 else if (d0->tag==TERM_ATOM){ nameT=term_new_atom(d0->atom_id);          arityT=term_new_int(0); }
                 else if (d0->tag==TERM_INT) { nameT=term_new_int(d0->ival);              arityT=term_new_int(0); }
                 else if (d0->tag==TERM_FLOAT){nameT=term_new_float(d0->fval);            arityT=term_new_int(0); }
-                else { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                else { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 if (!unify(resolve_node_to_term(a1),nameT,&g_resolve_trail) || !unify(resolve_node_to_term(a2),arityT,&g_resolve_trail)) {
-                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             } else {
                 Term *nT=resolve_node_to_term(a1), *aT=resolve_node_to_term(a2);
                 Term *nd1=nT?term_deref(nT):NULL, *ad=aT?term_deref(aT):NULL;
-                if (!ad || ad->tag!=TERM_INT) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (!ad || ad->tag!=TERM_INT) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 long ar = ad->ival;
                 Term *built;
                 if (ar==0) { built = nd1 ? nd1 : term_new_atom(prolog_atom_intern("[]")); }
                 else {
-                    if (!nd1 || nd1->tag!=TERM_ATOM) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!nd1 || nd1->tag!=TERM_ATOM) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                     Term **args=(Term**)GC_MALLOC((size_t)ar*sizeof(Term*));
                     for (long i=0;i<ar;i++) args[i]=term_new_var(-1);
                     built=term_new_compound(nd1->atom_id,(int)ar,args);
                 }
-                if (!unify(t0,built,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!unify(t0,built,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
         }
         if (strcmp(fn,"arg")==0 && IR_LIT(bb).ival==3) {
@@ -5052,13 +5052,13 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
             Term *nT=resolve_node_to_term(a0); Term *nd0=nT?term_deref(nT):NULL;
             Term *tT=resolve_node_to_term(a1); Term *td=tT?term_deref(tT):NULL;
-            if (!nd0||nd0->tag!=TERM_INT||!td||td->tag!=TERM_COMPOUND) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!nd0||nd0->tag!=TERM_INT||!td||td->tag!=TERM_COMPOUND) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             long n = nd0->ival;
-            if (n<1 || n>td->compound.arity) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (n<1 || n>td->compound.arity) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             int mark = trail_mark(&g_resolve_trail);
             if (!unify(resolve_node_to_term(a2), td->compound.args[n-1], &g_resolve_trail)) {
-                trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
         if (strcmp(fn,"=..")==0 && IR_LIT(bb).ival==2) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
@@ -5079,8 +5079,8 @@ IR_t * IR_interp_node(IR_t * bb) {
                     Term **c=(Term**)GC_MALLOC(2*sizeof(Term*)); c[0]=d0; c[1]=term_new_atom(prolog_atom_intern("[]"));
                     lst=term_new_compound(ATOM_DOT,2,c);
                 }
-                if (!unify(resolve_node_to_term(a1),lst,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!unify(resolve_node_to_term(a1),lst,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             } else {
                 Term *lt=resolve_node_to_term(a1); Term *ld=lt?term_deref(lt):NULL;
                 Term *elems[64]; int ne=0;
@@ -5090,42 +5090,42 @@ IR_t * IR_interp_node(IR_t * bb) {
                     elems[ne++]=term_deref(cur->compound.args[0]);
                     cur=term_deref(cur->compound.args[1]);
                 }
-                if (ne==0) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (ne==0) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 Term *built;
                 if (ne==1) { built=elems[0]; }
                 else {
                     Term *h=elems[0];
-                    if (!h||h->tag!=TERM_ATOM) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!h||h->tag!=TERM_ATOM) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                     Term **args=(Term**)GC_MALLOC((size_t)(ne-1)*sizeof(Term*));
                     for (int i=1;i<ne;i++) args[i-1]=elems[i];
                     built=term_new_compound(h->atom_id,ne-1,args);
                 }
-                if (!unify(t0,built,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!unify(t0,built,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
         }
         if (strcmp(fn,"char_type")==0 && IR_LIT(bb).ival==2 && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1);
             char b0[256]; const char *cs = resolve_atomic_text(resolve_node_to_term(a0), b0, sizeof b0);
-            if (!cs || !cs[0]) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!cs || !cs[0]) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             unsigned char ch = (unsigned char)cs[0];
             int mark = trail_mark(&g_resolve_trail);
             if (a1 && (a1->op==IR_STRUCT || a1->op==IR_ARITH) && IR_LIT(a1).sval) {
                 const char *ty = IR_LIT(a1).sval; IR_t *inner = ir_call_arg(a1,0);
                 Term *out = NULL;
-                if (strcmp(ty,"digit")==0)         { if (!isdigit(ch)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; } out=term_new_int((long)(ch-'0')); }
+                if (strcmp(ty,"digit")==0)         { if (!isdigit(ch)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; } out=term_new_int((long)(ch-'0')); }
                 else if (strcmp(ty,"to_lower")==0) { char c2[2]={(char)tolower(ch),0}; out=term_new_atom(prolog_atom_intern(c2)); }
                 else if (strcmp(ty,"to_upper")==0) { char c2[2]={(char)toupper(ch),0}; out=term_new_atom(prolog_atom_intern(c2)); }
-                else if (strcmp(ty,"upper")==0)    { if (!isupper(ch)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; } char c2[2]={(char)tolower(ch),0}; out=term_new_atom(prolog_atom_intern(c2)); }
-                else if (strcmp(ty,"lower")==0)    { if (!islower(ch)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; } char c2[2]={(char)toupper(ch),0}; out=term_new_atom(prolog_atom_intern(c2)); }
+                else if (strcmp(ty,"upper")==0)    { if (!isupper(ch)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; } char c2[2]={(char)tolower(ch),0}; out=term_new_atom(prolog_atom_intern(c2)); }
+                else if (strcmp(ty,"lower")==0)    { if (!islower(ch)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; } char c2[2]={(char)toupper(ch),0}; out=term_new_atom(prolog_atom_intern(c2)); }
                 else if (strcmp(ty,"code")==0)     { out=term_new_int((long)ch); }
-                else { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                if (!unify(resolve_node_to_term(inner), out, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                else { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                if (!unify(resolve_node_to_term(inner), out, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             char b1[256]; const char *ty = resolve_atomic_text(resolve_node_to_term(a1), b1, sizeof b1);
-            if (!ty) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!ty) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             int ok = 0;
             if      (strcmp(ty,"alpha")==0)       ok=isalpha(ch);
             else if (strcmp(ty,"alnum")==0)       ok=isalnum(ch);
@@ -5139,9 +5139,9 @@ IR_t * IR_interp_node(IR_t * bb) {
             else if (strcmp(ty,"csymf")==0)       ok=(isalpha(ch)||ch=='_');
             else if (strcmp(ty,"end_of_line")==0) ok=(ch=='\n'||ch=='\r');
             else if (strcmp(ty,"newline")==0)     ok=(ch=='\n');
-            else { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-            if (!ok) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+            else { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            if (!ok) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
         if ((strcmp(fn,"atom_string")==0||strcmp(fn,"number_string")==0||strcmp(fn,"string_upper")==0
              ||strcmp(fn,"string_lower")==0||strcmp(fn,"string_concat")==0||strcmp(fn,"string_length")==0
@@ -5154,34 +5154,34 @@ IR_t * IR_interp_node(IR_t * bb) {
             int mark = trail_mark(&g_resolve_trail);
             if (strcmp(fn,"string_length")==0) {
                 char b[256]; const char *s=resolve_atomic_text(resolve_node_to_term(a0),b,sizeof b);
-                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                if (!unify(resolve_node_to_term(a1), term_new_int((long)strlen(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                if (!unify(resolve_node_to_term(a1), term_new_int((long)strlen(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"string_upper")==0 || strcmp(fn,"string_lower")==0) {
                 char b[256]; const char *s=resolve_atomic_text(resolve_node_to_term(a0),b,sizeof b);
-                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 size_t n=strlen(s); char *o=(char*)GC_MALLOC(n+1); int up=(strcmp(fn,"string_upper")==0);
                 for (size_t i=0;i<n;i++) o[i]= up?(char)toupper((unsigned char)s[i]):(char)tolower((unsigned char)s[i]);
                 o[n]='\0';
-                if (!unify(resolve_node_to_term(a1), term_new_atom(prolog_atom_intern(o)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!unify(resolve_node_to_term(a1), term_new_atom(prolog_atom_intern(o)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"string_concat")==0) {
                 char b0[256],b1[256]; const char *s0=resolve_atomic_text(resolve_node_to_term(a0),b0,sizeof b0);
                 const char *s1=resolve_atomic_text(resolve_node_to_term(a1),b1,sizeof b1);
-                if (!s0||!s1) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (!s0||!s1) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 size_t l0=strlen(s0),l1=strlen(s1); char *c=(char*)GC_MALLOC(l0+l1+1);
                 memcpy(c,s0,l0); memcpy(c+l0,s1,l1); c[l0+l1]='\0';
-                if (!unify(resolve_node_to_term(a2), term_new_atom(prolog_atom_intern(c)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!unify(resolve_node_to_term(a2), term_new_atom(prolog_atom_intern(c)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             Term *t0=resolve_node_to_term(a0); Term *d0=t0?term_deref(t0):NULL;
             Term *t1=resolve_node_to_term(a1); Term *d1=t1?term_deref(t1):NULL;
             if (strcmp(fn,"copy_term")==0) {
                 Term *cp = bb_copy_term(d0 ? d0 : t0);
-                if (!unify(t1, cp, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!unify(t1, cp, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"atomic_list_concat")==0 || strcmp(fn,"concat_atom")==0) {
                 int sep3 = (IR_LIT(bb).ival==3);
@@ -5191,7 +5191,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                 while (cur && cur->tag==TERM_COMPOUND && cur->compound.functor==ATOM_DOT && cur->compound.arity==2) {
                     Term *el=term_deref(cur->compound.args[0]); char eb[256];
                     const char *es=resolve_atomic_text(el,eb,sizeof eb);
-                    if (!es) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!es) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                     if (sep3 && !first) { size_t sl=strlen(sep); if (oi+sl<sizeof(out)) { memcpy(out+oi,sep,sl); oi+=sl; } }
                     first=0;
                     size_t el_n=strlen(es); if (oi+el_n>=sizeof(out)) break;
@@ -5200,56 +5200,56 @@ IR_t * IR_interp_node(IR_t * bb) {
                 }
                 out[oi]='\0';
                 IR_t *rb = sep3 ? a2 : a1;
-                if (!unify(resolve_node_to_term(rb), term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                if (!unify(resolve_node_to_term(rb), term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"string_to_atom")==0) {
                 if (d0 && d0->tag!=TERM_VAR) {
                     char b[256]; const char *s=resolve_atomic_text(d0,b,sizeof b);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                    if (!unify(t1, term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                    if (!unify(t1, term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 } else {
                     char b[256]; const char *s=resolve_atomic_text(d1,b,sizeof b);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                    if (!unify(t0, term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                    if (!unify(t0, term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"term_to_atom")==0) {
                 if (d0 && d0->tag!=TERM_VAR) {
                     extern char *pl_term_to_string(Term *);
                     char *s = pl_term_to_string(d0);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                     Term *at = term_new_atom(prolog_atom_intern(s)); free(s);
-                    if (!unify(t1, at, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!unify(t1, at, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 } else {
-                    IR_EXEC(bb).value=FAILDESCR; return bb->ω;
+                    IR_EXEC(bb).value=FAILDESCR; return bb->ω.node;
                 }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"term_string")==0) {
                 if (d0 && d0->tag!=TERM_VAR) {
                     extern char *pl_term_to_string(Term *);
                     char *s = pl_term_to_string(d0);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                     Term *at = term_new_atom(prolog_atom_intern(s)); free(s);
-                    if (!unify(t1, at, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!unify(t1, at, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 } else {
-                    IR_EXEC(bb).value=FAILDESCR; return bb->ω;
+                    IR_EXEC(bb).value=FAILDESCR; return bb->ω.node;
                 }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"atom_string")==0) {
                 if (d0 && d0->tag!=TERM_VAR) {
                     char b[256]; const char *s=resolve_atomic_text(d0,b,sizeof b);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                    if (!unify(t1, term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                    if (!unify(t1, term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 } else {
                     char b[256]; const char *s=resolve_atomic_text(d1,b,sizeof b);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                    if (!unify(t0, term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                    if (!unify(t0, term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"number_string")==0 || strcmp(fn,"atom_number")==0) {
                 int num_first = (strcmp(fn,"number_string")==0);
@@ -5257,32 +5257,32 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_t *numBB = num_first ? a0 : a1;   IR_t *txtBB = num_first ? a1 : a0;
                 if (numNode && numNode->tag!=TERM_VAR) {
                     char b[256]; const char *s=resolve_atomic_text(numNode,b,sizeof b);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                    if (!unify(resolve_node_to_term(txtBB), term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                    if (!unify(resolve_node_to_term(txtBB), term_new_atom(prolog_atom_intern(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 } else {
                     char b[256]; const char *s=resolve_atomic_text(txtNode,b,sizeof b);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                     char *endp=NULL; long iv=strtol(s,&endp,10);
                     Term *nt;
                     if (endp && *endp=='\0') nt=term_new_int(iv);
-                    else { char *fe=NULL; double dv=strtod(s,&fe); if (!fe||*fe!='\0') { IR_EXEC(bb).value=FAILDESCR; return bb->ω; } nt=term_new_float(dv); }
-                    if (!unify(resolve_node_to_term(numBB), nt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    else { char *fe=NULL; double dv=strtod(s,&fe); if (!fe||*fe!='\0') { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; } nt=term_new_float(dv); }
+                    if (!unify(resolve_node_to_term(numBB), nt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             {
                 int as_codes=(strcmp(fn,"string_codes")==0);
                 if (d0 && d0->tag!=TERM_VAR) {
                     char b[256]; const char *s=resolve_atomic_text(d0,b,sizeof b);
-                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                    if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                     size_t n=strlen(s); Term *lst=term_new_atom(prolog_atom_intern("[]"));
                     for (size_t i=n;i>0;i--) { unsigned char c=(unsigned char)s[i-1]; Term *el;
                         if (as_codes) el=term_new_int((long)c); else { char cs[2]={(char)c,0}; el=term_new_atom(prolog_atom_intern(cs)); }
                         Term **cc=(Term**)GC_MALLOC(2*sizeof(Term*)); cc[0]=el; cc[1]=lst; lst=term_new_compound(ATOM_DOT,2,cc); }
-                    if (!unify(t1,lst,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                    IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                    if (!unify(t1,lst,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                    IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
                 }
-                IR_EXEC(bb).value=FAILDESCR; return bb->ω;
+                IR_EXEC(bb).value=FAILDESCR; return bb->ω.node;
             }
         }
         if ((strcmp(fn,"atom_length")==0||strcmp(fn,"atom_concat")==0||strcmp(fn,"atom_chars")==0
@@ -5293,38 +5293,38 @@ IR_t * IR_interp_node(IR_t * bb) {
             int mark = trail_mark(&g_resolve_trail);
             if (strcmp(fn,"atom_length")==0) {
                 char buf[256]; const char *s = resolve_atomic_text(resolve_node_to_term(a0), buf, sizeof buf);
-                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 if (!unify(resolve_node_to_term(a1), term_new_int((long)strlen(s)), &g_resolve_trail)) {
-                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"atom_concat")==0) {
                 char b0[256], b1[256];
                 const char *s0=resolve_atomic_text(resolve_node_to_term(a0),b0,sizeof b0);
                 const char *s1=resolve_atomic_text(resolve_node_to_term(a1),b1,sizeof b1);
-                if (!s0||!s1) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (!s0||!s1) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 size_t l0=strlen(s0), l1=strlen(s1);
                 char *cat=(char*)GC_MALLOC(l0+l1+1); memcpy(cat,s0,l0); memcpy(cat+l0,s1,l1); cat[l0+l1]='\0';
                 if (!unify(resolve_node_to_term(a2), term_new_atom(prolog_atom_intern(cat)), &g_resolve_trail)) {
-                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             if (strcmp(fn,"upcase_atom")==0 || strcmp(fn,"downcase_atom")==0) {
                 char buf[256]; const char *s = resolve_atomic_text(resolve_node_to_term(a0), buf, sizeof buf);
-                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 size_t n=strlen(s); char *out=(char*)GC_MALLOC(n+1);
                 int up = (strcmp(fn,"upcase_atom")==0);
                 for (size_t i=0;i<n;i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
                 out[n]='\0';
                 if (!unify(resolve_node_to_term(a1), term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) {
-                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
             int as_codes = (strcmp(fn,"atom_codes")==0);
             Term *t0=resolve_node_to_term(a0); Term *d0=t0?term_deref(t0):NULL;
             if (d0 && d0->tag!=TERM_VAR) {
                 char buf[256]; const char *s = resolve_atomic_text(d0, buf, sizeof buf);
-                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+                if (!s) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
                 size_t n=strlen(s);
                 Term *lst=term_new_atom(prolog_atom_intern("[]"));
                 for (size_t i=n; i>0; i--) {
@@ -5336,22 +5336,22 @@ IR_t * IR_interp_node(IR_t * bb) {
                     lst=term_new_compound(ATOM_DOT,2,c);
                 }
                 if (!unify(resolve_node_to_term(a1), lst, &g_resolve_trail)) {
-                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             } else {
                 Term *lt=resolve_node_to_term(a1); Term *cur=lt?term_deref(lt):NULL;
                 char out[256]; size_t oi=0;
                 while (cur && cur->tag==TERM_COMPOUND && cur->compound.functor==ATOM_DOT && cur->compound.arity==2) {
                     Term *el=term_deref(cur->compound.args[0]);
                     if (oi>=sizeof(out)-1) break;
-                    if (as_codes) { if (!el||el->tag!=TERM_INT){IR_EXEC(bb).value=FAILDESCR;return bb->ω;} out[oi++]=(char)el->ival; }
-                    else { if (!el||el->tag!=TERM_ATOM){IR_EXEC(bb).value=FAILDESCR;return bb->ω;} const char *cn=prolog_atom_name(el->atom_id); out[oi++]=cn?cn[0]:'?'; }
+                    if (as_codes) { if (!el||el->tag!=TERM_INT){IR_EXEC(bb).value=FAILDESCR;return bb->ω.node;} out[oi++]=(char)el->ival; }
+                    else { if (!el||el->tag!=TERM_ATOM){IR_EXEC(bb).value=FAILDESCR;return bb->ω.node;} const char *cn=prolog_atom_name(el->atom_id); out[oi++]=cn?cn[0]:'?'; }
                     cur=term_deref(cur->compound.args[1]);
                 }
                 out[oi]='\0';
                 if (!unify(t0, term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) {
-                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-                IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+                    trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+                IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
         }
         if (ir_call_arg(bb,0)) {
@@ -5369,24 +5369,24 @@ IR_t * IR_interp_node(IR_t * bb) {
                     else if (av.v == DT_DATA && av.ptr) pl_write((Term *)av.ptr);
                 }
                 if (strcmp(fn, "writeln") == 0) putchar('\n');
-                IR_EXEC(bb).value = INTVAL(1); return bb->γ;
+                IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
             }
             IR_interp_node(b0); DESCR_t av = IR_EXEC(b0).value;
             if (strcmp(fn, "is") == 0 && ir_pair_arg(bb,1)) {
                 extern Term **g_resolve_env; extern Trail g_resolve_trail;
                 DESCR_t rv = resolve_arith_eval(ir_pair_arg(bb,1));
-                if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
+                if (IS_FAIL_fn(rv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
                 Term *vt = (rv.v == DT_I) ? term_new_int((long)rv.i) : term_new_float(rv.r);
                 Term *lhs = resolve_node_to_term(b0);
-                if (lhs) { if (!unify(lhs, vt, &g_resolve_trail)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; } }
-                IR_EXEC(bb).value = INTVAL(1); return bb->γ;
+                if (lhs) { if (!unify(lhs, vt, &g_resolve_trail)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; } }
+                IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
             }
         }
         if ((strcmp(fn,"sort")==0||strcmp(fn,"msort")==0) && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             int do_msort = (strcmp(fn,"msort")==0);
             Term *lst = resolve_node_to_term(ir_call_arg(bb,0));
-            if (!lst) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!lst) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             lst = term_deref(lst);
             Term **elems = (Term **)GC_MALLOC(4096 * sizeof(Term *)); int n=0;
             Term *cur = lst;
@@ -5404,14 +5404,14 @@ IR_t * IR_interp_node(IR_t * bb) {
             for (int i=m-1;i>=0;i--) { Term **args=(Term**)GC_MALLOC(2*sizeof(Term*)); args[0]=elems[out_idx[i]]; args[1]=result; result=term_new_compound(ATOM_DOT,2,args); }
             IR_t *a1 = ir_call_arg(bb,1);
             Term *out_var = a1 ? resolve_node_to_term(a1) : NULL;
-            if (!out_var) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!out_var) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             int mark = trail_mark(&g_resolve_trail);
-            if (!unify(out_var, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+            if (!unify(out_var, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
         if (strcmp(fn,"format")==0) {
             IR_t *f0 = ir_call_arg(bb,0); Term *fmt_t = f0 ? resolve_node_to_term(f0) : NULL;
-            if (!fmt_t) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!fmt_t) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             fmt_t = term_deref(fmt_t);
             const char *fmt = NULL;
             if (fmt_t && fmt_t->tag==TERM_ATOM) fmt = prolog_atom_name(fmt_t->atom_id);
@@ -5426,7 +5426,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                 }
                 fmtbuf[fi]=0; fmt=fmtbuf;
             }
-            if (!fmt) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!fmt) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             Term *args_list = NULL;
             if (IR_LIT(bb).ival==2 && ir_call_arg(bb,1)) args_list = term_deref(resolve_node_to_term(ir_call_arg(bb,1)));
             Term *arg_cur = args_list;
@@ -5455,16 +5455,16 @@ IR_t * IR_interp_node(IR_t * bb) {
                     else if (*p=='~') putchar('~');
                 } else putchar(*p);
             }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
         if (strcmp(fn,"numbervars")==0 && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             Term *term_arg = resolve_node_to_term(ir_call_arg(bb,0));
             IR_t *a1_nd = ir_call_arg(bb,1);
             IR_t *a2_nd = ir_call_arg(bb,2);
-            if (!a1_nd || !a2_nd) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!a1_nd || !a2_nd) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             Term *start_t = term_deref(resolve_node_to_term(a1_nd));
-            if (!start_t || start_t->tag!=TERM_INT) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (!start_t || start_t->tag!=TERM_INT) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             long counter = start_t->ival;
             int atom_var_id = prolog_atom_intern("$VAR");
             typedef struct { Term *t; } NVWork;
@@ -5483,8 +5483,8 @@ IR_t * IR_interp_node(IR_t * bb) {
             }
             Term *end_var = resolve_node_to_term(a2_nd);
             int mark = trail_mark(&g_resolve_trail);
-            if (end_var && !unify(end_var, term_new_int(counter), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+            if (end_var && !unify(end_var, term_new_int(counter), &g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
         if ((strcmp(fn,"writeq")==0||strcmp(fn,"write_canonical")==0||strcmp(fn,"print")==0) && ir_call_arg(bb,0)) {
             extern void pl_writeq(Term *); extern void pl_write_canonical(Term *); extern void pl_write(Term *);
@@ -5492,25 +5492,25 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (strcmp(fn,"writeq")==0) pl_writeq(t);
             else if (strcmp(fn,"write_canonical")==0) pl_write_canonical(t);
             else pl_write(t);
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
         if ((strcmp(fn,"retract")==0||strcmp(fn,"retractall")==0) && ir_call_arg(bb,0)) {
             extern Term **g_resolve_env; extern Trail g_resolve_trail;
             int do_all = (strcmp(fn,"retractall")==0);
             Term *head_t = term_deref(resolve_node_to_term(ir_call_arg(bb,0)));
-            if (!head_t) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
+            if (!head_t) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ.node:bb->ω.node); }
             const char *pred_name = NULL; int pred_arity = 0;
             if (head_t->tag==TERM_ATOM) { pred_name=prolog_atom_name(head_t->atom_id); pred_arity=0; }
             else if (head_t->tag==TERM_COMPOUND) { pred_name=prolog_atom_name(head_t->compound.functor); pred_arity=head_t->compound.arity; }
-            if (!pred_name) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
+            if (!pred_name) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ.node:bb->ω.node); }
             char key[128]; snprintf(key,sizeof key,"%s/%d",pred_name,pred_arity);
             Resolve_PredEntry_BB *entry = resolve_bb_lookup(key, pred_arity);
             IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
-            if (!pred_cfg || !pred_cfg->entry) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
+            if (!pred_cfg || !pred_cfg->entry) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ.node:bb->ω.node); }
             IR_t *choice_nd = pred_cfg->entry;
-            if (choice_nd->op != IR_CHOICE) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (choice_nd->op != IR_CHOICE) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
             bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(choice_nd).ival;
-            if (!zc) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
+            if (!zc) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ.node:bb->ω.node); }
             int removed=0;
             for (int ci=0; ci<zc->nbodies; ) {
                 IR_graph_t *body = zc->bodies[ci];
@@ -5545,17 +5545,17 @@ IR_t * IR_interp_node(IR_t * bb) {
                     removed++;
                 } else ci++;
             }
-            if (do_all) { IR_EXEC(bb).value=INTVAL(1); return bb->γ; }
-            if (removed>0) { IR_EXEC(bb).value=INTVAL(1); return bb->γ; }
-            IR_EXEC(bb).value=FAILDESCR; return bb->ω;
+            if (do_all) { IR_EXEC(bb).value=INTVAL(1); return bb->γ.node; }
+            if (removed>0) { IR_EXEC(bb).value=INTVAL(1); return bb->γ.node; }
+            IR_EXEC(bb).value=FAILDESCR; return bb->ω.node;
         }
         if ((strcmp(fn,"assertz")==0||strcmp(fn,"asserta")==0||strcmp(fn,"assert")==0) && ir_call_arg(bb,0)) {
             extern int pl_rt_assertz(Term *clause_term, int prepend);
             Term *clause_t = resolve_node_to_term(ir_call_arg(bb,0));
             int prepend = (strcmp(fn,"asserta")==0);
             int ok = clause_t ? pl_rt_assertz(clause_t, prepend) : 0;
-            if (ok) { IR_EXEC(bb).value=INTVAL(1); return bb->γ; }
-            IR_EXEC(bb).value=FAILDESCR; return bb->ω;
+            if (ok) { IR_EXEC(bb).value=INTVAL(1); return bb->γ.node; }
+            IR_EXEC(bb).value=FAILDESCR; return bb->ω.node;
         }
         if (strcmp(fn,"abolish")==0 && ir_call_arg(bb,0)) {
             Term *spec = term_deref(resolve_node_to_term(ir_call_arg(bb,0)));
@@ -5576,13 +5576,13 @@ IR_t * IR_interp_node(IR_t * bb) {
                     if (zc) zc->nbodies = 0;
                 }
             }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ;
+            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
         }
-        IR_EXEC(bb).value = FAILDESCR; return bb->ω;
+        IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
     }
     default:
         IR_EXEC(bb).value = FAILDESCR;
-        return bb->ω;
+        return bb->ω.node;
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

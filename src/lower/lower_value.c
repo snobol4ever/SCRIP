@@ -28,7 +28,7 @@ IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_
         for (int j = i - 1; j >= 0; j--) {
             if (resume[j] && resume[j] != ω_in) { tgt = resume[j]; break; }
         }
-        apply[i]->ω = tgt;
+        apply[i]->ω.node = tgt; memcpy(apply[i]->ω.sz, "α", 3);
     }
     if (kind == IR_GCONJ) {
         bb_conj_state_t * zs = (bb_conj_state_t *)GC_MALLOC(sizeof *zs);
@@ -55,7 +55,7 @@ IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_
         IR_t * αj = NULL, * βj = NULL;
         IR_t * arm = lower_program(cx, kids[j], arm_succ, ωj, &αj, &βj);
         if (!arm) return NULL;
-        if (!arm->γ) arm->γ = arm_succ;
+        if (!arm->γ.node) { arm->γ.node = arm_succ; memcpy(arm->γ.sz, "α", 3); }
         apply[j] = arm; entry[j] = αj ? αj : arm; resume[j] = βj;
     }
     bb_operand_aux_set(cx.bbg, node, apply, nkids);
@@ -183,7 +183,7 @@ IR_t * v_binop(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** �
     if (!c1) return NULL;
     IR_t * c2 = lower_program(cx, e->c[1], bin  , e1β  , &e2α, &e2β);
     if (!c2) return NULL;
-    if (!c1->γ) c1->γ = e2α;
+    if (!c1->γ.node) { c1->γ.node = e2α; memcpy(c1->γ.sz, "α", 3); }
     IR_t * binops[2] = { c1, c2 };
     bb_operand_aux_set(cx.bbg, bin, binops, 2);
     set_succ_fail(bin, γ_in, ω_in);
@@ -219,7 +219,7 @@ IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_o
     if (!lo) return NULL;
     IR_t * hi = lower_program(cx, e->c[1], node  , fβ  , &tα, &tβ);
     if (!hi) return NULL;
-    if (!lo->γ) lo->γ = tα;
+    if (!lo->γ.node) { lo->γ.node = tα; memcpy(lo->γ.sz, "α", 3); }
     ir_operand_push(node, lo);
     ir_operand_push(node, hi);
     set_succ_fail(node, γ_in, ω_in);
@@ -297,9 +297,9 @@ IR_t * v_every(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** �
         IR_t * b2α=NULL,*b2β=NULL;
         IR_t * body = lower_program(bounded(cx), e->c[1], g1β  , g1β  , &b2α, &b2β);
         if (!body) return NULL;
-        if (!gen->γ) gen->γ = b2α;
+        if (!gen->γ.node) { gen->γ.node = b2α; memcpy(gen->γ.sz, "α", 3); }
     } else {
-        if (!gen->γ) gen->γ = g1β;
+        if (!gen->γ.node) { gen->γ.node = g1β; memcpy(gen->γ.sz, "α", 3); }
     }
     if (!ir_operand_push(ev, g1α)) return NULL;
     set_succ_fail(ev, γ_in, ω_in);
@@ -318,9 +318,9 @@ IR_t * v_while(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** �
         IR_t * b2α=NULL,*b2β=NULL;
         IR_t * body = lower_program(with_loop(bounded(cx), γ_in, c1α), e->c[1], c1α  , c1α  , &b2α, &b2β);
         if (!body) return NULL;
-        if (!cond->γ) cond->γ = b2α;
+        if (!cond->γ.node) { cond->γ.node = b2α; memcpy(cond->γ.sz, "α", 3); }
     } else {
-        if (!cond->γ) cond->γ = c1α;
+        if (!cond->γ.node) { cond->γ.node = c1α; memcpy(cond->γ.sz, "α", 3); }
     }
     if (!ir_operand_push(wh, c1α)) return NULL;
     set_succ_fail(wh, γ_in, ω_in);
@@ -339,9 +339,9 @@ IR_t * v_until(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** �
         IR_t * b2α=NULL,*b2β=NULL;
         IR_t * body = lower_program(with_loop(bounded(cx), γ_in, c1α), e->c[1], c1α  , c1α  , &b2α, &b2β);
         if (!body) return NULL;
-        if (!cond->ω) cond->ω = b2α;
+        if (!cond->ω.node) { cond->ω.node = b2α; memcpy(cond->ω.sz, "α", 3); }
     } else {
-        if (!cond->ω) cond->ω = c1α;
+        if (!cond->ω.node) { cond->ω.node = c1α; memcpy(cond->ω.sz, "α", 3); }
     }
     if (!ir_operand_push(un, c1α)) return NULL;
     set_succ_fail(un, γ_in, ω_in);
@@ -358,7 +358,7 @@ IR_t * v_repeat(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** 
     if (!body) return NULL;
     if (!ir_operand_push(rp, eα)) return NULL;
     set_succ_fail(rp, γ_in, ω_in);
-    rp->γ = eα;
+    rp->γ.node = eα; memcpy(rp->γ.sz, "α", 3);
     return ret(rp, α_out, β_out, eα, ω_in);
 }
 /*====================================================================================================================*/

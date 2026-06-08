@@ -170,8 +170,8 @@ static IR_t * icn_initial(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         IR_t * body = lower_program(bc, e->c[0], NULL, ω_in, &bα, &bβ);
         if (!body) return NULL;
         if (!ir_operand_push(ini, bα ? bα : body)) return NULL;
-        if (!body->γ) body->γ = γ_in;
-        if (!body->ω) body->ω = γ_in;
+        if (!body->γ.node) { body->γ.node = γ_in; memcpy(body->γ.sz, "α", 3); }
+        if (!body->ω.node) { body->ω.node = γ_in; memcpy(body->ω.sz, "α", 3); }
     }
     set_succ_fail(ini, γ_in, ω_in);
     return ret(ini, α_out, β_out, ini, ω_in);
@@ -245,7 +245,7 @@ static IR_t * icn_case(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     if (!sel) return NULL;
     IR_t * sel_entry = sα ? sα : sel;
     if (!ir_operand_push(cas, sel_entry)) return NULL;
-    sel->γ = cas;
+    sel->γ.node = cas; memcpy(sel->γ.sz, "α", 3);
     int i = 1;
     while (i < e->n) {
         int remaining = e->n - i;
@@ -255,7 +255,7 @@ static IR_t * icn_case(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
             IR_t * dα = NULL, * dβ = NULL;
             IR_t * def_nd = lower_program(bv, def_t, NULL, ω_in, &dα, &dβ);
             if (!def_nd) continue;
-            def_nd->γ = γ_in;
+            def_nd->γ.node = γ_in; memcpy(def_nd->γ.sz, "α", 3);
             IR_t * def_key = nalloc(cx, IR_LIT_NUL);
             if (!def_key) continue;
             if (!ir_operand_push(def_key, dα ? dα : def_nd)) return NULL;
@@ -273,12 +273,12 @@ static IR_t * icn_case(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
                 IR_t * vα = NULL, * vβ = NULL;
                 IR_t * val_nd = lower_program(bv, val_t, NULL, ω_in, &vα, &vβ);
                 if (val_nd) {
-                    val_nd->γ = γ_in;
+                    val_nd->γ.node = γ_in; memcpy(val_nd->γ.sz, "α", 3);
                     val_entry = vα ? vα : val_nd;
                 }
             }
-            key_nd->γ = NULL;
-            key_nd->ω = NULL;
+            key_nd->γ.node = NULL;
+            key_nd->ω.node = NULL;
             IR_t * arm_key = nalloc(cx, IR_LIT_NUL);
             if (!arm_key) continue;
             if (!ir_operand_push(arm_key, key_entry)) return NULL;
@@ -297,11 +297,11 @@ static IR_t * icn_swap(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, I
     IR_t * lv = nalloc(cx, IR_VAR);
     if (!lv) return NULL;
     IR_LIT(lv).sval = (e->c[0]->t == TT_VAR && e->c[0]->v.sval) ? e->c[0]->v.sval : "";
-    lv->γ = sw; lv->ω = ω_in;
+    lv->γ.node = sw; memcpy(lv->γ.sz, "α", 3); lv->ω.node = ω_in; memcpy(lv->ω.sz, "α", 3);
     IR_t * rv = nalloc(cx, IR_VAR);
     if (!rv) return NULL;
     IR_LIT(rv).sval = (e->c[1]->t == TT_VAR && e->c[1]->v.sval) ? e->c[1]->v.sval : "";
-    rv->γ = sw; rv->ω = ω_in;
+    rv->γ.node = sw; memcpy(rv->γ.sz, "α", 3); rv->ω.node = ω_in; memcpy(rv->ω.sz, "α", 3);
     if (!ir_operand_push(sw, lv)) return NULL;
     if (!ir_operand_push(sw, rv)) return NULL;
     set_succ_fail(sw, γ_in, ω_in);

@@ -212,8 +212,8 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     IR_t * bb = calloc(1, sizeof(IR_t));
     if (!bb) return NULL;
     bb->op       = t;
-    bb->γ       = NULL;
-    bb->ω       = NULL;
+    bb->γ.node = NULL;
+    bb->ω.node = NULL;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
     bb->idx = bbg->n;
     bb->own = bbg;
@@ -402,8 +402,8 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
         if (!bb) { fprintf(fp, "[%4d] ·\n", i); continue; }
         const char * opn = bb_op_name(bb->op); if (strncmp(opn, "IR_", 3) == 0) opn += 3;
         char gp[16], wp[16];
-        if (bb->γ) snprintf(gp, sizeof gp, "%dα", bb->γ->idx); else snprintf(gp, sizeof gp, "·");
-        if (bb->ω) snprintf(wp, sizeof wp, "%dβ", bb->ω->idx); else snprintf(wp, sizeof wp, "·");
+        if (bb->γ.node) snprintf(gp, sizeof gp, "%dα", bb->γ.node->idx); else snprintf(gp, sizeof gp, "·");
+        if (bb->ω.node) snprintf(wp, sizeof wp, "%dβ", bb->ω.node->idx); else snprintf(wp, sizeof wp, "·");
         fprintf(fp, "[%4d] %-18s γ=%-6s ω=%-6s", i, opn, gp, wp);
         if (bb->op != IR_SCAN && bb->n_operands > 0) {
             fprintf(fp, " ops:[");

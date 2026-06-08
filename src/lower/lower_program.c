@@ -37,7 +37,7 @@ static IR_t * make_computed_goto(IR_graph_t * g, const tree_t * gexpr, IR_t * fa
     IR_t * gt = IR_node_alloc(g, IR_GOTO);
     if (!gt) { IR_free(sub); return NULL; }
     IR_EXEC(gt).counter = (int64_t)(intptr_t) sub;
-    gt->ω = fall;
+    gt->ω.node = fall; memcpy(gt->ω.sz, "α", 3);
     return gt;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -136,8 +136,8 @@ IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
     IR_t *bb = IR_node_alloc(bbg, IR_PROC_GEN);
     if (!bb) return NULL;
     IR_EXEC(bb).counter = (int64_t)(uintptr_t)gs;
-    bb->γ      = NULL;
-    bb->ω      = NULL;
+    bb->γ.node = NULL;
+    bb->ω.node = NULL;
     bbg->entry = bb;
     return bbg;
 }
@@ -221,7 +221,7 @@ static int lower_pascal_body(const tree_t *proc) {
         IR_LIT(PRET).dval = 0.0;
         IR_LIT(PVAR).sval = proc->c[3]->v.sval;
         if (!ir_operand_push(PRET, PVAR)) return -1;
-        PRET->γ = PSUCC; PRET->ω = PSUCC;
+        PRET->γ.node = PSUCC; memcpy(PRET->γ.sz, "α", 3); PRET->ω.node = PSUCC; memcpy(PRET->ω.sz, "α", 3);
         chain_end = PRET;
     }
     IR_t *next_a = chain_end;
@@ -296,7 +296,7 @@ static int lower_pl_choice_graph(const tree_t *choice) {
     zc->bodies = bodies; zc->nbodies = n; zc->last_body = NULL; zc->cp = NULL; zc->cut_barrier = NULL;
     zc->idx_ok = 0; zc->idx_key = NULL;
     IR_LIT(nd).ival = (int64_t)(intptr_t)zc;
-    nd->γ = PSUCC; nd->ω = PFAIL;
+    nd->γ.node = PSUCC; memcpy(nd->γ.sz, "α", 3); nd->ω.node = PFAIL; memcpy(nd->ω.sz, "α", 3);
     g->entry = nd;
     return bb_program_add(&g_stage2.bbp, g);
 }
@@ -372,7 +372,7 @@ int pl_rt_assertz(Term *clause_term, int prepend) {
         }
         zc0->idx_ok = 0; zc0->idx_key = NULL;
         IR_LIT(nd).ival = (int64_t)(intptr_t)zc0;
-        nd->γ = PSUCC; nd->ω = PFAIL;
+        nd->γ.node = PSUCC; memcpy(nd->γ.sz, "α", 3); nd->ω.node = PFAIL; memcpy(nd->ω.sz, "α", 3);
         (void)PSUCC; (void)PFAIL;
         cg->entry = nd;
         int cg_idx = bb_program_add(&g_stage2.bbp, cg);
@@ -499,8 +499,8 @@ stage2_t *lower_stage2(const tree_t *prog) {
         if (g) {
             IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
             IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-            IR_t *RET  = IR_node_alloc(g, IR_RETURN); IR_LIT(RET).dval  = 1.0; RET->ω = PFAIL;
-            IR_t *FRET = IR_node_alloc(g, IR_RETURN); IR_LIT(FRET).dval = 2.0; FRET->ω = PFAIL;
+            IR_t *RET  = IR_node_alloc(g, IR_RETURN); IR_LIT(RET).dval  = 1.0; RET->ω.node = PFAIL; memcpy(RET->ω.sz, "α", 3);
+            IR_t *FRET = IR_node_alloc(g, IR_RETURN); IR_LIT(FRET).dval = 2.0; FRET->ω.node = PFAIL; memcpy(FRET->ω.sz, "α", 3);
             const tree_t *stmts[1024]; IR_t *land[1024]; int ns = 0;
             for (int i = 0; i < prog->n && ns < 1024; i++) {
                 const tree_t *s = prog->c[i];
@@ -549,31 +549,31 @@ stage2_t *lower_stage2(const tree_t *prog) {
                 IR_t *ω_tgt = tgt_u ? tgt_u : (tgt_f ? tgt_f : fall);
                 tree_t *subj = lp_s_expr(s, ":subj");
                 if (!subj) {
-                    land[i]->γ = tgt_u ? tgt_u : fall;
+                    land[i]->γ.node = tgt_u ? tgt_u : fall; memcpy(land[i]->γ.sz, "α", 3);
                     built = 1;
                     continue;
                 }
                 if (subj->t == TT_VAR && subj->v.sval &&
                     (!strcmp(subj->v.sval, "RETURN") || !strcmp(subj->v.sval, "FRETURN") || !strcmp(subj->v.sval, "NRETURN"))) {
-                    land[i]->γ = (!strcmp(subj->v.sval, "FRETURN")) ? FRET : RET;
+                    land[i]->γ.node = (!strcmp(subj->v.sval, "FRETURN")) ? FRET : RET; memcpy(land[i]->γ.sz, "α", 3);
                     built = 1;
                     continue;
                 }
                 tree_t *expr = subj;
                 if (stmt_attr_find(s, ":eq")) {
-                    if (stmt_attr_find(s, ":pat")) { land[i]->γ = fall; continue; }
+                    if (stmt_attr_find(s, ":pat")) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
                     tree_t *repl = lp_s_expr(s, ":repl");
-                    if (!repl) { land[i]->γ = fall; continue; }
+                    if (!repl) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
                     if (subj->t == TT_SCAN && subj->n >= 2) {
                         tree_t *scn = ast_stmt_new(TT_SCAN);
-                        if (!scn) { land[i]->γ = fall; continue; }
+                        if (!scn) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
                         ast_push(scn, subj->c[0]);
                         ast_push(scn, subj->c[1]);
                         ast_push(scn, repl);
                         expr = scn;
                     } else {
                         tree_t *asn = ast_stmt_new(TT_ASSIGN);
-                        if (!asn) { land[i]->γ = fall; continue; }
+                        if (!asn) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
                         ast_push(asn, subj);
                         ast_push(asn, repl);
                         expr = asn;
@@ -581,8 +581,8 @@ stage2_t *lower_stage2(const tree_t *prog) {
                 }
                 IR_t *α = NULL, *β = NULL;
                 IR_t *top = lower_value_entry(g, expr, γ_tgt, ω_tgt, &α, &β);
-                if (!top || !α) { land[i]->γ = fall; continue; }
-                land[i]->γ = α;
+                if (!top || !α) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
+                land[i]->γ.node = α; memcpy(land[i]->γ.sz, "α", 3);
                 built = 1;
             }
             if (built) {

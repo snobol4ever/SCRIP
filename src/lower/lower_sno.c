@@ -889,15 +889,15 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
             IR_t * kα = NULL, * kβ = NULL;
             IR_t * k = lower_pattern_build(cx, e->c[i], NULL, ω_in, &kα, &kβ);
             if (!k) return NULL;
-            if (prev) prev->γ = kα; else headα = kα;
+            if (prev) { prev->γ.node = kα; memcpy(prev->γ.sz, "α", 3); } else headα = kα;
             prev = k;
             if (i == 0) { acc = k; continue; }
             IR_t * a = nalloc(cx, IR_PATTERN_ALT); if (!a) return NULL;
             ir_operand_push(a, acc); ir_operand_push(a, k);
-            a->ω = ω_in;
-            prev->γ = a; prev = a; acc = a;
+            a->ω.node = ω_in; memcpy(a->ω.sz, "α", 3);
+            prev->γ.node = a; memcpy(prev->γ.sz, "α", 3); prev = a; acc = a;
         }
-        prev->γ = NULL;
+        prev->γ.node = NULL;
         set_succ_fail(prev, γ_in, ω_in);
         return ret(prev, α_out, β_out, headα, ω_in);
     }
@@ -911,15 +911,15 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
             IR_t * kα = NULL, * kβ = NULL;
             IR_t * k = lower_pattern_build(cx, kids[i], NULL, ω_in, &kα, &kβ);
             if (!k) return NULL;
-            if (prev) prev->γ = kα; else headα = kα;
+            if (prev) { prev->γ.node = kα; memcpy(prev->γ.sz, "α", 3); } else headα = kα;
             prev = k; lastβ = kβ;
             if (i == 0) { acc = k; continue; }
             IR_t * c = nalloc(cx, IR_PATTERN_CAT); if (!c) return NULL;
             ir_operand_push(c, acc); ir_operand_push(c, k);
-            c->ω = ω_in;
-            prev->γ = c; prev = c; acc = c;
+            c->ω.node = ω_in; memcpy(c->ω.sz, "α", 3);
+            prev->γ.node = c; memcpy(prev->γ.sz, "α", 3); prev = c; acc = c;
         }
-        prev->γ = NULL;
+        prev->γ.node = NULL;
         set_succ_fail(prev, γ_in, ω_in);
         return ret(prev, α_out, β_out, headα, lastβ);
     }
