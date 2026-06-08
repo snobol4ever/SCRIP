@@ -9,6 +9,41 @@
 #include <gc/gc.h>
 /*====================================================================================================================*/
 /*====================================================================================================================*/
+IR_t * v_raku_det_call(lcx_t cx, const char * fn, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!fn || nkids < 0) return NULL;
+    IR_t * call = nalloc(cx, IR_CALL);
+    if (!call) return NULL;
+    IR_LIT(call).sval = GC_strdup(fn);
+    IR_LIT(call).ival = nkids;
+    IR_LIT(call).dval = 2.0;
+    IR_graph_t ** blks = (IR_graph_t **) calloc((size_t)(nkids > 0 ? nkids : 1), sizeof(IR_graph_t *));
+    if (!blks) return NULL;
+    lcx_t mv = cx; mv.role = ROLE_VALUE;
+    for (int i = 0; i < nkids; i++) {
+        if (!kids[i]) { free(blks); return NULL; }
+        blks[i] = lower_value_subgraph(mv, kids[i]);
+        if (!blks[i]) { free(blks); return NULL; }
+    }
+    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
+    set_succ_fail(call, γ_in, ω_in);
+    return ret(call, α_out, β_out, call  , ω_in  );
+}
+/*====================================================================================================================*/
+/*====================================================================================================================*/
+IR_t * v_raku_mutate_writeback(lcx_t cx, const char * target, const char * pure_fn, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    if (!target || !pure_fn || nkids < 1) return NULL;
+    IR_t * as = nalloc(cx, IR_ASSIGN);
+    if (!as) return NULL;
+    IR_LIT(as).sval = GC_strdup(target);
+    IR_t * cα = NULL, * cβ = NULL;
+    IR_t * call = v_raku_det_call(cx, pure_fn, kids, nkids, as  , ω_in, &cα, &cβ);
+    if (!call) return NULL;
+    (void) cβ;
+    set_succ_fail(as, γ_in, ω_in);
+    return ret(as, α_out, β_out, cα  , ω_in  );
+}
+/*====================================================================================================================*/
+/*====================================================================================================================*/
 IR_t * v_raku_for(lcx_t cx, const tree_t * range_t, const char * var, const tree_t * body_t, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (!range_t || !var) return NULL;
     IR_t * bind = nalloc(cx, IR_ASSIGN);
