@@ -16,6 +16,8 @@ void pat_pool_init(void) {
     g_pat_pool_end = g_pat_pool_base + PAT_POOL_SIZE;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+__attribute__((constructor)) static void pat_pool_ctor(void) { pat_pool_init(); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 void pat_pool_reset(void) {
     g_pat_pool_cur = g_pat_pool_base;
 }

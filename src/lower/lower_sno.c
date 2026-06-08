@@ -803,6 +803,48 @@ static int pat_cset_arg(const tree_t * arg, const char ** sval_out, double * var
     { char * cs = cset_try_fold(arg); if (!cs) return 0; *sval_out = cs; *varflag_out = 0.0; return 1; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int sno_pattern_buildable(const tree_t * e) {
+    if (!e) return 0;
+    if (e->t == TT_QLIT) return 1;
+    if (e->t == TT_ALT) {
+        if (e->n < 2) return 0;
+        for (int i = 0; i < e->n; i++) if (!sno_pattern_buildable(e->c[i])) return 0;
+        return 1;
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    IR_t * n = NULL;
+    switch (e->t) {
+    case TT_QLIT:
+        n = nalloc(cx, IR_PATTERN_LIT); if (!n) return NULL;
+        IR_LIT(n).sval = e->v.sval ? e->v.sval : "";
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    case TT_ALT: {
+        if (e->n < 2 || !e->c[0]) return NULL;
+        IR_t * headα = NULL; IR_t * prev = NULL; IR_t * acc = NULL;
+        for (int i = 0; i < e->n; i++) {
+            IR_t * kα = NULL, * kβ = NULL;
+            IR_t * k = lower_pattern_build(cx, e->c[i], NULL, ω_in, &kα, &kβ);
+            if (!k) return NULL;
+            if (prev) prev->γ = kα; else headα = kα;
+            prev = k;
+            if (i == 0) { acc = k; continue; }
+            IR_t * a = nalloc(cx, IR_PATTERN_ALT); if (!a) return NULL;
+            ir_operand_push(a, acc); ir_operand_push(a, k);
+            a->ω = ω_in;
+            prev->γ = a; prev = a; acc = a;
+        }
+        prev->γ = NULL;
+        set_succ_fail(prev, γ_in, ω_in);
+        return ret(prev, α_out, β_out, headα, ω_in);
+    }
+    default:
+        return NULL;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * n = NULL;
     switch (e->t) {
@@ -1051,6 +1093,19 @@ static IR_t * lower_sno_assign(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω,
     int lhs_is_var = (lhs_t->t == TT_VAR);
     int lhs_is_kw  = (lhs_t->t == TT_KEYWORD);
     if (!lhs_is_var && !lhs_is_kw) return lower_unhandled(cx, e, γ, ω, α, β);
+    if (lhs_is_var && rhs_t && rhs_t->t == TT_ALT && sno_pattern_buildable(rhs_t)) {
+        IR_t * da = nalloc(cx, IR_DTP_ASSIGN);
+        if (da) {
+            IR_LIT(da).sval = lhs_t->v.sval ? lhs_t->v.sval : "";
+            IR_t * pα = NULL, * pβ = NULL;
+            IR_t * pat = lower_pattern_build(cx, rhs_t, da, ω, &pα, &pβ);
+            if (pat) {
+                ir_operand_push(da, pat);
+                set_succ_fail(da, γ, ω);
+                return ret(da, α, β, pα ? pα : da, ω);
+            }
+        }
+    }
     IR_e ak = IR_ASSIGN;
     if (lhs_is_var && rhs_t) ak = sno_assign_kind(rhs_t);
     IR_t * as = nalloc(cx, ak);

@@ -15,7 +15,7 @@ extern void rt_writeq_term_ptr(void *t);
 extern void rt_write_canonical_term_ptr(void *t);
 extern int  rt_is(int dst_slot, const char *op, int lk, long li, int rk, long ri);
 extern int  rt_is_lint(long lval, const char *op, int lk, long li, int rk, long ri);
-extern int  rt_is_cell(void *dst_cell, const char *op, int lk, void *larg, double ld, int rk, void *rarg, double rd);
+extern int  rt_is_f(int dst_slot, const char *op, int lk, long li, double ld, int rk, long ri, double rd);
 extern int  rt_is_eval(void *lhs_bb, void *rhs_bb);
 extern int  rt_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);

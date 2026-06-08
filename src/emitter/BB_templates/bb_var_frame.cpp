@@ -12,18 +12,15 @@ extern int g_gvar_flat_chain;
 static std::string bb_var_frame_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     if (!(g_gvar_flat_chain && _.op_off >= 0)) return x86_bomb("bb_var_frame: needs gvar flat-chain + own slot");
-    int hops = (int) _.op_dval;
-    int voff = 16 + (int) _.op_ival * 16;
-    std::string s = IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                                  + x86("comment", emit_fmt("BOX IR_VAR_FRAME \"%s\" slot=%d hops=%d -> [r12+%d]", _.op_sval ? _.op_sval : "", (int) _.op_ival, hops, _.op_off)));
-    s += x86_frame_lea("rax", 0);
-    for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-    s += x86_reg_disp32_load64("rcx", "rax", voff)     + x86_frame_store64(_.op_off, "rcx");
-    s += x86_reg_disp32_load64("rcx", "rax", voff + 8) + x86_frame_store64(_.op_off + 8, "rcx");
-    s += x86("jmp", PORT_GAMMA)
-       + x86("def", PORT_BETA)
-       + x86("jmp", PORT_OMEGA);
-    return s;
+    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+                         + x86("comment", std::string("BOX IR_VAR_FRAME \"") + (_.op_sval ? _.op_sval : "") + "\" slot=" + std::to_string((int) _.op_ival) + " hops=" + std::to_string((int) _.op_dval) + " -> [r12+" + std::to_string(_.op_off) + "]"))
+         + x86_frame_lea("rax", 0)
+         + FOR(0, (int) _.op_dval, [](int) { return x86_reg_disp32_load64("rax", "rax", 0); })
+         + x86_reg_disp32_load64("rcx", "rax", 16 + (int) _.op_ival * 16)     + x86_frame_store64(_.op_off, "rcx")
+         + x86_reg_disp32_load64("rcx", "rax", 16 + (int) _.op_ival * 16 + 8) + x86_frame_store64(_.op_off + 8, "rcx")
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + x86("jmp", "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_var_frame(IR_t * pBB) { bb_emit_x86(bb_var_frame_str(pBB)); }

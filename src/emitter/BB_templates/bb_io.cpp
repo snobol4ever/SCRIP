@@ -1,5 +1,4 @@
 #include "bb_common.h"
-extern "C" void rt_pl_write_cell(void *cell_term);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bio_succ(const char *lγ, const char *lβ) {
     return x86("ins2", "jmp", lγ) + x86("Lins2", std::string(lβ) + ":", "jmp", lγ);
@@ -18,15 +17,10 @@ static std::string bio_bin_write_arg(IR_t *arg) {
              + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_atom)
              + bytes(2, "\xFF\xD0");
     }
-    if (arg->t == IR_LOGICVAR) {
-        int off = GZ_CELL_OFF((int)IR_LIT(arg).ival);
-        std::string mov_load = (off >= -128 && off < 128)
-            ? std::string("\x49\x8B\x7C\x24",4) + std::string(1,(char)(unsigned char)off)
-            : std::string("\x49\x8B\xBC\x24",4) + u32le((uint32_t)off);
-        return mov_load
-             + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_pl_write_cell)
+    if (arg->t == IR_LOGICVAR)
+        return bytes(1, "\xBF") + u32le((uint32_t)(int)IR_LIT(arg).ival)
+             + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_var)
              + bytes(2, "\xFF\xD0");
-    }
     return bytes(4, "\x48\x83\xEC\x08")
          + emit_term_from_node_bin(arg)
          + bytes(3, "\x48\x89\xC7")
@@ -43,7 +37,7 @@ static std::string bio_write_body(const char *bb_ls, long op_ival, IR_t *α) {
                       : x86("ins2", "xor", "edi, edi"))
              + x86("ins2", "call", "rt_write_atom@PLT");
     if (α->t == IR_LOGICVAR)
-        return x86("ins2", "mov", emit_fmt("rdi, qword ptr [r12+%d]", GZ_CELL_OFF((int)IR_LIT(α).ival))) + x86("ins2", "call", "rt_pl_write_cell@PLT");
+        return x86("ins2", "mov edi,", std::to_string((int)IR_LIT(α).ival)) + x86("ins2", "call", "rt_write_var@PLT");
     if (α->t == IR_LIT_I)
         return x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(α).ival)) + x86("ins2", "call", "rt_write_int@PLT");
     if (α->t == IR_LIT_F)
