@@ -806,6 +806,8 @@ static int pat_cset_arg(const tree_t * arg, const char ** sval_out, double * var
 int sno_pattern_buildable(const tree_t * e) {
     if (!e) return 0;
     if (e->t == TT_QLIT) return 1;
+    if (e->t == TT_LEN || e->t == TT_POS || e->t == TT_RPOS || e->t == TT_TAB || e->t == TT_RTAB)
+        return (e->n >= 1 && e->c[0] && e->c[0]->t == TT_ILIT) ? 1 : 0;
     if (e->t == TT_ALT) {
         if (e->n < 2) return 0;
         for (int i = 0; i < e->n; i++) if (!sno_pattern_buildable(e->c[i])) return 0;
@@ -821,6 +823,13 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
         n = nalloc(cx, IR_PATTERN_LIT); if (!n) return NULL;
         IR_LIT(n).sval = e->v.sval ? e->v.sval : "";
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    case TT_LEN: case TT_POS: case TT_RPOS: case TT_TAB: case TT_RTAB: {
+        if (e->n < 1 || !e->c[0] || e->c[0]->t != TT_ILIT) return NULL;
+        IR_e k = (e->t == TT_LEN) ? IR_PATTERN_LEN : (e->t == TT_POS) ? IR_PATTERN_POS : (e->t == TT_RPOS) ? IR_PATTERN_RPOS : (e->t == TT_TAB) ? IR_PATTERN_TAB : IR_PATTERN_RTAB;
+        n = nalloc(cx, k); if (!n) return NULL;
+        IR_LIT(n).ival = e->c[0]->v.ival;
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
     case TT_ALT: {
         if (e->n < 2 || !e->c[0]) return NULL;
         IR_t * headα = NULL; IR_t * prev = NULL; IR_t * acc = NULL;
@@ -1093,7 +1102,7 @@ static IR_t * lower_sno_assign(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω,
     int lhs_is_var = (lhs_t->t == TT_VAR);
     int lhs_is_kw  = (lhs_t->t == TT_KEYWORD);
     if (!lhs_is_var && !lhs_is_kw) return lower_unhandled(cx, e, γ, ω, α, β);
-    if (lhs_is_var && rhs_t && rhs_t->t == TT_ALT && sno_pattern_buildable(rhs_t)) {
+    if (lhs_is_var && rhs_t && rhs_t->t != TT_QLIT && sno_pattern_buildable(rhs_t)) {
         IR_t * da = nalloc(cx, IR_DTP_ASSIGN);
         if (da) {
             IR_LIT(da).sval = lhs_t->v.sval ? lhs_t->v.sval : "";
