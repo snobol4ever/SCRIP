@@ -410,7 +410,7 @@ static int pl_gz_call_args_ok(bb_goal_state_t *zc, int ar) {
         if (a->t == IR_LOGICVAR) { if ((int)IR_LIT(a).ival < 0 || (int)IR_LIT(a).ival >= 64) return 0; continue; }
         if (a->t == IR_ATOM && IR_LIT(a).sval) continue;
         if (a->t == IR_LIT_I) continue;
-        return 0;
+        if (a->t == IR_STRUCT) continue;
     }
     return 1;
 }
@@ -534,7 +534,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
         IR_t *nd = cg->all[i];
         if (!nd) continue;
         if (nd->t == IR_CHOICE || nd->t == IR_DISJ ||
-            nd->t == IR_ITE || nd->t == IR_CATCH || nd->t == IR_STRUCT) return 0;
+            nd->t == IR_ITE || nd->t == IR_CATCH) return 0;
         if (nd->t == IR_BUILTIN) {
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "nl") && IR_LIT(nd).ival == 0) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "write") && IR_LIT(nd).ival == 1) continue;
@@ -558,7 +558,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
         if (u1->t == IR_LOGICVAR) { if ((int)IR_LIT(u1).ival < 0 || (int)IR_LIT(u1).ival >= cg->nslots) return 0; continue; }
         if (u1->t == IR_ATOM && IR_LIT(u1).sval) continue;
         if (u1->t == IR_LIT_I) continue;
-        return 0;
+        if (u1->t == IR_STRUCT) continue;
     }
     for (int i = ar; i < zs->ngoals; i++) if (!pl_gz_rule_body_goal_ok(zs->goals[i])) return 0;
     *zs_out = zs;
@@ -606,6 +606,22 @@ static IR_t * pl_gz_arith_slot_map(const IR_t *nd, int ar, int lbase) {
     }
     return NULL;
 }
+static IR_t * pl_gz_struct_slot_map(const IR_t *nd, int ar, int lbase) {
+    if (!nd) return NULL;
+    if (nd->t == IR_LOGICVAR) { return pl_gz_lv(pl_gz_slot_map((int)IR_LIT(nd).ival, ar, lbase)); }
+    if (nd->t == IR_ATOM || nd->t == IR_LIT_I || nd->t == IR_LIT_F) { return (IR_t *)nd; }
+    if (nd->t == IR_STRUCT) {
+        IR_t *c = pl_gz_det_node(IR_STRUCT); if (!c) return NULL;
+        IR_LIT(c).sval = IR_LIT(nd).sval; IR_LIT(c).ival = IR_LIT(nd).ival;
+        for (int i = 0; i < nd->n_operands; i++) {
+            IR_t *ch = (nd->n_operands > i) ? nd->operands[i] : NULL;
+            IR_t *cm = pl_gz_struct_slot_map(ch, ar, lbase); if (!cm) return NULL;
+            ir_operand_push(c, cm);
+        }
+        return c;
+    }
+    return NULL;
+}
 static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_callee_t *ce, int clause_idx, int lbase, pl_gz_callee_t **callees, int *ncallees) {
     IR_t *head = NULL, *tail = NULL;
     int ar = ce->arity;
@@ -627,7 +643,12 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
             if (!cu) return 0;
             IR_t *ca = pl_gz_lv(i);
             if (!ca) return 0;
-            ir_operand_push(cu, ca); if (u1) ir_operand_push(cu, u1);
+            ir_operand_push(cu, ca);
+            if (u1) {
+                IR_t *u1m = (u1->t == IR_STRUCT) ? pl_gz_struct_slot_map(u1, ar, lbase) : u1;
+                if (!u1m) return 0;
+                ir_operand_push(cu, u1m);
+            }
         }
         if (!head) head = cu; else tail->γ = cu;
         tail = cu;
@@ -1019,12 +1040,15 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
             nd->t == IR_CATCH) return NULL;
         if (nd->t == IR_STRUCT) {
             if (g_gz_no_struct_ptr) return NULL;
-            int parent_unify = 0;
-            for (int j = 0; j < g->n; j++) {
+            int parent_ok = 0;
+            for (int j = 0; j < g->n && !parent_ok; j++) {
                 IR_t *p = g->all[j];
-                if (p && p->t == IR_UNIFY && ((p->n_operands > 0 && p->operands[0] == nd) || (p->n_operands > 1 && p->operands[1] == nd))) { parent_unify = 1; break; }
+                if (!p) continue;
+                if (p->t == IR_UNIFY && ((p->n_operands > 0 && p->operands[0] == nd) || (p->n_operands > 1 && p->operands[1] == nd))) { parent_ok = 1; break; }
+                if (p->t == IR_GOAL) { bb_goal_state_t *zc2 = (bb_goal_state_t *)(intptr_t)IR_LIT(p).ival; if (zc2 && zc2->args) for (int ai = 0; ai < zc2->nargs && !parent_ok; ai++) if (zc2->args[ai] == nd) parent_ok = 1; }
+                if (p->t == IR_STRUCT) for (int oi = 0; oi < p->n_operands && !parent_ok; oi++) if (p->operands[oi] == nd) parent_ok = 1;
             }
-            if (!parent_unify) return NULL;
+            if (!parent_ok) return NULL;
         }
         if (nd->t == IR_LOGICVAR && ((int)IR_LIT(nd).ival < 0 || (int)IR_LIT(nd).ival >= 64)) return NULL;
         if (nd->t == IR_UNIFY) {
