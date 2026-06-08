@@ -30,10 +30,16 @@ static inline std::string  us_scan_one(const std::string & p, const char * hit, 
          + x86("ins1", "inc rsi")
          + x86("ins2", "jmp", usl(p + "ml"));
 }
-static inline std::string  us_beta() {
-    if (strcmp(us_kind(), "BREAKX"))
-        return x86("ins2", "jmp", "qword ptr [rip + " + usl("_s") + " + 24]");
-    return x86("ins2", "mov", "eax, dword ptr [rip + " + usl("_s") + " + 8]")
+static inline std::string  us_proto() {
+    return x86("label", usl("_s"))
+         + x86("raw", ".quad 0")
+         + x86("raw", ".quad 0")
+         + x86("raw", ".quad 0")
+         + x86("raw", ".quad 0")
+         + x86("label", usl("_b"))
+         + ( strcmp(us_kind(), "BREAKX")
+         ?   x86("ins2", "jmp", "qword ptr [rip + " + usl("_s") + " + 24]")
+         :   x86("ins2", "mov", "eax, dword ptr [rip + " + usl("_s") + " + 8]")
          + x86("ins1", "inc eax")
          + x86("label", usl("_yscan"))
          + x86("ins2", "cmp", "eax, r15d")
@@ -49,16 +55,7 @@ static inline std::string  us_beta() {
          + x86("ins2", "mov", "r14d, eax")
          + x86("ins2", "jmp", "qword ptr [rip + " + usl("_s") + " + 16]")
          + x86("label", usl("_yfail"))
-         + x86("ins2", "jmp", "qword ptr [rip + " + usl("_s") + " + 24]");
-}
-static inline std::string  us_proto() {
-    return x86("label", usl("_s"))
-         + x86("raw", ".quad 0")
-         + x86("raw", ".quad 0")
-         + x86("raw", ".quad 0")
-         + x86("raw", ".quad 0")
-         + x86("label", usl("_b"))
-         + us_beta()
+         + x86("ins2", "jmp", "qword ptr [rip + " + usl("_s") + " + 24]") )
          + x86("label", usl("_a"))
          + ( !strcmp(us_kind(), "ANY")
          ?   x86("ins2", "cmp", "r14d, r15d")
