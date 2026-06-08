@@ -52,10 +52,13 @@ void pl_write(Term *t) {
             break;
         case TERM_FLOAT: {
             double fv = t->fval;
-            if (fv == (long)fv && fv >= -1e15 && fv <= 1e15)
-                printf("%.1f", fv);
-            else
-                printf("%g", fv);
+            char fb[64];
+            for (int prec = 15; prec <= 17; prec++) {
+                snprintf(fb, sizeof fb, "%.*g", prec, fv);
+                if (strtod(fb, NULL) == fv) break;
+            }
+            if (!strpbrk(fb, ".eEnN")) { size_t n = strlen(fb); if (n+2 < sizeof fb) { fb[n]='.'; fb[n+1]='0'; fb[n+2]='\0'; } }
+            fputs(fb, stdout);
             break;
         }
         case TERM_COMPOUND: {
