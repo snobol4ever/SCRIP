@@ -42,7 +42,13 @@ static std::string dcm_const_fold() {
          + x86("def", "β")
          + x86("jmp", "ω");
 }
-static std::string dcm_rt_call() {
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_det_cmp_str() {
+    if (!PLATFORM_X86) return std::string();
+    x86_begin();
+    if (!dcm_is_arith(dcm_op())) return x86_bomb("bb_det_cmp: term-order cmp not yet supported in GZ");
+    if (!dcm_la() || !dcm_ra()) return x86_bomb("bb_det_cmp: null operand");
+    if (dcm_both_lit_i()) return dcm_const_fold();
     return IF(MEDIUM_TEXT,
                x86("label", _.lbl_α)
              + x86("comment", std::string("BOX DET_CMP(") + dcm_op() + ")  [PL-GZ-8: rt_pl_arith_cmp_cell_val]"))
@@ -58,15 +64,6 @@ static std::string dcm_rt_call() {
          + x86("def", "β")
          + x86("jmp", "ω")
          + x86_ro_seal_str(0, dcm_op());
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_cmp_str() {
-    if (!PLATFORM_X86) return std::string();
-    x86_begin();
-    if (!dcm_is_arith(dcm_op())) return x86_bomb("bb_det_cmp: term-order cmp not yet supported in GZ");
-    if (!dcm_la() || !dcm_ra()) return x86_bomb("bb_det_cmp: null operand");
-    if (dcm_both_lit_i()) return dcm_const_fold();
-    return dcm_rt_call();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_det_cmp(void) { bb_emit_x86(bb_det_cmp_str()); }
