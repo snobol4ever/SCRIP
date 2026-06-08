@@ -607,18 +607,18 @@ int rt_is_eval(void *lhs_bb, void *rhs_bb) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_is_f(int dst_slot, const char *op,
-               int lk, long li, double ld,
-               int rk, long ri, double rd) {
-    extern Term **g_resolve_env; extern Trail g_resolve_trail;
-    if (!g_resolve_env || dst_slot < 0) return 0;
+int rt_is_cell(void *dst_cell, const char *op,
+               int lk, void *larg, double ld,
+               int rk, void *rarg, double rd) {
+    extern Trail g_resolve_trail;
+    if (!dst_cell) return 0;
     if (!op) op = "+";
     int    lf = 0; double ldv = 0.0; long liv = 0;
     switch (lk) {
     case IR_LIT_F:    lf = 1; ldv = ld; liv = (long)ld; break;
-    case IR_LIT_I:    lf = 0; liv = li; ldv = (double)li; break;
+    case IR_LIT_I:    lf = 0; liv = (long)larg; ldv = (double)(long)larg; break;
     case IR_LOGICVAR: {
-        Term *t = (li >= 0 && g_resolve_env[li]) ? term_deref(g_resolve_env[li]) : NULL;
+        Term *t = larg ? term_deref(*(Term **)larg) : NULL;
         if (t && t->tag == TERM_FLOAT)    { lf = 1; ldv = t->fval; liv = (long)t->fval; }
         else if (t && t->tag == TERM_INT) { lf = 0; liv = t->ival; ldv = (double)t->ival; }
         else return 0;
@@ -631,9 +631,9 @@ int rt_is_f(int dst_slot, const char *op,
     if (have_r) {
         switch (rk) {
         case IR_LIT_F:    rf = 1; rdv = rd; riv = (long)rd; break;
-        case IR_LIT_I:    rf = 0; riv = ri; rdv = (double)ri; break;
+        case IR_LIT_I:    rf = 0; riv = (long)rarg; rdv = (double)(long)rarg; break;
         case IR_LOGICVAR: {
-            Term *t = (ri >= 0 && g_resolve_env[ri]) ? term_deref(g_resolve_env[ri]) : NULL;
+            Term *t = rarg ? term_deref(*(Term **)rarg) : NULL;
             if (t && t->tag == TERM_FLOAT)    { rf = 1; rdv = t->fval; riv = (long)t->fval; }
             else if (t && t->tag == TERM_INT) { rf = 0; riv = t->ival; rdv = (double)t->ival; }
             else return 0;
@@ -694,8 +694,8 @@ int rt_is_f(int dst_slot, const char *op,
         else return 0;
     }
     if (!result) return 0;
-    Term *lhs = g_resolve_env[dst_slot];
-    if (!lhs) { g_resolve_env[dst_slot] = result; return 1; }
+    Term *lhs = *(Term **)dst_cell;
+    if (!lhs) { *(Term **)dst_cell = result; return 1; }
     int mark = trail_mark(&g_resolve_trail);
     if (!unify(lhs, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
@@ -2522,37 +2522,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         return NULL;
     }
     case IR_SEQ_EXPR: {
-        if (!bb->α) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
-        IR_t *last_child = bb->α;
-        while (last_child->γ) last_child = last_child->γ;
-        if (IR_EXEC(bb).state == 0) {
-            for (IR_t *st = bb->α; st && st != last_child; st = st->γ) {
-                IR_interp_node(st);
-                if (frame_depth > 0 && FRAME.returning) {
-                    IR_EXEC(bb).value = IR_EXEC(st).value;
-                    return bb->ω;
-                }
-                if (IS_FAIL_fn(IR_EXEC(st).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            }
-            IR_EXEC(last_child).state = 0;
-            IR_interp_node(last_child);
-            if (frame_depth > 0 && FRAME.returning) {
-                IR_EXEC(bb).value = IR_EXEC(last_child).value;
-                return bb->ω;
-            }
-            if (IS_FAIL_fn(IR_EXEC(last_child).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value = IR_EXEC(last_child).value;
-            IR_EXEC(bb).state = 1;
-            return bb->γ;
-        }
-        IR_interp_node(last_child);
-        if (frame_depth > 0 && FRAME.returning) {
-            IR_EXEC(bb).value = IR_EXEC(last_child).value;
-            return bb->ω;
-        }
-        if (IS_FAIL_fn(IR_EXEC(last_child).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_EXEC(bb).value = IR_EXEC(last_child).value;
-        return bb->γ;
+        IR_EXEC(bb).value = NULVCL; return bb->γ;
     }
     case IR_BINOP: {
         if (!bb->α && !bb->β) {
