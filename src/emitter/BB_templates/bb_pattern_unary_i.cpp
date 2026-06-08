@@ -15,45 +15,6 @@ static inline std::string  pul(const char * sfx) { return std::string(".Lpu") + 
 static inline const char * pu_kind()  { return _.op_kind ? _.op_kind : "LEN"; }
 static inline long         pu_n()     { return (long)_.op_ival; }
 static inline std::string  pu_off()   { return std::to_string((long)_.op_off); }
-static inline std::string  pu_alpha() {
-    if (!strcmp(pu_kind(), "POS"))
-        return x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
-             + x86("cmp", "r14d", "ecx")
-             + x86("ins2", "jne", pul("_f"))
-             + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]");
-    if (!strcmp(pu_kind(), "RPOS"))
-        return x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
-             + x86("mov", "eax", "r15d")
-             + x86("sub", "eax", "ecx")
-             + x86("cmp", "r14d", "eax")
-             + x86("ins2", "jne", pul("_f"))
-             + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]");
-    if (!strcmp(pu_kind(), "TAB"))
-        return x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
-             + x86("cmp", "ecx", "r14d")
-             + x86("ins2", "jl", pul("_f"))
-             + x86("cmp", "ecx", "r15d")
-             + x86("ins2", "jg", pul("_f"))
-             + x86("ins2", "mov", "[rip + " + pul("_s") + " + 8], r14d")
-             + x86("mov", "r14d", "ecx")
-             + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]");
-    if (!strcmp(pu_kind(), "RTAB"))
-        return x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
-             + x86("mov", "eax", "r15d")
-             + x86("sub", "eax", "ecx")
-             + x86("cmp", "eax", "r14d")
-             + x86("ins2", "jl", pul("_f"))
-             + x86("ins2", "mov", "[rip + " + pul("_s") + " + 8], r14d")
-             + x86("mov", "r14d", "eax")
-             + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]");
-    return x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
-         + x86("mov", "eax", "r14d")
-         + x86("add", "eax", "ecx")
-         + x86("cmp", "eax", "r15d")
-         + x86("ins2", "jg", pul("_f"))
-         + x86("mov", "r14d", "eax")
-         + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]");
-}
 static inline std::string  pu_beta() {
     if (!strcmp(pu_kind(), "POS") || !strcmp(pu_kind(), "RPOS"))
         return x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 24]");
@@ -73,7 +34,43 @@ static inline std::string  pu_proto() {
          + x86("label", pul("_b"))
          + pu_beta()
          + x86("label", pul("_a"))
-         + pu_alpha()
+         + (!strcmp(pu_kind(), "POS") ?
+                x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
+              + x86("cmp", "r14d", "ecx")
+              + x86("ins2", "jne", pul("_f"))
+              + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]")
+           : !strcmp(pu_kind(), "RPOS") ?
+                x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
+              + x86("mov", "eax", "r15d")
+              + x86("sub", "eax", "ecx")
+              + x86("cmp", "r14d", "eax")
+              + x86("ins2", "jne", pul("_f"))
+              + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]")
+           : !strcmp(pu_kind(), "TAB") ?
+                x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
+              + x86("cmp", "ecx", "r14d")
+              + x86("ins2", "jl", pul("_f"))
+              + x86("cmp", "ecx", "r15d")
+              + x86("ins2", "jg", pul("_f"))
+              + x86("ins2", "mov", "[rip + " + pul("_s") + " + 8], r14d")
+              + x86("mov", "r14d", "ecx")
+              + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]")
+           : !strcmp(pu_kind(), "RTAB") ?
+                x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
+              + x86("mov", "eax", "r15d")
+              + x86("sub", "eax", "ecx")
+              + x86("cmp", "eax", "r14d")
+              + x86("ins2", "jl", pul("_f"))
+              + x86("ins2", "mov", "[rip + " + pul("_s") + " + 8], r14d")
+              + x86("mov", "r14d", "eax")
+              + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]")
+           :   x86("ins2", "mov", "ecx, [rip + " + pul("_s") + "]")
+              + x86("mov", "eax", "r14d")
+              + x86("add", "eax", "ecx")
+              + x86("cmp", "eax", "r15d")
+              + x86("ins2", "jg", pul("_f"))
+              + x86("mov", "r14d", "eax")
+              + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 16]"))
          + x86("label", pul("_f"))
          + x86("ins2", "jmp", "qword ptr [rip + " + pul("_s") + " + 24]")
          + x86("label", pul("_e"));
