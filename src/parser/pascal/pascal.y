@@ -85,7 +85,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "ln") && args && args->count >= 1) return mk_fnc1("__pas_ln", args->items[0]);
     if (name && !strcmp(name, "arctan") && args && args->count >= 1) return mk_fnc1("__pas_arctan", args->items[0]);
     if (name && !strcmp(name, "odd") && args && args->count >= 1) return bin(TT_NE, bin(TT_MOD, args->items[0], ilit(2)), ilit(0));
-    if (name && !strcmp(name, "eof") && (!args || args->count == 0)) return mk_fnc0("__pas_eof");
+    if (name && !strcmp(name, "mark")    && args && args->count >= 1) return ast_node_new(TT_SUCCEED);
+    if (name && !strcmp(name, "release") && args && args->count >= 1) return ast_node_new(TT_SUCCEED);
     if (name && !strcmp(name, "eoln") && (!args || args->count == 0)) return mk_fnc0("__pas_eoln");
     if (name && !strcmp(name, "readln") && (!args || args->count == 0)) return mk_fnc0("__pas_readln");
     if (name && !strcmp(name, "readln") && args && args->count >= 1) {
