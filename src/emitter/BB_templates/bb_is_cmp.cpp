@@ -153,43 +153,69 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("ins2", "add", "rsp, 8")
                  + icm_tail();
         }
+        /* LOGICVAR dst, binary IR_ARITH, non-floaty (floaty caught above) — both operands present.
+         * Uses rt_is_cell: rdi = frame-cell ptr for dst slot, rcx/r9 = frame-cell ptr (LOGICVAR) or value (LIT_I). */
         if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
             && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(ir_pair_arg(pBB,1),0) && ir_pair_arg(ir_pair_arg(pBB,1),1)) {
             const IR_t *ra = ir_pair_arg(ir_pair_arg(pBB,1),0), *rb2 = ir_pair_arg(ir_pair_arg(pBB,1),1);
+            int dst_slot = (int)IR_LIT(ir_pair_arg(pBB,0)).ival;
             return hdr
-                 + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(ir_pair_arg(pBB,0)).ival))
+                 + x86("ins2", "sub", "rsp, 8")
+                 + x86("ins2", "lea", emit_fmt("rdi, [r12+%d]", GZ_CELL_OFF(dst_slot)))
                  + icm_op()
                  + x86("ins2", "mov edx,", std::to_string((int)ra->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ra).ival))
+                 + icm_arg_load_lit("rcx", ra)
+                 + x86("ins2", "mov rax,", "0")
+                 + x86("ins2", "movq", "xmm0, rax")
                  + x86("ins2", "mov r8d,", std::to_string((int)rb2->t))
-                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(rb2).ival))
-                 + x86("ins2", "call", "rt_is@PLT")
+                 + icm_arg_load_lit("r9", rb2)
+                 + x86("ins2", "mov rax,", "0")
+                 + x86("ins2", "movq", "xmm1, rax")
+                 + x86("ins2", "call", "rt_is_cell@PLT")
+                 + x86("ins2", "add", "rsp, 8")
                  + icm_tail();
         }
+        /* IR_LIT_I dst, binary IR_ARITH — "N is Expr" where N is a literal integer.
+         * Uses rt_is_cell_lit: rdi = lval (the literal long), same operand marshalling as above. */
         if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
             && ir_pair_arg(pBB,0)->t == IR_LIT_I && ir_pair_arg(ir_pair_arg(pBB,1),0) && ir_pair_arg(ir_pair_arg(pBB,1),1)) {
             const IR_t *ra = ir_pair_arg(ir_pair_arg(pBB,1),0), *rb2 = ir_pair_arg(ir_pair_arg(pBB,1),1);
             return hdr
+                 + x86("ins2", "sub", "rsp, 8")
                  + x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
                  + x86("ins2", "mov edx,", std::to_string((int)ra->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ra).ival))
+                 + icm_arg_load_lit("rcx", ra)
+                 + x86("ins2", "mov rax,", "0")
+                 + x86("ins2", "movq", "xmm0, rax")
                  + x86("ins2", "mov r8d,", std::to_string((int)rb2->t))
-                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(rb2).ival))
-                 + x86("ins2", "call", "rt_is_lint@PLT")
+                 + icm_arg_load_lit("r9", rb2)
+                 + x86("ins2", "mov rax,", "0")
+                 + x86("ins2", "movq", "xmm1, rax")
+                 + x86("ins2", "call", "rt_is_cell_lit@PLT")
+                 + x86("ins2", "add", "rsp, 8")
                  + icm_tail();
         }
+        /* LOGICVAR dst, unary IR_ARITH (one operand, no rhs) — "X is f(A)" e.g. X is sign(N).
+         * Uses rt_is_cell: rdi = frame-cell ptr, r8d = -1 (no rhs), r9 = 0 (NULL rarg), xmm1 = 0. */
         if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
             && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(ir_pair_arg(pBB,1),0) && !ir_pair_arg(ir_pair_arg(pBB,1),1)) {
             const IR_t *ra = ir_pair_arg(ir_pair_arg(pBB,1),0);
+            int dst_slot = (int)IR_LIT(ir_pair_arg(pBB,0)).ival;
             return hdr
-                 + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(ir_pair_arg(pBB,0)).ival))
+                 + x86("ins2", "sub", "rsp, 8")
+                 + x86("ins2", "lea", emit_fmt("rdi, [r12+%d]", GZ_CELL_OFF(dst_slot)))
                  + icm_op()
                  + x86("ins2", "mov edx,", std::to_string((int)ra->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ra).ival))
+                 + icm_arg_load_lit("rcx", ra)
+                 + x86("ins2", "mov rax,", "0")
+                 + x86("ins2", "movq", "xmm0, rax")
                  + x86("ins2", "mov r8d,", "-1")
-                 + x86("ins2", "mov r9,",  "0")
-                 + x86("ins2", "call", "rt_is@PLT")
+                 + x86("ins2", "xor", "r9d, r9d")
+                 + x86("ins2", "mov rax,", "0")
+                 + x86("ins2", "movq", "xmm1, rax")
+                 + x86("ins2", "call", "rt_is_cell@PLT")
+                 + x86("ins2", "add", "rsp, 8")
                  + icm_tail();
         }
         if (ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && (ir_pair_arg(pBB,0)->t == IR_STRUCT || ir_pair_arg(pBB,1)->t == IR_STRUCT) && icm_ord(fn)) {

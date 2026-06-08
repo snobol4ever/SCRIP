@@ -667,6 +667,8 @@ int rt_is_cell(void *dst_cell, const char *op,
         else if (!strcmp(op, "round"))                 result = term_new_int((long)llround(ldv));
         else if (!strcmp(op, "ceiling"))               result = term_new_int((long)ceil(ldv));
         else if (!strcmp(op, "floor"))                 result = term_new_int((long)floor(ldv));
+        else if (!strcmp(op, "\\"))                    { if (lf) return 0; result = term_new_int(~liv); }
+        else if (!strcmp(op, "msb"))                   { if (lf || liv <= 0) return 0; long v=liv,m=-1; while(v){v>>=1;m++;} result = term_new_int(m); }
         else return 0;
     } else {
         int anyf = lf || rf;
@@ -691,6 +693,16 @@ int rt_is_cell(void *dst_cell, const char *op,
             else if (ldv >= rdv) result = lf ? term_new_float(ldv) : term_new_int(liv);
             else result = rf ? term_new_float(rdv) : term_new_int(riv);
         }
+        else if (!strcmp(op, "//"))  { if (!riv) return 0; result = term_new_int(liv / riv); }
+        else if (!strcmp(op, "mod")) { if (!riv) return 0; long r = liv % riv; if (r && (r<0) != (riv<0)) r += riv; result = term_new_int(r); }
+        else if (!strcmp(op, "rem")) { if (!riv) return 0; result = term_new_int(liv % riv); }
+        else if (!strcmp(op, "div")) { if (!riv) return 0; long q = liv/riv; if ((liv%riv!=0) && ((liv<0)!=(riv<0))) q--; result = term_new_int(q); }
+        else if (!strcmp(op, "gcd")) { long a = liv<0?-liv:liv, b = riv<0?-riv:riv; while (b) { long r = a%b; a = b; b = r; } result = term_new_int(a); }
+        else if (!strcmp(op, "/\\")) { if (anyf) return 0; result = term_new_int(liv & riv); }
+        else if (!strcmp(op, "\\/")) { if (anyf) return 0; result = term_new_int(liv | riv); }
+        else if (!strcmp(op, "xor")) { if (anyf) return 0; result = term_new_int(liv ^ riv); }
+        else if (!strcmp(op, ">>"))  { if (anyf) return 0; result = term_new_int(liv >> riv); }
+        else if (!strcmp(op, "<<"))  { if (anyf) return 0; result = term_new_int(liv << riv); }
         else return 0;
     }
     if (!result) return 0;
@@ -699,6 +711,80 @@ int rt_is_cell(void *dst_cell, const char *op,
     int mark = trail_mark(&g_resolve_trail);
     if (!unify(lhs, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* rt_is_cell_lit — like rt_is_cell but the destination is a literal integer value (IR_LIT_I LHS of is/2).
+ * Computes the arithmetic result, then checks equality with lval.
+ * No cell write, no trail — purely a deterministic equality test.
+ * Signature mirrors rt_is_cell so the TEXT arm can share icm_arg_load_lit helpers. */
+int rt_is_cell_lit(long lval, const char *op,
+                   int lk, void *larg, double ld,
+                   int rk, void *rarg, double rd) {
+    if (!op) op = "+";
+    int    lf = 0; double ldv = 0.0; long liv = 0;
+    switch (lk) {
+    case IR_LIT_F:    lf = 1; ldv = ld; liv = (long)ld; break;
+    case IR_LIT_I:    lf = 0; liv = (long)larg; ldv = (double)(long)larg; break;
+    case IR_LOGICVAR: {
+        Term *t = larg ? term_deref(*(Term **)larg) : NULL;
+        if (t && t->tag == TERM_FLOAT)    { lf = 1; ldv = t->fval; liv = (long)t->fval; }
+        else if (t && t->tag == TERM_INT) { lf = 0; liv = t->ival; ldv = (double)t->ival; }
+        else return 0;
+        break;
+    }
+    default: break;
+    }
+    int    have_r = (rk != -1);
+    int    rf = 0; double rdv = 0.0; long riv = 0;
+    if (have_r) {
+        switch (rk) {
+        case IR_LIT_F:    rf = 1; rdv = rd; riv = (long)rd; break;
+        case IR_LIT_I:    rf = 0; riv = (long)rarg; rdv = (double)(long)rarg; break;
+        case IR_LOGICVAR: {
+            Term *t = rarg ? term_deref(*(Term **)rarg) : NULL;
+            if (t && t->tag == TERM_FLOAT)    { rf = 1; rdv = t->fval; riv = (long)t->fval; }
+            else if (t && t->tag == TERM_INT) { rf = 0; riv = t->ival; rdv = (double)t->ival; }
+            else return 0;
+            break;
+        }
+        default: break;
+        }
+    }
+    /* Evaluate: same op table as rt_is_cell, integer-only path (float result can never equal long lval exactly) */
+    long result = 0; int got = 0; int anyf = lf || rf;
+    if (!strcmp(op, "pi") || !strcmp(op, "e")) return 0; /* always float */
+    if (!have_r) {
+        if      (!strcmp(op, "-"))                     { if (anyf) return 0; result = -liv; got = 1; }
+        else if (!strcmp(op, "+"))                     { if (anyf) return 0; result = liv;  got = 1; }
+        else if (!strcmp(op, "abs"))                   { if (anyf) return 0; result = liv < 0 ? -liv : liv; got = 1; }
+        else if (!strcmp(op, "sign"))                  { if (anyf) return 0; result = liv > 0 ? 1 : liv < 0 ? -1 : 0; got = 1; }
+        else if (!strcmp(op, "truncate") || !strcmp(op, "integer") || !strcmp(op, "round") || !strcmp(op, "ceiling") || !strcmp(op, "floor"))
+                                                       { if (anyf) result = (long)ldv; else result = liv; got = 1; }
+        else if (!strcmp(op, "\\"))                    { if (anyf) return 0; result = ~liv; got = 1; }
+        else if (!strcmp(op, "msb"))                   { if (anyf) return 0; long v=liv,m=-1; while(v){v>>=1;m++;} result=m; got=1; }
+    } else {
+        if (!strcmp(op, "+"))  { if (anyf) return 0; result = liv + riv; got = 1; }
+        else if (!strcmp(op, "-"))  { if (anyf) return 0; result = liv - riv; got = 1; }
+        else if (!strcmp(op, "*"))  { if (anyf) return 0; result = liv * riv; got = 1; }
+        else if (!strcmp(op, "//")) { if (!riv) return 0; result = liv / riv; got = 1; }
+        else if (!strcmp(op, "mod")){ if (!riv) return 0; long r = liv % riv; if (r && (r<0)!=(riv<0)) r+=riv; result = r; got = 1; }
+        else if (!strcmp(op, "rem")){ if (!riv) return 0; result = liv % riv; got = 1; }
+        else if (!strcmp(op, "**") || !strcmp(op, "^")) {
+            if (!lf && !rf && riv >= 0) { long b=liv,ex=riv,acc=1; while(ex-->0) acc*=b; result=acc; got=1; }
+        }
+        else if (!strcmp(op, "max")) { if (anyf) return 0; result = liv > riv ? liv : riv; got = 1; }
+        else if (!strcmp(op, "min")) { if (anyf) return 0; result = liv < riv ? liv : riv; got = 1; }
+        else if (!strcmp(op, "/\\")) { if (anyf) return 0; result = liv & riv; got = 1; }
+        else if (!strcmp(op, "\\/")) { if (anyf) return 0; result = liv | riv; got = 1; }
+        else if (!strcmp(op, "xor")) { if (anyf) return 0; result = liv ^ riv; got = 1; }
+        else if (!strcmp(op, ">>"))  { if (anyf) return 0; result = liv >> riv; got = 1; }
+        else if (!strcmp(op, "<<"))  { if (anyf) return 0; result = liv << riv; got = 1; }
+        else if (!strcmp(op, "gcd")) { if (anyf) return 0; long a=liv<0?-liv:liv,b=riv<0?-riv:riv; while(b){long r=a%b;a=b;b=r;} result=a; got=1; }
+        else if (!strcmp(op, "div")) { if (!riv) return 0; long q=liv/riv; if((liv%riv!=0)&&((liv<0)!=(riv<0))) q--; result=q; got=1; }
+        else if (!strcmp(op, "/"))   { if (anyf) return 0; if (!riv) return 0; result = (liv%riv==0) ? liv/riv : 0; if (liv%riv!=0) return 0; got=1; }
+    }
+    if (!got) return 0;
+    return (result == lval) ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
