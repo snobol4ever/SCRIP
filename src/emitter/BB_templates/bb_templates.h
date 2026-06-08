@@ -31,6 +31,8 @@ void bb_subject    (void);
 void bb_match_head   (void);
 void bb_match_retry  (void);
 void bb_match_advance(void);
+void bb_pattern_lit(void);
+void bb_pattern_stub(const char * which);
 void bb_match_capture(void);
 void bb_unify   (void);
 void bb_arith   (void);

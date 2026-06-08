@@ -803,6 +803,18 @@ static int pat_cset_arg(const tree_t * arg, const char ** sval_out, double * var
     { char * cs = cset_try_fold(arg); if (!cs) return 0; *sval_out = cs; *varflag_out = 0.0; return 1; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
+    IR_t * n = NULL;
+    switch (e->t) {
+    case TT_QLIT:
+        n = nalloc(cx, IR_PATTERN_LIT); if (!n) return NULL;
+        IR_LIT(n).sval = e->v.sval ? e->v.sval : "";
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    default:
+        return NULL;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     IR_t * n = NULL;
     switch (e->t) {

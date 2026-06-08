@@ -198,6 +198,8 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_match_retry.cpp \
     $(SRC)/emitter/BB_templates/bb_match_advance.cpp \
     $(SRC)/emitter/BB_templates/bb_match_capture.cpp \
+    $(SRC)/emitter/BB_templates/bb_pattern_lit.cpp \
+    $(SRC)/emitter/BB_templates/bb_pattern_stub.cpp \
     $(SRC)/emitter/BB_templates/bb_gather.cpp \
     $(SRC)/emitter/BB_templates/bb_assign_local.cpp \
     $(SRC)/emitter/XA_templates/xa_stubs.cpp \
@@ -435,6 +437,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_retry.cpp   -o $(OBJ)/bb_match_retry.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_advance.cpp -o $(OBJ)/bb_match_advance.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_lit.cpp  -o $(OBJ)/bb_pattern_lit.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_stub.cpp -o $(OBJ)/bb_pattern_stub.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
