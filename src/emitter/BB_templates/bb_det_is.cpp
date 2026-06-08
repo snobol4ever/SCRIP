@@ -64,13 +64,6 @@ static const IR_t *bdis_rhs() { return (const IR_t *)_.bb_rn; }
 static int bdis_slot()        { return (int)IR_LIT(bdis_lhs()).ival; }
 static std::string bdis_tail() { return x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bdis_const_fold(long cval) {
-    return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX DET_IS(X is const)  [PL-GZ-8: emit-time eval -> rt_pl_is_cell_int]"))
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
-         + x86("mov", "rsi", cval)
-         + x86("call", "rt_pl_is_cell_int", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_int)
-         + bdis_tail();
-}
 static std::string bdis_var_const(int rslot, const char *rop, long rc) {
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX DET_IS(X is Y op C)  [PL-GZ-8: rt_pl_is_cell_arith]"))
          + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
@@ -97,7 +90,11 @@ static std::string bb_det_is_str() {
     x86_begin();
     if (!bdis_lhs() || bdis_lhs()->op != IR_LOGICVAR) return x86_bomb("bb_det_is: lhs not LOGICVAR");
     long cval = 0;
-    if (gz_arith_const_eval(bdis_rhs(), &cval)) return bdis_const_fold(cval);
+    if (gz_arith_const_eval(bdis_rhs(), &cval)) return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX DET_IS(X is const)  [PL-GZ-8: emit-time eval -> rt_pl_is_cell_int]"))
+         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
+         + x86("mov", "rsi", cval)
+         + x86("call", "rt_pl_is_cell_int", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_int)
+         + bdis_tail();
     int rslot = -1; const char *rop = NULL; long rc = 0;
     if (gz_arith_var_plus_const(bdis_rhs(), &rslot, &rop, &rc)) return bdis_var_const(rslot, rop, rc);
     int bslot1 = -1, bslot2 = -1; const char *bop = NULL;
