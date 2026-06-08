@@ -14,7 +14,7 @@ static inline uint64_t strchr_ptr() { const char *(*fp)(const char *, int) = str
 static std::string bb_scan_many_str() {
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_many: unhandled (needs literal cset arg + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", "BOX ICN IR_SCAN_MANY many(c) [ICN-SCAN-6 fstranl.r: walk p=δ while p<Δ∧s[p]∈c; p==δ->ω; {DT_I,p+1}->slot->γ; δ untouched; β->ω]"))
+                         + x86("comment", "BOX ICN IR_SCAN_MANY many(c) [ICN-SCAN-6 fstranl.r: walk p=δ while p<Δ∧s[p]∈c; p==δ->ω.node; {DT_I,p+1}->slot->γ.node; δ untouched; β->ω.node]"))
          + x86("mov",    "eax", "r14d")
          + x86("def",    L(0))
          + x86("cmp",    "eax", "r15d")

@@ -15,7 +15,7 @@ int  bb_slot_alloc16(IR_t * nd);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * bb_chain_terminal_staged(IR_t * entry) { IR_t * n = entry; int guard = 0;
-    while (n && n->γ && n->γ->op != IR_SUCCEED && n->γ->op != IR_FAIL && guard++ < 4096) n = n->γ;
+    while (n && n->γ.node && n->γ.node->op != IR_SUCCEED && n->γ.node->op != IR_FAIL && guard++ < 4096) n = n->γ.node;
     return n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

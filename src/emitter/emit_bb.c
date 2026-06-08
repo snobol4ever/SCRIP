@@ -384,9 +384,9 @@ static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
         IR_t *cat_arms[64]; IR_t *catnd = NULL;
         int catn = gather_lowered_cat_arms(ch, cat_arms, 64, &catnd, pBB);
         if (catn >= 2)      flat_drive_cat_arms(catnd, cat_arms, catn, cap_γ, lbl_ω, lbl_β);
-        else if (ch->γ && ch->γ->op == IR_PAT_ALT) {
-            int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, ch->γ, &na);
-            if (aux && na > 0) walk_bb_flat(ch->γ, cap_γ, lbl_ω, lbl_β);
+        else if (ch->γ.node && ch->γ.node->op == IR_PAT_ALT) {
+            int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, ch->γ.node, &na);
+            if (aux && na > 0) walk_bb_flat(ch->γ.node, cap_γ, lbl_ω, lbl_β);
             else               walk_bb_flat(ch,    cap_γ, lbl_ω, lbl_β);
         }
         else walk_bb_flat(ch, cap_γ, lbl_ω, lbl_β);
@@ -440,7 +440,7 @@ static void gz_callee_labels(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *
     if (*ncallees < 8) callees[(*ncallees)++] = ce;
 }
 static void gz_collect_callees(IR_t *head, pl_gz_callee_t **callees, int *ncallees) {
-    for (IR_t *g = head; g; g = g->γ) {
+    for (IR_t *g = head; g; g = g->γ.node) {
         if (g->op == IR_CELL_CALL) {
             pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)IR_LIT(g).ival;
             if (cs) gz_callee_labels(cs->callee, callees, ncallees);
@@ -454,7 +454,7 @@ static void gz_collect_callees(IR_t *head, pl_gz_callee_t **callees, int *ncalle
 static void gz_emit_cell(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_t **callees, int *ncallees);
 static bb_label_t * gz_emit_chain(IR_t *head, bb_label_t *chain_γ, bb_label_t *chain_ω, bb_label_t *cut_ω, bb_label_t *entry, pl_gz_callee_t **callees, int *ncallees) {
     int n = 0;
-    for (IR_t *g = head; g; g = g->γ) n++;
+    for (IR_t *g = head; g; g = g->γ.node) n++;
     if (n == 0) return NULL;
     int cid = g_flat_node_id++;
     bb_label_t **cl = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -462,7 +462,7 @@ static bb_label_t * gz_emit_chain(IR_t *head, bb_label_t *chain_γ, bb_label_t *
     for (int i = 0; i < n; i++) { cl[i] = emit_label_alloc("gzi%d_g%d_α", cid, i); cb[i] = emit_label_alloc("gzi%d_g%d_β", cid, i); }
     if (entry) emit_label_define_bb(entry);
     int i = 0;
-    for (IR_t *g = head; g; g = g->γ) {
+    for (IR_t *g = head; g; g = g->γ.node) {
         emit_label_define_bb(cl[i]);
         bb_label_t *next_γ = (i + 1 < n) ? cl[i + 1] : chain_γ;
         bb_label_t *gw = (g->op == IR_CELL_CUT && cut_ω) ? cut_ω : (i == 0 ? chain_ω : cb[i - 1]);
@@ -514,14 +514,14 @@ static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *nc
     bb_label_t *cl_γ = emit_label_alloc("gzp%d_γ", cid);
     bb_label_t *cl_ω = emit_label_alloc("gzp%d_ω", cid);
     int nb[4]; int nbtot = 0;
-    for (int c = 0; c < NC; c++) { nb[c] = 0; for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ) nb[c]++; nbtot += nb[c]; }
+    for (int c = 0; c < NC; c++) { nb[c] = 0; for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ.node) nb[c]++; nbtot += nb[c]; }
     bb_label_t **pgl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nbtot > 0 ? nbtot : 1));
     bb_label_t **pgb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nbtot > 0 ? nbtot : 1));
     bb_label_t *cladv[4]; bb_label_t *redo[4]; int cbase[4];
     int j = 0;
     for (int c = 0; c < NC; c++) {
         cbase[c] = j;
-        for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ) { pgl[j] = emit_label_alloc("gzp%d_g%d_α", cid, j); pgb[j] = emit_label_alloc("gzp%d_g%d_β", cid, j); j++; }
+        for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ.node) { pgl[j] = emit_label_alloc("gzp%d_g%d_α", cid, j); pgb[j] = emit_label_alloc("gzp%d_g%d_β", cid, j); j++; }
         cladv[c] = (c + 1 < NC) ? emit_label_alloc("gzp%d_c%d_adv", cid, c) : cl_ω;
     }
     emit_label_define_bb((bb_label_t *)ce->lblA);
@@ -532,7 +532,7 @@ static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *nc
         bb_label_t *failtgt = cladv[c];                     /* last clause: cl_ω (unwind + ret 0) — the seed's fK_ω chain */
         j = cbase[c];
         int jj = 0;
-        for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ) {
+        for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ.node) {
             emit_label_define_bb(pgl[j]);
             bb_label_t *next_γ = (jj + 1 < nb[c]) ? pgl[j + 1] : cl_γ;
             bb_label_t *gw = (g->op == IR_CELL_CUT) ? cl_ω : (jj == 0 ? failtgt : pgb[j - 1]);
@@ -576,20 +576,20 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     bb_label_t *land_ω = emit_label_alloc("gzq%d_ω", id);
     bb_label_t *soft_ω = twoseg ? emit_label_alloc("gzq%d_s\xcf\x89", id) : land_ω;
     int n = 0;
-    for (IR_t *g = hd; g; g = g->γ) n++;
+    for (IR_t *g = hd; g; g = g->γ.node) n++;
     int nB = 0;
-    for (IR_t *g = twoseg ? hdB : NULL; g; g = g->γ) nB++;
+    for (IR_t *g = twoseg ? hdB : NULL; g; g = g->γ.node) nB++;
     bb_label_t **gl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **gb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **hl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nB > 0 ? nB : 1));
     bb_label_t **hb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nB > 0 ? nB : 1));
     pl_gz_callee_t *callees[8]; int ncallees = 0;
     int i = 0;
-    for (IR_t *g = hd; g; g = g->γ) {
+    for (IR_t *g = hd; g; g = g->γ.node) {
         gl[i] = emit_label_alloc("gzq%d_g%d_α", id, i); gb[i] = emit_label_alloc("gzq%d_g%d_β", id, i); i++;
     }
     i = 0;
-    for (IR_t *g = twoseg ? hdB : NULL; g; g = g->γ) {
+    for (IR_t *g = twoseg ? hdB : NULL; g; g = g->γ.node) {
         hl[i] = emit_label_alloc("gzq%d_b%d_α", id, i); hb[i] = emit_label_alloc("gzq%d_b%d_β", id, i); i++;
     }
     gz_collect_callees(hd, callees, &ncallees);
@@ -599,7 +599,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     g_emit.op_ival = IR_LIT(pBB).ival;
     FILL(pBB, (n > 0 ? gl[0] : land_γ), soft_ω, lbl_β);
     i = 0;
-    for (IR_t *g = hd; g; g = g->γ) {
+    for (IR_t *g = hd; g; g = g->γ.node) {
         emit_label_define_bb(gl[i]);
         bb_label_t *next_γ = (i + 1 < n) ? gl[i + 1] : ((twoseg && nB > 0) ? hl[0] : land_γ);
         gz_emit_cell(g, next_γ, (i == 0 ? soft_ω : gb[i - 1]), gb[i], NULL, callees, &ncallees);
@@ -612,7 +612,7 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
         g_emit.lbl_δ = bcont->name; g_emit.lbl_δ_p = bcont;
         FILL(pBB, land_γ, soft_ω, lbl_β);
         i = 0;
-        for (IR_t *g = hdB; g; g = g->γ) {
+        for (IR_t *g = hdB; g; g = g->γ.node) {
             emit_label_define_bb(hl[i]);
             bb_label_t *next_γ = (i + 1 < nB) ? hl[i + 1] : land_γ;
             gz_emit_cell(g, next_γ, (i == 0 ? land_ω : hb[i - 1]), hb[i], NULL, callees, &ncallees);
@@ -1209,7 +1209,7 @@ static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     }
     IR_t *chain[256];
     int nchain = 0;
-    for (IR_t *c = pBB->operands[0]->γ; c && nchain < 256; c = c->γ) chain[nchain++] = c;
+    for (IR_t *c = pBB->operands[0]->γ.node; c && nchain < 256; c = c->γ.node) chain[nchain++] = c;
     int npair      = nchain / 2;
     int has_default = (nchain & 1) != 0;
     int id = g_flat_node_id++;
@@ -1311,7 +1311,7 @@ static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int icn_arg_entry_terminal(IR_t *ae) {
-    return (ae && (!ae->γ || ae->γ->op == IR_SUCCEED)) ? 1 : 0;
+    return (ae && (!ae->γ.node || ae->γ.node->op == IR_SUCCEED)) ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_generator_kind(IR_e t);
@@ -1335,9 +1335,9 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-10] FATAL arg subchain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        if (c->γ && qt < CH_MAX) queue[qt++] = c->γ;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
-        { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live && c->op == IR_CALL && c->ω && qt < CH_MAX) queue[qt++] = c->ω; }
+        if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live && c->op == IR_CALL && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node; }
     }
     { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live) for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i]; }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
@@ -1351,10 +1351,10 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = succ;
         bb_label_t *node_ω = fail;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ) { node_γ = (i > k && icn_subchain_node_is_generator(nodes[k])) ? betas[k] : lbls[k]; break; }
-        if (nodes[i]->γ == NULL || nodes[i]->γ->op == IR_SUCCEED) node_γ = succ;
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ.node) { node_γ = (i > k && icn_subchain_node_is_generator(nodes[k])) ? betas[k] : lbls[k]; break; }
+        if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = succ;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω) { node_ω = lbls[k]; omega_resolved = 1; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = lbls[k]; omega_resolved = 1; break; }
         if (!omega_resolved) node_ω = fail;
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
@@ -1375,7 +1375,7 @@ static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
     IR_t *res[OP_ARG_SLOT_MAX]; int nadmit = 0;
     for (int i = 0; i < nargs; i++) {
         IR_t *ae = (subs && subs[i]) ? subs[i]->entry : NULL;
-        { int guard = 0; while (ae && (ae->op == IR_SUCCEED || ae->op == IR_FAIL) && ae->γ && guard++ < 64) ae = ae->γ; }
+        { int guard = 0; while (ae && (ae->op == IR_SUCCEED || ae->op == IR_FAIL) && ae->γ.node && guard++ < 64) ae = ae->γ.node; }
         res[i] = gvar_callarg_admit(ae) ? ae : NULL;
         if (res[i]) nadmit++;
     }
@@ -1420,10 +1420,10 @@ static void flat_drive_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t *descr_chain_terminal(IR_t *entry) {
     int guard = 0;
-    while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ && guard++ < 512) entry = entry->γ;
+    while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 512) entry = entry->γ.node;
     IR_t *last = entry;
     guard = 0;
-    while (last && last->γ && last->γ->op != IR_SUCCEED && last->γ->op != IR_FAIL && guard++ < 512) last = last->γ;
+    while (last && last->γ.node && last->γ.node->op != IR_SUCCEED && last->γ.node->op != IR_FAIL && guard++ < 512) last = last->γ.node;
     return last;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1593,10 +1593,10 @@ static const char * scan_pat_cat_concat(IR_graph_t *pg) {
     }
     if (nlit < 2 || ncat < 1) return NULL;
     size_t total = 0;
-    for (IR_t *c = pg->entry; c && c->op == IR_PAT_LIT; c = c->γ) total += IR_LIT(c).sval ? strlen(IR_LIT(c).sval) : 0;
+    for (IR_t *c = pg->entry; c && c->op == IR_PAT_LIT; c = c->γ.node) total += IR_LIT(c).sval ? strlen(IR_LIT(c).sval) : 0;
     char *buf = (char *)GC_MALLOC_ATOMIC(total + 1);
     size_t off = 0;
-    for (IR_t *c = pg->entry; c && c->op == IR_PAT_LIT; c = c->γ) { const char *s = IR_LIT(c).sval ? IR_LIT(c).sval : ""; size_t n = strlen(s); memcpy(buf + off, s, n); off += n; }
+    for (IR_t *c = pg->entry; c && c->op == IR_PAT_LIT; c = c->γ.node) { const char *s = IR_LIT(c).sval ? IR_LIT(c).sval : ""; size_t n = strlen(s); memcpy(buf + off, s, n); off += n; }
     buf[off] = 0;
     return buf;
 }
@@ -1691,7 +1691,7 @@ static int is_pat_chain_elem(IR_e t) {
 static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat_out, IR_t *stop) {
     int n = 0;
     IR_t *c = entry;
-    while (c && c != stop && is_pat_chain_elem(c->op) && n < cap) { arms[n++] = c; c = c->γ; }
+    while (c && c != stop && is_pat_chain_elem(c->op) && n < cap) { arms[n++] = c; c = c->γ.node; }
     if (n >= 2 && c && c->op == IR_PAT_CAT && bb_match_nkids(c) == 0) { if (cat_out) *cat_out = c; return n; }
     return 0;
 }
@@ -1709,10 +1709,10 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     IR_t *cat_arms[64];
     IR_t *catnd = NULL;
     int catn = gather_lowered_cat_arms(elem, cat_arms, 64, &catnd, NULL);
-    if (catn == 0 && elem->γ) {
-        IR_e gt = elem->γ->op;
+    if (catn == 0 && elem->γ.node) {
+        IR_e gt = elem->γ.node->op;
         int real_sibling = (gt != IR_SUCCEED && gt != IR_FAIL) &&
-                           (is_pat_chain_elem(gt) || (gt == IR_PAT_CAT && bb_match_nkids(elem->γ) == 0));
+                           (is_pat_chain_elem(gt) || (gt == IR_PAT_CAT && bb_match_nkids(elem->γ.node) == 0));
         if (real_sibling) {
             fprintf(stderr, "[SBB] FATAL flat_drive_match: lowered chain shape not gatherable (entry kind=%d, next kind=%d) — single-walk would silently drop siblings (PB-RB)\n", (int)elem->op, (int)gt);
             abort();
@@ -1888,12 +1888,12 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         bb_label_t *body_β = emit_label_alloc("xevery%d_body_β", id2);
         walk_bb_flat(bb_child0(pBB), body_α, lbl_γ, β);
         emit_label_define_bb(body_α);
-        if (((IR_t*)0) && ((IR_t*)0)->op == IR_ASSIGN && IR_LIT(((IR_t*)0)).ival == 1 && ((IR_t*)0)->γ) {
+        if (((IR_t*)0) && ((IR_t*)0)->op == IR_ASSIGN && IR_LIT(((IR_t*)0)).ival == 1 && ((IR_t*)0)->γ.node) {
             bb_label_t *actual_body_α = emit_label_alloc("xevery%d_abody_α", id2);
             bb_label_t *store_ω       = emit_label_alloc("xevery%d_store_ω",  id2);
             walk_bb_flat(((IR_t*)0), actual_body_α, lbl_γ, store_ω);
             emit_label_define_bb(actual_body_α);
-            walk_bb_flat(((IR_t*)0)->γ, β, β, body_β);
+            walk_bb_flat(((IR_t*)0)->γ.node, β, β, body_β);
         } else {
             walk_bb_flat(((IR_t*)0), β, β, body_β);
         }
@@ -2430,15 +2430,15 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_node_is_alt_arm(IR_t *nd) {
     if (!nd || !g_emit_cfg) return 0;
-    if (!(nd->γ && (nd->γ->op == IR_ALT || nd->γ->op == IR_PAT_ALT))) return 0;
+    if (!(nd->γ.node && (nd->γ.node->op == IR_ALT || nd->γ.node->op == IR_PAT_ALT))) return 0;
     int na = 0;
-    IR_t * const * arms = bb_operand_aux_get(g_emit_cfg, nd->γ, &na);
+    IR_t * const * arms = bb_operand_aux_get(g_emit_cfg, nd->γ.node, &na);
     for (int i = 0; i < na && arms; i++) if (arms[i] == nd) return 1;
     return 0;
 }
 static IR_t *ir_skip_alt_arms(IR_t *entry) {
     int guard = 0;
-    while (entry && ir_node_is_alt_arm(entry) && guard++ < 512) entry = entry->γ;
+    while (entry && ir_node_is_alt_arm(entry) && guard++ < 512) entry = entry->γ.node;
     return entry;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -2467,7 +2467,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
-    { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ && guard++ < CH_MAX) entry = entry->γ; }
+    { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
     entry = ir_skip_alt_arms(entry);
     queue[qt++] = entry;
     while (qh < qt) {
@@ -2478,10 +2478,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        if (c->γ && qt < CH_MAX) queue[qt++] = c->γ;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
-        if (c->op == IR_CALL && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
-        if (c->op == IR_GATHER && c->ω && qt < CH_MAX) queue[qt++] = c->ω;
+        if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if (c->op == IR_CALL && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -2495,13 +2495,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ) {
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ.node) {
             node_γ = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k];
             break;
         }
-        if (nodes[i]->γ == NULL || nodes[i]->γ->op == IR_SUCCEED) node_γ = &lbl_γ;
+        if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω) { node_ω = lbls[k]; omega_resolved = 1; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = lbls[k]; omega_resolved = 1; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
@@ -2675,7 +2675,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
     IR_t *chain[512]; int nc = 0;
     IR_t *seen[512]; int ns = 0;
     IR_t *stkv[512]; int sv = 0;
-    { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ && guard++ < 512) entry = entry->γ; }
+    { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 512) entry = entry->γ.node; }
     stkv[sv++] = entry;
     while (sv > 0 && nc < 512) {
         IR_t *c = stkv[--sv];
@@ -2683,10 +2683,10 @@ static void descr_chain_operand_refs(IR_t *entry) {
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω && sv < 512) stkv[sv++] = c->ω;
-        if (c->op == IR_CALL && c->ω && sv < 512) stkv[sv++] = c->ω;
-        if (c->op == IR_GATHER && c->ω && sv < 512) stkv[sv++] = c->ω;
-        if (c->γ && sv < 512) stkv[sv++] = c->γ;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if (c->op == IR_CALL && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }
     IR_t *stk[512]; int sp = 0;
     for (int i = 0; i < nc; i++) {
@@ -2769,14 +2769,14 @@ int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, F
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t *gvar_chain_resolve(IR_t *n) {
     int guard = 0;
-    while (n && n->op == IR_SUCCEED && n->γ != NULL && guard++ < 4096) n = n->γ;
+    while (n && n->op == IR_SUCCEED && n->γ.node != NULL && guard++ < 4096) n = n->γ.node;
     return n;
 }
 static IR_t *gvar_chain_resolve_stmt(IR_t *n) {
     int guard = 0;
     while (n && guard++ < 4096) {
-        if (n->op == IR_SUCCEED && n->γ != NULL) { n = n->γ; continue; }
-        if ((n->op == IR_SEQ || n->op == IR_SEQ_EXPR) && IR_LIT(n).dval == 1.0 && n->γ != NULL) { n = n->γ; continue; }
+        if (n->op == IR_SUCCEED && n->γ.node != NULL) { n = n->γ.node; continue; }
+        if ((n->op == IR_SEQ || n->op == IR_SEQ_EXPR) && IR_LIT(n).dval == 1.0 && n->γ.node != NULL) { n = n->γ.node; continue; }
         break;
     }
     return n;
@@ -2795,7 +2795,7 @@ static void gvar_stmt_operand_refs(IR_t *head) {
         int dup = 0; for (int i = 0; i < nc; i++) if (chain[i] == c) { dup = 1; break; }
         if (dup) break;
         chain[nc++] = c;
-        IR_t *g = c->γ;
+        IR_t *g = c->γ.node;
         if (!g || g->op == IR_SUCCEED || g->op == IR_FAIL) break;
         c = g;
     }
@@ -2833,7 +2833,7 @@ static void gvar_chain_operand_refs(IR_graph_t *g) {
     if (gvar_chain_is_real(e0)) heads[nh++] = e0;
     for (int i = 0; i < g->n && nh < 2048; i++) {
         IR_t *L = g->all[i];
-        if (!L || L->op != IR_SUCCEED || L->γ == NULL) continue;
+        if (!L || L->op != IR_SUCCEED || L->γ.node == NULL) continue;
         IR_t *h = gvar_chain_resolve(L);
         if (!gvar_chain_is_real(h)) continue;
         int dup = 0; for (int k = 0; k < nh; k++) if (heads[k] == h) { dup = 1; break; }
@@ -2841,8 +2841,8 @@ static void gvar_chain_operand_refs(IR_graph_t *g) {
     }
     for (int i = 0; i < g->n && nh < 2048; i++) {
         IR_t *L = g->all[i];
-        if (!L || !L->ω) continue;
-        IR_t *h = gvar_chain_resolve(L->ω);
+        if (!L || !L->ω.node) continue;
+        IR_t *h = gvar_chain_resolve(L->ω.node);
         if (!gvar_chain_is_real(h)) continue;
         int dup = 0; for (int k = 0; k < nh; k++) if (heads[k] == h) { dup = 1; break; }
         if (!dup) heads[nh++] = h;
@@ -2882,8 +2882,8 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[SBB] FATAL sno chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        IR_t *g = gvar_chain_resolve_stmt(c->γ);
-        IR_t *w = gvar_chain_resolve_stmt(c->ω);
+        IR_t *g = gvar_chain_resolve_stmt(c->γ.node);
+        IR_t *w = gvar_chain_resolve_stmt(c->ω.node);
         if (gvar_chain_is_real(g) && qt < CH_MAX) queue[qt++] = g;
         if (gvar_chain_is_real(w) && qt < CH_MAX) queue[qt++] = w;
     }
@@ -2898,8 +2898,8 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
-        IR_t *g = gvar_chain_resolve_stmt(nodes[i]->γ);
-        IR_t *w = gvar_chain_resolve_stmt(nodes[i]->ω);
+        IR_t *g = gvar_chain_resolve_stmt(nodes[i]->γ.node);
+        IR_t *w = gvar_chain_resolve_stmt(nodes[i]->ω.node);
         if (gvar_chain_is_real(g)) { for (int k = 0; k < n; k++) if (nodes[k] == g) { node_γ = lbls[k]; break; } }
         else if (g && g->op == IR_FAIL) node_γ = &lbl_ω;
         if (gvar_chain_is_real(w)) { for (int k = 0; k < n; k++) if (nodes[k] == w) { node_ω = lbls[k]; break; } }

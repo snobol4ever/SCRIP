@@ -72,7 +72,7 @@ static int icn_rt_arity(const IR_t *n) {
 static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     if (!g || !g->entry) return NULL;
     IR_t *chain[256]; int nc = 0;
-    for (IR_t *cur = g->entry; cur && cur->op != IR_SUCCEED && cur->op != IR_FAIL && nc < 256; cur = cur->γ) chain[nc++] = cur;
+    for (IR_t *cur = g->entry; cur && cur->op != IR_SUCCEED && cur->op != IR_FAIL && nc < 256; cur = cur->γ.node) chain[nc++] = cur;
     if (nc == 0 || nc >= 256) return NULL;
     for (int i = 0; i < nc; i++) if (chain[i]->op == IR_BINOP || chain[i]->op == IR_LIT_I || chain[i]->op == IR_LIT_S || chain[i]->op == IR_LIT_F || chain[i]->op == IR_LIT_NUL) return NULL;
     IR_t *stk[256]; int sp = 0;
@@ -140,7 +140,7 @@ static IR_t *icn_scan_lit_entry(IR_t *nd, IR_e want) {
     IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae || ae->op != want) return (IR_t *)0;
-    if (ae->γ && ae->γ->op != IR_SUCCEED) return (IR_t *)0;
+    if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return (IR_t *)0;
     return ae;
 }
 static int icn_scan_fn_lit_arg(IR_t *nd, IR_e want) {
@@ -150,7 +150,7 @@ static int icn_scan_tab_arg_ok(IR_t *nd) {
     IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae) return 0;
-    if (ae->γ && ae->γ->op != IR_SUCCEED) return 0;
+    if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
     if (ae->op == IR_LIT_I && IR_LIT(ae).ival >= 1) return 1;
     if (ae->op == IR_CALL && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval && (!strcmp(IR_LIT(ae).sval, "any") || !strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "many") || !strcmp(IR_LIT(ae).sval, "upto") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && icn_scan_fn_lit_arg(ae, IR_LIT_S)) return 1;
     return 0;
@@ -193,7 +193,7 @@ static int icn_gen_scan_body_slotful(IR_t *r) {
     IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(r).ival;
     IR_t *bt = bsg ? bsg->entry : (IR_t *)0;
     int gd = 0;
-    while (bt && bt->γ && bt->γ->op != IR_SUCCEED && bt->γ->op != IR_FAIL && gd++ < 512) bt = bt->γ;
+    while (bt && bt->γ.node && bt->γ.node->op != IR_SUCCEED && bt->γ.node->op != IR_FAIL && gd++ < 512) bt = bt->γ.node;
     if (bt && (bt->op == IR_LIT_I || bt->op == IR_LIT_S)) return 1;
     if (bt && bt->op == IR_VAR && IR_LIT(bt).sval && IR_LIT(bt).sval[0] != '&') return 1;
     if (bt && bt->op == IR_CALL && IR_LIT(bt).dval == 3.0 && IR_LIT(bt).sval && (!strcmp(IR_LIT(bt).sval, "tab") || !strcmp(IR_LIT(bt).sval, "move") || !strcmp(IR_LIT(bt).sval, "pos") || !strcmp(IR_LIT(bt).sval, "any") || !strcmp(IR_LIT(bt).sval, "match") || !strcmp(IR_LIT(bt).sval, "many") || !strcmp(IR_LIT(bt).sval, "upto") || !strcmp(IR_LIT(bt).sval, "find") || !strcmp(IR_LIT(bt).sval, "bal"))) return 1;
@@ -257,7 +257,7 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
                 IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
                 IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival;
                 if (!icn_scan_subgraph_safe(s2, gi, g, ssg, 0) || !icn_scan_subgraph_safe(s2, gi, g, bsg, 0)) return 0;
-                if (nd->γ && nd->γ->op == IR_CALL && !icn_gen_scan_body_slotful(nd)) return 0;
+                if (nd->γ.node && nd->γ.node->op == IR_CALL && !icn_gen_scan_body_slotful(nd)) return 0;
             }
             { extern int g_icn_globals_nv;
               if (nd->op == IR_VAR && IR_EXEC(nd).state == 1 && !g_icn_globals_nv) return 0;
@@ -650,7 +650,7 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
                 ir_operand_push(cu, u1m);
             }
         }
-        if (!head) head = cu; else tail->γ = cu;
+        if (!head) head = cu; else { tail->γ.node = cu; memcpy(tail->γ.sz, "α", 3); }
         tail = cu;
     }
     for (int i = ar; i < zs->ngoals; i++) {
@@ -680,7 +680,7 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
                 IR_t *ca = pl_gz_lv(kk);
                 if (!ca) return 0;
                 ir_operand_push(cu, ca); ir_operand_push(cu, a);
-                if (!head) head = cu; else tail->γ = cu;
+                if (!head) head = cu; else { tail->γ.node = cu; memcpy(tail->γ.sz, "α", 3); }
                 tail = cu;
                 cs2->args[ai] = pl_gz_lv(kk);
                 if (!cs2->args[ai]) return 0;
@@ -733,7 +733,7 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
             else { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = 0; IR_t *na = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(w0).ival, ar, lbase)); if (!na) return 0; ir_operand_push(nn, na); }
         }
         if (!nn) return 0;
-        if (!head) head = nn; else tail->γ = nn;
+        if (!head) head = nn; else { tail->γ.node = nn; memcpy(tail->γ.sz, "α", 3); }
         tail = nn;
     }
     if (!head && ce->nclauses > 1) return 0;
@@ -868,7 +868,7 @@ static int pl_gz_build_root(IR_t *root, IR_t **rhead, int *synth_next, int *cslo
     return 1;
 }
 static int pl_gz_chain_det(IR_t *head) {
-    for (IR_t *g = head; g; g = g->γ) {
+    for (IR_t *g = head; g; g = g->γ.node) {
         if (g->op == IR_CELL_CHOICE || g->op == IR_CELL_CALL) return 0;
         if (g->op == IR_CELL_ITE) {
             pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)(intptr_t)IR_LIT(g).ival;
@@ -895,14 +895,14 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         IR_t *cn = pl_gz_det_node(IR_CELL_ITE);
         if (!cn) return 0;
         IR_LIT(cn).ival = (int64_t)(intptr_t)is;
-        if (!*head) *head = cn; else (*tail)->γ = cn;
+        if (!*head) *head = cn; else { (*tail)->γ.node = cn; memcpy((*tail)->γ.sz, "α", 3); }
         *tail = cn;
         return 1;
     }
     if (gg->op == IR_FAIL) {
         IR_t *fnode = pl_gz_det_node(IR_FAIL);
         if (!fnode) return 0;
-        if (!*head) *head = fnode; else (*tail)->γ = fnode;
+        if (!*head) *head = fnode; else { (*tail)->γ.node = fnode; memcpy((*tail)->γ.sz, "α", 3); }
         *tail = fnode;
         return 1;
     }
@@ -915,7 +915,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
                 if (!cu) return 0;
                 IR_t *ca = zc->args[ai], *cb = ir_pair_arg(units[ai], 1);
                 if (ca) ir_operand_push(cu, ca); if (cb) ir_operand_push(cu, cb);
-                if (!*head) *head = cu; else (*tail)->γ = cu;
+                if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); }
                 *tail = cu;
             }
             return 1;
@@ -927,7 +927,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
             IR_t *cn = pl_gz_det_node(IR_CELL_CHOICE);
             if (!cn) return 0;
             IR_LIT(cn).ival = (int64_t)(intptr_t)st;
-            if (!*head) *head = cn; else (*tail)->γ = cn;
+            if (!*head) *head = cn; else { (*tail)->γ.node = cn; memcpy((*tail)->γ.sz, "α", 3); }
             *tail = cn;
             return 1;
         }
@@ -951,7 +951,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
             IR_t *ca = pl_gz_lv(kk);
             if (!ca) return 0;
             ir_operand_push(cu, ca); ir_operand_push(cu, a);
-            if (!*head) *head = cu; else (*tail)->γ = cu;
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); }
             *tail = cu;
             cs->args[ai] = pl_gz_lv(kk);
             if (!cs->args[ai]) return 0;
@@ -959,7 +959,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         IR_t *cn = pl_gz_det_node(IR_CELL_CALL);
         if (!cn) return 0;
         IR_LIT(cn).ival = (int64_t)(intptr_t)cs;
-        if (!*head) *head = cn; else (*tail)->γ = cn;
+        if (!*head) *head = cn; else { (*tail)->γ.node = cn; memcpy((*tail)->γ.sz, "α", 3); }
         *tail = cn;
         return 1;
     }
@@ -999,7 +999,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         return 0;
     }
     if (!nn) return 0;
-    if (!*head) *head = nn; else (*tail)->γ = nn;
+    if (!*head) *head = nn; else { (*tail)->γ.node = nn; memcpy((*tail)->γ.sz, "α", 3); }
     *tail = nn;
     return 1;
 }
@@ -1109,7 +1109,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         IR_t *cur = g->entry;
         while (cur && cur->op != IR_SUCCEED && cur->op != IR_FAIL && ng < 64) {
             if (cur->op != IR_GCONJ) goals_buf[ng++] = cur;
-            cur = cur->γ;
+            cur = cur->γ.node;
         }
     } else if (!(g->entry && g->entry->op == IR_SUCCEED)) {
         return NULL;

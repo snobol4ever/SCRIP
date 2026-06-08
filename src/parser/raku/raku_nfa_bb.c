@@ -33,12 +33,12 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
         case IR_NFA_ACCEPT:
             return pos;
         case IR_NFA_EPS:
-            return nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
+            return nfa_bt_ir_cap(s->γ.node, subj, pos, slen, depth + 1, cap, vis, stride);
         case IR_NFA_CAP_OPEN: {
             int idx = (int)IR_LIT(s).ival;
             int save_gs = -2, save_ge = -2;
             if (idx >= 0 && idx < MAX_GROUPS) { save_gs = cap->gs[idx]; save_ge = cap->ge[idx]; cap->gs[idx] = pos; cap->ge[idx] = -1; }
-            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
+            int r = nfa_bt_ir_cap(s->γ.node, subj, pos, slen, depth + 1, cap, vis, stride);
             if (r < 0 && idx >= 0 && idx < MAX_GROUPS) { cap->gs[idx] = save_gs; cap->ge[idx] = save_ge; }
             return r;
         }
@@ -46,33 +46,33 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
             int idx = (int)IR_LIT(s).ival;
             int save_ge = -2;
             if (idx >= 0 && idx < MAX_GROUPS) { save_ge = cap->ge[idx]; cap->ge[idx] = pos; }
-            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
+            int r = nfa_bt_ir_cap(s->γ.node, subj, pos, slen, depth + 1, cap, vis, stride);
             if (r < 0 && idx >= 0 && idx < MAX_GROUPS) cap->ge[idx] = save_ge;
             return r;
         }
         case IR_NFA_BOL:
-            return (pos == 0)    ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride) : -1;
+            return (pos == 0)    ? nfa_bt_ir_cap(s->γ.node, subj, pos, slen, depth + 1, cap, vis, stride) : -1;
         case IR_NFA_EOL:
-            return (pos == slen) ? nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride) : -1;
+            return (pos == slen) ? nfa_bt_ir_cap(s->γ.node, subj, pos, slen, depth + 1, cap, vis, stride) : -1;
         case IR_NFA_CHAR:
             if (pos < slen && (unsigned char)subj[pos] == (unsigned char)IR_LIT(s).ival)
-                return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap, vis, stride);
+                return nfa_bt_ir_cap(s->γ.node, subj, pos + 1, slen, depth + 1, cap, vis, stride);
             return -1;
         case IR_NFA_ANY:
             if (pos < slen && subj[pos] != '\n')
-                return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap, vis, stride);
+                return nfa_bt_ir_cap(s->γ.node, subj, pos + 1, slen, depth + 1, cap, vis, stride);
             return -1;
         case IR_NFA_CLASS: {
             const unsigned char *bits = (const unsigned char *)IR_LIT(s).sval;
             if (pos < slen && bits) {
                 unsigned char c = (unsigned char)subj[pos];
                 if ((bits[c >> 3] >> (c & 7)) & 1)
-                    return nfa_bt_ir_cap(s->γ, subj, pos + 1, slen, depth + 1, cap, vis, stride);
+                    return nfa_bt_ir_cap(s->γ.node, subj, pos + 1, slen, depth + 1, cap, vis, stride);
             }
             return -1;
         }
         case IR_NFA_SPLIT: {
-            int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
+            int r = nfa_bt_ir_cap(s->γ.node, subj, pos, slen, depth + 1, cap, vis, stride);
             if (r >= 0) return r;
             return nfa_bt_ir_cap(ir_pair_arg(s, 0), subj, pos, slen, depth + 1, cap, vis, stride);
         }
@@ -151,9 +151,9 @@ IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
     for (int i = 0; i < ns; i++) {
         IR_t *b = node[i];
         const Nfa_state *s = &st[i];
-        b->γ = NULL; b->ω = NULL;
+        b->γ.node = NULL; b->ω.node = NULL;
         IR_LIT(b).ival = 0; IR_LIT(b).sval = NULL; IR_EXEC(b).counter = 0; IR_EXEC(b).state = 0;
-        if (s->out1 != NFA_NULL && s->out1 < ns) b->γ = node[s->out1];
+        if (s->out1 != NFA_NULL && s->out1 < ns) { b->γ.node = node[s->out1]; memcpy(b->γ.sz, "α", 3); }
         if (s->kind == NK_SPLIT) {
             if (s->out2 != NFA_NULL && s->out2 < ns) ir_operand_push(b, node[s->out2]);
         }

@@ -250,7 +250,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     }
     if (g_gvar_flat_chain) {
         IR_t * fin = lf; int gg = 0;
-        while (fin && fin->γ && fin->γ->op != IR_SUCCEED && fin->γ->op != IR_FAIL && gg++ < 256) fin = fin->γ;
+        while (fin && fin->γ.node && fin->γ.node->op != IR_SUCCEED && fin->γ.node->op != IR_FAIL && gg++ < 256) fin = fin->γ.node;
         int fin_arith = arith_is_arith_binop(fin);
         IR_t * fa = NULL, * fb = NULL;
         if (fin_arith) arith_operands(sg, fin, &fa, &fb);
@@ -263,8 +263,8 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             return s;
         }
         IR_t * relnd = NULL;
-        { IR_t * rp = lf; int rg = 0; while (rp && rg++ < 256) { if (arith_is_relop(rp)) { relnd = rp; break; } if (!rp->γ || rp->γ->op == IR_SUCCEED || rp->γ->op == IR_FAIL) break; rp = rp->γ; } }
-        if (relnd && fin && fin->op == IR_LIT_I && IR_LIT(fin).ival == 1 && relnd->ω && relnd->ω->op == IR_LIT_I && IR_LIT(relnd->ω).ival == 0) {
+        { IR_t * rp = lf; int rg = 0; while (rp && rg++ < 256) { if (arith_is_relop(rp)) { relnd = rp; break; } if (!rp->γ.node || rp->γ.node->op == IR_SUCCEED || rp->γ.node->op == IR_FAIL) break; rp = rp->γ.node; } }
+        if (relnd && fin && fin->op == IR_LIT_I && IR_LIT(fin).ival == 1 && relnd->ω.node && relnd->ω.node->op == IR_LIT_I && IR_LIT(relnd->ω.node).ival == 0) {
             IR_t * ra = NULL, * rb = NULL;
             arith_operands(sg, relnd, &ra, &rb);
             if (ra && rb && arith_kind_ok(ra) && arith_kind_ok(rb)) {
@@ -378,7 +378,7 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
     for (int i = 1; i < (int)narg; i++) bb_slot_alloc16(subs[i]->entry);
     if (MEDIUM_TEXT) {
         std::string s = x86("label", _.lbl_α)
-            + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_named_proc [four-port, FAIL->ω]", fn));
+            + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_named_proc [four-port, FAIL->ω.node]", fn));
         uint64_t brm = rt_proc_byref_mask(fn);
         for (int i = 0; i < (int)narg; i++)
             s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, subs[i], argbase + i * 16, _.node, i);
@@ -437,7 +437,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     for (int i = 1; i < (int)narg; i++) if (subs && subs[i]) bb_slot_alloc16(subs[i]->entry);
     if (MEDIUM_TEXT) {
         std::string s = x86("label", _.lbl_α)
-            + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω]", fn));
+            + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
         std::string fl = emit_fmt(".Lbynamefn%d", _.nid);

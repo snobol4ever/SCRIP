@@ -221,8 +221,8 @@ typedef struct IR_graph_t IR_graph_t;
 typedef struct { IR_t * node; char sz[4]; } IR_ref_t;
 struct IR_t {
     IR_e      op;
-    IR_t       * γ;
-    IR_t       * ω;
+    IR_ref_t   γ;
+    IR_ref_t   ω;
     IR_t      ** operands;
     int          n_operands;
     int          idx;

@@ -727,7 +727,7 @@ static void bb_walk_rec(IR_t * nd, void (*visit)(IR_t *, void *), void * ctx) {
     if (g_vcount < IR_WALK_MAX) g_visited[g_vcount++] = id;
     visit(nd, ctx);
     if (nd->op != IR_SCAN) for (int i = 0; i < nd->n_operands; i++) bb_walk_rec(nd->operands[i], visit, ctx);
-    bb_walk_rec(nd->γ, visit, ctx); bb_walk_rec(nd->ω, visit, ctx);
+    bb_walk_rec(nd->γ.node, visit, ctx); bb_walk_rec(nd->ω.node, visit, ctx);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void bb_walk(IR_graph_t * cfg, void (*visit)(IR_t *, void *), void * ctx) {

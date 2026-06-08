@@ -14,8 +14,8 @@ static inline uint64_t memcmp_ptr() { int (*fp)(const void *, const void *, size
 static std::string bb_scan_match_str() {
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_match: unhandled (needs literal string arg + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", "BOX ICN IR_SCAN_MATCH match(s1) [ICN-SCAN-5 fstranl.r: Δ-δ<len->ω; memcmp(s1,Σ+δ,len) prefix; {DT_I,δ+1+len}->slot->γ; δ untouched;"
-                           " single-shot β->ω]"))
+                         + x86("comment", "BOX ICN IR_SCAN_MATCH match(s1) [ICN-SCAN-5 fstranl.r: Δ-δ<len->ω.node; memcmp(s1,Σ+δ,len) prefix; {DT_I,δ+1+len}->slot->γ.node; δ untouched;"
+                           " single-shot β->ω.node]"))
          + x86("mov",  "rax", "r15")
          + x86("sub",  "rax", "r14")
          + x86("cmp64", "rax", (long)strlen(_.op_name1))

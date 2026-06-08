@@ -14,8 +14,8 @@ static inline uint64_t substr_ptr() { DESCR_t (*fp)(const char *, int64_t, int64
 static std::string bb_scan_move_str() {
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_sa == 1)) return x86_bomb("bb_scan_move: unhandled (needs literal integer arg + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", "BOX ICN IR_SCAN_MOVE move(i) [ICN-SCAN-8 fscan.r: target=δ+1+i in [1,Δ+1] else ω; save δ->[off+16]; δ+=i; rt_icn_substr(Σ,oldδ,newδ)->slot->γ; β"
-                           " REVERSES: δ<-saved->ω]"))
+                         + x86("comment", "BOX ICN IR_SCAN_MOVE move(i) [ICN-SCAN-8 fscan.r: target=δ+1+i in [1,Δ+1] else ω; save δ->[off+16]; δ+=i; rt_icn_substr(Σ,oldδ,newδ)->slot->γ.node; β"
+                           " REVERSES: δ<-saved->ω.node]"))
          + x86("mov",  "rax", "r14")
          + x86("add",  "rax", (long)(1 + (long)_.op_sb))
          + x86("cmp64", "rax", (long)1)
