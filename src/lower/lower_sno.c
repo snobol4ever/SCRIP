@@ -812,7 +812,8 @@ static int sno_seq_is_pattern(const tree_t * e) {
     case TT_ARB: case TT_REM: case TT_BAL: case TT_ARBNO: case TT_ALT:
         return 1;
     case TT_VAR:
-        return (e->v.sval && (!strcmp(e->v.sval, "REM") || !strcmp(e->v.sval, "FAIL") || !strcmp(e->v.sval, "SUCCEED"))) ? 1 : 0;
+        return (e->v.sval && (!strcmp(e->v.sval, "REM") || !strcmp(e->v.sval, "FAIL") || !strcmp(e->v.sval, "SUCCEED") ||
+                              !strcmp(e->v.sval, "ARB") || !strcmp(e->v.sval, "FENCE") || !strcmp(e->v.sval, "ABORT"))) ? 1 : 0;
     case TT_SEQ: case TT_CAT: {
         for (int i = 0; i < e->n; i++) if (sno_seq_is_pattern(e->c[i])) return 1;
         return 0;
@@ -846,7 +847,8 @@ int sno_pattern_buildable(const tree_t * e) {
         return has_pat;
     }
     if (e->t == TT_VAR && e->v.sval &&
-        (!strcmp(e->v.sval, "FAIL") || !strcmp(e->v.sval, "REM") || !strcmp(e->v.sval, "SUCCEED")))
+        (!strcmp(e->v.sval, "FAIL") || !strcmp(e->v.sval, "REM") || !strcmp(e->v.sval, "SUCCEED") ||
+         !strcmp(e->v.sval, "ARB")  || !strcmp(e->v.sval, "FENCE") || !strcmp(e->v.sval, "ABORT")))
         return 1;
     return 0;
 }
@@ -878,6 +880,9 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
         if      (!strcmp(e->v.sval, "FAIL"))    k = IR_PATTERN_FAIL;
         else if (!strcmp(e->v.sval, "REM"))     k = IR_PATTERN_REM;
         else if (!strcmp(e->v.sval, "SUCCEED")) k = IR_PATTERN_SUCCEED;
+        else if (!strcmp(e->v.sval, "ARB"))     k = IR_PATTERN_ARB;
+        else if (!strcmp(e->v.sval, "FENCE"))   k = IR_PATTERN_FENCE;
+        else if (!strcmp(e->v.sval, "ABORT"))   k = IR_PATTERN_ABORT;
         else return NULL;
         n = nalloc(cx, k); if (!n) return NULL;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);

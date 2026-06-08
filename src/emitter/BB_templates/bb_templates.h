@@ -37,6 +37,7 @@ void bb_pattern_cat(void);
 void bb_pattern_unary_i(void);
 void bb_pattern_unary_s(void);
 void bb_pattern_nullary(void);
+void bb_pattern_arb(void);
 void bb_pattern_cat(void);
 void bb_dtp_assign(void);
 void bb_pattern_stub(const char * which);

@@ -21,6 +21,10 @@ static inline std::string  pn_alpha() {
              + x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 16]");
     if (!strcmp(pn_kind(), "SUCCEED"))
         return x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 16]");
+    if (!strcmp(pn_kind(), "FENCE"))
+        return x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 16]");
+    if (!strcmp(pn_kind(), "ABORT"))
+        return x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 8]");
     return x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 24]");
 }
 static inline std::string  pn_beta() {
@@ -29,6 +33,8 @@ static inline std::string  pn_beta() {
              + x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 24]");
     if (!strcmp(pn_kind(), "SUCCEED"))
         return x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 16]");
+    if (!strcmp(pn_kind(), "FENCE") || !strcmp(pn_kind(), "ABORT"))
+        return x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 8]");
     return x86("ins2", "jmp", "qword ptr [rip + " + pnl("_s") + " + 24]");
 }
 static inline std::string  pn_proto() {
@@ -61,6 +67,10 @@ static std::string bb_pattern_nullary_str() {
              + x86("ins2", "mov", "[r12 + " + pn_off() + " + 8], rcx")
              + x86("ins2", "lea", "rcx, [rax + 24]")
              + x86("ins2", "mov", "[r12 + " + pn_off() + " + 16], rcx")
+             + ((!strcmp(pn_kind(), "FENCE") || !strcmp(pn_kind(), "ABORT"))
+                 ? (x86("ins2", "lea", "rcx, [rax + 8]")
+                  + x86("ins2", "mov", "[r12 + " + pn_off() + " + 24], rcx"))
+                 : x86("ins2", "mov", "qword ptr [r12 + " + pn_off() + " + 24], 0"))
              + x86("jmp", "γ")
              + pn_proto()
              + x86("def", "β")
