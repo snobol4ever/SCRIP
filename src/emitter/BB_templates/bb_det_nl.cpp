@@ -9,7 +9,8 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_det_nl_str() {
     if (!PLATFORM_X86) return std::string();
-    return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX DET_NL  [PL-GZ det VALUE call]"))
+    return x86("label", _.lbl_α)
+         + x86("comment", "IR_DET_NL")
          + x86("mov32", "edi", 10L)
          + x86("call", "putchar", (uint64_t)(uintptr_t)(void *)putchar)
          + x86("jmp", "γ")
