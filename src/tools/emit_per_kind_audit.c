@@ -236,15 +236,15 @@ static void prime_child_nodes(void) {
     memset(&g_audit_child_lit_i, 0, sizeof g_audit_child_lit_i);
     memset(&g_audit_child_lit_s, 0, sizeof g_audit_child_lit_s);
     memset(&g_audit_child_var,   0, sizeof g_audit_child_var);
-    g_audit_child_lit_i.t = IR_LIT_I;
+    g_audit_child_lit_i.op = IR_LIT_I;
     g_audit_child_lit_i.ival = 42;
     g_audit_child_lit_i.α = &g_audit_child_lit_i;
     g_audit_child_lit_i.β = &g_audit_child_lit_i;
-    g_audit_child_lit_s.t = IR_LIT_S;
+    g_audit_child_lit_s.op = IR_LIT_S;
     g_audit_child_lit_s.sval = "audit_str";
     g_audit_child_lit_s.α = &g_audit_child_lit_s;
     g_audit_child_lit_s.β = &g_audit_child_lit_s;
-    g_audit_child_var.t = IR_VAR;
+    g_audit_child_var.op = IR_VAR;
     g_audit_child_var.sval = "audit_var";
     g_audit_child_var.α = &g_audit_child_var;
     g_audit_child_var.β = &g_audit_child_var;
@@ -260,7 +260,7 @@ static void prime_child_nodes(void) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     memset(nd, 0, sizeof *nd);
-    nd->t = kind;
+    nd->op = kind;
     nd->α = nd;
     nd->β = nd;
     nd->γ = NULL;
@@ -380,7 +380,7 @@ static int emit_one_cell(const char *out_dir,
     emit_io_set_sink(out);
     g_emit.node = nd;
     g_emit.sid  = 0;
-    g_emit.nid  = (int)nd->t;
+    g_emit.nid  = (int)nd->op;
     g_emit.lbl_γ = "L_succ_audit";
     g_emit.lbl_ω = "L_fail_audit";
     g_emit.lbl_β = "L_back_audit";
@@ -396,7 +396,7 @@ static int emit_one_cell(const char *out_dir,
     g_emit.op_name2 = NULL;
     g_emit.op_kind  = NULL;
     int rc;
-    if (bb_kind_is_driver_owned((int)nd->t) && be->mode != EMIT_JVM && be->mode != EMIT_JS && be->mode != EMIT_NET && be->mode != EMIT_WASM) {
+    if (bb_kind_is_driver_owned((int)nd->op) && be->mode != EMIT_JVM && be->mode != EMIT_JS && be->mode != EMIT_NET && be->mode != EMIT_WASM) {
         extern void walk_bb_flat(IR_t *, bb_label_t *, bb_label_t *, bb_label_t *);
         walk_bb_flat(nd, &s_audit_succ, &s_audit_fail, &s_audit_back);
         rc = 0;

@@ -84,7 +84,7 @@ static Term *pl_build_term_gz_r(void *frame, const void *ir_node)
     extern void *GC_malloc(size_t);
     const IR_t *nd = (const IR_t *)ir_node;
     if (!nd) return (Term *)0;
-    switch (nd->t) {
+    switch (nd->op) {
     case IR_LOGICVAR: {
         int slot = (int)IR_LIT(nd).ival;
         if (slot < 0) return (Term *)0;

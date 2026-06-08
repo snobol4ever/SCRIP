@@ -4,9 +4,9 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
             if (strcmp(fn, "copy_term") == 0 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)
-                && (ir_call_arg(pBB,0)->t == IR_STRUCT || ir_call_arg(pBB,0)->t == IR_ARITH)) {
+                && (ir_call_arg(pBB,0)->op == IR_STRUCT || ir_call_arg(pBB,0)->op == IR_ARITH)) {
                 IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-                int  a1_compound = (a1->t == IR_STRUCT || a1->t == IR_ARITH);
+                int  a1_compound = (a1->op == IR_STRUCT || a1->op == IR_ARITH);
                 std::string b;
                 b += x86("sub", "rsp", 16L);
                 if (a1_compound) {
@@ -17,7 +17,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                     b += x86("mov", "rdi", RSP(0));
                     b += x86("call", "rt_copy_term_terms", (unsigned long long)(uintptr_t)(void*)rt_copy_term_terms);
                 } else {
-                    int  k1 = (int)a1->t;
+                    int  k1 = (int)a1->op;
                     long i1 = (long)IR_LIT(a1).ival;
                     const char *s1 = (k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
                     b += x86_lit_bytes(emit_term_from_node_bin(a0));
@@ -37,7 +37,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
               || strcmp(fn,"atom_string")==0   || strcmp(fn,"string_to_atom")==0 || strcmp(fn,"copy_term")==0)
                 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
                 IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-                int  k0 = (int)a0->t,    k1 = (int)a1->t;
+                int  k0 = (int)a0->op,    k1 = (int)a1->op;
                 long i0 = (long)IR_LIT(a0).ival, i1 = (long)IR_LIT(a1).ival;
                 const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
                 const char *s1 = (k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
@@ -64,7 +64,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
                 IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
                 int  num_first = (strcmp(fn,"number_string")==0) ? 1 : 0;
-                int  k0 = (int)a0->t,    k1 = (int)a1->t;
+                int  k0 = (int)a0->op,    k1 = (int)a1->op;
                 long i0 = (long)IR_LIT(a0).ival, i1 = (long)IR_LIT(a1).ival;
                 const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
                 const char *s1 = (k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
@@ -88,7 +88,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
             if ((strcmp(fn,"atom_concat")==0 || strcmp(fn,"string_concat")==0)
                 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
                 IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
-                int  k0 = (int)a0->t,    k1 = (int)a1->t,    k2 = (int)a2->t;
+                int  k0 = (int)a0->op,    k1 = (int)a1->op,    k2 = (int)a2->op;
                 long i0 = (long)IR_LIT(a0).ival, i1 = (long)IR_LIT(a1).ival, i2 = (long)IR_LIT(a2).ival;
                 const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
                 const char *s1 = (k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
@@ -118,12 +118,12 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
               || strcmp(fn,"string_chars")==0 || strcmp(fn,"string_codes")==0)
                 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
                 IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-                int  k0 = (int)a0->t;
+                int  k0 = (int)a0->op;
                 long i0 = (long)IR_LIT(a0).ival;
                 const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
                 int  as_codes = (strcmp(fn,"atom_codes")==0 || strcmp(fn,"string_codes")==0) ? 1 : 0;
                 std::string b;
-                if (a1->t == IR_STRUCT) {
+                if (a1->op == IR_STRUCT) {
                     b += x86("sub", "rsp", 8L);
                     b += x86_lit_bytes(emit_term_from_node_bin(a1));
                     b += x86("mov", "r8", "rax");
@@ -135,7 +135,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                     b += x86("call", "rt_atom_chars_codes_term", (unsigned long long)(uintptr_t)(void*)rt_atom_chars_codes_term);
                     b += x86("add", "rsp", 8L);
                 } else {
-                    int  k1 = (int)a1->t;
+                    int  k1 = (int)a1->op;
                     long i1 = (long)IR_LIT(a1).ival;
                     const char *s1 = (k1 == IR_ATOM) ? IR_LIT(a1).sval : NULL;
                     b += x86("sub", "rsp", 16L);
@@ -157,15 +157,15 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
             }
             if (strcmp(fn,"char_type")==0 && _.op_ival==2 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
                 IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-                int  k0 = (int)a0->t;
+                int  k0 = (int)a0->op;
                 long i0 = (long)IR_LIT(a0).ival;
                 const char *s0 = (k0 == IR_ATOM) ? IR_LIT(a0).sval : NULL;
-                int  is_compound = ((a1->t == IR_STRUCT || a1->t == IR_ARITH) && IR_LIT(a1).sval) ? 1 : 0;
+                int  is_compound = ((a1->op == IR_STRUCT || a1->op == IR_ARITH) && IR_LIT(a1).sval) ? 1 : 0;
                 const char *ty = IR_LIT(a1).sval;
                 IR_t *inner = is_compound ? ir_call_arg(a1,0) : NULL;
-                int  ki = inner ? (int)inner->t : 0;
+                int  ki = inner ? (int)inner->op : 0;
                 long ii = inner ? (long)IR_LIT(inner).ival : 0;
-                const char *si = (inner && inner->t == IR_ATOM) ? IR_LIT(inner).sval : NULL;
+                const char *si = (inner && inner->op == IR_ATOM) ? IR_LIT(inner).sval : NULL;
                 std::string b;
                 b += x86("sub", "rsp", 16L);
                 b += x86("mov32", "edi", (long)k0);
@@ -192,7 +192,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
           || strcmp(fn,"string_length")==0 || strcmp(fn,"string_upper")==0  || strcmp(fn,"string_lower")==0)
             && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-            int  k0 = (int)a0->t,    k1 = (int)a1->t;
+            int  k0 = (int)a0->op,    k1 = (int)a1->op;
             long i0 = (long)IR_LIT(a0).ival, i1 = (long)IR_LIT(a1).ival;
             /* CAT-D-1 (2026-05-27): strtab_label only for nodes that genuinely carry an atom string.   */
             /* IR_LOGICVAR's sval is unionized with ival in the AST (see lower_pl.c:65 nd->sval =          */
@@ -227,9 +227,9 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                  + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
         }
         if (strcmp(fn, "copy_term") == 0 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)
-            && (ir_call_arg(pBB,0)->t == IR_STRUCT || ir_call_arg(pBB,0)->t == IR_ARITH)) {
+            && (ir_call_arg(pBB,0)->op == IR_STRUCT || ir_call_arg(pBB,0)->op == IR_ARITH)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-            int   a1_compound = (a1->t == IR_STRUCT || a1->t == IR_ARITH);
+            int   a1_compound = (a1->op == IR_STRUCT || a1->op == IR_ARITH);
             std::string b = hdr + x86("ins2", "sub", "rsp, 16");
             if (a1_compound) {
                 b += emit_build_compound_term(a0)
@@ -239,7 +239,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                    + x86("ins2", "mov", "rdi, qword ptr [rsp + 0]")
                    + x86("ins2", "call", "rt_copy_term_terms@PLT");
             } else {
-                int  k1 = (int)a1->t;
+                int  k1 = (int)a1->op;
                 long i1 = (long)IR_LIT(a1).ival;
                 char s1lbl[64]; s1lbl[0] = 0;
                 if (k1 == IR_ATOM && IR_LIT(a1).sval) strtab_label(s1lbl, sizeof s1lbl, IR_LIT(a1).sval);
@@ -259,7 +259,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
         if ((strcmp(fn,"atom_string")==0 || strcmp(fn,"string_to_atom")==0 || strcmp(fn,"copy_term")==0)
             && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-            int  k0 = (int)a0->t,    k1 = (int)a1->t;
+            int  k0 = (int)a0->op,    k1 = (int)a1->op;
             long i0 = (long)IR_LIT(a0).ival, i1 = (long)IR_LIT(a1).ival;
             char s0lbl[64]; s0lbl[0] = 0;
             char s1lbl[64]; s1lbl[0] = 0;
@@ -285,7 +285,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
             && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
             int  num_first = (strcmp(fn,"number_string")==0) ? 1 : 0;
-            int  k0 = (int)a0->t,    k1 = (int)a1->t;
+            int  k0 = (int)a0->op,    k1 = (int)a1->op;
             long i0 = (long)IR_LIT(a0).ival, i1 = (long)IR_LIT(a1).ival;
             char s0lbl[64]; s0lbl[0] = 0;
             char s1lbl[64]; s1lbl[0] = 0;
@@ -311,7 +311,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
         if ((strcmp(fn,"atom_concat")==0 || strcmp(fn,"string_concat")==0)
             && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
-            int  k0 = (int)a0->t,    k1 = (int)a1->t,    k2 = (int)a2->t;
+            int  k0 = (int)a0->op,    k1 = (int)a1->op,    k2 = (int)a2->op;
             long i0 = (long)IR_LIT(a0).ival, i1 = (long)IR_LIT(a1).ival, i2 = (long)IR_LIT(a2).ival;
             char s0lbl[64]; s0lbl[0] = 0;
             char s1lbl[64]; s1lbl[0] = 0;
@@ -343,12 +343,12 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
           || strcmp(fn,"string_chars")==0 || strcmp(fn,"string_codes")==0)
             && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-            int  k0 = (int)a0->t;
+            int  k0 = (int)a0->op;
             long i0 = (long)IR_LIT(a0).ival;
             int  as_codes = (strcmp(fn,"atom_codes")==0 || strcmp(fn,"string_codes")==0) ? 1 : 0;
             char s0lbl[64]; s0lbl[0] = 0;
             if (k0 == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
-            if (a1->t == IR_STRUCT) {
+            if (a1->op == IR_STRUCT) {
                 /* Path B: literal list in a1 — build Term* from cons-cell tree, pass as pointer. */
                 return hdr
                      + x86("ins2", "sub", "rsp, 16")
@@ -366,7 +366,7 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
                      + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
             }
             /* Path A: scalar a1 (VAR or ATOM). */
-            int  k1 = (int)a1->t;
+            int  k1 = (int)a1->op;
             long i1 = (long)IR_LIT(a1).ival;
             char s1lbl[64]; s1lbl[0] = 0;
             if (k1 == IR_ATOM && IR_LIT(a1).sval) strtab_label(s1lbl, sizeof s1lbl, IR_LIT(a1).sval);
@@ -389,18 +389,18 @@ std::string bb_atom_string_str(IR_t *pBB, const char *fn, const std::string &hdr
         }
         if (strcmp(fn,"char_type")==0 && _.op_ival==2 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-            int  k0 = (int)a0->t;
+            int  k0 = (int)a0->op;
             long i0 = (long)IR_LIT(a0).ival;
             char s0lbl[64]; s0lbl[0] = 0;
             if (k0 == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
-            int  is_compound = ((a1->t == IR_STRUCT || a1->t == IR_ARITH) && IR_LIT(a1).sval) ? 1 : 0;
+            int  is_compound = ((a1->op == IR_STRUCT || a1->op == IR_ARITH) && IR_LIT(a1).sval) ? 1 : 0;
             char tylbl[64]; tylbl[0] = 0;
             if (IR_LIT(a1).sval) strtab_label(tylbl, sizeof tylbl, IR_LIT(a1).sval);
             IR_t *inner = is_compound ? ir_call_arg(a1,0) : NULL;
-            int  ki = inner ? (int)inner->t : 0;
+            int  ki = inner ? (int)inner->op : 0;
             long ii = inner ? (long)IR_LIT(inner).ival : 0;
             char silbl[64]; silbl[0] = 0;
-            if (inner && inner->t == IR_ATOM && IR_LIT(inner).sval) strtab_label(silbl, sizeof silbl, IR_LIT(inner).sval);
+            if (inner && inner->op == IR_ATOM && IR_LIT(inner).sval) strtab_label(silbl, sizeof silbl, IR_LIT(inner).sval);
             return hdr
                  + x86("ins2", "sub", "rsp, 16")
                  + x86("ins2", "mov edi,",  std::to_string(k0))

@@ -81,14 +81,14 @@ std::string emit_build_compound_term(const IR_t *nd) {
              + x86("ins2", "xor", "ecx, ecx")
              + x86("ins2", "call", "rt_node_to_term@PLT");
     }
-    if (nd->t == IR_LIT_I || nd->t == IR_LIT_F || nd->t == IR_ATOM || nd->t == IR_LOGICVAR) {
-        return x86("ins2", "mov edi,",  std::to_string((int)nd->t))
+    if (nd->op == IR_LIT_I || nd->op == IR_LIT_F || nd->op == IR_ATOM || nd->op == IR_LOGICVAR) {
+        return x86("ins2", "mov edi,",  std::to_string((int)nd->op))
              + x86("ins2", "mov rsi,",  std::to_string((long)IR_LIT(nd).ival))
-             + IF(nd->t == IR_ATOM && IR_LIT(nd).sval, x86("ins2", "lea rdx,", briplbl(IR_LIT(nd).sval))) + IF(!(nd->t == IR_ATOM && IR_LIT(nd).sval), x86("ins2", "xor", "edx, edx"))
+             + IF(nd->op == IR_ATOM && IR_LIT(nd).sval, x86("ins2", "lea rdx,", briplbl(IR_LIT(nd).sval))) + IF(!(nd->op == IR_ATOM && IR_LIT(nd).sval), x86("ins2", "xor", "edx, edx"))
              + x86("ins2", "xor", "ecx, ecx")
              + x86("ins2", "call", "rt_node_to_term@PLT");
     }
-    if (nd->t == IR_STRUCT) {
+    if (nd->op == IR_STRUCT) {
         if ((int)IR_LIT(nd).ival <= 0 || !ir_call_arg(nd,0)) return bterm_atomform((int)IR_ATOM, IR_LIT(nd).sval);
         return x86("ins2", "sub rsp,", std::to_string(bfrm((int)IR_LIT(nd).ival)))
              + FOR(0, (int)IR_LIT(nd).ival, [&](int i) { return IF(ir_call_arg(nd, i) != NULL, emit_build_compound_term(ir_call_arg(nd, i)) + x86("ins2", "mov", bslot(i * 8))); })
@@ -98,17 +98,17 @@ std::string emit_build_compound_term(const IR_t *nd) {
              + x86("ins2", "call", "rt_compound_build_n@PLT")
              + x86("ins2", "add rsp,", std::to_string(bfrm((int)IR_LIT(nd).ival)));
     }
-    if (nd->t == IR_GOAL) return bterm_goal(nd);
-    if (nd->t == IR_ARITH) {
+    if (nd->op == IR_GOAL) return bterm_goal(nd);
+    if (nd->op == IR_ARITH) {
         if ((int)IR_LIT(nd).ival <= 0 || !ir_pair_arg(nd, 0)) return bterm_atomform((int)IR_ATOM, IR_LIT(nd).sval);
         return bterm_arith(nd);
     }
-    if (nd->t == IR_GCONJ) {
+    if (nd->op == IR_GCONJ) {
         bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)IR_LIT(nd).ival;
         if (zs && zs->goals && zs->ngoals >= 1) return emit_build_conj_chain(zs->goals, 0, zs->ngoals);
     }
-    if (nd->t == IR_BUILTIN && IR_LIT(nd).sval && bmset(IR_LIT(nd).sval) && ir_pair_arg(nd,0) && ir_pair_arg(nd,1)) return bterm_mset(nd);
-    return x86("comment", std::string("build_compound_term: unhandled kind ") + std::to_string((int)nd->t));
+    if (nd->op == IR_BUILTIN && IR_LIT(nd).sval && bmset(IR_LIT(nd).sval) && ir_pair_arg(nd,0) && ir_pair_arg(nd,1)) return bterm_mset(nd);
+    return x86("comment", std::string("build_compound_term: unhandled kind ") + std::to_string((int)nd->op));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string emit_term_from_node_bin(const IR_t *nd) {

@@ -14,9 +14,9 @@ extern "C" void rt_trail_unwind(int mark);
 extern "C" int  rt_pl_unify_cell_const(void *cell_term, int kind, long ival, const char *sval);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int cc_consts_match(const IR_t *a, const IR_t *c) {
-    if (!a || !c || a->t != c->t) return 0;
-    if (a->t == IR_LIT_I) return IR_LIT(a).ival == IR_LIT(c).ival;
-    if (a->t == IR_ATOM)  return IR_LIT(a).sval && IR_LIT(c).sval && strcmp(IR_LIT(a).sval, IR_LIT(c).sval) == 0;
+    if (!a || !c || a->op != c->op) return 0;
+    if (a->op == IR_LIT_I) return IR_LIT(a).ival == IR_LIT(c).ival;
+    if (a->op == IR_ATOM)  return IR_LIT(a).sval && IR_LIT(c).sval && strcmp(IR_LIT(a).sval, IR_LIT(c).sval) == 0;
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -28,17 +28,17 @@ static int bcch_cur_off()  { return GZ_CELL_OFF(bcch_st()->mark_slot + 1); }
 static int bcch_clause_dead(int k) {
     for (int j = 0; j < bcch_A(); j++) {
         const IR_t *a = bcch_st()->args[j], *c = bcch_st()->consts[k][j];
-        if (a && c && a->t != IR_LOGICVAR && !cc_consts_match(a, c)) return 1;
+        if (a && c && a->op != IR_LOGICVAR && !cc_consts_match(a, c)) return 1;
     }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_arg_unify(const IR_t *a, const IR_t *c, int lk, int ro_id) {
-    if (a->t != IR_LOGICVAR) return std::string();
+    if (a->op != IR_LOGICVAR) return std::string();
     return x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)IR_LIT(a).ival)))
-         + x86("mov", "esi", (long)c->t)
-         + x86("mov", "rdx", (c->t == IR_LIT_I) ? (long)IR_LIT(c).ival : 0L)
-         + (c->t == IR_ATOM ? x86_ro_load_q("rcx", ro_id) : x86("mov", "ecx", (long)0))
+         + x86("mov", "esi", (long)c->op)
+         + x86("mov", "rdx", (c->op == IR_LIT_I) ? (long)IR_LIT(c).ival : 0L)
+         + (c->op == IR_ATOM ? x86_ro_load_q("rcx", ro_id) : x86("mov", "ecx", (long)0))
          + x86("call", "rt_pl_unify_cell_const", (uint64_t)(uintptr_t)(void *)rt_pl_unify_cell_const)
          + x86("test", "eax", "eax")
          + x86("je", L(lk));
@@ -51,7 +51,7 @@ static std::string bcch_clause(int k, int *ro_id, std::string *seals) {
         const IR_t *a = bcch_st()->args[j], *c = bcch_st()->consts[k][j];
         if (!a || !c) return x86_bomb("bb_cell_choice: missing arg/const node");
         out += bcch_arg_unify(a, c, k, *ro_id);
-        if (a->t == IR_LOGICVAR && c->t == IR_ATOM) { *seals += x86_ro_seal_str(*ro_id, IR_LIT(c).sval); (*ro_id)++; }
+        if (a->op == IR_LOGICVAR && c->op == IR_ATOM) { *seals += x86_ro_seal_str(*ro_id, IR_LIT(c).sval); (*ro_id)++; }
     }
     return out + x86("jmp", "γ");
 }

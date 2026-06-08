@@ -351,7 +351,7 @@ int pl_rt_assertz(Term *clause_term, int prepend) {
     if (!body) return 0;
     Resolve_PredEntry_BB *entry = resolve_bb_lookup(key, arity);
     IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
-    if (!pred_cfg || !pred_cfg->entry || pred_cfg->entry->t != IR_CHOICE) {
+    if (!pred_cfg || !pred_cfg->entry || pred_cfg->entry->op != IR_CHOICE) {
         IR_graph_t *prior = (pred_cfg && pred_cfg->entry) ? pred_cfg : NULL;
         IR_graph_t *cg = IR_alloc(8, IR_LANG_PL);
         if (!cg) return 0;
@@ -465,7 +465,7 @@ static int pas_scope_chain(int pi, Scope **scs, int *dls, int *pis, int maxd) {
 static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, int nch);
 static void pas_rewrite_node(IR_t *nd, Scope **scs, int *dls, int *pis, int nch) {
     if (!nd) return;
-    if ((nd->t == IR_VAR || nd->t == IR_ASSIGN) && IR_LIT(nd).sval) {
+    if ((nd->op == IR_VAR || nd->op == IR_ASSIGN) && IR_LIT(nd).sval) {
         for (int c = 0; c < nch; c++) {
             int slot = scope_get(scs[c], IR_LIT(nd).sval);
             if (slot >= 0) {
@@ -473,14 +473,14 @@ static void pas_rewrite_node(IR_t *nd, Scope **scs, int *dls, int *pis, int nch)
                 int isref = (slot < pe->nparams) && ((pe->byref_mask >> slot) & 1ull);
                 IR_LIT(nd).ival = slot;
                 IR_LIT(nd).dval = (double)(dls[0] - dls[c]);
-                if (isref) nd->t = (nd->t == IR_VAR) ? IR_VAR_FRAME_REF : IR_ASSIGN_FRAME_REF;
-                else       nd->t = (nd->t == IR_VAR) ? IR_VAR_FRAME : IR_ASSIGN_FRAME;
+                if (isref) nd->op = (nd->op == IR_VAR) ? IR_VAR_FRAME_REF : IR_ASSIGN_FRAME_REF;
+                else       nd->op = (nd->op == IR_VAR) ? IR_VAR_FRAME : IR_ASSIGN_FRAME;
                 break;
             }
         }
         return;
     }
-    if (nd->t == IR_CALL && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0) && IR_EXEC(nd).counter && IR_LIT(nd).ival > 0) {
+    if (nd->op == IR_CALL && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0) && IR_EXEC(nd).counter && IR_LIT(nd).ival > 0) {
         IR_graph_t **subs = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
         for (int j = 0; j < (int) IR_LIT(nd).ival; j++) if (subs[j]) pas_rewrite_graph(subs[j], scs, dls, pis, nch);
     }

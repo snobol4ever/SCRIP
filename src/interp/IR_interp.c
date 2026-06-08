@@ -269,7 +269,7 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_single_shot(IR_t * e) {
     if (!e) return 1;
-    switch (e->t) {
+    switch (e->op) {
     case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ITERATE:
     case IR_GEN_ALT: case IR_LIMIT: case IR_GEN_BINOP: case IR_TO_NESTED:
     case IR_PROC_GEN: case IR_BINOP_GEN: case IR_ALT:
@@ -312,15 +312,15 @@ static int bb_is_gen_kind_raw(IR_e k) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e) {
     if (!e) return 0;
-    if (e->t == IR_ASSIGN || e->t == IR_ASSIGN_LIT_S || e->t == IR_ASSIGN_LIT_I || e->t == IR_ASSIGN_VAR || e->t == IR_ASSIGN_CONCAT || e->t == IR_ASSIGN_CALL) return bb_is_gen_node(((IR_t*)0));
-    return bb_is_gen_kind_raw(e->t);
+    if (e->op == IR_ASSIGN || e->op == IR_ASSIGN_LIT_S || e->op == IR_ASSIGN_LIT_I || e->op == IR_ASSIGN_VAR || e->op == IR_ASSIGN_CONCAT || e->op == IR_ASSIGN_CALL) return bb_is_gen_node(((IR_t*)0));
+    return bb_is_gen_kind_raw(e->op);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * gen_resume_target(IR_t * e) {
     if (!e) return NULL;
-    if (e->t == IR_ASSIGN || e->t == IR_ASSIGN_LIT_S || e->t == IR_ASSIGN_LIT_I || e->t == IR_ASSIGN_VAR || e->t == IR_ASSIGN_CONCAT || e->t == IR_ASSIGN_CALL) return gen_resume_target(((IR_t*)0));
-    if (bb_is_gen_kind_raw(e->t)) return e;
-    if (e->t == IR_BINOP) {
+    if (e->op == IR_ASSIGN || e->op == IR_ASSIGN_LIT_S || e->op == IR_ASSIGN_LIT_I || e->op == IR_ASSIGN_VAR || e->op == IR_ASSIGN_CONCAT || e->op == IR_ASSIGN_CALL) return gen_resume_target(((IR_t*)0));
+    if (bb_is_gen_kind_raw(e->op)) return e;
+    if (e->op == IR_BINOP) {
         int n2 = 0;
         IR_t * const * ax = bb_operand_aux_get(g_current_cfg, e, &n2);
         if (ax && n2 == 2) {
@@ -335,7 +335,7 @@ static IR_t * gen_resume_target(IR_t * e) {
 static Term *resolve_node_to_term(IR_t *bb) {
     extern Term **g_resolve_env;
     if (!bb) return NULL;
-    switch (bb->t) {
+    switch (bb->op) {
     case IR_LOGICVAR: {
         int slot = (int)IR_LIT(bb).ival;
         Term *t = (g_resolve_env && slot >= 0 && g_resolve_env[slot]) ? term_deref(g_resolve_env[slot]) : NULL;
@@ -472,7 +472,7 @@ static int resolve_term_is_proper_list(Term *t) {
 static DESCR_t resolve_arith_eval(IR_t *bb) {
     extern Term **g_resolve_env;
     if (!bb) return FAILDESCR;
-    switch (bb->t) {
+    switch (bb->op) {
     case IR_LIT_I: return INTVAL(IR_LIT(bb).ival);
     case IR_LIT_F: return REALVAL(IR_LIT(bb).dval);
     case IR_ATOM:
@@ -1672,9 +1672,9 @@ int rt_pl_is_cell(void *lhs_cell, void *rhs_node) {
 static double gz_eval_cell(void *cell, const IR_t *nd, int *ok) {
     *ok = 1;
     if (!nd) { *ok = 0; return 0.0; }
-    if (nd->t == IR_LIT_I) return (double)IR_LIT(nd).ival;
-    if (nd->t == IR_LIT_F) return IR_LIT(nd).dval;
-    if (nd->t == IR_LOGICVAR) {
+    if (nd->op == IR_LIT_I) return (double)IR_LIT(nd).ival;
+    if (nd->op == IR_LIT_F) return IR_LIT(nd).dval;
+    if (nd->op == IR_LOGICVAR) {
         Term *t = cell ? term_deref((Term *)cell) : (Term *)0;
         if (!t) { *ok = 0; return 0.0; }
         if (t->tag == TERM_INT)   return (double)t->ival;
@@ -1986,7 +1986,7 @@ static int bb_body_has_live_choice(IR_graph_t *bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t *bb = bbg->all[i];
         if (!bb) continue;
-        if (bb->t == IR_CHOICE && IR_EXEC(bb).state > 0) {
+        if (bb->op == IR_CHOICE && IR_EXEC(bb).state > 0) {
             bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(bb).ival;
             if (zc && zc->cp) {
                 int in_ledger = 0;
@@ -1995,7 +1995,7 @@ static int bb_body_has_live_choice(IR_graph_t *bbg) {
             }
             return 1;
         }
-        if (bb->t == IR_GOAL && IR_EXEC(bb).state > 0) {
+        if (bb->op == IR_GOAL && IR_EXEC(bb).state > 0) {
             bb_goal_state_t *zg = (bb_goal_state_t *)(intptr_t)IR_LIT(bb).ival;
             PlCallSt *cs = zg ? (PlCallSt *)zg->cs : NULL;
             if (!cs) return 1;
@@ -2006,7 +2006,7 @@ static int bb_body_has_live_choice(IR_graph_t *bbg) {
             for (resolve_choice *c = resolve_cp_current(); c; c = c->parent) if (c == floor_) return 1;
             continue;
         }
-        if (bb->t == IR_DISJ && IR_EXEC(bb).state > 0)
+        if (bb->op == IR_DISJ && IR_EXEC(bb).state > 0)
             return 1;
     }
     return 0;
@@ -2017,8 +2017,8 @@ static int pl_callee_disj_hint(IR_graph_t *bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t *bb = bbg->all[i];
         if (!bb) continue;
-        if (bb->t == IR_DISJ && IR_EXEC(bb).state > 0) return 1;
-        if (bb->t == IR_GOAL && IR_EXEC(bb).state > 0) {
+        if (bb->op == IR_DISJ && IR_EXEC(bb).state > 0) return 1;
+        if (bb->op == IR_GOAL && IR_EXEC(bb).state > 0) {
             bb_goal_state_t *zg = (bb_goal_state_t *)(intptr_t)IR_LIT(bb).ival;
             PlCallSt *cs = zg ? (PlCallSt *)zg->cs : NULL;
             if (cs && cs->disj_hint) return 1;
@@ -2028,12 +2028,12 @@ static int pl_callee_disj_hint(IR_graph_t *bbg) {
 }
 static int bb_body_live_choice_cut_aware(IR_graph_t *bbg) {
     if (!bbg) return 0;
-    bb_conj_state_t *zs = (bbg->entry && bbg->entry->t == IR_GCONJ) ? (bb_conj_state_t *)(intptr_t)IR_LIT(bbg->entry).ival : NULL;
+    bb_conj_state_t *zs = (bbg->entry && bbg->entry->op == IR_GCONJ) ? (bb_conj_state_t *)(intptr_t)IR_LIT(bbg->entry).ival : NULL;
     if (zs && zs->goals) {
         int cuti = -1;
-        for (int i = 0; i < zs->ngoals; i++) if (zs->goals[i] && zs->goals[i]->t == IR_CUT && IR_EXEC(zs->goals[i]).state > 0) cuti = i;
+        for (int i = 0; i < zs->ngoals; i++) if (zs->goals[i] && zs->goals[i]->op == IR_CUT && IR_EXEC(zs->goals[i]).state > 0) cuti = i;
         if (cuti >= 0) {
-            for (int i = cuti + 1; i < zs->ngoals; i++) { IR_t *p = zs->goals[i]; if (p && (p->t == IR_GOAL || p->t == IR_CHOICE || p->t == IR_DISJ) && IR_EXEC(p).state > 0) return 1; }
+            for (int i = cuti + 1; i < zs->ngoals; i++) { IR_t *p = zs->goals[i]; if (p && (p->op == IR_GOAL || p->op == IR_CHOICE || p->op == IR_DISJ) && IR_EXEC(p).state > 0) return 1; }
             return 0;
         }
     }
@@ -2045,8 +2045,8 @@ static int bb_body_cp_free_except_tail(IR_graph_t *bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t *bb = bbg->all[i];
         if (!bb) continue;
-        if (bb->t == IR_CHOICE || bb->t == IR_DISJ) return 0;
-        if (bb->t == IR_GOAL && bb->γ != NULL)     return 0;
+        if (bb->op == IR_CHOICE || bb->op == IR_DISJ) return 0;
+        if (bb->op == IR_GOAL && bb->γ != NULL)     return 0;
     }
     return 1;
 }
@@ -2071,13 +2071,13 @@ static int bb_body_single_solution(IR_graph_t *bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t *bb = bbg->all[i];
         if (!bb) continue;
-        if (bb->t == IR_CHOICE || bb->t == IR_DISJ || bb->t == IR_GOAL) return 0;
+        if (bb->op == IR_CHOICE || bb->op == IR_DISJ || bb->op == IR_GOAL) return 0;
     }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * resolve_choice_unique_indexed_body(IR_graph_t *callee, Term *first_arg) {
-    if (!callee || !callee->entry || callee->entry->t != IR_CHOICE) return NULL;
+    if (!callee || !callee->entry || callee->entry->op != IR_CHOICE) return NULL;
     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(callee->entry).ival;
     if (!zc || !zc->idx_ok || !zc->idx_key || zc->nbodies == 0) return NULL;
     long ckey = resolve_term_first_arg_key(first_arg);
@@ -2160,7 +2160,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_disj_arm_enter(IR_t * a) {
-    if (a && a->t == IR_GCONJ) {
+    if (a && a->op == IR_GCONJ) {
         bb_conj_state_t * zs = (bb_conj_state_t *)(intptr_t)IR_LIT(a).ival;
         if (zs && zs->goals && zs->ngoals > 0) return zs->goals[0];
     }
@@ -2217,7 +2217,7 @@ static void pas_loc_of_name(GenFrame *caller, const char *name, GenFrame **of, i
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * IR_interp_node(IR_t * bb) {
-    switch (bb->t) {
+    switch (bb->op) {
     case IR_LIT_I:
         IR_EXEC(bb).value = INTVAL(IR_LIT(bb).ival);
         return bb->γ;
@@ -2281,7 +2281,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_t *l_var = bb->n_operands > 0 ? bb->operands[0] : NULL;
         IR_t *r_var = bb->n_operands > 1 ? bb->operands[1] : NULL;
         if (!l_var || !r_var) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        if (l_var->t != IR_VAR || r_var->t != IR_VAR || !IR_LIT(l_var).sval || !IR_LIT(r_var).sval) {
+        if (l_var->op != IR_VAR || r_var->op != IR_VAR || !IR_LIT(l_var).sval || !IR_LIT(r_var).sval) {
             IR_EXEC(bb).value = FAILDESCR; return bb->ω;
         }
         IR_interp_node(l_var);
@@ -2429,7 +2429,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                     if (k >= np) { _f->env[slot] = NULVCL; continue; }
                     _f->env[slot] = (k < nargs) ? args[k] : NULVCL;
                     if ((bmask & (1ull << k)) && k < nargs && call_blks && call_blks[k] && call_blks[k]->entry
-                        && (call_blks[k]->entry->t == IR_VAR || call_blks[k]->entry->t == IR_VAR_FRAME || call_blks[k]->entry->t == IR_VAR_FRAME_REF) && IR_LIT(call_blks[k]->entry).sval) {
+                        && (call_blks[k]->entry->op == IR_VAR || call_blks[k]->entry->op == IR_VAR_FRAME || call_blks[k]->entry->op == IR_VAR_FRAME_REF) && IR_LIT(call_blks[k]->entry).sval) {
                         GenFrame * hf; int hs; const char * hn;
                         pas_loc_of_name(caller, IR_LIT(call_blks[k]->entry).sval, &hf, &hs, &hn);
                         _f->slotref[slot].is_ref = 1; _f->slotref[slot].frame = hf; _f->slotref[slot].slot = hs; _f->slotref[slot].name = hn;
@@ -2617,8 +2617,8 @@ IR_t * IR_interp_node(IR_t * bb) {
             DESCR_t lv, rv;
             if (aux && n_aux == 2 && aux[0] && aux[1]) {
                 if (g_current_cfg && g_current_cfg->lang == IR_LANG_ICN) {
-                    if (aux[0]->t == IR_VAR || aux[0]->t == IR_KEYWORD) IR_interp_node(aux[0]);
-                    if (aux[1]->t == IR_VAR || aux[1]->t == IR_KEYWORD) IR_interp_node(aux[1]);
+                    if (aux[0]->op == IR_VAR || aux[0]->op == IR_KEYWORD) IR_interp_node(aux[0]);
+                    if (aux[1]->op == IR_VAR || aux[1]->op == IR_KEYWORD) IR_interp_node(aux[1]);
                 }
                 lv = IR_EXEC(aux[0]).value;
                 rv = IR_EXEC(aux[1]).value;
@@ -2679,14 +2679,14 @@ IR_t * IR_interp_node(IR_t * bb) {
                     IR_interp_node(Rc);
                     if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                 }
-                if (!l_gen && (Lc->t == IR_VAR || Lc->t == IR_KEYWORD)) {
+                if (!l_gen && (Lc->op == IR_VAR || Lc->op == IR_KEYWORD)) {
                     IR_interp_node(Lc);
                     if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                 }
             } else if (l_gen) {
                 IR_interp_node(Lc);
                 if (IS_FAIL_fn(IR_EXEC(Lc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-                if (Rc->t == IR_VAR || Rc->t == IR_KEYWORD) {
+                if (Rc->op == IR_VAR || Rc->op == IR_KEYWORD) {
                     IR_interp_node(Rc);
                     if (IS_FAIL_fn(IR_EXEC(Rc).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                 }
@@ -3079,7 +3079,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         int ci = (int)IR_EXEC(bb).counter;
         IR_t * cur = ((IR_t*)0);
         for (int j = 0; j < ci && cur; j++) cur = cur->ω;
-        if (cur && ALT_IS_GEN(cur->t)) {
+        if (cur && ALT_IS_GEN(cur->op)) {
             IR_interp_node(cur);
             if (!IS_FAIL_fn(IR_EXEC(cur).value)) { IR_EXEC(bb).value = IR_EXEC(cur).value; return bb->γ; }
         }
@@ -3432,8 +3432,8 @@ IR_t * IR_interp_node(IR_t * bb) {
         if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
         const char *a = IS_NULL_fn(lv) ? "" : VARVAL_fn(lv); if (!a) a = "";
         const char *b = IS_NULL_fn(rv) ? "" : VARVAL_fn(rv); if (!b) b = "";
-        const char *raw = (bb->t == IR_CSET_UNION) ? cset_union(a, b)
-                        : (bb->t == IR_CSET_DIFF)  ? cset_diff (a, b)
+        const char *raw = (bb->op == IR_CSET_UNION) ? cset_union(a, b)
+                        : (bb->op == IR_CSET_DIFF)  ? cset_diff (a, b)
                                                    : cset_inter(a, b);
         IR_EXEC(bb).value = CSETVAL(cset_canonical(raw));
         return bb->γ;
@@ -3846,7 +3846,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             bb_reset(body_sg);
             DESCR_t bv = IR_interp_once(body_sg);
             g_current_cfg = save_cfg;
-            if (bb->t == IR_GREP) {
+            if (bb->op == IR_GREP) {
                 if (IS_FAIL_fn(bv)) continue;
                 IR_EXEC(bb).state = cur + 2;
                 IR_EXEC(bb).value = sc->items[cur];
@@ -4260,8 +4260,8 @@ IR_t * IR_interp_node(IR_t * bb) {
             (k) == IR_ITERATE || (k) == IR_LIMIT || (k) == IR_PROC_GEN || \
             (k) == IR_LIST_BANG || (k) == IR_KEY_GEN || (k) == IR_TO_BY)
         int has_dyn = (Lc && Hc);
-        int lo_gen  = has_dyn && IR_IS_GEN_KIND_TO(Lc->t);
-        int hi_gen  = has_dyn && IR_IS_GEN_KIND_TO(Hc->t);
+        int lo_gen  = has_dyn && IR_IS_GEN_KIND_TO(Lc->op);
+        int hi_gen  = has_dyn && IR_IS_GEN_KIND_TO(Hc->op);
         int64_t hi;
         if (IR_EXEC(bb).state == 0) {
             if (has_dyn) {
@@ -4658,7 +4658,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                 int nslots_lco = carity + 16;
                 Term **callee_env_lco = NULL;
                 int b3_base = g_resolve_trail.top;
-                if (_bcfg->entry && _bcfg->entry->t != IR_CHOICE && bb_body_cp_free_except_tail(_bcfg)) {
+                if (_bcfg->entry && _bcfg->entry->op != IR_CHOICE && bb_body_cp_free_except_tail(_bcfg)) {
                     callee_env_lco = calloc((size_t)nslots_lco, sizeof(Term *));
                     for (int ai = 0; ai < zc->nargs && ai < carity; ai++) {
                         if (!zc->args[ai]) continue;
@@ -4668,7 +4668,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                         if (caller_term) unify(at, caller_term, &g_resolve_trail);
                     }
                     redirect_body = _bcfg; redirect_ready = 1;
-                } else if (_bcfg->entry && _bcfg->entry->t == IR_CHOICE) {
+                } else if (_bcfg->entry && _bcfg->entry->op == IR_CHOICE) {
                     callee_env_lco = calloc((size_t)nslots_lco, sizeof(Term *));
                     for (int ai = 0; ai < zc->nargs && ai < carity; ai++) {
                         if (!zc->args[ai]) continue;
@@ -4700,7 +4700,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                         static int lco_acted_on = 0;
                         if (!lco_acted_inited) { const char *e = getenv("SCRIP_LCO_TRACE"); lco_acted_on = (e && e[0]=='2'); lco_acted_inited = 1; }
                         if (lco_acted_on) fprintf(stderr, "[LCO] ACTED %s/%d frame-reuse redirect%s\n", callee, carity,
-                                                 (_bcfg->entry && _bcfg->entry->t == IR_CHOICE) ? " (B2 indexed)" : "");
+                                                 (_bcfg->entry && _bcfg->entry->op == IR_CHOICE) ? " (B2 indexed)" : "");
                     }
                     return NULL;
                 }
@@ -5111,7 +5111,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             if (!cs || !cs[0]) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             unsigned char ch = (unsigned char)cs[0];
             int mark = trail_mark(&g_resolve_trail);
-            if (a1 && (a1->t==IR_STRUCT || a1->t==IR_ARITH) && IR_LIT(a1).sval) {
+            if (a1 && (a1->op==IR_STRUCT || a1->op==IR_ARITH) && IR_LIT(a1).sval) {
                 const char *ty = IR_LIT(a1).sval; IR_t *inner = ir_call_arg(a1,0);
                 Term *out = NULL;
                 if (strcmp(ty,"digit")==0)         { if (!isdigit(ch)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; } out=term_new_int((long)(ch-'0')); }
@@ -5358,7 +5358,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_t *b0 = ir_call_arg(bb,0);
             if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0) {
                 extern void pl_write(Term *);
-                if (b0->t == IR_ARITH && IR_LIT(b0).ival > 0) {
+                if (b0->op == IR_ARITH && IR_LIT(b0).ival > 0) {
                     Term *wt = resolve_node_to_term(b0);
                     if (wt) pl_write(term_deref(wt));
                 } else {
@@ -5508,7 +5508,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
             if (!pred_cfg || !pred_cfg->entry) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
             IR_t *choice_nd = pred_cfg->entry;
-            if (choice_nd->t != IR_CHOICE) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
+            if (choice_nd->op != IR_CHOICE) { IR_EXEC(bb).value=FAILDESCR; return bb->ω; }
             bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(choice_nd).ival;
             if (!zc) { IR_EXEC(bb).value=(do_all?INTVAL(1):FAILDESCR); return (do_all?bb->γ:bb->ω); }
             int removed=0;
@@ -5571,7 +5571,7 @@ IR_t * IR_interp_node(IR_t * bb) {
                 char key[128]; snprintf(key,sizeof key,"%s/%d",pred_name,pred_arity);
                 Resolve_PredEntry_BB *entry = resolve_bb_lookup(key, pred_arity);
                 IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
-                if (pred_cfg && pred_cfg->entry && pred_cfg->entry->t==IR_CHOICE) {
+                if (pred_cfg && pred_cfg->entry && pred_cfg->entry->op==IR_CHOICE) {
                     bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(pred_cfg->entry).ival;
                     if (zc) zc->nbodies = 0;
                 }

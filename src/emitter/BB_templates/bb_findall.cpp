@@ -4,9 +4,9 @@ extern "C" {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bff_goal(const IR_t *gn) {
-    if (gn->t != IR_FAIL && gn->t != IR_SUCCEED)
+    if (gn->op != IR_FAIL && gn->op != IR_SUCCEED)
         return emit_build_compound_term(gn);
-    char slbl[64]; strtab_label(slbl, sizeof slbl, (gn->t == IR_FAIL) ? "fail" : "true");
+    char slbl[64]; strtab_label(slbl, sizeof slbl, (gn->op == IR_FAIL) ? "fail" : "true");
     return x86("ins2", "mov",  std::string("edi, ") + std::to_string((int)IR_ATOM))
          + x86("ins2", "xor",  "rsi, rsi")
          + x86("ins2", "lea",  std::string("rdx, [rip + ") + slbl + "]")
@@ -37,7 +37,7 @@ std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             if (fs->gcfg && fs->gcfg->all) {
                 for (int gi = 0; gi < fs->gcfg->n; gi++) {
                     IR_t *cand = fs->gcfg->all[gi];
-                    if (cand && cand->t == IR_GCONJ) { gn = cand; break; }
+                    if (cand && cand->op == IR_GCONJ) { gn = cand; break; }
                 }
             }
             return hdr
