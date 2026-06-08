@@ -21,7 +21,7 @@ for f in src/emitter/BB_templates/bb_*.cpp; do
     name="$(basename "$f")"
     total_files=$((total_files + 1))
     em=$(strip "$f"    | grep -cE 'pBB->[αβγω]' || true)
-    nw=$(strip "$f"    | grep -cE '\b(lf|fin|a0|a1|arm|node)->(α|β|γ|ω|t)\b' || true)
+    nw=$(strip "$f"    | grep -cE '\b(lf|fin|a0|a1|arm|node)->(α|β|γ|ω|t|op)\b' || true)
     bs=$(strip "$f"    | grep -cE 'b\.size\(' || true)
     rb=$(strip "$f"    | grep -cE 'x86_Lrec|x86_Jrec|x86_Drec|x86_b[123]\(|bytes\(|u8\(|u32le|u64le' || true)
     mt=$(strip "$f"    | grep -c 'MEDIUM_' || true)
