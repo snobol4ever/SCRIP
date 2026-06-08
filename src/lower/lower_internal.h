@@ -5,7 +5,7 @@
 #include "lower.h"
 #include <string.h>
 /*--------------------------------------------------------------------------------------------------------------------*/
-typedef enum { ROLE_VALUE = 0, ROLE_PATTERN = 1, ROLE_GOAL = 2 } lower_role_e;
+typedef enum { ROLE_VALUE = 0, ROLE_PATTERN = 1 } lower_role_e;
 typedef struct { int count; } pl_vars_t;
 typedef struct {
     IR_graph_t * bbg;
@@ -75,7 +75,6 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
 int sno_pattern_buildable(const tree_t * e);
 IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e);
 IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
-IR_t * lower_goal(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 IR_t * lower_unhandled(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 IR_t * nalloc(lcx_t cx, IR_e kind);
 void   set_succ_fail(IR_t * n, IR_t * γ_in, IR_t * ω_in);

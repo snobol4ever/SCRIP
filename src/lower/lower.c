@@ -61,7 +61,6 @@ IR_t * lower(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR
     IR_t * r;
     switch (cx.role) {
     case ROLE_PATTERN: r = lower_pattern(cx, e, γ, ω, &aα, &aβ); break;
-    case ROLE_GOAL:    r = lower_goal(cx, e, γ, ω, &aα, &aβ); break;
     case ROLE_VALUE:
     default:           r = lower_value_shared(cx, e, γ, ω, &aα, &aβ); break;
     }
