@@ -225,6 +225,7 @@ static const char *pas_rectype_field_ptrto_by_index(const char *rn, long idx) { 
     if (idx < g_pas_rectypes[i].nf) return g_pas_rectypes[i].fldptrto[idx]; return NULL; } return NULL; }
 static void pas_recvar_add(const char *vn) { if (g_pas_nrecvar >= PAS_REC_MAX || !vn || g_pas_pend_nf == 0) return; int k = g_pas_nrecvar++; g_pas_recvars[k].vname = strdup(vn); g_pas_recvars[k].nf = g_pas_pend_nf;
     for (int i = 0; i < g_pas_pend_nf; i++) g_pas_recvars[k].fields[i] = g_pas_pend_fields[i]; }
+static void pas_recvar_add_from_type(const char *vn, const char *tn) { if (!vn || !tn) return; for (int ri = 0; ri < g_pas_nrectype; ri++) { if (!g_pas_rectypes[ri].tname || strcmp(g_pas_rectypes[ri].tname, tn)) continue; if (g_pas_nrecvar >= PAS_REC_MAX) return; int k = g_pas_nrecvar++; g_pas_recvars[k].vname = strdup(vn); g_pas_recvars[k].nf = g_pas_rectypes[ri].nf; for (int j = 0; j < g_pas_rectypes[ri].nf; j++) g_pas_recvars[k].fields[j] = g_pas_rectypes[ri].fields[j]; return; } }
 static int pas_recvar_field_index(const char *vn, const char *fn) { if (!vn || !fn) return -1; for (int i = 0; i < g_pas_nrecvar; i++) if (g_pas_recvars[i].vname && !strcmp(g_pas_recvars[i].vname, vn)) {
     for (int j = 0; j < g_pas_recvars[i].nf; j++) if (g_pas_recvars[i].fields[j] && !strcmp(g_pas_recvars[i].fields[j], fn)) return j; return -1; } return -1; }
 static const char *pas_ptrexpr_target(tree_t *e);
@@ -474,7 +475,7 @@ parameter_decl:
     PROCEDURESY id_list { $$ = $2; }
     | FUNCTIONSY id_list COLON IDENT { $$ = $2; }
     | VARSY id_list COLON IDENT { const char *_pt = pas_ptrtype_target($4); if (_pt) for (int i = 0; i < $2->count; i++) if ($2->items[i] && $2->items[i]->v.sval) pas_ptrvar_add($2->items[i]->v.sval, _pt); for (int i = 0; i < $2->count; i++) if ($2->items[i]) ast_push($2->items[i], ast_node_new(TT_SUCCEED)); $$ = $2; }
-    | id_list COLON IDENT { const char *_pt = pas_ptrtype_target($3); if (_pt) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_ptrvar_add($1->items[i]->v.sval, _pt); if (!strcmp($3, "char")) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_charvar_add($1->items[i]->v.sval); $$ = $1; }
+    | id_list COLON IDENT { const char *_pt = pas_ptrtype_target($3); if (_pt) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_ptrvar_add($1->items[i]->v.sval, _pt); if (!strcmp($3, "char")) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_charvar_add($1->items[i]->v.sval); { long long _ah = pas_arrtype_high($3); long long _nc = pas_arrtype_ncols($3); int _nf = pas_rectype_nf($3); for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type($1->items[i]->v.sval, $3); pas_array_add($1->items[i]->v.sval, (long long)(_nf - 1)); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d($1->items[i]->v.sval, _ah, _nc); else pas_array_add($1->items[i]->v.sval, _ah); } } } $$ = $1; }
     ;
 id_list:
     id_list COMMA IDENT { pnl_push($1, leaf_s(TT_VAR, $3)); $$ = $1; }
