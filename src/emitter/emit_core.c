@@ -425,13 +425,11 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_RPOS:    bb_pattern_unary_i();                                                        return 0;
     case IR_PATTERN_TAB:     bb_pattern_unary_i();                                                        return 0;
     case IR_PATTERN_RTAB:    bb_pattern_unary_i();                                                        return 0;
-    case IR_PATTERN_ARB:     bb_pattern_stub("bb_pattern_arb: builder pending (B7)");                     return 0;
-    case IR_PATTERN_REM:     bb_pattern_stub("bb_pattern_rem: builder pending (B7)");                     return 0;
-    case IR_PATTERN_BAL:     bb_pattern_stub("bb_pattern_bal: builder pending (B7)");                     return 0;
-    case IR_PATTERN_ABORT:   bb_pattern_stub("bb_pattern_abort: builder pending (B7)");                   return 0;
-    case IR_PATTERN_FENCE:   bb_pattern_stub("bb_pattern_fence: builder pending (B7)");                   return 0;
-    case IR_PATTERN_FAIL:    bb_pattern_stub("bb_pattern_fail: builder pending (B7)");                    return 0;
-    case IR_PATTERN_SUCCEED: bb_pattern_stub("bb_pattern_succeed: builder pending (B7)");                 return 0;
+    case IR_PATTERN_ARB:     bb_pattern_stub("bb_pattern_arb: builder pending (B7b)");                    return 0;
+    case IR_PATTERN_BAL:     bb_pattern_stub("bb_pattern_bal: builder pending (B7b)");                    return 0;
+    case IR_PATTERN_ABORT:   bb_pattern_stub("bb_pattern_abort: builder pending (B7b)");                  return 0;
+    case IR_PATTERN_FENCE:   bb_pattern_stub("bb_pattern_fence: builder pending (B7b)");                  return 0;
+    case IR_PATTERN_FAIL: case IR_PATTERN_REM: case IR_PATTERN_SUCCEED: bb_pattern_nullary();             return 0;
     case IR_PATTERN_ARBNO:   bb_pattern_stub("bb_pattern_arbno: builder pending (B9)");                   return 0;
     case IR_PATTERN_FENCE_P: bb_pattern_stub("bb_pattern_fence_p: builder pending (B9)");                 return 0;
     case IR_PATTERN_CAT:     bb_pattern_cat();                                                            return 0;

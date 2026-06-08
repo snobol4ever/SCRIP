@@ -811,6 +811,8 @@ static int sno_seq_is_pattern(const tree_t * e) {
     case TT_SPAN: case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_BREAKX:
     case TT_ARB: case TT_REM: case TT_BAL: case TT_ARBNO: case TT_ALT:
         return 1;
+    case TT_VAR:
+        return (e->v.sval && (!strcmp(e->v.sval, "REM") || !strcmp(e->v.sval, "FAIL") || !strcmp(e->v.sval, "SUCCEED"))) ? 1 : 0;
     case TT_SEQ: case TT_CAT: {
         for (int i = 0; i < e->n; i++) if (sno_seq_is_pattern(e->c[i])) return 1;
         return 0;
@@ -843,6 +845,9 @@ int sno_pattern_buildable(const tree_t * e) {
         }
         return has_pat;
     }
+    if (e->t == TT_VAR && e->v.sval &&
+        (!strcmp(e->v.sval, "FAIL") || !strcmp(e->v.sval, "REM") || !strcmp(e->v.sval, "SUCCEED")))
+        return 1;
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -865,6 +870,16 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
         IR_e k = (e->t == TT_ANY) ? IR_PATTERN_ANY : (e->t == TT_NOTANY) ? IR_PATTERN_NOTANY : (e->t == TT_SPAN) ? IR_PATTERN_SPAN : (e->t == TT_BREAK) ? IR_PATTERN_BREAK : IR_PATTERN_BREAKX;
         n = nalloc(cx, k); if (!n) return NULL;
         IR_LIT(n).sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    case TT_VAR: {
+        if (!e->v.sval) return NULL;
+        IR_e k;
+        if      (!strcmp(e->v.sval, "FAIL"))    k = IR_PATTERN_FAIL;
+        else if (!strcmp(e->v.sval, "REM"))     k = IR_PATTERN_REM;
+        else if (!strcmp(e->v.sval, "SUCCEED")) k = IR_PATTERN_SUCCEED;
+        else return NULL;
+        n = nalloc(cx, k); if (!n) return NULL;
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
     case TT_ALT: {
