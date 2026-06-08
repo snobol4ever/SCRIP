@@ -87,4 +87,5 @@ int    tt_to_binop(tree_e t);
 IR_t * wire_alt(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 int    tm(const tree_t * e, tree_e kind, int nargs, ...);
 int    tm_g(const tree_t * e, tree_e kind, const char * tag, int nargs, ...);
+int    kind_is_resumable(IR_e t);
 #endif
