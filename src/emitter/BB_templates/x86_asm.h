@@ -431,7 +431,7 @@ struct xop {
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_SYM };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_SYM };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -464,6 +464,9 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (!strncmp(s, "dword ptr [r12 + ", 17)) { o.kind = XK_FR32;  o.off = atoi(s + 17); return; }
     if (!strncmp(s, "qword ptr [r12 + ", 17)) { o.kind = XK_FR64;  o.off = atoi(s + 17); return; }
     if (!strncmp(s, "qword ptr [rsp + ", 17)) { o.kind = XK_RSP64; o.off = atoi(s + 17); return; }
+    if (!strncmp(s, "qword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
+      if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
+        char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP; o.off = (int)d; return; } } }
     { char ns[32]; int k = 0; for (const char * q = s; *q && k < 31; q++) if (*q != ' ') ns[k++] = *q; ns[k] = 0;
       if (!strcmp(ns, "[r13+rcx]")) { o.kind = XK_R13RCX; return; }
       if (!strcmp(ns, "[r10]"))     { o.kind = XK_R10MIR; return; } }
@@ -482,6 +485,9 @@ inline void x86_parse(const xop & x, opnd & o) {
             t = o.idx;  while (*t) { if (*t == ' ') { *t = 0; break; } t++; }
             o.kind = XK_MEMIDX8; return;
         }
+        { const char * pl = strstr(s, " + "); if (pl) { size_t bl = (size_t)(pl - (s + 1)); if (bl > 7) bl = 7;
+          char bbr[8]; memcpy(bbr, s + 1, bl); bbr[bl] = 0; char * ep = 0; long d = strtol(pl + 3, &ep, 10);
+          if (x86_is_reg(bbr) && ep && *ep == ']') { memcpy(o.base, bbr, bl + 1); o.kind = XK_REGDISP; o.off = (int)d; return; } } }
         size_t n = strlen(s);
         if (n >= 3 && s[n - 1] == ']') {
             size_t bl = n - 2; if (bl > 7) bl = 7;
@@ -550,6 +556,9 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_REG && b.kind == XK_FR32)     return x86_frame_load(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_FR64)     return x86_frame_load64(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_RSP64)    return x86_rsp_load64(a.txt, b.off);
+        if (a.kind == XK_REGDISP && b.kind == XK_REG)  return x86_reg_disp32_store64(a.base, a.off, b.txt);
+        if (a.kind == XK_REGDISP && b.kind == XK_IMM)  return x86_reg_disp32_store_imm64(a.base, a.off, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP)  return x86_reg_disp32_load64(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_MEMIDX8)  return x86_load_indexed8(a.txt, b.base, b.idx);
         if (a.kind == XK_REG && b.kind == XK_MEMIND)   return x86_load_mem64(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)  return x86_load_ro(a.txt, xd.s, xc.u);
@@ -561,9 +570,12 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "stk32")) { if (a.kind == XK_IMM && b.kind == XK_IMM) return x86_rsp_store32_imm((int)a.imm, b.imm); return std::string(); }
     if (!strcmp(mnem, "movabs")) { if (a.kind == XK_REG && xb.tag == 2) return x86_movabs_r64(a.txt, xb.u); return std::string(); }
     if (!strcmp(mnem, "xor"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
+    if (!strcmp(mnem, "ro_load_q"))   { if (a.kind == XK_REG && b.kind == XK_IMM) return x86_ro_load_q(a.txt, (int)b.imm); return std::string(); }
+    if (!strcmp(mnem, "ro_seal_str")) { return x86_ro_seal_str((int)a.imm, xb.s ? xb.s : ""); }
     if (!strcmp(mnem, "lea")) {
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)               return x86_load_ro(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && (b.kind == XK_FR32 || b.kind == XK_FR64)) return x86_frame_lea(a.txt, b.off);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP)              return x86_reg_disp32_lea64(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_R13RCX)                return x86_lea_subj_cursor(a.txt);
         if (a.kind == XK_REG && b.kind == XK_REG)                   return x86_lea_subj_cursor(a.txt);
         return std::string();
