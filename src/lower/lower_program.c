@@ -638,6 +638,7 @@ stage2_t *lower_stage2(const tree_t *prog) {
             if (bb_idx >= 0) {
                 g_stage2.proc_table[pi].bb_idx = bb_idx;
                 const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
+                g_stage2.proc_table[pi].nparams = plist ? plist->n : 0;
                 int np = g_stage2.proc_table[pi].nparams;
                 Scope *sc = &g_stage2.proc_table[pi].lower_sc;
                 sc->n = 0;
