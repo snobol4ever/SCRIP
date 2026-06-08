@@ -711,6 +711,38 @@ void rt_at_cursor(const char *varname, int cur_delta)
 extern int exec_stmt(const char *sname, DESCR_t *sv, DESCR_t pat, DESCR_t *repl, int has_repl);
 extern const char *Σ;
 extern int Σlen;
+__asm__(
+".text\n"
+".globl rt_dtp_run\n"
+"rt_dtp_run:\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  leaq 1f(%rip), %rax\n"
+"  movq %rax, 8(%rdi)\n"
+"  leaq 2f(%rip), %rax\n"
+"  movq %rax, 16(%rdi)\n"
+"  movq %rsi, %r13\n"
+"  movq %rdx, %r14\n"
+"  movq %rcx, %r15\n"
+"  movq 0(%rdi), %rax\n"
+"  jmp *%rax\n"
+"1:\n"
+"  movq %r14, %rax\n"
+"  jmp 3f\n"
+"2:\n"
+"  movq $-1, %rax\n"
+"3:\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  ret\n"
+);
+long rt_dtp_run(struct _DTP_t *h, const char *s, long delta, long Delta);
 int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
 {
     DESCR_t val = NV_GET_fn(varname ? varname : "");
@@ -726,8 +758,8 @@ int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
         return cur_delta + llen;
     }
     if (val.v == DT_P && val.p) {
-        fprintf(stderr, "[B0] BOMB rt_defer_match: DT_P arm removed (B0); native DT_P match lands at B3 (B-ladder)\n");
-        abort();
+        long nd2 = rt_dtp_run(val.p, Σ, (long)cur_delta, (long)Σlen);
+        return (nd2 >= 0) ? (int)nd2 : -1;
     }
     return -1;
 }

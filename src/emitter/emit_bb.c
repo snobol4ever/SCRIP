@@ -74,6 +74,12 @@ int bb_slot_alloc16(IR_t *nd) {
     if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
     return off;
 }
+int bb_slot_alloc24(IR_t *nd) {
+    int off = g_flat_slot_count;
+    g_flat_slot_count += 24;
+    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    return off;
+}
 int bb_slot_get(IR_t *nd) {
     for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
     return -1;
@@ -2354,6 +2360,9 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SUBJECT:    flat_drive_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_REF_INVARIANT: flat_drive_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_MATCH:  flat_drive_match(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_LIT: g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_ALT: g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; g_emit.op_sb = (nd->n_operands > 1) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_DTP_ASSIGN:  g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PROG:   flat_drive_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
         if (g_descr_flat_chain) { FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
@@ -2654,6 +2663,9 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
     case IR_RETURN: return 1;
     case IR_CALL:  return (IR_LIT(n).dval == 2.0 || IR_LIT(n).dval == 3.0 || IR_LIT(n).dval == 5.0) ? 0 : (int)IR_LIT(n).ival;
+    case IR_PATTERN_LIT: return 0;
+    case IR_PATTERN_ALT: return 2;
+    case IR_DTP_ASSIGN:  return 1;
     default:       return -1;
     }
 }

@@ -32,6 +32,8 @@ void bb_match_head   (void);
 void bb_match_retry  (void);
 void bb_match_advance(void);
 void bb_pattern_lit(void);
+void bb_pattern_alt(void);
+void bb_dtp_assign(void);
 void bb_pattern_stub(const char * which);
 void bb_match_capture(void);
 void bb_unify   (void);

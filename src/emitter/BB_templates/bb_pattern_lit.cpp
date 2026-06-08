@@ -17,7 +17,6 @@ static inline long         plitlen()     { return (long)strlen(plit()); }
 static inline const char * plitlabel()   { const char * l = emit_intern_str(plit()); if (l) return l;
                                            static char b[24]; strtab_label(b, sizeof b, plit()); return b; }
 static inline uint64_t     plitaddr()    { return (uint64_t)(uintptr_t)plit(); }
-static inline uint64_t     pcuraddr()    { return (uint64_t)(uintptr_t)(const void *)&g_pat_pool_cur; }
 static inline std::string  pb_off()      { return std::to_string((long)_.op_off); }
 static inline std::string  pb_proto() {
     return x86("label", pbl("_s"))
@@ -62,7 +61,7 @@ static std::string bb_pattern_lit_str() {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
                  + x86("comment", std::string("BOX PATTERN_LIT('") + plit() + "')  [BUILDER ζ=r12 frag@" + pb_off() + "]"))
-             + x86("mov", "rax", "[rip + __]", pcuraddr(), "g_pat_pool_cur")
+             + x86("ins2", "mov", "rax, qword ptr [rip + g_pat_pool_cur]")
              + x86("mov", "rdi", "rax")
              + x86("ins2", "mov", "ecx, " + pbl("_e") + " - " + pbl("_s"))
              + x86("ins2", "lea", "rsi, [rip + " + pbl("_s") + "]")
