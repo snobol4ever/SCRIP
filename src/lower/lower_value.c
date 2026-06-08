@@ -220,8 +220,6 @@ IR_t * v_to(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_o
     IR_t * hi = lower_program(cx, e->c[1], node  , fβ  , &tα, &tβ);
     if (!hi) return NULL;
     if (!lo->γ) lo->γ = tα;
-    IR_t * bounds[2] = { lo, hi };
-    bb_operand_aux_set(cx.bbg, node, bounds, 2);
     ir_operand_push(node, lo);
     ir_operand_push(node, hi);
     set_succ_fail(node, γ_in, ω_in);
