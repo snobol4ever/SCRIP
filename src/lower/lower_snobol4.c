@@ -1,4 +1,4 @@
-#include "lower_sno.h"
+#include "lower_snobol4.h"
 #include "ast.h"
 #include <stdio.h>
 #include <string.h>
