@@ -34,21 +34,17 @@ static long dcm_r_ival()      { return (!dcm_r_var() && dcm_ra()->op == IR_LIT_I
 static int  dcm_both_lit_i()  { return dcm_la()->op == IR_LIT_I && dcm_ra()->op == IR_LIT_I; }
 static int  dcm_fold_result() { return gz_cmp_fold(dcm_op(), (long)IR_LIT(dcm_la()).ival, (long)IR_LIT(dcm_ra()).ival); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string dcm_const_fold() {
-    return IF(MEDIUM_TEXT,
-               x86("label", _.lbl_α)
-             + x86("comment", std::string("BOX DET_CMP(") + dcm_op() + ")  [PL-GZ-8: emit-time const fold -> " + (dcm_fold_result()?"γ":"ω") + "]"))
-         + x86("jmp", dcm_fold_result() ? "γ" : "ω")
-         + x86("def", "β")
-         + x86("jmp", "ω");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_det_cmp_str() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     if (!dcm_is_arith(dcm_op())) return x86_bomb("bb_det_cmp: term-order cmp not yet supported in GZ");
     if (!dcm_la() || !dcm_ra()) return x86_bomb("bb_det_cmp: null operand");
-    if (dcm_both_lit_i()) return dcm_const_fold();
+    if (dcm_both_lit_i()) return IF(MEDIUM_TEXT,
+               x86("label", _.lbl_α)
+             + x86("comment", std::string("BOX DET_CMP(") + dcm_op() + ")  [PL-GZ-8: emit-time const fold -> " + (dcm_fold_result()?"γ":"ω") + "]"))
+         + x86("jmp", dcm_fold_result() ? "γ" : "ω")
+         + x86("def", "β")
+         + x86("jmp", "ω");
     return IF(MEDIUM_TEXT,
                x86("label", _.lbl_α)
              + x86("comment", std::string("BOX DET_CMP(") + dcm_op() + ")  [PL-GZ-8: rt_pl_arith_cmp_cell_val]"))
