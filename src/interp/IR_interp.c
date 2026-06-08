@@ -2504,15 +2504,6 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->ω;
     }
     case IR_SEQ: {
-        if (g_current_cfg && g_current_cfg->lang == IR_LANG_RKU && bb->α && bb->α->t == IR_SUSPEND) {
-            IR_t * child = bb->α;
-            for (int64_t k = 0; k < IR_EXEC(bb).counter && child; k++) child = child->γ;
-            IR_EXEC(bb).counter++;
-            if (!child || child->t != IR_SUSPEND) { IR_EXEC(bb).value = FAILDESCR; return NULL; }
-            if (child->α) { IR_interp_node(child->α); IR_EXEC(bb).value = IR_EXEC(child->α).value; }
-            else IR_EXEC(bb).value = NULVCL;
-            return NULL;
-        }
         if (IR_LIT(bb).dval == 1.0) {
             IR_graph_t * lblk = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
             IR_graph_t * rblk = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
@@ -2528,7 +2519,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             return bb->γ;
         }
         IR_EXEC(bb).value = NULVCL;
-        return bb->α;
+        return NULL;
     }
     case IR_SEQ_EXPR: {
         if (!bb->α) { IR_EXEC(bb).value = NULVCL; return bb->γ; }

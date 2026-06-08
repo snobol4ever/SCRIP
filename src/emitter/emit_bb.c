@@ -918,62 +918,11 @@ void bb_prepare(IR_t *nd) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static bb_label_t *seq_node_label(IR_t **nodes, bb_label_t **lbls, int n, IR_t *tgt, bb_label_t *falloff) {
-    if (!tgt) return falloff;
-    for (int i = 0; i < n; i++) if (nodes[i] == tgt) return lbls[i];
-    return falloff;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    IR_t *first = pBB ? pBB->α : NULL;
-    if (!first) {
-        EMIT_PAIR_RESET();
-        EMIT_PAIR_JMP(lbl_γ);
-        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
-        return;
-    }
-    enum { SEQ_MAX = 512 };
-    IR_t *nodes[SEQ_MAX];
-    int n = 0;
-    IR_t *queue[SEQ_MAX];
-    int qh = 0, qt = 0;
-    queue[qt++] = first;
-    while (qh < qt) {
-        IR_t *c = queue[qh++];
-        if (!c) continue;
-        int seen = 0;
-        for (int i = 0; i < n; i++) if (nodes[i] == c) { seen = 1; break; }
-        if (seen) continue;
-        if (n >= SEQ_MAX) {
-            fprintf(stderr, "[IBB] FATAL flat_drive_seq: CFG exceeds SEQ_MAX nodes\n");
-            abort();
-        }
-        nodes[n++] = c;
-        if (c->t == IR_SUSPEND) {
-            fprintf(stderr, "[IBB] FATAL flat_drive_seq: gather-multi-yield (IR_SUSPEND child) not yet flat-wired\n");
-            abort();
-        }
-        if (c->γ && qt < SEQ_MAX) queue[qt++] = c->γ;
-        if (c->t == IR_IF && c->ω && qt < SEQ_MAX) queue[qt++] = c->ω;
-    }
-    int id = g_flat_node_id++;
-    bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
-    bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
-    for (int i = 0; i < n; i++) {
-        lbls[i]  = emit_label_alloc("xseq%d_n%d_α", id, i);
-        betas[i] = emit_label_alloc("xseq%d_n%d_β", id, i);
-    }
-    for (int i = 0; i < n; i++) {
-        emit_label_define_bb(lbls[i]);
-        bb_label_t *node_γ = seq_node_label(nodes, lbls, n, nodes[i]->γ, lbl_γ);
-        bb_label_t *node_ω = (nodes[i]->t == IR_IF)
-            ? seq_node_label(nodes, lbls, n, nodes[i]->ω, lbl_γ)
-            : lbl_ω;
-        walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
-    }
-    emit_label_define_bb(lbl_β);
-    emit_jmp_label(lbl_ω, JMP_JMP);
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_JMP(lbl_γ);
+    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_e binop_slot_kind(IR_t *nd) {
