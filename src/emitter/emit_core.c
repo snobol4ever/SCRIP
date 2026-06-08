@@ -434,7 +434,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_SUCCEED: bb_pattern_stub("bb_pattern_succeed: builder pending (B7)");                 return 0;
     case IR_PATTERN_ARBNO:   bb_pattern_stub("bb_pattern_arbno: builder pending (B9)");                   return 0;
     case IR_PATTERN_FENCE_P: bb_pattern_stub("bb_pattern_fence_p: builder pending (B9)");                 return 0;
-    case IR_PATTERN_CAT:     bb_pattern_stub("bb_pattern_cat: stitch pending (B6)");                      return 0;
+    case IR_PATTERN_CAT:     bb_pattern_cat();                                                            return 0;
     case IR_PATTERN_ALT:     bb_pattern_alt();                                                            return 0;
     case IR_PATTERN_CAPTURE: bb_pattern_stub("bb_pattern_capture: builder pending (B8)");                 return 0;
     case IR_PATTERN_DEFER:   bb_pattern_stub("bb_pattern_defer: builder pending (B10)");                  return 0;

@@ -803,6 +803,23 @@ static int pat_cset_arg(const tree_t * arg, const char ** sval_out, double * var
     { char * cs = cset_try_fold(arg); if (!cs) return 0; *sval_out = cs; *varflag_out = 0.0; return 1; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int sno_seq_is_pattern(const tree_t * e) {
+    if (!e) return 0;
+    switch (e->t) {
+    case TT_LEN: case TT_POS: case TT_RPOS: case TT_TAB: case TT_RTAB:
+    case TT_SPAN: case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_BREAKX:
+    case TT_ARB: case TT_REM: case TT_BAL: case TT_ARBNO: case TT_ALT:
+        return 1;
+    case TT_SEQ: case TT_CAT: {
+        for (int i = 0; i < e->n; i++) if (sno_seq_is_pattern(e->c[i])) return 1;
+        return 0;
+    }
+    default:
+        return 0;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int sno_pattern_buildable(const tree_t * e) {
     if (!e) return 0;
     if (e->t == TT_QLIT) return 1;
@@ -814,6 +831,17 @@ int sno_pattern_buildable(const tree_t * e) {
         if (e->n < 2) return 0;
         for (int i = 0; i < e->n; i++) if (!sno_pattern_buildable(e->c[i])) return 0;
         return 1;
+    }
+    if (e->t == TT_SEQ || e->t == TT_CAT) {
+        const tree_t * kids[64];
+        int nk = flatten_seq(e, e->t, kids, 64);
+        if (nk < 1) return 0;
+        int has_pat = 0;
+        for (int i = 0; i < nk; i++) {
+            if (!sno_pattern_buildable(kids[i])) return 0;
+            if (sno_seq_is_pattern(kids[i])) has_pat = 1;
+        }
+        return has_pat;
     }
     return 0;
 }
@@ -853,6 +881,28 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
             ir_operand_push(a, acc); ir_operand_push(a, k);
             a->ω = ω_in;
             prev->γ = a; prev = a; acc = a;
+        }
+        prev->γ = NULL;
+        set_succ_fail(prev, γ_in, ω_in);
+        return ret(prev, α_out, β_out, headα, ω_in);
+    }
+    case TT_SEQ: case TT_CAT: {
+        const tree_t * kids[64];
+        int nk = flatten_seq(e, e->t, kids, 64);
+        if (nk < 1) return NULL;
+        if (nk == 1) return lower_pattern_build(cx, kids[0], γ_in, ω_in, α_out, β_out);
+        IR_t * headα = NULL; IR_t * prev = NULL; IR_t * acc = NULL;
+        for (int i = 0; i < nk; i++) {
+            IR_t * kα = NULL, * kβ = NULL;
+            IR_t * k = lower_pattern_build(cx, kids[i], NULL, ω_in, &kα, &kβ);
+            if (!k) return NULL;
+            if (prev) prev->γ = kα; else headα = kα;
+            prev = k;
+            if (i == 0) { acc = k; continue; }
+            IR_t * c = nalloc(cx, IR_PATTERN_CAT); if (!c) return NULL;
+            ir_operand_push(c, acc); ir_operand_push(c, k);
+            c->ω = ω_in;
+            prev->γ = c; prev = c; acc = c;
         }
         prev->γ = NULL;
         set_succ_fail(prev, γ_in, ω_in);
