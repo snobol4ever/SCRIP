@@ -33,6 +33,7 @@ void bb_match_retry  (void);
 void bb_match_advance(void);
 void bb_pattern_lit(void);
 void bb_pattern_alt(void);
+void bb_pattern_cat(void);
 void bb_pattern_unary_i(void);
 void bb_pattern_unary_s(void);
 void bb_dtp_assign(void);
