@@ -497,8 +497,8 @@ inline void x86_parse(const xop & x, opnd & o) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) {
     opnd a, b; x86_parse(xa, a); x86_parse(xb, b);
-    if (!strcmp(mnem, "label"))     return MEDIUM_BINARY ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
-    if (!strcmp(mnem, "comment"))   return MEDIUM_BINARY ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
+    if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
+    if (!strcmp(mnem, "comment"))   return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "ins1"))      return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
