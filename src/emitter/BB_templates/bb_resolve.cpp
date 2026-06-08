@@ -49,7 +49,7 @@ static std::string bterm_goal(const IR_t *nd) { bb_goal_state_t *zc = (bb_goal_s
             + x86("ins2", "call", "rt_compound_build_n@PLT")
             + x86("ins2", "add rsp,", std::to_string(bfrm(arity))));
 }
-static std::string bterm_arith(const IR_t *nd) { int arity = (int)IR_LIT(nd).ival; const IR_t *o0 = nd->α; const IR_t *o1 = (arity >= 2) ? nd->β : NULL;
+static std::string bterm_arith(const IR_t *nd) { int arity = (int)IR_LIT(nd).ival; const IR_t *o0 = ir_pair_arg(nd, 0); const IR_t *o1 = (arity >= 2) ? ir_pair_arg(nd, 1) : NULL;
     return x86("ins2", "sub rsp,", std::to_string(bfrm(arity)))
          + IF(o0 != NULL, emit_build_compound_term(o0) + x86("ins2", "mov", bslot(0)))
          + IF(o0 != NULL && arity >= 2 && o1 != NULL, emit_build_compound_term(o1) + x86("ins2", "mov", bslot(8)))
@@ -100,7 +100,7 @@ std::string emit_build_compound_term(const IR_t *nd) {
     }
     if (nd->t == IR_GOAL) return bterm_goal(nd);
     if (nd->t == IR_ARITH) {
-        if ((int)IR_LIT(nd).ival <= 0 || !nd->α) return bterm_atomform((int)IR_ATOM, IR_LIT(nd).sval);
+        if ((int)IR_LIT(nd).ival <= 0 || !ir_pair_arg(nd, 0)) return bterm_atomform((int)IR_ATOM, IR_LIT(nd).sval);
         return bterm_arith(nd);
     }
     if (nd->t == IR_GCONJ) {
