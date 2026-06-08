@@ -269,6 +269,15 @@ void rt_gvar_assign_str(const char *name, const char *str)
     NV_SET_fn(name ? name : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_gvar_assign_pat(const char *name, void *head)
+{
+    DESCR_t d;
+    d.v    = DT_P;
+    d.slen = 0;
+    d.p    = (struct _DTP_t *)head;
+    NV_SET_fn(name ? name : "", d);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_int(const char *name, int64_t val)
 {
     DESCR_t d;

@@ -14,18 +14,19 @@ extern "C" int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, con
 static int gz_arith_const_eval(const IR_t *nd, long *out) {
     if (!nd) return 0;
     if (nd->t == IR_LIT_I) { *out = (long)IR_LIT(nd).ival; return 1; }
-    if (nd->t != IR_ARITH || !nd->α) return 0;
+    const IR_t *a0 = ir_pair_arg(nd, 0), *a1 = ir_pair_arg(nd, 1);
+    if (nd->t != IR_ARITH || !a0) return 0;
     const char *op = IR_LIT(nd).sval ? IR_LIT(nd).sval : "+";
-    if (!nd->β) {
+    if (!a1) {
         long a = 0;
-        if (!gz_arith_const_eval(nd->α, &a)) return 0;
+        if (!gz_arith_const_eval(a0, &a)) return 0;
         if (strcmp(op,"-")==0) { *out = -a; return 1; }
         if (strcmp(op,"+")==0) { *out =  a; return 1; }
         if (strcmp(op,"abs")==0) { *out = (a<0)?-a:a; return 1; }
         return 0;
     }
     long a = 0, b = 0;
-    if (!gz_arith_const_eval(nd->α, &a) || !gz_arith_const_eval(nd->β, &b)) return 0;
+    if (!gz_arith_const_eval(a0, &a) || !gz_arith_const_eval(a1, &b)) return 0;
     if (strcmp(op,"+")==0) { *out = a+b; return 1; }
     if (strcmp(op,"-")==0) { *out = a-b; return 1; }
     if (strcmp(op,"*")==0) { *out = a*b; return 1; }
@@ -36,21 +37,23 @@ static int gz_arith_const_eval(const IR_t *nd, long *out) {
 static int gz_arith_var_plus_const(const IR_t *nd, int *var_slot, const char **op_out, long *c_out) {
     if (!nd) return 0;
     if (nd->t == IR_LOGICVAR) { *var_slot = (int)IR_LIT(nd).ival; *op_out = NULL; *c_out = 0; return 1; }
-    if (nd->t != IR_ARITH || !IR_LIT(nd).sval || !nd->α || !nd->β) return 0;
+    const IR_t *p0 = ir_pair_arg(nd, 0), *p1 = ir_pair_arg(nd, 1);
+    if (nd->t != IR_ARITH || !IR_LIT(nd).sval || !p0 || !p1) return 0;
     const char *op = IR_LIT(nd).sval;
     if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
-        if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_LIT_I) {
-            *var_slot = (int)IR_LIT(nd->α).ival; *op_out = op; *c_out = (long)IR_LIT(nd->β).ival; return 1;
+        if (p0->t == IR_LOGICVAR && p1->t == IR_LIT_I) {
+            *var_slot = (int)IR_LIT(p0).ival; *op_out = op; *c_out = (long)IR_LIT(p1).ival; return 1;
         }
     }
     return 0;
 }
 static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char **op_out) {
-    if (!nd || nd->t != IR_ARITH || !IR_LIT(nd).sval || !nd->α || !nd->β) return 0;
+    const IR_t *b0 = ir_pair_arg(nd, 0), *b1 = ir_pair_arg(nd, 1);
+    if (!nd || nd->t != IR_ARITH || !IR_LIT(nd).sval || !b0 || !b1) return 0;
     const char *op = IR_LIT(nd).sval;
     if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
-        if (nd->α->t == IR_LOGICVAR && nd->β->t == IR_LOGICVAR) {
-            *slot1 = (int)IR_LIT(nd->α).ival; *slot2 = (int)IR_LIT(nd->β).ival; *op_out = op; return 1;
+        if (b0->t == IR_LOGICVAR && b1->t == IR_LOGICVAR) {
+            *slot1 = (int)IR_LIT(b0).ival; *slot2 = (int)IR_LIT(b1).ival; *op_out = op; return 1;
         }
     }
     return 0;

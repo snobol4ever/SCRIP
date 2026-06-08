@@ -90,9 +90,7 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid);
 static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void arith_operands(IR_graph_t * sg, IR_t * nd, IR_t ** a, IR_t ** b) {
-    *a = nd ? nd->α : NULL; *b = nd ? nd->β : NULL;
-    if (*a == nd) *a = NULL;
-    if (*b == nd) *b = NULL;
+    *a = ir_pair_arg(nd, 0); *b = ir_pair_arg(nd, 1);
     if (nd && (!*a || !*b) && sg) { int n = 0; IR_t * const * aux = bb_operand_aux_get(sg, nd, &n); if (aux && n >= 2) { *a = aux[0]; *b = aux[1]; } }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
