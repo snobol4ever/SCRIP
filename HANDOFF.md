@@ -1,65 +1,101 @@
-# HANDOFF — 10th run (Claude Sonnet 4.6, 2026-06-06)
+# HANDOFF — 11th run (Claude Sonnet 4.6, 2026-06-08)
 
 ## Repo state
-- Branch: `main`, HEAD: `a288fda`
-- Build: CLEAN (`make scrip` → `Built: scrip`)
+- Branch: `main`, HEAD: `1eef039`
+- Build: CLEAN (`make scrip` + `make libscrip_rt` → both green)
 - All standing gates: GREEN
-  - smoke PASS=7 FAIL=0
-  - pat rung PASS-M4=18 FAIL=0 SKIP=1 (053 known)
-  - bb_bin_t abolished
-  - vstack refs 3 (target 0, no regression)
-  - purity 2 known side-effects (bb_call_write_slot, bb_every — unchanged)
+  - smoke m2 PASS=5 FAIL=0 (HARD GATE)
+  - smoke m3 PASS=4 FAIL=1 (arith: BINARY path unresolved-fwd-ref, pre-existing)
+  - smoke m4 PASS=4 FAIL=1 (same)
+  - GATE-3 m2=114/115  m3=25/90-FAIL  m4=50/55-FAIL (ratchet floors: m3≥25, m4≥50)
+  - PL-HY-FENCE PASS
+  - g_vstack 0
+  - seg_byte/SL_B outside templates 0
+  - `g_resolve_env` in IR_interp.c | grep rt_is == 0
+  - `rt_is@PLT|rt_is_lint@PLT` in bb_is_cmp.cpp == 0
 
-## Rank
-- Session open:  80 dirty / 24 clean, 1247 violations
-- Session close: 70 dirty / 34 clean, 1145 violations
-- Net: +10 clean, −102 violations
+## What landed this session
 
-## Cursor
-**`bb_disj.cpp`** — not yet audited this session; pull first, then `bash scripts/audit_bb_fixup_file.sh src/emitter/BB_templates/bb_disj.cpp`
+### M34-2 COMPLETE (commit `2127c82`)
 
-## Stops completed this session (stops 20–33)
+Three TEXT arms in `bb_is_cmp.cpp` that called `rt_is@PLT` / `rt_is_lint@PLT`
+replaced with `rt_is_cell@PLT` / `rt_is_cell_lit@PLT`. Root cause: both old
+functions delegate to `rt_arith()` which reads `g_resolve_env[slot]` for
+IR_LOGICVAR args — NULL for GZ-admitted procs in m4 → arithmetic results all 0.
 
-| Stop | File | Gains | Note |
-|------|------|-------|------|
-| 20 | bb_callee_frame.cpp | pe 4→0, lv 3→0 | ✅ CLEAN |
-| 21 | bb_catch.cpp | ef 6→0, pe 3→0, lv 3→0 | ✅ CLEAN |
-| 22 | bb_cell_call.cpp | pe 3→0, lv 3→0 | ✅ CLEAN |
-| 23 | bb_cell_choice.cpp | pe 3→0, helpers | [S] lv=4 mutable-accum residue |
-| 24 | bb_cell_cut.cpp | pe 3→0 | ✅ CLEAN |
-| 25 | bb_cell_ite.cpp | pe 1→0, lv 1→0 | ✅ CLEAN |
-| 26 | bb_cell_unify.cpp | pe 10→0, lv 7→0 | ✅ CLEAN |
-| 27 | bb_choice.cpp | ef 5→0, lv 2→0 | [S] lv=1 loop-accum |
-| 28 | bb_conj.cpp | ef 2→0 | [S] rb=1 GAP-5, lv=1 loop-accum |
-| 29 | bb_cut.cpp | pe 3→0 | ✅ CLEAN |
-| 30 | bb_det_cmp.cpp | pe 7→0, lv 6→0 | ✅ CLEAN |
-| 31 | bb_det_is.cpp | pe 12→0, lv 1→0 | [S] lv=5 out-param + recursive locals |
-| 32 | bb_det_nl.cpp | pe 3→0 | ✅ CLEAN |
-| 33 | bb_det_write.cpp | pe 9→0 | ✅ CLEAN |
+| Arm | LHS | RHS | Old | New |
+|-----|-----|-----|-----|-----|
+| Binary | IR_LOGICVAR | IR_ARITH(binary) | `rt_is@PLT` | `rt_is_cell@PLT` |
+| Lit-dst | IR_LIT_I | IR_ARITH(binary) | `rt_is_lint@PLT` | `rt_is_cell_lit@PLT` |
+| Unary | IR_LOGICVAR | IR_ARITH(unary) | `rt_is@PLT` | `rt_is_cell@PLT` |
 
-## [S] flag legend
-`[S]` = structurally necessary residue — not a skip, means the violation
-requires a design decision (GAP-5 E9 reloc, mutable loop accumulators, recursive
-out-param helpers). Next session should review these before revisiting.
+All arms: `sub rsp,8` / `add rsp,8` for ABI alignment. `icm_arg_load_lit` for
+operands: `lea rcx,[r12+GZ_CELL_OFF(slot)]` for LOGICVAR, `mov rcx,value` for LIT_I.
 
-## Session techniques confirmed
-- `FOR()` lambda replaces loops in `_str`
-- Accessor helpers (`bXX_*()`) pull all local typed vars out of `_str`
-- `dcm_both_lit_i()` + `dcm_fold_result()` pattern removes `long av, bv` out-param pair
-- `bcch_build()` forward-declared before `_str` to hold mutable accumulator
-- All PORT_ALPHA/BETA/GAMMA/OMEGA → literal Greek strings `"α"` `"β"` `"γ"` `"ω"`
-- emit_fmt() → `std::string(...) + std::to_string(...)` or direct string concat
+`rt_is_cell` op table completed (binary: `//` `mod` `rem` `div` `gcd` `/\` `\/`
+`xor` `>>` `<<`; unary: `\` `msb`).
+
+New `rt_is_cell_lit(long lval, const char *op, int lk, void *larg, double ld,
+int rk, void *rarg, double rd)` — mirrors `rt_is_cell` but compares result to
+`lval` instead of writing to a cell. For `N is Expr` where N is IR_LIT_I.
+
+**GATE-3 gain: m3 23→25 (+2), m4 45→50 (+5). Zero regressions.**
+Newly passing: rung23_sign, rung23_power, rung23_max_min, rung23_bitwise,
+rung29_gcd (m4); rung23_truncate, rung23_sign (m3).
 
 ## Next session setup
 ```
 cd /home/claude
 git clone https://ghp_TOKEN@github.com/snobol4ever/SCRIP.git SCRIP
+git clone https://ghp_TOKEN@github.com/snobol4ever/.github
 cd SCRIP
 bash scripts/install_system_packages.sh
 bash scripts/build_scrip.sh
 make libscrip_rt
-bash scripts/test_smoke_snobol4.sh          # must be PASS=7 FAIL=0
-bash scripts/audit_bb_fixup_rank.sh         # print rank table
-bash scripts/audit_bb_fixup_file.sh src/emitter/BB_templates/bb_disj.cpp
+bash scripts/test_smoke_prolog.sh          # m2 must be 5/5 HARD
+bash scripts/test_prolog_rung_suite.sh     # m3≥25  m4≥50  m2≥114
+bash scripts/test_gate_bb_one_box.sh       # PASS
+grep -rn 'g_resolve_env' src/interp/IR_interp.c | grep rt_is   # 0
+grep -n 'rt_is@PLT\|rt_is_lint@PLT' src/emitter/BB_templates/bb_is_cmp.cpp  # 0
 ```
-Then fix bb_disj.cpp per v2 rules and loop.
+Then proceed to **M34-3**.
+
+## Next opener: M34-3
+
+Write `scripts/test_gate_pl_m34_parity.sh`:
+
+```bash
+#!/usr/bin/env bash
+# For each rung*.pl: run m3 (--run) and m4 (run_prolog_via_x86_backend.sh).
+# FAIL if one side has output and other aborts/empty.
+# FAIL if both have output but differ.
+# EXCISED if both abort/empty identically.
+# Gate: zero FAIL required before PL-GZ-FENCE.
+CORPUS=/home/claude/corpus/programs/prolog
+SCRIP=/home/claude/SCRIP/scrip
+pass=0; fail=0; excised=0
+for pl in "$CORPUS"/rung*.pl; do
+    m3=$(timeout 10 "$SCRIP" --run "$pl" 2>/dev/null)
+    m4=$(timeout 10 bash /home/claude/SCRIP/scripts/run_prolog_via_x86_backend.sh "$pl" 2>/dev/null)
+    if [ -z "$m3" ] && [ -z "$m4" ]; then
+        excised=$((excised+1))
+    elif [ "$m3" = "$m4" ]; then
+        pass=$((pass+1))
+    else
+        echo "FAIL $(basename $pl): m3=$(echo "$m3"|head -1|cut -c1-40) m4=$(echo "$m4"|head -1|cut -c1-40)"
+        fail=$((fail+1))
+    fi
+done
+echo "--- M34-PARITY: PASS=$pass FAIL=$fail EXCISED=$excised ---"
+[ $fail -eq 0 ]
+```
+
+After M34-3 establishes the honest parity baseline, proceed to:
+
+**M34-4** — Delete 3 `rt_last_ok@PLT` sites from `bb_goal.cpp`.
+Read `bb_goal.cpp` first (Prolog source for verdict semantics). Replace with
+return-value wiring per THE LAWS. Gate: `grep -rn 'rt_last_ok'
+src/emitter/BB_templates/` == 0.
+
+**M34-5** — Parity seal: audit m4 `pl_rich_body_root` pass-throughs vs m3.
+Any rung passing m4 via legacy tier but failing m3 → add to PL-GZ-9 queue.
