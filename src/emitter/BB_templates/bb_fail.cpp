@@ -9,7 +9,7 @@ extern "C" {
 static std::string bb_fail_str() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                             + x86("comment", "BOX FAIL()  [x86() self-encoding]"))
+                             + x86("comment", "IR_FAIL"))
              + x86("jmp", "ω")
              + x86("def", "β")
              + x86("jmp", "ω");
