@@ -82,7 +82,7 @@ static void dump(const char * title, tree_t * ast, int expect_nodes) {
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
     for (int i = 0; i < g->n; i++) {
         IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
     }
     int real = g->n - 2;
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
@@ -99,7 +99,7 @@ static void dump_sno_value(const char * title, tree_t * ast, int expect_nodes) {
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
     for (int i = 0; i < g->n; i++) {
         IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
     }
     int real = g->n - 2;
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
@@ -116,7 +116,7 @@ static void dump_raku_value(const char * title, tree_t * ast, int expect_nodes) 
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
     for (int i = 0; i < g->n; i++) {
         IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
     }
     int real = g->n - 2;
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
@@ -133,7 +133,7 @@ static void dump_goal(const char * title, tree_t * ast, int expect_nodes) {
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
     for (int i = 0; i < g->n; i++) {
         IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
     }
     int real = g->n - 2;
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
@@ -150,7 +150,7 @@ static void dump_subject(const char * title, tree_t * ast, int expect_nodes) {
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
     for (int i = 0; i < g->n; i++) {
         IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
     }
     int real = g->n - 2;
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
@@ -167,7 +167,7 @@ static void dump_ref_invariant(const char * title, tree_t * ast, int expect_node
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
     for (int i = 0; i < g->n; i++) {
         IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
     }
     int real = g->n - 2;
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
@@ -184,7 +184,7 @@ static void dump_match(const char * title, tree_t * ast, int expect_nodes) {
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
     for (int i = 0; i < g->n; i++) {
         IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
     }
     int real = g->n - 2;
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
@@ -201,7 +201,7 @@ static void dump_pat(const char * title, tree_t * ast, int expect_nodes) {
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
     for (int i = 0; i < g->n; i++) {
         IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, n->α), idx_of(g, n->β), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
+        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->t), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ), idx_of(g, n->ω), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
     }
     int real = g->n - 2;
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");

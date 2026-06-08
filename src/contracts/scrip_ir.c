@@ -212,8 +212,6 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     IR_t * bb = calloc(1, sizeof(IR_t));
     if (!bb) return NULL;
     bb->t       = t;
-    bb->α       = NULL;
-    bb->β       = NULL;
     bb->γ       = NULL;
     bb->ω       = NULL;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
