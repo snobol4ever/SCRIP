@@ -62,43 +62,53 @@ static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char
 static const IR_t *bdis_lhs() { return (const IR_t *)_.bb_ln; }
 static const IR_t *bdis_rhs() { return (const IR_t *)_.bb_rn; }
 static int bdis_slot()        { return (int)IR_LIT(bdis_lhs()).ival; }
-static std::string bdis_tail() { return x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"); }
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bdis_var_const(int rslot, const char *rop, long rc) {
-    return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX DET_IS(X is Y op C)  [PL-GZ-8: rt_pl_is_cell_arith]"))
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF(rslot)))
-         + x86_ro_load_q("rdx", 0)
-         + x86("mov", "rcx", rc)
-         + x86("call", "rt_pl_is_cell_arith", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_arith)
-         + bdis_tail()
-         + x86_ro_seal_str(0, rop);
-}
-static std::string bdis_bivar(int bslot1, int bslot2, const char *bop) {
-    return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX DET_IS(X is Y op Z)  [PL-GZ-9b: rt_pl_is_cell_bivar]"))
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF(bslot1)))
-         + x86("mov", "rdx", FRQ(GZ_CELL_OFF(bslot2)))
-         + x86_ro_load_q("rcx", 0)
-         + x86("call", "rt_pl_is_cell_bivar", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_bivar)
-         + bdis_tail()
-         + x86_ro_seal_str(0, bop);
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_det_is_str() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     if (!bdis_lhs() || bdis_lhs()->op != IR_LOGICVAR) return x86_bomb("bb_det_is: lhs not LOGICVAR");
     long cval = 0;
-    if (gz_arith_const_eval(bdis_rhs(), &cval)) return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", "BOX DET_IS(X is const)  [PL-GZ-8: emit-time eval -> rt_pl_is_cell_int]"))
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
-         + x86("mov", "rsi", cval)
-         + x86("call", "rt_pl_is_cell_int", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_int)
-         + bdis_tail();
+    if (gz_arith_const_eval(bdis_rhs(), &cval))
+        return x86("label", _.lbl_α)
+             + x86("comment", "IR_DET_IS")
+             + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
+             + x86("mov", "rsi", cval)
+             + x86("call", "rt_pl_is_cell_int", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_int)
+             + x86("test", "eax", "eax")
+             + x86("je", "ω")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω");
     int rslot = -1; const char *rop = NULL; long rc = 0;
-    if (gz_arith_var_plus_const(bdis_rhs(), &rslot, &rop, &rc)) return bdis_var_const(rslot, rop, rc);
+    if (gz_arith_var_plus_const(bdis_rhs(), &rslot, &rop, &rc))
+        return x86("label", _.lbl_α)
+             + x86("comment", "IR_DET_IS")
+             + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
+             + x86("mov", "rsi", FRQ(GZ_CELL_OFF(rslot)))
+             + x86("ro_load_q", "rdx", 0)
+             + x86("mov", "rcx", rc)
+             + x86("call", "rt_pl_is_cell_arith", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_arith)
+             + x86("test", "eax", "eax")
+             + x86("je", "ω")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω")
+             + x86("ro_seal_str", 0, rop);
     int bslot1 = -1, bslot2 = -1; const char *bop = NULL;
-    if (gz_arith_var_bivar(bdis_rhs(), &bslot1, &bslot2, &bop)) return bdis_bivar(bslot1, bslot2, bop);
+    if (gz_arith_var_bivar(bdis_rhs(), &bslot1, &bslot2, &bop))
+        return x86("label", _.lbl_α)
+             + x86("comment", "IR_DET_IS")
+             + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bdis_slot())))
+             + x86("mov", "rsi", FRQ(GZ_CELL_OFF(bslot1)))
+             + x86("mov", "rdx", FRQ(GZ_CELL_OFF(bslot2)))
+             + x86("ro_load_q", "rcx", 0)
+             + x86("call", "rt_pl_is_cell_bivar", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_bivar)
+             + x86("test", "eax", "eax")
+             + x86("je", "ω")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω")
+             + x86("ro_seal_str", 0, bop);
     return x86_bomb("bb_det_is: unsupported rhs shape in GZ");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
