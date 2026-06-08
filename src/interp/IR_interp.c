@@ -2531,37 +2531,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->α;
     }
     case IR_SEQ_EXPR: {
-        if (!bb->α) { IR_EXEC(bb).value = NULVCL; return bb->γ; }
-        IR_t *last_child = bb->α;
-        while (last_child->γ) last_child = last_child->γ;
-        if (IR_EXEC(bb).state == 0) {
-            for (IR_t *st = bb->α; st && st != last_child; st = st->γ) {
-                IR_interp_node(st);
-                if (frame_depth > 0 && FRAME.returning) {
-                    IR_EXEC(bb).value = IR_EXEC(st).value;
-                    return bb->ω;
-                }
-                if (IS_FAIL_fn(IR_EXEC(st).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            }
-            IR_EXEC(last_child).state = 0;
-            IR_interp_node(last_child);
-            if (frame_depth > 0 && FRAME.returning) {
-                IR_EXEC(bb).value = IR_EXEC(last_child).value;
-                return bb->ω;
-            }
-            if (IS_FAIL_fn(IR_EXEC(last_child).value)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-            IR_EXEC(bb).value = IR_EXEC(last_child).value;
-            IR_EXEC(bb).state = 1;
-            return bb->γ;
-        }
-        IR_interp_node(last_child);
-        if (frame_depth > 0 && FRAME.returning) {
-            IR_EXEC(bb).value = IR_EXEC(last_child).value;
-            return bb->ω;
-        }
-        if (IS_FAIL_fn(IR_EXEC(last_child).value)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
-        IR_EXEC(bb).value = IR_EXEC(last_child).value;
-        return bb->γ;
+        IR_EXEC(bb).value = NULVCL; return bb->γ;
     }
     case IR_BINOP: {
         if (!bb->α && !bb->β) {
