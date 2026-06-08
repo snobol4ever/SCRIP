@@ -34,7 +34,7 @@ for f in src/emitter/BB_templates/bb_*.cpp; do
     st=$(grep -cE '^static' "$f" || true); hc=$(( st > 2 ? st - 2 : 0 ))
     sd=$(strip "$f"    | grep -cE '\)[[:space:]]*\{[[:space:]]*(std::string|int |long |const char|auto |bool |double |char |uint64_t|size_t|IR_t)' || true)
     cl=$(awk 'length>200' "$f" | wc -l)
-    ml=$(grep -cE 'x86\(.*x86\(' "$f" || true)
+    ml=$(sed 's/\\"//g; s/"[^"]*"//g' "$f" | grep -cE 'x86\(.*x86\(' || true)
     cmtA=$(grep -cE '/\*|//' "$f" || true); sep=$(grep -cE '^/\*[-=]+\*/[[:space:]]*$' "$f" || true); xc=$(( cmtA > sep ? cmtA - sep : 0 ))
     bp=$(strip "$f"    | grep -cE 'x86_(frame|ro|reg)_[a-z0-9_]*\(' || true)
     tot=$((em + nw + bs + rb + mt + ef + lc + bl + pe + lv + rp + hc + sd + cl + ml + xc + bp))

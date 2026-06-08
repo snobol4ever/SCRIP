@@ -41,7 +41,7 @@ ret=$(strip "$f"           | grep -cE '\breturn\b' || true); rp=$(( ret > 2 ? re
 st=$(grep -cE '^static' "$f" || true); hc=$(( st > 2 ? st - 2 : 0 ))
 sig_decls=$(strip "$f"     | grep -cE '\)[[:space:]]*\{[[:space:]]*(std::string|int |long |const char|auto |bool |double |char |uint64_t|size_t|IR_t)' || true)
 over_col=$(awk 'length>200' "$f" | wc -l)
-multi_x86=$(grep -cE 'x86\(.*x86\(' "$f" || true)
+multi_x86=$(sed 's/\\"//g; s/"[^"]*"//g' "$f" | grep -cE 'x86\(.*x86\(' || true)
 cmtA=$(grep -cE '/\*|//' "$f" || true); sep=$(grep -cE '^/\*[-=]+\*/[[:space:]]*$' "$f" || true); xc=$(( cmtA > sep ? cmtA - sep : 0 ))
 bypass=$(strip "$f"        | grep -cE 'x86_(frame|ro|reg)_[a-z0-9_]*\(' || true)
 total=$((emit_blind + neighbor_walk + bsize + raw_bytes + medium_any + emit_fmt + line_comments + blank_lines + port_english + local_vars + rp + hc + sig_decls + over_col + multi_x86 + xc + bypass))
