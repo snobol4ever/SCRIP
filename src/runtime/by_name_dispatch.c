@@ -1926,7 +1926,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         long long v = 0; scanf(" %lld", &v); *out = INTVAL(v); return 1;
     }
     if (!strcmp(fn, "__pas_read_c") && nargs == 0) {
-        int c = getchar(); if (c == EOF) c = 0; *out = INTVAL((long long)(unsigned char)c); return 1;
+        int c = getchar(); if (c == EOF) c = 26; *out = INTVAL((long long)(unsigned char)c); return 1;
     }
     if (!strcmp(fn, "__pas_readln") && nargs == 0) {
         int c; while ((c = getchar()) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1;
