@@ -74,7 +74,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
         case IR_NFA_SPLIT: {
             int r = nfa_bt_ir_cap(s->γ, subj, pos, slen, depth + 1, cap, vis, stride);
             if (r >= 0) return r;
-            return nfa_bt_ir_cap(s->β, subj, pos, slen, depth + 1, cap, vis, stride);
+            return nfa_bt_ir_cap(ir_pair_arg(s, 0), subj, pos, slen, depth + 1, cap, vis, stride);
         }
         default:
             return -1;
@@ -151,11 +151,11 @@ IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
     for (int i = 0; i < ns; i++) {
         IR_t *b = node[i];
         const Nfa_state *s = &st[i];
-        b->α = b; b->β = NULL; b->γ = NULL; b->ω = NULL;
+        b->γ = NULL; b->ω = NULL;
         IR_LIT(b).ival = 0; IR_LIT(b).sval = NULL; IR_EXEC(b).counter = 0; IR_EXEC(b).state = 0;
         if (s->out1 != NFA_NULL && s->out1 < ns) b->γ = node[s->out1];
         if (s->kind == NK_SPLIT) {
-            if (s->out2 != NFA_NULL && s->out2 < ns) b->β = node[s->out2];
+            if (s->out2 != NFA_NULL && s->out2 < ns) ir_operand_push(b, node[s->out2]);
         }
         switch (s->kind) {
             case NK_CHAR:      IR_LIT(b).ival = (int64_t)(unsigned char)s->ch; break;
