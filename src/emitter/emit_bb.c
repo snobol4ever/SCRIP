@@ -3041,9 +3041,9 @@ static int codegen_graph_block(IR_graph_t *g, const char *blbl, const char *redo
     emit_label_define_bb(lbl_redo);
     emit_jmp_label(&lbl_β, JMP_JMP);
     emit_label_define_bb(&lbl_γ);
-    { const char *s = "  mov edi, 1\n  call rt_set_last_ok@PLT\n  ret\n"; emit_text_n(s, strlen(s)); }
+    { const char *s = "  mov edi, 1\n  call rt_set_last_ok@PLT\n  mov eax, 1\n  ret\n"; emit_text_n(s, strlen(s)); }
     emit_label_define_bb(&lbl_ω);
-    { const char *s = "  mov edi, 0\n  call rt_set_last_ok@PLT\n  ret\n"; emit_text_n(s, strlen(s)); }
+    { const char *s = "  xor edi, edi\n  call rt_set_last_ok@PLT\n  xor eax, eax\n  ret\n"; emit_text_n(s, strlen(s)); }
     emitter_end();
     g_emit_cfg = save_cfg;
     return 0;

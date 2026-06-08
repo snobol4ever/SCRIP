@@ -15,7 +15,6 @@ extern "C" {
 void  *rt_node_to_term(int kind, long ival, const char *sval, double dval);
 void **resolve_bb_env_save_push(int nslots);
 void   resolve_bb_bind_arg(int slot, void *caller_term);
-int    rt_last_ok(void);
 void **resolve_bb_env_install(void **env);
 void   rt_cp_save_caller_env(void *caller_env);
 void   resolve_bb_env_pop(void **saved);
@@ -79,8 +78,7 @@ static std::string bb_goal_str(IR_t * pBB) {
             if (need_pad) out += x86("ins2", "add", "rsp, 8");
             out += x86("ins2", "pop",  "rdi");
             if (n_args > 0) out += x86("ins2", "add", emit_fmt("rsp, %d", 8 * n_args));
-            out += x86("ins2", "call", "rt_last_ok@PLT")
-                 + x86("ins2", "test", "eax, eax")
+            out += x86("ins2", "test", "eax, eax")
                  + x86("ins2", "je",   emit_fmt("%s_fail5", _.lbl_α));
             out += x86("ins2", "call", "resolve_bb_env_install@PLT")
                  + x86("ins2", "mov",  "rdi, rax")
@@ -96,7 +94,6 @@ static std::string bb_goal_str(IR_t * pBB) {
                  + x86("ins2", "mov",  "rdi, [rax + 24]")
                  + x86("ins2", "call", "resolve_bb_env_install@PLT")
                  + x86("ins2", "call", redo_lbl)
-                 + x86("ins2", "call", "rt_last_ok@PLT")
                  + x86("ins2", "test", "eax, eax")
                  + x86("ins2", "je",   emit_fmt("%s_nosol", _.lbl_α))
                  + x86("ins2", "call", "resolve_cp_current@PLT")
