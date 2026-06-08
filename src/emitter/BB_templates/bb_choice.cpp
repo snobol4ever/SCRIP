@@ -19,7 +19,13 @@ static std::string bcho_empty_choice() {
          + x86("ins2", "jmp", _.lbl_ω)
          + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
 }
-static std::string bcho_build() {
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_choice_str(IR_t * pBB) {
+    (void)pBB;
+    if (!PLATFORM_X86) return std::string();
+    if (MEDIUM_MACRO_DEF) return x86("comment", "no macro form — RESOLVE_CHOICE");
+    if (!MEDIUM_TEXT) return std::string();
+    if (bcho_n() <= 0) return bcho_empty_choice();
     char disp[160];         snprintf(disp,         sizeof disp,         ".Lplch%d_dispatch",  bcho_id());
     char exit_γ[160];       snprintf(exit_γ,       sizeof exit_γ,       ".Lplch%d_exit_γ",    bcho_id());
     char exhausted[160];    snprintf(exhausted,     sizeof exhausted,    ".Lplch%d_exhausted", bcho_id());
@@ -107,15 +113,6 @@ static std::string bcho_build() {
          + x86("ins2", "jmp",  disp);
     out += x86("Lins2", std::string(β_nosol) + ":", "jmp", _.lbl_ω);
     return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_choice_str(IR_t * pBB) {
-    (void)pBB;
-    if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_MACRO_DEF) return x86("comment", "no macro form — RESOLVE_CHOICE");
-    if (!MEDIUM_TEXT) return std::string();
-    if (bcho_n() <= 0) return bcho_empty_choice();
-    return bcho_build();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_choice(IR_t * pBB) { bb_emit_x86(bb_choice_str(pBB)); }
