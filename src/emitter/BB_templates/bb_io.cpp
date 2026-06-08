@@ -1,4 +1,5 @@
 #include "bb_common.h"
+extern void rt_pl_write_cell(void *cell_term);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bio_succ(const char *lγ, const char *lβ) {
     return x86("ins2", "jmp", lγ) + x86("Lins2", std::string(lβ) + ":", "jmp", lγ);
@@ -37,7 +38,7 @@ static std::string bio_write_body(const char *bb_ls, long op_ival, IR_t *α) {
                       : x86("ins2", "xor", "edi, edi"))
              + x86("ins2", "call", "rt_write_atom@PLT");
     if (α->t == IR_LOGICVAR)
-        return x86("ins2", "mov edi,", std::to_string((int)IR_LIT(α).ival)) + x86("ins2", "call", "rt_write_var@PLT");
+        return x86("ins2", "mov", emit_fmt("rdi, qword ptr [r12+%d]", GZ_CELL_OFF((int)IR_LIT(α).ival))) + x86("ins2", "call", "rt_pl_write_cell@PLT");
     if (α->t == IR_LIT_I)
         return x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(α).ival)) + x86("ins2", "call", "rt_write_int@PLT");
     if (α->t == IR_LIT_F)
