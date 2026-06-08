@@ -28,7 +28,7 @@ if [ ! -f "$f" ]; then
 fi
 strip() { perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$1"; }
 emit_blind=$(strip "$f"    | grep -cE 'pBB->[αβγω]' || true)
-neighbor_walk=$(strip "$f" | grep -cE '\b(lf|fin|a0|a1|arm|node)->(α|β|γ|ω|t|op)\b' || true)
+neighbor_walk=$(strip "$f" | sed 's/\.node->/.NODE->/g' | grep -cE '\b(lf|fin|a0|a1|arm|node)->(α|β|γ|ω|t|op)\b' || true)
 bsize=$(strip "$f"         | grep -cE 'b\.size\(' || true)
 raw_bytes=$(strip "$f"     | grep -cE 'x86_Lrec|x86_Jrec|x86_Drec|x86_b[123]\(|bytes\(|u8\(|u32le|u64le' || true)
 medium_any=$(strip "$f"    | grep -c 'MEDIUM_' || true)
