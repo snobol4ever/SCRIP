@@ -13,8 +13,7 @@ gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_icon.c -o /tmp/p_lower_ic
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_raku.c -o /tmp/p_lower_raku.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_pascal.c -o /tmp/p_lower_pascal.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_sno.c  -o /tmp/p_lower_sno.o
-gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_value.c -o /tmp/p_lower_value.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED                   -c src/contracts/scrip_ir.c  -o /tmp/p_scrip_ir.o
 gcc -O0 -g $INC                     -c src/tools/prove_lower.c -o /tmp/p_prove.o
-gcc /tmp/p_lower.o /tmp/p_lower_prolog.o /tmp/p_lower_icon.o /tmp/p_lower_raku.o /tmp/p_lower_pascal.o /tmp/p_lower_sno.o /tmp/p_lower_value.o /tmp/p_scrip_ir.o /tmp/p_prove.o -lgc -lm -o "$OUT"
+gcc /tmp/p_lower.o /tmp/p_lower_prolog.o /tmp/p_lower_icon.o /tmp/p_lower_raku.o /tmp/p_lower_pascal.o /tmp/p_lower_sno.o /tmp/p_scrip_ir.o /tmp/p_prove.o -lgc -lm -o "$OUT"
 "$OUT"
