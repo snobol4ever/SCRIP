@@ -808,6 +808,8 @@ int sno_pattern_buildable(const tree_t * e) {
     if (e->t == TT_QLIT) return 1;
     if (e->t == TT_LEN || e->t == TT_POS || e->t == TT_RPOS || e->t == TT_TAB || e->t == TT_RTAB)
         return (e->n >= 1 && e->c[0] && e->c[0]->t == TT_ILIT) ? 1 : 0;
+    if (e->t == TT_SPAN || e->t == TT_ANY || e->t == TT_NOTANY || e->t == TT_BREAK || e->t == TT_BREAKX)
+        return (e->n >= 1 && e->c[0] && e->c[0]->t == TT_QLIT) ? 1 : 0;
     if (e->t == TT_ALT) {
         if (e->n < 2) return 0;
         for (int i = 0; i < e->n; i++) if (!sno_pattern_buildable(e->c[i])) return 0;
@@ -828,6 +830,13 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
         IR_e k = (e->t == TT_LEN) ? IR_PATTERN_LEN : (e->t == TT_POS) ? IR_PATTERN_POS : (e->t == TT_RPOS) ? IR_PATTERN_RPOS : (e->t == TT_TAB) ? IR_PATTERN_TAB : IR_PATTERN_RTAB;
         n = nalloc(cx, k); if (!n) return NULL;
         IR_LIT(n).ival = e->c[0]->v.ival;
+        return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
+    }
+    case TT_SPAN: case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_BREAKX: {
+        if (e->n < 1 || !e->c[0] || e->c[0]->t != TT_QLIT) return NULL;
+        IR_e k = (e->t == TT_ANY) ? IR_PATTERN_ANY : (e->t == TT_NOTANY) ? IR_PATTERN_NOTANY : (e->t == TT_SPAN) ? IR_PATTERN_SPAN : (e->t == TT_BREAK) ? IR_PATTERN_BREAK : IR_PATTERN_BREAKX;
+        n = nalloc(cx, k); if (!n) return NULL;
+        IR_LIT(n).sval = e->c[0]->v.sval ? e->c[0]->v.sval : "";
         return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out);
     }
     case TT_ALT: {

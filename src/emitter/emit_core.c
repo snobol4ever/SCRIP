@@ -415,11 +415,11 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PAT_MATCH_RETRY:   bb_match_retry();       return 0;
     case IR_PAT_MATCH_ADVANCE: bb_match_advance();     return 0;
     case IR_PATTERN_LIT:     bb_pattern_lit();                                                            return 0;
-    case IR_PATTERN_ANY:     bb_pattern_stub("bb_pattern_any: builder pending (B5)");                     return 0;
-    case IR_PATTERN_NOTANY:  bb_pattern_stub("bb_pattern_notany: builder pending (B5)");                  return 0;
-    case IR_PATTERN_SPAN:    bb_pattern_stub("bb_pattern_span: builder pending (B5)");                    return 0;
-    case IR_PATTERN_BREAK:   bb_pattern_stub("bb_pattern_break: builder pending (B5)");                   return 0;
-    case IR_PATTERN_BREAKX:  bb_pattern_stub("bb_pattern_breakx: builder pending (B5)");                  return 0;
+    case IR_PATTERN_ANY:     bb_pattern_unary_s();                                                        return 0;
+    case IR_PATTERN_NOTANY:  bb_pattern_unary_s();                                                        return 0;
+    case IR_PATTERN_SPAN:    bb_pattern_unary_s();                                                        return 0;
+    case IR_PATTERN_BREAK:   bb_pattern_unary_s();                                                        return 0;
+    case IR_PATTERN_BREAKX:  bb_pattern_unary_s();                                                        return 0;
     case IR_PATTERN_LEN:     bb_pattern_unary_i();                                                        return 0;
     case IR_PATTERN_POS:     bb_pattern_unary_i();                                                        return 0;
     case IR_PATTERN_RPOS:    bb_pattern_unary_i();                                                        return 0;
