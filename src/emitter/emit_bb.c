@@ -230,8 +230,8 @@ static void data_buf_emit_block_comment(void) { g_flat_data_block_nlbls = 0; }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 static void descr_chain_operand_refs(IR_t *entry);
 static void gvar_stmt_operand_refs(IR_t *head);
-static IR_t * bb_child0(const IR_t *n) { return n ? ((n->n_operands > 0) ? n->operands[0] : n->α) : NULL; }
-static IR_t * bb_child1(const IR_t *n) { return n ? ((n->n_operands > 1) ? n->operands[1] : n->β) : NULL; }
+static IR_t * bb_child0(const IR_t *n) { return (n && n->n_operands > 0) ? n->operands[0] : NULL; }
+static IR_t * bb_child1(const IR_t *n) { return (n && n->n_operands > 1) ? n->operands[1] : NULL; }
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
