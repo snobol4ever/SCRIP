@@ -1,5 +1,5 @@
 #include "bb_common.h"
-extern void rt_pl_write_cell(void *cell_term);
+extern "C" void rt_pl_write_cell(void *cell_term);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bio_succ(const char *lγ, const char *lβ) {
     return x86("ins2", "jmp", lγ) + x86("Lins2", std::string(lβ) + ":", "jmp", lγ);
@@ -18,10 +18,15 @@ static std::string bio_bin_write_arg(IR_t *arg) {
              + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_atom)
              + bytes(2, "\xFF\xD0");
     }
-    if (arg->t == IR_LOGICVAR)
-        return bytes(1, "\xBF") + u32le((uint32_t)(int)IR_LIT(arg).ival)
-             + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_var)
+    if (arg->t == IR_LOGICVAR) {
+        int off = GZ_CELL_OFF((int)IR_LIT(arg).ival);
+        std::string mov_load = (off >= -128 && off < 128)
+            ? std::string("\x49\x8B\x7C\x24",4) + std::string(1,(char)(unsigned char)off)
+            : std::string("\x49\x8B\xBC\x24",4) + u32le((uint32_t)off);
+        return mov_load
+             + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_pl_write_cell)
              + bytes(2, "\xFF\xD0");
+    }
     return bytes(4, "\x48\x83\xEC\x08")
          + emit_term_from_node_bin(arg)
          + bytes(3, "\x48\x89\xC7")
