@@ -4226,13 +4226,11 @@ IR_t * IR_interp_node(IR_t * bb) {
     case IR_TO: {
         IR_t * Lc = ir_pair_arg(bb, 0);
         IR_t * Hc = ir_pair_arg(bb, 1);
-        if (!Lc && !Hc && IR_LIT(bb).sval && IR_LIT(bb).sval[0] == 'a') {
-            int n_aux = 0;
-            IR_t * const * aux = bb_operand_aux_get(g_current_cfg, bb, &n_aux);
-            int have_aux = (aux && n_aux == 2 && aux[0] && aux[1]);
+        if (IR_LIT(bb).sval && IR_LIT(bb).sval[0] == 'a') {
+            int have_ops = (Lc && Hc);
             if (IR_EXEC(bb).state == 0) {
-                DESCR_t lv = have_aux ? IR_EXEC(aux[0]).value : ag_ring_peek(g_current_cfg, 1);
-                DESCR_t hv = have_aux ? IR_EXEC(aux[1]).value : ag_ring_peek(g_current_cfg, 0);
+                DESCR_t lv = have_ops ? IR_EXEC(Lc).value : ag_ring_peek(g_current_cfg, 1);
+                DESCR_t hv = have_ops ? IR_EXEC(Hc).value : ag_ring_peek(g_current_cfg, 0);
                 if (IS_FAIL_fn(lv) || IS_FAIL_fn(hv)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω; }
                 int64_t lo = IS_INT_fn(lv) ? lv.i : (lv.v == DT_R ? (int64_t)lv.r : 0);
                 int64_t hi = IS_INT_fn(hv) ? hv.i : (hv.v == DT_R ? (int64_t)hv.r : 0);
@@ -4245,10 +4243,10 @@ IR_t * IR_interp_node(IR_t * bb) {
             int64_t hi_cached;
             memcpy(&hi_cached, &IR_LIT(bb).dval, 8);
             if (IR_EXEC(bb).counter > hi_cached) {
-                if (have_aux) {
-                    IR_t * rt_tgt = gen_resume_target(aux[1]);
+                if (have_ops) {
+                    IR_t * rt_tgt = gen_resume_target(Hc);
                     if (rt_tgt) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return rt_tgt; }
-                    rt_tgt = gen_resume_target(aux[0]);
+                    rt_tgt = gen_resume_target(Lc);
                     if (rt_tgt) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return rt_tgt; }
                 }
                 IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω;
