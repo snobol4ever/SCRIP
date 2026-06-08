@@ -37,8 +37,8 @@ static int icm_floaty(const IR_t *rhs) {
     if (rhs->t == IR_ATOM && IR_LIT(rhs).sval && (!strcmp(IR_LIT(rhs).sval, "pi") || !strcmp(IR_LIT(rhs).sval, "e"))) return 1;
     if (rhs->t != IR_ARITH) return 0;
     return bb_op_floaty(IR_LIT(rhs).sval ? IR_LIT(rhs).sval : "+")
-        || (rhs->α && rhs->α->t == IR_LIT_F)
-        || (rhs->β && rhs->β->t == IR_LIT_F);
+        || (ir_pair_arg(rhs,0) && ir_pair_arg(rhs,0)->t == IR_LIT_F)
+        || (ir_pair_arg(rhs,1) && ir_pair_arg(rhs,1)->t == IR_LIT_F);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
@@ -82,47 +82,47 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("ins2", "sub", "rsp, 8")
                  + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((rhs->t == IR_ARITH) ? icm_k(rhs->α) : -1))
-                 + x86("ins2", "mov rcx,", std::to_string((rhs->t == IR_ARITH) ? icm_i(rhs->α) : 0))
-                 + x86("ins2", "mov rax,", std::to_string((unsigned long long)((rhs->t == IR_ARITH) ? icm_fb(rhs->α) : 0)))
+                 + x86("ins2", "mov edx,", std::to_string((rhs->t == IR_ARITH) ? icm_k(ir_pair_arg(rhs,0)) : -1))
+                 + x86("ins2", "mov rcx,", std::to_string((rhs->t == IR_ARITH) ? icm_i(ir_pair_arg(rhs,0)) : 0))
+                 + x86("ins2", "mov rax,", std::to_string((unsigned long long)((rhs->t == IR_ARITH) ? icm_fb(ir_pair_arg(rhs,0)) : 0)))
                  + x86("ins2", "movq", "xmm0, rax")
-                 + x86("ins2", "mov r8d,", std::to_string((rhs->t == IR_ARITH) ? icm_k(rhs->β) : -1))
-                 + x86("ins2", "mov r9,",  std::to_string((rhs->t == IR_ARITH) ? icm_i(rhs->β) : 0))
-                 + x86("ins2", "mov rax,", std::to_string((unsigned long long)((rhs->t == IR_ARITH) ? icm_fb(rhs->β) : 0)))
+                 + x86("ins2", "mov r8d,", std::to_string((rhs->t == IR_ARITH) ? icm_k(ir_pair_arg(rhs,1)) : -1))
+                 + x86("ins2", "mov r9,",  std::to_string((rhs->t == IR_ARITH) ? icm_i(ir_pair_arg(rhs,1)) : 0))
+                 + x86("ins2", "mov rax,", std::to_string((unsigned long long)((rhs->t == IR_ARITH) ? icm_fb(ir_pair_arg(rhs,1)) : 0)))
                  + x86("ins2", "movq", "xmm1, rax")
                  + x86("ins2", "call", "rt_is_f@PLT")
                  + x86("ins2", "add", "rsp, 8")
                  + icm_tail();
         }
         if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
-            && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(pBB,1)->α && ir_pair_arg(pBB,1)->β)
+            && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(ir_pair_arg(pBB,1),0) && ir_pair_arg(ir_pair_arg(pBB,1),1))
             return hdr
                  + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(pBB,1)->α->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->α).ival))
-                 + x86("ins2", "mov r8d,", std::to_string((int)ir_pair_arg(pBB,1)->β->t))
-                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->β).ival))
+                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(ir_pair_arg(pBB,1),0)->t))
+                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(ir_pair_arg(pBB,1),0)).ival))
+                 + x86("ins2", "mov r8d,", std::to_string((int)ir_pair_arg(ir_pair_arg(pBB,1),1)->t))
+                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(ir_pair_arg(ir_pair_arg(pBB,1),1)).ival))
                  + x86("ins2", "call", "rt_is@PLT")
                  + icm_tail();
         if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
-            && ir_pair_arg(pBB,0)->t == IR_LIT_I && ir_pair_arg(pBB,1)->α && ir_pair_arg(pBB,1)->β)
+            && ir_pair_arg(pBB,0)->t == IR_LIT_I && ir_pair_arg(ir_pair_arg(pBB,1),0) && ir_pair_arg(ir_pair_arg(pBB,1),1))
             return hdr
                  + x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(pBB,1)->α->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->α).ival))
-                 + x86("ins2", "mov r8d,", std::to_string((int)ir_pair_arg(pBB,1)->β->t))
-                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->β).ival))
+                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(ir_pair_arg(pBB,1),0)->t))
+                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(ir_pair_arg(pBB,1),0)).ival))
+                 + x86("ins2", "mov r8d,", std::to_string((int)ir_pair_arg(ir_pair_arg(pBB,1),1)->t))
+                 + x86("ins2", "mov r9,",  std::to_string((long)IR_LIT(ir_pair_arg(ir_pair_arg(pBB,1),1)).ival))
                  + x86("ins2", "call", "rt_is_lint@PLT")
                  + icm_tail();
         if (strcmp(fn, "is") == 0 && ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && ir_pair_arg(pBB,1)->t == IR_ARITH
-            && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(pBB,1)->α && !ir_pair_arg(pBB,1)->β)
+            && ir_pair_arg(pBB,0)->t == IR_LOGICVAR && ir_pair_arg(ir_pair_arg(pBB,1),0) && !ir_pair_arg(ir_pair_arg(pBB,1),1))
             return hdr
                  + x86("ins2", "mov edi,", std::to_string((int)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(pBB,1)->α->t))
-                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,1)->α).ival))
+                 + x86("ins2", "mov edx,", std::to_string((int)ir_pair_arg(ir_pair_arg(pBB,1),0)->t))
+                 + x86("ins2", "mov rcx,", std::to_string((long)IR_LIT(ir_pair_arg(ir_pair_arg(pBB,1),0)).ival))
                  + x86("ins2", "mov r8d,", "-1")
                  + x86("ins2", "mov r9,",  "0")
                  + x86("ins2", "call", "rt_is@PLT")

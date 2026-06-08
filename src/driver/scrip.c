@@ -887,7 +887,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
                 IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY);
                 if (!cu) return 0;
                 cu->α = zc->args[ai];
-                cu->β = units[ai]->β;
+                cu->β = ir_pair_arg(units[ai], 1);
                 if (!*head) *head = cu; else (*tail)->γ = cu;
                 *tail = cu;
             }
