@@ -200,6 +200,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_match_capture.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_lit.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_alt.cpp \
+    $(SRC)/emitter/BB_templates/bb_pattern_cat.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_unary_i.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_unary_s.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_cat.cpp \
@@ -445,6 +446,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_lit.cpp  -o $(OBJ)/bb_pattern_lit.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_alt.cpp  -o $(OBJ)/bb_pattern_alt.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_cat.cpp  -o $(OBJ)/bb_pattern_cat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_unary_i.cpp  -o $(OBJ)/bb_pattern_unary_i.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_unary_s.cpp  -o $(OBJ)/bb_pattern_unary_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_cat.cpp  -o $(OBJ)/bb_pattern_cat.o

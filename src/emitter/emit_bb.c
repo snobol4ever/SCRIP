@@ -2353,6 +2353,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PATTERN_BREAKX: g_emit.op_kind = "BREAKX"; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_CAT: g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; g_emit.op_sb = (nd->n_operands > 1) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_ALT: g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; g_emit.op_sb = (nd->n_operands > 1) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_CAT: g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; g_emit.op_sb = (nd->n_operands > 1) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_DTP_ASSIGN:  g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PROG:   flat_drive_program(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
@@ -2659,6 +2660,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_PATTERN_ANY: case IR_PATTERN_NOTANY: case IR_PATTERN_SPAN: case IR_PATTERN_BREAK: case IR_PATTERN_BREAKX: return 0;
     case IR_PATTERN_CAT: return 2;
     case IR_PATTERN_ALT: return 2;
+    case IR_PATTERN_CAT: return 2;
     case IR_DTP_ASSIGN:  return 1;
     default:       return -1;
     }

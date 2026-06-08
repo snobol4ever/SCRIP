@@ -891,13 +891,13 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
         int nk = flatten_seq(e, e->t, kids, 64);
         if (nk < 1) return NULL;
         if (nk == 1) return lower_pattern_build(cx, kids[0], γ_in, ω_in, α_out, β_out);
-        IR_t * headα = NULL; IR_t * prev = NULL; IR_t * acc = NULL;
+        IR_t * headα = NULL; IR_t * prev = NULL; IR_t * acc = NULL; IR_t * lastβ = ω_in;
         for (int i = 0; i < nk; i++) {
             IR_t * kα = NULL, * kβ = NULL;
             IR_t * k = lower_pattern_build(cx, kids[i], NULL, ω_in, &kα, &kβ);
             if (!k) return NULL;
             if (prev) prev->γ = kα; else headα = kα;
-            prev = k;
+            prev = k; lastβ = kβ;
             if (i == 0) { acc = k; continue; }
             IR_t * c = nalloc(cx, IR_PATTERN_CAT); if (!c) return NULL;
             ir_operand_push(c, acc); ir_operand_push(c, k);
@@ -906,7 +906,7 @@ IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
         }
         prev->γ = NULL;
         set_succ_fail(prev, γ_in, ω_in);
-        return ret(prev, α_out, β_out, headα, ω_in);
+        return ret(prev, α_out, β_out, headα, lastβ);
     }
     default:
         return NULL;
