@@ -8,8 +8,6 @@ static std::string bsp_lbl(IR_t *nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bsp_bin_ports() { return x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bsp_txt_tail() { return x86("ins2", "test", "eax, eax") + x86("ins2", "je", _.lbl_ω) + x86("ins2", "jmp", _.lbl_γ) + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bsp_bin_succ(IR_t *a0, IR_t *a1) {
     const char *s0 = (a0->op == IR_ATOM) ? IR_LIT(a0).sval : NULL;
     const char *s1 = (a1->op == IR_ATOM) ? IR_LIT(a1).sval : NULL;
@@ -53,7 +51,10 @@ static std::string bsp_txt_succ(IR_t *a0, IR_t *a1, const std::string &hdr) { st
          + x86("ins2", "mov r8,", std::to_string((long)IR_LIT(a1).ival))
          + (l1.size() ? x86("ins2", "lea r9,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "r9d, r9d"))
          + x86("ins2", "call", "rt_succ@PLT")
-         + bsp_txt_tail();
+         + x86("ins2", "test", "eax, eax")
+         + x86("ins2", "je", _.lbl_ω)
+         + x86("ins2", "jmp", _.lbl_γ)
+         + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bsp_txt_plus(IR_t *a0, IR_t *a1, IR_t *a2, const std::string &hdr) { std::string l0 = bsp_lbl(a0), l1 = bsp_lbl(a1), l2 = bsp_lbl(a2);
@@ -71,7 +72,10 @@ static std::string bsp_txt_plus(IR_t *a0, IR_t *a1, IR_t *a2, const std::string 
          + (l2.size() ? x86("ins2", "lea rax,", std::string("[rip + ") + l2 + "]") + x86("ins2", "mov", "[rsp + 16], rax") : x86("ins2", "mov", "qword ptr [rsp + 16], 0"))
          + x86("ins2", "call", "rt_plus@PLT")
          + x86("ins2", "add", "rsp, 32")
-         + bsp_txt_tail();
+         + x86("ins2", "test", "eax, eax")
+         + x86("ins2", "je", _.lbl_ω)
+         + x86("ins2", "jmp", _.lbl_γ)
+         + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) {
