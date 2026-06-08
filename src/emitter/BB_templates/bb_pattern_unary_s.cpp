@@ -30,8 +30,28 @@ static inline std::string  us_scan_one(const std::string & p, const char * hit, 
          + x86("ins1", "inc rsi")
          + x86("ins2", "jmp", usl(p + "ml"));
 }
-static inline std::string  us_proto() {
-    return x86("label", usl("_s"))
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_pattern_unary_s_str() {
+    if (PLATFORM_X86)
+        return IF(MEDIUM_TEXT,
+                   x86("label", _.lbl_α)
+                 + x86("comment", std::string("BOX PATTERN_") + us_kind() + "('" + us_cset() + "')  [BUILDER ζ=r12 frag@" + us_off() + "]"))
+             + x86("ins2", "mov", "rax, qword ptr [rip + g_pat_pool_cur]")
+             + x86("mov", "rdi", "rax")
+             + x86("ins2", "mov", "ecx, " + usl("_e") + " - " + usl("_s"))
+             + x86("ins2", "lea", "rsi, [rip + " + usl("_s") + "]")
+             + x86("ins1", "rep movsb")
+             + x86("ins2", "mov", "qword ptr [rip + g_pat_pool_cur], rdi")
+             + x86("lea", "rcx", "[rip + __]", us_addr(), us_label())
+             + x86("ins2", "mov", "[rax], rcx")
+             + x86("ins2", "lea", "rcx, [rax + " + usl("_a") + " - " + usl("_s") + "]")
+             + x86("ins2", "mov", "[r12 + " + us_off() + "], rcx")
+             + x86("ins2", "lea", "rcx, [rax + 16]")
+             + x86("ins2", "mov", "[r12 + " + us_off() + " + 8], rcx")
+             + x86("ins2", "lea", "rcx, [rax + 24]")
+             + x86("ins2", "mov", "[r12 + " + us_off() + " + 16], rcx")
+             + x86("jmp", "γ")
+             + (x86("label", usl("_s"))
          + x86("raw", ".quad 0")
          + x86("raw", ".quad 0")
          + x86("raw", ".quad 0")
@@ -121,30 +141,7 @@ static inline std::string  us_proto() {
          + x86("ins2", "jmp", "qword ptr [rip + " + usl("_s") + " + 16]") )
          + x86("label", usl("_f"))
          + x86("ins2", "jmp", "qword ptr [rip + " + usl("_s") + " + 24]")
-         + x86("label", usl("_e"));
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pattern_unary_s_str() {
-    if (PLATFORM_X86)
-        return IF(MEDIUM_TEXT,
-                   x86("label", _.lbl_α)
-                 + x86("comment", std::string("BOX PATTERN_") + us_kind() + "('" + us_cset() + "')  [BUILDER ζ=r12 frag@" + us_off() + "]"))
-             + x86("ins2", "mov", "rax, qword ptr [rip + g_pat_pool_cur]")
-             + x86("mov", "rdi", "rax")
-             + x86("ins2", "mov", "ecx, " + usl("_e") + " - " + usl("_s"))
-             + x86("ins2", "lea", "rsi, [rip + " + usl("_s") + "]")
-             + x86("ins1", "rep movsb")
-             + x86("ins2", "mov", "qword ptr [rip + g_pat_pool_cur], rdi")
-             + x86("lea", "rcx", "[rip + __]", us_addr(), us_label())
-             + x86("ins2", "mov", "[rax], rcx")
-             + x86("ins2", "lea", "rcx, [rax + " + usl("_a") + " - " + usl("_s") + "]")
-             + x86("ins2", "mov", "[r12 + " + us_off() + "], rcx")
-             + x86("ins2", "lea", "rcx, [rax + 16]")
-             + x86("ins2", "mov", "[r12 + " + us_off() + " + 8], rcx")
-             + x86("ins2", "lea", "rcx, [rax + 24]")
-             + x86("ins2", "mov", "[r12 + " + us_off() + " + 16], rcx")
-             + x86("jmp", "γ")
-             + us_proto()
+         + x86("label", usl("_e")))
              + x86("def", "β")
              + x86("jmp", "ω");
     return std::string();
