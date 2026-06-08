@@ -2137,8 +2137,6 @@ int main(int argc, char **argv)
                 abort();
             }
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
-            int nslots = pl_main->nslots > 0 ? pl_main->nslots : 1;
-            g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 8) * sizeof(Term *));
             IR_t *gz_root = pl_gz_admit(pl_main);
             if (gz_root) {
                 extern bb_box_fn pl_gz_build(IR_t * nd);
