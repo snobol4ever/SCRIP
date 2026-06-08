@@ -85,11 +85,14 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
             n->n_operands = 0; if (!ir_operand_push(n, stk[sp - 1])) return NULL; sp -= 1;
             IR_LIT(n).dval = 0.0;
         } else if (ar == 2) {
-            n->β = stk[sp - 1];
-            n->α = stk[sp - 2];
+            n->n_operands = 0;
+            if (!ir_operand_push(n, stk[sp - 2])) return NULL;
+            if (!ir_operand_push(n, stk[sp - 1])) return NULL;
             sp -= 2;
         } else if (ar == 1) {
-            n->α = stk[sp - 1]; sp -= 1;
+            n->n_operands = 0;
+            if (!ir_operand_push(n, stk[sp - 1])) return NULL;
+            sp -= 1;
         }
         stk[sp++] = n;
     }
