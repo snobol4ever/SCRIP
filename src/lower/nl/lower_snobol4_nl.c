@@ -569,7 +569,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         int complex_arg = 0;
         for (int ai = 0; ai < subj->n && !complex_arg; ai++) {
             const tree_t * a = subj->c[ai];
-            if (a && (a->t == TT_IDX || a->t == TT_INDIRECT)) complex_arg = 1;
+            if (a && (a->t == TT_IDX || a->t == TT_INDIRECT || a->t == TT_OPSYN)) complex_arg = 1;
         }
         if (complex_arg) {
             IR_t * nd = IR_node_alloc(cx->g, IR_CALL);
