@@ -16,11 +16,17 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
 /*------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) { const tree_t * c0 = (t->n > 0) ? t->c[0] : NULL; IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = (c0 && c0->v.sval) ? c0->v.sval : NULL; IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0; return nd; }
 /*------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) { const tree_t * lhs = (t->n > 0) ? t->c[0] : NULL; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL; IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = (lhs && lhs->t == TT_VAR && lhs->v.sval) ? lhs->v.sval : NULL; IR_t * rentry = lower(cx, rhs, nd, ω); return rentry ? rentry : nd; }
+/*------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_block(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) { const tree_t * st[512]; int k = 0; for (int i = 0; i < t->n && k < 512; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (s) st[k++] = s; } if (k == 0) return build(cx, IR_SUCCEED, γ, ω); IR_t * succ = γ; IR_t * entry = NULL; for (int i = k - 1; i >= 0; i--) { entry = lower(cx, st[i], succ, ω); succ = entry; } return entry; }
 /*========================================================================================================================*/
 static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (!t) return build(cx, IR_SUCCEED, γ, ω);
     switch (t->t) {
+    case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_I, γ, ω); IR_LIT(nd).ival = t->v.ival; return nd; }
+    case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, γ, ω); IR_LIT(nd).dval = t->v.dval; return nd; }
+    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
+    case TT_ASSIGN: return lower_assign(cx, t, γ, ω);
     case TT_FNC: return lower_call(cx, t, γ, ω);
     case TT_PROGRAM: return lower_block(cx, t, γ, ω);
     case TT_SEQ_EXPR: return lower_block(cx, t, γ, ω);
