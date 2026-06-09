@@ -421,7 +421,12 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         IR_LIT(var).sval = (char *) vname;
         return var; }
     case TT_IF:    { IR_node_alloc(cx->g, IR_IF);    return NULL; }
-    case TT_WHILE: { IR_t * w = IR_node_alloc(cx->g, IR_WHILE); if (subj->n > 0) lower_expr(cx, subj->c[0], NULL, w, NULL); return NULL; }
+    case TT_WHILE: {
+        IR_t * w = IR_node_alloc(cx->g, IR_WHILE);
+        const tree_t * c0 = (subj->n > 0) ? subj->c[0] : NULL;
+        if (c0 && c0->t == TT_SCAN) IR_node_alloc(cx->g, IR_SCAN);
+        else if (c0) lower_expr(cx, c0, NULL, w, NULL);
+        return NULL; }
     case TT_DO_WHILE: case TT_FOR: case TT_UNTIL:
     case TT_REPEAT: case TT_CASE: case TT_DEFINE: case TT_PROGRAM:
         return NULL;
