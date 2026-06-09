@@ -22,10 +22,11 @@ static int is_binop_tt(tree_e tt) { switch (tt) { case TT_ADD: case TT_SUB: case
 /*------------------------------------------------------------------------------------------------------------------------*/
 static int is_unop_tt(tree_e tt) { switch (tt) { case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_RANDOM: case TT_NOT: case TT_INTERROGATE: case TT_MATCH_UNARY: return 1; default: return 0; } }
 /*------------------------------------------------------------------------------------------------------------------------*/
+static int is_resumable(const tree_t * t) { if (!t) return 0; if (t->t == TT_STMT) t = stmt_subj(t); if (!t) return 0; switch (t->t) { case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: return 1; default: return 0; } }
+/*------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
-static IR_t * lower_do_body(icx_t * cx, const tree_t * B, IR_t * R, IR_t * K, IR_t ** b_entry);
 /*------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name; IR_LIT(call).ival = nargs;
@@ -75,10 +76,21 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_LOOP_BREAK: { IR_t * nd = build(cx, IR_BREAK, γ, ω); *res = nd; return nd; }
     case TT_LOOP_NEXT: { IR_t * nd = build(cx, IR_NEXT, γ, ω); *res = nd; return nd; }
     case TT_LOCAL: case TT_STATIC_DECL: case TT_INITIAL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_SEQ: case TT_SEQ_EXPR: {
+    case TT_SEQ: {
         IR_t * succ = γ; IR_t * fail = ω; IR_t * entry = γ;
         for (int i = t->n - 1; i >= 0; i--) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue; IR_t * r = NULL; entry = lower(cx, s, succ, fail, &r); succ = entry; fail = entry; }
         *res = entry; return entry;
+    }
+    case TT_SEQ_EXPR: {
+        const tree_t * S[128]; int k = 0;
+        for (int i = 0; i < t->n && k < 128; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) S[k++] = s; }
+        if (k == 0) { IR_t * su = build(cx, IR_SUCCEED, γ, ω); *res = su; return su; }
+        if (k == 1) return lower(cx, S[0], γ, ω, res);
+        IR_t * CONJ = build(cx, IR_CONJ, γ, ω);
+        IR_t * val[128]; IR_t * ent[128]; IR_t * succ = CONJ;
+        for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, ω, &val[i]); succ = ent[i]; }
+        int lr = -1; for (int i = 0; i < k; i++) { if (lr >= 0) ω_to(val[i], val[lr]); if (is_resumable(S[i])) lr = i; }
+        *res = CONJ; return ent[0];
     }
     case TT_IF: return lower_if(cx, t, γ, ω, res);
     case TT_WHILE: return lower_while(cx, t, γ, ω, res);
@@ -88,24 +100,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     }
 }
 /*========================================================================================================================*/
-static IR_t * lower_do_body(icx_t * cx, const tree_t * B, IR_t * R, IR_t * K, IR_t ** b_entry) {
-    const tree_t * S[128]; int k = 0;
-    if (B && (B->t == TT_SEQ || B->t == TT_SEQ_EXPR)) { for (int i = 0; i < B->n && k < 128; i++) { const tree_t * s = B->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) S[k++] = s; } }
-    else if (B && B->t == TT_STMT) { const tree_t * s = stmt_subj(B); if (s) S[k++] = s; }
-    else if (B) S[k++] = B;
-    IR_t * val[128]; IR_t * ent[128]; IR_t * succ = K;
-    for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, R, &val[i]); succ = ent[i]; }
-    for (int i = 1; i < k; i++) ω_to(val[i], val[0]);
-    if (b_entry) *b_entry = (k > 0) ? ent[0] : K;
-    return (k > 0) ? val[0] : K;
-}
-/*------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * W = build(cx, IR_WHILE, γ, ω);
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
-    IR_t * CONJ = build(cx, IR_CONJ, centry, centry);
-    IR_t * b_entry = NULL; lower_do_body(cx, B, centry, CONJ, &b_entry);
+    IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, centry, centry, &bval);
     γ_to(cval, b_entry); ir_operand_push(W, centry);
     *res = W; return centry;
 }
