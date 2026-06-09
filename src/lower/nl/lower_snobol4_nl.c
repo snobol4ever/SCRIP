@@ -174,18 +174,36 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
     case TT_POS: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_POS); γ_to(nd, succ); ω_to(nd, fail);
-        if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) IR_LIT(nd).sval = arg->v.sval;
+            else IR_LIT(nd).ival = arg->v.ival; }
+        return nd; }
     case TT_RPOS: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_POS); γ_to(nd, succ); ω_to(nd, fail);
-        IR_LIT(nd).sval = "r"; if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        IR_LIT(nd).sval = "r";
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) IR_LIT(nd).sval = arg->v.sval;  /* overwrite "r" */
+            else IR_LIT(nd).ival = arg->v.ival; }
+        return nd; }
     case TT_LEN: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_LEN); γ_to(nd, succ); ω_to(nd, fail);
-        if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) IR_LIT(nd).sval = arg->v.sval;
+            else IR_LIT(nd).ival = arg->v.ival; }
+        return nd; }
     case TT_TAB: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_TAB); γ_to(nd, succ); ω_to(nd, fail);
-        if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) IR_LIT(nd).sval = arg->v.sval;
+            else IR_LIT(nd).ival = arg->v.ival; }
+        return nd; }
     case TT_RTAB: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_RTAB); γ_to(nd, succ); ω_to(nd, fail);
+        IR_LIT(nd).sval = "r";
         if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
     case TT_ARBNO: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_ARBNO); γ_to(nd, succ); ω_to(nd, fail); return nd; }
@@ -223,6 +241,10 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         return le; }
     case TT_FENCE: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+    case TT_DEFER: {  /* *VAR deferred pattern reference */
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
+        const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
+        IR_LIT(nd).sval = (char *) nm; IR_LIT(nd).ival = 1; return nd; }
     case TT_FNC: {  /* functional pattern node: use PAT_DEFER as fallback */
         IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = t->v.sval; return nd; }
