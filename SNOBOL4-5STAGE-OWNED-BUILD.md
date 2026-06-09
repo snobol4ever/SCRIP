@@ -124,7 +124,7 @@ requirement when built.
   vertices/sides (α=W in, β=S in, γ=E out, ω=N out), edges colored per port; (c) per-statement cluster
   hulls; (d) optional interactive HTML (d3-force) later. No code before Lon says go.
 
-## D6 — DT_P = EXECUTABLE CODE SEGMENTS (Lon 2026-06-07 session 2; SUPERSEDES D1 instance records + D2-as-data)
+## D6 — DT_P = EXECUTABLE CODE SEGMENTS (Lon 2026-06-07 session 2; ⛔ SUPERSEDED BY D7 2026-06-08 — kept for lineage)
 
 Builders build THE REAL THING: BB_PATTERN_* boxes copy position-independent PROTOTYPE BLOBS (.rodata, emitted
 at compile time by element templates: code + co-located operand/RW slots, rip-internal only, CALL-FREE) into the
@@ -138,7 +138,51 @@ Constraints this imposes (healthy): prototypes call-free (capture/NV work forced
 rebuild-per-evaluation (SPITBOL's own behavior for variable patterns); collection deferred (bump alloc, reset
 groundwork in pat_pool_reset; true reclamation B11).
 
-## B-LADDER (ground zero, Lon 2026-06-07 session 2; one rung = one commit, probe-first vs sbl, m4 gates, corpus non-decreasing HARD)
+## D7 — GENERIC RT BUILD/STITCH + SELF-DESCRIBING PROTOS (Lon 2026-06-08 PIVOT; SUPERSEDES D6)
+
+**The mess D7 fixes (Lon "Yikes!"):** D6 builders stitch by patching ABSOLUTE jump addresses into prototype
+blobs at their runtime-varying pool locations, using HARDCODED offsets (`+8/+16/+24`, β@+32) written by hand in
+every element template AND every stitch box (`bb_pattern_cat` patches `[r12+sa+8]`, `[r12+sb+16]`, … literally).
+That is the same hand-counted-offset disease the `bb_bin_t`-ABOLISHED FACT RULE outlaws — relocated from
+compile-time byte-counting into runtime offset arithmetic. One proto layout change silently rots every offset in
+every box (the B6 β-derivation note, the B7b abort_site-won't-propagate bug, the B9 4th-slot note are all ONE rot:
+"offset +24 isn't carried through CAT"). It also forced the build asm to be re-expressed per medium, producing 1101
+`ins*` text-only passthrough calls that have NO binary encoding → **mode-3 emits nothing for the builders → 053
+PASSES m4 but FAILS m3 (and m2). That single line is the parity break.**
+
+**THE CORRECTION — three Lon directives, ONE end state:** (1) standardized patch technique, generic at the build
+site; (2) the map comes from the concat-string BEGIN/END MARKERS (the `bb_emit_x86` marker-walk — positions
+DISCOVERED, never hardcoded); (3) all building+patching lives in the RT as functions. These are one change:
+
+- **Self-describing protos.** Each element template emits its PIC proto blob ONCE; the patch-site offsets
+  (entry, β, γ_site, ω_site, abort_site, operand slots) are DISCOVERED at compile time by the marker-walk and
+  written into a per-proto `DTP_PROTO_DESC` emitted alongside the blob. ZERO hardcoded offsets anywhere.
+- **Generic RT build.** `rt_pattern_build(const void *proto, uint32_t len, const DTP_PROTO_DESC *desc, long op_i,
+  const char *op_s)` copies the proto into the pool, fills operand slots via `desc`, returns a `DTP_FRAG_t` whose
+  entry/γ_site/ω_site = `pool + desc->{entry,gamma,omega}_off`. ONE function, every element kind.
+- **Generic RT stitch.** `rt_pattern_stitch_cat(DTP_FRAG_t *out, const DTP_FRAG_t *l, const DTP_FRAG_t *r)` and
+  `_alt(...)` patch via the frag's discovered sites — `*l->γ_site = r->entry`, `*r->ω_site = l->β`, etc. — NO
+  literal offsets. The stitch is layout-agnostic; protos can change shape freely.
+- **Templates collapse.** A builder box becomes: marshal `proto/len/desc/operands` → `call rt_pattern_*` → store
+  frag → wire 4 ports. The proto blob + desc are DATA (legit text/binary-different, not instructions); the only
+  asm left is `call` + port jumps — both have real dual-medium `x86()` encoders. So the `ins*` text-only forms in
+  the pattern builders DELETE (the asm that used them is gone), and modes 3/4 are byte-identical logic again.
+
+**WHY THIS IS THE PARITY FIX, not just cleanup:** the RT is MODE-AGNOSTIC. The mode-2 interpreter calls
+`rt_pattern_build`/`rt_pattern_stitch_*` DIRECTLY; modes 3/4 emit a `call` to the same symbols. ONE implementation,
+THREE modes, parity by construction. 053 goes green in m2 AND m3 AND m4 from the same code. **m2==m3==m4 becomes
+the gate** (co-equal HARD), replacing the m4-only stance.
+
+**LEDGER STAMP (RULE 3 — Lon granted by the "put the patching in the RT" directive, 2026-06-08):** emitted code MAY
+`call` `rt_pattern_build`, `rt_pattern_stitch_cat`, `rt_pattern_stitch_alt`, `rt_gvar_assign_pat` (already stamped).
+These are the generic build/stitch family; the per-element/per-stitch INLINE asm builders are retired into them.
+
+**SUBSTRATE KEPT:** `pat_pool.c` (RWX bump arena) + `dtp.h` `DTP_t`{entry,out_γ,out_ω} head. `DTP_FRAG_t` gains
+nothing structurally (still {entry,γ_site,ω_site}); the descriptor `DTP_PROTO_DESC` is NEW (compile-time-filled).
+Element PROTO BLOBS are kept as PIC data (their hand-built α/β bodies stay — they are the matching logic), but
+their COPY/FILL/PATCH machinery moves out of template asm into `rt_pattern_build`/`_stitch`.
+
+
 
 - [x] **B0 PATND-DELETE** ✅ 07698c7+27c797f — patnd.h/constructors/cache/type-puns deleted (−781); .p → struct _DTP_t*; 8 nullary primitives → NULL-head DT_P placeholders (startup NV init survives, use-time bombs); grep PATND == 0.
 - [x] **B0b AST-WALK DELETE** ✅ b7a2717 — eval_node + interp_eval_pat → bombs (−471; Lon: nothing interprets tree_t at runtime).
