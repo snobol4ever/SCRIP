@@ -1476,6 +1476,7 @@ int main(int argc, char **argv)
     int is_prolog = 0;
     int is_icon = 0;
     int is_raku = 0;
+    int is_pascal = 0;
     for (int fi = argi; fi < argc; fi++) {
         const char *d = strrchr(argv[fi], '.');
         if (d && (strcmp(d,".pl")==0 || strcmp(d,".icn")==0 ||
@@ -1485,6 +1486,7 @@ int main(int argc, char **argv)
         if (d && strcmp(d,".pl")==0) is_prolog = 1;
         if (d && strcmp(d,".icn")==0) is_icon = 1;
         if (d && strcmp(d,".raku")==0) is_raku = 1;
+        if (d && strcmp(d,".pas")==0) is_pascal = 1;
     }
     CODE_t *sub = NULL;
     tree_t  *ast_prog = NULL;
@@ -1668,8 +1670,6 @@ int main(int argc, char **argv)
         extern IR_graph_t * lower_raku(const tree_t *);
         extern IR_graph_t * lower_pascal(const tree_t *);
         extern IR_graph_t * lower_prolog(const tree_t *);
-        int is_pascal = 0;
-        for (int fi = argi; fi < argc; fi++) { const char *d = strrchr(argv[fi], '.'); if (d && strcmp(d, ".pas") == 0) is_pascal = 1; }
         if (is_icon) {
             extern int lower_icon_enum(const tree_t *, const tree_t **, int);
             extern IR_graph_t * lower_icon_proc(const tree_t *, const tree_t *);
