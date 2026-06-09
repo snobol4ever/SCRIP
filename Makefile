@@ -236,6 +236,11 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_prolog.c \
     $(SRC)/lower/lower_program.c \
     $(SRC)/lower/lower_snobol4.c \
+    $(SRC)/lower/nl/lower_icon_nl.c \
+    $(SRC)/lower/nl/lower_snobol4_nl.c \
+    $(SRC)/lower/nl/lower_raku_nl.c \
+    $(SRC)/lower/nl/lower_pascal_nl.c \
+    $(SRC)/lower/nl/lower_prolog_nl.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/builtins/resolution.c \
@@ -517,6 +522,11 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_prolog.c -o $(OBJ)/lower_prolog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_program.c -o $(OBJ)/lower_program.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_snobol4.c     -o $(OBJ)/lower_snobol4.o
+	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_icon_nl.c    -o $(OBJ)/lower_icon_nl.o
+	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_snobol4_nl.c -o $(OBJ)/lower_snobol4_nl.o
+	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_raku_nl.c    -o $(OBJ)/lower_raku_nl.o
+	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_pascal_nl.c  -o $(OBJ)/lower_pascal_nl.o
+	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_prolog_nl.c  -o $(OBJ)/lower_prolog_nl.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_bb.c -o $(OBJ)/emit_bb.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
