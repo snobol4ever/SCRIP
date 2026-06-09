@@ -304,7 +304,11 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         }
         /* when LEFT child is a capture: PAT_CAT allocated first, THEN lower rc with succ=PAT_CAT */
         if (lc_is_capture) {
-            IR_t * cat = IR_node_alloc(pg, IR_PAT_CAT); γ_to(cat, succ); ω_to(cat, fail);
+            /* only a fresh PAT_CAT when succ is the graph SUCCEED exit; an inner concat */
+            /* (succ already a real continuation, e.g. 060 outer REM-capture) gets none */
+            int need_cat = succ && succ->op == IR_SUCCEED && succ == pg->all[0];
+            IR_t * cat = need_cat ? IR_node_alloc(pg, IR_PAT_CAT) : succ;
+            if (need_cat) { γ_to(cat, succ); ω_to(cat, fail); }
             /* rc is lowered with succ=PAT_CAT (PAT_LEN.γ→PAT_CAT in 049) */
             IR_t * re = lower_pat_node(pg, rc, cat, fail);
             /* lc (capture) lowered with succ=re (capture.γ→PAT_LEN in 049) */
