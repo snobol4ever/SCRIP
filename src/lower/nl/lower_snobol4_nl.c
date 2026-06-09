@@ -144,6 +144,15 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         IR_t * nd = IR_node_alloc(pg, IR_PAT_LIT); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_VAR: {
+        /* built-in SNOBOL4 pattern names → specific opcodes */
+        const char * nm = t->v.sval;
+        if (nm) {
+            if (!strcmp(nm,"REM")  || !strcmp(nm,"rem"))   { IR_t * nd = IR_node_alloc(pg, IR_PAT_REM);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"ARB")  || !strcmp(nm,"arb"))   { IR_t * nd = IR_node_alloc(pg, IR_PAT_ARB);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"FENCE")|| !strcmp(nm,"fence"))  { IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"ABORT")|| !strcmp(nm,"abort"))  { IR_t * nd = IR_node_alloc(pg, IR_PAT_ABORT); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"BAL")  || !strcmp(nm,"bal"))    { IR_t * nd = IR_node_alloc(pg, IR_PAT_BAL);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
+        }
         IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_ARB: {
@@ -200,10 +209,9 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             ir_operand_push(nd, pe);
         }
         return nd; }
-    case TT_SEQ: {  /* pattern concatenation */
-        IR_t * cat = IR_node_alloc(pg, IR_PAT_CAT); γ_to(cat, succ); ω_to(cat, fail);
-        IR_t * re = lower_pat_node(pg, (t->n > 1) ? t->c[1] : NULL, cat, fail);
-        IR_t * le = lower_pat_node(pg, (t->n > 0) ? t->c[0] : NULL, re,  fail);
+    case TT_SEQ: {  /* pattern concatenation: left success → right entry */
+        IR_t * re = lower_pat_node(pg, (t->n > 1) ? t->c[1] : NULL, succ, fail);
+        IR_t * le = lower_pat_node(pg, (t->n > 0) ? t->c[0] : NULL, re,   fail);
         return le; }
     case TT_FENCE: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
@@ -234,8 +242,31 @@ static IR_graph_t * lower_subj_graph(const char * vname) {
     return sg;
 }
 /*====================================================================================================================================================================================================*/
+/* ── pattern-expression detector ────────────────────────────────── */
+static int sno_is_pat_elem(tree_e tt) {
+    switch (tt) {
+    case TT_POS: case TT_RPOS: case TT_ARB: case TT_ARBNO: case TT_REM:
+    case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_SPAN: case TT_BREAKX:
+    case TT_LEN: case TT_TAB: case TT_RTAB: case TT_BAL: case TT_FENCE: case TT_ABORT:
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: case TT_CAPT_CURSOR: case TT_ALT:
+        return 1;
+    default: return 0; }
+}
+static int sno_has_pat(const tree_t * t) {
+    if (!t) return 0;
+    if (sno_is_pat_elem(t->t)) return 1;
+    for (int i = 0; i < t->n; i++) if (sno_has_pat(t->c[i])) return 1;
+    return 0;
+}
+/*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
+    /* pattern expression in RHS → ORPHAN ASSIGN_CONCAT + SEQ (oracle behaviour) */
+    if (rhs && sno_has_pat(rhs)) {
+        IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN_CONCAT); IR_LIT(asn).sval = (char *) lhs;
+        IR_node_alloc(cx->g, IR_SEQ);
+        return NULL;
+    }
     if (!rhs) {
         IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_S;
         IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
