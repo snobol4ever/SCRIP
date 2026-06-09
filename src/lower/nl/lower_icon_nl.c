@@ -66,6 +66,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_ASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
         if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval; IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, asn, ω, &vr); ir_operand_push(asn, vr); *res = asn; return entry; }
+        if (lhs && lhs->t == TT_IDX) {
+            IR_t * set = build(cx, IR_IDX_SET, γ, ω);
+            IR_t * br = NULL; IR_t * entry = lower(cx, lhs->c[0], set, ω, &br); ir_operand_push(set, br);
+            for (int k = 1; k < lhs->n; k++) { IR_t * ir = NULL; lower(cx, lhs->c[k], set, ω, &ir); ir_operand_push(set, ir); }
+            IR_t * vr = NULL; lower(cx, rhs, set, ω, &vr); ir_operand_push(set, vr);
+            *res = set; return entry;
+        }
         IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_t * lr = NULL, * rr = NULL; IR_t * eb = lower(cx, rhs, asn, ω, &rr); IR_t * ea = lower(cx, lhs, eb, ω, &lr); ir_operand_push(asn, rr); ir_operand_push(asn, lr); *res = asn; return ea;
     }
     case TT_AUGOP: {
@@ -127,14 +134,8 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     int by = (t->t == TT_TO_BY) ? 1 : 0;
     IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag";
     IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr);
-    if (by) {
-        IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], NULL, ω, &mr); γ_to(lr, em);
-        IR_t * br = NULL; IR_t * eb = lower(cx, t->c[2], to, ω, &br); γ_to(mr, eb);
-        ir_operand_push(to, lr); ir_operand_push(to, mr); ir_operand_push(to, br);
-    } else {
-        IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], to, ω, &mr); γ_to(lr, em);
-        ir_operand_push(to, lr); ir_operand_push(to, mr);
-    }
+    IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], to, ω, &mr); γ_to(lr, em);
+    ir_operand_push(to, lr); ir_operand_push(to, mr);
     *res = to; return ea;
 }
 /*------------------------------------------------------------------------------------------------------------------------*/
@@ -149,7 +150,8 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     } else {
         gen_entry = lower(cx, GEN, NULL, E, &gen_result); gen_node = gen_result;
     }
-    IR_t * bval = NULL; IR_t * body_entry = lower(cx, BODY, gen_node, gen_node, &bval);
+    IR_t * loop_back = is_resumable(BODY) ? gen_node : E;
+    IR_t * bval = NULL; IR_t * body_entry = lower(cx, BODY, loop_back, loop_back, &bval);
     γ_to(gen_result, body_entry);
     ir_operand_push(E, gen_entry);
     *res = E; return gen_entry;
