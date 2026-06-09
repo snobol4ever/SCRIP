@@ -420,6 +420,9 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         IR_t * var = build(cx, IR_VAR, scan, ω_tgt);
         IR_LIT(var).sval = (char *) vname;
         return var; }
+    case TT_DO_WHILE: case TT_FOR: case TT_WHILE: case TT_UNTIL:
+    case TT_REPEAT: case TT_IF: case TT_CASE: case TT_DEFINE: case TT_PROGRAM:
+        return NULL;
     default:
         return lower_expr(cx, subj, γ_tgt, ω_tgt, NULL);
     }
