@@ -51,6 +51,27 @@ files() {
 strip_dump() { grep -vE '^; proc' | grep -vE '^[[:space:]]*$'; }
 norm_dump()  { if [ "$NORM" = 1 ]; then sed -E 's/ival=[0-9]{7,}/ival=PTR/g'; else cat; fi; }
 
+# ORACLE-CRASH SKIP LIST (Lon ruling 2026-06-09).  The OLD lowering (--dump-bb,
+# the oracle) SEGFAULTS partway through these programs, emitting a partial dump
+# to stdout before crashing.  A partial dump would otherwise score DIFFER (the
+# empty-oracle SKIP test below only catches a fully-empty dump), so a crashing
+# oracle masquerades as a real divergence.  These programs are UNSCOREABLE until
+# the oracle crash is fixed and are forced to SKIP by relative path.  The B07
+# Snocone set crashes on compound-assignment (+=/-=/*=///^=) lowering; cross.sno
+# crashes on its @N cursor-capture + conditional-replacement scan.
+oracle_crashes() {
+  case "$1" in
+    test/snobol4/strings/cross.sno) return 0 ;;
+    crosscheck/snocone/rungB07/B07_slash_assign.sc)    return 0 ;;
+    crosscheck/snocone/rungB07/B07_plus_assign.sc)     return 0 ;;
+    crosscheck/snocone/rungB07/B07_compound_chain.sc)  return 0 ;;
+    crosscheck/snocone/rungB07/B07_star_assign.sc)     return 0 ;;
+    crosscheck/snocone/rungB07/B07_caret_assign.sc)    return 0 ;;
+    crosscheck/snocone/rungB07/B07_minus_assign.sc)    return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 LIST="$(mktemp)"
 files "$LANG_ARG" > "$LIST"
 
@@ -60,9 +81,12 @@ printf "%-46s  %s\n" "----------------------------------------------" "------"
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   T=$((T + 1))
+  rel="${f#"$REPO"/}"; rel="${rel#"$CORPUS"/}"
+  if oracle_crashes "$rel"; then
+    S=$((S + 1)); printf "%-46s  %s\n" "$rel" "SKIP"; continue
+  fi
   o="$("$SCRIP" --dump-bb  "$f" < /dev/null 2>/dev/null | strip_dump | norm_dump)"
   n="$("$SCRIP" --dump-bb2 "$f" < /dev/null 2>/dev/null | strip_dump | norm_dump)"
-  rel="${f#"$REPO"/}"; rel="${rel#"$CORPUS"/}"
   if [ -z "$o" ]; then
     S=$((S + 1)); printf "%-46s  %s\n" "$rel" "SKIP"
   elif [ -z "$n" ]; then
