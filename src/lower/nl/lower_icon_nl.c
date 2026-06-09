@@ -23,11 +23,15 @@ static int is_binop_tt(tree_e tt) { switch (tt) { case TT_ADD: case TT_SUB: case
 static int is_unop_tt(tree_e tt) { switch (tt) { case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_RANDOM: case TT_NOT: case TT_INTERROGATE: case TT_MATCH_UNARY: return 1; default: return 0; } }
 /*------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_do_body(icx_t * cx, const tree_t * B, IR_t * R, IR_t * K, IR_t ** b_entry);
 /*------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name; IR_LIT(call).ival = nargs;
     if (res) *res = call;
-    int subgraph = is_user_proc(cx, name) || !strcmp(name, "[]") || !strcmp(name, "MAKELIST");
+    int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
+    int subgraph = !chains;
     if (subgraph) return call;
     IR_t * prev = NULL; IR_t * entry = call;
     for (int k = 0; k < nargs; k++) {
@@ -66,20 +70,54 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval; IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc; ir_operand_push(asn, op); IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, lhs, NULL, ω, &lr); IR_t * eb = lower(cx, rhs, op, ω, &rr); γ_to(lr, eb); *res = asn; return ea; }
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = bc; IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, lhs, NULL, ω, &lr); IR_t * eb = lower(cx, rhs, op, ω, &rr); γ_to(lr, eb); *res = op; return ea;
     }
-    case TT_RETURN: { IR_t * ret = build(cx, IR_RETURN, cx->psucc, cx->pfail); if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower(cx, t->c[0], ret, cx->pfail, &vr); ir_operand_push(ret, vr); *res = ret; return entry; } *res = ret; return ret; }
+    case TT_RETURN: { IR_t * ret = build(cx, IR_RETURN, γ, ω); if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower(cx, t->c[0], ret, ω, &vr); ir_operand_push(ret, vr); *res = ret; return entry; } *res = ret; return ret; }
     case TT_PROC_FAIL: { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOOP_BREAK: { IR_t * nd = build(cx, IR_BREAK, γ, ω); *res = nd; return nd; }
     case TT_LOOP_NEXT: { IR_t * nd = build(cx, IR_NEXT, γ, ω); *res = nd; return nd; }
     case TT_LOCAL: case TT_STATIC_DECL: case TT_INITIAL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_SEQ: {
+    case TT_SEQ: case TT_SEQ_EXPR: {
         IR_t * succ = γ; IR_t * fail = ω; IR_t * entry = γ;
         for (int i = t->n - 1; i >= 0; i--) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue; IR_t * r = NULL; entry = lower(cx, s, succ, fail, &r); succ = entry; fail = entry; }
         *res = entry; return entry;
     }
+    case TT_IF: return lower_if(cx, t, γ, ω, res);
+    case TT_WHILE: return lower_while(cx, t, γ, ω, res);
     case TT_SCAN: { IR_t * gs = build(cx, IR_GEN_SCAN, γ, ω); IR_graph_t * sub = IR_alloc(64, IR_LANG_ICN); IR_LIT(gs).ival = (long long)(intptr_t) sub; *res = gs; return gs; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
+}
+/*========================================================================================================================*/
+static IR_t * lower_do_body(icx_t * cx, const tree_t * B, IR_t * R, IR_t * K, IR_t ** b_entry) {
+    const tree_t * S[128]; int k = 0;
+    if (B && (B->t == TT_SEQ || B->t == TT_SEQ_EXPR)) { for (int i = 0; i < B->n && k < 128; i++) { const tree_t * s = B->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) S[k++] = s; } }
+    else if (B && B->t == TT_STMT) { const tree_t * s = stmt_subj(B); if (s) S[k++] = s; }
+    else if (B) S[k++] = B;
+    IR_t * val[128]; IR_t * ent[128]; IR_t * succ = K;
+    for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, R, &val[i]); succ = ent[i]; }
+    for (int i = 1; i < k; i++) ω_to(val[i], val[0]);
+    if (b_entry) *b_entry = (k > 0) ? ent[0] : K;
+    return (k > 0) ? val[0] : K;
+}
+/*------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+    IR_t * W = build(cx, IR_WHILE, γ, ω);
+    IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
+    IR_t * CONJ = build(cx, IR_CONJ, centry, centry);
+    IR_t * b_entry = NULL; lower_do_body(cx, B, centry, CONJ, &b_entry);
+    γ_to(cval, b_entry); ir_operand_push(W, centry);
+    *res = W; return centry;
+}
+/*------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * T = (t->n > 1) ? t->c[1] : NULL; const tree_t * E = (t->n > 2) ? t->c[2] : NULL;
+    IR_t * iff = build(cx, IR_IF, γ, ω);
+    IR_t * tval = NULL; IR_t * tentry = lower(cx, T, γ, ω, &tval);
+    IR_t * eentry = ω; if (E) { IR_t * eval = NULL; eentry = lower(cx, E, γ, ω, &eval); }
+    IR_t * cval = NULL; IR_t * centry = lower(cx, C, tentry, eentry, &cval);
+    ir_operand_push(iff, centry);
+    *res = iff; return centry;
 }
 /*========================================================================================================================*/
 static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
