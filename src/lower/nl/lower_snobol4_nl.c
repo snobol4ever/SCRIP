@@ -245,7 +245,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_t * lit = build(cx, IR_LIT_I, asn, nxt); IR_LIT(lit).ival = rhs->v.ival;
         return lit; }
     case TT_FLIT: {
-        IR_t * asn = build(cx, IR_ASSIGN_LIT_I, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * asn = build(cx, IR_ASSIGN, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
         IR_t * lit = build(cx, IR_LIT_F, asn, nxt); IR_LIT(lit).dval = rhs->v.dval;
         return lit; }
     case TT_NUL: {
@@ -286,6 +286,11 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_t * seq = build(cx, IR_SEQ, asn, nxt); IR_LIT(seq).ival = 100000000LL;
         return seq; }
     default: {
+        /* TT_IDX or TT_INDIRECT as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
+        if (rhs->t == TT_IDX || rhs->t == TT_INDIRECT) {
+            IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
+            return NULL;
+        }
         IR_t * asn = build(cx, IR_ASSIGN, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
         return lower_expr(cx, rhs, asn, nxt, NULL); }
     }
@@ -306,6 +311,17 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
     switch (subj->t) {
     case TT_FNC: {
         const char * nm = subj->v.sval ? subj->v.sval : "?";
+        /* orphan CALL when any arg is TT_IDX or TT_INDIRECT (oracle behaviour) */
+        int complex_arg = 0;
+        for (int ai = 0; ai < subj->n && !complex_arg; ai++) {
+            const tree_t * a = subj->c[ai];
+            if (a && (a->t == TT_IDX || a->t == TT_INDIRECT)) complex_arg = 1;
+        }
+        if (complex_arg) {
+            IR_t * nd = IR_node_alloc(cx->g, IR_CALL);
+            IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long) subj->n;
+            return NULL;  /* orphan: no γ/ω; label chains to nxt */
+        }
         IR_t * nd = build(cx, IR_CALL, γ_tgt, ω_tgt);
         IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long) subj->n;
         return nd; }
