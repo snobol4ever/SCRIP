@@ -486,6 +486,11 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
         IR_t * var = build(cx, IR_VAR, asn, ω); IR_LIT(var).sval = rhs->v.sval;
         return var; }
+    case TT_NAME: {
+        IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_VAR;
+        IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * var = build(cx, IR_VAR, asn, ω); IR_LIT(var).sval = "";
+        return var; }
     case TT_FNC: {
         /* V = func(...) → ASSIGN_CALL + CALL */
         const char * nm = rhs->v.sval ? rhs->v.sval : "?";
@@ -655,7 +660,7 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
         if (go_u) { γ_tgt = ω_tgt = go_tgt_u ? go_tgt_u : nxt; }
         else { γ_tgt = go_tgt_s ? go_tgt_s : nxt; ω_tgt = go_tgt_f ? go_tgt_f : nxt; }
         IR_t * entry = lower_stmt_body(cx, s, γ_tgt, ω_tgt);
-        γ_to(lbuf[i], entry ? entry : γ_tgt);
+        γ_to(lbuf[i], entry ? entry : (go_u && go_tgt_u ? go_tgt_u : nxt));
     }
     return g;
 }
