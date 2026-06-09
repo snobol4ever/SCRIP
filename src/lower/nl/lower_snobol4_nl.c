@@ -1,32 +1,29 @@
 #include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include "ast.h"
 #include "IR.h"
 /*====================================================================================================================================================================================================*/
 #define SNO_MAXSTMTS 2048
 typedef struct {
     IR_graph_t * g;
-    /* fixed terminal nodes */
-    IR_t * PSUCC;   /* [0] */
-    IR_t * PFAIL;   /* [1] */
-    IR_t * PRET;    /* [2] RETURN  (target of :RETURN goto) */
-    IR_t * PFRET;   /* [3] RETURN  (target of :FRETURN goto) */
-    /* per-stmt label SUCCEED nodes */
+    IR_t * PSUCC;  /* [0] */
+    IR_t * PFAIL;  /* [1] */
+    IR_t * PRET;   /* [2] :RETURN  */
+    IR_t * PFRET;  /* [3] :FRETURN */
     IR_t ** labels;
     int     nlabels;
-    /* label name → stmt-index map */
     const char ** lname;
     int           lstmt[SNO_MAXSTMTS];
     int           nlmap;
 } snx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α", 3); nd->γ.sz[3] = 0; } }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ω_to(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "β", 3); nd->ω.sz[3] = 0; } }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(snx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     IR_t * nd = IR_node_alloc(cx->g, op); γ_to(nd, γ); ω_to(nd, ω); return nd; }
 /*====================================================================================================================================================================================================*/
-/* ── AST helpers ─────────────────────────────────────────────────── */
+/* ── AST helpers ──────────────────────────────────────────────────── */
 static int sno_is_end(const tree_t * s) {
     if (!s) return 0;
     if (s->t == TT_END) return 1;
@@ -37,8 +34,6 @@ static int sno_is_end(const tree_t * s) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* extract first child of a named TT_ATTR inside TT_STMT */
 static const tree_t * sno_attr(const tree_t * s, const char * tag) {
     for (int i = 0; i < s->n; i++) {
         const tree_t * a = s->c[i];
@@ -47,7 +42,6 @@ static const tree_t * sno_attr(const tree_t * s, const char * tag) {
     }
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_has_attr(const tree_t * s, const char * tag) {
     for (int i = 0; i < s->n; i++) {
         const tree_t * a = s->c[i];
@@ -55,55 +49,40 @@ static int sno_has_attr(const tree_t * s, const char * tag) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* extract goto child (TT_GOTO_S/F/U or TT_ATTR ":goS"/":goF"/":go") */
 static const tree_t * sno_goto_node(const tree_t * s, tree_e kind, const char * tag) {
     for (int i = 0; i < s->n; i++) {
-        const tree_t * a = s->c[i];
-        if (!a) continue;
+        const tree_t * a = s->c[i]; if (!a) continue;
         if (a->t == kind) return a;
         if (a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, tag)) return a;
     }
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* get label name from TT_GOTO_* or ":goX" TT_ATTR child */
 static const char * sno_goto_label(const tree_t * ch) {
-    if (!ch || !ch->n || !ch->c[0]) return NULL;
-    return ch->c[0]->v.sval;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* get stmt's own label name (if any) */
+    if (!ch || !ch->n || !ch->c[0]) return NULL; return ch->c[0]->v.sval; }
 static const char * sno_stmt_label(const tree_t * s) {
-    const tree_t * lbl = sno_attr(s, ":lbl");
-    return lbl ? lbl->v.sval : NULL;
-}
+    const tree_t * lbl = sno_attr(s, ":lbl"); return lbl ? lbl->v.sval : NULL; }
 /*====================================================================================================================================================================================================*/
-/* resolve goto label name → IR_t * SUCCEED/RETURN node */
+/* resolve label name → IR_t * (NULL if unknown; caller uses nxt as fallback) */
 static IR_t * resolve(snx_t * cx, const char * name) {
-    if (!name || !name[0]) return cx->PSUCC;
+    if (!name || !name[0]) return NULL;
     if (!strcmp(name, "END"))     return cx->PSUCC;
     if (!strcmp(name, "RETURN"))  return cx->PRET;
     if (!strcmp(name, "FRETURN")) return cx->PFRET;
     for (int i = 0; i < cx->nlmap; i++)
         if (cx->lname[i] && !strcmp(cx->lname[i], name)) return cx->labels[cx->lstmt[i]];
-    return cx->PSUCC; /* unknown → terminal */
+    return NULL;  /* unknown → caller uses nxt */
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* "next" label for stmt at index i (i+1 or PSUCC if last) */
 static IR_t * next_label(snx_t * cx, int i) {
-    return (i + 1 < cx->nlabels) ? cx->labels[i + 1] : cx->PSUCC;
-}
+    return (i + 1 < cx->nlabels) ? cx->labels[i + 1] : cx->PSUCC; }
 /*====================================================================================================================================================================================================*/
-/* ── expression lowerer (for RHS of assignments and sub-exprs) ──── */
+/* ── binop helpers ─────────────────────────────────────────────────── */
 static int is_sno_binop(tree_e tt) {
     switch (tt) {
     case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW:
     case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE:
     case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE:
     case TT_CAT: return 1;
-    default: return 0;
-    }
+    default: return 0; }
 }
 static int sno_binop_code(tree_e tt) {
     switch (tt) {
@@ -120,10 +99,10 @@ static int is_sno_unop(tree_e tt) {
     switch (tt) {
     case TT_MNS: case TT_PLS: case TT_NONNULL: case TT_NOT: case TT_INTERROGATE:
     case TT_NAME: case TT_INDIRECT: return 1;
-    default: return 0;
-    }
+    default: return 0; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*====================================================================================================================================================================================================*/
+/* ── expression lowerer ─────────────────────────────────────────────── */
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res);
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
@@ -141,13 +120,13 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
         *res = op; return ea;
     }
     switch (t->t) {
-    case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_I, cont, nxt); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
-    case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, cont, nxt); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
-    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_S, cont, nxt); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_NUL:  { IR_t * nd = build(cx, IR_LIT_NUL, cont, nxt); *res = nd; return nd; }
-    case TT_VAR:  { IR_t * nd = build(cx, IR_VAR, cont, nxt); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_KEYWORD: { IR_t * nd = build(cx, IR_KEYWORD, cont, nxt); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_FNC: {
+    case TT_ILIT:    { IR_t * nd = build(cx, IR_LIT_I,   cont, nxt); IR_LIT(nd).ival  = t->v.ival; *res = nd; return nd; }
+    case TT_FLIT:    { IR_t * nd = build(cx, IR_LIT_F,   cont, nxt); IR_LIT(nd).dval  = t->v.dval; *res = nd; return nd; }
+    case TT_QLIT:    { IR_t * nd = build(cx, IR_LIT_S,   cont, nxt); IR_LIT(nd).sval  = t->v.sval; *res = nd; return nd; }
+    case TT_NUL:     { IR_t * nd = build(cx, IR_LIT_NUL, cont, nxt);                                *res = nd; return nd; }
+    case TT_VAR:     { IR_t * nd = build(cx, IR_VAR,     cont, nxt); IR_LIT(nd).sval  = t->v.sval; *res = nd; return nd; }
+    case TT_KEYWORD: { IR_t * nd = build(cx, IR_KEYWORD, cont, nxt); IR_LIT(nd).sval  = t->v.sval; *res = nd; return nd; }
+    case TT_FNC:     {
         const char * nm = t->v.sval ? t->v.sval : "?";
         IR_t * nd = build(cx, IR_CALL, cont, nxt); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long) t->n;
         *res = nd; return nd;
@@ -156,11 +135,102 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
     }
 }
 /*====================================================================================================================================================================================================*/
-/* ── assignment lowerer ─────────────────────────────────────────── */
-/* lower V = EXPR; γ=ω=nxt for the result node (assignment always succeeds in SNOBOL4) */
+/* ── pattern sub-graph builder ──────────────────────────────────────── */
+static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_t * fail);
+static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_t * fail) {
+    if (!t) return succ;
+    switch (t->t) {
+    case TT_QLIT: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_LIT); γ_to(nd, succ); ω_to(nd, fail);
+        IR_LIT(nd).sval = t->v.sval; return nd; }
+    case TT_VAR: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
+        IR_LIT(nd).sval = t->v.sval; return nd; }
+    case TT_ARB: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_ARB); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+    case TT_REM: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_REM); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+    case TT_BREAK: case TT_BREAKX: {
+        IR_e op = (t->t == TT_BREAK) ? IR_PAT_BREAK : IR_PAT_BREAKX;
+        IR_t * nd = IR_node_alloc(pg, op); γ_to(nd, succ); ω_to(nd, fail);
+        if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+    case TT_SPAN: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_SPAN); γ_to(nd, succ); ω_to(nd, fail);
+        if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+    case TT_ANY: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_ANY); γ_to(nd, succ); ω_to(nd, fail);
+        if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+    case TT_NOTANY: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_NOTANY); γ_to(nd, succ); ω_to(nd, fail);
+        if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+    case TT_POS: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_POS); γ_to(nd, succ); ω_to(nd, fail);
+        if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+    case TT_RPOS: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_POS); γ_to(nd, succ); ω_to(nd, fail);
+        IR_LIT(nd).sval = "r"; if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+    case TT_LEN: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_LEN); γ_to(nd, succ); ω_to(nd, fail);
+        if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+    case TT_TAB: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_TAB); γ_to(nd, succ); ω_to(nd, fail);
+        if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+    case TT_RTAB: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_RTAB); γ_to(nd, succ); ω_to(nd, fail);
+        if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+    case TT_ARBNO: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_ARBNO); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+    case TT_ALT: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_ALT); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+    case TT_CAPT_COND_ASGN: {  /* pat . var */
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_ASSIGN_COND); γ_to(nd, succ); ω_to(nd, fail);
+        const char * vn = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : "";
+        IR_LIT(nd).sval = (char *) vn;
+        IR_t * pe = (t->n > 0) ? lower_pat_node(pg, t->c[0], nd, fail) : nd;
+        return pe; }
+    case TT_CAPT_IMMED_ASGN: { /* pat $ var */
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_ASSIGN_IMM); γ_to(nd, succ); ω_to(nd, fail);
+        const char * vn = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : "";
+        IR_LIT(nd).sval = (char *) vn;
+        IR_t * pe = (t->n > 0) ? lower_pat_node(pg, t->c[0], nd, fail) : nd;
+        return pe; }
+    case TT_SEQ: {  /* pattern concatenation */
+        IR_t * cat = IR_node_alloc(pg, IR_PAT_CAT); γ_to(cat, succ); ω_to(cat, fail);
+        IR_t * re = lower_pat_node(pg, (t->n > 1) ? t->c[1] : NULL, cat, fail);
+        IR_t * le = lower_pat_node(pg, (t->n > 0) ? t->c[0] : NULL, re,  fail);
+        return le; }
+    case TT_FENCE: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+    case TT_FNC: {  /* functional pattern node: use PAT_DEFER as fallback */
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
+        IR_LIT(nd).sval = t->v.sval; return nd; }
+    default: {
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
+        IR_LIT(nd).sval = "?"; return nd; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * lower_pat_graph(const tree_t * pat) {
+    IR_graph_t * pg = IR_alloc(256, IR_LANG_SNO);
+    IR_t * succ = IR_node_alloc(pg, IR_SUCCEED);  /* [0] */
+    IR_t * fail = IR_node_alloc(pg, IR_FAIL);      /* [1] */
+    IR_t * entry = lower_pat_node(pg, pat, succ, fail);
+    pg->entry = entry ? entry : succ;
+    return pg;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * lower_subj_graph(const char * vname) {
+    IR_graph_t * sg = IR_alloc(32, IR_LANG_SNO);
+    IR_t * fail = IR_node_alloc(sg, IR_FAIL);   /* [0] */
+    IR_t * var  = IR_node_alloc(sg, IR_VAR);    /* [1] */
+    ω_to(var, fail); IR_LIT(var).sval = (char *) vname;
+    sg->entry = var;
+    return sg;
+}
+/*====================================================================================================================================================================================================*/
+/* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * nxt) {
     if (!rhs) {
-        /* empty assignment  V =  (SNOBOL4 null replacement) */
         IR_t * asn = build(cx, IR_ASSIGN_LIT_S, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
         IR_t * lit = build(cx, IR_LIT_S, asn, nxt); IR_LIT(lit).sval = "";
         return lit;
@@ -169,43 +239,40 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
     case TT_QLIT: {
         IR_t * asn = build(cx, IR_ASSIGN_LIT_S, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
         IR_t * lit = build(cx, IR_LIT_S, asn, nxt); IR_LIT(lit).sval = rhs->v.sval;
-        return lit;
-    }
+        return lit; }
     case TT_ILIT: {
         IR_t * asn = build(cx, IR_ASSIGN_LIT_I, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
         IR_t * lit = build(cx, IR_LIT_I, asn, nxt); IR_LIT(lit).ival = rhs->v.ival;
-        return lit;
-    }
+        return lit; }
     case TT_FLIT: {
         IR_t * asn = build(cx, IR_ASSIGN_LIT_I, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
         IR_t * lit = build(cx, IR_LIT_F, asn, nxt); IR_LIT(lit).dval = rhs->v.dval;
-        return lit;
-    }
+        return lit; }
     case TT_NUL: {
         IR_t * asn = build(cx, IR_ASSIGN_LIT_S, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_NUL, asn, nxt);
-        return lit;
-    }
+        IR_t * lit = build(cx, IR_LIT_NUL, asn, nxt); return lit; }
     case TT_VAR: {
         IR_t * asn = build(cx, IR_ASSIGN_VAR, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
         IR_t * var = build(cx, IR_VAR, asn, nxt); IR_LIT(var).sval = rhs->v.sval;
-        return var;
-    }
+        return var; }
+    case TT_FNC: {
+        /* V = func(...) → ASSIGN_CALL + CALL */
+        const char * nm = rhs->v.sval ? rhs->v.sval : "?";
+        IR_t * asn = build(cx, IR_ASSIGN_CALL, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * call = build(cx, IR_CALL, asn, nxt); IR_LIT(call).sval = nm; IR_LIT(call).ival = (long long) rhs->n;
+        return call; }
     case TT_SEQ: {
-        /* SNOBOL4 juxtaposition concat: try constant-fold all-literal, else IR_SEQ */
         const tree_t * leaves[64]; int nl = 0, fold = 1;
         const tree_t * stk[128]; int sp = 0;
         stk[sp++] = rhs;
         while (sp > 0 && fold) {
-            const tree_t * nd = stk[--sp];
-            if (!nd) { fold = 0; break; }
+            const tree_t * nd = stk[--sp]; if (!nd) { fold = 0; break; }
             if (nd->t == TT_SEQ) {
                 if (sp + 2 > 127) { fold = 0; break; }
                 stk[sp++] = (nd->n > 1) ? nd->c[1] : NULL;
                 stk[sp++] = (nd->n > 0) ? nd->c[0] : NULL;
-            } else if (nd->t == TT_QLIT && nl < 63) {
-                leaves[nl++] = nd;
-            } else { fold = 0; }
+            } else if (nd->t == TT_QLIT && nl < 63) { leaves[nl++] = nd; }
+            else { fold = 0; }
         }
         IR_t * asn = build(cx, IR_ASSIGN_CONCAT, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
         if (fold && nl > 0) {
@@ -217,109 +284,92 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             return lit;
         }
         IR_t * seq = build(cx, IR_SEQ, asn, nxt); IR_LIT(seq).ival = 100000000LL;
-        return seq;
-    }
+        return seq; }
     default: {
-        /* complex expr: ASSIGN + expr chain */
         IR_t * asn = build(cx, IR_ASSIGN, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        return lower_expr(cx, rhs, asn, nxt, NULL);
-    }
+        return lower_expr(cx, rhs, asn, nxt, NULL); }
     }
 }
 /*====================================================================================================================================================================================================*/
-/* ── statement body lowerer ──────────────────────────────────────── */
-/* Returns entry node for this stmt body (or NULL if no body / pure goto). */
+/* ── statement body lowerer ──────────────────────────────────────────── */
 static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t * ω_tgt) {
     const tree_t * subj = sno_attr(s, ":subj");
-    if (!subj) return NULL; /* empty stmt or pure-goto: no body */
+    if (!subj) return NULL;
     int has_eq = sno_has_attr(s, ":eq");
     if (has_eq) {
-        /* assignment:  LHS = RHS  (only emit body when LHS is a plain VAR) */
-        if (subj->t != TT_VAR) return NULL;   /* indirect/complex LHS → empty label (oracle behaviour) */
+        /* assignment:  LHS = RHS  (plain VAR or KEYWORD LHS only) */
+        if (subj->t != TT_VAR && subj->t != TT_KEYWORD) return NULL;
         const tree_t * repl = sno_attr(s, ":repl");
         const char * lhs = subj->v.sval;
-        /* for assignment, both γ_tgt and ω_tgt are the same (next); use γ_tgt */
         return lower_assign(cx, lhs, repl, γ_tgt);
     }
-    /* expression statement (call, scan, etc.) */
     switch (subj->t) {
     case TT_FNC: {
         const char * nm = subj->v.sval ? subj->v.sval : "?";
         IR_t * nd = build(cx, IR_CALL, γ_tgt, ω_tgt);
         IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long) subj->n;
-        return nd;
-    }
+        return nd; }
     case TT_SCAN: {
-        /* SCAN: stub – emit IR_SCAN with subgraph; pattern graph not built here (LAD-3c) */
-        const tree_t * scan_var = (subj->n > 0) ? subj->c[0] : NULL;
-        IR_t * nd = build(cx, IR_SCAN, γ_tgt, ω_tgt);
-        IR_LIT(nd).sval = (scan_var && scan_var->v.sval) ? scan_var->v.sval : "";
-        return nd;
-    }
+        /* TT_SCAN children: c[0]=subject expr, c[1]=pattern expr */
+        const tree_t * sv = (subj->n > 0) ? subj->c[0] : NULL;
+        const tree_t * pt = (subj->n > 1) ? subj->c[1] : NULL;
+        const char * vname = (sv && sv->v.sval) ? sv->v.sval : "";
+        /* allocate sub-graphs */
+        IR_graph_t * pg = lower_pat_graph(pt);
+        IR_graph_t * sg = lower_subj_graph(vname);
+        /* emit SCAN node + VAR entry in main graph */
+        IR_t * scan = build(cx, IR_SCAN, γ_tgt, ω_tgt);
+        IR_LIT(scan).sval = (char *) vname;
+        IR_EXEC(scan).counter = (int64_t)(intptr_t) pg;
+        ir_operand_push(scan, (IR_t *)(void *) sg);
+        /* VAR entry: γ→scan, ω→failure_target */
+        IR_t * var = build(cx, IR_VAR, scan, ω_tgt);
+        IR_LIT(var).sval = (char *) vname;
+        return var; }
     default:
         return lower_expr(cx, subj, γ_tgt, ω_tgt, NULL);
     }
 }
 /*====================================================================================================================================================================================================*/
 IR_graph_t * lower_snobol4(const tree_t * prog) {
-    /* ── 1. collect non-end stmts ─────────────────────────────────── */
-    const tree_t * stmts[SNO_MAXSTMTS];
-    int N = 0;
+    /* 1. collect non-end stmts */
+    const tree_t * stmts[SNO_MAXSTMTS]; int N = 0;
     for (int i = 0; i < prog->n && N < SNO_MAXSTMTS - 1; i++) {
-        const tree_t * s = prog->c[i];
-        if (!s || sno_is_end(s)) continue;
-        stmts[N++] = s;
-    }
-    /* ── 2. allocate graph + fixed prefix nodes ────────────────────── */
+        const tree_t * s = prog->c[i]; if (!s || sno_is_end(s)) continue; stmts[N++] = s; }
+    /* 2. allocate graph + fixed prefix */
     IR_graph_t * g = IR_alloc(8192, IR_LANG_SNO);
     snx_t cx_s; snx_t * cx = &cx_s; memset(cx, 0, sizeof *cx); cx->g = g;
-    cx->PSUCC = IR_node_alloc(g, IR_SUCCEED);   /* [0] terminal success */
-    cx->PFAIL = IR_node_alloc(g, IR_FAIL);      /* [1] terminal failure */
-    cx->PRET  = IR_node_alloc(g, IR_RETURN);    /* [2] :RETURN target   */
-    cx->PFRET = IR_node_alloc(g, IR_RETURN);    /* [3] :FRETURN target  */
-    ω_to(cx->PRET,  cx->PFAIL);
-    ω_to(cx->PFRET, cx->PFAIL);
-    /* ── 3. label SUCCEED nodes [4..4+N-1] ───────────────────────── */
+    cx->PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    cx->PFAIL = IR_node_alloc(g, IR_FAIL);
+    cx->PRET  = IR_node_alloc(g, IR_RETURN);
+    cx->PFRET = IR_node_alloc(g, IR_RETURN);
+    ω_to(cx->PRET, cx->PFAIL); ω_to(cx->PFRET, cx->PFAIL);
+    /* 3. label SUCCEED nodes [4..4+N-1] */
     IR_t * lbuf[SNO_MAXSTMTS];
-    cx->labels  = lbuf;
-    cx->nlabels = N;
+    cx->labels = lbuf; cx->nlabels = N;
     for (int i = 0; i < N; i++) lbuf[i] = IR_node_alloc(g, IR_SUCCEED);
-    /* ── 4. build label name → stmt-index map ─────────────────────── */
-    const char * lname_buf[SNO_MAXSTMTS];
-    cx->lname = lname_buf;
+    /* 4. label name → stmt-index map */
+    const char * lname_buf[SNO_MAXSTMTS]; cx->lname = lname_buf;
     for (int i = 0; i < N; i++) {
         const char * nm = sno_stmt_label(stmts[i]);
-        if (nm && nm[0]) {
-            cx->lname[cx->nlmap] = nm;
-            cx->lstmt[cx->nlmap] = i;
-            cx->nlmap++;
-        }
-    }
-    /* ── 5. entry ───────────────────────────────────────────────────── */
+        if (nm && nm[0]) { cx->lname[cx->nlmap] = nm; cx->lstmt[cx->nlmap] = i; cx->nlmap++; } }
+    /* 5. entry */
     g->entry = (N > 0) ? lbuf[0] : cx->PSUCC;
-    /* ── 6. lower each stmt ─────────────────────────────────────────── */
+    /* 6. lower each stmt */
     for (int i = 0; i < N; i++) {
         const tree_t * s = stmts[i];
-        /* ── determine goto targets ─── */
         const tree_t * go_s = sno_goto_node(s, TT_GOTO_S, ":goS");
         const tree_t * go_f = sno_goto_node(s, TT_GOTO_F, ":goF");
         const tree_t * go_u = sno_goto_node(s, TT_GOTO_U, ":go");
         IR_t * nxt = next_label(cx, i);
+        IR_t * go_tgt_u = go_u ? resolve(cx, sno_goto_label(go_u)) : NULL;
+        IR_t * go_tgt_s = go_s ? resolve(cx, sno_goto_label(go_s)) : NULL;
+        IR_t * go_tgt_f = go_f ? resolve(cx, sno_goto_label(go_f)) : NULL;
         IR_t * γ_tgt, * ω_tgt;
-        if (go_u) {
-            γ_tgt = ω_tgt = resolve(cx, sno_goto_label(go_u));
-        } else {
-            γ_tgt = go_s ? resolve(cx, sno_goto_label(go_s)) : nxt;
-            ω_tgt = go_f ? resolve(cx, sno_goto_label(go_f)) : nxt;
-        }
-        /* ── lower stmt body ─────── */
+        if (go_u) { γ_tgt = ω_tgt = go_tgt_u ? go_tgt_u : nxt; }
+        else { γ_tgt = go_tgt_s ? go_tgt_s : nxt; ω_tgt = go_tgt_f ? go_tgt_f : nxt; }
         IR_t * entry = lower_stmt_body(cx, s, γ_tgt, ω_tgt);
-        if (entry) {
-            γ_to(lbuf[i], entry);
-        } else {
-            /* no body: label SUCCEED points directly to goto target */
-            γ_to(lbuf[i], γ_tgt);
-        }
+        γ_to(lbuf[i], entry ? entry : γ_tgt);
     }
     return g;
 }
