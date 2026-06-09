@@ -745,19 +745,18 @@ __asm__(
 );
 long rt_dtp_run(struct _DTP_t *h, const char *s, long delta, long Delta);
 /*--------------------------------------------------------------------------------------------------------------------*/
-DTP_FRAG_t rt_pattern_build(const void *proto, uint32_t len, const DTP_PROTO_DESC *desc, long op_i, const char *op_s)
+void rt_pattern_build(DTP_FRAG_t *out, const void *proto, uint32_t len, const DTP_PROTO_DESC *desc, long op_i, const char *op_s)
 {
     uint8_t *blob = g_pat_pool_cur; memcpy(blob, proto, (size_t)len); g_pat_pool_cur += len;
     if (desc->op1_off >= 0) { if (op_s) *(const char **)(blob + desc->op1_off) = op_s; else *(long *)(blob + desc->op1_off) = op_i; }
     if (desc->op2_off >= 0) *(long *)(blob + desc->op2_off) = op_i;
-    DTP_FRAG_t f; f.entry = blob + desc->entry_off; f.β = blob + desc->β_off; f.γ_site = (void **)(blob + desc->γ_off); f.ω_site = (void **)(blob + desc->ω_off);
-    return f;
+    out->entry = blob + desc->entry_off; out->γ_site = (void **)(blob + desc->γ_off); out->ω_site = (void **)(blob + desc->ω_off);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_pattern_stitch_cat(DTP_FRAG_t *out, const DTP_FRAG_t *l, const DTP_FRAG_t *r)
 {
-    *l->γ_site = r->entry; *r->ω_site = l->β;
-    out->entry = l->entry; out->β = r->β; out->γ_site = r->γ_site; out->ω_site = l->ω_site;
+    *l->γ_site = r->entry; *r->ω_site = (void *)((uint8_t *)l->ω_site + 8);
+    out->entry = l->entry; out->γ_site = r->γ_site; out->ω_site = l->ω_site;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_pattern_stitch_alt(DTP_FRAG_t *out, const DTP_FRAG_t *l, const DTP_FRAG_t *r)
@@ -766,7 +765,7 @@ void rt_pattern_stitch_alt(DTP_FRAG_t *out, const DTP_FRAG_t *l, const DTP_FRAG_
     *l->ω_site = r->entry;
     uint8_t *jn = g_pat_pool_cur; memcpy(jn, join, 14); g_pat_pool_cur += 14;
     *l->γ_site = jn + 8; *r->γ_site = jn + 8;
-    out->entry = l->entry; out->β = r->β; out->γ_site = (void **)jn; out->ω_site = r->ω_site;
+    out->entry = l->entry; out->γ_site = (void **)jn; out->ω_site = r->ω_site;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
