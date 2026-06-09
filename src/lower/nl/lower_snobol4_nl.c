@@ -186,14 +186,20 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         IR_t * nd = IR_node_alloc(pg, IR_PAT_ASSIGN_COND); γ_to(nd, succ); ω_to(nd, fail);
         const char * vn = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : "";
         IR_LIT(nd).sval = (char *) vn;
-        IR_t * pe = (t->n > 0) ? lower_pat_node(pg, t->c[0], nd, fail) : nd;
-        return pe; }
+        if (t->n > 0 && t->c[0]) {
+            IR_t * pe = lower_pat_node(pg, t->c[0], nd, fail);
+            ir_operand_push(nd, pe);
+        }
+        return nd; }
     case TT_CAPT_IMMED_ASGN: { /* pat $ var */
         IR_t * nd = IR_node_alloc(pg, IR_PAT_ASSIGN_IMM); γ_to(nd, succ); ω_to(nd, fail);
         const char * vn = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : "";
         IR_LIT(nd).sval = (char *) vn;
-        IR_t * pe = (t->n > 0) ? lower_pat_node(pg, t->c[0], nd, fail) : nd;
-        return pe; }
+        if (t->n > 0 && t->c[0]) {
+            IR_t * pe = lower_pat_node(pg, t->c[0], nd, fail);
+            ir_operand_push(nd, pe);
+        }
+        return nd; }
     case TT_SEQ: {  /* pattern concatenation */
         IR_t * cat = IR_node_alloc(pg, IR_PAT_CAT); γ_to(cat, succ); ω_to(cat, fail);
         IR_t * re = lower_pat_node(pg, (t->n > 1) ? t->c[1] : NULL, cat, fail);
