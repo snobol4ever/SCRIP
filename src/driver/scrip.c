@@ -1397,6 +1397,7 @@ int main(int argc, char **argv)
     int dump_ast_bison     = 0;
     int dump_sm            = 0;
     int dump_bb            = 0;
+    int dump_bb2           = 0;
     int dump_sno           = 0;
     int opt_trace          = 0;
     int opt_bench          = 0;
@@ -1412,6 +1413,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-ast-bison") == 0) { dump_ast_bison    = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-sm")       == 0) { dump_sm            = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-bb")       == 0) { dump_bb            = 1; argi++; }
+        else if (strcmp(argv[argi], "--dump-bb2")      == 0) { dump_bb2           = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-sno")      == 0) { dump_sno           = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-width")    == 0) {
             if (argi + 1 < argc) { ir_set_print_width(atoi(argv[++argi])); argi++; }
@@ -1657,6 +1659,20 @@ int main(int argc, char **argv)
             fprintf(stdout, "; proc %s\n", pname);
             bb_print(s2->bbp.table[idx], stdout);
         }
+        return 0;
+    }
+    if (dump_bb2) {
+        extern void bb_print(const IR_graph_t * bbg, FILE * fp);
+        extern IR_graph_t * lower_icon(const tree_t *);
+        extern IR_graph_t * lower_snobol4(const tree_t *);
+        extern IR_graph_t * lower_raku(const tree_t *);
+        extern IR_graph_t * lower_pascal(const tree_t *);
+        extern IR_graph_t * lower_prolog(const tree_t *);
+        int is_pascal = 0;
+        for (int fi = argi; fi < argc; fi++) { const char *d = strrchr(argv[fi], '.'); if (d && strcmp(d, ".pas") == 0) is_pascal = 1; }
+        IR_graph_t * g = is_icon ? lower_icon(ast_prog) : is_raku ? lower_raku(ast_prog) : is_prolog ? lower_prolog(ast_prog) : is_pascal ? lower_pascal(ast_prog) : lower_snobol4(ast_prog);
+        if (!g) { fprintf(stderr, "scrip: --dump-bb2 lowering returned NULL\n"); return 1; }
+        bb_print(g, stdout);
         return 0;
     }
     if (mode_compile_x86) {
