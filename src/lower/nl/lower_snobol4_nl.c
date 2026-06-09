@@ -372,6 +372,11 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
 static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t * ω_tgt) {
     const tree_t * subj = sno_attr(s, ":subj");
     if (!subj) return NULL;
+    if (subj->t == TT_ASSIGN) {
+        const tree_t * alhs = subj->c[0]; const tree_t * arhs = (subj->n > 1) ? subj->c[1] : NULL;
+        if (!alhs || (alhs->t != TT_VAR && alhs->t != TT_KEYWORD)) return NULL;
+        return lower_assign(cx, alhs->v.sval, arhs, γ_tgt, ω_tgt, (alhs->t == TT_KEYWORD) ? 1 : 0);
+    }
     int has_eq = sno_has_attr(s, ":eq");
     if (has_eq) {
         /* assignment:  LHS = RHS  (plain VAR or KEYWORD LHS only) */
