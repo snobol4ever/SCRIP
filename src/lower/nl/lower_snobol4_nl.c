@@ -229,37 +229,42 @@ static IR_graph_t * lower_subj_graph(const char * vname) {
 }
 /*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
-static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * nxt) {
+static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
     if (!rhs) {
-        IR_t * asn = build(cx, IR_ASSIGN_LIT_S, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_S, asn, nxt); IR_LIT(lit).sval = "";
+        IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_S;
+        IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * lit = build(cx, IR_LIT_S, asn, ω); IR_LIT(lit).sval = "";
         return lit;
     }
     switch (rhs->t) {
     case TT_QLIT: {
-        IR_t * asn = build(cx, IR_ASSIGN_LIT_S, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_S, asn, nxt); IR_LIT(lit).sval = rhs->v.sval;
+        IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_S;
+        IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * lit = build(cx, IR_LIT_S, asn, ω); IR_LIT(lit).sval = rhs->v.sval;
         return lit; }
     case TT_ILIT: {
-        IR_t * asn = build(cx, IR_ASSIGN_LIT_I, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_I, asn, nxt); IR_LIT(lit).ival = rhs->v.ival;
+        IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_I;
+        IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * lit = build(cx, IR_LIT_I, asn, ω); IR_LIT(lit).ival = rhs->v.ival;
         return lit; }
     case TT_FLIT: {
-        IR_t * asn = build(cx, IR_ASSIGN, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_F, asn, nxt); IR_LIT(lit).dval = rhs->v.dval;
+        IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * lit = build(cx, IR_LIT_F, asn, ω); IR_LIT(lit).dval = rhs->v.dval;
         return lit; }
     case TT_NUL: {
-        IR_t * asn = build(cx, IR_ASSIGN_LIT_S, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_NUL, asn, nxt); return lit; }
+        IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_S;
+        IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * lit = build(cx, IR_LIT_NUL, asn, ω); return lit; }
     case TT_VAR: {
-        IR_t * asn = build(cx, IR_ASSIGN_VAR, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * var = build(cx, IR_VAR, asn, nxt); IR_LIT(var).sval = rhs->v.sval;
+        IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_VAR;
+        IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * var = build(cx, IR_VAR, asn, ω); IR_LIT(var).sval = rhs->v.sval;
         return var; }
     case TT_FNC: {
         /* V = func(...) → ASSIGN_CALL + CALL */
         const char * nm = rhs->v.sval ? rhs->v.sval : "?";
-        IR_t * asn = build(cx, IR_ASSIGN_CALL, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * call = build(cx, IR_CALL, asn, nxt); IR_LIT(call).sval = nm; IR_LIT(call).ival = (long long) rhs->n;
+        IR_t * asn = build(cx, IR_ASSIGN_CALL, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = nm; IR_LIT(call).ival = (long long) rhs->n;
         return call; }
     case TT_SEQ: {
         const tree_t * leaves[64]; int nl = 0, fold = 1;
@@ -274,16 +279,16 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             } else if (nd->t == TT_QLIT && nl < 63) { leaves[nl++] = nd; }
             else { fold = 0; }
         }
-        IR_t * asn = build(cx, IR_ASSIGN_CONCAT, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
+        IR_t * asn = build(cx, IR_ASSIGN_CONCAT, γ, ω); IR_LIT(asn).sval = (char *) lhs;
         if (fold && nl > 0) {
             int total = 0;
             for (int i = 0; i < nl; i++) if (leaves[i]->v.sval) total += (int)strlen(leaves[i]->v.sval);
             char * buf = (char *) malloc(total + 1); buf[0] = 0;
             for (int i = 0; i < nl; i++) if (leaves[i]->v.sval) strcat(buf, leaves[i]->v.sval);
-            IR_t * lit = build(cx, IR_LIT_S, asn, nxt); IR_LIT(lit).sval = buf;
+            IR_t * lit = build(cx, IR_LIT_S, asn, ω); IR_LIT(lit).sval = buf;
             return lit;
         }
-        IR_t * seq = build(cx, IR_SEQ, asn, nxt); IR_LIT(seq).ival = 100000000LL;
+        IR_t * seq = build(cx, IR_SEQ, asn, ω); IR_LIT(seq).ival = 100000000LL;
         return seq; }
     default: {
         /* TT_IDX or TT_INDIRECT as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
@@ -291,8 +296,8 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
             return NULL;
         }
-        IR_t * asn = build(cx, IR_ASSIGN, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
-        return lower_expr(cx, rhs, asn, nxt, NULL); }
+        IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+        return lower_expr(cx, rhs, asn, ω, NULL); }
     }
 }
 /*====================================================================================================================================================================================================*/
@@ -306,7 +311,8 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         if (subj->t != TT_VAR && subj->t != TT_KEYWORD) return NULL;
         const tree_t * repl = sno_attr(s, ":repl");
         const char * lhs = subj->v.sval;
-        return lower_assign(cx, lhs, repl, γ_tgt);
+        int is_kw = (subj->t == TT_KEYWORD) ? 1 : 0;
+        return lower_assign(cx, lhs, repl, γ_tgt, ω_tgt, is_kw);
     }
     switch (subj->t) {
     case TT_FNC: {
