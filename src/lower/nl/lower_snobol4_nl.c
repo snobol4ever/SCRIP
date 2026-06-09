@@ -136,6 +136,12 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
 }
 /*====================================================================================================================================================================================================*/
 /* ── pattern sub-graph builder ──────────────────────────────────────── */
+static int is_pat_consumer(IR_e op) {
+    switch (op) {
+    case IR_PAT_LEN: case IR_PAT_TAB: case IR_PAT_RTAB: case IR_PAT_REM: case IR_PAT_BREAK:
+    case IR_PAT_BREAKX: case IR_PAT_SPAN: case IR_PAT_ANY: case IR_PAT_NOTANY: case IR_PAT_LIT: return 1;
+    default: return 0; }
+}
 static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_t * fail);
 static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_t * fail) {
     if (!t) return succ;
@@ -238,6 +244,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         }
         IR_t * re = lower_pat_node(pg, rc, succ_for_rc, fail);
         IR_t * le = lower_pat_node(pg, lc, re ? re : succ, fail);
+        if (rc && (rc->t == TT_CAPT_COND_ASGN || rc->t == TT_CAPT_IMMED_ASGN) && re && le && is_pat_consumer(le->op)) ω_to(re, le);
         return le; }
     case TT_FENCE: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
