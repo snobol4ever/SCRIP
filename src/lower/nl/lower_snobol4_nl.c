@@ -388,6 +388,15 @@ static IR_graph_t * lower_subj_graph(const char * vname) {
     sg->entry = var;
     return sg;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * lower_repl_graph(const tree_t * repl) {
+    IR_graph_t * rg = IR_alloc(32, IR_LANG_SNO);
+    IR_t * fail = IR_node_alloc(rg, IR_FAIL);   /* [0] */
+    IR_t * lit  = IR_node_alloc(rg, IR_LIT_S);  /* [1] */
+    ω_to(lit, fail); IR_LIT(lit).sval = (repl && repl->v.sval) ? repl->v.sval : "";
+    rg->entry = lit;
+    return rg;
+}
 /*====================================================================================================================================================================================================*/
 /* ── pattern-expression detector ────────────────────────────────── */
 static int sno_is_pat_elem(tree_e tt) {
@@ -529,9 +538,26 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
     }
     int has_eq = sno_has_attr(s, ":eq");
     if (has_eq) {
+        const tree_t * repl = sno_attr(s, ":repl");
+        /* pattern replacement:  SUBJ PAT = REPL  → SCAN node ival=1 + 3 sub-graphs */
+        if (subj->t == TT_SCAN) {
+            const tree_t * sv = (subj->n > 0) ? subj->c[0] : NULL;
+            const tree_t * pt = (subj->n > 1) ? subj->c[1] : NULL;
+            const char * vname = (sv && sv->v.sval) ? sv->v.sval : "";
+            IR_graph_t * pg = lower_pat_graph(pt);
+            IR_graph_t * sg = lower_subj_graph(vname);
+            IR_graph_t * rg = lower_repl_graph(repl);
+            IR_t * scan = build(cx, IR_SCAN, γ_tgt, ω_tgt);
+            IR_LIT(scan).sval = (char *) vname; IR_LIT(scan).ival = 1;
+            IR_EXEC(scan).counter = (int64_t)(intptr_t) pg;
+            ir_operand_push(scan, (IR_t *)(void *) sg);
+            ir_operand_push(scan, (IR_t *)(void *) rg);
+            IR_t * lit = build(cx, IR_LIT_S, scan, ω_tgt);
+            IR_LIT(lit).sval = (repl && repl->v.sval) ? repl->v.sval : "";
+            return lit;
+        }
         /* assignment:  LHS = RHS  (plain VAR or KEYWORD LHS only) */
         if (subj->t != TT_VAR && subj->t != TT_KEYWORD) return NULL;
-        const tree_t * repl = sno_attr(s, ":repl");
         const char * lhs = subj->v.sval;
         int is_kw = (subj->t == TT_KEYWORD) ? 1 : 0;
         return lower_assign(cx, lhs, repl, γ_tgt, ω_tgt, is_kw);
