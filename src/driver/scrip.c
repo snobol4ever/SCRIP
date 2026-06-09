@@ -1685,6 +1685,21 @@ int main(int argc, char **argv)
             }
             return 0;
         }
+        if (is_pascal) {
+            extern int lower_pascal_enum(const tree_t *, const tree_t **, int);
+            extern IR_graph_t * lower_pascal_proc(const tree_t *, const tree_t *);
+            const tree_t * procs[256];
+            int np = lower_pascal_enum(ast_prog, procs, 256);
+            if (np <= 0) { IR_graph_t * g = lower_pascal(ast_prog); if (g) bb_print(g, stdout); return 0; }
+            for (int _pi = 0; _pi < np; _pi++) {
+                const char * nm = procs[_pi]->v.sval ? procs[_pi]->v.sval : "?";
+                IR_graph_t * g = lower_pascal_proc(ast_prog, procs[_pi]);
+                if (!g) continue;
+                fprintf(stdout, "; proc %s\n", nm);
+                bb_print(g, stdout);
+            }
+            return 0;
+        }
         IR_graph_t * g = is_raku ? lower_raku(ast_prog) : is_prolog ? lower_prolog(ast_prog) : is_pascal ? lower_pascal(ast_prog) : lower_snobol4(ast_prog);
         if (!g) { fprintf(stderr, "scrip: --dump-bb2 lowering returned NULL\n"); return 1; }
         bb_print(g, stdout);
