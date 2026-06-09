@@ -597,6 +597,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         IR_LIT(var).sval = (char *) vname;
         return var; }
     case TT_SEQ: { IR_node_alloc(cx->g, IR_SEQ); return NULL; }
+    case TT_IDX: return NULL;
     case TT_IF:    { IR_node_alloc(cx->g, IR_IF);    return NULL; }
     case TT_WHILE: {
         IR_t * w = IR_node_alloc(cx->g, IR_WHILE);
