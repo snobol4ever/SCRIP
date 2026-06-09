@@ -101,9 +101,20 @@ static int is_sno_binop(tree_e tt) {
     case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW:
     case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE:
     case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE:
-    case TT_CAT: case TT_SEQ: return 1;
+    case TT_CAT: return 1;
     default: return 0;
     }
+}
+static int sno_binop_code(tree_e tt) {
+    switch (tt) {
+    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2;
+    case TT_DIV: return 3; case TT_MOD: return 4; case TT_POW: return 18;
+    case TT_LT:  return 5; case TT_LE:  return 6; case TT_GT:  return 7;
+    case TT_GE:  return 8; case TT_EQ:  return 9; case TT_NE:  return 10;
+    case TT_CAT: return 11;
+    case TT_LLT: return 12; case TT_LLE: return 13; case TT_LGT: return 14;
+    case TT_LGE: return 15; case TT_LEQ: return 16; case TT_LNE: return 17;
+    default: return 0; }
 }
 static int is_sno_unop(tree_e tt) {
     switch (tt) {
@@ -118,7 +129,7 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
     IR_t * dummy = NULL; if (!res) res = &dummy;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, cont, nxt); *res = s; return s; }
     if (is_sno_binop(t->t)) {
-        IR_t * op = build(cx, IR_BINOP, cont, nxt);
+        IR_t * op = build(cx, IR_BINOP, cont, nxt); IR_LIT(op).ival = sno_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower_expr(cx, t->c[0], NULL, nxt, &lr);
         IR_t * eb = lower_expr(cx, t->c[1], op, nxt, &rr);
@@ -137,8 +148,8 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
     case TT_VAR:  { IR_t * nd = build(cx, IR_VAR, cont, nxt); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: { IR_t * nd = build(cx, IR_KEYWORD, cont, nxt); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_FNC: {
-        const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
-        IR_t * nd = build(cx, IR_CALL, cont, nxt); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n - 1;
+        const char * nm = t->v.sval ? t->v.sval : "?";
+        IR_t * nd = build(cx, IR_CALL, cont, nxt); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long) t->n;
         *res = nd; return nd;
     }
     default: { IR_t * s = build(cx, IR_SUCCEED, cont, nxt); *res = s; return s; }
@@ -180,6 +191,34 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_t * var = build(cx, IR_VAR, asn, nxt); IR_LIT(var).sval = rhs->v.sval;
         return var;
     }
+    case TT_SEQ: {
+        /* SNOBOL4 juxtaposition concat: try constant-fold all-literal, else IR_SEQ */
+        const tree_t * leaves[64]; int nl = 0, fold = 1;
+        const tree_t * stk[128]; int sp = 0;
+        stk[sp++] = rhs;
+        while (sp > 0 && fold) {
+            const tree_t * nd = stk[--sp];
+            if (!nd) { fold = 0; break; }
+            if (nd->t == TT_SEQ) {
+                if (sp + 2 > 127) { fold = 0; break; }
+                stk[sp++] = (nd->n > 1) ? nd->c[1] : NULL;
+                stk[sp++] = (nd->n > 0) ? nd->c[0] : NULL;
+            } else if (nd->t == TT_QLIT && nl < 63) {
+                leaves[nl++] = nd;
+            } else { fold = 0; }
+        }
+        IR_t * asn = build(cx, IR_ASSIGN_CONCAT, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
+        if (fold && nl > 0) {
+            int total = 0;
+            for (int i = 0; i < nl; i++) if (leaves[i]->v.sval) total += (int)strlen(leaves[i]->v.sval);
+            char * buf = (char *) malloc(total + 1); buf[0] = 0;
+            for (int i = 0; i < nl; i++) if (leaves[i]->v.sval) strcat(buf, leaves[i]->v.sval);
+            IR_t * lit = build(cx, IR_LIT_S, asn, nxt); IR_LIT(lit).sval = buf;
+            return lit;
+        }
+        IR_t * seq = build(cx, IR_SEQ, asn, nxt); IR_LIT(seq).ival = 100000000LL;
+        return seq;
+    }
     default: {
         /* complex expr: ASSIGN + expr chain */
         IR_t * asn = build(cx, IR_ASSIGN, nxt, nxt); IR_LIT(asn).sval = (char *) lhs;
@@ -195,18 +234,19 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
     if (!subj) return NULL; /* empty stmt or pure-goto: no body */
     int has_eq = sno_has_attr(s, ":eq");
     if (has_eq) {
-        /* assignment:  LHS = RHS */
+        /* assignment:  LHS = RHS  (only emit body when LHS is a plain VAR) */
+        if (subj->t != TT_VAR) return NULL;   /* indirect/complex LHS → empty label (oracle behaviour) */
         const tree_t * repl = sno_attr(s, ":repl");
-        const char * lhs = (subj->t == TT_VAR) ? subj->v.sval : "?";
+        const char * lhs = subj->v.sval;
         /* for assignment, both γ_tgt and ω_tgt are the same (next); use γ_tgt */
         return lower_assign(cx, lhs, repl, γ_tgt);
     }
     /* expression statement (call, scan, etc.) */
     switch (subj->t) {
     case TT_FNC: {
-        const char * nm = (subj->n > 0 && subj->c[0]) ? subj->c[0]->v.sval : "?";
+        const char * nm = subj->v.sval ? subj->v.sval : "?";
         IR_t * nd = build(cx, IR_CALL, γ_tgt, ω_tgt);
-        IR_LIT(nd).sval = nm; IR_LIT(nd).ival = subj->n - 1;
+        IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long) subj->n;
         return nd;
     }
     case TT_SCAN: {
