@@ -182,6 +182,31 @@ nothing structurally (still {entry,γ_site,ω_site}); the descriptor `DTP_PROTO_
 Element PROTO BLOBS are kept as PIC data (their hand-built α/β bodies stay — they are the matching logic), but
 their COPY/FILL/PATCH machinery moves out of template asm into `rt_pattern_build`/`_stitch`.
 
+## D7 CONVERSION LADDER (Lon "continue" 2026-06-08; box-by-box — frag HELD at 3-field/24B so converted+unconverted boxes interoperate)
+
+**VERIFIED LIVE THIS SESSION (do not re-derive):**
+- `rt_pattern_build` / `rt_pattern_stitch_cat` / `rt_pattern_stitch_alt` LANDED + linked (out-pointer sig; 3-field frag {entry@+0, γ_site@+8, ω_site@+16} = the existing emitted ζ-layout). β-first-class DEFERRED — frag stays 3-field so unconverted boxes still read it; stitch derives β = `(uint8_t*)ω_site + 8` exactly as the old boxes. B9 first-class-β rides a future COORDINATED frag-widening (all boxes at once).
+- **BUILDER PATH IS WIRED FOR VARIABLE SUBJECTS ONLY.** `X P . V` (juxtaposition, X a var) routes native + works m4. `'lit' ? P` (literal subject) is the unrouted rt_scan path → EMPTY IN ALL MODES — NOT a builder bug (it is S1's job). Never probe builders with a literal subject.
+- `053_pat_alt_commit` = `P=('a'|'b'|'c'); X='b'; X P . V :S(YES)F(NO)` → .ref `b`; CURRENTLY m4 PASS / m3 FAIL / m2 FAIL. Ready-made proof case (already in pat-rung). m3/m2 fail ONLY because its 3 boxes are `ins*` text-only (no binary encoding) and the interpreter has no build arm. sbl re-confirmed: `('a'|'b'|'c')` on `cat` → `c`.
+- `P=LEN(3)` VALUE-assign is EMPTY IN ALL MODES incl m4 — the LEN-value LOWERING is unrouted (separate gap, D7-RB-3, NOT a template bug). B4's "073→hel" was anonymous-scan `S ? LEN(3)`, a different path.
+
+### D7-RB-1 — 053 PARITY (convert LIT + ALT + DTP_ASSIGN + the m2 interpreter arm; goal m2==m3==m4 on 053)
+PROOF = pat-rung `053` → m3 PASS + m2 PASS (m4 stays PASS), plus `050`/`051` (alt-two/three) hold.
+PER-BOX MECHANISM (mirror across the three emitter templates):
+1. KEEP each proto's α/β matching body AS-IS; just LABEL every site: `.Lx_s`(start) `.Lx_a`(α) `.Lx_g`(out_γ slot) `.Lx_w`(out_ω slot) `.Lx_op1`(operand, if any) `.Lx_e`(end); β already labelled.
+2. Emit a `DTP_PROTO_DESC` data blob `.Lx_desc`: `.long .Lx_a-.Lx_s` · `.long β-.Lx_s` · `.long .Lx_g-.Lx_s` · `.long .Lx_w-.Lx_s` · `.long -1`(abort) · `.long .Lx_op1-.Lx_s` (or -1) · `.long -1`(op2; LIT uses op2 for len). The ASSEMBLER discovers all offsets — zero C/template byte-counting, immune to layout shift (the entire point of D7).
+3. DELETE the inline copy/fill/patch asm (the `ins*` block) and replace with marshal+call (out-pointer ABI):
+   - element build (LIT): `lea rdi,[r12+off]`(out frag) · `lea rsi,[rip+.Lx_s]` · `mov edx,.Lx_e-.Lx_s` · `lea rcx,[rip+.Lx_desc]` · `mov r8,<len>` · `mov r9,<lit strtab ptr>` · align rsp · `call rt_pattern_build` · `jmp γ`. (unary_i later: r8=n, r9=0.)
+   - ALT stitch: `lea rdi,[r12+out]` · `lea rsi,[r12+left]` · `lea rdx,[r12+right]` · align · `call rt_pattern_stitch_alt` · `jmp γ`.
+   - DTP_ASSIGN: keep `rt_gvar_assign_pat` (stamped); its head-copy converts to a minimal call OR stays — the frag it reads is unchanged.
+   ONLY asm left per box = marshal regs + `call` + `jmp γ`/ports — all have real dual-medium `x86()` encoders ⇒ m3≡m4, ZERO `ins*`.
+4. INTERPRETER ARM (m2): `IR_interp.c` cases for IR_PATTERN_LIT / IR_PATTERN_ALT / IR_DTP_ASSIGN call the SAME `rt_pattern_build`/`rt_pattern_stitch_alt`/`rt_gvar_assign_pat` directly (operands from the IR node). This is what makes m2 match m3/m4 — the parity-by-shared-RT mechanism.
+5. PROBE 053/050/051 vs .ref across m2/m3/m4 → `b`/`dog`/`banana`. FLIP the pat-rung gate to require PASS-M2==PASS-M3==PASS-M4 (parity), not m4-only. Smoke stays 7/7/7.
+FILES: `bb_pattern_lit.cpp`, `bb_pattern_alt.cpp`, `bb_dtp_assign.cpp`, `IR_interp.c` (3 cases), `emit_bb.c` (FILL marshals proto/desc/operand regs). The `x86("call","rt_*")` SYM-target form already exists. NO frag-layout change, NO Makefile change.
+GATE: smoke 7/7/7 · pat-rung 053+050+051 m2==m3==m4 · corpus non-decreasing · fence HARD.
+THEN D7-RB-2: convert unary_i/unary_s/nullary/arb/cat identically (each its own commit, frag held) — purges `ins*` box-by-box (1101→0 in pattern builders). D7-RB-3: the LEN-value lowering gap. FINAL: coordinated frag-widening → first-class β (closes B9), once every box is on the RT functions.
+
+
 
 
 - [x] **B0 PATND-DELETE** ✅ 07698c7+27c797f — patnd.h/constructors/cache/type-puns deleted (−781); .p → struct _DTP_t*; 8 nullary primitives → NULL-head DT_P placeholders (startup NV init survives, use-time bombs); grep PATND == 0.
