@@ -1,14 +1,37 @@
 #!/usr/bin/env bash
-# test_smoke_snobol4.sh — SNOBOL4 smoke, MODE-4 ONLY (Lon directive 2026-06-06)
-#
-# MODE-4 IS THE ONLY GATE. Modes 2 and 3 are NOT run for SNOBOL4.
-# Full native pipeline: --compile --target=x86 → as → gcc -no-pie → run binary.
-# Gate: exits 0 when all mode-4 cases pass.
-# AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet 4.6  DATE: 2026-06-06
+# test_smoke_snobol4.sh — SNOBOL4 smoke, modes 2 + 3 + 4
+# Gate: mode-4 HARD. Modes 2 and 3 informational (PASS/FAIL reported, do not block).
+# AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet 4.6  DATE: 2026-06-08
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
 OUTDIR="${HERE}/../out"
-P4=0; F4=0
+P2=0; F2=0; P3=0; F3=0; P4=0; F4=0
+
+run_m2() {
+    local label="$1" src="$2" expected="$3"
+    local tmp; tmp=$(mktemp /tmp/sno_XXXXXX.sno)
+    printf '%s\n' "$src" > "$tmp"
+    local actual; actual=$(timeout 8 "$SCRIP" --interp "$tmp" < /dev/null 2>/dev/null)
+    rm -f "$tmp"
+    if [ "$actual" = "$expected" ]; then
+        P2=$((P2+1))
+    else
+        echo "  FAIL-M2 $label (got: $(printf '%s' "$actual" | head -1))"; F2=$((F2+1))
+    fi
+}
+
+run_m3() {
+    local label="$1" src="$2" expected="$3"
+    local tmp; tmp=$(mktemp /tmp/sno_XXXXXX.sno)
+    printf '%s\n' "$src" > "$tmp"
+    local actual; actual=$(timeout 8 "$SCRIP" --run "$tmp" < /dev/null 2>/dev/null)
+    rm -f "$tmp"
+    if [ "$actual" = "$expected" ]; then
+        P3=$((P3+1))
+    else
+        echo "  FAIL-M3 $label (got: $(printf '%s' "$actual" | head -1))"; F3=$((F3+1))
+    fi
+}
 
 run_m4() {
     local label="$1" src="$2" expected="$3"
@@ -33,43 +56,52 @@ run_m4() {
     fi
 }
 
-T0=$SECONDS
-echo "=== SNOBOL4 smoke (Mode 4 --compile --target=x86 → as → gcc → run) — HARD GATE ==="
+run_all() {
+    local label="$1" src="$2" expected="$3"
+    run_m2 "$label" "$src" "$expected"
+    run_m3 "$label" "$src" "$expected"
+    run_m4 "$label" "$src" "$expected"
+}
 
-run_m4 "output"  "        OUTPUT = 'hello'
+T0=$SECONDS
+echo "=== SNOBOL4 smoke (modes 2+3+4) — mode-4 HARD GATE ==="
+
+run_all "output"  "        OUTPUT = 'hello'
 END" "hello"
 
-run_m4 "concat"  "        OUTPUT = 'ab' 'cd'
+run_all "concat"  "        OUTPUT = 'ab' 'cd'
 END" "abcd"
 
-run_m4 "arith"   "        OUTPUT = 2 + 3
+run_all "arith"   "        OUTPUT = 2 + 3
 END" "5"
 
-run_m4 "pattern" "        S = 'abc'
+run_all "pattern" "        S = 'abc'
         S 'b' = 'X'
         OUTPUT = S
 END" "aXc"
 
-run_m4 "goto_s"  "        'x' 'x'  :S(HIT)
+run_all "goto_s"  "        'x' 'x'  :S(HIT)
         OUTPUT = 'miss'
         :(END)
 HIT     OUTPUT = 'hit'
 END" "hit"
 
-run_m4 "define"  "        DEFINE('DOUBLE(X)')
+run_all "define"  "        DEFINE('DOUBLE(X)')
         OUTPUT = DOUBLE(21)
         :(END)
 DOUBLE  DOUBLE = X + X
         RETURN
 END" "42"
 
-run_m4 "arith_sm" "        OUTPUT = 2 + 3
+run_all "arith_sm" "        OUTPUT = 2 + 3
 END" "5"
 
-T_M4=$((SECONDS-T0))
+TT=$((SECONDS-T0))
 echo ""
+echo "mode-2 (--interp):  PASS=$P2 FAIL=$F2"
+echo "mode-3 (--run):     PASS=$P3 FAIL=$F3"
 echo "mode-4 (--compile): PASS=$P4 FAIL=$F4   (HARD GATE)"
 echo "PASS=$P4 FAIL=$F4"
-printf "TIME M4=%ds TOTAL=%ds\n" "$T_M4" "$T_M4"
+printf "TIME TOTAL=%ds\n" "$TT"
 
 [ "$F4" -eq 0 ]
