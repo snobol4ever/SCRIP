@@ -210,8 +210,16 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         }
         return nd; }
     case TT_SEQ: {  /* pattern concatenation: left success → right entry */
-        IR_t * re = lower_pat_node(pg, (t->n > 1) ? t->c[1] : NULL, succ, fail);
-        IR_t * le = lower_pat_node(pg, (t->n > 0) ? t->c[0] : NULL, re,   fail);
+        const tree_t * rc = (t->n > 1) ? t->c[1] : NULL;
+        const tree_t * lc = (t->n > 0) ? t->c[0] : NULL;
+        /* when right child is a capture, oracle inserts PAT_CAT between capture.γ and succ */
+        IR_t * succ_for_rc = succ;
+        if (rc && (rc->t == TT_CAPT_COND_ASGN || rc->t == TT_CAPT_IMMED_ASGN)) {
+            IR_t * cat = IR_node_alloc(pg, IR_PAT_CAT); γ_to(cat, succ); ω_to(cat, fail);
+            succ_for_rc = cat;
+        }
+        IR_t * re = lower_pat_node(pg, rc, succ_for_rc, fail);
+        IR_t * le = lower_pat_node(pg, lc, re ? re : succ, fail);
         return le; }
     case TT_FENCE: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
