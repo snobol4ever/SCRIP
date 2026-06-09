@@ -1654,13 +1654,21 @@ int main(int argc, char **argv)
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
+        const IR_t ** seen_all = (const IR_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
+        int seen_n = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
             int idx = s2->proc_table[_pi].bb_idx;
             const char *pname = s2->proc_table[_pi].name ? s2->proc_table[_pi].name : "?";
             if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx]) continue;
+            const IR_t ** all = (const IR_t **) s2->bbp.table[idx]->all;
+            int dup = 0;
+            for (int s = 0; s < seen_n; s++) if (seen_all[s] == (const IR_t *) all) { dup = 1; break; }
+            if (dup) continue;
+            seen_all[seen_n++] = (const IR_t *) all;
             fprintf(stdout, "; proc %s\n", pname);
             bb_print(s2->bbp.table[idx], stdout);
         }
+        free(seen_all);
         return 0;
     }
     if (dump_bb2) {
@@ -1702,6 +1710,7 @@ int main(int argc, char **argv)
         }
         IR_graph_t * g = is_raku ? lower_raku(ast_prog) : is_prolog ? lower_prolog(ast_prog) : is_pascal ? lower_pascal(ast_prog) : lower_snobol4(ast_prog);
         if (!g) { fprintf(stderr, "scrip: --dump-bb2 lowering returned NULL\n"); return 1; }
+        fprintf(stdout, "; proc main\n");
         bb_print(g, stdout);
         return 0;
     }
