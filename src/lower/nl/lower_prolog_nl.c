@@ -4,7 +4,13 @@
 /*====================================================================================================================================================================================================*/
 typedef struct { IR_graph_t * g; } lcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const tree_t * stmt_subj(const tree_t * s) { for (int i = 0; i < s->n; i++) { const tree_t * a = s->c[i]; if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) return (a->n > 0) ? a->c[0] : NULL; } return NULL; }
+static const tree_t * stmt_subj(const tree_t * s) {
+    for (int i = 0; i < s->n; i++) {
+        const tree_t * a = s->c[i];
+        if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) return (a->n > 0) ? a->c[0] : NULL;
+    }
+    return NULL;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α", 3); nd->γ.sz[3] = 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -20,9 +26,16 @@ static void push_kids(lcx_t * cx, IR_t * nd, const tree_t * t, int from) { for (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_nary(lcx_t * cx, const tree_t * t, IR_e op, IR_t * γ, IR_t * ω) { IR_t * nd = build(cx, op, γ, ω); push_kids(cx, nd, t, 0); return nd; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_binop(lcx_t * cx, const tree_t * t, const char * opn, IR_t * γ, IR_t * ω) { IR_t * nd = build(cx, IR_STRUCT, γ, ω); IR_LIT(nd).sval = opn; ir_operand_push(nd, lower(cx, t->c[0], NULL, NULL)); ir_operand_push(nd, lower(cx, t->c[1], NULL, NULL)); return nd; }
+static IR_t * lower_binop(lcx_t * cx, const tree_t * t, const char * opn, IR_t * γ, IR_t * ω) {
+    IR_t * nd = build(cx, IR_STRUCT, γ, ω); IR_LIT(nd).sval = opn;
+    ir_operand_push(nd, lower(cx, t->c[0], NULL, NULL));
+    ir_operand_push(nd, lower(cx, t->c[1], NULL, NULL)); return nd;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_unop(lcx_t * cx, const tree_t * t, const char * opn, IR_t * γ, IR_t * ω) { IR_t * nd = build(cx, IR_STRUCT, γ, ω); IR_LIT(nd).sval = opn; ir_operand_push(nd, lower(cx, t->c[0], NULL, NULL)); return nd; }
+static IR_t * lower_unop(lcx_t * cx, const tree_t * t, const char * opn, IR_t * γ, IR_t * ω) {
+    IR_t * nd = build(cx, IR_STRUCT, γ, ω); IR_LIT(nd).sval = opn;
+    ir_operand_push(nd, lower(cx, t->c[0], NULL, NULL)); return nd;
+}
 /*====================================================================================================================================================================================================*/
 static IR_t * lower(lcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (!t) return build(cx, IR_SUCCEED, γ, ω);
