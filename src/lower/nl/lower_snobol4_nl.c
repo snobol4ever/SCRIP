@@ -291,6 +291,20 @@ static int sno_has_pat(const tree_t * t) {
 /*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
+    if (rhs && rhs->t == TT_ALT && rhs->n > 0) {
+        int allq = 1; for (int i = 0; i < rhs->n; i++) if (!rhs->c[i] || rhs->c[i]->t != TT_QLIT) allq = 0;
+        if (allq) {
+            int na = rhs->n; if (na > 64) na = 64;
+            IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
+            IR_t * lits[64];
+            for (int i = 0; i < na; i++) { lits[i] = build(cx, IR_PATTERN_LIT, ω, ω); IR_LIT(lits[i]).sval = rhs->c[i]->v.sval; }
+            IR_t * alt = build(cx, IR_PATTERN_ALT, dtp, ω);
+            for (int i = 0; i < na; i++) ir_operand_push(alt, lits[i]);
+            for (int i = 0; i < na - 1; i++) γ_to(lits[i], lits[i + 1]);
+            γ_to(lits[na - 1], alt); ir_operand_push(dtp, alt);
+            return lits[0];
+        }
+    }
     /* pattern expression in RHS → ORPHAN ASSIGN_CONCAT + SEQ (oracle behaviour) */
     if (rhs && sno_has_pat(rhs)) {
         IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN_CONCAT); IR_LIT(asn).sval = (char *) lhs;
