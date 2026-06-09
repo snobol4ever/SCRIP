@@ -358,8 +358,8 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_t * seq = build(cx, IR_SEQ, asn, ω); IR_LIT(seq).ival = 100000000LL;
         return seq; }
     default: {
-        /* TT_IDX or TT_INDIRECT as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
-        if (rhs->t == TT_IDX || rhs->t == TT_INDIRECT) {
+        /* TT_IDX/TT_INDIRECT/TT_VLIST as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
+        if (rhs->t == TT_IDX || rhs->t == TT_INDIRECT || rhs->t == TT_VLIST) {
             IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
             return NULL;
         }
@@ -425,6 +425,10 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         IR_t * w = IR_node_alloc(cx->g, IR_WHILE);
         const tree_t * c0 = (subj->n > 0) ? subj->c[0] : NULL;
         if (c0 && c0->t == TT_SCAN) IR_node_alloc(cx->g, IR_SCAN);
+        else if (c0 && c0->t == TT_ASSIGN) {
+            const tree_t * al = c0->c[0]; const tree_t * ar = (c0->n > 1) ? c0->c[1] : NULL;
+            if (al && (al->t == TT_VAR || al->t == TT_KEYWORD)) lower_assign(cx, al->v.sval, ar, NULL, w, (al->t == TT_KEYWORD) ? 1 : 0);
+        }
         else if (c0) lower_expr(cx, c0, NULL, w, NULL);
         return NULL; }
     case TT_DO_WHILE: case TT_FOR: case TT_UNTIL:
