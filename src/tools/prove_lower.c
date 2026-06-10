@@ -15,10 +15,6 @@ int is_global(const char * name) { (void) name; return 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 extern IR_t * lower_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t * lit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * bin(tree_e op, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(op); ast_push(n, a); ast_push(n, b); return n; }
@@ -88,23 +84,6 @@ static void dump(const char * title, tree_t * ast, int expect_nodes) {
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void dump_sno_value(const char * title, tree_t * ast, int expect_nodes) {
-    IR_graph_t * g = IR_alloc(64, IR_LANG_SNO);
-    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower_value_entry(g, ast, PSUCC, PFAIL, &a, &b);
-    printf("=== %s ===\n", title);
-    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
-    printf("idx  kind    α    β    γ    ω      ival  dval\n");
-    for (int i = 0; i < g->n; i++) {
-        IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->op), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ.node), idx_of(g, n->ω.node), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
-    }
-    int real = g->n - 2;
-    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void dump_raku_value(const char * title, tree_t * ast, int expect_nodes) {
     IR_graph_t * g = IR_alloc(64, IR_LANG_RKU);
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
@@ -128,74 +107,6 @@ static void dump_goal(const char * title, tree_t * ast, int expect_nodes) {
     IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t * a = NULL, * b = NULL;
     IR_t * top = lower_goal_entry(g, ast, PSUCC, PFAIL, &a, &b);
-    printf("=== %s ===\n", title);
-    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
-    printf("idx  kind    α    β    γ    ω      ival  dval\n");
-    for (int i = 0; i < g->n; i++) {
-        IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->op), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ.node), idx_of(g, n->ω.node), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
-    }
-    int real = g->n - 2;
-    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void dump_subject(const char * title, tree_t * ast, int expect_nodes) {
-    IR_graph_t * g = IR_alloc(64, IR_LANG_SNO);
-    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower_subject_entry(g, ast, PSUCC, PFAIL, &a, &b);
-    printf("=== %s ===\n", title);
-    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
-    printf("idx  kind    α    β    γ    ω      ival  dval\n");
-    for (int i = 0; i < g->n; i++) {
-        IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->op), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ.node), idx_of(g, n->ω.node), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
-    }
-    int real = g->n - 2;
-    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void dump_ref_invariant(const char * title, tree_t * ast, int expect_nodes) {
-    IR_graph_t * g = IR_alloc(64, IR_LANG_SNO);
-    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower_pat_build_entry(g, ast, PSUCC, PFAIL, &a, &b);
-    printf("=== %s ===\n", title);
-    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
-    printf("idx  kind    α    β    γ    ω      ival  dval\n");
-    for (int i = 0; i < g->n; i++) {
-        IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->op), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ.node), idx_of(g, n->ω.node), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
-    }
-    int real = g->n - 2;
-    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void dump_match(const char * title, tree_t * ast, int expect_nodes) {
-    IR_graph_t * g = IR_alloc(64, IR_LANG_SNO);
-    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower_match_entry(g, ast, PSUCC, PFAIL, &a, &b);
-    printf("=== %s ===\n", title);
-    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
-    printf("idx  kind    α    β    γ    ω      ival  dval\n");
-    for (int i = 0; i < g->n; i++) {
-        IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->op), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ.node), idx_of(g, n->ω.node), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
-    }
-    int real = g->n - 2;
-    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void dump_pat(const char * title, tree_t * ast, int expect_nodes) {
-    IR_graph_t * g = IR_alloc(64, 0);
-    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower_pattern_entry(g, ast, PSUCC, PFAIL, &a, &b);
     printf("=== %s ===\n", title);
     printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
     printf("idx  kind    α    β    γ    ω      ival  dval\n");
@@ -231,67 +142,8 @@ int main(void) {
          un(TT_REPEAT, bin(TT_TO, lit(1), lit(3))), 4);
     dump("not (1 to 3)   [ir_a_Not: E.gamma->not.fail; E.omega->not(null,succeed)]",
          un(TT_NOT, bin(TT_TO, lit(1), lit(3))), 4);
-    dump("SNOBOL4:  OUTPUT = \"hello world\"   [v_assign: rhs.gamma->ASGN, ASGN.sval=OUTPUT, bounded]",
-         bin(TT_ASSIGN, var("OUTPUT"), slit("hello world")), 2);
-    dump_sno_value("SNOBOL4:  A = B   [v_assign IR_ASSIGN_VAR: VAR(B).gamma->ASGN_V, ASGN_V.sval=A; SNO kind-select]",
-         bin(TT_ASSIGN, var("A"), var("B")), 2);
-    dump_sno_value("SNOBOL4:  A = F('x')   [v_assign IR_ASSIGN_CALL: CALL(F,1arg).gamma->ASGN_K, ASGN_K.sval=A; SNO kind-select]",
-         bin(TT_ASSIGN, var("A"), fnc1("F", slit("x"))), 2);
-    dump_sno_value("SNOBOL4:  A = B 'x'   [v_assign IR_ASSIGN_CONCAT: SEQ(B,'x').gamma->ASGN_C, ASGN_C.sval=A; non-foldable concat]",
-         bin(TT_ASSIGN, var("A"), bin(TT_SEQ, var("B"), slit("x"))), 2);
-    dump_sno_value("SNOBOL4:  &ANCHOR = 1   [v_assign keyword lhs: ASGN.sval=ANCHOR (& stripped), routes NV_SET_fn kw dispatch; SPITBOL ch.16]",
-         bin(TT_ASSIGN, kw("ANCHOR"), lit(1)), 2);
     dump_goal("Prolog:   write('hello world')   [g_det_builtin1: arg.gamma->CALL, CALL.sval=write, det]",
          fnc1("write", slit("hello world")), 2);
-    dump_pat("SNOBOL4:  'WIN' REM   [PATTERN CAT = wire_seq(IR_PAT_CAT): subsequent, P1.gamma->P2.alpha]",
-         bin(TT_CAT, slit("WIN"), ast_node_new(TT_REM)), 3);
-    dump_pat("SNOBOL4:  'A' | 'B' | 'C'   [PATTERN ALT = wire_alt(IR_PAT_ALT): fail-chain]",
-         tri(TT_ALT, slit("A"), slit("B"), slit("C")), 4);
-    dump_pat("SNOBOL4:  LEN(3)   [IR_PAT_LEN: generator(resumable) β=self, single-choice match 3 chars]",
-         un(TT_LEN, lit(3)), 1);
-    dump_pat("SNOBOL4:  POS(2)   [IR_PAT_POS: bounded β=omega, cursor-check from left (SPITBOL ch.19)]",
-         un(TT_POS, lit(2)), 1);
-    dump_pat("SNOBOL4:  RPOS(1)  [IR_PAT_POS sval=r: bounded, cursor check from right (RPOS(1)=cursor==N-1)]",
-         un(TT_RPOS, lit(1)), 1);
-    dump_pat("SNOBOL4:  TAB(5)   [IR_PAT_TAB: generator, match chars up to cursor 5]",
-         un(TT_TAB, lit(5)), 1);
-    dump_pat("SNOBOL4:  RTAB(2)  [IR_PAT_RTAB: generator, match to N-2 from end]",
-         un(TT_RTAB, lit(2)), 1);
-    dump_pat("SNOBOL4:  SPAN(V)  [IR_PAT_SPAN_VAR: by-var cset, fetched at match time]",
-         un(TT_SPAN, var("V")), 1);
-    dump_pat("SNOBOL4:  FENCE(bare)  [IR_PAT_FENCE: bounded; commits match, backtrack => fail (SPITBOL ch.9)]",
-         ast_node_new(TT_FENCE), 1);
-    { tree_t * fence_with = un(TT_FENCE, slit("if")); dump_pat("SNOBOL4:  FENCE('if')  [IR_PAT_LIT + IR_PAT_FENCE: inner.gamma->FENCE, FENCE bounded successor]", fence_with, 2); }
-    dump_pat("SNOBOL4:  ABORT    [IR_PAT_ABORT: bounded, immediately fails entire match (SPITBOL ch.9)]",
-         ast_node_new(TT_ABORT), 1);
-    dump_pat("SNOBOL4:  SUCCEED  [IR_SUCCEED: always succeeds; β=ω_in (not in kind_is_resumable)]",
-         ast_node_new(TT_SUCCEED), 1);
-    dump_pat("SNOBOL4:  FAIL(pat) [IR_FAIL: bounded, forces backtrack to seek alternatives (SPITBOL ch.9)]",
-         ast_node_new(TT_FAIL), 1);
-    dump_pat("SNOBOL4:  ARBNO('ab')  [IR_PAT_ARBNO: shy generator; inner sub-graph in separate IR_alloc]",
-         un(TT_ARBNO, slit("ab")), 1);
-    { tree_t * cc = ast_node_new(TT_CAPT_COND_ASGN); ast_push(cc, slit("abc")); ast_push(cc, var("X"));
-      dump_pat("SNOBOL4:  'abc' . X  [IR_PAT_LIT + IR_PAT_ASSIGN_COND: inner.gamma->CAP, CAP.sval=X]", cc, 2); }
-    { tree_t * atp = ast_node_new(TT_CAPT_CURSOR); ast_push(atp, var("P"));
-      dump_pat("SNOBOL4:  @P  [IR_PAT_ATP: resumable cursor-capture; sval='P' (SPITBOL ch.9 @var)]", atp, 1); }
-    { tree_t * df = un(TT_DEFER, var("pat"));
-      dump_pat("SNOBOL4:  *pat  [IR_PAT_DEFER ival=1: resumable; var holds pattern resolved at match time]", df, 1); }
-    dump_pat("SNOBOL4:  VAR(token)  [IR_PAT_DEFER ival=0: bare var ref, resolved as string match at runtime]",
-         var("token"), 1);
-    dump_pat("SNOBOL4:  BAL  [IR_PAT_BAL: generator(resumable) β=self; shortest paren-balanced non-null (SPITBOL ch.18)]",
-         ast_node_new(TT_BAL), 1);
-    dump_subject("SNOBOL4:  SUBJECT('abc')  [IR_SUBJECT: load Σ base + Δ length into ζ-frame; cursor δ owned by matcher per SPITBOL ch.18]",
-         slit("abc"), 2);
-    dump_subject("SNOBOL4:  SUBJECT(S)  [IR_SUBJECT over a variable subject: name baked RO, fetched via rt_subject_load]",
-         var("S"), 2);
-    dump_ref_invariant("SNOBOL4:  REF_INVARIANT 'abc'  [IR_REF_INVARIANT over sealed IR_PAT_LIT: load sealed bb_box_fn head -> ζ slot; bounded β=ω (SPITBOL ch.18)]",
-         slit("abc"), 2);
-    dump_match("SNOBOL4:  MATCH('b')  [IR_PAT_MATCH inline-drives IR_PAT_LIT: element γ+ω -> MATCH; ch.18 unanchored outer start-loop; bounded β=ω]",
-         slit("b"), 2);
-    dump_match("SNOBOL4:  MATCH('a' 'b')  [IR_PAT_MATCH drives wire_seq(IR_PAT_CAT) of 2 literals; PB-RB-4 prereq: composite element, element γ+ω -> MATCH]",
-         bin(TT_CAT, slit("a"), slit("b")), 4);
-    dump_match("SNOBOL4:  MATCH('a' | 'b')  [IR_PAT_MATCH drives wire_alt(IR_PAT_ALT) fail-chain of 2 literals; PB-RB-4 prereq: composite element]",
-         bin(TT_ALT, slit("a"), slit("b")), 4);
     dump_goal("Prolog:   write('hi')   [PLG-1 g_builtin: IR_BUILTIN(sval=write,ival=1) + IR_ATOM arg on alpha; pl_write, no auto-nl]",
          fnc1("write", slit("hi")), 2);
     dump_goal("Prolog:   nl   [PLG-1 g_builtin: bare IR_BUILTIN(sval=nl,ival=0) leaf; EXEC = putchar('\\n')]",

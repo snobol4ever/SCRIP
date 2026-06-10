@@ -20,7 +20,6 @@ typedef struct {
 IR_t * lower(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β);
 IR_t * lower_program(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 IR_t * lower_value_shared(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
-IR_t * lower_sno(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β);
 IR_t * lower_rku(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β);
 static inline IR_t * iref(IR_t * n, IR_ref_t * α, IR_ref_t * β, IR_t * na, IR_t * nb) {
     if (α) { α->node = na; memcpy(α->sz, "α", 3); }
@@ -62,9 +61,6 @@ int    flatten_seq(const tree_t * e, tree_e kind, const tree_t ** out, int cap);
 IR_t * sno_conj(lcx_t cx, const tree_t * const * kids, int nk, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 IR_e   sno_assign_kind(const tree_t * rhs_t);
 IR_t * sno_fnc_call(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
-IR_t * v_scan(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
-IR_t * lower_pattern(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
-IR_t * lower_pattern_build(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 int sno_pattern_buildable(const tree_t * e);
 IR_graph_t * lower_value_subgraph(lcx_t cx, const tree_t * e);
 IR_t * wire_det_builtin1(lcx_t cx, const tree_t * arg_t, const char * fn, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);

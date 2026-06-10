@@ -233,7 +233,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_raku.c \
     $(SRC)/lower/lower_prolog.c \
     $(SRC)/lower/lower_program.c \
-    $(SRC)/lower/lower_snobol4.c \
+    $(SRC)/lower/tree_to_sno.c \
     $(SRC)/lower/nl/lower_icon_nl.c \
     $(SRC)/lower/nl/lower_snobol4_nl.c \
     $(SRC)/lower/nl/lower_raku_nl.c \
@@ -517,7 +517,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_raku.c   -o $(OBJ)/lower_raku.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_prolog.c -o $(OBJ)/lower_prolog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_program.c -o $(OBJ)/lower_program.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_snobol4.c     -o $(OBJ)/lower_snobol4.o
+	$(CC) $(CRT)   -c $(SRC)/lower/tree_to_sno.c       -o $(OBJ)/tree_to_sno.o
 	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_icon_nl.c    -o $(OBJ)/lower_icon_nl.o
 	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_snobol4_nl.c -o $(OBJ)/lower_snobol4_nl.o
 	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_raku_nl.c    -o $(OBJ)/lower_raku_nl.o

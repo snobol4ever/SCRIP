@@ -53,13 +53,11 @@ IR_t * bb_label_landing(const char * name) {
 /*====================================================================================================================*/
 IR_t * lower(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR_ref_t * β) {
     if (!e) return iref(NULL, α, β, γ, ω);
-    if (cx.lang == IR_LANG_SNO || cx.lang == IR_LANG_SCO || cx.lang == IR_LANG_REB) return lower_sno(cx, e, γ, ω, α, β);
     if (cx.lang == IR_LANG_RKU) return lower_rku(cx, e, γ, ω, α, β);
     if (cx.lang == IR_LANG_PAS) { abort(); return NULL; }
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * r;
     switch (cx.role) {
-    case ROLE_PATTERN: r = lower_pattern(cx, e, γ, ω, &aα, &aβ); break;
     case ROLE_VALUE:
     default:           r = lower_value_shared(cx, e, γ, ω, &aα, &aβ); break;
     }
@@ -88,52 +86,7 @@ IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t 
     lcx_t cx = { bbg, ROLE_VALUE, 0, bbg ? bbg->lang : 0, NULL, NULL };
     return lower_program(cx, e, γ_in, ω_in, α_out, β_out);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower_subject_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    lcx_t cx = { bbg, ROLE_VALUE, 0, bbg ? bbg->lang : 0, NULL, NULL };
-    IR_t * subj = nalloc(cx, IR_SUBJECT);
-    if (!subj) return NULL;
-    IR_t * oα = NULL, * oβ = NULL;
-    IR_t * op = lower_program(cx, e, subj, ω_in, &oα, &oβ);
-    if (!op) return NULL;
-    (void) oβ;
-    set_succ_fail(subj, γ_in, ω_in);
-    return ret(subj, α_out, β_out, oα ? oα : subj, ω_in);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower_pat_build_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
-    if (!e || e->t != TT_QLIT) return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
-    const char * lit = e->v.sval ? e->v.sval : "";
-    IR_t * sealed = nalloc(cx, IR_PAT_LIT);
-    if (!sealed) return NULL;
-    IR_LIT(sealed).sval = lit;
-    IR_t * ref = nalloc(cx, IR_REF_INVARIANT);
-    if (!ref) return NULL;
-    IR_LIT(ref).sval = lit;
-    if (!ir_operand_push(ref, sealed)) return NULL;
-    lcx_t bx = cx; bx.bounded = 1;
-    return emit_leaf(bx, ref, γ_in, ω_in, α_out, β_out);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower_match_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
-    IR_t * m = nalloc(cx, IR_PAT_MATCH);
-    if (!m) return NULL;
-    IR_t * eα = NULL, * eβ = NULL;
-    IR_t * el = lower_program(cx, e, m, m, &eα, &eβ);
-    if (!el) return NULL;
-    (void) eβ;
-    IR_t * entry = eα ? eα : el;
-    if (!ir_operand_push(m, entry)) return NULL;
-    set_succ_fail(m, γ_in, ω_in);
-    return ret(m, α_out, β_out, m, ω_in);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * lower_pattern_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
-    lcx_t cx = { bbg, ROLE_PATTERN, 0, bbg ? bbg->lang : 0, NULL, NULL };
-    return lower_program(cx, e, γ_in, ω_in, α_out, β_out);
-}/*====================================================================================================================*/
+/*====================================================================================================================*/
 /*====================================================================================================================*/
 IR_t * wire_seq(lcx_t cx, IR_e kind, const tree_t * const * kids, int nkids, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out) {
     if (nkids < 1) return NULL;
@@ -620,8 +573,6 @@ IR_t * lower_value_shared(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in
         }
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     }
-    case TT_SCAN:
-        return v_scan(cx, e, γ_in, ω_in, α_out, β_out);
     default:
         return lower_unhandled(cx, e, γ_in, ω_in, α_out, β_out);
     }
