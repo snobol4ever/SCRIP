@@ -231,7 +231,6 @@ RT_PIC_SRCS := \
     $(SRC)/machine/sm_prog.c \
     $(SRC)/lower/lower.c \
     $(SRC)/lower/lower_raku.c \
-    $(SRC)/lower/lower_pascal.c \
     $(SRC)/lower/lower_prolog.c \
     $(SRC)/lower/lower_program.c \
     $(SRC)/lower/lower_snobol4.c \
@@ -516,7 +515,6 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/machine/sm_prog.c    -o $(OBJ)/sm_prog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower.c      -o $(OBJ)/lower.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_raku.c   -o $(OBJ)/lower_raku.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_pascal.c -o $(OBJ)/lower_pascal.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_prolog.c -o $(OBJ)/lower_prolog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_program.c -o $(OBJ)/lower_program.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_snobol4.c     -o $(OBJ)/lower_snobol4.o
