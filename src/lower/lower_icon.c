@@ -186,7 +186,7 @@ static IR_t * icn_det_call(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_i
     int nargs = e->n - 1;
     IR_LIT(call).ival = (int64_t) nargs;
     IR_LIT(call).dval = 3.0;
-    int allow_gen = icn_proc_is_generator(fn);
+    int allow_gen = icn_proc_is_generator(fn) || !strcmp(fn,"find") || !strcmp(fn,"upto");
     if (nargs > 0) {
         IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
         if (!blks) return NULL;

@@ -2464,6 +2464,21 @@ IR_t * IR_interp_node(IR_t * bb) {
             }
             DESCR_t out = FAILDESCR;
             if (try_call_builtin_by_name(IR_LIT(bb).sval, args, nargs, &out)) {
+                int _is_strgen = IR_LIT(bb).sval && (!strcmp(IR_LIT(bb).sval,"find")||!strcmp(IR_LIT(bb).sval,"upto"));
+                if (_is_strgen && !IS_FAIL_fn(out) && nargs >= 2) {
+                    const char *_needle = VARVAL_fn(args[0]);
+                    const char *_hay    = VARVAL_fn(args[1]);
+                    if (_needle && _hay) {
+                        int _nlen = (int)strlen(_needle), _hlen = (int)strlen(_hay);
+                        int _cnt = 0;
+                        for (int _p = 0; _p <= _hlen - _nlen; _p++) if (memcmp(_hay+_p,_needle,(size_t)_nlen)==0) _cnt++;
+                        susp_gen_cache_t *_gc = susp_gen_cache_get(bb);
+                        _gc->count = _cnt;
+                        _gc->items = _cnt > 0 ? (DESCR_t *)GC_malloc((size_t)_cnt*sizeof(DESCR_t)) : NULL;
+                        if (_gc->items) { int _k=0; for (int _p=0;_p<=_hlen-_nlen;_p++) if (memcmp(_hay+_p,_needle,(size_t)_nlen)==0) _gc->items[_k++]=INTVAL(_p+1); }
+                        if (_cnt > 0) { IR_EXEC(bb).state=1; IR_EXEC(bb).counter=1; IR_EXEC(bb).value=_gc->items[0]; return bb->γ.node; }
+                    }
+                }
                 IR_EXEC(bb).value = out;
                 return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
             }
