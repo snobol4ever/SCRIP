@@ -255,13 +255,28 @@ static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     *res = iff; return centry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
+    if (!s) return 0;
+    if (s->t == TT_ILIT) { *bits = s->v.ival; *isr = 0; return 1; }
+    if (s->t == TT_FLIT) { double d = s->v.dval; memcpy(bits, &d, 8); *isr = 1; return 1; }
+    if ((s->t == TT_MNS || s->t == TT_PLS) && s->n >= 1 && s->c[0]) {
+        if (!icn_const_step(s->c[0], bits, isr)) return 0;
+        if (s->t == TT_MNS) { if (*isr) { double d; memcpy(&d, bits, 8); d = -d; memcpy(bits, &d, 8); } else *bits = -(*bits); }
+        return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int by = (t->t == TT_TO_BY) ? 1 : 0;
     IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
+    if (by && t->n > 2 && t->c[2]) {
+        int64_t bits = 1; int isr = 0;
+        if (icn_const_step(t->c[2], &bits, &isr)) { IR_LIT(to).ival = bits; if (isr) IR_LIT(to).sval = (char *) "ar"; }
+    }
     IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr);
     IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], to, ω, &mr); γ_to(lr, em);
     ir_operand_push(to, lr); ir_operand_push(to, mr);
-    if (by && t->n > 2 && t->c[2]) { IR_t * br = NULL; lower(cx, t->c[2], to, ω, &br); ir_operand_push(to, br); }
     *res = to; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
