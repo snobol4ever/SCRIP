@@ -484,7 +484,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         return 0;
     }
     case IR_VAR_FRAME:            { extern void bb_var_frame(IR_t *); bb_var_frame(nd); return 0; }
-    case IR_ASSIGN_FRAME:         { extern void bb_assign_frame(IR_t *); bb_assign_frame(nd); return 0; }
+    case IR_ASSIGN_FRAME:         bb_prepare(nd); { extern void bb_assign_frame(void); bb_assign_frame(); } return 0;
     case IR_VAR_FRAME_REF:        { extern void bb_var_frame_ref(IR_t *); bb_var_frame_ref(nd); return 0; }
     case IR_ASSIGN_FRAME_REF:     { extern void bb_assign_frame_ref(IR_t *); bb_assign_frame_ref(nd); return 0; }
     case IR_BINOP_RELOP:          bb_binop_relop(nd);       return 0;

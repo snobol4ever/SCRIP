@@ -9,61 +9,77 @@ extern int g_gvar_flat_chain;
 DESCR_t rt_gvar_get_descr(const char * name);
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int baf_voff() { return 16 + (int) _.op_ival * 16; }
-static std::string baf_hop() { return x86_frame_lea("rcx", 0) + FOR(0, (int) _.op_dval, [&](int h) { (void) h; return x86_reg_disp32_load64("rcx", "rcx", 0); }); }
-static std::string baf_hdr() {
-    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", std::string("BOX IR_ASSIGN_FRAME \"") + (_.op_sval ? _.op_sval : "") + "\" slot=" + std::to_string((int) _.op_ival)
-                         + " hops=" + std::to_string((int) _.op_dval) + " rhs_kind=" + std::to_string(_.op_a_node_kind)));
+static int baf_soff(int extra) { return 16 + (int) _.op_a_ival_sg * 16 + extra; }
+static std::string baf_hop() {
+    return x86("lea", "rcx", FRQ(0))
+         + FOR(0, (int) _.op_dval, [&](int h) { (void) h; return x86("mov", "rcx", RDQ("rcx", 0)); });
 }
-static std::string baf_rip(const char * reg, const char * rs) { const char * rl = emit_intern_str(rs); char rb[80]; if (!rl) { strtab_label(rb, sizeof rb, rs); rl = rb; } return x86("lea", reg, "[rip + __]", (uint64_t)(uintptr_t) rs, rl); }
-static int baf_known() { int k = _.op_a_node_kind;
-    return k == (int) IR_LIT_I || k == (int) IR_LIT_NUL || k == (int) IR_LIT_S || k == (int) IR_VAR
-        || k == (int) IR_VAR_FRAME || k == (int) IR_VAR_FRAME_REF || k == (int) IR_BINOP || k == (int) IR_CALL;
+static std::string baf_srchop() {
+    return x86("lea", "rax", FRQ(0))
+         + FOR(0, (int) _.op_a_dval, [&](int h) { (void) h; return x86("mov", "rax", RDQ("rax", 0)); });
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string baf_lit_i()   { return baf_hop() + x86_reg_disp32_store_imm64("rcx", baf_voff(), 6) + x86_movabs_r64("rax", (uint64_t) _.op_a_ival_sg) + x86_reg_disp32_store64("rcx", baf_voff() + 8, "rax"); }
-static std::string baf_lit_nul() { return baf_hop() + x86_reg_disp32_store_imm64("rcx", baf_voff(), 0) + x86_reg_disp32_store_imm64("rcx", baf_voff() + 8, 0); }
-static std::string baf_lit_s()   { return baf_hop() + x86_reg_disp32_store_imm64("rcx", baf_voff(), 1) + baf_rip("rax", _.op_a_sval ? _.op_a_sval : "") + x86_reg_disp32_store64("rcx", baf_voff() + 8, "rax"); }
-static std::string baf_var() { uint64_t fptr; { DESCR_t (*fp)(const char *) = rt_gvar_get_descr; fptr = (uint64_t)(uintptr_t)(void *) fp; }
-    return baf_rip("rdi", _.op_a_sval ? _.op_a_sval : "") + x86("call", "rt_gvar_get_descr", fptr)
-         + baf_hop() + x86_reg_disp32_store64("rcx", baf_voff(), "rax") + x86_reg_disp32_store64("rcx", baf_voff() + 8, "rdx");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_assign_frame_str() {
+    if (PLATFORM_X86) return IF(!g_gvar_flat_chain, x86_bomb("bb_assign_frame: gvar flat-chain only"))
+                           + IF(_.bb_lk == 7 && _.op_a_slot < 0, x86_bomb("bb_assign_frame int-binop: op_a_slot==-1 (binop slot not promoted)"))
+                           + IF(_.bb_lk == 8 && _.op_a_slot < 0, x86_bomb("bb_assign_frame call-result: op_a_slot==-1 (call result slot not promoted)"))
+                           + IF(_.bb_lk == 0, x86_bomb("bb_assign_frame: unhandled rhs shape"))
+                           + IF(_.bb_lk != 0,
+                             x86("label", _.lbl_α)
+                           + x86("comment", "IR_ASSIGN_FRAME"))
+                           + IF(_.bb_lk == 1,
+                             baf_hop()
+                           + x86("mov", RDQ("rcx", baf_voff()), 6L)
+                           + x86("movabs", "rax", (uint64_t) _.op_a_ival_sg)
+                           + x86("mov", RDQ("rcx", baf_voff() + 8), "rax"))
+                           + IF(_.bb_lk == 2,
+                             baf_hop()
+                           + x86("mov", RDQ("rcx", baf_voff()), 0L)
+                           + x86("mov", RDQ("rcx", baf_voff() + 8), 0L))
+                           + IF(_.bb_lk == 3,
+                             baf_hop()
+                           + x86("mov", RDQ("rcx", baf_voff()), 1L)
+                           + x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t)(_.op_a_sval ? _.op_a_sval : ""), _.bb_ls)
+                           + x86("mov", RDQ("rcx", baf_voff() + 8), "rax"))
+                           + IF(_.bb_lk == 4,
+                             x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_a_sval ? _.op_a_sval : ""), _.bb_ls)
+                           + x86("call", "rt_gvar_get_descr", (uint64_t)(uintptr_t)(void *) rt_gvar_get_descr)
+                           + baf_hop()
+                           + x86("mov", RDQ("rcx", baf_voff()), "rax")
+                           + x86("mov", RDQ("rcx", baf_voff() + 8), "rdx"))
+                           + IF(_.bb_lk == 5,
+                             baf_srchop()
+                           + x86("mov", "rsi", RDQ("rax", baf_soff(0)))
+                           + x86("mov", "rdi", RDQ("rax", baf_soff(8)))
+                           + baf_hop()
+                           + x86("mov", RDQ("rcx", baf_voff()), "rsi")
+                           + x86("mov", RDQ("rcx", baf_voff() + 8), "rdi"))
+                           + IF(_.bb_lk == 6,
+                             baf_srchop()
+                           + x86("mov", "rax", RDQ("rax", baf_soff(8)))
+                           + x86("mov", "rsi", RDQ("rax", 0))
+                           + x86("mov", "rdi", RDQ("rax", 8))
+                           + baf_hop()
+                           + x86("mov", RDQ("rcx", baf_voff()), "rsi")
+                           + x86("mov", RDQ("rcx", baf_voff() + 8), "rdi"))
+                           + IF(_.bb_lk == 7,
+                             x86("mov", "rax", FRQ(_.op_a_slot))
+                           + baf_hop()
+                           + x86("mov", RDQ("rcx", baf_voff()), 6L)
+                           + x86("mov", RDQ("rcx", baf_voff() + 8), "rax"))
+                           + IF(_.bb_lk == 8,
+                             x86("mov", "rax", FRQ(_.op_a_slot))
+                           + x86("mov", "rdx", FRQ(_.op_a_slot + 8))
+                           + baf_hop()
+                           + x86("mov", RDQ("rcx", baf_voff()), "rax")
+                           + x86("mov", RDQ("rcx", baf_voff() + 8), "rdx"))
+                           + IF(_.bb_lk != 0,
+                             x86("jmp", "γ")
+                           + x86("def", "β")
+                           + x86("jmp", "ω"));
+    return std::string();
 }
-static std::string baf_vframe() {
-    return x86_frame_lea("rax", 0)
-         + FOR(0, (int) _.op_a_dval, [&](int h) { (void) h; return x86_reg_disp32_load64("rax", "rax", 0); })
-         + x86_reg_disp32_load64("rsi", "rax", 16 + (int) _.op_a_ival_sg * 16)
-         + x86_reg_disp32_load64("rdi", "rax", 16 + (int) _.op_a_ival_sg * 16 + 8)
-         + baf_hop() + x86_reg_disp32_store64("rcx", baf_voff(), "rsi") + x86_reg_disp32_store64("rcx", baf_voff() + 8, "rdi");
-}
-static std::string baf_vfref() {
-    return x86_frame_lea("rax", 0)
-         + FOR(0, (int) _.op_a_dval, [&](int h) { (void) h; return x86_reg_disp32_load64("rax", "rax", 0); })
-         + x86_reg_disp32_load64("rax", "rax", 16 + (int) _.op_a_ival_sg * 16 + 8)
-         + x86_reg_disp32_load64("rsi", "rax", 0) + x86_reg_disp32_load64("rdi", "rax", 8)
-         + baf_hop() + x86_reg_disp32_store64("rcx", baf_voff(), "rsi") + x86_reg_disp32_store64("rcx", baf_voff() + 8, "rdi");
-}
-static std::string baf_binop() { return x86_frame_load64("rax", _.op_a_slot) + baf_hop() + x86_reg_disp32_store_imm64("rcx", baf_voff(), 6) + x86_reg_disp32_store64("rcx", baf_voff() + 8, "rax"); }
-static std::string baf_call() { return x86_frame_load64("rax", _.op_a_slot) + x86_frame_load64("rdx", _.op_a_slot + 8) + baf_hop() + x86_reg_disp32_store64("rcx", baf_voff(), "rax") + x86_reg_disp32_store64("rcx", baf_voff() + 8, "rdx"); }
-static std::string baf_arm() {
-    if (_.op_a_node_kind == (int) IR_LIT_I)         return baf_lit_i();
-    if (_.op_a_node_kind == (int) IR_LIT_NUL)      return baf_lit_nul();
-    if (_.op_a_node_kind == (int) IR_LIT_S)        return baf_lit_s();
-    if (_.op_a_node_kind == (int) IR_VAR)          return baf_var();
-    if (_.op_a_node_kind == (int) IR_VAR_FRAME)    return baf_vframe();
-    if (_.op_a_node_kind == (int) IR_VAR_FRAME_REF) return baf_vfref();
-    if (_.op_a_node_kind == (int) IR_BINOP)        return baf_binop();
-    return baf_call();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_assign_frame_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
-    if (!g_gvar_flat_chain) return x86_bomb("bb_assign_frame: gvar flat-chain only");
-    if (_.op_a_node_kind == (int) IR_BINOP && _.op_a_slot < 0) return x86_bomb("bb_assign_frame int-binop: op_a_slot==-1 (binop slot not promoted)");
-    if (_.op_a_node_kind == (int) IR_CALL && _.op_a_slot < 0) return x86_bomb("bb_assign_frame call-result: op_a_slot==-1 (call result slot not promoted)");
-    if (!baf_known()) return x86_bomb("bb_assign_frame: unhandled rhs shape");
-    return baf_hdr() + baf_arm() + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_assign_frame(IR_t * pBB) { bb_emit_x86(bb_assign_frame_str(pBB)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_assign_frame(void) { bb_emit_x86(bb_assign_frame_str()); }

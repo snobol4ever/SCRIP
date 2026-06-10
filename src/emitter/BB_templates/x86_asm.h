@@ -346,6 +346,7 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
 }
 inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [r12 + %d]", off); return b[i]; }
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
+inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_load64(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
