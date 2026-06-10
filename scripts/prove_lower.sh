@@ -9,7 +9,7 @@ INC="-Isrc -Isrc/include -Isrc/contracts -Isrc/lower -Isrc/machine -Isrc/emitter
 OUT=/tmp/prove_lower
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower.c     -o /tmp/p_lower.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_prolog.c -o /tmp/p_lower_prolog.o
-gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_icon.c -o /tmp/p_lower_icon.o
+gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/nl/lower_icon_nl.c -o /tmp/p_lower_icon.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_raku.c -o /tmp/p_lower_raku.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_pascal.c -o /tmp/p_lower_pascal.o
 gcc -O0 -g $INC -DDYN_ENGINE_LINKED -c src/lower/lower_snobol4.c  -o /tmp/p_lower_snobol4.o
