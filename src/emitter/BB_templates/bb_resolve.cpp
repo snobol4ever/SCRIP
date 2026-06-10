@@ -127,7 +127,7 @@ static std::string bdisp(IR_t *pBB) { const char *fn = bfn(); std::string hdr = 
     if (!(r = bb_type_test_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_term_inspect_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_aggregate_nb_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_atom_string_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_atom_string_str(hdr)).empty()) return r;
     if (!(r = bb_term_io_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_findall_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_succ_plus_str(pBB, fn, hdr)).empty()) return r;

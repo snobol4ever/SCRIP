@@ -923,6 +923,26 @@ void bb_prepare(IR_t *nd) {
             g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(bu1).sval ? IR_LIT(bu1).sval : "+");
         if (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "is") == 0 && bu1 && bu1->op == IR_ATOM)
             g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(bu1).sval ? IR_LIT(bu1).sval : "");
+        int n = 0;
+        g_emit.op_parts_tag[3] = 0; g_emit.op_parts_ival[3] = 0; g_emit.op_parts_str[3] = NULL; g_emit.op_parts_ival[11] = 0;
+        for (int j = 0; j < 3; j++) {
+            IR_t *ax = ir_call_arg(nd, j);
+            if (!ax) break;
+            g_emit.op_parts_tag[j]      = (int)ax->op;
+            g_emit.op_parts_ival[j]     = (int64_t)IR_LIT(ax).ival;
+            g_emit.op_parts_str[j]      = (ax->op == IR_ATOM || ax->op == IR_STRUCT || ax->op == IR_ARITH) ? IR_LIT(ax).sval : NULL;
+            g_emit.op_parts_ival[8 + j] = (int64_t)(intptr_t)ax;
+            n = j + 1;
+        }
+        g_emit.op_parts_n = n;
+        if (n >= 2) {
+            IR_t *a1 = ir_call_arg(nd, 1);
+            if (a1 && (a1->op == IR_STRUCT || a1->op == IR_ARITH) && IR_LIT(a1).sval) {
+                IR_t *in = ir_call_arg(a1, 0);
+                if (in) { g_emit.op_parts_tag[3] = (int)in->op; g_emit.op_parts_ival[3] = (int64_t)IR_LIT(in).ival;
+                          g_emit.op_parts_str[3] = (in->op == IR_ATOM) ? IR_LIT(in).sval : NULL; g_emit.op_parts_ival[11] = (int64_t)(intptr_t)in; }
+            }
+        }
         return;
     }
     if (nd->op == IR_GOAL) {
