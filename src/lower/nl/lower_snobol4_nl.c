@@ -63,12 +63,17 @@ static const char * sno_goto_label(const tree_t * ch) {
     if (!ch || !ch->n || !ch->c[0]) return NULL; return ch->c[0]->v.sval; }
 static const char * sno_stmt_label(const tree_t * s) {
     const tree_t * lbl = sno_attr(s, ":lbl"); return lbl ? lbl->v.sval : NULL; }
+static int sno_pat_builtin(const char * nm) {
+    if (!nm) return 0;
+    return !strcmp(nm,"REM") || !strcmp(nm,"rem") || !strcmp(nm,"ARB") || !strcmp(nm,"arb") || !strcmp(nm,"FENCE") || !strcmp(nm,"fence")
+        || !strcmp(nm,"ABORT") || !strcmp(nm,"abort") || !strcmp(nm,"BAL") || !strcmp(nm,"bal") || !strcmp(nm,"FAIL") || !strcmp(nm,"fail"); }
 /*====================================================================================================================================================================================================*/
 /* resolve label name → IR_t * (NULL if unknown; caller uses nxt as fallback) */
 static IR_t * resolve(snx_t * cx, const char * name) {
     if (!name || !name[0]) return NULL;
     if (!strcmp(name, "END"))     return cx->PSUCC;
     if (!strcmp(name, "RETURN"))  return cx->PRET;
+    if (!strcmp(name, "NRETURN")) return cx->PRET;
     if (!strcmp(name, "FRETURN")) return cx->PFRET;
     for (int i = 0; i < cx->nlmap; i++)
         if (cx->lname[i] && !strcmp(cx->lname[i], name)) return cx->labels[cx->lstmt[i]];
@@ -365,7 +370,8 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         int lc_has_capture = 0;
         if (lc) { const tree_t * q = lc;
             while (q && q->t == TT_SEQ) q = (q->n > 1) ? q->c[1] : NULL;
-            if (q && (q->t == TT_CAPT_COND_ASGN || q->t == TT_CAPT_IMMED_ASGN)) lc_has_capture = 1; }
+            if (q && (q->t == TT_CAPT_COND_ASGN || q->t == TT_CAPT_IMMED_ASGN || q->t == TT_DEFER)) lc_has_capture = 1;
+            if (q && q->t == TT_VAR && q->v.sval && !sno_pat_builtin(q->v.sval)) lc_has_capture = 1; }
         if (lc_has_capture) {
             /* oracle allocation order: PAT_CAT first, then rc, then lc */
             /* pre-allocate PAT_CAT so it gets a lower index than both rc and lc nodes */
@@ -381,6 +387,8 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
                 IR_t * btgt = NULL;
                 if ((le_tail->op == IR_PAT_ASSIGN_COND || le_tail->op == IR_PAT_ASSIGN_IMM) && le_tail->n_operands > 0)
                     btgt = le_tail->operands[0];
+                else if (le_tail->op == IR_PAT_DEFER)
+                    btgt = le_tail;
                 else if (is_pat_consumer(le_tail->op))
                     btgt = le_tail;
                 if (btgt) ω_to(re_tail, btgt);
@@ -468,6 +476,12 @@ static int sno_has_pat(const tree_t * t) {
     for (int i = 0; i < t->n; i++) if (sno_has_pat(t->c[i])) return 1;
     return 0;
 }
+static int sno_has_dc(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_DEFER || t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN || t->t == TT_CAPT_CURSOR) return 1;
+    for (int i = 0; i < t->n; i++) if (sno_has_dc(t->c[i])) return 1;
+    return 0;
+}
 /*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
@@ -503,6 +517,45 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             γ_to(cur_alt, dtp); ir_operand_push(dtp, cur_alt);
             return lits[0];
         }
+    }
+    if (rhs && rhs->t == TT_ALT && rhs->n == 2) {
+        /* general pattern-ALT value-assign: both arms clean (no defer/capture) TT_SEQ → LIVE ASSIGN+ALT+SEQ(arm2)+SEQ(arm1); else ORPHAN ASSIGN+ALT (+SEQ if arm2 is TT_SEQ) */
+        const tree_t * a0 = rhs->c[0]; const tree_t * a1 = rhs->c[1];
+        int dirty0 = sno_has_dc(a0), dirty1 = sno_has_dc(a1);
+        if (a0 && a1 && a0->t == TT_SEQ && a1->t == TT_SEQ && !dirty0 && !dirty1) {
+            IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+            IR_t * alt = build(cx, IR_ALT, asn, ω);
+            IR_t * s1  = build(cx, IR_SEQ, alt, ω);
+            IR_EXEC(s1).counter = (int64_t)(intptr_t) sno_arg_block(cx, (a1->n > 0) ? a1->c[0] : NULL);
+            IR_LIT(s1).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (a1->n > 1) ? a1->c[1] : NULL);
+            IR_t * s0  = build(cx, IR_SEQ, alt, s1);
+            IR_EXEC(s0).counter = (int64_t)(intptr_t) sno_arg_block(cx, (a0->n > 0) ? a0->c[0] : NULL);
+            IR_LIT(s0).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (a0->n > 1) ? a0->c[1] : NULL);
+            return s0;
+        }
+        IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
+        IR_node_alloc(cx->g, IR_ALT);
+        if (a1 && a1->t == TT_SEQ) IR_node_alloc(cx->g, IR_SEQ);
+        return NULL;
+    }
+    if (rhs && rhs->n == 1 && rhs->c[0] && rhs->c[0]->t == TT_QLIT) {
+        /* single pattern primitive with QLIT arg → LIVE DTP_ASSIGN + PATTERN_* (entry = pattern node) */
+        IR_e pe = IR_ALT; int pehit = 1;
+        switch (rhs->t) {
+        case TT_SPAN: pe = IR_PATTERN_SPAN; break; case TT_ANY: pe = IR_PATTERN_ANY; break;
+        case TT_NOTANY: pe = IR_PATTERN_NOTANY; break; case TT_BREAK: pe = IR_PATTERN_BREAK; break;
+        case TT_BREAKX: pe = IR_PATTERN_BREAKX; break; default: pehit = 0; break; }
+        if (pehit) {
+            IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
+            IR_t * pat = build(cx, pe, dtp, ω); IR_LIT(pat).sval = rhs->c[0]->v.sval;
+            ir_operand_push(dtp, pat);
+            return pat;
+        }
+    }
+    if (rhs && (rhs->t == TT_CAPT_COND_ASGN || rhs->t == TT_CAPT_IMMED_ASGN)) {
+        /* capture as value-assign RHS → ORPHAN plain ASSIGN only (oracle bails before any pattern node) */
+        IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
+        return NULL;
     }
     /* pattern expression in RHS → ORPHAN ASSIGN_CONCAT + SEQ (oracle behaviour) */
     if (rhs && sno_has_pat(rhs)) {
@@ -748,7 +801,7 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
         if (go_u) { γ_tgt = ω_tgt = go_tgt_u ? go_tgt_u : nxt; }
         else { γ_tgt = go_tgt_s ? go_tgt_s : nxt; ω_tgt = go_tgt_f ? go_tgt_f : nxt; }
         IR_t * entry = lower_stmt_body(cx, s, γ_tgt, ω_tgt);
-        γ_to(lbuf[i], entry ? entry : (go_u && go_tgt_u ? go_tgt_u : nxt));
+        γ_to(lbuf[i], entry ? entry : (go_u && go_tgt_u && go_tgt_u->op != IR_RETURN ? go_tgt_u : nxt));
     }
     return g;
 }
