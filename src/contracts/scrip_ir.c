@@ -422,6 +422,8 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
                 if (IR_LIT(bb).ival) fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival);
                 break;
         }
+        { static int xd = -1; if (xd < 0) { const char * e = getenv("SCRIP_DUMP_X"); xd = (e && e[0] == '1') ? 1 : 0; }
+          if (xd) fprintf(fp, "  X{dval=%g ctr=%lld st=%lld gsz=%s wsz=%s}", IR_LIT(bb).dval, (long long)IR_EXEC(bb).counter, (long long)IR_EXEC(bb).state, bb->γ.node ? bb->γ.sz : "·", bb->ω.node ? bb->ω.sz : "·"); }
         fprintf(fp, "\n");
     }
     for (int i = 0; i < bbg->n; i++) {
@@ -431,4 +433,13 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
         if (pg) bb_print(pg, fp);
         for (int j = 0; j < bb->n_operands; j++) if (bb->operands[j]) bb_print((IR_graph_t *)(void *) bb->operands[j], fp);
     }
+    { static int xd2 = -1; if (xd2 < 0) { const char * e = getenv("SCRIP_DUMP_X"); xd2 = (e && e[0] == '1') ? 1 : 0; }
+      if (xd2) for (int i = 0; i < bbg->n; i++) {
+        const IR_t * bb = bbg->all[i];
+        if (!bb || bb->op != IR_CALL) continue;
+        if (IR_LIT(bb).dval != 2.0 && IR_LIT(bb).dval != 3.0 && IR_LIT(bb).dval != 5.0) continue;
+        IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
+        if (!blks) continue;
+        for (int j = 0; j < (int) IR_LIT(bb).ival; j++) if (blks[j]) { fprintf(fp, "; X argblk call=%d arg=%d\n", i, j); bb_print(blks[j], fp); }
+      } }
 }
