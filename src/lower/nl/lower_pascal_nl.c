@@ -173,14 +173,12 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_t * pL = NULL, * pR = NULL;
     if (!lm) { int m = cx->g->n; pL = lower(cx, lt, NULL, ω); lres = (cx->g->n > m) ? cx->g->all[m] : pL; }
     if (!rm) { int m = cx->g->n; pR = lower(cx, rt, op, ω); rres = (cx->g->n > m) ? cx->g->all[m] : pR; }
-    IR_t * lread = lm ? vL : pL;
-    IR_t * rread = rm ? vR : pR;
     if (lm) lres = vL;
     if (rm) rres = vR;
     if (lm && rm)      { entry = eL; γ_to(atL, eR);    γ_to(afL, eR);    γ_to(atR, vL); γ_to(afR, vL); γ_to(vL, vR); γ_to(vR, op); }
     else if (lm)       { entry = eL; γ_to(atL, vL);    γ_to(afL, vL);    γ_to(vL, pR); }
     else               { entry = eR; γ_to(atR, pL);    γ_to(afR, pL);    γ_to(lres, vR); γ_to(vR, op); }
-    { IR_t * ax[2]; ax[0] = lread; ax[1] = rread; bb_operand_aux_set(cx->g, op, ax, 2); }
+    { IR_t * ax[2]; ax[0] = lres; ax[1] = rres; bb_operand_aux_set(cx->g, op, ax, 2); }
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
