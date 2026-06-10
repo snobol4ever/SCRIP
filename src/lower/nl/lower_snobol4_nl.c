@@ -105,11 +105,18 @@ static int is_sno_unop(tree_e tt) {
 /*====================================================================================================================================================================================================*/
 /* ── expression lowerer ─────────────────────────────────────────────── */
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res);
+static IR_graph_t * sno_arg_block(snx_t * cx, const tree_t * a);
+static IR_t * sno_seq_node(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt) {
+    IR_t * seq = build(cx, IR_SEQ, cont, nxt); IR_LIT(seq).dval = 1.0;
+    IR_EXEC(seq).counter = (int64_t)(intptr_t) sno_arg_block(cx, (t->n > 0) ? t->c[0] : NULL);
+    IR_LIT(seq).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (t->n > 1) ? t->c[1] : NULL);
+    return seq;
+}
 static IR_graph_t * sno_arg_block(snx_t * cx, const tree_t * a) {
     IR_graph_t * saved = cx->g;
     IR_graph_t * g2 = IR_alloc(256, IR_LANG_SNO); cx->g = g2;
     IR_t * F = IR_node_alloc(g2, IR_FAIL);
-    IR_t * r = NULL; IR_t * e = lower_expr(cx, a, NULL, F, &r);
+    IR_t * r = NULL; IR_t * e = (a && a->t == TT_SEQ) ? sno_seq_node(cx, a, NULL, F) : lower_expr(cx, a, NULL, F, &r);
     g2->entry = e;
     cx->g = saved;
     return g2;
@@ -539,7 +546,9 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             IR_t * lit = build(cx, IR_LIT_S, asn, ω); IR_LIT(lit).sval = buf;
             return lit;
         }
-        IR_t * seq = build(cx, IR_SEQ, asn, ω); IR_LIT(seq).ival = 100000000LL;
+        IR_t * seq = build(cx, IR_SEQ, asn, ω); IR_LIT(seq).dval = 1.0;
+        IR_EXEC(seq).counter = (int64_t)(intptr_t) sno_arg_block(cx, (rhs->n > 0) ? rhs->c[0] : NULL);
+        IR_LIT(seq).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (rhs->n > 1) ? rhs->c[1] : NULL);
         return seq; }
     default: {
         /* TT_IDX/TT_INDIRECT/TT_VLIST as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
