@@ -165,38 +165,10 @@ static int proc_body_has_suspend(const tree_t *proc) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_icon_body(const tree_t *proc) {
-    if (nl_on(1)) {
-        extern IR_graph_t * lower_icon_proc(const tree_t *, const tree_t *);
-        IR_graph_t * ng = lower_icon_proc(g_nl_prog, proc);
-        if (!ng || !ng->entry) return -1;
-        return bb_program_add(&g_stage2.bbp, ng);
-    }
-    if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
-    const tree_t *body = proc->c[2];
-    if (!body || body->t != TT_PROGRAM) return -1;
-    IR_graph_t *g = IR_alloc(256, IR_LANG_ICN);
-    if (!g) return -1;
-    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *next_a = PSUCC;
-    int n_stmts = 0;
-    int is_last = 1;
-    for (int i = body->n - 1; i >= 0; i--) {
-        const tree_t *s = body->c[i];
-        if (!s) continue;
-        const tree_t *expr = s;
-        if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
-        n_stmts++;
-        IR_t *a = NULL, *b = NULL;
-        IR_t *ω = is_last ? PFAIL : next_a;
-        IR_t *top = lower_value_entry(g, (const tree_t *) expr, next_a, ω, &a, &b);
-        if (!top || !a) return -1;
-        next_a = a;
-        is_last = 0;
-    }
-    if (n_stmts == 0) return -1;
-    g->entry = next_a;
-    return bb_program_add(&g_stage2.bbp, g);
+    extern IR_graph_t * lower_icon_proc(const tree_t *, const tree_t *);
+    IR_graph_t * ng = lower_icon_proc(g_nl_prog, proc);
+    if (!ng || !ng->entry) return -1;
+    return bb_program_add(&g_stage2.bbp, ng);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
