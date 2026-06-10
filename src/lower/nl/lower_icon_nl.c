@@ -207,6 +207,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int lr = -1; for (int i = 0; i < k; i++) { if (lr >= 0) ω_to(val[i], val[lr]); if (is_resumable(S[i])) lr = i; }
         *res = CONJ; return ent[0];
     }
+    case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
+        if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+        IR_t * sec = build(cx, IR_SECTION, γ, ω); IR_LIT(sec).ival = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
+        IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], sec, ω, &ar); ir_operand_push(sec, ar);
+        IR_t * br = NULL; lower(cx, t->c[1], sec, ω, &br); ir_operand_push(sec, br);
+        IR_t * cr = NULL; lower(cx, t->c[2], sec, ω, &cr); ir_operand_push(sec, cr);
+        cx->beta = ω; *res = sec; return ae; }
     case TT_NOT: return lower_not(cx, t, γ, ω, res);
     case TT_ITERATE: { IR_t * bang = build(cx, IR_LIST_BANG, γ, ω);
         IR_t * orr = NULL; (void) lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr); ir_operand_push(bang, orr);
