@@ -503,13 +503,71 @@ static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, in
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) pas_rewrite_node(g->all[i], scs, dls, pis, nch);
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int lower_sno_nl(const tree_t *prog) {
+    extern IR_graph_t * lower_snobol4(const tree_t *);
+    extern int lower_snobol4_labels(const char ***, IR_t ***);
+    extern IR_t * lower_snobol4_label(const char *);
+    int sno_n = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t *s = prog->c[i];
+        if (!s || s->t != TT_STMT) continue;
+        if (lp_s_int(s, ":lang") != LANG_SNO) return 0;
+        sno_n++;
+    }
+    if (sno_n == 0) return 0;
+    IR_graph_t *g = lower_snobol4(prog);
+    if (!g || !g->entry) return 0;
+    const char ** lnames = NULL; IR_t ** lnodes = NULL;
+    int nlab = lower_snobol4_labels(&lnames, &lnodes);
+    bb_label_registry_reset();
+    for (int i = 0; i < nlab; i++) bb_label_registry_add(lnames[i], lnodes[i]);
+    int bb_idx = bb_program_add(&g_stage2.bbp, g);
+    int pi = stage2_proc_grow(&g_stage2);
+    g_stage2.proc_table[pi].name     = "main";
+    g_stage2.proc_table[pi].proc     = NULL;
+    g_stage2.proc_table[pi].entry_pc = -1;
+    g_stage2.proc_table[pi].bb_idx   = bb_idx;
+    g_stage2.proc_table[pi].nparams  = 0;
+    for (int di = 0; di < prog->n; di++) {
+        const tree_t *ds = prog->c[di];
+        if (!ds || ds->t != TT_STMT) continue;
+        tree_t *dsubj = lp_s_expr(ds, ":subj");
+        if (!dsubj || dsubj->t != TT_FNC || !dsubj->v.sval || strcmp(dsubj->v.sval, "DEFINE")) continue;
+        if (dsubj->n < 1 || !dsubj->c[0] || dsubj->c[0]->t != TT_QLIT || !dsubj->c[0]->v.sval) continue;
+        char fname[64];
+        char params[STAGE2_FRAME_SLOT_MAX][64]; int np = 0;
+        char locals[STAGE2_FRAME_SLOT_MAX][64]; int nl = 0;
+        if (!sno_parse_define_proto(dsubj->c[0]->v.sval, fname, params, &np, locals, &nl)) continue;
+        IR_t *body = lower_snobol4_label(fname);
+        if (!body) continue;
+        IR_graph_t *fg = (IR_graph_t *) calloc(1, sizeof(IR_graph_t));
+        if (!fg) continue;
+        *fg = *g;
+        fg->entry = body;
+        int fidx = bb_program_add(&g_stage2.bbp, fg);
+        int fpi  = stage2_proc_grow(&g_stage2);
+        g_stage2.proc_table[fpi].name     = lp_strdup(fname);
+        g_stage2.proc_table[fpi].proc     = NULL;
+        g_stage2.proc_table[fpi].entry_pc = -1;
+        g_stage2.proc_table[fpi].bb_idx   = fidx;
+        g_stage2.proc_table[fpi].nparams  = np;
+        Scope *sc = &g_stage2.proc_table[fpi].lower_sc;
+        sc->n = 0;
+        for (int k = 0; k < np && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = lp_strdup(params[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
+        for (int k = 0; k < nl && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = lp_strdup(locals[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
+        if (sc->n < STAGE2_FRAME_SLOT_MAX) { sc->e[sc->n].name = lp_strdup(fname); sc->e[sc->n].slot = sc->n; sc->n++; }
+    }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_stage2(const tree_t *prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     g_nl_prog = prog;
     stage2_reset();
     uint32_t mask = polyglot_lang_mask(prog);
     polyglot_init(&g_stage2, prog, mask);
-    if (mask & (1u << LANG_SNO)) {
+    if ((mask & (1u << LANG_SNO)) && !(nl_on(0) && lower_sno_nl(prog))) {
         IR_graph_t *g = IR_alloc(1024, IR_LANG_SNO);
         if (g) {
             IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
