@@ -4,6 +4,9 @@
 #include "IR.h"
 extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
 /*====================================================================================================================================================================================================*/
+int g_icn_postfix_resume = 0;
+int g_icn_globals_nv     = 1;
+/*====================================================================================================================================================================================================*/
 typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; IR_t * last_gen; IR_t * loop_exit; } icx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α", 3); nd->γ.sz[3] = 0; } }
@@ -121,7 +124,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_KEYWORD: { IR_t * nd = build(cx, IR_KEYWORD, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
-        IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); *res = nd; return ea; }
+        IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?"; return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res); }
     case TT_IDX: return lower_call(cx, "[]", t, 0, t->n, γ, ω, res);
     case TT_MAKELIST: case TT_VLIST: return lower_call(cx, "MAKELIST", t, 0, t->n, γ, ω, res);
@@ -155,7 +158,28 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_PROC_FAIL: { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOOP_BREAK: { IR_t * lx = cx->loop_exit; IR_t * nd = build(cx, IR_BREAK, lx ? lx : γ, lx ? lx : ω); *res = nd; return nd; }
     case TT_LOOP_NEXT: { IR_t * nd = build(cx, IR_NEXT, γ, ω); *res = nd; return nd; }
-    case TT_LOCAL: case TT_STATIC_DECL: case TT_INITIAL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_LOCAL: case TT_STATIC_DECL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_INITIAL: { IR_t * ini = build(cx, IR_INITIAL, γ, ω);
+        if (t->n > 0 && t->c[0]) { IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], γ, ω, &br); ir_operand_push(ini, be); }
+        *res = ini; return ini; }
+    case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, γ, ω); IR_LIT(sn).dval = 1.0;
+        if (t->n > 0 && t->c[0]) { IR_graph_t * eg = arg_block(cx, t->c[0]); IR_EXEC(sn).counter = (int64_t)(intptr_t) eg; }
+        if (t->n > 1 && t->c[1]) { IR_graph_t * bg = arg_block(cx, t->c[1]); IR_LIT(sn).ival  = (long long)(intptr_t) bg; }
+        *res = sn; return sn; }
+    case TT_CASE: { if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+        IR_t * cas = build(cx, IR_CASE, γ, ω);
+        IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], cas, ω, &sr); ir_operand_push(cas, sr);
+        for (int i = 1; i < t->n; ) {
+            int remaining = t->n - i;
+            if (remaining == 1) {
+                IR_t * dk = build(cx, IR_LIT_NUL, NULL, NULL); IR_t * dr = NULL; IR_t * de = lower(cx, t->c[i], γ, ω, &dr); ir_operand_push(dk, de); ir_operand_push(cas, dk); i++;
+            } else {
+                IR_t * kn = NULL; lower(cx, t->c[i], NULL, NULL, &kn);
+                IR_t * vn = NULL; lower(cx, t->c[i+1], γ, ω, &vn);
+                IR_t * arm = build(cx, IR_LIT_NUL, NULL, NULL); ir_operand_push(arm, kn); ir_operand_push(arm, vn); ir_operand_push(cas, arm); i += 2;
+            }
+        }
+        *res = cas; return se; }
     case TT_SEQ: {
         IR_t * succ = γ; IR_t * fail = ω; IR_t * entry = γ;
         for (int i = t->n - 1; i >= 0; i--) {
@@ -237,6 +261,7 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr);
     IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], to, ω, &mr); γ_to(lr, em);
     ir_operand_push(to, lr); ir_operand_push(to, mr);
+    if (by && t->n > 2 && t->c[2]) { IR_t * br = NULL; lower(cx, t->c[2], to, ω, &br); ir_operand_push(to, br); }
     *res = to; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -258,7 +283,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         ir_operand_push(E, gen_entry);
         *res = E; return gen_entry;
     }
-    IR_t * loop_back = is_resumable(BODY) ? gen_node : E;
+    IR_t * loop_back = gen_node;
     IR_t * bval = NULL; IR_t * body_entry = lower(cx, BODY, loop_back, loop_back, &bval);
     γ_to(gen_result, body_entry);
     ir_operand_push(E, gen_entry);
