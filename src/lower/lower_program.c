@@ -547,16 +547,16 @@ static int lower_sno_nl(const tree_t *prog) {
         fg->entry = body;
         int fidx = bb_program_add(&g_stage2.bbp, fg);
         int fpi  = stage2_proc_grow(&g_stage2);
-        g_stage2.proc_table[fpi].name     = lp_strdup(fname);
+        g_stage2.proc_table[fpi].name     = strdup(fname);
         g_stage2.proc_table[fpi].proc     = NULL;
         g_stage2.proc_table[fpi].entry_pc = -1;
         g_stage2.proc_table[fpi].bb_idx   = fidx;
         g_stage2.proc_table[fpi].nparams  = np;
         Scope *sc = &g_stage2.proc_table[fpi].lower_sc;
         sc->n = 0;
-        for (int k = 0; k < np && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = lp_strdup(params[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
-        for (int k = 0; k < nl && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = lp_strdup(locals[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
-        if (sc->n < STAGE2_FRAME_SLOT_MAX) { sc->e[sc->n].name = lp_strdup(fname); sc->e[sc->n].slot = sc->n; sc->n++; }
+        for (int k = 0; k < np && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = strdup(params[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
+        for (int k = 0; k < nl && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = strdup(locals[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
+        if (sc->n < STAGE2_FRAME_SLOT_MAX) { sc->e[sc->n].name = strdup(fname); sc->e[sc->n].slot = sc->n; sc->n++; }
     }
     return 1;
 }
