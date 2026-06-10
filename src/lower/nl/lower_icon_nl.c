@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include "ast.h"
 #include "IR.h"
 /*====================================================================================================================================================================================================*/
@@ -64,12 +65,31 @@ static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * arg_block(icx_t * cx, const tree_t * a) {
+    IR_graph_t * saved = cx->g; IR_t * sps = cx->psucc; IR_t * spf = cx->pfail;
+    IR_graph_t * g2 = IR_alloc(256, IR_LANG_ICN); cx->g = g2;
+    IR_t * F = IR_node_alloc(g2, IR_FAIL);
+    cx->psucc = NULL; cx->pfail = F;
+    IR_t * r = NULL; IR_t * e = lower(cx, a, NULL, F, &r);
+    g2->entry = e;
+    cx->g = saved; cx->psucc = sps; cx->pfail = spf;
+    return g2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name; IR_LIT(call).ival = nargs;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     int subgraph = !chains;
-    if (subgraph) return call;
+    if (subgraph) {
+        IR_LIT(call).dval = (name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"))) ? 2.0 : 3.0;
+        if (nargs > 0) {
+            IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
+            if (blks) { for (int k = 0; k < nargs; k++) blks[k] = arg_block(cx, t->c[argbase + k]); IR_EXEC(call).counter = (int64_t)(intptr_t) blks; }
+        }
+        return call;
+    }
+    IR_LIT(call).dval = 1.0;
     IR_t * prev = NULL; IR_t * entry = call;
     for (int k = 0; k < nargs; k++) {
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL;
