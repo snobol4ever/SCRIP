@@ -341,14 +341,27 @@ static IR_t * lower_repeat(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     return body_entry ? body_entry : rnd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_resumable(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_STMT) { for (int j = 0; j < t->n; j++) { const tree_t * a = t->c[j]; if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) { t = (a->n > 0) ? a->c[0] : NULL; break; } } }
+    if (!t) return 0;
+    switch (t->t) { case TT_IF: case TT_UNLESS: return 1; default: return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_t * conj = build(cx, IR_CONJ, γ, ω);
-    int k = t->n; if (k == 0) return conj;
+    int k = t->n; if (k > 512) k = 512;
+    if (k == 0) return conj;
     IR_t * succ = conj; IR_t * entry = NULL;
+    IR_t * anchor[512];
     for (int i = k - 1; i >= 0; i--) {
+        int m = cx->g->n;
         IR_t * e = lower(cx, t->c[i], succ, ω);
+        anchor[i] = (cx->g->n > m) ? cx->g->all[m] : e;
         if (e) { entry = e; succ = e; }
     }
+    int lr = -1;
+    for (int i = 0; i < k; i++) { if (lr >= 0 && anchor[i]) ω_to(anchor[i], anchor[lr]); if (pas_resumable(t->c[i])) lr = i; }
     return entry ? entry : conj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
