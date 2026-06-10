@@ -7,6 +7,7 @@
 typedef struct pas_scope_s {
     const char *        names[PAS_MAX_SCOPE];
     int                 n;
+    int                 nparams;  /* number of param slots (0..nparams-1 are params) */
     long long           byref;
     struct pas_scope_s * outer;
 } pas_scope_t;
@@ -56,24 +57,58 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     long long byref = 0;
-    int slot = scope_slot_chain(&cx->sc, name, &byref);
-    if (slot >= 0) {
-        int isref = (int)((byref >> slot) & 1LL);
-        IR_t * nd = build(cx, isref ? IR_VAR_FRAME_REF : IR_VAR_FRAME, γ, ω);
+    const pas_scope_t * found_sc = NULL;
+    int slot = -1;
+    for (const pas_scope_t * s = &cx->sc; s; s = s->outer) {
+        int sl = scope_slot(s, name);
+        if (sl >= 0) { slot = sl; byref = s->byref; found_sc = s; break; }
+    }
+    if (slot < 0) {
+        IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
+    }
+    int isref     = (int)((byref >> slot) & 1LL);
+    int is_own    = (found_sc == &cx->sc);
+    int is_local  = is_own && (slot >= found_sc->nparams);
+    int is_param  = is_own && (slot <  found_sc->nparams);
+    int use_frame = isref || !is_own || is_local
+                    || (is_param && (cx->sc.outer != NULL || cx->sc.byref != 0));
+    if (isref) {
+        IR_t * nd = build(cx, IR_VAR_FRAME_REF, γ, ω);
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
     }
-    IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
+    if (!use_frame) {
+        IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
+    }
+    IR_t * nd = build(cx, IR_VAR_FRAME, γ, ω);
+    IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     long long byref = 0;
-    int slot = scope_slot_chain(&cx->sc, name, &byref);
-    if (slot >= 0) {
-        int isref = (int)((byref >> slot) & 1LL);
-        IR_t * nd = build(cx, isref ? IR_ASSIGN_FRAME_REF : IR_ASSIGN_FRAME, γ, ω);
+    const pas_scope_t * found_sc = NULL;
+    int slot = -1;
+    for (const pas_scope_t * s = &cx->sc; s; s = s->outer) {
+        int sl = scope_slot(s, name);
+        if (sl >= 0) { slot = sl; byref = s->byref; found_sc = s; break; }
+    }
+    if (slot < 0) {
+        IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
+    }
+    int isref     = (int)((byref >> slot) & 1LL);
+    int is_own    = (found_sc == &cx->sc);
+    int is_local  = is_own && (slot >= found_sc->nparams);
+    int is_param  = is_own && (slot <  found_sc->nparams);
+    int use_frame = isref || !is_own || is_local
+                    || (is_param && (cx->sc.outer != NULL || cx->sc.byref != 0));
+    if (isref) {
+        IR_t * nd = build(cx, IR_ASSIGN_FRAME_REF, γ, ω);
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
     }
-    IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
+    if (!use_frame) {
+        IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
+    }
+    IR_t * nd = build(cx, IR_ASSIGN_FRAME, γ, ω);
+    IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
@@ -151,13 +186,39 @@ static IR_t * lower_if(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 static IR_t * lower_while(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * cond = (t->n > 0) ? t->c[0] : NULL;
     const tree_t * body = (t->n > 1) ? t->c[1] : NULL;
+    /* WHILE node: γ=after-loop, ω=outer-fail */
     IR_t * wnd = build(cx, IR_WHILE, γ, ω);
-    IR_t * body_entry = lower(cx, body, wnd, ω);
-    γ_to(wnd, body_entry ? body_entry : wnd);
-    ω_to(wnd, ω);
-    IR_t * cond_entry = lower(cx, cond, NULL, ω);
-    if (cond_entry) ir_operand_push(wnd, cond_entry);
-    return wnd;
+    /* Unwrap TT_NOT: oracle strips NOT and uses NE(child, 0) */
+    const tree_t * cond_inner = (cond && cond->t == TT_NOT && cond->n > 0) ? cond->c[0] : cond;
+    /* Condition nodes allocated FIRST (before CONJ and body) per oracle order.
+       body_entry wired after body is lowered. */
+    IR_t * cond_entry;
+    IR_t * ne = NULL;
+    if (cond_inner && is_relop(cond_inner->t)) {
+        /* Relop condition: allocate binop first (body_entry wired later) */
+        cond_entry = lower(cx, cond_inner, NULL, wnd);
+    } else {
+        /* NE-wrap: BINOP first, then expr, then LIT */
+        ne = build(cx, IR_BINOP, NULL, wnd); IR_LIT(ne).ival = 10;
+        IR_t * expr = lower(cx, cond_inner, ne, wnd);
+        IR_t * lit0 = build(cx, IR_LIT_I, ne, wnd); IR_LIT(lit0).ival = 0;
+        γ_to(expr, lit0);
+        cond_entry = expr;
+    }
+    /* CONJ = body back-edge join: γ=ω=cond_entry */
+    IR_t * conj = build(cx, IR_CONJ, cond_entry, cond_entry);
+    /* Body: γ=conj (loop back), ω=wnd (exit) */
+    IR_t * body_entry = lower(cx, body, conj, wnd);
+    if (!body_entry) body_entry = conj;
+    /* Wire condition success to body */
+    if (cond_inner && is_relop(cond_inner->t)) {
+        /* For relop, the binop result node needs γ=body_entry */
+        γ_to(cond_entry, body_entry);
+    } else {
+        γ_to(ne, body_entry);
+    }
+    ir_operand_push(wnd, cond_entry);
+    return cond_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
@@ -166,27 +227,30 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * to   = (t->n > 2) ? t->c[2] : NULL;
     const tree_t * body = (t->n > 3) ? t->c[3] : NULL;
     const char * vname  = (var && var->t == TT_VAR) ? var->v.sval : NULL;
-    IR_t * conj = build(cx, IR_CONJ, γ, ω);
-    γ_to(conj, conj); ω_to(conj, conj);
-    IR_t * step = lower_assign_var(cx, vname, conj, ω);
-    IR_t * binop_step = build(cx, IR_BINOP, step, ω);
-    IR_LIT(binop_step).ival = 0;
-    IR_t * var_step = lower_var(cx, vname, binop_step, ω);
-    IR_t * lit1 = build(cx, IR_LIT_I, var_step, ω); IR_LIT(lit1).ival = 1;
-    γ_to(var_step, lit1);
-    IR_t * limit_cmp = build(cx, IR_BINOP, γ, ω); IR_LIT(limit_cmp).ival = 7;
-    IR_t * var_cmp = lower_var(cx, vname, limit_cmp, ω);
-    IR_t * to_entry = lower(cx, to, var_cmp, ω);
-    IR_t * body_entry = lower(cx, body, step, ω);
-    γ_to(conj, body_entry ? body_entry : step);
-    ω_to(conj, body_entry ? body_entry : step);
-    IR_t * if_nd = build(cx, IR_IF, conj, ω);
-    γ_to(if_nd, body_entry ? body_entry : conj);
-    ω_to(if_nd, ω);
-    ir_operand_push(if_nd, to_entry ? to_entry : var_cmp);
-    IR_t * init = lower_assign_var(cx, vname, if_nd, ω);
-    IR_t * from_entry = lower(cx, from, init, ω);
-    return from_entry ? from_entry : init;
+    /* Allocation order matching oracle: VAR(i), BINOP(LE), to_expr, increment, body, init */
+    /* 1. VAR(i) for limit: γ=to_entry (wired later), ω=γ(after-loop) */
+    IR_t * lim_var  = lower_var(cx, vname, NULL, γ);
+    /* 2. Limit BINOP: γ=body_entry (wired later), ω=γ(after-loop) */
+    IR_t * lim_cmp  = build(cx, IR_BINOP, NULL, γ); IR_LIT(lim_cmp).ival = 6;
+    /* 3. to expression: γ=lim_cmp, ω=γ(after-loop) */
+    IR_t * to_entry = lower(cx, to, lim_cmp, γ);
+    if (!to_entry) to_entry = lim_cmp;
+    γ_to(lim_var, to_entry);
+    IR_t * lim_entry = lim_var;
+    /* 4. Increment: ASSIGN, VAR, LIT, BINOP (oracle allocation order) */
+    IR_t * inc_assign = lower_assign_var(cx, vname, lim_entry, ω);
+    IR_t * inc_var    = lower_var(cx, vname, NULL, ω);
+    IR_t * inc_lit1   = build(cx, IR_LIT_I, NULL, ω); IR_LIT(inc_lit1).ival = 1;
+    IR_t * inc_binop  = build(cx, IR_BINOP, inc_assign, ω);
+    γ_to(inc_var, inc_lit1); γ_to(inc_lit1, inc_binop);
+    /* 5. Body: γ=ω=inc_var */
+    IR_t * body_entry = lower(cx, body, inc_var, inc_var);
+    if (!body_entry) body_entry = inc_var;
+    γ_to(lim_cmp, body_entry);
+    /* 6. Init: i := from → lim_entry */
+    IR_t * init_assign = lower_assign_var(cx, vname, lim_entry, ω);
+    IR_t * from_entry  = lower(cx, from, init_assign, ω);
+    return from_entry ? from_entry : init_assign;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_repeat(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
@@ -323,6 +387,7 @@ static void build_scope(pas_scope_t * sc, const tree_t * pd, pas_scope_t * outer
     if (locals && locals->t != TT_VLIST) locals = NULL;
     sc->byref = (params && params->t == TT_VLIST) ? params->v.ival : 0;
     if (params && params->t == TT_VLIST) for (int i = 0; i < params->n && sc->n < PAS_MAX_SCOPE; i++) { if (params->c[i] && params->c[i]->v.sval) sc->names[sc->n++] = params->c[i]->v.sval; }
+    sc->nparams = sc->n;
     if (locals) for (int i = 0; i < locals->n && sc->n < PAS_MAX_SCOPE; i++) { if (locals->c[i] && locals->c[i]->v.sval) sc->names[sc->n++] = locals->c[i]->v.sval; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
