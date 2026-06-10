@@ -22,6 +22,8 @@ extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 extern uint32_t polyglot_lang_mask(const tree_t * prog);
 extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask);
 extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
+static const tree_t * g_nl_prog = NULL;
+static int nl_on(int dflt) { const char * e = getenv("SCRIP_NL"); return e ? (atoi(e) != 0) : dflt; }
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 static IR_t * make_computed_goto(IR_graph_t * g, const tree_t * gexpr, IR_t * fall) {
@@ -163,6 +165,12 @@ static int proc_body_has_suspend(const tree_t *proc) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_icon_body(const tree_t *proc) {
+    if (nl_on(0)) {
+        extern IR_graph_t * lower_icon_proc(const tree_t *, const tree_t *);
+        IR_graph_t * ng = lower_icon_proc(g_nl_prog, proc);
+        if (!ng || !ng->entry) return -1;
+        return bb_program_add(&g_stage2.bbp, ng);
+    }
     if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
     const tree_t *body = proc->c[2];
     if (!body || body->t != TT_PROGRAM) return -1;
@@ -491,6 +499,7 @@ static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, in
 }
 stage2_t *lower_stage2(const tree_t *prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
+    g_nl_prog = prog;
     stage2_reset();
     uint32_t mask = polyglot_lang_mask(prog);
     polyglot_init(&g_stage2, prog, mask);
