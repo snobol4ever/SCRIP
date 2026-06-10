@@ -579,8 +579,8 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_LIT(seq).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (rhs->n > 1) ? rhs->c[1] : NULL);
         return seq; }
     default: {
-        /* TT_IDX/TT_INDIRECT/TT_VLIST as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
-        if (rhs->t == TT_IDX || rhs->t == TT_INDIRECT || rhs->t == TT_VLIST) {
+        /* TT_IDX/TT_INDIRECT/TT_VLIST/TT_DEFER as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
+        if (rhs->t == TT_IDX || rhs->t == TT_INDIRECT || rhs->t == TT_VLIST || rhs->t == TT_DEFER) {
             IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
             return NULL;
         }
