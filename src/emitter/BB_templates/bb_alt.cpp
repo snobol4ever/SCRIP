@@ -32,8 +32,8 @@ static std::string bb_alt_str() {
                            + x86("def", "β")
                            + x86("jmp", L(_.op_parts_n))
                            + FOR(0, _.op_parts_n, [&](int i) { return _.op_parts_tag[i] == (int)DT_I
-                                                                    ? x86("ro_seal_q", (long)i, (long)_.op_parts_ival[i])
-                                                                    : x86("ro_seal_str", (long)i, _.op_parts_str[i]); }));
+                                                                    ? x86("def", L(i)) + x86(".quad", (long)_.op_parts_ival[i])
+                                                                    : x86("def", L(i)) + x86(".quad", LS(i), _.op_parts_str[i]) + x86("label", LS(i)) + x86(".string", _.op_parts_str[i]); }));
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

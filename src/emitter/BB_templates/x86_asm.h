@@ -217,6 +217,7 @@ inline std::string x86_deflabel(int port) {
 #define X86_INTERNAL_MAX  16
 inline const char * L(int n) { static char b[8][8]; static int i; i = (i + 1) & 7; snprintf(b[i], 8, "L%d", n); return b[i]; }
 inline std::string x86_internal_name(int n) { return std::string(".Lx") + std::to_string(_.x86_uid) + "_" + std::to_string(n); }
+inline std::string LS(int n) { return x86_internal_name(n) + "_s"; }
 inline std::string x86_jmp_id(int n) {
     return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(X86_INTERNAL_BASE + n))
                          : (std::string(" jmp ") + x86_internal_name(n) + "\n");
@@ -514,6 +515,12 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "ins3"))      return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + " " + (xc.s ? xc.s : "") + "\n");
     if (!strcmp(mnem, "Lins1"))     return MEDIUM_BINARY ? std::string() : (std::string(xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + "\n");
     if (!strcmp(mnem, "Lins2"))     return MEDIUM_BINARY ? std::string() : (std::string(xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + " " + (xc.s ? xc.s : "") + "\n");
+    if (!strcmp(mnem, ".quad")) {
+        if (xa.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xa.u)) : (std::string(" .quad ") + std::to_string((unsigned long long)xa.u) + "\n");
+        if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
+        return std::string();
+    }
+    if (!strcmp(mnem, ".string")) return MEDIUM_BINARY ? std::string() : (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "") + "\"\n");
     if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : std::string(" ret\n");
     if (!strcmp(mnem, "cqo")) return x86_cqo();
     if (!strcmp(mnem, "def")) {
@@ -573,8 +580,6 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "stk32")) { if (a.kind == XK_IMM && b.kind == XK_IMM) return x86_rsp_store32_imm((int)a.imm, b.imm); return std::string(); }
     if (!strcmp(mnem, "movabs")) { if (a.kind == XK_REG && xb.tag == 2) return x86_movabs_r64(a.txt, xb.u); return std::string(); }
     if (!strcmp(mnem, "xor"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
-    if (!strcmp(mnem, "ro_seal_q"))   { return x86_ro_seal_q((int)a.imm, (uint64_t)b.imm); }
-    if (!strcmp(mnem, "ro_seal_str")) { return x86_ro_seal_str((int)a.imm, xb.s ? xb.s : ""); }
     if (!strcmp(mnem, "lea")) {
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)               return x86_load_ro(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && (b.kind == XK_FR32 || b.kind == XK_FR64)) return x86_frame_lea(a.txt, b.off);

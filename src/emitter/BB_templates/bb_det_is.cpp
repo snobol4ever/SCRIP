@@ -93,7 +93,7 @@ static std::string bb_det_is_str() {
              + x86("jmp", "γ")
              + x86("def", "β")
              + x86("jmp", "ω")
-             + x86("ro_seal_str", 0, rop);
+             + x86("def", L(0)) + x86(".quad", LS(0), rop) + x86("label", LS(0)) + x86(".string", rop);
     int bslot1 = -1, bslot2 = -1; const char *bop = NULL;
     if (gz_arith_var_bivar(bdis_rhs(), &bslot1, &bslot2, &bop))
         return x86("label", _.lbl_α)
@@ -108,7 +108,7 @@ static std::string bb_det_is_str() {
              + x86("jmp", "γ")
              + x86("def", "β")
              + x86("jmp", "ω")
-             + x86("ro_seal_str", 0, bop);
+             + x86("def", L(0)) + x86(".quad", LS(0), bop) + x86("label", LS(0)) + x86(".string", bop);
     return x86_bomb("bb_det_is: unsupported rhs shape in GZ");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
