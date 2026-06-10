@@ -7,7 +7,7 @@ extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, i
 int g_icn_postfix_resume = 0;
 int g_icn_globals_nv     = 1;
 /*====================================================================================================================================================================================================*/
-typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; IR_t * last_gen; IR_t * loop_exit; } icx_t;
+typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; IR_t * last_gen; IR_t * loop_exit; IR_t * beta; } icx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α", 3); nd->γ.sz[3] = 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -93,26 +93,29 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
             IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
             if (blks) { for (int k = 0; k < nargs; k++) blks[k] = arg_block(cx, t->c[argbase + k]); IR_EXEC(call).counter = (int64_t)(intptr_t) blks; }
         }
+        cx->beta = ω;
         return call;
     }
     IR_LIT(call).dval = 1.0;
-    IR_t * prev = NULL; IR_t * entry = call;
+    IR_t * prev = NULL; IR_t * entry = call; IR_t * aω = ω;
     for (int k = 0; k < nargs; k++) {
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL;
-        IR_t * ae = lower(cx, a, (k == nargs - 1) ? call : NULL, ω, &ar);
+        IR_t * ae = lower(cx, a, (k == nargs - 1) ? call : NULL, aω, &ar); aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) γ_to(prev, ae);
         prev = ar;
     }
+    cx->beta = ω;
     return entry;
 }
 /*====================================================================================================================================================================================================*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
+    cx->beta = ω;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (is_binop_tt(t->t)) {
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = binop_code(t->t); if (IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) IR_LIT(op).dval = 1.0;
-        IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * eb = lower(cx, t->c[1], op, ω, &rr);
+        IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], op, lβ, &rr);
         γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); } *res = op; return ea; }
     if (is_unop_tt(t->t)) { IR_t * op = build(cx, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) t->t; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); *res = op; return ea; }
     switch (t->t) {
@@ -274,10 +277,10 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         int64_t bits = 1; int isr = 0;
         if (icn_const_step(t->c[2], &bits, &isr)) { IR_LIT(to).ival = bits; if (isr) IR_LIT(to).sval = (char *) "ar"; }
     }
-    IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr);
-    IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], to, ω, &mr); γ_to(lr, em);
+    IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
+    IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], to, lβ, &mr); γ_to(lr, em);
     ir_operand_push(to, lr); ir_operand_push(to, mr);
-    *res = to; return ea;
+    cx->beta = to; *res = to; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -287,10 +290,11 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     if (GEN && GEN->t == TT_ASSIGN && GEN->c[0] && GEN->c[0]->t == TT_VAR) {
         IR_t * asn = build(cx, IR_ASSIGN, NULL, E); IR_LIT(asn).sval = GEN->c[0]->v.sval;
         IR_t * rr = NULL; gen_entry = lower(cx, GEN->c[1], asn, E, &rr);
-        ir_operand_push(asn, rr); gen_result = asn; gen_node = rr;
+        ir_operand_push(asn, rr); gen_result = asn; gen_node = (cx->beta && cx->beta != E) ? cx->beta : rr;
     } else {
         IR_t * sg = cx->last_gen; cx->last_gen = NULL;
-        gen_entry = lower(cx, GEN, NULL, E, &gen_result); gen_node = cx->last_gen ? cx->last_gen : gen_result;
+        gen_entry = lower(cx, GEN, NULL, E, &gen_result);
+        gen_node = (cx->beta && cx->beta != E) ? cx->beta : (cx->last_gen ? cx->last_gen : gen_result);
         cx->last_gen = sg;
     }
     if (!BODY) {
