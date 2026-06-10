@@ -968,6 +968,15 @@ void bb_prepare(IR_t *nd) {
     }
     if (nd->op == IR_CELL_CALL || nd->op == IR_CELL_ITE) {
         g_emit.bb_zn = (void *)nd;
+        if (nd->op == IR_CELL_CALL) {
+            const pl_gz_call_state_t * st = (const pl_gz_call_state_t *)(intptr_t)IR_LIT(nd).ival;
+            g_emit.op_parts_n = st ? 1 : 0;
+            g_emit.op_parts_ival[0] = st ? (int64_t)st->child_slot : -1;
+            g_emit.op_parts_ival[1] = st ? (int64_t)st->nargs : -1;
+            g_emit.op_parts_ival[2] = (st && st->callee) ? (int64_t)(st->callee->arity + st->callee->nlocals + st->callee->nchild) : -1;
+            g_emit.op_parts_ival[3] = (st && st->nargs > 0) ? ((st->args[0] && st->args[0]->op == IR_LOGICVAR) ? IR_LIT(st->args[0]).ival : -2) : -1;
+            g_emit.op_parts_ival[4] = (st && st->nargs > 1) ? ((st->args[1] && st->args[1]->op == IR_LOGICVAR) ? IR_LIT(st->args[1]).ival : -2) : -1;
+        }
         return;
     }
     if (nd->op == IR_DET_IS) {
