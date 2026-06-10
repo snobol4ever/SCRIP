@@ -218,7 +218,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         IR_t * nd = IR_node_alloc(pg, IR_PAT_POS); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
-            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) IR_LIT(nd).sval = arg->v.sval;
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 2.0; }
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_RPOS: {
@@ -226,27 +226,31 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         IR_LIT(nd).sval = "r";
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
-            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) IR_LIT(nd).sval = arg->v.sval;  /* overwrite "r" */
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }  /* overwrite "r" */
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_LEN: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_LEN); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
-            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) IR_LIT(nd).sval = arg->v.sval;
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_TAB: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_TAB); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
-            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) IR_LIT(nd).sval = arg->v.sval;
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 2.0; }
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_RTAB: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_RTAB); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = "r";
-        if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }
+            else IR_LIT(nd).ival = arg->v.ival; }
+        return nd; }
     case TT_ARBNO: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_ARBNO); γ_to(nd, succ); ω_to(nd, fail);
         bb_arbno_state_t * az = (bb_arbno_state_t *) calloc(1, sizeof *az);
