@@ -410,6 +410,12 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_has_fnc(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC) return 1;
+    for (int i = 0; i < t->n; i++) if (sno_pat_has_fnc(t->c[i])) return 1;
+    return 0;
+}
 static IR_graph_t * lower_pat_graph(const tree_t * pat) {
     IR_graph_t * pg = IR_alloc(256, IR_LANG_SNO);
     IR_t * succ = IR_node_alloc(pg, IR_SUCCEED);  /* [0] */
@@ -633,6 +639,8 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         const tree_t * sv = (subj->n > 0) ? subj->c[0] : NULL;
         const tree_t * pt = (subj->n > 1) ? subj->c[1] : NULL;
         const char * vname = (sv && sv->v.sval) ? sv->v.sval : "";
+        /* user function call in pattern position: oracle punts the whole statement to an ORPHAN SCAN (no edges, no VAR) and label-chains to the lexically-next stmt, ignoring :S and :F */
+        if (sno_pat_has_fnc(pt)) { IR_node_alloc(cx->g, IR_SCAN); return NULL; }
         /* allocate sub-graphs */
         IR_graph_t * pg = lower_pat_graph(pt);
         IR_graph_t * sg = lower_subj_graph(vname);
