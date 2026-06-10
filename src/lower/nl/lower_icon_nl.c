@@ -105,7 +105,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         if (prev) γ_to(prev, ae);
         prev = ar;
     }
-    cx->beta = ω;
+    cx->beta = g_icn_postfix_resume ? aω : ω;
     return entry;
 }
 /*====================================================================================================================================================================================================*/
