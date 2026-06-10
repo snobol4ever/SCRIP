@@ -56,7 +56,7 @@ static int is_binop_tt(tree_e tt) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_unop_tt(tree_e tt) {
     switch (tt) {
-    case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_RANDOM: case TT_NOT: case TT_INTERROGATE: case TT_MATCH_UNARY: return 1;
+    case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_RANDOM: case TT_INTERROGATE: case TT_MATCH_UNARY: return 1;
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -74,6 +74,7 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * arg_block(icx_t * cx, const tree_t * a) {
     IR_graph_t * saved = cx->g; IR_t * sps = cx->psucc; IR_t * spf = cx->pfail;
@@ -206,6 +207,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int lr = -1; for (int i = 0; i < k; i++) { if (lr >= 0) ω_to(val[i], val[lr]); if (is_resumable(S[i])) lr = i; }
         *res = CONJ; return ent[0];
     }
+    case TT_NOT: return lower_not(cx, t, γ, ω, res);
     case TT_IF: return lower_if(cx, t, γ, ω, res);
     case TT_WHILE: return lower_while(cx, t, γ, ω, res);
     case TT_UNTIL: return lower_until(cx, t, γ, ω, res);
@@ -250,6 +252,13 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     γ_to(R, b_entry); ir_operand_push(R, b_entry);
     cx->loop_exit = sle;
     *res = R; return b_entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * nt = build(cx, IR_NOT, γ, ω);
+    IR_t * cr = NULL; IR_t * ce = lower(cx, (t->n > 0) ? t->c[0] : NULL, ω, nt, &cr);
+    ir_operand_push(nt, cr);
+    cx->beta = ω; *res = nt; return ce;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
