@@ -539,7 +539,7 @@ stage2_t *lower_stage2(const tree_t *prog) {
     stage2_reset();
     uint32_t mask = polyglot_lang_mask(prog);
     polyglot_init(&g_stage2, prog, mask);
-    if ((mask & (1u << LANG_SNO)) && !(nl_on(0) && lower_sno_nl(prog))) {
+    if ((mask & (1u << LANG_SNO)) && !(nl_on(1) && lower_sno_nl(prog))) {
         IR_graph_t *g = IR_alloc(1024, IR_LANG_SNO);
         if (g) {
             IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
