@@ -504,8 +504,9 @@ static pas_scope_t * build_scope_chain(const tree_t * pd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     IR_graph_t * g = IR_alloc(8192, IR_LANG_PAS); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g;
+    scan_labels(&cx, pd, NULL);
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
-    scan_labels(&cx, pd, fail);
+    for (int li = 0; li < cx.nlabels; li++) ω_to(cx.labels[li], fail);
     pas_scope_t * sc = build_scope_chain(pd);
     if (sc) cx.sc = *sc;
     const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
