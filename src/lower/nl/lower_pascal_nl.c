@@ -89,10 +89,8 @@ static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     }
     int isref     = (int)((byref >> slot) & 1LL);
     int is_own    = (found_sc == &cx->sc);
-    int is_local  = is_own && (slot >= found_sc->nparams);
-    int is_param  = is_own && (slot <  found_sc->nparams);
-    int use_frame = isref || !is_own || is_local
-                    || (is_param && (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children));
+    int use_frame = isref || !is_own
+                    || (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children);
     if (isref) {
         IR_t * nd = build(cx, IR_VAR_FRAME_REF, γ, ω);
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
@@ -117,10 +115,8 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
     }
     int isref     = (int)((byref >> slot) & 1LL);
     int is_own    = (found_sc == &cx->sc);
-    int is_local  = is_own && (slot >= found_sc->nparams);
-    int is_param  = is_own && (slot <  found_sc->nparams);
-    int use_frame = isref || !is_own || is_local
-                    || (is_param && (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children));
+    int use_frame = isref || !is_own
+                    || (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children);
     if (isref) {
         IR_t * nd = build(cx, IR_ASSIGN_FRAME_REF, γ, ω);
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
