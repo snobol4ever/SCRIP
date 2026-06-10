@@ -10,23 +10,7 @@ extern int g_descr_flat_chain;
 extern IR_graph_t * g_emit_cfg;
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_alt_emit_arm(const IR_t * arm, int dslot, int off) {
-    if (!arm) return std::string();
-    if (arm->op == (IR_e)IR_LIT_I)
-        return x86_frame_mov_imm64(off, (long)DT_I) + x86_ro_load_q("rax", dslot) + x86_frame_store64(off + 8, "rax");
-    if (arm->op == (IR_e)IR_LIT_S)
-        return x86_frame_mov_imm64(off, (long)DT_S) + x86_ro_load_q("rax", dslot) + x86_frame_store64(off + 8, "rax");
-    return std::string();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_alt_seal_arm(const IR_t * arm, int dslot) {
-    if (!arm) return std::string();
-    if (arm->op == (IR_e)IR_LIT_I) return x86_ro_seal_q(dslot, (uint64_t) IR_LIT(arm).ival);
-    if (arm->op == (IR_e)IR_LIT_S) return x86_ro_seal_str(dslot, IR_LIT(arm).sval ? IR_LIT(arm).sval : "");
-    return std::string();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_alt_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     if (!(g_descr_flat_chain && _.op_off >= 0)) return std::string();
@@ -35,26 +19,29 @@ static std::string bb_alt_str(IR_t * pBB) {
     if (!arms || n <= 0 || n > 5) return std::string();
     for (int i = 0; i < n; i++)
         if (!arms[i] || (arms[i]->op != (IR_e)IR_LIT_I && arms[i]->op != (IR_e)IR_LIT_S)) return std::string();
-    return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-              + x86("comment", "BOX IR_ALT [x86() stackless " + std::to_string(n) + "-arm generator; result [r12+"
-              + std::to_string(_.op_off) + "], counter [r12+" + std::to_string(_.op_off + 16) + "]]"))
-         + x86_frame_mov_imm64(_.op_off + 16, 0)
+    return x86("label", _.lbl_α)
+         + x86("comment", "IR_ALT")
+         + x86("mov", FRQ(_.op_off + 16), 0L)
          + x86("def", L(n))
          + FOR(0, n, [&](int i) { return x86("mov", "rax", FRQ(_.op_off + 16))
                                        + x86("cmp", "rax", (long)i)
-                                       + x86("je",  L(n + 1 + i)); })
+                                       + x86("je", L(n + 1 + i)); })
          + x86("jmp", "ω")
          + FOR(0, n, [&](int i) { return x86("def", L(n + 1 + i))
-                                       + bb_alt_emit_arm(arms[i], i, _.op_off)
+                                       + x86("mov", FRQ(_.op_off), (long)(arms[i]->op == (IR_e)IR_LIT_I ? DT_I : DT_S))
+                                       + x86("ro_load_q", "rax", (long)i)
+                                       + x86("mov", FRQ(_.op_off + 8), "rax")
                                        + x86("mov", "rax", FRQ(_.op_off + 16))
                                        + x86("add", "rax", 1L)
                                        + x86("mov", FRQ(_.op_off + 16), "rax")
                                        + x86("jmp", "γ"); })
          + x86("def", "β")
          + x86("jmp", L(n))
-         + FOR(0, n, [&](int i) { return bb_alt_seal_arm(arms[i], i); });
+         + FOR(0, n, [&](int i) { return arms[i]->op == (IR_e)IR_LIT_I
+                                       ? x86("ro_seal_q", (long)i, (long)IR_LIT(arms[i]).ival)
+                                       : x86("ro_seal_str", (long)i, IR_LIT(arms[i]).sval ? IR_LIT(arms[i]).sval : ""); });
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_alt(IR_t * pBB) {
     x86_begin();
     std::string s = bb_alt_str(pBB);

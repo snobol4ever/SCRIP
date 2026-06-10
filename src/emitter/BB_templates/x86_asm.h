@@ -571,6 +571,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "movabs")) { if (a.kind == XK_REG && xb.tag == 2) return x86_movabs_r64(a.txt, xb.u); return std::string(); }
     if (!strcmp(mnem, "xor"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
     if (!strcmp(mnem, "ro_load_q"))   { if (a.kind == XK_REG && b.kind == XK_IMM) return x86_ro_load_q(a.txt, (int)b.imm); return std::string(); }
+    if (!strcmp(mnem, "ro_seal_q"))   { return x86_ro_seal_q((int)a.imm, (uint64_t)b.imm); }
     if (!strcmp(mnem, "ro_seal_str")) { return x86_ro_seal_str((int)a.imm, xb.s ? xb.s : ""); }
     if (!strcmp(mnem, "lea")) {
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)               return x86_load_ro(a.txt, xd.s, xc.u);
