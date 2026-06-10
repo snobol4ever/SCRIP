@@ -40,7 +40,7 @@ static std::string bb_alt_str(IR_t * pBB) {
          + x86("jmp", "ω")
          + FOR(0, bb_alt_n(pBB), [&](int i) { return x86("def", L(bb_alt_n(pBB) + 1 + i))
                                                    + x86("mov", FRQ(_.op_off), (long)(bb_alt_arm(pBB, i)->op == (IR_e)IR_LIT_I ? DT_I : DT_S))
-                                                   + x86("ro_load_q", "rax", (long)i)
+                                                   + x86("mov", "rax", ROQ(i))
                                                    + x86("mov", FRQ(_.op_off + 8), "rax")
                                                    + x86("mov", "rax", FRQ(_.op_off + 16))
                                                    + x86("add", "rax", 1L)
