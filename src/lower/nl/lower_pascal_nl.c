@@ -153,6 +153,10 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure"; IR_LIT(call).ival = lhs->n + 1;
         return call;
     }
+    if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0] && lhs->c[0]->v.sval && !strcmp(lhs->c[0]->v.sval, "__pas_deref")) {
+        IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = "__pas_deref_set"; IR_LIT(call).ival = 2;
+        return call;
+    }
     if (lhs && lhs->t == TT_VAR) vname = lhs->v.sval;
     else if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0]) vname = lhs->c[0]->v.sval;
     if (rhs && is_relop(rhs->t)) {
