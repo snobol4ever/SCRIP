@@ -198,14 +198,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             }
         }
         *res = cas; return se; }
-    case TT_SEQ: {
-        IR_t * succ = γ; IR_t * fail = ω; IR_t * entry = γ;
-        for (int i = t->n - 1; i >= 0; i--) {
-            const tree_t * s = t->c[i];
-            if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
-            if (!s) continue; IR_t * r = NULL; entry = lower(cx, s, succ, fail, &r); succ = entry; fail = entry; }
-        *res = entry; return entry;
-    }
+    case TT_SEQ:
     case TT_SEQ_EXPR: {
         const tree_t * S[128]; int k = 0;
         for (int i = 0; i < t->n && k < 128; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) S[k++] = s; }
