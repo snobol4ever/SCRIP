@@ -18,7 +18,7 @@ static std::string bb_det_write_str() {
                x86("mov", "rdi", FRQ(GZ_CELL_OFF(_.op_off)))
              + x86("call", "rt_pl_write_cell", (uint64_t)(uintptr_t)(void *)rt_pl_write_cell))
          + IF(!_.op_sb && _.op_sval,
-               x86("ro_load_q", "rdi", 0)
+               x86("mov", "rdi", ROQ(0))
              + x86("call", "rt_write_atom", (uint64_t)(uintptr_t)(void *)rt_write_atom))
          + IF(!_.op_sb && !_.op_sval,
                x86("mov", "rdi", (long)_.op_ival)
