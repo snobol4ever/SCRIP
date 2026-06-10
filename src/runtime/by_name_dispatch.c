@@ -908,6 +908,29 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (n > 0) { char key[32]; snprintf(key, 32, "__heap_%ld", n); NV_SET_fn(key, args[1]); }
         *out = args[1]; return 1;
     }
+    if (!strcmp(fn, "__pas_fassign") && nargs == 1) {
+        const char *s = VARVAL_fn(args[0]); if (!s) s = "";
+        *out = STRVAL(GC_strdup(s)); return 1;
+    }
+    if (!strcmp(fn, "__pas_rewrite") && nargs == 1) {
+        extern int fh_alloc(FILE *);
+        const char *nm = VARVAL_fn(args[0]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+        FILE *fp = fopen(nm, "w"); if (!fp) { *out = FAILDESCR; return 1; }
+        int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        *out = FHVAL(idx); return 1;
+    }
+    if (!strcmp(fn, "__pas_reset") && nargs == 1) {
+        extern int fh_alloc(FILE *);
+        const char *nm = VARVAL_fn(args[0]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+        FILE *fp = fopen(nm, "r"); if (!fp) { *out = FAILDESCR; return 1; }
+        int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        *out = FHVAL(idx); return 1;
+    }
+    if (!strcmp(fn, "__pas_fclose") && nargs == 1) {
+        extern FILE *fh_get(int); extern void fh_free(int);
+        if (IS_FH_fn(args[0])) { int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); } }
+        *out = NULVCL; return 1;
+    }
     if (!strcmp(fn, "__pas_in") && nargs == 2) {
         long e = IS_INT_fn(args[0]) ? args[0].i : -1;
         long s = IS_INT_fn(args[1]) ? args[1].i : 0;
@@ -1892,7 +1915,7 @@ DESCR_t proc_as_value(const char *name) {
         }
     }
     static const char *builtins[] = {
-        "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin","__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","write","writes","read","reads","close","open","remove","flush",
+        "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin","__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite","__pas_reset","__pas_fclose","write","writes","read","reads","close","open","remove","flush",
         "put","get","pull","push","pop","list","image","proc","type","copy",
         "string","integer","real","numeric","ord","char","reverse","sort","sortf",
         "find","match","many","any","upto","bal","move","tab","pos",
@@ -1962,7 +1985,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if (!strcmp(fn, "__pas_writeln") || !strcmp(fn, "__pas_write")) {
         int nl = (fn[6] == 'w' && fn[7] == 'r' && fn[8] == 'i' && fn[9] == 't' && fn[10] == 'e' && fn[11] == 'l');
-        for (int _pi = 0; _pi + 1 < nargs; _pi += 2) {
+        int _start = 0;
+        FILE *_dest = stdout;
+        if (nargs >= 1 && IS_FH_fn(args[0])) { extern FILE *fh_get(int); FILE *_fp = fh_get((int)args[0].i); if (_fp) _dest = _fp; _start = 2; }
+        for (int _pi = _start; _pi + 1 < nargs; _pi += 2) {
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
             int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i >= 0 ? (int)aw.i : -1)) : -1;
@@ -1971,24 +1997,24 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 char _pb[32];
                 int _pfmtlen = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);
                 int _fw = (w < 0) ? 10 : (w > _pfmtlen ? w : _pfmtlen);
-                fprintf(stdout, "%*s", _fw, _pb);
+                fprintf(_dest, "%*s", _fw, _pb);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
                 int _prec = (w < 0) ? 12 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
                 pas_real_str(av.r, _rb, sizeof _rb, _prec);
                 int _pfmtlen = (int)strlen(_rb);
                 int _fw = (w < 0) ? 20 : (_pfmtlen + 1 > w ? _pfmtlen + 1 : w);
-                fprintf(stdout, "%*s", _fw, _rb);
+                fprintf(_dest, "%*s", _fw, _rb);
             } else {
                 const char *_ps = VARVAL_fn(av);
                 if (_ps) {
-                    if (w == -2) { fprintf(stdout, "%c", (int)(unsigned char)_ps[0]); }
-                    else if (w >= 0) { fprintf(stdout, "%*s", w, _ps); }
-                    else { fputs(_ps, stdout); }
+                    if (w == -2) { fprintf(_dest, "%c", (int)(unsigned char)_ps[0]); }
+                    else if (w >= 0) { fprintf(_dest, "%*s", w, _ps); }
+                    else { fputs(_ps, _dest); }
                 }
             }
         }
-        if (nl) fputc('\n', stdout);
+        if (nl) fputc('\n', _dest);
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "write")) {

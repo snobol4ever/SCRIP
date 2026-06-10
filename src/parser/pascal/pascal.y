@@ -60,6 +60,7 @@ static int pas_is_charexpr(tree_t *e);
 static int pas_is_charvar(const char *name);
 static int pas_is_rel(tree_t *e);
 static tree_t *pas_bool(tree_t *e);
+static tree_t *pas_tree_clone(tree_t *e);
 static tree_t *mk_deref(tree_t *ptr) {
     tree_t *e = ast_node_new(TT_FNC);
     ast_push(e, leaf_s(TT_VAR, "__pas_deref")); ast_push(e, ptr);
@@ -87,6 +88,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "odd") && args && args->count >= 1) return bin(TT_NE, bin(TT_MOD, args->items[0], ilit(2)), ilit(0));
     if (name && !strcmp(name, "eof") && (!args || args->count == 0)) return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln") && (!args || args->count == 0)) return mk_fnc0("__pas_eoln");
+    if (name && !strcmp(name, "eof") && args && args->count >= 1) { (void)args; return mk_fnc0("__pas_eof"); }
+    if (name && !strcmp(name, "eoln") && args && args->count >= 1) { (void)args; return mk_fnc0("__pas_eoln"); }
     if (name && !strcmp(name, "readln") && (!args || args->count == 0)) return mk_fnc0("__pas_readln");
     if (name && !strcmp(name, "readln") && args && args->count >= 1) {
         PNodeList *stmts = pnl_new();
@@ -106,6 +109,21 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             pnl_push(stmts, mk_assign(v, mk_fnc0(rfn)));
         }
         return seq_of(stmts);
+    }
+    if (name && !strcmp(name, "assign") && args && args->count >= 3) {
+        tree_t *fv = args->items[0]; tree_t *nm = args->items[2];
+        return mk_assign(fv, mk_fnc1("__pas_fassign", nm));
+    }
+    if (name && !strcmp(name, "rewrite") && args && args->count >= 1) {
+        tree_t *fv = args->items[0];
+        return mk_assign(fv, mk_fnc1("__pas_rewrite", pas_tree_clone(fv)));
+    }
+    if (name && !strcmp(name, "reset") && args && args->count >= 1) {
+        tree_t *fv = args->items[0];
+        return mk_assign(fv, mk_fnc1("__pas_reset", pas_tree_clone(fv)));
+    }
+    if (name && !strcmp(name, "close") && args && args->count >= 1) {
+        return mk_fnc1("__pas_fclose", args->items[0]);
     }
     if (name && !strcmp(name, "new") && args && args->count >= 1) {
         tree_t *pv = args->items[0];

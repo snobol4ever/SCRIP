@@ -238,7 +238,7 @@ static IR_t * lower_if(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * els_t  = (t->n > 2) ? t->c[2] : NULL;
     IR_t * nd = build(cx, IR_IF, γ, ω);
     IR_t * then_entry = lower(cx, then_t, γ, ω);
-    IR_t * else_entry = els_t ? lower(cx, els_t, γ, ω) : γ;
+    IR_t * else_entry = els_t ? lower(cx, els_t, γ, ω) : build(cx, IR_SUCCEED, γ, ω);
     IR_t * te = then_entry ? then_entry : γ;
     IR_t * ee = else_entry ? else_entry : ω;
     IR_t * cond_entry;
