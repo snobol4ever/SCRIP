@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "ast.h"
 #include "IR.h"
+#include "IR_interp_state.h"
 extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
 /*====================================================================================================================================================================================================*/
 #define SNO_MAXSTMTS 2048
@@ -20,7 +21,7 @@ typedef struct {
 } snx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α", 3); nd->γ.sz[3] = 0; } }
-static void ω_to(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "β", 3); nd->ω.sz[3] = 0; } }
+static void ω_to(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "α", 3); nd->ω.sz[3] = 0; } }
 static IR_t * build(snx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     IR_t * nd = IR_node_alloc(cx->g, op); γ_to(nd, γ); ω_to(nd, ω); return nd; }
 /*====================================================================================================================================================================================================*/
@@ -247,7 +248,15 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         IR_LIT(nd).sval = "r";
         if (t->n > 0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
     case TT_ARBNO: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_ARBNO); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+        IR_t * nd = IR_node_alloc(pg, IR_PAT_ARBNO); γ_to(nd, succ); ω_to(nd, fail);
+        bb_arbno_state_t * az = (bb_arbno_state_t *) calloc(1, sizeof *az);
+        if (az) {
+            extern IR_graph_t * sno_pat_graph_fwd(const tree_t *);
+            az->inner = sno_pat_graph_fwd((t->n > 0) ? t->c[0] : NULL);
+            az->cap = 64; az->pos_stack = (int *) calloc(64, sizeof(int));
+            IR_EXEC(nd).counter = (int64_t)(intptr_t) az;
+        }
+        return nd; }
     case TT_ALT: {
         /* collect alternatives left-recursively into flat array */
         const tree_t * alts[64]; int na = 0;
@@ -405,6 +414,7 @@ static IR_graph_t * lower_pat_graph(const tree_t * pat) {
     pg->entry = entry ? entry : succ;
     return pg;
 }
+IR_graph_t * sno_pat_graph_fwd(const tree_t * pat) { return lower_pat_graph(pat); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * lower_subj_graph(const char * vname) {
     IR_graph_t * sg = IR_alloc(32, IR_LANG_SNO);
