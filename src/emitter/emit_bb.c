@@ -868,6 +868,20 @@ void bb_prepare(IR_t *nd) {
     g_emit.bb_rs = NULL;
     g_emit.bb_op_lbl = NULL;
     g_emit.bb_lk = -1;
+    if (nd->op == IR_ALT) {
+        int n = 0;
+        IR_t * const * arms = g_emit_cfg ? bb_operand_aux_get(g_emit_cfg, nd, &n) : ((IR_t * const *)0);
+        int ok = (arms && n > 0 && n <= 5);
+        for (int i = 0; ok && i < n; i++)
+            if (!arms[i] || (arms[i]->op != IR_LIT_I && arms[i]->op != IR_LIT_S)) ok = 0;
+        g_emit.op_parts_n = ok ? n : 0;
+        for (int i = 0; ok && i < n; i++) {
+            g_emit.op_parts_tag[i]  = (arms[i]->op == IR_LIT_I) ? (int)DT_I : (int)DT_S;
+            g_emit.op_parts_ival[i] = (int64_t)IR_LIT(arms[i]).ival;
+            g_emit.op_parts_str[i]  = IR_LIT(arms[i]).sval ? IR_LIT(arms[i]).sval : "";
+        }
+        return;
+    }
     if (nd->op == IR_ATOM) {
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
         return;
