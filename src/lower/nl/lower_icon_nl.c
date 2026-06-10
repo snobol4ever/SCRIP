@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include "ast.h"
 #include "IR.h"
+#include "stage2.h"
 extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_proc_is_generator(const char * name) { if (!name) return 0; for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return g_stage2.proc_table[i].is_generator; return 0; }
+static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_generator(name) || !strcmp(name, "find") || !strcmp(name, "upto")); }
 /*====================================================================================================================================================================================================*/
 int g_icn_postfix_resume = 0;
 int g_icn_globals_nv     = 1;
@@ -93,7 +97,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
             IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
             if (blks) { for (int k = 0; k < nargs; k++) blks[k] = arg_block(cx, t->c[argbase + k]); IR_EXEC(call).counter = (int64_t)(intptr_t) blks; }
         }
-        cx->beta = ω;
+        cx->beta = icn_call_allow_gen(name) ? call : ω;
         return call;
     }
     IR_LIT(call).dval = 1.0;
