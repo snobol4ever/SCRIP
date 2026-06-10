@@ -55,7 +55,7 @@ IR_t * lower(lcx_t cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_ref_t * α, IR
     if (!e) return iref(NULL, α, β, γ, ω);
     if (cx.lang == IR_LANG_SNO || cx.lang == IR_LANG_SCO || cx.lang == IR_LANG_REB) return lower_sno(cx, e, γ, ω, α, β);
     if (cx.lang == IR_LANG_RKU) return lower_rku(cx, e, γ, ω, α, β);
-    if (cx.lang == IR_LANG_PAS) return lower_pas(cx, e, γ, ω, α, β);
+    if (cx.lang == IR_LANG_PAS) { abort(); return NULL; }
     IR_t * aα = NULL, * aβ = NULL;
     IR_t * r;
     switch (cx.role) {

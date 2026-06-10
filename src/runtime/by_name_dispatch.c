@@ -1965,7 +1965,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         for (int _pi = 0; _pi + 1 < nargs; _pi += 2) {
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
-            int w = (IS_INT_fn(aw) && aw.i >= 0) ? (int)aw.i : -1;
+            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i >= 0 ? (int)aw.i : -1)) : -1;
+            if (w == -3) continue;
             if (IS_INT_fn(av)) {
                 char _pb[32];
                 int _pfmtlen = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);

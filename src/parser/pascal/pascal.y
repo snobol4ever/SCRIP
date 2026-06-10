@@ -522,6 +522,7 @@ argument_list:
 argument:
     expression { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool($1)); pnl_push(_al, ilit(-1)); $$ = _al; }
     | expression COLON expression { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool($1)); pnl_push(_al, $3); $$ = _al; }
+    | expression COLON expression COLON expression { (void)$5; PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool($1)); pnl_push(_al, ilit(-3)); $$ = _al; }
     ;
 assignment:
     selector BECOMES expression
