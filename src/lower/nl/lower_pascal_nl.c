@@ -348,20 +348,29 @@ static int pas_resumable(const tree_t * t) {
     switch (t->t) { case TT_IF: case TT_UNLESS: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void seq_flatten(const tree_t * t, const tree_t ** out, int * k) {
+    for (int i = 0; i < t->n && *k < 512; i++) {
+        const tree_t * s = t->c[i];
+        if (s && s->t == TT_SEQ_EXPR) seq_flatten(s, out, k);
+        else if (s) out[(*k)++] = s;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_t * conj = build(cx, IR_CONJ, γ, ω);
-    int k = t->n; if (k > 512) k = 512;
+    const tree_t * st[512]; int k = 0;
+    seq_flatten(t, st, &k);
     if (k == 0) return conj;
     IR_t * succ = conj; IR_t * entry = NULL;
     IR_t * anchor[512];
     for (int i = k - 1; i >= 0; i--) {
         int m = cx->g->n;
-        IR_t * e = lower(cx, t->c[i], succ, ω);
+        IR_t * e = lower(cx, st[i], succ, ω);
         anchor[i] = (cx->g->n > m) ? cx->g->all[m] : e;
         if (e) { entry = e; succ = e; }
     }
     int lr = -1;
-    for (int i = 0; i < k; i++) { if (lr >= 0 && anchor[i]) ω_to(anchor[i], anchor[lr]); if (pas_resumable(t->c[i])) lr = i; }
+    for (int i = 0; i < k; i++) { if (lr >= 0 && anchor[i]) ω_to(anchor[i], anchor[lr]); if (pas_resumable(st[i])) lr = i; }
     return entry ? entry : conj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
