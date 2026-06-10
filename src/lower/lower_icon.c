@@ -421,7 +421,7 @@ IR_t * lower_icn(lcx_t cx, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t **
     case TT_FLIT: { IR_t * n = nalloc(cx, IR_LIT_F); if (n) IR_LIT(n).dval = e->v.dval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_QLIT: case TT_CSET: { IR_t * n = nalloc(cx, IR_LIT_S); if (n) IR_LIT(n).sval = e->v.sval ? e->v.sval : ""; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_NUL: case TT_NULL: { IR_t * n = nalloc(cx, IR_LIT_NUL); return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
-    case TT_VAR: case TT_NAME: { IR_t * n = nalloc(cx, IR_VAR); if (n) { IR_LIT(n).sval = e->v.sval; if (icn_is_global(IR_LIT(n).sval)) IR_EXEC(n).state = 1; } return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
+    case TT_VAR: case TT_NAME: { if (e->v.sval && e->v.sval[0] == '&') { IR_t * n = nalloc(cx, IR_KEYWORD); if (n) IR_LIT(n).sval = e->v.sval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); } IR_t * n = nalloc(cx, IR_VAR); if (n) { IR_LIT(n).sval = e->v.sval; if (icn_is_global(IR_LIT(n).sval)) IR_EXEC(n).state = 1; } return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_KEYWORD: { IR_t * n = nalloc(cx, IR_KEYWORD); if (n) IR_LIT(n).sval = e->v.sval; return emit_leaf(cx, n, γ_in, ω_in, α_out, β_out); }
     case TT_MATCH_UNARY:
         if (e->n >= 1 && e->c[0]) {
