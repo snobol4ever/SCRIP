@@ -482,6 +482,12 @@ static int sno_has_dc(const tree_t * t) {
     for (int i = 0; i < t->n; i++) if (sno_has_dc(t->c[i])) return 1;
     return 0;
 }
+static int sno_has_idx(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_IDX || t->t == TT_INDIRECT) return 1;
+    for (int i = 0; i < t->n; i++) if (sno_has_idx(t->c[i])) return 1;
+    return 0;
+}
 /*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
@@ -606,6 +612,12 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         sno_call_channels(cx, call, rhs);
         return call; }
     case TT_SEQ: {
+        /* concat containing array ref / indirection → ORPHAN ASSIGN_CONCAT + bare SEQ (oracle bails; label chains nxt) */
+        if (sno_has_idx(rhs)) {
+            IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN_CONCAT); IR_LIT(asn).sval = (char *) lhs;
+            IR_node_alloc(cx->g, IR_SEQ);
+            return NULL;
+        }
         const tree_t * leaves[64]; int nl = 0, fold = 1;
         const tree_t * stk[128]; int sp = 0;
         stk[sp++] = rhs;
@@ -635,6 +647,16 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         /* TT_IDX/TT_INDIRECT/TT_VLIST/TT_DEFER as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
         if (rhs->t == TT_IDX || rhs->t == TT_INDIRECT || rhs->t == TT_VLIST || rhs->t == TT_DEFER) {
             IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
+            return NULL;
+        }
+        /* binop RHS containing array ref → PARTIAL ORPHAN: edgeless ASSIGN + edgeless BINOP(ival) + left VAR (ω only); oracle bails mid-lower, label chains nxt */
+        if (is_sno_binop(rhs->t) && sno_has_idx(rhs)) {
+            IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
+            IR_t * bop = IR_node_alloc(cx->g, IR_BINOP); IR_LIT(bop).ival = sno_binop_code(rhs->t);
+            const tree_t * lop = (rhs->n > 0) ? rhs->c[0] : NULL;
+            if (lop && (lop->t == TT_VAR || lop->t == TT_KEYWORD) && !sno_has_idx(lop)) {
+                IR_t * v = IR_node_alloc(cx->g, IR_VAR); IR_LIT(v).sval = lop->v.sval; ω_to(v, ω);
+            }
             return NULL;
         }
         IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
@@ -800,8 +822,9 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
         IR_t * γ_tgt, * ω_tgt;
         if (go_u) { γ_tgt = ω_tgt = go_tgt_u ? go_tgt_u : nxt; }
         else { γ_tgt = go_tgt_s ? go_tgt_s : nxt; ω_tgt = go_tgt_f ? go_tgt_f : nxt; }
+        int n_before = cx->g->n;
         IR_t * entry = lower_stmt_body(cx, s, γ_tgt, ω_tgt);
-        γ_to(lbuf[i], entry ? entry : (go_u && go_tgt_u && go_tgt_u->op != IR_RETURN ? go_tgt_u : nxt));
+        γ_to(lbuf[i], entry ? entry : (cx->g->n == n_before && go_u && go_tgt_u && go_tgt_u->op != IR_RETURN ? go_tgt_u : nxt));
     }
     return g;
 }
