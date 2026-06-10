@@ -448,7 +448,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ASSIGN: {
         extern int g_descr_flat_chain; extern void bb_gvar_assign(IR_t *);
         if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_BINOP || op_a->op == IR_VAR || op_a->op == IR_SEQ || op_a->op == IR_SEQ_EXPR || op_a->op == IR_CALL)) { bb_gvar_assign(nd); return 0; }
-        if (g_descr_flat_chain && IR_LIT(nd).sval) { extern void bb_assign_local(IR_t *); bb_assign_local(nd); return 0; }
+        if (g_descr_flat_chain && IR_LIT(nd).sval) { extern void bb_assign_local(void); bb_assign_local(); return 0; }
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
     case IR_ASSIGN_LIT_S: { extern void bb_gvar_assign_lit_s(void); bb_gvar_assign_lit_s(); return 0; }
