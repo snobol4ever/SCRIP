@@ -9,6 +9,7 @@ typedef struct pas_scope_s {
     int                 n;
     int                 nparams;  /* number of param slots (0..nparams-1 are params) */
     long long           byref;
+    int                 has_children;
     struct pas_scope_s * outer;
 } pas_scope_t;
 typedef struct {
@@ -71,7 +72,7 @@ static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     int is_local  = is_own && (slot >= found_sc->nparams);
     int is_param  = is_own && (slot <  found_sc->nparams);
     int use_frame = isref || !is_own || is_local
-                    || (is_param && (cx->sc.outer != NULL || cx->sc.byref != 0));
+                    || (is_param && (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children));
     if (isref) {
         IR_t * nd = build(cx, IR_VAR_FRAME_REF, γ, ω);
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
@@ -99,7 +100,7 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
     int is_local  = is_own && (slot >= found_sc->nparams);
     int is_param  = is_own && (slot <  found_sc->nparams);
     int use_frame = isref || !is_own || is_local
-                    || (is_param && (cx->sc.outer != NULL || cx->sc.byref != 0));
+                    || (is_param && (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children));
     if (isref) {
         IR_t * nd = build(cx, IR_ASSIGN_FRAME_REF, γ, ω);
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
@@ -457,6 +458,7 @@ static pas_scope_t * build_scope_chain(const tree_t * pd) {
     pas_scope_t * outer = parent_pd ? build_scope_chain(parent_pd) : NULL;
     pas_scope_t * sc = (pas_scope_t *) calloc(1, sizeof(pas_scope_t));
     build_scope(sc, pd, outer);
+    for (int i = 0; i < g_pas_nprocs; i++) if (g_pas_proc_parent[i] == pd) { sc->has_children = 1; break; }
     return sc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
