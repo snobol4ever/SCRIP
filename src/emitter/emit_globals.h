@@ -25,6 +25,7 @@ typedef struct {
     int                          op_parts_n;
     int                          op_parts_tag[16];
     const char *                 op_parts_str[16];
+    int64_t                      op_parts_ival[16];
     int64_t                      op_scan_pat;
     int64_t                      op_scan_subj;
     int64_t                      op_scan_repl;

@@ -498,7 +498,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_TO:
     case IR_TO_BY:                { extern void bb_to(IR_t *); bb_to(nd); } return 0;
     case IR_LIST_BANG:            bb_iterate(nd);      return 0;
-    case IR_ALT:                  { extern void bb_alt(IR_t *); bb_alt(nd); } return 0;
+    case IR_ALT:                  bb_prepare(nd); { extern void bb_alt(void); bb_alt(); } return 0;
     case IR_SCAN_POS:             { extern void bb_scan_pos(IR_t *); bb_scan_pos(nd); } return 0;
     case IR_SCAN_ANY:             { extern void bb_scan_any(IR_t *); bb_scan_any(nd); } return 0;
     case IR_SCAN_MATCH:           { extern void bb_scan_match(IR_t *); bb_scan_match(nd); } return 0;
