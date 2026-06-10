@@ -58,15 +58,75 @@ static IR_t * term(lcx_t * cx, const tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail) {
+static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int collect_conj(const tree_t * t, const tree_t ** out, int n, int cap) {
+    if (!t) return n;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ",")) { for (int i = 0; i < t->n; i++) n = collect_conj(t->c[i], out, n, cap); return n; }
+    if (n < cap) out[n++] = t;
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * thread_goals(lcx_t * cx, const tree_t * blk, int from, int to, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out) {
+    const tree_t * gl[1024]; int ng = 0;
+    for (int i = from; i < to; i++) ng = collect_conj(blk->c[i], gl, ng, 1024);
+    IR_t ** gn = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
+    IR_t ** en = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
+    IR_t * next = γtail;
+    for (int i = ng - 1; i >= 0; i--) {
+        IR_t * e = NULL;
+        IR_t * nd = goal(cx, gl[i], next, ωbase, &e);
+        gn[i] = nd; en[i] = e ? e : nd;
+        next = en[i];
+    }
+    IR_t * last_res = ωbase;
+    for (int i = 0; i < ng; i++) {
+        ωβ_to(gn[i], last_res);
+        if (gn[i]->op == IR_GOAL) last_res = gn[i];
+    }
+    if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
+    IR_t * first = (ng > 0) ? gn[0] : NULL;
+    free(gn); free(en);
+    return first;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    if (entry_out) *entry_out = NULL;
     if (!t) return build(cx, IR_SUCCEED, γnext, ωfail);
     switch (t->t) {
     case TT_FNC: {
         const char * nm = t->v.sval ? t->v.sval : "?";
+        if (!strcmp(nm, ";") && t->n >= 2) {
+            IR_t * nd = build(cx, IR_DISJ, γnext, ωfail);
+            IR_t * nbf = ωfail;
+            IR_t * bentry = NULL;
+            for (int b = t->n - 1; b >= 0; b--) {
+                const tree_t * br = t->c[b];
+                if (br && br->t == TT_FNC && br->v.sval && !strcmp(br->v.sval, ",")) {
+                    IR_t * bg = build(cx, IR_GCONJ, γnext, nbf);
+                    IR_LIT(bg).ival = (long long)(intptr_t) calloc(1, sizeof(void *));
+                    thread_goals(cx, br, 0, br->n, bg, nbf, &bentry);
+                    nbf = bg;
+                } else {
+                    IR_t * e = NULL;
+                    IR_t * bn = goal(cx, br, γnext, nbf, &e);
+                    bentry = e ? e : bn;
+                    nbf = bn;
+                }
+            }
+            if (entry_out) *entry_out = bentry;
+            return nd;
+        }
         if (!strcmp(nm, "=") && t->n == 2) {
             IR_t * nd = build(cx, IR_UNIFY, γnext, ωfail);
             ir_operand_push(nd, term(cx, t->c[0]));
             ir_operand_push(nd, term(cx, t->c[1]));
+            return nd;
+        }
+        if (!strcmp(nm, "findall") && t->n == 3) {
+            IR_t * nd = build(cx, IR_BUILTIN, γnext, ωfail); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long)(intptr_t) calloc(1, sizeof(void *));
+            term(cx, t->c[0]);
+            term(cx, t->c[2]);
             return nd;
         }
         if (is_builtin_visible(nm)) {
@@ -112,20 +172,8 @@ IR_graph_t * lower_prolog(const tree_t * prog) {
     IR_LIT(gconj).ival = (long long)(intptr_t) calloc(1, sizeof(void *));
     if (!clause) { g->entry = gconj; return g; }
     int arity = (int) clause->v.dval;
-    int ng = clause->n - arity;
-    IR_t ** gn = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
-    IR_t * next = gconj;
-    for (int i = clause->n - 1; i >= arity; i--) {
-        IR_t * nd = goal(&cx, clause->c[i], next, fail);
-        gn[i - arity] = nd;
-        next = nd;
-    }
-    IR_t * last_res = fail;
-    for (int i = 0; i < ng; i++) {
-        ωβ_to(gn[i], last_res);
-        if (gn[i]->op == IR_GOAL) last_res = gn[i];
-    }
-    g->entry = (ng > 0) ? gn[0] : gconj;
-    free(gn);
+    IR_t * entry = NULL;
+    thread_goals(&cx, clause, arity, clause->n, gconj, fail, &entry);
+    g->entry = entry ? entry : gconj;
     return g;
 }
