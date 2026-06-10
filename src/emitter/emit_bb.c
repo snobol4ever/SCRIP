@@ -957,7 +957,16 @@ void bb_prepare(IR_t *nd) {
         g_emit.bb_zn = (void *)nd;
         return;
     }
-    if (nd->op == IR_CELL_CALL || nd->op == IR_CALLEE_FRAME || nd->op == IR_CELL_ITE) {
+    if (nd->op == IR_CALLEE_FRAME) {
+        g_emit.bb_zn = (void *)nd;
+        const pl_gz_callee_t * ce = (const pl_gz_callee_t *)(intptr_t)IR_LIT(nd).ival;
+        g_emit.op_parts_n = ce ? 1 : 0;
+        g_emit.op_parts_ival[0] = ce ? (int64_t)ce->arity : -1;
+        g_emit.op_parts_ival[1] = ce ? (int64_t)ce->nlocals : -1;
+        g_emit.op_parts_ival[2] = ce ? (int64_t)(ce->nclauses > 0 ? ce->nclauses : 1) : 1;
+        return;
+    }
+    if (nd->op == IR_CELL_CALL || nd->op == IR_CELL_ITE) {
         g_emit.bb_zn = (void *)nd;
         return;
     }
