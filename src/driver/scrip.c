@@ -442,7 +442,7 @@ static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg || !cg->entry || cg->entry->op != IR_CHOICE) return NULL;
-    if (ar > 2) return NULL;
+    if (ar > 3) return NULL;
     if (!pl_gz_call_args_ok(zc, ar)) return NULL;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
     if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 4) return NULL;
@@ -470,7 +470,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out);
  * surfaces at the outer frame). */
 static IR_graph_t *g_gz_visiting[16]; static int g_gz_nvisiting = 0;
 static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t **bc_out) {
-    if (!cg || !cg->entry || cg->entry->op != IR_CHOICE || ar > 2) return 0;
+    if (!cg || !cg->entry || cg->entry->op != IR_CHOICE || ar > 3) return 0;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
     if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 4) return 0;
     for (int v = 0; v < g_gz_nvisiting; v++) if (g_gz_visiting[v] == cg) { if (bc_out) *bc_out = bc; return 1; }
@@ -492,7 +492,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (gg->op == IR_GOAL) {
         bb_goal_state_t *zc = NULL; int ar2 = 0;
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc, &ar2);
-        if (!cg2 || ar2 > 2) return 0;
+        if (!cg2 || ar2 > 3) return 0;
         if (!pl_gz_call_args_ok(zc, ar2)) return 0;
         if (cg2->entry && cg2->entry->op == IR_CHOICE)
             return pl_gz_choice_rule_clauses(cg2, ar2, NULL);
@@ -568,7 +568,7 @@ static int pl_gz_rule_inline_check(IR_t *gg) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg) return 0;
-    if (ar > 2) return 0;
+    if (ar > 3) return 0;
     if (!pl_gz_call_args_ok(zc, ar)) return 0;
     if (cg->entry && cg->entry->op == IR_CHOICE)
         return pl_gz_choice_rule_clauses(cg, ar, NULL);
@@ -587,7 +587,7 @@ static int pl_gz_clause_nsynth(bb_conj_state_t *zs, int ar) {
         if (!gg || gg->op != IR_GOAL) continue;
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
         if (!pl_gz_goal_callee(gg, &zc2, &ar2)) return -1;
-        for (int ai = 0; ai < ar2 && ai < 2; ai++)
+        for (int ai = 0; ai < ar2 && ai < 3; ai++)
             if (zc2->args[ai] && zc2->args[ai]->op != IR_LOGICVAR) nsynth++;
     }
     return nsynth;
@@ -660,7 +660,7 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
         if (gg->op == IR_GOAL) {
             bb_goal_state_t *zc2 = NULL; int ar2 = 0;
             IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc2, &ar2);
-            if (!cg2 || ar2 > 2 || !pl_gz_call_args_ok(zc2, ar2)) return 0;
+            if (!cg2 || ar2 > 3 || !pl_gz_call_args_ok(zc2, ar2)) return 0;
             pl_gz_callee_t *ce2 = pl_gz_callee_get_any(gg, cg2, ar2, callees, ncallees);
             if (!ce2) return 0;
             pl_gz_call_state_t *cs2 = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs2);
@@ -829,7 +829,7 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg) return 0;
-    for (int ai = 0; ai < ar && ai < 2; ai++)
+    for (int ai = 0; ai < ar && ai < 3; ai++)
         if (zc->args[ai] && zc->args[ai]->op != IR_LOGICVAR) (*nsynth)++;
     return 1;
 }
@@ -933,7 +933,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         }
         bb_goal_state_t *zc = NULL;
         IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
-        if (!cg || ar > 2 || !pl_gz_call_args_ok(zc, ar)) return 0;
+        if (!cg || ar > 3 || !pl_gz_call_args_ok(zc, ar)) return 0;
         pl_gz_callee_t *ce = pl_gz_callee_get_any(gg, cg, ar, callees, ncallees);
         if (!ce) return 0;
         pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);

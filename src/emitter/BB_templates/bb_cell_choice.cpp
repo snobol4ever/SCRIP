@@ -89,7 +89,7 @@ static std::string bcch_build() {
 static std::string bb_cell_choice_str() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
-    if (!bcch_st() || bcch_N() < 2 || bcch_N() > 4 || bcch_A() < 0 || bcch_A() > 2)
+    if (!bcch_st() || bcch_N() < 2 || bcch_N() > 4 || bcch_A() < 0 || bcch_A() > 3)
         return x86_bomb("bb_cell_choice: unadmitted choice shape reached the emitter");
     return bcch_build();
 }
