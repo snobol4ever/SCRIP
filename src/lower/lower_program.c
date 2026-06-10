@@ -211,6 +211,12 @@ static void pas_register_labels(IR_graph_t *g, const tree_t *n) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_pascal_body(const tree_t *proc) {
+    if (nl_on(0)) {
+        extern IR_graph_t * lower_pascal_proc(const tree_t *, const tree_t *);
+        IR_graph_t * ng = lower_pascal_proc(g_nl_prog, proc);
+        if (!ng || !ng->entry) return -1;
+        return bb_program_add(&g_stage2.bbp, ng);
+    }
     if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
     const tree_t *body = proc->c[2];
     if (!body || body->t != TT_PROGRAM) return -1;
@@ -686,7 +692,7 @@ stage2_t *lower_stage2(const tree_t *prog) {
                 if (idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx]) continue;
                 Scope *scs[16]; int dls[16]; int pis[16];
                 int nch = pas_scope_chain(pi, scs, dls, pis, 16);
-                pas_rewrite_graph(g_stage2.bbp.table[idx], scs, dls, pis, nch);
+                if (!nl_on(0)) pas_rewrite_graph(g_stage2.bbp.table[idx], scs, dls, pis, nch);
                 g_stage2.bbp.table[idx]->nslots = g_stage2.proc_table[pi].lower_sc.n + 1;
             }
         }
