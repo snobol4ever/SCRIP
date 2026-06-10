@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "ast.h"
 #include "IR.h"
+extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
 /*====================================================================================================================================================================================================*/
 #define SNO_MAXSTMTS 2048
 typedef struct {
@@ -104,6 +105,23 @@ static int is_sno_unop(tree_e tt) {
 /*====================================================================================================================================================================================================*/
 /* ── expression lowerer ─────────────────────────────────────────────── */
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res);
+static IR_graph_t * sno_arg_block(snx_t * cx, const tree_t * a) {
+    IR_graph_t * saved = cx->g;
+    IR_graph_t * g2 = IR_alloc(256, IR_LANG_SNO); cx->g = g2;
+    IR_t * F = IR_node_alloc(g2, IR_FAIL);
+    IR_t * r = NULL; IR_t * e = lower_expr(cx, a, NULL, F, &r);
+    g2->entry = e;
+    cx->g = saved;
+    return g2;
+}
+static void sno_call_channels(snx_t * cx, IR_t * call, const tree_t * t) {
+    IR_LIT(call).dval = (t->v.sval && !strcmp(t->v.sval, "DEFINE")) ? 5.0 : 2.0;
+    int nargs = t->n;
+    if (nargs > 0) {
+        IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
+        if (blks) { for (int k = 0; k < nargs; k++) blks[k] = sno_arg_block(cx, t->c[k]); IR_EXEC(call).counter = (int64_t)(intptr_t) blks; }
+    }
+}
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, cont, nxt); *res = s; return s; }
@@ -112,7 +130,7 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
         IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower_expr(cx, t->c[0], NULL, nxt, &lr);
         IR_t * eb = lower_expr(cx, t->c[1], op, nxt, &rr);
-        γ_to(lr, eb); *res = op; return ea;
+        γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); } *res = op; return ea;
     }
     if (is_sno_unop(t->t)) {
         IR_t * op = build(cx, IR_UNOP, cont, nxt); IR_LIT(op).ival = (long long) t->t;
@@ -129,6 +147,7 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
     case TT_FNC:     {
         const char * nm = t->v.sval ? t->v.sval : "?";
         IR_t * nd = build(cx, IR_CALL, cont, nxt); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long) t->n;
+        sno_call_channels(cx, nd, t);
         *res = nd; return nd;
     }
     default: { IR_t * s = build(cx, IR_SUCCEED, cont, nxt); *res = s; return s; }
@@ -496,6 +515,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         const char * nm = rhs->v.sval ? rhs->v.sval : "?";
         IR_t * asn = build(cx, IR_ASSIGN_CALL, γ, ω); IR_LIT(asn).sval = (char *) lhs;
         IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = nm; IR_LIT(call).ival = (long long) rhs->n;
+        sno_call_channels(cx, call, rhs);
         return call; }
     case TT_SEQ: {
         const tree_t * leaves[64]; int nl = 0, fold = 1;
@@ -583,6 +603,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         }
         IR_t * nd = build(cx, IR_CALL, γ_tgt, ω_tgt);
         IR_LIT(nd).sval = nm; IR_LIT(nd).ival = (long long) subj->n;
+        sno_call_channels(cx, nd, subj);
         return nd; }
     case TT_SCAN: {
         /* TT_SCAN children: c[0]=subject expr, c[1]=pattern expr */
@@ -622,6 +643,15 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
     }
 }
 /*====================================================================================================================================================================================================*/
+static IR_t *       g_sno4_lab_nodes[SNO_MAXSTMTS];
+static const char * g_sno4_lab_names[SNO_MAXSTMTS];
+static int          g_sno4_lab_n = 0;
+IR_t * lower_snobol4_label(const char * name) {
+    if (!name || !name[0]) return NULL;
+    for (int i = 0; i < g_sno4_lab_n; i++) if (g_sno4_lab_names[i] && !strcmp(g_sno4_lab_names[i], name)) return g_sno4_lab_nodes[i];
+    return NULL; }
+int lower_snobol4_labels(const char *** names, IR_t *** nodes) { *names = g_sno4_lab_names; *nodes = g_sno4_lab_nodes; return g_sno4_lab_n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_snobol4(const tree_t * prog) {
     /* 1. collect non-end stmts */
     const tree_t * stmts[SNO_MAXSTMTS]; int N = 0;
@@ -634,6 +664,7 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
     cx->PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->PRET  = IR_node_alloc(g, IR_RETURN);
     cx->PFRET = IR_node_alloc(g, IR_RETURN);
+    IR_LIT(cx->PRET).dval = 1.0; IR_LIT(cx->PFRET).dval = 2.0;
     ω_to(cx->PRET, cx->PFAIL); ω_to(cx->PFRET, cx->PFAIL);
     /* 3. label SUCCEED nodes [4..4+N-1] */
     IR_t * lbuf[SNO_MAXSTMTS];
@@ -641,9 +672,11 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
     for (int i = 0; i < N; i++) lbuf[i] = IR_node_alloc(g, IR_SUCCEED);
     /* 4. label name → stmt-index map */
     const char * lname_buf[SNO_MAXSTMTS]; cx->lname = lname_buf;
+    g_sno4_lab_n = 0;
     for (int i = 0; i < N; i++) {
         const char * nm = sno_stmt_label(stmts[i]);
-        if (nm && nm[0]) { cx->lname[cx->nlmap] = nm; cx->lstmt[cx->nlmap] = i; cx->nlmap++; } }
+        if (nm && nm[0]) { cx->lname[cx->nlmap] = nm; cx->lstmt[cx->nlmap] = i; cx->nlmap++;
+            if (g_sno4_lab_n < SNO_MAXSTMTS) { g_sno4_lab_names[g_sno4_lab_n] = nm; g_sno4_lab_nodes[g_sno4_lab_n] = lbuf[i]; g_sno4_lab_n++; } } }
     /* 5. entry */
     g->entry = (N > 0) ? lbuf[0] : cx->PSUCC;
     /* 6. lower each stmt */
