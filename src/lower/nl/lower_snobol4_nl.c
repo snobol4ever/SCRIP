@@ -171,7 +171,7 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
 static int is_pat_consumer(IR_e op) {
     switch (op) {
     case IR_PAT_LEN: case IR_PAT_TAB: case IR_PAT_RTAB: case IR_PAT_REM: case IR_PAT_BREAK:
-    case IR_PAT_BREAKX: case IR_PAT_SPAN: case IR_PAT_ANY: case IR_PAT_NOTANY: case IR_PAT_LIT: return 1;
+    case IR_PAT_BREAKX: case IR_PAT_SPAN: case IR_PAT_ANY: case IR_PAT_NOTANY: case IR_PAT_LIT: case IR_PAT_ARB: case IR_PAT_ARBNO: return 1;
     default: return 0; }
 }
 static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_t * fail);
@@ -372,6 +372,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             while (q && q->t == TT_SEQ) q = (q->n > 1) ? q->c[1] : NULL;
             if (q && (q->t == TT_CAPT_COND_ASGN || q->t == TT_CAPT_IMMED_ASGN || q->t == TT_DEFER)) lc_has_capture = 1;
             if (q && q->t == TT_VAR && q->v.sval && !sno_pat_builtin(q->v.sval)) lc_has_capture = 1; }
+        if (succ && succ->op == IR_SUCCEED && succ == pg->all[0]) lc_has_capture = 1;
         if (lc_has_capture) {
             /* oracle allocation order: PAT_CAT first, then rc, then lc */
             /* pre-allocate PAT_CAT so it gets a lower index than both rc and lc nodes */
@@ -558,6 +559,20 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             return pat;
         }
     }
+    if (rhs && rhs->n == 1 && rhs->c[0] && rhs->c[0]->t == TT_ILIT) {
+        /* single pattern primitive with ILIT arg → LIVE DTP_ASSIGN + PATTERN_* with ival */
+        IR_e pe = IR_ALT; int pehit = 1;
+        switch (rhs->t) {
+        case TT_LEN: pe = IR_PATTERN_LEN; break; case TT_POS: pe = IR_PATTERN_POS; break;
+        case TT_RPOS: pe = IR_PATTERN_RPOS; break; case TT_TAB: pe = IR_PATTERN_TAB; break;
+        case TT_RTAB: pe = IR_PATTERN_RTAB; break; default: pehit = 0; break; }
+        if (pehit) {
+            IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
+            IR_t * pat = build(cx, pe, dtp, ω); IR_LIT(pat).ival = rhs->c[0]->v.ival;
+            ir_operand_push(dtp, pat);
+            return pat;
+        }
+    }
     if (rhs && (rhs->t == TT_CAPT_COND_ASGN || rhs->t == TT_CAPT_IMMED_ASGN)) {
         /* capture as value-assign RHS → ORPHAN plain ASSIGN only (oracle bails before any pattern node) */
         IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
@@ -724,6 +739,8 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         const char * vname = (sv && sv->v.sval) ? sv->v.sval : "";
         /* user function call in pattern position: oracle punts the whole statement to an ORPHAN SCAN (no edges, no VAR) and label-chains to the lexically-next stmt, ignoring :S and :F */
         if (sno_pat_has_fnc(pt)) { IR_node_alloc(cx->g, IR_SCAN); return NULL; }
+        /* TT_ASSIGN/TT_OPSYN-shaped pattern (value-assign or @ cursor op inside pattern): oracle punts via ORPHAN SCAN, label chains nxt */
+        if (pt && (pt->t == TT_ASSIGN || pt->t == TT_OPSYN)) { IR_node_alloc(cx->g, IR_SCAN); return NULL; }
         /* literal subject: SCAN carries no sval, entry is LIT_S, subject block FAIL+LIT_S (oracle shape) */
         if (sv && sv->t == TT_QLIT) {
             IR_graph_t * pg = lower_pat_graph(pt);
