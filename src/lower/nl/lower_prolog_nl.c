@@ -63,6 +63,12 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail) {
     switch (t->t) {
     case TT_FNC: {
         const char * nm = t->v.sval ? t->v.sval : "?";
+        if (!strcmp(nm, "=") && t->n == 2) {
+            IR_t * nd = build(cx, IR_UNIFY, γnext, ωfail);
+            ir_operand_push(nd, term(cx, t->c[0]));
+            ir_operand_push(nd, term(cx, t->c[1]));
+            return nd;
+        }
         if (is_builtin_visible(nm)) {
             IR_t * nd = build(cx, IR_BUILTIN, γnext, ωfail); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n;
             for (int i = 0; i < t->n; i++) ir_operand_push(nd, term(cx, t->c[i]));
