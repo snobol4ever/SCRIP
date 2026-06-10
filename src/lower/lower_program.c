@@ -165,7 +165,7 @@ static int proc_body_has_suspend(const tree_t *proc) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_icon_body(const tree_t *proc) {
-    if (nl_on(0)) {
+    if (nl_on(1)) {
         extern IR_graph_t * lower_icon_proc(const tree_t *, const tree_t *);
         IR_graph_t * ng = lower_icon_proc(g_nl_prog, proc);
         if (!ng || !ng->entry) return -1;

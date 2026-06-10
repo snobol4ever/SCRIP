@@ -85,7 +85,7 @@ while IFS= read -r f; do
   if oracle_crashes "$rel"; then
     S=$((S + 1)); printf "%-46s  %s\n" "$rel" "SKIP"; continue
   fi
-  o="$("$SCRIP" --dump-bb  "$f" < /dev/null 2>/dev/null | strip_dump | norm_dump)"
+  o="$(SCRIP_NL=0 "$SCRIP" --dump-bb  "$f" < /dev/null 2>/dev/null | strip_dump | norm_dump)"
   n="$("$SCRIP" --dump-bb2 "$f" < /dev/null 2>/dev/null | strip_dump | norm_dump)"
   if [ -z "$o" ]; then
     S=$((S + 1)); printf "%-46s  %s\n" "$rel" "SKIP"
