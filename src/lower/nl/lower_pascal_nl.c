@@ -207,10 +207,13 @@ static IR_t * lower_while(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     /* Condition nodes allocated FIRST (before CONJ and body) per oracle order.
        body_entry wired after body is lowered. */
     IR_t * cond_entry;
+    IR_t * cond_res = NULL;
     IR_t * ne = NULL;
     if (cond_inner && is_relop(cond_inner->t)) {
         /* Relop condition: allocate binop first (body_entry wired later) */
+        int cmark = cx->g->n;
         cond_entry = lower(cx, cond_inner, NULL, wnd);
+        cond_res = (cx->g->n > cmark) ? cx->g->all[cmark] : cond_entry;
     } else {
         /* NE-wrap: BINOP first, then expr, then LIT */
         ne = build(cx, IR_BINOP, NULL, wnd); IR_LIT(ne).ival = 10;
@@ -219,15 +222,14 @@ static IR_t * lower_while(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         γ_to(expr, lit0);
         cond_entry = expr;
     }
-    /* CONJ = body back-edge join: γ=ω=cond_entry */
-    IR_t * conj = build(cx, IR_CONJ, cond_entry, cond_entry);
-    /* Body: γ=conj (loop back), ω=wnd (exit) */
-    IR_t * body_entry = lower(cx, body, conj, wnd);
-    if (!body_entry) body_entry = conj;
+    /* Body loops back to the condition entry (γ=ω=cond_entry); a multi-statement
+       begin..end body supplies the single CONJ join via lower_seq, mirroring lower_for. */
+    IR_t * body_entry = lower(cx, body, cond_entry, cond_entry);
+    if (!body_entry) body_entry = cond_entry;
     /* Wire condition success to body */
     if (cond_inner && is_relop(cond_inner->t)) {
         /* For relop, the binop result node needs γ=body_entry */
-        γ_to(cond_entry, body_entry);
+        γ_to(cond_res, body_entry);
     } else {
         γ_to(ne, body_entry);
     }
