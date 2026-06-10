@@ -208,6 +208,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = CONJ; return ent[0];
     }
     case TT_NOT: return lower_not(cx, t, γ, ω, res);
+    case TT_ITERATE: { IR_t * bang = build(cx, IR_LIST_BANG, γ, ω);
+        IR_t * orr = NULL; (void) lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr); ir_operand_push(bang, orr);
+        cx->beta = bang; *res = bang; return bang; }
     case TT_IF: return lower_if(cx, t, γ, ω, res);
     case TT_WHILE: return lower_while(cx, t, γ, ω, res);
     case TT_UNTIL: return lower_until(cx, t, γ, ω, res);
