@@ -114,9 +114,11 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
 static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_t * op = build(cx, IR_BINOP, γ, ω);
     IR_LIT(op).ival = binop_code(t->t);
+    int lmark = cx->g->n;
     IR_t * le = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω);
     IR_t * re = lower(cx, (t->n > 1) ? t->c[1] : NULL, op,  ω);
-    γ_to(le, re);
+    IR_t * lres = (cx->g->n > lmark) ? cx->g->all[lmark] : le;
+    γ_to(lres, re);
     return le;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
