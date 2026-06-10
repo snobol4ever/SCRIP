@@ -301,21 +301,23 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * to   = (t->n > 2) ? t->c[2] : NULL;
     const tree_t * body = (t->n > 3) ? t->c[3] : NULL;
     const char * vname  = (var && var->t == TT_VAR) ? var->v.sval : NULL;
-    /* Allocation order matching oracle: VAR(i), BINOP(LE), to_expr, increment, body, init */
-    /* 1. VAR(i) for limit: γ=to_entry (wired later), ω=γ(after-loop) */
+    int is_downto = (t->v.ival == 1);
+    int cmp_op  = is_downto ? 8 : 6;
+    int inc_op  = is_downto ? 1 : 0;
+    /* 1. VAR(i) for limit read */
     IR_t * lim_var  = lower_var(cx, vname, NULL, γ);
-    /* 2. Limit BINOP: γ=body_entry (wired later), ω=γ(after-loop) */
-    IR_t * lim_cmp  = build(cx, IR_BINOP, NULL, γ); IR_LIT(lim_cmp).ival = 6;
-    /* 3. to expression: γ=lim_cmp, ω=γ(after-loop) */
+    /* 2. Limit BINOP: LE for to, GE for downto */
+    IR_t * lim_cmp  = build(cx, IR_BINOP, NULL, γ); IR_LIT(lim_cmp).ival = cmp_op;
+    /* 3. to expression */
     IR_t * to_entry = lower(cx, to, lim_cmp, γ);
     if (!to_entry) to_entry = lim_cmp;
     γ_to(lim_var, to_entry);
     IR_t * lim_entry = lim_var;
-    /* 4. Increment: ASSIGN, VAR, LIT, BINOP (oracle allocation order) */
+    /* 4. Increment/decrement: ASSIGN, VAR, LIT, BINOP */
     IR_t * inc_assign = lower_assign_var(cx, vname, lim_entry, ω);
     IR_t * inc_var    = lower_var(cx, vname, NULL, ω);
     IR_t * inc_lit1   = build(cx, IR_LIT_I, NULL, ω); IR_LIT(inc_lit1).ival = 1;
-    IR_t * inc_binop  = build(cx, IR_BINOP, inc_assign, ω);
+    IR_t * inc_binop  = build(cx, IR_BINOP, inc_assign, ω); IR_LIT(inc_binop).ival = inc_op;
     γ_to(inc_var, inc_lit1); γ_to(inc_lit1, inc_binop);
     /* 5. Body: γ=ω=inc_var */
     IR_t * body_entry = lower(cx, body, inc_var, inc_var);
@@ -330,13 +332,21 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 static IR_t * lower_repeat(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * body = (t->n > 0) ? t->c[0] : NULL;
     const tree_t * cond = (t->n > 1) ? t->c[1] : NULL;
-    IR_t * rnd = build(cx, IR_REPEAT, γ, ω);
-    IR_t * cond_entry = lower(cx, cond, NULL, ω);
-    if (cond_entry) ir_operand_push(rnd, cond_entry);
-    IR_t * body_entry = lower(cx, body, rnd, ω);
-    γ_to(rnd, body_entry ? body_entry : rnd);
-    ω_to(rnd, γ);
-    return body_entry ? body_entry : rnd;
+    IR_t * cond_entry; IR_t * cond_res = NULL;
+    int cmark = cx->g->n;
+    if (cond && is_relop(cond->t)) {
+        cond_entry = lower(cx, cond, γ, NULL);
+        cond_res = (cx->g->n > cmark) ? cx->g->all[cmark] : cond_entry;
+    } else {
+        IR_t * ne = build(cx, IR_BINOP, γ, NULL); IR_LIT(ne).ival = 10;
+        IR_t * expr = lower(cx, cond, ne, NULL);
+        IR_t * lit0 = build(cx, IR_LIT_I, ne, NULL); IR_LIT(lit0).ival = 0;
+        γ_to(expr, lit0); cond_entry = expr; cond_res = ne;
+    }
+    IR_t * body_entry = lower(cx, body, cond_entry, ω);
+    if (!body_entry) body_entry = cond_entry;
+    ω_to(cond_res ? cond_res : cond_entry, body_entry);
+    return body_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_resumable(const tree_t * t) {
