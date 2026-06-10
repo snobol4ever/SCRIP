@@ -882,7 +882,7 @@ void bb_prepare(IR_t *nd) {
         }
         return;
     }
-    if (nd->op == IR_ASSIGN_FRAME) {
+    if (nd->op == IR_ASSIGN_FRAME || nd->op == IR_ASSIGN_FRAME_REF) {
         IR_t *fa = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t *)0);
         int fk = fa ? (int)fa->op : -1;
         g_emit.bb_lk = (fk == (int)IR_LIT_I) ? 1 : (fk == (int)IR_LIT_NUL) ? 2 : (fk == (int)IR_LIT_S) ? 3 : (fk == (int)IR_VAR) ? 4 :
