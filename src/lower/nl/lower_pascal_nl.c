@@ -343,6 +343,13 @@ static IR_t * lower_block(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scan_labels(pcx_t * cx, const tree_t * t, IR_t * fail) {
     if (!t) return;
+    if (t->t == TT_LABEL_DEF && t->v.sval && cx->nlabels < 128) {
+        IR_t * lnd = IR_node_alloc(cx->g, IR_SUCCEED);
+        ω_to(lnd, fail);
+        cx->lnames[cx->nlabels] = t->v.sval;
+        cx->labels[cx->nlabels] = lnd;
+        cx->nlabels++;
+    }
     if (t->t == TT_STMT) {
         for (int i = 0; i < t->n; i++) {
             const tree_t * a = t->c[i];
@@ -405,6 +412,13 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         IR_t * result = sub ? lower(cx, sub, s_γ, f_ω) : build(cx, IR_SUCCEED, s_γ, f_ω);
         if (lbl_node) γ_to(lbl_node, result ? result : s_γ);
         return result;
+    }
+    case TT_LABEL_DEF: {
+        IR_t * lnd = label_find(cx, t->v.sval);
+        const tree_t * child = (t->n > 0) ? t->c[0] : NULL;
+        IR_t * entry = child ? lower(cx, child, γ, ω) : NULL;
+        if (lnd) { γ_to(lnd, entry ? entry : γ); return lnd; }
+        return entry ? entry : build(cx, IR_SUCCEED, γ, ω);
     }
     case TT_GOTO_U: {
         const char * name = t->v.sval ? t->v.sval : (t->n > 0 && t->c[0] ? t->c[0]->v.sval : NULL);
