@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "ast.h"
 #include "IR.h"
 /*====================================================================================================================================================================================================*/
@@ -18,6 +19,7 @@ typedef struct {
     IR_t       * labels[128];
     const char * lnames[128];
     int          nlabels;
+    int          npbt;
 } pcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
@@ -128,18 +130,58 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
     IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int is_relop(tree_e tt) {
+    switch (tt) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: return 1; default: return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_mat(pcx_t * cx, const tree_t * e, IR_t * ω, IR_t ** v_out, IR_t ** at_out, IR_t ** af_out) {
+    char * nm = (char *) malloc(16);
+    snprintf(nm, 16, "__pbt%d", cx->npbt++);
+    IR_t * n1 = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(n1).ival = 1;
+    IR_t * n0 = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(n0).ival = 0;
+    IR_t * at = build(cx, IR_ASSIGN, NULL, ω); IR_LIT(at).sval = nm;
+    IR_t * af = build(cx, IR_ASSIGN, NULL, ω); IR_LIT(af).sval = nm;
+    γ_to(n1, at); γ_to(n0, af);
+    IR_t * v = build(cx, IR_VAR, NULL, NULL); IR_LIT(v).sval = nm;
+    IR_t * eE = lower(cx, e, n1, n0);
+    *v_out = v; *at_out = at; *af_out = af;
+    return eE;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
+    const tree_t * lt = (t->n > 0) ? t->c[0] : NULL;
+    const tree_t * rt = (t->n > 1) ? t->c[1] : NULL;
+    int lm = lt && is_relop(lt->t) && !is_relop(t->t);
+    int rm = rt && is_relop(rt->t) && !is_relop(t->t);
     IR_t * op = build(cx, IR_BINOP, γ, ω);
     IR_LIT(op).ival = binop_code(t->t);
-    int lmark = cx->g->n;
-    IR_t * le = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω);
-    int rmark = cx->g->n;
-    IR_t * re = lower(cx, (t->n > 1) ? t->c[1] : NULL, op,  ω);
-    IR_t * lres = (cx->g->n > lmark) ? cx->g->all[lmark] : le;
-    IR_t * rres = (cx->g->n > rmark) ? cx->g->all[rmark] : re;
-    γ_to(lres, re);
-    { IR_t * ax[2]; ax[0] = lres; ax[1] = rres; bb_operand_aux_set(cx->g, op, ax, 2); }
-    return le;
+    if (!lm && !rm) {
+        int lmark = cx->g->n;
+        IR_t * le = lower(cx, lt, NULL, ω);
+        int rmark = cx->g->n;
+        IR_t * re = lower(cx, rt, op,  ω);
+        IR_t * lres = (cx->g->n > lmark) ? cx->g->all[lmark] : le;
+        IR_t * rres = (cx->g->n > rmark) ? cx->g->all[rmark] : re;
+        γ_to(lres, re);
+        { IR_t * ax[2]; ax[0] = lres; ax[1] = rres; bb_operand_aux_set(cx->g, op, ax, 2); }
+        return le;
+    }
+    IR_t * vL = NULL, * atL = NULL, * afL = NULL, * vR = NULL, * atR = NULL, * afR = NULL;
+    IR_t * eL = NULL, * eR = NULL, * lres = NULL, * rres = NULL, * entry = NULL;
+    if (lm) eL = pas_mat(cx, lt, ω, &vL, &atL, &afL);
+    if (rm) eR = pas_mat(cx, rt, ω, &vR, &atR, &afR);
+    IR_t * pL = NULL, * pR = NULL;
+    if (!lm) { int m = cx->g->n; pL = lower(cx, lt, NULL, ω); lres = (cx->g->n > m) ? cx->g->all[m] : pL; }
+    if (!rm) { int m = cx->g->n; pR = lower(cx, rt, op, ω); rres = (cx->g->n > m) ? cx->g->all[m] : pR; }
+    IR_t * lread = lm ? vL : pL;
+    IR_t * rread = rm ? vR : pR;
+    if (lm) lres = vL;
+    if (rm) rres = vR;
+    if (lm && rm)      { entry = eL; γ_to(atL, eR);    γ_to(afL, eR);    γ_to(atR, vL); γ_to(afR, vL); γ_to(vL, vR); γ_to(vR, op); }
+    else if (lm)       { entry = eL; γ_to(atL, vL);    γ_to(afL, vL);    γ_to(vL, pR); }
+    else               { entry = eR; γ_to(atR, pL);    γ_to(afR, pL);    γ_to(lres, vR); γ_to(vR, op); }
+    { IR_t * ax[2]; ax[0] = lread; ax[1] = rread; bb_operand_aux_set(cx->g, op, ax, 2); }
+    return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_unop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
@@ -156,10 +198,6 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0;
     pas_call_blocks(cx, nd, 3.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0);
     return nd;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_relop(tree_e tt) {
-    switch (tt) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
