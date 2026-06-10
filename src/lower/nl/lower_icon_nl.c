@@ -117,7 +117,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
     case TT_QLIT: case TT_CSET: { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_NULL: { IR_t * nd = build(cx, IR_LIT_NUL, γ, ω); *res = nd; return nd; }
-    case TT_VAR: { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
+    case TT_VAR: { IR_t * nd = build(cx, (t->v.sval && t->v.sval[0] == '&') ? IR_KEYWORD : IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: { IR_t * nd = build(cx, IR_KEYWORD, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
@@ -181,7 +181,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_REPEAT: return lower_repeat(cx, t, γ, ω, res);
     case TT_TO: case TT_TO_BY: return lower_to(cx, t, γ, ω, res);
     case TT_EVERY: return lower_every(cx, t, γ, ω, res);
-    case TT_SCAN: { IR_t * gs = build(cx, IR_GEN_SCAN, γ, ω); IR_graph_t * sub = IR_alloc(64, IR_LANG_ICN); IR_LIT(gs).ival = (long long)(intptr_t) sub; *res = gs; return gs; }
+    case TT_SCAN: { IR_t * gs = build(cx, IR_GEN_SCAN, γ, ω); IR_LIT(gs).dval = 1.0;
+        IR_graph_t * ssg = arg_block(cx, (t->n > 0) ? t->c[0] : NULL); IR_graph_t * bsg = arg_block(cx, (t->n > 1) ? t->c[1] : NULL);
+        IR_EXEC(gs).counter = (int64_t)(intptr_t) ssg; IR_LIT(gs).ival = (long long)(intptr_t) bsg; *res = gs; return gs; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }

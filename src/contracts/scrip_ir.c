@@ -436,7 +436,15 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
     { static int xd2 = -1; if (xd2 < 0) { const char * e = getenv("SCRIP_DUMP_X"); xd2 = (e && e[0] == '1') ? 1 : 0; }
       if (xd2) for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
-        if (!bb || bb->op != IR_CALL) continue;
+        if (!bb) continue;
+        if (bb->op == IR_GEN_SCAN && IR_LIT(bb).dval == 1.0) {
+            IR_graph_t * ssg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
+            IR_graph_t * bsg = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
+            if (ssg) { fprintf(fp, "; X scansubj node=%d\n", i); bb_print(ssg, fp); }
+            if (bsg) { fprintf(fp, "; X scanbody node=%d\n", i); bb_print(bsg, fp); }
+            continue;
+        }
+        if (bb->op != IR_CALL) continue;
         if (IR_LIT(bb).dval != 2.0 && IR_LIT(bb).dval != 3.0 && IR_LIT(bb).dval != 5.0) continue;
         IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
         if (!blks) continue;
