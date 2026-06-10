@@ -434,6 +434,14 @@ static IR_graph_t * lower_subj_graph(const char * vname) {
     sg->entry = var;
     return sg;
 }
+static IR_graph_t * lower_subj_graph_lit(const char * text) {
+    IR_graph_t * sg = IR_alloc(32, IR_LANG_SNO);
+    IR_t * fail = IR_node_alloc(sg, IR_FAIL);   /* [0] */
+    IR_t * lit  = IR_node_alloc(sg, IR_LIT_S);  /* [1] */
+    ω_to(lit, fail); IR_LIT(lit).sval = (char *) text;
+    sg->entry = lit;
+    return sg;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * lower_repl_graph(const tree_t * repl) {
     IR_graph_t * rg = IR_alloc(32, IR_LANG_SNO);
@@ -641,6 +649,16 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         const char * vname = (sv && sv->v.sval) ? sv->v.sval : "";
         /* user function call in pattern position: oracle punts the whole statement to an ORPHAN SCAN (no edges, no VAR) and label-chains to the lexically-next stmt, ignoring :S and :F */
         if (sno_pat_has_fnc(pt)) { IR_node_alloc(cx->g, IR_SCAN); return NULL; }
+        /* literal subject: SCAN carries no sval, entry is LIT_S, subject block FAIL+LIT_S (oracle shape) */
+        if (sv && sv->t == TT_QLIT) {
+            IR_graph_t * pg = lower_pat_graph(pt);
+            IR_graph_t * sg = lower_subj_graph_lit(sv->v.sval ? sv->v.sval : "");
+            IR_t * scan = build(cx, IR_SCAN, γ_tgt, ω_tgt);
+            IR_EXEC(scan).counter = (int64_t)(intptr_t) pg;
+            ir_operand_push(scan, (IR_t *)(void *) sg);
+            IR_t * lit = build(cx, IR_LIT_S, scan, ω_tgt);
+            IR_LIT(lit).sval = sv->v.sval;
+            return lit; }
         /* allocate sub-graphs */
         IR_graph_t * pg = lower_pat_graph(pt);
         IR_graph_t * sg = lower_subj_graph(vname);
@@ -669,6 +687,12 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
     case TT_DO_WHILE: case TT_FOR: case TT_UNTIL:
     case TT_REPEAT: case TT_CASE: case TT_DEFINE: case TT_PROGRAM:
         return NULL;
+    case TT_VAR:
+        /* bare RETURN/FRETURN/NRETURN statement: spine jumps straight to the landing node, no node emitted (oracle shape) */
+        if (subj->v.sval && !strcmp(subj->v.sval, "RETURN"))  return cx->PRET;
+        if (subj->v.sval && !strcmp(subj->v.sval, "FRETURN")) return cx->PFRET;
+        if (subj->v.sval && !strcmp(subj->v.sval, "NRETURN")) return cx->PRET;
+        return lower_expr(cx, subj, γ_tgt, ω_tgt, NULL);
     default:
         return lower_expr(cx, subj, γ_tgt, ω_tgt, NULL);
     }
