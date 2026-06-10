@@ -146,6 +146,13 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * lhs = (t->n > 0) ? t->c[0] : NULL;
     const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
     const char * vname = NULL;
+    if (lhs && lhs->t == TT_IDX) {
+        const tree_t * base = (lhs->n > 0) ? lhs->c[0] : NULL;
+        const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
+        IR_t * asn = lower_assign_var(cx, bname, γ, ω);
+        IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure"; IR_LIT(call).ival = lhs->n + 1;
+        return call;
+    }
     if (lhs && lhs->t == TT_VAR) vname = lhs->v.sval;
     else if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0]) vname = lhs->c[0]->v.sval;
     if (rhs && is_relop(rhs->t)) {
@@ -337,6 +344,7 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_MNS: case TT_PLS: case TT_NOT: case TT_SIZE:
         return lower_unop(cx, t, γ, ω);
     case TT_ASSIGN: return lower_assign(cx, t, γ, ω);
+    case TT_IDX: { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_get"; IR_LIT(nd).ival = t->n; return nd; }
     case TT_FNC:    return lower_call(cx, t, γ, ω);
     case TT_IF: case TT_UNLESS: return lower_if(cx, t, γ, ω);
     case TT_WHILE:  return lower_while(cx, t, γ, ω);
