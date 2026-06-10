@@ -520,7 +520,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_GOAL:            bb_prepare(nd); bb_goal(nd);          return 0;
     case IR_BUILTIN:         bb_prepare(nd); bb_resolve(nd);       return 0;
     case IR_LOGICVAR:        bb_logicvar(nd);                      return 0;
-    case IR_ATOM:            bb_prepare(nd); bb_atom(nd);          return 0;
+    case IR_ATOM:            bb_prepare(nd); bb_atom();            return 0;
     case IR_CHOICE:          bb_choice(nd);                        return 0;
     case IR_QUERY_FRAME:     { extern void bb_query_frame(void); bb_query_frame(); return 0; }
     case IR_DET_WRITE:       { extern void bb_det_write(void); bb_det_write(); return 0; }

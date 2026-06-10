@@ -52,7 +52,7 @@ void bb_cut     (void);
 void bb_goal     (IR_t * pBB);
 void bb_resolve  (IR_t * pBB);
 void bb_choice   (IR_t * pBB);
-void bb_atom     (IR_t * pBB);
+void bb_atom     (void);
 void bb_logicvar (IR_t * pBB);
 void bb_fail     (IR_t * pBB);
 void bb_every      (IR_t * pBB);
