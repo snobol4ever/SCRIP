@@ -20,6 +20,26 @@ typedef struct {
     int          nlabels;
 } pcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
+static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
+static IR_graph_t * pas_arg_block(pcx_t * cx, const tree_t * a) {
+    IR_graph_t * saved = cx->g;
+    IR_graph_t * g2 = IR_alloc(256, IR_LANG_PAS); cx->g = g2;
+    IR_t * F = IR_node_alloc(g2, IR_FAIL);
+    IR_t * e = lower(cx, a, NULL, F);
+    g2->entry = e;
+    cx->g = saved;
+    return g2;
+}
+static void pas_call_blocks(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs) {
+    IR_LIT(call).dval = dv;
+    if (nargs <= 0) return;
+    IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
+    if (!blks) return;
+    for (int k = 0; k < nargs; k++) blks[k] = pas_arg_block(cx, args[k]);
+    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α", 3); nd->γ.sz[3] = 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ω_to(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "β", 3); nd->ω.sz[3] = 0; } }
@@ -117,9 +137,12 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_LIT(op).ival = binop_code(t->t);
     int lmark = cx->g->n;
     IR_t * le = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω);
+    int rmark = cx->g->n;
     IR_t * re = lower(cx, (t->n > 1) ? t->c[1] : NULL, op,  ω);
     IR_t * lres = (cx->g->n > lmark) ? cx->g->all[lmark] : le;
+    IR_t * rres = (cx->g->n > rmark) ? cx->g->all[rmark] : re;
     γ_to(lres, re);
+    { IR_t * ax[2]; ax[0] = lres; ax[1] = rres; bb_operand_aux_set(cx->g, op, ax, 2); }
     return le;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -135,6 +158,7 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_t * nd = build(cx, IR_CALL, γ, ω);
     IR_LIT(nd).sval = (c0 && c0->v.sval) ? c0->v.sval : NULL;
     IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0;
+    pas_call_blocks(cx, nd, 3.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0);
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -151,10 +175,12 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         IR_t * asn = lower_assign_var(cx, bname, γ, ω);
         IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure"; IR_LIT(call).ival = lhs->n + 1;
+        { const tree_t * av[34]; int an = 0; for (int k = 0; k < lhs->n && an < 33; k++) av[an++] = lhs->c[k]; av[an++] = rhs; pas_call_blocks(cx, call, 2.0, av, an); }
         return call;
     }
     if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0] && lhs->c[0]->v.sval && !strcmp(lhs->c[0]->v.sval, "__pas_deref")) {
         IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = "__pas_deref_set"; IR_LIT(call).ival = 2;
+        { const tree_t * av[2]; av[0] = (lhs->n > 1) ? lhs->c[1] : NULL; av[1] = rhs; pas_call_blocks(cx, call, 2.0, av, 2); }
         return call;
     }
     if (lhs && lhs->t == TT_VAR) vname = lhs->v.sval;
@@ -350,7 +376,7 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_MNS: case TT_PLS: case TT_NOT: case TT_SIZE:
         return lower_unop(cx, t, γ, ω);
     case TT_ASSIGN: return lower_assign(cx, t, γ, ω);
-    case TT_IDX: { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_get"; IR_LIT(nd).ival = t->n; return nd; }
+    case TT_IDX: { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_get"; IR_LIT(nd).ival = t->n; pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) t->c, t->n); return nd; }
     case TT_FNC:    return lower_call(cx, t, γ, ω);
     case TT_IF: case TT_UNLESS: return lower_if(cx, t, γ, ω);
     case TT_WHILE:  return lower_while(cx, t, γ, ω);
