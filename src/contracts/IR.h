@@ -108,6 +108,7 @@ typedef enum {
     IR_DET_ARG,
     IR_DET_UNIV,
     IR_DET_FORMAT,
+    IR_DET_SUCC_PLUS,
     IR_CELL_UNIFY,
     IR_CELL_CHOICE,
     IR_CELL_CALL,
