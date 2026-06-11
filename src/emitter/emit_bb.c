@@ -1005,8 +1005,28 @@ void bb_prepare(IR_t *nd) {
     }
     if (nd->op == IR_DET_CMP) {
         g_emit.op_sval = IR_LIT(nd).sval;
-        g_emit.bb_ln = (void *)bb_child0(nd);
-        g_emit.bb_rn = (void *)bb_child1(nd);
+        const IR_t * l = bb_child0(nd);
+        const IR_t * r = bb_child1(nd);
+        const char * op = g_emit.op_sval;
+        int arith = op && (!strcmp(op, "<") || !strcmp(op, ">") || !strcmp(op, ">=") || !strcmp(op, "=<") || !strcmp(op, "=:=") || !strcmp(op, "=\\="));
+        g_emit.op_parts_n = 7;
+        for (int i = 0; i < 7; i++) g_emit.op_parts_ival[i] = 0;
+        if (!arith) { g_emit.op_parts_ival[0] = -1; return; }
+        if (!l || !r) { g_emit.op_parts_ival[0] = -2; return; }
+        if (l->op == IR_LIT_I && r->op == IR_LIT_I) {
+            long a = (long)IR_LIT(l).ival;
+            long b = (long)IR_LIT(r).ival;
+            int f = !strcmp(op, "<") ? (a < b) : !strcmp(op, ">") ? (a > b) : !strcmp(op, ">=") ? (a >= b) : !strcmp(op, "=<") ? (a <= b) : !strcmp(op, "=:=") ? (a == b) : (a != b);
+            g_emit.op_parts_ival[0] = f ? 1 : 0;
+            return;
+        }
+        g_emit.op_parts_ival[0] = 2;
+        g_emit.op_parts_ival[1] = (l->op == IR_LOGICVAR) ? 1 : 0;
+        g_emit.op_parts_ival[2] = (l->op == IR_LOGICVAR) ? (int64_t)IR_LIT(l).ival : 0;
+        g_emit.op_parts_ival[3] = (l->op != IR_LOGICVAR && l->op == IR_LIT_I) ? (int64_t)IR_LIT(l).ival : 0;
+        g_emit.op_parts_ival[4] = (r->op == IR_LOGICVAR) ? 1 : 0;
+        g_emit.op_parts_ival[5] = (r->op == IR_LOGICVAR) ? (int64_t)IR_LIT(r).ival : 0;
+        g_emit.op_parts_ival[6] = (r->op != IR_LOGICVAR && r->op == IR_LIT_I) ? (int64_t)IR_LIT(r).ival : 0;
         return;
     }
 }
