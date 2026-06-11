@@ -12,8 +12,8 @@ static std::string plchi(int i, const char *tag) { char b[160]; resolve_choice_c
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_choice_str(void) {
     if (!PLATFORM_X86) return std::string();
-    return IF(MEDIUM_MACRO_DEF, x86("comment", "no macro form — RESOLVE_CHOICE"))
-         + IF(MEDIUM_TEXT,
+    if (MEDIUM_MACRO_DEF) return x86("comment", "no macro form — RESOLVE_CHOICE");
+    return IF(MEDIUM_TEXT,
            IF(_.resolve_choice_n <= 0, x86("label", _.lbl_α)
                                      + x86("ins2", "jmp", _.lbl_ω)
                                      + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω))
