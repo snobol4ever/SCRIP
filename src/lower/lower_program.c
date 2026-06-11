@@ -74,6 +74,26 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             return truth ? rv : FAILDESCR;
         }
     }
+    if ((op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT || op == BINOP_LE || op == BINOP_GT || op == BINOP_GE) && IS_STR_fn(lv) && IS_STR_fn(rv) && !IS_CSET_fn(lv) && !IS_CSET_fn(rv)) {
+        const char *ls = (lv.v == DT_S && lv.s) ? lv.s : "";
+        const char *rs = (rv.v == DT_S && rv.s) ? rv.s : "";
+        size_t ll = (lv.v == DT_S && lv.slen > 0) ? (size_t)lv.slen : strlen(ls);
+        size_t rl = (rv.v == DT_S && rv.slen > 0) ? (size_t)rv.slen : strlen(rs);
+        size_t nn = ll < rl ? ll : rl;
+        int cmp = nn ? memcmp(ls, rs, nn) : 0;
+        if (!cmp) cmp = (ll > rl) - (ll < rl);
+        int ok;
+        switch (op) {
+        case BINOP_LT: ok = (cmp <  0); break;
+        case BINOP_LE: ok = (cmp <= 0); break;
+        case BINOP_GT: ok = (cmp >  0); break;
+        case BINOP_GE: ok = (cmp >= 0); break;
+        case BINOP_EQ: ok = (cmp == 0); break;
+        default:       ok = (cmp != 0); break;
+        }
+        *rel_fail = !ok;
+        return ok ? rv : FAILDESCR;
+    }
     int either_real = (IS_REAL_fn(lv) || IS_REAL_fn(rv));
     double ld = IS_REAL_fn(lv) ? lv.r : (double)(IS_INT_fn(lv) ? lv.i : 0);
     double rd = IS_REAL_fn(rv) ? rv.r : (double)(IS_INT_fn(rv) ? rv.i : 0);
