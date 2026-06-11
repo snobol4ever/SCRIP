@@ -230,6 +230,13 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * r = NULL; IR_t * centry = lower_rv(cx, t->c[0], tentry, eentry ? eentry : γ, &r);
         ir_operand_push(nd, centry); *res = nd; return centry; }
     case TT_EVERY: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0) {
+        const tree_t * src = t->c[0]->c[0];
+        if (src && src->t == TT_GATHER) {
+            IR_t * va = build(cx, IR_ASSIGN, NULL, ω); IR_LIT(va).sval = t->c[0]->v.sval;
+            IR_t * ga = build(cx, IR_GATHER, va, γ); IR_LIT(ga).ival = (src->n > 0 && src->c[0]) ? src->c[0]->n : 0;
+            IR_t * gconj = build(cx, IR_CONJ, ga, ga);
+            IR_t * gbentry = lower_rblock(cx, t->c[1], gconj, ga);
+            γ_to(va, gbentry); *res = ga; return ga; }
         IR_t * ev = build(cx, IR_EVERY, γ, ω);
         IR_t * lb = build(cx, IR_LIST_BANG, NULL, ev);
         IR_t * rs = NULL; IR_t * se = lower_rv(cx, t->c[0]->c[0], NULL, ev, &rs);
