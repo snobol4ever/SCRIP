@@ -234,15 +234,13 @@ RT_PIC_SRCS := \
     $(SRC)/machine/bb_boxes.c \
     $(SRC)/attic/smx_dead_stubs.c \
     $(SRC)/machine/sm_prog.c \
-    $(SRC)/lower/lower.c \
-    $(SRC)/lower/lower_raku.c \
     $(SRC)/lower/lower_program.c \
     $(SRC)/lower/tree_to_sno.c \
-    $(SRC)/lower/nl/lower_icon_nl.c \
-    $(SRC)/lower/nl/lower_snobol4_nl.c \
-    $(SRC)/lower/nl/lower_raku_nl.c \
-    $(SRC)/lower/nl/lower_pascal_nl.c \
-    $(SRC)/lower/nl/lower_prolog_nl.c \
+    $(SRC)/lower/lower_icon.c \
+    $(SRC)/lower/lower_snobol4.c \
+    $(SRC)/lower/lower_raku.c \
+    $(SRC)/lower/lower_pascal.c \
+    $(SRC)/lower/lower_prolog.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/builtins/resolution.c \
@@ -522,15 +520,13 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/contracts/scrip_ir.c     -o $(OBJ)/scrip_ir.o
 	$(CC) $(CRT)   -c $(SRC)/interp/IR_interp.c      -o $(OBJ)/IR_interp.o
 	$(CC) $(CRT)   -c $(SRC)/machine/sm_prog.c    -o $(OBJ)/sm_prog.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower.c      -o $(OBJ)/lower.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_raku.c   -o $(OBJ)/lower_raku.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_program.c -o $(OBJ)/lower_program.o
 	$(CC) $(CRT)   -c $(SRC)/lower/tree_to_sno.c       -o $(OBJ)/tree_to_sno.o
-	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_icon_nl.c    -o $(OBJ)/lower_icon_nl.o
-	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_snobol4_nl.c -o $(OBJ)/lower_snobol4_nl.o
-	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_raku_nl.c    -o $(OBJ)/lower_raku_nl.o
-	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_pascal_nl.c  -o $(OBJ)/lower_pascal_nl.o
-	$(CC) $(CRT)   -c $(SRC)/lower/nl/lower_prolog_nl.c  -o $(OBJ)/lower_prolog_nl.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_icon.c    -o $(OBJ)/lower_icon.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_snobol4.c -o $(OBJ)/lower_snobol4.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_raku.c    -o $(OBJ)/lower_raku.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_pascal.c  -o $(OBJ)/lower_pascal.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_prolog.c  -o $(OBJ)/lower_prolog.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_bb.c -o $(OBJ)/emit_bb.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o

@@ -325,7 +325,7 @@ IR_graph_t * lower_prolog(const tree_t * prog) {
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * lower_prolog_nl_clause(const tree_t * clause) {
+IR_graph_t * lower_prolog_clause(const tree_t * clause) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     IR_graph_t * g = IR_alloc(256, IR_LANG_PL);
     lcx_t cx; cx.g = g; cx.tω = NULL;
