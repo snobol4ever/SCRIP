@@ -92,6 +92,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_DET_FUNCTOR] = "IR_DET_FUNCTOR",
     [IR_DET_ARG] = "IR_DET_ARG",
     [IR_DET_UNIV] = "IR_DET_UNIV",
+    [IR_DET_FORMAT] = "IR_DET_FORMAT",
     [IR_CELL_UNIFY] = "IR_CELL_UNIFY",
     [IR_CELL_CHOICE] = "IR_CELL_CHOICE",
     [IR_CELL_CALL] = "IR_CELL_CALL",

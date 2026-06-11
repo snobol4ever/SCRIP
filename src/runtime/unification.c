@@ -526,3 +526,24 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell)
     return rt_univ_term_term(t0_cell, list_cell);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_format_cell(const char *fmt, void *list_cell)
+{
+    extern void pl_write(Term *);
+    if (!fmt) return;
+    Term *args = list_cell ? term_deref((Term *)list_cell) : (Term *)0;
+    for (const char *p = fmt; *p; p++) {
+        if (*p == '~') {
+            p++;
+            if (*p == 'w' || *p == 'a' || *p == 'p') {
+                if (args && args->tag == TERM_COMPOUND && args->compound.arity == 2) { pl_write(term_deref(args->compound.args[0])); args = term_deref(args->compound.args[1]); }
+            } else if (*p == 'd') {
+                if (args && args->tag == TERM_COMPOUND && args->compound.arity == 2) { Term *h = term_deref(args->compound.args[0]); if (h && h->tag == TERM_INT) printf("%ld", h->ival); args = term_deref(args->compound.args[1]); }
+            } else if (*p == 'i') {
+                if (args && args->tag == TERM_COMPOUND && args->compound.arity == 2) args = term_deref(args->compound.args[1]);
+            } else if (*p == 'n' || *p == 'N') { putchar('\n');
+            } else if (*p == '~') { putchar('~');
+            } else if (*p == 't') { putchar('\t'); }
+        } else { putchar(*p); }
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
