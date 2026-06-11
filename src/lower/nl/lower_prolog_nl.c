@@ -36,6 +36,8 @@ static const char * g_pl_nl_builtins[] = { "<", "<=", "=..", "=:=", "=<", "==", 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_builtin_exec(const char * s) { if (!s) return 0; if (is_builtin_visible(s)) return 1; for (int i = 0; g_pl_nl_builtins[i]; i++) if (!strcmp(s, g_pl_nl_builtins[i])) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int is_builtin_argw(const char * s) { return s && (!strcmp(s, "is") || !strcmp(s, "<") || !strcmp(s, ">") || !strcmp(s, "=<") || !strcmp(s, ">=") || !strcmp(s, "=:=") || !strcmp(s, "=\\=")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term(lcx_t * cx, const tree_t * t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term_nest(lcx_t * cx, const tree_t * t, int from) {
@@ -202,9 +204,25 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         }
         if (is_builtin_exec(nm)) {
             IR_t * nd = build(cx, IR_BUILTIN, γnext, ωfail); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n;
-            IR_t * sav = cx->tω; if (!is_builtin_visible(nm)) cx->tω = ωfail;
+            IR_t * sav = cx->tω; if (is_builtin_argw(nm)) cx->tω = ωfail;
             for (int i = 0; i < t->n; i++) ir_operand_push(nd, term(cx, t->c[i]));
             cx->tω = sav;
+            return nd;
+        }
+        if (!strcmp(nm, "phrase") && (t->n == 2 || t->n == 3)) {
+            const tree_t * gt = t->c[0];
+            const char * callee = (gt && gt->v.sval) ? gt->v.sval : "?";
+            int base_n = (gt && gt->t == TT_FNC) ? gt->n : 0;
+            int total = base_n + 2;
+            IR_t * nd = build(cx, IR_GOAL, γnext, ωfail); IR_LIT(nd).sval = callee;
+            bb_goal_state_t * z = (bb_goal_state_t *) calloc(1, sizeof *z);
+            z->callee = strdup(callee); z->arity = total; z->nargs = total;
+            z->args = (IR_t **) calloc((size_t) total, sizeof(IR_t *));
+            for (int i = 0; i < base_n; i++) z->args[i] = term(cx, gt->c[i]);
+            z->args[base_n] = term(cx, t->c[1]);
+            if (t->n == 3) z->args[base_n + 1] = term(cx, t->c[2]);
+            else { IR_t * nil = build(cx, IR_ATOM, NULL, cx->tω); IR_LIT(nil).sval = "[]"; z->args[base_n + 1] = nil; }
+            IR_LIT(nd).ival = (long long)(intptr_t) z;
             return nd;
         }
         IR_t * nd = build(cx, IR_GOAL, γnext, ωfail); IR_LIT(nd).sval = nm;
@@ -249,6 +267,13 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         return nd;
     }
     case TT_CUT: return build(cx, IR_CUT, γnext, ωfail);
+    case TT_PROGRAM: {
+        IR_t * bg = build(cx, IR_GCONJ, γnext, ωfail);
+        IR_t * e = NULL;
+        thread_goals(cx, t, 0, t->n, bg, ωfail, &e, bg);
+        if (entry_out) *entry_out = e ? e : bg;
+        return bg;
+    }
     default: return build(cx, IR_SUCCEED, γnext, ωfail);
     }
 }
