@@ -268,6 +268,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (blks) { blks[0] = rk_arg_block(cx, t->c[0]); blks[1] = rk_arg_block(cx, t->c[1]); IR_EXEC(nd).counter = (int64_t)(intptr_t) blks; }
         *res = nd; return nd; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_SORT: return lower_rcall(cx, t, "array_sort", 0, 0, γ, ω, res);
+    case TT_MAP: if (t->n > 1) { IR_t * nd = build(cx, IR_MAP, γ, ω);
+        IR_graph_t * bg = rk_arg_block(cx, t->c[0]); IR_LIT(nd).ival = (long long)(intptr_t) bg;
+        IR_graph_t * sg = rk_arg_block(cx, t->c[1]); IR_EXEC(nd).counter = (int64_t)(intptr_t) sg;
+        *res = nd; return nd; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_GREP: if (t->n > 1) { IR_t * nd = build(cx, IR_GREP, γ, ω);
+        IR_graph_t * bg = rk_arg_block(cx, t->c[0]); IR_LIT(nd).ival = (long long)(intptr_t) bg;
+        IR_graph_t * sg = rk_arg_block(cx, t->c[1]); IR_EXEC(nd).counter = (int64_t)(intptr_t) sg;
+        *res = nd; return nd; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CAPTURE: return lower_rcall(cx, t, "re_capture", 0, 0, γ, ω, res);
     case TT_NAMED_CAPTURE: return lower_rcall(cx, t, "re_named_capture", 0, 0, γ, ω, res);
     case TT_SEQ: case TT_PROGRAM: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
