@@ -26,7 +26,11 @@ static std::string bb_det_write_str() {
          + x86("jmp", "γ")
          + x86("def", "β")
          + x86("jmp", "ω")
-         + IF(!_.op_sb && _.op_sval, x86("def", L(0)) + x86(".quad", LS(0), _.op_sval) + x86("label", LS(0)) + x86(".string", _.op_sval));
+         + IF(!_.op_sb && _.op_sval,
+               x86("def", L(0))
+             + x86(".quad", LS(0), _.op_sval)
+             + x86("label", LS(0))
+             + x86(".string", _.op_sval));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_det_write(void) { bb_emit_x86(bb_det_write_str()); }
