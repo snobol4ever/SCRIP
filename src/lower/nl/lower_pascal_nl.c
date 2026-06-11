@@ -304,17 +304,18 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     int is_downto = (t->v.ival == 1);
     int cmp_op  = is_downto ? 8 : 6;
     int inc_op  = is_downto ? 1 : 0;
-    /* 1. VAR(i) for limit read */
-    IR_t * lim_var  = lower_var(cx, vname, NULL, γ);
-    /* 2. Limit BINOP: LE for to, GE for downto */
+    /* 1. Limit BINOP: LE for to, GE for downto; ω=γ is the loop-exit continuation */
     IR_t * lim_cmp  = build(cx, IR_BINOP, NULL, γ); IR_LIT(lim_cmp).ival = cmp_op;
-    /* 3. to expression */
-    IR_t * to_entry = lower(cx, to, lim_cmp, γ);
-    if (!to_entry) to_entry = lim_cmp;
-    γ_to(lim_var, to_entry);
-    IR_t * lim_entry = lim_var;
-    /* 4. Increment/decrement: ASSIGN, VAR, LIT, BINOP */
-    IR_t * inc_assign = lower_assign_var(cx, vname, lim_entry, ω);
+    /* 2. VAR(i) read that feeds the limit BINOP on every iteration */
+    IR_t * lim_var  = lower_var(cx, vname, lim_cmp, γ);
+    /* 3. to expression evaluated ONCE before the loop; lim_cmp reads its cached value via aux so a complex limit is not re-walked per iteration */
+    int to_mark = cx->g->n;
+    IR_t * to_entry = lower(cx, to, lim_var, ω);
+    IR_t * to_res   = (cx->g->n > to_mark) ? cx->g->all[to_mark] : to_entry;
+    if (!to_entry) { to_entry = lim_var; to_res = lim_var; }
+    { IR_t * ax[2]; ax[0] = lim_var; ax[1] = to_res; bb_operand_aux_set(cx->g, lim_cmp, ax, 2); }
+    /* 4. Increment/decrement loops back to lim_var, not to_entry, so to is evaluated once */
+    IR_t * inc_assign = lower_assign_var(cx, vname, lim_var, ω);
     IR_t * inc_var    = lower_var(cx, vname, NULL, ω);
     IR_t * inc_lit1   = build(cx, IR_LIT_I, NULL, ω); IR_LIT(inc_lit1).ival = 1;
     IR_t * inc_binop  = build(cx, IR_BINOP, inc_assign, ω); IR_LIT(inc_binop).ival = inc_op;
@@ -323,8 +324,8 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_t * body_entry = lower(cx, body, inc_var, inc_var);
     if (!body_entry) body_entry = inc_var;
     γ_to(lim_cmp, body_entry);
-    /* 6. Init: i := from → lim_entry */
-    IR_t * init_assign = lower_assign_var(cx, vname, lim_entry, ω);
+    /* 6. Init: i := from → to_entry (compute limit once) → lim_var → lim_cmp */
+    IR_t * init_assign = lower_assign_var(cx, vname, to_entry, ω);
     IR_t * from_entry  = lower(cx, from, init_assign, ω);
     return from_entry ? from_entry : init_assign;
 }
