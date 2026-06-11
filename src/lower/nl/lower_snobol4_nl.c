@@ -584,6 +584,22 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_node_alloc(cx->g, IR_SEQ);
         return NULL;
     }
+    /* predefined nullary patterns as bare var names (TT_VAR "REM"/"FAIL"/"SUCCEED"/"FENCE"/"ABORT") */
+    if (rhs && rhs->t == TT_VAR && rhs->v.sval) {
+        IR_e pe = (IR_e)0; int pehit = 1;
+        if      (!strcmp(rhs->v.sval,"REM")     || !strcmp(rhs->v.sval,"rem"))     pe = IR_PATTERN_REM;
+        else if (!strcmp(rhs->v.sval,"FAIL")    || !strcmp(rhs->v.sval,"fail"))    pe = IR_PATTERN_FAIL;
+        else if (!strcmp(rhs->v.sval,"SUCCEED") || !strcmp(rhs->v.sval,"succeed")) pe = IR_PATTERN_SUCCEED;
+        else if (!strcmp(rhs->v.sval,"FENCE")   || !strcmp(rhs->v.sval,"fence"))   pe = IR_PATTERN_FENCE;
+        else if (!strcmp(rhs->v.sval,"ABORT")   || !strcmp(rhs->v.sval,"abort"))   pe = IR_PATTERN_ABORT;
+        else pehit = 0;
+        if (pehit) {
+            IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
+            IR_t * pat = build(cx, pe, dtp, ω);
+            ir_operand_push(dtp, pat);
+            return pat;
+        }
+    }
     if (!rhs) {
         IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_S;
         IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;

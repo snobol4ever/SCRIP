@@ -45,4 +45,14 @@ extern const uint8_t bb_tab_proto[83];
 extern const DTP_PROTO_DESC bb_tab_proto_desc;
 extern const uint8_t bb_rtab_proto[83];
 extern const DTP_PROTO_DESC bb_rtab_proto_desc;
+extern const uint8_t bb_fail_proto[44];
+extern const DTP_PROTO_DESC bb_fail_proto_desc;
+extern const uint8_t bb_rem_proto[61];
+extern const DTP_PROTO_DESC bb_rem_proto_desc;
+extern const uint8_t bb_succeed_proto[44];
+extern const DTP_PROTO_DESC bb_succeed_proto_desc;
+extern const uint8_t bb_fence_proto[44];
+extern const DTP_PROTO_DESC bb_fence_proto_desc;
+extern const uint8_t bb_abort_proto[44];
+extern const DTP_PROTO_DESC bb_abort_proto_desc;
 #endif

@@ -3252,6 +3252,46 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).value = NULVCL;
         return bb->γ.node;
     }
+    case IR_PATTERN_FAIL: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_fail_proto, 44, &bb_fail_proto_desc, 0, NULL);
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
+    case IR_PATTERN_REM: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_rem_proto, 61, &bb_rem_proto_desc, 0, NULL);
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
+    case IR_PATTERN_SUCCEED: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_succeed_proto, 44, &bb_succeed_proto_desc, 0, NULL);
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
+    case IR_PATTERN_FENCE: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_fence_proto, 44, &bb_fence_proto_desc, 0, NULL);
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
+    case IR_PATTERN_ABORT: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_abort_proto, 44, &bb_abort_proto_desc, 0, NULL);
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
     case IR_PATTERN_CAT: {
         if (IR_EXEC(bb).state) return bb->γ.node;
         IR_t *la = bb->n_operands > 0 ? bb->operands[0] : NULL;
