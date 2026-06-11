@@ -14,7 +14,6 @@ stage2_t g_stage2;
 int is_global(const char * name) { (void) name; return 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-extern IR_t * lower_goal_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t * lit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * bin(tree_e op, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(op); ast_push(n, a); ast_push(n, b); return n; }
@@ -23,15 +22,12 @@ static tree_t * tri(tree_e op, tree_t * a, tree_t * b, tree_t * c) { tree_t * n 
 static tree_t * slit(const char * s) { tree_t * n = ast_node_new(TT_QLIT); n->v.sval = (char *) s; return n; }
 static tree_t * var(const char * s) { tree_t * n = ast_node_new(TT_VAR); n->v.sval = (char *) s; return n; }
 static tree_t * kw(const char * s) { tree_t * n = ast_node_new(TT_KEYWORD); n->v.sval = (char *) s; return n; }
-static tree_t * fnc1(const char * name, tree_t * a) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); return n; }
 static tree_t * jct(const char * flav, tree_t * m0, tree_t * m1, tree_t * m2) {
     tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) flav;
     ast_push(n, var(flav));
     if (m0) ast_push(n, m0); if (m1) ast_push(n, m1); if (m2) ast_push(n, m2);
     return n;
 }
-static tree_t * gfnc2(const char * name, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); ast_push(n, b); return n; }
-static tree_t * gfnc3(const char * name, tree_t * a, tree_t * b, tree_t * c) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name; ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
 static tree_t * rkfnc(const char * name, tree_t * a0, tree_t * a1, tree_t * a2) {
     tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) name;
     ast_push(n, var(name));
@@ -101,23 +97,6 @@ static void dump_raku_value(const char * title, tree_t * ast, int expect_nodes) 
     printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void dump_goal(const char * title, tree_t * ast, int expect_nodes) {
-    IR_graph_t * g = IR_alloc(64, 0);
-    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t * a = NULL, * b = NULL;
-    IR_t * top = lower_goal_entry(g, ast, PSUCC, PFAIL, &a, &b);
-    printf("=== %s ===\n", title);
-    printf("principal idx=%d  α(start)=%d  β(resume)=%d  node_count=%d  (2 sentinels PSUCC=0 PFAIL=1)\n", idx_of(g, top), idx_of(g, a), idx_of(g, b), g->n);
-    printf("idx  kind    α    β    γ    ω      ival  dval\n");
-    for (int i = 0; i < g->n; i++) {
-        IR_t * n = g->all[i];
-        printf("%3d  %-6s %3d  %3d  %3d  %3d  %8lld  %.1f\n", i, kname(n->op), idx_of(g, ((IR_t*)0)), idx_of(g, ((IR_t*)0)), idx_of(g, n->γ.node), idx_of(g, n->ω.node), (long long) IR_LIT(n).ival, IR_LIT(n).dval);
-    }
-    int real = g->n - 2;
-    printf("real(non-sentinel) IR nodes = %d ; expected = %d ; %s\n\n", real, expect_nodes, real == expect_nodes ? "PASS" : "FAIL");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
     tree_t * a_to1 = bin(TT_TO, lit(1), lit(2));
     tree_t * a_to2 = bin(TT_TO, lit(3), lit(4));
@@ -142,57 +121,6 @@ int main(void) {
          un(TT_REPEAT, bin(TT_TO, lit(1), lit(3))), 4);
     dump("not (1 to 3)   [ir_a_Not: E.gamma->not.fail; E.omega->not(null,succeed)]",
          un(TT_NOT, bin(TT_TO, lit(1), lit(3))), 4);
-    dump_goal("Prolog:   write('hello world')   [g_det_builtin1: arg.gamma->CALL, CALL.sval=write, det]",
-         fnc1("write", slit("hello world")), 2);
-    dump_goal("Prolog:   write('hi')   [PLG-1 g_builtin: IR_BUILTIN(sval=write,ival=1) + IR_ATOM arg on alpha; pl_write, no auto-nl]",
-         fnc1("write", slit("hi")), 2);
-    dump_goal("Prolog:   nl   [PLG-1 g_builtin: bare IR_BUILTIN(sval=nl,ival=0) leaf; EXEC = putchar('\\n')]",
-         slit("nl"), 1);
-    dump_goal("Prolog:   (write(a) , write(b))   [GOAL conj = wire_seq(IR_GCONJ): same shape as Icon &/SNOBOL CAT]",
-         gfnc2(",", fnc1("write", slit("a")), fnc1("write", slit("b"))), 5);
-    dump_goal("Prolog:   (write(a) ; write(b))   [GOAL disj = wire_alt(IR_DISJ): same fail-chain as SNOBOL ALT]",
-         gfnc2(";", fnc1("write", slit("a")), fnc1("write", slit("b"))), 5);
-    dump_goal("Prolog:   X = Y   [g_unify: lhs.gamma->rhs.alpha->UNIFY, semidet resume->fail]",
-         gfnc2("=", var("X"), var("Y")), 3);
-    dump_goal("Prolog:   X < 5   [g_compare: IR_BUILTIN(sval=\"<\") bb->alpha=LOGICVAR(X) bb->beta=LIT_I(5); exec resolve_arith_eval both sides]",
-         gfnc2("<", var("X"), lit(5)), 3);
-    dump_goal("Prolog:   X is 5   [g_is: IR_BUILTIN(sval=is) bb->alpha=LOGICVAR(X) bb->beta=LIT_I(5); exec eval(rhs)->unify lhs]",
-         gfnc2("is", var("X"), lit(5)), 3);
-    dump_goal("Prolog:   X is 2+3   [g_is: IR_BUILTIN bb->alpha=LOGICVAR bb->beta=IR_BINOP(ADD,LIT_I,LIT_I); 5 nodes]",
-         gfnc2("is", var("X"), bin(TT_ADD, lit(2), lit(3))), 5);
-    { tree_t * lst = ast_node_new(TT_MAKELIST); lst->v.ival = 0;
-      ast_push(lst, slit("a")); ast_push(lst, slit("b")); ast_push(lst, slit("c"));
-      dump_goal("Prolog:   write([a,b,c])   [TT_MAKELIST: right-fold IR_STRUCT(\".\",2) cells, nil IR_ATOM(\"[]\"); 3 cons+3 atom+1 nil+1 BLTIN]",
-         fnc1("write", lst), 8); }
-    { tree_t * nil = ast_node_new(TT_MAKELIST); nil->v.ival = 0;
-      dump_goal("Prolog:   write([])   [TT_MAKELIST n=0: bare nil IR_ATOM(\"[]\") leaf; +1 BLTIN]",
-         fnc1("write", nil), 2); }
-    { tree_t * lst = ast_node_new(TT_MAKELIST); lst->v.ival = 1;
-      ast_push(lst, slit("a")); ast_push(lst, var("T"));
-      dump_goal("Prolog:   write([a|T])   [TT_MAKELIST improper: 1 cons IR_STRUCT(\".\",2) head=ATOM tail=LOGICVAR; +1 BLTIN]",
-         fnc1("write", lst), 4); }
-    { tree_t * cond = gfnc2("<", var("X"), lit(5));
-      tree_t * ite = tri(TT_IF, cond, fnc1("write", slit("a")), fnc1("write", slit("b")));
-      dump_goal("Prolog:   (X<5 -> write(a) ; write(b))   [TT_IF g_ite: IR_ITE, cond.gamma->Then (commit), cond.omega->Else; SWI '$meta_call' local-cut]",
-         ite, 8); }
-    { tree_t * cond = gfnc2("<", var("X"), lit(5));
-      tree_t * ite = bin(TT_IF, cond, fnc1("write", slit("a")));
-      dump_goal("Prolog:   (X<5 -> write(a))   [TT_IF bare if-then: missing Else => IR_FAIL leaf; IR_ITE+cond+then+FAIL]",
-         ite, 7); }
-    dump_goal("Prolog:   X @< Y   [g_term_compare: IR_BUILTIN(\"@<\") alpha=LOGICVAR beta=LOGICVAR; resolve_term_compare standard order]",
-         gfnc2("@<", var("X"), var("Y")), 3);
-    dump_goal("Prolog:   succ(X,Y)   [succ via g_term_compare: IR_BUILTIN(\"succ\") alpha=LOGICVAR beta=LOGICVAR; bidirectional in exec]",
-         gfnc2("succ", var("X"), var("Y")), 3);
-    dump_goal("Prolog:   atom(X)   [det builtin table -> g_builtin: IR_BUILTIN(\"atom\",1) + LOGICVAR on alpha; resolve type test]",
-         fnc1("atom", var("X")), 2);
-    dump_goal("Prolog:   functor(T,N,A)   [det builtin table -> g_builtin: IR_BUILTIN(\"functor\",3), 3 LOGICVAR args chained alpha->gamma]",
-         gfnc3("functor", var("T"), var("N"), var("A")), 4);
-    { tree_t * fa = gfnc3("findall", var("X"), fnc1("foo", var("X")), var("L"));
-      dump_goal("Prolog:   findall(X,foo(X),L)   [g_findall: IR_BUILTIN(\"findall\") tmpl+result LOGICVAR in enclosing graph; Goal in SUB-graph]",
-         fa, 3); }
-    { tree_t * ca = gfnc3("catch", fnc1("throw", slit("e")), var("C"), slit("true"));
-      dump_goal("Prolog:   catch(throw(e),C,true)   [g_catch: IR_CATCH + Catcher LOGICVAR in enclosing graph; Goal+Recovery in SUB-graphs]",
-         ca, 2); }
     dump_raku_value("RAKU:     say('hello world')   [RK-LOWER-0 wire_det_builtin1: arg.gamma->CALL, CALL.sval=write (say=newline), det; arg IR_LIT_S]",
          un(TT_SAY, slit("hello world")), 2);
     dump_raku_value("RAKU:     print('hi')   [RK-LOWER-0 wire_det_builtin1: CALL.sval=writes (print=no newline), det; arg IR_LIT_S]",
