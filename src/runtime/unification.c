@@ -557,6 +557,84 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static const char *atom_op_text(Term *t, char *buf, size_t bufsz)
+{
+    t = t ? term_deref(t) : (Term *)0;
+    if (!t) return (const char *)0;
+    if (t->tag == TERM_ATOM)  return prolog_atom_name(t->atom_id);
+    if (t->tag == TERM_INT)   { snprintf(buf, bufsz, "%ld", t->ival);  return buf; }
+    if (t->tag == TERM_FLOAT) { snprintf(buf, bufsz, "%g", t->fval);   return buf; }
+    return (const char *)0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell)
+{
+    extern Trail g_resolve_trail;
+    Term *t0 = a0_cell ? term_deref((Term *)a0_cell) : (Term *)0;
+    Term *t1 = a1_cell ? term_deref((Term *)a1_cell) : (Term *)0;
+    Term *t2 = a2_cell ? term_deref((Term *)a2_cell) : (Term *)0;
+    int mark = trail_mark(&g_resolve_trail);
+    char buf0[512], buf1[512];
+    if (!strcmp(fn, "atom_length")) {
+        const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        if (!s) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        if (!unify((Term *)a1_cell, term_new_int((long)strlen(s)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        return 1;
+    }
+    if (!strcmp(fn, "atom_concat")) {
+        const char *s0 = atom_op_text(t0, buf0, sizeof buf0);
+        const char *s1 = atom_op_text(t1, buf1, sizeof buf1);
+        if (!s0 || !s1) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        size_t l0 = strlen(s0), l1 = strlen(s1);
+        char *cat = (char *)GC_MALLOC(l0 + l1 + 1); memcpy(cat, s0, l0); memcpy(cat + l0, s1, l1); cat[l0 + l1] = '\0';
+        if (!unify((Term *)a2_cell, term_new_atom(prolog_atom_intern(cat)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        return 1;
+    }
+    if (!strcmp(fn, "upcase_atom") || !strcmp(fn, "downcase_atom")) {
+        const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        if (!s) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        size_t n = strlen(s); char *out = (char *)GC_MALLOC(n + 1);
+        int up = (!strcmp(fn, "upcase_atom"));
+        for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
+        out[n] = '\0';
+        if (!unify((Term *)a1_cell, term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        return 1;
+    }
+    int as_codes = (!strcmp(fn, "atom_codes"));
+    if (!strcmp(fn, "atom_chars") || as_codes) {
+        if (t0 && t0->tag != TERM_VAR) {
+            const char *s = atom_op_text(t0, buf0, sizeof buf0);
+            if (!s) { trail_unwind(&g_resolve_trail, mark); return 0; }
+            size_t n = strlen(s);
+            Term *lst = term_new_atom(prolog_atom_intern("[]"));
+            for (size_t i = n; i > 0; i--) {
+                unsigned char ch = (unsigned char)s[i - 1];
+                Term *el;
+                if (as_codes) el = term_new_int((long)ch);
+                else { char cs[2] = { (char)ch, '\0' }; el = term_new_atom(prolog_atom_intern(cs)); }
+                Term **c = (Term **)GC_MALLOC(2 * sizeof(Term *)); c[0] = el; c[1] = lst;
+                lst = term_new_compound(ATOM_DOT, 2, c);
+            }
+            if (!unify((Term *)a1_cell, lst, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+            return 1;
+        }
+        Term *cur = t1;
+        char out[512]; size_t oi = 0;
+        while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == ATOM_DOT && cur->compound.arity == 2) {
+            Term *el = term_deref(cur->compound.args[0]);
+            if (oi >= sizeof(out) - 1) break;
+            if (as_codes) { if (!el || el->tag != TERM_INT) { trail_unwind(&g_resolve_trail, mark); return 0; } out[oi++] = (char)el->ival; }
+            else { if (!el || el->tag != TERM_ATOM) { trail_unwind(&g_resolve_trail, mark); return 0; } const char *cn = prolog_atom_name(el->atom_id); out[oi++] = cn ? cn[0] : '?'; }
+            cur = term_deref(cur->compound.args[1]);
+        }
+        out[oi] = '\0';
+        if (!unify((Term *)a0_cell, term_new_atom(prolog_atom_intern(out)), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        return 1;
+    }
+    (void)t2;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
     extern void pl_write(Term *);
