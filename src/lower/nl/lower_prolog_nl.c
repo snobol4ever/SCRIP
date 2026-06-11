@@ -157,6 +157,21 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             ir_operand_push(nd, term(cx, t->c[1]));
             return nd;
         }
+        if (!strcmp(nm, "\\=") && t->n == 2) {
+            bb_ite_state_t * zi = (bb_ite_state_t *) calloc(1, sizeof *zi);
+            IR_t * es = build(cx, IR_SUCCEED, γnext, ωfail);
+            IR_t * tf = build(cx, IR_FAIL, γnext, ωfail);
+            IR_t * commit = build(cx, IR_ITE_COMMIT, tf, ωfail); IR_LIT(commit).ival = (long long)(intptr_t) zi;
+            IR_t * gate   = build(cx, IR_ITE_GATE, es, ωfail);   IR_LIT(gate).ival   = (long long)(intptr_t) zi;
+            IR_t * u = build(cx, IR_UNIFY, commit, gate);
+            ir_operand_push(u, term(cx, t->c[0]));
+            ir_operand_push(u, term(cx, t->c[1]));
+            IR_t * nd = build(cx, IR_ITE, γnext, ωfail); IR_LIT(nd).ival = (long long)(intptr_t) zi;
+            ir_operand_push(nd, u);
+            zi->cond = u; zi->then_ = tf; zi->else_ = es;
+            zi->cond_root = u; zi->then_root = tf; zi->else_root = es;
+            return nd;
+        }
         if (!strcmp(nm, "findall") && t->n == 3) {
             IR_t * nd = build(cx, IR_BUILTIN, γnext, ωfail); IR_LIT(nd).sval = nm;
             bb_findall_state_t * fs = (bb_findall_state_t *) calloc(1, sizeof *fs);
