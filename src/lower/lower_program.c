@@ -352,7 +352,7 @@ extern IR_t * lower_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, I
 extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 static int lower_pl_clause_graph(const tree_t *clause) {
     if (!clause || clause->t != TT_CLAUSE) return -1;
-    if (nl_on(0)) {
+    if (nl_on(1)) {
         extern IR_graph_t * lower_prolog_nl_clause(const tree_t * clause);
         IR_graph_t *gnl = lower_prolog_nl_clause(clause);
         return gnl ? bb_program_add(&g_stage2.bbp, gnl) : -1;
