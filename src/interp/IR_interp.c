@@ -3327,6 +3327,14 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
         IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
     }
+    case IR_PATTERN_ARB: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_arb_proto, 104, &bb_arb_proto_desc, 0, NULL);
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
     case IR_PATTERN_CAT: {
         if (IR_EXEC(bb).state) return bb->γ.node;
         IR_t *la = bb->n_operands > 0 ? bb->operands[0] : NULL;

@@ -65,4 +65,6 @@ extern const uint8_t bb_break_proto[96];
 extern const DTP_PROTO_DESC bb_break_proto_desc;
 extern const uint8_t bb_breakx_proto[165];
 extern const DTP_PROTO_DESC bb_breakx_proto_desc;
+extern const uint8_t bb_arb_proto[104];
+extern const DTP_PROTO_DESC bb_arb_proto_desc;
 #endif

@@ -1,64 +1,58 @@
 #include <string>
+#include <cstring>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "emit_bb.h"
 #include "emit.h"
+#include "dtp.h"
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern uint8_t * g_pat_pool_cur;
 static int g_pa_seq = 0;
 static inline void         pa_bump()  { g_pa_seq++; }
 static inline std::string  pal(const char * sfx) { return std::string(".Lpa") + std::to_string(g_pa_seq) + sfx; }
 static inline std::string  pa_off()   { return std::to_string((long)_.op_off); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline std::string  pa_proto() {
+static inline uint64_t pa_proto_addr() { return (uint64_t)(uintptr_t)(const void *)bb_arb_proto; }
+static inline uint64_t pa_desc_addr()  { return (uint64_t)(uintptr_t)(const void *)&bb_arb_proto_desc; }
+static inline uint64_t pa_fn() {
+    void (*fp)(DTP_FRAG_t*,const void*,uint32_t,const DTP_PROTO_DESC*,long,const char*) = rt_pattern_build;
+    return (uint64_t)(uintptr_t)(void *)fp;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static inline std::string pa_proto_data() {
     return x86("label", pal("_s"))
-         + x86("raw", ".quad 0")
-         + x86("raw", ".quad 0")
-         + x86("raw", ".quad 0")
-         + x86("raw", ".quad 0")
-         + x86("label", pal("_b"))
-         + x86("ins2", "mov", "eax, dword ptr [rip + " + pal("_s") + " + 8]")
-         + x86("ins2", "add", "eax, dword ptr [rip + " + pal("_s") + " + 12]")
-         + x86("ins2", "inc", "dword ptr [rip + " + pal("_s") + " + 12]")
-         + x86("ins2", "cmp", "eax, r15d")
-         + x86("ins2", "jg", pal("_ov"))
-         + x86("ins2", "mov", "r14d, eax")
-         + x86("ins2", "jmp", "qword ptr [rip + " + pal("_s") + " + 16]")
-         + x86("label", pal("_ov"))
-         + x86("ins2", "mov", "r14d, dword ptr [rip + " + pal("_s") + " + 8]")
-         + x86("ins2", "jmp", "qword ptr [rip + " + pal("_s") + " + 24]")
-         + x86("label", pal("_a"))
-         + x86("ins2", "mov", "dword ptr [rip + " + pal("_s") + " + 8], r14d")
-         + x86("ins2", "mov", "dword ptr [rip + " + pal("_s") + " + 12], 0")
-         + x86("ins2", "jmp", "qword ptr [rip + " + pal("_s") + " + 16]")
-         + x86("label", pal("_e"));
+         + x86("raw", ".byte 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0")
+         + x86("raw", ".byte 0x8B,0x05,0xE2,0xFF,0xFF,0xFF,0x8B,0x0D,0xE0,0xFF,0xFF,0xFF,0xFF,0xC1,0x89,0x0D")
+         + x86("raw", ".byte 0xD8,0xFF,0xFF,0xFF,0x01,0xC8,0x44,0x39,0xF8,0x7F,0x09,0x41,0x89,0xC6,0xFF,0x25")
+         + x86("raw", ".byte 0xCC,0xFF,0xFF,0xFF,0x44,0x8B,0x35,0xBD,0xFF,0xFF,0xFF,0xFF,0x25,0xC7,0xFF,0xFF")
+         + x86("raw", ".byte 0xFF,0x44,0x89,0x35,0xB0,0xFF,0xFF,0xFF,0xC7,0x05,0xAA,0xFF,0xFF,0xFF,0x00,0x00")
+         + x86("raw", ".byte 0x00,0x00,0xFF,0x25,0xA8,0xFF,0xFF,0xFF")
+         + x86("label", pal("_desc"))
+         + x86("raw", ".long 81, 32, 16, 24, -1, -1, -1");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_pattern_arb_str() {
     if (PLATFORM_X86)
-        return IF(MEDIUM_TEXT,
-                   x86("label", _.lbl_α)
-                 + x86("comment", std::string("BOX PATTERN_ARB  [BUILDER ζ=r12 frag@") + pa_off() + "]"))
-             + x86("ins2", "mov", "rax, qword ptr [rip + g_pat_pool_cur]")
-             + x86("mov", "rdi", "rax")
-             + x86("ins2", "mov", "ecx, " + pal("_e") + " - " + pal("_s"))
-             + x86("ins2", "lea", "rsi, [rip + " + pal("_s") + "]")
-             + x86("ins1", "rep movsb")
-             + x86("ins2", "mov", "qword ptr [rip + g_pat_pool_cur], rdi")
-             + x86("ins2", "lea", "rcx, [rax + " + pal("_a") + " - " + pal("_s") + "]")
-             + x86("ins2", "mov", "[r12 + " + pa_off() + "], rcx")
-             + x86("ins2", "lea", "rcx, [rax + 16]")
-             + x86("ins2", "mov", "[r12 + " + pa_off() + " + 8], rcx")
-             + x86("ins2", "lea", "rcx, [rax + 24]")
-             + x86("ins2", "mov", "[r12 + " + pa_off() + " + 16], rcx")
-             + x86("ins2", "mov", "qword ptr [r12 + " + pa_off() + " + 24], 0")
-             + x86("jmp", "γ")
-             + pa_proto()
-             + x86("def", "β")
-             + x86("jmp", "ω");
+        return x86("label", _.lbl_α)
+             + x86("comment", std::string("BOX PATTERN_ARB  [BUILD ζ=r12 frag@") + pa_off() + "]")
+             + x86("lea",   "rdi", FRQ(_.op_off))
+             + x86("lea",   "rsi", "[rip + __]", pa_proto_addr(), pal("_s"))
+             + x86("mov32", "edx", 104L)
+             + x86("lea",   "rcx", "[rip + __]", pa_desc_addr(), pal("_desc"))
+             + x86("mov32", "r8d", 0L)
+             + x86("mov32", "r9d", 0L)
+             + x86("push",  "rbx")
+             + x86("mov",   "rbx", "rsp")
+             + x86("and",   "rsp", -16L)
+             + x86("call",  "rt_pattern_build", pa_fn())
+             + x86("mov",   "rsp", "rbx")
+             + x86("pop",   "rbx")
+             + x86("jmp",   "γ")
+             + pa_proto_data()
+             + x86("def",   "β")
+             + x86("jmp",   "ω");
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
