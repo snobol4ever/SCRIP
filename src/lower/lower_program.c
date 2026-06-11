@@ -348,24 +348,12 @@ static void lower_pl_register_all_preds(void) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern IR_t * lower_clause_body_entry(IR_graph_t * bbg, const tree_t * clause, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 static int lower_pl_clause_graph(const tree_t *clause) {
     if (!clause || clause->t != TT_CLAUSE) return -1;
-    if (nl_on(1)) {
-        extern IR_graph_t * lower_prolog_nl_clause(const tree_t * clause);
-        IR_graph_t *gnl = lower_prolog_nl_clause(clause);
-        return gnl ? bb_program_add(&g_stage2.bbp, gnl) : -1;
-    }
-    IR_graph_t *g = IR_alloc(256, IR_LANG_PL);
-    if (!g) return -1;
-    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *α = NULL, *β = NULL;
-    IR_t *top = lower_clause_body_entry(g, clause, PSUCC, PFAIL, &α, &β);
-    if (!top || !α) return -1;
-    g->entry = α;
-    return bb_program_add(&g_stage2.bbp, g);
+    extern IR_graph_t * lower_prolog_nl_clause(const tree_t * clause);
+    IR_graph_t *gnl = lower_prolog_nl_clause(clause);
+    return gnl ? bb_program_add(&g_stage2.bbp, gnl) : -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
