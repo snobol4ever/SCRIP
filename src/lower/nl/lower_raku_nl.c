@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "ast.h"
 #include "IR.h"
+extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
 /*====================================================================================================================================================================================================*/
 typedef struct { IR_graph_t * g; } rcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -163,10 +164,12 @@ static IR_graph_t * rk_arg_block(rcx_t * cx, const tree_t * a) {
 static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, int visible, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n - from;
     if (visible) {
+        IR_LIT(nd).dval = 1.0;
         IR_t * succ = nd; IR_t * entry = nd;
         for (int i = t->n - 1; i >= from; i--) { IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[i], succ, ω, &r); succ = e; entry = e; }
         *res = nd; return (t->n > from) ? entry : nd; }
     int nargs = t->n - from;
+    IR_LIT(nd).dval = 2.0;
     if (nargs > 0) { IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
         if (blks) { for (int k = 0; k < nargs; k++) blks[k] = rk_arg_block(cx, t->c[from + k]); IR_EXEC(nd).counter = (int64_t)(intptr_t) blks; } }
     *res = nd; return nd;
@@ -190,7 +193,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     if (rk_is_binop(t->t)) {
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = rk_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower_rv(cx, t->c[0], NULL, ω, &lr); IR_t * eb = lower_rv(cx, t->c[1], op, ω, &rr);
-        γ_to(lr, eb); *res = op; return ea; }
+        γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); } *res = op; return ea; }
     switch (t->t) {
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_I, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
@@ -233,7 +236,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         const tree_t * src = t->c[0]->c[0];
         if (src && src->t == TT_GATHER) {
             IR_t * va = build(cx, IR_ASSIGN, NULL, ω); IR_LIT(va).sval = t->c[0]->v.sval;
-            IR_t * ga = build(cx, IR_GATHER, va, γ); IR_LIT(ga).ival = (src->n > 0 && src->c[0]) ? src->c[0]->n : 0;
+            const tree_t * gb = (src->n > 0) ? src->c[0] : NULL;
+            int ntk = 0;
+            if (gb && gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) if (gb->c[i] && gb->c[i]->t == TT_SUSPEND) ntk++; }
+            else if (gb && gb->t == TT_SUSPEND) ntk = 1;
+            IR_t * ga = build(cx, IR_GATHER, va, γ); IR_LIT(ga).ival = ntk ? ntk : ((gb) ? gb->n : 0);
+            if (ntk > 0) { IR_graph_t ** subs = (IR_graph_t **) calloc((size_t) ntk, sizeof(IR_graph_t *));
+                if (subs) { int k = 0;
+                    if (gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) { const tree_t * s = gb->c[i];
+                        if (!s || s->t != TT_SUSPEND || s->n < 1 || !s->c[0]) continue; subs[k++] = rk_arg_block(cx, s->c[0]); } }
+                    else if (gb->n >= 1 && gb->c[0]) subs[k++] = rk_arg_block(cx, gb->c[0]);
+                    IR_EXEC(ga).counter = (int64_t)(intptr_t) subs; } }
             IR_t * gconj = build(cx, IR_CONJ, ga, ga);
             IR_t * gbentry = lower_rblock(cx, t->c[1], gconj, ga);
             γ_to(va, gbentry); *res = ga; return ga; }
@@ -263,7 +276,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         γ_to(va, bentry); *res = to; return elo; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_SMATCH: if (t->n > 1) {
-        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "re_match"; IR_LIT(nd).ival = 2;
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "re_match"; IR_LIT(nd).ival = 2; IR_LIT(nd).dval = 2.0;
         IR_graph_t ** blks = (IR_graph_t **) calloc(2, sizeof(IR_graph_t *));
         if (blks) { blks[0] = rk_arg_block(cx, t->c[0]); blks[1] = rk_arg_block(cx, t->c[1]); IR_EXEC(nd).counter = (int64_t)(intptr_t) blks; }
         *res = nd; return nd; }

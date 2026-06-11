@@ -270,6 +270,12 @@ static int lower_pascal_body(const tree_t *proc) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_raku_body(const tree_t *proc) {
+    if (nl_on(1)) {
+        extern IR_graph_t * lower_raku_proc(const tree_t *, const tree_t *);
+        IR_graph_t * ng = lower_raku_proc(g_nl_prog, proc);
+        if (!ng || !ng->entry) return -1;
+        return bb_program_add(&g_stage2.bbp, ng);
+    }
     if (!proc || proc->t != TT_SUB_DECL) return -1;
     int np = (int) proc->v.ival;
     int body_start = 1 + np;
