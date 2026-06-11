@@ -183,6 +183,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_det_univ.cpp \
     $(SRC)/emitter/BB_templates/bb_det_format.cpp \
     $(SRC)/emitter/BB_templates/bb_det_succ_plus.cpp \
+    $(SRC)/emitter/BB_templates/bb_det_atom_op.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_unify.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_choice.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_call.cpp \
@@ -434,6 +435,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_univ.cpp         -o $(OBJ)/bb_det_univ.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_format.cpp       -o $(OBJ)/bb_det_format.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_succ_plus.cpp    -o $(OBJ)/bb_det_succ_plus.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_atom_op.cpp      -o $(OBJ)/bb_det_atom_op.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_unify.cpp       -o $(OBJ)/bb_cell_unify.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_choice.cpp      -o $(OBJ)/bb_cell_choice.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_call.cpp        -o $(OBJ)/bb_cell_call.o

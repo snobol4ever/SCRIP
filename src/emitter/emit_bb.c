@@ -1133,6 +1133,17 @@ void bb_prepare(IR_t *nd) {
         g_emit.op_parts_ival[3] = a2 ? (int64_t)IR_LIT(a2).ival : -1;
         return;
     }
+    if (nd->op == IR_DET_ATOM_OP) {
+        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
+        IR_t *a2 = (nd->n_operands > 2) ? nd->operands[2] : NULL;
+        g_emit.op_parts_n = 4;
+        g_emit.op_parts_str[0] = IR_LIT(nd).sval;
+        g_emit.op_parts_ival[0] = (int64_t)IR_LIT(nd).ival;
+        g_emit.op_parts_ival[1] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
+        g_emit.op_parts_ival[2] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
+        g_emit.op_parts_ival[3] = a2 ? (int64_t)IR_LIT(a2).ival : -1;
+        return;
+    }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
