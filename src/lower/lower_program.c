@@ -2,7 +2,7 @@
 /*====================================================================================================================*/
 #define BB_DEFINE_NAMES
 #include "lower.h"
-#include "lower_internal.h"
+#include "lower.h"
 #include "IR_interp_state.h"
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
@@ -21,36 +21,25 @@ extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern uint32_t polyglot_lang_mask(const tree_t * prog);
 extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask);
-extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * γ_in, IR_t * ω_in, IR_t ** α_out, IR_t ** β_out);
 static const tree_t * g_nl_prog = NULL;
-static int nl_on(int dflt) { const char * e = getenv("SCRIP_NL"); return e ? (atoi(e) != 0) : dflt; }
-/*====================================================================================================================*/
-/*====================================================================================================================*/
-static IR_t * make_computed_goto(IR_graph_t * g, const tree_t * gexpr, IR_t * fall) {
-    if (!g || !gexpr) return NULL;
-    IR_graph_t * sub = IR_alloc(64, IR_LANG_SNO);
-    if (!sub) return NULL;
-    IR_t * vfail = IR_node_alloc(sub, IR_FAIL);
-    IR_t * eα = NULL, * eβ = NULL;
-    IR_t * en = lower_value_entry(sub, gexpr, NULL  , vfail, &eα, &eβ);
-    if (!en) { IR_free(sub); return NULL; }
-    (void) eβ;
-    sub->entry = eα ? eα : en;
-    IR_t * gt = IR_node_alloc(g, IR_GOTO);
-    if (!gt) { IR_free(sub); return NULL; }
-    IR_EXEC(gt).counter = (int64_t)(intptr_t) sub;
-    gt->ω.node = fall; memcpy(gt->ω.sz, "α", 3);
-    return gt;
+typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
+static bb_label_entry_t g_bb_labels[1024];
+static int              g_bb_label_n = 0;
+/*--------------------------------------------------------------------------------------------------------------------*/
+void bb_label_registry_reset(void) { g_bb_label_n = 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void bb_label_registry_add(const char * name, IR_t * landing) {
+    if (!name || !landing || g_bb_label_n >= 1024) return;
+    g_bb_labels[g_bb_label_n].name = name; g_bb_labels[g_bb_label_n].landing = landing; g_bb_label_n++;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * make_indirect_goto(IR_graph_t * g, const char * gstr, IR_t * fall) {
-    if (!gstr || gstr[0] != '$' || gstr[1] == '\0') return NULL;
-    tree_t * v = ast_stmt_new(TT_VAR);
-    if (!v) return NULL;
-    v->v.sval = (char *) (gstr + 1);
-    return make_computed_goto(g, v, fall);
+IR_t * bb_label_landing(const char * name) {
+    if (!name) return NULL;
+    for (int i = 0; i < g_bb_label_n; i++)
+        if (g_bb_labels[i].name && !strcmp(g_bb_labels[i].name, name)) return g_bb_labels[i].landing;
+    return NULL;
 }
+/*====================================================================================================================*/
 /*====================================================================================================================*/
 /*====================================================================================================================*/
 static const char * pas_norm_charseq(DESCR_t d) {
@@ -189,8 +178,6 @@ static int lp_s_int(const tree_t *s, const char *tag) { const char *v = stmt_att
 static tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt_attr_find(s, tag)); }
 /*====================================================================================================================*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern IR_t * lower_value_entry(IR_graph_t * bbg, const tree_t * e, IR_t * g, IR_t * w, IR_t ** a, IR_t ** b);
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int proc_subtree_has_suspend(const tree_t *n) {
     if (!n) return 0;
     if (n->t == TT_SUSPEND) return 1;
@@ -212,94 +199,19 @@ static int lower_icon_body(const tree_t *proc) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void pas_register_labels(IR_graph_t *g, const tree_t *n) {
-    if (!n) return;
-    if (n->t == TT_PROC_DECL || n->t == TT_SUB_DECL) return;
-    if (n->t == TT_LABEL_DEF && n->v.sval) {
-        IR_t *landing = IR_node_alloc(g, IR_SUCCEED);
-        if (landing) bb_label_registry_add(n->v.sval, landing);
-    }
-    for (int i = 0; i < n->n; i++) pas_register_labels(g, n->c[i]);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_pascal_body(const tree_t *proc) {
-    if (nl_on(1)) {
-        extern IR_graph_t * lower_pascal_proc(const tree_t *, const tree_t *);
-        IR_graph_t * ng = lower_pascal_proc(g_nl_prog, proc);
-        if (!ng || !ng->entry) return -1;
-        return bb_program_add(&g_stage2.bbp, ng);
-    }
-    if (!proc || proc->t != TT_PROC_DECL || proc->n < 3) return -1;
-    const tree_t *body = proc->c[2];
-    if (!body || body->t != TT_PROGRAM) return -1;
-    int is_function = (proc->n >= 4 && proc->c[3] && proc->c[3]->t == TT_VAR && proc->c[3]->v.sval);
-    IR_graph_t *g = IR_alloc(256, IR_LANG_PAS);
-    if (!g) return -1;
-    bb_label_registry_reset();
-    for (int i = 0; i < body->n; i++) pas_register_labels(g, body->c[i]);
-    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *chain_end = PSUCC;
-    if (is_function) {
-        IR_t *PRET = IR_node_alloc(g, IR_RETURN);
-        IR_t *PVAR = IR_node_alloc(g, IR_VAR);
-        if (!PRET || !PVAR) return -1;
-        IR_LIT(PRET).dval = 0.0;
-        IR_LIT(PVAR).sval = proc->c[3]->v.sval;
-        if (!ir_operand_push(PRET, PVAR)) return -1;
-        PRET->γ.node = PSUCC; memcpy(PRET->γ.sz, "α", 3); PRET->ω.node = PSUCC; memcpy(PRET->ω.sz, "α", 3);
-        chain_end = PRET;
-    }
-    IR_t *next_a = chain_end;
-    int n_stmts = 0;
-    for (int i = body->n - 1; i >= 0; i--) {
-        const tree_t *s = body->c[i];
-        if (!s) continue;
-        const tree_t *expr = s;
-        if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
-        n_stmts++;
-        IR_t *a = NULL, *b = NULL;
-        IR_t *top = lower_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
-        if (!top || !a) return -1;
-        next_a = a;
-    }
-    if (n_stmts == 0) { if (is_function) { g->entry = chain_end; return bb_program_add(&g_stage2.bbp, g); } return -1; }
-    g->entry = next_a;
-    return bb_program_add(&g_stage2.bbp, g);
+    extern IR_graph_t * lower_pascal_proc(const tree_t *, const tree_t *);
+    IR_graph_t * ng = lower_pascal_proc(g_nl_prog, proc);
+    if (!ng || !ng->entry) return -1;
+    return bb_program_add(&g_stage2.bbp, ng);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_raku_body(const tree_t *proc) {
-    if (nl_on(1)) {
-        extern IR_graph_t * lower_raku_proc(const tree_t *, const tree_t *);
-        IR_graph_t * ng = lower_raku_proc(g_nl_prog, proc);
-        if (!ng || !ng->entry) return -1;
-        return bb_program_add(&g_stage2.bbp, ng);
-    }
-    if (!proc || proc->t != TT_SUB_DECL) return -1;
-    int np = (int) proc->v.ival;
-    int body_start = 1 + np;
-    if (proc->n <= body_start) return -1;
-    IR_graph_t *g = IR_alloc(256, IR_LANG_RKU);
-    if (!g) return -1;
-    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *next_a = PSUCC;
-    int n_stmts = 0;
-    for (int i = proc->n - 1; i >= body_start; i--) {
-        const tree_t *s = proc->c[i];
-        if (!s) continue;
-        const tree_t *expr = s;
-        if (s->t == TT_STMT) { expr = lp_s_expr(s, ":subj"); if (!expr) continue; }
-        n_stmts++;
-        IR_t *a = NULL, *b = NULL;
-        IR_t *top = lower_value_entry(g, (const tree_t *) expr, next_a, PFAIL, &a, &b);
-        if (!top || !a) return -1;
-        next_a = a;
-    }
-    if (n_stmts == 0) return -1;
-    g->entry = next_a;
-    return bb_program_add(&g_stage2.bbp, g);
+    extern IR_graph_t * lower_raku_proc(const tree_t *, const tree_t *);
+    IR_graph_t * ng = lower_raku_proc(g_nl_prog, proc);
+    if (!ng || !ng->entry) return -1;
+    return bb_program_add(&g_stage2.bbp, ng);
 }
 /*====================================================================================================================*/
 static int lower_pl_clause_graph(const tree_t *clause);
@@ -357,8 +269,8 @@ static void lower_pl_register_all_preds(void) {
 extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 static int lower_pl_clause_graph(const tree_t *clause) {
     if (!clause || clause->t != TT_CLAUSE) return -1;
-    extern IR_graph_t * lower_prolog_nl_clause(const tree_t * clause);
-    IR_graph_t *gnl = lower_prolog_nl_clause(clause);
+    extern IR_graph_t * lower_prolog_clause(const tree_t * clause);
+    IR_graph_t *gnl = lower_prolog_clause(clause);
     return gnl ? bb_program_add(&g_stage2.bbp, gnl) : -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -487,35 +399,7 @@ static int pas_scope_chain(int pi, Scope **scs, int *dls, int *pis, int maxd) {
     return n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, int nch);
-static void pas_rewrite_node(IR_t *nd, Scope **scs, int *dls, int *pis, int nch) {
-    if (!nd) return;
-    if ((nd->op == IR_VAR || nd->op == IR_ASSIGN) && IR_LIT(nd).sval) {
-        for (int c = 0; c < nch; c++) {
-            int slot = scope_get(scs[c], IR_LIT(nd).sval);
-            if (slot >= 0) {
-                ProcEntry *pe = &g_stage2.proc_table[pis[c]];
-                int isref = (slot < pe->nparams) && ((pe->byref_mask >> slot) & 1ull);
-                IR_LIT(nd).ival = slot;
-                IR_LIT(nd).dval = (double)(dls[0] - dls[c]);
-                if (isref) nd->op = (nd->op == IR_VAR) ? IR_VAR_FRAME_REF : IR_ASSIGN_FRAME_REF;
-                else       nd->op = (nd->op == IR_VAR) ? IR_VAR_FRAME : IR_ASSIGN_FRAME;
-                break;
-            }
-        }
-        return;
-    }
-    if (nd->op == IR_CALL && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0) && IR_EXEC(nd).counter && IR_LIT(nd).ival > 0) {
-        IR_graph_t **subs = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
-        for (int j = 0; j < (int) IR_LIT(nd).ival; j++) if (subs[j]) pas_rewrite_graph(subs[j], scs, dls, pis, nch);
-    }
-}
-static void pas_rewrite_graph(IR_graph_t *g, Scope **scs, int *dls, int *pis, int nch) {
-    if (!g || !g->all) return;
-    for (int i = 0; i < g->n; i++) pas_rewrite_node(g->all[i], scs, dls, pis, nch);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int lower_sno_nl(const tree_t *prog) {
+static int lower_sno(const tree_t *prog) {
     extern IR_graph_t * lower_snobol4(const tree_t *);
     extern int lower_snobol4_labels(const char ***, IR_t ***);
     extern IR_t * lower_snobol4_label(const char *);
@@ -578,141 +462,7 @@ stage2_t *lower_stage2(const tree_t *prog) {
     stage2_reset();
     uint32_t mask = polyglot_lang_mask(prog);
     polyglot_init(&g_stage2, prog, mask);
-    if ((mask & (1u << LANG_SNO)) && !(nl_on(1) && lower_sno_nl(prog))) {
-        IR_graph_t *g = IR_alloc(1024, IR_LANG_SNO);
-        if (g) {
-            IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
-            IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-            IR_t *RET  = IR_node_alloc(g, IR_RETURN); IR_LIT(RET).dval  = 1.0; RET->ω.node = PFAIL; memcpy(RET->ω.sz, "α", 3);
-            IR_t *FRET = IR_node_alloc(g, IR_RETURN); IR_LIT(FRET).dval = 2.0; FRET->ω.node = PFAIL; memcpy(FRET->ω.sz, "α", 3);
-            const tree_t *stmts[1024]; IR_t *land[1024]; int ns = 0;
-            for (int i = 0; i < prog->n && ns < 1024; i++) {
-                const tree_t *s = prog->c[i];
-                if (!s || s->t != TT_STMT) continue;
-                if (lp_s_int(s, ":lang") != LANG_SNO) continue;
-                stmts[ns] = s;
-                land[ns]  = IR_node_alloc(g, IR_SUCCEED);
-                ns++;
-            }
-            bb_label_registry_reset();
-            for (int i = 0; i < ns; i++) {
-                const char *li = stmt_attr_str(stmt_attr_find(stmts[i], ":lbl"));
-                if (li) bb_label_registry_add(li, land[i]);
-            }
-            int built = 0;
-            for (int i = 0; i < ns; i++) {
-                const tree_t *s = stmts[i];
-                IR_t *fall = (i + 1 < ns) ? land[i + 1] : PSUCC;
-                IR_t *tgt_u = NULL, *tgt_s = NULL, *tgt_f = NULL;
-                const char *gu = goto_node_str(stmt_goto_find(s, TT_GOTO_U));
-                const char *gs = goto_node_str(stmt_goto_find(s, TT_GOTO_S));
-                const char *gf = goto_node_str(stmt_goto_find(s, TT_GOTO_F));
-                for (int j = 0; j < ns; j++) {
-                    const char *lj = stmt_attr_str(stmt_attr_find(stmts[j], ":lbl"));
-                    if (!lj) continue;
-                    if (gu && !strcmp(gu, lj)) tgt_u = land[j];
-                    if (gs && !strcmp(gs, lj)) tgt_s = land[j];
-                    if (gf && !strcmp(gf, lj)) tgt_f = land[j];
-                }
-                if (gu && !tgt_u) tgt_u = make_indirect_goto(g, gu, fall);
-                if (gs && !tgt_s) tgt_s = make_indirect_goto(g, gs, fall);
-                if (gf && !tgt_f) tgt_f = make_indirect_goto(g, gf, fall);
-                const tree_t *eu = goto_node_expr(stmt_goto_find(s, TT_GOTO_U));
-                const tree_t *es = goto_node_expr(stmt_goto_find(s, TT_GOTO_S));
-                const tree_t *ef = goto_node_expr(stmt_goto_find(s, TT_GOTO_F));
-                if (eu && !tgt_u) tgt_u = make_computed_goto(g, eu, fall);
-                if (es && !tgt_s) tgt_s = make_computed_goto(g, es, fall);
-                if (ef && !tgt_f) tgt_f = make_computed_goto(g, ef, fall);
-                if (gu && !tgt_u && !strcmp(gu, "END")) tgt_u = PSUCC;
-                if (gs && !tgt_s && !strcmp(gs, "END")) tgt_s = PSUCC;
-                if (gf && !tgt_f && !strcmp(gf, "END")) tgt_f = PSUCC;
-                if (gu && !tgt_u) { if (!strcmp(gu, "RETURN") || !strcmp(gu, "NRETURN")) tgt_u = RET; else if (!strcmp(gu, "FRETURN")) tgt_u = FRET; }
-                if (gs && !tgt_s) { if (!strcmp(gs, "RETURN") || !strcmp(gs, "NRETURN")) tgt_s = RET; else if (!strcmp(gs, "FRETURN")) tgt_s = FRET; }
-                if (gf && !tgt_f) { if (!strcmp(gf, "RETURN") || !strcmp(gf, "NRETURN")) tgt_f = RET; else if (!strcmp(gf, "FRETURN")) tgt_f = FRET; }
-                IR_t *γ_tgt = tgt_u ? tgt_u : (tgt_s ? tgt_s : fall);
-                IR_t *ω_tgt = tgt_u ? tgt_u : (tgt_f ? tgt_f : fall);
-                tree_t *subj = lp_s_expr(s, ":subj");
-                if (!subj) {
-                    land[i]->γ.node = tgt_u ? tgt_u : fall; memcpy(land[i]->γ.sz, "α", 3);
-                    built = 1;
-                    continue;
-                }
-                if (subj->t == TT_VAR && subj->v.sval &&
-                    (!strcmp(subj->v.sval, "RETURN") || !strcmp(subj->v.sval, "FRETURN") || !strcmp(subj->v.sval, "NRETURN"))) {
-                    land[i]->γ.node = (!strcmp(subj->v.sval, "FRETURN")) ? FRET : RET; memcpy(land[i]->γ.sz, "α", 3);
-                    built = 1;
-                    continue;
-                }
-                tree_t *expr = subj;
-                if (stmt_attr_find(s, ":eq")) {
-                    if (stmt_attr_find(s, ":pat")) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
-                    tree_t *repl = lp_s_expr(s, ":repl");
-                    if (!repl) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
-                    if (subj->t == TT_SCAN && subj->n >= 2) {
-                        tree_t *scn = ast_stmt_new(TT_SCAN);
-                        if (!scn) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
-                        ast_push(scn, subj->c[0]);
-                        ast_push(scn, subj->c[1]);
-                        ast_push(scn, repl);
-                        expr = scn;
-                    } else {
-                        tree_t *asn = ast_stmt_new(TT_ASSIGN);
-                        if (!asn) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
-                        ast_push(asn, subj);
-                        ast_push(asn, repl);
-                        expr = asn;
-                    }
-                }
-                IR_t *α = NULL, *β = NULL;
-                IR_t *top = lower_value_entry(g, expr, γ_tgt, ω_tgt, &α, &β);
-                if (!top || !α) { land[i]->γ.node = fall; memcpy(land[i]->γ.sz, "α", 3); continue; }
-                land[i]->γ.node = α; memcpy(land[i]->γ.sz, "α", 3);
-                built = 1;
-            }
-            if (built) {
-                g->entry = (ns > 0) ? land[0] : PSUCC;
-                (void) PFAIL;
-                int bb_idx = bb_program_add(&g_stage2.bbp, g);
-                int pi = stage2_proc_grow(&g_stage2);
-                g_stage2.proc_table[pi].name     = "main";
-                g_stage2.proc_table[pi].proc     = NULL;
-                g_stage2.proc_table[pi].entry_pc = -1;
-                g_stage2.proc_table[pi].bb_idx   = bb_idx;
-                g_stage2.proc_table[pi].nparams  = 0;
-                for (int di = 0; di < ns; di++) {
-                    tree_t *dsubj = lp_s_expr(stmts[di], ":subj");
-                    if (!dsubj || dsubj->t != TT_FNC || !dsubj->v.sval || strcmp(dsubj->v.sval, "DEFINE")) continue;
-                    if (dsubj->n < 1 || !dsubj->c[0] || dsubj->c[0]->t != TT_QLIT || !dsubj->c[0]->v.sval) continue;
-                    char fname[64];
-                    char params[STAGE2_FRAME_SLOT_MAX][64]; int np = 0;
-                    char locals[STAGE2_FRAME_SLOT_MAX][64]; int nl = 0;
-                    if (!sno_parse_define_proto(dsubj->c[0]->v.sval, fname, params, &np, locals, &nl)) continue;
-                    IR_t *body = NULL;
-                    for (int j = 0; j < ns; j++) {
-                        const char *lj = stmt_attr_str(stmt_attr_find(stmts[j], ":lbl"));
-                        if (lj && !strcmp(lj, fname)) { body = land[j]; break; }
-                    }
-                    if (!body) continue;
-                    IR_graph_t *fg = (IR_graph_t *) calloc(1, sizeof(IR_graph_t));
-                    if (!fg) continue;
-                    *fg = *g;
-                    fg->entry = body;
-                    int fidx = bb_program_add(&g_stage2.bbp, fg);
-                    int fpi  = stage2_proc_grow(&g_stage2);
-                    g_stage2.proc_table[fpi].name     = lp_strdup(fname);
-                    g_stage2.proc_table[fpi].proc     = NULL;
-                    g_stage2.proc_table[fpi].entry_pc = -1;
-                    g_stage2.proc_table[fpi].bb_idx   = fidx;
-                    g_stage2.proc_table[fpi].nparams  = np;
-                    Scope *sc = &g_stage2.proc_table[fpi].lower_sc;
-                    sc->n = 0;
-                    for (int k = 0; k < np && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = lp_strdup(params[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
-                    for (int k = 0; k < nl && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = lp_strdup(locals[k]); sc->e[sc->n].slot = sc->n; sc->n++; }
-                    if (sc->n < STAGE2_FRAME_SLOT_MAX) { sc->e[sc->n].name = lp_strdup(fname); sc->e[sc->n].slot = sc->n; sc->n++; }
-                }
-            }
-        }
-    }
+    if (mask & (1u << LANG_SNO)) (void) lower_sno(prog);
     if (mask & (1u << LANG_PASCAL)) {
         for (int pi = 0; pi < g_stage2.proc_count; pi++) {
             const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
@@ -761,7 +511,6 @@ stage2_t *lower_stage2(const tree_t *prog) {
                 if (idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx]) continue;
                 Scope *scs[16]; int dls[16]; int pis[16];
                 int nch = pas_scope_chain(pi, scs, dls, pis, 16);
-                if (!nl_on(1)) pas_rewrite_graph(g_stage2.bbp.table[idx], scs, dls, pis, nch);
                 g_stage2.bbp.table[idx]->nslots = g_stage2.proc_table[pi].lower_sc.n + 1;
             }
         }
