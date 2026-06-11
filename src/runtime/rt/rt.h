@@ -208,6 +208,7 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn);
 int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell);
 int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell);
 int rt_pl_univ_cell(void *t0_cell, void *list_cell);
+int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell);
 long size_value(DESCR_t v, int *failed);
 #ifdef __cplusplus
 }

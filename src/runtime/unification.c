@@ -526,6 +526,37 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell)
     return rt_univ_term_term(t0_cell, list_cell);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
+{
+    extern Trail g_resolve_trail;
+    Term *ta = a_cell ? (Term *)a_cell : (Term *)0, *tb = b_cell ? (Term *)b_cell : (Term *)0, *tc = c_cell ? (Term *)c_cell : (Term *)0;
+    Term *da = ta ? term_deref(ta) : (Term *)0, *db = tb ? term_deref(tb) : (Term *)0, *dc = tc ? term_deref(tc) : (Term *)0;
+    int mark = trail_mark(&g_resolve_trail);
+    if (arity == 2) {
+        if (da && da->tag == TERM_INT) {
+            if (da->ival < 0) return 0;
+            if (!unify(tb, term_new_int(da->ival + 1), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+            return 1;
+        }
+        if (db && db->tag == TERM_INT) {
+            if (db->ival <= 0) return 0;
+            if (!unify(ta, term_new_int(db->ival - 1), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+            return 1;
+        }
+        return 0;
+    }
+    if (arity == 3) {
+        int va = (da && da->tag == TERM_INT), vb = (db && db->tag == TERM_INT), vc = (dc && dc->tag == TERM_INT);
+        int ok = 0;
+        if (va && vb)      ok = unify(tc, term_new_int(da->ival + db->ival), &g_resolve_trail);
+        else if (va && vc) ok = unify(tb, term_new_int(dc->ival - da->ival), &g_resolve_trail);
+        else if (vb && vc) ok = unify(ta, term_new_int(dc->ival - db->ival), &g_resolve_trail);
+        if (!ok) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        return 1;
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
     extern void pl_write(Term *);
