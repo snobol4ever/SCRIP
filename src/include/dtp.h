@@ -35,4 +35,14 @@ void rt_pattern_stitch_alt(DTP_FRAG_t *out, const DTP_FRAG_t *l, const DTP_FRAG_
 void rt_dtp_head_build(DTP_FRAG_t *frag, const char *varname);
 extern const uint8_t bb_lit_proto[125];
 extern const DTP_PROTO_DESC bb_lit_proto_desc;
+extern const uint8_t bb_len_proto[78];
+extern const DTP_PROTO_DESC bb_len_proto_desc;
+extern const uint8_t bb_pos_proto[61];
+extern const DTP_PROTO_DESC bb_pos_proto_desc;
+extern const uint8_t bb_rpos_proto[66];
+extern const DTP_PROTO_DESC bb_rpos_proto_desc;
+extern const uint8_t bb_tab_proto[83];
+extern const DTP_PROTO_DESC bb_tab_proto_desc;
+extern const uint8_t bb_rtab_proto[83];
+extern const DTP_PROTO_DESC bb_rtab_proto_desc;
 #endif
