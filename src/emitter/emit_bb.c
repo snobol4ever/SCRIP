@@ -906,12 +906,25 @@ void bb_prepare(IR_t *nd) {
     }
     if (nd->op == IR_UNIFY || nd->op == IR_CELL_UNIFY) {
         IR_t *l = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t*)0), *r = (nd->n_operands > 1) ? nd->operands[1] : ((IR_t*)0);
+        if (nd->op == IR_CELL_UNIFY) { g_emit.op_parts_n = 1; g_emit.op_parts_ival[0] = -1; g_emit.op_parts_ival[1] = 0; g_emit.op_parts_ival[2] = 0; g_emit.op_parts_ival[3] = 0; g_emit.op_parts_str[0] = NULL; }
         if (!l || !r) return;
         g_emit.bb_lk = (int)l->op; g_emit.bb_li = (int64_t)IR_LIT(l).ival;
         g_emit.bb_rk = (int)r->op; g_emit.bb_ri = (int64_t)IR_LIT(r).ival;
         g_emit.bb_ln = (void *)l; g_emit.bb_rn = (void *)r;
         if (l->op == IR_ATOM) g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(l).sval ? IR_LIT(l).sval : "");
         if (r->op == IR_ATOM) g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(r).sval ? IR_LIT(r).sval : "");
+        if (nd->op == IR_CELL_UNIFY) {
+            int lk = (int)l->op, rk = (int)r->op;
+            int lc = (lk == (int)IR_ATOM || lk == (int)IR_LIT_I || lk == (int)IR_LIT_F), rc = (rk == (int)IR_ATOM || rk == (int)IR_LIT_I || rk == (int)IR_LIT_F);
+            if (lk == (int)IR_STRUCT || rk == (int)IR_STRUCT) { g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[1] = (int64_t)(intptr_t)l; g_emit.op_parts_ival[2] = (int64_t)(intptr_t)r; }
+            else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LOGICVAR && IR_LIT(l).ival == IR_LIT(r).ival) g_emit.op_parts_ival[0] = 1;
+            else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LOGICVAR) { g_emit.op_parts_ival[0] = 2; g_emit.op_parts_ival[1] = (int64_t)IR_LIT(l).ival; g_emit.op_parts_ival[2] = (int64_t)IR_LIT(r).ival; }
+            else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LIT_F && (int)IR_LIT(l).ival >= 0) { g_emit.op_parts_ival[0] = 3; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(l).ival; double fd = IR_LIT(r).dval; memcpy(&g_emit.op_parts_ival[2], &fd, 8); }
+            else if (rk == (int)IR_LOGICVAR && lk == (int)IR_LIT_F && (int)IR_LIT(r).ival >= 0) { g_emit.op_parts_ival[0] = 3; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(r).ival; double fd = IR_LIT(l).dval; memcpy(&g_emit.op_parts_ival[2], &fd, 8); }
+            else if (lk == (int)IR_LOGICVAR && (rk == (int)IR_ATOM || rk == (int)IR_LIT_I) && (int)IR_LIT(l).ival >= 0) { g_emit.op_parts_ival[0] = 4; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(l).ival; g_emit.op_parts_ival[2] = (int64_t)rk; g_emit.op_parts_ival[3] = (int64_t)IR_LIT(r).ival; g_emit.op_parts_str[0] = (rk == (int)IR_ATOM) ? IR_LIT(r).sval : NULL; }
+            else if (rk == (int)IR_LOGICVAR && (lk == (int)IR_ATOM || lk == (int)IR_LIT_I) && (int)IR_LIT(r).ival >= 0) { g_emit.op_parts_ival[0] = 4; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(r).ival; g_emit.op_parts_ival[2] = (int64_t)lk; g_emit.op_parts_ival[3] = (int64_t)IR_LIT(l).ival; g_emit.op_parts_str[0] = (lk == (int)IR_ATOM) ? IR_LIT(l).sval : NULL; }
+            else if (lc && rc) { int eq = 0; if (lk == rk) { if (lk == (int)IR_LIT_F) eq = (IR_LIT(l).dval == IR_LIT(r).dval); else if (lk == (int)IR_LIT_I) eq = (IR_LIT(l).ival == IR_LIT(r).ival); else eq = (IR_LIT(l).sval && IR_LIT(r).sval && strcmp(IR_LIT(l).sval, IR_LIT(r).sval) == 0); } g_emit.op_parts_ival[0] = eq ? 5 : 6; }
+        }
         return;
     }
     if (nd->op == IR_BUILTIN) {
