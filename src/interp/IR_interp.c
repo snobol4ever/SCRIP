@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <gc/gc.h>
 #include <setjmp.h>
+#include "../include/dtp.h"
 extern const char *Σ;
 extern int         Δ;
 extern int         Ω;
@@ -3183,6 +3184,44 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).counter += by;
         return bb->γ.node;
     }
+    case IR_PATTERN_LIT: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        const char *lit = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
+        long litlen = (long)strlen(lit);
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_lit_proto, 125, &bb_lit_proto_desc, litlen, lit);
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1;
+        IR_EXEC(bb).value = NULVCL;
+        return bb->γ.node;
+    }
+    case IR_PATTERN_ALT: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        IR_t *la = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        IR_t *rb = bb->n_operands > 1 ? bb->operands[1] : NULL;
+        if (!la || !rb) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        DTP_FRAG_t *fl = (DTP_FRAG_t *)(intptr_t)IR_EXEC(la).counter;
+        DTP_FRAG_t *fr = (DTP_FRAG_t *)(intptr_t)IR_EXEC(rb).counter;
+        if (!fl || !fr) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        DTP_FRAG_t *out = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!out) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_stitch_alt(out, fl, fr);
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)out;
+        IR_EXEC(bb).state = 1;
+        IR_EXEC(bb).value = NULVCL;
+        return bb->γ.node;
+    }
+    case IR_DTP_ASSIGN: {
+        IR_t *op0 = bb->n_operands > 0 ? bb->operands[0] : NULL;
+        if (!op0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)(intptr_t)IR_EXEC(op0).counter;
+        if (!frag || !frag->entry) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        const char *varname = IR_LIT(bb).sval ? IR_LIT(bb).sval : "";
+        rt_dtp_head_build(frag, varname);
+        IR_EXEC(bb).value = NULVCL;
+        return bb->γ.node;
+    }
     case IR_SCAN: {
         IR_graph_t *pat = (IR_graph_t *)(intptr_t)IR_EXEC(bb).counter;
         if (!pat || !pat->entry) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
@@ -4216,8 +4255,10 @@ IR_t * IR_interp_node(IR_t * bb) {
             return bb->γ.node;
         }
         if (val.v == DT_P && val.p) {
-            fprintf(stderr, "[B0] BOMB IR_PAT_DEFER: pattern-valued *var needs DT_P builders (B-ladder).\n");
-            abort();
+            extern long rt_dtp_run(DTP_t *h, const char *s, long delta, long Delta);
+            long nd = rt_dtp_run((DTP_t *)val.p, Σ, (long)Δ, (long)Σlen);
+            if (nd >= 0) { Δ = (int)nd; IR_EXEC(bb).state = 2; IR_EXEC(bb).value = NULVCL; return bb->γ.node; }
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
         }
         IR_EXEC(bb).value = FAILDESCR;
         return bb->ω.node;
