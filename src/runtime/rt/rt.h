@@ -204,6 +204,10 @@ int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void
 int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival);
 int rt_arith_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
 int rt_term_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
+int rt_pl_type_test_cell(void *cell_term, const char *fn);
+int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell);
+int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell);
+int rt_pl_univ_cell(void *t0_cell, void *list_cell);
 long size_value(DESCR_t v, int *failed);
 #ifdef __cplusplus
 }
