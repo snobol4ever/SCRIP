@@ -262,6 +262,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = lower_rblock(cx, t->c[3], conj, to);
         γ_to(va, bentry); *res = to; return elo; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_SMATCH: if (t->n > 1) {
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "re_match"; IR_LIT(nd).ival = 2;
+        IR_graph_t ** blks = (IR_graph_t **) calloc(2, sizeof(IR_graph_t *));
+        if (blks) { blks[0] = rk_arg_block(cx, t->c[0]); blks[1] = rk_arg_block(cx, t->c[1]); IR_EXEC(nd).counter = (int64_t)(intptr_t) blks; }
+        *res = nd; return nd; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_CAPTURE: return lower_rcall(cx, t, "re_capture", 0, 0, γ, ω, res);
+    case TT_NAMED_CAPTURE: return lower_rcall(cx, t, "re_named_capture", 0, 0, γ, ω, res);
     case TT_SEQ: case TT_PROGRAM: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
