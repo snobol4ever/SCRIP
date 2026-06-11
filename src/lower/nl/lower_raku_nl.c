@@ -1,4 +1,6 @@
 #include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include "ast.h"
 #include "IR.h"
 /*====================================================================================================================================================================================================*/
@@ -151,11 +153,23 @@ static int rk_is_binop(tree_e tt) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, IR_t * γ, IR_t * ω, IR_t ** res) {
+static IR_graph_t * rk_arg_block(rcx_t * cx, const tree_t * a) {
+    IR_graph_t * saved = cx->g; IR_graph_t * g2 = IR_alloc(256, IR_LANG_RKU); cx->g = g2;
+    IR_t * F = IR_node_alloc(g2, IR_FAIL);
+    IR_t * r = NULL; IR_t * e = lower_rv(cx, a, NULL, F, &r);
+    g2->entry = e; cx->g = saved; return g2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, int visible, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n - from;
-    IR_t * succ = nd; IR_t * entry = nd;
-    for (int i = t->n - 1; i >= from; i--) { IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[i], succ, ω, &r); succ = e; entry = e; }
-    *res = nd; return (t->n > from) ? entry : nd;
+    if (visible) {
+        IR_t * succ = nd; IR_t * entry = nd;
+        for (int i = t->n - 1; i >= from; i--) { IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[i], succ, ω, &r); succ = e; entry = e; }
+        *res = nd; return (t->n > from) ? entry : nd; }
+    int nargs = t->n - from;
+    if (nargs > 0) { IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
+        if (blks) { for (int k = 0; k < nargs; k++) blks[k] = rk_arg_block(cx, t->c[from + k]); IR_EXEC(nd).counter = (int64_t)(intptr_t) blks; } }
+    *res = nd; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
@@ -187,9 +201,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
         IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_SAY: case TT_SAY_FH: return lower_rcall(cx, t, "write", 0, γ, ω, res);
-    case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "print", 0, γ, ω, res);
-    case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?"; return lower_rcall(cx, t, nm, 1, γ, ω, res); }
+    case TT_SAY: case TT_SAY_FH: return lower_rcall(cx, t, "write", 0, 1, γ, ω, res);
+    case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "print", 0, 1, γ, ω, res);
+    case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?"; return lower_rcall(cx, t, nm, 1, 0, γ, ω, res); }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); return sub ? lower_rv(cx, sub, γ, ω, res) : (build(cx, IR_SUCCEED, γ, ω)); }
     case TT_SEQ: case TT_PROGRAM: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
