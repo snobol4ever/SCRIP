@@ -32,4 +32,7 @@ void pat_pool_reset(void);
 void rt_pattern_build(DTP_FRAG_t *out, const void *proto, uint32_t len, const DTP_PROTO_DESC *desc, long op_i, const char *op_s);
 void rt_pattern_stitch_cat(DTP_FRAG_t *out, const DTP_FRAG_t *l, const DTP_FRAG_t *r);
 void rt_pattern_stitch_alt(DTP_FRAG_t *out, const DTP_FRAG_t *l, const DTP_FRAG_t *r);
+void rt_dtp_head_build(DTP_FRAG_t *frag, const char *varname);
+extern const uint8_t bb_lit_proto[125];
+extern const DTP_PROTO_DESC bb_lit_proto_desc;
 #endif
