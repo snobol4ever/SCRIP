@@ -2946,15 +2946,20 @@ IR_t * IR_interp_node(IR_t * bb) {
         int saved_brk_w = frame_depth > 0 ? FRAME.loop_break : 0;
         int saved_nxt_w = frame_depth > 0 ? FRAME.loop_next  : 0;
         if (frame_depth > 0) { FRAME.loop_break = 0; FRAME.loop_next = 0; }
-        int safety = 1000000;
-        while (safety-- > 0) {
-            IR_EXEC(cnd).state = 0;
-            IR_interp_node(cnd);
-            DESCR_t cv = IR_EXEC(cnd).value;
-            if (IS_FAIL_fn(cv)) break;
-            if (frame_depth > 0 && FRAME.loop_break) break;
-            if (((IR_t*)0)) { IR_EXEC(((IR_t*)0)).state = 0; IR_interp_node(((IR_t*)0)); }
-            if (frame_depth > 0 && (FRAME.loop_break || FRAME.returning)) break;
+        int safety = (g_current_cfg ? g_current_cfg->n : 64) * 65536 + 1048576;
+        int exited = 0;
+        while (!exited && safety-- > 0) {
+            IR_t * cur = cnd;
+            int inner = (g_current_cfg ? g_current_cfg->n : 64) * 1024 + 4096;
+            while (cur && cur != bb && inner-- > 0) {
+                IR_t * nxt = IR_interp_node(cur);
+                if (IS_FAIL_fn(IR_EXEC(cur).value)) { exited = 1; break; }
+                if (frame_depth > 0 && (FRAME.loop_break || FRAME.returning)) { exited = 1; break; }
+                if (!nxt || nxt == bb) { exited = 1; break; }
+                ag_ring_push(g_current_cfg, IR_EXEC(cur).value);
+                cur = nxt;
+            }
+            if (inner <= 0) exited = 1;
             if (frame_depth > 0) FRAME.loop_next = 0;
         }
         if (frame_depth > 0) { FRAME.loop_break = saved_brk_w; FRAME.loop_next = saved_nxt_w; }
