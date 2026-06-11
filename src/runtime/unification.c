@@ -467,3 +467,62 @@ int rt_redo_meta(void *entry_cp_v)
     return g_meta_compat ? rt_meta_redo((void *)g_meta_compat) : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_type_test_cell(void *cell_term, const char *fn)
+{
+    extern int rt_type_test_term(const char *fn, void *t0);
+    return rt_type_test_term(fn, term_deref((Term *)cell_term));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
+{
+    extern int rt_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
+    extern Trail g_resolve_trail;
+    Term *t0 = term_deref((Term *)t0_cell);
+    Term *t1 = term_deref((Term *)name_cell);
+    Term *t2 = term_deref((Term *)arity_cell);
+    int mark = trail_mark(&g_resolve_trail);
+    Term *d0 = t0;
+    if (d0 && d0->tag != TERM_VAR) {
+        Term *nameT, *arityT;
+        if (d0->tag == TERM_COMPOUND) { nameT = term_new_atom(d0->compound.functor); arityT = term_new_int(d0->compound.arity); }
+        else if (d0->tag == TERM_ATOM) { nameT = term_new_atom(d0->atom_id); arityT = term_new_int(0); }
+        else if (d0->tag == TERM_INT) { nameT = term_new_int(d0->ival); arityT = term_new_int(0); }
+        else if (d0->tag == TERM_FLOAT) { nameT = term_new_float(d0->fval); arityT = term_new_int(0); }
+        else { trail_unwind(&g_resolve_trail, mark); return 0; }
+        if (!unify(t1, nameT, &g_resolve_trail) || !unify(t2, arityT, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        return 1;
+    }
+    if (!t2 || t2->tag != TERM_INT) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    long ar = t2->ival;
+    Term *built;
+    if (ar == 0) { built = t1 ? t1 : term_new_atom(prolog_atom_intern("[]")); }
+    else {
+        if (!t1 || t1->tag != TERM_ATOM) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        Term **args = (Term **)GC_MALLOC((size_t)ar * sizeof(Term *));
+        for (long i = 0; i < ar; i++) args[i] = term_new_var(-1);
+        built = term_new_compound(t1->atom_id, (int)ar, args);
+    }
+    if (!unify(t0, built, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell)
+{
+    extern Trail g_resolve_trail;
+    Term *tN = term_deref((Term *)n_cell);
+    Term *tT = term_deref((Term *)t_cell);
+    Term *tA = (Term *)arg_cell;
+    int mark = trail_mark(&g_resolve_trail);
+    if (!tN || tN->tag != TERM_INT || !tT || tT->tag != TERM_COMPOUND) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    long n = tN->ival;
+    if (n < 1 || n > tT->compound.arity) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    if (!unify(tA, tT->compound.args[n - 1], &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_univ_cell(void *t0_cell, void *list_cell)
+{
+    extern int rt_univ_term_term(void *t0, void *t1);
+    return rt_univ_term_term(t0_cell, list_cell);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
