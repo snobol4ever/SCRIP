@@ -3236,6 +3236,46 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
         IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
     }
+    case IR_PATTERN_ANY: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_any_proto, 89, &bb_any_proto_desc, 0, IR_LIT(bb).sval ? IR_LIT(bb).sval : "");
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
+    case IR_PATTERN_NOTANY: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_notany_proto, 89, &bb_notany_proto_desc, 0, IR_LIT(bb).sval ? IR_LIT(bb).sval : "");
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
+    case IR_PATTERN_SPAN: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_span_proto, 101, &bb_span_proto_desc, 0, IR_LIT(bb).sval ? IR_LIT(bb).sval : "");
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
+    case IR_PATTERN_BREAK: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_break_proto, 96, &bb_break_proto_desc, 0, IR_LIT(bb).sval ? IR_LIT(bb).sval : "");
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
+    case IR_PATTERN_BREAKX: {
+        if (IR_EXEC(bb).state) return bb->γ.node;
+        DTP_FRAG_t *frag = (DTP_FRAG_t *)GC_MALLOC(sizeof(DTP_FRAG_t));
+        if (!frag) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        rt_pattern_build(frag, bb_breakx_proto, 165, &bb_breakx_proto_desc, 0, IR_LIT(bb).sval ? IR_LIT(bb).sval : "");
+        IR_EXEC(bb).counter = (int64_t)(intptr_t)frag;
+        IR_EXEC(bb).state = 1; IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+    }
     case IR_PATTERN_ALT: {
         if (IR_EXEC(bb).state) return bb->γ.node;
         IR_t *la = bb->n_operands > 0 ? bb->operands[0] : NULL;

@@ -55,4 +55,14 @@ extern const uint8_t bb_fence_proto[44];
 extern const DTP_PROTO_DESC bb_fence_proto_desc;
 extern const uint8_t bb_abort_proto[44];
 extern const DTP_PROTO_DESC bb_abort_proto_desc;
+extern const uint8_t bb_any_proto[89];
+extern const DTP_PROTO_DESC bb_any_proto_desc;
+extern const uint8_t bb_notany_proto[89];
+extern const DTP_PROTO_DESC bb_notany_proto_desc;
+extern const uint8_t bb_span_proto[101];
+extern const DTP_PROTO_DESC bb_span_proto_desc;
+extern const uint8_t bb_break_proto[96];
+extern const DTP_PROTO_DESC bb_break_proto_desc;
+extern const uint8_t bb_breakx_proto[165];
+extern const DTP_PROTO_DESC bb_breakx_proto_desc;
 #endif
