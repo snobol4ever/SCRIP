@@ -203,7 +203,11 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_SAY: case TT_SAY_FH: return lower_rcall(cx, t, "write", 0, 1, γ, ω, res);
     case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "print", 0, 1, γ, ω, res);
-    case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?"; return lower_rcall(cx, t, nm, 1, 0, γ, ω, res); }
+    case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
+        if (nm && !strcmp(nm, "push") && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) {
+            IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = t->c[1]->v.sval;
+            IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "push_pure", 1, 0, as, ω, &r2); *res = as; return e; }
+        return lower_rcall(cx, t, nm, 1, 0, γ, ω, res); }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); return sub ? lower_rv(cx, sub, γ, ω, res) : (build(cx, IR_SUCCEED, γ, ω)); }
     case TT_IF: {
         IR_t * nd = build(cx, IR_IF, γ, ω);
@@ -213,6 +217,15 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->n > 2 && t->c[2]) { IR_t * econj = build(cx, IR_CONJ, γ, ω); eentry = lower_rblock(cx, t->c[2], econj, ω); }
         IR_t * r = NULL; IR_t * centry = lower_rv(cx, t->c[0], tentry, eentry ? eentry : γ, &r);
         ir_operand_push(nd, centry); *res = nd; return centry; }
+    case TT_EVERY: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0) {
+        IR_t * ev = build(cx, IR_EVERY, γ, ω);
+        IR_t * lb = build(cx, IR_LIST_BANG, NULL, ev);
+        IR_t * rs = NULL; IR_t * se = lower_rv(cx, t->c[0]->c[0], NULL, ev, &rs);
+        ir_operand_push(lb, se);
+        IR_t * conj = build(cx, IR_CONJ, lb, lb);
+        IR_t * bentry = lower_rblock(cx, t->c[1], conj, lb);
+        γ_to(lb, bentry); ir_operand_push(ev, lb); *res = ev; return lb; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_WHILE: {
         IR_t * nd = build(cx, IR_WHILE, γ, ω);
         IR_t * r = NULL; IR_t * centry = lower_rv(cx, t->c[0], NULL, nd, &r);
