@@ -171,6 +171,35 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_LIT(nd).ival = (long long)(intptr_t) fs;
             return nd;
         }
+        if (!strcmp(nm, "catch") && t->n == 3) {
+            IR_t * nd = build(cx, IR_CATCH, γnext, ωfail);
+            bb_catch_state_t * zc = (bb_catch_state_t *) calloc(1, sizeof *zc);
+            IR_graph_t * sub = IR_alloc(256, IR_LANG_PL);
+            lcx_t scx; scx.g = sub; scx.tω = NULL;
+            IR_t * ssucc = build(&scx, IR_SUCCEED, NULL, NULL);
+            IR_t * sfail = build(&scx, IR_FAIL, NULL, NULL);
+            const tree_t * gone[1] = { t->c[0] };
+            tree_t blkw; memset(&blkw, 0, sizeof blkw); blkw.n = 1; blkw.c = (tree_t **) gone;
+            IR_t * sentry = NULL;
+            thread_goals(&scx, &blkw, 0, 1, ssucc, sfail, &sentry, NULL);
+            sub->entry = sentry ? sentry : ssucc;
+            zc->goal_g = sub;
+            IR_t * cnode = term(cx, t->c[1]);
+            zc->catcher = cnode;
+            ir_operand_push(nd, cnode);
+            IR_graph_t * rsub = IR_alloc(256, IR_LANG_PL);
+            lcx_t rcx; rcx.g = rsub; rcx.tω = NULL;
+            IR_t * rsucc = build(&rcx, IR_SUCCEED, NULL, NULL);
+            IR_t * rfail = build(&rcx, IR_FAIL, NULL, NULL);
+            const tree_t * rone[1] = { t->c[2] };
+            tree_t rblkw; memset(&rblkw, 0, sizeof rblkw); rblkw.n = 1; rblkw.c = (tree_t **) rone;
+            IR_t * rentry = NULL;
+            thread_goals(&rcx, &rblkw, 0, 1, rsucc, rfail, &rentry, NULL);
+            rsub->entry = rentry ? rentry : rsucc;
+            zc->rec_g = rsub;
+            IR_LIT(nd).ival = (long long)(intptr_t) zc;
+            return nd;
+        }
         if (is_builtin_exec(nm)) {
             IR_t * nd = build(cx, IR_BUILTIN, γnext, ωfail); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n;
             IR_t * sav = cx->tω; if (!is_builtin_visible(nm)) cx->tω = ωfail;
