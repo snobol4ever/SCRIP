@@ -862,6 +862,56 @@ static const char *bb_intern_into(char *buf, const char *sval) {
     return buf;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int gz_arith_const_eval(const IR_t *nd, long *out) {
+    if (!nd) return 0;
+    if (nd->op == IR_LIT_I) { *out = (long)IR_LIT(nd).ival; return 1; }
+    const IR_t *a0 = ir_pair_arg(nd, 0), *a1 = ir_pair_arg(nd, 1);
+    if (nd->op != IR_ARITH || !a0) return 0;
+    const char *op = IR_LIT(nd).sval ? IR_LIT(nd).sval : "+";
+    if (!a1) {
+        long a = 0;
+        if (!gz_arith_const_eval(a0, &a)) return 0;
+        if (strcmp(op,"-")==0) { *out = -a; return 1; }
+        if (strcmp(op,"+")==0) { *out =  a; return 1; }
+        if (strcmp(op,"abs")==0) { *out = (a<0)?-a:a; return 1; }
+        return 0;
+    }
+    long a = 0, b = 0;
+    if (!gz_arith_const_eval(a0, &a) || !gz_arith_const_eval(a1, &b)) return 0;
+    if (strcmp(op,"+")==0) { *out = a+b; return 1; }
+    if (strcmp(op,"-")==0) { *out = a-b; return 1; }
+    if (strcmp(op,"*")==0) { *out = a*b; return 1; }
+    if (strcmp(op,"/")==0) { if (!b) return 0; *out = a/b; return 1; }
+    if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { if (!b) return 0; *out = a%b; return 1; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int gz_arith_var_plus_const(const IR_t *nd, int *var_slot, const char **op_out, long *c_out) {
+    if (!nd) return 0;
+    if (nd->op == IR_LOGICVAR) { *var_slot = (int)IR_LIT(nd).ival; *op_out = NULL; *c_out = 0; return 1; }
+    const IR_t *p0 = ir_pair_arg(nd, 0), *p1 = ir_pair_arg(nd, 1);
+    if (nd->op != IR_ARITH || !IR_LIT(nd).sval || !p0 || !p1) return 0;
+    const char *op = IR_LIT(nd).sval;
+    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
+        if (p0->op == IR_LOGICVAR && p1->op == IR_LIT_I) {
+            *var_slot = (int)IR_LIT(p0).ival; *op_out = op; *c_out = (long)IR_LIT(p1).ival; return 1;
+        }
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char **op_out) {
+    const IR_t *b0 = ir_pair_arg(nd, 0), *b1 = ir_pair_arg(nd, 1);
+    if (!nd || nd->op != IR_ARITH || !IR_LIT(nd).sval || !b0 || !b1) return 0;
+    const char *op = IR_LIT(nd).sval;
+    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
+        if (b0->op == IR_LOGICVAR && b1->op == IR_LOGICVAR) {
+            *slot1 = (int)IR_LIT(b0).ival; *slot2 = (int)IR_LIT(b1).ival; *op_out = op; return 1;
+        }
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare(IR_t *nd) {
     if (!PLATFORM_X86) return;
     g_emit.bb_ls = NULL;
@@ -999,8 +1049,20 @@ void bb_prepare(IR_t *nd) {
         return;
     }
     if (nd->op == IR_DET_IS) {
-        g_emit.bb_ln = (void *)bb_child0(nd);
-        g_emit.bb_rn = (void *)bb_child1(nd);
+        const IR_t * l = bb_child0(nd);
+        const IR_t * r = bb_child1(nd);
+        long cval = 0, rc = 0;
+        int rslot = -1, bslot1 = -1, bslot2 = -1;
+        const char * rop = NULL, * bop = NULL;
+        g_emit.op_parts_n = 4;
+        for (int i = 0; i < 4; i++) g_emit.op_parts_ival[i] = 0;
+        g_emit.op_parts_str[0] = NULL;
+        if (!l || l->op != IR_LOGICVAR) { g_emit.op_parts_ival[0] = -1; return; }
+        g_emit.op_parts_ival[1] = (int64_t)IR_LIT(l).ival;
+        if (gz_arith_const_eval(r, &cval)) { g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[2] = (int64_t)cval; return; }
+        if (gz_arith_var_plus_const(r, &rslot, &rop, &rc)) { g_emit.op_parts_ival[0] = 1; g_emit.op_parts_ival[2] = (int64_t)rslot; g_emit.op_parts_ival[3] = (int64_t)rc; g_emit.op_parts_str[0] = rop; return; }
+        if (gz_arith_var_bivar(r, &bslot1, &bslot2, &bop)) { g_emit.op_parts_ival[0] = 2; g_emit.op_parts_ival[2] = (int64_t)bslot1; g_emit.op_parts_ival[3] = (int64_t)bslot2; g_emit.op_parts_str[0] = bop; return; }
+        g_emit.op_parts_ival[0] = -2;
         return;
     }
     if (nd->op == IR_DET_CMP) {
