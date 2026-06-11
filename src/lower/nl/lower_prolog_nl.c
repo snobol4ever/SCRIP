@@ -56,8 +56,11 @@ static IR_t * term(lcx_t * cx, const tree_t * t) {
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, NULL, cx->tω); IR_LIT(nd).dval = t->v.dval; return nd; }
     case TT_VAR:  { IR_t * nd = build(cx, IR_LOGICVAR, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
     case TT_MAKELIST: {
-        IR_t * prev = build(cx, IR_ATOM, NULL, cx->tω); IR_LIT(prev).sval = "[]";
-        for (int i = t->n - 1; i >= 0; i--) {
+        int bar = (t->v.ival == 1 && t->n > 0);
+        IR_t * prev;
+        if (bar) prev = term(cx, t->c[t->n - 1]);
+        else { prev = build(cx, IR_ATOM, NULL, cx->tω); IR_LIT(prev).sval = "[]"; }
+        for (int i = (bar ? t->n - 2 : t->n - 1); i >= 0; i--) {
             IR_t * e = term(cx, t->c[i]);
             IR_t * c = build(cx, IR_STRUCT, NULL, cx->tω); IR_LIT(c).sval = "."; IR_LIT(c).ival = 2;
             ir_operand_push(c, e); ir_operand_push(c, prev); prev = c;
