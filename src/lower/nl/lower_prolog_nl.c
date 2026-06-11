@@ -296,6 +296,13 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
     }
 }
 /*====================================================================================================================================================================================================*/
+static int max_var_slot(const tree_t * t, int mx) {
+    if (!t) return mx;
+    if (t->t == TT_VAR && (int) t->v.ival > mx) mx = (int) t->v.ival;
+    for (int i = 0; i < t->n; i++) mx = max_var_slot(t->c[i], mx);
+    return mx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_prolog(const tree_t * prog) {
     IR_graph_t * g = IR_alloc(8192, IR_LANG_PL);
     lcx_t cx; cx.g = g; cx.tω = NULL;
@@ -308,11 +315,13 @@ IR_graph_t * lower_prolog(const tree_t * prog) {
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * gconj   = build(&cx, IR_GCONJ, succeed, fail);
-    if (!clause) { IR_LIT(gconj).ival = (long long)(intptr_t) calloc(1, sizeof(bb_conj_state_t)); g->entry = gconj; return g; }
+    if (!clause) { IR_LIT(gconj).ival = (long long)(intptr_t) calloc(1, sizeof(bb_conj_state_t)); g->entry = gconj; g->body_root = gconj; g->nslots = 0; return g; }
     int arity = (int) clause->v.dval;
     IR_t * entry = NULL;
     thread_goals(&cx, clause, arity, clause->n, gconj, fail, &entry, gconj);
     g->entry = entry ? entry : gconj;
+    g->body_root = gconj;
+    g->nslots = max_var_slot(clause, -1) + 1;
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -329,15 +338,30 @@ IR_graph_t * lower_prolog_nl_clause(const tree_t * clause) {
     IR_t * bentry = NULL;
     thread_goals(&cx, clause, arity, clause->n, gconj, fail, &bentry, gconj);
     IR_t * next = bentry ? bentry : gconj;
+    IR_t ** hu = (arity > 0) ? (IR_t **) calloc((size_t) arity, sizeof(IR_t *)) : NULL;
     for (int i = arity - 1; i >= 0; i--) {
         const tree_t * h = clause->c[i];
-        if (h && h->t == TT_VAR && (int) h->v.ival == i) continue;
         IR_t * u = build(&cx, IR_UNIFY, next, fail);
         IR_t * lv = build(&cx, IR_LOGICVAR, NULL, NULL); IR_LIT(lv).ival = i;
         ir_operand_push(u, lv);
         ir_operand_push(u, term(&cx, h));
         next = u;
+        if (hu) hu[i] = u;
     }
+    if (hu) {
+        bb_conj_state_t * z = (bb_conj_state_t *)(intptr_t) IR_LIT(gconj).ival;
+        if (z) {
+            int total = arity + z->ngoals;
+            IR_t ** g2 = (IR_t **) calloc((size_t)(total > 0 ? total : 1), sizeof(IR_t *));
+            for (int i = 0; i < arity; i++) g2[i] = hu[i];
+            for (int i = 0; i < z->ngoals; i++) g2[arity + i] = z->goals[i];
+            free(z->goals); z->goals = g2; z->ngoals = total;
+        }
+        free(hu);
+    }
+    g->nslots = max_var_slot(clause, arity - 1) + 1;
+    if (arity == 0 && !bentry) { g->entry = succeed; g->body_root = succeed; return g; }
     g->entry = next;
+    g->body_root = gconj;
     return g;
 }
