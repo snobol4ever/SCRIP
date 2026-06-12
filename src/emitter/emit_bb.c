@@ -960,6 +960,13 @@ void bb_prepare(IR_t *nd) {
         g_emit.bb_rs = oa ? bb_intern_into(g_emit.bb_rs_buf, IR_LIT(oa).sval) : NULL;
         return;
     }
+    if (nd->op == IR_ASSIGN_CONCAT) {
+        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
+        if (g_emit.op_parts_n == 1 && g_emit.op_parts_tag[0] == 0)
+            g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_parts_str[0] ? g_emit.op_parts_str[0] : "");
+        else if (g_emit.op_parts_n > 0) g_emit.op_off = bb_slot_claim(16 * g_emit.op_parts_n);
+        return;
+    }
     if (nd->op == IR_ALT) {
         int n = 0;
         IR_t * const * arms = g_emit_cfg ? bb_operand_aux_get(g_emit_cfg, nd, &n) : ((IR_t * const *)0);
@@ -1836,11 +1843,13 @@ static int gvar_seq_flatten(IR_graph_t *g, int *n) {
 static void flat_drive_gvar_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     g_emit.op_parts_n = 0;
     IR_t *c0 = bb_child0(pBB);
-    if (MEDIUM_TEXT && c0 && c0->op == IR_SEQ) {
+    if (c0 && c0->op == IR_SEQ) {
         int n = 0;
         IR_graph_t *l = (IR_graph_t *)(intptr_t)IR_EXEC(c0).counter;
         IR_graph_t *r = (IR_graph_t *)(intptr_t)IR_LIT(c0).ival;
         if (gvar_seq_flatten(l, &n) && gvar_seq_flatten(r, &n)) g_emit.op_parts_n = n;
+    } else if (c0 && c0->op == IR_LIT_S) {
+        g_emit.op_parts_n = 1; g_emit.op_parts_tag[0] = 0; g_emit.op_parts_str[0] = IR_LIT(c0).sval ? IR_LIT(c0).sval : "";
     }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
