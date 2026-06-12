@@ -1127,6 +1127,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         if (idx < 0 || !*cur) { *out = FAILDESCR; return 1; }
+        if (idx >= 1 && !strchr(cur, SOH) && (size_t)idx <= strlen(cur)) { *out = INTVAL((long long)(unsigned char)cur[idx - 1]); return 1; }
         const char *seg = cur;
         long k = 0;
         for (;;) {
