@@ -1997,6 +1997,27 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if (!fn || !out) return 0;
     if (!strcmp(fn, "FAIL"))    { *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "SUCCEED")) { *out = NULVCL;    return 1; }
+    if (!strcmp(fn, "__rk_bool") && nargs == 1) {
+        DESCR_t v = args[0];
+        int t = 0;
+        if (IS_FAIL_fn(v))  t = 0;
+        else if (IS_INT_fn(v))  t = (v.i != 0);
+        else if (IS_REAL_fn(v)) t = (v.r != 0.0);
+        else if (v.v == DT_SNUL) t = 0;
+        else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0' && !(s[0]=='0' && s[1]=='\0')); }
+        if (!t) { *out = FAILDESCR; return 1; }
+        *out = v; return 1;
+    }
+    if (!strcmp(fn, "__rk_bool_val") && nargs == 1) {
+        DESCR_t v = args[0];
+        int t = 0;
+        if (IS_FAIL_fn(v))  t = 0;
+        else if (IS_INT_fn(v))  t = (v.i != 0);
+        else if (IS_REAL_fn(v)) t = (v.r != 0.0);
+        else if (v.v == DT_SNUL) t = 0;
+        else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0' && !(s[0]=='0' && s[1]=='\0')); }
+        *out = INTVAL(t); return 1;
+    }
     if (!strcmp(fn, "__pas_chr") && nargs == 1) {
         long long cv = IS_INT_fn(args[0]) ? args[0].i : 0;
         if (cv < 0) cv = 0; if (cv > 255) cv = 255;
