@@ -73,7 +73,7 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_NUL: return build(cx, IR_LIT_NUL, γ, ω);
     case TT_VAR: { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval; ir_operand_push(nd, lower(cx, t->c[0], NULL, NULL)); return nd; }
-    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
+    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = IR_node_alloc(cx->g, IR_VAR); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); return nd; }
     case TT_ADD: return lower_binop(cx, t, "+", γ, ω);
     case TT_SUB: return lower_binop(cx, t, "-", γ, ω);
     case TT_MUL: return lower_binop(cx, t, "*", γ, ω);
@@ -97,8 +97,8 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_HASH_SET: return lower_nary(cx, t, IR_IDX_SET, γ, ω);
     case TT_HASH_EXISTS: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "exists"; return nd; }
     case TT_HASH_DELETE: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "delete"; return nd; }
-    case TT_METHCALL: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
-    case TT_NEW: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "new"; return nd; }
+    case TT_METHCALL: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "meth_call"; return nd; }
+    case TT_NEW: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "obj_new"; return nd; }
     case TT_ASSIGN: return lower_nary(cx, t, IR_ASSIGN, γ, ω);
     case TT_TO: return lower_nary(cx, t, IR_TO, γ, ω);
     case TT_ITERATE: return lower_nary(cx, t, IR_ITERATE, γ, ω);
@@ -160,7 +160,23 @@ static IR_t * lower_decl(rcx_t * cx, const tree_t * t) {
     case TT_SUB_DECL: { IR_t * nd = IR_node_alloc(cx->g, IR_PROC); IR_LIT(nd).sval = t->v.sval;
         IR_t * body = (t->n > 2) ? lower_block(cx, t->c[2], NULL, NULL) : build(cx, IR_SUCCEED, NULL, NULL);
         ir_operand_push(nd, body); return nd; }
-    case TT_CLASS_DECL: { IR_t * nd = IR_node_alloc(cx->g, IR_RECORD_DEF); IR_LIT(nd).sval = t->v.sval; push_kids(cx, nd, t, 0); return nd; }
+    case TT_CLASS_DECL: { IR_t * nd = IR_node_alloc(cx->g, IR_RECORD_DEF);
+        const char * cname = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : "";
+        char spec[512]; int pos = 0;
+        pos += snprintf(spec + pos, sizeof(spec) - pos, "%s(", cname);
+        int first_field = 1;
+        for (int i = 1; i < t->n; i++) {
+            const tree_t * ch = t->c[i];
+            if (!ch || ch->t == TT_SUB_DECL) continue;
+            if (!first_field) { if (pos < (int)sizeof(spec) - 2) spec[pos++] = ','; }
+            const char * fn = ch->v.sval ? ch->v.sval : "";
+            pos += snprintf(spec + pos, sizeof(spec) - pos, "%s", fn);
+            first_field = 0;
+        }
+        if (pos < (int)sizeof(spec) - 1) spec[pos++] = ')';
+        spec[pos] = '\0';
+        IR_LIT(nd).sval = lp_strdup(spec);
+        return nd; }
     default: return lower(cx, t, NULL, NULL);
     }
 }
@@ -337,6 +353,11 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_CAPTURE: return lower_rcall(cx, t, "re_capture", 0, 0, γ, ω, res);
     case TT_NAMED_CAPTURE: return lower_rcall(cx, t, "re_named_capture", 0, 0, γ, ω, res);
     case TT_SEQ: case TT_PROGRAM: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
+    case TT_METHCALL: return lower_rcall(cx, t, "meth_call", 0, 1, γ, ω, res);
+    case TT_NEW: return lower_rcall(cx, t, "obj_new", 0, 1, γ, ω, res);
+    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, NULL, NULL); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return nd; }
+    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval; IR_t * ob = lower(cx, t->c[0], NULL, NULL); ir_operand_push(nd, ob); *res = nd; return nd; }
+    case TT_RETURN: { if (t->n > 0 && t->c[0]) { IR_t * nd = build(cx, IR_RETURN, γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e; } IR_t * nd = build(cx, IR_RETURN, γ, ω); *res = nd; return nd; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
 }
@@ -350,6 +371,68 @@ int lower_raku_enum(const tree_t * prog, const tree_t ** out, int max) {
         if (d && d->t == TT_SUB_DECL) { if (out && n < max) out[n] = d; n++; }
     }
     return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_register_proc(const tree_t * proc, const char * name, int nparams) {
+    int pi = stage2_proc_grow(&g_stage2);
+    g_stage2.proc_table[pi].name     = lp_strdup(name);
+    g_stage2.proc_table[pi].proc     = (tree_t *)(intptr_t) proc;
+    g_stage2.proc_table[pi].entry_pc = -1;
+    g_stage2.proc_table[pi].bb_idx   = -1;
+    g_stage2.proc_table[pi].nparams  = nparams;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_register_classes(const tree_t * prog) {
+    extern void record_register(const char *spec);
+    if (!prog) return;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (!d || d->t != TT_CLASS_DECL) continue;
+        const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+        if (!cname || !*cname) continue;
+        char spec[512]; int pos = 0;
+        pos += snprintf(spec + pos, sizeof(spec) - pos, "%s(", cname);
+        int first_field = 1;
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || ch->t == TT_SUB_DECL) continue;
+            if (!first_field) { if (pos < (int)sizeof(spec) - 2) spec[pos++] = ','; }
+            const char * fn = ch->v.sval ? ch->v.sval : "";
+            pos += snprintf(spec + pos, sizeof(spec) - pos, "%s", fn);
+            first_field = 0;
+        }
+        if (pos < (int)sizeof(spec) - 1) spec[pos++] = ')';
+        spec[pos] = '\0';
+        record_register(spec);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_discover_procs(const tree_t * prog) {
+    if (!prog) return;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (!d) continue;
+        if (d->t == TT_SUB_DECL) {
+            const char * nm = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+            if (!nm) continue;
+            int np = (int) d->v.ival;
+            rk_register_proc(d, nm, np);
+        } else if (d->t == TT_CLASS_DECL) {
+            const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+            if (!cname || !*cname) continue;
+            for (int j = 1; j < d->n; j++) {
+                const tree_t * ch = d->c[j];
+                if (!ch || ch->t != TT_SUB_DECL) continue;
+                const char * mname = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
+                if (!mname) continue;
+                char qname[256]; snprintf(qname, sizeof qname, "%s__%s", cname, mname);
+                int np = (int) ch->v.ival;
+                rk_register_proc(ch, qname, np);
+            }
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
@@ -389,6 +472,8 @@ static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_raku_stage2(const tree_t *prog) {
+    rk_register_classes(prog);
+    rk_discover_procs(prog);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
         if (!proc || proc->t != TT_SUB_DECL) continue;
@@ -396,15 +481,22 @@ void lower_raku_stage2(const tree_t *prog) {
         int bb_idx = lower_raku_body(prog, proc);
         if (bb_idx >= 0) {
             g_stage2.proc_table[pi].bb_idx = bb_idx;
+            const char * pname = g_stage2.proc_table[pi].name;
+            int is_method = (pname && strchr(pname, '_') && strchr(pname, '_')[1] == '_');
+            int param_start = is_method ? 0 : 1;
             int np = g_stage2.proc_table[pi].nparams;
             Scope *sc = &g_stage2.proc_table[pi].lower_sc;
             sc->n = 0;
-            for (int k = 0; k < np && (k + 1) < proc->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
-                const tree_t *pv = proc->c[k + 1];
+            if (is_method) {
+                sc->e[sc->n].name = lp_strdup("self");
+                sc->e[sc->n].slot = sc->n; sc->n++;
+                param_start = 1;
+            }
+            for (int k = 0; k < np && (k + param_start) < proc->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+                const tree_t *pv = proc->c[k + param_start];
                 if (!pv || !pv->v.sval) continue;
                 sc->e[sc->n].name = lp_strdup(pv->v.sval);
-                sc->e[sc->n].slot = sc->n;
-                sc->n++;
+                sc->e[sc->n].slot = sc->n; sc->n++;
             }
         }
     }

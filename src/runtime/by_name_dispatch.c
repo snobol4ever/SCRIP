@@ -1389,6 +1389,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t *callargs = GC_malloc((size_t)total * sizeof(DESCR_t));
         callargs[0] = args[0];
         for (int k = 0; k < nextra; k++) callargs[1 + k] = args[2 + k];
+        if (g_stage2.proc_table[pi].bb_idx >= 0) {
+            extern DESCR_t rk_ir_call_proc(int pi, DESCR_t *args, int nargs);
+            *out = rk_ir_call_proc(pi, callargs, total); return 1;
+        }
         *out = proc_table_call(pi, callargs, total); return 1;
     }
     if (!strcmp(fn, "re_match") && nargs == 2) {
