@@ -10,7 +10,7 @@ int  bb_slot_claim(int bytes);
 int  bb_slot_alloc16(IR_t * nd);
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GATHER_MAX_TAKES 256
 static int64_t  s_gather_vals[GATHER_MAX_TAKES];
 static int      s_gather_n;
@@ -18,45 +18,39 @@ static uint64_t s_gather_vals_ptr;
 static char     s_gather_lbl[64];
 static int      s_gather_cursoff;
 static int      s_gather_resoff;
-/*--------------------------------------------------------------------------------------------------------------------*/
-static inline int          gatherN() { return s_gather_n; }
-static inline uint64_t     valsPtr() { return s_gather_vals_ptr; }
-static inline const char * valsLbl() { return s_gather_lbl; }
-static inline int          cursoff() { return s_gather_cursoff; }
-static inline int          resoff()  { return s_gather_resoff; }
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string gather_vals_rodata() {
-    std::string q = std::string(valsLbl()) + ":";
-    if (gatherN() > 0) {
-        q += " .quad ";
-        for (int i = 0; i < gatherN(); i++) q += emit_fmt("%s%lld", (i ? ", " : ""), (long long)s_gather_vals[i]);
-    } else {
-        q += " .quad 0";
-    }
-    return x86("directive", ".section .rodata") + x86("directive", q)
-         + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int          gatherN()  { return s_gather_n; }
+static inline uint64_t     valsPtr()  { return s_gather_vals_ptr; }
+static inline const char * valsLbl()  { return s_gather_lbl; }
+static inline int          cursoff()  { return s_gather_cursoff; }
+static inline int          resoff()   { return s_gather_resoff; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_gather_str() {
-    if (!PLATFORM_X86) return std::string();
-    return IF(MEDIUM_TEXT,
-               x86("label", _.lbl_α)
-             + x86("comment", emit_fmt("BOX IR_GATHER n=%d [x86() self-encoding, ζ-frame cursor]", gatherN()))
-             + gather_vals_rodata())
-           + x86("def",    L(0))
-           + x86("mov",    "rcx", FRQ(cursoff()))
-           + x86("cmp64",  "rcx", (long)gatherN())
-           + x86("jge",    PORT_OMEGA)
-           + x86("lea",    "rdx", "[rip + __]", valsPtr(), valsLbl())
-           + x86("mov",    "rsi", "rdx", "rcx")
-           + x86("mov",    FRQ(resoff()), (long)6)
-           + x86("mov",    FRQ(resoff() + 8), "rsi")
-           + x86("inc",    FRQ(cursoff()))
-           + x86("jmp",    PORT_GAMMA)
-           + x86("def",    PORT_BETA)
-           + x86("jmp",    L(0));
+    if (PLATFORM_X86) return x86("label",    _.lbl_α)
+         + x86("comment",   "IR_GATHER")
+         + IF(MEDIUM_TEXT,
+               x86("directive", ".section .rodata")
+             + x86("directive", std::string(valsLbl()) + ": .quad "
+                 + (gatherN() > 0
+                     ? [&]{ std::string q; for (int i = 0; i < gatherN(); i++) q += (i ? std::string(", ") : std::string("")) + std::to_string((long long)s_gather_vals[i]); return q; }()
+                     : std::string("0")))
+             + x86("directive", ".section .text")
+             + x86("directive", ".intel_syntax noprefix"))
+         + x86("def",       L(0))
+         + x86("mov",       "rcx", FRQ(cursoff()))
+         + x86("cmp64",     "rcx", (long)gatherN())
+         + x86("jge",       "ω")
+         + x86("lea",       "rdx", "[rip + __]", valsPtr(), valsLbl())
+         + x86("mov",       "rsi", "rdx", "rcx")
+         + x86("mov",       FRQ(resoff()), (long)6)
+         + x86("mov",       FRQ(resoff() + 8), "rsi")
+         + x86("inc",       FRQ(cursoff()))
+         + x86("jmp",       "γ")
+         + x86("def",       "β")
+         + x86("jmp",       L(0));
+    return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_gather(IR_t * pBB) {
     if (!PLATFORM_X86) { return; }
     int n = (int)_.op_ival;
