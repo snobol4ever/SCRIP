@@ -1570,10 +1570,12 @@ static int sort_msort_common(int do_msort, Term *t0, Term *t1) {
     extern Trail g_resolve_trail;
     if (!t0 || !t1) return 0;
     int mark = trail_mark(&g_resolve_trail);
+    int dot_id = prolog_atom_intern(".");
+    int nil_id = prolog_atom_intern("[]");
     Term *lst = term_deref(t0);
     Term *elems[4096]; int n = 0;
     Term *cur = lst;
-    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == ATOM_DOT && cur->compound.arity == 2 && n < 4096) {
+    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == dot_id && cur->compound.arity == 2 && n < 4096) {
         elems[n++] = term_deref(cur->compound.args[0]);
         cur = term_deref(cur->compound.args[1]);
     }
@@ -1587,11 +1589,10 @@ static int sort_msort_common(int do_msort, Term *t0, Term *t1) {
         if (!do_msort && m > 0 && resolve_term_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue;
         out_idx[m++] = i;
     }
-    Term *result = term_new_atom(ATOM_NIL);
+    Term *result = term_new_atom(nil_id);
     for (int i = m - 1; i >= 0; i--) {
-        Term **args = (Term **)GC_MALLOC(2 * sizeof(Term *));
-        args[0] = elems[out_idx[i]]; args[1] = result;
-        result = term_new_compound(ATOM_DOT, 2, args);
+        Term *pair[2]; pair[0] = elems[out_idx[i]]; pair[1] = result;
+        result = term_new_compound(dot_id, 2, pair);
     }
     if (!unify(t1, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
