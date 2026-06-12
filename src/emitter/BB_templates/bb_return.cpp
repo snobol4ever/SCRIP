@@ -8,7 +8,8 @@ extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_return_str() {
+std::string bb_return() {
+    x86_begin();
     if (!PLATFORM_X86 || !g_descr_flat_chain) return x86_bomb("bb_return: unhandled (needs descr flat-chain)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                          + x86("comment", "BOX IR_RETURN [GN x86() stackless: ret-value slot " + std::to_string(_.op_sa) + " -> proc frame result [r12+0]; jmp omega]"))
@@ -22,5 +23,3 @@ static std::string bb_return_str() {
              + x86_frame_mov_imm64(8, 0L))
          + x86("jmp", "ω");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_return(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_return_str()); }

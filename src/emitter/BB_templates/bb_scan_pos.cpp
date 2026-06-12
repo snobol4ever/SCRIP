@@ -7,7 +7,8 @@ extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_scan_pos_str() {
+std::string bb_scan_pos() {
+    x86_begin();
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && (long)_.op_sb >= 1)) return x86_bomb("bb_scan_pos: unhandled (needs literal positive n + descr flat-chain slot)");
     return x86("label", _.lbl_α)
          + x86("comment", "BOX ICN IR_SCAN_POS pos(n) [ICN-SCAN-3 fscan.r: succeed iff &pos==n i.e. r14==n-1; {DT_I,n}->slot->γ.node; single-shot β->ω.node]")
@@ -19,5 +20,3 @@ static std::string bb_scan_pos_str() {
          + x86("def", "β")
          + x86("jmp", "ω");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_scan_pos(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_scan_pos_str()); }

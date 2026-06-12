@@ -9,7 +9,7 @@ extern int g_gvar_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_var_frame_str(IR_t * pBB) {
+std::string bb_var_frame(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     if (!(g_gvar_flat_chain && _.op_off >= 0)) return x86_bomb("bb_var_frame: needs gvar flat-chain + own slot");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
@@ -22,5 +22,3 @@ static std::string bb_var_frame_str(IR_t * pBB) {
          + x86("def", "β")
          + x86("jmp", "ω");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_var_frame(IR_t * pBB) { bb_emit_x86(bb_var_frame_str(pBB)); }

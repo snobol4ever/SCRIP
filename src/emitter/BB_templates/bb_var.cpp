@@ -8,7 +8,8 @@ DESCR_t NV_GET_fn(const char * name);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_var_str() {
+std::string bb_var() {
+    x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (g_gvar_flat_chain && _.op_off >= 0 && _.op_sval && _.op_sval[0] != '&')
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
@@ -39,5 +40,3 @@ static std::string bb_var_str() {
              + x86("jmp",  "ω");
     return x86_bomb("bb_var: unhandled arm (no flat-chain mode or missing slot)");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_var(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_var_str()); }

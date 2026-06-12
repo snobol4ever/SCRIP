@@ -6,9 +6,7 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_alt_str() {
+std::string bb_match_alt() {
     if (!PLATFORM_X86) return std::string();
     return x86_pair_loop();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_alt(void) { bb_emit_x86(bb_match_alt_str()); }

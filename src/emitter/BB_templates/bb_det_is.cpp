@@ -9,7 +9,7 @@ extern "C" int rt_pl_is_cell_int(void *lhs_cell, long val);
 extern "C" int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival);
 extern "C" int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_is_str() {
+std::string bb_det_is() {
     x86_begin();
     if (PLATFORM_X86) return IF(_.op_parts_ival[0] == -1, x86_bomb("bb_det_is: lhs not LOGICVAR"))
          + IF(_.op_parts_ival[0] == -2, x86_bomb("bb_det_is: unsupported rhs shape in GZ"))
@@ -60,5 +60,3 @@ static std::string bb_det_is_str() {
              + x86(".string", _.op_parts_str[0]));
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_det_is(void) { bb_emit_x86(bb_det_is_str()); }

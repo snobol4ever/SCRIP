@@ -18,7 +18,8 @@ static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) =
 static inline int          zoff()  { return _.x86_scratch_off; }
 static inline int          zooff() { return _.x86_scratch_off + 4; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_span_str() {
+std::string bb_match_span() {
+    x86_begin();
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
@@ -60,10 +61,4 @@ static std::string bb_match_span_str() {
              + x86("jmp",    "γ");
     }
     return std::string();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_span(void) {
-    x86_begin();
-    _.x86_scratch_off = bb_slot_claim(16);
-    bb_emit_x86(bb_match_span_str());
 }

@@ -13,7 +13,8 @@ static inline int      saoff()          { return _.op_sa; }
 static inline int      stoff()          { return _.op_off; }
 static inline uint64_t kw_anchor_addr() { return (uint64_t)(uintptr_t)(const void *)&kw_anchor; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_advance_str() {
+std::string bb_match_advance() {
+    x86_begin();
     if (!PLATFORM_X86) return std::string();
     return (saoff() < 0 || stoff() < 0)
          ? x86_bomb("IR_PAT_MATCH: subject/start slot not promoted (flat_drive_match)")
@@ -27,9 +28,4 @@ static std::string bb_match_advance_str() {
          + x86("cmp64", "rax", (long)0)
          + x86("jne", "ω")
          + x86("jmp", "γ");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_advance(void) {
-    x86_begin();
-    bb_emit_x86(bb_match_advance_str());
 }

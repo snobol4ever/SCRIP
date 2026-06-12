@@ -7,7 +7,7 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_logicvar_str(IR_t * pBB) {
+std::string bb_logicvar(IR_t * pBB) {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("ins1", "# BOX RESOLVE_VAR(slot=" + std::to_string(_.op_ival) + ") [stackless pass-through]"))
              + x86("jmp", "γ")
@@ -16,5 +16,3 @@ static std::string bb_logicvar_str(IR_t * pBB) {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_logicvar(IR_t * pBB) { bb_emit_x86(bb_logicvar_str(pBB)); }

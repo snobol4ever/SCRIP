@@ -17,7 +17,8 @@ static inline uint64_t     cset_addr()  { return (uint64_t)(uintptr_t)(const voi
 static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
 static inline int          zoff()       { return _.x86_scratch_off; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_break_str() {
+std::string bb_match_break() {
+    x86_begin();
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
@@ -50,10 +51,4 @@ static std::string bb_match_break_str() {
              + x86("jmp",    "ω");
     }
     return std::string();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_break(void) {
-    x86_begin();
-    _.x86_scratch_off = bb_slot_claim(8);
-    bb_emit_x86(bb_match_break_str());
 }

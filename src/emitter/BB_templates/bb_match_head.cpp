@@ -10,7 +10,8 @@ extern "C" {
 static inline int saoff() { return _.op_sa; }
 static inline int stoff() { return _.op_off; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_head_str() {
+std::string bb_match_head() {
+    x86_begin();
     if (!PLATFORM_X86) return std::string();
     return (saoff() < 0 || stoff() < 0)
          ? x86_bomb("IR_PAT_MATCH: subject/start slot not promoted (flat_drive_match)")
@@ -24,9 +25,4 @@ static std::string bb_match_head_str() {
          + x86("jmp", "γ")
          + x86("def", "β")
          + x86("jmp", "ω");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_head(void) {
-    x86_begin();
-    bb_emit_x86(bb_match_head_str());
 }

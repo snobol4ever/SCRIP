@@ -9,7 +9,8 @@ extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_scan_find_str() {
+std::string bb_scan_find() {
+    x86_begin();
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1 && _.op_name1[0] && strlen(_.op_name1) <= 32)) return x86_bomb("bb_scan_find: unhandled (needs nonempty literal needle <=32 + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                          + x86("comment", "BOX ICN IR_SCAN_FIND find(s1) [ICN-SCAN-10 fstranl.r function{*} SCAN GENERATOR: cursor[r12+cur]<-δ; L0: cursor>Δ-m->ω.node; unrolled literal"
@@ -38,5 +39,3 @@ static std::string bb_scan_find_str() {
          + x86("inc", FRQ(_.op_off + 16))
          + x86("jmp", L(0));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_scan_find(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_scan_find_str()); }

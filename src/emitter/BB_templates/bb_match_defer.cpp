@@ -16,7 +16,7 @@ static inline int          defer_ival()  { return (int)(int64_t)_.op_ival; }
 static inline uint64_t     defer_fn()    { int (*fp)(const char *, int, int) = rt_defer_match;
                                            return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_defer_str() {
+std::string bb_match_defer() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
@@ -39,5 +39,3 @@ static std::string bb_match_defer_str() {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_defer(void) { bb_emit_x86(bb_match_defer_str()); }

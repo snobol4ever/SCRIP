@@ -17,7 +17,7 @@ static double bcu_fv() {
     double d; memcpy(&d, &_.op_parts_ival[2], 8); return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_cell_unify_str() {
+std::string bb_cell_unify() {
     x86_begin();
     if (PLATFORM_X86) return x86("label", _.lbl_α)
          + x86("comment", "IR_CELL_UNIFY")
@@ -81,5 +81,3 @@ static std::string bb_cell_unify_str() {
          + IF(bcu_sh() < 0, x86_bomb("bb_cell_unify: unadmitted operand shape reached the emitter"));
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_cell_unify(void) { bb_emit_x86(bb_cell_unify_str()); }

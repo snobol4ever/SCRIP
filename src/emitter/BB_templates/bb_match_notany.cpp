@@ -28,7 +28,7 @@ static inline std::string  cs_test_notany() {
          + x86("jne",  "\xCF\x89");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_notany_str() {
+std::string bb_match_notany() {
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                              + x86("comment", "BOX NOTANY — match one char not in cset [Σ=r13 δ=r14 Δ=r15]"))
@@ -45,5 +45,3 @@ static std::string bb_match_notany_str() {
              + x86("jmp",    "\xCF\x89");
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_notany(void) { bb_emit_x86(bb_match_notany_str()); }

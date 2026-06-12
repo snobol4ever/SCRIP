@@ -46,7 +46,7 @@ static std::string gvr_rhs() {
          + IF(!gvr_rlit() && !gvr_rvar(), x86("mov", "rcx", FRQ(_.op_sb + gvr_disp(_.bb_rk))));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_binop_gvar_relop_str() {
+std::string bb_binop_gvar_relop() {
     return IF(PLATFORM_X86,
            IF(gvr_ok(),
               IF(MEDIUM_TEXT, x86("label", _.lbl_α)
@@ -59,5 +59,3 @@ std::string bb_binop_gvar_relop_str() {
             + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"))
          + IF(!gvr_ok(), x86_bomb("bb_binop_gvar_relop: shape mismatch (dispatch chose this arm but predicate failed)")));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_binop_gvar_relop(IR_t * pBB) { (void)pBB; bb_emit_x86(bb_binop_gvar_relop_str()); }

@@ -26,7 +26,7 @@ static inline int          scan_has_name()   { return _.op_sval && _.op_sval[0];
 static inline uint64_t     fn_scan_lit()     { int (*f)(const char *, const char *, const char *, int, const char *) = rt_scan_lit; return (uint64_t)(uintptr_t)(void *)f; }
 static inline const char * scan_lbl(const char * s) { s = s ? s : ""; const char * l = emit_intern_str(s); if (l) return l; static char b[24]; strtab_label(b, sizeof b, s); return b; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_scan_stmt_str() {
+std::string bb_scan_stmt() {
     if (!PLATFORM_X86) return std::string();
     return IF(MEDIUM_TEXT && !scan_pat_lit(),
               x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)"))
@@ -65,5 +65,3 @@ static std::string bb_scan_stmt_str() {
              + x86("def",  "β")
              + x86("jmp",  "ω"));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_scan_stmt(IR_t * pBB) { (void)pBB; bb_emit_x86(bb_scan_stmt_str()); }

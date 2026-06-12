@@ -11,7 +11,7 @@ int bb_slot_claim(int bytes);
 static inline int zoff()  { return _.x86_scratch_off; }
 static inline int zooff() { return _.x86_scratch_off + 4; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_arb_str() {
+std::string bb_match_arb() {
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                              + x86("comment", "BOX ARB()  [REG-4 Σ=r13 δ=r14 Δ=r15, ζ-frame z/zo, x86() self-encoding]"))
@@ -28,9 +28,4 @@ static std::string bb_match_arb_str() {
              + x86("mov",    "r14d", "eax")
              + x86("jmp",    "\xCE\xB3");
     return std::string();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_arb(void) {
-    _.x86_scratch_off = bb_slot_claim(8);
-    bb_emit_x86(bb_match_arb_str());
 }

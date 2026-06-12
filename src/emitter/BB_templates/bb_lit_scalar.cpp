@@ -12,7 +12,8 @@ extern int g_gvar_callarg_live;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static uint64_t blsc_bits(double d) { uint64_t b; memcpy(&b, &d, 8); return b; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_lit_scalar_str() {
+std::string bb_lit_scalar() {
+    x86_begin();
     if (PLATFORM_X86) {
         if ((g_descr_flat_chain || g_gvar_callarg_live) && _.op_node_kind == (int)IR_LIT_I && _.op_off >= 0)
             return IF(MEDIUM_TEXT,
@@ -65,5 +66,3 @@ static std::string bb_lit_scalar_str() {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_lit_scalar(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_lit_scalar_str()); }

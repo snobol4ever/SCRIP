@@ -22,7 +22,8 @@ static std::string bkw_call_slot(const char * nm, uint64_t fptr) {
          + bkw_tail();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_keyword_str() {
+std::string bb_keyword() {
+    x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (!(g_descr_flat_chain && _.op_off >= 0)) return x86_bomb("bb_keyword: no slot");
     if (!strcmp(bkw(), "subject")) {
@@ -67,5 +68,3 @@ static std::string bb_keyword_str() {
     }
     return x86_bomb("bb_keyword: unsupported keyword");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_keyword(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_keyword_str()); }

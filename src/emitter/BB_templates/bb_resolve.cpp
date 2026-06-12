@@ -135,9 +135,7 @@ static std::string bdisp(IR_t *pBB) { const char *fn = bfn(); std::string hdr = 
     if (!(r = bb_retract_throw_str(pBB, fn, hdr)).empty()) return r;
     return bunknown(hdr);
 }
-static std::string bb_resolve_str(IR_t * pBB) {
+std::string bb_resolve(IR_t * pBB) {
     return IF(PLATFORM_X86 && MEDIUM_MACRO_DEF, x86("comment", "no macro form — RESOLVE"))
          + IF(PLATFORM_X86 && !MEDIUM_MACRO_DEF, bdisp(pBB));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_resolve(IR_t * pBB) { bb_emit_x86(bb_resolve_str(pBB)); }

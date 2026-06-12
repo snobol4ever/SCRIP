@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_succ_plus_str() {
+std::string bb_det_succ_plus() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     long arity = (long)_.op_parts_ival[0];
@@ -29,5 +29,3 @@ static std::string bb_det_succ_plus_str() {
             + x86("def", "β")
             + x86("jmp", "ω"));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_det_succ_plus(void) { bb_emit_x86(bb_det_succ_plus_str()); }

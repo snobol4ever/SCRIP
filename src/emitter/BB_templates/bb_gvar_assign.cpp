@@ -56,7 +56,7 @@ static std::string bga_seq_parts(int off) {
          + x86("jmp",  "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gvar_assign_str() {
+std::string bb_gvar_assign() {
     if (PLATFORM_X86) {
         if (g_descr_flat_chain) {
             if (!(_.op_sa >= 0 && _.op_off >= 0)) return x86_bomb("bb_gvar_assign: descr arm needs rhs slot + own slot");
@@ -149,5 +149,3 @@ static std::string bb_gvar_assign_str() {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gvar_assign(IR_t * pBB) { (void)pBB; bb_emit_x86(bb_gvar_assign_str()); }

@@ -11,7 +11,8 @@ extern int g_descr_flat_chain;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline uint64_t memcmp_ptr() { int (*fp)(const void *, const void *, size_t) = memcmp; return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_scan_match_str() {
+std::string bb_scan_match() {
+    x86_begin();
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_match: unhandled (needs literal string arg + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                          + x86("comment", "BOX ICN IR_SCAN_MATCH match(s1) [ICN-SCAN-5 fstranl.r: Δ-δ<len->ω.node; memcmp(s1,Σ+δ,len) prefix; {DT_I,δ+1+len}->slot->γ.node; δ untouched;"
@@ -38,5 +39,3 @@ static std::string bb_scan_match_str() {
          + x86("jmp", "ω")
          + x86_ro_seal_str(0, _.op_name1);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_scan_match(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_scan_match_str()); }

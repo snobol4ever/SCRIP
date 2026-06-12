@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_atom_op_str() {
+std::string bb_det_atom_op() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     const char *fn = _.op_parts_str[0];
@@ -32,5 +32,3 @@ static std::string bb_det_atom_op_str() {
          + x86("label", LS(0))
          + x86(".string", fn);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_det_atom_op(void) { bb_emit_x86(bb_det_atom_op_str()); }

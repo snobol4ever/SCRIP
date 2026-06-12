@@ -6,7 +6,7 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_rem_str() {
+std::string bb_match_rem() {
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
@@ -17,5 +17,3 @@ static std::string bb_match_rem_str() {
              + x86("jmp", "ω");
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_rem(void) { bb_emit_x86(bb_match_rem_str()); }

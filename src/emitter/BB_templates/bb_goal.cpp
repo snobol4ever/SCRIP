@@ -30,7 +30,8 @@ static std::string build_arg(int kind, long ival, const char *sval) {
          + x86("call",  "rt_node_to_term", (uint64_t)(uintptr_t)(void *)rt_node_to_term);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_goal_str() {
+std::string bb_goal() {
+    x86_begin();
     if (!PLATFORM_X86) return std::string();
     const char *callee = _.bb_ls ? _.bb_ls : "";
     int arity  = _.op_sa;
@@ -82,5 +83,3 @@ static std::string bb_goal_str() {
          + x86("jmp",  "ω");
     return out;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_goal(void) { x86_begin(); bb_emit_x86(bb_goal_str()); }

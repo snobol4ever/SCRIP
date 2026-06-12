@@ -17,7 +17,7 @@ static inline uint64_t     src_addr()  { return (uint64_t)(uintptr_t)src_name();
 static inline const char * src_label() { const char * l = emit_intern_str(src_name()); if (l) return l; static char b[64]; strtab_label(b, sizeof b, src_name()); return b; }
 static inline uint64_t     fn_var()    { void (*f)(const char *, const char *) = rt_gvar_assign_var; return (uint64_t)(uintptr_t)(void *)f; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gvar_assign_var_str() {
+std::string bb_gvar_assign_var() {
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                              + x86("comment", "BOX IR_ASSIGN_VAR store = read(src) [RO ptrs, @PLT]"))
@@ -29,5 +29,3 @@ static std::string bb_gvar_assign_var_str() {
              + x86("jmp",  "\xCF\x89");
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gvar_assign_var(void) { bb_emit_x86(bb_gvar_assign_var_str()); }

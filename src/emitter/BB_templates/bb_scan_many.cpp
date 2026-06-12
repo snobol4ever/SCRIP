@@ -11,7 +11,8 @@ extern int g_descr_flat_chain;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline uint64_t strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_scan_many_str() {
+std::string bb_scan_many() {
+    x86_begin();
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_many: unhandled (needs literal cset arg + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                          + x86("comment", "BOX ICN IR_SCAN_MANY many(c) [ICN-SCAN-6 fstranl.r: walk p=δ while p<Δ∧s[p]∈c; p==δ->ω.node; {DT_I,p+1}->slot->γ.node; δ untouched; β->ω.node]"))
@@ -43,5 +44,3 @@ static std::string bb_scan_many_str() {
          + x86("jmp", "ω")
          + x86_ro_seal_str(2, _.op_name1);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_scan_many(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_scan_many_str()); }

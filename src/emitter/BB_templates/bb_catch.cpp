@@ -45,7 +45,7 @@ static std::string bcc_admitted(bb_catch_state_t *zc, int idx) {
          + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_catch_str() {
+std::string bb_catch() {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_TEXT && bcc_zc() && bcc_zc()->goal_g && bcc_idx() >= 0)
         return bcc_admitted(bcc_zc(), bcc_idx());
@@ -55,5 +55,3 @@ static std::string bb_catch_str() {
          + x86("def", "β")
          + x86("jmp", "ω");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_catch(void) { bb_emit_x86(bb_catch_str()); }

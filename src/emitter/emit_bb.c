@@ -1,5 +1,6 @@
 #include "emit_bb.h"
 #include "BB_templates/bb_templates.h"
+#include "emit_ir.h"
 #include "emit_form.h"
 #include "emit_templates.h"
 #include "emit_globals.h"

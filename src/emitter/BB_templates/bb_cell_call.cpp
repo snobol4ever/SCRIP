@@ -12,7 +12,7 @@ static const char *bcc_areg(int i) { static const char * t[3] = { "rsi", "rdx", 
 static bool bcc_sh() { return _.op_parts_n > 0 && _.op_parts_ival[0] >= 0 && _.op_parts_ival[1] >= 0 && _.op_parts_ival[1] <= 3 && _.op_parts_ival[2] >= 0; }
 static bool bcc_ar() { return _.op_parts_ival[3] != -2 && _.op_parts_ival[4] != -2 && _.op_parts_ival[5] != -2; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_cell_call_str() {
+std::string bb_cell_call() {
     x86_begin();
     if (PLATFORM_X86) return IF(!bcc_sh(), x86_bomb("bb_cell_call: unadmitted call shape reached the emitter"))
                            + IF(bcc_sh() && !bcc_ar(), x86_bomb("bb_cell_call: non-slot arg reached the emitter"))
@@ -35,5 +35,3 @@ static std::string bb_cell_call_str() {
                            + x86("jmp", L(0)));
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_cell_call(void) { bb_emit_x86(bb_cell_call_str()); }

@@ -11,7 +11,8 @@ extern int g_descr_flat_chain;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int64_t bto_by() { return (_.op_node_kind == (int) IR_TO_BY && _.op_ival) ? _.op_ival : 1; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_to_str(IR_t * pBB) {
+std::string bb_to(IR_t * pBB) {
+    x86_begin();
     (void)pBB;
     if (!(PLATFORM_X86 && g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && bto_by() > 0)) return x86_bomb("bb_to: unhandled (needs static int operands, positive by, descr flat-chain)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
@@ -31,5 +32,3 @@ static std::string bb_to_str(IR_t * pBB) {
          + IF(bto_by() != 1, x86("mov", "rax", FRQ(_.op_off + 16)) + x86("add", "rax", (long)bto_by()) + x86("mov", FRQ(_.op_off + 16), "rax"))
          + x86("jmp", L(0));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_to(IR_t * pBB) { x86_begin(); bb_emit_x86(bb_to_str(pBB)); }
