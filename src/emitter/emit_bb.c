@@ -1824,6 +1824,19 @@ static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label
     int id = g_flat_node_id++;
     bb_label_t *rhs_done = emit_label_alloc("xsasg%d_rhs_done", id);
     bb_label_t *rhs_β    = emit_label_alloc("xsasg%d_rhs_β",    id);
+    if (c0->op == IR_BINOP && IR_LIT(c0).ival == BINOP_POW && bb_child0(c0) && bb_child1(c0) && bb_child0(c0)->op == IR_LIT_I && bb_child1(c0)->op == IR_LIT_I && IR_LIT(pBB).sval) {
+        g_emit.op_sa   = (int)IR_LIT(bb_child0(c0)).ival;
+        g_emit.op_sb   = (int)IR_LIT(bb_child1(c0)).ival;
+        g_emit.op_ival = BINOP_POW;
+        g_emit.op_sval = IR_LIT(pBB).sval;
+        g_emit.op_name1 = (const char *)0;
+        g_emit.op_name2 = (const char *)0;
+        g_emit.op_off  = bb_slot_alloc(c0);
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        { IR_e _sk = c0->op; c0->op = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(c0, lbl_γ, lbl_ω, lbl_β); c0->op = _sk; }
+        return;
+    }
     if (c0->op == IR_UNOP && bb_child0(c0) && bb_child0(c0)->op == IR_LIT_I) {
         /* Constant-fold UNOP(NEG|POS, LIT_I): spoof c0 as IR_LIT_I with computed value */
         int64_t val = IR_LIT(bb_child0(c0)).ival;
