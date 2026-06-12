@@ -280,6 +280,22 @@ sub main() {
 }
 EOF
 
+raku "say_jct" "$(printf 'any(1, 2, 3)\nall(a, b)\nnone(10, 20)\none(x, y)')" << 'EOF'
+sub main() {
+    say(any(1, 2, 3));
+    say(all('a', 'b'));
+    say(none(10, 20));
+    say(one('x', 'y'));
+}
+EOF
+
+raku "say_list" "1 2 3" << 'EOF'
+sub main() {
+    my @a = (1, 2, 3);
+    say(@a);
+}
+EOF
+
 # --- RK-LOWER-5d: class / method / new / field access ---
 
 raku "class_method" "$(printf '3\n4\n7\n14\nRex\nWoof from Rex')" << 'EOF'

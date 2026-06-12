@@ -1948,6 +1948,50 @@ DESCR_t proc_as_value(const char *name) {
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void rk_write_str(FILE *dest, const char *s) {
+    if (!s || !*s) return;
+    if (s[0] == '\x03') {
+        char flav = s[1];
+        const char *tname = (flav == 'a') ? "any" : (flav == 'l') ? "all" : (flav == 'o') ? "one" : "none";
+        fputs(tname, dest); fputc('(', dest);
+        const char *p = s + 2; int first = 1;
+        while (*p == '\x01') {
+            p++;
+            if (!first) fputs(", ", dest); first = 0;
+            if (*p == '\x03') {
+                int depth = 1; const char *start = p; p++;
+                while (*p && depth > 0) { if (*p == '\x03') depth++; else if (*p == '\x04') depth--; p++; }
+                size_t L = (size_t)(p - start);
+                char *mb = GC_malloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
+                rk_write_str(dest, mb);
+            } else {
+                while (*p && *p != '\x01' && *p != '\x04') { fputc((unsigned char)*p, dest); p++; }
+            }
+        }
+        fputc(')', dest); return;
+    }
+    if (strchr(s, '\x01')) {
+        const char *p = s; int first = 1;
+        while (*p) {
+            const char *seg = p;
+            while (*p && *p != '\x01') p++;
+            if (!first) fputc(' ', dest);
+            fwrite(seg, 1, (size_t)(p - seg), dest);
+            first = 0;
+            if (*p == '\x01') p++;
+        }
+        return;
+    }
+    fputs(s, dest);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void rk_write_descr(FILE *dest, DESCR_t av) {
+    if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
+    if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); return; }
+    if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
+    const char *s = VARVAL_fn(av); if (s) rk_write_str(dest, s);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (!fn || !out) return 0;
@@ -2034,44 +2078,22 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (nl) fputc('\n', _dest);
         *out = NULVCL; return 1;
     }
-    if (!strcmp(fn, "write")) {
+    if (!strcmp(fn, "write") || !strcmp(fn, "writes")) {
+        int nl = (fn[5] == '\0');
         int start = 0;
         FILE *dest = stdout;
         if (nargs > 0 && IS_FH_fn(args[0])) {
             FILE *fp = fh_get((int)args[0].i);
-            if (fp) { if (fp != stdout) fflush(stdout); dest = fp; }
+            if (fp) { if (nl && fp != stdout) fflush(stdout); dest = fp; }
             start = 1;
         }
         for (int _wi = start; _wi < nargs; _wi++) {
             DESCR_t av = args[_wi];
             if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
             if (av.v == DT_SNUL) continue;
-            if (IS_INT_fn(av))       fprintf(dest, "%lld", (long long)av.i);
-            else if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); }
-            else if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); }
-            else { const char *s = VARVAL_fn(av); if (s) fputs(s, dest); }
+            rk_write_descr(dest, av);
         }
-        fputc('\n', dest);
-        *out = nargs > start ? args[nargs-1] : (nargs > 0 ? args[0] : NULVCL);
-        return 1;
-    }
-    if (!strcmp(fn, "writes")) {
-        int start = 0;
-        FILE *dest = stdout;
-        if (nargs > 0 && IS_FH_fn(args[0])) {
-            FILE *fp = fh_get((int)args[0].i);
-            if (fp) dest = fp;
-            start = 1;
-        }
-        for (int _wi = start; _wi < nargs; _wi++) {
-            DESCR_t av = args[_wi];
-            if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
-            if (av.v == DT_SNUL) continue;
-            if (IS_INT_fn(av))       fprintf(dest, "%lld", (long long)av.i);
-            else if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); }
-            else if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); }
-            else { const char *s = VARVAL_fn(av); if (s) fputs(s, dest); }
-        }
+        if (nl) fputc('\n', dest);
         *out = nargs > start ? args[nargs-1] : (nargs > 0 ? args[0] : NULVCL);
         return 1;
     }
