@@ -342,7 +342,7 @@ static std::string bb_call_gvar_define_str(IR_t * pBB) {
     IR_t * spec = (narg > 0 && subs && subs[0]) ? subs[0]->entry : NULL;
     const char * specstr = (spec && spec->op == IR_LIT_S && IR_LIT(spec).sval) ? IR_LIT(spec).sval : "";
     if (MEDIUM_TEXT) {
-        std::string fl = emit_fmt(".Ldefspec%d", _.nid);
+        std::string fl = emit_fmt(".Ldefspec%d", g_flat_node_id++);
         std::string s = x86("label", _.lbl_α)
             + x86("comment", "BOX IR_CALL DEFINE(spec) -> rt_proc_define [single-shot success]")
             + x86("directive", ".section .rodata")
@@ -382,7 +382,7 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
         uint64_t brm = rt_proc_byref_mask(fn);
         for (int i = 0; i < (int)narg; i++)
             s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, subs[i], argbase + i * 16, _.node, i);
-        std::string fl = emit_fmt(".Lprocfn%d", _.nid);
+        std::string fl = emit_fmt(".Lprocfn%d", g_flat_node_id++);
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
@@ -440,7 +440,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
             + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
-        std::string fl = emit_fmt(".Lbynamefn%d", _.nid);
+        std::string fl = emit_fmt(".Lbynamefn%d", g_flat_node_id++);
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");

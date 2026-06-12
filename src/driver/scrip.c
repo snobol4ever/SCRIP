@@ -2406,6 +2406,9 @@ int main(int argc, char **argv)
                 if (!pname || strcmp(pname, "main") == 0) continue;
                 int idx = s2->proc_table[_pi].bb_idx;
                 if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+                int is_dup = 0;
+                for (int _pj = _pi + 1; _pj < s2->proc_count; _pj++) { if (s2->proc_table[_pj].name && strcmp(s2->proc_table[_pj].name, pname) == 0) { is_dup = 1; break; } }
+                if (is_dup) continue;
                 int np = s2->proc_table[_pi].nparams;
                 const char **pn = NULL;
                 if (np > 0) {
