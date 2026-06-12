@@ -333,7 +333,8 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         cx->last_gen = sg;
     }
     if (!BODY) {
-        γ_to(gen_result, gen_node == gen_result ? E : gen_node);
+        IR_t * loop_target = (gen_result && gen_result->op == IR_CONJ) ? E : (gen_node == gen_result ? E : gen_node);
+        γ_to(gen_result, loop_target);
         ir_operand_push(E, gen_entry);
         *res = E; return gen_entry;
     }
