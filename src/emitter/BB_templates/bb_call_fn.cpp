@@ -29,25 +29,13 @@ std::string bb_call_fn_str(IR_t * pBB) {
         int src = ai ? bb_slot_get(ai) : -1;
         int dst = argbase + i * 16;
         if (src >= 0) {
-            if (MEDIUM_TEXT) {
-                s += x86("ins2", "mov", emit_fmt("rax, qword ptr [r12+%d]", src));
-                s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], rax", dst));
-                s += x86("ins2", "mov", emit_fmt("rax, qword ptr [r12+%d]", src + 8));
-                s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], rax", dst + 8));
-            } else {
-                s += x86_frame_load64("rax", src);
-                s += x86_frame_store64(dst, "rax");
-                s += x86_frame_load64("rax", src + 8);
-                s += x86_frame_store64(dst + 8, "rax");
-            }
+            s += x86("mov", "rax", FRQ(src));
+            s += x86("mov", FRQ(dst), "rax");
+            s += x86("mov", "rax", FRQ(src + 8));
+            s += x86("mov", FRQ(dst + 8), "rax");
         } else {
-            if (MEDIUM_TEXT) {
-                s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], 6", dst));
-                s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], 0", dst + 8));
-            } else {
-                s += x86("mov", FRQ(dst), (long)6);
-                s += x86("mov", FRQ(dst + 8), (long)0);
-            }
+            s += x86("mov", FRQ(dst), (long)6);
+            s += x86("mov", FRQ(dst + 8), (long)0);
         }
     }
     if (MEDIUM_TEXT) {
@@ -69,12 +57,12 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("ins2", "jmp",  _.lbl_ω);
     } else {
         uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fn);
-        s += x86_frame_lea("rsi", argbase);
+        s += x86("mov", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, "??");
+        s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)nargs);
-        s += x86_call_ro("rt_call_arr", fptr);
-        s += x86_frame_store64(resoff, "rax");
-        s += x86_frame_store64(resoff + 8, "rdx");
+        s += x86("call", "rt_call_arr", fptr);
+        s += x86("mov", FRQ(resoff), "rax");
+        s += x86("mov", FRQ(resoff + 8), "rdx");
         s += x86("cmp", "eax", (long)99);
         s += x86("je", PORT_OMEGA);
         s += x86("jmp", PORT_GAMMA);
