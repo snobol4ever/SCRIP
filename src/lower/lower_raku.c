@@ -254,9 +254,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * lb = build(cx, IR_LIST_BANG, NULL, ev);
         IR_t * rs = NULL; IR_t * se = lower_rv(cx, t->c[0]->c[0], NULL, ev, &rs);
         ir_operand_push(lb, se);
+        const char * lbvar = t->c[0]->v.sval;
+        IR_t * va = (lbvar && lbvar[0]) ? build(cx, IR_ASSIGN, NULL, ev) : NULL;
+        if (va) IR_LIT(va).sval = lbvar;
         IR_t * conj = build(cx, IR_CONJ, lb, lb);
         IR_t * bentry = lower_rblock(cx, t->c[1], conj, lb);
-        γ_to(lb, bentry); ir_operand_push(ev, lb); *res = ev; return lb; }
+        γ_to(lb, va ? va : bentry);
+        if (va) γ_to(va, bentry);
+        ir_operand_push(ev, lb); *res = ev; return lb; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_WHILE: {
         IR_t * nd = build(cx, IR_WHILE, γ, ω);
