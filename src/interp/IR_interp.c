@@ -2218,6 +2218,15 @@ static void pas_loc_of_name(GenFrame *caller, const char *name, GenFrame **of, i
     else { *of = caller; *os = slot; *on = NULL; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_truthy(DESCR_t cv) {
+    if (IS_FAIL_fn(cv)) return 0;
+    if (IS_INT_fn(cv))  return cv.i != 0;
+    if (IS_REAL_fn(cv)) return cv.r != 0.0;
+    if (cv.v == DT_SNUL) return 0;
+    const char *s = cv.s ? cv.s : "";
+    return s[0] != '\0' && !(s[0] == '0' && s[1] == '\0');
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * IR_interp_node(IR_t * bb) {
     switch (bb->op) {
     case IR_LIT_I:

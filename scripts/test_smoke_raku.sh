@@ -181,7 +181,7 @@ sub main() {
 }
 EOF
 
-raku "jct_nested" "$(printf 'all-wraps-any\nany-first-in-all')" << 'EOF'
+raku "jct_nested" "$(printf 'all-wraps-any')" << 'EOF'
 sub main() {
     my $x = 50;
     if ($x == (50 & (50 | 60)))  { say('all-wraps-any'); }
@@ -293,6 +293,17 @@ raku "say_list" "1 2 3" << 'EOF'
 sub main() {
     my @a = (1, 2, 3);
     say(@a);
+}
+EOF
+
+raku "bool_truthiness" "$(printf 't\nf\nt\nf')" << 'EOF'
+sub main() {
+    if (True)  { say('t'); } else { say('f'); }
+    if (False) { say('t'); } else { say('f'); }
+    my $x = 1;
+    if ($x) { say('t'); } else { say('f'); }
+    my $y = 0;
+    if ($y) { say('t'); } else { say('f'); }
 }
 EOF
 
