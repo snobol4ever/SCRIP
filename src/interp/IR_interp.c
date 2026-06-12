@@ -2542,6 +2542,16 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         int is_deep = (IR_LIT(bb).dval == 1.0) ? 1 : 0;
         int nargs   = (int)IR_LIT(bb).ival;
+        if (is_deep && nargs == 2 && IR_LIT(bb).sval && !strcmp(IR_LIT(bb).sval, "[]") && bb->n_operands == 2) {
+            IR_t *a0 = bb->operands[0]; IR_t *a1 = bb->operands[1];
+            if (!a0 || !a1) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            DESCR_t obj = IR_EXEC(a0).value;
+            DESCR_t idx = IR_EXEC(a1).value;
+            if (IS_FAIL_fn(obj) || IS_FAIL_fn(idx)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            DESCR_t sargs2[2]; sargs2[0] = obj; sargs2[1] = idx; DESCR_t out2 = FAILDESCR;
+            if (try_call_builtin_by_name("[]", sargs2, 2, &out2)) { IR_EXEC(bb).value = out2; return IS_FAIL_fn(out2) ? bb->ω.node : bb->γ.node; }
+            IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
+        }
         int has_gen_arg = 0;
         if (nargs > 0 && !is_deep) {
             for (int j = 0; j < nargs; j++) { IR_t *gx = ir_call_arg(bb, j); if (!gx) break; if (!ir_is_single_shot(gx)) { has_gen_arg = 1; break; } }

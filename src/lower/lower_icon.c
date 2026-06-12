@@ -76,10 +76,10 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     int is_idx_or_list = name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"));
-    if (!chains && !is_idx_or_list) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { chains = 1; break; } }
+    if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { chains = 1; break; } }
     int subgraph = !chains;
     if (subgraph) {
-        lc_call_argblks(call, (name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"))) ? 2.0 : 3.0, nargs, arg_block, cx, (const tree_t * const *) &t->c[argbase]);
+        lc_call_argblks(call, is_idx_or_list ? 2.0 : 3.0, nargs, arg_block, cx, (const tree_t * const *) &t->c[argbase]);
         int any_gen_arg = 0; for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { any_gen_arg = 1; break; }
         cx->beta = (icn_call_allow_gen(name) || any_gen_arg) ? call : ω;
         return call;
@@ -92,6 +92,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         if (k == 0) entry = ae;
         if (prev) γ_to(prev, ae);
         prev = ar;
+        if (is_idx_or_list && ar) ir_operand_push(call, ar);
     }
     cx->beta = g_icn_postfix_resume ? aω : ω;
     return entry;
