@@ -3166,7 +3166,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             IR_EXEC(bb).counter += by_i;
             return bb->γ.node;
         }
-        int is_real = (IR_LIT(bb).sval && IR_LIT(bb).sval[0] == 'r');
+        int is_real = (IR_LIT(bb).sval && (IR_LIT(bb).sval[0] == 'r' || (IR_LIT(bb).sval[0] == 'a' && IR_LIT(bb).sval[1] == 'r')));
         if (IR_EXEC(bb).state == 0) {
             if (Lc) IR_interp_node(Lc);
             if (Hc) IR_interp_node(Hc);
@@ -4459,7 +4459,17 @@ IR_t * IR_interp_node(IR_t * bb) {
                 memcpy(&IR_LIT(bb).dval, &hi, 8);
                 IR_EXEC(bb).state   = 1;
             } else {
-                IR_EXEC(bb).counter++;
+                if (have_ops && (Hc->op == IR_BINOP || Hc->op == IR_VAR || Hc->op == IR_LIT_I || Hc->op == IR_LIT_F)) {
+                    DESCR_t hv_now = IR_EXEC(Hc).value;
+                    int64_t hi_now = IS_INT_fn(hv_now) ? hv_now.i : (hv_now.v == DT_R ? (int64_t)hv_now.r : -1);
+                    int64_t hi_was; memcpy(&hi_was, &IR_LIT(bb).dval, 8);
+                    if (hi_now != hi_was) {
+                        DESCR_t lv_now = IR_EXEC(Lc).value;
+                        int64_t lo_now = IS_INT_fn(lv_now) ? lv_now.i : (lv_now.v == DT_R ? (int64_t)lv_now.r : 0);
+                        IR_EXEC(bb).counter = lo_now;
+                        memcpy(&IR_LIT(bb).dval, &hi_now, 8);
+                    } else { IR_EXEC(bb).counter++; }
+                } else { IR_EXEC(bb).counter++; }
             }
             int64_t hi_cached;
             memcpy(&hi_cached, &IR_LIT(bb).dval, 8);
