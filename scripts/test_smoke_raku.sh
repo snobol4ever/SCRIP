@@ -181,7 +181,7 @@ sub main() {
 }
 EOF
 
-raku "jct_nested" "$(printf 'all-wraps-any')" << 'EOF'
+raku "jct_nested" "$(printf 'all-wraps-any\nany-first-in-all')" << 'EOF'
 sub main() {
     my $x = 50;
     if ($x == (50 & (50 | 60)))  { say('all-wraps-any'); }
