@@ -968,6 +968,7 @@ void bb_prepare(IR_t *nd) {
         return;
     }
     if (nd->op == IR_ASSIGN_LIT_I) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
+    if (nd->op == IR_ASSIGN_DESCR) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
     if (nd->op == IR_ALT) {
         int n = 0;
         IR_t * const * arms = g_emit_cfg ? bb_operand_aux_get(g_emit_cfg, nd, &n) : ((IR_t * const *)0);

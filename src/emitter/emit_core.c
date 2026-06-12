@@ -455,7 +455,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ASSIGN_VAR:    { bb_emit_x86(bb_gvar_assign_var());    return 0; }
     case IR_ASSIGN_CONCAT: { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_concat()); return 0; }
     case IR_ASSIGN_CALL:   { bb_emit_x86(bb_gvar_assign_call());   return 0; }
-    case IR_ASSIGN_DESCR:  { bb_emit_x86(bb_gvar_assign_descr());  return 0; }
+    case IR_ASSIGN_DESCR:  { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_descr());  return 0; }
     case IR_SCAN: { bb_emit_x86(bb_scan_stmt()); return 0; }
     case IR_GEN_SCAN: { bb_emit_x86(bb_gen_scan()); return 0; }
     case IR_KEYWORD: { bb_emit_x86(bb_keyword()); return 0; }
