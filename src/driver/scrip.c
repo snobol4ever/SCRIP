@@ -468,6 +468,7 @@ static IR_t * pl_gz_lv(int slot) {
     return n;
 }
 static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out);
+static int pl_findall_conj_member_admissible(const IR_t *g);
 /* PL-GZ-5c: a callee whose graph entry is a CHOICE over 2..4 RULE clauses (facts = empty-body rules).
  * Validation recurses through clause bodies; the visiting list breaks self/mutual recursion cycles
  * (a graph already on the list is being validated up-stack — assume ok here; a real failure
@@ -589,6 +590,9 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         int a1ok = (ct1->op == IR_LOGICVAR || ct1->op == IR_STRUCT || ct1->op == IR_ATOM || ct1->op == IR_LIT_I);
         return a0ok && a1ok;
     }
+    if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"findall")) {
+        return pl_findall_conj_member_admissible(gg);
+    }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         const char *fn = IR_LIT(gg).sval;
         int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
@@ -658,6 +662,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
             if (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"term_string")||!strcmp(IR_LIT(nd).sval,"term_to_atom")) && IR_LIT(nd).ival == 2) continue;
             if (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"atomic_list_concat")||!strcmp(IR_LIT(nd).sval,"concat_atom")) && (IR_LIT(nd).ival == 2 || IR_LIT(nd).ival == 3)) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval,"copy_term") && IR_LIT(nd).ival == 2) continue;
+            if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval,"findall")) continue;
             const char *fn = IR_LIT(nd).sval ? IR_LIT(nd).sval : "";
             int is_ttest = (strcmp(fn,"var")==0||strcmp(fn,"nonvar")==0||strcmp(fn,"atom")==0||strcmp(fn,"atomic")==0||
                             strcmp(fn,"number")==0||strcmp(fn,"integer")==0||strcmp(fn,"float")==0||strcmp(fn,"compound")==0||
@@ -1022,6 +1027,7 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
                 if (ct0 && ct0->op != IR_LOGICVAR) (*nsynth)++;
                 if (ct1 && ct1->op != IR_LOGICVAR) (*nsynth)++;
             }
+            if (!strcmp(fn,"findall")) { /* bb_findall_state_t already built by lower_prolog; no extra synth slots */ }
             if ((!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) && IR_LIT(gg).ival == 2) {
                 IR_t *al0 = ir_call_arg(gg,0);
                 if (al0 && al0->op != IR_LOGICVAR) (*nsynth)++;
@@ -1435,6 +1441,10 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (ts1->op != IR_LOGICVAR) return 0;
         nn = pl_gz_det_node(IR_DET_TERM_STRING);
         if (nn) { ir_operand_push(nn, st); ir_operand_push(nn, ts1); }
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"findall")) {
+        if (!*head) *head = gg; else { (*tail)->γ.node = gg; memcpy((*tail)->γ.sz, "α", 3); }
+        *tail = gg; gg->γ.node = NULL;
+        return 1;
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"copy_term") && IR_LIT(gg).ival == 2 && ir_call_arg(gg,0) && ir_call_arg(gg,1)) {
         IR_t *ct0 = ir_call_arg(gg,0), *ct1 = ir_call_arg(gg,1);
         IR_t *sc = NULL;

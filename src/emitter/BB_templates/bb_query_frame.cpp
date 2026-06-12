@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int  rt_trail_mark(void);
 extern "C" void rt_trail_unwind(int mark);
-extern "C" void rt_pl_cells_init(void ** cells, int n);
+extern "C" void rt_pl_gz_init(void *frame, int nslots);
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_query_frame() {
     if (!PLATFORM_X86) return std::string();
@@ -19,9 +19,9 @@ std::string bb_query_frame() {
              + x86("call",    "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
              + x86("mov",     FR(0), "eax")
              + (_.op_ival > 0
-                 ? x86("lea",   "rdi", FR(GZ_CELL_OFF(0)))
+                 ? x86("mov",   "rdi", "r12")
                  + x86("mov32", "esi", (long)_.op_ival)
-                 + x86("call",  "rt_pl_cells_init", (uint64_t)(uintptr_t)(void *)rt_pl_cells_init)
+                 + x86("call",  "rt_pl_gz_init", (uint64_t)(uintptr_t)(void *)rt_pl_gz_init)
                  : std::string())
              + x86("jmp", "γ");
     if (_.op_sb == 2)

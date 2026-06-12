@@ -10,6 +10,7 @@ extern "C" {
 #include <stdio.h>
 extern void rt_write_atom(const char *s);
 extern void rt_pl_frame_sync_env(void *frame, int nslots);
+extern void rt_pl_gz_init(void *frame, int nslots);
 extern void rt_write_var(int slot);
 extern void rt_write_term_ptr(void *t);
 extern void rt_writeq_term_ptr(void *t);

@@ -82,6 +82,18 @@ void rt_pl_frame_sync_env(void *frame, int nslots)
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_gz_init(void *frame, int nslots)
+{
+    extern Term **g_resolve_env;
+    if (!g_resolve_env) g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 64) * sizeof(Term *));
+    Term **cells = (Term **)(((char *)frame) + 8);
+    for (int i = 0; i < nslots; i++) {
+        Term *v = term_new_var(i);
+        cells[i] = v;
+        g_resolve_env[i] = v;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void * rt_enter(void **slot, int nslots)
 {
     extern void *GC_malloc(size_t);
