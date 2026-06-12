@@ -37,20 +37,20 @@ static unop_op bb_unop_resolve(int kind, int64_t sub) {
 static inline unop_op uop() { return bb_unop_resolve(_.op_node_kind, _.op_ival); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop() {
-    if (!PLATFORM_X86) return std::string();
-    if (!(g_descr_flat_chain && _.op_off >= 0)) return std::string();
-    if (uop() == UO_UNHANDLED) return std::string();
-    if (uop() != UO_NOT && _.op_sa < 0) return x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)");
-    if (uop() == UO_NOT)
-        return x86("comment", "IR_NOT")
+    if (PLATFORM_X86)
+        return !(g_descr_flat_chain && _.op_off >= 0) ? std::string() :
+               uop() == UO_UNHANDLED ? std::string() :
+               uop() != UO_NOT && _.op_sa < 0 ? x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)") :
+               uop() == UO_NOT ?
+               x86("comment", "IR_NOT")
              + x86("label",   _.lbl_α)
              + x86("mov", FRQ(_.op_off),     (long)0)
              + x86("mov", FRQ(_.op_off + 8), (long)0)
              + x86("jmp", "γ")
              + x86("def",  "β")
-             + x86("jmp",  "ω");
-    if (uop() == UO_NONNULL)
-        return x86("comment", "IR_UNOP")
+             + x86("jmp",  "ω") :
+               uop() == UO_NONNULL ?
+               x86("comment", "IR_UNOP")
              + x86("label",   _.lbl_α)
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
@@ -63,9 +63,9 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off + 8), "rax")
              + x86("jmp", "γ")
              + x86("def",  "β")
-             + x86("jmp",  "ω");
-    if (uop() == UO_NULL_TEST)
-        return x86("comment", "IR_UNOP")
+             + x86("jmp",  "ω") :
+               uop() == UO_NULL_TEST ?
+               x86("comment", "IR_UNOP")
              + x86("label",   _.lbl_α)
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
@@ -76,9 +76,9 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off + 8), (long)0)
              + x86("jmp", "γ")
              + x86("def",  "β")
-             + x86("jmp",  "ω");
-    if (uop() == UO_SIZE)
-        return x86("comment", "IR_UNOP")
+             + x86("jmp",  "ω") :
+               uop() == UO_SIZE ?
+               x86("comment", "IR_UNOP")
              + x86("label",   _.lbl_α)
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
@@ -87,14 +87,15 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86("jmp", "γ")
              + x86("def",  "β")
+             + x86("jmp",  "ω") :
+               x86("comment", "IR_UNOP")
+             + x86("label",   _.lbl_α)
+             + x86("mov", "rax", FRQ(_.op_sa + 8))
+             + IF(uop() == UO_NEG, x86("neg", "rax"))
+             + x86("mov", FRQ(_.op_off),     (long)DT_I)
+             + x86("mov", FRQ(_.op_off + 8), "rax")
+             + x86("jmp", "γ")
+             + x86("def",  "β")
              + x86("jmp",  "ω");
-    return x86("comment", "IR_UNOP")
-         + x86("label",   _.lbl_α)
-         + x86("mov", "rax", FRQ(_.op_sa + 8))
-         + IF(uop() == UO_NEG, x86("neg", "rax"))
-         + x86("mov", FRQ(_.op_off),     (long)DT_I)
-         + x86("mov", FRQ(_.op_off + 8), "rax")
-         + x86("jmp", "γ")
-         + x86("def",  "β")
-         + x86("jmp",  "ω");
+    return std::string();
 }
