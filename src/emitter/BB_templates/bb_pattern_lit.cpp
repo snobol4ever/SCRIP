@@ -38,7 +38,8 @@ static inline std::string  pb_proto_data() {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_pattern_lit() {
-    if (PLATFORM_X86)
+    if (PLATFORM_X86) {
+        pb_bump();
         return x86("label", _.lbl_α)
              + x86("comment", std::string("BOX PATTERN_LIT('") + plit() + "')  [BUILD ζ=r12 frag@" + pb_off() + "]")
              + x86("lea",   "rdi", FRQ(_.op_off))
@@ -57,5 +58,6 @@ std::string bb_pattern_lit() {
              + pb_proto_data()
              + x86("def",   "β")
              + x86("jmp",   "ω");
+    }
     return std::string();
 }
