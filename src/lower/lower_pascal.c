@@ -1,8 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "ast.h"
-#include "IR.h"
+#include "lower.h"
 /*====================================================================================================================================================================================================*/
 #define PAS_MAX_SCOPE 64
 typedef struct pas_scope_s {
@@ -22,38 +21,18 @@ typedef struct {
     int          npbt;
 } pcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
 static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
-static IR_graph_t * pas_arg_block(pcx_t * cx, const tree_t * a) {
-    IR_graph_t * saved = cx->g;
-    IR_graph_t * g2 = IR_alloc(256, IR_LANG_PAS); cx->g = g2;
-    IR_t * F = IR_node_alloc(g2, IR_FAIL);
-    IR_t * e = lower(cx, a, NULL, F);
-    g2->entry = e;
-    cx->g = saved;
-    return g2;
-}
-static void pas_call_blocks(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs) {
-    IR_LIT(call).dval = dv;
-    if (nargs <= 0) return;
-    IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
-    if (!blks) return;
-    for (int k = 0; k < nargs; k++) blks[k] = pas_arg_block(cx, args[k]);
-    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
-}
+static IR_t * pas_arg_lower(void * vcx, const tree_t * a, IR_t * F) { return lower((pcx_t *) vcx, a, NULL, F); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * pas_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((pcx_t *) vcx)->g, IR_LANG_PAS, pas_arg_lower, vcx, a); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pas_call_blocks(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs) { lc_call_argblks(call, dv, nargs, pas_arg_block, cx, args); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(pcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int binop_code(tree_e tt) {
-    switch (tt) {
-    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_MOD: return 4;
-    case TT_LT:  return 5; case TT_LE:  return 6; case TT_GT:  return 7; case TT_GE:  return 8;
-    case TT_EQ:  return 9; case TT_NE:  return 10; case TT_POW: return 18; default: return 0; }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scope_slot(const pas_scope_t * sc, const char * name) {
     if (!name) return -1;
@@ -154,7 +133,7 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     int lm = lt && is_relop(lt->t) && !is_relop(t->t);
     int rm = rt && is_relop(rt->t) && !is_relop(t->t);
     IR_t * op = build(cx, IR_BINOP, γ, ω);
-    IR_LIT(op).ival = binop_code(t->t);
+    IR_LIT(op).ival = lc_binop_code(t->t);
     if (!lm && !rm) {
         int lmark = cx->g->n;
         IR_t * le = lower(cx, lt, NULL, ω);
@@ -610,7 +589,6 @@ IR_graph_t * lower_pascal(const tree_t * prog) {
 #include "stage2.h"
 #include "bb_program.h"
 extern int scope_get(Scope *sc, const char *name);
-extern const char *lp_strdup(const char *s);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int pas_scope_chain(int pi, Scope **scs, int *dls, int *pis, int maxd) {
     int n = 0;

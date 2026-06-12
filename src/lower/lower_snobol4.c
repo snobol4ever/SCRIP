@@ -1,10 +1,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "ast.h"
-#include "IR.h"
+#include "lower.h"
 #include "IR_interp_state.h"
-extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
 /*====================================================================================================================================================================================================*/
 #define SNO_MAXSTMTS 2048
 typedef struct {
@@ -84,25 +82,6 @@ static IR_t * next_label(snx_t * cx, int i) {
     return (i + 1 < cx->nlabels) ? cx->labels[i + 1] : cx->PSUCC; }
 /*====================================================================================================================================================================================================*/
 /* ── binop helpers ─────────────────────────────────────────────────── */
-static int is_sno_binop(tree_e tt) {
-    switch (tt) {
-    case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW:
-    case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE:
-    case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE:
-    case TT_CAT: return 1;
-    default: return 0; }
-}
-static int sno_binop_code(tree_e tt) {
-    switch (tt) {
-    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2;
-    case TT_DIV: return 3; case TT_MOD: return 4; case TT_POW: return 18;
-    case TT_LT:  return 5; case TT_LE:  return 6; case TT_GT:  return 7;
-    case TT_GE:  return 8; case TT_EQ:  return 9; case TT_NE:  return 10;
-    case TT_CAT: return 11;
-    case TT_LLT: return 12; case TT_LLE: return 13; case TT_LGT: return 14;
-    case TT_LGE: return 15; case TT_LEQ: return 16; case TT_LNE: return 17;
-    default: return 0; }
-}
 static int is_sno_unop(tree_e tt) {
     switch (tt) {
     case TT_MNS: case TT_PLS: case TT_NONNULL: case TT_NOT: case TT_INTERROGATE:
@@ -112,35 +91,26 @@ static int is_sno_unop(tree_e tt) {
 /*====================================================================================================================================================================================================*/
 /* ── expression lowerer ─────────────────────────────────────────────── */
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res);
-static IR_graph_t * sno_arg_block(snx_t * cx, const tree_t * a);
+static IR_graph_t * sno_arg_block(void * vcx, const tree_t * a);
 static IR_t * sno_seq_node(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt) {
     IR_t * seq = build(cx, IR_SEQ, cont, nxt); IR_LIT(seq).dval = 1.0;
     IR_EXEC(seq).counter = (int64_t)(intptr_t) sno_arg_block(cx, (t->n > 0) ? t->c[0] : NULL);
     IR_LIT(seq).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (t->n > 1) ? t->c[1] : NULL);
     return seq;
 }
-static IR_graph_t * sno_arg_block(snx_t * cx, const tree_t * a) {
-    IR_graph_t * saved = cx->g;
-    IR_graph_t * g2 = IR_alloc(256, IR_LANG_SNO); cx->g = g2;
-    IR_t * F = IR_node_alloc(g2, IR_FAIL);
-    IR_t * r = NULL; IR_t * e = (a && a->t == TT_SEQ) ? sno_seq_node(cx, a, NULL, F) : lower_expr(cx, a, NULL, F, &r);
-    g2->entry = e;
-    cx->g = saved;
-    return g2;
+static IR_t * sno_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
+    snx_t * cx = (snx_t *) vcx; IR_t * r = NULL;
+    return (a && a->t == TT_SEQ) ? sno_seq_node(cx, a, NULL, F) : lower_expr(cx, a, NULL, F, &r);
 }
+static IR_graph_t * sno_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((snx_t *) vcx)->g, IR_LANG_SNO, sno_arg_lower, vcx, a); }
 static void sno_call_channels(snx_t * cx, IR_t * call, const tree_t * t) {
-    IR_LIT(call).dval = (t->v.sval && !strcmp(t->v.sval, "DEFINE")) ? 5.0 : 2.0;
-    int nargs = t->n;
-    if (nargs > 0) {
-        IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
-        if (blks) { for (int k = 0; k < nargs; k++) blks[k] = sno_arg_block(cx, t->c[k]); IR_EXEC(call).counter = (int64_t)(intptr_t) blks; }
-    }
+    lc_call_argblks(call, (t->v.sval && !strcmp(t->v.sval, "DEFINE")) ? 5.0 : 2.0, t->n, sno_arg_block, cx, (const tree_t * const *) t->c);
 }
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, cont, nxt); *res = s; return s; }
-    if (is_sno_binop(t->t)) {
-        IR_t * op = build(cx, IR_BINOP, cont, nxt); IR_LIT(op).ival = sno_binop_code(t->t);
+    if (lc_is_binop(t->t)) {
+        IR_t * op = build(cx, IR_BINOP, cont, nxt); IR_LIT(op).ival = lc_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower_expr(cx, t->c[0], NULL, nxt, &lr);
         IR_t * eb = lower_expr(cx, t->c[1], op, nxt, &rr);
@@ -770,9 +740,9 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             return NULL;
         }
         /* binop RHS containing array ref → PARTIAL ORPHAN: edgeless ASSIGN + edgeless BINOP(ival) + left VAR (ω only); oracle bails mid-lower, label chains nxt */
-        if (is_sno_binop(rhs->t) && sno_has_idx(rhs)) {
+        if (lc_is_binop(rhs->t) && sno_has_idx(rhs)) {
             IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
-            IR_t * bop = IR_node_alloc(cx->g, IR_BINOP); IR_LIT(bop).ival = sno_binop_code(rhs->t);
+            IR_t * bop = IR_node_alloc(cx->g, IR_BINOP); IR_LIT(bop).ival = lc_binop_code(rhs->t);
             const tree_t * lop = (rhs->n > 0) ? rhs->c[0] : NULL;
             if (lop && (lop->t == TT_VAR || lop->t == TT_KEYWORD) && !sno_has_idx(lop)) {
                 IR_t * v = IR_node_alloc(cx->g, IR_VAR); IR_LIT(v).sval = lop->v.sval; ω_to(v, ω);
@@ -958,10 +928,6 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
 #include "stage2.h"
 #include "../parser/snobol4/scrip_cc.h"
 #include "bb_program.h"
-extern int lp_s_int(const tree_t *s, const char *tag);
-extern tree_t *lp_s_expr(const tree_t *s, const char *tag);
-extern void bb_label_registry_reset(void);
-extern void bb_label_registry_add(const char *name, IR_t *landing);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int sno_parse_define_proto(const char *proto, char fname[64],
                                   char params[STAGE2_FRAME_SLOT_MAX][64], int *np,

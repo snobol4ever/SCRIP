@@ -1,9 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
-#include "ast.h"
-#include "IR.h"
-#include "stage2.h"
-extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
+#include "lower.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_proc_is_generator(const char * name) { if (!name) return 0; for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return g_stage2.proc_table[i].is_generator; return 0; }
 static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_generator(name) || !strcmp(name, "find") || !strcmp(name, "upto")); }
@@ -20,15 +17,6 @@ static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(icx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int binop_code(tree_e tt) {
-    switch (tt) {
-    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_MOD: return 4;
-    case TT_LT: return 5; case TT_LE: return 6; case TT_GT: return 7; case TT_GE: return 8;
-    case TT_EQ: return 9; case TT_NE: return 10; case TT_CAT: return 11;
-    case TT_LLT: return 12; case TT_LLE: return 13; case TT_LGT: return 14; case TT_LGE: return 15;
-    case TT_LEQ: return 16; case TT_LNE: return 17; case TT_POW: return 18; default: return 0; }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int augop_code(int aop) {
     switch (aop) {
@@ -49,13 +37,6 @@ static tree_e icn_augop_binop_tt(int a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_user_proc(icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->npn; i++) if (cx->pn[i] && !strcmp(cx->pn[i], nm)) return 1; return 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_binop_tt(tree_e tt) {
-    switch (tt) {
-    case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_LT: case TT_LE: case TT_GT: case TT_GE:
-    case TT_EQ: case TT_NE: case TT_CAT: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE: return 1;
-    default: return 0; }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_unop_tt(tree_e tt) {
     switch (tt) {
@@ -81,16 +62,15 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
 static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_graph_t * arg_block(icx_t * cx, const tree_t * a) {
-    IR_graph_t * saved = cx->g; IR_t * sps = cx->psucc; IR_t * spf = cx->pfail;
-    IR_graph_t * g2 = IR_alloc(256, IR_LANG_ICN); cx->g = g2;
-    IR_t * F = IR_node_alloc(g2, IR_FAIL);
+static IR_t * icn_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
+    icx_t * cx = (icx_t *) vcx; IR_t * sps = cx->psucc; IR_t * spf = cx->pfail;
     cx->psucc = NULL; cx->pfail = F;
     IR_t * r = NULL; IR_t * e = lower(cx, a, NULL, F, &r);
-    g2->entry = e;
-    cx->g = saved; cx->psucc = sps; cx->pfail = spf;
-    return g2;
+    cx->psucc = sps; cx->pfail = spf;
+    return e;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((icx_t *) vcx)->g, IR_LANG_ICN, icn_arg_lower, vcx, a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name; IR_LIT(call).ival = nargs;
@@ -98,11 +78,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     int subgraph = !chains;
     if (subgraph) {
-        IR_LIT(call).dval = (name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"))) ? 2.0 : 3.0;
-        if (nargs > 0) {
-            IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
-            if (blks) { for (int k = 0; k < nargs; k++) blks[k] = arg_block(cx, t->c[argbase + k]); IR_EXEC(call).counter = (int64_t)(intptr_t) blks; }
-        }
+        lc_call_argblks(call, (name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"))) ? 2.0 : 3.0, nargs, arg_block, cx, (const tree_t * const *) &t->c[argbase]);
         cx->beta = icn_call_allow_gen(name) ? call : ω;
         return call;
     }
@@ -123,8 +99,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     IR_t * dummy = NULL; if (!res) res = &dummy;
     cx->beta = ω;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    if (is_binop_tt(t->t)) {
-        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = binop_code(t->t); if (IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) IR_LIT(op).dval = 1.0;
+    if (lc_is_binop(t->t)) {
+        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t); if (IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) IR_LIT(op).dval = 1.0;
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], op, lβ, &rr);
         γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); } *res = op; return ea; }
     if (is_unop_tt(t->t)) { IR_t * op = build(cx, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) t->t; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); *res = op; return ea; }
@@ -447,7 +423,6 @@ static int lower_icon_body(const tree_t *prog, const tree_t *proc) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void lower_icon_stage2(const tree_t *prog) {
-    extern const char *lp_strdup(const char *s);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
         if (!proc || proc->t != TT_PROC_DECL) continue;
