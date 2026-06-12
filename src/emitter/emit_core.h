@@ -97,7 +97,6 @@ void     emit_jmp_label        (bb_label_t * target, jmp_kind_t kind);
 void     emit_call_label       (bb_label_t * target);
 struct IR_t;
 int walk_bb_node(struct IR_t * nd, FILE * out);
-char * walk_bb_node_str_c(struct IR_t * nd);
 void jvm_push_int2(FILE * out, long v);
 void jvm_emit_ldc_string(FILE * out, const char * s);
 void js_escape_string(FILE * out, const char * s);
