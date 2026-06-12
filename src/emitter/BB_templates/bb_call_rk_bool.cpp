@@ -4,12 +4,24 @@ extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 #include "../../runtime/rt/rt.h"
+#include "../../runtime/builtins/gen.h"
 int bb_slot_get(IR_t *nd);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rkbool_arg_is_relop(IR_t * a0) {
+    return a0 && a0->op == IR_BINOP && IR_LIT(a0).ival >= BINOP_LT && IR_LIT(a0).ival <= BINOP_NE;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_rk_bool_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
+    IR_t * a0 = ir_call_arg(_.node, 0);
+    if (rkbool_arg_is_relop(a0))
+        return x86("label", _.lbl_α)
+             + x86("comment", "BOX __rk_bool [relop pass-through: BINOP already branched γ/ω]")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω");
     int off = _.op_a_slot;
     if (off < 0) return x86_bomb("bb_call_rk_bool: arg slot not allocated");
     if (MEDIUM_BINARY)
