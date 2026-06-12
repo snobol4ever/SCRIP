@@ -280,6 +280,32 @@ sub main() {
 }
 EOF
 
+# --- RK-LOWER-5d: class / method / new / field access ---
+
+raku "class_method" "$(printf '3\n4\n7\n14\nRex\nWoof from Rex')" << 'EOF'
+class Point {
+    has $.x;
+    has $.y;
+    method sum() { return $!x + $!y; }
+    method scale($factor) { return ($!x + $!y) * $factor; }
+}
+class Dog {
+    has $.name;
+    has $.age;
+    method greet() { return "Woof from " ~ $!name; }
+}
+sub main() {
+    my $p = Point.new(x => 3, y => 4);
+    say($p.x);
+    say($p.y);
+    say($p.sum());
+    say($p.scale(2));
+    my $d = Dog.new(name => "Rex", age => 5);
+    say($d.name);
+    say($d.greet());
+}
+EOF
+
 echo ""
 echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE — must be all-PASS)"
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 EXCISED=$X3  / $N   (done bar: PASS or EXCISED, never silent FAIL)"

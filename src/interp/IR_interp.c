@@ -5985,3 +5985,39 @@ int IR_interp_pat(IR_graph_t *bbg,
     }
     return 1;
 }
+/*====================================================================================================================================================================================================*/
+DESCR_t rk_ir_call_proc(int upi, DESCR_t *args, int nargs) {
+    if (upi < 0 || upi >= g_stage2.proc_count) return FAILDESCR;
+    IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
+    Scope * sc = &g_stage2.proc_table[upi].lower_sc;
+    int np = g_stage2.proc_table[upi].nparams;
+    if (!fg || frame_depth >= FRAME_STACK_MAX || g_sno_save_top + sc->n > SNO_SAVE_MAX) return FAILDESCR;
+    int save_base = g_sno_save_top;
+    for (int k = 0; k < sc->n; k++) {
+        const char * nm = sc->e[k].name; if (!nm) continue;
+        g_sno_save[g_sno_save_top].name = nm;
+        g_sno_save[g_sno_save_top].old  = NV_GET_fn(nm);
+        g_sno_save_top++;
+        NV_SET_fn(nm, (k < np && k < nargs) ? args[k] : NULVCL);
+    }
+    const char * saved_func = g_sno_cur_func;
+    g_sno_cur_func = g_stage2.proc_table[upi].name;
+    GenFrame * _f = &frame_stack[frame_depth++];
+    memset(_f, 0, sizeof *_f);
+    DESCR_t _ring_save[AG_RING];
+    int _ring_head = fg->ring_head, _ring_depth = fg->ring_depth;
+    memcpy(_ring_save, fg->ring, sizeof _ring_save);
+    bb_node_state_t * _snap = bb_snapshot_state(fg);
+    bb_reset(fg);
+    DESCR_t out = IR_interp_once(fg);
+    if (frame_depth > 0 && FRAME.returning) { out = g_ir_return_val; FRAME.returning = 0; }
+    frame_depth--;
+    bb_restore_state(fg, _snap);
+    memcpy(fg->ring, _ring_save, sizeof _ring_save);
+    fg->ring_head = _ring_head; fg->ring_depth = _ring_depth;
+    g_sno_cur_func = saved_func;
+    for (int k = g_sno_save_top - 1; k >= save_base; k--)
+        NV_SET_fn(g_sno_save[k].name, g_sno_save[k].old);
+    g_sno_save_top = save_base;
+    return out;
+}
