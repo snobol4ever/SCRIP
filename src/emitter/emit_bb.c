@@ -367,6 +367,19 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int is_pat_chain_elem(IR_e t);
 static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, int cap, IR_t **cat_out, IR_t *stop);
+/* Collect γ/ω-threaded inline alt arms: arm[0]=start, arm[i+1]=arm[i]->ω.node while ω is a pat elem.
+   Returns number of arms collected (1 = single arm, no alternation chain). */
+static int gather_inline_alt_arms(IR_t *start, IR_t **arms, int cap) {
+    int n = 0;
+    IR_t *cur = start;
+    while (cur && n < cap && is_pat_chain_elem(cur->op)) {
+        arms[n++] = cur;
+        IR_t *nxt = cur->ω.node;
+        if (!nxt || !is_pat_chain_elem(nxt->op)) break;
+        cur = nxt;
+    }
+    return n;
+}
 static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *ch = (pBB && bb_match_nkids(pBB) > 0) ? bb_match_kid(pBB, 0) : (pBB && pBB->n_operands > 0 ? pBB->operands[0] : NULL);
     if (!ch && pBB) { int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &na); if (aux && na > 0) ch = aux[0]; }
@@ -389,13 +402,34 @@ static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     {
         IR_t *cat_arms[64]; IR_t *catnd = NULL;
         int catn = gather_lowered_cat_arms(ch, cat_arms, 64, &catnd, pBB);
-        if (catn >= 2)      flat_drive_cat_arms(catnd, cat_arms, catn, cap_γ, lbl_ω, lbl_β);
-        else if (ch->γ.node && ch->γ.node->op == IR_PAT_ALT) {
+        if (catn >= 2) {
+            flat_drive_cat_arms(catnd, cat_arms, catn, cap_γ, lbl_ω, lbl_β);
+        } else if (ch->γ.node && ch->γ.node->op == IR_PAT_ALT) {
             int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, ch->γ.node, &na);
-            if (aux && na > 0) walk_bb_flat(ch->γ.node, cap_γ, lbl_ω, lbl_β);
-            else               walk_bb_flat(ch,    cap_γ, lbl_ω, lbl_β);
+            if (aux && na > 0) {
+                walk_bb_flat(ch->γ.node, cap_γ, lbl_ω, lbl_β);
+            } else {
+                /* γ/ω-threaded inline alt chain: collect arms via ω links, drive as alternates */
+                IR_t *alt_arms[64]; int na2 = gather_inline_alt_arms(ch, alt_arms, 64);
+                if (na2 >= 2) {
+                    bb_label_t **ai_ωs = (bb_label_t **)alloca((size_t)na2 * sizeof(bb_label_t *));
+                    bb_label_t **ai_βs = (bb_label_t **)alloca((size_t)na2 * sizeof(bb_label_t *));
+                    for (int i = 0; i < na2; i++) {
+                        ai_ωs[i] = emit_label_alloc("icap%d_a%d_ω", id, i);
+                        ai_βs[i] = emit_label_alloc("icap%d_a%d_β", id, i);
+                    }
+                    for (int i = 0; i < na2; i++) {
+                        bb_label_t *arm_ω = (i < na2-1) ? ai_ωs[i] : lbl_ω;
+                        walk_bb_flat(alt_arms[i], cap_γ, arm_ω, ai_βs[i]);
+                        if (i < na2-1) emit_label_define_bb(ai_ωs[i]);
+                    }
+                } else {
+                    walk_bb_flat(ch, cap_γ, lbl_ω, lbl_β);
+                }
+            }
+        } else {
+            walk_bb_flat(ch, cap_γ, lbl_ω, lbl_β);
         }
-        else walk_bb_flat(ch, cap_γ, lbl_ω, lbl_β);
     }
     emit_label_define_bb(cap_γ);
     EMIT_PAIR_RESET();
@@ -1937,7 +1971,14 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     IR_t *cat_arms[64];
     IR_t *catnd = NULL;
     int catn = gather_lowered_cat_arms(elem, cat_arms, 64, &catnd, NULL);
-    if (catn == 0 && elem->γ.node) {
+    /* detect γ/ω-threaded inline alt chain (no operand_aux, arms linked via ω) */
+    int inline_alt_n = 0;
+    IR_t *inline_alt_arms[64];
+    if (catn == 0 && elem->γ.node && elem->γ.node->op == IR_PAT_ALT) {
+        int na = 0; bb_operand_aux_get(g_emit_cfg, elem->γ.node, &na);
+        if (na == 0) inline_alt_n = gather_inline_alt_arms(elem, inline_alt_arms, 64);
+    }
+    if (catn == 0 && inline_alt_n < 2 && elem->γ.node) {
         IR_e gt = elem->γ.node->op;
         int real_sibling = (gt != IR_SUCCEED && gt != IR_FAIL) &&
                            (is_pat_chain_elem(gt) || (gt == IR_PAT_CAT && bb_match_nkids(elem->γ.node) == 0));
@@ -1961,8 +2002,24 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     pBB->op = IR_PAT_MATCH_RETRY;
     FILL(pBB, match_retry, lbl_ω, elem_β);
     pBB->op = _sk;
-    if (catn >= 2) flat_drive_cat_arms(catnd, cat_arms, catn, lbl_γ, match_adv, elem_β);
-    else           walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
+    if (catn >= 2) {
+        flat_drive_cat_arms(catnd, cat_arms, catn, lbl_γ, match_adv, elem_β);
+    } else if (inline_alt_n >= 2) {
+        /* γ/ω-threaded inline alt: emit each arm with its own β label, cascade ω to next arm */
+        bb_label_t **ai_ωs = (bb_label_t **)alloca((size_t)inline_alt_n * sizeof(bb_label_t *));
+        bb_label_t **ai_βs = (bb_label_t **)alloca((size_t)inline_alt_n * sizeof(bb_label_t *));
+        for (int i = 0; i < inline_alt_n; i++) {
+            ai_ωs[i] = emit_label_alloc("imatch%d_a%d_ω", id, i);
+            ai_βs[i] = emit_label_alloc("imatch%d_a%d_β", id, i);
+        }
+        for (int i = 0; i < inline_alt_n; i++) {
+            bb_label_t *arm_ω = (i < inline_alt_n-1) ? ai_ωs[i] : match_adv;
+            walk_bb_flat(inline_alt_arms[i], lbl_γ, arm_ω, ai_βs[i]);
+            if (i < inline_alt_n-1) emit_label_define_bb(ai_ωs[i]);
+        }
+    } else {
+        walk_bb_flat(elem, lbl_γ, match_adv, elem_β);
+    }
     emit_label_define_bb(match_adv);
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
     pBB->op = IR_PAT_MATCH_ADVANCE;
