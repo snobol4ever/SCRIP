@@ -246,13 +246,7 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
-            if (icn_kind_native_stub(nd->op)) return 0;
-            if (has_lassign && !icn_assign_safe_kind(nd->op)) return 0;
-            if (has_lassign && nd->op == IR_BINOP && !((IR_LIT(nd).ival >= BINOP_LT && IR_LIT(nd).ival <= BINOP_NE) || IR_LIT(nd).ival == BINOP_ADD || IR_LIT(nd).ival == BINOP_SUB || IR_LIT(nd).ival == BINOP_MUL || IR_LIT(nd).ival == BINOP_DIV || IR_LIT(nd).ival == BINOP_MOD)) return 0;
-            if (has_lassign && has_binop && (nd->op == IR_LIT_F || nd->op == IR_LIT_NUL)) return 0;
-            if (has_lassign && nd->op == IR_CALL && !(IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes")))) return 0;
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0) return 0;
-            if (for_run && nd->op == IR_CALL && (IR_LIT(nd).dval == 3.0 || (IR_LIT(nd).sval && rt_proc_is_registered(IR_LIT(nd).sval)))) { int _icn_io = IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"write")||!strcmp(IR_LIT(nd).sval,"writes")||!strcmp(IR_LIT(nd).sval,"writeln")||!strcmp(IR_LIT(nd).sval,"nl")||!strcmp(IR_LIT(nd).sval,"halt")); if (!_icn_io) return 0; }
             if (nd->op == IR_GEN_SCAN) {
                 if (IR_LIT(nd).dval != 1.0) return 0;
                 IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
@@ -2590,12 +2584,6 @@ int main(int argc, char **argv)
             extern bb_box_fn descr_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
-            if ((is_icon || is_raku) && !icn_graph_native_emittable_mode(s2, 1)) {
-                fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
-                                "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "
-                                "or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
-                return 0;
-            }
             int main_bb_idx = -1;
             rt_proc_reset();
             rt_proc_set_builder((bb_box_fn (*)(void *))bb_build_flat);
@@ -2614,6 +2602,12 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+            }
+            if ((is_icon || is_raku) && !icn_graph_native_emittable_mode(s2, 1)) {
+                fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
+                                "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "
+                                "or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
+                return 0;
             }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;

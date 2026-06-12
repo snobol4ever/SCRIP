@@ -75,10 +75,13 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name; IR_LIT(call).ival = nargs;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
+    int is_idx_or_list = name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"));
+    if (!chains && !is_idx_or_list) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { chains = 1; break; } }
     int subgraph = !chains;
     if (subgraph) {
         lc_call_argblks(call, (name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"))) ? 2.0 : 3.0, nargs, arg_block, cx, (const tree_t * const *) &t->c[argbase]);
-        cx->beta = icn_call_allow_gen(name) ? call : ω;
+        int any_gen_arg = 0; for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { any_gen_arg = 1; break; }
+        cx->beta = (icn_call_allow_gen(name) || any_gen_arg) ? call : ω;
         return call;
     }
     IR_LIT(call).dval = 1.0;

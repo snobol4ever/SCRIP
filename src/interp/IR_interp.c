@@ -2334,6 +2334,28 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         if (IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 5.0) {
             int nargs = (int) IR_LIT(bb).ival;
+            if (nargs == 2 && IR_LIT(bb).sval && !strcmp(IR_LIT(bb).sval, "[]")) {
+                IR_graph_t ** blks = nargs > 0 ? (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter : NULL;
+                IR_graph_t * ab0 = blks ? blks[0] : NULL; IR_graph_t * ab1 = blks ? blks[1] : NULL;
+                if (!ab0 || !ab1) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+                susp_gen_cache_t * gc = susp_gen_cache_get(bb);
+                DESCR_t obj; DESCR_t idx;
+                if (IR_EXEC(bb).state == 2) {
+                    obj = (gc->count > 0) ? gc->items[0] : FAILDESCR;
+                    idx = IR_interp_once(ab1);
+                } else {
+                    bb_reset(ab0); obj = IR_interp_once(ab0);
+                    if (IS_FAIL_fn(obj)) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+                    if (gc->count == 0) { gc->count = 1; gc->items = (DESCR_t *) GC_malloc(sizeof(DESCR_t)); gc->items[0] = obj; }
+                    else gc->items[0] = obj;
+                    bb_reset(ab1); idx = IR_interp_once(ab1);
+                    IR_EXEC(bb).state = 2;
+                }
+                if (IS_FAIL_fn(obj) || IS_FAIL_fn(idx)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+                DESCR_t sargs[2]; sargs[0] = obj; sargs[1] = idx; DESCR_t out = FAILDESCR;
+                if (try_call_builtin_by_name("[]", sargs, 2, &out)) { IR_EXEC(bb).value = out; return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node; }
+                IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
+            }
             DESCR_t * args = NULL;
             if (nargs > 0) {
                 IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
