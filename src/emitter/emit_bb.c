@@ -2805,6 +2805,32 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/* Drive nd via walk_bb_flat, but if nd is the first arm of a γ/ω-threaded inline alt
+   chain (PAT_ALT with no operand_aux), drive all arms with cascading ω-labels. */
+static void walk_bb_flat_or_inline_alt(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    if (nd && nd->γ.node && nd->γ.node->op == IR_PAT_ALT) {
+        int na = 0; bb_operand_aux_get(g_emit_cfg, nd->γ.node, &na);
+        if (na == 0) {
+            IR_t *alt_arms[64]; int na2 = gather_inline_alt_arms(nd, alt_arms, 64);
+            if (na2 >= 2) {
+                int id = g_flat_node_id++;
+                bb_label_t **ai_ωs = (bb_label_t **)alloca((size_t)na2 * sizeof(bb_label_t *));
+                bb_label_t **ai_βs = (bb_label_t **)alloca((size_t)na2 * sizeof(bb_label_t *));
+                for (int i = 0; i < na2; i++) {
+                    ai_ωs[i] = emit_label_alloc("ialt%d_a%d_ω", id, i);
+                    ai_βs[i] = emit_label_alloc("ialt%d_a%d_β", id, i);
+                }
+                for (int i = 0; i < na2; i++) {
+                    bb_label_t *arm_ω = (i < na2-1) ? ai_ωs[i] : lbl_ω;
+                    walk_bb_flat(alt_arms[i], lbl_γ, arm_ω, ai_βs[i]);
+                    if (i < na2-1) emit_label_define_bb(ai_ωs[i]);
+                }
+                return;
+            }
+        }
+    }
+    walk_bb_flat(nd, lbl_γ, lbl_ω, lbl_β);
+}
 static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise, int wired) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -2828,7 +2854,7 @@ static int codegen_flat_body(IR_t *nd, const char *prefix, int text_externalise,
     if (g_is_text && !wired) g_emit_pos += 7;
     emit_label_define_bb(&lbl_α_body);
     nd = ir_skip_alt_arms(nd);
-    walk_bb_flat(nd, &lbl_γ, &lbl_ω, &lbl_β);
+    walk_bb_flat_or_inline_alt(nd, &lbl_γ, &lbl_ω, &lbl_β);
     emit_label_define_bb(&lbl_γ);
     xa_dispatch(XA_FLAT_EPILOGUE);
     g_emit.flat_wired = 0;
