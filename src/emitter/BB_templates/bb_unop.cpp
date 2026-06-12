@@ -35,12 +35,6 @@ static unop_op bb_unop_resolve(int kind, int64_t sub) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline unop_op uop() { return bb_unop_resolve(_.op_node_kind, _.op_ival); }
-static inline std::string uop_head(const char *msg) {
-    return IF(MEDIUM_TEXT, x86("label", _.lbl_α) + x86("comment", msg));
-}
-static inline std::string uop_tail() {
-    return x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop() {
     if (!PLATFORM_X86) return std::string();
@@ -48,12 +42,16 @@ std::string bb_unop() {
     if (uop() == UO_UNHANDLED) return std::string();
     if (uop() != UO_NOT && _.op_sa < 0) return x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)");
     if (uop() == UO_NOT)
-        return uop_head("BOX IR_NOT [x86() stackless: operand-fail->NULVCL->γ.node]")
+        return x86("comment", "IR_NOT")
+             + x86("label",   _.lbl_α)
              + x86("mov", FRQ(_.op_off),     (long)0)
              + x86("mov", FRQ(_.op_off + 8), (long)0)
-             + uop_tail();
+             + x86("jmp", "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
     if (uop() == UO_NONNULL)
-        return uop_head("BOX UNOP NONNULL [x86() stackless: fail/null->ω.node; DESCR->γ.node]")
+        return x86("comment", "IR_UNOP")
+             + x86("label",   _.lbl_α)
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
              + x86("je",  "ω")
@@ -63,9 +61,12 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", "rax", FRQ(_.op_sa + 8))
              + x86("mov", FRQ(_.op_off + 8), "rax")
-             + uop_tail();
+             + x86("jmp", "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
     if (uop() == UO_NULL_TEST)
-        return uop_head("BOX UNOP NULL_TEST [x86() stackless: fail/non-null->ω.node; null->γ.node]")
+        return x86("comment", "IR_UNOP")
+             + x86("label",   _.lbl_α)
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
              + x86("je",  "ω")
@@ -73,19 +74,27 @@ std::string bb_unop() {
              + x86("jne", "ω")
              + x86("mov", FRQ(_.op_off),     (long)0)
              + x86("mov", FRQ(_.op_off + 8), (long)0)
-             + uop_tail();
+             + x86("jmp", "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
     if (uop() == UO_SIZE)
-        return uop_head("BOX UNOP SIZE [x86() stackless: rt_size_d->slot->γ.node]")
+        return x86("comment", "IR_UNOP")
+             + x86("label",   _.lbl_α)
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("call", "rt_size_d", (uint64_t)(uintptr_t)(void *)rt_size_d)
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
-             + uop_tail();
-    return uop_head(uop() == UO_NEG ? "BOX UNOP NEG [x86() stackless slot->slot DESCR]" : "BOX UNOP POS [x86() stackless slot->slot DESCR]")
+             + x86("jmp", "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
+    return x86("comment", "IR_UNOP")
+         + x86("label",   _.lbl_α)
          + x86("mov", "rax", FRQ(_.op_sa + 8))
          + IF(uop() == UO_NEG, x86("neg", "rax"))
          + x86("mov", FRQ(_.op_off),     (long)DT_I)
          + x86("mov", FRQ(_.op_off + 8), "rax")
-         + uop_tail();
+         + x86("jmp", "γ")
+         + x86("def",  "β")
+         + x86("jmp",  "ω");
 }
