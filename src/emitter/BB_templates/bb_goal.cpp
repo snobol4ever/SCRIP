@@ -32,6 +32,7 @@ static std::string build_arg(int kind, long ival, const char *sval) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_goal() {
     if (!PLATFORM_X86) return std::string();
+    x86_begin();
     return x86("def",     "α")
          + x86("comment", "IR_GOAL")
          + FOR(0, _.op_parts_n, [&](int i) {
