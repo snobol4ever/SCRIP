@@ -149,6 +149,7 @@ extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
+int  rt_rk_is_truthy(DESCR_t v);
 DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 int  rt_field_get(const char *fname);
 int  rt_field_set(const char *fname);

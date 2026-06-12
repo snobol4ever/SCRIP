@@ -84,6 +84,7 @@ extern std::string bb_call_write_binop_str(IR_t *);
 extern std::string bb_call_write_legacy_str(IR_t *, int);
 extern std::string bb_call_userproc_str(IR_t *);
 extern std::string bb_call_fn_str(IR_t *);
+extern std::string bb_call_rk_bool_str(IR_t *);
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 static std::string marshal_single_call(IR_t * lf, int aoff, int lblid);
@@ -489,6 +490,10 @@ std::string bb_call(IR_t * pBB) {
     if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && _.op_dval == 3.0) return bb_call_proc_staged_str(pBB);
     if (g_gvar_flat_chain && _.op_dval == 3.0 && fn && fn[0] && !rt_proc_is_registered(fn)) return bb_call_byname_str(pBB);
     if (g_gvar_flat_chain && _.op_dval == 2.0 && fn && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
+    if (g_descr_flat_chain && fn && (!strcmp(fn, "__rk_bool")) && _.op_dval == 0.0 && narg == 1 && a0) {
+        int off = bb_slot_get(a0);
+        if (off >= 0) return bb_call_rk_bool_str(pBB);
+    }
     if (g_descr_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
         int off = bb_slot_get(a0);
         if (off >= 0) return bb_call_write_slot_str(pBB);
