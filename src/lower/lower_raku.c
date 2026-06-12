@@ -195,6 +195,28 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_SAY: case TT_SAY_FH: return lower_rcall(cx, t, "write", 0, 1, γ, ω, res);
     case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "print", 0, 1, γ, ω, res);
+    case TT_DIE: return lower_rcall(cx, t, "die", 0, 1, γ, ω, res);
+    case TT_TRY: { int has_catch = (t->n > 1 && t->c[1] != NULL);
+        int na = has_catch ? 2 : 1;
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_try"; IR_LIT(nd).ival = na;
+        IR_LIT(nd).dval = 2.0;
+        IR_graph_t ** blks2 = (IR_graph_t **) calloc((size_t) na, sizeof(IR_graph_t *));
+        if (blks2) {
+            IR_graph_t * saved = cx->g;
+            IR_graph_t * g0 = IR_alloc(256, IR_LANG_RKU); cx->g = g0;
+            IR_t * F0 = IR_node_alloc(g0, IR_FAIL); IR_t * S0 = IR_node_alloc(g0, IR_SUCCEED);
+            IR_t * e0 = (t->n > 0 && t->c[0]) ? lower_rblock(cx, t->c[0], S0, F0) : S0;
+            g0->entry = e0; blks2[0] = g0;
+            if (has_catch) {
+                IR_graph_t * g1 = IR_alloc(256, IR_LANG_RKU); cx->g = g1;
+                IR_t * F1 = IR_node_alloc(g1, IR_FAIL); IR_t * S1 = IR_node_alloc(g1, IR_SUCCEED);
+                IR_t * e1 = lower_rblock(cx, t->c[1], S1, F1);
+                g1->entry = e1; blks2[1] = g1;
+            }
+            cx->g = saved;
+            IR_EXEC(nd).counter = (int64_t)(intptr_t) blks2;
+        }
+        *res = nd; return nd; }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
         if (nm && !strcmp(nm, "any")) nm = "__rk_jct_any"; else if (nm && !strcmp(nm, "all")) nm = "__rk_jct_all";
         else if (nm && !strcmp(nm, "one")) nm = "__rk_jct_one"; else if (nm && !strcmp(nm, "none")) nm = "__rk_jct_none";
