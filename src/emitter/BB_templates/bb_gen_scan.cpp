@@ -13,9 +13,9 @@ void rt_icn_scan_leave(uint64_t *out3);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_gen_scan_str() {
     if (!PLATFORM_X86) return x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)");
-    return IF(_.op_sb == 1,
-               IF(MEDIUM_TEXT, x86("comment", "BOX ICN IR_GEN_SCAN enter [ICN-SCAN-0: ledger pushes prior triple; subject DESCR slot->rt->SIGMA=r13 delta=r14(0 for pos=1) DELTA=r15->body]"))
-             + x86("mov", "rdi", FRQ(_.op_sa))
+    return x86("comment", "IR_GEN_SCAN")
+         + IF(_.op_sb == 1,
+               x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("mov", "rdx", "r13")
              + x86("mov", "rcx", "r14")
@@ -28,8 +28,7 @@ static std::string bb_gen_scan_str() {
              + x86("def", "β")
              + x86("jmp", "ω"))
          + IF(_.op_sb != 1 && _.op_off >= 0,
-               IF(MEDIUM_TEXT, x86("comment", "BOX ICN IR_GEN_SCAN leave [ICN-SCAN-0: rt restores &subject/&pos + pops prior triple through frame out-area -> r13/r14/r15]"))
-             + x86_frame_lea("rdi", _.op_off)
+               x86("lea", "rdi", FRQ(_.op_off))
              + x86("call", "rt_icn_scan_leave", (uint64_t)(uintptr_t)(void *)rt_icn_scan_leave)
              + x86("mov", "r13", FRQ(_.op_off))
              + x86("mov", "r14", FRQ(_.op_off + 8))
