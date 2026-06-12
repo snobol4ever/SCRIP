@@ -12,12 +12,11 @@ typedef struct pas_scope_s {
     int                 has_children;
     struct pas_scope_s * outer;
 } pas_scope_t;
+typedef struct { const char * name; IR_t * node; } pas_label_t;
 typedef struct {
     IR_graph_t * g;
     pas_scope_t  sc;
-    IR_t       * labels[128];
-    const char * lnames[128];
-    int          nlabels;
+    lc_vec       labels;
     int          npbt;
 } pcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -51,7 +50,7 @@ static int scope_slot_chain(const pas_scope_t * sc, const char * name, long long
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * label_find(pcx_t * cx, const char * name) {
     if (!name) return NULL;
-    for (int i = 0; i < cx->nlabels; i++) if (cx->lnames[i] && !strcmp(cx->lnames[i], name)) return cx->labels[i];
+    for (int i = 0; i < cx->labels.n; i++) if (LC_AT(&cx->labels, pas_label_t, i).name && !strcmp(LC_AT(&cx->labels, pas_label_t, i).name, name)) return LC_AT(&cx->labels, pas_label_t, i).node;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -186,7 +185,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         IR_t * asn = lower_assign_var(cx, bname, γ, ω);
         IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure"; IR_LIT(call).ival = lhs->n + 1;
-        { const tree_t * av[34]; int an = 0; for (int k = 0; k < lhs->n && an < 33; k++) av[an++] = lhs->c[k]; av[an++] = rhs; pas_call_blocks(cx, call, 2.0, av, an); }
+        { const tree_t ** av = (const tree_t **) calloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0; for (int k = 0; k < lhs->n; k++) av[an++] = lhs->c[k]; av[an++] = rhs; pas_call_blocks(cx, call, 2.0, av, an); }
         return call;
     }
     if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0] && lhs->c[0]->v.sval && !strcmp(lhs->c[0]->v.sval, "__pas_deref")) {
@@ -336,21 +335,22 @@ static int pas_resumable(const tree_t * t) {
     switch (t->t) { case TT_IF: case TT_UNLESS: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void seq_flatten(const tree_t * t, const tree_t ** out, int * k) {
-    for (int i = 0; i < t->n && *k < 512; i++) {
+static void seq_flatten(const tree_t * t, lc_vec * out) {
+    for (int i = 0; i < t->n; i++) {
         const tree_t * s = t->c[i];
-        if (s && s->t == TT_SEQ_EXPR) seq_flatten(s, out, k);
-        else if (s) out[(*k)++] = s;
+        if (s && s->t == TT_SEQ_EXPR) seq_flatten(s, out);
+        else if (s) lc_vec_push(out, &s);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_t * conj = build(cx, IR_CONJ, γ, ω);
-    const tree_t * st[512]; int k = 0;
-    seq_flatten(t, st, &k);
+    lc_vec stv; lc_vec_init(&stv, (int) sizeof(const tree_t *));
+    seq_flatten(t, &stv);
+    const tree_t ** st = (const tree_t **) stv.data; int k = stv.n;
     if (k == 0) return conj;
     IR_t * succ = conj; IR_t * entry = NULL;
-    IR_t * anchor[512];
+    IR_t ** anchor = (IR_t **) calloc((size_t) k, sizeof(IR_t *));
     for (int i = k - 1; i >= 0; i--) {
         int m = cx->g->n;
         IR_t * e = lower(cx, st[i], succ, ω);
@@ -363,8 +363,8 @@ static IR_t * lower_seq(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_block(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
-    const tree_t * stmts[512]; int k = 0;
-    for (int i = 0; i < t->n && k < 512; i++) {
+    lc_vec stmv; lc_vec_init(&stmv, (int) sizeof(const tree_t *));
+    for (int i = 0; i < t->n; i++) {
         const tree_t * s = t->c[i];
         if (!s) continue;
         if (s->t == TT_PROC_DECL) continue;
@@ -377,8 +377,9 @@ static IR_t * lower_block(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
             if (!sub) continue;
             s = sub;
         }
-        stmts[k++] = s;
+        lc_vec_push(&stmv, &s);
     }
+    const tree_t ** stmts = (const tree_t **) stmv.data; int k = stmv.n;
     if (k == 0) return build(cx, IR_SUCCEED, γ, ω);
     IR_t * succ = γ; IR_t * entry = NULL;
     for (int i = k - 1; i >= 0; i--) { entry = lower(cx, stmts[i], succ, ω); if (entry) succ = entry; }
@@ -387,25 +388,23 @@ static IR_t * lower_block(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scan_labels(pcx_t * cx, const tree_t * t, IR_t * fail) {
     if (!t) return;
-    if (t->t == TT_LABEL_DEF && t->v.sval && cx->nlabels < 128) {
+    if (t->t == TT_LABEL_DEF && t->v.sval) {
         IR_t * lnd = IR_node_alloc(cx->g, IR_SUCCEED);
         ω_to(lnd, fail);
-        cx->lnames[cx->nlabels] = t->v.sval;
-        cx->labels[cx->nlabels] = lnd;
-        cx->nlabels++;
+        pas_label_t e; e.name = t->v.sval; e.node = lnd;
+        lc_vec_push(&cx->labels, &e);
     }
     if (t->t == TT_STMT) {
         for (int i = 0; i < t->n; i++) {
             const tree_t * a = t->c[i];
             if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":lbl")) {
-                for (int j = 0; j < a->n && cx->nlabels < 128; j++) {
+                for (int j = 0; j < a->n; j++) {
                     const tree_t * ln = a->c[j];
                     if (ln && ln->v.sval) {
                         IR_t * lnd = IR_node_alloc(cx->g, IR_SUCCEED);
                         ω_to(lnd, fail);
-                        cx->lnames[cx->nlabels] = ln->v.sval;
-                        cx->labels[cx->nlabels] = lnd;
-                        cx->nlabels++;
+                        pas_label_t e; e.name = ln->v.sval; e.node = lnd;
+                        lc_vec_push(&cx->labels, &e);
                     }
                 }
             }
@@ -474,10 +473,10 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     }
 }
 /*====================================================================================================================================================================================================*/
-#define PAS_MAX_PROCS 256
-static const tree_t * g_pas_proc_list[PAS_MAX_PROCS];
-static const tree_t * g_pas_proc_parent[PAS_MAX_PROCS];
-static int             g_pas_nprocs;
+static lc_vec g_pas_proc_list   = { NULL, 0, 0, (int) sizeof(const tree_t *) };
+static lc_vec g_pas_proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) };
+#define PAS_PROC(i)   LC_AT(&g_pas_proc_list, const tree_t *, (i))
+#define PAS_PARENT(i) LC_AT(&g_pas_proc_parent, const tree_t *, (i))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void build_scope(pas_scope_t * sc, const tree_t * pd, pas_scope_t * outer) {
     memset(sc, 0, sizeof *sc);
@@ -505,10 +504,9 @@ static void collect_procs(const tree_t * body, const tree_t * parent) {
                 if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj") && a->n > 0 && a->c[0] && a->c[0]->t == TT_PROC_DECL) { pd = a->c[0]; break; }
             }
         }
-        if (pd && g_pas_nprocs < PAS_MAX_PROCS) {
-            g_pas_proc_list[g_pas_nprocs] = pd;
-            g_pas_proc_parent[g_pas_nprocs] = parent;
-            g_pas_nprocs++;
+        if (pd) {
+            lc_vec_push(&g_pas_proc_list, &pd);
+            lc_vec_push(&g_pas_proc_parent, &parent);
         }
     }
 }
@@ -521,50 +519,50 @@ static int proc_decl_level(const tree_t * pd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void assign_parents(void) {
-    for (int i = 0; i < g_pas_nprocs; i++) {
-        int my_level = proc_decl_level(g_pas_proc_list[i]);
-        g_pas_proc_parent[i] = NULL;
+    for (int i = 0; i < g_pas_proc_list.n; i++) {
+        int my_level = proc_decl_level(PAS_PROC(i));
+        PAS_PARENT(i) = NULL;
         if (my_level <= 1) continue;
-        for (int j = i + 1; j < g_pas_nprocs; j++) {
-            if (proc_decl_level(g_pas_proc_list[j]) == my_level - 1) { g_pas_proc_parent[i] = g_pas_proc_list[j]; break; }
+        for (int j = i + 1; j < g_pas_proc_list.n; j++) {
+            if (proc_decl_level(PAS_PROC(j)) == my_level - 1) { PAS_PARENT(i) = PAS_PROC(j); break; }
         }
-        if (!g_pas_proc_parent[i]) {
+        if (!PAS_PARENT(i)) {
             for (int j = i - 1; j >= 0; j--) {
-                if (proc_decl_level(g_pas_proc_list[j]) == my_level - 1) { g_pas_proc_parent[i] = g_pas_proc_list[j]; break; }
+                if (proc_decl_level(PAS_PROC(j)) == my_level - 1) { PAS_PARENT(i) = PAS_PROC(j); break; }
             }
         }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lower_pascal_enum(const tree_t * prog, const tree_t ** out, int max) {
-    g_pas_nprocs = 0;
+    g_pas_proc_list.n = 0; g_pas_proc_parent.n = 0;
     if (!prog) return 0;
     collect_procs(prog, NULL);
     assign_parents();
-    if (!out) return g_pas_nprocs;
-    int n = (g_pas_nprocs < max) ? g_pas_nprocs : max;
-    for (int i = 0; i < n; i++) out[i] = g_pas_proc_list[i];
+    if (!out) return g_pas_proc_list.n;
+    int n = (g_pas_proc_list.n < max) ? g_pas_proc_list.n : max;
+    for (int i = 0; i < n; i++) out[i] = PAS_PROC(i);
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pas_scope_t * build_scope_chain(const tree_t * pd) {
     if (!pd) return NULL;
     const tree_t * parent_pd = NULL;
-    for (int i = 0; i < g_pas_nprocs; i++) {
-        if (g_pas_proc_list[i] == pd) { parent_pd = g_pas_proc_parent[i]; break; }
+    for (int i = 0; i < g_pas_proc_list.n; i++) {
+        if (PAS_PROC(i) == pd) { parent_pd = PAS_PARENT(i); break; }
     }
     pas_scope_t * outer = parent_pd ? build_scope_chain(parent_pd) : NULL;
     pas_scope_t * sc = (pas_scope_t *) calloc(1, sizeof(pas_scope_t));
     build_scope(sc, pd, outer);
-    for (int i = 0; i < g_pas_nprocs; i++) if (g_pas_proc_parent[i] == pd) { sc->has_children = 1; break; }
+    for (int i = 0; i < g_pas_proc_list.n; i++) if (PAS_PARENT(i) == pd) { sc->has_children = 1; break; }
     return sc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
-    IR_graph_t * g = IR_alloc(8192, IR_LANG_PAS); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g;
+    IR_graph_t * g = IR_alloc(8192, IR_LANG_PAS); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; lc_vec_init(&cx.labels, (int) sizeof(pas_label_t));
     scan_labels(&cx, pd, NULL);
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
-    for (int li = 0; li < cx.nlabels; li++) ω_to(cx.labels[li], fail);
+    for (int li = 0; li < cx.labels.n; li++) ω_to(LC_AT(&cx.labels, pas_label_t, li).node, fail);
     pas_scope_t * sc = build_scope_chain(pd);
     if (sc) cx.sc = *sc;
     const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
@@ -577,7 +575,7 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_pascal(const tree_t * prog) {
     lower_pascal_enum(prog, NULL, 0);
-    IR_graph_t * g = IR_alloc(8192, IR_LANG_PAS); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g;
+    IR_graph_t * g = IR_alloc(8192, IR_LANG_PAS); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; lc_vec_init(&cx.labels, (int) sizeof(pas_label_t));
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * entry = lower(&cx, prog, succ, fail);
     g->entry = entry ? entry : succ; return g;
@@ -589,25 +587,6 @@ IR_graph_t * lower_pascal(const tree_t * prog) {
 #include "stage2.h"
 #include "bb_program.h"
 extern int scope_get(Scope *sc, const char *name);
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int pas_scope_chain(int pi, Scope **scs, int *dls, int *pis, int maxd) {
-    int n = 0;
-    int dl = g_stage2.proc_table[pi].decl_level;
-    scs[n] = &g_stage2.proc_table[pi].lower_sc; dls[n] = dl; pis[n] = pi; n++;
-    int want = dl - 1, at = pi;
-    while (want >= 1 && n < maxd) {
-        int found = -1;
-        for (int j = at + 1; j < g_stage2.proc_count; j++) {
-            const tree_t *pj = (const tree_t *) g_stage2.proc_table[j].proc;
-            if (!pj || pj->t != TT_PROC_DECL || !g_stage2.proc_table[j].name || !strcmp(g_stage2.proc_table[j].name, "main")) continue;
-            if (g_stage2.proc_table[j].decl_level == want) { found = j; break; }
-        }
-        if (found < 0) break;
-        scs[n] = &g_stage2.proc_table[found].lower_sc; dls[n] = want; pis[n] = found; n++;
-        at = found; want--;
-    }
-    return n;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_pascal_body(const tree_t *prog, const tree_t *proc) {
     IR_graph_t * ng = lower_pascal_proc(prog, proc);
@@ -661,9 +640,6 @@ void lower_pascal_stage2(const tree_t *prog) {
             if (!g_stage2.proc_table[pi].name || !strcmp(g_stage2.proc_table[pi].name, "main")) continue;
             int idx = g_stage2.proc_table[pi].bb_idx;
             if (idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx]) continue;
-            Scope *scs[16]; int dls[16]; int pis[16];
-            int nch = pas_scope_chain(pi, scs, dls, pis, 16);
-            (void) nch;
             g_stage2.bbp.table[idx]->nslots = g_stage2.proc_table[pi].lower_sc.n + 1;
         }
     }

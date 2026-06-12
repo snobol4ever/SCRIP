@@ -72,16 +72,16 @@ static IR_t * term(lcx_t * cx, const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int collect_conj(const tree_t * t, const tree_t ** out, int n, int cap) {
-    if (!t) return n;
-    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ",")) { for (int i = 0; i < t->n; i++) n = collect_conj(t->c[i], out, n, cap); return n; }
-    if (n < cap) out[n++] = t;
-    return n;
+static void collect_conj(const tree_t * t, lc_vec * out) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ",")) { for (int i = 0; i < t->n; i++) collect_conj(t->c[i], out); return; }
+    lc_vec_push(out, &t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * thread_goals(lcx_t * cx, const tree_t * blk, int from, int to, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t * conj_owner) {
-    const tree_t * gl[1024]; int ng = 0;
-    for (int i = from; i < to; i++) ng = collect_conj(blk->c[i], gl, ng, 1024);
+    lc_vec glv; lc_vec_init(&glv, (int) sizeof(const tree_t *));
+    for (int i = from; i < to; i++) collect_conj(blk->c[i], &glv);
+    const tree_t ** gl = (const tree_t **) glv.data; int ng = glv.n;
     IR_t ** gn = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t ** en = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t * next = γtail;

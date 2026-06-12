@@ -238,16 +238,17 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         }
         return nd; }
     case TT_ALT: {
-        /* collect alternatives left-recursively into flat array */
-        const tree_t * alts[64]; int na = 0;
+        /* collect alternatives left-recursively into flat list */
+        lc_vec av; lc_vec_init(&av, (int) sizeof(const tree_t *));
         const tree_t * cur = t;
-        while (cur && cur->t == TT_ALT && na < 62) {
+        while (cur && cur->t == TT_ALT) {
             const tree_t * lc2 = (cur->n > 0) ? cur->c[0] : NULL;
             const tree_t * rc2 = (cur->n > 1) ? cur->c[1] : NULL;
             /* push right child onto alts stack; recurse left */
-            alts[na++] = rc2; cur = lc2;
+            lc_vec_push(&av, &rc2); cur = lc2;
         }
-        if (cur) alts[na++] = cur; /* leftmost leaf */
+        if (cur) lc_vec_push(&av, &cur); /* leftmost leaf */
+        const tree_t ** alts = (const tree_t **) av.data; int na = av.n;
         /* reverse so alts[0]=leftmost, alts[na-1]=rightmost */
         for (int li = 0, ri = na-1; li < ri; li++, ri--) {
             const tree_t * tmp = alts[li]; alts[li] = alts[ri]; alts[ri] = tmp; }
@@ -521,20 +522,20 @@ static IR_t * sno_build_leaf_ir(snx_t * cx, const tree_t * t, IR_t * g, IR_t * w
 /* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
     if (rhs && rhs->t == TT_ALT) {
-        const tree_t * qleaves[64]; int nq = 0, allq = 1;
-        const tree_t * stk2[128]; int sp2 = 0; stk2[sp2++] = rhs;
-        while (sp2 > 0 && allq && nq < 63) {
-            const tree_t * nd = stk2[--sp2]; if (!nd) { allq = 0; break; }
+        lc_vec qv; lc_vec_init(&qv, (int) sizeof(const tree_t *)); int allq = 1;
+        lc_vec st2; lc_vec_init(&st2, (int) sizeof(const tree_t *)); lc_vec_push(&st2, &rhs);
+        while (st2.n > 0 && allq) {
+            st2.n--; const tree_t * nd = LC_AT(&st2, const tree_t *, st2.n); if (!nd) { allq = 0; break; }
             if (nd->t == TT_ALT) {
-                if (sp2 + 2 > 127) { allq = 0; break; }
-                if (nd->n > 1) stk2[sp2++] = nd->c[1];
-                if (nd->n > 0) stk2[sp2++] = nd->c[0];
-            } else if (nd->t == TT_QLIT) { qleaves[nq++] = nd; }
+                if (nd->n > 1) lc_vec_push(&st2, &nd->c[1]);
+                if (nd->n > 0) lc_vec_push(&st2, &nd->c[0]);
+            } else if (nd->t == TT_QLIT) { lc_vec_push(&qv, &nd); }
             else { allq = 0; }
         }
+        const tree_t ** qleaves = (const tree_t **) qv.data; int nq = qv.n;
         if (allq && nq >= 2) {
             IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
-            IR_t * lits[64];
+            IR_t ** lits = (IR_t **) calloc((size_t) nq, sizeof(IR_t *));
             /* allocate left-associative: lit[0], lit[1], alt(0,1), lit[2], alt(prev,2), ... */
             lits[0] = build(cx, IR_PATTERN_LIT, ω, ω); IR_LIT(lits[0]).sval = qleaves[0]->v.sval;
             lits[1] = build(cx, IR_PATTERN_LIT, ω, ω); IR_LIT(lits[1]).sval = qleaves[1]->v.sval;
@@ -607,19 +608,19 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         return NULL;
     }
     if (rhs && rhs->t == TT_SEQ && sno_seq_buildable(rhs) && sno_seq_has_pat_leaf(rhs)) {
-        const tree_t * leaves[64]; int nl = 0;
-        const tree_t * stk3[128]; int sp3 = 0; stk3[sp3++] = rhs;
-        while (sp3 > 0 && nl < 63) {
-            const tree_t * nd = stk3[--sp3]; if (!nd) break;
+        lc_vec lv3; lc_vec_init(&lv3, (int) sizeof(const tree_t *));
+        lc_vec st3; lc_vec_init(&st3, (int) sizeof(const tree_t *)); lc_vec_push(&st3, &rhs);
+        while (st3.n > 0) {
+            st3.n--; const tree_t * nd = LC_AT(&st3, const tree_t *, st3.n); if (!nd) break;
             if (nd->t == TT_SEQ) {
-                if (sp3+2 > 127) break;
-                if (nd->n > 1) stk3[sp3++] = nd->c[1];
-                if (nd->n > 0) stk3[sp3++] = nd->c[0];
-            } else { leaves[nl++] = nd; }
+                if (nd->n > 1) lc_vec_push(&st3, &nd->c[1]);
+                if (nd->n > 0) lc_vec_push(&st3, &nd->c[0]);
+            } else { lc_vec_push(&lv3, &nd); }
         }
+        const tree_t ** leaves = (const tree_t **) lv3.data; int nl = lv3.n;
         if (nl >= 2) {
             IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
-            IR_t * pats[64];
+            IR_t ** pats = (IR_t **) calloc((size_t) nl, sizeof(IR_t *));
             pats[0] = sno_build_leaf_ir(cx, leaves[0], ω, ω);
             pats[1] = sno_build_leaf_ir(cx, leaves[1], ω, ω);
             IR_t * cur_cat = build(cx, IR_PATTERN_CAT, dtp, ω);
@@ -708,18 +709,17 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             IR_node_alloc(cx->g, IR_SEQ);
             return NULL;
         }
-        const tree_t * leaves[64]; int nl = 0, fold = 1;
-        const tree_t * stk[128]; int sp = 0;
-        stk[sp++] = rhs;
-        while (sp > 0 && fold) {
-            const tree_t * nd = stk[--sp]; if (!nd) { fold = 0; break; }
+        lc_vec lv; lc_vec_init(&lv, (int) sizeof(const tree_t *)); int fold = 1;
+        lc_vec stv; lc_vec_init(&stv, (int) sizeof(const tree_t *)); lc_vec_push(&stv, &rhs);
+        while (stv.n > 0 && fold) {
+            stv.n--; const tree_t * nd = LC_AT(&stv, const tree_t *, stv.n); if (!nd) { fold = 0; break; }
             if (nd->t == TT_SEQ) {
-                if (sp + 2 > 127) { fold = 0; break; }
-                stk[sp++] = (nd->n > 1) ? nd->c[1] : NULL;
-                stk[sp++] = (nd->n > 0) ? nd->c[0] : NULL;
-            } else if (nd->t == TT_QLIT && nl < 63) { leaves[nl++] = nd; }
+                const tree_t * r1 = (nd->n > 1) ? nd->c[1] : NULL; lc_vec_push(&stv, &r1);
+                const tree_t * r0 = (nd->n > 0) ? nd->c[0] : NULL; lc_vec_push(&stv, &r0);
+            } else if (nd->t == TT_QLIT) { lc_vec_push(&lv, &nd); }
             else { fold = 0; }
         }
+        const tree_t ** leaves = (const tree_t **) lv.data; int nl = lv.n;
         IR_t * asn = build(cx, IR_ASSIGN_CONCAT, γ, ω); IR_LIT(asn).sval = (char *) lhs;
         if (fold && nl > 0) {
             int total = 0;
