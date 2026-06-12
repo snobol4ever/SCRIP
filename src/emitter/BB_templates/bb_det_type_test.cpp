@@ -8,7 +8,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int rt_pl_type_test_cell(void *cell_term, const char *fn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_type_test_str() {
+std::string bb_det_type_test() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     const char *fn = _.op_parts_str[0];
@@ -29,5 +29,3 @@ static std::string bb_det_type_test_str() {
          + x86("label", LS(0))
          + x86(".string", fn);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_det_type_test(void) { bb_emit_x86(bb_det_type_test_str()); }

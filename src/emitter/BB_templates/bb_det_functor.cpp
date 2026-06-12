@@ -8,7 +8,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_functor_str() {
+std::string bb_det_functor() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     int sl0 = (int)_.op_parts_ival[0];
@@ -27,5 +27,3 @@ static std::string bb_det_functor_str() {
          + x86("def", "β")
          + x86("jmp", "ω");
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_det_functor(void) { bb_emit_x86(bb_det_functor_str()); }

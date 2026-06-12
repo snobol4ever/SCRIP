@@ -9,7 +9,8 @@ extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_alt_str() {
+std::string bb_alt() {
+    x86_begin();
     if (PLATFORM_X86) return IF(!(g_descr_flat_chain && _.op_off >= 0 && _.op_parts_n > 0),
                                 x86_bomb("bb_alt: unhandled (needs <=5 literal arms, descr flat-chain)"))
                            + IF(g_descr_flat_chain && _.op_off >= 0 && _.op_parts_n > 0,
@@ -35,9 +36,4 @@ static std::string bb_alt_str() {
                                                                     ? x86("def", L(i)) + x86(".quad", (long)_.op_parts_ival[i])
                                                                     : x86("def", L(i)) + x86(".quad", LS(i), _.op_parts_str[i]) + x86("label", LS(i)) + x86(".string", _.op_parts_str[i]); }));
     return std::string();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_alt(void) {
-    x86_begin();
-    bb_emit_x86(bb_alt_str());
 }

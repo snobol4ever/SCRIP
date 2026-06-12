@@ -14,7 +14,7 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline int bcs_ok() { return g_descr_flat_chain && _.op_off >= 0 && _.op_ival == BINOP_CONCAT && _.op_sa >= 0 && _.op_sb >= 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_binop_concat_slot_str() {
+std::string bb_binop_concat_slot() {
     return IF(PLATFORM_X86 && bcs_ok(),
            IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                          + x86("comment", "BOX IR_BINOP concat [GZ-11+ x86() stackless slot->slot DESCR]"))
@@ -28,10 +28,4 @@ std::string bb_binop_concat_slot_str() {
          + x86("jmp", "γ")
          + x86("def", "β")
          + x86("jmp", "ω"));
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_binop_concat_slot(IR_t * pBB) {
-    (void)pBB;
-    bb_emit_x86(IF(!(PLATFORM_X86 && bcs_ok()), x86_bomb("bb_binop_concat_slot: shape mismatch (dispatch chose this arm but predicate failed)"))
-              + bb_binop_concat_slot_str());
 }

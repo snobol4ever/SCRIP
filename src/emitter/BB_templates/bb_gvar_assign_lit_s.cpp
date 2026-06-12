@@ -17,7 +17,7 @@ static inline uint64_t     rhs_addr()  { return (uint64_t)(uintptr_t)rhs_sval();
 static inline const char * rhs_label() { const char * l = emit_intern_str(rhs_sval()); if (l) return l; static char b[64]; strtab_label(b, sizeof b, rhs_sval()); return b; }
 static inline uint64_t     fn_lit_s()  { void (*f)(const char *, const char *) = rt_gvar_assign_str; return (uint64_t)(uintptr_t)(void *)f; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gvar_assign_lit_s_str() {
+std::string bb_gvar_assign_lit_s() {
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                              + x86("comment", "BOX IR_ASSIGN(lit_s) store = literal [RO ptrs, @PLT]"))
@@ -29,5 +29,3 @@ static std::string bb_gvar_assign_lit_s_str() {
              + x86("jmp",  "ω");
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gvar_assign_lit_s(void) { bb_emit_x86(bb_gvar_assign_lit_s_str()); }

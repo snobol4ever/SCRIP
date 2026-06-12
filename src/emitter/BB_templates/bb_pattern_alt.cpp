@@ -14,7 +14,7 @@ static inline std::string  pa_sb()   { return std::to_string((long)_.op_sb); }
 static inline uint64_t     pa_fn()   { void (*fp)(DTP_FRAG_t*,const DTP_FRAG_t*,const DTP_FRAG_t*) = rt_pattern_stitch_alt;
                                        return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pattern_alt_str() {
+std::string bb_pattern_alt() {
     if (PLATFORM_X86)
         return x86("label", _.lbl_α)
              + x86("comment", std::string("BOX PATTERN_ALT  [STITCH ζ=r12 frag@") + pa_off() + " <- @" + pa_sa() + " | @" + pa_sb() + "]")
@@ -32,5 +32,3 @@ static std::string bb_pattern_alt_str() {
              + x86("jmp",  "ω");
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pattern_alt(void) { bb_emit_x86(bb_pattern_alt_str()); }

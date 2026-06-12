@@ -10,7 +10,7 @@ extern "C" {
 static std::string plch(const char *tag) { return ".Lplch" + std::to_string(_.resolve_choice_id) + "_" + tag; }
 static std::string plchi(int i, const char *tag) { char b[160]; resolve_choice_clause_label(b, sizeof b, _.resolve_choice_id, i, tag); return std::string(b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_choice_str(void) {
+std::string bb_choice() {
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return x86("comment", "no macro form — RESOLVE_CHOICE");
     return IF(MEDIUM_TEXT,
@@ -83,5 +83,3 @@ static std::string bb_choice_str(void) {
                                      + x86("ins2", "jmp",  plch("dispatch"))
                                      + x86("Lins2", plch("β_nosol") + ":", "jmp", _.lbl_ω)));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_choice(void) { bb_emit_x86(bb_choice_str()); }

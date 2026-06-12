@@ -98,7 +98,7 @@ static inline std::string us_proto_data() {
          + x86("raw", ".long 38, 32, 16, 24, -1, 0, -1");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pattern_unary_s_str() {
+std::string bb_pattern_unary_s() {
     if (PLATFORM_X86)
         return x86("label", _.lbl_α)
              + x86("comment", std::string("BOX PATTERN_") + us_kind() + "('" + us_cset() + "')  [BUILD ζ=r12 frag@" + us_off() + "]")
@@ -119,9 +119,4 @@ static std::string bb_pattern_unary_s_str() {
              + x86("def",   "β")
              + x86("jmp",   "ω");
     return std::string();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pattern_unary_s(void) {
-    us_bump();
-    bb_emit_x86(bb_pattern_unary_s_str());
 }

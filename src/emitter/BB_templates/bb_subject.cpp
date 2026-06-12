@@ -20,7 +20,8 @@ static inline uint64_t     subj_naddr() { return (uint64_t)(uintptr_t)(const voi
 static inline uint64_t     subj_nv_fn() { void (*fp)(const char *, void *) = rt_subject_load_nv;
                                           return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_subject_str() {
+std::string bb_subject() {
+    x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (_.op_sa < 0) return x86_bomb("IR_SUBJECT: subject slot not promoted (flat_drive_subject)");
     if (!subj_chars() && subj_name()[0]) {
@@ -51,9 +52,4 @@ static std::string bb_subject_str() {
          + x86("jmp", "γ")
          + x86("def", "β")
          + x86("jmp", "ω");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_subject(void) {
-    x86_begin();
-    bb_emit_x86(bb_subject_str());
 }

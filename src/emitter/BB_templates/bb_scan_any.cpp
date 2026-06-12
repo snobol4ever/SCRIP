@@ -11,7 +11,8 @@ extern int g_descr_flat_chain;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline uint64_t strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_scan_any_str() {
+std::string bb_scan_any() {
+    x86_begin();
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_any: unhandled (needs literal cset arg + descr flat-chain slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                          + x86("comment", "BOX ICN IR_SCAN_ANY any(c) [ICN-SCAN-4 fstranl.r: δ==Δ->ω; s[δ]∈c via strchr; {DT_I,δ+2}->slot->γ; δ untouched; single-shot β->ω]"))
@@ -35,5 +36,3 @@ static std::string bb_scan_any_str() {
          + x86("jmp", "ω")
          + x86_ro_seal_str(0, _.op_name1);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_scan_any(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_scan_any_str()); }

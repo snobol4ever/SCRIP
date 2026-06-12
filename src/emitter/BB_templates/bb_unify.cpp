@@ -49,7 +49,7 @@ static inline std::string u_general_side(int kind, long ival, const char *lbl, c
          + IF(!u_compound_kind(kind), u_build_scalar(kind, ival, vn ? IR_LIT((const IR_t *)vn).dval : 0.0, lbl));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_unify_str() {
+std::string bb_unify() {
     if (!PLATFORM_X86)
         return std::string();
     if (!u_present())
@@ -76,5 +76,3 @@ static std::string bb_unify_str() {
          + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void*)rt_unify_terms)
          + u_tail();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_unify(void) { bb_emit_x86(bb_unify_str()); }

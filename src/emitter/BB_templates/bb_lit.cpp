@@ -15,7 +15,7 @@ static inline const char * litlabel()   { const char * l = emit_intern_str(lit()
 static inline uint64_t     litaddr()    { return (uint64_t)(uintptr_t)lit(); }
 static inline uint64_t     memcmpaddr() { return (uint64_t)(uintptr_t)memcmp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_lit_str() {
+std::string bb_lit() {
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
@@ -40,8 +40,4 @@ static std::string bb_lit_str() {
              + x86("sub", "r14d", litlen())
              + x86("jmp", "ω");
     return std::string();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_lit(void) {
-    bb_emit_x86(bb_lit_str());
 }

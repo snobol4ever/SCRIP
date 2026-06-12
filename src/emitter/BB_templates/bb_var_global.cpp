@@ -10,7 +10,8 @@ DESCR_t NV_GET_fn(const char * name);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_var_global_str() {
+std::string bb_var_global() {
+    x86_begin();
     if (!(PLATFORM_X86 && g_descr_flat_chain && _.op_off >= 0)) return x86_bomb("bb_var_global: unhandled (needs descr flat-chain + own slot)");
     return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                           + x86("comment", std::string("BOX IR_VAR global read(\"") + (_.op_sval ? _.op_sval : "") + "\") [GN-3 x86() stackless: NV_GET_fn -> own slot " + std::to_string(_.op_off) + "; name sealed RO [rip+disp]]"))
@@ -23,5 +24,3 @@ static std::string bb_var_global_str() {
          + x86("jmp", "ω")
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_var_global(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_var_global_str()); }

@@ -9,7 +9,7 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline long tabN() { return (long)(int)_.op_ival; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_tab_str() {
+std::string bb_match_tab() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
@@ -23,5 +23,3 @@ static std::string bb_match_tab_str() {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_tab(void) { bb_emit_x86(bb_match_tab_str()); }

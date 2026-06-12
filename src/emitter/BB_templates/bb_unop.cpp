@@ -42,7 +42,7 @@ static inline std::string uop_tail() {
     return x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_unop_str() {
+std::string bb_unop() {
     if (!PLATFORM_X86) return std::string();
     if (!(g_descr_flat_chain && _.op_off >= 0)) return std::string();
     if (uop() == UO_UNHANDLED) return std::string();
@@ -89,5 +89,3 @@ std::string bb_unop_str() {
          + x86("mov", FRQ(_.op_off + 8), "rax")
          + uop_tail();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_unop(void) { bb_emit_x86(bb_unop_str()); }

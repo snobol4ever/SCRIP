@@ -21,7 +21,7 @@ static std::string baf_srchop() {
          + FOR(0, (int) _.op_a_dval, [&](int h) { (void) h; return x86("mov", "rax", RDQ("rax", 0)); });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_assign_frame_str() {
+std::string bb_assign_frame() {
     if (PLATFORM_X86) return IF(!g_gvar_flat_chain, x86_bomb("bb_assign_frame: gvar flat-chain only"))
                            + IF(_.bb_lk == 7 && _.op_a_slot < 0, x86_bomb("bb_assign_frame int-binop: op_a_slot==-1 (binop slot not promoted)"))
                            + IF(_.bb_lk == 8 && _.op_a_slot < 0, x86_bomb("bb_assign_frame call-result: op_a_slot==-1 (call result slot not promoted)"))
@@ -81,5 +81,3 @@ static std::string bb_assign_frame_str() {
                            + x86("jmp", "ω"));
     return std::string();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_assign_frame(void) { bb_emit_x86(bb_assign_frame_str()); }

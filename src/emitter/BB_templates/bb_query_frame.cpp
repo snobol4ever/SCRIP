@@ -9,7 +9,7 @@ extern "C" int  rt_trail_mark(void);
 extern "C" void rt_trail_unwind(int mark);
 extern "C" void rt_pl_cells_init(void ** cells, int n);
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_query_frame_str() {
+std::string bb_query_frame() {
     if (PLATFORM_X86) {
         if (_.op_sa == 0) {
             return IF(MEDIUM_TEXT,
@@ -52,5 +52,3 @@ static std::string bb_query_frame_str() {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_query_frame(void) { bb_emit_x86(bb_query_frame_str()); }

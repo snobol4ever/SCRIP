@@ -37,7 +37,7 @@ static inline std::string  pb_proto_data() {
          + x86("raw", ".long 47, 32, 16, 24, -1, 0, 8");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_pattern_lit_str() {
+std::string bb_pattern_lit() {
     if (PLATFORM_X86)
         return x86("label", _.lbl_α)
              + x86("comment", std::string("BOX PATTERN_LIT('") + plit() + "')  [BUILD ζ=r12 frag@" + pb_off() + "]")
@@ -58,9 +58,4 @@ static std::string bb_pattern_lit_str() {
              + x86("def",   "β")
              + x86("jmp",   "ω");
     return std::string();
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_pattern_lit(void) {
-    pb_bump();
-    bb_emit_x86(bb_pattern_lit_str());
 }

@@ -10,7 +10,8 @@ DESCR_t rt_list_bang_at(DESCR_t obj, int64_t idx);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_iterate_str(IR_t * pBB) {
+std::string bb_iterate(IR_t * pBB) {
+    x86_begin();
     (void)pBB;
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return x86("comment", "no macro form — IR_LIST_BANG");
@@ -34,5 +35,3 @@ static std::string bb_iterate_str(IR_t * pBB) {
              + x86("inc",  FRQ(_.op_sb))
              + x86("jmp",  L(0)));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_iterate(IR_t * pBB) { x86_begin(); bb_emit_x86(bb_iterate_str(pBB)); }

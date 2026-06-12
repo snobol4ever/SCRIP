@@ -21,7 +21,7 @@ static inline uint64_t     fn_str()      { void (*f)(const char *, const char *)
 static inline uint64_t     fn_concat()        { int  (*f)(const char *, void *, void *) = rt_gvar_assign_concat;       return (uint64_t)(uintptr_t)(void *)f; }
 static inline uint64_t     fn_concat_parts()  { void (*f)(const char *, void *, int)    = rt_gvar_assign_concat_parts; return (uint64_t)(uintptr_t)(void *)f; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gvar_assign_concat_str() {
+std::string bb_gvar_assign_concat() {
     if (PLATFORM_X86) {
         if (_.op_a_node_kind == (int)IR_LIT_S) {
             const char * sv = _.op_a_sval ? _.op_a_sval : "";
@@ -75,5 +75,3 @@ static std::string bb_gvar_assign_concat_str() {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gvar_assign_concat(void) { bb_emit_x86(bb_gvar_assign_concat_str()); }

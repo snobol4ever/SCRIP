@@ -26,7 +26,7 @@ static std::string bga_arith(int64_t op) {
          + IF(op == BINOP_MOD, x86("cqo") + x86("idiv", "rcx") + x86("mov", "rax", "rdx"));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_binop_gvar_arith_str() {
+std::string bb_binop_gvar_arith() {
     return IF(PLATFORM_X86,
            IF(bga_pow_ok(),
               IF(MEDIUM_TEXT, x86("label", _.lbl_α)
@@ -74,5 +74,3 @@ std::string bb_binop_gvar_arith_str() {
             + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"))
          + IF(!bga_ok() && !bga_pow_ok(), x86_bomb("bb_binop_gvar_arith: shape mismatch (dispatch chose this arm but predicate failed)")));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_binop_gvar_arith(IR_t * pBB) { (void)pBB; bb_emit_x86(bb_binop_gvar_arith_str()); }

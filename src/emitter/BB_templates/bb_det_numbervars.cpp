@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_numbervars_str() {
+std::string bb_det_numbervars() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     int s_term  = (int)_.op_parts_ival[0];
@@ -25,5 +25,3 @@ static std::string bb_det_numbervars_str() {
          + x86("def", "β")
          + x86("jmp", "ω");
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_det_numbervars(void) { bb_emit_x86(bb_det_numbervars_str()); }

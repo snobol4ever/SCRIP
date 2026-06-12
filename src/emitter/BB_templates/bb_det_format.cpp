@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" void rt_pl_format_cell(const char *fmt, void *list_cell);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_format_str() {
+std::string bb_det_format() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     const char *fmt = _.op_parts_str[0];
@@ -30,5 +30,3 @@ static std::string bb_det_format_str() {
          + x86("label", LS(0))
          + x86(".string", fmt);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_det_format(void) { bb_emit_x86(bb_det_format_str()); }

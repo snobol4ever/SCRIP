@@ -28,7 +28,7 @@ static inline std::string  cs_test_any() {
          + x86("je",   "\xCF\x89");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_any_str() {
+std::string bb_match_any() {
     if (PLATFORM_X86)
         return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                              + x86("comment", "BOX ANY — match one char from cset [Σ=r13 δ=r14 Δ=r15]"))
@@ -45,5 +45,3 @@ static std::string bb_match_any_str() {
              + x86("jmp",    "\xCF\x89");
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_any(void) { bb_emit_x86(bb_match_any_str()); }

@@ -25,7 +25,8 @@ static inline const char * valsLbl()  { return s_gather_lbl; }
 static inline int          cursoff()  { return s_gather_cursoff; }
 static inline int          resoff()   { return s_gather_resoff; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gather_str() {
+std::string bb_gather() {
+    x86_begin();
     if (PLATFORM_X86) return x86("label",    _.lbl_α)
          + x86("comment",   "IR_GATHER")
          + IF(MEDIUM_TEXT,
@@ -70,5 +71,3 @@ extern "C" void bb_gather_prepare(IR_t *nd) {
     s_gather_resoff  = bb_slot_alloc16(nd);
     s_gather_cursoff = bb_slot_claim(8);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gather(void) { x86_begin(); bb_emit_x86(bb_gather_str()); }

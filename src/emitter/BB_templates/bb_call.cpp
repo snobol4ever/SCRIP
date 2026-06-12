@@ -478,7 +478,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_str(IR_t * pBB) {
+std::string bb_call(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
@@ -518,5 +518,3 @@ static std::string bb_call_str(IR_t * pBB) {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_call(IR_t * pBB) { bb_emit_x86(bb_call_str(pBB)); }

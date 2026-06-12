@@ -86,12 +86,10 @@ static std::string bcch_build() {
     return s + seals;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_cell_choice_str() {
+std::string bb_cell_choice() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     if (!bcch_st() || bcch_N() < 2 || bcch_N() > 4 || bcch_A() < 0 || bcch_A() > 3)
         return x86_bomb("bb_cell_choice: unadmitted choice shape reached the emitter");
     return bcch_build();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_cell_choice(void) { bb_emit_x86(bb_cell_choice_str()); }

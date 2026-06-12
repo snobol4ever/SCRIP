@@ -18,7 +18,8 @@ static inline uint64_t     vaddr()     { return (uint64_t)(uintptr_t)(const void
 static inline uint64_t     cap_fn()    { void (*fp)(const char *, int, int, int) = rt_cap_assign_cursor;
                                          return (uint64_t)(uintptr_t)(void *)fp; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_capture_str() {
+std::string bb_match_capture() {
+    x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (stoff() < 0) return x86_bomb("IR_PAT_ASSIGN: start slot not promoted (flat_drive_capture)");
     if (!vname()[0]) return x86_bomb("IR_PAT_ASSIGN: empty capture variable name");
@@ -41,9 +42,4 @@ static std::string bb_match_capture_str() {
          + x86("mov",  "rsp", "rbx")
          + x86("pop",  "rbx")
          + x86("jmp",  "γ");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_match_capture(void) {
-    x86_begin();
-    bb_emit_x86(bb_match_capture_str());
 }

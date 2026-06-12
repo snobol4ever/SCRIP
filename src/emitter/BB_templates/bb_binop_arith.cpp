@@ -14,7 +14,7 @@ extern int g_descr_flat_chain;
 static inline long long bo()    { return (long long)_.op_ival; }
 static inline int       ba_ok() { return g_descr_flat_chain && _.op_off >= 0 && (bo() == BINOP_ADD || bo() == BINOP_SUB || bo() == BINOP_MUL || bo() == BINOP_DIV || bo() == BINOP_MOD); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_binop_arith_str() {
+std::string bb_binop_arith() {
     return IF(PLATFORM_X86 && ba_ok(),
            IF(MEDIUM_TEXT, x86("label", _.lbl_α)
                          + x86("comment", std::string("BOX IR_BINOP arith op=") + std::to_string(bo()) + " [GZ-9 x86() self-encoding, stackless slot->slot DESCR]"))
@@ -30,10 +30,4 @@ std::string bb_binop_arith_str() {
          + x86("jmp", "γ")
          + x86("def", "β")
          + x86("jmp", "ω"));
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_binop_arith(IR_t * pBB) {
-    (void)pBB;
-    bb_emit_x86(IF(!(PLATFORM_X86 && ba_ok()), x86_bomb("bb_binop_arith: shape mismatch (dispatch chose this arm but predicate failed)"))
-              + bb_binop_arith_str());
 }

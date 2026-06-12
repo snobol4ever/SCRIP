@@ -6,7 +6,7 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_succeed_str() {
+std::string bb_succeed() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                    x86("label", _.lbl_α)
@@ -17,5 +17,3 @@ static std::string bb_succeed_str() {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_succeed(void) { bb_emit_x86(bb_succeed_str()); }

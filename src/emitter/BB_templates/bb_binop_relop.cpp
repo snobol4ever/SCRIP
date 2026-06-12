@@ -25,7 +25,7 @@ static const char * rel_fail_mnem(int64_t op) {
 }
 static inline int brr_ok() { return g_descr_flat_chain && _.op_off >= 0 && rel_is_numrel(_.op_ival) && _.op_sa >= 0 && _.op_sb >= 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_binop_relop_str() {
+std::string bb_binop_relop() {
     return IF(PLATFORM_X86,
            IF(brr_ok(),
               IF(MEDIUM_TEXT, x86("label", _.lbl_α)
@@ -39,5 +39,3 @@ std::string bb_binop_relop_str() {
             + x86("jmp", "ω"))
          + IF(!brr_ok(), x86_bomb("bb_binop_relop: shape mismatch (dispatch chose this arm but predicate failed)")));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_binop_relop(IR_t * pBB) { (void)pBB; bb_emit_x86(bb_binop_relop_str()); }

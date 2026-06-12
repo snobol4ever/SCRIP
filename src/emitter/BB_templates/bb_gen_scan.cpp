@@ -11,7 +11,8 @@ void rt_icn_scan_leave(uint64_t *out3);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gen_scan_str() {
+std::string bb_gen_scan() {
+    x86_begin();
     if (!PLATFORM_X86) return x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)");
     return x86("comment", "IR_GEN_SCAN")
          + IF(_.op_sb == 1,
@@ -38,5 +39,3 @@ static std::string bb_gen_scan_str() {
              + x86("jmp", "ω"))
          + IF(_.op_sb != 1 && _.op_off < 0, x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)"));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gen_scan(IR_t * pBB) { (void)pBB; x86_begin(); bb_emit_x86(bb_gen_scan_str()); }

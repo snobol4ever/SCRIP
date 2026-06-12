@@ -9,7 +9,7 @@ extern "C" void rt_write_atom(const char * s);
 extern "C" void rt_write_int(long v);
 extern "C" void rt_pl_write_cell(void * cell_term);
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_det_write_str() {
+std::string bb_det_write() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     return x86("label", _.lbl_α)
@@ -32,5 +32,3 @@ static std::string bb_det_write_str() {
              + x86("label", LS(0))
              + x86(".string", _.op_sval));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_det_write(void) { bb_emit_x86(bb_det_write_str()); }

@@ -14,7 +14,7 @@ static inline uint64_t     dst_addr()  { return (uint64_t)(uintptr_t)dst_name();
 static inline const char * dst_label() { const char * l = emit_intern_str(dst_name()); if (l) return l; static char b[64]; strtab_label(b, sizeof b, dst_name()); return b; }
 static inline uint64_t     fn_descr()  { void (*f)(const char *, int64_t, int64_t) = rt_gvar_assign_descr; return (uint64_t)(uintptr_t)(void *)f; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_gvar_assign_call_str() {
+std::string bb_gvar_assign_call() {
     if (PLATFORM_X86) {
         int slot = _.op_a_slot;
         if (slot < 0) return x86_bomb("bb_gvar_assign_call: op_a_slot==-1 (call result slot not promoted)");
@@ -30,5 +30,3 @@ static std::string bb_gvar_assign_call_str() {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gvar_assign_call(void) { bb_emit_x86(bb_gvar_assign_call_str()); }
