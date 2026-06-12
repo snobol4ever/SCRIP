@@ -1375,12 +1375,13 @@ static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     int id = g_flat_node_id++;
     bb_label_t *arg_done = emit_label_alloc("xcall%d_arg_done", id);
     bb_label_t *arg_β    = emit_label_alloc("xcall%d_arg_β",    id);
-    if (IR_LIT(pBB).dval != 1.0) {
+    int need_walk = (IR_LIT(pBB).dval != 1.0) || g_descr_flat_chain;
+    if (need_walk) {
         walk_bb_flat(a0, arg_done, lbl_ω, arg_β);
         emit_label_define_bb(arg_done);
     }
     EMIT_PAIR_RESET();
-    EMIT_PAIR_DEF_JMP(lbl_β, (IR_LIT(pBB).dval == 1.0) ? lbl_ω : arg_β);
+    EMIT_PAIR_DEF_JMP(lbl_β, need_walk ? arg_β : lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
