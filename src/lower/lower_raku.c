@@ -25,7 +25,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
 static void push_kids(rcx_t * cx, IR_t * nd, const tree_t * t, int from) { for (int i = from; i < t->n; i++) ir_operand_push(nd, lower(cx, t->c[i], NULL, NULL)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_cond_wrap(rcx_t * cx, IR_t * r, IR_t * on_true, IR_t * on_false) {
-    IR_t * bk = IR_node_alloc(cx->g, IR_CALL); IR_LIT(bk).sval = "__rk_bool"; IR_LIT(bk).ival = 1; IR_LIT(bk).dval = 1.0;
+    IR_t * bk = IR_node_alloc(cx->g, IR_CALL); IR_LIT(bk).sval = "__rk_bool"; IR_LIT(bk).ival = 1; IR_LIT(bk).dval = 0.0;
     bk->γ.node = on_true; bk->ω.node = on_false; ir_operand_push(bk, r); return bk;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -254,15 +254,16 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return lower_rcall(cx, t, nm, 1, 0, γ, ω, res); }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); return sub ? lower_rv(cx, sub, γ, ω, res) : (build(cx, IR_SUCCEED, γ, ω)); }
     case TT_IF: {
-        IR_t * nd = build(cx, IR_IF, γ, ω);
         IR_t * tconj = build(cx, IR_CONJ, γ, ω);
         IR_t * tentry = (t->n > 1) ? lower_rblock(cx, t->c[1], tconj, ω) : tconj;
-        IR_t * eentry = NULL;
+        IR_t * eentry = γ;
         if (t->n > 2 && t->c[2]) { IR_t * econj = build(cx, IR_CONJ, γ, ω); eentry = lower_rblock(cx, t->c[2], econj, ω); }
-        IR_t * r = NULL; IR_t * centry = lower_rv(cx, t->c[0], NULL, NULL, &r);
-        IR_t * bk = rk_cond_wrap(cx, r, tentry, eentry ? eentry : γ);
-        γ_to(r, bk);
-        ir_operand_push(nd, bk); *res = nd; return centry; }
+        IR_t * bk = IR_node_alloc(cx->g, IR_CALL); IR_LIT(bk).sval = "__rk_bool"; IR_LIT(bk).ival = 1; IR_LIT(bk).dval = 2.0;
+        bk->γ.node = tentry; bk->ω.node = eentry;
+        IR_graph_t * cblk = rk_arg_block(cx, t->c[0]);
+        IR_graph_t ** blks = (IR_graph_t **) calloc(1, sizeof(IR_graph_t *)); blks[0] = cblk;
+        IR_EXEC(bk).counter = (int64_t)(intptr_t) blks;
+        *res = bk; return bk; }
     case TT_EVERY: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0) {
         const tree_t * src = t->c[0]->c[0];
         if (src && src->t == TT_GATHER) {
