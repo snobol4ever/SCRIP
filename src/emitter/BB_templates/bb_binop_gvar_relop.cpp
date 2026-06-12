@@ -12,9 +12,9 @@ extern int64_t rt_gvar_get_int(const char *name);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline int gvr_numrel() { return _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE; }
-static inline int gvr_llit() { return _.bb_lk == (int)IR_LIT_I; }
+static inline int gvr_llit() { return _.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_LIT_NUL; }
 static inline int gvr_lvar() { return _.bb_lk == (int)IR_VAR && _.op_name1 != 0; }
-static inline int gvr_rlit() { return _.bb_rk == (int)IR_LIT_I; }
+static inline int gvr_rlit() { return _.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_LIT_NUL; }
 static inline int gvr_rvar() { return _.bb_rk == (int)IR_VAR && _.op_name2 != 0; }
 static inline int gvr_disp(int kind) { return (kind == (int)IR_CALL || kind == (int)IR_VAR_FRAME || kind == (int)IR_VAR_FRAME_REF) ? 8 : 0; }
 static inline int gvr_ok() { return g_gvar_flat_chain && _.op_off >= 0 && gvr_numrel() && (gvr_llit() || gvr_lvar() || _.op_sa >= 0) && (gvr_rlit() || gvr_rvar() || _.op_sb >= 0); }
