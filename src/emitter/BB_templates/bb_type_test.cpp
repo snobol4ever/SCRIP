@@ -45,8 +45,8 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
             }
     }
     if (MEDIUM_TEXT) {
-    std::string succ_back = x86("ins2", "jmp", _.lbl_γ)
-                          + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_γ);
+    std::string succ_back = x86("jmp", "γ")
+                          + x86("def", _.lbl_β) + x86("jmp", _.lbl_γ);
     (void)succ_back;
         if (_.op_ival == 1 && ir_call_arg(pBB,0) &&
             (strcmp(fn,"var")==0      || strcmp(fn,"nonvar")==0   || strcmp(fn,"atom")==0
@@ -57,31 +57,31 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
             IR_t *a0 = ir_call_arg(pBB,0);
             if (a0->op == IR_STRUCT) {
                 return hdr
-                     + x86("ins2", "sub", "rsp, 16")
+                     + x86("sub", "rsp", "16")
                      + emit_build_compound_term(a0)
-                     + x86("ins2", "mov", "rsi, rax")
-                     + x86("ins2", "lea rdi,", emit_fmt("[rip + %s]", op_lbl))
-                     + x86("ins2", "call", "rt_type_test_term@PLT")
-                     + x86("ins2", "add", "rsp, 16")
-                     + x86("ins2", "test", "eax, eax")
-                     + x86("ins2", "je",   _.lbl_ω)
-                     + x86("ins2", "jmp",  _.lbl_γ)
-                     + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                     + x86("mov", "rsi", "rax")
+                     + x86("lea", "rdi", emit_fmt("[rip + %s]", op_lbl))
+                     + x86("call", "rt_type_test_term@PLT")
+                     + x86("add", "rsp", "16")
+                     + x86("test", "eax", "eax")
+                     + x86("je",   _.lbl_ω)
+                     + x86("jmp",  _.lbl_γ)
+                     + x86("def", _.lbl_β) + x86("jmp", _.lbl_ω);
             }
             int  k0 = (int)a0->op;
             long i0 = (long)IR_LIT(a0).ival;
             char s0lbl[64]; s0lbl[0] = 0;
             if (k0 == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
             return hdr
-                 + x86("ins2", "lea rdi,", emit_fmt("[rip + %s]", op_lbl))
-                 + x86("ins2", "mov esi,",  emit_fmt("%d",  k0))
-                 + x86("ins2", "mov rdx,",  emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("ins2", "lea rcx,", emit_fmt("[rip + %s]", s0lbl)) : x86("ins2", "xor", "ecx, ecx"))
-                 + x86("ins2", "call", "rt_type_test@PLT")
-                 + x86("ins2", "test", "eax, eax")
-                 + x86("ins2", "je",   _.lbl_ω)
-                 + x86("ins2", "jmp",  _.lbl_γ)
-                 + x86("Lins2", emit_fmt("%s:", _.lbl_β), "jmp", _.lbl_ω);
+                 + x86("lea", "rdi", emit_fmt("[rip + %s]", op_lbl))
+                 + x86("mov", "esi", emit_fmt("%d",  k0))
+                 + x86("mov", "rdx", emit_fmt("%ld", i0))
+                 + (s0lbl[0] ? x86("lea", "rcx", emit_fmt("[rip + %s]", s0lbl)) : x86("xor", "ecx", "ecx"))
+                 + x86("call", "rt_type_test@PLT")
+                 + x86("test", "eax", "eax")
+                 + x86("je",   _.lbl_ω)
+                 + x86("jmp",  _.lbl_γ)
+                 + x86("def", _.lbl_β) + x86("jmp", _.lbl_ω);
         }
     }
     return std::string();

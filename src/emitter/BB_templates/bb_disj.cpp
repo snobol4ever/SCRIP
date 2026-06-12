@@ -18,20 +18,20 @@ std::string bb_disj() {
         return IF(MEDIUM_TEXT,
                   IF(_.resolve_choice_n <= 0,
                       x86("label", _.lbl_α)
-                    + x86("ins2", "jmp", _.lbl_ω)
-                    + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω))
+                    + x86("jmp", "ω")
+                    + x86("def", "β") + x86("jmp", "ω"))
                 + IF(_.resolve_choice_n > 0,
                       x86("label", _.lbl_α)
                     + x86("comment", "IR_DISJ")
-                    + x86("ins2", "jmp", disj_lbl(0, "pre").c_str())
-                    + x86("ins1", disj_lbl(0, "pre") + ":")
+                    + x86("jmp", disj_lbl(0, "pre").c_str())
+                    + x86("label", disj_lbl(0, "pre"))
                     + x86("call", "rt_trail_mark_push", (uint64_t)(uintptr_t)(void*)rt_trail_mark_push)
-                    + x86("ins2", "jmp", disj_lbl(0, "body").c_str())
+                    + x86("jmp", disj_lbl(0, "body").c_str())
                     + FOR(1, _.resolve_choice_n, [](int i){
-                          return x86("ins1", disj_lbl(i, "pre") + ":")
+                          return x86("label", disj_lbl(i, "pre"))
                                + x86("call", "rt_trail_unwind_top", (uint64_t)(uintptr_t)(void*)rt_trail_unwind_top)
-                               + x86("ins2", "jmp", disj_lbl(i, "body").c_str()); })
-                    + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω)));
+                               + x86("jmp", disj_lbl(i, "body").c_str()); })
+                    + x86("def", "β") + x86("jmp", "ω")));
     }
     return std::string();
 }

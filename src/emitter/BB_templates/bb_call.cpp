@@ -60,7 +60,7 @@ static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
         if (MEDIUM_TEXT) {
             char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
             s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM cell addr of gvar -> [r12+%d]", idx, aoff))
-               + x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b1)) + x86("ins2", "call", "rt_gvar_cell@PLT");
+               + x86("lea", "rdi", std::string("[rip + ") + b1 + "]") + x86("call", "rt_gvar_cell@PLT");
         } else {
             uint64_t fptr; { DESCR_t * (*fp)(const char *) = rt_gvar_cell; fptr = (uint64_t)(uintptr_t)(void *) fp; }
             s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(lf).sval) + x86_call_ro("rt_gvar_cell", fptr);
@@ -69,8 +69,8 @@ static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
         return x86_bomb("marshal_varparam_addr: var-param arg is not a variable");
     }
     if (MEDIUM_TEXT) {
-        s += x86("ins2", "mov", emit_fmt("qword ptr [r12+%d], 0", aoff));
-        s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", aoff + 8));
+        s += x86("mov", FRQ(aoff), (long)0);
+        s += x86("mov", FRQ(aoff + 8), "rax");
     } else {
         s += x86("mov", FRQ(aoff), (long)0);
         s += x86_frame_store64(aoff + 8, "rax");
@@ -119,7 +119,7 @@ static const char * relop_fail_mnem(IR_t * nd) {
 static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
     std::string s;
     if (a->op == IR_VAR && IR_LIT(a).sval) {
-        if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); s += x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b1)) + x86("ins2", "call", "rt_gvar_get_int@PLT"); }
+        if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); s += x86("lea", "rdi", std::string("[rip + ") + b1 + "]") + x86("call", "rt_gvar_get_int@PLT"); }
         else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(a).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
     } else if (a->op == IR_VAR_FRAME) {
         s += x86_frame_lea("rax", 0);
@@ -145,7 +145,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
 static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b) {
     std::string s;
     if (b->op == IR_VAR && IR_LIT(b).sval) {
-        if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); s += x86("ins2", "lea", emit_fmt("rdi, [rip + %s]", b2)) + x86("ins2", "call", "rt_gvar_get_int@PLT"); }
+        if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); s += x86("lea", "rdi", std::string("[rip + ") + b2 + "]") + x86("call", "rt_gvar_get_int@PLT"); }
         else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(b).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
         s += x86("mov", "rcx", "rax");
     } else if (b->op == IR_VAR_FRAME) {
@@ -208,13 +208,13 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + nfn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("ins2", "lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
-        s += x86("ins2", "lea", emit_fmt("rsi, [r12+%d]", avbase));
-        s += x86("ins2", "mov", emit_fmt("edx, %d", nn));
+        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("lea", "rsi", FRQ(avbase));
+        s += x86("mov", "edx", emit_fmt("%d", nn));
         if (nmig) s += pas_sl_setup(nfn);
-        s += x86("ins2", "call", emit_fmt("%s@PLT", rsym));
-        s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", aoff));
-        s += x86("ins2", "mov", emit_fmt("[r12+%d], rdx", aoff + 8));
+        s += x86("call", emit_fmt("%s@PLT", rsym));
+        s += x86("mov", FRQ(aoff), "rax");
+        s += x86("mov", FRQ(aoff + 8), "rdx");
     } else if (MEDIUM_BINARY) {
         uint64_t fptr;
         if (nmig)       { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
@@ -282,12 +282,12 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
                 if (MEDIUM_TEXT) {
                     std::string tl = emit_fmt(".Lbrel%d_f", bb_node_id(relnd));
                     std::string el = emit_fmt(".Lbrel%d_e", bb_node_id(relnd));
-                    s += x86("ins2", relop_fail_mnem(relnd), tl.c_str());
+                    s += x86(relop_fail_mnem(relnd), tl.c_str());
                     s += x86("mov", FRQ(aoff + 8), (long)1);
-                    s += x86("ins2", "jmp", el.c_str());
-                    s += x86("Lins1", emit_fmt("%s:", tl.c_str()), "");
+                    s += x86("jmp", el.c_str());
+                    s += x86("label", tl.c_str());
                     s += x86("mov", FRQ(aoff + 8), (long)0);
-                    s += x86("Lins1", emit_fmt("%s:", el.c_str()), "");
+                    s += x86("label", el.c_str());
                 } else {
                     s += x86_jcc_id(relop_fail_mnem(relnd), idx * 2);
                     s += x86("mov", FRQ(aoff + 8), (long)1);
@@ -349,11 +349,11 @@ static std::string bb_call_gvar_define_str(IR_t * pBB) {
             + x86("directive", ".section .rodata")
             + x86("directive", (fl + ": .string \"" + specstr + "\"").c_str())
             + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("ins2", "lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
-        s += x86("ins2", "call", "rt_proc_define@PLT");
-        s += x86("ins2", "jmp", _.lbl_γ);
-        s += x86("Lins1", emit_fmt("%s:", _.lbl_β), "");
-        s += x86("ins2", "jmp", _.lbl_ω);
+        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("call", "rt_proc_define@PLT");
+        s += x86("jmp", "γ");
+        s += x86("label", emit_fmt("%s", _.lbl_β));
+        s += x86("jmp", "ω");
         return s;
     }
     if (MEDIUM_BINARY) {
@@ -387,19 +387,19 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("ins2", "lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
-        s += x86("ins2", "lea", emit_fmt("rsi, [r12+%d]", argbase));
-        s += x86("ins2", "mov", emit_fmt("edx, %lld", (long long)narg));
+        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("lea", "rsi", FRQ(argbase));
+        s += x86("mov32", "edx", (long)(narg));
         int mig = rt_proc_frame_nslots(fn) >= 0;
         if (mig) s += pas_sl_setup(fn);
-        s += x86("ins2", "call", mig ? "rt_call_named_proc_sl@PLT" : "rt_call_named_proc@PLT");
-        s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", resoff));
-        s += x86("ins2", "mov", emit_fmt("[r12+%d], rdx", resoff + 8));
-        s += x86("ins2", "cmp", "eax, 99");
-        s += x86("ins2", "je", _.lbl_ω);
-        s += x86("ins2", "jmp", _.lbl_γ);
-        s += x86("Lins1", emit_fmt("%s:", _.lbl_β), "");
-        s += x86("ins2", "jmp", _.lbl_ω);
+        s += x86("call", mig ? "rt_call_named_proc_sl@PLT" : "rt_call_named_proc@PLT");
+        s += x86("mov", FRQ(resoff), "rax");
+        s += x86("mov", FRQ(resoff + 8), "rdx");
+        s += x86("cmp", "eax", "99");
+        s += x86("je", "ω");
+        s += x86("jmp", "γ");
+        s += x86("label", emit_fmt("%s", _.lbl_β));
+        s += x86("jmp", "ω");
         return s;
     }
     if (MEDIUM_BINARY) {
@@ -445,17 +445,17 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("ins2", "lea", emit_fmt("rdi, [rip+%s]", fl.c_str()));
-        s += x86("ins2", "lea", emit_fmt("rsi, [r12+%d]", argbase));
-        s += x86("ins2", "mov", emit_fmt("edx, %lld", (long long)narg));
-        s += x86("ins2", "call", "rt_call_arr@PLT");
-        s += x86("ins2", "mov", emit_fmt("[r12+%d], rax", resoff));
-        s += x86("ins2", "mov", emit_fmt("[r12+%d], rdx", resoff + 8));
-        s += x86("ins2", "cmp", "eax, 99");
-        s += x86("ins2", "je", _.lbl_ω);
-        s += x86("ins2", "jmp", _.lbl_γ);
-        s += x86("Lins1", emit_fmt("%s:", _.lbl_β), "");
-        s += x86("ins2", "jmp", _.lbl_ω);
+        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("lea", "rsi", FRQ(argbase));
+        s += x86("mov32", "edx", (long)(narg));
+        s += x86("call", "rt_call_arr@PLT");
+        s += x86("mov", FRQ(resoff), "rax");
+        s += x86("mov", FRQ(resoff + 8), "rdx");
+        s += x86("cmp", "eax", "99");
+        s += x86("je", "ω");
+        s += x86("jmp", "γ");
+        s += x86("label", emit_fmt("%s", _.lbl_β));
+        s += x86("jmp", "ω");
         return s;
     }
     if (MEDIUM_BINARY) {

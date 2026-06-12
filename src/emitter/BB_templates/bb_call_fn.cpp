@@ -38,25 +38,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86("mov", FRQ(dst + 8), (long)0);
         }
     }
-    if (MEDIUM_TEXT) {
-        std::string fl = emit_fmt(".Lcallfn_rk%d", g_flat_node_id++);
-        s += x86("directive", ".section .rodata")
-           + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
-           + x86("directive", ".section .text")
-           + x86("directive", ".intel_syntax noprefix");
-        s += x86("ins2", "lea",  emit_fmt("rdi, [rip+%s]", fl.c_str()));
-        s += x86("ins2", "lea",  emit_fmt("rsi, [r12+%d]", argbase));
-        s += x86("ins2", "mov",  emit_fmt("edx, %d", nargs));
-        s += x86("ins2", "call", "rt_call_arr@PLT");
-        s += x86("ins2", "mov",  emit_fmt("[r12+%d], rax", resoff));
-        s += x86("ins2", "mov",  emit_fmt("[r12+%d], rdx", resoff + 8));
-        s += x86("ins2", "cmp",  "eax, 99");
-        s += x86("ins2", "je",   _.lbl_ω);
-        s += x86("ins2", "jmp",  _.lbl_γ);
-        s += x86("Lins1", emit_fmt("%s:", _.lbl_β), "");
-        s += x86("ins2", "jmp",  _.lbl_ω);
-    } else {
-        uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
         s += x86("mov", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, "??");
         s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)nargs);
@@ -68,6 +50,5 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("jmp", PORT_GAMMA);
         s += x86("def", PORT_BETA);
         s += x86("jmp", PORT_OMEGA);
-    }
     return s;
 }

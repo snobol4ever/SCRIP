@@ -12,7 +12,7 @@ static std::string xa_bb_ptr_slot_str(void) {
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
             return x86("directive", ".section .data")
-                 + x86("ins1", std::string(g_emit.bb_ptr_slot_lbl) + ": .quad 0")
+                 + x86("comment", std::string(g_emit.bb_ptr_slot_lbl) + ": .quad 0")
                  + x86("directive", ".section .text")
                  + x86("directive", ".intel_syntax noprefix");
         }

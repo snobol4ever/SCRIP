@@ -44,17 +44,17 @@ static std::string bsp_bin_plus(IR_t *a0, IR_t *a1, IR_t *a2) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bsp_txt_succ(IR_t *a0, IR_t *a1, const std::string &hdr) { std::string l0 = bsp_lbl(a0), l1 = bsp_lbl(a1);
     return hdr
-         + x86("ins2", "mov edi,", std::to_string((int)a0->op))
-         + x86("ins2", "mov rsi,", std::to_string((long)IR_LIT(a0).ival))
-         + (l0.size() ? x86("ins2", "lea rdx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "edx, edx"))
-         + x86("ins2", "mov ecx,", std::to_string((int)a1->op))
-         + x86("ins2", "mov r8,", std::to_string((long)IR_LIT(a1).ival))
-         + (l1.size() ? x86("ins2", "lea r9,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "r9d, r9d"))
-         + x86("ins2", "call", "rt_succ@PLT")
-         + x86("ins2", "test", "eax, eax")
-         + x86("ins2", "je", _.lbl_ω)
-         + x86("ins2", "jmp", _.lbl_γ)
-         + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
+         + x86("mov", "edi", std::to_string((int)a0->op))
+         + x86("mov", "rsi", std::to_string((long)IR_LIT(a0).ival))
+         + (l0.size() ? x86("lea", "rdx", std::string("[rip + ") + l0 + "]") : x86("xor", "edx", "edx"))
+         + x86("mov", "ecx", std::to_string((int)a1->op))
+         + x86("mov", "r8", std::to_string((long)IR_LIT(a1).ival))
+         + (l1.size() ? x86("lea", "r9", std::string("[rip + ") + l1 + "]") : x86("xor", "r9d", "r9d"))
+         + x86("call", "rt_succ@PLT")
+         + x86("test", "eax", "eax")
+         + x86("je", "ω")
+         + x86("jmp", "γ")
+         + x86("def", "β") + x86("jmp", "ω");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) {
@@ -78,23 +78,23 @@ std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr) 
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
             std::string l0 = bsp_lbl(a0), l1 = bsp_lbl(a1), l2 = bsp_lbl(a2);
             return hdr
-         + x86("ins2", "sub", "rsp, 32")
-         + x86("ins2", "mov edi,", std::to_string((int)a0->op))
-         + x86("ins2", "mov rsi,", std::to_string((long)IR_LIT(a0).ival))
-         + (l0.size() ? x86("ins2", "lea rdx,", std::string("[rip + ") + l0 + "]") : x86("ins2", "xor", "edx, edx"))
-         + x86("ins2", "mov ecx,", std::to_string((int)a1->op))
-         + x86("ins2", "mov r8,", std::to_string((long)IR_LIT(a1).ival))
-         + (l1.size() ? x86("ins2", "lea r9,", std::string("[rip + ") + l1 + "]") : x86("ins2", "xor", "r9d, r9d"))
-         + x86("ins2", "mov dword ptr [rsp + 0],", std::to_string((int)a2->op))
-         + x86("ins2", "mov rax,", std::to_string((long)IR_LIT(a2).ival))
-         + x86("ins2", "mov", "[rsp + 8], rax")
-         + (l2.size() ? x86("ins2", "lea rax,", std::string("[rip + ") + l2 + "]") + x86("ins2", "mov", "[rsp + 16], rax") : x86("ins2", "mov", "qword ptr [rsp + 16], 0"))
-         + x86("ins2", "call", "rt_plus@PLT")
-         + x86("ins2", "add", "rsp, 32")
-         + x86("ins2", "test", "eax, eax")
-         + x86("ins2", "je", _.lbl_ω)
-         + x86("ins2", "jmp", _.lbl_γ)
-         + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
+         + x86("sub", "rsp", "32")
+         + x86("mov", "edi", std::to_string((int)a0->op))
+         + x86("mov", "rsi", std::to_string((long)IR_LIT(a0).ival))
+         + (l0.size() ? x86("lea", "rdx", std::string("[rip + ") + l0 + "]") : x86("xor", "edx", "edx"))
+         + x86("mov", "ecx", std::to_string((int)a1->op))
+         + x86("mov", "r8", std::to_string((long)IR_LIT(a1).ival))
+         + (l1.size() ? x86("lea", "r9", std::string("[rip + ") + l1 + "]") : x86("xor", "r9d", "r9d"))
+         + x86("mov", RSP(0), (long)(int)a2->op)
+         + x86("mov", "rax", std::to_string((long)IR_LIT(a2).ival))
+         + x86("mov", "[rsp + 8]", "rax")
+         + (l2.size() ? x86("lea", "rax", std::string("[rip + ") + l2 + "]") + x86("mov", "[rsp + 16]", "rax") : x86("mov", "qword ptr [rsp + 16]", "0"))
+         + x86("call", "rt_plus@PLT")
+         + x86("add", "rsp", "32")
+         + x86("test", "eax", "eax")
+         + x86("je", "ω")
+         + x86("jmp", "γ")
+         + x86("def", "β") + x86("jmp", "ω");
         }
     }
     return std::string();
