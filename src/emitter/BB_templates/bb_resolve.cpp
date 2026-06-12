@@ -142,7 +142,7 @@ static std::string bdisp(IR_t *pBB) {
     const char *fn = _.op_sval ? _.op_sval : "";
     std::string hdr = x86("label", _.lbl_α);
     std::string r;
-    if (!(r = bb_io_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_io()).empty()) return r;
     if (!(r = bb_is_cmp_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_type_test_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_term_inspect_str(pBB, fn, hdr)).empty()) return r;

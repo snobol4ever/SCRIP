@@ -1,112 +1,65 @@
 #include "bb_common.h"
-extern "C" void rt_pl_write_cell(void *cell_term);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bio_succ(const char *lγ, const char *lβ) {
-    return x86("ins2", "jmp", lγ) + x86("Lins2", std::string(lβ) + ":", "jmp", lγ);
+extern "C" {
+void rt_write_int(long v);
+void rt_write_float(double v);
+void rt_pl_write_cell(void *cell_term);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bio_fbits_str(double d) {
-    union { double dv; uint64_t u; } fb = {d};
-    return std::to_string((unsigned long long)fb.u);
+static std::string bio_write_arg(void) {
+    if (_.op_parts_tag[0] == (int)IR_ATOM)
+        return (_.bb_ls ? x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_parts_str[0] ? _.op_parts_str[0] : ""), _.bb_ls)
+                        : x86("xor",  "edi", "edi"))
+             + x86("call", "rt_write_atom", (uint64_t)(uintptr_t)(void *)(void (*)(const char *))rt_write_atom);
+    if (_.op_parts_tag[0] == (int)IR_LOGICVAR)
+        return x86("mov",  "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[0])))
+             + x86("call", "rt_pl_write_cell", (uint64_t)(uintptr_t)(void *)rt_pl_write_cell);
+    if (_.op_parts_tag[0] == (int)IR_LIT_I)
+        return x86("mov",  "rdi", (long)_.op_parts_ival[0])
+             + x86("call", "rt_write_int", (uint64_t)(uintptr_t)(void *)(void (*)(long))rt_write_int);
+    if (_.op_parts_tag[0] == (int)IR_LIT_F)
+        return x86("movabs", "rax",  (uint64_t)_.op_parts_ival[0])
+             + x86("movq",   "xmm0", "rax")
+             + x86("call",   "rt_write_float", (uint64_t)(uintptr_t)(void *)(void (*)(double))rt_write_float);
+    return IF(_.op_parts_ival[8] != 0,
+              x86("sub",  "rsp", (long)8)
+            + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[8])
+            + x86("mov",  "rdi", "rax")
+            + x86("call", "rt_write_term_ptr", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_write_term_ptr)
+            + x86("add",  "rsp", (long)8));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bio_bin_write_arg(IR_t *arg) {
-    if (!arg) return std::string();
-    if (arg->op == IR_ATOM) {
-        const char *atom = IR_LIT(arg).sval ? IR_LIT(arg).sval : "";
-        return bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)atom)
-             + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_atom)
-             + bytes(2, "\xFF\xD0");
-    }
-    if (arg->op == IR_LOGICVAR) {
-        int off = GZ_CELL_OFF((int)IR_LIT(arg).ival);
-        std::string mov_load = (off >= -128 && off < 128)
-            ? std::string("\x49\x8B\x7C\x24",4) + std::string(1,(char)(unsigned char)off)
-            : std::string("\x49\x8B\xBC\x24",4) + u32le((uint32_t)off);
-        return mov_load
-             + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_pl_write_cell)
-             + bytes(2, "\xFF\xD0");
-    }
-    return bytes(4, "\x48\x83\xEC\x08")
-         + emit_term_from_node_bin(arg)
-         + bytes(3, "\x48\x89\xC7")
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_write_term_ptr)
-         + bytes(2, "\xFF\xD0")
-         + bytes(4, "\x48\x83\xC4\x08");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bio_write_body(const char *bb_ls, long op_ival, IR_t *α) {
-    if (op_ival < 1 || !α)
-        return x86("comment", "RESOLVE write: no arg");
-    if (α->op == IR_ATOM)
-        return (bb_ls ? x86("ins2", "lea rcx,", std::string("[rip + ") + bb_ls + "]") + x86("ins2", "mov", "rdi, rcx")
-                      : x86("ins2", "xor", "edi, edi"))
-             + x86("ins2", "call", "rt_write_atom@PLT");
-    if (α->op == IR_LOGICVAR)
-        return x86("ins2", "mov", emit_fmt("rdi, qword ptr [r12+%d]", GZ_CELL_OFF((int)IR_LIT(α).ival))) + x86("ins2", "call", "rt_pl_write_cell@PLT");
-    if (α->op == IR_LIT_I)
-        return x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(α).ival)) + x86("ins2", "call", "rt_write_int@PLT");
-    if (α->op == IR_LIT_F)
-        return x86("ins2", "mov rax,", bio_fbits_str(IR_LIT(α).dval))
-             + x86("ins2", "movq", "xmm0, rax")
-             + x86("ins2", "call", "rt_write_float@PLT");
-    return x86("ins2", "sub", "rsp, 8")
-         + emit_build_compound_term(α)
-         + x86("ins2", "mov", "rdi, rax")
-         + x86("ins2", "call", "rt_write_term_ptr@PLT")
-         + x86("ins2", "add", "rsp, 8");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_io_str(IR_t *pBB, const char *fn, const std::string &hdr) {
-    (void)pBB; (void)fn; (void)hdr;
-    if (MEDIUM_BINARY) {
-        if (strcmp(fn, "nl") == 0)
-            return x86_lit_bytes(
-                bytes(1, "\xBF") + u32le(10)
-                + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)putchar) + bytes(2, "\xFF\xD0")
-            ) + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "γ");
-        if (strcmp(fn, "halt") == 0)
-            return x86_lit_bytes(
-                bytes(2, "\x31\xFF")
-                + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)exit) + bytes(2, "\xFF\xD0")
-            ) + x86("def", "β") + x86("jmp", "γ");
-        if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0)
-            return x86_lit_bytes(
-                (_.op_ival >= 1 && ir_call_arg(pBB,0) ? bio_bin_write_arg(ir_call_arg(pBB,0)) : std::string())
-                + (strcmp(fn, "writeln") == 0
-                   ? bytes(1, "\xBF") + u32le(10) + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)putchar) + bytes(2, "\xFF\xD0")
-                   : std::string())
-            ) + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "γ");
-        if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && ir_call_arg(pBB,0)) {
-            void *writer = (strcmp(fn, "writeq") == 0) ? (void*)rt_writeq_term_ptr : (void*)rt_write_canonical_term_ptr;
-            return x86_lit_bytes(
-                bytes(4, "\x48\x83\xEC\x08")
-                + emit_term_from_node_bin(ir_call_arg(pBB,0))
-                + bytes(3, "\x48\x89\xC7")
-                + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)writer) + bytes(2, "\xFF\xD0")
-                + bytes(4, "\x48\x83\xC4\x08")
-            ) + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "γ");
-        }
-    }
-    if (MEDIUM_TEXT) {
-        if (strcmp(fn, "nl") == 0)
-            return hdr + x86("ins2", "mov", "edi, 10") + x86("ins2", "call", "putchar@PLT") + bio_succ(_.lbl_γ, _.lbl_β);
-        if (strcmp(fn, "halt") == 0)
-            return hdr + x86("ins2", "xor", "edi, edi") + x86("ins2", "call", "exit@PLT")
-                 + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_γ);
-        if (strcmp(fn, "write") == 0 || strcmp(fn, "writeln") == 0 || strcmp(fn, "print") == 0)
-            return hdr
-                 + bio_write_body(_.bb_ls, _.op_ival, ir_call_arg(pBB,0))
-                 + ((strcmp(fn, "writeln") == 0) ? x86("ins2", "mov", "edi, 10") + x86("ins2", "call", "putchar@PLT") : std::string())
-                 + bio_succ(_.lbl_γ, _.lbl_β);
-        if ((strcmp(fn, "writeq") == 0 || strcmp(fn, "write_canonical") == 0) && ir_call_arg(pBB,0))
-            return hdr
-                 + x86("ins2", "sub", "rsp, 8")
-                 + emit_build_compound_term(ir_call_arg(pBB,0))
-                 + x86("ins2", "mov", "rdi, rax")
-                 + x86("ins2", "call", (strcmp(fn, "writeq") == 0) ? "rt_writeq_term_ptr@PLT" : "rt_write_canonical_term_ptr@PLT")
-                 + x86("ins2", "add", "rsp, 8")
-                 + bio_succ(_.lbl_γ, _.lbl_β);
-    }
+std::string bb_io(void) {
+    if (!_.op_sval || !_.op_sval[0]) return std::string();
+    if (!strcmp(_.op_sval, "nl"))
+        return x86("label", _.lbl_α)
+             + x86("mov32", "edi",  (long)10)
+             + x86("call",  "putchar", (uint64_t)(uintptr_t)(void *)(int (*)(int))putchar)
+             + x86("jmp",   "γ") + x86("def", "β") + x86("jmp", "γ");
+    if (!strcmp(_.op_sval, "halt"))
+        return x86("label", _.lbl_α)
+             + x86("xor",  "edi",  "edi")
+             + x86("call", "exit",  (uint64_t)(uintptr_t)(void *)(void (*)(int))exit)
+             + x86("def",  "β") + x86("jmp", "γ");
+    if (!strcmp(_.op_sval, "write") || !strcmp(_.op_sval, "writeln") || !strcmp(_.op_sval, "print"))
+        return x86("label", _.lbl_α)
+             + IF(_.op_parts_n >= 1, bio_write_arg())
+             + IF(!strcmp(_.op_sval, "writeln"), x86("mov32", "edi", (long)10) + x86("call", "putchar", (uint64_t)(uintptr_t)(void *)(int (*)(int))putchar))
+             + x86("jmp",   "γ") + x86("def", "β") + x86("jmp", "γ");
+    if (!strcmp(_.op_sval, "writeq") && _.op_parts_n >= 1)
+        return x86("label", _.lbl_α)
+             + x86("sub",  "rsp", (long)8)
+             + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[8])
+             + x86("mov",  "rdi", "rax")
+             + x86("call", "rt_writeq_term_ptr", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_writeq_term_ptr)
+             + x86("add",  "rsp", (long)8)
+             + x86("jmp",  "γ") + x86("def", "β") + x86("jmp", "γ");
+    if (!strcmp(_.op_sval, "write_canonical") && _.op_parts_n >= 1)
+        return x86("label", _.lbl_α)
+             + x86("sub",  "rsp", (long)8)
+             + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[8])
+             + x86("mov",  "rdi", "rax")
+             + x86("call", "rt_write_canonical_term_ptr", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_write_canonical_term_ptr)
+             + x86("add",  "rsp", (long)8)
+             + x86("jmp",  "γ") + x86("def", "β") + x86("jmp", "γ");
     return std::string();
 }
