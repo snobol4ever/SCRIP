@@ -398,6 +398,18 @@ void lower_raku_stage2(const tree_t *prog) {
         if (!proc || proc->t != TT_SUB_DECL) continue;
         if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
         int bb_idx = lower_raku_body(prog, proc);
-        if (bb_idx >= 0) g_stage2.proc_table[pi].bb_idx = bb_idx;
+        if (bb_idx >= 0) {
+            g_stage2.proc_table[pi].bb_idx = bb_idx;
+            int np = g_stage2.proc_table[pi].nparams;
+            Scope *sc = &g_stage2.proc_table[pi].lower_sc;
+            sc->n = 0;
+            for (int k = 0; k < np && (k + 1) < proc->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+                const tree_t *pv = proc->c[k + 1];
+                if (!pv || !pv->v.sval) continue;
+                sc->e[sc->n].name = lp_strdup(pv->v.sval);
+                sc->e[sc->n].slot = sc->n;
+                sc->n++;
+            }
+        }
     }
 }
