@@ -2681,21 +2681,27 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->op; nd->op = IR_BINOP_GVAR_ARITH_SLOT; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; }
-        } else if (g_gvar_flat_chain && op_is_rel && bb_child0(nd) && bb_child1(nd) &&
-                   ((bb_child0(nd)->op == IR_LIT_I) || (bb_child0(nd)->op == IR_VAR && IR_LIT(bb_child0(nd)).sval) || bb_slot_get(bb_child0(nd)) >= 0) &&
-                   ((bb_child1(nd)->op == IR_LIT_I) || (bb_child1(nd)->op == IR_VAR && IR_LIT(bb_child1(nd)).sval) || bb_slot_get(bb_child1(nd)) >= 0)) {
-            g_emit.bb_lk    = (int)bb_child0(nd)->op;
-            g_emit.bb_rk    = (int)bb_child1(nd)->op;
-            g_emit.bb_li    = (bb_child0(nd)->op == IR_LIT_I) ? IR_LIT(bb_child0(nd)).ival : 0;
-            g_emit.bb_ri    = (bb_child1(nd)->op == IR_LIT_I) ? IR_LIT(bb_child1(nd)).ival : 0;
-            g_emit.op_name1 = (bb_child0(nd)->op == IR_VAR) ? IR_LIT(bb_child0(nd)).sval : (const char *)0;
-            g_emit.op_name2 = (bb_child1(nd)->op == IR_VAR) ? IR_LIT(bb_child1(nd)).sval : (const char *)0;
-            g_emit.op_sa    = (bb_child0(nd)->op != IR_LIT_I && bb_child0(nd)->op != IR_VAR) ? bb_slot_get(bb_child0(nd)) : -1;
-            g_emit.op_sb    = (bb_child1(nd)->op != IR_LIT_I && bb_child1(nd)->op != IR_VAR) ? bb_slot_get(bb_child1(nd)) : -1;
+        } else if (g_gvar_flat_chain && op_is_rel) {
+            int _na = 0;
+            IR_t * const * _ax = g_emit_cfg ? bb_operand_aux_get(g_emit_cfg, nd, &_na) : (IR_t * const *)0;
+            IR_t *_c0 = (_na >= 2 && _ax[0]) ? _ax[0] : bb_child0(nd);
+            IR_t *_c1 = (_na >= 2 && _ax[1]) ? _ax[1] : bb_child1(nd);
+            if (_c0 && _c1 &&
+                ((_c0->op == IR_LIT_I || _c0->op == IR_LIT_NUL) || (_c0->op == IR_VAR && IR_LIT(_c0).sval) || bb_slot_get(_c0) >= 0) &&
+                ((_c1->op == IR_LIT_I || _c1->op == IR_LIT_NUL) || (_c1->op == IR_VAR && IR_LIT(_c1).sval) || bb_slot_get(_c1) >= 0)) {
+            g_emit.bb_lk    = (int)_c0->op;
+            g_emit.bb_rk    = (int)_c1->op;
+            g_emit.bb_li    = (_c0->op == IR_LIT_I) ? IR_LIT(_c0).ival : 0;
+            g_emit.bb_ri    = (_c1->op == IR_LIT_I) ? IR_LIT(_c1).ival : 0;
+            g_emit.op_name1 = (_c0->op == IR_VAR) ? IR_LIT(_c0).sval : (const char *)0;
+            g_emit.op_name2 = (_c1->op == IR_VAR) ? IR_LIT(_c1).sval : (const char *)0;
+            g_emit.op_sa    = (_c0->op != IR_LIT_I && _c0->op != IR_LIT_NUL && _c0->op != IR_VAR) ? bb_slot_get(_c0) : -1;
+            g_emit.op_sb    = (_c1->op != IR_LIT_I && _c1->op != IR_LIT_NUL && _c1->op != IR_VAR) ? bb_slot_get(_c1) : -1;
             g_emit.op_off   = bb_slot_alloc(nd);
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->op; nd->op = IR_BINOP_GVAR_RELOP; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; }
+            } else { flat_drive_binop_tree(nd, lbl_γ, lbl_ω, lbl_β); }
         } else if (g_descr_flat_chain && (op_is_rel || op_is_arith || op_is_concat)) {
             int needs_walk = (bb_child0(nd) && bb_child0(nd)->op != IR_LIT_I && bb_child0(nd)->op != IR_LIT_S && descr_binop_opnd_slot(bb_child0(nd)) < 0)
                           || (bb_child1(nd) && bb_child1(nd)->op != IR_LIT_I && bb_child1(nd)->op != IR_LIT_S && descr_binop_opnd_slot(bb_child1(nd)) < 0);
