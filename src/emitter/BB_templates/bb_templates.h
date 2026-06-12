@@ -49,7 +49,7 @@ void bb_disj     (void);
 void bb_ite     (void);
 void bb_catch   (void);
 void bb_cut     (void);
-void bb_goal     (IR_t * pBB);
+void bb_goal     (void);
 void bb_resolve  (IR_t * pBB);
 void bb_choice   (void);
 void bb_atom     (void);
