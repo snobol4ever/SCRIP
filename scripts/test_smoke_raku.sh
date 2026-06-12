@@ -307,6 +307,13 @@ sub main() {
 }
 EOF
 
+# --- RK-LOWER-5h: top-level statements without sub main() ---
+
+raku "toplevel_no_main" "$(printf 'hello\n42')" << 'EOF'
+say("hello");
+say(42);
+EOF
+
 # --- RK-LOWER-5g: relop-in-assignment stores Bool value (0/1) ---
 
 raku "bool_compare_store" "$(printf '0\n1\n0\n1\n0\n1')" << 'EOF'
