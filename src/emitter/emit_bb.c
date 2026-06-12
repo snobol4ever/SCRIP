@@ -918,6 +918,7 @@ void bb_prepare(IR_t *nd) {
     g_emit.bb_rs = NULL;
     g_emit.bb_op_lbl = NULL;
     g_emit.bb_lk = -1;
+    if (nd->op == IR_DTP_ASSIGN) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
     if (nd->op == IR_ALT) {
         int n = 0;
         IR_t * const * arms = g_emit_cfg ? bb_operand_aux_get(g_emit_cfg, nd, &n) : ((IR_t * const *)0);
