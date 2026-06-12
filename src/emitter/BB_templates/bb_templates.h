@@ -114,5 +114,7 @@ std::string bb_cell_cut();
 std::string bb_cell_ite();
 std::string bb_det_sort();
 std::string bb_det_numbervars();
+std::string bb_det_term_string();
+std::string bb_det_copy_term();
 }
 #endif
