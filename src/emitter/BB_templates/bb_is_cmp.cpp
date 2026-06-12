@@ -13,27 +13,27 @@ static int icm_ord(const char *fn) {
 static int icm_cmp(const char *fn) { return icm_ord(fn) || icm_arith(fn); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icm_op() {
-    return _.bb_op_lbl ? x86("ins2", "lea rsi,", std::string("[rip + ") + _.bb_op_lbl + "]")
-                       : x86("ins2", "xor", "esi, esi");
+    return _.bb_op_lbl ? x86("lea", "rsi", std::string("[rip + ") + _.bb_op_lbl + "]")
+                       : x86("xor", "esi", "esi");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icm_tail() {
-    return x86("ins2", "test", "eax, eax")
-         + x86("ins2", "je",   _.lbl_ω)
-         + x86("ins2", "jmp",  _.lbl_γ)
-         + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
+    return x86("test", "eax", "eax")
+         + x86("je",   _.lbl_ω)
+         + x86("jmp",  _.lbl_γ)
+         + x86("def", "β") + x86("jmp", "ω");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icm_arg_load(const char *reg, const IR_t *n) {
-    if (!n || n->op != IR_LOGICVAR) return x86("ins2", std::string("xor ") + reg + ",", reg);
-    return x86("ins2", "lea", emit_fmt("%s, [r12+%d]", reg, GZ_CELL_OFF((int)IR_LIT(n).ival)));
+    if (!n || n->op != IR_LOGICVAR) return x86("xor", reg, reg);
+    return x86("lea", reg, FRQ(GZ_CELL_OFF((int)IR_LIT(n).ival)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icm_arg_load_lit(const char *reg, const IR_t *n) {
-    if (!n) return x86("ins2", std::string("xor ") + reg + ",", reg);
-    if (n->op == IR_LOGICVAR) return x86("ins2", "lea", emit_fmt("%s, [r12+%d]", reg, GZ_CELL_OFF((int)IR_LIT(n).ival)));
-    if (n->op == IR_LIT_I)    return x86("ins2", std::string("mov ") + reg + ",", std::to_string((long)IR_LIT(n).ival));
-    return x86("ins2", std::string("xor ") + reg + ",", reg);
+    if (!n) return x86("xor", reg, reg);
+    if (n->op == IR_LOGICVAR) return x86("lea", reg, FRQ(GZ_CELL_OFF((int)IR_LIT(n).ival)));
+    if (n->op == IR_LIT_I)    return x86("mov", reg, (long)IR_LIT(n).ival);
+    return x86("xor", reg, reg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icm_k(const IR_t *n) { return n ? (int)n->op : -1; }
@@ -138,19 +138,19 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             const IR_t *rb = (rhs->op == IR_ARITH) ? ir_pair_arg(rhs,1) : NULL;
             int dst_slot = (int)IR_LIT(ir_pair_arg(pBB,0)).ival;
             return hdr
-                 + x86("ins2", "sub", "rsp, 8")
-                 + x86("ins2", "lea", emit_fmt("rdi, [r12+%d]", GZ_CELL_OFF(dst_slot)))
+                 + x86("sub", "rsp", "8")
+                 + x86("lea", "rdi", FRQ(GZ_CELL_OFF(dst_slot)))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string(la ? (int)la->op : -1))
+                 + x86("mov", "edx", std::to_string(la ? (int)la->op : -1))
                  + icm_arg_load_lit("rcx", la)
-                 + x86("ins2", "mov rax,", std::to_string((unsigned long long)((la && la->op == IR_LIT_F) ? icm_fb(la) : 0)))
-                 + x86("ins2", "movq", "xmm0, rax")
-                 + x86("ins2", "mov r8d,", std::to_string(rb ? (int)rb->op : -1))
+                 + x86("mov", "rax", std::to_string((unsigned long long)((la && la->op == IR_LIT_F) ? icm_fb(la) : 0)))
+                 + x86("movq", "xmm0", "rax")
+                 + x86("mov", "r8d", std::to_string(rb ? (int)rb->op : -1))
                  + icm_arg_load_lit("r9", rb)
-                 + x86("ins2", "mov rax,", std::to_string((unsigned long long)((rb && rb->op == IR_LIT_F) ? icm_fb(rb) : 0)))
-                 + x86("ins2", "movq", "xmm1, rax")
-                 + x86("ins2", "call", "rt_is_cell@PLT")
-                 + x86("ins2", "add", "rsp, 8")
+                 + x86("mov", "rax", std::to_string((unsigned long long)((rb && rb->op == IR_LIT_F) ? icm_fb(rb) : 0)))
+                 + x86("movq", "xmm1", "rax")
+                 + x86("call", "rt_is_cell@PLT")
+                 + x86("add", "rsp", "8")
                  + icm_tail();
         }
         /* LOGICVAR dst, binary IR_ARITH, non-floaty (floaty caught above) — both operands present.
@@ -160,19 +160,19 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             const IR_t *ra = ir_pair_arg(ir_pair_arg(pBB,1),0), *rb2 = ir_pair_arg(ir_pair_arg(pBB,1),1);
             int dst_slot = (int)IR_LIT(ir_pair_arg(pBB,0)).ival;
             return hdr
-                 + x86("ins2", "sub", "rsp, 8")
-                 + x86("ins2", "lea", emit_fmt("rdi, [r12+%d]", GZ_CELL_OFF(dst_slot)))
+                 + x86("sub", "rsp", "8")
+                 + x86("lea", "rdi", FRQ(GZ_CELL_OFF(dst_slot)))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)ra->op))
+                 + x86("mov", "edx", std::to_string((int)ra->op))
                  + icm_arg_load_lit("rcx", ra)
-                 + x86("ins2", "mov rax,", "0")
-                 + x86("ins2", "movq", "xmm0, rax")
-                 + x86("ins2", "mov r8d,", std::to_string((int)rb2->op))
+                 + x86("mov", "rax", "0")
+                 + x86("movq", "xmm0", "rax")
+                 + x86("mov", "r8d", std::to_string((int)rb2->op))
                  + icm_arg_load_lit("r9", rb2)
-                 + x86("ins2", "mov rax,", "0")
-                 + x86("ins2", "movq", "xmm1, rax")
-                 + x86("ins2", "call", "rt_is_cell@PLT")
-                 + x86("ins2", "add", "rsp, 8")
+                 + x86("mov", "rax", "0")
+                 + x86("movq", "xmm1", "rax")
+                 + x86("call", "rt_is_cell@PLT")
+                 + x86("add", "rsp", "8")
                  + icm_tail();
         }
         /* IR_LIT_I dst, binary IR_ARITH — "N is Expr" where N is a literal integer.
@@ -181,19 +181,19 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             && ir_pair_arg(pBB,0)->op == IR_LIT_I && ir_pair_arg(ir_pair_arg(pBB,1),0) && ir_pair_arg(ir_pair_arg(pBB,1),1)) {
             const IR_t *ra = ir_pair_arg(ir_pair_arg(pBB,1),0), *rb2 = ir_pair_arg(ir_pair_arg(pBB,1),1);
             return hdr
-                 + x86("ins2", "sub", "rsp, 8")
-                 + x86("ins2", "mov rdi,", std::to_string((long)IR_LIT(ir_pair_arg(pBB,0)).ival))
+                 + x86("sub", "rsp", "8")
+                 + x86("mov", "rdi", std::to_string((long)IR_LIT(ir_pair_arg(pBB,0)).ival))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)ra->op))
+                 + x86("mov", "edx", std::to_string((int)ra->op))
                  + icm_arg_load_lit("rcx", ra)
-                 + x86("ins2", "mov rax,", "0")
-                 + x86("ins2", "movq", "xmm0, rax")
-                 + x86("ins2", "mov r8d,", std::to_string((int)rb2->op))
+                 + x86("mov", "rax", "0")
+                 + x86("movq", "xmm0", "rax")
+                 + x86("mov", "r8d", std::to_string((int)rb2->op))
                  + icm_arg_load_lit("r9", rb2)
-                 + x86("ins2", "mov rax,", "0")
-                 + x86("ins2", "movq", "xmm1, rax")
-                 + x86("ins2", "call", "rt_is_cell_lit@PLT")
-                 + x86("ins2", "add", "rsp, 8")
+                 + x86("mov", "rax", "0")
+                 + x86("movq", "xmm1", "rax")
+                 + x86("call", "rt_is_cell_lit@PLT")
+                 + x86("add", "rsp", "8")
                  + icm_tail();
         }
         /* LOGICVAR dst, unary IR_ARITH (one operand, no rhs) — "X is f(A)" e.g. X is sign(N).
@@ -203,33 +203,33 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             const IR_t *ra = ir_pair_arg(ir_pair_arg(pBB,1),0);
             int dst_slot = (int)IR_LIT(ir_pair_arg(pBB,0)).ival;
             return hdr
-                 + x86("ins2", "sub", "rsp, 8")
-                 + x86("ins2", "lea", emit_fmt("rdi, [r12+%d]", GZ_CELL_OFF(dst_slot)))
+                 + x86("sub", "rsp", "8")
+                 + x86("lea", "rdi", FRQ(GZ_CELL_OFF(dst_slot)))
                  + icm_op()
-                 + x86("ins2", "mov edx,", std::to_string((int)ra->op))
+                 + x86("mov", "edx", std::to_string((int)ra->op))
                  + icm_arg_load_lit("rcx", ra)
-                 + x86("ins2", "mov rax,", "0")
-                 + x86("ins2", "movq", "xmm0, rax")
-                 + x86("ins2", "mov r8d,", "-1")
-                 + x86("ins2", "xor", "r9d, r9d")
-                 + x86("ins2", "mov rax,", "0")
-                 + x86("ins2", "movq", "xmm1, rax")
-                 + x86("ins2", "call", "rt_is_cell@PLT")
-                 + x86("ins2", "add", "rsp, 8")
+                 + x86("mov", "rax", "0")
+                 + x86("movq", "xmm0", "rax")
+                 + x86("mov", "r8d", "-1")
+                 + x86("xor", "r9d", "r9d")
+                 + x86("mov", "rax", "0")
+                 + x86("movq", "xmm1", "rax")
+                 + x86("call", "rt_is_cell@PLT")
+                 + x86("add", "rsp", "8")
                  + icm_tail();
         }
         if (ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && (ir_pair_arg(pBB,0)->op == IR_STRUCT || ir_pair_arg(pBB,1)->op == IR_STRUCT) && icm_ord(fn)) {
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
             return hdr
-                 + x86("ins2", "sub", "rsp, 16")
+                 + x86("sub", "rsp", "16")
                  + emit_build_compound_term(ir_pair_arg(pBB,0))
-                 + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
+                 + x86("mov", "qword ptr [rsp + 0]", "rax")
                  + emit_build_compound_term(ir_pair_arg(pBB,1))
-                 + x86("ins2", "mov", "rdx, rax")
-                 + x86("ins2", "mov", "rsi, qword ptr [rsp + 0]")
-                 + x86("ins2", "lea rdi,", std::string("[rip + ") + op_lbl + "]")
-                 + x86("ins2", "call", "rt_term_cmp_terms@PLT")
-                 + x86("ins2", "add", "rsp, 16")
+                 + x86("mov", "rdx", "rax")
+                 + x86("mov", "rsi", "qword ptr [rsp + 0]")
+                 + x86("lea", "rdi", std::string("[rip + ") + op_lbl + "]")
+                 + x86("call", "rt_term_cmp_terms@PLT")
+                 + x86("add", "rsp", "16")
                  + icm_tail();
         }
         if (ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && icm_cmp(fn)) {
@@ -240,17 +240,17 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
             if (a0->op == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
             if (a1->op == IR_ATOM && IR_LIT(a1).sval) strtab_label(s1lbl, sizeof s1lbl, IR_LIT(a1).sval);
             return hdr
-                 + x86("ins2", "sub", "rsp, 16")
-                 + x86("ins2", "lea rdi,", std::string("[rip + ") + op_lbl + "]")
-                 + x86("ins2", "mov esi,",  std::to_string((int)a0->op))
-                 + x86("ins2", "mov rdx,",  std::to_string((long)IR_LIT(a0).ival))
-                 + (s0lbl[0] ? x86("ins2", "lea rcx,", std::string("[rip + ") + s0lbl + "]") : x86("ins2", "xor", "ecx, ecx"))
-                 + x86("ins2", "mov r8d,",  std::to_string((int)a1->op))
-                 + x86("ins2", "mov r9,",   std::to_string((long)IR_LIT(a1).ival))
-                 + (s1lbl[0] ? x86("ins2", "lea rax,", std::string("[rip + ") + s1lbl + "]") : x86("ins2", "xor", "eax, eax"))
-                 + x86("ins2", "mov", "qword ptr [rsp + 0], rax")
-                 + x86("ins2", "call", icm_arith(fn) ? "rt_arith_cmp@PLT" : "rt_term_cmp@PLT")
-                 + x86("ins2", "add", "rsp, 16")
+                 + x86("sub", "rsp", "16")
+                 + x86("lea", "rdi", std::string("[rip + ") + op_lbl + "]")
+                 + x86("mov", "esi", std::to_string((int)a0->op))
+                 + x86("mov", "rdx", std::to_string((long)IR_LIT(a0).ival))
+                 + (s0lbl[0] ? x86("lea", "rcx", std::string("[rip + ") + s0lbl + "]") : x86("xor", "ecx", "ecx"))
+                 + x86("mov", "r8d", std::to_string((int)a1->op))
+                 + x86("mov", "r9", std::to_string((long)IR_LIT(a1).ival))
+                 + (s1lbl[0] ? x86("lea", "rax", std::string("[rip + ") + s1lbl + "]") : x86("xor", "eax", "eax"))
+                 + x86("mov", "qword ptr [rsp + 0]", "rax")
+                 + x86("call", icm_arith(fn) ? "rt_arith_cmp@PLT" : "rt_term_cmp@PLT")
+                 + x86("add", "rsp", "16")
                  + icm_tail();
         }
     }

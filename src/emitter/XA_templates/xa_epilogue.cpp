@@ -12,10 +12,10 @@ static std::string xa_epilogue_str(void) {
              + "} rt._finalize();\n";
     }
     if (PLATFORM_NET) {
-        return x86("ins2", "call", "void SnoRt::_finalize()")
-             + x86("ins1", "ret")
-             + x86("ins1", "}")
-             + x86("ins1", "}");
+        return x86("comment", "call void SnoRt::_finalize()")
+             + x86("ret")
+             + x86("}")
+             + x86("}");
     }
     if (PLATFORM_WASM) {
         return wasm_emit_data_segments_str() + ")\n";

@@ -37,13 +37,13 @@ std::string bb_call_rk_bool_str(IR_t * pBB) {
     if (MEDIUM_TEXT)
         return x86("label", _.lbl_α)
              + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
-             + x86("ins2", "mov", "rdi, [r12+" + std::to_string(off) + "]")
-             + x86("ins2", "mov", "rsi, [r12+" + std::to_string(off + 8) + "]")
-             + x86("ins2", "call", "rt_rk_is_truthy@PLT")
-             + x86("ins2", "test", "eax, eax")
-             + x86("ins2", "je",   std::string(_.lbl_ω))
-             + x86("ins2", "jmp",  std::string(_.lbl_γ))
-             + x86("Lins1", std::string(_.lbl_β) + ":", "")
-             + x86("ins2", "jmp",  std::string(_.lbl_ω));
+             + x86("mov", "rdi", FRQ(off))
+             + x86("mov", "rsi", FRQ(off + 8))
+             + x86("call", "rt_rk_is_truthy@PLT")
+             + x86("test", "eax", "eax")
+             + x86("je",   std::string(_.lbl_ω))
+             + x86("jmp",  std::string(_.lbl_γ))
+             + x86("label", std::string(_.lbl_β) + ":")
+             + x86("jmp",  std::string(_.lbl_ω));
     return std::string();
 }

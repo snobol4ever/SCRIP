@@ -2,14 +2,14 @@
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string anlbl(const char *s) { char b[64]; b[0] = 0; if (s && *s) strtab_label(b, sizeof b, s); return std::string(b); }
 static std::string agg_build_term(IR_t *a) {
-    if (!a) return x86("ins2", "xor", "eax, eax");
+    if (!a) return x86("xor", "eax", "eax");
     if (a->op == IR_STRUCT) return emit_build_compound_term(a);
-    return x86("ins2", "mov", std::string("edi, ") + std::to_string((int)a->op))
-         + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)IR_LIT(a).ival))
-         + IF(IR_LIT(a).sval && *IR_LIT(a).sval, x86("ins2", "lea", std::string("rdx, [rip + ") + anlbl(IR_LIT(a).sval) + "]"))
-         + IF(!(IR_LIT(a).sval && *IR_LIT(a).sval), x86("ins2", "xor", "edx, edx"))
-         + x86("ins2", "xorps", "xmm0, xmm0")
-         + x86("ins2", "call", "rt_node_to_term@PLT");
+    return x86("mov", "edi", std::to_string((int)a->op))
+         + x86("mov", "rsi", std::to_string((long)IR_LIT(a).ival))
+         + IF(IR_LIT(a).sval && *IR_LIT(a).sval, x86("lea", "rdx", std::string("[rip + ") + anlbl(IR_LIT(a).sval) + "]"))
+         + IF(!(IR_LIT(a).sval && *IR_LIT(a).sval), x86("xor", "edx", "edx"))
+         + x86("xorps", "xmm0", "xmm0")
+         + x86("call", "rt_node_to_term@PLT");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string agg_bin_all(IR_t *a, IR_t *b, IR_t *c) { int kres = (int)c->op; long ires = (long)IR_LIT(c).ival; const char *sres = (kres == IR_ATOM) ? IR_LIT(c).sval : NULL;
@@ -54,47 +54,47 @@ static std::string agg_bin_nbget(IR_t *a, IR_t *b) { int kres = (int)b->op; long
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string agg_txt_all(const std::string &hdr, IR_t *a, IR_t *b, IR_t *c) {
     return hdr
-         + agg_build_term(a) + x86("ins2", "push", "rax")
-         + agg_build_term(b) + x86("ins2", "push", "rax")
-         + agg_build_term(c) + x86("ins2", "push", "rax")
-         + x86("ins2", "sub", "rsp, 8")
-         + x86("ins2", "mov", "rdx, [rsp + 8]")
-         + x86("ins2", "mov", "rsi, [rsp + 16]")
-         + x86("ins2", "mov", "rdi, [rsp + 24]")
-         + x86("ins2", "call", "rt_aggregate_all_meta@PLT")
-         + x86("ins2", "add", "rsp, 32")
-         + x86("ins2", "test", "eax, eax")
-         + x86("ins2", "je",   _.lbl_ω)
-         + x86("ins2", "jmp",  _.lbl_γ)
-         + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
+         + agg_build_term(a) + x86("push", "rax")
+         + agg_build_term(b) + x86("push", "rax")
+         + agg_build_term(c) + x86("push", "rax")
+         + x86("sub", "rsp", "8")
+         + x86("mov", "rdx", "[rsp + 8]")
+         + x86("mov", "rsi", "[rsp + 16]")
+         + x86("mov", "rdi", "[rsp + 24]")
+         + x86("call", "rt_aggregate_all_meta@PLT")
+         + x86("add", "rsp", "32")
+         + x86("test", "eax", "eax")
+         + x86("je",   _.lbl_ω)
+         + x86("jmp",  _.lbl_γ)
+         + x86("def", "β") + x86("jmp", "ω");
 }
 static std::string agg_txt_nbset(const std::string &hdr, IR_t *a, IR_t *b) {
     return hdr
-         + agg_build_term(a) + x86("ins2", "push", "rax")
-         + x86("ins2", "sub", "rsp, 8")
+         + agg_build_term(a) + x86("push", "rax")
+         + x86("sub", "rsp", "8")
          + agg_build_term(b)
-         + x86("ins2", "mov", "rsi, rax")
-         + x86("ins2", "mov", "rdi, [rsp + 8]")
-         + x86("ins2", "call", "rt_nb_setval_term@PLT")
-         + x86("ins2", "add", "rsp, 16")
-         + x86("ins2", "test", "eax, eax")
-         + x86("ins2", "je",   _.lbl_ω)
-         + x86("ins2", "jmp",  _.lbl_γ)
-         + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
+         + x86("mov", "rsi", "rax")
+         + x86("mov", "rdi", "[rsp + 8]")
+         + x86("call", "rt_nb_setval_term@PLT")
+         + x86("add", "rsp", "16")
+         + x86("test", "eax", "eax")
+         + x86("je",   _.lbl_ω)
+         + x86("jmp",  _.lbl_γ)
+         + x86("def", "β") + x86("jmp", "ω");
 }
 static std::string agg_txt_nbget(const std::string &hdr, IR_t *a, IR_t *b) { int kres = (int)b->op; long ires = (long)IR_LIT(b).ival; const char *sres = (kres == IR_ATOM) ? IR_LIT(b).sval : NULL;
     return hdr
          + agg_build_term(a)
-         + x86("ins2", "mov", "rdi, rax")
-         + x86("ins2", "mov", std::string("esi, ") + std::to_string(kres))
-         + x86("ins2", "mov", std::string("rdx, ") + std::to_string(ires))
-         + IF(sres && *sres, x86("ins2", "lea", std::string("rcx, [rip + ") + anlbl(sres) + "]"))
-         + IF(!(sres && *sres), x86("ins2", "xor", "ecx, ecx"))
-         + x86("ins2", "call", "rt_nb_getval_term@PLT")
-         + x86("ins2", "test", "eax, eax")
-         + x86("ins2", "je",   _.lbl_ω)
-         + x86("ins2", "jmp",  _.lbl_γ)
-         + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
+         + x86("mov", "rdi", "rax")
+         + x86("mov", "esi", std::to_string(kres))
+         + x86("mov", "rdx", std::to_string(ires))
+         + IF(sres && *sres, x86("lea", "rcx", std::string("[rip + ") + anlbl(sres) + "]"))
+         + IF(!(sres && *sres), x86("xor", "ecx", "ecx"))
+         + x86("call", "rt_nb_getval_term@PLT")
+         + x86("test", "eax", "eax")
+         + x86("je",   _.lbl_ω)
+         + x86("jmp",  _.lbl_γ)
+         + x86("def", "β") + x86("jmp", "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_aggregate_nb_str(IR_t *pBB, const char *fn, const std::string &hdr) {

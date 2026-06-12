@@ -8,11 +8,11 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_logicvar(IR_t * pBB) {
-    (void)pBB;
-    if (!PLATFORM_X86) return std::string();
-    return x86("comment", "IR_LOGICVAR")
-         + x86("label",   _.lbl_α)
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω");
+    if (PLATFORM_X86) {
+        return x86("label", _.lbl_α) + x86("comment", "# BOX RESOLVE_VAR(slot=" + std::to_string(_.op_ival) + ") [stackless pass-through]")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω");
+    }
+    return std::string();
 }

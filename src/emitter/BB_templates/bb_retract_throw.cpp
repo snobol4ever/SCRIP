@@ -7,11 +7,11 @@ static std::string rtt_lbl(IR_t *a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string rtt_ball_scalar(IR_t *a) { std::string sl = rtt_lbl(a);
-    return x86("ins2", "mov", std::string("edi, ") + std::to_string((int)a->op))
-         + x86("ins2", "mov", std::string("rsi, ") + std::to_string((long)IR_LIT(a).ival))
-         + (sl.size() ? x86("ins2", "lea", std::string("rdx, [rip + ") + sl + "]") : x86("ins2", "xor", "edx, edx"))
-         + x86("ins2", "xorps", "xmm0, xmm0")
-         + x86("ins2", "call", "rt_node_to_term@PLT");
+    return x86("mov", "edi", std::to_string((int)a->op))
+         + x86("mov", "rsi", std::to_string((long)IR_LIT(a).ival))
+         + (sl.size() ? x86("lea", "rdx", std::string("[rip + ") + sl + "]") : x86("xor", "edx", "edx"))
+         + x86("xorps", "xmm0", "xmm0")
+         + x86("call", "rt_node_to_term@PLT");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_retract_throw_str(IR_t *pBB, const char *fn, const std::string &hdr) {
@@ -37,10 +37,10 @@ std::string bb_retract_throw_str(IR_t *pBB, const char *fn, const std::string &h
             return hdr
                  + IF(a->op == IR_STRUCT, emit_build_compound_term(a))
                  + IF(a->op != IR_STRUCT, rtt_ball_scalar(a))
-                 + x86("ins2", "mov",  "rdi, rax")
-                 + x86("ins2", "call", "rt_throw_term@PLT")
-                 + x86("ins2", "jmp",  _.lbl_ω)
-                 + x86("Lins2", std::string(_.lbl_β) + ":", "jmp", _.lbl_ω);
+                 + x86("mov", "rdi", "rax")
+                 + x86("call", "rt_throw_term@PLT")
+                 + x86("jmp",  _.lbl_ω)
+                 + x86("def", "β") + x86("jmp", "ω");
         }
     }
     return std::string();

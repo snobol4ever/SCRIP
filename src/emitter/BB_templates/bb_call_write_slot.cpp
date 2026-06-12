@@ -37,12 +37,12 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
     if (MEDIUM_BINARY) return bcws_slot_bin(off, beta_tgt);
     if (MEDIUM_TEXT) return x86("label", _.lbl_α)
                           + x86("comment", "BOX IR_CALL write(op) [GZ-7 flat-chain slot -> rt_write_any_nl]")
-                          + x86("ins2", "mov", "rdi, [r12+" + std::to_string(off) + "]")
-                          + x86("ins2", "mov", "rsi, [r12+" + std::to_string(off + 8) + "]")
-                          + x86("ins2", "call", "rt_write_any_nl@PLT")
-                          + x86("ins2", "jmp", _.lbl_γ)
-                          + x86("Lins1", std::string(_.lbl_β) + ":", "")
-                          + x86("ins2", "jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
+                          + x86("mov", "rdi", FRQ(off))
+                          + x86("mov", "rsi", FRQ(off + 8))
+                          + x86("call", "rt_write_any_nl@PLT")
+                          + x86("jmp", "γ")
+                          + x86("label", std::string(_.lbl_β) + ":")
+                          + x86("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -72,17 +72,17 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
                               ? bcws_binop_concat_bin(off, beta_tgt)
                               : bcws_binop_int_bin(off, beta_tgt);
     if (MEDIUM_TEXT) {
-        std::string tail = x86("Lins1", std::string(_.lbl_β) + ":", "")
-                         + x86("ins2", "jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
+        std::string tail = x86("label", std::string(_.lbl_β) + ":")
+                         + x86("jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
         if (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT)
             return x86("label", _.lbl_α)
-                 + x86("ins2", "mov rdi,", "[r12 + " + std::to_string(off + 8) + "]")
-                 + x86("ins2", "call",     "rt_write_strz_nl@PLT")
-                 + x86("ins2", "jmp",      _.lbl_γ) + tail;
+                 + x86("mov", "rdi", "[r12 + " + std::to_string(off + 8) + "]")
+                 + x86("call",     "rt_write_strz_nl@PLT")
+                 + x86("jmp",      _.lbl_γ) + tail;
         return x86("label", _.lbl_α)
-             + x86("ins2", "mov rdi,", "[r12 + " + std::to_string(off) + "]")
-             + x86("ins2", "call",     "rt_write_int_nl@PLT")
-             + x86("ins2", "jmp",      _.lbl_γ) + tail;
+             + x86("mov", "rdi", "[r12 + " + std::to_string(off) + "]")
+             + x86("call",     "rt_write_int_nl@PLT")
+             + x86("jmp",      _.lbl_γ) + tail;
     }
     return std::string();
 }

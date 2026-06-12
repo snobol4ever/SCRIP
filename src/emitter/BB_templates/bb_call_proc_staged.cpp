@@ -46,17 +46,17 @@ static std::string bcps_txt_arm() { int off = bb_slot_alloc16(_.node); bb_label_
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")
          + x86("directive", ".intel_syntax noprefix")
-         + FOR(0, (int)_.op_ival, [&](int i) { IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int slot = prod ? bb_slot_get(prod) : -1; if (slot < 0) slot = 0; return x86("ins2", "mov edi,", std::to_string(i)) + x86("ins2", "mov rsi,", "[r12+" + std::to_string(slot) + "]") + x86("ins2", "mov rdx,", "[r12+" + std::to_string(slot + 8) + "]") + x86("ins2", "call", "rt_arg_stage@PLT"); })
-         + x86("ins2", "lea rdi,", std::string("[rip + .Lcall") + std::to_string(_.nid) + "_pname]")
-         + x86("ins2", "mov esi,", std::to_string((int)_.op_ival))
-         + x86("ins2", "call", "rt_call_proc_descr@PLT")
-         + x86("ins2", "mov", "[r12+" + std::to_string(off) + "], rax")
-         + x86("ins2", "mov", "[r12+" + std::to_string(off + 8) + "], rdx")
-         + x86("ins2", "cmp", "eax, 99")
-         + x86("ins2", "je", _.lbl_ω)
-         + x86("ins2", "jmp", _.lbl_γ)
-         + x86("Lins1", std::string(_.lbl_β) + ":", "")
-         + x86("ins2", "jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
+         + FOR(0, (int)_.op_ival, [&](int i) { IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int slot = prod ? bb_slot_get(prod) : -1; if (slot < 0) slot = 0; return x86("mov", "edi", std::to_string(i)) + x86("mov", "rsi", "[r12+" + std::to_string(slot) + "]") + x86("mov", "rdx", "[r12+" + std::to_string(slot + 8) + "]") + x86("call", "rt_arg_stage@PLT"); })
+         + x86("lea", "rdi", std::string("[rip + .Lcall") + std::to_string(_.nid) + "_pname]")
+         + x86("mov", "esi", std::to_string((int)_.op_ival))
+         + x86("call", "rt_call_proc_descr@PLT")
+         + x86("mov", FRQ(off), "rax")
+         + x86("mov", FRQ(off + 8), "rdx")
+         + x86("cmp", "eax", "99")
+         + x86("je", "ω")
+         + x86("jmp", "γ")
+         + x86("label", std::string(_.lbl_β) + ":")
+         + x86("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_proc_staged_str(IR_t * pBB) {
