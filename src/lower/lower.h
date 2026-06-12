@@ -18,6 +18,11 @@ extern int g_icn_postfix_resume;
 #define T1(t) ((t)->n > 1 ? (t)->c[1] : NULL)
 #define T2(t) ((t)->n > 2 ? (t)->c[2] : NULL)
 /*====================================================================================================================*/
+void lc_γ_to(IR_t *nd, IR_t *t);
+void lc_ω_to(IR_t *nd, IR_t *t);
+IR_t *lc_build(IR_graph_t *g, IR_e op, IR_t *γ, IR_t *ω);
+const tree_t *lc_stmt_subj(const tree_t *s);
+/*====================================================================================================================*/
 stage2_t *lower_stage2(const tree_t *prog);
 /*====================================================================================================================*/
 typedef struct { bb_node_t gen[2]; int which; } alt_dcg_t;
