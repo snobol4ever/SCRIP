@@ -77,7 +77,7 @@ std::string bb_scan_stmt();
 std::string bb_gen_scan();
 std::string bb_gvar_assign();
 std::string bb_assign_local();
-std::string bb_var_frame(IR_t * pBB);
+std::string bb_var_frame();
 std::string bb_var_frame_ref();
 std::string bb_to(IR_t * pBB);
 std::string bb_scan_pos();
