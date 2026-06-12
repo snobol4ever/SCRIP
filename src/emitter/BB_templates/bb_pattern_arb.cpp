@@ -34,7 +34,8 @@ static inline std::string pa_proto_data() {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_pattern_arb() {
-    if (PLATFORM_X86)
+    if (PLATFORM_X86) {
+        pa_bump();
         return x86("label", _.lbl_α)
              + x86("comment", std::string("BOX PATTERN_ARB  [BUILD ζ=r12 frag@") + pa_off() + "]")
              + x86("lea",   "rdi", FRQ(_.op_off))
@@ -53,5 +54,6 @@ std::string bb_pattern_arb() {
              + pa_proto_data()
              + x86("def",   "β")
              + x86("jmp",   "ω");
+    }
     return std::string();
 }

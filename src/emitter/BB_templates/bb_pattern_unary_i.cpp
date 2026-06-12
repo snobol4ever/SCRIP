@@ -86,7 +86,8 @@ static inline std::string pu_proto_data() {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_pattern_unary_i() {
-    if (PLATFORM_X86)
+    if (PLATFORM_X86) {
+        pu_bump();
         return x86("label", _.lbl_α)
              + x86("comment", std::string("BOX PATTERN_") + pu_kind() + "(" + std::to_string(pu_n()) + ")  [BUILD ζ=r12 frag@" + pu_off() + "]")
              + x86("lea",   "rdi", FRQ(_.op_off))
@@ -105,5 +106,6 @@ std::string bb_pattern_unary_i() {
              + pu_proto_data()
              + x86("def",   "β")
              + x86("jmp",   "ω");
+    }
     return std::string();
 }
