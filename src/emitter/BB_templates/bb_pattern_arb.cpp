@@ -10,19 +10,15 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int g_pa_seq = 0;
-static inline void         pa_bump()  { g_pa_seq++; }
-static inline std::string  pal(const char * sfx) { return std::string(".Lpa") + std::to_string(g_pa_seq) + sfx; }
-static inline std::string  pa_off()   { return std::to_string((long)_.op_off); }
+static std::string pal(const char * sfx) { return std::string(".Lpa") + std::to_string(g_pa_seq) + sfx; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline uint64_t pa_proto_addr() { return (uint64_t)(uintptr_t)(const void *)bb_arb_proto; }
-static inline uint64_t pa_desc_addr()  { return (uint64_t)(uintptr_t)(const void *)&bb_arb_proto_desc; }
-static inline uint64_t pa_fn() {
-    void (*fp)(DTP_FRAG_t*,const void*,uint32_t,const DTP_PROTO_DESC*,long,const char*) = rt_pattern_build;
-    return (uint64_t)(uintptr_t)(void *)fp;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static inline std::string pa_proto_data() {
-    return x86("label", pal("_s"))
+std::string bb_pattern_arb() {
+    if (!PLATFORM_X86) return std::string();
+    g_pa_seq++;
+    uint64_t p_addr = (uint64_t)(uintptr_t)(const void *)bb_arb_proto;
+    uint64_t d_addr = (uint64_t)(uintptr_t)(const void *)&bb_arb_proto_desc;
+    uint64_t fn; { void (*fp)(DTP_FRAG_t*,const void*,uint32_t,const DTP_PROTO_DESC*,long,const char*) = rt_pattern_build; fn=(uint64_t)(uintptr_t)(void*)fp; }
+    std::string proto_data = x86("label", pal("_s"))
          + x86("raw", ".byte 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0")
          + x86("raw", ".byte 0x8B,0x05,0xE2,0xFF,0xFF,0xFF,0x8B,0x0D,0xE0,0xFF,0xFF,0xFF,0xFF,0xC1,0x89,0x0D")
          + x86("raw", ".byte 0xD8,0xFF,0xFF,0xFF,0x01,0xC8,0x44,0x39,0xF8,0x7F,0x09,0x41,0x89,0xC6,0xFF,0x25")
@@ -31,29 +27,22 @@ static inline std::string pa_proto_data() {
          + x86("raw", ".byte 0x00,0x00,0xFF,0x25,0xA8,0xFF,0xFF,0xFF")
          + x86("label", pal("_desc"))
          + x86("raw", ".long 81, 32, 16, 24, -1, -1, -1");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_pattern_arb() {
-    if (PLATFORM_X86) {
-        pa_bump();
-        return x86("label", _.lbl_α)
-             + x86("comment", std::string("BOX PATTERN_ARB  [BUILD ζ=r12 frag@") + pa_off() + "]")
-             + x86("lea",   "rdi", FRQ(_.op_off))
-             + x86("lea",   "rsi", "[rip + __]", pa_proto_addr(), pal("_s"))
-             + x86("mov32", "edx", 104L)
-             + x86("lea",   "rcx", "[rip + __]", pa_desc_addr(), pal("_desc"))
-             + x86("mov32", "r8d", 0L)
-             + x86("mov32", "r9d", 0L)
-             + x86("push",  "rbx")
-             + x86("mov",   "rbx", "rsp")
-             + x86("and",   "rsp", -16L)
-             + x86("call",  "rt_pattern_build", pa_fn())
-             + x86("mov",   "rsp", "rbx")
-             + x86("pop",   "rbx")
-             + x86("jmp",   "γ")
-             + pa_proto_data()
-             + x86("def",   "β")
-             + x86("jmp",   "ω");
-    }
-    return std::string();
+    return x86("comment", "IR_PATTERN_ARB")
+         + x86("label",   _.lbl_α)
+         + x86("lea",     "rdi", FRQ(_.op_off))
+         + x86("lea",     "rsi", "[rip + __]", p_addr, pal("_s"))
+         + x86("mov32",   "edx", 104L)
+         + x86("lea",     "rcx", "[rip + __]", d_addr, pal("_desc"))
+         + x86("mov32",   "r8d", 0L)
+         + x86("mov32",   "r9d", 0L)
+         + x86("push",    "rbx")
+         + x86("mov",     "rbx", "rsp")
+         + x86("and",     "rsp", -16L)
+         + x86("call",    "rt_pattern_build", fn)
+         + x86("mov",     "rsp", "rbx")
+         + x86("pop",     "rbx")
+         + x86("jmp",     "γ")
+         + proto_data
+         + x86("def",     "β")
+         + x86("jmp",     "ω");
 }
