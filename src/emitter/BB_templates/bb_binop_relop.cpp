@@ -29,11 +29,15 @@ std::string bb_binop_relop() {
     return IF(PLATFORM_X86,
            IF(brr_ok(),
               IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                            + x86("comment", std::string("BOX IR_BINOP relop [GZ-8 x86() stackless cmp + ") + rel_fail_mnem(_.op_ival) + "->ω.node; jmp γ]"))
+                            + x86("comment", std::string("BOX IR_BINOP relop [GZ-8 x86() stackless cmp + ") + rel_fail_mnem(_.op_ival) + "->ω.node; stores y->result; jmp γ]"))
             + x86("mov", "rax", FRQ(_.op_sa + 8))
             + x86("mov", "rcx", FRQ(_.op_sb + 8))
             + x86("cmp", "rax", "rcx")
             + x86(rel_fail_mnem(_.op_ival), "ω")
+            + x86("mov", "rcx", FRQ(_.op_sb))
+            + x86("mov", FRQ(_.op_off), "rcx")
+            + x86("mov", "rcx", FRQ(_.op_sb + 8))
+            + x86("mov", FRQ(_.op_off + 8), "rcx")
             + x86("jmp", "γ")
             + x86("def", "β")
             + x86("jmp", "ω"))
