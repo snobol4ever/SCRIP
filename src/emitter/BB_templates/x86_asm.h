@@ -511,11 +511,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "comment"))   return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
-    if (!strcmp(mnem, "ins1"))      return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
-    if (!strcmp(mnem, "ins2"))      return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + "\n");
-    if (!strcmp(mnem, "ins3"))      return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + " " + (xc.s ? xc.s : "") + "\n");
-    if (!strcmp(mnem, "Lins1"))     return MEDIUM_BINARY ? std::string() : (std::string(xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + "\n");
-    if (!strcmp(mnem, "Lins2"))     return MEDIUM_BINARY ? std::string() : (std::string(xa.s ? xa.s : "") + " " + (xb.s ? xb.s : "") + " " + (xc.s ? xc.s : "") + "\n");
+
     if (!strcmp(mnem, ".quad")) {
         if (xa.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xa.u)) : (std::string(" .quad ") + std::to_string((unsigned long long)xa.u) + "\n");
         if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
