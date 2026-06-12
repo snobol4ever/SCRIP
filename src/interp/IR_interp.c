@@ -3800,6 +3800,15 @@ IR_t * IR_interp_node(IR_t * bb) {
     case IR_LIST_BANG: {
         IR_t * lb0 = bb->n_operands > 0 ? bb->operands[0] : ((IR_t*)0);
         if (!lb0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        if (lb0->op == IR_MAP || lb0->op == IR_GREP || lb0->op == IR_GATHER || lb0->op == IR_TO) {
+            if (IR_EXEC(bb).state == 0) bb_reset(lb0);
+            IR_interp_node(lb0);
+            DESCR_t gv = IR_EXEC(lb0).value;
+            if (IS_FAIL_fn(gv)) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            IR_EXEC(bb).state = 1;
+            IR_EXEC(bb).value = gv;
+            return bb->γ.node;
+        }
         if (IR_EXEC(bb).state == 0) {
             IR_interp_node(lb0);
             DESCR_t obj0 = IR_EXEC(lb0).value;
