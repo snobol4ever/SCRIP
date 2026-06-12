@@ -187,6 +187,8 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_det_char_type.cpp \
     $(SRC)/emitter/BB_templates/bb_det_sort.cpp \
     $(SRC)/emitter/BB_templates/bb_det_numbervars.cpp \
+    $(SRC)/emitter/BB_templates/bb_det_term_string.cpp \
+    $(SRC)/emitter/BB_templates/bb_det_copy_term.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_unify.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_choice.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_call.cpp \
@@ -442,6 +444,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_char_type.cpp    -o $(OBJ)/bb_det_char_type.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_sort.cpp          -o $(OBJ)/bb_det_sort.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_numbervars.cpp    -o $(OBJ)/bb_det_numbervars.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_term_string.cpp   -o $(OBJ)/bb_det_term_string.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_copy_term.cpp     -o $(OBJ)/bb_det_copy_term.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_unify.cpp       -o $(OBJ)/bb_cell_unify.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_choice.cpp      -o $(OBJ)/bb_cell_choice.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_call.cpp        -o $(OBJ)/bb_cell_call.o
