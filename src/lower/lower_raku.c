@@ -12,11 +12,16 @@ static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*====================================================================================================================================================================================================*/
+static int rk_is_binop(tree_e tt) {
+    switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_CAT: case TT_LEQ: case TT_LNE: return 1; default: return 0; }
+}
+/*====================================================================================================================================================================================================*/
 static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
 static IR_t * lower_decl(rcx_t * cx, const tree_t * t);
 static IR_t * lower_block(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+/*====================================================================================================================================================================================================*/
 static void push_kids(rcx_t * cx, IR_t * nd, const tree_t * t, int from) { for (int i = from; i < t->n; i++) ir_operand_push(nd, lower(cx, t->c[i], NULL, NULL)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_nary(rcx_t * cx, const tree_t * t, IR_e op, IR_t * γ, IR_t * ω) { IR_t * nd = build(cx, op, γ, ω); push_kids(cx, nd, t, 0); return nd; }
@@ -30,6 +35,33 @@ static IR_t * lower_binop(rcx_t * cx, const tree_t * t, const char * opn, IR_t *
 static IR_t * lower_unop(rcx_t * cx, const tree_t * t, const char * opn, IR_t * γ, IR_t * ω) {
     IR_t * nd = build(cx, IR_UNOP, γ, ω); IR_LIT(nd).sval = opn;
     ir_operand_push(nd, lower(cx, t->c[0], NULL, NULL)); return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * rk_arg_lower(void * vcx, const tree_t * a, IR_t * F) { IR_t * r = NULL; return lower_rv((rcx_t *) vcx, a, NULL, F, &r); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * rk_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((rcx_t *) vcx)->g, IR_LANG_RKU, rk_arg_lower, vcx, a); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, int visible, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n - from;
+    if (visible) {
+        IR_LIT(nd).dval = 1.0;
+        IR_t * succ = nd; IR_t * entry = nd;
+        for (int i = t->n - 1; i >= from; i--) { IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[i], succ, ω, &r); succ = e; entry = e; }
+        *res = nd; return (t->n > from) ? entry : nd; }
+    lc_call_argblks(nd, 2.0, t->n - from, rk_arg_block, cx, (const tree_t * const *) &t->c[from]);
+    *res = nd; return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
+    if (!t || t->n == 0) return build(cx, IR_SUCCEED, γ, ω);
+    IR_t * succ = γ; IR_t * entry = γ;
+    for (int i = t->n - 1; i >= 0; i--) {
+        const tree_t * s = t->c[i];
+        if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
+        IR_t * r = NULL; IR_t * e = lower_rv(cx, s, succ, ω, &r);
+        if (e) { entry = e; succ = e; }
+    }
+    return entry;
 }
 /*====================================================================================================================================================================================================*/
 static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
@@ -133,39 +165,6 @@ static IR_t * lower_decl(rcx_t * cx, const tree_t * t) {
     }
 }
 /*====================================================================================================================================================================================================*/
-static int rk_is_binop(tree_e tt) {
-    switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_CAT: case TT_LEQ: case TT_LNE: return 1; default: return 0; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * rk_arg_lower(void * vcx, const tree_t * a, IR_t * F) { IR_t * r = NULL; return lower_rv((rcx_t *) vcx, a, NULL, F, &r); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_graph_t * rk_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((rcx_t *) vcx)->g, IR_LANG_RKU, rk_arg_lower, vcx, a); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, int visible, IR_t * γ, IR_t * ω, IR_t ** res) {
-    IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n - from;
-    if (visible) {
-        IR_LIT(nd).dval = 1.0;
-        IR_t * succ = nd; IR_t * entry = nd;
-        for (int i = t->n - 1; i >= from; i--) { IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[i], succ, ω, &r); succ = e; entry = e; }
-        *res = nd; return (t->n > from) ? entry : nd; }
-    lc_call_argblks(nd, 2.0, t->n - from, rk_arg_block, cx, (const tree_t * const *) &t->c[from]);
-    *res = nd; return nd;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
-    if (!t || t->n == 0) return build(cx, IR_SUCCEED, γ, ω);
-    IR_t * succ = γ; IR_t * entry = γ;
-    for (int i = t->n - 1; i >= 0; i--) {
-        const tree_t * s = t->c[i];
-        if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
-        IR_t * r = NULL; IR_t * e = lower_rv(cx, s, succ, ω, &r);
-        if (e) { entry = e; succ = e; }
-    }
-    return entry;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -341,7 +340,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*====================================================================================================================================================================================================*/
 int lower_raku_enum(const tree_t * prog, const tree_t ** out, int max) {
     int n = 0;
     if (!prog) return 0;
@@ -380,10 +379,7 @@ IR_graph_t * lower_raku(const tree_t * prog) {
     g->entry = top;
     return g;
 }
-
-/*====================================================================================================================*/
-/* stage2 entry — relocated from lower_program.c (lower_common rung)                                                  */
-/*====================================================================================================================*/
+/*====================================================================================================================================================================================================*/
 #include "stage2.h"
 #include "bb_program.h"
 static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
@@ -391,7 +387,7 @@ static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
     if (!ng || !ng->entry) return -1;
     return bb_program_add(&g_stage2.bbp, ng);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_raku_stage2(const tree_t *prog) {
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
