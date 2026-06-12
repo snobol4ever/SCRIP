@@ -274,7 +274,7 @@ static void flat_drive_cat_arms(IR_t *pBB, IR_t * const * arms, int nc, bb_label
     bb_label_t *right_β = emit_label_alloc("xcat%d_right_β", id);
     bb_label_t *xcat_ω  = emit_label_alloc("xcat%d_ω",       id);
     EMIT_PAIR_RESET();
-    if (!pBB || nc == 0) {
+    if (nc == 0) {
         EMIT_PAIR_JMP(lbl_γ);
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_DEF_JMP(xcat_ω, lbl_ω);
@@ -314,6 +314,12 @@ static void flat_drive_cat_arms(IR_t *pBB, IR_t * const * arms, int nc, bb_label
     EMIT_PAIR_DEF_JMP(right_ω, left_β);
     EMIT_PAIR_DEF_JMP(lbl_β, last_β);
     EMIT_PAIR_DEF_JMP(xcat_ω, lbl_ω);
+    if (!pBB) {
+        emit_label_define_bb(right_ω); emit_jmp_label(left_β, JMP_JMP);
+        emit_label_define_bb(lbl_β);   emit_jmp_label(last_β, JMP_JMP);
+        emit_label_define_bb(xcat_ω);  emit_jmp_label(lbl_ω,  JMP_JMP);
+        return;
+    }
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -403,14 +409,17 @@ static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     {
         IR_t *cat_arms[64]; IR_t *catnd = NULL;
         int catn = gather_lowered_cat_arms(ch, cat_arms, 64, &catnd, pBB);
+        IR_t *stop_arms[64]; int stop_n = 0; int stop_has_arbno = 0;
+        if (catn == 0) { IR_t *sc = ch; while (sc && sc != pBB && is_pat_chain_elem(sc->op) && stop_n < 64) { if (sc->op == IR_PAT_ARBNO) stop_has_arbno = 1; stop_arms[stop_n++] = sc; sc = sc->γ.node; } }
         if (catn >= 2) {
             flat_drive_cat_arms(catnd, cat_arms, catn, cap_γ, lbl_ω, lbl_β);
+        } else if (stop_n >= 2 && stop_has_arbno) {
+            flat_drive_cat_arms(NULL, stop_arms, stop_n, cap_γ, lbl_ω, lbl_β);
         } else if (ch->γ.node && ch->γ.node->op == IR_PAT_ALT) {
             int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, ch->γ.node, &na);
             if (aux && na > 0) {
                 walk_bb_flat(ch->γ.node, cap_γ, lbl_ω, lbl_β);
             } else {
-                /* γ/ω-threaded inline alt chain: collect arms via ω links, drive as alternates */
                 IR_t *alt_arms[64]; int na2 = gather_inline_alt_arms(ch, alt_arms, 64);
                 if (na2 >= 2) {
                     bb_label_t **ai_ωs = (bb_label_t **)alloca((size_t)na2 * sizeof(bb_label_t *));
@@ -2995,8 +3004,9 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
         return;
     }
     if (nd->op == IR_PAT_ASSIGN_COND || nd->op == IR_PAT_ASSIGN_IMM) {
-        IR_t *ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : ((IR_t*)0);
-        if (ch) pre_build_children_text(ch, out, base_prefix);
+        IR_t *ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : (nd->n_operands > 0 ? nd->operands[0] : (IR_t*)0);
+        IR_t *sc = ch;
+        while (sc && sc != nd && is_pat_chain_elem(sc->op)) { pre_build_children_text(sc, out, base_prefix); sc = sc->γ.node; }
         return;
     }
     if (nd->op == IR_PAT_ARBNO || nd->op == IR_PAT_CALLOUT) {
