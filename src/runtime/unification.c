@@ -703,3 +703,65 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_term_class(Term *t) {
+    switch (t->tag) {
+    case TERM_VAR:      return 0;
+    case TERM_FLOAT:    return 1;
+    case TERM_INT:      return 1;
+    case TERM_ATOM:     return 2;
+    case TERM_COMPOUND: return 3;
+    default:            return 4;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_term_compare(Term *a, Term *b) {
+    a = a ? term_deref(a) : NULL; b = b ? term_deref(b) : NULL;
+    if (!a && !b) return 0; if (!a) return -1; if (!b) return 1;
+    int ca = rt_pl_term_class(a), cb = rt_pl_term_class(b);
+    if (ca != cb) return ca < cb ? -1 : 1;
+    switch (a->tag) {
+    case TERM_VAR: return (a == b) ? 0 : (a < b ? -1 : 1);
+    case TERM_INT: { double x = (double)a->ival, y = (b->tag == TERM_INT) ? (double)b->ival : b->fval; return x < y ? -1 : (x > y ? 1 : 0); }
+    case TERM_FLOAT: { double x = a->fval, y = (b->tag == TERM_INT) ? (double)b->ival : b->fval; return x < y ? -1 : (x > y ? 1 : 0); }
+    case TERM_ATOM: { const char *na = prolog_atom_name(a->atom_id), *nb = prolog_atom_name(b->atom_id); int c = strcmp(na ? na : "", nb ? nb : ""); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
+    case TERM_COMPOUND: {
+        if (a->compound.arity != b->compound.arity) return a->compound.arity < b->compound.arity ? -1 : 1;
+        const char *na = prolog_atom_name(a->compound.functor), *nb = prolog_atom_name(b->compound.functor);
+        int c = strcmp(na ? na : "", nb ? nb : ""); if (c) return c < 0 ? -1 : 1;
+        for (int i = 0; i < a->compound.arity; i++) { int r = rt_pl_term_compare(a->compound.args[i], b->compound.args[i]); if (r) return r; }
+        return 0;
+    }
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
+{
+    extern Trail g_resolve_trail;
+    Term *lst = term_deref((Term *)list_cell);
+    Term *elems[4096]; int n = 0;
+    int dot_id = prolog_atom_intern(".");
+    Term *cur = lst;
+    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == dot_id && cur->compound.arity == 2 && n < 4096) {
+        elems[n++] = term_deref(cur->compound.args[0]);
+        cur = term_deref(cur->compound.args[1]);
+    }
+    for (int i = 1; i < n; i++) {
+        Term *key = elems[i]; int j = i - 1;
+        while (j >= 0 && rt_pl_term_compare(elems[j], key) > 0) { elems[j + 1] = elems[j]; j--; }
+        elems[j + 1] = key;
+    }
+    int m = 0; int out_idx[4096];
+    for (int i = 0; i < n; i++) {
+        if (!do_msort && m > 0 && rt_pl_term_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue;
+        out_idx[m++] = i;
+    }
+    Term *result = term_new_atom(prolog_atom_intern("[]"));
+    for (int i = m - 1; i >= 0; i--) {
+        Term *pair[2]; pair[0] = elems[out_idx[i]]; pair[1] = result;
+        result = term_new_compound(prolog_atom_intern("."), 2, pair);
+    }
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify((Term *)result_cell, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
