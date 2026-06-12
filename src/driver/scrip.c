@@ -251,6 +251,7 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
             if (has_lassign && nd->op == IR_BINOP && !((IR_LIT(nd).ival >= BINOP_LT && IR_LIT(nd).ival <= BINOP_NE) || IR_LIT(nd).ival == BINOP_ADD || IR_LIT(nd).ival == BINOP_SUB || IR_LIT(nd).ival == BINOP_MUL || IR_LIT(nd).ival == BINOP_DIV || IR_LIT(nd).ival == BINOP_MOD)) return 0;
             if (has_lassign && has_binop && (nd->op == IR_LIT_F || nd->op == IR_LIT_NUL)) return 0;
             if (has_lassign && nd->op == IR_CALL && !(IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes")))) return 0;
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0) return 0;
             if (for_run && nd->op == IR_CALL && (IR_LIT(nd).dval == 3.0 || (IR_LIT(nd).sval && rt_proc_is_registered(IR_LIT(nd).sval)))) { int _icn_io = IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"write")||!strcmp(IR_LIT(nd).sval,"writes")||!strcmp(IR_LIT(nd).sval,"writeln")||!strcmp(IR_LIT(nd).sval,"nl")||!strcmp(IR_LIT(nd).sval,"halt")); if (!_icn_io) return 0; }
             if (nd->op == IR_GEN_SCAN) {
                 if (IR_LIT(nd).dval != 1.0) return 0;

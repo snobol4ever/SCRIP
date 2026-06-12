@@ -229,18 +229,16 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * gconj = build(cx, IR_CONJ, ga, ga);
             IR_t * gbentry = lower_rblock(cx, t->c[1], gconj, ga);
             γ_to(va, gbentry); *res = ga; return ga; }
-        IR_t * ev = build(cx, IR_EVERY, γ, ω);
-        IR_t * lb = build(cx, IR_LIST_BANG, NULL, ev);
-        IR_t * rs = NULL; IR_t * se = lower_rv(cx, t->c[0]->c[0], NULL, ev, &rs);
-        ir_operand_push(lb, se);
+        IR_t * src_nd = lower_rv(cx, t->c[0]->c[0], NULL, γ, NULL);
         const char * lbvar = t->c[0]->v.sval;
-        IR_t * va = (lbvar && lbvar[0]) ? build(cx, IR_ASSIGN, NULL, ev) : NULL;
+        IR_t * va = (lbvar && lbvar[0]) ? build(cx, IR_ASSIGN, NULL, γ) : NULL;
         if (va) IR_LIT(va).sval = lbvar;
-        IR_t * conj = build(cx, IR_CONJ, lb, lb);
-        IR_t * bentry = lower_rblock(cx, t->c[1], conj, lb);
-        γ_to(lb, va ? va : bentry);
+        IR_t * gen = src_nd;
+        γ_to(gen, va ? va : NULL);
+        IR_t * gconj = build(cx, IR_CONJ, gen, gen);
+        IR_t * bentry = lower_rblock(cx, t->c[1], gconj, gen);
         if (va) γ_to(va, bentry);
-        ir_operand_push(ev, lb); *res = ev; return lb; }
+        *res = gen; return gen; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_WHILE: {
         IR_t * nd = build(cx, IR_WHILE, γ, ω);
@@ -264,6 +262,43 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         lc_call_argblks(nd, 2.0, 2, rk_arg_block, cx, (const tree_t * const *) t->c);
         *res = nd; return nd; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_ARR_GET: if (t->n > 1) { IR_t * nd = build(cx, IR_IDX, γ, ω);
+        IR_t * ri = NULL, * rb = NULL;
+        IR_t * ei = lower_rv(cx, t->c[1], nd, ω, &ri);
+        IR_t * eb = lower_rv(cx, t->c[0], ei, ω, &rb);
+        *res = nd; return eb; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_HASH_GET: return lower_rcall(cx, t, "hash_get", 0, 1, γ, ω, res);
+    case TT_HASH_SET: if (t->n > 2 && t->c[0] && (t->c[0]->t == TT_VAR || t->c[0]->t == TT_TWIGIL_FIELD)) {
+        const char * vn = t->c[0]->t == TT_TWIGIL_FIELD ? t->c[0]->v.sval : (t->c[0]->n > 0 && t->c[0]->c[0] ? t->c[0]->c[0]->v.sval : t->c[0]->v.sval);
+        IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
+        IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_set_pure", 0, 0, as, ω, &r2); *res = as; return e; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_HASH_EXISTS: return lower_rcall(cx, t, "hash_exists", 0, 1, γ, ω, res);
+    case TT_HASH_DELETE: if (t->n > 0 && t->c[0] && (t->c[0]->t == TT_VAR || t->c[0]->t == TT_TWIGIL_FIELD)) {
+        const char * vn = t->c[0]->t == TT_TWIGIL_FIELD ? t->c[0]->v.sval : (t->c[0]->n > 0 && t->c[0]->c[0] ? t->c[0]->c[0]->v.sval : t->c[0]->v.sval);
+        IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
+        IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_delete_pure", 0, 0, as, ω, &r2); *res = as; return e; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_TO: if (t->n > 1) { IR_t * to = build(cx, IR_TO, NULL, ω);
+        IR_t * rlo = NULL, * rhi = NULL;
+        IR_t * elo = lower_rv(cx, t->c[0], NULL, ω, &rlo);
+        IR_t * ehi = lower_rv(cx, t->c[1], to, ω, &rhi);
+        γ_to(rlo, ehi); ir_operand_push(to, elo); ir_operand_push(to, ehi);
+        *res = to; return elo; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_GATHER: { const tree_t * gb = (t->n > 0) ? t->c[0] : NULL;
+        int ntk = 0;
+        if (gb && gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) if (gb->c[i] && gb->c[i]->t == TT_SUSPEND) ntk++; }
+        else if (gb && gb->t == TT_SUSPEND) ntk = 1;
+        IR_t * ga = build(cx, IR_GATHER, NULL, ω); IR_LIT(ga).ival = ntk ? ntk : (gb ? gb->n : 0);
+        if (ntk > 0) { IR_graph_t ** subs = (IR_graph_t **) calloc((size_t) ntk, sizeof(IR_graph_t *));
+            if (subs) { int k = 0;
+                if (gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) { const tree_t * s = gb->c[i];
+                    if (!s || s->t != TT_SUSPEND || s->n < 1 || !s->c[0]) continue; subs[k++] = rk_arg_block(cx, s->c[0]); } }
+                else if (gb->n >= 1 && gb->c[0]) subs[k++] = rk_arg_block(cx, gb->c[0]);
+                IR_EXEC(ga).counter = (int64_t)(intptr_t) subs; } }
+        *res = ga; return ga; }
     case TT_SORT: return lower_rcall(cx, t, "array_sort", 0, 0, γ, ω, res);
     case TT_MAP: if (t->n > 1) { IR_t * nd = build(cx, IR_MAP, γ, ω);
         IR_graph_t * bg = rk_arg_block(cx, t->c[0]); IR_LIT(nd).ival = (long long)(intptr_t) bg;
