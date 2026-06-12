@@ -478,7 +478,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         bb_emit_x86(bb_call(nd));
         return 0;
     }
-    case IR_VAR_FRAME:            { bb_emit_x86(bb_var_frame(nd)); return 0; }
+    case IR_VAR_FRAME:            { bb_prepare(nd); bb_emit_x86(bb_var_frame()); return 0; }
     case IR_ASSIGN_FRAME:         bb_prepare(nd); { bb_emit_x86(bb_assign_frame()); } return 0;
     case IR_VAR_FRAME_REF:        { bb_prepare(nd); bb_emit_x86(bb_var_frame_ref()); return 0; }
     case IR_ASSIGN_FRAME_REF:     bb_prepare(nd); { bb_emit_x86(bb_assign_frame_ref()); } return 0;
