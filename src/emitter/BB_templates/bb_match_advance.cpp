@@ -9,21 +9,16 @@ extern int64_t kw_anchor;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline int      saoff()          { return _.op_sa; }
-static inline int      stoff()          { return _.op_off; }
-static inline uint64_t kw_anchor_addr() { return (uint64_t)(uintptr_t)(const void *)&kw_anchor; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_advance() {
-    x86_begin();
     if (!PLATFORM_X86) return std::string();
-    return (saoff() < 0 || stoff() < 0)
-         ? x86_bomb("IR_PAT_MATCH: subject/start slot not promoted (flat_drive_match)")
-         : IF(MEDIUM_TEXT, x86("comment", "BOX MATCH ADVANCE  [ch.18 step 6 outer start-loop: start++, bound, &ANCHOR]"))
-         + x86("add", FR(stoff()), (long)1)
-         + x86("mov", "eax", FR(stoff()))
+    if (_.op_sa < 0 || _.op_off < 0) return x86_bomb("IR_PAT_MATCH: subject/start slot not promoted (flat_drive_match)");
+    uint64_t ka = (uint64_t)(uintptr_t)(const void *)&kw_anchor;
+    return x86("comment", "IR_MATCH_ADVANCE")
+         + x86("add", FR(_.op_off), (long)1)
+         + x86("mov", "eax", FR(_.op_off))
          + x86("cmp", "eax", "r15d")
          + x86("jg",  "ω")
-         + x86("mov", "rcx", "[rip + __]", kw_anchor_addr(), "kw_anchor")
+         + x86("mov", "rcx", "[rip + __]", ka, "kw_anchor")
          + x86("mov", "rax", "[rcx]")
          + x86("cmp64", "rax", (long)0)
          + x86("jne", "ω")
