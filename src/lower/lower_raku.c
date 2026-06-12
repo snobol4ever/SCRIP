@@ -522,4 +522,30 @@ void lower_raku_stage2(const tree_t *prog) {
             }
         }
     }
+    int has_main = 0;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++)
+        if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) { has_main = 1; break; }
+    if (!has_main) {
+        IR_graph_t * tg = IR_alloc(8192, IR_LANG_RKU); rcx_t tcx; tcx.g = tg;
+        IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
+        IR_t * sentry = succ; IR_t * entry = succ;
+        for (int i = prog->n - 1; i >= 0; i--) {
+            const tree_t * s = prog->c[i];
+            if (!s) continue;
+            if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
+            if (s->t == TT_SUB_DECL || s->t == TT_CLASS_DECL) continue;
+            IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, fail, &r);
+            if (e) { entry = e; sentry = e; }
+        }
+        tg->entry = entry;
+        int bb_idx = bb_program_add(&g_stage2.bbp, tg);
+        if (bb_idx >= 0) {
+            int pi = stage2_proc_grow(&g_stage2);
+            g_stage2.proc_table[pi].name     = lp_strdup("main");
+            g_stage2.proc_table[pi].proc     = NULL;
+            g_stage2.proc_table[pi].entry_pc = -1;
+            g_stage2.proc_table[pi].bb_idx   = bb_idx;
+            g_stage2.proc_table[pi].nparams  = 0;
+        }
+    }
 }
