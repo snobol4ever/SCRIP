@@ -51,26 +51,24 @@ static std::string bb_gather_str() {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_gather(IR_t * pBB) {
-    if (!PLATFORM_X86) { return; }
+extern "C" void bb_gather_prepare(IR_t *nd) {
     int n = (int)_.op_ival;
-    IR_graph_t ** subs = (IR_graph_t **)(intptr_t)_.op_counter;
+    IR_graph_t **subs = (IR_graph_t **)(intptr_t)_.op_counter;
     int ok = (n >= 0 && n <= GATHER_MAX_TAKES && (n == 0 || subs != NULL));
     for (int i = 0; ok && i < n; i++) {
-        IR_t * lf = subs[i] ? subs[i]->entry : NULL;
+        IR_t *lf = subs[i] ? subs[i]->entry : NULL;
         if (!lf || lf->op != IR_LIT_I) { ok = 0; break; }
         s_gather_vals[i] = IR_LIT(lf).ival;
     }
     if (!ok) {
-        fprintf(stderr, "[RK] FATAL bb_gather: gather requires 0..%d literal-int take payloads (FLAT-take model); n=%d\n",
-                GATHER_MAX_TAKES, n);
+        fprintf(stderr, "[RK] FATAL bb_gather: gather requires 0..%d literal-int take payloads; n=%d\n", GATHER_MAX_TAKES, n);
         abort();
     }
     s_gather_n        = n;
     s_gather_vals_ptr = (uint64_t)(uintptr_t)(const void *)s_gather_vals;
-    snprintf(s_gather_lbl, sizeof(s_gather_lbl), ".Lgather%d_vals", _.nid);
-    x86_begin();
-    s_gather_resoff  = bb_slot_alloc16(pBB);
+    snprintf(s_gather_lbl, sizeof s_gather_lbl, ".Lgather%d_vals", _.nid);
+    s_gather_resoff  = bb_slot_alloc16(nd);
     s_gather_cursoff = bb_slot_claim(8);
-    bb_emit_x86(bb_gather_str());
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_gather(void) { x86_begin(); bb_emit_x86(bb_gather_str()); }

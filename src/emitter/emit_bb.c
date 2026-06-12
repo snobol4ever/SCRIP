@@ -1045,6 +1045,17 @@ void bb_prepare(IR_t *nd) {
     }
     if (nd->op == IR_GOAL) {
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
+        const bb_goal_state_t *zc = (const bb_goal_state_t *)(intptr_t)IR_LIT(nd).ival;
+        g_emit.op_sa = zc ? zc->arity : 0;
+        int nn = zc ? zc->nargs : 0;
+        if (nn > g_emit.op_sa) nn = g_emit.op_sa;
+        g_emit.op_parts_n = nn;
+        for (int gi = 0; gi < nn && gi < 16; gi++) {
+            IR_t *a = (zc && zc->args) ? zc->args[gi] : NULL;
+            g_emit.op_parts_tag[gi]  = a ? (int)a->op : 0;
+            g_emit.op_parts_ival[gi] = (a && a->op == IR_STRUCT) ? (int64_t)(intptr_t)a : (a ? (int64_t)IR_LIT(a).ival : 0);
+            g_emit.op_parts_str[gi]  = a ? IR_LIT(a).sval : NULL;
+        }
         return;
     }
     if (nd->op == IR_CATCH) {
@@ -1053,6 +1064,11 @@ void bb_prepare(IR_t *nd) {
     }
     if (nd->op == IR_CELL_CHOICE) {
         g_emit.bb_zn = (void *)nd;
+        return;
+    }
+    if (nd->op == IR_GATHER) {
+        extern void bb_gather_prepare(IR_t *nd);
+        bb_gather_prepare(nd);
         return;
     }
     if (nd->op == IR_CALLEE_FRAME) {

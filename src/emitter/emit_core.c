@@ -508,7 +508,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SCAN_UPTO:            { extern void bb_scan_upto(IR_t *); bb_scan_upto(nd); } return 0;
     case IR_SCAN_FIND:            { extern void bb_scan_find(IR_t *); bb_scan_find(nd); } return 0;
     case IR_SCAN_BAL:             { extern void bb_scan_bal(IR_t *); bb_scan_bal(nd); } return 0;
-    case IR_GATHER:               { extern void bb_gather(IR_t *); bb_gather(nd); } return 0;
+    case IR_GATHER:               bb_prepare(nd); { extern void bb_gather(void);    bb_gather();   } return 0;
     case IR_SIZE:                 bb_unop();        return 0;
     case IR_PAT_DEFER:            bb_match_defer();    return 0;
     case IR_CUT:             bb_cut();                                 return 0;
@@ -517,7 +517,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ITE:          bb_ite();                                 return 0;
     case IR_CATCH:        bb_prepare(nd); bb_catch();               return 0;
     case IR_UNIFY:           bb_prepare(nd); bb_unify();           return 0;
-    case IR_GOAL:            bb_prepare(nd); bb_goal(nd);          return 0;
+    case IR_GOAL:            bb_prepare(nd); bb_goal();            return 0;
     case IR_BUILTIN:         bb_prepare(nd); bb_resolve(nd);       return 0;
     case IR_LOGICVAR:        bb_logicvar(nd);                      return 0;
     case IR_ATOM:            bb_prepare(nd); bb_atom();            return 0;
