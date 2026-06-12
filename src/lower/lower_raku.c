@@ -342,3 +342,24 @@ IR_graph_t * lower_raku(const tree_t * prog) {
     g->entry = top;
     return g;
 }
+
+/*====================================================================================================================*/
+/* stage2 entry — relocated from lower_program.c (lower_common rung)                                                  */
+/*====================================================================================================================*/
+#include "stage2.h"
+#include "bb_program.h"
+static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
+    IR_graph_t * ng = lower_raku_proc(prog, proc);
+    if (!ng || !ng->entry) return -1;
+    return bb_program_add(&g_stage2.bbp, ng);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void lower_raku_stage2(const tree_t *prog) {
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+        if (!proc || proc->t != TT_SUB_DECL) continue;
+        if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
+        int bb_idx = lower_raku_body(prog, proc);
+        if (bb_idx >= 0) g_stage2.proc_table[pi].bb_idx = bb_idx;
+    }
+}
