@@ -123,6 +123,18 @@ void rt_pl_write_cell(void *cell_term)
     pl_write(term_deref((Term *)cell_term));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_writeq_cell(void *cell_term)
+{
+    extern void pl_writeq(Term *);
+    pl_writeq(term_deref((Term *)cell_term));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_write_canonical_cell(void *cell_term)
+{
+    extern void pl_write_canonical(Term *);
+    pl_write_canonical(term_deref((Term *)cell_term));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_trail_mark(void)
 {
     extern Trail g_resolve_trail;
@@ -763,5 +775,30 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
     }
     int mark = trail_mark(&g_resolve_trail);
     if (!unify((Term *)result_cell, result, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell) {
+    extern Trail g_resolve_trail;
+    Term *st = term_deref((Term *)start_cell);
+    if (!st || st->tag != TERM_INT) return 0;
+    long counter = st->ival;
+    int var_id = prolog_atom_intern("$VAR");
+    Term *stack[2048]; int top = 0;
+    Term *tc = term_deref((Term *)term_cell);
+    if (tc) { stack[top++] = tc; }
+    while (top > 0) {
+        Term *t = term_deref(stack[--top]);
+        if (!t) continue;
+        if (t->tag == TERM_VAR) {
+            Term **a = (Term **)GC_malloc(sizeof(Term *)); a[0] = term_new_int(counter++);
+            Term *vt = term_new_compound(var_id, 1, a);
+            unify(t, vt, &g_resolve_trail);
+        } else if (t->tag == TERM_COMPOUND) {
+            for (int i = t->compound.arity - 1; i >= 0; i--) if (top < 2048) stack[top++] = t->compound.args[i];
+        }
+    }
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify((Term *)end_cell, term_new_int(counter), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }

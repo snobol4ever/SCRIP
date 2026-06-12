@@ -536,6 +536,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_DET_ATOM_OP:     { extern void bb_det_atom_op(void); bb_prepare(nd); bb_det_atom_op(); return 0; }
     case IR_DET_CHAR_TYPE:   { extern void bb_det_char_type(void); bb_prepare(nd); bb_det_char_type(); return 0; }
     case IR_DET_SORT:        { extern void bb_det_sort(void);      bb_prepare(nd); bb_det_sort();      return 0; }
+    case IR_DET_NUMBERVARS:  { extern void bb_det_numbervars(void); bb_prepare(nd); bb_det_numbervars(); return 0; }
     case IR_CELL_UNIFY:      { extern void bb_cell_unify(void); bb_prepare(nd); bb_cell_unify(); return 0; }
     case IR_CELL_CHOICE:     { extern void bb_cell_choice(void); bb_prepare(nd); bb_cell_choice(); return 0; }
     case IR_CELL_CALL:       { extern void bb_cell_call(void); bb_prepare(nd); bb_cell_call(); return 0; }
