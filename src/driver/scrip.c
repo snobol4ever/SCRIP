@@ -2344,6 +2344,8 @@ int main(int argc, char **argv)
                 g_descr_flat_chain = saved;
             }
             g_frame_active = 0;
+            extern void xa_emit_strtab_rodata(void);
+            xa_emit_strtab_rodata();
             fflush(stdout);
             return rc;
         }
