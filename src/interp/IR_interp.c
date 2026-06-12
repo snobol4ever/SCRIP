@@ -5823,7 +5823,7 @@ DESCR_t IR_interp_once(IR_graph_t * bbg) {
             g_current_cfg = saved_cfg;
             return result;
         }
-        ag_ring_push(bbg, IR_EXEC(cur).value);
+        if (cur->op == IR_ALT && IR_EXEC(cur).counter == 0) { } else ag_ring_push(bbg, IR_EXEC(cur).value);
         cur = next;
     }
     g_current_cfg = saved_cfg;
@@ -5860,7 +5860,7 @@ DESCR_t IR_interp_resume(IR_graph_t * bbg) {
             g_current_cfg = saved_cfg;
             return result;
         }
-        ag_ring_push(bbg, IR_EXEC(cur).value);
+        if (cur->op == IR_ALT && IR_EXEC(cur).counter == 0) { } else ag_ring_push(bbg, IR_EXEC(cur).value);
         cur = next;
     }
     g_current_cfg = saved_cfg;
