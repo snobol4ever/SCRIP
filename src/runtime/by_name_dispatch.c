@@ -704,6 +704,15 @@ static int builtin_is_generator(const char *name)
         || !strcmp(name, "seq");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_rk_is_truthy(DESCR_t v) {
+    if (IS_FAIL_fn(v)) return 0;
+    if (IS_INT_fn(v))  return v.i != 0;
+    if (IS_REAL_fn(v)) return v.r != 0.0;
+    if (v.v == DT_SNUL) return 0;
+    const char *s = v.s ? v.s : "";
+    return s[0] != '\0' && !(s[0] == '0' && s[1] == '\0');
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_known(const char *name)
 {
     if (!name) return 0;

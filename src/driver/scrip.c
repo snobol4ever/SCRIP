@@ -199,13 +199,21 @@ static int icn_gen_scan_body_slotful(IR_t *r) {
     if (bt && bt->op == IR_CALL && IR_LIT(bt).dval == 3.0 && IR_LIT(bt).sval && (!strcmp(IR_LIT(bt).sval, "tab") || !strcmp(IR_LIT(bt).sval, "move") || !strcmp(IR_LIT(bt).sval, "pos") || !strcmp(IR_LIT(bt).sval, "any") || !strcmp(IR_LIT(bt).sval, "match") || !strcmp(IR_LIT(bt).sval, "many") || !strcmp(IR_LIT(bt).sval, "upto") || !strcmp(IR_LIT(bt).sval, "find") || !strcmp(IR_LIT(bt).sval, "bal"))) return 1;
     return 0;
 }
-static int icn_local_assign_rhs_ok(IR_t *nd) {
-    IR_t *r = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t*)0);
+static int icn_rhs_kind_ok(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_I || r->op == IR_LIT_S) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
-    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD)) return 1;
+    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT)) return 1;
     if (r->op == IR_GEN_SCAN) return icn_gen_scan_body_slotful(r);
+    return 0;
+}
+static int icn_local_assign_rhs_ok(IR_t *nd) {
+    IR_t *r = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t*)0);
+    return icn_rhs_kind_ok(r);
+}
+static int icn_local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
+    if (nd->n_operands > 0) return icn_rhs_kind_ok(nd->operands[0]);
+    for (int i = 0; i < g->n; i++) { IR_t *p = g->all[i]; if (p && p->γ.node == nd) return icn_rhs_kind_ok(p); }
     return 0;
 }
 static int icn_assign_safe_kind(IR_e t) {
@@ -260,7 +268,7 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
               if (nd->op == IR_ASSIGN && IR_LIT(nd).sval) {
                   int lhs_global = is_global(IR_LIT(nd).sval);
                   if (lhs_global && g_icn_globals_nv) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
-                  else if (icn_local_assign_rhs_ok(nd)) { /* wave-1 local assign: bb_assign_local (lit/var rhs) */ }
+                  else if (icn_local_assign_rhs_ok_g(g, nd)) { /* wave-1 local assign: bb_assign_local (lit/var/binop rhs) */ }
                   else return 0; /* other rhs shapes: native store arm not built -> clean EXCISE, never abort */
               } }
             if (has_alt) {
