@@ -1,8 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "ast.h"
-#include "IR.h"
+#include "lower.h"
 #include "IR_interp_state.h"
 /*====================================================================================================================================================================================================*/
 typedef struct { IR_graph_t * g; IR_t * tω; } lcx_t;
@@ -17,10 +16,6 @@ static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void γα_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void ωβ_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -98,7 +93,7 @@ static IR_t * thread_goals(lcx_t * cx, const tree_t * blk, int from, int to, IR_
     }
     IR_t * last_res = ωbase;
     for (int i = 0; i < ng; i++) {
-        ωβ_to(gn[i], last_res);
+        ω_to(gn[i], last_res);
         if (gn[i]->op == IR_GOAL) last_res = gn[i];
     }
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
@@ -375,8 +370,6 @@ IR_graph_t * lower_prolog_clause(const tree_t * clause) {
 #include "../parser/prolog/term.h"
 #include "../parser/prolog/prolog_atom.h"
 #include <gc/gc.h>
-extern int lp_s_int(const tree_t *s, const char *tag);
-extern tree_t *lp_s_expr(const tree_t *s, const char *tag);
 extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int lower_pl_clause_graph(const tree_t *clause) {

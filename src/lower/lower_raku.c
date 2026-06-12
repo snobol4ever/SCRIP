@@ -1,9 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "ast.h"
-#include "IR.h"
-extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
+#include "lower.h"
 /*====================================================================================================================================================================================================*/
 typedef struct { IR_graph_t * g; } rcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -135,25 +133,15 @@ static IR_t * lower_decl(rcx_t * cx, const tree_t * t) {
     }
 }
 /*====================================================================================================================================================================================================*/
-static int rk_binop_code(tree_e tt) {
-    switch (tt) {
-    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_MOD: return 4;
-    case TT_LT: return 5; case TT_LE: return 6; case TT_GT: return 7; case TT_GE: return 8; case TT_EQ: return 9; case TT_NE: return 10;
-    case TT_CAT: return 11; case TT_LEQ: return 16; case TT_LNE: return 17; default: return 0; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_binop(tree_e tt) {
     switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_CAT: case TT_LEQ: case TT_LNE: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_graph_t * rk_arg_block(rcx_t * cx, const tree_t * a) {
-    IR_graph_t * saved = cx->g; IR_graph_t * g2 = IR_alloc(256, IR_LANG_RKU); cx->g = g2;
-    IR_t * F = IR_node_alloc(g2, IR_FAIL);
-    IR_t * r = NULL; IR_t * e = lower_rv(cx, a, NULL, F, &r);
-    g2->entry = e; cx->g = saved; return g2;
-}
+static IR_t * rk_arg_lower(void * vcx, const tree_t * a, IR_t * F) { IR_t * r = NULL; return lower_rv((rcx_t *) vcx, a, NULL, F, &r); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * rk_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((rcx_t *) vcx)->g, IR_LANG_RKU, rk_arg_lower, vcx, a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, int visible, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n - from;
@@ -162,10 +150,7 @@ static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int fro
         IR_t * succ = nd; IR_t * entry = nd;
         for (int i = t->n - 1; i >= from; i--) { IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[i], succ, ω, &r); succ = e; entry = e; }
         *res = nd; return (t->n > from) ? entry : nd; }
-    int nargs = t->n - from;
-    IR_LIT(nd).dval = 2.0;
-    if (nargs > 0) { IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
-        if (blks) { for (int k = 0; k < nargs; k++) blks[k] = rk_arg_block(cx, t->c[from + k]); IR_EXEC(nd).counter = (int64_t)(intptr_t) blks; } }
+    lc_call_argblks(nd, 2.0, t->n - from, rk_arg_block, cx, (const tree_t * const *) &t->c[from]);
     *res = nd; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -185,7 +170,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     IR_t * dummy = NULL; if (!res) res = &dummy;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (rk_is_binop(t->t)) {
-        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = rk_binop_code(t->t);
+        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower_rv(cx, t->c[0], NULL, ω, &lr); IR_t * eb = lower_rv(cx, t->c[1], op, ω, &rr);
         γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); } *res = op; return ea; }
     switch (t->t) {
@@ -275,9 +260,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         γ_to(va, bentry); *res = to; return elo; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_SMATCH: if (t->n > 1) {
-        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "re_match"; IR_LIT(nd).ival = 2; IR_LIT(nd).dval = 2.0;
-        IR_graph_t ** blks = (IR_graph_t **) calloc(2, sizeof(IR_graph_t *));
-        if (blks) { blks[0] = rk_arg_block(cx, t->c[0]); blks[1] = rk_arg_block(cx, t->c[1]); IR_EXEC(nd).counter = (int64_t)(intptr_t) blks; }
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "re_match"; IR_LIT(nd).ival = 2;
+        lc_call_argblks(nd, 2.0, 2, rk_arg_block, cx, (const tree_t * const *) t->c);
         *res = nd; return nd; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_SORT: return lower_rcall(cx, t, "array_sort", 0, 0, γ, ω, res);

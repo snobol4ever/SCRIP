@@ -186,6 +186,64 @@ const tree_t * lc_stmt_subj(const tree_t * s) {
     return NULL;
 }
 /*====================================================================================================================*/
+/* lc_vec — growable vector (GC-backed, doubling) used by all lowerers for IR/tree lists                               */
+/*====================================================================================================================*/
+void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v->esz = esz; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void * lc_vec_push(lc_vec * v, const void * elem) {
+    if (v->n >= v->cap) {
+        int nc = v->cap ? v->cap * 2 : 8;
+        void * nd = v->data ? GC_REALLOC(v->data, (size_t) nc * (size_t) v->esz) : GC_MALLOC((size_t) nc * (size_t) v->esz);
+        if (!nd) return NULL;
+        v->data = nd; v->cap = nc;
+    }
+    char * slot = (char *) v->data + (size_t) v->n * (size_t) v->esz;
+    if (elem) memcpy(slot, elem, (size_t) v->esz); else memset(slot, 0, (size_t) v->esz);
+    v->n++;
+    return slot;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void * lc_vec_at(const lc_vec * v, int i) { return (char *) v->data + (size_t) i * (size_t) v->esz; }
+/*====================================================================================================================*/
+/* Shared AST→IR opcode maps — the full tree_e→BinopKind map; per-language dispatch guards select the legal subset      */
+/*====================================================================================================================*/
+int lc_binop_code(tree_e tt) {
+    switch (tt) {
+    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_MOD: return 4;
+    case TT_LT: return 5; case TT_LE: return 6; case TT_GT: return 7; case TT_GE: return 8;
+    case TT_EQ: return 9; case TT_NE: return 10; case TT_CAT: return 11;
+    case TT_LLT: return 12; case TT_LLE: return 13; case TT_LGT: return 14; case TT_LGE: return 15;
+    case TT_LEQ: return 16; case TT_LNE: return 17; case TT_POW: return 18; default: return 0; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int lc_is_binop(tree_e tt) {
+    switch (tt) {
+    case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_LT: case TT_LE: case TT_GT: case TT_GE:
+    case TT_EQ: case TT_NE: case TT_CAT: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE: return 1;
+    default: return 0; }
+}
+/*====================================================================================================================*/
+/* Shared call argument-block assembly — sub-graph per arg (save graph slot, IR_alloc, FAIL, per-language lower cb)     */
+/*====================================================================================================================*/
+IR_graph_t * lc_arg_block(IR_graph_t ** gslot, int lang, lc_lower_fn fn, void * cx, const tree_t * a) {
+    IR_graph_t * saved = *gslot;
+    IR_graph_t * g2 = IR_alloc(256, lang); *gslot = g2;
+    IR_t * F = IR_node_alloc(g2, IR_FAIL);
+    IR_t * e = fn(cx, a, F);
+    g2->entry = e;
+    *gslot = saved;
+    return g2;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void lc_call_argblks(IR_t * call, double dv, int nargs, lc_argblk_fn mk, void * cx, const tree_t * const * args) {
+    IR_LIT(call).dval = dv;
+    if (nargs <= 0) return;
+    IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
+    if (!blks) return;
+    for (int k = 0; k < nargs; k++) blks[k] = mk(cx, args[k]);
+    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
+}
+/*====================================================================================================================*/
 /* stage2 dispatcher — polyglot init then per-language stage2 entries (each owned by its lower_<lang>.c)               */
 /*====================================================================================================================*/
 stage2_t *lower_stage2(const tree_t *prog) {
