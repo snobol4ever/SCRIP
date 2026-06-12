@@ -494,7 +494,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_BINOP_GVAR_ARITH_SLOT: bb_binop_gvar_arith_slot(nd); return 0;
     case IR_BINOP_CONCAT:         bb_binop_concat_slot(nd); return 0;
     case IR_SUCCEED:              bb_succeed();        return 0;
-    case IR_EVERY:                bb_every(nd);        return 0;
+    case IR_EVERY:                bb_every();          return 0;
     case IR_TO:
     case IR_TO_BY:                { extern void bb_to(IR_t *); bb_to(nd); } return 0;
     case IR_LIST_BANG:            bb_iterate(nd);      return 0;
@@ -551,23 +551,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op);
         return 1;
     }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-char * walk_bb_node_str_c(IR_t * nd) {
-    if (!nd) { char * e = (char *)malloc(1); if (e) e[0] = '\0'; return e; }
-    char *   buf   = NULL;
-    size_t   len   = 0;
-    FILE *   mem   = open_memstream(&buf, &len);
-    if (!mem) { char * e = (char *)malloc(1); if (e) e[0] = '\0'; return e; }
-    FILE *   sv_bb = bb_emit_out;
-    bb_emit_out    = mem;
-    walk_bb_node(nd, mem);
-    fflush(mem);
-    fclose(mem);
-    bb_emit_out    = sv_bb;
-    emit_io_set_sink(sv_bb);
-    if (!buf) { char * e = (char *)malloc(1); if (e) e[0] = '\0'; return e; }
-    return buf;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define WASM_STRTAB_MAX 4096

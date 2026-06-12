@@ -55,7 +55,7 @@ void bb_choice   (void);
 void bb_atom     (void);
 void bb_logicvar (IR_t * pBB);
 void bb_fail     (IR_t * pBB);
-void bb_every      (IR_t * pBB);
+void bb_every      (void);
 void bb_call       (IR_t * pBB);
 void bb_iterate    (IR_t * pBB);
 void bb_binop_relop      (IR_t * pBB);
