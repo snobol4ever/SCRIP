@@ -489,6 +489,63 @@ static int sno_has_idx(const tree_t * t) {
     for (int i = 0; i < t->n; i++) if (sno_has_idx(t->c[i])) return 1;
     return 0;
 }
+static int sno_leaf_buildable(const tree_t * t) {
+    const char * s; int hit;
+    if (!t) return 0;
+    if (t->t == TT_QLIT) return 1;
+    if (t->t == TT_VAR && (s = t->v.sval)) {
+        hit  = (!strcmp(s,"REM")||!strcmp(s,"rem")||!strcmp(s,"ARB")||!strcmp(s,"arb")||!strcmp(s,"FAIL")||!strcmp(s,"fail"));
+        hit |= (!strcmp(s,"SUCCEED")||!strcmp(s,"succeed")||!strcmp(s,"FENCE")||!strcmp(s,"fence")||!strcmp(s,"ABORT")||!strcmp(s,"abort"));
+        return hit;
+    }
+    if (t->n==1 && t->c[0] && t->c[0]->t==TT_QLIT) {
+        switch (t->t) { case TT_SPAN: case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_BREAKX: return 1; default: break; }
+    }
+    if (t->n==1 && t->c[0] && t->c[0]->t==TT_ILIT) {
+        switch (t->t) { case TT_LEN: case TT_POS: case TT_RPOS: case TT_TAB: case TT_RTAB: return 1; default: break; }
+    }
+    return 0;
+}
+static int sno_seq_buildable(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_SEQ) return (t->n >= 1 && sno_seq_buildable(t->c[0])) && (t->n >= 2 && sno_leaf_buildable(t->c[1]));
+    return sno_leaf_buildable(t);
+}
+static int sno_seq_has_pat_leaf(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_SEQ) return sno_seq_has_pat_leaf(t->c[0]) || (t->n > 1 && t->c[1] && t->c[1]->t != TT_QLIT);
+    return (t->t != TT_QLIT);
+}
+static IR_t * sno_build_leaf_ir(snx_t * cx, const tree_t * t, IR_t * g, IR_t * w) {
+    if (!t) return NULL;
+    if (t->t == TT_QLIT) { IR_t * nd = build(cx, IR_PATTERN_LIT, g, w); IR_LIT(nd).sval = t->v.sval; return nd; }
+    if (t->t == TT_VAR && t->v.sval) {
+        const char * s = t->v.sval; IR_e pe = (IR_e)0; int hit = 1;
+        if      (!strcmp(s,"REM")||!strcmp(s,"rem"))         pe = IR_PATTERN_REM;
+        else if (!strcmp(s,"ARB")||!strcmp(s,"arb"))         pe = IR_PATTERN_ARB;
+        else if (!strcmp(s,"FAIL")||!strcmp(s,"fail"))       pe = IR_PATTERN_FAIL;
+        else if (!strcmp(s,"SUCCEED")||!strcmp(s,"succeed")) pe = IR_PATTERN_SUCCEED;
+        else if (!strcmp(s,"FENCE")||!strcmp(s,"fence"))     pe = IR_PATTERN_FENCE;
+        else if (!strcmp(s,"ABORT")||!strcmp(s,"abort"))     pe = IR_PATTERN_ABORT;
+        else hit = 0;
+        if (hit) return build(cx, pe, g, w);
+    }
+    if (t->n==1 && t->c[0] && t->c[0]->t==TT_QLIT) {
+        IR_e pe = (IR_e)0; int hit = 1;
+        switch (t->t) { case TT_SPAN: pe=IR_PATTERN_SPAN; break; case TT_ANY: pe=IR_PATTERN_ANY; break;
+            case TT_NOTANY: pe=IR_PATTERN_NOTANY; break; case TT_BREAK: pe=IR_PATTERN_BREAK; break;
+            case TT_BREAKX: pe=IR_PATTERN_BREAKX; break; default: hit=0; break; }
+        if (hit) { IR_t * nd = build(cx, pe, g, w); IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+    }
+    if (t->n==1 && t->c[0] && t->c[0]->t==TT_ILIT) {
+        IR_e pe = (IR_e)0; int hit = 1;
+        switch (t->t) { case TT_LEN: pe=IR_PATTERN_LEN; break; case TT_POS: pe=IR_PATTERN_POS; break;
+            case TT_RPOS: pe=IR_PATTERN_RPOS; break; case TT_TAB: pe=IR_PATTERN_TAB; break;
+            case TT_RTAB: pe=IR_PATTERN_RTAB; break; default: hit=0; break; }
+        if (hit) { IR_t * nd = build(cx, pe, g, w); IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+    }
+    return NULL;
+}
 /*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
@@ -577,6 +634,36 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         /* capture as value-assign RHS → ORPHAN plain ASSIGN only (oracle bails before any pattern node) */
         IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
         return NULL;
+    }
+    if (rhs && rhs->t == TT_SEQ && sno_seq_buildable(rhs) && sno_seq_has_pat_leaf(rhs)) {
+        const tree_t * leaves[64]; int nl = 0;
+        const tree_t * stk3[128]; int sp3 = 0; stk3[sp3++] = rhs;
+        while (sp3 > 0 && nl < 63) {
+            const tree_t * nd = stk3[--sp3]; if (!nd) break;
+            if (nd->t == TT_SEQ) {
+                if (sp3+2 > 127) break;
+                if (nd->n > 1) stk3[sp3++] = nd->c[1];
+                if (nd->n > 0) stk3[sp3++] = nd->c[0];
+            } else { leaves[nl++] = nd; }
+        }
+        if (nl >= 2) {
+            IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
+            IR_t * pats[64];
+            pats[0] = sno_build_leaf_ir(cx, leaves[0], ω, ω);
+            pats[1] = sno_build_leaf_ir(cx, leaves[1], ω, ω);
+            IR_t * cur_cat = build(cx, IR_PATTERN_CAT, dtp, ω);
+            ir_operand_push(cur_cat, pats[0]); ir_operand_push(cur_cat, pats[1]);
+            γ_to(pats[0], pats[1]); γ_to(pats[1], cur_cat);
+            for (int i = 2; i < nl; i++) {
+                pats[i] = sno_build_leaf_ir(cx, leaves[i], ω, ω);
+                γ_to(cur_cat, pats[i]);
+                IR_t * next_cat = build(cx, IR_PATTERN_CAT, dtp, ω);
+                ir_operand_push(next_cat, cur_cat); ir_operand_push(next_cat, pats[i]);
+                γ_to(pats[i], next_cat); cur_cat = next_cat;
+            }
+            γ_to(cur_cat, dtp); ir_operand_push(dtp, cur_cat);
+            return pats[0];
+        }
     }
     /* pattern expression in RHS → ORPHAN ASSIGN_CONCAT + SEQ (oracle behaviour) */
     if (rhs && sno_has_pat(rhs)) {
