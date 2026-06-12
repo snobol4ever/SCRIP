@@ -16,6 +16,10 @@ static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build
 static int rk_is_binop(tree_e tt) {
     switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_CAT: case TT_LEQ: case TT_LNE: return 1; default: return 0; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_relop(tree_e tt) {
+    switch (tt) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_LEQ: case TT_LNE: return 1; default: return 0; }
+}
 /*====================================================================================================================================================================================================*/
 static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
 static IR_t * lower_decl(rcx_t * cx, const tree_t * t);
@@ -207,6 +211,15 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * asP = build(cx, IR_ASSIGN, einit, ω); IR_LIT(asP).sval = t->c[0]->v.sval;
             IR_t * r3 = NULL; IR_t * elast = lower_rcall(cx, rhs, "arr_last", 1, 0, asP, ω, &r3); *res = asA; return elast; }
         IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
+        if (t->c[1] && rk_is_relop(t->c[1]->t)) {
+            IR_t * lit1 = IR_node_alloc(cx->g, IR_LIT_I); IR_LIT(lit1).ival = 1; lit1->γ.node = nd; lit1->ω.node = ω;
+            IR_t * lit0 = IR_node_alloc(cx->g, IR_LIT_I); IR_LIT(lit0).ival = 0; lit0->γ.node = nd; lit0->ω.node = ω;
+            IR_t * bk = IR_node_alloc(cx->g, IR_CALL); IR_LIT(bk).sval = "__rk_bool"; IR_LIT(bk).ival = 1; IR_LIT(bk).dval = 2.0;
+            bk->γ.node = lit1; bk->ω.node = lit0;
+            IR_graph_t * cblk = rk_arg_block(cx, t->c[1]);
+            IR_graph_t ** blks = (IR_graph_t **) calloc(1, sizeof(IR_graph_t *)); blks[0] = cblk;
+            IR_EXEC(bk).counter = (int64_t)(intptr_t) blks;
+            *res = nd; return bk; }
         IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_ARR_SET: if (t->n > 2 && t->c[0] && t->c[0]->t == TT_VAR) {
