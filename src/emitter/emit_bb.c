@@ -75,6 +75,16 @@ int bb_slot_alloc16(IR_t *nd) {
     if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
     return off;
 }
+/* Like bb_slot_alloc16 but returns the existing slot if the node already has one.
+   Used when a node may be walked twice (chain pre-walk + generator re-walk). */
+int bb_slot_alloc16_or_get(IR_t *nd) {
+    int existing = bb_slot_get(nd);
+    if (existing >= 0) return existing;
+    int off = g_flat_slot_count;
+    g_flat_slot_count += 16;
+    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    return off;
+}
 int bb_slot_alloc24(IR_t *nd) {
     int off = g_flat_slot_count;
     g_flat_slot_count += 24;
@@ -1349,21 +1359,33 @@ static void flat_drive_binop_gen_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t 
         abort();
     }
     int id = g_flat_node_id++;
-    bb_label_t *lhs_store  = emit_label_alloc("xbgen%d_lhs_store",  id);
+    /* lhs_seeded: LHS produced a value; restart RHS from its α.
+       rhs_done:  RHS produced a value; compute binop → γ.
+       lhs_β:     LHS retry entry (advance LHS counter).
+       rhs_β:     RHS retry entry (advance RHS counter). */
     bb_label_t *lhs_seeded = emit_label_alloc("xbgen%d_lhs_seeded", id);
+    bb_label_t *rhs_done   = emit_label_alloc("xbgen%d_rhs_done",   id);
     bb_label_t *lhs_β      = emit_label_alloc("xbgen%d_lhs_β",      id);
-    bb_label_t *rhs_store  = emit_label_alloc("xbgen%d_rhs_store",  id);
     bb_label_t *rhs_β      = emit_label_alloc("xbgen%d_rhs_β",      id);
-    walk_bb_flat(bb_child0(pBB), lhs_store, lbl_ω, lhs_β);
+    /* LHS generator: success→lhs_seeded, fail→lbl_ω (whole expr fails), retry→lhs_β */
+    walk_bb_flat(bb_child0(pBB), lhs_seeded, lbl_ω, lhs_β);
     emit_label_define_bb(lhs_seeded);
-    walk_bb_flat(bb_child1(pBB), rhs_store, lhs_β, rhs_β);
+    /* RHS generator: success→rhs_done, fail→lhs_β (try next LHS), retry→rhs_β */
+    walk_bb_flat(bb_child1(pBB), rhs_done, lhs_β, rhs_β);
+    /* rhs_done: both operands ready → compute binop → γ.
+       Wire β of the binop box directly to rhs_β so the arith/relop template's
+       x86("def","β") lands at rhs_β and x86("jmp","ω") = overall fail.
+       After the box emit lbl_β → jmp rhs_β for the outer caller's retry. */
+    emit_label_define_bb(rhs_done);
+    if (g_descr_flat_chain) {
+        g_emit.op_sa = descr_binop_opnd_slot(bb_child0(pBB));
+        g_emit.op_sb = descr_binop_opnd_slot(bb_child1(pBB));
+        g_emit.op_off = (g_emit.op_sa >= 0 && g_emit.op_sb >= 0) ? bb_slot_alloc16(pBB) : -1;
+    }
     EMIT_PAIR_RESET();
-    EMIT_PAIR_DEF_JMP(lhs_store,  lhs_seeded);
-    EMIT_PAIR_DEF_JMP(rhs_store,  rhs_store);
-    EMIT_PAIR_JMP(lbl_γ);
-    EMIT_PAIR_JMP(rhs_β);
-    EMIT_PAIR_DEF_JMP(lbl_β, rhs_β);
-    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+    { IR_e _sk = pBB->op; pBB->op = binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, rhs_β); pBB->op = _sk; }
+    emit_label_define_bb(lbl_β);
+    emit_jmp_label(rhs_β, JMP_JMP);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
@@ -1423,8 +1445,12 @@ static void flat_drive_to(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_
     }
     g_emit.op_sa  = bb_slot_get(bb_child0(pBB));
     g_emit.op_sb  = bb_slot_get(bb_child1(pBB));
-    g_emit.op_off = bb_slot_alloc16(pBB);
-    (void)bb_slot_claim(8);
+    /* Use bb_slot_alloc16_or_get so that if this TO node was already walked in the
+       chain pre-pass (before a parent BINOP_GEN visit), the second walk reuses the
+       same slot.  Both walks then operate on the same frame location. */
+    int already = (bb_slot_get(pBB) >= 0);
+    g_emit.op_off = bb_slot_alloc16_or_get(pBB);
+    if (!already) (void)bb_slot_claim(8);  /* claim the counter byte only once */
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -2903,9 +2929,14 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             break;
         }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
+        if (nodes[i]->op == IR_EVERY) { for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)(nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL)) { node_γ = lbls[k]; break; } }
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = lbls[k]; omega_resolved = 1; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
+        if (omega_resolved && nodes[i]->ω.node && nodes[i]->ω.node->op == IR_EVERY) {
+            if (ir_is_generator_kind(nodes[i]->op)) { node_ω = &lbl_ω; }
+            else { for (int gk = 0; gk < n; gk++) if (ir_is_generator_kind(nodes[gk]->op)) { node_ω = betas[gk]; break; } }
+        }
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
