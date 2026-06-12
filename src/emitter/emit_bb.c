@@ -468,7 +468,7 @@ int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void gz_fill_goal(IR_t *g, bb_label_t *gγ, bb_label_t *gω, bb_label_t *gβ) {
-    g_emit.op_sval = (g->op == IR_DET_WRITE) ? IR_LIT(g).sval : NULL;
+    g_emit.op_sval = (g->op == IR_DET_WRITE || g->op == IR_BUILTIN) ? IR_LIT(g).sval : NULL;
     g_emit.op_ival = (g->op == IR_CELL_CALL) ? 0 : IR_LIT(g).ival;
     IR_t *gw0 = bb_child0(g);
     g_emit.op_sb   = (g->op == IR_DET_WRITE && gw0 && gw0->op == IR_LOGICVAR) ? 1 : 0;

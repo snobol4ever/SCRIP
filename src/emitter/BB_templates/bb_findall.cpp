@@ -18,12 +18,13 @@ std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
         if (strcmp(fn, "findall") == 0)
-            return x86("sub", "rsp", 16L)
+            return hdr
+                 + x86("sub", "rsp", 16L)
                  + x86("movabs", "rdi", (uint64_t)(uintptr_t)(void *)(intptr_t)_.op_ival)
                  + x86("call", "rt_findall", (uint64_t)(uintptr_t)(void*)rt_findall)
                  + x86("add", "rsp", 16L)
                  + x86("test", "eax", "eax")
-                 + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
+                 + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
     }
     if (MEDIUM_TEXT) {
         if (strcmp(fn, "findall") == 0) {
