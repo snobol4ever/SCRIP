@@ -585,7 +585,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"copy_term") && IR_LIT(gg).ival == 2 && ir_call_arg(gg,0) && ir_call_arg(gg,1)) {
         const IR_t *ct0 = ir_call_arg(gg,0), *ct1 = ir_call_arg(gg,1);
         int a0ok = (ct0->op == IR_LOGICVAR || ct0->op == IR_STRUCT || ct0->op == IR_ATOM || ct0->op == IR_LIT_I);
-        int a1ok = (ct1->op == IR_LOGICVAR);
+        int a1ok = (ct1->op == IR_LOGICVAR || ct1->op == IR_STRUCT || ct1->op == IR_ATOM || ct1->op == IR_LIT_I);
         return a0ok && a1ok;
     }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
@@ -1016,6 +1016,20 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
                 IR_t *ts0 = ir_call_arg(gg,0);
                 if (ts0 && ts0->op != IR_LOGICVAR) (*nsynth)++;
             }
+            if (!strcmp(fn,"copy_term") && IR_LIT(gg).ival == 2) {
+                IR_t *ct0 = ir_call_arg(gg,0), *ct1 = ir_call_arg(gg,1);
+                if (ct0 && ct0->op != IR_LOGICVAR) (*nsynth)++;
+                if (ct1 && ct1->op != IR_LOGICVAR) (*nsynth)++;
+            }
+            if ((!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) && IR_LIT(gg).ival == 2) {
+                IR_t *al0 = ir_call_arg(gg,0);
+                if (al0 && al0->op != IR_LOGICVAR) (*nsynth)++;
+            }
+            if (!strcmp(fn,"atomic_list_concat") && IR_LIT(gg).ival == 3) {
+                IR_t *al0 = ir_call_arg(gg,0), *al1 = ir_call_arg(gg,1);
+                if (al0 && al0->op != IR_LOGICVAR) (*nsynth)++;
+                if (al1 && al1->op != IR_LOGICVAR) (*nsynth)++;
+            }
             return 1;
         }
         return 1;
@@ -1420,6 +1434,65 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (ts1->op != IR_LOGICVAR) return 0;
         nn = pl_gz_det_node(IR_DET_TERM_STRING);
         if (nn) { ir_operand_push(nn, st); ir_operand_push(nn, ts1); }
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"copy_term") && IR_LIT(gg).ival == 2 && ir_call_arg(gg,0) && ir_call_arg(gg,1)) {
+        IR_t *ct0 = ir_call_arg(gg,0), *ct1 = ir_call_arg(gg,1);
+        IR_t *sc = NULL;
+        if (ct0->op == IR_LOGICVAR) { sc = ct0; }
+        else if (ct0->op == IR_STRUCT || ct0->op == IR_ATOM || ct0->op == IR_LIT_I) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, ct0);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            sc = pl_gz_lv(kk); if (!sc) return 0;
+        } else return 0;
+        IR_t *sd = NULL;
+        if (ct1->op == IR_LOGICVAR) { sd = ct1; }
+        else if (ct1->op == IR_STRUCT || ct1->op == IR_ATOM || ct1->op == IR_LIT_I) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, ct1);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            sd = pl_gz_lv(kk); if (!sd) return 0;
+        } else return 0;
+        nn = pl_gz_det_node(IR_DET_COPY_TERM);
+        if (nn) { ir_operand_push(nn, sc); ir_operand_push(nn, sd); }
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (!strcmp(IR_LIT(gg).sval,"atomic_list_concat")||!strcmp(IR_LIT(gg).sval,"concat_atom")) && IR_LIT(gg).ival == 2 && ir_call_arg(gg,0) && ir_call_arg(gg,1)) {
+        const char *alcfn = IR_LIT(gg).sval;
+        IR_t *al0 = ir_call_arg(gg,0), *al1 = ir_call_arg(gg,1);
+        IR_t *slist = NULL;
+        if (al0->op == IR_LOGICVAR) { slist = al0; }
+        else if (al0->op == IR_STRUCT || al0->op == IR_ATOM) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, al0);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            slist = pl_gz_lv(kk); if (!slist) return 0;
+        } else return 0;
+        if (al1->op != IR_LOGICVAR) return 0;
+        nn = pl_gz_det_node(IR_DET_ATOM_OP);
+        if (nn) { IR_LIT(nn).sval = alcfn; IR_LIT(nn).ival = 2; ir_operand_push(nn, slist); ir_operand_push(nn, al1); }
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"atomic_list_concat") && IR_LIT(gg).ival == 3 && ir_call_arg(gg,0) && ir_call_arg(gg,1) && ir_call_arg(gg,2)) {
+        IR_t *al0 = ir_call_arg(gg,0), *al1 = ir_call_arg(gg,1), *al2 = ir_call_arg(gg,2);
+        IR_t *slist = NULL, *ssep = NULL;
+        if (al0->op == IR_LOGICVAR) { slist = al0; }
+        else if (al0->op == IR_STRUCT || al0->op == IR_ATOM) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, al0);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            slist = pl_gz_lv(kk); if (!slist) return 0;
+        } else return 0;
+        if (al1->op == IR_LOGICVAR) { ssep = al1; }
+        else if (al1->op == IR_ATOM) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, al1);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            ssep = pl_gz_lv(kk); if (!ssep) return 0;
+        } else return 0;
+        if (al2->op != IR_LOGICVAR) return 0;
+        nn = pl_gz_det_node(IR_DET_ATOM_OP);
+        if (nn) { IR_LIT(nn).sval = "atomic_list_concat"; IR_LIT(nn).ival = 3; ir_operand_push(nn, slist); ir_operand_push(nn, ssep); ir_operand_push(nn, al2); }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         const char *fn = IR_LIT(gg).sval;
         int is_arith_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
