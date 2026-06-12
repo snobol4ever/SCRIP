@@ -307,6 +307,25 @@ sub main() {
 }
 EOF
 
+# --- RK-LOWER-5g: relop-in-assignment stores Bool value (0/1) ---
+
+raku "bool_compare_store" "$(printf '0\n1\n0\n1\n0\n1')" << 'EOF'
+sub main() {
+    my $a = (1 > 2);
+    say($a);
+    my $b = (3 > 1);
+    say($b);
+    my $c = (5 == 6);
+    say($c);
+    my $d = (7 != 8);
+    say($d);
+    my $e = (2 <= 1);
+    say($e);
+    my $f = (10 >= 9);
+    say($f);
+}
+EOF
+
 # --- RK-LOWER-5d: class / method / new / field access ---
 
 raku "class_method" "$(printf '3\n4\n7\n14\nRex\nWoof from Rex')" << 'EOF'
