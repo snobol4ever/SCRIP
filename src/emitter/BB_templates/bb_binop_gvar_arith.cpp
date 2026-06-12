@@ -13,8 +13,8 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline int bga_ok() { return g_gvar_flat_chain && _.op_off >= 0 && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD); }
-static inline int bga_pow_ok() { return g_gvar_flat_chain && _.op_off >= 0 && _.op_ival == BINOP_POW && !_.op_name1 && !_.op_name2 && _.op_sval; }
+static inline int bga_ok() { return g_gvar_flat_chain && _.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind,"POW")) && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD); }
+static inline int bga_pow_ok() { return g_gvar_flat_chain && _.op_off >= 0 && _.op_kind && !strcmp(_.op_kind,"POW") && !_.op_name1 && !_.op_name2 && _.op_sval; }
 static inline uint64_t fn_pow()  { extern DESCR_t POWER_fn(DESCR_t, DESCR_t); return (uint64_t)(uintptr_t)(void *)POWER_fn; }
 static inline uint64_t fn_asgd() { return (uint64_t)(uintptr_t)(void *)rt_gvar_assign_descr; }
 static std::string bga_name(const char *reg, const char *n) { char b[80]; strtab_label(b, sizeof b, n); return x86_load_ro(reg, b, (uint64_t)(uintptr_t)n); }

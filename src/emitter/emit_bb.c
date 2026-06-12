@@ -1827,14 +1827,13 @@ static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label
     if (c0->op == IR_BINOP && IR_LIT(c0).ival == BINOP_POW && bb_child0(c0) && bb_child1(c0) && bb_child0(c0)->op == IR_LIT_I && bb_child1(c0)->op == IR_LIT_I && IR_LIT(pBB).sval) {
         g_emit.op_sa   = (int)IR_LIT(bb_child0(c0)).ival;
         g_emit.op_sb   = (int)IR_LIT(bb_child1(c0)).ival;
-        g_emit.op_ival = BINOP_POW;
-        g_emit.op_sval = IR_LIT(pBB).sval;
+        g_emit.op_kind = "POW";
         g_emit.op_name1 = (const char *)0;
         g_emit.op_name2 = (const char *)0;
         g_emit.op_off  = bb_slot_alloc(c0);
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-        { IR_e _sk = c0->op; c0->op = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(c0, lbl_γ, lbl_ω, lbl_β); c0->op = _sk; }
+        { IR_e _sk = pBB->op; pBB->op = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); pBB->op = _sk; }
         return;
     }
     if (c0->op == IR_UNOP && bb_child0(c0) && bb_child0(c0)->op == IR_LIT_I) {
@@ -2519,8 +2518,20 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                                (IR_LIT(nd).ival >= BINOP_SLT && IR_LIT(nd).ival <= BINOP_SNE));
         int op_is_arith = nd && (IR_LIT(nd).ival == BINOP_ADD || IR_LIT(nd).ival == BINOP_SUB || IR_LIT(nd).ival == BINOP_MUL || IR_LIT(nd).ival == BINOP_DIV || IR_LIT(nd).ival == BINOP_MOD);
         int op_is_concat = nd && (IR_LIT(nd).ival == BINOP_CONCAT);
+        int op_is_pow = nd && (IR_LIT(nd).ival == BINOP_POW);
         g_emit.op_off = -1;
-        if (g_gvar_flat_chain && op_is_arith && bb_child0(nd) && bb_child1(nd) && bb_child0(nd)->op == IR_LIT_I && bb_child1(nd)->op == IR_LIT_I) {
+        if (g_gvar_flat_chain && op_is_pow && bb_child0(nd) && bb_child1(nd) && bb_child0(nd)->op == IR_LIT_I && bb_child1(nd)->op == IR_LIT_I && nd->γ.node && nd->γ.node->op == IR_ASSIGN && IR_LIT(nd->γ.node).sval) {
+            IR_t *asgn = nd->γ.node;
+            g_emit.op_sa    = (int)IR_LIT(bb_child0(nd)).ival;
+            g_emit.op_sb    = (int)IR_LIT(bb_child1(nd)).ival;
+            g_emit.op_kind  = "POW";
+            g_emit.op_name1 = (const char *)0;
+            g_emit.op_name2 = (const char *)0;
+            g_emit.op_off   = bb_slot_alloc(nd);
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            { IR_e _sk = asgn->op; asgn->op = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(asgn, lbl_γ, lbl_ω, lbl_β); asgn->op = _sk; }
+        } else if (g_gvar_flat_chain && op_is_arith && bb_child0(nd) && bb_child1(nd) && bb_child0(nd)->op == IR_LIT_I && bb_child1(nd)->op == IR_LIT_I) {
             g_emit.op_sa  = (int)IR_LIT(bb_child0(nd)).ival;
             g_emit.op_sb  = (int)IR_LIT(bb_child1(nd)).ival;
             g_emit.op_off = bb_slot_alloc(nd);
@@ -2640,6 +2651,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_ASSIGN:     { IR_t *ac0 = bb_child0(nd);
         if (g_descr_flat_chain) { extern int g_icn_globals_nv; extern int is_global(const char *); if (g_icn_globals_nv && IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) flat_drive_icn_global_assign(nd, lbl_γ, lbl_ω, lbl_β); else { g_emit.op_sb = bb_varslot(IR_LIT(nd).sval); g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); } }
         else if (IR_LIT(nd).sval && ac0 && (ac0->op == IR_LIT_S || ac0->op == IR_LIT_I || ac0->op == IR_VAR || ac0->op == IR_SEQ || ac0->op == IR_SEQ_EXPR || ac0->op == IR_CALL)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β);
+        else if (IR_LIT(nd).sval && ac0 && ac0->op == IR_BINOP && (int)IR_LIT(ac0).ival == (int)BINOP_POW && bb_slot_get(ac0) >= 0) { emit_jmp_label(lbl_γ, JMP_JMP); }
         else if (IR_LIT(nd).sval && ac0 && ac0->op == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β);
         else if (IR_LIT(nd).sval && ac0 && ac0->op == IR_UNOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β);
         else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); } break;
