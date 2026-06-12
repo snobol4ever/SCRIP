@@ -656,3 +656,50 @@ void rt_pl_format_cell(const char *fmt, void *list_cell)
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
+{
+    extern Trail g_resolve_trail;
+    Term *tc = char_cell ? term_deref((Term *)char_cell) : (Term *)0;
+    Term *tt = type_cell ? term_deref((Term *)type_cell) : (Term *)0;
+    if (!tc || !tt) return 0;
+    char b0[256]; const char *cs = atom_op_text(tc, b0, sizeof b0);
+    if (!cs || !cs[0]) return 0;
+    unsigned char ch = (unsigned char)cs[0];
+    int mark = trail_mark(&g_resolve_trail);
+    if (tt->tag == TERM_COMPOUND && tt->compound.arity >= 1) {
+        const char *ty = prolog_atom_name(tt->compound.functor);
+        Term *inner = term_deref(tt->compound.args[0]);
+        Term *out = NULL;
+        if (!ty) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        if (!strcmp(ty, "digit"))    { if (!isdigit(ch)) { trail_unwind(&g_resolve_trail, mark); return 0; } out = term_new_int((long)(ch - '0')); }
+        else if (!strcmp(ty, "to_lower")) { char c2[2] = { (char)tolower(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
+        else if (!strcmp(ty, "to_upper")) { char c2[2] = { (char)toupper(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
+        else if (!strcmp(ty, "upper")) { if (!isupper(ch)) { trail_unwind(&g_resolve_trail, mark); return 0; } char c2[2] = { (char)tolower(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
+        else if (!strcmp(ty, "lower")) { if (!islower(ch)) { trail_unwind(&g_resolve_trail, mark); return 0; } char c2[2] = { (char)toupper(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
+        else if (!strcmp(ty, "code"))  { out = term_new_int((long)ch); }
+        else { trail_unwind(&g_resolve_trail, mark); return 0; }
+        Term *dst = val_cell ? term_deref((Term *)val_cell) : inner;
+        if (!unify(dst, out, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+        return 1;
+    }
+    if (tt->tag != TERM_ATOM) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    const char *ty = prolog_atom_name(tt->atom_id);
+    if (!ty) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    int ok = 0;
+    if      (!strcmp(ty, "alpha"))        ok = isalpha(ch);
+    else if (!strcmp(ty, "alnum"))        ok = isalnum(ch);
+    else if (!strcmp(ty, "digit"))        ok = isdigit(ch);
+    else if (!strcmp(ty, "space") || !strcmp(ty, "white")) ok = isspace(ch);
+    else if (!strcmp(ty, "upper"))        ok = isupper(ch);
+    else if (!strcmp(ty, "lower"))        ok = islower(ch);
+    else if (!strcmp(ty, "punct"))        ok = ispunct(ch);
+    else if (!strcmp(ty, "graph"))        ok = isgraph(ch);
+    else if (!strcmp(ty, "csym"))         ok = (isalnum(ch) || ch == '_');
+    else if (!strcmp(ty, "csymf"))        ok = (isalpha(ch) || ch == '_');
+    else if (!strcmp(ty, "end_of_line"))  ok = (ch == '\n' || ch == '\r');
+    else if (!strcmp(ty, "newline"))      ok = (ch == '\n');
+    else { trail_unwind(&g_resolve_trail, mark); return 0; }
+    if (!ok) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
