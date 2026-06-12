@@ -6,22 +6,19 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline long posN()    { return (long)(int)_.op_ival; }
-static inline int  is_rpos() { return _.op_sval && _.op_sval[0] == 'r'; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_pos() {
-    if (PLATFORM_X86)
-        return IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                             + x86("comment", is_rpos() ? "BOX RPOS()  [Σ=r13 δ=r14 Δ=r15, x86() self-encoding]"
-                                                        : "BOX POS()  [Σ=r13 δ=r14 Δ=r15, x86() self-encoding]"))
-             + (is_rpos()
-                  ? ( x86("mov", "ecx", "r15d")
-                    + x86("sub", "ecx", posN())
-                    + x86("cmp", "r14d", "ecx") )
-                  : ( x86("cmp", "r14d", posN()) ))
-             + x86("jne", "\xCF\x89")
-             + x86("jmp", "\xCE\xB3")
-             + x86("def", "\xCE\xB2")
-             + x86("jmp", "\xCF\x89");
-    return std::string();
+    if (!PLATFORM_X86) return std::string();
+    long n = (long)(int)_.op_ival;
+    int is_rpos = _.op_sval && _.op_sval[0] == 'r';
+    return x86("comment", is_rpos ? "IR_MATCH_RPOS" : "IR_MATCH_POS")
+         + x86("label",   _.lbl_α)
+         + (is_rpos
+              ? ( x86("mov", "ecx", "r15d")
+                + x86("sub", "ecx", n)
+                + x86("cmp", "r14d", "ecx") )
+              : ( x86("cmp", "r14d", n) ))
+         + x86("jne", "ω")
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + x86("jmp", "ω");
 }

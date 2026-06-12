@@ -7,13 +7,10 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_abort() {
-    if (PLATFORM_X86) {
-        return IF(MEDIUM_TEXT,
-                   x86("label", _.lbl_α)
-                 + x86("comment", "BOX ABORT()  [x86() self-encoding]"))
-             + x86("jmp",  PORT_OMEGA)
-             + x86("def",  PORT_BETA)
-             + x86("jmp",  PORT_OMEGA);
-    }
-    return std::string();
+    if (!PLATFORM_X86) return std::string();
+    return x86("comment", "IR_MATCH_ABORT")
+         + x86("label",   _.lbl_α)
+         + x86("jmp",  "ω")
+         + x86("def",  "β")
+         + x86("jmp",  "ω");
 }

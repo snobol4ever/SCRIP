@@ -10,45 +10,41 @@ int bb_slot_claim(int bytes);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline const char * cset_chars() { return _.op_sval ? _.op_sval : ""; }
-static inline const char * cset_label() { const char * l = emit_intern_str(cset_chars()); if (l) return l;
-                                          static char b[24]; strtab_label(b, sizeof b, cset_chars()); return b; }
-static inline uint64_t     cset_addr()  { return (uint64_t)(uintptr_t)(const void *)cset_chars(); }
-static inline uint64_t     strchr_ptr() { const char *(*fp)(const char *, int) = strchr; return (uint64_t)(uintptr_t)(void *)fp; }
-static inline int          zoff()       { return _.x86_scratch_off; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_break() {
     x86_begin();
-    if (PLATFORM_X86) {
-        return IF(MEDIUM_TEXT,
-                   x86("label", _.lbl_α)
-                 + x86("comment", "# BOX BREAK()  [REG-2 Σ=r13 δ=r14 Δ=r15, ζ-frame z, x86() self-encoding]"))
-             + x86("mov",    FR(zoff()), (long)0)
-             + x86("def",    L(0))
-             + x86("mov",    "eax", "r14d")
-             + x86("add",    "eax", FR(zoff()))
-             + x86("cmp",    "eax", "r15d")
-             + x86("jge",    "ω")
-             + x86("movsxd", "rcx", "eax")
-             + x86("movzx",  "esi", "[r13+rcx]")
-             + x86("lea",    "rdi", "[rip + __]", cset_addr(), cset_label())
-             + x86("sub",    "rsp", (long)8)
-             + x86("call",   "strchr", strchr_ptr())
-             + x86("add",    "rsp", (long)8)
-             + x86("test",   "rax", "rax")
-             + x86("jnz",    L(1))
-             + x86("add",    FR(zoff()), (long)1)
-             + x86("jmp",    L(0))
-             + x86("def",    L(1))
-             + x86("mov",    "eax", "r14d")
-             + x86("add",    "eax", FR(zoff()))
-             + x86("mov",    "r14d", "eax")
-             + x86("jmp",    "γ")
-             + x86("def",    "β")
-             + x86("mov",    "eax", "r14d")
-             + x86("sub",    "eax", FR(zoff()))
-             + x86("mov",    "r14d", "eax")
-             + x86("jmp",    "ω");
-    }
-    return std::string();
+    if (!PLATFORM_X86) return std::string();
+    const char *cc = _.op_sval ? _.op_sval : "";
+    const char *lbl = emit_intern_str(cc);
+    static char b[24];
+    if (!lbl) { strtab_label(b, sizeof b, cc); lbl = b; }
+    uint64_t ca = (uint64_t)(uintptr_t)(const void *)cc;
+    uint64_t sf; { const char *(*fp)(const char *, int) = strchr; sf = (uint64_t)(uintptr_t)(void *)fp; }
+    return x86("comment", "IR_MATCH_BREAK")
+         + x86("label",   _.lbl_α)
+         + x86("mov",    FR(_.x86_scratch_off), (long)0)
+         + x86("def",    L(0))
+         + x86("mov",    "eax", "r14d")
+         + x86("add",    "eax", FR(_.x86_scratch_off))
+         + x86("cmp",    "eax", "r15d")
+         + x86("jge",    "ω")
+         + x86("movsxd", "rcx", "eax")
+         + x86("movzx",  "esi", "[r13+rcx]")
+         + x86("lea",    "rdi", "[rip + __]", ca, lbl)
+         + x86("sub",    "rsp", (long)8)
+         + x86("call",   "strchr", sf)
+         + x86("add",    "rsp", (long)8)
+         + x86("test",   "rax", "rax")
+         + x86("jnz",    L(1))
+         + x86("add",    FR(_.x86_scratch_off), (long)1)
+         + x86("jmp",    L(0))
+         + x86("def",    L(1))
+         + x86("mov",    "eax", "r14d")
+         + x86("add",    "eax", FR(_.x86_scratch_off))
+         + x86("mov",    "r14d", "eax")
+         + x86("jmp",    "γ")
+         + x86("def",    "β")
+         + x86("mov",    "eax", "r14d")
+         + x86("sub",    "eax", FR(_.x86_scratch_off))
+         + x86("mov",    "r14d", "eax")
+         + x86("jmp",    "ω");
 }
