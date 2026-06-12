@@ -1551,6 +1551,19 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb);
+        size_t rvl = strlen(rv);
+        if (!strchr(cur, SOH)) {
+            size_t slen = strlen(cur);
+            if (idx < 1 || (size_t)idx > slen) { *out = FAILDESCR; return 1; }
+            char *buf = GC_malloc(slen * 5 + rvl + 4);
+            size_t pos = 0; buf[pos++] = '0';
+            for (size_t j = 1; j <= slen; j++) {
+                buf[pos++] = SOH;
+                if ((long)j == idx) { memcpy(buf + pos, rv, rvl); pos += rvl; }
+                else { int od = (unsigned char)cur[j-1]; pos += (size_t)sprintf(buf + pos, "%d", od); }
+            }
+            buf[pos] = '\0'; *out = STRVAL(buf); return 1;
+        }
         const char *seg = cur;
         long k = 0; const char *tstart = NULL; const char *tend = NULL;
         for (;;) {
@@ -1561,7 +1574,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         size_t pre = (size_t)(tstart - cur);
         size_t post = tend ? strlen(tend) : 0;
-        size_t rvl = strlen(rv);
         size_t total = pre + rvl + post;
         char *o = GC_malloc(total + 1);
         memcpy(o, cur, pre);
