@@ -1242,8 +1242,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = STRVAL(o); return 1;
     }
-    if (!strcmp(fn, "script_die") && nargs >= 1) {
-        const char *m = VARVAL_fn(args[0]); if (!m) m = "";
+    if ((!strcmp(fn, "die") || !strcmp(fn, "script_die")) && nargs >= 1) {
+        const char *m = VARVAL_fn(args[0]); if (!m) m = "Died";
         extern char g_script_exception[512];
         size_t mlen = strlen(m); if (mlen > 511) mlen = 511;
         memcpy(g_script_exception, m, mlen); g_script_exception[mlen] = '\0';

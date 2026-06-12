@@ -2308,6 +2308,20 @@ IR_t * IR_interp_node(IR_t * bb) {
     }
     case IR_CALL: {
         if (!IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        if ((IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 5.0) && !strcmp(IR_LIT(bb).sval, "__rk_try")) {
+            extern char g_script_exception[512];
+            int nargs = (int) IR_LIT(bb).ival;
+            IR_graph_t ** blks = (nargs > 0) ? (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter : NULL;
+            IR_graph_t * body = (blks && nargs >= 1) ? blks[0] : NULL;
+            IR_graph_t * catcher = (blks && nargs >= 2) ? blks[1] : NULL;
+            g_script_exception[0] = '\0';
+            if (body) { bb_reset(body); IR_interp_once(body); }
+            if (g_script_exception[0] != '\0') {
+                if (catcher) { g_script_exception[0] = '\0'; bb_reset(catcher); IR_interp_once(catcher); }
+                else { g_script_exception[0] = '\0'; }
+            }
+            IR_EXEC(bb).value = NULVCL; return bb->γ.node;
+        }
         if (IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 5.0) {
             int nargs = (int) IR_LIT(bb).ival;
             DESCR_t * args = NULL;
