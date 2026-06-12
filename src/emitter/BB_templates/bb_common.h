@@ -64,7 +64,7 @@ extern int  rt_throw_term(void *ball_term);
 std::string emit_build_compound_term(const IR_t *nd);
 std::string emit_term_from_node_bin(const IR_t *nd);
 int bb_op_floaty(const char *fn);
-std::string bb_io_str(IR_t *pBB, const char *fn, const std::string &hdr);
+std::string bb_io(void);
 std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_term_inspect_str(IR_t *pBB, const char *fn, const std::string &hdr);
