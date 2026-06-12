@@ -3284,10 +3284,25 @@ static void gvar_chain_prebuild_children(IR_graph_t *g) {
 static void gvar_chain_prebuild_children_text(IR_graph_t *g, FILE *out, const char *prefix) {
     if (!g || !g->all) return;
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_REF_INVARIANT) pre_build_children_text(g->all[i], out, prefix);
-    for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_PAT_ARBNO) pre_build_children_text(g->all[i], out, prefix);
-    for (int i = 0; i < g->n; i++) {
-        IR_t *nd = g->all[i];
-        if (!nd || nd->op != IR_SCAN) continue;
+    enum { RCH_MAX = 512 };
+    IR_t *reached[RCH_MAX]; int nr = 0;
+    IR_t *queue[RCH_MAX]; int qh = 0, qt = 0;
+    IR_t *e0 = gvar_chain_resolve_stmt(g->entry);
+    if (gvar_chain_is_real(e0) && qt < RCH_MAX) queue[qt++] = e0;
+    while (qh < qt) {
+        IR_t *c = queue[qh++];
+        int dup = 0; for (int i = 0; i < nr; i++) if (reached[i] == c) { dup = 1; break; }
+        if (dup) continue;
+        if (nr < RCH_MAX) reached[nr++] = c;
+        IR_t *gn = gvar_chain_resolve_stmt(c->γ.node);
+        IR_t *wn = gvar_chain_resolve_stmt(c->ω.node);
+        if (gvar_chain_is_real(gn) && qt < RCH_MAX) queue[qt++] = gn;
+        if (gvar_chain_is_real(wn) && qt < RCH_MAX) queue[qt++] = wn;
+    }
+    for (int i = 0; i < nr; i++) {
+        IR_t *nd = reached[i];
+        if (nd->op == IR_PAT_ARBNO) { pre_build_children_text(nd, out, prefix); continue; }
+        if (nd->op != IR_SCAN) continue;
         IR_graph_t *pg = (IR_graph_t *)(intptr_t)IR_EXEC(nd).counter;
         if (!pg || !pg->all) continue;
         for (int j = 0; j < pg->n; j++) if (pg->all[j] && pg->all[j]->op == IR_PAT_ARBNO) pre_build_children_text(pg->all[j], out, prefix);
