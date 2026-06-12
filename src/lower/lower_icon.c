@@ -1,9 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include "lower.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_proc_is_generator(const char * name) { if (!name) return 0; for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return g_stage2.proc_table[i].is_generator; return 0; }
-static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_generator(name) || !strcmp(name, "find") || !strcmp(name, "upto")); }
 /*====================================================================================================================================================================================================*/
 int g_icn_postfix_resume = 0;
 int g_icn_globals_nv     = 1;
@@ -17,6 +14,9 @@ static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(icx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
+/*====================================================================================================================================================================================================*/
+static int icn_proc_is_generator(const char * name) { if (!name) return 0; for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return g_stage2.proc_table[i].is_generator; return 0; }
+static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_generator(name) || !strcmp(name, "find") || !strcmp(name, "upto")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int augop_code(int aop) {
     switch (aop) {
@@ -26,7 +26,6 @@ static int augop_code(int aop) {
     case AUGOP_SLT: return 12; case AUGOP_SLE: return 13; case AUGOP_SGT: return 14; case AUGOP_SGE: return 15; case AUGOP_SNE: return 17;
     default: return 0; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_e icn_augop_binop_tt(int a) {
     switch (a) {
@@ -51,7 +50,7 @@ static int is_resumable(const tree_t * t) {
     case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: return 1;
     default: return 0; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*====================================================================================================================================================================================================*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
@@ -61,7 +60,7 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*====================================================================================================================================================================================================*/
 static IR_t * icn_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
     icx_t * cx = (icx_t *) vcx; IR_t * sps = cx->psucc; IR_t * spf = cx->pfail;
     cx->psucc = NULL; cx->pfail = F;
@@ -394,10 +393,7 @@ IR_graph_t * lower_icon(const tree_t * prog) {
     if (ps.n > 0) return lower_icon_proc(prog, LC_AT(&ps, const tree_t *, 0));
     IR_graph_t * g = IR_alloc(64, IR_LANG_ICN); icx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
 }
-
-/*====================================================================================================================*/
-/* stage2 entry — relocated from lower_program.c (lower_common rung)                                                  */
-/*====================================================================================================================*/
+/*====================================================================================================================================================================================================*/
 #include "bb_program.h"
 #include "IR_interp_state.h"
 IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
@@ -412,7 +408,7 @@ IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
     bbg->entry = bb;
     return bbg;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_subtree_has_suspend(const tree_t *n) {
     if (!n) return 0;
     if (n->t == TT_SUSPEND) return 1;
@@ -425,13 +421,13 @@ static int icn_body_has_suspend(const tree_t *proc) {
     for (int i = 0; i < proc->n; i++) if (icn_subtree_has_suspend(proc->c[i])) return 1;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_icon_body(const tree_t *prog, const tree_t *proc) {
     IR_graph_t * ng = lower_icon_proc(prog, proc);
     if (!ng || !ng->entry) return -1;
     return bb_program_add(&g_stage2.bbp, ng);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_icon_stage2(const tree_t *prog) {
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
