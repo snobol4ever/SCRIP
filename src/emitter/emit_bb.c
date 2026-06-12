@@ -1817,13 +1817,25 @@ static void flat_drive_gvar_seq_passthrough(IR_t *pBB, bb_label_t *lbl_γ, bb_la
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *c0 = bb_child0(pBB);
-    if (!pBB || !c0 || c0->op != IR_BINOP) {
-        fprintf(stderr, "[SBB] FATAL flat_drive_gvar_assign_binop: rhs is not IR_BINOP\n");
+    if (!pBB || !c0 || (c0->op != IR_BINOP && c0->op != IR_UNOP)) {
+        fprintf(stderr, "[SBB] FATAL flat_drive_gvar_assign_binop: rhs is not IR_BINOP or IR_UNOP\n");
         abort();
     }
     int id = g_flat_node_id++;
     bb_label_t *rhs_done = emit_label_alloc("xsasg%d_rhs_done", id);
     bb_label_t *rhs_β    = emit_label_alloc("xsasg%d_rhs_β",    id);
+    if (c0->op == IR_UNOP && bb_child0(c0) && bb_child0(c0)->op == IR_LIT_I) {
+        /* Constant-fold UNOP(NEG|POS, LIT_I): spoof c0 as IR_LIT_I with computed value */
+        int64_t val = IR_LIT(bb_child0(c0)).ival;
+        if ((int)IR_LIT(c0).ival == (int)TT_MNS) val = -val;
+        IR_e save_op = c0->op; c0->op = IR_LIT_I;
+        int64_t save_ival = IR_LIT(c0).ival; IR_LIT(c0).ival = val;
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        c0->op = save_op; IR_LIT(c0).ival = save_ival;
+        return;
+    }
     walk_bb_flat(c0, rhs_done, lbl_ω, rhs_β);
     emit_label_define_bb(rhs_done);
     EMIT_PAIR_RESET();
@@ -2616,6 +2628,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         if (g_descr_flat_chain) { extern int g_icn_globals_nv; extern int is_global(const char *); if (g_icn_globals_nv && IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) flat_drive_icn_global_assign(nd, lbl_γ, lbl_ω, lbl_β); else { g_emit.op_sb = bb_varslot(IR_LIT(nd).sval); g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); } }
         else if (IR_LIT(nd).sval && ac0 && (ac0->op == IR_LIT_S || ac0->op == IR_LIT_I || ac0->op == IR_VAR || ac0->op == IR_SEQ || ac0->op == IR_SEQ_EXPR || ac0->op == IR_CALL)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β);
         else if (IR_LIT(nd).sval && ac0 && ac0->op == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β);
+        else if (IR_LIT(nd).sval && ac0 && ac0->op == IR_UNOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β);
         else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); } break;
     case IR_VAR_FRAME: case IR_VAR_FRAME_REF: g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: if (bb_child0(nd) && bb_child0(nd)->op == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
