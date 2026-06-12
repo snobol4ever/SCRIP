@@ -22,20 +22,20 @@ extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask
 /* Label registry (consumers: lower_sno_stage2, IR_interp goto landing)                                                */
 /*====================================================================================================================*/
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
-static bb_label_entry_t g_bb_labels[1024];
-static int              g_bb_label_n = 0;
+static lc_vec g_bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) };
 /*--------------------------------------------------------------------------------------------------------------------*/
-void bb_label_registry_reset(void) { g_bb_label_n = 0; }
+void bb_label_registry_reset(void) { g_bb_labels.n = 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void bb_label_registry_add(const char * name, IR_t * landing) {
-    if (!name || !landing || g_bb_label_n >= 1024) return;
-    g_bb_labels[g_bb_label_n].name = name; g_bb_labels[g_bb_label_n].landing = landing; g_bb_label_n++;
+    if (!name || !landing) return;
+    bb_label_entry_t e; e.name = name; e.landing = landing;
+    lc_vec_push(&g_bb_labels, &e);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * bb_label_landing(const char * name) {
     if (!name) return NULL;
-    for (int i = 0; i < g_bb_label_n; i++)
-        if (g_bb_labels[i].name && !strcmp(g_bb_labels[i].name, name)) return g_bb_labels[i].landing;
+    for (int i = 0; i < g_bb_labels.n; i++)
+        if (LC_AT(&g_bb_labels, bb_label_entry_t, i).name && !strcmp(LC_AT(&g_bb_labels, bb_label_entry_t, i).name, name)) return LC_AT(&g_bb_labels, bb_label_entry_t, i).landing;
     return NULL;
 }
 /*====================================================================================================================*/

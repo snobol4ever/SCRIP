@@ -172,12 +172,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = cas; return se; }
     case TT_SEQ:
     case TT_SEQ_EXPR: {
-        const tree_t * S[128]; int k = 0;
-        for (int i = 0; i < t->n && k < 128; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) S[k++] = s; }
+        lc_vec Sv; lc_vec_init(&Sv, (int) sizeof(const tree_t *));
+        for (int i = 0; i < t->n; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) lc_vec_push(&Sv, &s); }
+        const tree_t ** S = (const tree_t **) Sv.data; int k = Sv.n;
         if (k == 0) { IR_t * su = build(cx, IR_SUCCEED, γ, ω); *res = su; return su; }
         if (k == 1) return lower(cx, S[0], γ, ω, res);
         IR_t * CONJ = build(cx, IR_CONJ, γ, ω);
-        IR_t * val[128]; IR_t * ent[128]; IR_t * succ = CONJ;
+        IR_t ** val = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t * succ = CONJ;
         if (t->t == TT_SEQ_EXPR) {
             IR_t * failt = ω;
             for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, failt, &val[i]); succ = ent[i]; failt = ent[i]; }
@@ -271,8 +272,9 @@ static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; } if (n > 64) n = 64;
-    IR_t * node = build(cx, IR_ALT, γ, ω); IR_t * entry[64]; IR_t * apply[64];
+    int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    IR_t * node = build(cx, IR_ALT, γ, ω);
+    IR_t ** entry = (IR_t **) calloc((size_t) n, sizeof(IR_t *)); IR_t ** apply = (IR_t **) calloc((size_t) n, sizeof(IR_t *));
     for (int j = n - 1; j >= 0; j--) {
         IR_t * ωj = (j + 1 < n) ? entry[j + 1] : ω; IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[j], node, ωj, &ar);
         if (ar && !ar->γ.node) γ_to(ar, node); apply[j] = ar ? ar : ae; entry[j] = ae;
@@ -364,24 +366,31 @@ static int collect_procs(const tree_t * t, const tree_t ** out, int max, int n) 
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void collect_procs_vec(const tree_t * t, lc_vec * out) {
+    if (!t) return;
+    if (t->t == TT_STMT) { collect_procs_vec(stmt_subj(t), out); return; }
+    if (t->t == TT_PROC_DECL) { lc_vec_push(out, &t); return; }
+    for (int i = 0; i < t->n; i++) collect_procs_vec(t->c[i], out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lower_icon_enum(const tree_t * prog, const tree_t ** out, int max) { return collect_procs(prog, out, max, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void fill_pnames(const tree_t * prog, const char ** pn, int * npn, int max) {
-    const tree_t * ps[256]; int k = collect_procs(prog, ps, 256, 0); int c = 0;
-    for (int i = 0; i < k && c < max; i++) if (ps[i]->v.sval) pn[c++] = ps[i]->v.sval;
-    *npn = c;
+static void fill_pnames(const tree_t * prog, lc_vec * pn) {
+    lc_vec ps; lc_vec_init(&ps, (int) sizeof(const tree_t *));
+    collect_procs_vec(prog, &ps);
+    for (int i = 0; i < ps.n; i++) if (LC_AT(&ps, const tree_t *, i)->v.sval) lc_vec_push(pn, &LC_AT(&ps, const tree_t *, i)->v.sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
-    static const char * pn[256]; int npn = 0; fill_pnames(prog, pn, &npn, 256);
-    icx_t cx; memset(&cx, 0, sizeof cx); cx.pn = pn; cx.npn = npn;
+    static lc_vec pnv; lc_vec_init(&pnv, (int) sizeof(const char *)); fill_pnames(prog, &pnv);
+    icx_t cx; memset(&cx, 0, sizeof cx); cx.pn = (const char **) pnv.data; cx.npn = pnv.n;
     if (pd && pd->n > 2 && pd->c[2]) return lower_proc_body(&cx, pd->c[2]);
     IR_graph_t * g = IR_alloc(64, IR_LANG_ICN); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_icon(const tree_t * prog) {
-    const tree_t * ps[256]; int k = collect_procs(prog, ps, 256, 0);
-    if (k > 0) return lower_icon_proc(prog, ps[0]);
+    lc_vec ps; lc_vec_init(&ps, (int) sizeof(const tree_t *)); collect_procs_vec(prog, &ps);
+    if (ps.n > 0) return lower_icon_proc(prog, LC_AT(&ps, const tree_t *, 0));
     IR_graph_t * g = IR_alloc(64, IR_LANG_ICN); icx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
 }
 
