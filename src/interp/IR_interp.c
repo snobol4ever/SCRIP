@@ -3173,6 +3173,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             return bb->γ.node;
         }
         int64_t by = IR_LIT(bb).ival ? IR_LIT(bb).ival : 1;
+        if (bb->n_operands > 2 && bb->operands[2]) { DESCR_t bv = IR_EXEC(bb->operands[2]).value; if (IS_INT_fn(bv) && bv.i != 0) by = bv.i; else if (bv.v == DT_R && (int64_t)bv.r != 0) by = (int64_t)bv.r; }
         int64_t to_val = Hc ? (IS_INT_fn(IR_EXEC(Hc).value) ? IR_EXEC(Hc).value.i : 0) : 0;
         if (by >= 0 ? IR_EXEC(bb).counter > to_val : IR_EXEC(bb).counter < to_val) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         IR_EXEC(bb).value    = INTVAL(IR_EXEC(bb).counter);
