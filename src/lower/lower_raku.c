@@ -201,6 +201,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (nm && !strcmp(nm, "push") && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) {
             IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = t->c[1]->v.sval;
             IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "push_pure", 1, 0, as, ω, &r2); *res = as; return e; }
+        if (nm && !strcmp(nm, "hash_set") && t->n > 2 && t->c[1] && (t->c[1]->t == TT_VAR || t->c[1]->t == TT_TWIGIL_FIELD)) {
+            const char * vn = t->c[1]->v.sval;
+            IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
+            IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_set_pure", 1, 0, as, ω, &r2); *res = as; return e; }
+        if (nm && !strcmp(nm, "hash_delete") && t->n > 1 && t->c[1] && (t->c[1]->t == TT_VAR || t->c[1]->t == TT_TWIGIL_FIELD)) {
+            const char * vn = t->c[1]->v.sval;
+            IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
+            IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_delete_pure", 1, 0, as, ω, &r2); *res = as; return e; }
         return lower_rcall(cx, t, nm, 1, 0, γ, ω, res); }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); return sub ? lower_rv(cx, sub, γ, ω, res) : (build(cx, IR_SUCCEED, γ, ω)); }
     case TT_IF: {
@@ -262,12 +270,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         lc_call_argblks(nd, 2.0, 2, rk_arg_block, cx, (const tree_t * const *) t->c);
         *res = nd; return nd; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_ARR_GET: if (t->n > 1) { IR_t * nd = build(cx, IR_IDX, γ, ω);
-        IR_t * ri = NULL, * rb = NULL;
-        IR_t * ei = lower_rv(cx, t->c[1], nd, ω, &ri);
-        IR_t * eb = lower_rv(cx, t->c[0], ei, ω, &rb);
-        *res = nd; return eb; }
-        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_ARR_GET: return lower_rcall(cx, t, "arr_get", 0, 1, γ, ω, res);
     case TT_HASH_GET: return lower_rcall(cx, t, "hash_get", 0, 1, γ, ω, res);
     case TT_HASH_SET: if (t->n > 2 && t->c[0] && (t->c[0]->t == TT_VAR || t->c[0]->t == TT_TWIGIL_FIELD)) {
         const char * vn = t->c[0]->t == TT_TWIGIL_FIELD ? t->c[0]->v.sval : (t->c[0]->n > 0 && t->c[0]->c[0] ? t->c[0]->c[0]->v.sval : t->c[0]->v.sval);
