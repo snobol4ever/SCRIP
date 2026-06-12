@@ -2417,6 +2417,12 @@ int main(int argc, char **argv)
                 }
                 printf("  call rt_frame@PLT\n");
                 printf("  mov rdi, rax\n");
+                if (pl_main->nslots > 0) {
+                    printf("  mov esi, %d\n", pl_main->nslots);
+                    printf("  call rt_pl_frame_sync_env@PLT\n");
+                    printf("  call rt_frame@PLT\n");
+                    printf("  mov rdi, rax\n");
+                }
                 printf("  xor esi, esi\n");
                 printf("  call main_\xce\xb1\n");
                 printf("  xor eax, eax\n");
@@ -2447,6 +2453,12 @@ int main(int argc, char **argv)
             }
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
+            if (pl_main->nslots > 0) {
+                printf("  mov esi, %d\n", pl_main->nslots);
+                printf("  call rt_pl_frame_sync_env@PLT\n");
+                printf("  call rt_frame@PLT\n");
+                printf("  mov rdi, rax\n");
+            }
             printf("  xor esi, esi\n");
             printf("  call main_\xce\xb1\n");
             printf("  xor eax, eax\n");

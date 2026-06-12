@@ -60,7 +60,26 @@ int rt_unify_var_var(int lslot, int rslot)
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_cells_init(void **cells, int n)
 {
-    for (int i = 0; i < n; i++) cells[i] = term_new_var(i);
+    extern Term **g_resolve_env;
+    for (int i = 0; i < n; i++) {
+        Term *v = term_new_var(i);
+        cells[i] = v;
+        if (g_resolve_env) g_resolve_env[i] = v;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_frame_sync_env(void *frame, int nslots)
+{
+    extern Term **g_resolve_env;
+    extern Trail g_resolve_trail;
+    extern void trail_init(Trail *t);
+    if (!g_resolve_trail.stack || g_resolve_trail.capacity <= 0) trail_init(&g_resolve_trail);
+    Term **cells = (Term **)(((char *)frame) + 8);
+    for (int i = 0; i < nslots; i++) {
+        Term *v = term_new_var(i);
+        cells[i] = v;
+        if (g_resolve_env) g_resolve_env[i] = v;
+    }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void * rt_enter(void **slot, int nslots)
