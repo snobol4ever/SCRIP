@@ -450,7 +450,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
-    case IR_ASSIGN_LIT_S: { bb_emit_x86(bb_gvar_assign_lit_s()); return 0; }
+    case IR_ASSIGN_LIT_S: { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_lit_s()); return 0; }
     case IR_ASSIGN_LIT_I: { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_lit_i()); return 0; }
     case IR_ASSIGN_VAR:    { bb_emit_x86(bb_gvar_assign_var());    return 0; }
     case IR_ASSIGN_CONCAT: { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_concat()); return 0; }
