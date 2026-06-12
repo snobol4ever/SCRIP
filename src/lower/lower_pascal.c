@@ -185,6 +185,11 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const char * vname = NULL;
     if (lhs && lhs->t == TT_IDX) {
         const tree_t * base = (lhs->n > 0) ? lhs->c[0] : NULL;
+        if (base && base->t == TT_FNC && base->n >= 2 && base->c[0] && base->c[0]->v.sval && !strcmp(base->c[0]->v.sval, "__pas_deref")) {
+            IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = "__pas_field_set"; IR_LIT(call).ival = 3;
+            const tree_t * av[3]; av[0] = (base->n > 1) ? base->c[1] : NULL; av[1] = (lhs->n > 1) ? lhs->c[1] : NULL; av[2] = rhs;
+            pas_call_blocks(cx, call, 2.0, av, 3); return call;
+        }
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         IR_t * asn = lower_assign_var(cx, bname, γ, ω);
         IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure"; IR_LIT(call).ival = lhs->n + 1;
