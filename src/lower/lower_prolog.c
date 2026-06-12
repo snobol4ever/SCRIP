@@ -365,3 +365,177 @@ IR_graph_t * lower_prolog_clause(const tree_t * clause) {
     g->body_root = gconj;
     return g;
 }
+
+/*====================================================================================================================*/
+/* stage2 entry + runtime assertz — relocated from lower_program.c (lower_common rung)                                */
+/*====================================================================================================================*/
+#include <stdio.h>
+#include "stage2.h"
+#include "../parser/snobol4/scrip_cc.h"
+#include "bb_program.h"
+#include "../runtime/builtins/resolution.h"
+#include "../parser/prolog/term.h"
+#include "../parser/prolog/prolog_atom.h"
+#include <gc/gc.h>
+extern int lp_s_int(const tree_t *s, const char *tag);
+extern tree_t *lp_s_expr(const tree_t *s, const char *tag);
+extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int lower_pl_clause_graph(const tree_t *clause) {
+    if (!clause || clause->t != TT_CLAUSE) return -1;
+    IR_graph_t *gnl = lower_prolog_clause(clause);
+    return gnl ? bb_program_add(&g_stage2.bbp, gnl) : -1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int lower_pl_choice_graph(const tree_t *choice) {
+    if (!choice || choice->t != TT_CHOICE || choice->n < 1) return -1;
+    int n = choice->n;
+    IR_graph_t **bodies = (IR_graph_t **)GC_MALLOC((size_t)n * sizeof(IR_graph_t *));
+    if (!bodies) return -1;
+    int any = 0;
+    for (int ci = 0; ci < n; ci++) {
+        const tree_t *cl = choice->c[ci];
+        int bidx = lower_pl_clause_graph(cl);
+        bodies[ci] = (bidx >= 0) ? g_stage2.bbp.table[bidx] : NULL;
+        if (bodies[ci]) any = 1;
+    }
+    if (!any) return -1;
+    IR_graph_t *g = IR_alloc(8, IR_LANG_PL);
+    if (!g) return -1;
+    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t *nd = IR_node_alloc(g, IR_CHOICE);
+    if (!nd) return -1;
+    bb_choice_state_t *zc = (bb_choice_state_t *)GC_MALLOC(sizeof *zc);
+    if (!zc) return -1;
+    memset(zc, 0, sizeof *zc);
+    zc->bodies = bodies; zc->nbodies = n; zc->last_body = NULL; zc->cp = NULL; zc->cut_barrier = NULL;
+    zc->idx_ok = 0; zc->idx_key = NULL;
+    IR_LIT(nd).ival = (int64_t)(intptr_t)zc;
+    nd->γ.node = PSUCC; memcpy(nd->γ.sz, "α", 3); nd->ω.node = PFAIL; memcpy(nd->ω.sz, "α", 3);
+    g->entry = nd;
+    return bb_program_add(&g_stage2.bbp, g);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void lower_pl_register_all_preds(void) {
+    for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++) {
+        for (Resolve_PredEntry *pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
+            if (!pe->key || !pe->choice) continue;
+            const char *key = pe->key;
+            const tree_t *ch = pe->choice;
+            const char *slash = key ? strrchr(key, '/') : NULL;
+            int ar = slash ? atoi(slash + 1) : 0;
+            if (resolve_bb_lookup(key, ar)) continue;
+            int bb_idx = -1;
+            if (ch->t == TT_CLAUSE) {
+                bb_idx = lower_pl_clause_graph(ch);
+            } else if (ch->t == TT_CHOICE) {
+                if (ch->n == 1) bb_idx = lower_pl_clause_graph(ch->c[0]);
+                else            bb_idx = lower_pl_choice_graph(ch);
+            }
+            if (bb_idx >= 0) resolve_bb_register(key, ar, bb_idx);
+        }
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
+int pl_rt_assertz(Term *clause_term, int prepend) {
+    int fid = -1, arity = 0;
+    tree_t *clause = pl_assert_term(clause_term, &fid, &arity);
+    if (!clause || clause->t != TT_CLAUSE) return 0;
+    const char *fname = prolog_atom_name(fid);
+    if (!fname) return 0;
+    char key[256]; snprintf(key, sizeof key, "%s/%d", fname, arity);
+    int body_idx = lower_pl_clause_graph(clause);
+    if (body_idx < 0) return 0;
+    IR_graph_t *body = g_stage2.bbp.table[body_idx];
+    if (!body) return 0;
+    Resolve_PredEntry_BB *entry = resolve_bb_lookup(key, arity);
+    IR_graph_t *pred_cfg = entry ? bb_graph_of_pred(entry) : NULL;
+    if (!pred_cfg || !pred_cfg->entry || pred_cfg->entry->op != IR_CHOICE) {
+        IR_graph_t *prior = (pred_cfg && pred_cfg->entry) ? pred_cfg : NULL;
+        IR_graph_t *cg = IR_alloc(8, IR_LANG_PL);
+        if (!cg) return 0;
+        IR_t *PSUCC = IR_node_alloc(cg, IR_SUCCEED);
+        IR_t *PFAIL = IR_node_alloc(cg, IR_FAIL);
+        IR_t *nd = IR_node_alloc(cg, IR_CHOICE);
+        if (!nd) return 0;
+        bb_choice_state_t *zc0 = (bb_choice_state_t *)GC_MALLOC(sizeof *zc0);
+        if (!zc0) return 0;
+        memset(zc0, 0, sizeof *zc0);
+        if (prior) {
+            IR_graph_t **pb = (IR_graph_t **)GC_MALLOC(sizeof(IR_graph_t *));
+            if (!pb) return 0;
+            pb[0] = prior;
+            zc0->bodies = pb; zc0->nbodies = 1;
+        } else {
+            zc0->bodies = NULL; zc0->nbodies = 0;
+        }
+        zc0->idx_ok = 0; zc0->idx_key = NULL;
+        IR_LIT(nd).ival = (int64_t)(intptr_t)zc0;
+        nd->γ.node = PSUCC; memcpy(nd->γ.sz, "α", 3); nd->ω.node = PFAIL; memcpy(nd->ω.sz, "α", 3);
+        (void)PSUCC; (void)PFAIL;
+        cg->entry = nd;
+        int cg_idx = bb_program_add(&g_stage2.bbp, cg);
+        if (cg_idx < 0) return 0;
+        resolve_bb_register(key, arity, cg_idx);
+        pred_cfg = g_stage2.bbp.table[cg_idx];
+    }
+    bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(pred_cfg->entry).ival;
+    if (!zc) return 0;
+    int n = zc->nbodies;
+    IR_graph_t **nb = (IR_graph_t **)GC_MALLOC((size_t)(n + 1) * sizeof(IR_graph_t *));
+    if (!nb) return 0;
+    if (prepend) {
+        nb[0] = body;
+        for (int i = 0; i < n; i++) nb[i + 1] = zc->bodies[i];
+    } else {
+        for (int i = 0; i < n; i++) nb[i] = zc->bodies[i];
+        nb[n] = body;
+    }
+    zc->bodies = nb;
+    zc->nbodies = n + 1;
+    zc->idx_ok = 0; zc->idx_key = NULL;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void lower_pl_stage2(const tree_t *prog) {
+    const char *goal_key = NULL;
+    char keybuf[128];
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t *s = prog->c[i];
+        if (!s || s->t != TT_STMT) continue;
+        if (lp_s_int(s, ":lang") != LANG_PL) continue;
+        const tree_t *subj = lp_s_expr(s, ":subj");
+        if (!subj) continue;
+        if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "initialization") && subj->n >= 1) {
+            const tree_t *gt = subj->c[0];
+            if (gt && (gt->t == TT_QLIT || gt->t == TT_NAME) && gt->v.sval) {
+                snprintf(keybuf, sizeof keybuf, "%s/0", gt->v.sval);
+                goal_key = keybuf;
+            } else if (gt && gt->t == TT_FNC && gt->v.sval) {
+                snprintf(keybuf, sizeof keybuf, "%s/%d", gt->v.sval, gt->n);
+                goal_key = keybuf;
+            }
+        }
+    }
+    if (!goal_key) goal_key = "main/0";
+    const tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, goal_key);
+    const tree_t *clause = NULL;
+    if (choice) {
+        if (choice->t == TT_CLAUSE) clause = choice;
+        else if (choice->t == TT_CHOICE && choice->n >= 1) clause = choice->c[0];
+    }
+    if (clause) {
+        int bb_idx = lower_pl_clause_graph(clause);
+        if (bb_idx >= 0) {
+            int pi = stage2_proc_grow(&g_stage2);
+            g_stage2.proc_table[pi].name     = "main";
+            g_stage2.proc_table[pi].proc     = NULL;
+            g_stage2.proc_table[pi].entry_pc = -1;
+            g_stage2.proc_table[pi].bb_idx   = bb_idx;
+            g_stage2.proc_table[pi].nparams  = 0;
+        }
+    }
+    lower_pl_register_all_preds();
+}

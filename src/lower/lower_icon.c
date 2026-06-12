@@ -403,3 +403,69 @@ IR_graph_t * lower_icon(const tree_t * prog) {
     if (k > 0) return lower_icon_proc(prog, ps[0]);
     IR_graph_t * g = IR_alloc(64, IR_LANG_ICN); icx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
 }
+
+/*====================================================================================================================*/
+/* stage2 entry — relocated from lower_program.c (lower_common rung)                                                  */
+/*====================================================================================================================*/
+#include "bb_program.h"
+#include "IR_interp_state.h"
+IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
+    if (!gs) return NULL;
+    IR_graph_t *bbg = IR_alloc(4, IR_LANG_ICN);
+    if (!bbg) return NULL;
+    IR_t *bb = IR_node_alloc(bbg, IR_PROC_GEN);
+    if (!bb) return NULL;
+    IR_EXEC(bb).counter = (int64_t)(uintptr_t)gs;
+    bb->γ.node = NULL;
+    bb->ω.node = NULL;
+    bbg->entry = bb;
+    return bbg;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int icn_subtree_has_suspend(const tree_t *n) {
+    if (!n) return 0;
+    if (n->t == TT_SUSPEND) return 1;
+    if (n->t == TT_PROC_DECL || n->t == TT_SUB_DECL) return 0;
+    for (int i = 0; i < n->n; i++) if (icn_subtree_has_suspend(n->c[i])) return 1;
+    return 0;
+}
+static int icn_body_has_suspend(const tree_t *proc) {
+    if (!proc) return 0;
+    for (int i = 0; i < proc->n; i++) if (icn_subtree_has_suspend(proc->c[i])) return 1;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int lower_icon_body(const tree_t *prog, const tree_t *proc) {
+    IR_graph_t * ng = lower_icon_proc(prog, proc);
+    if (!ng || !ng->entry) return -1;
+    return bb_program_add(&g_stage2.bbp, ng);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void lower_icon_stage2(const tree_t *prog) {
+    extern const char *lp_strdup(const char *s);
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+        if (!proc || proc->t != TT_PROC_DECL) continue;
+        g_stage2.proc_table[pi].is_generator = icn_body_has_suspend(proc);
+    }
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+        if (!proc || proc->t != TT_PROC_DECL) continue;
+        if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
+        int bb_idx = lower_icon_body(prog, proc);
+        if (bb_idx >= 0) {
+            g_stage2.proc_table[pi].bb_idx = bb_idx;
+            const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
+            int np = g_stage2.proc_table[pi].nparams;
+            Scope *sc = &g_stage2.proc_table[pi].lower_sc;
+            sc->n = 0;
+            for (int k = 0; k < np && plist && k < plist->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+                const tree_t *pv = plist->c[k];
+                if (!pv || !pv->v.sval) continue;
+                sc->e[sc->n].name = lp_strdup(pv->v.sval);
+                sc->e[sc->n].slot = sc->n;
+                sc->n++;
+            }
+        }
+    }
+}

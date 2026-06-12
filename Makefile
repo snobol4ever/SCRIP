@@ -236,7 +236,7 @@ RT_PIC_SRCS := \
     $(SRC)/machine/bb_boxes.c \
     $(SRC)/attic/smx_dead_stubs.c \
     $(SRC)/machine/sm_prog.c \
-    $(SRC)/lower/lower_program.c \
+    $(SRC)/lower/lower_common.c \
     $(SRC)/lower/tree_to_sno.c \
     $(SRC)/lower/lower_icon.c \
     $(SRC)/lower/lower_snobol4.c \
@@ -524,7 +524,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/contracts/scrip_ir.c     -o $(OBJ)/scrip_ir.o
 	$(CC) $(CRT)   -c $(SRC)/interp/IR_interp.c      -o $(OBJ)/IR_interp.o
 	$(CC) $(CRT)   -c $(SRC)/machine/sm_prog.c    -o $(OBJ)/sm_prog.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_program.c -o $(OBJ)/lower_program.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_common.c -o $(OBJ)/lower_common.o
 	$(CC) $(CRT)   -c $(SRC)/lower/tree_to_sno.c       -o $(OBJ)/tree_to_sno.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_icon.c    -o $(OBJ)/lower_icon.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_snobol4.c -o $(OBJ)/lower_snobol4.o

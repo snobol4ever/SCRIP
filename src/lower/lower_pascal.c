@@ -603,3 +603,90 @@ IR_graph_t * lower_pascal(const tree_t * prog) {
     IR_t * entry = lower(&cx, prog, succ, fail);
     g->entry = entry ? entry : succ; return g;
 }
+
+/*====================================================================================================================*/
+/* stage2 entry — relocated from lower_program.c (lower_common rung)                                                  */
+/*====================================================================================================================*/
+#include "stage2.h"
+#include "bb_program.h"
+extern int scope_get(Scope *sc, const char *name);
+extern const char *lp_strdup(const char *s);
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int pas_scope_chain(int pi, Scope **scs, int *dls, int *pis, int maxd) {
+    int n = 0;
+    int dl = g_stage2.proc_table[pi].decl_level;
+    scs[n] = &g_stage2.proc_table[pi].lower_sc; dls[n] = dl; pis[n] = pi; n++;
+    int want = dl - 1, at = pi;
+    while (want >= 1 && n < maxd) {
+        int found = -1;
+        for (int j = at + 1; j < g_stage2.proc_count; j++) {
+            const tree_t *pj = (const tree_t *) g_stage2.proc_table[j].proc;
+            if (!pj || pj->t != TT_PROC_DECL || !g_stage2.proc_table[j].name || !strcmp(g_stage2.proc_table[j].name, "main")) continue;
+            if (g_stage2.proc_table[j].decl_level == want) { found = j; break; }
+        }
+        if (found < 0) break;
+        scs[n] = &g_stage2.proc_table[found].lower_sc; dls[n] = want; pis[n] = found; n++;
+        at = found; want--;
+    }
+    return n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int lower_pascal_body(const tree_t *prog, const tree_t *proc) {
+    IR_graph_t * ng = lower_pascal_proc(prog, proc);
+    if (!ng || !ng->entry) return -1;
+    return bb_program_add(&g_stage2.bbp, ng);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void lower_pascal_stage2(const tree_t *prog) {
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+        if (!proc || proc->t != TT_PROC_DECL) continue;
+        if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
+        int bb_idx = lower_pascal_body(prog, proc);
+        if (bb_idx >= 0) {
+            g_stage2.proc_table[pi].bb_idx = bb_idx;
+            const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
+            g_stage2.proc_table[pi].nparams = plist ? plist->n : 0;
+            int np = g_stage2.proc_table[pi].nparams;
+            Scope *sc = &g_stage2.proc_table[pi].lower_sc;
+            sc->n = 0;
+            for (int k = 0; k < np && plist && k < plist->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+                const tree_t *pv = plist->c[k];
+                if (!pv || !pv->v.sval) continue;
+                sc->e[sc->n].name = lp_strdup(pv->v.sval);
+                sc->e[sc->n].slot = sc->n;
+                sc->n++;
+            }
+            const tree_t *locals = (proc->n >= 1) ? proc->c[proc->n - 1] : NULL;
+            if (locals && locals->t == TT_VLIST) {
+                g_stage2.proc_table[pi].decl_level = (int) locals->v.ival;
+                for (int k = 0; k < locals->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+                    const tree_t *lv = locals->c[k];
+                    if (!lv || !lv->v.sval) continue;
+                    if (scope_get(sc, lv->v.sval) >= 0) continue;
+                    sc->e[sc->n].name = lp_strdup(lv->v.sval);
+                    sc->e[sc->n].slot = sc->n;
+                    sc->n++;
+                }
+            }
+        }
+    }
+    int pas_has_nesting = 0;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+        if (proc && proc->t == TT_PROC_DECL && (g_stage2.proc_table[pi].decl_level > 1 || g_stage2.proc_table[pi].byref_mask)) { pas_has_nesting = 1; break; }
+    }
+    if (pas_has_nesting) {
+        for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+            const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+            if (!proc || proc->t != TT_PROC_DECL) continue;
+            if (!g_stage2.proc_table[pi].name || !strcmp(g_stage2.proc_table[pi].name, "main")) continue;
+            int idx = g_stage2.proc_table[pi].bb_idx;
+            if (idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx]) continue;
+            Scope *scs[16]; int dls[16]; int pis[16];
+            int nch = pas_scope_chain(pi, scs, dls, pis, 16);
+            (void) nch;
+            g_stage2.bbp.table[idx]->nslots = g_stage2.proc_table[pi].lower_sc.n + 1;
+        }
+    }
+}
