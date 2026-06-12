@@ -540,7 +540,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_CALLEE_FRAME:    { extern void bb_callee_frame(void); bb_prepare(nd); bb_callee_frame(); return 0; }
     case IR_CELL_CUT:        { extern void bb_cell_cut(void); bb_cell_cut(); return 0; }
     case IR_CELL_ITE:        { extern void bb_cell_ite(void); bb_prepare(nd); bb_cell_ite(); return 0; }
-    case IR_FAIL:            bb_fail(nd);                          return 0;
+    case IR_FAIL:            bb_fail();                            return 0;
     case IR_NEG:
     case IR_POS:
     case IR_NONNULL:
