@@ -16,7 +16,7 @@ static inline long long bo() { return (long long)_.op_ival; }
 std::string bb_binop_arith() {
     return IF(PLATFORM_X86 && g_descr_flat_chain && _.op_off >= 0 && (bo() == BINOP_ADD || bo() == BINOP_SUB || bo() == BINOP_MUL || bo() == BINOP_DIV || bo() == BINOP_MOD),
            x86("label", _.lbl_α)
-         + x86("comment", "IR_BINOP")
+         + x86("comment", "IR_BINOP_ARITH")
          + x86("mov", "rax", FRQ(_.op_sa + 8))
          + x86("mov", "rcx", FRQ(_.op_sb + 8))
          + IF(bo() == BINOP_ADD, x86("add",  "rax", "rcx"))
