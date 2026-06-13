@@ -205,6 +205,8 @@ static int icn_rhs_kind_ok(IR_t *r) {
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT)) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
+    if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
+    if (r->op == IR_FIELD_GET) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
     if (r->op == IR_GEN_SCAN) return icn_gen_scan_body_slotful(r);
     return 0;
@@ -257,7 +259,7 @@ static int icn_rk_bool_cond_emittable(IR_t *nd) {
 }
 static int icn_assign_safe_kind(IR_e t) {
     return t == IR_ASSIGN || t == IR_VAR || t == IR_CALL || t == IR_SUCCEED || t == IR_FAIL ||
-           t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
+           t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL || t == IR_FIELD_GET ||
            t == IR_BINOP || t == IR_IF || t == IR_WHILE || t == IR_UNTIL || t == IR_REPEAT ||
            t == IR_BREAK || t == IR_NEXT || t == IR_CONJ || t == IR_GEN_SCAN;
 }
@@ -2343,6 +2345,18 @@ int main(int argc, char **argv)
                 printf("icn_proc_startup:\n");
                 printf("  push rbp\n");
                 printf("  mov rbp, rsp\n");
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+                  int n_cls = dat_type_count();
+                  for (int ci = 0; ci < n_cls; ci++) {
+                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+                      printf("  .section .rodata\n");
+                      printf("  .Lclassspec%d: .string \"%s(", ci, cn);
+                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) { if (fj) printf(","); printf("%s", dat_type_field(ci, fj)); }
+                      printf(")\"\n");
+                      printf("  .section .text\n  .intel_syntax noprefix\n");
+                      printf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
+                      printf("  call record_register@PLT\n");
+                  } }
                 for (int i = 0; i < n_procs; i++) {
                     printf("  .section .rodata\n");
                     printf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
