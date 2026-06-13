@@ -1078,6 +1078,7 @@ void bb_prepare(IR_t *nd) {
         g_emit.bb_lk = (fk == (int)IR_LIT_I) ? 1 : (fk == (int)IR_LIT_NUL) ? 2 : (fk == (int)IR_LIT_S) ? 3 : (fk == (int)IR_VAR) ? 4 :
                        (fk == (int)IR_VAR_FRAME) ? 5 : (fk == (int)IR_VAR_FRAME_REF) ? 6 : (fk == (int)IR_BINOP) ? 7 : (fk == (int)IR_CALL) ? 8 : 0;
         if (g_emit.bb_lk == 3 || g_emit.bb_lk == 4) g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(fa).sval ? IR_LIT(fa).sval : "");
+        if ((g_emit.bb_lk == 5 || g_emit.bb_lk == 6) && fa) { g_emit.op_a_dval = IR_LIT(fa).dval; g_emit.op_a_ival_sg = IR_LIT(fa).ival; }
         return;
     }
     if (nd->op == IR_ATOM) {
