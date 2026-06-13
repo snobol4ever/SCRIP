@@ -9,9 +9,11 @@ extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int find_admit() { return g_descr_flat_chain && _.op_off >= 0 && _.op_name1 && _.op_name1[0] && strlen(_.op_name1) <= 32; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_find() {
     x86_begin();
-    if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1 && _.op_name1[0] && strlen(_.op_name1) <= 32)) return x86_bomb("bb_scan_find: unhandled (needs nonempty literal needle <=32 + descr flat-chain slot)");
+    if (!PLATFORM_X86 || !find_admit()) return x86_bomb("bb_scan_find: unhandled (needs nonempty literal needle <=32 + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_FIND")
          + x86("label",   _.lbl_α)
          + x86("mov",     FRQ(_.op_off + 16), "r14")
