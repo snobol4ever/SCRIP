@@ -218,6 +218,24 @@ static int icn_local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
     for (int i = 0; i < g->n; i++) { IR_t *p = g->all[i]; if (p && p->γ.node == nd) return icn_rhs_kind_ok(p); }
     return 0;
 }
+static int icn_rk_arith_operand_ok(IR_t *r) {
+    if (!r) return 0;
+    if (r->op == IR_LIT_I) return 1;
+    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD)) return 1;
+    return 0;
+}
+static int icn_rk_bool_cond_emittable(IR_t *nd) {
+    if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval, "__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
+    IR_graph_t **blks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_graph_t *cond = blks ? blks[0] : (IR_graph_t *)0;
+    if (!cond) return 0;
+    IR_t *p = cond->entry; IR_t *rel = (IR_t *)0; int gd = 0;
+    while (p && gd++ < 256) { if (p->op == IR_BINOP && IR_LIT(p).ival >= BINOP_LT && IR_LIT(p).ival <= BINOP_NE) { rel = p; break; } if (!p->γ.node) break; p = p->γ.node; }
+    if (!rel) return 0;
+    IR_t *ra = ir_pair_arg(rel, 0); IR_t *rb = ir_pair_arg(rel, 1);
+    if (!ra || !rb) { int n = 0; IR_t * const *aux = bb_operand_aux_get(cond, rel, &n); if (aux && n >= 2) { ra = aux[0]; rb = aux[1]; } }
+    return icn_rk_arith_operand_ok(ra) && icn_rk_arith_operand_ok(rb);
+}
 static int icn_assign_safe_kind(IR_e t) {
     return t == IR_ASSIGN || t == IR_VAR || t == IR_CALL || t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
@@ -256,7 +274,7 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
-            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) return 0;
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (icn_rk_bool_cond_emittable(nd)) {} else return 0; }
             if (nd->op == IR_GEN_SCAN) {
                 if (IR_LIT(nd).dval != 1.0) return 0;
                 IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
