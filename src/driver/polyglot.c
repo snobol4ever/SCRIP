@@ -107,8 +107,8 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
                 spec[pos] = '\0';
                 record_register(spec);
             }
-            int _is_raku_call = (s_lang == LANG_RAKU && proc->t == TT_FNC);
-            if (!_is_raku_call && (proc->t == TT_FNC || proc->t == TT_PROC_DECL || proc->t == TT_SUB_DECL)) {
+            int _is_raku_owned = (s_lang == LANG_RAKU && (proc->t == TT_FNC || proc->t == TT_SUB_DECL));
+            if (!_is_raku_owned && (proc->t == TT_FNC || proc->t == TT_PROC_DECL || proc->t == TT_SUB_DECL)) {
                 const char *name = NULL;
                 if (proc->t == TT_SUB_DECL) {
                     if (proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR
