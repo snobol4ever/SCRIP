@@ -1658,6 +1658,16 @@ int rt_pl_is_cell_int(void *lhs_cell, long val) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_is_cell_float(void *lhs_cell, double val) {
+    extern Trail g_resolve_trail;
+    Term *lhs = (Term *)lhs_cell;
+    if (!lhs) return 0;
+    Term *vt = term_new_float(val);
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell(void *lhs_cell, void *rhs_node) {
     extern Trail g_resolve_trail;
     IR_t *rhs = (IR_t *)rhs_node;

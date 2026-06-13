@@ -542,7 +542,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         if (ir_pair_arg(gg,0)->op != IR_LOGICVAR) return 0;
         IR_t *rhs = ir_pair_arg(gg,1);
         IR_t *q0 = (rhs->n_operands > 0) ? rhs->operands[0] : NULL, *q1 = (rhs->n_operands > 1) ? rhs->operands[1] : NULL;
-        int rhs_const = (rhs->op == IR_LIT_I) || ((rhs->op == IR_ARITH) && pl_gz_arith_const(rhs));
+        int rhs_const = (rhs->op == IR_LIT_I) || (rhs->op == IR_LIT_F) || ((rhs->op == IR_ARITH) && pl_gz_arith_const(rhs));
         int rhs_varop = (rhs->op == IR_LOGICVAR) || (rhs->op == IR_ARITH && IR_LIT(rhs).sval && q0 && q1 && q0->op == IR_LOGICVAR && q1->op == IR_LIT_I);
         int rhs_bivar = (rhs->op == IR_ARITH && IR_LIT(rhs).sval && q0 && q1 && q0->op == IR_LOGICVAR && q1->op == IR_LOGICVAR);
         return rhs_const || rhs_varop || rhs_bivar;
@@ -1079,9 +1079,18 @@ static int pl_gz_count_synth(IR_t **buf, int n, int *nsynth) {
 static int pl_gz_arith_const(const IR_t *nd) {
     if (!nd) return 0;
     if (nd->op == IR_LIT_I) return 1;
+    if (nd->op == IR_LIT_F) return 1;
     if (nd->op != IR_ARITH || !IR_LIT(nd).sval) return 0;
     const char *op = IR_LIT(nd).sval;
-    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"/")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0||strcmp(op,"abs")==0) {
+    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"/")==0||strcmp(op,"//")==0||
+        strcmp(op,"mod")==0||strcmp(op,"rem")==0||strcmp(op,"abs")==0||strcmp(op,"sign")==0||
+        strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0||
+        strcmp(op,"max")==0||strcmp(op,"min")==0||strcmp(op,"gcd")==0||strcmp(op,"^")==0||strcmp(op,"**")==0||
+        strcmp(op,"truncate")==0||strcmp(op,"integer")==0||strcmp(op,"round")==0||strcmp(op,"ceiling")==0||strcmp(op,"floor")==0||strcmp(op,"msb")==0||
+        strcmp(op,"sqrt")==0||strcmp(op,"sin")==0||strcmp(op,"cos")==0||strcmp(op,"tan")==0||
+        strcmp(op,"asin")==0||strcmp(op,"acos")==0||strcmp(op,"atan")==0||strcmp(op,"exp")==0||strcmp(op,"log")==0||
+        strcmp(op,"float")==0||strcmp(op,"float_integer_part")==0||strcmp(op,"float_fractional_part")==0||
+        strcmp(op,"pi")==0||strcmp(op,"e")==0||strcmp(op,"inf")==0||strcmp(op,"infinity")==0) {
         if (nd->n_operands > 0 && nd->operands[0] && !pl_gz_arith_const(nd->operands[0])) return 0;
         if (nd->n_operands > 1 && nd->operands[1] && !pl_gz_arith_const(nd->operands[1])) return 0;
         return 1;
@@ -1246,7 +1255,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "is") == 0 && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         IR_t *lhs = ir_pair_arg(gg,0), *rhs = ir_pair_arg(gg,1);
         if (lhs->op != IR_LOGICVAR) return 0;
-        int rhs_is_const = (rhs->op == IR_LIT_I) || ((rhs->op == IR_ARITH) && pl_gz_arith_const(rhs));
+        int rhs_is_const = (rhs->op == IR_LIT_I) || (rhs->op == IR_LIT_F) || ((rhs->op == IR_ARITH) && pl_gz_arith_const(rhs));
         IR_t *w0 = (rhs->n_operands > 0) ? rhs->operands[0] : NULL, *w1 = (rhs->n_operands > 1) ? rhs->operands[1] : NULL;
         int rhs_is_var_op = (rhs->op == IR_LOGICVAR) ||
                             (rhs->op == IR_ARITH && IR_LIT(rhs).sval && w0 && w1 &&

@@ -173,7 +173,7 @@ inline std::string x86_pop (const char * r) { int m = x86_rnum(r); std::string c
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movimm(const char * dst, long imm) {
     int m = x86_rnum(dst);
-    if (MEDIUM_BINARY) { std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le((uint64_t)(uint32_t)imm); return x86_Lrec(code); }
+    if (MEDIUM_BINARY) { std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le((uint64_t)imm); return x86_Lrec(code); }
     return std::string(" mov ") + dst + ", " + std::to_string(imm) + "\n";
 }
 inline std::string x86_movimm32(const char * dst, long imm) {
