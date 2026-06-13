@@ -37,7 +37,7 @@ uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
     } else {
         s += x86("mov", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, "??");
     }

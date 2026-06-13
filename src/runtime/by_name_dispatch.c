@@ -1962,7 +1962,7 @@ DESCR_t proc_as_value(const char *name) {
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void rk_write_str(FILE *dest, const char *s) {
+void rk_write_str(FILE *dest, const char *s) {
     if (!s || !*s) return;
     if (s[0] == '\x03') {
         char flav = s[1];
