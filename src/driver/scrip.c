@@ -224,6 +224,24 @@ static int icn_rk_arith_operand_ok(IR_t *r) {
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD)) return 1;
     return 0;
 }
+static int icn_rk_is_jct_call(IR_t *r) {
+    return r && r->op == IR_CALL && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
+}
+static int icn_rk_jct_marshallable(IR_t *r) {
+    if (!r) return 0;
+    if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_LIT_F || r->op == IR_LIT_NUL) return 1;
+    if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
+    if (r->op == IR_CALL && (IR_LIT(r).dval == 2.0 || IR_LIT(r).dval == 3.0 || IR_LIT(r).dval == 5.0)) return 1;
+    return 0;
+}
+static int icn_rk_bool_truthy_emittable(IR_t *nd) {
+    if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval,"__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
+    IR_graph_t **blks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_graph_t *cond = blks ? blks[0] : (IR_graph_t *)0;
+    if (!cond || !cond->entry) return 0;
+    IR_t *e = cond->entry;
+    return (e->op == IR_LIT_I || e->op == IR_LIT_S || (e->op == IR_VAR && IR_LIT(e).sval && IR_LIT(e).sval[0] != '&'));
+}
 static int icn_rk_bool_cond_emittable(IR_t *nd) {
     if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval, "__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
     IR_graph_t **blks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
@@ -234,6 +252,7 @@ static int icn_rk_bool_cond_emittable(IR_t *nd) {
     if (!rel) return 0;
     IR_t *ra = ir_pair_arg(rel, 0); IR_t *rb = ir_pair_arg(rel, 1);
     if (!ra || !rb) { int n = 0; IR_t * const *aux = bb_operand_aux_get(cond, rel, &n); if (aux && n >= 2) { ra = aux[0]; rb = aux[1]; } }
+    if ((icn_rk_is_jct_call(ra) || icn_rk_is_jct_call(rb)) && icn_rk_jct_marshallable(ra) && icn_rk_jct_marshallable(rb)) return 1;
     return icn_rk_arith_operand_ok(ra) && icn_rk_arith_operand_ok(rb);
 }
 static int icn_assign_safe_kind(IR_e t) {
@@ -274,7 +293,7 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
-            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (icn_rk_bool_cond_emittable(nd)) {} else return 0; }
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (icn_rk_bool_cond_emittable(nd)||icn_rk_bool_truthy_emittable(nd)) {} else return 0; }
             if (nd->op == IR_GEN_SCAN) {
                 if (IR_LIT(nd).dval != 1.0) return 0;
                 IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;

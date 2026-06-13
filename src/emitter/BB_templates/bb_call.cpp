@@ -28,6 +28,8 @@ DESCR_t * rt_gvar_cell(const char * name);
 extern int g_emit_frame_caller_dl;
 DESCR_t rt_proc_define(const char * spec);
 DESCR_t NV_GET_fn(const char * name);
+int  rt_rk_is_truthy(DESCR_t v);
+int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -514,14 +516,63 @@ static IR_t * rkbool_cond_relop(IR_graph_t * cond) {
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_jct_call(IR_t * r) {
+    return r && r->op == IR_CALL && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_call_rk_bool_truthy_cond_str(IR_t * pBB) {
+    if (!PLATFORM_X86) return std::string();
+    IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
+    IR_graph_t * cond = blks ? blks[0] : NULL;
+    IR_t * e = cond ? cond->entry : NULL;
+    if (!e) return x86_bomb("bb_call_rk_bool_truthy: empty cond sub-graph");
+    std::string s = x86("label", _.lbl_α)
+                  + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rt_rk_is_truthy -> branch true=γ / false=ω]");
+    if (e->op == IR_LIT_I) {
+        s += x86("mov32", "edi", (long)6) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
+    } else if (e->op == IR_LIT_S) {
+        s += x86("mov32", "edi", (long)1) + x86_ro_load_q("rsi", 0) + x86_jmp_id(1) + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "") + x86_deflabel_id(1);
+    } else if (e->op == IR_VAR && IR_LIT(e).sval) {
+        int voff = bb_varslot(IR_LIT(e).sval);
+        s += x86_frame_load64("rdi", voff) + x86_frame_load64("rsi", voff + 8);
+    } else {
+        return x86_bomb("bb_call_rk_bool_truthy: unhandled cond entry kind");
+    }
+    return s + x86("call", "rt_rk_is_truthy", (uint64_t)(uintptr_t)(void *)rt_rk_is_truthy)
+             + x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_call_rk_bool_jct_cond_str(IR_t * pBB) {
+    if (!PLATFORM_X86) return std::string();
+    IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
+    IR_graph_t * cond = blks ? blks[0] : NULL;
+    IR_t * relnd = rkbool_cond_relop(cond);
+    if (!relnd) return x86_bomb("bb_call_rk_bool_jct: no relop in cond sub-graph");
+    IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
+    if (!ra || !rb) return x86_bomb("bb_call_rk_bool_jct: relop operands unresolved");
+    int lhs_slot = bb_slot_claim(16);
+    int rhs_slot = bb_slot_claim(16);
+    std::string s = x86("label", _.lbl_α)
+                  + x86("comment", "BOX __rk_bool [dval=2 junction relop -> rt_jct_relop -> branch true=γ / false=ω]");
+    s += marshal_call_arg(ra, cond, lhs_slot, NULL, 0);
+    s += marshal_call_arg(rb, cond, rhs_slot, NULL, 1);
+    s += x86_frame_load64("rdi", lhs_slot) + x86_frame_load64("rsi", lhs_slot + 8);
+    s += x86_frame_load64("rdx", rhs_slot) + x86_frame_load64("rcx", rhs_slot + 8);
+    s += x86("mov32", "r8d", (long)IR_LIT(relnd).ival);
+    return s + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void *)rt_jct_relop)
+             + x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_rk_bool_cond_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * relnd = rkbool_cond_relop(cond);
-    if (!relnd) return x86_bomb("bb_call_rk_bool_cond: cond sub-graph is not a plain relop");
+    if (!relnd) return bb_call_rk_bool_truthy_cond_str(pBB);
     IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
-    if (!ra || !rb || !arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_bomb("bb_call_rk_bool_cond: relop operands unhandled");
+    if (!ra || !rb) return x86_bomb("bb_call_rk_bool_cond: relop operands unresolved");
+    if (rk_is_jct_call(ra) || rk_is_jct_call(rb)) return bb_call_rk_bool_jct_cond_str(pBB);
+    if (!arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_bomb("bb_call_rk_bool_cond: relop operands unhandled");
     int scratch = bb_slot_alloc16(relnd);
     return x86("label", _.lbl_α)
          + x86("comment", "BOX __rk_bool [dval=2 relop condition -> branch true=γ / false=ω]")
