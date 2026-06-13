@@ -92,6 +92,7 @@ RT_PIC_SRCS := \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
     $(SRC)/emitter/emit_str.cpp \
+    $(SRC)/emitter/emit_term_build.cpp \
     $(SRC)/emitter/emit_globals.c \
     $(SRC)/emitter/emit_io.c \
     $(SRC)/emitter/BB_templates/bb_match_defer.cpp \
@@ -462,6 +463,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_arbno.cpp             -o $(OBJ)/bb_match_arbno.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_abort.cpp     -o $(OBJ)/bb_match_abort.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_str.cpp                      -o $(OBJ)/emit_str.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_term_build.cpp               -o $(OBJ)/emit_term_build.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_fence.cpp     -o $(OBJ)/bb_match_fence.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_alt.cpp    -o $(OBJ)/bb_match_alt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_cat.cpp    -o $(OBJ)/bb_match_cat.o
