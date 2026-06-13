@@ -13,6 +13,9 @@
 #   blank_lines   — blank lines in source (raw, not stripped)
 #   port_english  — PORT_ALPHA|PORT_BETA|PORT_GAMMA|PORT_OMEGA (must use α β γ ω)
 #   local_vars    — local variable declarations inside *_str() body (no locals per SPEC)
+#   lang_blind    — reads of driver-mode/LANGUAGE state-globals (g_gvar_flat_chain/g_descr_flat_chain/
+#                   g_icn_scan_regs_live/g_gvar_callarg_live) inside a template (LANGUAGE-BLIND FACT RULE).
+#                   Distinct from legit extern FUNCTION decls (rt_*/POWER_fn). Extend the alternation for new selectors.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -50,7 +53,8 @@ cv9_str=$(strip "$f"   | grep -cE 'bb_[a-z0-9_]*_str\b' || true)
 cv9_param=$(strip "$f" | grep -cE 'std::string[^;]*\bIR_t[[:space:]]*\*' || true)
 cv9=$(( cv9_str + cv9_param ))
 cv10=$(strip "$f"      | grep -cE 'ir_call_arg\(|ir_pair_arg\(|ir_operand|\bIR_LIT[[:space:]]*\(' || true)
-total=$((emit_blind + neighbor_walk + bsize + raw_bytes + medium_any + emit_fmt + line_comments + blank_lines + port_english + local_vars + rp + hc + sig_decls + over_col + multi_x86 + xc + bypass + cv9 + cv10))
+lang_blind=$(strip "$f" | grep -cE '\bg_(gvar_flat_chain|descr_flat_chain|icn_scan_regs_live|gvar_callarg_live)\b' || true)
+total=$((emit_blind + neighbor_walk + bsize + raw_bytes + medium_any + emit_fmt + line_comments + blank_lines + port_english + local_vars + rp + hc + sig_decls + over_col + multi_x86 + xc + bypass + cv9 + cv10 + lang_blind))
 name="$(basename "$f")"
 echo "=== audit_bb_fixup_file: $name ==="
 printf "  emit_blind    (pBB->[αβγω]):          %d\n" "$emit_blind"
@@ -72,6 +76,7 @@ printf "  extra_cmts    (non-separator cmts):   %d\n" "$xc"
 printf "  bypass        (x86_frame/ro/reg_*):   %d\n" "$bypass"
 printf "  cv9_param_str (_str / IR_t* in sig):  %d\n" "$cv9"
 printf "  cv10_graph    (ir_call_arg/IR_LIT):   %d\n" "$cv10"
+printf "  lang_blind    (g_*_flat_chain/scan):  %d\n" "$lang_blind"
 echo "  ---"
 printf "  TOTAL violations:                     %d\n" "$total"
 if [ "$total" -eq 0 ]; then
