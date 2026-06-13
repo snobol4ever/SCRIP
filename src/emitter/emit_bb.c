@@ -1988,10 +1988,12 @@ static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static char g_seq_int_bufs[16][24];
 static int gvar_seq_flatten(IR_graph_t *g, int *n) {
     if (!g || !g->entry || *n >= 16) return 0;
     IR_t *e = g->entry;
     if (e->op == IR_LIT_S) { g_emit.op_parts_tag[*n] = 0; g_emit.op_parts_str[(*n)++] = IR_LIT(e).sval ? IR_LIT(e).sval : ""; return 1; }
+    if (e->op == IR_LIT_I) { int _s = (*n)++; snprintf(g_seq_int_bufs[_s], 24, "%lld", (long long)IR_LIT(e).ival); g_emit.op_parts_tag[_s] = 0; g_emit.op_parts_str[_s] = g_seq_int_bufs[_s]; return 1; }
     if (e->op == IR_VAR)   { g_emit.op_parts_tag[*n] = 1; g_emit.op_parts_str[(*n)++] = IR_LIT(e).sval ? IR_LIT(e).sval : ""; return 1; }
     if (e->op == IR_SEQ)   {
         IR_graph_t *l = (IR_graph_t *)(intptr_t)IR_EXEC(e).counter;
