@@ -8,6 +8,11 @@
 #include "../../parser/prolog/prolog_runtime.h"
 #include "../../parser/prolog/prolog_atom.h"
 #include "../../parser/prolog/prolog_builtin.h"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern void rt_trail_unwind(int mark);
+void rt_cp_trail_unwind(void) { resolve_choice *cp = resolve_cp_current(); if (cp) rt_trail_unwind(cp->trail_mark); }
+void rt_cp_inc_cursor(void)   { resolve_choice *cp = resolve_cp_current(); if (cp) cp->cursor++; }
+int  rt_cp_get_cursor(void)   { resolve_choice *cp = resolve_cp_current(); return cp ? cp->cursor : 0; }
 #include "../../interp/IR_interp.h"
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 #include "gen_value.h"
