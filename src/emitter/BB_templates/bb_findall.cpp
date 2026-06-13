@@ -18,22 +18,10 @@ static std::string bff_goal(const IR_t *gn) {
 std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
-        if (strcmp(fn, "findall") == 0)
+        if (strcmp(fn, "findall") == 0 || strcmp(fn, "aggregate_all") == 0)
             return hdr
-                 + x86("sub", "rsp", 16L)
-                 + x86("movabs", "rdi", (uint64_t)(uintptr_t)(void *)(intptr_t)_.op_ival)
-                 + x86("call", "rt_findall", (uint64_t)(uintptr_t)(void*)rt_findall)
-                 + x86("add", "rsp", 16L)
-                 + x86("test", "eax", "eax")
-                 + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
-        if (strcmp(fn, "aggregate_all") == 0)
-            return hdr
-                 + x86("sub", "rsp", 16L)
-                 + x86("movabs", "rdi", (uint64_t)(uintptr_t)(void *)(intptr_t)_.op_ival)
-                 + x86("call", "rt_aggregate", (uint64_t)(uintptr_t)(void*)rt_aggregate)
-                 + x86("add", "rsp", 16L)
-                 + x86("test", "eax", "eax")
-                 + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
+                 + x86_bomb("bb_findall m3 BINARY: rt_findall/rt_aggregate walk the IR graph at runtime — FORBIDDEN in mode 3 (PL-GZ: IR is NEVER touched in m3/m4). Rewrite to emit term-build instructions + rt_findall_term.")
+                 + x86("def", "β") + x86("jmp", "ω");
     }
     if (MEDIUM_TEXT) {
         if (strcmp(fn, "findall") == 0) {

@@ -85,6 +85,7 @@ void rt_pl_frame_sync_env(void *frame, int nslots)
 void rt_pl_gz_init(void *frame, int nslots)
 {
     extern Term **g_resolve_env;
+    prolog_atom_init();
     if (!g_resolve_env) g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 64) * sizeof(Term *));
     Term **cells = (Term **)(((char *)frame) + 8);
     for (int i = 0; i < nslots; i++) {
@@ -111,42 +112,9 @@ int rt_pl_unify_cell_float(void *cell_term, double dval)
     return rt_unify_terms(cell_term, rt_node_to_term(IR_LIT_F, 0, (const char *)0, dval));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static Term *pl_build_term_gz_r(void *frame, const void *ir_node)
-{
-    extern void *GC_malloc(size_t);
-    const IR_t *nd = (const IR_t *)ir_node;
-    if (!nd) return (Term *)0;
-    switch (nd->op) {
-    case IR_LOGICVAR: {
-        int slot = (int)IR_LIT(nd).ival;
-        if (slot < 0) return (Term *)0;
-        Term **cells = (Term **)(((char *)frame) + 8);
-        return cells[slot] ? term_deref(cells[slot]) : (Term *)0;
-    }
-    case IR_ATOM:  return term_new_atom(prolog_atom_intern(IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]"));
-    case IR_LIT_I: return term_new_int((long)IR_LIT(nd).ival);
-    case IR_LIT_F: return term_new_float(IR_LIT(nd).dval);
-    case IR_STRUCT: {
-        int arity = (int)IR_LIT(nd).ival;
-        if (arity <= 0) return term_new_atom(prolog_atom_intern(IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]"));
-        Term **args = (Term **)GC_malloc((size_t)arity * sizeof(Term *));
-        if (!args) return (Term *)0;
-        for (int i = 0; i < arity; i++) { const IR_t *a = ir_call_arg(nd, i); if (!a) break; args[i] = pl_build_term_gz_r(frame, a); }
-        return term_new_compound(prolog_atom_intern(IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]"), arity, args);
-    }
-    default: return (Term *)0;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unify_struct_gz(void *frame, const void *lnd, const void *rnd)
 {
-    extern Trail g_resolve_trail;
-    Term *lt = pl_build_term_gz_r(frame, lnd);
-    Term *rt_ = pl_build_term_gz_r(frame, rnd);
-    if (!lt || !rt_) return 0;
-    int mark = trail_mark(&g_resolve_trail);
-    if (!unify(lt, rt_, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    return 1;
+    (void)frame; (void)lnd; (void)rnd; return *(volatile char *)0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell_term)

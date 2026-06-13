@@ -2400,7 +2400,7 @@ int main(int argc, char **argv)
                 return 1;
             }
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
-            g_gz_no_struct_ptr = 1;
+            g_gz_no_struct_ptr = 0;
             IR_t *gz_root = pl_gz_admit(pl_main);
             g_gz_no_struct_ptr = 0;
             if (gz_root) {
@@ -2419,6 +2419,8 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n");
                 printf("  ret\n");
                 int rc = pl_gz_codegen(gz_root, stdout, "main");
+                extern void xa_emit_strtab_rodata(void);
+                xa_emit_strtab_rodata();
                 fflush(stdout);
                 return rc;
             }
