@@ -602,32 +602,16 @@ std::string bb_call(IR_t * pBB) {
         int off = bb_slot_get(a0);
         if (off >= 0) return bb_call_rk_bool_str(pBB);
     }
-    if (g_descr_flat_chain && fn && (!strcmp(fn, "write")) && narg == 1 && a0) {
-        int off = bb_slot_get(a0);
-        if (off >= 0) return bb_call_write_slot_str(pBB);
+    switch (_.op_write_route) {
+        case 1: return bb_call_write_slot_str(pBB);
+        case 2: case 3: return bb_call_write_binop_str(pBB);
+        case 4: return bb_call_write_legacy_str(pBB, 1);
+        case 5: return std::string();
+        default: break;
     }
-    int is_write_strlit  = (fn && !strcmp(fn, "write") && narg == 1 && a0 && a0->op == IR_LIT_S && IR_LIT(a0).sval);
-    int is_write_intexpr = (fn && !strcmp(fn, "write") && narg == 1 && a0 &&
-                            (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_ALT || a0->op == IR_BINOP_GEN || a0->op == IR_VAR ||
-                             a0->op == IR_NEG || a0->op == IR_POS || a0->op == IR_NONNULL || a0->op == IR_NULL_TEST || a0->op == IR_NOT || a0->op == IR_SIZE
-                                || a0->op == IR_CALL || a0->op == IR_CASE || a0->op == IR_FIELD_GET || a0->op == IR_LIST_BANG || a0->op == IR_LIMIT || a0->op == IR_IDX));
-    int arg_is_any = (a0 && (a0->op == IR_VAR || a0->op == IR_BINOP || a0->op == IR_BINOP_GEN || a0->op == IR_ALT ||
-                             a0->op == IR_NEG || a0->op == IR_POS || a0->op == IR_NONNULL || a0->op == IR_NULL_TEST || a0->op == IR_NOT || a0->op == IR_SIZE ||
-                             a0->op == IR_CALL || a0->op == IR_CASE || a0->op == IR_FIELD_GET || a0->op == IR_LIST_BANG || a0->op == IR_LIMIT || a0->op == IR_IDX ||
-                             (a0->op == IR_TO_BY && IR_LIT(a0).sval && IR_LIT(a0).sval[0] == 'r')));
-    int is_userproc = (fn && rt_proc_is_registered(fn) && !is_write_strlit && !is_write_intexpr);
-    if (is_userproc) return bb_call_userproc_str(pBB);
-    int is_builtin  = (fn && rt_builtin_is_known(fn)       && !is_write_strlit && !is_write_intexpr);
-    if (is_builtin)  return bb_call_fn_str(pBB);
-    if (!is_write_strlit && !is_write_intexpr) {
-        fprintf(stderr, "[IBB] FATAL bb_call: unsupported call shape fn='%s' narg=%lld a0=%d\n",
-                fn, (long long)narg, a0 ? (int)a0->op : -1);
-        abort();
-    }
-    if (is_write_intexpr) {
-        int arg_is_ro_binop = (a0 && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_TO_BY));
-        if (arg_is_ro_binop) return bb_call_write_binop_str(pBB);
-        return bb_call_write_legacy_str(pBB, arg_is_any);
-    }
+    if (fn && rt_proc_is_registered(fn)) return bb_call_userproc_str(pBB);
+    if (fn && rt_builtin_is_known(fn))  return bb_call_fn_str(pBB);
+    fprintf(stderr, "[IBB] FATAL bb_call: unsupported call shape fn='%s' narg=%lld a0=%d\n", fn, (long long)narg, a0 ? (int)a0->op : -1);
+    abort();
     return std::string();
 }

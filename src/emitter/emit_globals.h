@@ -38,6 +38,7 @@ typedef struct {
     int                          op_off;
     const char *                 op_call_sym;
     void *                        op_call_fp;
+    int                          op_write_route;
     const char *                 lbl_α;
     const char *                 lbl_γ;
     const char *                 lbl_ω;
