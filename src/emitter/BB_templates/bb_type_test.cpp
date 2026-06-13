@@ -1,5 +1,7 @@
 #include "bb_common.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string tt_rip_lea(const char *dst, const char *raw, const char *lbl) { return x86("lea", dst, "[rip + __]", (uint64_t)(uintptr_t)(raw ? raw : ""), lbl); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
     if (MEDIUM_BINARY) {
@@ -60,7 +62,7 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
                      + x86("sub", "rsp", "16")
                      + emit_build_compound_term(a0)
                      + x86("mov", "rsi", "rax")
-                     + x86("lea", "rdi", emit_fmt("[rip + %s]", op_lbl))
+                     + tt_rip_lea("rdi", fn, op_lbl)
                      + x86("call", "rt_type_test_term@PLT")
                      + x86("add", "rsp", "16")
                      + x86("test", "eax", "eax")
@@ -73,10 +75,10 @@ std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr) 
             char s0lbl[64]; s0lbl[0] = 0;
             if (k0 == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
             return hdr
-                 + x86("lea", "rdi", emit_fmt("[rip + %s]", op_lbl))
+                 + tt_rip_lea("rdi", fn, op_lbl)
                  + x86("mov", "esi", emit_fmt("%d",  k0))
                  + x86("mov", "rdx", emit_fmt("%ld", i0))
-                 + (s0lbl[0] ? x86("lea", "rcx", emit_fmt("[rip + %s]", s0lbl)) : x86("xor", "ecx", "ecx"))
+                 + (s0lbl[0] ? tt_rip_lea("rcx", IR_LIT(a0).sval, s0lbl) : x86("xor", "ecx", "ecx"))
                  + x86("call", "rt_type_test@PLT")
                  + x86("test", "eax", "eax")
                  + x86("je",   _.lbl_ω)
