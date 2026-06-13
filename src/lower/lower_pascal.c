@@ -143,6 +143,7 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     int rm = rt && is_relop(rt->t) && !is_relop(t->t);
     IR_t * op = build(cx, IR_BINOP, γ, ω);
     IR_LIT(op).ival = lc_binop_code(t->t);
+    if (t->v.ival == 1 && is_relop(t->t)) IR_LIT(op).dval = 1.0;
     if (!lm && !rm) {
         int lmark = cx->g->n;
         IR_t * le = lower(cx, lt, NULL, ω);
