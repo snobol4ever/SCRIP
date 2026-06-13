@@ -9,7 +9,7 @@ static std::string bdisp(IR_t *pBB) {
     std::string r;
     if (!(r = bb_io()).empty()) return r;
     if (!(r = bb_is_cmp_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_type_test_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_type_test()).empty()) return r;
     if (!(r = bb_term_inspect_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_aggregate_nb()).empty()) return r;
     if (!(r = bb_atom_string()).empty()) return r;
