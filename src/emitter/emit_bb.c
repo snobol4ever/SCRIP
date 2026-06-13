@@ -1731,25 +1731,21 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
 }
-static int gvar_callarg_admit(IR_t *ae) {
-    if (!ae || !icn_arg_entry_terminal(ae)) return 0;
-    if (ae->op == IR_LIT_I || ae->op == IR_LIT_S || ae->op == IR_LIT_F || ae->op == IR_LIT_NUL) return 1;
-    if (ae->op == IR_VAR_FRAME || ae->op == IR_VAR_FRAME_REF) return 1;
-    if (ae->op == IR_VAR && IR_LIT(ae).sval && IR_LIT(ae).sval[0] != '&') return 1;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
     g_emit.op_arg_slot_n = 0;
     int nargs = (int)(nd ? IR_LIT(nd).ival : 0);
     IR_graph_t **subs = nd ? (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter : NULL;
     if (nargs > OP_ARG_SLOT_MAX) return;
-    IR_t *res[OP_ARG_SLOT_MAX]; int nadmit = 0;
+    IR_t *res[OP_ARG_SLOT_MAX]; IR_t *res_last[OP_ARG_SLOT_MAX]; int nadmit = 0;
     for (int i = 0; i < nargs; i++) {
         IR_t *ae = (subs && subs[i]) ? subs[i]->entry : NULL;
         { int guard = 0; while (ae && (ae->op == IR_SUCCEED || ae->op == IR_FAIL) && ae->γ.node && guard++ < 64) ae = ae->γ.node; }
-        res[i] = gvar_callarg_admit(ae) ? ae : NULL;
-        if (res[i]) nadmit++;
+        if (ae) {
+            res[i] = ae; nadmit++;
+            IR_t *last = ae; int g2 = 0;
+            while (last->γ.node && last->γ.node->op != IR_SUCCEED && last->γ.node->op != IR_FAIL && g2++ < 512) last = last->γ.node;
+            res_last[i] = last;
+        } else { res[i] = NULL; res_last[i] = NULL; }
     }
     if (!nadmit) return;
     if (g_flat_slot_count < 16) (void)bb_slot_claim(16 - g_flat_slot_count);
@@ -1761,10 +1757,19 @@ static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
         bb_label_t *arg_done = emit_label_alloc("xgvarg%d_done", id);
         bb_label_t *arg_β    = emit_label_alloc("xgvarg%d_β",    id);
         g_gvar_callarg_live = 1;
-        walk_bb_flat(res[i], arg_done, lbl_ω, arg_β);
+        if (icn_arg_entry_terminal(res[i])) {
+            walk_bb_flat(res[i], arg_done, lbl_ω, arg_β);
+            slots[i] = bb_slot_get(res[i]);
+        } else if (res_last[i] && res_last[i]->op == IR_BINOP && (IR_LIT(res_last[i]).ival == BINOP_ADD || IR_LIT(res_last[i]).ival == BINOP_SUB || IR_LIT(res_last[i]).ival == BINOP_MUL || IR_LIT(res_last[i]).ival == BINOP_DIV || IR_LIT(res_last[i]).ival == BINOP_MOD)) {
+            /* arith BINOP chain: marshal_call_arg inline-arith handles correctly (stores DT_I tag); pre-computation would only store 8-byte raw int missing the tag */
+        } else {
+            IR_graph_t *_save_cfg = g_emit_cfg; if (subs && subs[i]) g_emit_cfg = subs[i];
+            flat_emit_arg_subchain(res[i], arg_done, lbl_ω);
+            g_emit_cfg = _save_cfg;
+            slots[i] = bb_slot_get(res_last[i]);
+        }
         g_gvar_callarg_live = 0;
         emit_label_define_bb(arg_done);
-        slots[i] = bb_slot_get(res[i]);
     }
     for (int i = 0; i < nargs; i++) g_emit.op_arg_slot[i] = slots[i];
     g_emit.op_arg_slot_n = nargs;
@@ -2645,6 +2650,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         break;
     }
     case IR_BINOP: {
+        if (g_gvar_flat_chain && nd && !bb_child0(nd) && g_emit_cfg) { int _na = 0; IR_t * const * _ax = bb_operand_aux_get(g_emit_cfg, nd, &_na); if (_na >= 2 && _ax[0] && _ax[1]) { nd->n_operands = 0; ir_operand_push(nd, _ax[0]); ir_operand_push(nd, _ax[1]); } }
         int op_is_rel = nd && ((IR_LIT(nd).ival >= BINOP_LT && IR_LIT(nd).ival <= BINOP_NE) ||
                                (IR_LIT(nd).ival >= BINOP_SLT && IR_LIT(nd).ival <= BINOP_SNE));
         int op_is_arith = nd && (IR_LIT(nd).ival == BINOP_ADD || IR_LIT(nd).ival == BINOP_SUB || IR_LIT(nd).ival == BINOP_MUL || IR_LIT(nd).ival == BINOP_DIV || IR_LIT(nd).ival == BINOP_MOD);
