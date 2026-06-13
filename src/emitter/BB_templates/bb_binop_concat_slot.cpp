@@ -16,8 +16,8 @@ static inline int bcs_ok() { return g_descr_flat_chain && _.op_off >= 0 && _.op_
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
     return IF(PLATFORM_X86 && bcs_ok(),
-           IF(MEDIUM_TEXT, x86("label", _.lbl_α)
-                         + x86("comment", "BOX IR_BINOP concat [GZ-11+ x86() stackless slot->slot DESCR]"))
+           x86("label", _.lbl_α)
+         + x86("comment", "IR_BINOP_CONCAT")
          + x86("mov", "rdi", FRQ(_.op_sa))
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
          + x86("mov", "rdx", FRQ(_.op_sb))
