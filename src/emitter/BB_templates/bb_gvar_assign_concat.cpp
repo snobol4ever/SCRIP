@@ -27,8 +27,8 @@ std::string bb_gvar_assign_concat() {
     if (PLATFORM_X86) return _.bb_rs
         ? x86("label",  _.lbl_α)
         + x86("comment","IR_ASSIGN_CONCAT lit_s")
-        + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)_.bb_ls, _.bb_ls)
-        + x86("lea",  "rsi", "[rip + __]", (uint64_t)(uintptr_t)_.bb_rs, _.bb_rs)
+        + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval           ? _.op_sval           : ""), _.bb_ls)
+        + x86("lea",  "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_parts_str[0]   ? _.op_parts_str[0]   : ""), _.bb_rs)
         + x86("call", "rt_gvar_assign_str", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, const char *))rt_gvar_assign_str)
         + x86("jmp",  "γ")
         + x86("def",  "β")
