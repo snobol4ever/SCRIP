@@ -36,6 +36,7 @@ typedef struct {
     int                          op_sa;
     int                          op_sb;
     int                          op_off;
+    int                          op_relop_descr;
     const char *                 op_call_sym;
     void *                        op_call_fp;
     int                          op_write_route;
