@@ -392,23 +392,6 @@ static int pl_flat_goal_is_simple(const IR_t *g) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pl_flat_body_root(IR_graph_t *g) {
-    if (!g || !g->all) return NULL;
-    IR_t *gconj = NULL;
-    for (int i = 0; i < g->n; i++) {
-        IR_t *nd = g->all[i];
-        if (nd && nd->op == IR_GCONJ) { if (gconj) return NULL; gconj = nd; }
-    }
-    if (!gconj) {
-        if (g->nslots > 0) return NULL;
-        return (g->entry && g->entry->op == IR_SUCCEED) ? g->entry : NULL;
-    }
-    bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)IR_LIT(gconj).ival;
-    if (!zs || !zs->goals || zs->ngoals <= 0) return NULL;
-    for (int i = 0; i < zs->ngoals; i++) if (!pl_flat_goal_is_simple(zs->goals[i])) return NULL;
-    return gconj;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * g_pl_gz_pool = NULL;
 static IR_t * pl_gz_det_node(int kind) {
     if (!g_pl_gz_pool) g_pl_gz_pool = IR_alloc(16384, IR_LANG_PL);
@@ -1903,125 +1886,6 @@ static int pl_findall_conj_member_admissible(const IR_t *g) {
     }
     return 0;
 }
-static int pl_rich_node_emittable(const IR_t *nd) {
-    if (!nd) return 1;
-    switch (nd->op) {
-    case IR_GCONJ: case IR_GOAL:
-    case IR_CHOICE: case IR_DISJ:
-    case IR_SUCCEED: case IR_FAIL: case IR_CUT: case IR_ITE_COMMIT: case IR_ITE_GATE:
-    case IR_LOGICVAR: case IR_ATOM: case IR_STRUCT:
-    case IR_LIT_I: case IR_LIT_F: case IR_LIT_S: case IR_LIT_NUL:
-        return 1;
-    case IR_ITE: {
-        bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(nd).ival;
-        if (zi && !pl_ite_then_branch_trivial(zi->then_)) return 0;
-        return 1;
-    }
-    case IR_CATCH: {
-        bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)IR_LIT(nd).ival;
-        if (!zc || !zc->goal_g || !zc->rec_g) return 0;
-        return zc->catcher ? pl_findall_term_buildable(zc->catcher) : 0;
-    }
-    case IR_UNIFY: {
-        const IR_t *l = (nd->n_operands > 0) ? nd->operands[0] : NULL, *r = (nd->n_operands > 1) ? nd->operands[1] : NULL;
-        int lk = l ? (int)l->op : -1, rk = r ? (int)r->op : -1;
-        if (lk == IR_ARITH || rk == IR_ARITH) return 0;
-        return 1;
-    }
-    case IR_ARITH:
-        return 1;
-    case IR_BUILTIN: {
-        const char *fn = IR_LIT(nd).sval ? IR_LIT(nd).sval : "";
-        if (!strcmp(fn, "is")) return pl_flat_goal_is_simple(nd) || pl_rich_is_lint_simple(nd);
-        static const char *ok[] = { "write", "writeln", "print", "nl", "halt", NULL };
-        for (int k = 0; ok[k]; k++) if (!strcmp(fn, ok[k])) return 1;
-        static const char *acmp[] = { ">", "<", ">=", "=<", "<=", "=:=", "=\\=", NULL };
-        for (int k = 0; acmp[k]; k++)
-            if (!strcmp(fn, acmp[k])) return pl_flat_arith_leaf_simple(ir_pair_arg(nd,0)) && pl_flat_arith_leaf_simple(ir_pair_arg(nd,1));
-        if (ir_pair_arg(nd,0) && ir_pair_arg(nd,1) &&
-            (!strcmp(fn,"==")||!strcmp(fn,"\\==")||!strcmp(fn,"@<")||!strcmp(fn,"@>")||!strcmp(fn,"@=<")||!strcmp(fn,"@>=")))
-            return 1;
-        static const char *ttest[] = { "var","nonvar","atom","atomic","number","integer",
-                                        "float","compound","callable","is_list","ground", NULL };
-        for (int k = 0; ttest[k]; k++) if (!strcmp(fn, ttest[k])) return ir_call_arg(nd,0) != NULL;
-        if (!strcmp(fn,"succ")) return IR_LIT(nd).ival==2 && ir_pair_arg(nd,0) && ir_pair_arg(nd,1);
-        if (!strcmp(fn,"throw")) return IR_LIT(nd).ival==1 && ir_call_arg(nd,0) && pl_findall_term_buildable(ir_call_arg(nd,0));
-        if (!strcmp(fn,"findall")) {
-            bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)IR_LIT(nd).ival;
-            if (!fs || !fs->goal_node || !fs->tmpl || !fs->result) return 0;
-            if (!pl_findall_term_buildable(fs->tmpl) || !pl_findall_term_buildable(fs->result)) return 0;
-            if (pl_findall_goal_graph_simple(fs->gcfg, fs->goal_node)) return pl_findall_goal_admissible(fs->goal_node);
-            return pl_findall_goal_conj_admissible(fs->gcfg, fs->goal_node);
-        }
-        if (!strcmp(fn,"nb_setval")||!strcmp(fn,"nb_getval"))
-            return IR_LIT(nd).ival==2 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && pl_findall_term_buildable(ir_call_arg(nd,0)) && pl_findall_term_buildable(ir_call_arg(nd,1));
-        if (!strcmp(fn,"aggregate_all"))
-            return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2) && pl_findall_term_buildable(ir_call_arg(nd,0)) && pl_findall_term_buildable(ir_call_arg(nd,1)) && pl_findall_term_buildable(ir_call_arg(nd,2));
-        if (!strcmp(fn,"plus")) return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
-        if (!strcmp(fn,"sort")||!strcmp(fn,"msort")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
-        if (!strcmp(fn,"format")) return ir_call_arg(nd,0) && (IR_LIT(nd).ival==1 || IR_LIT(nd).ival==2);
-        if (!strcmp(fn,"numbervars")) return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
-        if (!strcmp(fn,"copy_term")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
-        static const char *atom2[] = { "atom_length","upcase_atom","downcase_atom","string_length",
-            "string_upper","string_lower","atom_string","string_to_atom", NULL };
-        for (int k = 0; atom2[k]; k++) if (!strcmp(fn, atom2[k])) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
-        if (!strcmp(fn,"atom_concat")||!strcmp(fn,"string_concat")) return ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
-        static const char *achars[] = { "atom_chars","atom_codes","string_chars","string_codes", NULL };
-        for (int k = 0; achars[k]; k++) if (!strcmp(fn, achars[k])) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
-        if (!strcmp(fn,"char_type")) return IR_LIT(nd).ival==2 && ir_call_arg(nd,0) && ir_call_arg(nd,1);
-        if (!strcmp(fn,"number_string")||!strcmp(fn,"atom_number")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
-        if (!strcmp(fn,"functor")) return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
-        if (!strcmp(fn,"arg")) return IR_LIT(nd).ival==3 && ir_call_arg(nd,0) && ir_call_arg(nd,1) && ir_call_arg(nd,2);
-        if (!strcmp(fn,"=..")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
-        if (!strcmp(fn,"term_to_atom")||!strcmp(fn,"term_string")) return ir_call_arg(nd,0) && ir_call_arg(nd,1);
-        if (!strcmp(fn,"writeq")||!strcmp(fn,"write_canonical")) return ir_call_arg(nd,0) != NULL;
-        if (!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) return ir_call_arg(nd,0) && (IR_LIT(nd).ival==2 || IR_LIT(nd).ival==3);
-        return 0;
-    }
-    default:
-        return 0;
-    }
-}
-static int pl_rich_graph_ok(IR_graph_t *g) {
-    if (!g || !g->all) return 0;
-    for (int i = 0; i < g->n; i++) {
-        IR_t *nd = g->all[i];
-        if (!pl_rich_node_emittable(nd)) return 0;
-        if (nd && nd->op == IR_CHOICE) {
-            bb_choice_state_t *zc = (bb_choice_state_t *)(intptr_t)IR_LIT(nd).ival;
-            if (zc && zc->bodies)
-                for (int b = 0; b < zc->nbodies; b++)
-                    if (zc->bodies[b] && !pl_rich_graph_ok(zc->bodies[b])) return 0;
-        }
-        if (nd && nd->op == IR_CATCH) {
-            bb_catch_state_t *zk = (bb_catch_state_t *)(intptr_t)IR_LIT(nd).ival;
-            if (!zk || !pl_rich_graph_ok(zk->goal_g) || !pl_rich_graph_ok(zk->rec_g)) return 0;
-        }
-    }
-    return 1;
-}
-static IR_t * pl_rich_body_root(IR_graph_t *main_g) {
-    if (!main_g || !main_g->entry) return NULL;
-    if (!pl_rich_graph_ok(main_g)) return NULL;
-    int npred = resolve_bb_pred_count();
-    for (int i = 0; i < npred; i++) {
-        const char *nm = resolve_bb_pred_name_at(i);
-        if (!nm) continue;
-        IR_graph_t *pg = resolve_bb_graph_at(i);
-        if (!pg) continue;
-        if (!pl_rich_graph_ok(pg)) return NULL;
-    }
-    if (main_g->body_root) return main_g->body_root;
-    {
-        IR_t *gconj = NULL;
-        for (int i = 0; i < main_g->n; i++) {
-            IR_t *nd = main_g->all[i];
-            if (nd && nd->op == IR_GCONJ) { if (gconj) { gconj = NULL; break; } gconj = nd; }
-        }
-        if (gconj) return gconj;
-    }
-    return main_g->entry;
-}
 /*====================================================================================================================*/
 int main(int argc, char **argv)
 {
@@ -2520,88 +2384,8 @@ int main(int argc, char **argv)
                 fflush(stdout);
                 return rc;
             }
-            IR_t *flat_root = pl_flat_body_root(pl_main);
-            if (!flat_root) {
-                IR_t *rich_root = pl_rich_body_root(pl_main);
-                if (!rich_root) {
-                    fprintf(stderr, "[SMX] --compile --target=x86: Prolog mode-4 covers the hello-world + "
-                                    "unify/arith + facts/choice/call tiers; this program has a construct not "
-                                    "yet wired (PLG-9e+).\n");
-                    return 1;
-                }
-                printf("  .intel_syntax noprefix\n");
-                printf("  .text\n");
-                extern int codegen_pl_pred_table(FILE * out);
-                int nrows = codegen_pl_pred_table(stdout);
-                printf("  .globl main\n");
-                printf("main:\n");
-                printf("  push rbp\n");
-                printf("  mov rbp, rsp\n");
-                printf("  call rt_main_init@PLT\n");
-                if (nrows > 0) {
-                    printf("  lea rdi, [rip + .Lpl_pred_table]\n");
-                    printf("  mov esi, %d\n", nrows);
-                    printf("  call rt_pl_table_install@PLT\n");
-                }
-                if (pl_main->nslots > 0) {
-                    printf("  mov edi, %d\n", pl_main->nslots);
-                    printf("  call rt_env_alloc@PLT\n");
-                }
-                printf("  call rt_frame@PLT\n");
-                printf("  mov rdi, rax\n");
-                if (pl_main->nslots > 0) {
-                    printf("  mov esi, %d\n", pl_main->nslots);
-                    printf("  call rt_pl_frame_sync_env@PLT\n");
-                    printf("  call rt_frame@PLT\n");
-                    printf("  mov rdi, rax\n");
-                }
-                printf("  xor esi, esi\n");
-                printf("  call main_\xce\xb1\n");
-                printf("  xor eax, eax\n");
-                printf("  pop rbp\n");
-                printf("  ret\n");
-                g_frame_active = 1;
-                extern int codegen_pl_catch_blocks(IR_graph_t * main_g, FILE * out);
-                int rcc = codegen_pl_catch_blocks(pl_main, stdout);
-                int rcp = codegen_clause_dispatch(stdout);
-                extern IR_graph_t *g_emit_cfg;
-                IR_graph_t *save_cfg = g_emit_cfg; g_emit_cfg = pl_main;
-                int rcm = codegen_flat_build(rich_root, stdout, "main");
-                g_emit_cfg = save_cfg;
-                g_frame_active = 0;
-                xa_emit_strtab_rodata();
-                fflush(stdout);
-                return (rcc || rcp || rcm) ? 1 : 0;
-            }
-            printf("  .intel_syntax noprefix\n");
-            printf("  .text\n");
-            printf("  .globl main\n");
-            printf("main:\n");
-            printf("  push rbp\n");
-            printf("  mov rbp, rsp\n");
-            if (pl_main->nslots > 0) {
-                printf("  mov edi, %d\n", pl_main->nslots);
-                printf("  call rt_env_alloc@PLT\n");
-            }
-            printf("  call rt_frame@PLT\n");
-            printf("  mov rdi, rax\n");
-            if (pl_main->nslots > 0) {
-                printf("  mov esi, %d\n", pl_main->nslots);
-                printf("  call rt_pl_frame_sync_env@PLT\n");
-                printf("  call rt_frame@PLT\n");
-                printf("  mov rdi, rax\n");
-            }
-            printf("  xor esi, esi\n");
-            printf("  call main_\xce\xb1\n");
-            printf("  xor eax, eax\n");
-            printf("  pop rbp\n");
-            printf("  ret\n");
-            g_frame_active = 1;
-            int rc = codegen_flat_build(flat_root, stdout, "main");
-            g_frame_active = 0;
-            xa_emit_strtab_rodata();
-            fflush(stdout);
-            return rc;
+            fprintf(stderr, "[PL-GZ FENCE] --compile --target=x86: program not admitted by pl_gz_admit — the GZ cell path is the only Prolog backend (flat + rich/heap-env tiers DELETED per PL-GZ GUT, 2026-06-13).\n");
+            return 1;
         }
         {
             extern int gvar_flat_chain_build_text(IR_graph_t * g, FILE * out, const char * prefix);
@@ -2894,16 +2678,9 @@ int main(int argc, char **argv)
                 bb_box_fn gzfn = pl_gz_build(gz_root);
                 if (gzfn) { (void)gzfn(rt_frame(), 0); goto run_done; }
             }
-            IR_t *flat_root = pl_flat_body_root(pl_main);
-            if (flat_root) {
-                g_frame_active = 1;
-                bb_box_fn pfn = bb_build_flat(flat_root);
-                g_frame_active = 0;
-                if (pfn) { (void)pfn(rt_frame(), 0); goto run_done; }
-            }
-            fprintf(stderr, "[PBB] FATAL: --run: program not admitted by pl_gz_admit or pl_flat_body_root — "
-                            "no native blob covers it. This is a bug in the GZ admission layer or the flat tier. "
-                            "Aborting (PL-GZ FENCE: interp fallback deleted 2026-06-06).\n");
+            fprintf(stderr, "[PL-GZ FENCE] --run: program not admitted by pl_gz_admit — the GZ cell path is "
+                            "the only Prolog execution path (flat + rich/heap-env tiers DELETED per PL-GZ GUT, "
+                            "2026-06-13). Aborting.\n");
             abort();
         }
         {
