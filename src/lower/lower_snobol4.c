@@ -377,6 +377,9 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         if (re_tail && le_tail && is_pat_consumer(le_tail->op)) ω_to(re_tail, le_tail);
         return le; }
     case TT_FENCE: {
+        if (t->n > 0 && t->c[0]) {
+            IR_t * seal = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(seal, succ); ω_to(seal, fail);
+            return lower_pat_node(pg, t->c[0], seal, fail); }
         IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
     case TT_DEFER: {  /* *VAR deferred pattern reference */
         IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
