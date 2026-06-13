@@ -67,6 +67,7 @@ typedef struct stage2_t {
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern stage2_t g_stage2;
 void stage2_reset(void);
+void ir_delete_all(stage2_t *s2);
 int  stage2_label_grow(stage2_t *s2);
 int  stage2_proc_grow (stage2_t *s2);
 #endif
