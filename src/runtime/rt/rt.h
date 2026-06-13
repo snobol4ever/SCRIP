@@ -126,8 +126,7 @@ typedef struct {
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_in_native_chunk(void);
 #include "bb_box.h"
-void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
-void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
+void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
 void rt_proc_reset(void);
 void rt_call_proc(const char *name, int nargs);
