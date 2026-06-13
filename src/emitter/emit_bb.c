@@ -1533,9 +1533,9 @@ static void flat_drive_unop(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     bb_label_t *arg_β    = emit_label_alloc("xunop%d_arg_β",    id);
     walk_bb_flat(bb_child0(pBB), arg_done, lbl_ω, arg_β);
     emit_label_define_bb(arg_done);
-    EMIT_PAIR_RESET();
-    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+    emit_jmp_label(lbl_γ, JMP_JMP);
+    emit_label_define_bb(lbl_β);
+    emit_jmp_label(lbl_ω, JMP_JMP);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_list_bang(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
