@@ -46,7 +46,11 @@ over_col=$(awk 'length>200' "$f" | wc -l)
 multi_x86=$(sed 's/\\"//g; s/"[^"]*"//g' "$f" | grep -cE 'x86\(.*x86\(' || true)
 cmtA=$(grep -cE '/\*|//' "$f" || true); sep=$(grep -cE '^/\*[-=]+\*/[[:space:]]*$' "$f" || true); xc=$(( cmtA > sep ? cmtA - sep : 0 ))
 bypass=$(strip "$f"        | grep -cE 'x86_(frame|ro|reg)_[a-z0-9_]*\(' || true)
-total=$((emit_blind + neighbor_walk + bsize + raw_bytes + medium_any + emit_fmt + line_comments + blank_lines + port_english + local_vars + rp + hc + sig_decls + over_col + multi_x86 + xc + bypass))
+cv9_str=$(strip "$f"   | grep -cE 'bb_[a-z0-9_]*_str\b' || true)
+cv9_param=$(strip "$f" | grep -cE 'std::string[^;]*\bIR_t[[:space:]]*\*' || true)
+cv9=$(( cv9_str + cv9_param ))
+cv10=$(strip "$f"      | grep -cE 'ir_call_arg\(|ir_pair_arg\(|ir_operand|\bIR_LIT[[:space:]]*\(' || true)
+total=$((emit_blind + neighbor_walk + bsize + raw_bytes + medium_any + emit_fmt + line_comments + blank_lines + port_english + local_vars + rp + hc + sig_decls + over_col + multi_x86 + xc + bypass + cv9 + cv10))
 name="$(basename "$f")"
 echo "=== audit_bb_fixup_file: $name ==="
 printf "  emit_blind    (pBB->[αβγω]):          %d\n" "$emit_blind"
@@ -66,6 +70,8 @@ printf "  over_col      (lines > 200 chars):    %d\n" "$over_col"
 printf "  multi_x86     (>=2 x86() per line):   %d\n" "$multi_x86"
 printf "  extra_cmts    (non-separator cmts):   %d\n" "$xc"
 printf "  bypass        (x86_frame/ro/reg_*):   %d\n" "$bypass"
+printf "  cv9_param_str (_str / IR_t* in sig):  %d\n" "$cv9"
+printf "  cv10_graph    (ir_call_arg/IR_LIT):   %d\n" "$cv10"
 echo "  ---"
 printf "  TOTAL violations:                     %d\n" "$total"
 if [ "$total" -eq 0 ]; then

@@ -1183,6 +1183,12 @@ void bb_prepare(IR_t *nd) {
                 if (g_emit.op_parts_str[j] && g_emit.op_parts_str[j][0]) { strtab_label(lblpool[j], 64, g_emit.op_parts_str[j]); g_emit.op_parts_lbl[j] = lblpool[j]; }
             }
         }
+        {
+            static char svallblbuf[64];
+            const char *bfn = IR_LIT(nd).sval;
+            g_emit.op_sval_lbl = NULL;
+            if (bfn && bfn[0]) { strtab_label(svallblbuf, 64, bfn); g_emit.op_sval_lbl = svallblbuf; }
+        }
         return;
     }
     if (nd->op == IR_GOAL) {
