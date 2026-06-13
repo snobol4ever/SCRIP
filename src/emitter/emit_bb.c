@@ -1290,7 +1290,7 @@ static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_e binop_slot_kind(IR_t *nd) {
     int64_t op = nd ? IR_LIT(nd).ival : -1;
-    if (op >= BINOP_LT && op <= BINOP_NE) return IR_BINOP_RELOP;
+    if ((op >= BINOP_LT && op <= BINOP_NE) || (op >= BINOP_SLT && op <= BINOP_SNE)) return IR_BINOP_RELOP;
     if (op == BINOP_CONCAT)               return IR_BINOP_CONCAT;
     if (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD) return IR_BINOP_ARITH;
     return IR_BINOP;
