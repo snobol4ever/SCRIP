@@ -104,7 +104,9 @@ static IR_t * sno_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
 }
 static IR_graph_t * sno_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((snx_t *) vcx)->g, IR_LANG_SNO, sno_arg_lower, vcx, a); }
 static void sno_call_channels(snx_t * cx, IR_t * call, const tree_t * t) {
-    lc_call_argblks(call, (t->v.sval && !strcmp(t->v.sval, "DEFINE")) ? 5.0 : 2.0, t->n, sno_arg_block, cx, (const tree_t * const *) t->c);
+    int is_def = (t->v.sval && !strcmp(t->v.sval, "DEFINE"));
+    lc_call_argblks(call, is_def ? 5.0 : 2.0, t->n, sno_arg_block, cx, (const tree_t * const *) t->c);
+    if (is_def) call->op = IR_CALL_DEFINE;
 }
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;

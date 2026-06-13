@@ -227,6 +227,7 @@ typedef enum {
     IR_PATTERN_CAPTURE,
     IR_PATTERN_DEFER,
     IR_DTP_ASSIGN,
+    IR_CALL_DEFINE,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/

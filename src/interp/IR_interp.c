@@ -279,6 +279,7 @@ static int ir_is_single_shot(IR_t * e) {
     case IR_GATHER:
     case IR_MAP: case IR_GREP:
         return 0;
+    case IR_CALL_DEFINE:
     case IR_CALL: {
         if (!IR_LIT(e).sval) return 1;
         for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) {
@@ -2403,6 +2404,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).value = rv;
         return bb->γ.node;
     }
+    case IR_CALL_DEFINE:
     case IR_CALL: {
         if (!IR_LIT(bb).sval) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
         if ((IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 5.0) && !strcmp(IR_LIT(bb).sval, "__rk_try")) {

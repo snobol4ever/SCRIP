@@ -20,6 +20,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_BINOP_CONCAT] = "IR_BINOP_CONCAT",
     [IR_UNOP] = "IR_UNOP",
     [IR_CALL] = "IR_CALL",
+    [IR_CALL_DEFINE] = "IR_CALL_DEFINE",
     [IR_SEQ] = "IR_SEQ",
     [IR_FAIL] = "IR_FAIL",
     [IR_SUCCEED] = "IR_SUCCEED",
@@ -457,7 +458,7 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
             if (bsg) { fprintf(fp, "; X scanbody node=%d\n", i); bb_print(bsg, fp); }
             continue;
         }
-        if (bb->op != IR_CALL) continue;
+        if (bb->op != IR_CALL && bb->op != IR_CALL_DEFINE) continue;
         if (IR_LIT(bb).dval != 2.0 && IR_LIT(bb).dval != 3.0 && IR_LIT(bb).dval != 5.0) continue;
         IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
         if (!blks) continue;
