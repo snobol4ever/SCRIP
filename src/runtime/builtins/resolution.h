@@ -87,4 +87,7 @@ Term                 *resolve_catch_take_exception(void);
 int                   resolve_catch_top_trail_mark(void);
 Term                **resolve_catch_top_env(void);
 void                 *resolve_catch_top_cp_mark(void);
+void rt_cp_trail_unwind(void);
+void rt_cp_inc_cursor(void);
+int  rt_cp_get_cursor(void);
 #endif
