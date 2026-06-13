@@ -193,12 +193,12 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline uint8_t x86_jcc_op(const char * mnem) {
-    if (!strcmp(mnem, "je"))  return 0x84;
-    if (!strcmp(mnem, "jne")) return 0x85;
-    if (!strcmp(mnem, "jl"))  return 0x8C;
-    if (!strcmp(mnem, "jge")) return 0x8D;
-    if (!strcmp(mnem, "jle")) return 0x8E;
-    if (!strcmp(mnem, "jg"))  return 0x8F;
+    if (!strcmp(mnem, "je")  || !strcmp(mnem, "jz"))   return 0x84;
+    if (!strcmp(mnem, "jne") || !strcmp(mnem, "jnz"))  return 0x85;
+    if (!strcmp(mnem, "jl")  || !strcmp(mnem, "jnge")) return 0x8C;
+    if (!strcmp(mnem, "jge") || !strcmp(mnem, "jnl"))  return 0x8D;
+    if (!strcmp(mnem, "jle") || !strcmp(mnem, "jng"))  return 0x8E;
+    if (!strcmp(mnem, "jg")  || !strcmp(mnem, "jnle")) return 0x8F;
     return 0x85;
 }
 inline std::string x86_jcc(const char * mnem, int port) {

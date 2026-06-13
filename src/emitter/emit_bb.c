@@ -2779,15 +2779,14 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         break;
     }
     case IR_IF: {
-        if (g_gvar_flat_chain || g_descr_flat_chain) {
-            emit_label_define_bb(lbl_β);
-            emit_jmp_label(lbl_γ, JMP_JMP);
-            emit_jmp_label(lbl_γ, JMP_JMP);
-            break;
+        IR_t *centry = bb_child0(nd);
+        if (centry && (g_gvar_flat_chain || g_descr_flat_chain)) {
+            walk_bb_flat(centry, lbl_γ, lbl_ω, lbl_β);
+        } else {
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
         }
-        EMIT_PAIR_RESET();
-        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-        EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
         break;
     }
     case IR_BINOP_GEN:
@@ -2991,7 +2990,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->op == IR_EVERY) { for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)(nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL)) { node_γ = lbls[k]; break; } }
         int omega_resolved = 0; int omega_k = -1;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = lbls[k]; omega_resolved = 1; omega_k = k; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) {
+            /* When a generator exhausts and its ω target is another generator already emitted in this chain, wire to the target's β (advance/retry entry), not its α (reset entry). This is the correct port-graph semantics: exhaustion of an inner generator causes the outer generator to advance, not restart. */
+            node_ω = (ir_is_generator_kind(nodes[i]->op) && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k];
+            omega_resolved = 1; omega_k = k; break;
+        }
         if (!omega_resolved) node_ω = &lbl_ω;
         if (omega_resolved && nodes[i]->ω.node && nodes[i]->ω.node->op == IR_EVERY) {
             if (ir_is_generator_kind(nodes[i]->op)) { node_ω = lbls[omega_k]; }

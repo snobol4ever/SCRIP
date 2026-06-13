@@ -41,7 +41,6 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
                           + x86("mov", "rsi", FRQ(off + 8))
                           + x86("call", "rt_write_any_nl@PLT")
                           + x86("jmp", "γ")
-                          + x86("label", std::string(_.lbl_β))
                           + x86("label", _.lbl_β)
                           + x86("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
     return std::string();
