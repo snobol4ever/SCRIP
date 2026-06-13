@@ -5,6 +5,12 @@ static std::string bls_lbl(IR_t *nd) {
     char l[64]; l[0] = 0; strtab_label(l, sizeof l, IR_LIT(nd).sval);
     return std::string(l);
 }
+static std::string bls_lea(const char *reg, IR_t *nd) {
+    if (!(nd && nd->op == IR_ATOM && IR_LIT(nd).sval)) return x86("xor", std::string(reg[1]=='8'?"r8d":"eax"), std::string(reg[1]=='8'?"r8d":"eax"));
+    const char *s = IR_LIT(nd).sval;
+    char l[64]; l[0] = 0; strtab_label(l, sizeof l, s);
+    return x86("lea", reg, "[rip + __]", (uint64_t)(uintptr_t)s, l);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bls_bin_tail() { return bytes(4, "\x48\x83\xC4\x10") + bytes(2, "\x85\xC0"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -60,7 +66,7 @@ static std::string bls_bin_sort_scalar(IR_t *a0, IR_t *a1, int do_msort) {
          + bls_bin_tail();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bls_txt_alc(IR_t *a0, IR_t *sepN, IR_t *resN, int arity, const std::string &hdr) { std::string sl = bls_lbl(sepN), rl = bls_lbl(resN);
+static std::string bls_txt_alc(IR_t *a0, IR_t *sepN, IR_t *resN, int arity, const std::string &hdr) {
     return hdr
          + x86("sub", "rsp", "16")
          + emit_build_compound_term(a0)
@@ -68,11 +74,11 @@ static std::string bls_txt_alc(IR_t *a0, IR_t *sepN, IR_t *resN, int arity, cons
          + x86("mov", "esi", std::to_string(arity))
          + x86("mov", "edx", std::to_string(sepN ? (int)sepN->op : 0))
          + x86("mov", "rcx", std::to_string(sepN ? (long)IR_LIT(sepN).ival : 0))
-         + (sl.size() ? x86("lea", "r8", std::string("[rip + ") + sl + "]") : x86("xor", "r8d", "r8d"))
+         + (sepN && sepN->op == IR_ATOM && IR_LIT(sepN).sval ? bls_lea("r8", sepN) : x86("xor", "r8d", "r8d"))
          + x86("mov", "r9d", std::to_string(resN ? (int)resN->op : 0))
          + x86("mov", "rax", std::to_string(resN ? (long)IR_LIT(resN).ival : 0))
          + x86("mov", "[rsp + 0]", "rax")
-         + (rl.size() ? x86("lea", "rax", std::string("[rip + ") + rl + "]") + x86("mov", "[rsp + 8]", "rax") : x86("mov", "qword ptr [rsp + 8]", "0"))
+         + (resN && resN->op == IR_ATOM && IR_LIT(resN).sval ? bls_lea("rax", resN) + x86("mov", "[rsp + 8]", "rax") : x86("mov", "qword ptr [rsp + 8]", "0"))
          + x86("call", "rt_atomic_list_concat_term@PLT")
          + bls_txt_tail();
 }
@@ -104,7 +110,7 @@ std::string bb_list_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                     + x86("mov", "edi", std::to_string((strcmp(fn, "msort") == 0) ? 1 : 0))
                     + x86("mov", "edx", std::to_string((int)a1->op))
                     + x86("mov", "rcx", std::to_string((long)IR_LIT(a1).ival))
-                    + (bls_lbl(a1).size() ? x86("lea", "r8", std::string("[rip + ") + bls_lbl(a1) + "]") : x86("xor", "r8d", "r8d"))
+                    + (a1->op == IR_ATOM && IR_LIT(a1).sval ? bls_lea("r8", a1) : x86("xor", "r8d", "r8d"))
                     + x86("call", "rt_sort_msort_term@PLT")
                     + bls_txt_tail())
                  + IF(a0->op != IR_STRUCT,
@@ -113,10 +119,10 @@ std::string bb_list_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                     + x86("mov", "edi", std::to_string((strcmp(fn, "msort") == 0) ? 1 : 0))
                     + x86("mov", "esi", std::to_string((int)a0->op))
                     + x86("mov", "rdx", std::to_string((long)IR_LIT(a0).ival))
-                    + (bls_lbl(a0).size() ? x86("lea", "rcx", std::string("[rip + ") + bls_lbl(a0) + "]") : x86("xor", "ecx", "ecx"))
+                    + (a0->op == IR_ATOM && IR_LIT(a0).sval ? bls_lea("rcx", a0) : x86("xor", "ecx", "ecx"))
                     + x86("mov", "r8d", std::to_string((int)a1->op))
                     + x86("mov", "r9", std::to_string((long)IR_LIT(a1).ival))
-                    + (bls_lbl(a1).size() ? x86("lea", "rax", std::string("[rip + ") + bls_lbl(a1) + "]") : x86("xor", "eax", "eax"))
+                    + (a1->op == IR_ATOM && IR_LIT(a1).sval ? bls_lea("rax", a1) : x86("xor", "eax", "eax"))
                     + x86("mov", "qword ptr [rsp + 0]", "rax")
                     + x86("call", "rt_sort_msort@PLT")
                     + bls_txt_tail());

@@ -13,7 +13,7 @@ static int icm_ord(const char *fn) {
 static int icm_cmp(const char *fn) { return icm_ord(fn) || icm_arith(fn); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icm_op() {
-    return _.bb_op_lbl ? x86("lea", "rsi", std::string("[rip + ") + _.bb_op_lbl + "]")
+    return _.bb_op_lbl ? x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)_.op_sval, _.bb_op_lbl)
                        : x86("xor", "esi", "esi");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -227,27 +227,27 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + emit_build_compound_term(ir_pair_arg(pBB,1))
                  + x86("mov", "rdx", "rax")
                  + x86("mov", "rsi", "qword ptr [rsp + 0]")
-                 + x86("lea", "rdi", std::string("[rip + ") + op_lbl + "]")
+                 + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, op_lbl)
                  + x86("call", "rt_term_cmp_terms@PLT")
                  + x86("add", "rsp", "16")
                  + icm_tail();
         }
         if (ir_pair_arg(pBB,0) && ir_pair_arg(pBB,1) && icm_cmp(fn)) {
             IR_t *a0 = ir_pair_arg(pBB,0), *a1 = ir_pair_arg(pBB,1);
+            const char *s0 = (a0->op == IR_ATOM) ? IR_LIT(a0).sval : NULL;
+            const char *s1 = (a1->op == IR_ATOM) ? IR_LIT(a1).sval : NULL;
             char op_lbl[64]; strtab_label(op_lbl, sizeof op_lbl, fn);
-            char s0lbl[64]; s0lbl[0] = 0;
-            char s1lbl[64]; s1lbl[0] = 0;
-            if (a0->op == IR_ATOM && IR_LIT(a0).sval) strtab_label(s0lbl, sizeof s0lbl, IR_LIT(a0).sval);
-            if (a1->op == IR_ATOM && IR_LIT(a1).sval) strtab_label(s1lbl, sizeof s1lbl, IR_LIT(a1).sval);
+            char s0lbl[64]; s0lbl[0] = 0; if (s0) strtab_label(s0lbl, sizeof s0lbl, s0);
+            char s1lbl[64]; s1lbl[0] = 0; if (s1) strtab_label(s1lbl, sizeof s1lbl, s1);
             return hdr
                  + x86("sub", "rsp", "16")
-                 + x86("lea", "rdi", std::string("[rip + ") + op_lbl + "]")
+                 + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, op_lbl)
                  + x86("mov", "esi", std::to_string((int)a0->op))
                  + x86("mov", "rdx", std::to_string((long)IR_LIT(a0).ival))
-                 + (s0lbl[0] ? x86("lea", "rcx", std::string("[rip + ") + s0lbl + "]") : x86("xor", "ecx", "ecx"))
+                 + (s0lbl[0] ? x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)s0, s0lbl) : x86("xor", "ecx", "ecx"))
                  + x86("mov", "r8d", std::to_string((int)a1->op))
                  + x86("mov", "r9", std::to_string((long)IR_LIT(a1).ival))
-                 + (s1lbl[0] ? x86("lea", "rax", std::string("[rip + ") + s1lbl + "]") : x86("xor", "eax", "eax"))
+                 + (s1lbl[0] ? x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t)s1, s1lbl) : x86("xor", "eax", "eax"))
                  + x86("mov", "qword ptr [rsp + 0]", "rax")
                  + x86("call", icm_arith(fn) ? "rt_arith_cmp@PLT" : "rt_term_cmp@PLT")
                  + x86("add", "rsp", "16")

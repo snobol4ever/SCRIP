@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <math.h>
 #include <gc/gc.h>
 extern const char * Σ;
 extern int          Σlen;
@@ -933,6 +934,9 @@ static int gz_arith_const_eval(const IR_t *nd, long *out) {
         if (strcmp(op,"-")==0) { *out = -a; return 1; }
         if (strcmp(op,"+")==0) { *out =  a; return 1; }
         if (strcmp(op,"abs")==0) { *out = (a<0)?-a:a; return 1; }
+        if (strcmp(op,"sign")==0) { *out = (a>0)?1:(a<0)?-1:0; return 1; }
+        if (strcmp(op,"truncate")==0||strcmp(op,"integer")==0) { *out = a; return 1; }
+        if (strcmp(op,"msb")==0) { if (a<=0) return 0; int r=0; long v=a; while(v>1){v>>=1;r++;} *out=r; return 1; }
         return 0;
     }
     long a = 0, b = 0;
@@ -941,7 +945,63 @@ static int gz_arith_const_eval(const IR_t *nd, long *out) {
     if (strcmp(op,"-")==0) { *out = a-b; return 1; }
     if (strcmp(op,"*")==0) { *out = a*b; return 1; }
     if (strcmp(op,"/")==0) { if (!b) return 0; *out = a/b; return 1; }
+    if (strcmp(op,"//")==0) { if (!b) return 0; *out = a/b; return 1; }
     if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { if (!b) return 0; *out = a%b; return 1; }
+    if (strcmp(op,"/\\")==0) { *out = a&b; return 1; }
+    if (strcmp(op,"\\/")==0) { *out = a|b; return 1; }
+    if (strcmp(op,"xor")==0) { *out = a^b; return 1; }
+    if (strcmp(op,">>")==0) { *out = (b>=0&&b<64)?(a>>b):0; return 1; }
+    if (strcmp(op,"<<")==0) { *out = (b>=0&&b<64)?(a<<b):0; return 1; }
+    if (strcmp(op,"max")==0) { *out = (a>b)?a:b; return 1; }
+    if (strcmp(op,"min")==0) { *out = (a<b)?a:b; return 1; }
+    if (strcmp(op,"gcd")==0) { long x=a<0?-a:a,y=b<0?-b:b; while(y){long t=y;y=x%y;x=t;} *out=x; return 1; }
+    if (strcmp(op,"^")==0||strcmp(op,"**")==0) { if (b<0) return 0; long r=1; for(long i=0;i<b;i++) r*=a; *out=r; return 1; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int gz_arith_float_eval(const IR_t *nd, double *out) {
+    if (!nd) return 0;
+    if (nd->op == IR_LIT_F) { *out = IR_LIT(nd).dval; return 1; }
+    if (nd->op == IR_LIT_I) { *out = (double)IR_LIT(nd).ival; return 1; }
+    if (nd->op != IR_ARITH || !IR_LIT(nd).sval) return 0;
+    const char *op = IR_LIT(nd).sval;
+    const IR_t *a0 = ir_pair_arg(nd, 0), *a1 = ir_pair_arg(nd, 1);
+    if (!a0 && !a1) {
+        if (strcmp(op,"pi")==0) { *out = 3.141592653589793; return 1; }
+        if (strcmp(op,"e")==0)  { *out = 2.718281828459045; return 1; }
+        if (strcmp(op,"inf")==0||strcmp(op,"infinity")==0) { *out = 1.0/0.0; return 1; }
+        return 0;
+    }
+    if (!a0) return 0;
+    double a = 0.0;
+    if (!gz_arith_float_eval(a0, &a)) return 0;
+    if (!a1) {
+        if (strcmp(op,"sqrt")==0)  { *out = sqrt(a);  return 1; }
+        if (strcmp(op,"sin")==0)   { *out = sin(a);   return 1; }
+        if (strcmp(op,"cos")==0)   { *out = cos(a);   return 1; }
+        if (strcmp(op,"tan")==0)   { *out = tan(a);   return 1; }
+        if (strcmp(op,"asin")==0)  { *out = asin(a);  return 1; }
+        if (strcmp(op,"acos")==0)  { *out = acos(a);  return 1; }
+        if (strcmp(op,"atan")==0)  { *out = atan(a);  return 1; }
+        if (strcmp(op,"exp")==0)   { *out = exp(a);   return 1; }
+        if (strcmp(op,"log")==0)   { if (a<=0) return 0; *out = log(a); return 1; }
+        if (strcmp(op,"float")==0) { *out = a; return 1; }
+        if (strcmp(op,"float_integer_part")==0) { *out = (a>=0)?floor(a):ceil(a); return 1; }
+        if (strcmp(op,"float_fractional_part")==0) { double ip; *out = modf(a, &ip); return 1; }
+        if (strcmp(op,"abs")==0)     { *out = a<0?-a:a; return 1; }
+        if (strcmp(op,"sign")==0)    { *out = a>0?1.0:a<0?-1.0:0.0; return 1; }
+        return 0;
+    }
+    double b = 0.0;
+    if (!gz_arith_float_eval(a1, &b)) return 0;
+    if (strcmp(op,"+")==0)   { *out = a+b; return 1; }
+    if (strcmp(op,"-")==0)   { *out = a-b; return 1; }
+    if (strcmp(op,"*")==0)   { *out = a*b; return 1; }
+    if (strcmp(op,"/")==0)   { if (!b) return 0; *out = a/b; return 1; }
+    if (strcmp(op,"**")==0||strcmp(op,"^")==0) { *out = pow(a,b); return 1; }
+    if (strcmp(op,"atan")==0) { *out = atan2(a,b); return 1; }
+    if (strcmp(op,"max")==0)  { *out = a>b?a:b; return 1; }
+    if (strcmp(op,"min")==0)  { *out = a<b?a:b; return 1; }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -951,7 +1011,8 @@ static int gz_arith_var_plus_const(const IR_t *nd, int *var_slot, const char **o
     const IR_t *p0 = ir_pair_arg(nd, 0), *p1 = ir_pair_arg(nd, 1);
     if (nd->op != IR_ARITH || !IR_LIT(nd).sval || !p0 || !p1) return 0;
     const char *op = IR_LIT(nd).sval;
-    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
+    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0||
+        strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0) {
         if (p0->op == IR_LOGICVAR && p1->op == IR_LIT_I) {
             *var_slot = (int)IR_LIT(p0).ival; *op_out = op; *c_out = (long)IR_LIT(p1).ival; return 1;
         }
@@ -963,7 +1024,8 @@ static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char
     const IR_t *b0 = ir_pair_arg(nd, 0), *b1 = ir_pair_arg(nd, 1);
     if (!nd || nd->op != IR_ARITH || !IR_LIT(nd).sval || !b0 || !b1) return 0;
     const char *op = IR_LIT(nd).sval;
-    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0) {
+    if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0||
+        strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0) {
         if (b0->op == IR_LOGICVAR && b1->op == IR_LOGICVAR) {
             *slot1 = (int)IR_LIT(b0).ival; *slot2 = (int)IR_LIT(b1).ival; *op_out = op; return 1;
         }
@@ -1179,6 +1241,17 @@ void bb_prepare(IR_t *nd) {
         if (gz_arith_const_eval(r, &cval)) { g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[2] = (int64_t)cval; return; }
         if (gz_arith_var_plus_const(r, &rslot, &rop, &rc)) { g_emit.op_parts_ival[0] = 1; g_emit.op_parts_ival[2] = (int64_t)rslot; g_emit.op_parts_ival[3] = (int64_t)rc; g_emit.op_parts_str[0] = rop; return; }
         if (gz_arith_var_bivar(r, &bslot1, &bslot2, &bop)) { g_emit.op_parts_ival[0] = 2; g_emit.op_parts_ival[2] = (int64_t)bslot1; g_emit.op_parts_ival[3] = (int64_t)bslot2; g_emit.op_parts_str[0] = bop; return; }
+        { double fval = 0.0; if (gz_arith_float_eval(r, &fval)) { g_emit.op_parts_ival[0] = 3; memcpy(&g_emit.op_parts_ival[2], &fval, 8); return; } }
+        { double fval = 0.0;
+          if (r && r->op == IR_ARITH && IR_LIT(r).sval && ir_pair_arg(r,0) && !ir_pair_arg(r,1)) {
+              const char *op = IR_LIT(r).sval;
+              int is_int_of_float = strcmp(op,"truncate")==0||strcmp(op,"integer")==0||strcmp(op,"round")==0||strcmp(op,"ceiling")==0||strcmp(op,"floor")==0;
+              if (is_int_of_float && gz_arith_float_eval(ir_pair_arg(r,0), &fval)) {
+                  long iv = (strcmp(op,"truncate")==0||strcmp(op,"integer")==0) ? (long)fval : strcmp(op,"round")==0 ? (long)(fval+0.5) : strcmp(op,"ceiling")==0 ? (long)ceil(fval) : (long)floor(fval);
+                  g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[2] = (int64_t)iv; return;
+              }
+          }
+        }
         g_emit.op_parts_ival[0] = -2;
         return;
     }

@@ -6,8 +6,11 @@ extern "C" {
 }
 #include "x86_asm.h"
 extern "C" int rt_pl_is_cell_int(void *lhs_cell, long val);
+extern "C" int rt_pl_is_cell_float(void *lhs_cell, double val);
 extern "C" int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival);
 extern "C" int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static double bdi_fv() { double d; memcpy(&d, &_.op_parts_ival[2], 8); return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_det_is() {
     x86_begin();
@@ -57,6 +60,17 @@ std::string bb_det_is() {
              + x86("def", L(0))
              + x86(".quad", LS(0), _.op_parts_str[0])
              + x86("label", LS(0))
-             + x86(".string", _.op_parts_str[0]));
+             + x86(".string", _.op_parts_str[0]))
+         + IF(_.op_parts_ival[0] == 3,
+               x86("label", _.lbl_α)
+             + x86("comment", "IR_DET_IS float-const")
+             + x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[1])))
+             + x86("movsd", "xmm0", F64(bdi_fv()))
+             + x86("call", "rt_pl_is_cell_float", (uint64_t)(uintptr_t)(void *)rt_pl_is_cell_float)
+             + x86("test", "eax", "eax")
+             + x86("je", "ω")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω"));
     return std::string();
 }
