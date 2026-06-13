@@ -271,6 +271,13 @@ static void bb_fill_alpha(IR_t *nd) {
     if (nd && nd->op == IR_BINOP_GVAR_ARITH_SLOT) { static char gvspool[2][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL;
       if (g_emit.bb_lk == (int)IR_VAR && g_emit.op_name1 && g_emit.op_name1[0]) { strtab_label(gvspool[0], 64, g_emit.op_name1); g_emit.op_parts_lbl[0] = gvspool[0]; }
       if (g_emit.bb_rk == (int)IR_VAR && g_emit.op_name2 && g_emit.op_name2[0]) { strtab_label(gvspool[1], 64, g_emit.op_name2); g_emit.op_parts_lbl[1] = gvspool[1]; } }
+    if (nd && nd->op == IR_CALL_DEFINE) { static char defpool[64]; g_emit.op_parts_lbl[0] = NULL;
+      int64_t narg = IR_LIT(nd).ival;
+      IR_graph_t ** subs = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+      IR_t * spec = (narg > 0 && subs && subs[0]) ? subs[0]->entry : NULL;
+      const char * specstr = (spec && spec->op == IR_LIT_S && IR_LIT(spec).sval) ? IR_LIT(spec).sval : "";
+      g_emit.op_sval = specstr;
+      strtab_label(defpool, 64, specstr); g_emit.op_parts_lbl[0] = defpool; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define FILL(nd,s,f,b) do { \
@@ -1461,6 +1468,7 @@ static int binop_operand_streams(IR_t *e) {
         case IR_LIMIT: case IR_PROC_GEN: case IR_LIST_BANG: case IR_KEY_GEN:
         case IR_FIND_GEN: case IR_SEQ_GEN: case IR_SUSPEND: case IR_REPEAT:
             return 1;
+        case IR_CALL_DEFINE:
         case IR_CALL:
             if (IR_LIT(e).sval && rt_proc_is_registered(IR_LIT(e).sval)) return 0;
             return 1;
@@ -2642,6 +2650,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_LIT_S:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_F:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_NUL:    if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_CALL_DEFINE:
     case IR_CALL: {
         IR_t *a0 = ir_call_arg(nd, 0);
         g_emit.op_arg_slot_n = 0;
@@ -2924,7 +2933,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL:
     case IR_ASSIGN:     { IR_t *ac0 = bb_child0(nd);
         if (g_descr_flat_chain) { extern int g_icn_globals_nv; extern int is_global(const char *); if (g_icn_globals_nv && IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) flat_drive_icn_global_assign(nd, lbl_γ, lbl_ω, lbl_β); else { g_emit.op_sb = bb_varslot(IR_LIT(nd).sval); g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); } }
-        else if (IR_LIT(nd).sval && ac0 && (ac0->op == IR_LIT_S || ac0->op == IR_LIT_I || ac0->op == IR_LIT_F || ac0->op == IR_VAR || ac0->op == IR_SEQ || ac0->op == IR_SEQ_EXPR || ac0->op == IR_CALL)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β);
+        else if (IR_LIT(nd).sval && ac0 && (ac0->op == IR_LIT_S || ac0->op == IR_LIT_I || ac0->op == IR_LIT_F || ac0->op == IR_VAR || ac0->op == IR_SEQ || ac0->op == IR_SEQ_EXPR || ac0->op == IR_CALL || ac0->op == IR_CALL_DEFINE)) flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β);
         else if (IR_LIT(nd).sval && ac0 && ac0->op == IR_BINOP && (int)IR_LIT(ac0).ival == (int)BINOP_POW && bb_slot_get(ac0) >= 0) { emit_jmp_label(lbl_γ, JMP_JMP); }
         else if (IR_LIT(nd).sval && ac0 && ac0->op == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β);
         else if (IR_LIT(nd).sval && ac0 && ac0->op == IR_UNOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β);
@@ -3080,7 +3089,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if (c->op == IR_CALL && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_CALL || c->op == IR_CALL_DEFINE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -3292,6 +3301,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
     case IR_RETURN: return 1;
+    case IR_CALL_DEFINE: return 0;
     case IR_CALL:  return (IR_LIT(n).dval == 2.0 || IR_LIT(n).dval == 3.0 || IR_LIT(n).dval == 5.0) ? 0 : (int)IR_LIT(n).ival;
     case IR_PATTERN_LIT: return 0;
     case IR_PATTERN_LEN: case IR_PATTERN_POS: case IR_PATTERN_RPOS: case IR_PATTERN_TAB: case IR_PATTERN_RTAB: return 0;
@@ -3316,7 +3326,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if (c->op == IR_CALL && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_CALL || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }

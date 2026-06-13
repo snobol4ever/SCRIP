@@ -26,7 +26,6 @@ int  rt_proc_decl_level(const char * name);
 uint64_t rt_proc_byref_mask(const char * name);
 DESCR_t * rt_gvar_cell(const char * name);
 extern int g_emit_frame_caller_dl;
-DESCR_t rt_proc_define(const char * spec);
 DESCR_t NV_GET_fn(const char * name);
 int  rt_rk_is_truthy(DESCR_t v);
 int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
@@ -107,7 +106,7 @@ static int arith_kind_ok(IR_t * nd) {
     if (!nd) return 0;
     if (nd->op == IR_LIT_I || nd->op == IR_VAR_FRAME || nd->op == IR_VAR_FRAME_REF) return 1;
     if (nd->op == IR_VAR && IR_LIT(nd).sval) return 1;
-    if (nd->op == IR_CALL && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0 || IR_LIT(nd).dval == 5.0)) return 1;
+    if ((nd->op == IR_CALL && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0)) || nd->op == IR_CALL_DEFINE) return 1;
     if (arith_is_arith_binop(nd)) return 1;
     return 0;
 }
@@ -136,7 +135,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
         s += x86_reg_disp32_load64("rax", "rax", 8);
     } else if (a->op == IR_LIT_I) {
         s += x86_movabs_r64("rax", (uint64_t)IR_LIT(a).ival);
-    } else if (a->op == IR_CALL && (IR_LIT(a).dval == 2.0 || IR_LIT(a).dval == 3.0 || IR_LIT(a).dval == 5.0)) {
+    } else if ((a->op == IR_CALL && (IR_LIT(a).dval == 2.0 || IR_LIT(a).dval == 3.0)) || a->op == IR_CALL_DEFINE) {
         int sc = bb_slot_alloc16(a);
         s += marshal_single_call(a, sc, bb_node_id(a));
         s += x86_frame_load64("rax", sc + 8);
@@ -165,7 +164,7 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b) {
         s += x86("mov", "rcx", "rax");
     } else if (b->op == IR_LIT_I) {
         s += x86("mov", "rcx", (long)IR_LIT(b).ival);
-    } else if (b->op == IR_CALL && (IR_LIT(b).dval == 2.0 || IR_LIT(b).dval == 3.0 || IR_LIT(b).dval == 5.0)) {
+    } else if ((b->op == IR_CALL && (IR_LIT(b).dval == 2.0 || IR_LIT(b).dval == 3.0)) || b->op == IR_CALL_DEFINE) {
         int sc = bb_slot_alloc16(b);
         s += marshal_single_call(b, sc, bb_node_id(b));
         s += x86_frame_load64("rcx", sc + 8);
@@ -346,7 +345,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_deflabel_id(nskip);
         return s;
     }
-    if (lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0 || IR_LIT(lf).dval == 5.0)) return marshal_single_call(lf, aoff, bb_node_id(lf));
+    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_CALL_DEFINE) return marshal_single_call(lf, aoff, bb_node_id(lf));
     {
         int ps = bb_slot_get(lf);
         if (ps >= 0) {
@@ -364,40 +363,6 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_frame_load64("rax", voff + 8) + x86_frame_store64(aoff + 8, "rax");
         return s;
     }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_gvar_define_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
-    int64_t narg = _.op_ival;
-    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
-    IR_t * spec = (narg > 0 && subs && subs[0]) ? subs[0]->entry : NULL;
-    const char * specstr = (spec && spec->op == IR_LIT_S && IR_LIT(spec).sval) ? IR_LIT(spec).sval : "";
-    if (MEDIUM_TEXT) {
-        std::string fl = emit_fmt(".Ldefspec%d", g_flat_node_id++);
-        std::string s = x86("label", _.lbl_α)
-            + x86("comment", "BOX IR_CALL DEFINE(spec) -> rt_proc_define [single-shot success]")
-            + x86("directive", ".section .rodata")
-            + x86("directive", (fl + ": .string \"" + specstr + "\"").c_str())
-            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
-        s += x86("call", "rt_proc_define@PLT");
-        s += x86("jmp", "γ");
-        s += x86("label", emit_fmt("%s", _.lbl_β));
-        s += x86("jmp", "ω");
-        return s;
-    }
-    if (MEDIUM_BINARY) {
-        uint64_t fptr; { DESCR_t (*fp)(const char *) = rt_proc_define; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        std::string s;
-        s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)specstr);
-        s += x86_call_ro("rt_proc_define", fptr);
-        s += x86("jmp", PORT_GAMMA);
-        s += x86("def", PORT_BETA);
-        s += x86("jmp", PORT_OMEGA);
-        return s;
-    }
-    return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
@@ -593,7 +558,6 @@ std::string bb_call(IR_t * pBB) {
     if (g_descr_flat_chain && _.op_dval == 2.0 && fn && fn[0] && rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
     if (g_descr_flat_chain && _.op_dval == 2.0 && fn && !strcmp(fn, "__rk_bool")) return bb_call_rk_bool_cond_str(pBB);
     if (g_descr_flat_chain && _.op_dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
-    if (g_gvar_flat_chain && _.op_dval == 5.0) return bb_call_gvar_define_str(pBB);
     if (g_gvar_flat_chain && (_.op_dval == 2.0 || _.op_dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
     if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && _.op_dval == 3.0) return bb_call_proc_staged_str(pBB);
     if (g_gvar_flat_chain && _.op_dval == 3.0 && fn && fn[0] && !rt_proc_is_registered(fn)) return bb_call_byname_str(pBB);

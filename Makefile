@@ -149,6 +149,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_scan_bal.cpp \
     $(SRC)/emitter/BB_templates/bb_iterate.cpp \
     $(SRC)/emitter/BB_templates/bb_call.cpp \
+    $(SRC)/emitter/BB_templates/bb_call_define.cpp \
     $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp \
     $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp \
     $(SRC)/emitter/BB_templates/bb_call_rk_bool.cpp \
@@ -409,6 +410,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_bal.cpp     -o $(OBJ)/bb_scan_bal.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_iterate.cpp      -o $(OBJ)/bb_iterate.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call.cpp         -o $(OBJ)/bb_call.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_define.cpp   -o $(OBJ)/bb_call_define.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp  -o $(OBJ)/bb_call_proc_staged.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp   -o $(OBJ)/bb_call_write_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_rk_bool.cpp      -o $(OBJ)/bb_call_rk_bool.o

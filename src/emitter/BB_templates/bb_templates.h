@@ -4,6 +4,7 @@
 #include "IR.h"
 extern "C" { void bb_pattern_stub(const char * which); }
 extern "C++" {
+std::string bb_call_define();
 std::string bb_match_any();
 std::string bb_match_notany();
 std::string bb_match_span();
