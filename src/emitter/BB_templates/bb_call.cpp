@@ -12,6 +12,7 @@ void rt_write_any_nl(DESCR_t d);
 int  rt_proc_is_registered(const char *name);
 int  rt_builtin_is_known(const char *name);
 int  bb_slot_get(IR_t * nd);
+int  bb_slot_claim(int bytes);
 int  bb_slot_alloc16(IR_t * nd);
 int  bb_node_id(IR_t * nd);
 int  bb_varslot(const char * name);
@@ -434,8 +435,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     int resoff  = bb_slot_alloc16(_.node);
-    int argbase = (narg > 0 && subs && subs[0]) ? bb_slot_alloc16(subs[0]->entry) : resoff;
-    for (int i = 1; i < (int)narg; i++) if (subs && subs[i]) bb_slot_alloc16(subs[i]->entry);
+    int argbase = (narg > 0) ? bb_slot_claim((int)narg * 16) : resoff;
     if (MEDIUM_TEXT) {
         std::string s = x86("label", _.lbl_α)
             + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
@@ -463,12 +463,12 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
         uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fn);
-        s += x86_frame_lea("rsi", argbase);
+        s += x86("mov", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, "??");
+        s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)narg);
-        s += x86_call_ro("rt_call_arr", fptr);
-        s += x86_frame_store64(resoff, "rax");
-        s += x86_frame_store64(resoff + 8, "rdx");
+        s += x86("call", "rt_call_arr", fptr);
+        s += x86("mov", FRQ(resoff), "rax");
+        s += x86("mov", FRQ(resoff + 8), "rdx");
         s += x86("cmp", "eax", (long)99);
         s += x86("je", PORT_OMEGA);
         s += x86("jmp", PORT_GAMMA);
@@ -484,6 +484,7 @@ std::string bb_call(IR_t * pBB) {
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_t       * a0   = ir_call_arg(_.node, 0);
+    if (g_descr_flat_chain && _.op_dval == 2.0 && fn && fn[0] && rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
     if (g_descr_flat_chain && _.op_dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
     if (g_gvar_flat_chain && _.op_dval == 5.0) return bb_call_gvar_define_str(pBB);
     if (g_gvar_flat_chain && (_.op_dval == 2.0 || _.op_dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);

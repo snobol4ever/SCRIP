@@ -728,6 +728,11 @@ int rt_builtin_is_known(const char *name)
         "table", "list", "set", "sort", "sortf", "get", "pop", "pull",
         "member", "insert", "delete", "key",
         "MAKELIST",
+        "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort",
+        "elems", "push_pure",
+        "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
+        "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
+        "obj_new", "meth_call",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
