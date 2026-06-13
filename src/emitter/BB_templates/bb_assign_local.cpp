@@ -7,11 +7,9 @@ extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int al_ok() { return g_descr_flat_chain && _.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_local() {
-    if (PLATFORM_X86) return IF(!al_ok(), x86_bomb("bb_assign_local: needs descr flat-chain + rhs slot + varslot + own slot"))
-                           + IF(al_ok(),
+    if (PLATFORM_X86) return IF(!(g_descr_flat_chain && _.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0), x86_bomb("bb_assign_local: needs descr flat-chain + rhs slot + varslot + own slot"))
+                           + IF(g_descr_flat_chain && _.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0,
                              x86("label", _.lbl_α)
                            + x86("comment", "IR_ASSIGN local")
                            + x86("mov", "rax", FRQ(_.op_a_slot))
