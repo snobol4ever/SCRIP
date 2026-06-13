@@ -20,5 +20,6 @@ std::string bb_return() {
          + IF(_.op_sa < 0,
                x86("mov", FRQ(0), (long)DT_SNUL)
              + x86("mov", FRQ(8), 0L))
-         + x86("jmp", "ω");
+         + IF(_.op_dval == 2.0, x86("jmp", "ω"))
+         + IF(_.op_dval != 2.0, x86("jmp", "γ"));
 }
