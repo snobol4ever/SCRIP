@@ -1856,10 +1856,14 @@ static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
         int id = g_flat_node_id++;
         bb_label_t *arg_done = emit_label_alloc("xgvarg%d_done", id);
         bb_label_t *arg_β    = emit_label_alloc("xgvarg%d_β",    id);
+        int relop_diamond = 0;
+        { IR_t *rp = res[i]; int rg = 0; while (rp && rg++ < 256) { if (rp->op == IR_BINOP && IR_LIT(rp).ival >= BINOP_LT && IR_LIT(rp).ival <= BINOP_NE) { if (res_last[i] && res_last[i]->op == IR_LIT_I && IR_LIT(res_last[i]).ival == 1 && rp->ω.node && rp->ω.node->op == IR_LIT_I && IR_LIT(rp->ω.node).ival == 0) relop_diamond = 1; break; } if (!rp->γ.node || rp->γ.node->op == IR_SUCCEED || rp->γ.node->op == IR_FAIL) break; rp = rp->γ.node; } }
         g_gvar_callarg_live = 1;
         if (icn_arg_entry_terminal(res[i])) {
             walk_bb_flat(res[i], arg_done, lbl_ω, arg_β);
             slots[i] = bb_slot_get(res[i]);
+        } else if (relop_diamond) {
+            /* relop diamond: marshal_call_arg boolean-relop arm emits INTVAL(0/1) into one slot; pre-computing the true-arm slot would read 1 even when the relop is false */
         } else if (res_last[i] && res_last[i]->op == IR_BINOP && (IR_LIT(res_last[i]).ival == BINOP_ADD || IR_LIT(res_last[i]).ival == BINOP_SUB || IR_LIT(res_last[i]).ival == BINOP_MUL || IR_LIT(res_last[i]).ival == BINOP_DIV || IR_LIT(res_last[i]).ival == BINOP_MOD)) {
             /* arith BINOP chain: marshal_call_arg inline-arith handles correctly (stores DT_I tag); pre-computation would only store 8-byte raw int missing the tag */
         } else {
