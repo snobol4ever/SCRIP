@@ -21,7 +21,7 @@ std::string bb_binop_gvar_relop() {
                   && (_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_LIT_NUL || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)
                   && (_.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_LIT_NUL || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || _.op_sb >= 0));
         bool D = (_.op_relop_descr
-                  && (_.op_ival == BINOP_EQ || _.op_ival == BINOP_NE)
+                  && (_.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
                   && (_.bb_lk == (int)IR_CALL || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || (_.bb_lk == (int)IR_LIT_S && _.op_parts_lbl[0] != 0))
                   && (_.bb_rk == (int)IR_CALL || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || (_.bb_rk == (int)IR_LIT_S && _.op_parts_lbl[1] != 0)));
         return IF(_.op_relop_descr && !D, x86_bomb("bb_binop_gvar_relop: descr arm shape mismatch (op_relop_descr set but operands unexpected)"))

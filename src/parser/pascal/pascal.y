@@ -288,7 +288,10 @@ static tree_t *pas_arrrec_flatten(tree_t *idxsel, long long fi) {
 static tree_t *mk_chr_wrap(tree_t *e) { tree_t *r = ast_node_new(TT_FNC); ast_push(r, leaf_s(TT_VAR, "__pas_chr")); ast_push(r, e); return r; }
 static int pas_is_charexpr(tree_t *e) { if (!e) return 0; if (e->t == TT_VAR && e->v.sval && pas_is_charvar(e->v.sval)) return 1; if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_chr") || !strcmp(e->c[0]->v.sval, "__pas_chrlit"))) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_chararr(e->c[0]->v.sval)) return 1; return 0; }
 static int pas_is_strtyped(tree_t *e) { if (!e) return 0; if (e->t == TT_QLIT) return 1; if (e->t == TT_VAR && e->v.sval && pas_is_chararr(e->v.sval)) return 1; return 0; }
-static tree_t *pas_eqrel(tree_e tt, tree_t *a, tree_t *b) { tree_t *e = bin(tt, a, b); if (pas_is_strtyped(a) && pas_is_strtyped(b)) e->v.ival = 1; return e; }
+static tree_t *pas_rel(tree_e tt, tree_t *a, tree_t *b) { tree_t *e = bin(tt, a, b); if (pas_is_strtyped(a) && pas_is_strtyped(b)) e->v.ival = 1; return e; }
+static int pas_is_setexpr(tree_t *e);
+static tree_t *mk_set_bin(const char *fn, tree_t *a, tree_t *b);
+static tree_t *pas_rel_or_set(tree_e tt, const char *setfn, tree_t *a, tree_t *b) { return (pas_is_setexpr(a) || pas_is_setexpr(b)) ? mk_set_bin(setfn, a, b) : pas_rel(tt, a, b); }
 static char g_pas_case_tmp[8][24]; static int g_pas_case_depth; static int g_pas_case_ctr;
 static void pas_case_push(void) { if (g_pas_case_depth < 8) snprintf(g_pas_case_tmp[g_pas_case_depth], sizeof g_pas_case_tmp[0], "__pct%d", g_pas_case_ctr++); g_pas_case_depth++; }
 static const char *pas_case_cur(void) { int d = g_pas_case_depth - 1; if (d < 0) d = 0; if (d > 7) d = 7; return strdup(g_pas_case_tmp[d]); }
@@ -648,12 +651,12 @@ selector_list:
 expression:
     simple_expression { $$ = $1; }
     | expression INOP simple_expression { $$ = mk_in($1, $3); }
-    | expression LTOP simple_expression { $$ = bin(TT_LT, $1, $3); }
-    | expression LEOP simple_expression { $$ = pas_arith_or_set(TT_LE, "__pas_subset", $1, $3); }
-    | expression GTOP simple_expression { $$ = bin(TT_GT, $1, $3); }
-    | expression GEOP simple_expression { $$ = pas_arith_or_set(TT_GE, "__pas_super", $1, $3); }
-    | expression NEOP simple_expression { $$ = pas_eqrel(TT_NE, $1, $3); }
-    | expression EQOP simple_expression { $$ = pas_eqrel(TT_EQ, $1, $3); }
+    | expression LTOP simple_expression { $$ = pas_rel(TT_LT, $1, $3); }
+    | expression LEOP simple_expression { $$ = pas_rel_or_set(TT_LE, "__pas_subset", $1, $3); }
+    | expression GTOP simple_expression { $$ = pas_rel(TT_GT, $1, $3); }
+    | expression GEOP simple_expression { $$ = pas_rel_or_set(TT_GE, "__pas_super", $1, $3); }
+    | expression NEOP simple_expression { $$ = pas_rel(TT_NE, $1, $3); }
+    | expression EQOP simple_expression { $$ = pas_rel(TT_EQ, $1, $3); }
     ;
 simple_expression:
     term { $$ = $1; }
