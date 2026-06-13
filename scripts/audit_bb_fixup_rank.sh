@@ -37,11 +37,12 @@ for f in src/emitter/BB_templates/bb_*.cpp; do
     ml=$(sed 's/\\"//g; s/"[^"]*"//g' "$f" | grep -cE 'x86\(.*x86\(' || true)
     cmtA=$(grep -cE '/\*|//' "$f" || true); sep=$(grep -cE '^/\*[-=]+\*/[[:space:]]*$' "$f" || true); xc=$(( cmtA > sep ? cmtA - sep : 0 ))
     bp=$(strip "$f"    | grep -cE 'x86_(frame|ro|reg)_[a-z0-9_]*\(' || true)
-    tot=$((em + nw + bs + rb + mt + ef + lc + bl + pe + lv + rp + hc + sd + cl + ml + xc + bp))
+    lb=$(strip "$f"    | grep -cE '\bg_(gvar_flat_chain|descr_flat_chain|icn_scan_regs_live|gvar_callarg_live)\b' || true)
+    tot=$((em + nw + bs + rb + mt + ef + lc + bl + pe + lv + rp + hc + sd + cl + ml + xc + bp + lb))
     grand_violations=$((grand_violations + tot))
     if [ "$tot" -gt 0 ]; then
         total_dirty=$((total_dirty + 1))
-        rows+=("$(printf "%05d %s eb=%d nw=%d bs=%d rb=%d mt=%d ef=%d lc=%d bl=%d pe=%d lv=%d rp=%d hc=%d sd=%d cl=%d ml=%d xc=%d bp=%d TOTAL=%d" "$tot" "$name" "$em" "$nw" "$bs" "$rb" "$mt" "$ef" "$lc" "$bl" "$pe" "$lv" "$rp" "$hc" "$sd" "$cl" "$ml" "$xc" "$bp" "$tot")")
+        rows+=("$(printf "%05d %s eb=%d nw=%d bs=%d rb=%d mt=%d ef=%d lc=%d bl=%d pe=%d lv=%d rp=%d hc=%d sd=%d cl=%d ml=%d xc=%d bp=%d lb=%d TOTAL=%d" "$tot" "$name" "$em" "$nw" "$bs" "$rb" "$mt" "$ef" "$lc" "$bl" "$pe" "$lv" "$rp" "$hc" "$sd" "$cl" "$ml" "$xc" "$bp" "$lb" "$tot")")
     else
         total_clean=$((total_clean + 1))
         [ "$dirty_only" -eq 0 ] && rows+=("$(printf "00000 %s CLEAN" "$name")")
