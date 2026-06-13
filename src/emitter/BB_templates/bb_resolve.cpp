@@ -15,7 +15,7 @@ static std::string bdisp(IR_t *pBB) {
     if (!(r = bb_atom_string()).empty()) return r;
     if (!(r = bb_term_io_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_findall_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_succ_plus_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_succ_plus()).empty()) return r;
     if (!(r = bb_list_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_retract_throw()).empty()) return r;
     if (MEDIUM_BINARY) return bytes(1, "\xE9") + u32le(0) + bytes(1, "\xE9") + u32le(0);
