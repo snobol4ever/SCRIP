@@ -60,7 +60,7 @@ static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
         if (MEDIUM_TEXT) {
             char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
             s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM cell addr of gvar -> [r12+%d]", idx, aoff))
-               + x86("lea", "rdi", std::string("[rip + ") + b1 + "]") + x86("call", "rt_gvar_cell@PLT");
+               + x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str()) + x86("call", "rt_gvar_cell@PLT");
         } else {
             uint64_t fptr; { DESCR_t * (*fp)(const char *) = rt_gvar_cell; fptr = (uint64_t)(uintptr_t)(void *) fp; }
             s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(lf).sval) + x86_call_ro("rt_gvar_cell", fptr);
@@ -119,7 +119,7 @@ static const char * relop_fail_mnem(IR_t * nd) {
 static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
     std::string s;
     if (a->op == IR_VAR && IR_LIT(a).sval) {
-        if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); s += x86("lea", "rdi", std::string("[rip + ") + b1 + "]") + x86("call", "rt_gvar_get_int@PLT"); }
+        if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); s += x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT"); }
         else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(a).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
     } else if (a->op == IR_VAR_FRAME) {
         s += x86_frame_lea("rax", 0);
@@ -145,7 +145,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
 static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b) {
     std::string s;
     if (b->op == IR_VAR && IR_LIT(b).sval) {
-        if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); s += x86("lea", "rdi", std::string("[rip + ") + b2 + "]") + x86("call", "rt_gvar_get_int@PLT"); }
+        if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); s += x86("directive", (std::string(" lea rdi, [rip + ") + b2 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT"); }
         else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(b).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
         s += x86("mov", "rcx", "rax");
     } else if (b->op == IR_VAR_FRAME) {
@@ -208,7 +208,7 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + nfn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
         s += x86("lea", "rsi", FRQ(avbase));
         s += x86("mov", "edx", emit_fmt("%d", nn));
         if (nmig) s += pas_sl_setup(nfn);
@@ -349,7 +349,7 @@ static std::string bb_call_gvar_define_str(IR_t * pBB) {
             + x86("directive", ".section .rodata")
             + x86("directive", (fl + ": .string \"" + specstr + "\"").c_str())
             + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
         s += x86("call", "rt_proc_define@PLT");
         s += x86("jmp", "γ");
         s += x86("label", emit_fmt("%s", _.lbl_β));
@@ -387,7 +387,7 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
         s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)(narg));
         int mig = rt_proc_frame_nslots(fn) >= 0;
@@ -445,7 +445,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("lea", "rdi", std::string("[rip + ") + fl + "]");
+        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
         s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)(narg));
         s += x86("call", "rt_call_arr@PLT");
