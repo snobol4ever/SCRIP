@@ -17,6 +17,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_BINOP_RELOP] = "IR_BINOP_RELOP",
     [IR_BINOP_ARITH] = "IR_BINOP_ARITH",
     [IR_BINOP_GVAR_ARITH] = "IR_BINOP_GVAR_ARITH",
+    [IR_UNOP_GVAR_SLOT] = "IR_UNOP_GVAR_SLOT",
     [IR_BINOP_CONCAT] = "IR_BINOP_CONCAT",
     [IR_UNOP] = "IR_UNOP",
     [IR_CALL] = "IR_CALL",

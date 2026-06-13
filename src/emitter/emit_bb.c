@@ -2092,6 +2092,12 @@ static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label
         c0->op = save_op; IR_LIT(c0).ival = save_ival;
         return;
     }
+    if (bb_slot_get(c0) >= 0) {
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        return;
+    }
     walk_bb_flat(c0, rhs_done, lbl_ω, rhs_β);
     emit_label_define_bb(rhs_done);
     EMIT_PAIR_RESET();
@@ -2930,6 +2936,18 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             g_emit.op_sa   = descr_binop_opnd_slot(bb_child0(nd));
             g_emit.op_off  = bb_slot_alloc16(nd);
             FILL(nd, lbl_γ, lbl_ω, lbl_β);
+        } else if (g_gvar_flat_chain && nd->op == IR_UNOP && (IR_LIT(nd).ival == TT_MNS || IR_LIT(nd).ival == TT_PLS) && bb_child0(nd)
+                   && (bb_child0(nd)->op == IR_LIT_I || (bb_child0(nd)->op == IR_VAR && IR_LIT(bb_child0(nd)).sval) || bb_slot_get(bb_child0(nd)) >= 0)) {
+            g_emit.bb_lk    = (int)bb_child0(nd)->op;
+            g_emit.bb_li    = (bb_child0(nd)->op == IR_LIT_I) ? IR_LIT(bb_child0(nd)).ival : 0;
+            g_emit.op_name1 = (bb_child0(nd)->op == IR_VAR) ? IR_LIT(bb_child0(nd)).sval : (const char *)0;
+            g_emit.op_sa    = (bb_child0(nd)->op != IR_LIT_I && bb_child0(nd)->op != IR_VAR) ? bb_slot_get(bb_child0(nd)) : -1;
+            g_emit.op_ival  = IR_LIT(nd).ival;
+            g_emit.op_off   = bb_slot_alloc(nd);
+            { static char gvupool[64]; g_emit.op_parts_lbl[0] = NULL; if (g_emit.op_name1 && g_emit.op_name1[0]) { strtab_label(gvupool, 64, g_emit.op_name1); g_emit.op_parts_lbl[0] = gvupool; } }
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            { IR_e _sk = nd->op; nd->op = IR_UNOP_GVAR_SLOT; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; }
         } else {
             flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β);
         }
