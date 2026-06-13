@@ -55,7 +55,7 @@ static std::string bcps_txt_arm() { int off = bb_slot_alloc16(_.node); bb_label_
          + x86("cmp", "eax", "99")
          + x86("je", "ω")
          + x86("jmp", "γ")
-         + x86("label", std::string(_.lbl_β) + ":")
+         + x86("label", std::string(_.lbl_β))
          + x86("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
