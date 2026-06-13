@@ -368,6 +368,7 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
         EMIT_PAIR_RESET();
         EMIT_PAIR_JMP(lbl_γ);
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        g_emit.x86_scratch_off = bb_slot_claim(4);
         EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
         return;
     }
@@ -379,6 +380,7 @@ static void flat_drive_fence(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     EMIT_PAIR_DEF_JMP(child_γ, lbl_γ);
     EMIT_PAIR_DEF_JMP(child_ω, lbl_ω);
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+    g_emit.x86_scratch_off = bb_slot_claim(4);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -2017,9 +2019,27 @@ static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ,
     int id = g_flat_node_id++;
     bb_label_t *subj_γ = emit_label_alloc("xscan%d_sγ", id);
     bb_label_t *subj_β = emit_label_alloc("xscan%d_sβ", id);
+    bb_label_t *dcap_ok   = emit_label_alloc("xscan%d_dok",   id);
+    bb_label_t *dcap_fail = emit_label_alloc("xscan%d_dfail", id);
     flat_drive_subject(subj, subj_γ, lbl_ω, subj_β);
     emit_label_define_bb(subj_γ);
-    flat_drive_match(match, lbl_γ, lbl_ω, lbl_β);
+    if (g_is_text) {
+        static const char s_begin[] = " push rbx\n mov rbx, rsp\n and rsp, -16\n call rt_dcap_begin@PLT\n mov rsp, rbx\n pop rbx\n";
+        emit_text_n(s_begin, sizeof(s_begin) - 1);
+    }
+    flat_drive_match(match, dcap_ok, dcap_fail, lbl_β);
+    emit_label_define_bb(dcap_ok);
+    if (g_is_text) {
+        static const char s_ok[] = " push rbx\n mov rbx, rsp\n and rsp, -16\n call rt_dcap_end_ok@PLT\n mov rsp, rbx\n pop rbx\n";
+        emit_text_n(s_ok, sizeof(s_ok) - 1);
+    }
+    emit_jmp_label(lbl_γ, JMP_JMP);
+    emit_label_define_bb(dcap_fail);
+    if (g_is_text) {
+        static const char s_fail[] = " push rbx\n mov rbx, rsp\n and rsp, -16\n call rt_dcap_end_fail@PLT\n mov rsp, rbx\n pop rbx\n";
+        emit_text_n(s_fail, sizeof(s_fail) - 1);
+    }
+    emit_jmp_label(lbl_ω, JMP_JMP);
     g_emit_cfg = save_cfg;
     g_subject_slot = save_subject_slot;
     return 1;
@@ -2426,13 +2446,13 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     }
     switch (nd->op) {
     case IR_PAT_LIT:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_ARB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_ARB:    g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_REM:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_SPAN:   g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_span";   g_emit.op_kind = "SPAN";   FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_SPAN_VAR: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_spanv"; g_emit.op_kind = "SPANV"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_SPAN:   g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_span";   g_emit.op_kind = "SPAN";   g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_SPAN_VAR: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_spanv"; g_emit.op_kind = "SPANV"; g_emit.x86_scratch_off = bb_slot_claim(16); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_ANY:    g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_any";    g_emit.op_kind = "ANY";    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_BREAK:  g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_brk";    g_emit.op_kind = "BREAK";  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_BREAKX: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_brkx";   g_emit.op_kind = "BREAKX"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_BREAK:  g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_brk";    g_emit.op_kind = "BREAK";  g_emit.x86_scratch_off = bb_slot_claim(4); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PAT_BREAKX: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_brkx";   g_emit.op_kind = "BREAKX"; g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_NOTANY: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_notany"; g_emit.op_kind = "NOTANY"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_LEN:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PAT_POS:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -2451,6 +2471,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
         g_emit.child_fn    = (void *)cfn;
         g_emit.bb_child_lbl = cfn ? child_cache_get_lbl(cfn) : NULL;
+        g_emit.x86_scratch_off = bb_slot_claim(8);
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_PAT_ASSIGN_IMM:  flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
