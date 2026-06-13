@@ -328,6 +328,11 @@ inline std::string x86_frame_add_to_reg(const char * reg, int off) {
     if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x03; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" add ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
+inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x2B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" sub ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
+}
 inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [r12 + %d]", off); return b[i]; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
@@ -595,6 +600,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "sub")) {
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_sub_rr(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_sub(a.txt, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_sub_from_reg(a.txt, b.off);
         return std::string();
     }
     if (!strcmp(mnem, "imul"))   { return x86_imul_rr(a.txt, b.txt); }

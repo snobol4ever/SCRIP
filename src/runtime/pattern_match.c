@@ -640,6 +640,9 @@ void rt_dcap_flush(void) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_clear(void) { g_rt_dcap_n = 0; }
+void rt_dcap_begin(void) { g_rt_dcap_active = 1; g_rt_dcap_n = 0; }
+void rt_dcap_end_fail(void) { g_rt_dcap_n = 0; g_rt_dcap_active = 0; }
+void rt_dcap_end_ok(void) { rt_dcap_flush(); g_rt_dcap_active = 0; }
 void rt_cap_assign(const char *varname, const char *base, int len)
 {
     if (!varname || !*varname) return;
