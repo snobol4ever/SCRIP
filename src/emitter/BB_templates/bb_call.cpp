@@ -241,15 +241,6 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
         return s;
     }
-    {
-        int ps = bb_slot_get(lf);
-        if (ps >= 0) {
-            std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [r12+%d] -> [r12+%d]", idx, ps, aoff)));
-            s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
-            s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
-            return s;
-        }
-    }
     if (g_gvar_flat_chain) {
         IR_t * fin = lf; int gg = 0;
         while (fin && fin->γ.node && fin->γ.node->op != IR_SUCCEED && fin->γ.node->op != IR_FAIL && gg++ < 256) fin = fin->γ.node;
@@ -299,6 +290,15 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
                 }
                 return s;
             }
+        }
+    }
+    {
+        int ps = bb_slot_get(lf);
+        if (ps >= 0) {
+            std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [r12+%d] -> [r12+%d]", idx, ps, aoff)));
+            s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
+            s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
+            return s;
         }
     }
     if (lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0 || IR_LIT(lf).dval == 5.0)) return marshal_single_call(lf, aoff, bb_node_id(lf));
