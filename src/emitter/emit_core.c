@@ -378,6 +378,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     emit_io_set_sink(out);
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
+    g_emit.x86_uid = g_flat_node_id++;
     g_emit.op_sval = IR_LIT(nd).sval;
     g_emit.op_ival = IR_LIT(nd).ival;
     g_emit.op_node_kind = (int)nd->op;
