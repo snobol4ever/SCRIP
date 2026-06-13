@@ -191,6 +191,8 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_det_numbervars.cpp \
     $(SRC)/emitter/BB_templates/bb_det_term_string.cpp \
     $(SRC)/emitter/BB_templates/bb_det_copy_term.cpp \
+    $(SRC)/emitter/BB_templates/bb_det_nb_setval.cpp \
+    $(SRC)/emitter/BB_templates/bb_det_nb_getval.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_unify.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_choice.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_call.cpp \
@@ -449,6 +451,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_numbervars.cpp    -o $(OBJ)/bb_det_numbervars.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_term_string.cpp   -o $(OBJ)/bb_det_term_string.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_copy_term.cpp     -o $(OBJ)/bb_det_copy_term.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_nb_setval.cpp     -o $(OBJ)/bb_det_nb_setval.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_nb_getval.cpp     -o $(OBJ)/bb_det_nb_getval.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_unify.cpp       -o $(OBJ)/bb_cell_unify.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_choice.cpp      -o $(OBJ)/bb_cell_choice.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_call.cpp        -o $(OBJ)/bb_cell_call.o

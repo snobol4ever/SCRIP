@@ -116,5 +116,7 @@ std::string bb_det_sort();
 std::string bb_det_numbervars();
 std::string bb_det_term_string();
 std::string bb_det_copy_term();
+std::string bb_det_nb_setval();
+std::string bb_det_nb_getval();
 }
 #endif

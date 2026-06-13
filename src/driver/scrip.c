@@ -612,6 +612,12 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         int a1ok = (ct1->op == IR_LOGICVAR || ct1->op == IR_STRUCT || ct1->op == IR_ATOM || ct1->op == IR_LIT_I);
         return a0ok && a1ok;
     }
+    if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (!strcmp(IR_LIT(gg).sval,"nb_setval")||!strcmp(IR_LIT(gg).sval,"nb_getval")) && IR_LIT(gg).ival == 2 && ir_call_arg(gg,0) && ir_call_arg(gg,1)) {
+        const IR_t *nk0 = ir_call_arg(gg,0), *nv1 = ir_call_arg(gg,1);
+        int a0ok = (nk0->op == IR_ATOM || nk0->op == IR_LOGICVAR);
+        int a1ok = (nv1->op == IR_LOGICVAR || nv1->op == IR_ATOM || nv1->op == IR_LIT_I || nv1->op == IR_LIT_F || nv1->op == IR_STRUCT);
+        return a0ok && a1ok;
+    }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"findall")) {
         return pl_findall_conj_member_admissible(gg);
     }
@@ -684,6 +690,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
             if (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"term_string")||!strcmp(IR_LIT(nd).sval,"term_to_atom")) && IR_LIT(nd).ival == 2) continue;
             if (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"atomic_list_concat")||!strcmp(IR_LIT(nd).sval,"concat_atom")) && (IR_LIT(nd).ival == 2 || IR_LIT(nd).ival == 3)) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval,"copy_term") && IR_LIT(nd).ival == 2) continue;
+            if (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"nb_setval")||!strcmp(IR_LIT(nd).sval,"nb_getval")) && IR_LIT(nd).ival == 2) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval,"findall")) continue;
             const char *fn = IR_LIT(nd).sval ? IR_LIT(nd).sval : "";
             int is_ttest = (strcmp(fn,"var")==0||strcmp(fn,"nonvar")==0||strcmp(fn,"atom")==0||strcmp(fn,"atomic")==0||
@@ -1048,6 +1055,11 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
                 IR_t *ct0 = ir_call_arg(gg,0), *ct1 = ir_call_arg(gg,1);
                 if (ct0 && ct0->op != IR_LOGICVAR) (*nsynth)++;
                 if (ct1 && ct1->op != IR_LOGICVAR) (*nsynth)++;
+            }
+            if ((!strcmp(fn,"nb_setval")||!strcmp(fn,"nb_getval")) && IR_LIT(gg).ival == 2) {
+                IR_t *nk0 = ir_call_arg(gg,0), *nv1 = ir_call_arg(gg,1);
+                if (nk0 && nk0->op != IR_LOGICVAR) (*nsynth)++;
+                if (nv1 && nv1->op != IR_LOGICVAR) (*nsynth)++;
             }
             if (!strcmp(fn,"findall")) { /* bb_findall_state_t already built by lower_prolog; no extra synth slots */ }
             if ((!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) && IR_LIT(gg).ival == 2) {
@@ -1472,7 +1484,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (ts1->op != IR_LOGICVAR) return 0;
         nn = pl_gz_det_node(IR_DET_TERM_STRING);
         if (nn) { ir_operand_push(nn, st); ir_operand_push(nn, ts1); }
-    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"findall")) {
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (!strcmp(IR_LIT(gg).sval,"findall")||!strcmp(IR_LIT(gg).sval,"aggregate_all"))) {
         if (!*head) *head = gg; else { (*tail)->γ.node = gg; memcpy((*tail)->γ.sz, "α", 3); }
         *tail = gg; gg->γ.node = NULL;
         return 1;
@@ -1498,6 +1510,28 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         } else return 0;
         nn = pl_gz_det_node(IR_DET_COPY_TERM);
         if (nn) { ir_operand_push(nn, sc); ir_operand_push(nn, sd); }
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (!strcmp(IR_LIT(gg).sval,"nb_setval")||!strcmp(IR_LIT(gg).sval,"nb_getval")) && IR_LIT(gg).ival == 2 && ir_call_arg(gg,0) && ir_call_arg(gg,1)) {
+        int nb_set = !strcmp(IR_LIT(gg).sval,"nb_setval");
+        IR_t *nk0 = ir_call_arg(gg,0), *nv1 = ir_call_arg(gg,1);
+        IR_t *skey = NULL, *sval = NULL;
+        if (nk0->op == IR_LOGICVAR) { skey = nk0; }
+        else if (nk0->op == IR_ATOM) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, nk0);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            skey = pl_gz_lv(kk); if (!skey) return 0;
+        } else return 0;
+        if (nv1->op == IR_LOGICVAR) { sval = nv1; }
+        else if (nv1->op == IR_STRUCT || nv1->op == IR_ATOM || nv1->op == IR_LIT_I || nv1->op == IR_LIT_F) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, nv1);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            sval = pl_gz_lv(kk); if (!sval) return 0;
+        } else return 0;
+        nn = pl_gz_det_node(nb_set ? IR_DET_NB_SETVAL : IR_DET_NB_GETVAL);
+        if (nn) { ir_operand_push(nn, skey); ir_operand_push(nn, sval); }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (!strcmp(IR_LIT(gg).sval,"atomic_list_concat")||!strcmp(IR_LIT(gg).sval,"concat_atom")) && IR_LIT(gg).ival == 2 && ir_call_arg(gg,0) && ir_call_arg(gg,1)) {
         const char *alcfn = IR_LIT(gg).sval;
         IR_t *al0 = ir_call_arg(gg,0), *al1 = ir_call_arg(gg,1);
@@ -1669,6 +1703,10 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
                 if (p->op == IR_UNIFY && ((p->n_operands > 0 && p->operands[0] == nd) || (p->n_operands > 1 && p->operands[1] == nd))) { parent_ok = 1; break; }
                 if (p->op == IR_GOAL) { bb_goal_state_t *zc2 = (bb_goal_state_t *)(intptr_t)IR_LIT(p).ival; if (zc2 && zc2->args) for (int ai = 0; ai < zc2->nargs && !parent_ok; ai++) if (zc2->args[ai] == nd) parent_ok = 1; }
                 if (p->op == IR_BUILTIN) { for (int ai = 0; ir_call_arg(p, ai) && !parent_ok; ai++) if (ir_call_arg(p, ai) == nd) parent_ok = 1; }
+                if (p->op == IR_BUILTIN && IR_LIT(p).sval && (!strcmp(IR_LIT(p).sval,"findall")||!strcmp(IR_LIT(p).sval,"aggregate_all"))) {
+                    bb_findall_state_t *pfs = (bb_findall_state_t *)(intptr_t)IR_LIT(p).ival;
+                    if (pfs && (pfs->tmpl == nd || pfs->result == nd)) parent_ok = 1;
+                }
                 if (p->op == IR_STRUCT) for (int oi = 0; oi < p->n_operands && !parent_ok; oi++) if (p->operands[oi] == nd) parent_ok = 1;
             }
             if (!parent_ok) return NULL;

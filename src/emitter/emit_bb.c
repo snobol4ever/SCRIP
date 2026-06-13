@@ -1379,6 +1379,13 @@ void bb_prepare(IR_t *nd) {
         g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
         return;
     }
+    if (nd->op == IR_DET_NB_SETVAL || nd->op == IR_DET_NB_GETVAL) {
+        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
+        g_emit.op_parts_n = 2;
+        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
+        g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
+        return;
+    }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
