@@ -1,9 +1,11 @@
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "lower.h"
 /*====================================================================================================================================================================================================*/
 int g_icn_postfix_resume = 0;
 int g_icn_globals_nv     = 1;
+static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
 /*====================================================================================================================================================================================================*/
 typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; } icx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -103,6 +105,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     cx->beta = ω;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (lc_is_binop(t->t)) {
+        if (t->t == TT_POW) { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_F, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t); if (IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) IR_LIT(op).dval = 1.0;
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], op, lβ, &rr);
         if (IR_LIT(op).dval == 1.0 && lβ && lβ != ω && lβ != op) ω_to(op, lβ);
@@ -304,6 +307,12 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
         if (!icn_const_step(s->c[0], bits, isr)) return 0;
         if (s->t == TT_MNS) { if (*isr) { double d; memcpy(&d, bits, 8); d = -d; memcpy(bits, &d, 8); } else *bits = -(*bits); }
         return 1;
+    }
+    if (s->t == TT_POW && s->n >= 2 && s->c[0] && s->c[1]) {
+        int64_t lb = 0, rb = 0; int li = 0, ri = 0;
+        if (!icn_const_step(s->c[0], &lb, &li) || !icn_const_step(s->c[1], &rb, &ri)) return 0;
+        double la, ra, rv; if (li) memcpy(&la, &lb, 8); else la = (double) lb; if (ri) memcpy(&ra, &rb, 8); else ra = (double) rb;
+        rv = pow(la, ra); memcpy(bits, &rv, 8); *isr = 1; return 1;
     }
     return 0;
 }
