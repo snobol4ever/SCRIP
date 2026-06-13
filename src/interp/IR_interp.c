@@ -372,8 +372,6 @@ static Term *resolve_node_to_term(IR_t *bb) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void *rt_node_to_term_ptr(void *ir_node) { (void)ir_node; *(volatile char *)0 = 0; return (void *)0; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void resolve_format_float(char *buf, size_t bufsz, double d);
 static const char *resolve_atomic_text(Term *t, char *buf, size_t bufsz) {
     t = t ? term_deref(t) : NULL;
@@ -589,23 +587,6 @@ int rt_is_lint(long lval, const char *op, int lk, long li, int rk, long ri) {
     Term *vt = term_new_int(r);
     Term *lt = term_new_int(lval);
     if (!unify(lt, vt, &g_resolve_trail)) return 0;
-    return 1;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int rt_is_eval(void *lhs_bb, void *rhs_bb) {
-    extern Term **g_resolve_env; extern Trail g_resolve_trail;
-    IR_t *lhs = (IR_t *)lhs_bb;
-    IR_t *rhs = (IR_t *)rhs_bb;
-    if (!lhs || !rhs || !g_resolve_env) return 0;
-    int dst_slot = (int)IR_LIT(lhs).ival;
-    if (dst_slot < 0) return 0;
-    DESCR_t v = resolve_arith_eval(rhs);
-    if (IS_FAIL_fn(v)) return 0;
-    Term *vt = (v.v == DT_R) ? term_new_float(v.r) : term_new_int(v.i);
-    Term *lhst = g_resolve_env[dst_slot];
-    int mark = trail_mark(&g_resolve_trail);
-    if (!lhst) { g_resolve_env[dst_slot] = vt; return 1; }
-    if (!unify(lhst, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1398,13 +1379,6 @@ int rt_catch(void *zc_ptr) {
         if (IS_FAIL_fn(res)) return 0;
         return 1;
     }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int rt_throw(void *alpha_ptr) {
-    IR_t *alpha = (IR_t *)alpha_ptr;
-    Term *ball = alpha ? resolve_node_to_term(alpha) : term_new_atom(prolog_atom_intern("error"));
-    resolve_throw_term(ball);
-    return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_throw_term(void *ball_v) {

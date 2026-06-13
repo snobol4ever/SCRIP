@@ -168,7 +168,6 @@ void rt_subject_load_nv(const char *name, void *slot);
 int  rt_defer_match(const char *varname, int ival_flag, int cur_delta);
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_is(int dst_slot, const char *op, int lk, long li, int rk, long ri);
-int rt_is_eval(void *lhs_bb, void *rhs_bb);
 int rt_atom_length(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_upcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_downcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
@@ -187,9 +186,6 @@ int rt_nb_getval_term(void *key, int kres, long ires, const char *sres);
 int rt_aggregate_all_term(void *tmpl, void *goal, int kres, long ires, const char *sres);
 int rt_atom_chars_codes(int as_codes, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_atom_chars_codes_term(int as_codes, int k0, long i0, const char *s0, void *t1);
-int rt_findall(void *fs_ptr);
-int rt_catch(void *zc_ptr);
-int rt_throw(void *alpha_ptr);
 int rt_type_test(const char *fn, int k0, long i0, const char *s0);
 int rt_type_test_term(const char *fn, void *t0);
 int rt_sort_msort(int do_msort, int k0, long i0, const char *s0, int k1, long i1, const char *s1);

@@ -131,9 +131,4 @@ std::string emit_build_compound_term(const IR_t *nd) {
         return bterm_mset(nd);
     return x86("comment", std::string("build_compound_term: unhandled kind ") + std::to_string((int)nd->op));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-std::string emit_term_from_node_bin(const IR_t *nd) {
-    return bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)(const void *)nd)
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)rt_node_to_term_ptr)
-         + bytes(2, "\xFF\xD0");
-}
+
