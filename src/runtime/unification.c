@@ -962,3 +962,38 @@ int rt_pl_copy_term_cell(void *term_cell, void *copy_cell)
     if (!unify((Term *)copy_cell, copy, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+#define RT_PL_NB_MAX 256
+static struct { const char *key; Term *val; } g_rt_pl_nb[RT_PL_NB_MAX];
+static int g_rt_pl_nb_n = 0;
+int rt_pl_nb_setval_cell(void *key_cell, void *val_cell)
+{
+    Term *k = term_deref((Term *)key_cell);
+    if (!k || k->tag != TERM_ATOM) return 0;
+    const char *name = prolog_atom_name(k->atom_id);
+    if (!name) return 0;
+    Term *var_map[256]; int var_cap = 256, var_n = 0;
+    Term *stored = copy_term_deep(term_deref((Term *)val_cell), var_map, &var_cap, &var_n);
+    if (!stored) return 0;
+    for (int i = 0; i < g_rt_pl_nb_n; i++) if (g_rt_pl_nb[i].key && !strcmp(g_rt_pl_nb[i].key, name)) { g_rt_pl_nb[i].val = stored; return 1; }
+    if (g_rt_pl_nb_n < RT_PL_NB_MAX) { g_rt_pl_nb[g_rt_pl_nb_n].key = name; g_rt_pl_nb[g_rt_pl_nb_n].val = stored; g_rt_pl_nb_n++; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
+{
+    extern Trail g_resolve_trail;
+    Term *k = term_deref((Term *)key_cell);
+    if (!k || k->tag != TERM_ATOM) return 0;
+    const char *name = prolog_atom_name(k->atom_id);
+    if (!name) return 0;
+    Term *val = (Term *)0;
+    for (int i = 0; i < g_rt_pl_nb_n; i++) if (g_rt_pl_nb[i].key && !strcmp(g_rt_pl_nb[i].key, name)) { val = g_rt_pl_nb[i].val; break; }
+    if (!val) return 0;
+    int mark = trail_mark(&g_resolve_trail);
+    Term *var_map[256]; int var_cap = 256, var_n = 0;
+    Term *fresh = copy_term_deep(val, var_map, &var_cap, &var_n);
+    if (!fresh) fresh = val;
+    if (!unify((Term *)val_cell, fresh, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}

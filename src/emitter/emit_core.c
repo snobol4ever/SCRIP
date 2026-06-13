@@ -535,6 +535,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_DET_NUMBERVARS:  { bb_prepare(nd); bb_emit_x86(bb_det_numbervars()); return 0; }
     case IR_DET_TERM_STRING: { bb_prepare(nd); bb_emit_x86(bb_det_term_string()); return 0; }
     case IR_DET_COPY_TERM:   { bb_prepare(nd); bb_emit_x86(bb_det_copy_term()); return 0; }
+    case IR_DET_NB_SETVAL:   { bb_prepare(nd); bb_emit_x86(bb_det_nb_setval()); return 0; }
+    case IR_DET_NB_GETVAL:   { bb_prepare(nd); bb_emit_x86(bb_det_nb_getval()); return 0; }
     case IR_CELL_UNIFY:      { bb_prepare(nd); bb_emit_x86(bb_cell_unify()); return 0; }
     case IR_CELL_CHOICE:     { bb_prepare(nd); bb_emit_x86(bb_cell_choice()); return 0; }
     case IR_CELL_CALL:       { bb_prepare(nd); bb_emit_x86(bb_cell_call()); return 0; }

@@ -2,6 +2,7 @@
 extern "C" {
 #include "IR_interp_state.h"
 }
+extern "C" int rt_aggregate(void *agg_ptr);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bff_goal(const IR_t *gn) {
     if (gn->op != IR_FAIL && gn->op != IR_SUCCEED)
@@ -22,6 +23,14 @@ std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("sub", "rsp", 16L)
                  + x86("movabs", "rdi", (uint64_t)(uintptr_t)(void *)(intptr_t)_.op_ival)
                  + x86("call", "rt_findall", (uint64_t)(uintptr_t)(void*)rt_findall)
+                 + x86("add", "rsp", 16L)
+                 + x86("test", "eax", "eax")
+                 + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
+        if (strcmp(fn, "aggregate_all") == 0)
+            return hdr
+                 + x86("sub", "rsp", 16L)
+                 + x86("movabs", "rdi", (uint64_t)(uintptr_t)(void *)(intptr_t)_.op_ival)
+                 + x86("call", "rt_aggregate", (uint64_t)(uintptr_t)(void*)rt_aggregate)
                  + x86("add", "rsp", 16L)
                  + x86("test", "eax", "eax")
                  + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
@@ -55,6 +64,11 @@ std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr) {
                  + x86("je",   _.lbl_ω)
                  + x86("jmp",  _.lbl_γ)
                  + x86("def", "β") + x86("jmp", "ω");
+        }
+        if (strcmp(fn, "aggregate_all") == 0) {
+            extern int g_sm_native_unsupported;
+            g_sm_native_unsupported = 1;
+            return hdr + x86("jmp", "ω") + x86("def", "β") + x86("jmp", "ω");
         }
     }
     return std::string();

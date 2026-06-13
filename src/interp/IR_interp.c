@@ -1191,6 +1191,83 @@ int rt_findall(void *fs_ptr) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern int rt_meta_solve(void *goal_v, void **root_out);
 extern int rt_meta_redo(void *root_v);
+int rt_aggregate(void *agg_ptr) {
+    extern Trail g_resolve_trail;
+    extern Term **g_resolve_env;
+    extern resolve_choice *g_resolve_bfr;
+    extern resolve_choice *g_resolve_cut_barrier;
+    extern int g_resolve_cut_flag;
+    extern int g_resolve_b3_call_mark;
+    bb_findall_state_t *as = (bb_findall_state_t *)agg_ptr;
+    if (!as || !as->gcfg) return 0;
+    Term       **outer_env          = g_resolve_env;
+    resolve_choice   *outer_bfr          = g_resolve_bfr;
+    resolve_choice   *outer_barrier      = g_resolve_cut_barrier;
+    int          outer_cut_flag     = g_resolve_cut_flag;
+    int          outer_b3_mark      = g_resolve_b3_call_mark;
+    IR_graph_t  *outer_redirect_cfg = g_resolve_tail_redirect_cfg;
+    IR_t        *outer_redirect_ent = g_resolve_tail_redirect_entry;
+    Term *spec0 = as->tmpl ? term_deref(resolve_node_to_term(as->tmpl)) : (Term *)0;
+    int mode_count = 0, mode_sum = 0, mode_max = 0, mode_min = 0;
+    if (spec0 && spec0->tag == TERM_ATOM) { const char *fn = prolog_atom_name(spec0->atom_id); if (fn && strcmp(fn,"count") == 0) mode_count = 1; }
+    else if (spec0 && spec0->tag == TERM_COMPOUND && spec0->compound.arity == 1) {
+        const char *fn = prolog_atom_name(spec0->compound.functor);
+        if      (fn && strcmp(fn,"sum") == 0) mode_sum = 1;
+        else if (fn && strcmp(fn,"max") == 0) mode_max = 1;
+        else if (fn && strcmp(fn,"min") == 0) mode_min = 1;
+    }
+    if (!mode_count && !mode_sum && !mode_max && !mode_min) return 0;
+    int mark = trail_mark(&g_resolve_trail);
+    g_resolve_bfr              = NULL;
+    g_resolve_cut_barrier      = NULL;
+    g_resolve_cut_flag         = 0;
+    g_resolve_b3_call_mark     = -1;
+    g_resolve_tail_redirect_cfg   = NULL;
+    g_resolve_tail_redirect_entry = NULL;
+    int64_t acc_count = 0; double acc_sum = 0, acc_max = 0, acc_min = 0; int acc_first = 1;
+    bb_reset(as->gcfg);
+    DESCR_t res = IR_interp_once(as->gcfg);
+    int fa_safety = as->gcfg->n * 256 + 4096;
+    while (!IS_FAIL_fn(res) && fa_safety-- > 0) {
+        Term **goal_env = g_resolve_env;
+        g_resolve_env = outer_env;
+        if (mode_count) { acc_count++; }
+        else {
+            Term *sp = as->tmpl ? term_deref(resolve_node_to_term(as->tmpl)) : (Term *)0;
+            if (sp && sp->tag == TERM_COMPOUND && sp->compound.arity == 1 && sp->compound.args[0]) {
+                Term *vt = term_deref(sp->compound.args[0]);
+                double v = (vt && vt->tag == TERM_INT) ? (double)vt->ival : (vt && vt->tag == TERM_FLOAT) ? vt->fval : 0.0;
+                if (mode_sum) acc_sum += v;
+                if (mode_max && (acc_first || v > acc_max)) acc_max = v;
+                if (mode_min && (acc_first || v < acc_min)) acc_min = v;
+                acc_first = 0;
+            }
+        }
+        g_resolve_env = goal_env;
+        if (!bb_body_has_live_choice(as->gcfg)) break;
+        g_resolve_tail_redirect_cfg   = NULL;
+        g_resolve_tail_redirect_entry = NULL;
+        res = IR_interp_resume(as->gcfg);
+    }
+    g_resolve_env                 = outer_env;
+    g_resolve_bfr                 = outer_bfr;
+    g_resolve_cut_barrier         = outer_barrier;
+    g_resolve_cut_flag            = outer_cut_flag;
+    g_resolve_b3_call_mark        = outer_b3_mark;
+    g_resolve_tail_redirect_cfg   = outer_redirect_cfg;
+    g_resolve_tail_redirect_entry = outer_redirect_ent;
+    trail_unwind(&g_resolve_trail, mark);
+    Term *result_term = (Term *)0;
+    if      (mode_count) result_term = term_new_int(acc_count);
+    else if (mode_sum)   result_term = (acc_sum == (double)(int64_t)acc_sum) ? term_new_int((int64_t)acc_sum) : term_new_float(acc_sum);
+    else if (mode_max)   result_term = (acc_max == (double)(int64_t)acc_max) ? term_new_int((int64_t)acc_max) : term_new_float(acc_max);
+    else if (mode_min)   result_term = (acc_min == (double)(int64_t)acc_min) ? term_new_int((int64_t)acc_min) : term_new_float(acc_min);
+    if (!result_term) return 0;
+    int mark2 = trail_mark(&g_resolve_trail);
+    if (!unify(resolve_node_to_term(as->result), result_term, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark2); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_findall_term(void *goal_v, void *tmpl_v, void *result_v) {
     extern Trail g_resolve_trail;
     extern int ATOM_DOT;
@@ -5208,73 +5285,12 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
             }
         }
-        if (strcmp(fn,"aggregate_all")==0 && IR_LIT(bb).ival==3) {
-            extern Term **g_resolve_env; extern Trail g_resolve_trail;
-            IR_t *a0=ir_call_arg(bb,0), *a1=ir_call_arg(bb,1), *a2=ir_call_arg(bb,2);
-            if (!a0||!a1||!a2) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
-            Term *tmpl_t=resolve_node_to_term(a0); Term *tmpl_d=tmpl_t?term_deref(tmpl_t):NULL;
-            if (!tmpl_d) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
-            int mode_count=0, mode_sum=0, mode_max=0, mode_min=0;
-            IR_t *agg_arg=NULL;
-            if (tmpl_d->tag==TERM_ATOM) {
-                const char *fn2=prolog_atom_name(tmpl_d->atom_id);
-                if (fn2 && strcmp(fn2,"count")==0) mode_count=1;
-            } else if (tmpl_d->tag==TERM_COMPOUND && tmpl_d->compound.arity==1) {
-                const char *fn2=prolog_atom_name(tmpl_d->compound.functor);
-                if      (fn2&&strcmp(fn2,"sum")==0) mode_sum=1;
-                else if (fn2&&strcmp(fn2,"max")==0) mode_max=1;
-                else if (fn2&&strcmp(fn2,"min")==0) mode_min=1;
-            }
-            if (!mode_count&&!mode_sum&&!mode_max&&!mode_min) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
-            bb_findall_state_t *fs_tmp = NULL;
-            Term *goal_t=resolve_node_to_term(a1); Term *goal_d=goal_t?term_deref(goal_t):NULL;
-            if (!goal_d||(goal_d->tag!=TERM_ATOM&&goal_d->tag!=TERM_COMPOUND)) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
-            const char *gfn=(goal_d->tag==TERM_ATOM)?prolog_atom_name(goal_d->atom_id):prolog_atom_name(goal_d->compound.functor);
-            int garity=(goal_d->tag==TERM_COMPOUND)?goal_d->compound.arity:0;
-            char gkey[128]; snprintf(gkey,sizeof gkey,"%s/%d",gfn,garity);
-            Resolve_PredEntry_BB *gpe=resolve_bb_lookup(gkey,garity);
-            IR_graph_t *gcfg=bb_graph_of_pred(gpe);
-            if (!gcfg) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
-            int mark0=trail_mark(&g_resolve_trail);
-            int gnslots=garity+16;
-            Term **genv=(Term**)calloc((size_t)gnslots,sizeof(Term*));
-            for (int ai=0;ai<garity;ai++) {
-                genv[ai]=term_new_var(ai);
-                if (goal_d->compound.args[ai]) unify(genv[ai],goal_d->compound.args[ai],&g_resolve_trail);
-            }
-            Term **saved_env=g_resolve_env; g_resolve_env=genv;
-            bb_node_state_t *snap=bb_snapshot_state(gcfg);
-            bb_reset(gcfg);
-            int64_t acc_count=0; double acc_sum=0; double acc_max=0; double acc_min=0; int acc_first=1;
-            int safety2=gcfg->n*256+4096;
-            DESCR_t gres=IR_interp_once(gcfg);
-            while (!IS_FAIL_fn(gres)&&safety2-->0) {
-                acc_count++;
-                if (mode_sum||mode_max||mode_min) {
-                    if (tmpl_d->tag==TERM_COMPOUND&&tmpl_d->compound.arity==1&&tmpl_d->compound.args[0]) {
-                        Term *vt2=term_deref(tmpl_d->compound.args[0]);
-                        double v2=(vt2&&vt2->tag==TERM_INT)?(double)vt2->ival:(vt2&&vt2->tag==TERM_FLOAT)?vt2->fval:0.0;
-                        if (mode_sum) acc_sum+=v2;
-                        if (mode_max&&(acc_first||v2>acc_max)) acc_max=v2;
-                        if (mode_min&&(acc_first||v2<acc_min)) acc_min=v2;
-                        acc_first=0;
-                    }
-                }
-                gres=IR_interp_resume(gcfg);
-            }
-            bb_restore_state(gcfg,snap);
-            g_resolve_env=saved_env; free(genv);
-            trail_unwind(&g_resolve_trail,mark0);
-            Term *result_term=NULL;
-            if (mode_count) result_term=term_new_int(acc_count);
-            else if (mode_sum) result_term=(acc_sum==(int64_t)acc_sum)?term_new_int((int64_t)acc_sum):term_new_float(acc_sum);
-            else if (mode_max) result_term=(acc_max==(int64_t)acc_max)?term_new_int((int64_t)acc_max):term_new_float(acc_max);
-            else if (mode_min) result_term=(acc_min==(int64_t)acc_min)?term_new_int((int64_t)acc_min):term_new_float(acc_min);
-            if (!result_term) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
-            int mark2=trail_mark(&g_resolve_trail);
-            Term *res_t=resolve_node_to_term(a2);
-            if (!unify(res_t,result_term,&g_resolve_trail)) { trail_unwind(&g_resolve_trail,mark2); IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
-            IR_EXEC(bb).value=INTVAL(1); return bb->γ.node;
+        if (strcmp(fn,"aggregate_all")==0) {
+            bb_findall_state_t *fs_agg = (bb_findall_state_t *)(intptr_t)IR_LIT(bb).ival;
+            extern int rt_aggregate(void *agg_ptr);
+            if (!fs_agg || !fs_agg->gcfg) { IR_EXEC(bb).value=FAILDESCR; return bb->ω.node; }
+            if (rt_aggregate((void *)fs_agg)) { IR_EXEC(bb).value=INTVAL(1); return bb->γ.node; }
+            IR_EXEC(bb).value=FAILDESCR; return bb->ω.node;
         }
         if (ir_call_arg(bb,0) && IR_LIT(bb).ival==1 &&
             (strcmp(fn,"var")==0||strcmp(fn,"nonvar")==0||strcmp(fn,"atom")==0||strcmp(fn,"atomic")==0
