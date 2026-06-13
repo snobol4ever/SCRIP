@@ -78,15 +78,17 @@ static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     int is_own    = (found_sc == &cx->sc);
     int use_frame = isref || !is_own
                     || (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children);
+    int hops = 0;
+    for (const pas_scope_t * s = &cx->sc; s && s != found_sc; s = s->outer) hops++;
     if (isref) {
         IR_t * nd = build(cx, IR_VAR_FRAME_REF, γ, ω);
-        IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
+        IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
     }
     if (!use_frame) {
         IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
     }
     IR_t * nd = build(cx, IR_VAR_FRAME, γ, ω);
-    IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
+    IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
@@ -104,15 +106,17 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
     int is_own    = (found_sc == &cx->sc);
     int use_frame = isref || !is_own
                     || (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children);
+    int hops = 0;
+    for (const pas_scope_t * s = &cx->sc; s && s != found_sc; s = s->outer) hops++;
     if (isref) {
         IR_t * nd = build(cx, IR_ASSIGN_FRAME_REF, γ, ω);
-        IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
+        IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
     }
     if (!use_frame) {
         IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
     }
     IR_t * nd = build(cx, IR_ASSIGN_FRAME, γ, ω);
-    IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; return nd;
+    IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
 }
 /*====================================================================================================================================================================================================*/
 static IR_t * pas_mat(pcx_t * cx, const tree_t * e, IR_t * ω, IR_t ** v_out, IR_t ** at_out, IR_t ** af_out) {
@@ -567,6 +571,7 @@ static int lower_pascal_body(const tree_t *prog, const tree_t *proc) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_pascal_stage2(const tree_t *prog) {
+    lower_pascal_enum(prog, NULL, 0);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
         if (!proc || proc->t != TT_PROC_DECL) continue;
