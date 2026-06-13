@@ -12,6 +12,7 @@ void rt_gvar_assign_descr(const char * name, int64_t lo, int64_t hi);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_gvar_assign() {
+    union { double d; uint64_t q; } _uf; _uf.d = _.op_a_dval; uint64_t _bits_f = _uf.q;
     if (PLATFORM_X86)
         return x86("label", _.lbl_α)
              + x86("comment", "IR_ASSIGN")
@@ -26,6 +27,14 @@ std::string bb_gvar_assign() {
                     x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
                   + x86("movabs", "rsi", (uint64_t)_.op_a_ival_sg)
                   + x86("call",   "rt_gvar_assign_int", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int64_t))rt_gvar_assign_int)
+                  + x86("jmp",    "γ")
+                  + x86("def",    "β")
+                  + x86("jmp",    "ω")
+             : _.op_a_node_kind == (int)IR_LIT_F ?
+                    x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
+                  + x86("movabs", "rsi", (uint64_t)7)
+                  + x86("movabs", "rdx", _bits_f)
+                  + x86("call",   "rt_gvar_assign_descr", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int64_t, int64_t))rt_gvar_assign_descr)
                   + x86("jmp",    "γ")
                   + x86("def",    "β")
                   + x86("jmp",    "ω")

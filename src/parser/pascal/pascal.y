@@ -31,6 +31,7 @@ static tree_t *ilit(long long v) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival 
 static tree_t *flit(double v) { tree_t *e = ast_node_new(TT_FLIT); e->v.dval = v; return e; }
 static tree_t *bin(tree_e k, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(k); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *un(tree_e k, tree_t *a) { tree_t *e = ast_node_new(k); ast_push(e, a); return e; }
+static tree_t *mk_neg(tree_t *a) { if (a && a->t == TT_FLIT) { a->v.dval = -a->v.dval; return a; } return un(TT_MNS, a); }
 static tree_t *prog_of(PNodeList *l) {
     tree_t *e = ast_node_new(TT_PROGRAM);
     if (l) for (int i = 0; i < l->count; i++) ast_push(e, l->items[i]);
@@ -655,7 +656,7 @@ expression:
 simple_expression:
     term { $$ = $1; }
     | PLUS term { $$ = $2; }
-    | MINUS term { $$ = un(TT_MNS, $2); }
+    | MINUS term { $$ = mk_neg($2); }
     | simple_expression PLUS term { $$ = pas_arith_or_set(TT_ADD, "__pas_setuni", $1, $3); }
     | simple_expression MINUS term { $$ = pas_arith_or_set(TT_SUB, "__pas_setdif", $1, $3); }
     | simple_expression OROP term { $$ = bin(TT_ADD, $1, $3); }

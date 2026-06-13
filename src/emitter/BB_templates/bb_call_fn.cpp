@@ -20,16 +20,18 @@ std::string bb_call_fn_str(IR_t * pBB) {
     int nargs = (int) _.op_ival;
     int resoff = bb_slot_alloc16(pBB);
     int argbase = resoff + 16;
+    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     for (int i = 0; i < nargs; i++) {
-        IR_t * ai = ir_call_arg(pBB, i);
+        IR_t * ai = (subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i);
         bb_slot_alloc16(ai ? ai : pBB);
     }
     std::string s = x86("label", _.lbl_α)
                   + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr [operand-marshal, FAIL->ω]", fn));
     for (int i = 0; i < nargs; i++) {
-        IR_t * ai = ir_call_arg(pBB, i);
+        IR_t * ai = (subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i);
+        IR_graph_t * sg = (subs && subs[i]) ? subs[i] : NULL;
         int dst = argbase + i * 16;
-        s += marshal_call_arg(ai, NULL, dst, _.node, i);
+        s += marshal_call_arg(ai, sg, dst, _.node, i);
     }
 uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     if (MEDIUM_TEXT) {
