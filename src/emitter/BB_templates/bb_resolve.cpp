@@ -13,7 +13,7 @@ int bb_op_floaty(const char *fn) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string blbl_lea(const char *dst, const char *s) {
     char b[64]; b[0] = 0; if (s) strtab_label(b, sizeof b, s);
-    return x86("lea", dst, "[rip+__]", (uint64_t)(uintptr_t)(s ? s : ""), b);
+    return x86("lea", dst, "[rip + __]", (uint64_t)(uintptr_t)(s ? s : ""), b);
 }
 static int bmset(const char *s) {
     static const char *m[] = { "is", "=:=", "=\\=", "<", ">", "=<", ">=", "=", "\\=", NULL };

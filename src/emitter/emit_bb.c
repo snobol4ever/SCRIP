@@ -1092,7 +1092,7 @@ void bb_prepare(IR_t *nd) {
     if (nd->op == IR_GOAL) {
         const bb_goal_state_t *zc = (const bb_goal_state_t *)(intptr_t)IR_LIT(nd).ival;
         const char *_goal_nm = (zc && zc->callee && zc->callee[0]) ? zc->callee : (IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
-        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, _goal_nm);
+        snprintf(g_emit.bb_ls_buf, sizeof g_emit.bb_ls_buf, "%s", _goal_nm); g_emit.bb_ls = g_emit.bb_ls_buf;
         g_emit.op_sa = zc ? zc->arity : 0;
         int nn = zc ? zc->nargs : 0;
         if (nn > g_emit.op_sa) nn = g_emit.op_sa;
