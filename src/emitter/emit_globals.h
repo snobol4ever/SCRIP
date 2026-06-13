@@ -12,6 +12,7 @@ typedef struct {
     int                          sid;
     int                          nid;
     const char *                 op_sval;
+    const char *                 op_sval_lbl;
     int64_t                      op_ival;
     int                          op_node_kind;
     double                       op_dval;
