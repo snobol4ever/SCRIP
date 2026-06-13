@@ -14,8 +14,8 @@ static inline int64_t bb_to_by() { return (_.op_node_kind == (int)IR_TO_BY && _.
 std::string bb_to() {
     x86_begin();
     if (PLATFORM_X86)
-        return !(g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && bb_to_by() > 0) ?
-               x86_bomb("bb_to: unhandled (needs static int operands, positive by, descr flat-chain)") :
+        return !(g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && bb_to_by() != 0) ?
+               x86_bomb("bb_to: unhandled (needs static int operands, nonzero by, descr flat-chain)") :
                x86("comment", "IR_TO")
              + x86("label",   _.lbl_α)
              + x86("mov",     "rax", FRQ(_.op_sa + 8))
@@ -24,7 +24,8 @@ std::string bb_to() {
              + x86("mov",     "rax", FRQ(_.op_off + 16))
              + x86("mov",     "rcx", FRQ(_.op_sb + 8))
              + x86("cmp",     "rax", "rcx")
-             + x86("jg",      "ω")
+             + IF(bb_to_by() > 0, x86("jg", "ω"))
+             + IF(bb_to_by() < 0, x86("jl", "ω"))
              + x86("mov",     FRQ(_.op_off),     (long)DT_I)
              + x86("mov",     FRQ(_.op_off + 8), "rax")
              + x86("jmp",     "γ")
