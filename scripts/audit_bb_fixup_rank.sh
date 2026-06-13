@@ -30,7 +30,7 @@ for f in src/emitter/BB_templates/bb_*.cpp; do
     bl=$(grep -c '^[[:space:]]*$' "$f" || true)
     pe=$(strip "$f"    | grep -cE 'PORT_ALPHA|PORT_BETA|PORT_GAMMA|PORT_OMEGA' || true)
     lv=$(strip "$f"    | grep -cE '^\s+(std::string|const char ?\*|IR_t ?\*|void ?\*|uint64_t|int64_t|size_t|unsigned|double|float|short|long|bool|auto|char|int)[ \*]' || true)
-    ret=$(strip "$f"   | grep -cE '\breturn\b' || true); rp=$(( ret > 2 ? ret - 2 : 0 ))
+    ret_all=$(strip "$f" | grep -cE '\breturn\b' || true); ret_lam=$(strip "$f" | grep -E '\breturn\b' | grep -cE '\[[&=][^]]*\][[:space:]]*\([^)]*\)[[:space:]]*\{' || true); ret=$(( ret_all - ret_lam )); rp=$(( ret > 2 ? ret - 2 : 0 ))
     st=$(grep -cE '^static' "$f" || true); hc=$(( st > 2 ? st - 2 : 0 ))
     sd=$(strip "$f"    | grep -cE '\)[[:space:]]*\{[[:space:]]*(std::string|int |long |const char|auto |bool |double |char |uint64_t|size_t|IR_t)' || true)
     cl=$(awk 'length>200' "$f" | wc -l)
