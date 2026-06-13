@@ -6,83 +6,7 @@ static std::string bti_lbl(IR_t *nd) {
     return std::string(l);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bti_bin_ports() { return x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω"); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bti_txt_tail() { return x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bti_bin_functor(IR_t *a0, IR_t *a1, IR_t *a2) {
-    const char *s1 = (a1->op == IR_ATOM) ? IR_LIT(a1).sval : NULL;
-    const char *s2 = (a2->op == IR_ATOM) ? IR_LIT(a2).sval : NULL;
-    return x86("sub", "rsp", 16L)
-         + x86_lit_bytes(emit_term_from_node_bin(a0))
-         + x86("mov", "rdi", "rax")
-         + x86("mov32", "esi", (long)(int)a1->op)
-         + x86("movabs", "rdx", (unsigned long long)(uint64_t)(long)IR_LIT(a1).ival)
-         + (s1 ? x86("movabs", "rcx", (unsigned long long)(uintptr_t)s1) : x86("xor", "ecx", "ecx"))
-         + x86("mov32", "r8d", (long)(int)a2->op)
-         + x86("movabs", "r9", (unsigned long long)(uint64_t)(long)IR_LIT(a2).ival)
-         + (s2 ? x86("movabs", "rax", (unsigned long long)(uintptr_t)s2) : x86("xor", "eax", "eax"))
-         + x86("mov", RSP(0), "rax")
-         + x86("call", "rt_functor_term", (unsigned long long)(uintptr_t)(void*)rt_functor_term)
-         + x86("add", "rsp", 16L)
-         + x86("test", "eax", "eax");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bti_bin_arg(IR_t *a0, IR_t *a1, IR_t *a2) {
-    const char *s0 = (a0->op == IR_ATOM) ? IR_LIT(a0).sval : NULL;
-    const char *s2 = (a2->op == IR_ATOM) ? IR_LIT(a2).sval : NULL;
-    return x86("sub", "rsp", 16L)
-         + x86_lit_bytes(emit_term_from_node_bin(a1))
-         + x86("mov", "rcx", "rax")
-         + x86("mov32", "edi", (long)(int)a0->op)
-         + x86("movabs", "rsi", (unsigned long long)(uint64_t)(long)IR_LIT(a0).ival)
-         + (s0 ? x86("movabs", "rdx", (unsigned long long)(uintptr_t)s0) : x86("xor", "edx", "edx"))
-         + x86("mov32", "r8d", (long)(int)a2->op)
-         + x86("movabs", "r9", (unsigned long long)(uint64_t)(long)IR_LIT(a2).ival)
-         + (s2 ? x86("movabs", "rax", (unsigned long long)(uintptr_t)s2) : x86("xor", "eax", "eax"))
-         + x86("mov", RSP(0), "rax")
-         + x86("call", "rt_arg_term", (unsigned long long)(uintptr_t)(void*)rt_arg_term)
-         + x86("add", "rsp", 16L)
-         + x86("test", "eax", "eax");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bti_bin_univ_tt(IR_t *a0, IR_t *a1) {
-    return x86("sub", "rsp", 16L)
-         + x86_lit_bytes(emit_term_from_node_bin(a0))
-         + x86("mov", RSP(0), "rax")
-         + x86_lit_bytes(emit_term_from_node_bin(a1))
-         + x86("mov", "rsi", "rax")
-         + x86("mov", "rdi", RSP(0))
-         + x86("call", "rt_univ_term_term", (unsigned long long)(uintptr_t)(void*)rt_univ_term_term)
-         + x86("add", "rsp", 16L)
-         + x86("test", "eax", "eax");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bti_bin_univ_t1(IR_t *a0, IR_t *a1) {
-    const char *s1 = (a1->op == IR_ATOM) ? IR_LIT(a1).sval : NULL;
-    return x86("sub", "rsp", 8L)
-         + x86_lit_bytes(emit_term_from_node_bin(a0))
-         + x86("mov", "rdi", "rax")
-         + x86("mov32", "esi", (long)(int)a1->op)
-         + x86("movabs", "rdx", (unsigned long long)(uint64_t)(long)IR_LIT(a1).ival)
-         + (s1 ? x86("movabs", "rcx", (unsigned long long)(uintptr_t)s1) : x86("xor", "ecx", "ecx"))
-         + x86("call", "rt_univ_term", (unsigned long long)(uintptr_t)(void*)rt_univ_term)
-         + x86("add", "rsp", 8L)
-         + x86("test", "eax", "eax");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bti_bin_univ_1t(IR_t *a0, IR_t *a1) {
-    const char *s0 = (a0->op == IR_ATOM) ? IR_LIT(a0).sval : NULL;
-    return x86("sub", "rsp", 8L)
-         + x86_lit_bytes(emit_term_from_node_bin(a1))
-         + x86("mov", "rcx", "rax")
-         + x86("mov32", "edi", (long)(int)a0->op)
-         + x86("movabs", "rsi", (unsigned long long)(uint64_t)(long)IR_LIT(a0).ival)
-         + (s0 ? x86("movabs", "rdx", (unsigned long long)(uintptr_t)s0) : x86("xor", "edx", "edx"))
-         + x86("call", "rt_univ_term_list", (unsigned long long)(uintptr_t)(void*)rt_univ_term_list)
-         + x86("add", "rsp", 8L)
-         + x86("test", "eax", "eax");
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bti_txt_functor_t(IR_t *a0, IR_t *a1, IR_t *a2, const std::string &hdr) { std::string l1 = bti_lbl(a1), l2 = bti_lbl(a2);
     return hdr
@@ -211,20 +135,7 @@ static std::string bti_txt_univ_ss(IR_t *a0, IR_t *a1, const std::string &hdr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_term_inspect_str(IR_t *pBB, const char *fn, const std::string &hdr) {
     (void)pBB; (void)fn; (void)hdr;
-    if (MEDIUM_BINARY) {
-        if (strcmp(fn, "functor") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2) && ir_call_arg(pBB,0)->op == IR_STRUCT) {
-            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
-            return bti_bin_functor(a0, a1, a2) + bti_bin_ports();
-        }
-        if (strcmp(fn, "arg") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2) && ir_call_arg(pBB,1)->op == IR_STRUCT) {
-            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);
-            return bti_bin_arg(a0, a1, a2) + bti_bin_ports();
-        }
-        if (strcmp(fn, "=..") == 0 && _.op_ival == 2 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && (ir_call_arg(pBB,0)->op == IR_STRUCT || ir_call_arg(pBB,1)->op == IR_STRUCT)) {
-            IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1);
-            return (a0->op == IR_STRUCT && a1->op == IR_STRUCT ? bti_bin_univ_tt(a0, a1) : a0->op == IR_STRUCT ? bti_bin_univ_t1(a0, a1) : bti_bin_univ_1t(a0, a1)) + bti_bin_ports();
-        }
-    }
+    if (MEDIUM_BINARY) return x86_bomb("bb_term_inspect: BINARY arm removed — baked IR_t* at runtime (IR-NEVER-TOUCHED rule)");
     if (MEDIUM_TEXT) {
         if (strcmp(fn, "functor") == 0 && _.op_ival == 3 && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2)) {
             IR_t *a0 = ir_call_arg(pBB,0), *a1 = ir_call_arg(pBB,1), *a2 = ir_call_arg(pBB,2);

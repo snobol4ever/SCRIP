@@ -19,35 +19,13 @@ static std::string bls_bin_ports() { return x86("je", "ω") + x86("jmp", "γ") +
 static std::string bls_txt_tail() { return x86("add", "rsp", "16") + x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bls_bin_alc(IR_t *a0, IR_t *sepN, IR_t *resN, int arity) {
-    const char *ssep = (sepN && sepN->op == IR_ATOM) ? IR_LIT(sepN).sval : NULL;
-    const char *sres = (resN && resN->op == IR_ATOM) ? IR_LIT(resN).sval : NULL;
-    return bytes(4, "\x48\x83\xEC\x10")
-         + emit_term_from_node_bin(a0)
-         + bytes(3, "\x48\x89\xC7")
-         + bytes(1, "\xBE") + u32le((uint32_t)arity)
-         + bytes(1, "\xBA") + u32le((uint32_t)(sepN ? (int)sepN->op : 0))
-         + bytes(2, "\x48\xB9") + u64le((uint64_t)(sepN ? (long)IR_LIT(sepN).ival : 0))
-         + (ssep ? bytes(2, "\x49\xB8") + u64le((uint64_t)(uintptr_t)ssep) : bytes(3, "\x45\x31\xC0"))
-         + bytes(2, "\x41\xB9") + u32le((uint32_t)(resN ? (int)resN->op : 0))
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(resN ? (long)IR_LIT(resN).ival : 0))
-         + bytes(4, "\x48\x89\x04\x24")
-         + (sres ? bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)sres) : bytes(2, "\x31\xC0"))
-         + bytes(5, "\x48\x89\x44\x24\x08")
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_atomic_list_concat_term) + bytes(2, "\xFF\xD0")
-         + bls_bin_tail();
+    (void)a0; (void)sepN; (void)resN; (void)arity;
+    return x86_bomb("bb_list bls_bin_alc: BINARY arm removed — baked IR_t* at runtime (IR-NEVER-TOUCHED rule)");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bls_bin_sort_term(IR_t *a0, IR_t *a1, int do_msort) {
-    const char *s1 = (a1->op == IR_ATOM) ? IR_LIT(a1).sval : NULL;
-    return bytes(4, "\x48\x83\xEC\x10")
-         + emit_term_from_node_bin(a0)
-         + bytes(3, "\x48\x89\xC6")
-         + bytes(1, "\xBF") + u32le((uint32_t)do_msort)
-         + bytes(1, "\xBA") + u32le((uint32_t)(int)a1->op)
-         + bytes(2, "\x48\xB9") + u64le((uint64_t)(long)IR_LIT(a1).ival)
-         + (s1 ? bytes(2, "\x49\xB8") + u64le((uint64_t)(uintptr_t)s1) : bytes(3, "\x45\x31\xC0"))
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void*)rt_sort_msort_term) + bytes(2, "\xFF\xD0")
-         + bls_bin_tail();
+    (void)a0; (void)a1; (void)do_msort;
+    return x86_bomb("bb_list bls_bin_sort_term: BINARY arm removed — baked IR_t* at runtime (IR-NEVER-TOUCHED rule)");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bls_bin_sort_scalar(IR_t *a0, IR_t *a1, int do_msort) {

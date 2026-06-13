@@ -19,13 +19,11 @@ extern int  rt_is(int dst_slot, const char *op, int lk, long li, int rk, long ri
 extern int  rt_is_lint(long lval, const char *op, int lk, long li, int rk, long ri);
 extern int  rt_is_cell(void *dst_cell, const char *op, int lk, void *larg, double ld, int rk, void *rarg, double rd);
 extern int  rt_is_cell_lit(long lval, const char *op, int lk, void *larg, double ld, int rk, void *rarg, double rd);
-extern int  rt_is_eval(void *lhs_bb, void *rhs_bb);
 extern int  rt_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_type_test(const char *fn, int k0, long i0, const char *s0);
 extern int  rt_type_test_term(const char *fn, void *t0);
 extern void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
-extern void *rt_node_to_term_ptr(void *ir_node);
 extern void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr);
 extern int  rt_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
 extern int  rt_arg_term(int k0, long i0, const char *s0, void *t1, int k2, long i2, const char *s2);
@@ -57,13 +55,10 @@ extern int  rt_char_type(int k0, long i0, const char *s0, const char *ty, int is
 extern int  rt_numbervars_term(void *t0, long start, int k2, long i2, const char *s2);
 extern int  rt_succ(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_plus(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
-extern int  rt_findall(void *fs_ptr);
-extern int  rt_throw(void *alpha_ptr);
 extern int  rt_throw_term(void *ball_term);
 }
 #include "x86_asm.h"
 std::string emit_build_compound_term(const IR_t *nd);
-std::string emit_term_from_node_bin(const IR_t *nd);
 int bb_op_floaty(const char *fn);
 std::string bb_io(void);
 std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr);
