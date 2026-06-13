@@ -11,6 +11,7 @@ extern int  g_jcon;
 int         kw_assign(const char *kw, DESCR_t val);
 int         kw_can_assign(const char *kw, DESCR_t val);
 DESCR_t     kw_read(const char *kw);
+DESCR_t     rt_keyword_read(const char *sval);
 const char *kw_cset_name(const char *ptr);
 int         kw_cset_len(const char *ptr);
 #endif

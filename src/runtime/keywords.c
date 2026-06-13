@@ -190,3 +190,11 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"version")) return STRVAL("Jcon Version 2.2");
     return FAILDESCR;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_read(const char *sval) {
+    if (!sval) return NULVCL;
+    const char *kw = sval[0] == '&' ? sval + 1 : sval;
+    DESCR_t kv = kw_read(kw);
+    if (!IS_FAIL(kv)) return kv;
+    return NV_GET_fn(sval);
+}
