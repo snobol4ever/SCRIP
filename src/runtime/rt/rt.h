@@ -22,7 +22,7 @@ void rt_pop_void(void);
 void rt_pop_store_i64(int64_t *slot);
 void rt_push_stored_i64(const int64_t *slot);
 void rt_pop_store_descr(DESCR_t *slot);
-void rt_case_eq(const DESCR_t *slot);
+int  rt_case_eq(const DESCR_t *sel, const DESCR_t *key);
 void rt_frame_enter(int nparams);
 void rt_frame_leave(void);
 void rt_load_frame(int slot);

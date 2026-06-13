@@ -396,10 +396,11 @@ void rt_pop_store_descr(DESCR_t *slot)
     STACKLESS_ABORT("rt_pop_store_descr");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_case_eq(const DESCR_t *slot)
+int rt_case_eq(const DESCR_t *sel, const DESCR_t *key)
 {
-    (void)slot;
-    STACKLESS_ABORT("rt_case_eq");
+    if (!sel || !key) return 0;
+    if (sel->v == DT_I && key->v == DT_I) return sel->i == key->i;
+    { const char *ss = VARVAL_fn(*sel); const char *ks = VARVAL_fn(*key); if (ss && ks) return strcmp(ss, ks) == 0; return ss == ks; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define RT_FRAME_STACK_MAX 256
