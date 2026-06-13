@@ -2646,7 +2646,7 @@ int main(int argc, char **argv)
                     printf("  .quad 0\n");
                 }
                 printf("  .section .text\n  .intel_syntax noprefix\n");
-                printf("sno_proc_startup:\n  push rbp\n  mov rbp, rsp\n  call rt_proc_reset@PLT\n");
+                printf("sno_proc_startup:\n  push rbp\n  mov rbp, rsp\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
                 for (int i = 0; i < n_procs; i++) {
                     ProcEntry *pe = &s2->proc_table[sno_pidx_buf[i]];
                     printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
@@ -2669,7 +2669,7 @@ int main(int argc, char **argv)
             }
             printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n");
             if (n_procs > 0) printf("  call sno_proc_startup\n");
-            else printf("  call rt_proc_reset@PLT\n");
+            else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             printf("  call rt_frame@PLT\n  mov rdi, rax\n  xor esi, esi\n");
             printf("  call sno_flat_\xce\xb1\n");
             printf("  xor eax, eax\n  pop rbp\n  ret\n");

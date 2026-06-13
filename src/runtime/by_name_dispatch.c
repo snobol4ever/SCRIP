@@ -1885,7 +1885,8 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     if (!fn) return out;
     if (try_call_builtin_by_name(fn, args, nargs, &out)) return out;
-    return FAILDESCR;
+    out = APPLY_fn(fn, args, nargs);
+    return out;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern int junction_is(DESCR_t v);
