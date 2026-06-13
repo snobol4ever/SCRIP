@@ -106,6 +106,11 @@ inline std::string x86_movq_xmm0_r64(const char * src) {
     std::string code; code += (char)0x66; code += (char)rex; code += (char)0x0F; code += (char)0x6E; code += (char)(0xC0 | (0 << 3) | (m & 7));
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movq xmm0, ") + src + "\n");
 }
+inline std::string x86_movq_xmm_r64(const char * dst, const char * src) {
+    int xn = (dst && !strncmp(dst, "xmm", 3)) ? atoi(dst + 3) : 0; int m = x86_rnum(src); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; if (xn >= 8) rex |= 0x04;
+    std::string code; code += (char)0x66; code += (char)rex; code += (char)0x0F; code += (char)0x6E; code += (char)(0xC0 | ((xn & 7) << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movq ") + dst + ", " + src + "\n");
+}
 inline std::string x86_set_xmm0_double(double d) {
     uint64_t bits = 0; memcpy(&bits, &d, sizeof bits);
     return x86_movabs_r64("rax", bits) + x86_movq_xmm0_r64("rax");
@@ -620,6 +625,10 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "xorps"))  { return x86_xorps_xmm0(); }
     if (!strcmp(mnem, "movsd"))  {
         if (b.txt && !strncmp(b.txt, "f64:", 4)) { uint64_t bits = strtoull(b.txt + 4, 0, 10); double d; memcpy(&d, &bits, 8); return x86_set_xmm0_double(d); }
+        return std::string();
+    }
+    if (!strcmp(mnem, "movq")) {
+        if (a.kind == XK_REG && b.kind == XK_REG && a.txt && !strncmp(a.txt, "xmm", 3)) return x86_movq_xmm_r64(a.txt, b.txt);
         return std::string();
     }
     return std::string();
