@@ -25,6 +25,7 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
 static IR_t * lower_decl(rcx_t * cx, const tree_t * t);
 static IR_t * lower_block(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static int rk_proc_known(const char * name);
 /*====================================================================================================================================================================================================*/
 static void push_kids(rcx_t * cx, IR_t * nd, const tree_t * t, int from) { for (int i = from; i < t->n; i++) ir_operand_push(nd, lower(cx, t->c[i], NULL, NULL)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -264,7 +265,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             const char * vn = t->c[1]->v.sval;
             IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
             IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_delete_pure", 1, 0, as, ω, &r2); *res = as; return e; }
-        return lower_rcall(cx, t, nm, 1, 0, γ, ω, res); }
+        IR_t * e = lower_rcall(cx, t, nm, 1, 0, γ, ω, res);
+        if (res && *res && rk_proc_known(nm)) IR_LIT(*res).dval = 3.0;
+        return e; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); return sub ? lower_rv(cx, sub, γ, ω, res) : (build(cx, IR_SUCCEED, γ, ω)); }
     case TT_IF: {
         IR_t * tconj = build(cx, IR_CONJ, γ, ω);
@@ -402,6 +405,13 @@ static void rk_register_proc(const tree_t * proc, const char * name, int nparams
     g_stage2.proc_table[pi].entry_pc = -1;
     g_stage2.proc_table[pi].bb_idx   = -1;
     g_stage2.proc_table[pi].nparams  = nparams;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_proc_known(const char * name) {
+    if (!name) return 0;
+    for (int i = 0; i < g_stage2.proc_count; i++)
+        if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return 1;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_register_classes(const tree_t * prog) {
