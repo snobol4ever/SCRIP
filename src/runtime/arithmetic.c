@@ -67,6 +67,15 @@ DESCR_t DIVIDE_fn(DESCR_t a, DESCR_t b) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t POWER_fn(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
+    if (IS_NULL(a)) a = INTVAL(0);
+    if (IS_NULL(b)) b = INTVAL(0);
+    a = coerce_numeric(a); b = coerce_numeric(b);
+    if (IS_INT(a) && IS_INT(b) && b.i >= 0) {
+        if (a.i == 0 && b.i == 0) { core_runtime_error(2, NULL); return FAILDESCR; }
+        int64_t acc = 1;
+        for (int64_t k = 0; k < b.i; k++) acc *= a.i;
+        return INTVAL(acc);
+    }
     double r = pow(to_real(a), to_real(b));
     if (isinf(r) || isnan(r)) { core_runtime_error(2, NULL); return FAILDESCR; }
     return REALVAL(r);
