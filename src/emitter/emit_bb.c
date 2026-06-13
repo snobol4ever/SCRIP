@@ -2825,6 +2825,9 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             g_emit.op_sa    = (_c0->op != IR_LIT_I && _c0->op != IR_LIT_NUL && _c0->op != IR_VAR) ? bb_slot_get(_c0) : -1;
             g_emit.op_sb    = (_c1->op != IR_LIT_I && _c1->op != IR_LIT_NUL && _c1->op != IR_VAR) ? bb_slot_get(_c1) : -1;
             g_emit.op_off   = bb_slot_alloc(nd);
+            { static char gvrpool[2][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL;
+              if (g_emit.op_name1 && g_emit.op_name1[0]) { strtab_label(gvrpool[0], 64, g_emit.op_name1); g_emit.op_parts_lbl[0] = gvrpool[0]; }
+              if (g_emit.op_name2 && g_emit.op_name2[0]) { strtab_label(gvrpool[1], 64, g_emit.op_name2); g_emit.op_parts_lbl[1] = gvrpool[1]; } }
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->op; nd->op = IR_BINOP_GVAR_RELOP; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; }
