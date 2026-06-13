@@ -22,6 +22,7 @@ typedef struct {
 /*====================================================================================================================================================================================================*/
 static lc_vec g_pas_proc_list   = { NULL, 0, 0, (int) sizeof(const tree_t *) };
 static lc_vec g_pas_proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) };
+static int g_pas_has_nesting = 0;
 #define PAS_PROC(i)   LC_AT(&g_pas_proc_list, const tree_t *, (i))
 #define PAS_PARENT(i) LC_AT(&g_pas_proc_parent, const tree_t *, (i))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -77,7 +78,8 @@ static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     int isref     = (int)((byref >> slot) & 1LL);
     int is_own    = (found_sc == &cx->sc);
     int use_frame = isref || !is_own
-                    || (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children);
+                    || (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children)
+                    || (g_pas_has_nesting && is_own && slot < cx->sc.nparams);
     int hops = 0;
     for (const pas_scope_t * s = &cx->sc; s && s != found_sc; s = s->outer) hops++;
     if (isref) {
@@ -105,7 +107,8 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
     int isref     = (int)((byref >> slot) & 1LL);
     int is_own    = (found_sc == &cx->sc);
     int use_frame = isref || !is_own
-                    || (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children);
+                    || (cx->sc.outer != NULL || cx->sc.byref != 0 || cx->sc.has_children)
+                    || (g_pas_has_nesting && is_own && slot < cx->sc.nparams);
     int hops = 0;
     for (const pas_scope_t * s = &cx->sc; s && s != found_sc; s = s->outer) hops++;
     if (isref) {
@@ -572,6 +575,11 @@ static int lower_pascal_body(const tree_t *prog, const tree_t *proc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_pascal_stage2(const tree_t *prog) {
     lower_pascal_enum(prog, NULL, 0);
+    g_pas_has_nesting = 0;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+        if (proc && proc->t == TT_PROC_DECL && (proc_decl_level(proc) > 1 || g_stage2.proc_table[pi].byref_mask)) { g_pas_has_nesting = 1; break; }
+    }
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
         if (!proc || proc->t != TT_PROC_DECL) continue;
@@ -605,12 +613,7 @@ void lower_pascal_stage2(const tree_t *prog) {
             }
         }
     }
-    int pas_has_nesting = 0;
-    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
-        const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
-        if (proc && proc->t == TT_PROC_DECL && (g_stage2.proc_table[pi].decl_level > 1 || g_stage2.proc_table[pi].byref_mask)) { pas_has_nesting = 1; break; }
-    }
-    if (pas_has_nesting) {
+    if (g_pas_has_nesting) {
         for (int pi = 0; pi < g_stage2.proc_count; pi++) {
             const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
             if (!proc || proc->t != TT_PROC_DECL) continue;
