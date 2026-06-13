@@ -2272,6 +2272,7 @@ int main(int argc, char **argv)
         return 0;
     }
     if (mode_compile_x86) {
+        (*(volatile char *)NULL);
         extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
         extern int g_frame_active;
         if (is_icon || is_raku) {
@@ -2612,6 +2613,7 @@ int main(int argc, char **argv)
                         "Aborting (by design).\n");
         abort();
     } else if (mode_run) {
+        (*(volatile char *)NULL);
         extern int g_icn_postfix_resume;
         if (is_icon) g_icn_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
