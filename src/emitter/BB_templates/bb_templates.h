@@ -71,6 +71,7 @@ std::string bb_var();
 std::string bb_var_global();
 std::string bb_return();
 std::string bb_unop();
+std::string bb_unop_gvar_slot();
 std::string bb_succeed();
 std::string bb_match_defer();
 std::string bb_keyword();
