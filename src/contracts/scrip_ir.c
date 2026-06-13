@@ -370,13 +370,8 @@ void IR_free(IR_graph_t * bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
-        free(bb->operands);
         free(bb);
     }
-    for (int i = 0; i < bbg->operand_aux_n; i++) free(bbg->operand_aux[i].operands);
-    free(bbg->operand_aux);
-    free(bbg->exec);
-    free(bbg->lit);
     free(bbg->all);
     free(bbg);
 }

@@ -2392,6 +2392,7 @@ int main(int argc, char **argv)
             extern void xa_emit_strtab_rodata(void);
             xa_emit_strtab_rodata();
             fflush(stdout);
+            ir_delete_all(s2);
             return rc;
         }
         if (is_prolog) {
@@ -2549,6 +2550,7 @@ int main(int argc, char **argv)
             g_frame_active = 0;
             xa_emit_strtab_rodata();
             fflush(stdout);
+            ir_delete_all(s2);
             return rc;
         }
     }
@@ -2715,6 +2717,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: bb_build_flat returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");
                 abort();
             }
+            ir_delete_all(s2);
             (void)fn(rt_frame(), 0);
             goto run_done;
         }
@@ -2806,6 +2809,7 @@ int main(int argc, char **argv)
                 g_frame_active = 1;
                 bb_box_fn fn = gvar_flat_chain_build(sbbg);
                 g_frame_active = 0;
+                ir_delete_all(s2);
                 if (fn) { (void)fn(rt_frame(), 0); goto run_done; }
             }
             fprintf(stderr, "[SBB] mode-3: SNOBOL4 statement shape not yet flat-emittable (a box lacks a "
