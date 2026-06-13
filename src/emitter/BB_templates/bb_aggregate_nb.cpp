@@ -47,7 +47,7 @@ std::string bb_aggregate_nb() {
                 + x86("mov32",  "esi", (long)_.op_parts_tag[1])
                 + x86("movabs", "rdx", (uint64_t)(int64_t)_.op_parts_ival[1])
                 + IF(_.op_parts_tag[1] == (int)IR_ATOM && _.op_parts_str[1] && *_.op_parts_str[1],
-                     x86("lea", "rcx", "[rip+__]", (uint64_t)(uintptr_t)_.op_parts_str[1], _.bb_rs))
+                     x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)_.op_parts_str[1], _.bb_rs))
                 + IF(!(_.op_parts_tag[1] == (int)IR_ATOM && _.op_parts_str[1] && *_.op_parts_str[1]),
                      x86("xor", "ecx", "ecx"))
                 + x86("call", "rt_nb_getval_term", (uint64_t)(uintptr_t)(void *)rt_nb_getval_term)
