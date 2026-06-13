@@ -9,10 +9,11 @@ extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int tab_admit() { return g_descr_flat_chain && _.op_off >= 0 && ((long)_.op_sb >= 1 || _.op_sa >= 0); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_tab() {
     x86_begin();
-    if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && ((long)_.op_sb >= 1 || _.op_sa >= 0))) return x86_bomb("bb_scan_tab: unhandled (needs literal positive n or sibling scan-producer slot + descr flat-chain slot)");
-    uint64_t substr_fp; { DESCR_t (*fp)(const char *, int64_t, int64_t) = rt_icn_substr; substr_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    if (!PLATFORM_X86 || !tab_admit()) return x86_bomb("bb_scan_tab: unhandled (needs literal positive n or sibling scan-producer slot + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_TAB")
          + x86("label",   _.lbl_α)
          + IF((long)_.op_sb >= 1, x86("mov", "rax", (long)_.op_sb))
@@ -31,7 +32,7 @@ std::string bb_scan_tab() {
          + x86("mov",     "r14", "rdx")
          + x86("push",    "r10")
          + x86("push",    "r10")
-         + x86("call",    "rt_icn_substr", substr_fp)
+         + x86("call",    "rt_icn_substr", (uint64_t)(uintptr_t)(void*)rt_icn_substr)
          + x86("pop",     "r10")
          + x86("pop",     "r10")
          + x86("mov",     FRQ(_.op_off),     "rax")
