@@ -14,13 +14,15 @@ extern DESCR_t POWER_fn(DESCR_t, DESCR_t);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_gvar_arith() {
+    union { int64_t q; uint64_t u; } _ufl; _ufl.q = _.bb_li; uint64_t _powl = _ufl.u;
+    union { int64_t q; uint64_t u; } _ufr; _ufr.q = _.bb_ri; uint64_t _powr = _ufr.u;
     if (PLATFORM_X86) return IF(_.op_off >= 0 && _.op_kind && !strcmp(_.op_kind, "POW") && !_.op_name1 && !_.op_name2 && _.op_sval,
                             x86("label", _.lbl_α)
                           + x86("comment", "IR_BINOP_GVAR_ARITH")
-                          + x86("mov", "rdi", (long)DT_I)
-                          + x86("mov", "rsi", (long)_.op_sa)
-                          + x86("mov", "rdx", (long)DT_I)
-                          + x86("mov", "rcx", (long)_.op_sb)
+                          + IF(_.bb_lk == (int)IR_LIT_F, x86("mov", "rdi", (long)DT_R) + x86("movabs", "rsi", _powl))
+                          + IF(_.bb_lk != (int)IR_LIT_F, x86("mov", "rdi", (long)DT_I) + x86("mov", "rsi", (long)_.op_sa))
+                          + IF(_.bb_rk == (int)IR_LIT_F, x86("mov", "rdx", (long)DT_R) + x86("movabs", "rcx", _powr))
+                          + IF(_.bb_rk != (int)IR_LIT_F, x86("mov", "rdx", (long)DT_I) + x86("mov", "rcx", (long)_.op_sb))
                           + x86("call", "POWER_fn", (uint64_t)(uintptr_t)(void *)POWER_fn)
                           + x86("push", "rdx")
                           + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_sval, _.op_parts_lbl[2])

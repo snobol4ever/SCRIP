@@ -2724,13 +2724,23 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         int op_is_concat = nd && (IR_LIT(nd).ival == BINOP_CONCAT);
         int op_is_pow = nd && (IR_LIT(nd).ival == BINOP_POW);
         g_emit.op_off = -1;
-        if (g_gvar_flat_chain && op_is_pow && bb_child0(nd) && bb_child1(nd) && bb_child0(nd)->op == IR_LIT_I && bb_child1(nd)->op == IR_LIT_I && nd->γ.node && nd->γ.node->op == IR_ASSIGN && IR_LIT(nd->γ.node).sval) {
+        if (g_gvar_flat_chain && op_is_pow && bb_child0(nd) && bb_child1(nd) && nd->γ.node && nd->γ.node->op == IR_ASSIGN && IR_LIT(nd->γ.node).sval
+            && (bb_child0(nd)->op == IR_LIT_I || bb_child0(nd)->op == IR_LIT_F || (bb_child0(nd)->op == IR_UNOP && bb_child0(bb_child0(nd)) && bb_child0(bb_child0(nd))->op == IR_LIT_I))
+            && (bb_child1(nd)->op == IR_LIT_I || bb_child1(nd)->op == IR_LIT_F || (bb_child1(nd)->op == IR_UNOP && bb_child0(bb_child1(nd)) && bb_child0(bb_child1(nd))->op == IR_LIT_I))) {
             IR_t *asgn = nd->γ.node;
-            g_emit.op_sa    = (int)IR_LIT(bb_child0(nd)).ival;
-            g_emit.op_sb    = (int)IR_LIT(bb_child1(nd)).ival;
+            IR_t *lc = bb_child0(nd); IR_t *rc = bb_child1(nd);
+            union { double d; int64_t q; } _pl; _pl.d = (lc->op == IR_LIT_F) ? IR_LIT(lc).dval : 0.0;
+            union { double d; int64_t q; } _pr; _pr.d = (rc->op == IR_LIT_F) ? IR_LIT(rc).dval : 0.0;
+            g_emit.bb_lk = (lc->op == IR_LIT_F) ? (int)IR_LIT_F : (int)IR_LIT_I;
+            g_emit.bb_rk = (rc->op == IR_LIT_F) ? (int)IR_LIT_F : (int)IR_LIT_I;
+            g_emit.bb_li = _pl.q;
+            g_emit.bb_ri = _pr.q;
+            g_emit.op_sa = (lc->op == IR_UNOP) ? (int)((int)IR_LIT(lc).ival == (int)TT_MNS ? -IR_LIT(bb_child0(lc)).ival : IR_LIT(bb_child0(lc)).ival) : (lc->op == IR_LIT_I ? (int)IR_LIT(lc).ival : 0);
+            g_emit.op_sb = (rc->op == IR_UNOP) ? (int)((int)IR_LIT(rc).ival == (int)TT_MNS ? -IR_LIT(bb_child0(rc)).ival : IR_LIT(bb_child0(rc)).ival) : (rc->op == IR_LIT_I ? (int)IR_LIT(rc).ival : 0);
             g_emit.op_kind  = "POW";
             g_emit.op_name1 = (const char *)0;
             g_emit.op_name2 = (const char *)0;
+            g_emit.op_sval  = IR_LIT(asgn).sval;
             g_emit.op_off   = bb_slot_alloc(nd);
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
