@@ -2549,6 +2549,17 @@ static void flat_drive_gen_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int bb_call_write_route(IR_t *nd) {
+    const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
+    if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
+    if (g_descr_flat_chain && bb_slot_get(a0) >= 0) return 1;
+    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_ALT || a0->op == IR_BINOP_GEN || a0->op == IR_VAR || a0->op == IR_NEG || a0->op == IR_POS || a0->op == IR_NONNULL || a0->op == IR_NULL_TEST || a0->op == IR_NOT || a0->op == IR_SIZE || a0->op == IR_CALL || a0->op == IR_CASE || a0->op == IR_FIELD_GET || a0->op == IR_LIST_BANG || a0->op == IR_LIMIT || a0->op == IR_IDX);
+    if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_TO_BY)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
+    if (wintexpr) return 4;
+    if (a0->op == IR_LIT_S && IR_LIT(a0).sval) return 5;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) {
         bb_fill_alpha(nd);
@@ -2623,6 +2634,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_CALL: {
         IR_t *a0 = ir_call_arg(nd, 0);
         g_emit.op_arg_slot_n = 0;
+        g_emit.op_write_route = bb_call_write_route(nd);
         if (g_descr_flat_chain) {
             if (IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "__rk_bool") && nd->γ.node && nd->ω.node && nd->γ.node->op == IR_LIT_I && nd->ω.node->op == IR_LIT_I && bb_slot_get(nd->γ.node) < 0 && bb_slot_get(nd->ω.node) < 0) { int _sh = bb_slot_alloc16(nd->γ.node); bb_slot_register(nd->ω.node, _sh); }
             if (g_icn_scan_regs_live && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "pos")) {
