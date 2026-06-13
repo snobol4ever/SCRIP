@@ -1,112 +1,60 @@
 #include "bb_common.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string anlbl(const char *s) { char b[64]; b[0] = 0; if (s && *s) strtab_label(b, sizeof b, s); return std::string(b); }
-static std::string agg_build_term(IR_t *a) {
-    if (!a) return x86("xor", "eax", "eax");
-    if (a->op == IR_STRUCT) return emit_build_compound_term(a);
-    return x86("mov", "edi", std::to_string((int)a->op))
-         + x86("mov", "rsi", std::to_string((long)IR_LIT(a).ival))
-         + IF(IR_LIT(a).sval && *IR_LIT(a).sval, x86("lea", "rdx", std::string("[rip + ") + anlbl(IR_LIT(a).sval) + "]"))
-         + IF(!(IR_LIT(a).sval && *IR_LIT(a).sval), x86("xor", "edx", "edx"))
-         + x86("xorps", "xmm0", "xmm0")
-         + x86("call", "rt_node_to_term@PLT");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string agg_bin_all(IR_t *a, IR_t *b, IR_t *c) { int kres = (int)c->op; long ires = (long)IR_LIT(c).ival; const char *sres = (kres == IR_ATOM) ? IR_LIT(c).sval : NULL;
-    return x86("sub", "rsp", 16L)
-         + x86_lit_bytes(emit_term_from_node_bin(a))
-         + x86("mov", RSP(0), "rax")
-         + x86_lit_bytes(emit_term_from_node_bin(b))
-         + x86("mov", "rsi", "rax")
-         + x86("mov", "rdi", RSP(0))
-         + x86("mov32", "edx", (long)kres)
-         + x86("movabs", "rcx", (uint64_t)ires)
-         + IF(sres != NULL, x86("movabs", "r8", (uint64_t)(uintptr_t)sres)) + IF(sres == NULL, x86("xor", "r8d", "r8d"))
-         + x86("call", "rt_aggregate_all_term", (uint64_t)(uintptr_t)(void*)rt_aggregate_all_term)
-         + x86("add", "rsp", 16L)
-         + x86("test", "eax", "eax")
-         + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
-}
-static std::string agg_bin_nbset(IR_t *a, IR_t *b) {
-    return x86("sub", "rsp", 16L)
-         + x86_lit_bytes(emit_term_from_node_bin(a))
-         + x86("mov", RSP(0), "rax")
-         + x86_lit_bytes(emit_term_from_node_bin(b))
-         + x86("mov", "rsi", "rax")
-         + x86("mov", "rdi", RSP(0))
-         + x86("call", "rt_nb_setval_term", (uint64_t)(uintptr_t)(void*)rt_nb_setval_term)
-         + x86("add", "rsp", 16L)
-         + x86("test", "eax", "eax")
-         + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
-}
-static std::string agg_bin_nbget(IR_t *a, IR_t *b) { int kres = (int)b->op; long ires = (long)IR_LIT(b).ival; const char *sres = (kres == IR_ATOM) ? IR_LIT(b).sval : NULL;
-    return x86("sub", "rsp", 16L)
-         + x86_lit_bytes(emit_term_from_node_bin(a))
-         + x86("mov", "rdi", "rax")
-         + x86("mov32", "esi", (long)kres)
-         + x86("movabs", "rdx", (uint64_t)ires)
-         + IF(sres != NULL, x86("movabs", "rcx", (uint64_t)(uintptr_t)sres)) + IF(sres == NULL, x86("xor", "ecx", "ecx"))
-         + x86("call", "rt_nb_getval_term", (uint64_t)(uintptr_t)(void*)rt_nb_getval_term)
-         + x86("add", "rsp", 16L)
-         + x86("test", "eax", "eax")
-         + x86("je", "ω") + x86("jmp", "γ") + x86("jmp", "ω");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static std::string agg_txt_all(const std::string &hdr, IR_t *a, IR_t *b, IR_t *c) {
-    return hdr
-         + agg_build_term(a) + x86("push", "rax")
-         + agg_build_term(b) + x86("push", "rax")
-         + agg_build_term(c) + x86("push", "rax")
-         + x86("sub", "rsp", "8")
-         + x86("mov", "rdx", "[rsp + 8]")
-         + x86("mov", "rsi", "[rsp + 16]")
-         + x86("mov", "rdi", "[rsp + 24]")
-         + x86("call", "rt_aggregate_all_meta@PLT")
-         + x86("add", "rsp", "32")
-         + x86("test", "eax", "eax")
-         + x86("je",   _.lbl_ω)
-         + x86("jmp",  _.lbl_γ)
-         + x86("def", "β") + x86("jmp", "ω");
-}
-static std::string agg_txt_nbset(const std::string &hdr, IR_t *a, IR_t *b) {
-    return hdr
-         + agg_build_term(a) + x86("push", "rax")
-         + x86("sub", "rsp", "8")
-         + agg_build_term(b)
-         + x86("mov", "rsi", "rax")
-         + x86("mov", "rdi", "[rsp + 8]")
-         + x86("call", "rt_nb_setval_term@PLT")
-         + x86("add", "rsp", "16")
-         + x86("test", "eax", "eax")
-         + x86("je",   _.lbl_ω)
-         + x86("jmp",  _.lbl_γ)
-         + x86("def", "β") + x86("jmp", "ω");
-}
-static std::string agg_txt_nbget(const std::string &hdr, IR_t *a, IR_t *b) { int kres = (int)b->op; long ires = (long)IR_LIT(b).ival; const char *sres = (kres == IR_ATOM) ? IR_LIT(b).sval : NULL;
-    return hdr
-         + agg_build_term(a)
-         + x86("mov", "rdi", "rax")
-         + x86("mov", "esi", std::to_string(kres))
-         + x86("mov", "rdx", std::to_string(ires))
-         + IF(sres && *sres, x86("lea", "rcx", std::string("[rip + ") + anlbl(sres) + "]"))
-         + IF(!(sres && *sres), x86("xor", "ecx", "ecx"))
-         + x86("call", "rt_nb_getval_term@PLT")
-         + x86("test", "eax", "eax")
-         + x86("je",   _.lbl_ω)
-         + x86("jmp",  _.lbl_γ)
-         + x86("def", "β") + x86("jmp", "ω");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-std::string bb_aggregate_nb_str(IR_t *pBB, const char *fn, const std::string &hdr) {
-    if (MEDIUM_BINARY) {
-        return IF(!strcmp(fn, "aggregate_all") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2) && _.op_ival == 3, agg_bin_all(ir_call_arg(pBB,0), ir_call_arg(pBB,1), ir_call_arg(pBB,2)))
-             + IF(!strcmp(fn, "nb_setval") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && _.op_ival == 2, agg_bin_nbset(ir_call_arg(pBB,0), ir_call_arg(pBB,1)))
-             + IF(!strcmp(fn, "nb_getval") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && _.op_ival == 2, agg_bin_nbget(ir_call_arg(pBB,0), ir_call_arg(pBB,1)));
-    }
-    if (MEDIUM_TEXT) {
-        return IF(!strcmp(fn, "aggregate_all") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && ir_call_arg(pBB,2) && _.op_ival == 3, agg_txt_all(hdr, ir_call_arg(pBB,0), ir_call_arg(pBB,1), ir_call_arg(pBB,2)))
-             + IF(!strcmp(fn, "nb_setval") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && _.op_ival == 2, agg_txt_nbset(hdr, ir_call_arg(pBB,0), ir_call_arg(pBB,1)))
-             + IF(!strcmp(fn, "nb_getval") && ir_call_arg(pBB,0) && ir_call_arg(pBB,1) && _.op_ival == 2, agg_txt_nbget(hdr, ir_call_arg(pBB,0), ir_call_arg(pBB,1)));
-    }
+extern std::string emit_build_compound_term(const IR_t *nd);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_aggregate_nb() {
+    if (PLATFORM_X86)
+        return IF(_.op_sval && !strcmp(_.op_sval, "aggregate_all") && _.op_parts_n == 3,
+                  x86("label",   _.lbl_α)
+                + x86("comment", "IR_BUILTIN aggregate_all")
+                + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[8])
+                + x86("push", "rax")
+                + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[9])
+                + x86("push", "rax")
+                + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[10])
+                + x86("push", "rax")
+                + x86("sub",  "rsp", 8L)
+                + x86("mov",  "rdx", RSP(8))
+                + x86("mov",  "rsi", RSP(16))
+                + x86("mov",  "rdi", RSP(24))
+                + x86("call", "rt_aggregate_all_meta", (uint64_t)(uintptr_t)(void *)rt_aggregate_all_meta)
+                + x86("add",  "rsp", 32L)
+                + x86("test", "eax", "eax")
+                + x86("je",   "ω")
+                + x86("jmp",  "γ")
+                + x86("def",  "β")
+                + x86("jmp",  "ω"))
+             + IF(_.op_sval && !strcmp(_.op_sval, "nb_setval") && _.op_parts_n >= 2,
+                  x86("label",   _.lbl_α)
+                + x86("comment", "IR_BUILTIN nb_setval")
+                + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[8])
+                + x86("push", "rax")
+                + x86("sub",  "rsp", 8L)
+                + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[9])
+                + x86("mov",  "rsi", "rax")
+                + x86("mov",  "rdi", RSP(8))
+                + x86("call", "rt_nb_setval_term", (uint64_t)(uintptr_t)(void *)rt_nb_setval_term)
+                + x86("add",  "rsp", 16L)
+                + x86("test", "eax", "eax")
+                + x86("je",   "ω")
+                + x86("jmp",  "γ")
+                + x86("def",  "β")
+                + x86("jmp",  "ω"))
+             + IF(_.op_sval && !strcmp(_.op_sval, "nb_getval") && _.op_parts_n >= 2,
+                  x86("label",   _.lbl_α)
+                + x86("comment", "IR_BUILTIN nb_getval")
+                + emit_build_compound_term((const IR_t *)(intptr_t)_.op_parts_ival[8])
+                + x86("mov",    "rdi", "rax")
+                + x86("mov32",  "esi", (long)_.op_parts_tag[1])
+                + x86("movabs", "rdx", (uint64_t)(int64_t)_.op_parts_ival[1])
+                + IF(_.op_parts_tag[1] == (int)IR_ATOM && _.op_parts_str[1] && *_.op_parts_str[1],
+                     x86("lea", "rcx", "[rip+__]", (uint64_t)(uintptr_t)_.op_parts_str[1], _.bb_rs))
+                + IF(!(_.op_parts_tag[1] == (int)IR_ATOM && _.op_parts_str[1] && *_.op_parts_str[1]),
+                     x86("xor", "ecx", "ecx"))
+                + x86("call", "rt_nb_getval_term", (uint64_t)(uintptr_t)(void *)rt_nb_getval_term)
+                + x86("test", "eax", "eax")
+                + x86("je",   "ω")
+                + x86("jmp",  "γ")
+                + x86("def",  "β")
+                + x86("jmp",  "ω"));
     return std::string();
 }
