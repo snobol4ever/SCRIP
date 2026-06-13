@@ -2412,6 +2412,22 @@ int main(int argc, char **argv)
             printf("  .text\n");
             rt_proc_reset();
             g_frame_active = 1;
+            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                const char *pname = s2->proc_table[_pi].name;
+                if (!pname || strcmp(pname, "main") == 0) continue;
+                int idx = s2->proc_table[_pi].bb_idx;
+                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+                int is_dup = 0;
+                for (int _pj = _pi + 1; _pj < s2->proc_count; _pj++) { if (s2->proc_table[_pj].name && strcmp(s2->proc_table[_pj].name, pname) == 0) { is_dup = 1; break; } }
+                if (is_dup) continue;
+                int np = s2->proc_table[_pi].nparams;
+                const char **pn = NULL;
+                if (np > 0) { pn = (const char **)calloc((size_t)np, sizeof(const char *)); for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name; }
+                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
+                  if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
+                  rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
+            }
             static int sno_pidx_buf[64];
             int n_procs = 0;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -2702,6 +2718,19 @@ int main(int argc, char **argv)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
             rt_proc_reset();
             g_frame_active = 1;
+            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                const char *pname = s2->proc_table[_pi].name;
+                if (!pname || strcmp(pname, "main") == 0) continue;
+                int idx = s2->proc_table[_pi].bb_idx;
+                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+                int np = s2->proc_table[_pi].nparams;
+                const char **pn = NULL;
+                if (np > 0) { pn = (const char **)calloc((size_t)np, sizeof(const char *)); for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name; }
+                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
+                  if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
+                  rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
+            }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
