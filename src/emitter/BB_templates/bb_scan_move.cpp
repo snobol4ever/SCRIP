@@ -12,7 +12,6 @@ extern int g_descr_flat_chain;
 std::string bb_scan_move() {
     x86_begin();
     if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_sa == 1)) return x86_bomb("bb_scan_move: unhandled (needs literal integer arg + descr flat-chain slot)");
-    uint64_t substr_fp; { DESCR_t (*fp)(const char *, int64_t, int64_t) = rt_icn_substr; substr_fp = (uint64_t)(uintptr_t)(void *)fp; }
     return x86("comment", "IR_SCAN_MOVE")
          + x86("label",   _.lbl_α)
          + x86("mov",     "rax", "r14")
@@ -31,7 +30,7 @@ std::string bb_scan_move() {
          + x86("mov",     "r14", "rdx")
          + x86("push",    "r10")
          + x86("push",    "r10")
-         + x86("call",    "rt_icn_substr", substr_fp)
+         + x86("call",    "rt_icn_substr", (uint64_t)(uintptr_t)(void*)rt_icn_substr)
          + x86("pop",     "r10")
          + x86("pop",     "r10")
          + x86("mov",     FRQ(_.op_off),     "rax")
