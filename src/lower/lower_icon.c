@@ -105,6 +105,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     if (lc_is_binop(t->t)) {
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t); if (IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) IR_LIT(op).dval = 1.0;
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], op, lβ, &rr);
+        if (IR_LIT(op).dval == 1.0 && lβ && lβ != ω && lβ != op) ω_to(op, lβ);
         γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); } *res = op; return ea; }
     if (is_unop_tt(t->t)) { IR_t * op = build(cx, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) t->t; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); *res = op; return ea; }
     switch (t->t) {
@@ -336,7 +337,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         cx->last_gen = sg;
     }
     if (!BODY) {
-        IR_t * loop_target = (gen_result && gen_result->op == IR_CONJ) ? E : (gen_node == gen_result ? E : gen_node);
+        IR_t * loop_target = (gen_node && gen_node != gen_result && gen_node != ω && gen_node != E) ? gen_node : E;
         γ_to(gen_result, loop_target);
         ir_operand_push(E, gen_entry);
         *res = E; return gen_entry;
