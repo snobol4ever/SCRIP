@@ -264,6 +264,10 @@ static void bb_fill_alpha(IR_t *nd) {
     else                    emit_label_initf(a, "bb%d_α", nd ? bb_node_id(nd) : 0);
     g_emit.lbl_α   = a->name;
     g_emit.lbl_α_p = a;
+    if (nd && nd->op == IR_BINOP_GVAR_ARITH) { static char gvapool[3][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL; g_emit.op_parts_lbl[2] = NULL;
+      if (g_emit.op_name1 && g_emit.op_name1[0]) { strtab_label(gvapool[0], 64, g_emit.op_name1); g_emit.op_parts_lbl[0] = gvapool[0]; }
+      if (g_emit.op_name2 && g_emit.op_name2[0]) { strtab_label(gvapool[1], 64, g_emit.op_name2); g_emit.op_parts_lbl[1] = gvapool[1]; }
+      if (g_emit.op_kind && !strcmp(g_emit.op_kind, "POW") && g_emit.op_sval && g_emit.op_sval[0]) { strtab_label(gvapool[2], 64, g_emit.op_sval); g_emit.op_parts_lbl[2] = gvapool[2]; } }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define FILL(nd,s,f,b) do { \
