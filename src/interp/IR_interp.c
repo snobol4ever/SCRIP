@@ -4962,22 +4962,26 @@ IR_t * IR_interp_node(IR_t * bb) {
         if ((carity >= 1 && strcmp(callee, "call") == 0) ||
             (carity == 1 && strcmp(callee, "once") == 0)) {
             if (IR_EXEC(bb).state != 0) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+            extern int rt_call_term(void *goal_v);
             Term *gt = (zc->nargs >= 1 && zc->args && zc->args[0]) ? resolve_node_to_term(zc->args[0]) : NULL;
             gt = term_deref(gt);
             if (!gt) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
-            int ok;
-            if (carity == 1) {
-                ok = resolve_call_term(gt);
-            } else {
-                int n_extra = carity - 1;
-                Term **extras = (Term **)malloc((size_t)n_extra * sizeof(Term *));
+            int n_extra = carity - 1;
+            Term *goal_term = gt;
+            if (n_extra > 0) {
+                int base = (gt->tag == TERM_COMPOUND) ? gt->compound.arity : 0;
+                int fid  = (gt->tag == TERM_COMPOUND) ? gt->compound.functor : (gt->tag == TERM_ATOM ? gt->atom_id : -1);
+                if (fid < 0) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+                int total = base + n_extra;
+                Term **args = (Term **)GC_MALLOC((size_t)total * sizeof(Term *));
+                for (int i = 0; i < base; i++) args[i] = gt->compound.args[i];
                 for (int i = 0; i < n_extra; i++) {
                     IR_t *ab = (zc->nargs > i + 1) ? zc->args[i + 1] : NULL;
-                    extras[i] = ab ? term_deref(resolve_node_to_term(ab)) : NULL;
+                    args[base + i] = ab ? term_deref(resolve_node_to_term(ab)) : term_new_var(0);
                 }
-                ok = resolve_call_term_n(gt, n_extra, extras);
-                free(extras);
+                goal_term = term_new_compound(fid, total, args);
             }
+            int ok = rt_call_term(goal_term);
             if (!ok) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
             IR_EXEC(bb).state = 1; IR_EXEC(bb).value = INTVAL(1); return bb->γ.node;
         }
