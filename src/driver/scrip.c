@@ -2288,13 +2288,10 @@ int main(int argc, char **argv)
                                 "suspend, or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
                 return 0;
             }
-            extern bb_box_fn bb_build_flat(IR_t * nd);
-            extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
-            extern void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
+            extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             int main_bb_idx = -1;
             rt_proc_reset();
-            rt_proc_set_builder((bb_box_fn (*)(void *))bb_build_flat);
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
@@ -2308,7 +2305,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                rt_proc_register(pname, pn, np);
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
                 fprintf(stderr, "[IBB] FATAL: mode-4 driver: main BB graph not found\n");
@@ -2446,7 +2443,7 @@ int main(int argc, char **argv)
             extern void xa_emit_strtab_rodata(void);
             extern int g_frame_active;
             extern void rt_proc_reset(void);
-            extern void rt_proc_register(const char * name, void * entry, const char ** pnames, int nparams);
+            extern void rt_proc_register(const char * name, const char ** pnames, int nparams);
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
@@ -2477,7 +2474,7 @@ int main(int argc, char **argv)
                 int np = s2->proc_table[_pi].nparams;
                 const char **pn = NULL;
                 if (np > 0) { pn = (const char **)calloc((size_t)np, sizeof(const char *)); for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name; }
-                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -2499,7 +2496,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
@@ -2634,16 +2631,13 @@ int main(int argc, char **argv)
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (is_icon || is_raku) {
-            extern bb_box_fn bb_build_flat(IR_t * nd);
-            extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
-            extern void rt_proc_set_builder(bb_box_fn (*builder)(void *entry));
+            extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             extern bb_box_fn descr_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
             int main_bb_idx = -1;
             rt_proc_reset();
-            rt_proc_set_builder((bb_box_fn (*)(void *))bb_build_flat);
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -2658,7 +2652,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                rt_proc_register(pname, pn, np);
             }
             if ((is_icon || is_raku) && !icn_graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
@@ -2726,7 +2720,6 @@ int main(int argc, char **argv)
         if (is_prolog) {
             extern DESCR_t IR_interp_once(IR_graph_t * bbg);
             extern Term **g_resolve_env;
-            extern bb_box_fn bb_build_flat(IR_t * nd);
             extern void *rt_frame(void);
             extern int g_frame_active;
             int main_bb_idx = -1;
@@ -2764,7 +2757,7 @@ int main(int argc, char **argv)
             extern bb_box_fn gvar_flat_chain_build(IR_graph_t * g);
             extern void *rt_frame(void);
             extern int g_frame_active;
-            extern void rt_proc_register(const char *name, void *entry, const char **pnames, int nparams);
+            extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern void rt_proc_reset(void);
             int main_bb_idx = -1;
@@ -2780,7 +2773,7 @@ int main(int argc, char **argv)
                 int np = s2->proc_table[_pi].nparams;
                 const char **pn = NULL;
                 if (np > 0) { pn = (const char **)calloc((size_t)np, sizeof(const char *)); for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name; }
-                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -2797,7 +2790,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                rt_proc_register(pname, s2->bbp.table[idx]->entry, pn, np);
+                rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
