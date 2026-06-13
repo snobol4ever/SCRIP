@@ -61,18 +61,8 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
             snprintf(resolve_key, sizeof resolve_key, "%s/%d", name, nargs);
             tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, resolve_key);
             if (choice) {
-                Term **resolve_args = (nargs > 0) ? resolve_env_new(nargs) : NULL;
-                for (int _i = 0; _i < nargs; _i++)
-                    resolve_args[_i] = resolve_unified_term_from_expr(
-                        (args[_i].v == DT_S)
-                            ? &(tree_t){ .t = TT_QLIT, .v.sval = (char*)args[_i].s }
-                            : &(tree_t){ .t = TT_ILIT, .v.ival = (long)args[_i].s },
-                        NULL);
-                Term **saved_env = g_resolve_env;
-                g_resolve_env = resolve_args;
                 fprintf(stderr, "[PL] FATAL: brokered Prolog call path removed (interp_hooks)\n");
                 abort();
-                (void)saved_env;
                 return FAILDESCR;
             }
         }

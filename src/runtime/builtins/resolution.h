@@ -60,12 +60,6 @@ void    resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t
 tree_t *resolve_pred_table_lookup_global(const char *key);
 Resolve_PredEntry *resolve_pred_entry_lookup(const char *key);
 Term  **resolve_env_new(int n);
-Term   *resolve_unified_term_from_expr(tree_t *e, Term **env);
-int     is_user_call(tree_t *goal);
-int     interp_exec_builtin(tree_t *goal, Term **env);
-int     resolve_call_term(Term *gt);
-int     resolve_call_term_n(Term *gt, int n_extra, Term **extras);
-void    resolve_execute_program_unified(CODE_t *prog);
 Resolve_PredEntry_BB *resolve_bb_lookup(const char *name, int arity);
 int         resolve_bb_pred_count(void);
 const char *resolve_bb_pred_name_at(int idx);
