@@ -48,6 +48,14 @@ DatType *dat_find_type(const char *name) {
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_count(void) { return dat_ntypes; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_type_name(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].name : (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_nfields(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nfields : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_type_field(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].fields[j] : (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_field(const char *name, int *fidx) {
     for (int i = 0; i < dat_ntypes; i++)
         for (int j = 0; j < dat_types[i].nfields; j++)

@@ -1394,15 +1394,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         procname[plen++] = '_'; procname[plen++] = '_';
         for (int k = 0; mname[k] && plen < 255; k++) procname[plen++] = mname[k];
         procname[plen] = '\0';
-        int pi;
-        for (pi = 0; pi < g_stage2.proc_count; pi++)
-            if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, procname) == 0) break;
-        if (pi >= g_stage2.proc_count) { *out = FAILDESCR; return 1; }
         int nextra = nargs - 2;
         int total = 1 + nextra;
         DESCR_t *callargs = GC_malloc((size_t)total * sizeof(DESCR_t));
         callargs[0] = args[0];
         for (int k = 0; k < nextra; k++) callargs[1 + k] = args[2 + k];
+        int pi;
+        for (pi = 0; pi < g_stage2.proc_count; pi++)
+            if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, procname) == 0) break;
+        if (pi >= g_stage2.proc_count) {
+            extern DESCR_t g_call_args[];
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
+            *out = rt_call_proc_descr(procname, total); return 1;
+        }
         if (g_stage2.proc_table[pi].bb_idx >= 0) {
             extern DESCR_t rk_ir_call_proc(int pi, DESCR_t *args, int nargs);
             *out = rk_ir_call_proc(pi, callargs, total); return 1;

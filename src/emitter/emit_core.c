@@ -373,6 +373,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
     extern int  bb_slot_get(IR_t *nd);
+    extern int  bb_slot_alloc16(IR_t *nd);
     if (!nd) return 1;
     g_emit.node = nd;
     emit_io_set_sink(out);
@@ -480,6 +481,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         return 0;
     }
     case IR_CALL_DEFINE:          bb_emit_x86(bb_call_define());        return 0;
+    case IR_FIELD_GET:            { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_field_get()); return 0; } fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_VAR_FRAME:            { bb_prepare(nd); bb_emit_x86(bb_var_frame()); return 0; }
     case IR_ASSIGN_FRAME:         bb_prepare(nd); { bb_emit_x86(bb_assign_frame()); } return 0;
     case IR_VAR_FRAME_REF:        { bb_prepare(nd); bb_emit_x86(bb_var_frame_ref()); return 0; }

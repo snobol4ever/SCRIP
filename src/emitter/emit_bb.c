@@ -3249,6 +3249,7 @@ static int descr_chain_arity(const IR_t *n) {
     switch (n->op) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: case IR_VAR_FRAME: case IR_VAR_FRAME_REF: return 0;
+    case IR_FIELD_GET: return 0;
     case IR_ALT:   return 0;
     case IR_GATHER: return 0;
     case IR_GEN_SCAN: return 0;
@@ -3290,8 +3291,8 @@ static void descr_chain_operand_refs(IR_t *entry) {
         IR_t *n = chain[i];
         int ar = descr_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
-        if (ar == 2 && sp >= 2) { n->n_operands = 0; ir_operand_push(n, stk[sp - 2]); ir_operand_push(n, stk[sp - 1]); sp -= 2; }
-        else if (ar == 1 && sp >= 1) { if (n->op != IR_SCAN) { n->n_operands = 0; ir_operand_push(n, stk[sp - 1]); } else { scan_set_subj_node(n, stk[sp - 1]); } sp -= 1; }
+        if (ar == 1 && n->op == IR_SCAN && sp >= 1) { scan_set_subj_node(n, stk[sp - 1]); sp -= 1; }
+        else if (ar >= 1 && sp >= ar) { n->n_operands = 0; for (int k = ar; k >= 1; k--) ir_operand_push(n, stk[sp - k]); sp -= ar; }
         else if (ar >= 1) { sp = 0; }
         stk[sp++] = n;
     }
