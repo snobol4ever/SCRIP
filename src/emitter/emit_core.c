@@ -491,7 +491,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
     case IR_EVERY:                bb_emit_x86(bb_every());          return 0;
     case IR_TO:
-    case IR_TO_BY:                { bb_emit_x86(bb_to(nd)); } return 0;
+    case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_LIST_BANG:            bb_emit_x86(bb_iterate(nd));      return 0;
     case IR_ALT:                  bb_prepare(nd); { bb_emit_x86(bb_alt()); } return 0;
     case IR_SCAN_POS:             { bb_emit_x86(bb_scan_pos()); } return 0;
