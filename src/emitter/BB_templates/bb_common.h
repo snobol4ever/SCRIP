@@ -70,7 +70,7 @@ std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_type_test_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_term_inspect_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_aggregate_nb();
-std::string bb_atom_string_str(const std::string &hdr);
+std::string bb_atom_string();
 std::string bb_term_io_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_succ_plus_str(IR_t *pBB, const char *fn, const std::string &hdr);

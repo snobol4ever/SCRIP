@@ -1079,12 +1079,28 @@ void bb_prepare(IR_t *nd) {
             n = j + 1;
         }
         g_emit.op_parts_n = n;
+        g_emit.op_call_sym = NULL; g_emit.op_call_fp = NULL;
+        {
+            const char *bf = IR_LIT(nd).sval ? IR_LIT(nd).sval : "";
+            if (!strcmp(bf,"atom_length") || !strcmp(bf,"string_length")) { g_emit.op_call_sym = "rt_atom_length"; g_emit.op_call_fp = (void*)rt_atom_length; }
+            else if (!strcmp(bf,"upcase_atom") || !strcmp(bf,"string_upper")) { g_emit.op_call_sym = "rt_upcase_atom"; g_emit.op_call_fp = (void*)rt_upcase_atom; }
+            else if (!strcmp(bf,"downcase_atom") || !strcmp(bf,"string_lower")) { g_emit.op_call_sym = "rt_downcase_atom"; g_emit.op_call_fp = (void*)rt_downcase_atom; }
+            else if (!strcmp(bf,"copy_term")) { g_emit.op_call_sym = "rt_copy_term"; g_emit.op_call_fp = (void*)rt_copy_term; }
+            else { g_emit.op_call_sym = "rt_atom_string_pair"; g_emit.op_call_fp = (void*)rt_atom_string_pair; }
+        }
         if (n >= 2) {
             IR_t *a1 = ir_call_arg(nd, 1);
             if (a1 && (a1->op == IR_STRUCT || a1->op == IR_ARITH) && IR_LIT(a1).sval) {
                 IR_t *in = ir_call_arg(a1, 0);
                 if (in) { g_emit.op_parts_tag[3] = (int)in->op; g_emit.op_parts_ival[3] = (int64_t)IR_LIT(in).ival;
                           g_emit.op_parts_str[3] = (in->op == IR_ATOM) ? IR_LIT(in).sval : NULL; g_emit.op_parts_ival[11] = (int64_t)(intptr_t)in; }
+            }
+        }
+        {
+            static char lblpool[4][64];
+            for (int j = 0; j < 4; j++) {
+                g_emit.op_parts_lbl[j] = NULL;
+                if (g_emit.op_parts_str[j] && g_emit.op_parts_str[j][0]) { strtab_label(lblpool[j], 64, g_emit.op_parts_str[j]); g_emit.op_parts_lbl[j] = lblpool[j]; }
             }
         }
         return;
