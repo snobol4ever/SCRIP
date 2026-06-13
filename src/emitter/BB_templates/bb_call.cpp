@@ -479,12 +479,40 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static IR_t * rkbool_cond_relop(IR_graph_t * cond) {
+    if (!cond) return NULL;
+    IR_t * p = cond->entry; int g = 0;
+    while (p && g++ < 256) { if (arith_is_relop(p)) return p; if (!p->γ.node) break; p = p->γ.node; }
+    return NULL;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_call_rk_bool_cond_str(IR_t * pBB) {
+    if (!PLATFORM_X86) return std::string();
+    IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
+    IR_graph_t * cond = blks ? blks[0] : NULL;
+    IR_t * relnd = rkbool_cond_relop(cond);
+    if (!relnd) return x86_bomb("bb_call_rk_bool_cond: cond sub-graph is not a plain relop");
+    IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
+    if (!ra || !rb || !arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_bomb("bb_call_rk_bool_cond: relop operands unhandled");
+    int scratch = bb_slot_alloc16(relnd);
+    return x86("label", _.lbl_α)
+         + x86("comment", "BOX __rk_bool [dval=2 relop condition -> branch true=γ / false=ω]")
+         + arith_opnd_a(cond, ra) + x86_frame_store64(scratch, "rax")
+         + arith_opnd_b(cond, rb) + x86_frame_load64("rax", scratch)
+         + x86("cmp", "rax", "rcx")
+         + x86(relop_fail_mnem(relnd), "ω")
+         + x86("jmp", "γ")
+         + x86("def", "β")
+         + x86("jmp", "ω");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_t       * a0   = ir_call_arg(_.node, 0);
     if (g_descr_flat_chain && _.op_dval == 2.0 && fn && fn[0] && rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
+    if (g_descr_flat_chain && _.op_dval == 2.0 && fn && !strcmp(fn, "__rk_bool")) return bb_call_rk_bool_cond_str(pBB);
     if (g_descr_flat_chain && _.op_dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
     if (g_gvar_flat_chain && _.op_dval == 5.0) return bb_call_gvar_define_str(pBB);
     if (g_gvar_flat_chain && (_.op_dval == 2.0 || _.op_dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);

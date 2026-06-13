@@ -101,6 +101,9 @@ int bb_slot_get(IR_t *nd) {
     for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
     return -1;
 }
+void bb_slot_register(IR_t *nd, int off) {
+    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 int bb_slot_claim(int bytes) {
     int off = g_flat_slot_count;
@@ -2530,7 +2533,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     }
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_LIT_I:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_I:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16_or_get(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_S:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_F:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_NUL:    if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -2538,6 +2541,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         IR_t *a0 = ir_call_arg(nd, 0);
         g_emit.op_arg_slot_n = 0;
         if (g_descr_flat_chain) {
+            if (IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "__rk_bool") && nd->γ.node && nd->ω.node && nd->γ.node->op == IR_LIT_I && nd->ω.node->op == IR_LIT_I && bb_slot_get(nd->γ.node) < 0 && bb_slot_get(nd->ω.node) < 0) { int _sh = bb_slot_alloc16(nd->γ.node); bb_slot_register(nd->ω.node, _sh); }
             if (g_icn_scan_regs_live && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "pos")) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
                 long sn = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_I && icn_arg_entry_terminal(sblks[0]->entry)) ? (long) IR_LIT(sblks[0]->entry).ival : -1;
