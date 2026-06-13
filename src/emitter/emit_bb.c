@@ -1061,6 +1061,12 @@ void bb_prepare(IR_t *nd) {
             g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(bu1).sval ? IR_LIT(bu1).sval : "+");
         if (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "is") == 0 && bu1 && bu1->op == IR_ATOM)
             g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(bu1).sval ? IR_LIT(bu1).sval : "");
+        if (IR_LIT(nd).sval && (strcmp(IR_LIT(nd).sval, "aggregate_all") == 0 || strcmp(IR_LIT(nd).sval, "nb_setval") == 0 || strcmp(IR_LIT(nd).sval, "nb_getval") == 0)) {
+            IR_t *a1 = ir_call_arg(nd, 1);
+            if (a1 && a1->op == IR_ATOM) g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(a1).sval ? IR_LIT(a1).sval : "");
+            IR_t *a2 = ir_call_arg(nd, 2);
+            if (a2 && a2->op == IR_ATOM) g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(a2).sval ? IR_LIT(a2).sval : "");
+        }
         int n = 0;
         g_emit.op_parts_tag[3] = 0; g_emit.op_parts_ival[3] = 0; g_emit.op_parts_str[3] = NULL; g_emit.op_parts_ival[11] = 0;
         for (int j = 0; j < 3; j++) {

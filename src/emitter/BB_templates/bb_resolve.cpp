@@ -11,9 +11,9 @@ int bb_op_floaty(const char *fn) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string briplbl_expr(const char *s) {
+static std::string blbl_lea(const char *dst, const char *s) {
     char b[64]; b[0] = 0; if (s) strtab_label(b, sizeof b, s);
-    return std::string("[rip + ") + b + "]";
+    return x86("lea", dst, "[rip+__]", (uint64_t)(uintptr_t)(s ? s : ""), b);
 }
 static int bmset(const char *s) {
     static const char *m[] = { "is", "=:=", "=\\=", "<", ">", "=<", ">=", "=", "\\=", NULL };
@@ -30,7 +30,7 @@ static std::string emit_build_conj_chain(IR_t **goals, int i, int n) {
                         + x86("mov",  RSP(0), "rax")
                         + emit_build_conj_chain(goals, i + 1, n)
                         + x86("mov",  RSP(8), "rax")
-                        + x86("lea",  "rdi", briplbl_expr(","))
+                        + blbl_lea("rdi", ",")
                         + x86("mov32","esi", (long)2)
                         + x86("mov",  "rdx", "rsp")
                         + x86("call", "rt_compound_build_n", (uint64_t)(uintptr_t)(void*)rt_compound_build_n)
@@ -40,7 +40,7 @@ static std::string emit_build_conj_chain(IR_t **goals, int i, int n) {
 static std::string bterm_atomform(int kind, const char *sval) {
     return x86("mov32", "edi",  (long)kind)
          + x86("xor",   "rsi",  "rsi")
-         + IF(sval != NULL, x86("lea", "rdx", briplbl_expr(sval)))
+         + IF(sval != NULL, blbl_lea("rdx", sval))
          + IF(sval == NULL, x86("xor", "edx", "edx"))
          + x86("xor",   "ecx",  "ecx")
          + x86("call",  "rt_node_to_term", (uint64_t)(uintptr_t)(void*)rt_node_to_term);
@@ -55,7 +55,7 @@ static std::string bterm_goal(const IR_t *nd) {
               x86("sub", "rsp", (long)frm)
             + FOR(0, (zc && zc->args && zc->nargs < arity ? zc->nargs : arity), [&](int i) {
                   return emit_build_compound_term(zc->args[i]) + x86("mov", RSP(i * 8), "rax"); })
-            + IF(gfn != NULL, x86("lea", "rdi", briplbl_expr(gfn)))
+            + IF(gfn != NULL, blbl_lea("rdi", gfn))
             + IF(gfn == NULL, x86("xor", "edi", "edi"))
             + x86("mov32","esi", (long)arity)
             + x86("mov",  "rdx", "rsp")
@@ -70,7 +70,7 @@ static std::string bterm_arith(const IR_t *nd) {
     return x86("sub", "rsp", (long)frm)
          + IF(o0 != NULL, emit_build_compound_term(o0) + x86("mov", RSP(0), "rax"))
          + IF(o0 != NULL && arity >= 2 && o1 != NULL, emit_build_compound_term(o1) + x86("mov", RSP(8), "rax"))
-         + IF(IR_LIT(nd).sval != NULL, x86("lea", "rdi", briplbl_expr(IR_LIT(nd).sval)))
+         + IF(IR_LIT(nd).sval != NULL, blbl_lea("rdi", IR_LIT(nd).sval))
          + IF(IR_LIT(nd).sval == NULL, x86("xor", "edi", "edi"))
          + x86("mov32","esi", (long)arity)
          + x86("mov",  "rdx", "rsp")
@@ -83,7 +83,7 @@ static std::string bterm_mset(const IR_t *nd) {
          + x86("mov",  RSP(0), "rax")
          + emit_build_compound_term(ir_pair_arg(nd, 1))
          + x86("mov",  RSP(8), "rax")
-         + x86("lea",  "rdi", briplbl_expr(IR_LIT(nd).sval))
+         + blbl_lea("rdi", IR_LIT(nd).sval)
          + x86("mov32","esi", (long)2)
          + x86("mov",  "rdx", "rsp")
          + x86("call", "rt_compound_build_n", (uint64_t)(uintptr_t)(void*)rt_compound_build_n)
@@ -101,7 +101,7 @@ std::string emit_build_compound_term(const IR_t *nd) {
     if (nd->op == IR_LIT_I || nd->op == IR_LIT_F || nd->op == IR_ATOM || nd->op == IR_LOGICVAR)
         return x86("mov32","edi", (long)nd->op)
              + x86("mov",  "rsi", (long)IR_LIT(nd).ival)
-             + IF(nd->op == IR_ATOM && IR_LIT(nd).sval, x86("lea", "rdx", briplbl_expr(IR_LIT(nd).sval)))
+             + IF(nd->op == IR_ATOM && IR_LIT(nd).sval, blbl_lea("rdx", IR_LIT(nd).sval))
              + IF(!(nd->op == IR_ATOM && IR_LIT(nd).sval), x86("xor", "edx", "edx"))
              + x86("xor",  "ecx", "ecx")
              + x86("call", "rt_node_to_term", (uint64_t)(uintptr_t)(void*)rt_node_to_term);
@@ -111,7 +111,7 @@ std::string emit_build_compound_term(const IR_t *nd) {
         int frm = (arity * 8 + 15) & ~15;
         return x86("sub", "rsp", (long)frm)
              + FOR(0, arity, [&](int i) { return IF(ir_call_arg(nd, i) != NULL, emit_build_compound_term(ir_call_arg(nd, i)) + x86("mov", RSP(i * 8), "rax")); })
-             + IF(IR_LIT(nd).sval != NULL, x86("lea", "rdi", briplbl_expr(IR_LIT(nd).sval)))
+             + IF(IR_LIT(nd).sval != NULL, blbl_lea("rdi", IR_LIT(nd).sval))
              + IF(IR_LIT(nd).sval == NULL, x86("xor", "edi", "edi"))
              + x86("mov32","esi", (long)arity)
              + x86("mov",  "rdx", "rsp")
@@ -146,7 +146,7 @@ static std::string bdisp(IR_t *pBB) {
     if (!(r = bb_is_cmp_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_type_test_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_term_inspect_str(pBB, fn, hdr)).empty()) return r;
-    if (!(r = bb_aggregate_nb_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_aggregate_nb()).empty()) return r;
     if (!(r = bb_atom_string_str(hdr)).empty()) return r;
     if (!(r = bb_term_io_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_findall_str(pBB, fn, hdr)).empty()) return r;
