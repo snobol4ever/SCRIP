@@ -10,36 +10,27 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
+static const char * scan_lbl(const char * s) { s = s ? s : ""; const char * l = emit_intern_str(s); if (l) return l; static char b[24]; strtab_label(b, sizeof b, s); return b; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_stmt() {
     if (!PLATFORM_X86) return std::string();
-    const char * pat_lit     = _.op_scan_pat_lit;
-    const char * subj_lit    = _.op_scan_subj_lit;
-    const char * replace_lit = _.op_scan_replace_lit;
-    const char * subj_name   = _.op_sval ? _.op_sval : "";
-    long is_repl             = _.op_ival ? 1L : 0L;
-    auto scan_lbl = [&](const char * s) -> const char * {
-        s = s ? s : "";
-        const char * l = emit_intern_str(s);
-        if (l) return l;
-        static char b[24]; strtab_label(b, sizeof b, s); return b;
-    };
-    if (MEDIUM_TEXT && !pat_lit)
+    if (MEDIUM_TEXT && !_.op_scan_pat_lit)
         return x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)");
-    if (MEDIUM_TEXT && pat_lit && !subj_name[0] && !subj_lit)
+    if (MEDIUM_TEXT && _.op_scan_pat_lit && !(_.op_sval && _.op_sval[0]) && !_.op_scan_subj_lit)
         return x86_bomb("bb_scan: TEXT(mode-4) non-literal subject needs native PB-RB graph (pending)");
-    if (MEDIUM_TEXT && pat_lit && (subj_name[0] || subj_lit) && is_repl && !replace_lit)
+    if (MEDIUM_TEXT && _.op_scan_pat_lit && (_.op_sval && _.op_sval[0] || _.op_scan_subj_lit) && _.op_ival && !_.op_scan_replace_lit)
         return x86_bomb("bb_scan: TEXT(mode-4) non-literal replacement needs native PB-RB graph (pending)");
     if (MEDIUM_TEXT)
         return x86("comment", "IR_SCAN")
              + x86("label",   _.lbl_α)
-             + IF(subj_name[0], x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)subj_name, scan_lbl(subj_name)))
-             + IF(!subj_name[0], x86("mov", "rdi", (long)0))
-             + IF(subj_lit != 0,  x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)subj_lit, scan_lbl(subj_lit)))
-             + IF(!subj_lit, x86("mov", "rsi", (long)0))
-             + x86("lea",     "rdx", "[rip + __]", (uint64_t)(uintptr_t)pat_lit, scan_lbl(pat_lit))
-             + x86("mov",     "rcx", is_repl)
-             + IF(replace_lit != 0,  x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)replace_lit, scan_lbl(replace_lit)))
-             + IF(!replace_lit, x86("mov", "r8", (long)0))
+             + IF(_.op_sval && _.op_sval[0], x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)_.op_sval, scan_lbl(_.op_sval)))
+             + IF(!(_.op_sval && _.op_sval[0]), x86("mov", "rdi", (long)0))
+             + IF(_.op_scan_subj_lit != 0,  x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)_.op_scan_subj_lit, scan_lbl(_.op_scan_subj_lit)))
+             + IF(!_.op_scan_subj_lit, x86("mov", "rsi", (long)0))
+             + x86("lea",     "rdx", "[rip + __]", (uint64_t)(uintptr_t)_.op_scan_pat_lit, scan_lbl(_.op_scan_pat_lit))
+             + x86("mov",     "rcx", _.op_ival ? 1L : 0L)
+             + IF(_.op_scan_replace_lit != 0,  x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)_.op_scan_replace_lit, scan_lbl(_.op_scan_replace_lit)))
+             + IF(!_.op_scan_replace_lit, x86("mov", "r8", (long)0))
              + x86("call",    "rt_scan_lit", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, const char *, const char *, int, const char *))rt_scan_lit)
              + x86("test",    "eax", "eax")
              + x86("je",      "ω")
@@ -50,8 +41,8 @@ std::string bb_scan_stmt() {
          + x86("label",   _.lbl_α)
          + x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)(intptr_t)_.op_scan_pat)
          + x86_load_ro("rsi", "??", (uint64_t)(uintptr_t)(intptr_t)_.op_scan_subj)
-         + x86("mov",     "rdx", is_repl)
-         + x86("lea",     "rcx", "[rip + __]", (uint64_t)(uintptr_t)subj_name, scan_lbl(subj_name))
+         + x86("mov",     "rdx", _.op_ival ? 1L : 0L)
+         + x86("lea",     "rcx", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), scan_lbl(_.op_sval))
          + x86_load_ro("r8", "??", (uint64_t)(uintptr_t)(intptr_t)_.op_scan_repl)
          + x86("call",    "rt_scan", (uint64_t)(uintptr_t)(void *)(int (*)(void *, void *, int, const char *, void *))rt_scan)
          + x86("test",    "eax", "eax")
