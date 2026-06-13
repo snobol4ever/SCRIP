@@ -141,6 +141,7 @@ void rt_proc_set_byref(const char *name, uint64_t mask);
 uint64_t rt_proc_byref_mask(const char *name);
 DESCR_t *rt_gvar_cell(const char *name);
 int64_t rt_gvar_arith(const char *a, const char *b, int op);
+int64_t rt_relop_descr2(int64_t l_lo, int64_t l_hi, int64_t r_lo, int64_t r_hi, int op);
 int64_t rt_gvar_get_int(const char *name);
 DESCR_t rt_gvar_get_descr(const char *name);
 DESCR_t rt_proc_define(const char *spec);

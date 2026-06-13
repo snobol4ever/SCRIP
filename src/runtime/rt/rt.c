@@ -299,6 +299,17 @@ int64_t rt_gvar_arith(const char *a, const char *b, int op)
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int64_t rt_relop_descr2(int64_t l_lo, int64_t l_hi, int64_t r_lo, int64_t r_hi, int op)
+{
+    DESCR_t lv; DESCR_t rv;
+    union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } ul; union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } ur;
+    ul.q = l_lo; lv.v = ul.f.v; lv.slen = ul.f.slen; lv.i = l_hi;
+    ur.q = r_lo; rv.v = ur.f.v; rv.slen = ur.f.slen; rv.i = r_hi;
+    int rel_fail = 0;
+    binop_apply(op, lv, rv, &rel_fail);
+    return rel_fail ? 0 : 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int64_t rt_gvar_get_int(const char *name)
 {
     DESCR_t v = NV_GET_fn(name ? name : "");
