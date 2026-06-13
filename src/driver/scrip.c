@@ -2433,6 +2433,7 @@ int main(int argc, char **argv)
                 extern void xa_emit_strtab_rodata(void);
                 xa_emit_strtab_rodata();
                 fflush(stdout);
+                ir_delete_all(s2);
                 return rc;
             }
             fprintf(stderr, "[PL-GZ FENCE] --compile --target=x86: program not admitted by pl_gz_admit — the GZ cell path is the only Prolog backend (flat + rich/heap-env tiers DELETED per PL-GZ GUT, 2026-06-13).\n");
@@ -2739,7 +2740,7 @@ int main(int argc, char **argv)
             if (gz_root) {
                 extern bb_box_fn pl_gz_build(IR_t * nd);
                 bb_box_fn gzfn = pl_gz_build(gz_root);
-                if (gzfn) { (void)gzfn(rt_frame(), 0); goto run_done; }
+                if (gzfn) { ir_delete_all(s2); (void)gzfn(rt_frame(), 0); goto run_done; }
             }
             fprintf(stderr, "[PL-GZ FENCE] --run: program not admitted by pl_gz_admit — the GZ cell path is "
                             "the only Prolog execution path (flat + rich/heap-env tiers DELETED per PL-GZ GUT, "
