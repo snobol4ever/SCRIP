@@ -2986,11 +2986,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->op == IR_EVERY) { for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)(nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL)) { node_γ = lbls[k]; break; } }
-        int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = lbls[k]; omega_resolved = 1; break; }
+        int omega_resolved = 0; int omega_k = -1;
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = lbls[k]; omega_resolved = 1; omega_k = k; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
         if (omega_resolved && nodes[i]->ω.node && nodes[i]->ω.node->op == IR_EVERY) {
-            if (ir_is_generator_kind(nodes[i]->op)) { node_ω = &lbl_ω; }
+            if (ir_is_generator_kind(nodes[i]->op)) { node_ω = lbls[omega_k]; }
             else { for (int gk = 0; gk < n; gk++) if (ir_is_generator_kind(nodes[gk]->op)) { node_ω = betas[gk]; break; } }
         }
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
