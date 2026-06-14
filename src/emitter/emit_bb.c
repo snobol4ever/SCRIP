@@ -2206,6 +2206,19 @@ static int scan_val_is_single_lit(IR_graph_t *g) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int scan_pat_m3_native_safe(IR_graph_t *pg) {
+    if (!pg || !pg->all) return 1;
+    for (int i = 0; i < pg->n; i++) {
+        IR_t *nd = pg->all[i];
+        if (!nd) continue;
+        if (nd->op == IR_PAT_ASSIGN_IMM || nd->op == IR_PAT_ASSIGN_COND
+            || nd->op == IR_PAT_ARBNO || nd->op == IR_PAT_FENCE || nd->op == IR_PAT_DEFER
+            || nd->op == IR_REF_INVARIANT || nd->op == IR_PATTERN_DEFER) return 0;
+    }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pg || !pg->entry) return 0;
     IR_t *subj  = IR_node_alloc(pg, IR_SUBJECT);
@@ -2258,7 +2271,8 @@ static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
         else { const char * cc = scan_pat_cat_concat(pg); if (cc)  g_emit.op_scan_pat_lit  = cc; }
         if (scan_val_is_single_lit(sg))                    g_emit.op_scan_subj_lit = IR_LIT(sg->entry).sval ? IR_LIT(sg->entry).sval : "";
         if (scan_val_is_single_lit(rg))                    g_emit.op_scan_replace_lit = IR_LIT(rg->entry).sval ? IR_LIT(rg->entry).sval : "";
-        if (MEDIUM_TEXT && !g_emit.op_scan_pat_lit && pBB && IR_LIT(pBB).sval && IR_LIT(pBB).sval[0] && !IR_LIT(pBB).ival) {
+        if (!g_emit.op_scan_pat_lit && pBB && IR_LIT(pBB).sval && IR_LIT(pBB).sval[0] && !IR_LIT(pBB).ival
+            && (g_is_text || scan_pat_m3_native_safe(pg))) {
             if (flat_drive_scan_native(pBB, pg, lbl_γ, lbl_ω, lbl_β)) return;
         }
     }
