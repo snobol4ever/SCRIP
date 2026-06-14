@@ -877,6 +877,34 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
     out[op] = '\0';
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_grammar_register(const char *qname, const char *body, int flavor) { if (qname && body) gram_set(qname, body, flavor); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_grammar_count(void) { return gram_n; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *rt_grammar_qname(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].qname : NULL; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *rt_grammar_body(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].body : NULL; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].flavor : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname); return gram_get(qn) != NULL; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out) {
+    if (!gname) gname = ""; if (!subj) subj = "";
+    char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname);
+    const char *body = gram_get(qn);
+    if (!body) { *out = FAILDESCR; return 1; }
+    int topflv = gram_get_flavor(qn);
+    char pat[4096]; gram_expand(gname, body, topflv, pat, sizeof pat, 0);
+    Raku_nfa *nfa = raku_nfa_build(pat);
+    if (!nfa) { *out = FAILDESCR; return 1; }
+    Raku_match m; raku_nfa_exec(nfa, subj, &m);
+    raku_nfa_free(nfa);
+    int slen = (int)strlen(subj);
+    int ok = m.matched && m.full_start == 0 && m.full_end == slen;
+    *out = ok ? STRVAL(GC_strdup(subj)) : NULVCL; return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static long g_pas_heap_ctr = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
@@ -1384,6 +1412,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = dat_construct(dt, fvals, dt->nfields); return 1;
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
+        const char *mname0 = VARVAL_fn(args[1]);
+        if (mname0 && !strcmp(mname0, "parse") && nargs == 3) {
+            const char *gname = VARVAL_fn(args[0]);
+            if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
+        }
         if (args[0].v != DT_DATA || !args[0].u) { *out = FAILDESCR; return 1; }
         DATINST_t *inst = (DATINST_t *)args[0].u;
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;
@@ -1461,20 +1494,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = INTVAL(1); return 1;
     }
     if (!strcmp(fn, "grammar_parse") && nargs == 2) {
-        const char *gname = VARVAL_fn(args[0]); if (!gname) gname = "";
-        const char *subj  = VARVAL_fn(args[1]); if (!subj)  subj  = "";
-        char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname);
-        const char *body = gram_get(qn);
-        if (!body) { *out = FAILDESCR; return 1; }
-        int topflv = gram_get_flavor(qn);
-        char pat[4096]; gram_expand(gname, body, topflv, pat, sizeof pat, 0);
-        Raku_nfa *nfa = raku_nfa_build(pat);
-        if (!nfa) { *out = FAILDESCR; return 1; }
-        Raku_match m; raku_nfa_exec(nfa, subj, &m);
-        raku_nfa_free(nfa);
-        int slen = (int)strlen(subj);
-        int ok = m.matched && m.full_start == 0 && m.full_end == slen;
-        *out = ok ? STRVAL(GC_strdup(subj)) : FAILDESCR; return 1;
+        const char *gname = VARVAL_fn(args[0]);
+        const char *subj  = VARVAL_fn(args[1]);
+        return grammar_parse_core(gname, subj, out);
     }
     if (!strcmp(fn, "re_match_global") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]); if (!subj) subj = "";

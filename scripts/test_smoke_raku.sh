@@ -359,6 +359,46 @@ sub main() {
 }
 EOF
 
+raku "grammar_token" "12345" << 'EOF'
+grammar G {
+    token TOP { \d+ }
+}
+sub main() {
+    say(G.parse("12345"));
+}
+EOF
+
+raku "grammar_subrule" "hello" << 'EOF'
+grammar G {
+    token word { \w+ }
+    rule TOP { <word> }
+}
+sub main() {
+    say(G.parse("hello"));
+}
+EOF
+
+raku "grammar_multi_subrule" "12abc" << 'EOF'
+grammar G {
+    token num  { \d+ }
+    token word { \w+ }
+    rule TOP { <num> <word> }
+}
+sub main() {
+    say(G.parse("12abc"));
+}
+EOF
+
+raku "grammar_nomatch" "nomatch" << 'EOF'
+grammar G {
+    token TOP { \d+ }
+}
+sub main() {
+    my $r = G.parse("abc");
+    if ($r) { say("matched"); } else { say("nomatch"); }
+}
+EOF
+
 echo ""
 echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE — must be all-PASS)"
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 EXCISED=$X3  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
