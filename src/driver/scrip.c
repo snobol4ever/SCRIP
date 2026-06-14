@@ -2338,7 +2338,9 @@ int main(int argc, char **argv)
                 if (n_procs < 64) snprintf(proc_names_buf[n_procs++], 128, "%s", pname);
                 free(pn);
             }
-            if (n_procs > 0) {
+            int n_cls_emit = 0;
+            { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
+            if (n_procs > 0 || n_cls_emit > 0) {
                 printf("icn_proc_startup:\n");
                 printf("  push rbp\n");
                 printf("  mov rbp, rsp\n");
@@ -2370,7 +2372,7 @@ int main(int argc, char **argv)
             printf("main:\n");
             printf("  push rbp\n");
             printf("  mov rbp, rsp\n");
-            if (n_procs > 0)
+            if (n_procs > 0 || n_cls_emit > 0)
                 printf("  call icn_proc_startup\n");
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
