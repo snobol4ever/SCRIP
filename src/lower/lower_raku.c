@@ -5,6 +5,12 @@
 /*====================================================================================================================================================================================================*/
 typedef struct { IR_graph_t * g; } rcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RK_GRAM_MAX 64
+static const char * g_rk_gram_names[RK_GRAM_MAX];
+static int          g_rk_gram_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_gram_n; i++) if (!strcmp(g_rk_gram_names[i], nm)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
@@ -81,7 +87,7 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, γ, ω); IR_LIT(nd).dval = t->v.dval; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_NUL: return build(cx, IR_LIT_NUL, γ, ω);
-    case TT_VAR: { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
+    case TT_VAR: { if (rk_is_grammar_name(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; } IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval; ir_operand_push(nd, lower(cx, t->c[0], NULL, NULL)); return nd; }
     case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = IR_node_alloc(cx->g, IR_VAR); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); return nd; }
     case TT_ADD: return lower_binop(cx, t, "+", γ, ω);
@@ -203,7 +209,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_NUL: { IR_t * nd = build(cx, IR_LIT_NUL, γ, ω); *res = nd; return nd; }
-    case TT_VAR: { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
+    case TT_VAR: { if (rk_is_grammar_name(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; } IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_ASSIGN: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR) {
         const tree_t * rhs = t->c[1];
         if (rhs && rhs->t == TT_FNC && rhs->n > 1 && rhs->c[0] && rhs->c[0]->v.sval && !strcmp(rhs->c[0]->v.sval, "pop") && rhs->c[1] && rhs->c[1]->t == TT_VAR) {
@@ -414,6 +420,29 @@ static int rk_proc_known(const char * name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_discover_grammars(const tree_t * prog) {
+    extern void rt_grammar_register(const char *qname, const char *body, int flavor);
+    g_rk_gram_n = 0;
+    if (!prog) return;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (!d || d->t != TT_GRAMMAR_DECL) continue;
+        const char * gname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+        if (!gname || !*gname) continue;
+        if (g_rk_gram_n < RK_GRAM_MAX && !rk_is_grammar_name(gname)) g_rk_gram_names[g_rk_gram_n++] = gname;
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * rd = d->c[j];
+            if (!rd || rd->t != TT_REGEX_DECL) continue;
+            const char * rname = (rd->n > 0 && rd->c[0] && rd->c[0]->v.sval) ? rd->c[0]->v.sval : NULL;
+            const char * body  = (rd->n > 1 && rd->c[1] && rd->c[1]->v.sval) ? rd->c[1]->v.sval : NULL;
+            if (!rname || !body) continue;
+            char qn[256]; snprintf(qn, sizeof qn, "%s::%s", gname, rname);
+            rt_grammar_register(qn, body, (int) rd->v.ival);
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_register_classes(const tree_t * prog) {
     extern void record_register(const char *spec);
     if (!prog) return;
@@ -504,6 +533,7 @@ static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_raku_stage2(const tree_t *prog) {
+    rk_discover_grammars(prog);
     rk_register_classes(prog);
     rk_discover_procs(prog);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
@@ -543,7 +573,7 @@ void lower_raku_stage2(const tree_t *prog) {
             const tree_t * s = prog->c[i];
             if (!s) continue;
             if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
-            if (s->t == TT_SUB_DECL || s->t == TT_CLASS_DECL) continue;
+            if (s->t == TT_SUB_DECL || s->t == TT_CLASS_DECL || s->t == TT_GRAMMAR_DECL) continue;
             IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, fail, &r);
             if (e) { entry = e; sentry = e; }
         }

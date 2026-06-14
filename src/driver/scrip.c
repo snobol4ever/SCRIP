@@ -2420,7 +2420,9 @@ int main(int argc, char **argv)
             }
             int n_cls_emit = 0;
             { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
-            if (n_procs > 0 || n_cls_emit > 0) {
+            int n_gram_emit = 0;
+            { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
+            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
                 printf("icn_proc_startup:\n");
                 printf("  push rbp\n");
                 printf("  mov rbp, rsp\n");
@@ -2435,6 +2437,20 @@ int main(int argc, char **argv)
                       printf("  .section .text\n  .intel_syntax noprefix\n");
                       printf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
                       printf("  call record_register@PLT\n");
+                  } }
+                { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
+                  int n_gram = rt_grammar_count();
+                  for (int gi = 0; gi < n_gram; gi++) {
+                      const char *qn = rt_grammar_qname(gi); const char *bd = rt_grammar_body(gi);
+                      if (!qn || !bd) continue;
+                      printf("  .section .rodata\n");
+                      printf("  .Lgramqn%d: .byte ", gi); for (const char *p = qn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                      printf("  .Lgrambd%d: .byte ", gi); for (const char *p = bd; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                      printf("  .section .text\n  .intel_syntax noprefix\n");
+                      printf("  lea rdi, [rip + .Lgramqn%d]\n", gi);
+                      printf("  lea rsi, [rip + .Lgrambd%d]\n", gi);
+                      printf("  mov edx, %d\n", rt_grammar_flavor(gi));
+                      printf("  call rt_grammar_register@PLT\n");
                   } }
                 for (int i = 0; i < n_procs; i++) {
                     printf("  .section .rodata\n");
@@ -2452,7 +2468,7 @@ int main(int argc, char **argv)
             printf("main:\n");
             printf("  push rbp\n");
             printf("  mov rbp, rsp\n");
-            if (n_procs > 0 || n_cls_emit > 0)
+            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
                 printf("  call icn_proc_startup\n");
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
