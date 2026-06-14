@@ -1885,10 +1885,8 @@ static int icn_arg_entry_terminal(IR_t *ae) {
 static int ir_is_generator_kind(IR_e t);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int icn_subchain_node_is_generator(IR_t *nd) {
-    extern int g_icn_scan_regs_live;
     if (!nd) return 0;
     if (ir_is_generator_kind(nd->op)) return 1;
-    if (g_icn_scan_regs_live && nd->op == IR_CALL && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "upto") || !strcmp(IR_LIT(nd).sval, "find") || !strcmp(IR_LIT(nd).sval, "bal"))) return 1;
     if (nd->op == IR_SCAN_UPTO || nd->op == IR_SCAN_FIND || nd->op == IR_SCAN_BAL) return 1;
     return 0;
 }
