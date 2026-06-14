@@ -725,6 +725,8 @@ int rt_builtin_is_known(const char *name)
         "abs", "sqrt", "sin", "cos", "tan", "exp", "log",
         "max", "min",
         "trim", "reverse", "repl", "map", "left", "center", "right",
+        "detab", "entab", "read", "reads",
+        "iand", "ior", "ixor", "ishift", "icom",
         "table", "list", "set", "sort", "sortf", "get", "pop", "pull",
         "member", "insert", "delete", "key",
         "MAKELIST",
