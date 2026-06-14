@@ -2,6 +2,7 @@
 #define EMIT_GLOBALS_H
 #include "emit_core.h"
 #include "IR.h"
+enum { CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_RK_BOOL_COND = 2, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_GVAR_USERPROC = 4, CALL_ROUTE_PROC_STAGED = 5, CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_WRITE_SLOT = 7, CALL_ROUTE_WRITE_BINOP = 8, CALL_ROUTE_WRITE_LEGACY = 9, CALL_ROUTE_WRITE_EMPTY = 10, CALL_ROUTE_USERPROC = 11, CALL_ROUTE_FN = 12 };
 struct SrcLines;
 typedef struct {
     int                          backend;
@@ -42,6 +43,7 @@ typedef struct {
     const char *                 op_call_sym;
     void *                        op_call_fp;
     int                          op_write_route;
+    int                          op_call_route;
     const char *                 lbl_α;
     const char *                 lbl_γ;
     const char *                 lbl_ω;
