@@ -406,6 +406,9 @@ EOF
 raku "smatch anchored => nomatch" "nomatch" <<'EOF'
 sub main() { if ('abc' ~~ /^\d+$/) { say("match"); } else { say("nomatch"); } }
 EOF
+raku "smatch named capture" "hello" <<'EOF'
+sub main() { my $s = "hello"; if ($s ~~ /<word>([a-z]+)/) { say($<word>); } }
+EOF
 
 echo ""
 echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE — must be all-PASS)"
