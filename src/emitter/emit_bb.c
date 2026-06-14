@@ -510,8 +510,9 @@ static int gz_node_bounded(const IR_t *g) {
     if (!g) return 1;
     switch (g->op) {
     case IR_CELL_CALL: case IR_CELL_CHOICE: case IR_CELL_FINDALL: case IR_CELL_ITE:
+    case IR_CELL_CATCH:
     case IR_CELL_CUT:  case IR_CUT:
-        return 0;   /* generators + cut-barrier: never collapse their β */
+        return 0;   /* generators + cut-barrier + catch: never collapse their β */
     default: return 1;
     }
 }
@@ -558,6 +559,10 @@ static void gz_collect_callees(IR_t *head, pl_gz_callee_t **callees, int *ncalle
         if (g->op == IR_CELL_ITE) {
             pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)(intptr_t)IR_LIT(g).ival;
             if (is) { gz_collect_callees(is->cond_head, callees, ncallees); gz_collect_callees(is->then_head, callees, ncallees); gz_collect_callees(is->else_head, callees, ncallees); }
+        }
+        if (g->op == IR_CELL_CATCH) {
+            pl_gz_catch_state_t *cst = (pl_gz_catch_state_t *)(intptr_t)IR_LIT(g).ival;
+            if (cst) { gz_collect_callees(cst->goal_head, callees, ncallees); gz_collect_callees(cst->recovery_head, callees, ncallees); }
         }
     }
 }
@@ -615,8 +620,34 @@ static void gz_emit_ite(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t
     FILL(g, next_γ, gw, gβ);
     g_emit.op_sa = 0;
 }
+/* catch box: α marks the trail then runs the goal chain; goal.γ -> catch success (next_γ);
+ * goal.ω -> the ball-check handler (op_sa 1): no pending throw -> ω (plain failure); pending ->
+ * unwind to mark, gzu_build the catcher, rt_pl_throw_match -> recovery chain on match, else ω
+ * leaving the ball set so an outer catch re-catches. Recovery chain: γ->next_γ, ω->catch.ω. */
+static void gz_emit_catch(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_t **callees, int *ncallees) {
+    pl_gz_catch_state_t *cst = (pl_gz_catch_state_t *)(intptr_t)IR_LIT(g).ival;
+    g_emit.op_bounded = 0;
+    int cid = g_flat_node_id++;
+    bb_label_t *Lgoal  = emit_label_alloc("gzc%d_goal", cid);
+    bb_label_t *Lcheck = emit_label_alloc("gzc%d_chk",  cid);
+    bb_label_t *Lrec   = (cst && cst->recovery_head) ? emit_label_alloc("gzc%d_rec", cid) : NULL;
+    g_emit.op_sa = 0; g_emit.op_sb = 0; g_emit.op_sval = NULL; g_emit.op_ival = 0; g_emit.op_off = 0;
+    { bb_label_t *d = Lgoal; g_emit.lbl_t0 = d->name; g_emit.lbl_t0_p = d; }
+    FILL(g, next_γ, gw, gβ);
+    if (cst && cst->goal_head) (void)gz_emit_chain(cst->goal_head, next_γ, Lcheck, cut_ω, Lgoal, callees, ncallees);
+    else { emit_label_define_bb(Lgoal); }
+    emit_label_define_bb(Lcheck);
+    g_emit.op_sa = 1;
+    { bb_label_t *d = Lrec ? Lrec : gw; g_emit.lbl_t0 = d->name; g_emit.lbl_t0_p = d; }
+    FILL(g, next_γ, gw, gβ);
+    if (cst && cst->recovery_head) (void)gz_emit_chain(cst->recovery_head, next_γ, gw, cut_ω, Lrec, callees, ncallees);
+    g_emit.op_sa = 2;
+    FILL(g, next_γ, gw, gβ);
+    g_emit.op_sa = 0;
+}
 static void gz_emit_cell(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_t **callees, int *ncallees) {
     if (g->op == IR_CELL_ITE) { gz_emit_ite(g, next_γ, gw, gβ, cut_ω, callees, ncallees); return; }
+    if (g->op == IR_CELL_CATCH) { gz_emit_catch(g, next_γ, gw, gβ, cut_ω, callees, ncallees); return; }
     gz_fill_goal(g, next_γ, gw, gβ);
 }
 static IR_t * gz_clause_head_of(pl_gz_callee_t *ce, int c) {
@@ -1314,6 +1345,12 @@ void bb_prepare(IR_t *nd) {
     }
     if (nd->op == IR_DET_THROW) {
         g_emit.op_parts_ival[0] = IR_LIT(nd).ival;   /* the ball IR node (slot-mapped at build time) */
+        return;
+    }
+    if (nd->op == IR_CELL_CATCH) {
+        const pl_gz_catch_state_t *cst = (const pl_gz_catch_state_t *)(intptr_t)IR_LIT(nd).ival;
+        g_emit.op_parts_ival[0] = cst ? (int64_t)cst->mark_slot : -1;
+        g_emit.op_parts_ival[1] = cst ? (int64_t)(intptr_t)cst->catcher : 0;
         return;
     }
     if (nd->op == IR_CELL_FINDALL) {
