@@ -7,8 +7,8 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_every() {
-    if (PLATFORM_X86) return x86("label", _.lbl_β)
-                           + x86("comment", "IR_EVERY")
+    if (PLATFORM_X86) return x86("comment", "IR_EVERY")
+                           + x86("jmp", "ω")
                            + x86("def", "β")
                            + x86("jmp", "ω");
     return std::string();
