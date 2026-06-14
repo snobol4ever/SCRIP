@@ -1007,6 +1007,7 @@ int lower_sno_stage2(const tree_t *prog) {
         IR_graph_t *fg = (IR_graph_t *) calloc(1, sizeof(IR_graph_t));
         if (!fg) continue;
         *fg = *g;
+        fg->aliased = 1;
         fg->entry = body;
         int fidx = bb_program_add(&g_stage2.bbp, fg);
         int fpi  = stage2_proc_grow(&g_stage2);
