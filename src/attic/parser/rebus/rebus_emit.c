@@ -1,3 +1,6 @@
+/* DEAD CODE — moved from src/parser/rebus/rebus_emit.c (GC oracle --gc-sections 2026-06-14, sweep pass 3).
+ * Dead: emit_decl, emit_tree_expr, emit_tree_stmt, ind, next_label, pop_loop, push_loop, rebus_emit.
+ * Rebus pipeline uses rebus_lower, not this emit path. Validated: emit identical + zero emitted-call. */
 #include "rebus.h"
 #include "ast.h"
 #include <stdio.h>

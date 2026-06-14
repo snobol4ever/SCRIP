@@ -1,3 +1,5 @@
+/* DEAD CODE — moved from src/parser/rebus/rebus_print.c (GC oracle --gc-sections 2026-06-14, sweep pass 3).
+ * Dead: indent, print_decl, print_tree, rebus_print. Validated: emit identical + zero emitted-call. */
 #include "rebus.h"
 #include "ast.h"
 #include <stdio.h>
