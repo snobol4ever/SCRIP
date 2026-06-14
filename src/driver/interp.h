@@ -4,7 +4,6 @@
 #include <setjmp.h>
 #include "parser/snobol4/scrip_cc.h"
 #include "stage2.h"
-extern int g_opt_trace;
 extern int g_opt_dump_bb;
 extern int g_polyglot;
 #define SCRIP_MOD_MAX STAGE2_MOD_MAX
@@ -20,8 +19,6 @@ DESCR_t interp_eval_pat(tree_t *e);
 void    execute_program(const tree_t *prog);
 void    execute_program_steps(const tree_t *prog, int n);
 void    ir_dump_program(const tree_t *prog, FILE *f);
-void    ir_set_print_width(int w);
-int     ir_get_print_width(void);
 extern int     g_ir_step_limit;
 extern int     g_ir_steps_done;
 extern jmp_buf g_ir_step_jmp;

@@ -262,7 +262,6 @@ RT_PIC_SRCS := \
     $(SRC)/driver/interp_ast_stubs.c \
     $(SRC)/driver/scrip_sm.c \
     $(SRC)/driver/stmt_ast.c \
-    $(SRC)/driver/sync_monitor.c \
     $(SRC)/driver/polyglot.c \
     $(SRC)/contracts/ast_print.c \
     $(SRC)/parser/snobol4/snobol4.tab.c \
@@ -548,7 +547,6 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/driver/interp_ast_stubs.c -o $(OBJ)/interp_ast_stubs.o
 	$(CC) $(CRT)   -c $(SRC)/driver/scrip_sm.c       -o $(OBJ)/scrip_sm.o
 	$(CC) $(CRT)   -c $(SRC)/driver/stmt_ast.c       -o $(OBJ)/stmt_ast.o
-	$(CC) $(CRT)   -c $(SRC)/driver/sync_monitor.c -o $(OBJ)/sync_monitor.o
 	$(CC) $(CRT)   -c $(SRC)/driver/polyglot.c -o $(OBJ)/polyglot.o
 	$(CC) $(CRT)   -c $(SRC)/driver/scrip.c  -o $(OBJ)/scrip_driver.o
 	$(CXX) -m64 -no-pie $(OBJ)/*.o $(LIBS) -o scrip
