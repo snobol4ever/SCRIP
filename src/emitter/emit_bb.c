@@ -3620,6 +3620,25 @@ int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     return rc;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+bb_box_fn gvar_flat_chain_build_at(IR_graph_t *g, int entry_idx, const char *prefix) {
+    if (!g || entry_idx < 0 || entry_idx >= g->n || !g->all[entry_idx]) return NULL;
+    IR_t *save_entry = g->entry;
+    g->entry = g->all[entry_idx];
+    bb_box_fn fn = gvar_flat_chain_build(g);
+    g->entry = save_entry;
+    (void)prefix;
+    return fn;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int gvar_flat_chain_build_text_at(IR_graph_t *g, int entry_idx, FILE *out, const char *prefix) {
+    if (!g || entry_idx < 0 || entry_idx >= g->n || !g->all[entry_idx]) return 1;
+    IR_t *save_entry = g->entry;
+    g->entry = g->all[entry_idx];
+    int rc = gvar_flat_chain_build_text(g, out, prefix);
+    g->entry = save_entry;
+    return rc;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn pl_gz_build(IR_t *gz_root) {
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;

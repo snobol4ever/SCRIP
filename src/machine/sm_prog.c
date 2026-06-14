@@ -46,5 +46,6 @@ int stage2_proc_grow(stage2_t *s2)
     }
     int idx = s2->proc_count++;
     memset(&s2->proc_table[idx], 0, sizeof(ProcEntry));
+    s2->proc_table[idx].sno_entry_idx = -1;
     return idx;
 }
