@@ -471,18 +471,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_AUGOP:
     case IR_CALL: {
-        extern int g_icn_scan_regs_live;
-        if (g_icn_scan_regs_live && IR_LIT(nd).sval) {
-            if (!strcmp(IR_LIT(nd).sval, "pos"))   { bb_emit_x86(bb_scan_pos());   return 0; }
-            if (!strcmp(IR_LIT(nd).sval, "any"))   { bb_emit_x86(bb_scan_any());   return 0; }
-            if (!strcmp(IR_LIT(nd).sval, "match")) { bb_emit_x86(bb_scan_match()); return 0; }
-            if (!strcmp(IR_LIT(nd).sval, "many"))  { bb_emit_x86(bb_scan_many());  return 0; }
-            if (!strcmp(IR_LIT(nd).sval, "tab"))   { bb_emit_x86(bb_scan_tab());   return 0; }
-            if (!strcmp(IR_LIT(nd).sval, "move"))  { bb_emit_x86(bb_scan_move());  return 0; }
-            if (!strcmp(IR_LIT(nd).sval, "upto"))  { bb_emit_x86(bb_scan_upto());  return 0; }
-            if (!strcmp(IR_LIT(nd).sval, "find"))  { bb_emit_x86(bb_scan_find());  return 0; }
-            if (!strcmp(IR_LIT(nd).sval, "bal"))   { bb_emit_x86(bb_scan_bal());   return 0; }
-        }
         bb_emit_x86(bb_call(nd));
         return 0;
     }
