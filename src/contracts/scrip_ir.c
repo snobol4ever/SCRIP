@@ -394,7 +394,18 @@ int bb_program_add(bb_program_t * p, IR_graph_t * bbg) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void bb_program_free(bb_program_t * p) {
     if (!p) return;
-    for (int i = 0; i < p->count; i++) { IR_free(p->table[i]); p->table[i] = NULL; }
+    int n = p->count;
+    char * owner = (char *) calloc((size_t)(n > 0 ? n : 1), 1);
+    for (int i = 0; i < n; i++) {
+        IR_graph_t * g = p->table[i];
+        owner[i] = (g && (g->n == 0 || (g->all && g->all[0] && g->all[0]->own == g))) ? 1 : 0;
+    }
+    for (int i = 0; i < n; i++) {
+        if (!p->table[i]) continue;
+        if (owner[i]) IR_free(p->table[i]); else free(p->table[i]);
+        p->table[i] = NULL;
+    }
+    free(owner);
     p->count = 0;
     p->cap   = 0;
     free(p->table);

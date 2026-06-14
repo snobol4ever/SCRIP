@@ -2523,9 +2523,8 @@ int main(int argc, char **argv)
                 for (int i = 0; i < n_procs; i++) {
                     ProcEntry *pe = &s2->proc_table[sno_pidx_buf[i]];
                     printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
-                    printf("  xor rsi, rsi\n");
-                    printf("  lea rdx, [rip + .Lsno_pnames%d]\n", i);
-                    printf("  mov ecx, %d\n", pe->nparams);
+                    printf("  lea rsi, [rip + .Lsno_pnames%d]\n", i);
+                    printf("  mov edx, %d\n", pe->nparams);
                     printf("  call rt_proc_register@PLT\n");
                     printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
                     printf("  lea rsi, [rip + %s_\xce\xb1]\n", pe->name);
