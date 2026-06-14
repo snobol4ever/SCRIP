@@ -134,6 +134,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *sl);
 void rt_proc_set_frame(const char *name, int nslots, int decl_level);
+void rt_proc_set_frame_bytes(const char *name, int bytes);
 int  rt_proc_frame_nslots(const char *name);
 int  rt_proc_decl_level(const char *name);
 void rt_proc_set_byref(const char *name, uint64_t mask);
