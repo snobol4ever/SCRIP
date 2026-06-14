@@ -230,7 +230,7 @@ echo "--- (c) corpus IR_GEN_SCAN bucket (ratchet floors m2>=$SCAN_M2_MIN m3>=$SC
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
 while IFS= read -r f; do
     dump=$(timeout 30 "$SCRIP" --dump-bb "$f" 2>/dev/null </dev/null) || true
-    case "$dump" in *IR_GEN_SCAN*) ;; *) continue ;; esac
+    case "$dump" in *GEN_SCAN*) ;; *) continue ;; esac
     CN=$((CN+1))
     exp=$(cat "${f%.icn}.expected" 2>/dev/null || true)
     run3 "$f" 30
