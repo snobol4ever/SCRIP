@@ -147,6 +147,7 @@ DESCR_t rt_proc_define(const char *spec);
 void rt_arg_stage(int idx, DESCR_t v);
 extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
+int  rt_proc_has_native_fn(const char *name);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
 int  rt_rk_is_truthy(DESCR_t v);

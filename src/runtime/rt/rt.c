@@ -460,6 +460,14 @@ int rt_proc_is_registered(const char *name)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return 1;
     return 0;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_has_native_fn(const char *name)
+{
+    if (!name) return 0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].fn != (bb_box_fn)0;
+    return 0;
+}
 void rt_proc_set_fn(const char *name, bb_box_fn fn)
 {
     if (!name) return;
