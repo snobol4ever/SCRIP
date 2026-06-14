@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <gc/gc.h>
-#include "raku_re.h"
+#include "re.h"
 #include "IR.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int gs[MAX_GROUPS]; int ge[MAX_GROUPS]; } Bb_cap;
@@ -10,7 +10,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
                          char *vis, int stride) {
     if (!s) return -1;
     if (depth > 100000) return -1;
-    /* (node,pos) visited cut — mirrors the parallel-NFA oracle's per-step visited[] (raku_re.c
+    /* (node,pos) visited cut — mirrors the parallel-NFA oracle's per-step visited[] (re.c
        ss_add). A quantifier over an empty-matchable subpattern (e.g. (a?)*, (a*)*, ()*, (|a)*, and
        the same shape followed by a constraint that forces backtracking like (a?)*$ on "aab") builds
        an epsilon loop: SPLIT -> ... -> back to SPLIT with no char consumed. A naive backtracker spins
@@ -19,7 +19,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
        is cut (return -1). Keying by BOTH node and pos is essential — a single per-node stamp is
        overwritten when a node is legitimately in-progress at several positions during backtracking,
        re-opening the cycle. `vis` is an n*(slen+1) byte grid (node id = s->counter, stride = slen+1),
-       cleared per leftmost-sweep iteration in raku_nfa_bb_exec; set-without-restore. SOUND for the
+       cleared per leftmost-sweep iteration in nfa_bb_exec; set-without-restore. SOUND for the
        verdict and for ordered (||-style) leftmost captures: the first arrival at (node,pos) is the
        highest-priority path, a winning path returns before any sibling re-arrival, and a failed
        (node,pos) subtree yields nothing new on revisit. As a bonus the memo bounds total work at
@@ -81,7 +81,7 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void raku_nfa_bb_graph_exec(IR_graph_t *bbg, int ngroups, const char *subject, Raku_match *result) {
+void nfa_bb_graph_exec(IR_graph_t *bbg, int ngroups, const char *subject, Match *result) {
     memset(result, 0, sizeof *result);
     for (int i = 0; i < MAX_GROUPS; i++) { result->group_start[i] = -1; result->group_end[i] = -1; }
     if (!bbg || !bbg->entry || !subject || !result) return;
@@ -108,20 +108,20 @@ void raku_nfa_bb_graph_exec(IR_graph_t *bbg, int ngroups, const char *subject, R
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void raku_nfa_bb_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result) {
+void nfa_bb_exec(const Nfa *nfa, const char *subject, Match *result) {
     memset(result, 0, sizeof *result);
     for (int i = 0; i < MAX_GROUPS; i++) { result->group_start[i] = -1; result->group_end[i] = -1; }
     if (!nfa || !subject || !result) return;
-    int ng = raku_nfa_ngroups(nfa);
-    IR_graph_t *bbg = raku_nfa_to_bb((Raku_nfa *)nfa);
+    int ng = nfa_ngroups(nfa);
+    IR_graph_t *bbg = nfa_to_bb((Nfa *)nfa);
     if (!bbg || !bbg->entry) return;
-    raku_nfa_bb_graph_exec(bbg, ng, subject, result);
-    for (int g = 0; g < ng && g < MAX_GROUPS; g++) raku_nfa_group_name_copy(nfa, g, result->group_name[g]);
+    nfa_bb_graph_exec(bbg, ng, subject, result);
+    for (int g = 0; g < ng && g < MAX_GROUPS; g++) nfa_group_name_copy(nfa, g, result->group_name[g]);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int raku_nfa_bb_match(const Raku_nfa *nfa, const char *subject) {
-    Raku_match m;
-    raku_nfa_bb_exec(nfa, subject, &m);
+int nfa_bb_match(const Nfa *nfa, const char *subject) {
+    Match m;
+    nfa_bb_exec(nfa, subject, &m);
     return m.matched ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -141,10 +141,10 @@ static IR_e nfa_kind_to_bb(Nfa_kind k) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
+IR_graph_t *nfa_to_bb(Nfa *nfa) {
     if (!nfa) return NULL;
-    const Nfa_state *st = raku_nfa_states(nfa);
-    int ns = raku_nfa_state_count(nfa);
+    const Nfa_state *st = nfa_states(nfa);
+    int ns = nfa_state_count(nfa);
     if (!st || ns <= 0) return NULL;
     for (int i = 0; i < ns; i++)
         if (nfa_kind_to_bb(st[i].kind) == IR_OP_COUNT) return NULL;
@@ -172,7 +172,7 @@ IR_graph_t *raku_nfa_to_bb(Raku_nfa *nfa) {
             default: break;
         }
     }
-    int start = raku_nfa_start(nfa);
+    int start = nfa_start(nfa);
     bbg->entry = (start != NFA_NULL && start < ns) ? node[start] : node[0];
     return bbg;
 }

@@ -281,8 +281,8 @@ RT_PIC_SRCS := \
     $(SRC)/parser/raku/raku.tab.c \
     $(SRC)/parser/raku/raku.lex.c \
     $(SRC)/parser/raku/raku_driver.c \
-    $(SRC)/parser/raku/raku_re.c \
-    $(SRC)/parser/raku/raku_nfa_bb.c \
+    $(SRC)/parser/raku/re.c \
+    $(SRC)/parser/raku/nfa_bb.c \
     $(SRC)/parser/rebus/rebus.tab.c \
     $(SRC)/parser/rebus/lex.rebus.c \
     $(SRC)/parser/rebus/rebus_lower.c \
@@ -506,8 +506,8 @@ scrip:
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku.tab.c    -o $(OBJ)/raku.tab.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku.lex.c    -o $(OBJ)/raku.lex.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_driver.c -o $(OBJ)/raku_driver.o
-	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_re.c      -o $(OBJ)/raku_re.o
-	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/raku_nfa_bb.c  -o $(OBJ)/raku_nfa_bb.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/re.c      -o $(OBJ)/re.o
+	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -c $(SRC)/parser/raku/nfa_bb.c  -o $(OBJ)/nfa_bb.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/pascal/pascal.tab.c    -o $(OBJ)/pascal.tab.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/pascal/pascal.lex.c    -o $(OBJ)/pascal.lex.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/pascal/pascal_driver.c -o $(OBJ)/pascal_driver.o

@@ -62,7 +62,7 @@ ScanEntry scan_stack[SCAN_STACK_MAX];
 int         scan_depth = 0;
 int sm_yield_to_caller(DESCR_t v) { (void)v; return 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-ScanSubjRegs rt_icn_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta) {
+ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
@@ -81,7 +81,7 @@ ScanSubjRegs rt_icn_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_
     return r;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_icn_scan_leave(uint64_t *out3) {
+void rt_scan_leave(uint64_t *out3) {
     if (scan_depth > 0) {
         scan_depth--;
         scan_subj = scan_stack[scan_depth].subj;
@@ -90,7 +90,7 @@ void rt_icn_scan_leave(uint64_t *out3) {
     } else if (out3) { out3[0] = 0; out3[1] = 0; out3[2] = 0; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_icn_substr(const char *sigma, int64_t a, int64_t b) {
+DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b) {
     if (!sigma) sigma = "";
     int64_t lo = a < b ? a : b;
     int64_t hi = a < b ? b : a;
@@ -101,9 +101,9 @@ DESCR_t rt_icn_substr(const char *sigma, int64_t a, int64_t b) {
     return STRVAL(buf);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_icn_keyword_subject(void) { return scan_subj ? STRVAL(scan_subj) : NULVCL; }
+DESCR_t rt_keyword_subject(void) { return scan_subj ? STRVAL(scan_subj) : NULVCL; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_icn_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
+DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int is_suspendable(tree_t *e) {
     if (!e) return 0;

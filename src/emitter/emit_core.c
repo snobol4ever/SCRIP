@@ -693,13 +693,13 @@ static char ** net_parse_define_proto(const char * proto, char ** out_fname, int
     params[count] = NULL; *out_n = count; return params;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int g_sno_m4_dense_nid = 0;
+int g_m4_dense_nid = 0;
 static IR_t * g_nid_key[262144];
 static int    g_nid_val[262144];
 static int    g_nid_count = 0;
 int bb_node_id(IR_t * nd) {
     if (!nd) return 0;
-    if (!g_sno_m4_dense_nid) return (int)((uintptr_t)nd % 100000u);
+    if (!g_m4_dense_nid) return (int)((uintptr_t)nd % 100000u);
     uintptr_t h = ((uintptr_t)nd >> 4) & 262143u;
     while (g_nid_key[h]) { if (g_nid_key[h] == nd) return g_nid_val[h]; h = (h + 1u) & 262143u; }
     g_nid_key[h] = nd; g_nid_val[h] = ++g_nid_count; return g_nid_val[h];

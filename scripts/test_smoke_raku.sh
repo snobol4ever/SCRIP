@@ -399,6 +399,14 @@ sub main() {
 }
 EOF
 
+# --- RK-NFA-4a-SMOKE: ~~ smartmatch verdict (lowers to NFA-as-BB; m2 oracle, m3/m4 EXCISE) ---
+raku "smatch digits => match" "match" <<'EOF'
+sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }
+EOF
+raku "smatch anchored => nomatch" "nomatch" <<'EOF'
+sub main() { if ('abc' ~~ /^\d+$/) { say("match"); } else { say("nomatch"); } }
+EOF
+
 echo ""
 echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE — must be all-PASS)"
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 EXCISED=$X3  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
