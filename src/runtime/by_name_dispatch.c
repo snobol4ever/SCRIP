@@ -1410,6 +1410,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         if (g_stage2.proc_table[pi].bb_idx >= 0) {
             extern DESCR_t rk_ir_call_proc(int pi, DESCR_t *args, int nargs);
+            extern int rt_proc_has_native_fn(const char *name);
+            if (rt_proc_has_native_fn(procname)) {
+                extern DESCR_t g_call_args[];
+                extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+                for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
+                *out = rt_call_proc_descr(procname, total); return 1;
+            }
             *out = rk_ir_call_proc(pi, callargs, total); return 1;
         }
         *out = proc_table_call(pi, callargs, total); return 1;
