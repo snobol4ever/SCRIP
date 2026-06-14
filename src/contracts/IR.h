@@ -224,12 +224,13 @@ typedef enum {
     IR_CALL_USERPROC,
     IR_CALL_BYNAME,
     IR_CALL_BUILTIN,
+    IR_CALL_GVAR_USERPROC,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_scan_kind(IR_e t) { return t == IR_SCAN_POS || t == IR_SCAN_ANY || t == IR_SCAN_MATCH || t == IR_SCAN_MANY || t == IR_SCAN_TAB || t == IR_SCAN_MOVE || t == IR_SCAN_UPTO || t == IR_SCAN_FIND || t == IR_SCAN_BAL; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline int ir_is_call_kind(IR_e t) { return t == IR_CALL_PROC_STAGED || t == IR_CALL_USERPROC || t == IR_CALL_BYNAME || t == IR_CALL_BUILTIN; }
+static inline int ir_is_call_kind(IR_e t) { return t == IR_CALL_PROC_STAGED || t == IR_CALL_USERPROC || t == IR_CALL_BYNAME || t == IR_CALL_BUILTIN || t == IR_CALL_GVAR_USERPROC; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
 /*--------------------------------------------------------------------------------------------------------------------*/

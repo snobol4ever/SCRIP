@@ -26,6 +26,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CALL_USERPROC] = "IR_CALL_USERPROC",
     [IR_CALL_BYNAME] = "IR_CALL_BYNAME",
     [IR_CALL_BUILTIN] = "IR_CALL_BUILTIN",
+    [IR_CALL_GVAR_USERPROC] = "IR_CALL_GVAR_USERPROC",
     [IR_SEQ] = "IR_SEQ",
     [IR_FAIL] = "IR_FAIL",
     [IR_SUCCEED] = "IR_SUCCEED",
