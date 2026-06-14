@@ -216,10 +216,12 @@ static int icn_local_assign_rhs_ok(IR_t *nd) {
     IR_t *r = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t*)0);
     return icn_rhs_kind_ok(r);
 }
+static int icn_graph_has_binop(const IR_graph_t *g);
 static int icn_local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
-    if (nd->n_operands > 0) return icn_rhs_kind_ok(nd->operands[0]);
-    for (int i = 0; i < g->n; i++) { IR_t *p = g->all[i]; if (p && p->γ.node == nd) return icn_rhs_kind_ok(p); }
-    return 0;
+    IR_t *rhs = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
+    if (!rhs) for (int i = 0; i < g->n; i++) { IR_t *p = g->all[i]; if (p && p->γ.node == nd) { rhs = p; break; } }
+    if (rhs && rhs->op == IR_LIT_F) return !icn_graph_has_binop(g);
+    return icn_rhs_kind_ok(rhs);
 }
 static int icn_rk_arith_operand_ok(IR_t *r) {
     if (!r) return 0;
