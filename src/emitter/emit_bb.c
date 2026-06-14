@@ -2599,8 +2599,6 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     }
     if (flat_chain_set_has(bb_child0(pBB))) {
         EMIT_PAIR_RESET();
-        EMIT_PAIR_JMP(lbl_γ);
-        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
         return;
     }
@@ -2608,7 +2606,6 @@ static void flat_drive_every(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     bb_label_t *body_β = emit_label_alloc("xevery%d_body_β", id);
     walk_bb_flat(bb_child0(pBB), body_β, lbl_γ, body_β);
     EMIT_PAIR_RESET();
-    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
