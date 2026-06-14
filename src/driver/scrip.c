@@ -1487,7 +1487,48 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (ts1->op != IR_LOGICVAR) return 0;
         nn = pl_gz_det_node(IR_DET_TERM_STRING);
         if (nn) { ir_operand_push(nn, st); ir_operand_push(nn, ts1); }
-    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (!strcmp(IR_LIT(gg).sval,"findall")||!strcmp(IR_LIT(gg).sval,"aggregate_all"))) {
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"findall")) {
+        bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)IR_LIT(gg).ival;
+        IR_t *groot = (fs && fs->gcfg) ? fs->gcfg->entry : NULL;
+        int is_fail = (groot && groot->op == IR_FAIL);
+        bb_goal_state_t *zc = NULL; int ar = 0; IR_graph_t *cg = NULL;
+        if (!is_fail && groot && groot->op == IR_GOAL) cg = pl_gz_goal_callee(groot, &zc, &ar);
+        int tmpl_ok = fs && fs->tmpl && (fs->tmpl->op == IR_LOGICVAR || fs->tmpl->op == IR_STRUCT || fs->tmpl->op == IR_ARITH || fs->tmpl->op == IR_ATOM || fs->tmpl->op == IR_LIT_I || fs->tmpl->op == IR_LIT_F);
+        int res_ok = fs && fs->result && fs->result->op == IR_LOGICVAR;
+        int goal_ok = is_fail || (cg && ar <= 3 && pl_gz_call_args_ok(zc, ar) && (cg->entry && (cg->entry->op == IR_CHOICE ? pl_gz_choice_rule_clauses(cg, ar, NULL) : pl_gz_rule_inline_check(groot))));
+        if (res_ok && tmpl_ok && goal_ok) {
+            pl_gz_findall_state_t *fst = (pl_gz_findall_state_t *)GC_MALLOC(sizeof *fst);
+            if (!fst) return 0;
+            memset(fst, 0, sizeof *fst);
+            fst->is_fail = is_fail;
+            fst->tmpl = fs->tmpl;
+            fst->result_slot = (int)IR_LIT(fs->result).ival;
+            if (*cslot + (is_fail ? 1 : 2) > 62) return 0;
+            fst->acc_slot = (*cslot)++;
+            if (!is_fail) {
+                pl_gz_callee_t *ce = pl_gz_callee_get_any(groot, cg, ar, callees, ncallees);
+                if (!ce) return 0;
+                pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
+                if (!cs) return 0;
+                memset(cs, 0, sizeof *cs);
+                cs->callee = ce; cs->nargs = ar;
+                cs->child_slot = (*cslot)++;
+                for (int ai = 0; ai < ar; ai++) {
+                    IR_t *a = zc->args[ai];
+                    if (!a || a->op != IR_LOGICVAR) return 0;
+                    cs->args[ai] = a;
+                }
+                fst->call = cs;
+            }
+            IR_t *cn = pl_gz_det_node(IR_CELL_FINDALL);
+            if (!cn) return 0;
+            IR_LIT(cn).ival = (int64_t)(intptr_t)fst;
+            if (!*head) *head = cn; else { (*tail)->γ.node = cn; memcpy((*tail)->γ.sz, "α", 3); }
+            *tail = cn;
+            return 1;
+        }
+        return 0;
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"aggregate_all")) {
         if (!*head) *head = gg; else { (*tail)->γ.node = gg; memcpy((*tail)->γ.sz, "α", 3); }
         *tail = gg; gg->γ.node = NULL;
         return 1;

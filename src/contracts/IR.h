@@ -125,6 +125,7 @@ typedef enum {
     IR_ITE_COMMIT,
     IR_ITE_GATE,
     IR_CELL_ITE,
+    IR_CELL_FINDALL,
     IR_TO,
     IR_UPTO,
     IR_ITERATE,

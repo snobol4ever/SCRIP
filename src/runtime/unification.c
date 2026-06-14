@@ -931,6 +931,40 @@ int rt_pl_copy_term_cell(void *term_cell, void *copy_cell)
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct { Term **items; int n; int cap; } pl_findall_acc;
+void * rt_pl_findall_begin(void)
+{
+    pl_findall_acc *a = (pl_findall_acc *)GC_MALLOC(sizeof *a);
+    if (!a) return (void *)0;
+    a->cap = 16; a->n = 0; a->items = (Term **)GC_MALLOC((size_t)a->cap * sizeof(Term *));
+    return (void *)a;
+}
+void rt_pl_findall_collect(void *acc_v, void *tmpl_term)
+{
+    pl_findall_acc *a = (pl_findall_acc *)acc_v;
+    if (!a || !a->items) return;
+    if (a->n >= a->cap) { int nc = a->cap * 2; Term **ni = (Term **)GC_MALLOC((size_t)nc * sizeof(Term *)); if (!ni) return; for (int i = 0; i < a->n; i++) ni[i] = a->items[i]; a->items = ni; a->cap = nc; }
+    Term *var_map[256]; int var_cap = 256, var_n = 0;
+    Term *cp = copy_term_deep(term_deref((Term *)tmpl_term), var_map, &var_cap, &var_n);
+    a->items[a->n++] = cp ? cp : term_deref((Term *)tmpl_term);
+}
+int rt_pl_findall_finish(void *acc_v, void *result_term)
+{
+    extern Trail g_resolve_trail;
+    pl_findall_acc *a = (pl_findall_acc *)acc_v;
+    int dot = prolog_atom_intern(".");
+    Term *lst = term_new_atom(prolog_atom_intern("[]"));
+    int n = a ? a->n : 0;
+    for (int i = n - 1; i >= 0; i--) {
+        Term **c = (Term **)GC_MALLOC(2 * sizeof(Term *)); if (!c) return 0;
+        c[0] = a->items[i]; c[1] = lst;
+        lst = term_new_compound(dot, 2, c);
+    }
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref((Term *)result_term), lst, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define RT_PL_NB_MAX 256
 static struct { const char *key; Term *val; } g_rt_pl_nb[RT_PL_NB_MAX];
 static int g_rt_pl_nb_n = 0;

@@ -510,6 +510,14 @@ static void gz_fill_goal(IR_t *g, bb_label_t *gγ, bb_label_t *gω, bb_label_t *
         g_emit.lbl_δ = la ? la->name : NULL; g_emit.lbl_δ_p = la;
         g_emit.lbl_ε = lb ? lb->name : NULL; g_emit.lbl_ε_p = lb;
     }
+    if (g->op == IR_CELL_FINDALL) {
+        pl_gz_findall_state_t *fst = (pl_gz_findall_state_t *)(intptr_t)IR_LIT(g).ival;
+        pl_gz_call_state_t *cs = fst ? fst->call : NULL;
+        bb_label_t *la = (cs && cs->callee) ? (bb_label_t *)cs->callee->lblA : NULL;
+        bb_label_t *lb = (cs && cs->callee) ? (bb_label_t *)cs->callee->lblB : NULL;
+        g_emit.lbl_δ = la ? la->name : NULL; g_emit.lbl_δ_p = la;
+        g_emit.lbl_ε = lb ? lb->name : NULL; g_emit.lbl_ε_p = lb;
+    }
     FILL(g, gγ, gω, gβ);
 }
 static void gz_callee_labels(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees) {
@@ -524,6 +532,10 @@ static void gz_collect_callees(IR_t *head, pl_gz_callee_t **callees, int *ncalle
         if (g->op == IR_CELL_CALL) {
             pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)IR_LIT(g).ival;
             if (cs) gz_callee_labels(cs->callee, callees, ncallees);
+        }
+        if (g->op == IR_CELL_FINDALL) {
+            pl_gz_findall_state_t *fst = (pl_gz_findall_state_t *)(intptr_t)IR_LIT(g).ival;
+            if (fst && fst->call) gz_callee_labels(fst->call->callee, callees, ncallees);
         }
         if (g->op == IR_CELL_ITE) {
             pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)(intptr_t)IR_LIT(g).ival;
@@ -1247,6 +1259,23 @@ void bb_prepare(IR_t *nd) {
             g_emit.op_parts_n = is ? 1 : 0;
             g_emit.op_parts_ival[0] = is ? (int64_t)is->gate_slot : -1;
         }
+        return;
+    }
+    if (nd->op == IR_CELL_FINDALL) {
+        g_emit.bb_zn = (void *)nd;
+        const pl_gz_findall_state_t * fst = (const pl_gz_findall_state_t *)(intptr_t)IR_LIT(nd).ival;
+        g_emit.op_parts_n = fst ? 1 : 0;
+        pl_gz_call_state_t * cs = fst ? fst->call : (pl_gz_call_state_t *)0;
+        g_emit.op_parts_ival[0] = cs ? (int64_t)cs->child_slot : -1;
+        g_emit.op_parts_ival[1] = cs ? (int64_t)cs->nargs : 0;
+        g_emit.op_parts_ival[2] = (cs && cs->callee) ? (int64_t)(cs->callee->arity + cs->callee->nlocals + cs->callee->nchild) : 0;
+        g_emit.op_parts_ival[3] = (cs && cs->nargs > 0 && cs->args[0] && cs->args[0]->op == IR_LOGICVAR) ? (int64_t)IR_LIT(cs->args[0]).ival : -1;
+        g_emit.op_parts_ival[4] = (cs && cs->nargs > 1 && cs->args[1] && cs->args[1]->op == IR_LOGICVAR) ? (int64_t)IR_LIT(cs->args[1]).ival : -1;
+        g_emit.op_parts_ival[5] = (cs && cs->nargs > 2 && cs->args[2] && cs->args[2]->op == IR_LOGICVAR) ? (int64_t)IR_LIT(cs->args[2]).ival : -1;
+        g_emit.op_parts_ival[6] = fst ? (int64_t)fst->result_slot : -1;
+        g_emit.op_parts_ival[7] = fst ? (int64_t)fst->acc_slot : -1;
+        g_emit.op_parts_ival[8] = fst ? (int64_t)fst->is_fail : 0;
+        g_emit.op_parts_ival[9] = fst ? (int64_t)(intptr_t)fst->tmpl : 0;
         return;
     }
     if (nd->op == IR_DET_IS) {
