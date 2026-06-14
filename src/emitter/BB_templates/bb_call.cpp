@@ -552,30 +552,23 @@ static std::string bb_call_rk_bool_cond_str(IR_t * pBB) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    const char * fn   = _.op_sval ? _.op_sval : "";
-    int64_t      narg = _.op_ival;
-    IR_t       * a0   = ir_call_arg(_.node, 0);
-    if (g_descr_flat_chain && _.op_dval == 2.0 && fn && fn[0] && rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
-    if (g_descr_flat_chain && _.op_dval == 2.0 && fn && !strcmp(fn, "__rk_bool")) return bb_call_rk_bool_cond_str(pBB);
-    if (g_descr_flat_chain && _.op_dval == 2.0) return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
-    if (g_gvar_flat_chain && (_.op_dval == 2.0 || _.op_dval == 3.0) && fn && rt_proc_is_registered(fn)) return bb_call_gvar_userproc_str(pBB);
-    if (g_descr_flat_chain && fn && rt_proc_is_registered(fn) && _.op_dval == 3.0) return bb_call_proc_staged_str(pBB);
-    if (g_gvar_flat_chain && _.op_dval == 3.0 && fn && fn[0] && !rt_proc_is_registered(fn)) return bb_call_byname_str(pBB);
-    if (g_gvar_flat_chain && _.op_dval == 2.0 && fn && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return bb_call_byname_str(pBB);
-    if (g_descr_flat_chain && fn && (!strcmp(fn, "__rk_bool")) && _.op_dval == 0.0 && narg == 1 && a0) {
-        int off = bb_slot_get(a0);
-        if (off >= 0) return bb_call_rk_bool_str(pBB);
-    }
-    switch (_.op_write_route) {
-        case 1: return bb_call_write_slot_str(pBB);
-        case 2: case 3: return bb_call_write_binop_str(pBB);
-        case 4: return bb_call_write_legacy_str(pBB, 1);
-        case 5: return std::string();
+    g_emit.op_call_route = bb_call_route_classify(_.node);
+    switch (g_emit.op_call_route) {
+        case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
+        case CALL_ROUTE_RK_BOOL_COND:  return bb_call_rk_bool_cond_str(pBB);
+        case CALL_ROUTE_DVAL2_BOMB:    return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
+        case CALL_ROUTE_GVAR_USERPROC: return bb_call_gvar_userproc_str(pBB);
+        case CALL_ROUTE_PROC_STAGED:   return bb_call_proc_staged_str(pBB);
+        case CALL_ROUTE_RK_BOOL_SLOT:  return bb_call_rk_bool_str(pBB);
+        case CALL_ROUTE_WRITE_SLOT:    return bb_call_write_slot_str(pBB);
+        case CALL_ROUTE_WRITE_BINOP:   return bb_call_write_binop_str(pBB);
+        case CALL_ROUTE_WRITE_LEGACY:  return bb_call_write_legacy_str(pBB, 1);
+        case CALL_ROUTE_WRITE_EMPTY:   return std::string();
+        case CALL_ROUTE_USERPROC:      return bb_call_userproc_str(pBB);
+        case CALL_ROUTE_FN:            return bb_call_fn_str(pBB);
         default: break;
     }
-    if (fn && rt_proc_is_registered(fn)) return bb_call_userproc_str(pBB);
-    if (fn && rt_builtin_is_known(fn))  return bb_call_fn_str(pBB);
-    fprintf(stderr, "[IBB] FATAL bb_call: unsupported call shape fn='%s' narg=%lld a0=%d\n", fn, (long long)narg, a0 ? (int)a0->op : -1);
+    fprintf(stderr, "[IBB] FATAL bb_call: unsupported call shape fn='%s'\n", _.op_sval ? _.op_sval : "");
     abort();
     return std::string();
 }
