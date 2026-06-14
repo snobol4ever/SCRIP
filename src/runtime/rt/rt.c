@@ -936,16 +936,6 @@ __attribute__((weak)) DESCR_t sm_eval_subexpr(int entry_pc)
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-__attribute__((weak)) const char *sm_opcode_name(SM_op_t op)
-{
-    (void)op;
-    return "?";
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int _is_pat_fnc_name(const char *s);
-int _expr_is_pat(tree_t *e);
-__attribute__((weak)) int _is_pat_fnc_name(const char *s)  { (void)s; return 0; }
-__attribute__((weak)) int _expr_is_pat(tree_t *e)          { (void)e; return 0; }
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
