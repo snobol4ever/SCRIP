@@ -1536,16 +1536,27 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         bb_findall_state_t *fs = (bb_findall_state_t *)(intptr_t)IR_LIT(gg).ival;
         IR_t *groot = (fs && fs->gcfg) ? fs->gcfg->entry : NULL;
         int is_count = fs && fs->tmpl && fs->tmpl->op == IR_ATOM && IR_LIT(fs->tmpl).sval && !strcmp(IR_LIT(fs->tmpl).sval, "count");
+        int agg_mode = is_count ? 1 : 0;
+        IR_t *agg_tmpl = fs ? fs->tmpl : NULL;
+        if (!is_count && fs && fs->tmpl && (fs->tmpl->op == IR_STRUCT || fs->tmpl->op == IR_ARITH) && IR_LIT(fs->tmpl).sval && IR_LIT(fs->tmpl).ival == 1) {
+            const char *an = IR_LIT(fs->tmpl).sval;
+            IR_t *inner = ir_call_arg(fs->tmpl, 0);
+            if (inner && inner->op == IR_LOGICVAR) {
+                if (!strcmp(an, "sum")) { agg_mode = 2; agg_tmpl = inner; }
+                else if (!strcmp(an, "max")) { agg_mode = 3; agg_tmpl = inner; }
+                else if (!strcmp(an, "min")) { agg_mode = 4; agg_tmpl = inner; }
+            }
+        }
         int is_fail = (groot && groot->op == IR_FAIL);
         bb_goal_state_t *zc = NULL; int ar = 0; IR_graph_t *cg = NULL;
         if (!is_fail && groot && groot->op == IR_GOAL) cg = pl_gz_goal_callee(groot, &zc, &ar);
         int res_ok = fs && fs->result && fs->result->op == IR_LOGICVAR;
         int goal_ok = is_fail || (cg && ar <= 3 && pl_gz_call_args_ok(zc, ar) && (cg->entry && (cg->entry->op == IR_CHOICE ? pl_gz_choice_rule_clauses(cg, ar, NULL) : pl_gz_rule_inline_check(groot))));
-        if (is_count && res_ok && goal_ok) {
+        if (agg_mode > 0 && res_ok && goal_ok) {
             pl_gz_findall_state_t *fst = (pl_gz_findall_state_t *)GC_MALLOC(sizeof *fst);
             if (!fst) return 0;
             memset(fst, 0, sizeof *fst);
-            fst->is_fail = is_fail; fst->agg_mode = 1; fst->tmpl = fs->tmpl;
+            fst->is_fail = is_fail; fst->agg_mode = agg_mode; fst->tmpl = agg_tmpl;
             fst->result_slot = (int)IR_LIT(fs->result).ival;
             if (*cslot + (is_fail ? 1 : 2) > 62) return 0;
             fst->acc_slot = (*cslot)++;
