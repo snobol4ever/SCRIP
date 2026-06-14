@@ -19,6 +19,7 @@
 #include <gc/gc.h>
 extern const char * Σ;
 extern int          Σlen;
+extern void rt_dcap_begin(void); extern void rt_dcap_end_ok(void); extern void rt_dcap_end_fail(void);
 extern DESCR_t gen_bb_not(void*,int);
 extern DESCR_t gen_bb_repalt(void*,int);
 extern DESCR_t gen_bb_while_gen(void*,int);
@@ -2233,9 +2234,10 @@ static int scan_pat_m3_native_safe(IR_graph_t *pg) {
     for (int i = 0; i < pg->n; i++) {
         IR_t *nd = pg->all[i];
         if (!nd) continue;
-        if (nd->op == IR_PAT_ASSIGN_IMM || nd->op == IR_PAT_ASSIGN_COND
-            || nd->op == IR_PAT_ARBNO || nd->op == IR_PAT_FENCE || nd->op == IR_PAT_DEFER
+        if (nd->op == IR_PAT_ARBNO || nd->op == IR_PAT_FENCE || nd->op == IR_PAT_DEFER
             || nd->op == IR_REF_INVARIANT || nd->op == IR_PATTERN_DEFER) return 0;
+        if ((nd->op == IR_PAT_POS || nd->op == IR_PAT_LEN || nd->op == IR_PAT_TAB || nd->op == IR_PAT_RTAB)
+            && IR_LIT(nd).dval != 0.0) return 0;
     }
     return 1;
 }
@@ -2257,22 +2259,13 @@ static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ,
     bb_label_t *dcap_fail = emit_label_alloc("xscan%d_dfail", id);
     flat_drive_subject(subj, subj_γ, lbl_ω, subj_β);
     emit_label_define_bb(subj_γ);
-    if (g_is_text) {
-        static const char s_begin[] = " push rbx\n mov rbx, rsp\n and rsp, -16\n call rt_dcap_begin@PLT\n mov rsp, rbx\n pop rbx\n";
-        emit_text_n(s_begin, sizeof(s_begin) - 1);
-    }
+    emit_aligned_call_rt("rt_dcap_begin", (void *)rt_dcap_begin);
     flat_drive_match(match, dcap_ok, dcap_fail, lbl_β);
     emit_label_define_bb(dcap_ok);
-    if (g_is_text) {
-        static const char s_ok[] = " push rbx\n mov rbx, rsp\n and rsp, -16\n call rt_dcap_end_ok@PLT\n mov rsp, rbx\n pop rbx\n";
-        emit_text_n(s_ok, sizeof(s_ok) - 1);
-    }
+    emit_aligned_call_rt("rt_dcap_end_ok", (void *)rt_dcap_end_ok);
     emit_jmp_label(lbl_γ, JMP_JMP);
     emit_label_define_bb(dcap_fail);
-    if (g_is_text) {
-        static const char s_fail[] = " push rbx\n mov rbx, rsp\n and rsp, -16\n call rt_dcap_end_fail@PLT\n mov rsp, rbx\n pop rbx\n";
-        emit_text_n(s_fail, sizeof(s_fail) - 1);
-    }
+    emit_aligned_call_rt("rt_dcap_end_fail", (void *)rt_dcap_end_fail);
     emit_jmp_label(lbl_ω, JMP_JMP);
     g_emit_cfg = save_cfg;
     g_subject_slot = save_subject_slot;
