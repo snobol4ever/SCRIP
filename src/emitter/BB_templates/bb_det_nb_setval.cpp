@@ -20,6 +20,5 @@ std::string bb_det_nb_setval() {
          + x86("test", "eax", "eax")
          + x86("jne", "γ")
          + x86("jmp", "ω")
-         + x86("def", "β")
-         + x86("jmp", "ω");
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"));
 }

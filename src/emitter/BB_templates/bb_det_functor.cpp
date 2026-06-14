@@ -24,6 +24,5 @@ std::string bb_det_functor() {
          + x86("test", "eax", "eax")
          + x86("je", "ω")
          + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω");
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"));
 }

@@ -14,6 +14,5 @@ std::string bb_det_nl() {
          + x86("mov32", "edi", 10L)
          + x86("call", "putchar", (uint64_t)(uintptr_t)(void *)putchar)
          + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω");
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"));
 }
