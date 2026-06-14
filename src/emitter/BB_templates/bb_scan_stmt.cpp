@@ -5,7 +5,6 @@ extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 #include "descr.h"
-int rt_scan(void * pat_graph, void * subj_graph, int is_repl, const char * subj_name, void * repl_graph);
 int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit);
 }
 #include "x86_asm.h"
@@ -37,17 +36,5 @@ std::string bb_scan_stmt() {
         return x86_bomb("bb_scan: TEXT(mode-4) non-literal replacement needs native PB-RB graph (pending)");
     if (MEDIUM_TEXT)
         return x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)");
-    return x86("comment", "IR_SCAN")
-         + x86("label",   _.lbl_α)
-         + x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)(intptr_t)_.op_scan_pat)
-         + x86_load_ro("rsi", "??", (uint64_t)(uintptr_t)(intptr_t)_.op_scan_subj)
-         + x86("mov",     "rdx", _.op_ival ? 1L : 0L)
-         + x86("lea",     "rcx", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), scan_lbl(_.op_sval))
-         + x86_load_ro("r8", "??", (uint64_t)(uintptr_t)(intptr_t)_.op_scan_repl)
-         + x86("call",    "rt_scan", (uint64_t)(uintptr_t)(void *)(int (*)(void *, void *, int, const char *, void *))rt_scan)
-         + x86("test",    "eax", "eax")
-         + x86("je",      "ω")
-         + x86("jmp",     "γ")
-         + x86("def",     "β")
-         + x86("jmp",     "ω");
+    return x86_bomb("bb_scan: mode-3 non-literal pattern needs native PB-RB graph (rt_scan deleted — IR interpreter gone)");
 }

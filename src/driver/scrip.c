@@ -2102,7 +2102,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n");
         return 1;
     }
-    int mode_interp        = 0;
     int mode_run           = 0;
     int mode_compile       = 0;
     int mode_monitor       = 0;
@@ -2117,8 +2116,7 @@ int main(int argc, char **argv)
     const char * target_name = NULL;
     int argi = 1;
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
-        if      (strcmp(argv[argi], "--interp")        == 0) { mode_interp        = 1; argi++; }
-        else if (strcmp(argv[argi], "--run")           == 0) { mode_run           = 1; argi++; }
+        if      (strcmp(argv[argi], "--run")           == 0) { mode_run           = 1; argi++; }
         else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile       = 1; if (!target_name) target_name = "x86"; argi++; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { mode_monitor       = 1; argi++; }
         else if (strncmp(argv[argi], "--target=", 9)   == 0) { target_name = argv[argi] + 9; mode_compile = 1; argi++; }
@@ -2141,20 +2139,19 @@ int main(int argc, char **argv)
         else break;
     }
     int mode_compile_x86 = (mode_compile && target_name && strcmp(target_name, "x86") == 0);
-    if (mode_compile_x86 && (mode_interp || mode_run || mode_monitor)) {
+    if (mode_compile_x86 && (mode_run || mode_monitor)) {
         fprintf(stderr,
             "scrip: --compile (x86) is mutually exclusive with "
-            "--interp / --run / --monitor\n");
+            "--run / --monitor\n");
         return 1;
     }
-    if (!mode_interp && !mode_run && !mode_monitor && !mode_compile)
+    if (!mode_run && !mode_monitor && !mode_compile)
         mode_run = 1;
     if (argi >= argc) {
         fprintf(stderr,
             "usage: scrip [mode] [options] <file> [-- program-args...]\n"
             "\n"
             "Execution modes (default: --run):\n"
-            "  --interp         walk the BB port-graph in-process (Icon)\n"
             "  --run            build flat-wired x86 BB blobs in a sealed slab and jump in  [DEFAULT]\n"
             "  --compile        emit standalone x86-64 asm to stdout (links libscrip_rt.so)\n"
             "  --target=ARCH    emit code for the named backend (x86, jvm, js, wasm); implies --compile\n"
@@ -2446,7 +2443,7 @@ int main(int argc, char **argv)
             if ((is_icon || is_raku) && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Icon scan/keyword/cset/gen-alt/"
-                                "suspend, or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
+                                "suspend, or Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
@@ -2752,69 +2749,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "[NO-SM-BB] --monitor: trampoline codegen deleted (FACT RULE); unavailable\n");
         ast_tree_free(ast_prog); ast_prog = NULL;
         return 1;
-    } else if (mode_interp) {
-        extern int g_postfix_resume;
-        if (is_icon) g_postfix_resume = 1;
-        stage2_t *s2 = sm_preamble(ast_prog);
-        if (!s2) return 1;
-        ast_tree_free(ast_prog); ast_prog = NULL;
-        if (is_icon) {
-            extern DESCR_t IR_interp_once(IR_graph_t * bbg);
-            int main_bb_idx = -1;
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) {
-                    main_bb_idx = s2->proc_table[_pi].bb_idx;
-                    break;
-                }
-            }
-            if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
-                fprintf(stderr, "[IBB] FATAL: mode-2 driver: main BB graph not found\n");
-                abort();
-            }
-            (void)IR_interp_once(s2->bbp.table[main_bb_idx]);
-            goto run_done;
-        }
-        if (!is_icon && !is_prolog) {
-            extern DESCR_t IR_interp_once(IR_graph_t * bbg);
-            int main_bb_idx = -1;
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) {
-                    main_bb_idx = s2->proc_table[_pi].bb_idx;
-                    break;
-                }
-            }
-            if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
-                fprintf(stderr, "[SBB] FATAL: mode-2 driver: SNOBOL4 main BB graph not found\n");
-                abort();
-            }
-            (void)IR_interp_once(s2->bbp.table[main_bb_idx]);
-            goto run_done;
-        }
-        if (is_prolog) {
-            extern DESCR_t IR_interp_once(IR_graph_t * bbg);
-            extern Term **g_resolve_env;
-            int main_bb_idx = -1;
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) {
-                    main_bb_idx = s2->proc_table[_pi].bb_idx;
-                    break;
-                }
-            }
-            if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
-                fprintf(stderr, "[PBB] FATAL: mode-2 driver: Prolog main BB graph not found "
-                                "(no initialization goal lowered, or predicate unhandled by PLG-1)\n");
-                abort();
-            }
-            IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
-            int nslots = pl_main->nslots > 0 ? pl_main->nslots : 1;
-            g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 8) * sizeof(Term *));
-            (void)IR_interp_once(pl_main);
-            goto run_done;
-        }
-        fprintf(stderr, "[SMX] FATAL: Stack Machine excised. Non-Icon mode-2 (--interp) "
-                        "execution is gone. This language has not yet crossed onto Byrd Boxes. "
-                        "Aborting (by design).\n");
-        abort();
     } else if (mode_run) {
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
@@ -2848,7 +2782,7 @@ int main(int argc, char **argv)
             if ((is_icon || is_raku) && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "
-                                "or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
+                                "or Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -2912,7 +2846,6 @@ int main(int argc, char **argv)
             goto run_done;
         }
         if (is_prolog) {
-            extern DESCR_t IR_interp_once(IR_graph_t * bbg);
             extern Term **g_resolve_env;
             extern void *rt_frame(void);
             extern int g_frame_active;

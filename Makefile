@@ -252,7 +252,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/lower/ast_clone.c \
     $(SRC)/contracts/scrip_ir.c \
-    $(SRC)/interp/IR_interp.c \
+    $(SRC)/interp/rt_runtime.c \
     $(SRC)/driver/interp_globals.c \
     $(SRC)/driver/interp_label.c \
     $(SRC)/driver/interp_hooks.c \
@@ -526,7 +526,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
 	$(CC) $(CRT)   -c $(SRC)/lower/ast_clone.c    -o $(OBJ)/ast_clone.o
 	$(CC) $(CRT)   -c $(SRC)/contracts/scrip_ir.c     -o $(OBJ)/scrip_ir.o
-	$(CC) $(CRT)   -c $(SRC)/interp/IR_interp.c      -o $(OBJ)/IR_interp.o
+	$(CC) $(CRT)   -c $(SRC)/interp/rt_runtime.c      -o $(OBJ)/rt_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/machine/sm_prog.c    -o $(OBJ)/sm_prog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_common.c -o $(OBJ)/lower_common.o
 	$(CC) $(CRT)   -c $(SRC)/lower/tree_to_sno.c       -o $(OBJ)/tree_to_sno.o
