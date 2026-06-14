@@ -1233,6 +1233,11 @@ void bb_prepare(IR_t *nd) {
         bb_gather_prepare(nd);
         return;
     }
+    if (nd->op == IR_MAP || nd->op == IR_GREP) {
+        extern void bb_rk_mapgrep_prepare(IR_t *nd);
+        bb_rk_mapgrep_prepare(nd);
+        return;
+    }
     if (nd->op == IR_CALLEE_FRAME) {
         g_emit.bb_zn = (void *)nd;
         const pl_gz_callee_t * ce = (const pl_gz_callee_t *)(intptr_t)IR_LIT(nd).ival;
@@ -2010,7 +2015,7 @@ static int gen_bb_is_gen_arg(IR_t *e) {
         case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT:
         case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
         case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
-        case IR_GATHER:
+        case IR_GATHER: case IR_MAP: case IR_GREP:
             return 1;
         default: return 0;
     }
@@ -2021,7 +2026,7 @@ static int ir_is_generator_kind(IR_e t) {
         case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT:
         case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
         case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
-        case IR_GATHER:
+        case IR_GATHER: case IR_MAP: case IR_GREP:
             return 1;
         default: return 0;
     }
@@ -2900,6 +2905,8 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_LIMIT:      flat_drive_limit(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO:         flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MAP:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_GREP:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO_BY:      flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        if (g_descr_flat_chain) flat_drive_alt_icn_gen(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_gen_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR:        if (g_descr_flat_chain && nd && IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') { g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else if (g_descr_flat_chain && nd && IR_LIT(nd).sval) { extern int g_icn_globals_nv; if (IR_EXEC(nd).state == 1 && g_icn_globals_nv) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else { int voff = bb_varslot_peek(IR_LIT(nd).sval); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? bb_slot_alloc16(nd) : -1; } } else if (g_gvar_flat_chain && nd && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&') { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); g_emit.op_sval = IR_LIT(nd).sval; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3077,6 +3084,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || c->op == IR_CALL_DEFINE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -3283,6 +3291,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_FIELD_GET: return 0;
     case IR_ALT:   return 0;
     case IR_GATHER: return 0;
+    case IR_MAP: case IR_GREP: return 0;
     case IR_GEN_SCAN: return 0;
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
@@ -3315,6 +3324,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }
     IR_t *stk[512]; int sp = 0;
