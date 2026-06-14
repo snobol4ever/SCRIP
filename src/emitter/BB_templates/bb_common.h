@@ -30,6 +30,9 @@ extern int  rt_arg_term(int k0, long i0, const char *s0, void *t1, int k2, long 
 extern int  rt_univ_term(void *t0, int k1, long i1, const char *s1);
 extern int  rt_univ_term_list(int k0, long i0, const char *s0, void *t1);
 extern int  rt_univ_term_term(void *t0, void *t1);
+extern int  rt_functor(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
+extern int  rt_arg(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
+extern int  rt_univ(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_atom_length(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_upcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_downcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
@@ -63,7 +66,7 @@ int bb_op_floaty(const char *fn);
 std::string bb_io(void);
 std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_type_test();
-std::string bb_term_inspect_str(IR_t *pBB, const char *fn, const std::string &hdr);
+std::string bb_term_inspect();
 std::string bb_aggregate_nb();
 std::string bb_atom_string();
 std::string bb_term_io();
