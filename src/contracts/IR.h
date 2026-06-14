@@ -281,7 +281,6 @@ struct IR_graph_t {
     DESCR_t        ring[AG_RING];
     int            ring_head;
     int            ring_depth;
-    int            aliased;
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * IR_alloc(int max_nodes, int lang);

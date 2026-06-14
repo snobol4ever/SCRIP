@@ -368,14 +368,12 @@ void bb_restore_state(IR_graph_t * bbg, bb_node_state_t * snap) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void IR_free(IR_graph_t * bbg) {
     if (!bbg) return;
-    if (!bbg->aliased) {
-        for (int i = 0; i < bbg->n; i++) {
-            IR_t * bb = bbg->all[i];
-            if (!bb) continue;
-            free(bb);
-        }
-        free(bbg->all);
+    for (int i = 0; i < bbg->n; i++) {
+        IR_t * bb = bbg->all[i];
+        if (!bb) continue;
+        free(bb);
     }
+    free(bbg->all);
     free(bbg);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
