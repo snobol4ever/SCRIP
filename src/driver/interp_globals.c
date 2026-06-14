@@ -44,7 +44,6 @@ extern int         Ω;
 extern int         Δ;
 extern int         Σlen;
 int g_polyglot = 0;
-int g_opt_trace   = 0;
 int g_opt_dump_bb = 0;
 int      g_ir_step_limit = 0;
 int      g_ir_steps_done = 0;

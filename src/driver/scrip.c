@@ -25,7 +25,6 @@
 #include "../parser/icon/icon_lex.h"
 #include "../include/bb_box.h"
 extern void ir_print_node   (const tree_t *e, FILE *f);
-extern void ir_set_print_width(int w);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "core.h"
 #include "sil_macros.h"
@@ -37,7 +36,6 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "emit_bb.h"
 #include "emit_core.h"
 #include "scrip_sm.h"
-#include "sync_monitor.h"
 extern DESCR_t pat_at_cursor(const char *varname);
 static void stmt_init(void) {}
 extern DESCR_t      eval_expr(const char *src);
@@ -2167,7 +2165,6 @@ int main(int argc, char **argv)
         if (d && strcmp(d,".raku")==0) is_raku = 1;
         if (d && strcmp(d,".pas")==0) is_pascal = 1;
     }
-    CODE_t *sub = NULL;
     tree_t  *ast_prog = NULL;
     #define MERGE_AST(sub_ast) do { \
         if (sub_ast) { \
@@ -2220,7 +2217,6 @@ int main(int argc, char **argv)
         int lang_rebus    = dot && strcmp(dot, ".reb")  == 0;
         int lang_pascal   = dot && strcmp(dot, ".pas")  == 0;
         int lang_polyglot = dot && (strcmp(dot, ".scrip") == 0 || strcmp(dot, ".md") == 0);
-        sub = NULL;
         if (lang_polyglot) {
             g_polyglot = 1;
             FILE *f = fopen(input_path, "r");
