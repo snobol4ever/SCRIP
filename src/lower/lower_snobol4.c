@@ -609,6 +609,20 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             return pat;
         }
     }
+    if (rhs && rhs->n == 1 && rhs->c[0] && rhs->c[0]->t == TT_VAR && rhs->c[0]->v.sval) {
+        /* single cset primitive with VARIABLE arg → LIVE DTP_ASSIGN + PATTERN_* (dval=1.0 var-flag; cset evaluated-and-baked at construction time per SPITBOL stored-pattern binding) */
+        IR_e pe = IR_ALT; int pehit = 1;
+        switch (rhs->t) {
+        case TT_SPAN: pe = IR_PATTERN_SPAN; break; case TT_ANY: pe = IR_PATTERN_ANY; break;
+        case TT_NOTANY: pe = IR_PATTERN_NOTANY; break; case TT_BREAK: pe = IR_PATTERN_BREAK; break;
+        case TT_BREAKX: pe = IR_PATTERN_BREAKX; break; default: pehit = 0; break; }
+        if (pehit) {
+            IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
+            IR_t * pat = build(cx, pe, dtp, ω); IR_LIT(pat).sval = rhs->c[0]->v.sval; IR_LIT(pat).dval = 1.0;
+            ir_operand_push(dtp, pat);
+            return pat;
+        }
+    }
     if (rhs && rhs->n == 1 && rhs->c[0] && rhs->c[0]->t == TT_ILIT) {
         /* single pattern primitive with ILIT arg → LIVE DTP_ASSIGN + PATTERN_* with ival */
         IR_e pe = IR_ALT; int pehit = 1;

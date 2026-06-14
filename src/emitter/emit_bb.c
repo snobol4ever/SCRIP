@@ -3071,11 +3071,11 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PATTERN_RPOS: g_emit.op_kind = "RPOS"; g_emit.op_ival = IR_LIT(nd).ival; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_TAB:  g_emit.op_kind = "TAB";  g_emit.op_ival = IR_LIT(nd).ival; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_RTAB: g_emit.op_kind = "RTAB"; g_emit.op_ival = IR_LIT(nd).ival; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PATTERN_ANY:    g_emit.op_kind = "ANY";    g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PATTERN_NOTANY: g_emit.op_kind = "NOTANY"; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PATTERN_SPAN:   g_emit.op_kind = "SPAN";   g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PATTERN_BREAK:  g_emit.op_kind = "BREAK";  g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PATTERN_BREAKX: g_emit.op_kind = "BREAKX"; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_ANY:    g_emit.op_kind = "ANY";    g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_dval = IR_LIT(nd).dval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_NOTANY: g_emit.op_kind = "NOTANY"; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_dval = IR_LIT(nd).dval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_SPAN:   g_emit.op_kind = "SPAN";   g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_dval = IR_LIT(nd).dval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_BREAK:  g_emit.op_kind = "BREAK";  g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_dval = IR_LIT(nd).dval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_BREAKX: g_emit.op_kind = "BREAKX"; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_dval = IR_LIT(nd).dval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_FAIL:    g_emit.op_kind = "FAIL";    g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_REM:     g_emit.op_kind = "REM";     g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_SUCCEED: g_emit.op_kind = "SUCCEED"; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
