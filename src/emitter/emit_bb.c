@@ -1276,6 +1276,7 @@ void bb_prepare(IR_t *nd) {
         g_emit.op_parts_ival[7] = fst ? (int64_t)fst->acc_slot : -1;
         g_emit.op_parts_ival[8] = fst ? (int64_t)fst->is_fail : 0;
         g_emit.op_parts_ival[9] = fst ? (int64_t)(intptr_t)fst->tmpl : 0;
+        g_emit.op_parts_ival[10] = fst ? (int64_t)fst->agg_mode : 0;
         return;
     }
     if (nd->op == IR_DET_IS) {

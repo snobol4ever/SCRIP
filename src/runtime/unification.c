@@ -964,6 +964,14 @@ int rt_pl_findall_finish(void *acc_v, void *result_term)
     if (!unify(term_deref((Term *)result_term), lst, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
+int rt_pl_agg_count_finish(void *acc_v, void *result_term)
+{
+    extern Trail g_resolve_trail;
+    pl_findall_acc *a = (pl_findall_acc *)acc_v;
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref((Term *)result_term), term_new_int(a ? a->n : 0), &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define RT_PL_NB_MAX 256
 static struct { const char *key; Term *val; } g_rt_pl_nb[RT_PL_NB_MAX];
