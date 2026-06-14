@@ -5,7 +5,6 @@
 #include "gen.h"
 #include "coerce.h"
 #include "../by_name_dispatch.h"
-#include "../../interp/IR_interp.h"
 #include "../../lower/lower.h"
 #include <stdlib.h>
 #include <string.h>
