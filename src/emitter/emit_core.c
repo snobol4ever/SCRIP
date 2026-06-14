@@ -214,6 +214,12 @@ void emit_call_label(bb_label_t *target)
     else { ef_b1(0xE8); bb_emit_patch_rel32(target); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void emit_aligned_call_rt(const char *sym, void *addr)
+{
+    if (g_is_text) { fprintf(bb_emit_out, " push rbx\n mov rbx, rsp\n and rsp, -16\n call %s@PLT\n mov rsp, rbx\n pop rbx\n", sym ? sym : ""); }
+    else { ef_b1(0x53); ef_b3(0x48,0x89,0xE3); ef_b4(0x48,0x83,0xE4,0xF0); ef_b2(0x48,0xB8); bb_emit_u64((uint64_t)(uintptr_t)addr); ef_b2(0xFF,0xD0); ef_b3(0x48,0x89,0xDC); ef_b1(0x5B); }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void bb_label_define(bb_label_t *lbl)
 {
     if (!MEDIUM_BINARY) {

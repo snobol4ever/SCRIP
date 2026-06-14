@@ -32,6 +32,7 @@ void emit_directive           (const char * line);
 void emit_fprintf_raw         (const char * fmt, ...);
 void emit_global_sym          (const char * name);
 void emit_jmp_label           (bb_label_t * target, jmp_kind_t kind);
+void emit_aligned_call_rt     (const char * sym, void * addr);
 void emit_label_name          (const char * name);
 void emit_macro_param_ref     (const char * name);
 void emit_minor_break         (const char * text);
