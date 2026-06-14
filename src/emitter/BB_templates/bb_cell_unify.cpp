@@ -17,7 +17,7 @@ extern "C" void *rt_compound_build_n(const char *functor_name, int arity, void *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string gzu_atom_lea(const char *dst, const char *s) { char b[64]; b[0] = 0; if (s) strtab_label(b, sizeof b, s); return x86("lea", dst, "[rip + __]", (uint64_t)(uintptr_t)(s ? s : ""), b); }
 static std::string gzu_node_atom(const char *sval) { return x86("mov32", "edi", (long)IR_ATOM) + x86("xor", "rsi", "rsi") + gzu_atom_lea("rdx", sval ? sval : "[]") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_node_to_term", (uint64_t)(uintptr_t)(void *)rt_node_to_term); }
-static std::string gzu_build(const IR_t *nd) {
+std::string gzu_build(const IR_t *nd) {
     if (!nd) return x86("xor", "eax", "eax");
     if (nd->op == IR_LOGICVAR) { int slot = (int)IR_LIT(nd).ival; return (slot < 0) ? x86("xor", "eax", "eax") : x86("mov", "rax", FRQ(GZ_CELL_OFF(slot))); }
     if (nd->op == IR_ATOM)  return gzu_node_atom(IR_LIT(nd).sval);
