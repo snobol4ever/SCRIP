@@ -172,6 +172,19 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_unop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
+    if (t->t == TT_MNS) {
+        IR_t * op = build(cx, IR_BINOP, γ, ω);
+        IR_LIT(op).ival = lc_binop_code(TT_SUB);
+        int lmark = cx->g->n;
+        IR_t * le = build(cx, IR_LIT_I, NULL, ω); IR_LIT(le).ival = 0;
+        int rmark = cx->g->n;
+        IR_t * re = lower(cx, (t->n > 0) ? t->c[0] : NULL, op, ω);
+        IR_t * lres = (cx->g->n > lmark) ? cx->g->all[lmark] : le;
+        IR_t * rres = (cx->g->n > rmark) ? cx->g->all[rmark] : re;
+        γ_to(lres, re);
+        { IR_t * ax[2]; ax[0] = lres; ax[1] = rres; bb_operand_aux_set(cx->g, op, ax, 2); }
+        return le;
+    }
     IR_t * op = build(cx, IR_UNOP, γ, ω);
     IR_LIT(op).ival = (long long) t->t;
     IR_t * child = lower(cx, (t->n > 0) ? t->c[0] : NULL, op, ω);
