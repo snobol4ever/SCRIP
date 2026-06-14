@@ -16,7 +16,7 @@ static std::string bdisp(IR_t *pBB) {
     if (!(r = bb_term_io()).empty()) return r;
     if (!(r = bb_findall_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_succ_plus()).empty()) return r;
-    if (!(r = bb_list_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_list()).empty()) return r;
     if (!(r = bb_retract_throw()).empty()) return r;
     if (MEDIUM_BINARY) return bytes(1, "\xE9") + u32le(0) + bytes(1, "\xE9") + u32le(0);
     return x86("comment", std::string("RESOLVE: unknown '") + fn + "' stub")

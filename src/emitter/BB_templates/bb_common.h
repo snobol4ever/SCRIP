@@ -72,5 +72,5 @@ std::string bb_atom_string();
 std::string bb_term_io();
 std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr);
 std::string bb_succ_plus();
-std::string bb_list_str(IR_t *pBB, const char *fn, const std::string &hdr);
+std::string bb_list();
 std::string bb_retract_throw();
