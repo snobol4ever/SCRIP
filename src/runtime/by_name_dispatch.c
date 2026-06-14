@@ -942,6 +942,23 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (tend) memcpy(o + pre + rvl, tend, post); o[pre + rvl + post] = '\0';
         NV_SET_fn(key, STRVAL(o)); *out = args[2]; return 1;
     }
+    if (!strcmp(fn, "__pas_field_idx_set") && nargs == 4) {
+        long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[3]; return 1; }
+        char key[32]; snprintf(key, 32, "__heap_%ld", n);
+        DESCR_t recd = NV_GET_fn(key); const char *cur = VARVAL_fn(recd); if (!cur) cur = "";
+        long fidx = IS_INT_fn(args[1]) ? args[1].i : 0; long eidx = IS_INT_fn(args[2]) ? args[2].i : 0; if (eidx < 1) { *out = args[3]; return 1; }
+        const char *s = cur; long k = 0; const char *fstart = NULL; const char *fend = NULL;
+        for (;;) { const char *nx = strchr(s, SOH); if (k == fidx) { fstart = s; fend = nx; break; } if (!nx) { fstart = NULL; break; } s = nx + 1; k++; }
+        if (!fstart) { *out = args[3]; return 1; }
+        size_t flen = fend ? (size_t)(fend - fstart) : strlen(fstart);
+        unsigned char ch; if (IS_INT_fn(args[3])) { long cv = args[3].i; if (cv < 0) cv = 0; if (cv > 255) cv = 255; ch = (unsigned char)cv; } else { const char *vs = VARVAL_fn(args[3]); ch = (unsigned char)((vs && vs[0]) ? vs[0] : ' '); }
+        size_t nflen = ((size_t)eidx > flen) ? (size_t)eidx : flen; char *nfb = GC_malloc(nflen + 1);
+        for (size_t j = 0; j < nflen; j++) nfb[j] = (j < flen) ? fstart[j] : ' '; nfb[eidx - 1] = (char)ch; nfb[nflen] = '\0';
+        size_t pre = (size_t)(fstart - cur); size_t post = fend ? strlen(fend) : 0;
+        char *o = GC_malloc(pre + nflen + post + 1); memcpy(o, cur, pre); memcpy(o + pre, nfb, nflen);
+        if (fend) memcpy(o + pre + nflen, fend, post); o[pre + nflen + post] = '\0';
+        NV_SET_fn(key, STRVAL(o)); *out = args[3]; return 1;
+    }
     if (!strcmp(fn, "__pas_deref") && nargs == 1) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0;
         if (n <= 0) { *out = INTVAL(0); return 1; }
