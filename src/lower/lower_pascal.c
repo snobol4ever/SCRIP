@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "lower.h"
+#include "../parser/pascal/pascal_driver.h"
 /*====================================================================================================================================================================================================*/
 #define PAS_MAX_SCOPE 64
 typedef struct pas_scope_s {
@@ -427,7 +428,15 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_MNS: case TT_PLS: case TT_NOT: case TT_SIZE:
         return lower_unop(cx, t, γ, ω);
     case TT_ASSIGN: return lower_assign(cx, t, γ, ω);
-    case TT_IDX: { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_get"; IR_LIT(nd).ival = t->n; pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) t->c, t->n); return nd; }
+    case TT_IDX: {
+        if (pas_is_nrec_idx(t) && t->n == 2 && t->c[0] && t->c[0]->t == TT_IDX && t->c[0]->n == 2) {
+            const tree_t *inner = t->c[0];
+            const tree_t *base_node = inner->c[0]; const tree_t *fi_node = inner->c[1]; const tree_t *ei_node = t->c[1];
+            IR_t *nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__pas_nrec_get"; IR_LIT(nd).ival = 3;
+            const tree_t *av[3]; av[0] = base_node; av[1] = fi_node; av[2] = ei_node;
+            pas_call_blocks(cx, nd, 2.0, av, 3); return nd;
+        }
+        IR_t *nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_get"; IR_LIT(nd).ival = t->n; pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) t->c, t->n); return nd; }
     case TT_FNC:    return lower_call(cx, t, γ, ω);
     case TT_IF: case TT_UNLESS: return lower_if(cx, t, γ, ω);
     case TT_WHILE:  return lower_while(cx, t, γ, ω);
