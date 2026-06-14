@@ -47,6 +47,14 @@ static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e)
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static inline IR_t *bb_proc_entry(const ProcEntry *e)
+{
+    IR_graph_t *g = bb_graph_of_proc(e);
+    if (!g) return NULL;
+    if (e->sno_entry_idx >= 0 && e->sno_entry_idx < g->n && g->all[e->sno_entry_idx]) return g->all[e->sno_entry_idx];
+    return g->entry;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern int          g_lang;
 extern tree_t      *g_root;
 extern GenFrame     frame_stack[FRAME_STACK_MAX];

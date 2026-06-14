@@ -992,6 +992,7 @@ int lower_sno_stage2(const tree_t *prog) {
     g_stage2.proc_table[pi].entry_pc = -1;
     g_stage2.proc_table[pi].bb_idx   = bb_idx;
     g_stage2.proc_table[pi].nparams  = 0;
+    g_stage2.proc_table[pi].sno_entry_idx = -1;
     for (int di = 0; di < prog->n; di++) {
         const tree_t *ds = prog->c[di];
         if (!ds || ds->t != TT_STMT) continue;
@@ -1004,17 +1005,13 @@ int lower_sno_stage2(const tree_t *prog) {
         if (!sno_parse_define_proto(dsubj->c[0]->v.sval, fname, params, &np, locals, &nl)) continue;
         IR_t *body = lower_snobol4_label(fname);
         if (!body) continue;
-        IR_graph_t *fg = (IR_graph_t *) calloc(1, sizeof(IR_graph_t));
-        if (!fg) continue;
-        *fg = *g;
-        fg->entry = body;
-        int fidx = bb_program_add(&g_stage2.bbp, fg);
         int fpi  = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[fpi].name     = strdup(fname);
         g_stage2.proc_table[fpi].proc     = NULL;
         g_stage2.proc_table[fpi].entry_pc = -1;
-        g_stage2.proc_table[fpi].bb_idx   = fidx;
+        g_stage2.proc_table[fpi].bb_idx   = bb_idx;
         g_stage2.proc_table[fpi].nparams  = np;
+        g_stage2.proc_table[fpi].sno_entry_idx = body->idx;
         Scope *sc = &g_stage2.proc_table[fpi].lower_sc;
         sc->n = 0;
         for (int k = 0; k < np && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = strdup(params[k]); sc->e[sc->n].slot = sc->n; sc->n++; }

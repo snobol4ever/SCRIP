@@ -2460,7 +2460,9 @@ IR_t * IR_interp_node(IR_t * bb) {
                 memcpy(_ring_save, fg->ring, sizeof _ring_save);
                 bb_node_state_t * _snap = bb_snapshot_state(fg);
                 bb_reset(fg);
+                IR_t * _save_entry = fg->entry; fg->entry = bb_proc_entry(&g_stage2.proc_table[upi]);
                 DESCR_t out = IR_interp_once(fg);
+                fg->entry = _save_entry;
                 if (frame_depth > 0 && FRAME.returning) { out = g_ir_return_val; FRAME.returning = 0; }
                 frame_depth--;
                 bb_restore_state(fg, _snap);
