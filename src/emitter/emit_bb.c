@@ -3548,6 +3548,7 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         else if (g && g->op == IR_FAIL) node_γ = &lbl_ω;
         if (gvar_chain_is_real(w)) { for (int k = 0; k < n; k++) if (nodes[k] == w) { node_ω = lbls[k]; break; } }
         else if (w && w->op == IR_FAIL) node_ω = &lbl_ω;
+        else if (w && w->op == IR_SUCCEED) node_ω = &lbl_γ;
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
