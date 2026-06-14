@@ -14,6 +14,12 @@ std::string bb_pattern_unary_s() {
     if (!PLATFORM_X86) return std::string();
     g_us_seq++;
     static char lbuf[24];
+    if (_.op_dval == 1.0)
+        return x86("comment", "IR_PATTERN_UNARY_S var-cset: ledger nv-get pending")
+             + x86("label",   _.lbl_α)
+             + x86_bomb("PATTERN cset variable-arg object: native construction-time eval pending (ledger nv-get from emitted code)")
+             + x86("def",     "β")
+             + x86_bomb("PATTERN cset variable-arg object: native construction-time eval pending (ledger nv-get from emitted code)");
     return x86("comment", "IR_PATTERN_UNARY_S")
          + x86("label",   _.lbl_α)
          + x86("lea",     "rdi", FRQ(_.op_off))
