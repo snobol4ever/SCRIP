@@ -3174,7 +3174,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (!omega_resolved) node_ω = &lbl_ω;
         if (omega_resolved && nodes[i]->ω.node && nodes[i]->ω.node->op == IR_EVERY) {
             if (ir_is_generator_kind(nodes[i]->op)) { node_ω = lbls[omega_k]; }
-            else { for (int gk = 0; gk < n; gk++) if (ir_is_generator_kind(nodes[gk]->op)) { node_ω = betas[gk]; break; } }
+            else { for (int gk = 0; gk < n; gk++) if (ir_is_generator_kind(nodes[gk]->op)) node_ω = betas[gk]; }
         }
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
