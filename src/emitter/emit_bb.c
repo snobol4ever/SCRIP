@@ -500,7 +500,9 @@ int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
 static int gz_node_bounded(const IR_t *g) {
     if (!g) return 1;
     switch (g->op) {
-    case IR_CELL_CALL: case IR_CELL_CHOICE: case IR_CELL_FINDALL: case IR_CELL_ITE: return 0;
+    case IR_CELL_CALL: case IR_CELL_CHOICE: case IR_CELL_FINDALL: case IR_CELL_ITE:
+    case IR_CELL_CUT:  case IR_CUT:
+        return 0;   /* generators + cut-barrier: never collapse their β */
     default: return 1;
     }
 }
@@ -639,11 +641,17 @@ static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *nc
         bb_label_t *failtgt = cladv[c];                     /* last clause: cl_ω (unwind + ret 0) — the seed's fK_ω chain */
         j = cbase[c];
         int jj = 0;
+        IR_t *cgn[256]; int cgc = 0;
+        for (IR_t *g = gz_clause_head_of(ce, c); g && cgc < 256; g = g->γ.node) cgn[cgc++] = g;
         for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ.node) {
             emit_label_define_bb(pgl[j]);
             bb_label_t *next_γ = (jj + 1 < nb[c]) ? pgl[j + 1] : cl_γ;
-            bb_label_t *gw = (g->op == IR_CELL_CUT) ? cl_ω : (jj == 0 ? failtgt : pgb[j - 1]);
+            int pp = jj - 1; if (pp >= cgc) pp = cgc - 1;
+            while (pp >= 0 && gz_node_bounded(cgn[pp])) pp--;
+            bb_label_t *gw = (g->op == IR_CELL_CUT) ? cl_ω : (pp < 0 ? failtgt : pgb[cbase[c] + pp]);
+            g_emit.op_bounded = (gz_node_bounded(g) && jj + 1 < nb[c]) ? 1 : 0;
             gz_emit_cell(g, next_γ, gw, pgb[j], cl_ω, callees, ncallees);
+            g_emit.op_bounded = 0;
             j++; jj++;
         }
         redo[c] = (nb[c] > 0) ? pgb[cbase[c] + nb[c] - 1] : failtgt;
@@ -706,10 +714,17 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     g_emit.op_ival = IR_LIT(pBB).ival;
     FILL(pBB, (n > 0 ? gl[0] : land_γ), soft_ω, lbl_β);
     i = 0;
+    IR_t *qgn[256]; int qgc = 0;
+    for (IR_t *g = hd; g && qgc < 256; g = g->γ.node) qgn[qgc++] = g;
     for (IR_t *g = hd; g; g = g->γ.node) {
         emit_label_define_bb(gl[i]);
         bb_label_t *next_γ = (i + 1 < n) ? gl[i + 1] : ((twoseg && nB > 0) ? hl[0] : land_γ);
-        gz_emit_cell(g, next_γ, (i == 0 ? soft_ω : gb[i - 1]), gb[i], NULL, callees, &ncallees);
+        int pp = i - 1; if (pp >= qgc) pp = qgc - 1;
+        while (pp >= 0 && gz_node_bounded(qgn[pp])) pp--;
+        bb_label_t *gw = (pp < 0) ? soft_ω : gb[pp];
+        g_emit.op_bounded = gz_node_bounded(g) ? 1 : 0;
+        gz_emit_cell(g, next_γ, gw, gb[i], NULL, callees, &ncallees);
+        g_emit.op_bounded = 0;
         i++;
     }
     if (twoseg) {
@@ -719,10 +734,17 @@ static void flat_drive_gz_query(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
         g_emit.lbl_t0 = bcont->name; g_emit.lbl_t0_p = bcont;
         FILL(pBB, land_γ, soft_ω, lbl_β);
         i = 0;
+        IR_t *qbn[256]; int qbc = 0;
+        for (IR_t *g = hdB; g && qbc < 256; g = g->γ.node) qbn[qbc++] = g;
         for (IR_t *g = hdB; g; g = g->γ.node) {
             emit_label_define_bb(hl[i]);
             bb_label_t *next_γ = (i + 1 < nB) ? hl[i + 1] : land_γ;
-            gz_emit_cell(g, next_γ, (i == 0 ? land_ω : hb[i - 1]), hb[i], NULL, callees, &ncallees);
+            int pp = i - 1; if (pp >= qbc) pp = qbc - 1;
+            while (pp >= 0 && gz_node_bounded(qbn[pp])) pp--;
+            bb_label_t *gw = (pp < 0) ? land_ω : hb[pp];
+            g_emit.op_bounded = gz_node_bounded(g) ? 1 : 0;
+            gz_emit_cell(g, next_γ, gw, hb[i], NULL, callees, &ncallees);
+            g_emit.op_bounded = 0;
             i++;
         }
     }
