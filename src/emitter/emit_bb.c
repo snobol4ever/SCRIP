@@ -1312,6 +1312,10 @@ void bb_prepare(IR_t *nd) {
         }
         return;
     }
+    if (nd->op == IR_DET_THROW) {
+        g_emit.op_parts_ival[0] = IR_LIT(nd).ival;   /* the ball IR node (slot-mapped at build time) */
+        return;
+    }
     if (nd->op == IR_CELL_FINDALL) {
         g_emit.bb_zn = (void *)nd;
         const pl_gz_findall_state_t * fst = (const pl_gz_findall_state_t *)(intptr_t)IR_LIT(nd).ival;

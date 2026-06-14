@@ -187,6 +187,8 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_cell_cut.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_ite.cpp \
     $(SRC)/emitter/BB_templates/bb_cell_findall.cpp \
+    $(SRC)/emitter/BB_templates/bb_det_throw.cpp \
+    $(SRC)/emitter/BB_templates/bb_cell_catch.cpp \
     $(SRC)/emitter/BB_templates/bb_match_tab.cpp \
     $(SRC)/emitter/BB_templates/bb_match_atp.cpp \
     $(SRC)/emitter/BB_templates/bb_match_len.cpp \
@@ -438,6 +440,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_cut.cpp         -o $(OBJ)/bb_cell_cut.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_ite.cpp         -o $(OBJ)/bb_cell_ite.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_findall.cpp     -o $(OBJ)/bb_cell_findall.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_throw.cpp        -o $(OBJ)/bb_det_throw.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_catch.cpp       -o $(OBJ)/bb_cell_catch.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_tab.cpp          -o $(OBJ)/bb_match_tab.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_atp.cpp          -o $(OBJ)/bb_match_atp.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_len.cpp          -o $(OBJ)/bb_match_len.o
