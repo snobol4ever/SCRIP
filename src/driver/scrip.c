@@ -2664,6 +2664,7 @@ int main(int argc, char **argv)
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
             }
             static int pidx_buf[64];
+            static int peak_buf[64];
             int n_procs = 0;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -2687,6 +2688,7 @@ int main(int argc, char **argv)
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 gvar_flat_chain_build_text_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_idx, stdout, pname);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
+                { extern int g_last_flat_frame_bytes; if (n_procs < 64) peak_buf[n_procs] = g_last_flat_frame_bytes; }
                 if (n_procs < 64) pidx_buf[n_procs++] = _pi;
             }
             if (n_procs > 0) {
@@ -2717,6 +2719,11 @@ int main(int argc, char **argv)
                         printf("  mov esi, %d\n", s2->bbp.table[_fidx]->nslots - 1);
                         printf("  mov edx, %d\n", pe->decl_level);
                         printf("  call rt_proc_set_frame@PLT\n");
+                    }
+                    if (peak_buf[i] > 0) {
+                        printf("  lea rdi, [rip + .Lpn%d]\n", i);
+                        printf("  mov esi, %d\n", peak_buf[i]);
+                        printf("  call rt_proc_set_frame_bytes@PLT\n");
                     }
                 }
                 printf("  pop rbp\n  ret\n");
@@ -2985,6 +2992,7 @@ int main(int argc, char **argv)
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 bb_box_fn pfn = gvar_flat_chain_build_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_idx, pname);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
+                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
             g_frame_active = 0;

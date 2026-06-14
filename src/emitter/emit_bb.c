@@ -62,6 +62,7 @@ const char *child_cache_get_lbl(bb_box_fn fn);
 #define FLAT_BUF_MAX  (256 * 1024)
 int g_flat_node_id   = 0;
 static int g_flat_slot_count = 0;
+int g_last_flat_frame_bytes = 0;
 #define BB_SLOTMAP_MAX 512
 static struct { IR_t *key; int off; } g_bb_slotmap[BB_SLOTMAP_MAX];
 static int g_bb_slotmap_n = 0;
@@ -3778,6 +3779,7 @@ bb_box_fn gvar_flat_chain_build(IR_graph_t *g) {
     resolve_call_kinds_gvar(g);
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_gvar_flat_chain_body(g->entry, "flat");
+    g_last_flat_frame_bytes = g_flat_slot_count;
     int nbytes = emitter_end();
     g_gvar_flat_chain = 0;
     g_emit_cfg = save_cfg;
@@ -3805,6 +3807,7 @@ int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     resolve_call_kinds_gvar(g);
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_gvar_flat_chain_body(g->entry, prefix);
+    g_last_flat_frame_bytes = g_flat_slot_count;
     emitter_end();
     g_gvar_flat_chain = 0;
     g_emit_cfg = save_cfg;
