@@ -977,6 +977,7 @@ static int gz_arith_float_eval(const IR_t *nd, double *out) {
     if (!nd) return 0;
     if (nd->op == IR_LIT_F) { *out = IR_LIT(nd).dval; return 1; }
     if (nd->op == IR_LIT_I) { *out = (double)IR_LIT(nd).ival; return 1; }
+    if (nd->op == IR_ATOM && IR_LIT(nd).sval) { const char *a = IR_LIT(nd).sval; if (strcmp(a,"pi")==0) { *out = 3.141592653589793; return 1; } if (strcmp(a,"e")==0) { *out = 2.718281828459045; return 1; } if (strcmp(a,"inf")==0||strcmp(a,"infinity")==0) { *out = 1.0/0.0; return 1; } return 0; }
     if (nd->op != IR_ARITH || !IR_LIT(nd).sval) return 0;
     const char *op = IR_LIT(nd).sval;
     const IR_t *a0 = ir_pair_arg(nd, 0), *a1 = ir_pair_arg(nd, 1);
@@ -1121,7 +1122,7 @@ void bb_prepare(IR_t *nd) {
         if (nd->op == IR_CELL_UNIFY) {
             int lk = (int)l->op, rk = (int)r->op;
             int lc = (lk == (int)IR_ATOM || lk == (int)IR_LIT_I || lk == (int)IR_LIT_F), rc = (rk == (int)IR_ATOM || rk == (int)IR_LIT_I || rk == (int)IR_LIT_F);
-            if (lk == (int)IR_STRUCT || rk == (int)IR_STRUCT) { g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[1] = (int64_t)(intptr_t)l; g_emit.op_parts_ival[2] = (int64_t)(intptr_t)r; }
+            if (lk == (int)IR_STRUCT || rk == (int)IR_STRUCT || lk == (int)IR_ARITH || rk == (int)IR_ARITH) { g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[1] = (int64_t)(intptr_t)l; g_emit.op_parts_ival[2] = (int64_t)(intptr_t)r; }
             else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LOGICVAR && IR_LIT(l).ival == IR_LIT(r).ival) g_emit.op_parts_ival[0] = 1;
             else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LOGICVAR) { g_emit.op_parts_ival[0] = 2; g_emit.op_parts_ival[1] = (int64_t)IR_LIT(l).ival; g_emit.op_parts_ival[2] = (int64_t)IR_LIT(r).ival; }
             else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LIT_F && (int)IR_LIT(l).ival >= 0) { g_emit.op_parts_ival[0] = 3; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(l).ival; double fd = IR_LIT(r).dval; memcpy(&g_emit.op_parts_ival[2], &fd, 8); }

@@ -1020,13 +1020,13 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
             if (!strcmp(fn,"plus") && IR_LIT(gg).ival == 3) {
                 for (int ai = 0; ai < 3; ai++) { IR_t *px = ir_call_arg(gg, ai); if (px && px->op != IR_LOGICVAR) (*nsynth)++; }
             }
-            if (!strcmp(fn,"write") && IR_LIT(gg).ival == 1) {
+            if ((!strcmp(fn,"write")||!strcmp(fn,"print")) && IR_LIT(gg).ival == 1) {
                 IR_t *wa0 = ir_call_arg(gg,0);
-                if (wa0 && wa0->op == IR_STRUCT) (*nsynth)++;
+                if (wa0 && (wa0->op == IR_STRUCT || wa0->op == IR_ARITH)) (*nsynth)++;
             }
             if ((!strcmp(fn,"writeq")||!strcmp(fn,"write_canonical")) && IR_LIT(gg).ival == 1) {
                 IR_t *wa0 = ir_call_arg(gg,0);
-                if (wa0 && (wa0->op == IR_STRUCT || wa0->op == IR_ATOM)) (*nsynth)++;
+                if (wa0 && (wa0->op == IR_STRUCT || wa0->op == IR_ATOM || wa0->op == IR_ARITH)) (*nsynth)++;
             }            if ((!strcmp(fn,"atom_length")||!strcmp(fn,"upcase_atom")||!strcmp(fn,"downcase_atom")||!strcmp(fn,"atom_chars")||!strcmp(fn,"atom_codes")||!strcmp(fn,"string_length")||!strcmp(fn,"string_upper")||!strcmp(fn,"string_lower")||!strcmp(fn,"atom_string")||!strcmp(fn,"string_to_atom")||!strcmp(fn,"number_string")||!strcmp(fn,"atom_number")) && IR_LIT(gg).ival == 2) {
                 IR_t *aa0 = ir_call_arg(gg,0), *aa1 = ir_call_arg(gg,1);
                 if (aa0 && aa0->op != IR_LOGICVAR) (*nsynth)++;
@@ -1243,12 +1243,12 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (nn) { IR_t *na = ir_pair_arg(gg, 0), *nb = ir_pair_arg(gg, 1); if (na) ir_operand_push(nn, na); if (nb) ir_operand_push(nn, nb); }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "nl") == 0 && IR_LIT(gg).ival == 0) {
         nn = pl_gz_det_node(IR_DET_NL);
-    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "write") == 0 && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (strcmp(IR_LIT(gg).sval, "write") == 0 || strcmp(IR_LIT(gg).sval, "print") == 0) && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
         IR_t *wz0 = ir_call_arg(gg,0);
         if (wz0->op == IR_ATOM && IR_LIT(wz0).sval) { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) IR_LIT(nn).sval = IR_LIT(wz0).sval; }
         else if (wz0->op == IR_LIT_I)          { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = IR_LIT(wz0).ival; } }
         else if (wz0->op == IR_LOGICVAR)       { nn = pl_gz_det_node(IR_DET_WRITE); if (nn) { IR_LIT(nn).sval = NULL; IR_LIT(nn).ival = 0; ir_operand_push(nn, wz0); } }
-        else if (wz0->op == IR_STRUCT) {
+        else if (wz0->op == IR_STRUCT || wz0->op == IR_ARITH) {
             int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
             IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
             ir_operand_push(cu, ca); ir_operand_push(cu, wz0);
@@ -1261,7 +1261,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         IR_t *wz0 = ir_call_arg(gg,0);
         IR_t *sv = NULL;
         if (wz0->op == IR_LOGICVAR) { sv = wz0; }
-        else if (wz0->op == IR_ATOM || wz0->op == IR_STRUCT) {
+        else if (wz0->op == IR_ATOM || wz0->op == IR_STRUCT || wz0->op == IR_ARITH) {
             int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
             IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
             ir_operand_push(cu, ca); ir_operand_push(cu, wz0);
@@ -1272,7 +1272,8 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && strcmp(IR_LIT(gg).sval, "is") == 0 && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         IR_t *lhs = ir_pair_arg(gg,0), *rhs = ir_pair_arg(gg,1);
         if (lhs->op != IR_LOGICVAR) return 0;
-        int rhs_is_const = (rhs->op == IR_LIT_I) || (rhs->op == IR_LIT_F) || ((rhs->op == IR_ARITH) && pl_gz_arith_const(rhs));
+        int rhs_float_atom = (rhs->op == IR_ATOM && IR_LIT(rhs).sval && (!strcmp(IR_LIT(rhs).sval,"pi") || !strcmp(IR_LIT(rhs).sval,"e") || !strcmp(IR_LIT(rhs).sval,"inf") || !strcmp(IR_LIT(rhs).sval,"infinity")));
+        int rhs_is_const = (rhs->op == IR_LIT_I) || (rhs->op == IR_LIT_F) || rhs_float_atom || ((rhs->op == IR_ARITH) && pl_gz_arith_const(rhs));
         IR_t *w0 = (rhs->n_operands > 0) ? rhs->operands[0] : NULL, *w1 = (rhs->n_operands > 1) ? rhs->operands[1] : NULL;
         int rhs_is_var_op = (rhs->op == IR_LOGICVAR) ||
                             (rhs->op == IR_ARITH && IR_LIT(rhs).sval && w0 && w1 &&
