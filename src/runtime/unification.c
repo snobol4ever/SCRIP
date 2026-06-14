@@ -1057,3 +1057,31 @@ int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
     if (!unify((Term *)val_cell, fresh, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* THROW/CATCH — the single in-flight thrown term (a value, like errno; NOT a control/frame stack:
+ * the catch FRAMES are box frame cells, only the ball-in-flight needs to cross C-call returns). The
+ * GZ model: throw() copies the ball here + the box fails; failure rides the existing ω/return wiring
+ * up to the nearest catch box, which checks this ball on its goal's failure edge. */
+static Term *g_pl_throw_ball = (Term *)0;
+void rt_pl_throw_set(void *ball_cell)
+{
+    Term *var_map[256]; int var_cap = 256, var_n = 0;
+    Term *b = copy_term_deep(term_deref((Term *)ball_cell), var_map, &var_cap, &var_n);
+    g_pl_throw_ball = b ? b : term_deref((Term *)ball_cell);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_throw_pending(void) { return g_pl_throw_ball != (Term *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_throw_clear(void) { g_pl_throw_ball = (Term *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* unify the catcher cell with the in-flight ball; on success the ball is consumed (cleared) and its
+ * bindings remain so the recovery can read them; on mismatch the ball stays pending (re-throw). */
+int rt_pl_throw_match(void *catcher_cell)
+{
+    extern Trail g_resolve_trail;
+    if (!g_pl_throw_ball) return 0;
+    int mark = trail_mark(&g_resolve_trail);
+    if (!unify(term_deref((Term *)catcher_cell), g_pl_throw_ball, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    g_pl_throw_ball = (Term *)0;
+    return 1;
+}
