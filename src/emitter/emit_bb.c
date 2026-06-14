@@ -136,7 +136,7 @@ int g_gvar_flat_chain = 0;
 int g_gvar_callarg_live = 0;
 int g_emit_frame_caller_dl = -1;
 int g_frame_active = 0;
-int g_icn_scan_regs_live = 0;
+int g_scan_regs_live = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define FLAT_CHAIN_SET_MAX 512
 static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
@@ -1272,8 +1272,8 @@ void bb_prepare(IR_t *nd) {
         return;
     }
     if (nd->op == IR_MAP || nd->op == IR_GREP) {
-        extern void bb_rk_mapgrep_prepare(IR_t *nd);
-        bb_rk_mapgrep_prepare(nd);
+        extern void bb_mapgrep_prepare(IR_t *nd);
+        bb_mapgrep_prepare(nd);
         return;
     }
     if (nd->op == IR_CALLEE_FRAME) {
@@ -1878,13 +1878,13 @@ static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int icn_arg_entry_terminal(IR_t *ae) {
+static int arg_entry_terminal(IR_t *ae) {
     return (ae && (!ae->γ.node || ae->γ.node->op == IR_SUCCEED)) ? 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_generator_kind(IR_e t);
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int icn_subchain_node_is_generator(IR_t *nd) {
+static int subchain_node_is_generator(IR_t *nd) {
     if (!nd) return 0;
     if (ir_is_generator_kind(nd->op)) return 1;
     if (nd->op == IR_SCAN_UPTO || nd->op == IR_SCAN_FIND || nd->op == IR_SCAN_BAL) return 1;
@@ -1905,9 +1905,9 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live && (c->op == IR_CALL || ir_is_scan_kind(c->op)) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node; }
+        { extern int g_scan_regs_live; if (g_scan_regs_live && (c->op == IR_CALL || ir_is_scan_kind(c->op)) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node; }
     }
-    { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live) for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i]; }
+    { extern int g_scan_regs_live; if (g_scan_regs_live) for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i]; }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     int id = g_flat_node_id++;
@@ -1919,7 +1919,7 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = succ;
         bb_label_t *node_ω = fail;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ.node) { node_γ = (i > k && icn_subchain_node_is_generator(nodes[k])) ? betas[k] : lbls[k]; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ.node) { node_γ = (i > k && subchain_node_is_generator(nodes[k])) ? betas[k] : lbls[k]; break; }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = succ;
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = lbls[k]; omega_resolved = 1; break; }
@@ -1955,7 +1955,7 @@ static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
         int relop_diamond = 0;
         { IR_t *rp = res[i]; int rg = 0; while (rp && rg++ < 256) { if (rp->op == IR_BINOP && IR_LIT(rp).ival >= BINOP_LT && IR_LIT(rp).ival <= BINOP_NE) { if (res_last[i] && res_last[i]->op == IR_LIT_I && IR_LIT(res_last[i]).ival == 1 && rp->ω.node && rp->ω.node->op == IR_LIT_I && IR_LIT(rp->ω.node).ival == 0) relop_diamond = 1; break; } if (!rp->γ.node || rp->γ.node->op == IR_SUCCEED || rp->γ.node->op == IR_FAIL) break; rp = rp->γ.node; } }
         g_gvar_callarg_live = 1;
-        if (icn_arg_entry_terminal(res[i])) {
+        if (arg_entry_terminal(res[i])) {
             walk_bb_flat(res[i], arg_done, lbl_ω, arg_β);
             slots[i] = bb_slot_get(res[i]);
         } else if (relop_diamond) {
@@ -2034,10 +2034,10 @@ static void flat_drive_gen_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     flat_drive_scan_glue(pBB, 1, subj_slot, regs_off, body_start, lbl_ω, enter_β);
     emit_label_define_bb(body_start);
     descr_chain_operand_refs(body_sg->entry);
-    int saved_scan_regs_live = g_icn_scan_regs_live;
-    g_icn_scan_regs_live = 1;
+    int saved_scan_regs_live = g_scan_regs_live;
+    g_scan_regs_live = 1;
     flat_emit_arg_subchain(body_sg->entry, body_done, body_fail);
-    g_icn_scan_regs_live = saved_scan_regs_live;
+    g_scan_regs_live = saved_scan_regs_live;
     IR_t *body_term = descr_chain_terminal(body_sg->entry);
     int body_slot = body_term ? bb_slot_get(body_term) : -1;
     if (body_slot >= 0 && bb_slot_get(pBB) < 0 && g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = pBB; g_bb_slotmap[g_bb_slotmap_n].off = body_slot; g_bb_slotmap_n++; }
@@ -2691,7 +2691,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             if (IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "__rk_bool") && nd->γ.node && nd->ω.node && nd->γ.node->op == IR_LIT_I && nd->ω.node->op == IR_LIT_I && bb_slot_get(nd->γ.node) < 0 && bb_slot_get(nd->ω.node) < 0) { int _sh = bb_slot_alloc16(nd->γ.node); bb_slot_register(nd->ω.node, _sh); }
             if (nd->op == IR_SCAN_POS) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
-                long sn = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_I && icn_arg_entry_terminal(sblks[0]->entry)) ? (long) IR_LIT(sblks[0]->entry).ival : -1;
+                long sn = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_I && arg_entry_terminal(sblks[0]->entry)) ? (long) IR_LIT(sblks[0]->entry).ival : -1;
                 g_emit.op_sb  = (int) sn;
                 g_emit.op_sa  = -1;
                 g_emit.op_off = bb_slot_alloc16(nd);
@@ -2700,7 +2700,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             if (nd->op == IR_SCAN_ANY || nd->op == IR_SCAN_MATCH) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
-                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
+                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
                 g_emit.op_name1 = cs;
                 g_emit.op_sa  = -1;
                 g_emit.op_sb  = -1;
@@ -2710,7 +2710,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             if (nd->op == IR_SCAN_MANY) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
-                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
+                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
                 g_emit.op_name1 = cs;
                 g_emit.op_sa  = -1;
                 g_emit.op_sb  = -1;
@@ -2721,9 +2721,9 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             if (nd->op == IR_SCAN_TAB) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
                 IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
-                long tn = (ae && ae->op == IR_LIT_I && IR_LIT(ae).ival >= 1 && icn_arg_entry_terminal(ae)) ? (long) IR_LIT(ae).ival : -1;
+                long tn = (ae && ae->op == IR_LIT_I && IR_LIT(ae).ival >= 1 && arg_entry_terminal(ae)) ? (long) IR_LIT(ae).ival : -1;
                 int  sa = -1;
-                if (tn < 0 && ae && (ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && icn_arg_entry_terminal(ae)) {
+                if (tn < 0 && ae && (ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && arg_entry_terminal(ae)) {
                     sa = bb_slot_get(ae);
                     if (sa < 0) {
                         int tid = g_flat_node_id++;
@@ -2744,7 +2744,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             if (nd->op == IR_SCAN_MOVE) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
                 IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
-                int litok = (ae && ae->op == IR_LIT_I && icn_arg_entry_terminal(ae));
+                int litok = (ae && ae->op == IR_LIT_I && arg_entry_terminal(ae));
                 g_emit.op_sb  = litok ? (int) IR_LIT(ae).ival : 0;
                 g_emit.op_sa  = litok ? 1 : -1;
                 g_emit.op_off = bb_slot_alloc16(nd);
@@ -2754,7 +2754,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             if (nd->op == IR_SCAN_UPTO) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
-                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
+                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
                 g_emit.op_name1 = cs;
                 g_emit.op_sa  = -1;
                 g_emit.op_sb  = -1;
@@ -2765,7 +2765,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             if (nd->op == IR_SCAN_FIND) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
-                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
+                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
                 g_emit.op_name1 = cs;
                 g_emit.op_sa  = -1;
                 g_emit.op_sb  = -1;
@@ -2776,7 +2776,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             if (nd->op == IR_SCAN_BAL) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
-                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && icn_arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
+                const char *cs = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0;
                 g_emit.op_name1 = cs;
                 g_emit.op_sa  = -1;
                 g_emit.op_sb  = -1;
@@ -3462,7 +3462,7 @@ int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, F
     g_flat_slot_count = 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
     char prefix[256];
-    snprintf(prefix, sizeof(prefix), "icn_proc_%s", pname);
+    snprintf(prefix, sizeof(prefix), "proc_%s", pname);
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     fprintf(out, "  .globl %s_\316\261\n", prefix);
     int rc = codegen_flat_chain_body(entry, prefix);

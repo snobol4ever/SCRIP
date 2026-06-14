@@ -7,6 +7,7 @@
 #include "../../parser/prolog/prolog_runtime.h"
 #include "../../parser/prolog/prolog_atom.h"
 #include "../../runtime/builtins/resolution.h"
+#include "../../parser/raku/raku_re.h"
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
@@ -106,23 +107,23 @@ int g_resolve_b3_call_mark = -1;
 DESCR_t IR_interp_once(IR_graph_t * bbg);
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-typedef struct { IR_t * node; DESCR_t * items; int count; int cap; } rk_seq_cache_t;
-#define RK_SEQ_CACHE_MAX 64
-static rk_seq_cache_t g_rk_seq_cache[RK_SEQ_CACHE_MAX];
-static int g_rk_seq_cache_n = 0;
-static rk_seq_cache_t * rk_seq_cache_find(IR_t * node) {
-    for (int i = 0; i < g_rk_seq_cache_n; i++) if (g_rk_seq_cache[i].node == node) return &g_rk_seq_cache[i];
+typedef struct { IR_t * node; DESCR_t * items; int count; int cap; } seq_cache_t;
+#define SEQ_CACHE_MAX 64
+static seq_cache_t g_seq_cache[SEQ_CACHE_MAX];
+static int g_seq_cache_n = 0;
+static seq_cache_t * seq_cache_find(IR_t * node) {
+    for (int i = 0; i < g_seq_cache_n; i++) if (g_seq_cache[i].node == node) return &g_seq_cache[i];
     return NULL;
 }
-static rk_seq_cache_t * rk_seq_cache_get(IR_t * node) {
-    rk_seq_cache_t * e = rk_seq_cache_find(node);
+static seq_cache_t * seq_cache_get(IR_t * node) {
+    seq_cache_t * e = seq_cache_find(node);
     if (e) return e;
-    if (g_rk_seq_cache_n >= RK_SEQ_CACHE_MAX) { g_rk_seq_cache_n = 0; }
-    e = &g_rk_seq_cache[g_rk_seq_cache_n++];
+    if (g_seq_cache_n >= SEQ_CACHE_MAX) { g_seq_cache_n = 0; }
+    e = &g_seq_cache[g_seq_cache_n++];
     e->node = node; e->items = NULL; e->count = 0; e->cap = 0;
     return e;
 }
-static void rk_seq_cache_push(rk_seq_cache_t * e, DESCR_t v) {
+static void seq_cache_push(seq_cache_t * e, DESCR_t v) {
     if (e->count >= e->cap) {
         int ncap = e->cap ? e->cap * 2 : 8;
         DESCR_t * ni = (DESCR_t *) GC_malloc((size_t) ncap * sizeof(DESCR_t));
@@ -2281,7 +2282,7 @@ static void pas_loc_of_name(GenFrame *caller, const char *name, GenFrame **of, i
     else { *of = caller; *os = slot; *on = NULL; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int rk_is_truthy(DESCR_t cv) {
+static int descr_is_truthy(DESCR_t cv) {
     if (IS_FAIL_fn(cv)) return 0;
     if (IS_INT_fn(cv))  return cv.i != 0;
     if (IS_REAL_fn(cv)) return cv.r != 0.0;
@@ -2314,6 +2315,26 @@ IR_t * IR_interp_node(IR_t * bb) {
         }
         IR_EXEC(bb).value = NULVCL;
         return bb->γ.node;
+    }
+    case IR_NFA_MATCH: {
+        extern Raku_match g_raku_match; extern const char * g_raku_subject;
+        IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
+        IR_graph_t * sb  = blks ? blks[0] : (IR_graph_t *)0;
+        IR_graph_t * bbg = blks ? blks[1] : (IR_graph_t *)0;
+        void * nfa = (void *)(intptr_t) IR_LIT(bb).ival;
+        if (!sb || !bbg || !nfa) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
+        bb_reset(sb);
+        DESCR_t sd = IR_interp_once(sb);
+        char * subj = VARVAL_fn(sd); if (!subj) subj = "";
+        static int nfa_bb = -1;
+        if (nfa_bb < 0) { const char * e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0] == '1') ? 1 : 0; }
+        if (nfa_bb) raku_nfa_bb_graph_exec(bbg, raku_nfa_ngroups((const Raku_nfa *) nfa), subj, &g_raku_match);
+        else        raku_nfa_exec((const Raku_nfa *) nfa, subj, &g_raku_match);
+        if (nfa_bb) { int ng = raku_nfa_ngroups((const Raku_nfa *) nfa); for (int g = 0; g < ng && g < MAX_GROUPS; g++) raku_nfa_group_name_copy((const Raku_nfa *) nfa, g, g_raku_match.group_name[g]); }
+        g_raku_subject = subj;
+        int verdict = g_raku_match.matched ? 1 : 0;
+        IR_EXEC(bb).value = verdict ? INTVAL(1) : FAILDESCR;
+        return verdict ? bb->γ.node : bb->ω.node;
     }
     case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I:
     case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL:
@@ -4151,16 +4172,16 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_graph_t * src_sg  = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
         IR_graph_t * body_sg = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
         if (!src_sg || !body_sg) { IR_EXEC(bb).state = 0; IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
-        rk_seq_cache_t * sc = rk_seq_cache_find(bb);
+        seq_cache_t * sc = seq_cache_find(bb);
         if (IR_EXEC(bb).state == 0 || !sc) {
-            sc = rk_seq_cache_get(bb);
+            sc = seq_cache_get(bb);
             sc->count = 0;
             IR_graph_t * save_cfg = g_current_cfg;
             bb_reset(src_sg);
             DESCR_t sv = IR_interp_once(src_sg);
             int safety = src_sg->n * 256 + 4096;
             while (!IS_FAIL_fn(sv) && safety-- > 0) {
-                rk_seq_cache_push(sc, sv);
+                seq_cache_push(sc, sv);
                 sv = IR_interp_resume(src_sg);
             }
             g_current_cfg = save_cfg;
@@ -6048,7 +6069,7 @@ int IR_interp_pat(IR_graph_t *bbg,
     return 1;
 }
 /*====================================================================================================================================================================================================*/
-DESCR_t rk_ir_call_proc(int upi, DESCR_t *args, int nargs) {
+DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) {
     if (upi < 0 || upi >= g_stage2.proc_count) return FAILDESCR;
     IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
     Scope * sc = &g_stage2.proc_table[upi].lower_sc;

@@ -334,6 +334,21 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         γ_to(va, bentry); *res = to; return elo; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_SMATCH: if (t->n > 1) {
+        const char * smode = (t->n > 2 && t->c[2] && t->c[2]->v.sval) ? t->c[2]->v.sval : "match";
+        const tree_t * pat = t->c[1];
+        if (!strcmp(smode, "match") && pat && pat->t == TT_QLIT && pat->v.sval) {
+            extern struct IR_graph_t * raku_nfa_to_bb(void * nfa);
+            extern void * raku_nfa_build(const char * pattern);
+            void * nfa = raku_nfa_build(pat->v.sval);
+            IR_graph_t * bbg = nfa ? raku_nfa_to_bb(nfa) : NULL;
+            if (bbg && bbg->entry) {
+                IR_t * nd = build(cx, IR_NFA_MATCH, γ, ω); IR_LIT(nd).ival = (int64_t)(intptr_t) nfa; IR_LIT(nd).dval = 2.0;
+                IR_graph_t * sb = rk_arg_block(cx, t->c[0]);
+                IR_graph_t ** blks = (IR_graph_t **) calloc(2, sizeof(IR_graph_t *)); blks[0] = sb; blks[1] = bbg;
+                IR_EXEC(nd).counter = (int64_t)(intptr_t) blks;
+                *res = nd; return nd;
+            }
+        }
         IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "re_match"; IR_LIT(nd).ival = 2;
         lc_call_argblks(nd, 2.0, 2, rk_arg_block, cx, (const tree_t * const *) t->c);
         *res = nd; return nd; }

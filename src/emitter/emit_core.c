@@ -505,7 +505,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SCAN_BAL:             { bb_emit_x86(bb_scan_bal()); } return 0;
     case IR_GATHER:               bb_prepare(nd); { bb_emit_x86(bb_gather());   } return 0;
     case IR_MAP:
-    case IR_GREP:                 bb_prepare(nd); { bb_emit_x86(bb_rk_mapgrep()); } return 0;
+    case IR_GREP:                 bb_prepare(nd); { bb_emit_x86(bb_mapgrep()); } return 0;
     case IR_SIZE:                 bb_emit_x86(bb_unop());        return 0;
     case IR_PAT_DEFER:            bb_emit_x86(bb_match_defer());    return 0;
     case IR_CUT:             bb_emit_x86(bb_cut());                                 return 0;

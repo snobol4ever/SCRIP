@@ -30,7 +30,7 @@ static inline const char * mgLbl()    { return s_mg_lbl; }
 static inline int          mgCurs()   { return s_mg_cursoff; }
 static inline int          mgRes()    { return s_mg_resoff; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_rk_mapgrep() {
+std::string bb_mapgrep() {
     x86_begin();
     if (PLATFORM_X86) return x86("label",    _.lbl_α)
          + x86("comment",   "IR_MAP/IR_GREP (materialized)")
@@ -57,12 +57,12 @@ std::string bb_rk_mapgrep() {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_rk_mapgrep_prepare(IR_t * nd) {
+extern "C" void bb_mapgrep_prepare(IR_t * nd) {
     int is_grep = (nd->op == IR_GREP);
     IR_graph_t * src_sg  = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
     IR_graph_t * body_sg = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival;
     if (!src_sg || !body_sg) {
-        fprintf(stderr, "[RK] FATAL bb_rk_mapgrep: missing source/body sub-graph (map/grep)\n");
+        fprintf(stderr, "[RK] FATAL bb_mapgrep: missing source/body sub-graph (map/grep)\n");
         abort();
     }
     int n = 0;
@@ -79,10 +79,10 @@ extern "C" void bb_rk_mapgrep_prepare(IR_t * nd) {
         else         { keep = IS_FAIL_fn(bv) ? (DESCR_t){ DT_SNUL, 0, { 0 } } : bv; }
         if (emit_one) {
             if (keep.v != DT_I && keep.v != DT_SNUL) {
-                fprintf(stderr, "[RK] FATAL bb_rk_mapgrep: materialized value is not integer (v=%d); map/grep native arm supports integer sequences only\n", (int)keep.v);
+                fprintf(stderr, "[RK] FATAL bb_mapgrep: materialized value is not integer (v=%d); map/grep native arm supports integer sequences only\n", (int)keep.v);
                 abort();
             }
-            if (n >= MAPGREP_MAX) { fprintf(stderr, "[RK] FATAL bb_rk_mapgrep: sequence exceeds %d elements\n", MAPGREP_MAX); abort(); }
+            if (n >= MAPGREP_MAX) { fprintf(stderr, "[RK] FATAL bb_mapgrep: sequence exceeds %d elements\n", MAPGREP_MAX); abort(); }
             s_mg_vals[n++] = (keep.v == DT_I) ? keep.i : 0;
         }
         sv = IR_interp_resume(src_sg);

@@ -28,7 +28,7 @@ void rt_write_int_nl(int64_t v)
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void rt_format_float(char *buf, size_t bufsz, double d);
-void rk_write_str(FILE *dest, const char *s);
+void out_write_str(FILE *dest, const char *s);
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_write_any_nl(DESCR_t d)
 {
@@ -37,7 +37,7 @@ void rt_write_any_nl(DESCR_t d)
     else if (d.v == DT_FAIL) fputc('\n', stdout);
     else {
         char *s = VARVAL_fn(d);
-        if (s) rk_write_str(stdout, s);
+        if (s) out_write_str(stdout, s);
         fputc('\n', stdout);
     }
 }

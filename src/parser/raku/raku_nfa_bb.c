@@ -81,35 +81,42 @@ static int nfa_bt_ir_cap(IR_t *s, const char *subj, int pos, int slen, int depth
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void raku_nfa_bb_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result) {
+void raku_nfa_bb_graph_exec(IR_graph_t *bbg, int ngroups, const char *subject, Raku_match *result) {
     memset(result, 0, sizeof *result);
     for (int i = 0; i < MAX_GROUPS; i++) { result->group_start[i] = -1; result->group_end[i] = -1; }
-    if (!nfa || !subject || !result) return;
-    int ng = raku_nfa_ngroups(nfa);
-    result->ngroups = ng;
-    for (int g = 0; g < ng && g < MAX_GROUPS; g++) raku_nfa_group_name_copy(nfa, g, result->group_name[g]);
-    IR_graph_t *bbg = raku_nfa_to_bb((Raku_nfa *)nfa);
-    if (!bbg || !bbg->entry) return;
+    if (!bbg || !bbg->entry || !subject || !result) return;
+    result->ngroups = ngroups;
     IR_t *start = bbg->entry;
     int slen = (int)strlen(subject);
     int anchored_bol = (start->op == IR_NFA_BOL);
     int n = bbg->n;
     int stride = slen + 1;
-    for (int i = 0; i < n; i++) if (bbg->all[i]) IR_EXEC(bbg->all[i]).counter = i; /* node id for the (node,pos) memo */
-    char *vis = (char *)GC_malloc((size_t)n * (size_t)stride);             /* (node,pos) visited grid */
+    for (int i = 0; i < n; i++) if (bbg->all[i]) IR_EXEC(bbg->all[i]).counter = i;
+    char *vis = (char *)GC_malloc((size_t)n * (size_t)stride);
     for (int sp = 0; sp <= slen; sp++) {
-        if (vis) memset(vis, 0, (size_t)n * (size_t)stride);               /* fresh memo per leftmost-sweep iteration */
+        if (vis) memset(vis, 0, (size_t)n * (size_t)stride);
         Bb_cap cap; for (int i = 0; i < MAX_GROUPS; i++) { cap.gs[i] = -1; cap.ge[i] = -1; }
         int end = vis ? nfa_bt_ir_cap(start, subject, sp, slen, 0, &cap, vis, stride) : -1;
         if (end >= 0) {
             result->matched    = 1;
             result->full_start = sp;
             result->full_end   = end;
-            for (int g = 0; g < ng && g < MAX_GROUPS; g++) { result->group_start[g] = cap.gs[g]; result->group_end[g] = cap.ge[g]; }
+            for (int g = 0; g < ngroups && g < MAX_GROUPS; g++) { result->group_start[g] = cap.gs[g]; result->group_end[g] = cap.ge[g]; }
             return;
         }
         if (anchored_bol) break;
     }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void raku_nfa_bb_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result) {
+    memset(result, 0, sizeof *result);
+    for (int i = 0; i < MAX_GROUPS; i++) { result->group_start[i] = -1; result->group_end[i] = -1; }
+    if (!nfa || !subject || !result) return;
+    int ng = raku_nfa_ngroups(nfa);
+    IR_graph_t *bbg = raku_nfa_to_bb((Raku_nfa *)nfa);
+    if (!bbg || !bbg->entry) return;
+    raku_nfa_bb_graph_exec(bbg, ng, subject, result);
+    for (int g = 0; g < ng && g < MAX_GROUPS; g++) raku_nfa_group_name_copy(nfa, g, result->group_name[g]);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int raku_nfa_bb_match(const Raku_nfa *nfa, const char *subject) {

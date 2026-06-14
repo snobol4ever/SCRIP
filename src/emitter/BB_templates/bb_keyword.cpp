@@ -6,7 +6,7 @@ extern "C" {
 #include "descr.h"
 extern int g_descr_flat_chain;
 extern int g_gvar_flat_chain;
-extern int g_icn_scan_regs_live;
+extern int g_scan_regs_live;
 struct DESCR_t rt_icn_keyword_subject(void);
 struct DESCR_t rt_icn_keyword_pos(void);
 DESCR_t rt_keyword_read(const char *sval);
@@ -19,7 +19,7 @@ std::string bb_keyword() {
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
     std::string tail = x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
     if (!strcmp(kw, "subject")) {
-        if (g_icn_scan_regs_live)
+        if (g_scan_regs_live)
             return x86("comment", "IR_KEYWORD_subject_reg")
                  + x86("label",   _.lbl_α)
                  + x86("mov", FRQ(_.op_off),     (long)DT_S)
@@ -33,7 +33,7 @@ std::string bb_keyword() {
              + tail;
     }
     if (!strcmp(kw, "pos")) {
-        if (g_icn_scan_regs_live)
+        if (g_scan_regs_live)
             return x86("comment", "IR_KEYWORD_pos_reg")
                  + x86("label",   _.lbl_α)
                  + x86("mov", FRQ(_.op_off), (long)DT_I)
