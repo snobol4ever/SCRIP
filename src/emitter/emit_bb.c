@@ -2471,6 +2471,9 @@ static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     emit_label_define_bb(x_done);
     walk_bb_flat(r_var, y_done, lbl_ω, y_β);
     emit_label_define_bb(y_done);
+    g_emit.op_sa  = bb_varslot_peek(IR_LIT(l_var).sval);
+    g_emit.op_sb  = bb_varslot_peek(IR_LIT(r_var).sval);
+    g_emit.op_off = bb_slot_alloc16(pBB);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
