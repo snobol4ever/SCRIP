@@ -12,6 +12,7 @@ extern "C" {
 bb_box_fn bb_build_flat    (IR_t * nd);
 int  bb_call_route_classify(IR_t * nd);
 void resolve_call_kinds_descr(IR_graph_t * g);
+void resolve_call_kinds_gvar(IR_graph_t * g);
 bb_box_fn descr_flat_chain_build(IR_t * entry);
 int  descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
 int  bb_varslot(const char * name);
