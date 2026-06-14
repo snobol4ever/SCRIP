@@ -729,6 +729,7 @@ int rt_builtin_is_known(const char *name)
         "iand", "ior", "ixor", "ishift", "icom",
         "table", "list", "set", "sort", "sortf", "get", "pop", "pull",
         "member", "insert", "delete", "key",
+        "[]",
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort",
         "elems", "push_pure",
