@@ -8,15 +8,13 @@ extern "C" {
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_pos() {
     if (!PLATFORM_X86) return std::string();
-    long n = (long)(int)_.op_ival;
-    int is_rpos = _.op_sval && _.op_sval[0] == 'r';
-    return x86("comment", is_rpos ? "IR_MATCH_RPOS" : "IR_MATCH_POS")
+    return x86("comment", (_.op_sval && _.op_sval[0] == 'r') ? "IR_MATCH_RPOS" : "IR_MATCH_POS")
          + x86("label",   _.lbl_α)
-         + (is_rpos
+         + ((_.op_sval && _.op_sval[0] == 'r')
               ? ( x86("mov", "ecx", "r15d")
-                + x86("sub", "ecx", n)
+                + x86("sub", "ecx", (long)(int)_.op_ival)
                 + x86("cmp", "r14d", "ecx") )
-              : ( x86("cmp", "r14d", n) ))
+              : ( x86("cmp", "r14d", (long)(int)_.op_ival) ))
          + x86("jne", "ω")
          + x86("jmp", "γ")
          + x86("def", "β")
