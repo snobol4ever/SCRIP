@@ -249,7 +249,6 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/builtins/resolution.c \
     $(SRC)/runtime/core/coerce.c \
-    $(SRC)/lower/ast_clone.c \
     $(SRC)/contracts/scrip_ir.c \
     $(SRC)/interp/rt_runtime.c \
     $(SRC)/driver/interp_globals.c \
@@ -521,7 +520,6 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/by_name_dispatch.c -o $(OBJ)/by_name_dispatch.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolution.c  -o $(OBJ)/resolution.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
-	$(CC) $(CRT)   -c $(SRC)/lower/ast_clone.c    -o $(OBJ)/ast_clone.o
 	$(CC) $(CRT)   -c $(SRC)/contracts/scrip_ir.c     -o $(OBJ)/scrip_ir.o
 	$(CC) $(CRT)   -c $(SRC)/interp/rt_runtime.c      -o $(OBJ)/rt_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/machine/sm_prog.c    -o $(OBJ)/sm_prog.o

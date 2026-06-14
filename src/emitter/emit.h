@@ -11,7 +11,6 @@ extern "C" {
 #include <stddef.h>
 void    emitter_init_text      (FILE * out, int mode);
 void    emitter_init_binary    (bb_buf_t buf, int size);
-void    emitter_init_macro_def (FILE * out);
 FILE *  emitter_text_out       (void);
 int     emitter_pos            (void);
 int     emitter_end            (void);

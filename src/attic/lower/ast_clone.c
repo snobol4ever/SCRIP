@@ -1,3 +1,8 @@
+/* DEAD CODE — moved from src/lower/ast_clone.c
+ * Reason: ast_gc_clone, code_free, expr_free (static), stmt_free (static) —
+ *         all confirmed dead by GC oracle (--gc-sections, 2026-06-14).
+ *         No external callers: code_free only appears in a comment in snobol4.tab.c.
+ */
 #include "ast_clone.h"
 #include <stdlib.h>
 #include <string.h>

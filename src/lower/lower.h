@@ -6,7 +6,6 @@
 #include "../../parser/snobol4/scrip_cc.h"
 #include "ast.h"
 #include "../../runtime/builtins/gen_runtime.h"
-#include "ast_clone.h"
 #include "IR.h"
 #include "bb_box.h"
 #include "../runtime/builtins/gen.h"

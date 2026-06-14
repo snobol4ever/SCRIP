@@ -17,22 +17,6 @@ bb_platform_t   g_platform      = BB_PLATFORM_X86;
 bb_medium_t     g_medium        = BB_MEDIUM_BINARY;
 int             g_use_sm_macros = 0;
 int             g_use_bb_macros = 0;
-void emit_mode_set(bb_emit_mode_t m, FILE *out)
-{
-    bb_emit_mode = m;
-    bb_emit_out  = out;
-    switch (m) {
-    case EMIT_TEXT:             g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
-    case EMIT_TEXT_INLINE:      g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=1; break;
-    case EMIT_MACRO_DEF:        g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_MACRO_DEF; g_use_sm_macros=0; break;
-    case EMIT_BINARY_WIRED:     g_platform=BB_PLATFORM_X86;  g_medium=BB_MEDIUM_BINARY;    g_use_sm_macros=0; break;
-    case EMIT_JVM:              g_platform=BB_PLATFORM_JVM;  g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
-    case EMIT_JS:               g_platform=BB_PLATFORM_JS;   g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
-    case EMIT_NET:              g_platform=BB_PLATFORM_NET;  g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
-    case EMIT_WASM:             g_platform=BB_PLATFORM_WASM; g_medium=BB_MEDIUM_TEXT;      g_use_sm_macros=0; break;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 FILE *emit_outf(void) { return bb_emit_out ? bb_emit_out : stdout; }
 #include <string.h>
 bb_buf_t   bb_emit_buf   = NULL;
@@ -171,20 +155,10 @@ void emitter_init_text(FILE *out, int mode)
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int  emitter_end(void)        { return g_is_text ? g_emit_pos : bb_emit_end(); }
-void  emitter_init_macro_def(FILE *out) { emitter_init_text(out, TEXT_MODE_DEFINITION); }
 static void  ef_b1 (uint8_t a)                                   { bb_emit_byte(a); }
 static void  ef_b2 (uint8_t a, uint8_t b)                        { bb_emit_byte(a); bb_emit_byte(b); }
 static void  ef_b3 (uint8_t a, uint8_t b, uint8_t c)             { bb_emit_byte(a); bb_emit_byte(b); bb_emit_byte(c); }
 static void  ef_b4 (uint8_t a, uint8_t b, uint8_t c, uint8_t d)  { bb_emit_byte(a); bb_emit_byte(b); bb_emit_byte(c); bb_emit_byte(d); }
-static void  ef_u32(uint32_t v)                                  { bb_emit_u32(v); }
-static void  ef_u64(uint64_t v)                                  { bb_emit_u64(v); }
-static void ef_t3c(const char *mnem, const char *fmt, ...)
-{
-    char buf[256]; buf[0] = '\0';
-    if (fmt) { va_list ap; va_start(ap,fmt); vsnprintf(buf,sizeof(buf),fmt,ap); va_end(ap); }
-    fprintf(bb_emit_out, "%s %s\n", mnem ? mnem : "", buf);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void ef_t3c_jmp(const char *mnem, const char *target)
 { fprintf(bb_emit_out, "%s %s\n", mnem ? mnem : "", target ? target : ""); }
 void emit_label_define_bb(bb_label_t *lbl)
@@ -206,12 +180,6 @@ void emit_jmp_label(bb_label_t *target, jmp_kind_t kind)
     int k = (int)kind < 6 ? (int)kind : 0;
     if (g_is_text) { ef_t3c_jmp(mn[k], target->name); g_emit_pos += 6; }
     else { if (k==0) ef_b1(0xE9); else ef_b2(ops[k][0], ops[k][1]); bb_emit_patch_rel32(target); }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void emit_call_label(bb_label_t *target)
-{
-    if (g_is_text) { ef_t3c_jmp("call", target->name); g_emit_pos += 5; }
-    else { ef_b1(0xE8); bb_emit_patch_rel32(target); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void emit_aligned_call_rt(const char *sym, void *addr)
@@ -262,36 +230,6 @@ void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
     vsnprintf(lbl->name, BB_LABEL_NAME_MAX, fmt, ap);
     va_end(ap);
     lbl->offset = BB_LABEL_UNRESOLVED;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void emit_text_stno_banner(int stno, int lineno, const char *src_text)
-{
-#define STNO_RULE \
-    "#=======================================================================================================================\n"
-    switch (bb_emit_mode) {
-    case EMIT_BINARY_WIRED:
-        return;
-    case EMIT_TEXT_INLINE:
-    case EMIT_TEXT:
-    case EMIT_MACRO_DEF: {
-        FILE *f = bb_emit_out ? bb_emit_out : stdout;
-        fputs(STNO_RULE, f);
-        if (src_text && *src_text)
-            fprintf(f, "# stmt %d  (line %d):  %s\n", stno, lineno, src_text);
-        else if (lineno > 0)
-            fprintf(f, "# stmt %d  (line %d)\n", stno, lineno);
-        else
-            fprintf(f, "# stmt %d\n", stno);
-        fputs(STNO_RULE, f);
-        return;
-    }
-    }
-#undef STNO_RULE
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void emit_text_rawf(const char *fmt, ...) {
-    if (bb_emit_mode != EMIT_TEXT) return;
-    va_list ap; va_start(ap, fmt); vfprintf(emit_outf(), fmt, ap); va_end(ap);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void jvm_push_int2(FILE * out, long v) {
@@ -706,33 +644,6 @@ int bb_node_id(IR_t * nd) {
     uintptr_t h = ((uintptr_t)nd >> 4) & 262143u;
     while (g_nid_key[h]) { if (g_nid_key[h] == nd) return g_nid_val[h]; h = (h + 1u) & 262143u; }
     g_nid_key[h] = nd; g_nid_val[h] = ++g_nid_count; return g_nid_val[h];
-}
-int bb_is_generator(IR_e k) {
-    if (k >= IR_PAT_LIT   && k <= IR_PAT_DEFER)  return 1;
-    if (k >= IR_CHOICE && k <= IR_GOAL)      return 1;
-    if (k >= IR_TO    && k <= IR_PROC_GEN) return 1;
-    if (k == IR_SCAN || k == IR_TO_BY ||
-        k == IR_EVERY || k == IR_WHILE    || k == IR_LIMIT || k == IR_SUSPEND) return 1;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-#define IR_WALK_MAX 4096
-static int g_visited[IR_WALK_MAX];
-static int g_vcount = 0;
-static void bb_walk_rec(IR_t * nd, void (*visit)(IR_t *, void *), void * ctx) {
-    if (!nd) return;
-    int id = bb_node_id(nd);
-    for (int i = 0; i < g_vcount; i++) if (g_visited[i] == id) return;
-    if (g_vcount < IR_WALK_MAX) g_visited[g_vcount++] = id;
-    visit(nd, ctx);
-    if (nd->op != IR_SCAN) for (int i = 0; i < nd->n_operands; i++) bb_walk_rec(nd->operands[i], visit, ctx);
-    bb_walk_rec(nd->γ.node, visit, ctx); bb_walk_rec(nd->ω.node, visit, ctx);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void bb_walk(IR_graph_t * cfg, void (*visit)(IR_t *, void *), void * ctx) {
-    if (!cfg || !cfg->entry) return;
-    g_vcount = 0;
-    bb_walk_rec(cfg->entry, visit, ctx);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void js_escape_string(FILE * out, const char * s) {
