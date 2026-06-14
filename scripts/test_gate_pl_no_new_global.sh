@@ -41,6 +41,9 @@ PL_FILES=$(ls \
 # g_rt_pl_nb/_n          nb_setval/nb_getval store — a global mutable var IS the feature, by defn.
 # g_stage2               the stage2 PROGRAM object — compile/emit-time, freed before run (ir_delete_all).
 # g_pl_nl_arith/_builtins  const char* name tables read at LOWER time only — not runtime state.
+# g_pl_throw_ball        the single IN-FLIGHT thrown term (one value, like errno) — NOT the §10 #7
+#                        exception-frame STACK; the catch FRAMES are box frame cells, only the ball
+#                        crossing a C-call return needs a global. Cleared on catch-match / consumed once.
 SANCTIONED="
 g_resolve_trail
 g_pl_pred_table
@@ -50,6 +53,7 @@ g_rt_pl_nb_n
 g_stage2
 g_pl_nl_arith
 g_pl_nl_builtins
+g_pl_throw_ball
 "
 
 # ---- TIER 2: LEGACY-DOOMED — grandfathered, ratchet to zero (each IS a §10 NOT-NEEDED structure) -
