@@ -536,6 +536,12 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (gg->op == IR_UNIFY) {
         IR_t *l = (gg->n_operands > 0) ? gg->operands[0] : NULL, *r = (gg->n_operands > 1) ? gg->operands[1] : NULL;
         if (!l || !r) return 0;
+        int ls = (l->op == IR_STRUCT), rs = (r->op == IR_STRUCT);
+        if (ls || rs) {
+            int lok = ls || l->op == IR_LOGICVAR || l->op == IR_ATOM || l->op == IR_LIT_I || l->op == IR_LIT_F;
+            int rok = rs || r->op == IR_LOGICVAR || r->op == IR_ATOM || r->op == IR_LIT_I || r->op == IR_LIT_F;
+            return lok && rok;
+        }
         int lv = (l->op == IR_LOGICVAR), rv = (r->op == IR_LOGICVAR);
         int lc = (l->op == IR_ATOM || l->op == IR_LIT_I || l->op == IR_LIT_F), rc = (r->op == IR_ATOM || r->op == IR_LIT_I || r->op == IR_LIT_F);
         return (lv && (rv || rc)) || (rv && lc) || (lc && rc);
@@ -866,8 +872,8 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
             if (!nn) return 0;
             IR_t *g0 = (gg->n_operands > 0) ? gg->operands[0] : NULL, *g1 = (gg->n_operands > 1) ? gg->operands[1] : NULL;
             if (!g0 || !g1) return 0;
-            IR_t *na = (g0->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(g0).ival, ar, lbase)) : g0;
-            IR_t *nb = (g1->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(g1).ival, ar, lbase)) : g1;
+            IR_t *na = (g0->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(g0).ival, ar, lbase)) : (g0->op == IR_STRUCT) ? pl_gz_struct_slot_map(g0, ar, lbase) : g0;
+            IR_t *nb = (g1->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(g1).ival, ar, lbase)) : (g1->op == IR_STRUCT) ? pl_gz_struct_slot_map(g1, ar, lbase) : g1;
             if (!na || !nb) return 0;
             ir_operand_push(nn, na); ir_operand_push(nn, nb);
         } else if (IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "nl")) {
