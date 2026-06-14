@@ -13,7 +13,7 @@ static std::string bdisp(IR_t *pBB) {
     if (!(r = bb_term_inspect_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_aggregate_nb()).empty()) return r;
     if (!(r = bb_atom_string()).empty()) return r;
-    if (!(r = bb_term_io_str(pBB, fn, hdr)).empty()) return r;
+    if (!(r = bb_term_io()).empty()) return r;
     if (!(r = bb_findall_str(pBB, fn, hdr)).empty()) return r;
     if (!(r = bb_succ_plus()).empty()) return r;
     if (!(r = bb_list_str(pBB, fn, hdr)).empty()) return r;
