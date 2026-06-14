@@ -691,6 +691,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
             nd->op == IR_ITE || nd->op == IR_CATCH) return 0;
         if (nd->op == IR_BUILTIN) {
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "nl") && IR_LIT(nd).ival == 0) continue;
+            if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "throw") && IR_LIT(nd).ival == 1) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "write") && IR_LIT(nd).ival == 1) continue;
             if (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"writeq")||!strcmp(IR_LIT(nd).sval,"write_canonical")) && IR_LIT(nd).ival == 1) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "is") && IR_LIT(nd).ival == 2) continue;
@@ -1018,6 +1019,15 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
         if (!pl_gz_count_synth_root(zi->else_root, nsynth)) return 0;
         return 1;
     }
+    if (gg->op == IR_CATCH) {
+        bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)IR_LIT(gg).ival;
+        if (!zc || !zc->goal_g || !zc->rec_g || !zc->goal_g->entry || !zc->rec_g->entry) return 0;
+        for (IR_t *g = zc->goal_g->entry; g && g->op != IR_SUCCEED && g->op != IR_FAIL; g = g->γ.node)
+            if (!pl_gz_count_synth_goal(g, nsynth)) return 0;
+        for (IR_t *g = zc->rec_g->entry; g && g->op != IR_SUCCEED && g->op != IR_FAIL; g = g->γ.node)
+            if (!pl_gz_count_synth_goal(g, nsynth)) return 0;
+        return 1;
+    }
     if (gg->op != IR_GOAL) {
         if (gg->op == IR_BUILTIN && IR_LIT(gg).sval) {
             const char *fn = IR_LIT(gg).sval;
@@ -1176,6 +1186,16 @@ static int pl_gz_chain_det(IR_t *head) {
     }
     return 1;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* build a flat goal chain from a sub-graph entry (follow γ until the sub-graph's IR_SUCCEED/IR_FAIL
+ * terminator) — used for catch's goal/recovery sub-graphs, which are NOT GCONJ-wrapped at lower time. */
+static int pl_gz_build_chain_from(IR_t *entry, IR_t **chain_head, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees) {
+    IR_t *h = NULL, *t = NULL;
+    for (IR_t *g = entry; g && g->op != IR_SUCCEED && g->op != IR_FAIL; g = g->γ.node)
+        if (!pl_gz_build_goal(g, &h, &t, synth_next, cslot, callees, ncallees)) return 0;
+    *chain_head = h;
+    return 1;
+}
 static IR_t * pl_gz_arith_to_struct(const IR_t *nd) {
     if (!nd) return NULL;
     if (nd->op != IR_ARITH) return (IR_t *)nd;
@@ -1215,6 +1235,24 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         IR_t *cn = pl_gz_det_node(IR_CELL_ITE);
         if (!cn) return 0;
         IR_LIT(cn).ival = (int64_t)(intptr_t)is;
+        if (!*head) *head = cn; else { (*tail)->γ.node = cn; memcpy((*tail)->γ.sz, "α", 3); }
+        *tail = cn;
+        return 1;
+    }
+    if (gg->op == IR_CATCH) {
+        bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)IR_LIT(gg).ival;
+        if (!zc || !zc->goal_g || !zc->rec_g || !zc->goal_g->entry || !zc->rec_g->entry) return 0;
+        pl_gz_catch_state_t *cst = (pl_gz_catch_state_t *)GC_MALLOC(sizeof *cst);
+        if (!cst) return 0;
+        memset(cst, 0, sizeof *cst);
+        if (!pl_gz_build_chain_from(zc->goal_g->entry, &cst->goal_head, synth_next, cslot, callees, ncallees)) return 0;
+        if (!pl_gz_build_chain_from(zc->rec_g->entry, &cst->recovery_head, synth_next, cslot, callees, ncallees)) return 0;
+        cst->catcher = zc->catcher;
+        if (*cslot + 1 > 62) return 0;
+        cst->mark_slot = (*cslot)++;
+        IR_t *cn = pl_gz_det_node(IR_CELL_CATCH);
+        if (!cn) return 0;
+        IR_LIT(cn).ival = (int64_t)(intptr_t)cst;
         if (!*head) *head = cn; else { (*tail)->γ.node = cn; memcpy((*tail)->γ.sz, "α", 3); }
         *tail = cn;
         return 1;
@@ -1826,8 +1864,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
             softdisj = nd; soft_arm0 = arms[0];
         }
         if (nd->op == IR_GOAL) { IR_t **uu = NULL; int aa = 0; if (!pl_gz_fact_inline(nd, &uu, &aa) && !pl_gz_choice_inline(nd) && !pl_gz_rule_inline_check(nd)) return NULL; }
-        if (nd->op == IR_CHOICE || nd->op == IR_CUT ||
-            nd->op == IR_CATCH) return NULL;
+        if (nd->op == IR_CHOICE || nd->op == IR_CUT) return NULL;
         if (nd->op == IR_STRUCT) {
             if (g_gz_no_struct_ptr) return NULL;
             int parent_ok = 0;
