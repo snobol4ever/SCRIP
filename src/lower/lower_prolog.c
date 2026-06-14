@@ -506,7 +506,95 @@ int pl_rt_assertz(Term *clause_term, int prepend) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* findall/aggregate_all lambda-lift (m3/m4 compound inner goal): when the GOAL of findall(T,G,L)
+ * (or aggregate_all) is not a simple single call with all-logicvar args, hoist it into a fresh
+ * predicate  '$faN'(SharedVars) :- G.  and rewrite the goal to a plain call '$faN'(SharedVars).
+ * SharedVars = distinct vars of the TEMPLATE (their ORIGINAL slots become the call args so the
+ * collected bindings flow back; the helper head renumbers them to 0..k-1). The single-callee
+ * findall drive box then handles conjunction / list-arg / disjunction goals unchanged. */
+static int pl_ll_ctr = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_ll_collect_vars(const tree_t *t, int *order, int *norder, int cap) {
+    if (!t) return;
+    if (t->t == TT_VAR) {
+        int s = (int)t->v.ival;
+        for (int i = 0; i < *norder; i++) if (order[i] == s) return;
+        if (*norder < cap) order[(*norder)++] = s;
+        return;
+    }
+    for (int i = 0; i < t->n; i++) pl_ll_collect_vars(t->c[i], order, norder, cap);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_ll_copy_remap(const tree_t *t, const int *remap, int rn) {
+    if (!t) return NULL;
+    tree_t *c = ast_node_new(t->t);
+    c->v = t->v;
+    if (t->t == TT_VAR) { int s = (int)t->v.ival; if (s >= 0 && s < rn && remap[s] >= 0) c->v.ival = remap[s]; }
+    for (int i = 0; i < t->n; i++) ast_push(c, pl_ll_copy_remap(t->c[i], remap, rn));
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_ll_maybe_lift(tree_t *fa) {
+    if (!fa || fa->t != TT_FNC || !fa->v.sval || fa->n != 3) return;
+    if (strcmp(fa->v.sval, "findall") && strcmp(fa->v.sval, "aggregate_all")) return;
+    tree_t *tmpl = fa->c[0], *g = fa->c[1];
+    if (!g) return;
+    int need;
+    if (g->t == TT_QLIT) need = 0;
+    else if (g->t == TT_FNC && g->v.sval && strcmp(g->v.sval, ",") && strcmp(g->v.sval, ";")) {
+        need = 0;
+        for (int i = 0; i < g->n; i++) if (!g->c[i] || g->c[i]->t != TT_VAR) { need = 1; break; }
+    } else need = 1;
+    if (!need) return;
+    int head_slots[8]; int nhead = 0;
+    pl_ll_collect_vars(tmpl, head_slots, &nhead, 8);
+    if (nhead > 3) return;                       /* findall box passes <=3 callee args */
+    int maxs = -1, tmp[256], nt = 0;
+    pl_ll_collect_vars(tmpl, tmp, &nt, 256);
+    for (int i = 0; i < nt; i++) if (tmp[i] > maxs) maxs = tmp[i];
+    int gt[256], ngv = 0;
+    pl_ll_collect_vars(g, gt, &ngv, 256);
+    for (int i = 0; i < ngv; i++) if (gt[i] > maxs) maxs = gt[i];
+    int rn = maxs + 1; if (rn < 1) rn = 1;
+    int *remap = (int *)malloc((size_t)rn * sizeof(int));
+    for (int i = 0; i < rn; i++) remap[i] = -1;
+    for (int j = 0; j < nhead; j++) if (head_slots[j] >= 0 && head_slots[j] < rn) remap[head_slots[j]] = j;
+    int next_new = nhead;
+    for (int i = 0; i < ngv; i++) { int s = gt[i]; if (s >= 0 && s < rn && remap[s] < 0) remap[s] = next_new++; }
+    char *nm = (char *)malloc(16); snprintf(nm, 16, "$fa%d", pl_ll_ctr++);
+    char *key = (char *)malloc(24); snprintf(key, 24, "%s/%d", nm, nhead);
+    tree_t *cl = ast_node_new(TT_CLAUSE);
+    cl->v.sval = key; cl->v.dval = (double)nhead;
+    for (int j = 0; j < nhead; j++) { tree_t *hv = ast_node_new(TT_VAR); hv->v.ival = j; ast_push(cl, hv); }
+    ast_push(cl, pl_ll_copy_remap(g, remap, rn));
+    free(remap);
+    int bb_idx = lower_pl_clause_graph(cl);
+    if (bb_idx < 0) return;                      /* lift failed: leave original goal in place */
+    resolve_bb_register(key, nhead, bb_idx);
+    tree_t *call = ast_node_new(TT_FNC); call->v.sval = nm;
+    for (int j = 0; j < nhead; j++) { tree_t *av = ast_node_new(TT_VAR); av->v.ival = head_slots[j]; ast_push(call, av); }
+    fa->c[1] = call;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_ll_scan(tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "findall") || !strcmp(t->v.sval, "aggregate_all")) && t->n == 3)
+        pl_ll_maybe_lift(t);
+    for (int i = 0; i < t->n; i++) pl_ll_scan(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_ll_prepass(void) {
+    for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++)
+        for (Resolve_PredEntry *pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
+            tree_t *ch = pe->choice;
+            if (!ch) continue;
+            if (ch->t == TT_CHOICE) { for (int i = 0; i < ch->n; i++) pl_ll_scan(ch->c[i]); }
+            else pl_ll_scan(ch);
+        }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_pl_stage2(const tree_t *prog) {
+    pl_ll_prepass();
     const char *goal_key = NULL;
     char keybuf[128];
     for (int i = 0; i < prog->n; i++) {
