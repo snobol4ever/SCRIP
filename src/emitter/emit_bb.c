@@ -2723,7 +2723,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
                 IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
                 long tn = (ae && ae->op == IR_LIT_I && IR_LIT(ae).ival >= 1 && icn_arg_entry_terminal(ae)) ? (long) IR_LIT(ae).ival : -1;
                 int  sa = -1;
-                if (tn < 0 && ae && ae->op == IR_CALL && icn_arg_entry_terminal(ae)) {
+                if (tn < 0 && ae && (ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && icn_arg_entry_terminal(ae)) {
                     sa = bb_slot_get(ae);
                     if (sa < 0) {
                         int tid = g_flat_node_id++;
