@@ -524,13 +524,13 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_DISJ:          bb_emit_x86(bb_disj());                                 return 0;
     case IR_GCONJ:          bb_emit_x86(bb_conj());                                 return 0;
     case IR_ITE:          bb_emit_x86(bb_ite());                                 return 0;
-    case IR_CATCH:        bb_prepare(nd); bb_emit_x86(bb_catch());               return 0;
+    case IR_CATCH:        { fprintf(stderr, "emit_core: IR_CATCH survived GZ-ONLY lowering (unreachable)\n"); abort(); }
     case IR_UNIFY:           bb_prepare(nd); bb_emit_x86(bb_unify());           return 0;
-    case IR_GOAL:            bb_prepare(nd); bb_emit_x86(bb_goal());            return 0;
+    case IR_GOAL:            { fprintf(stderr, "emit_core: IR_GOAL survived GZ-ONLY lowering (unreachable)\n"); abort(); }
     case IR_BUILTIN:         { fprintf(stderr, "emit_core: IR_BUILTIN '%s' survived GZ-ONLY lowering (unreachable)\n", IR_LIT(nd).sval ? IR_LIT(nd).sval : "?"); abort(); }
     case IR_LOGICVAR:        bb_emit_x86(bb_logicvar(nd));                      return 0;
     case IR_ATOM:            bb_prepare(nd); bb_emit_x86(bb_atom());            return 0;
-    case IR_CHOICE:          bb_emit_x86(bb_choice());                          return 0;
+    case IR_CHOICE:          { fprintf(stderr, "emit_core: IR_CHOICE survived GZ-ONLY lowering (unreachable)\n"); abort(); }
     case IR_QUERY_FRAME:     { bb_emit_x86(bb_query_frame()); return 0; }
     case IR_DET_WRITE:       { bb_emit_x86(bb_det_write()); return 0; }
     case IR_DET_NL:          { bb_emit_x86(bb_det_nl()); return 0; }

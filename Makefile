@@ -102,10 +102,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_conj.cpp \
     $(SRC)/emitter/BB_templates/bb_disj.cpp \
     $(SRC)/emitter/BB_templates/bb_ite.cpp \
-    $(SRC)/emitter/BB_templates/bb_catch.cpp \
     $(SRC)/emitter/BB_templates/bb_cut.cpp \
-    $(SRC)/emitter/BB_templates/bb_goal.cpp \
-    $(SRC)/emitter/BB_templates/bb_choice.cpp \
     $(SRC)/emitter/BB_templates/bb_atom.cpp \
     $(SRC)/emitter/BB_templates/bb_logicvar.cpp \
     $(SRC)/emitter/BB_templates/bb_fail.cpp \
@@ -356,10 +353,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_conj.cpp       -o $(OBJ)/bb_conj.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_disj.cpp       -o $(OBJ)/bb_disj.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_ite.cpp       -o $(OBJ)/bb_ite.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_catch.cpp     -o $(OBJ)/bb_catch.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_goal.cpp      -o $(OBJ)/bb_goal.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_choice.cpp    -o $(OBJ)/bb_choice.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_atom.cpp      -o $(OBJ)/bb_atom.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_logicvar.cpp  -o $(OBJ)/bb_logicvar.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_fail.cpp      -o $(OBJ)/bb_fail.o
