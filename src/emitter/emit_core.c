@@ -521,7 +521,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_CATCH:        bb_prepare(nd); bb_emit_x86(bb_catch());               return 0;
     case IR_UNIFY:           bb_prepare(nd); bb_emit_x86(bb_unify());           return 0;
     case IR_GOAL:            bb_prepare(nd); bb_emit_x86(bb_goal());            return 0;
-    case IR_BUILTIN:         bb_prepare(nd); bb_emit_x86(bb_resolve(nd));       return 0;
+    case IR_BUILTIN:         { fprintf(stderr, "emit_core: IR_BUILTIN '%s' survived GZ-ONLY lowering (unreachable)\n", IR_LIT(nd).sval ? IR_LIT(nd).sval : "?"); abort(); }
     case IR_LOGICVAR:        bb_emit_x86(bb_logicvar(nd));                      return 0;
     case IR_ATOM:            bb_prepare(nd); bb_emit_x86(bb_atom());            return 0;
     case IR_CHOICE:          bb_emit_x86(bb_choice());                          return 0;

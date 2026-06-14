@@ -63,14 +63,3 @@ extern int  rt_throw_term(void *ball_term);
 #include "x86_asm.h"
 std::string emit_build_compound_term(const IR_t *nd);
 int bb_op_floaty(const char *fn);
-std::string bb_io(void);
-std::string bb_is_cmp_str(IR_t *pBB, const char *fn, const std::string &hdr);
-std::string bb_type_test();
-std::string bb_term_inspect();
-std::string bb_aggregate_nb();
-std::string bb_atom_string();
-std::string bb_term_io();
-std::string bb_findall_str(IR_t *pBB, const char *fn, const std::string &hdr);
-std::string bb_succ_plus();
-std::string bb_list();
-std::string bb_retract_throw();
