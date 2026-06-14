@@ -48,13 +48,6 @@ std::string bb_match_span_var() {
          + x86("mov",    "r14d", "edx")
          + x86("jmp",    "γ")
          + x86("def",    "β")
-         + x86("mov",    "eax", FR(_.x86_scratch_off + 8))
-         + x86("sub",    "eax", (long)1)
-         + x86("cmp",    "eax", (long)1)
-         + x86("jl",     "ω")
-         + x86("mov",    FR(_.x86_scratch_off + 8), "eax")
-         + x86("mov",    "edx", FR(_.x86_scratch_off + 12))
-         + x86("add",    "edx", "eax")
-         + x86("mov",    "r14d", "edx")
-         + x86("jmp",    "γ");
+         + x86("mov",    "r14d", FR(_.x86_scratch_off + 12))
+         + x86("jmp",    "ω");
 }
