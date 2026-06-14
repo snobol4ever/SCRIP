@@ -2104,48 +2104,28 @@ int main(int argc, char **argv)
     }
     int mode_run           = 0;
     int mode_compile       = 0;
-    int mode_monitor       = 0;
     int dump_ast           = 0;
-    int dump_ast_bison     = 0;
-    int dump_sm            = 0;
-    int dump_bb            = 0;
-    int dump_bb2           = 0;
-    int dump_sno           = 0;
-    int opt_trace          = 0;
+    int dump_ir            = 0;
+    int dump_transpile     = 0;
     int opt_bench          = 0;
     const char * target_name = NULL;
     int argi = 1;
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
-        if      (strcmp(argv[argi], "--run")           == 0) { mode_run           = 1; argi++; }
-        else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile       = 1; if (!target_name) target_name = "x86"; argi++; }
-        else if (strcmp(argv[argi], "--monitor")       == 0) { mode_monitor       = 1; argi++; }
+        if      (strcmp(argv[argi], "--run")           == 0) { mode_run       = 1; argi++; }
+        else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile   = 1; if (!target_name) target_name = "x86"; argi++; }
         else if (strncmp(argv[argi], "--target=", 9)   == 0) { target_name = argv[argi] + 9; mode_compile = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-ast")      == 0) { dump_ast           = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-ast-bison") == 0) { dump_ast_bison    = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-sm")       == 0) { dump_sm            = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-bb")       == 0) { dump_bb            = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-bb2")      == 0) { dump_bb2           = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-sno")      == 0) { dump_sno           = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-width")    == 0) {
-            if (argi + 1 < argc) { ir_set_print_width(atoi(argv[++argi])); argi++; }
-        }
-        else if (strcmp(argv[argi], "--trace")         == 0) { opt_trace          = 1; argi++; }
-        else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench          = 1; argi++; }
-        else if (strcmp(argv[argi], "--case-sensitive") == 0) { argi++; }
-        else if (strcmp(argv[argi], "--fold-case")     == 0) {
-            fprintf(stderr, "scrip: --fold-case is no longer supported; SCRIP is case-sensitive only\n");
-            return 1;
-        }
+        else if (strcmp(argv[argi], "--dump-ast")      == 0) { dump_ast       = 1; argi++; }
+        else if (strcmp(argv[argi], "--dump-ir")       == 0) { dump_ir        = 1; argi++; }
+        else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
+        else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else break;
     }
     int mode_compile_x86 = (mode_compile && target_name && strcmp(target_name, "x86") == 0);
-    if (mode_compile_x86 && (mode_run || mode_monitor)) {
-        fprintf(stderr,
-            "scrip: --compile (x86) is mutually exclusive with "
-            "--run / --monitor\n");
+    if (mode_compile_x86 && mode_run) {
+        fprintf(stderr, "scrip: --compile (x86) is mutually exclusive with --run\n");
         return 1;
     }
-    if (!mode_run && !mode_monitor && !mode_compile)
+    if (!mode_run && !mode_compile)
         mode_run = 1;
     if (argi >= argc) {
         fprintf(stderr,
@@ -2155,15 +2135,12 @@ int main(int argc, char **argv)
             "  --run            build flat-wired x86 BB blobs in a sealed slab and jump in  [DEFAULT]\n"
             "  --compile        emit standalone x86-64 asm to stdout (links libscrip_rt.so)\n"
             "  --target=ARCH    emit code for the named backend (x86, jvm, js, wasm); implies --compile\n"
-            "  --monitor        in-process sync comparator (unavailable)\n"
             "\n"
             "Diagnostic options:\n"
             "  --dump-ast       print AST after frontend\n"
-            "  --dump-bb        print BB-GRAPH for each proc\n"
-            "  --dump-sno       transpile AST to portable SNOBOL4 source (GOAL-PARSER-SC-TRANSPILE.md SCT-1)\n"
-            "  --trace          MONITOR trace output (diff vs CSNOBOL4)\n"
+            "  --dump-ir        print IR/BB-graph for each proc\n"
+            "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --bench          print wall-clock time after execution\n"
-            "  --dump-ast-bison dump AST via old Bison/Flex parser\n"
             "\n"
             "Frontend inferred from file extension:\n"
             "  .sno=SNOBOL4  .icn=Icon  .pl=Prolog  .sc=Snocone  .reb=Rebus\n"
@@ -2282,7 +2259,7 @@ int main(int argc, char **argv)
             fclose(f);
             ir_dump_program(sub_ast, stdout);
             return 0;
-        } else if (dump_sno) {
+        } else if (dump_transpile) {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
@@ -2292,9 +2269,8 @@ int main(int argc, char **argv)
         } else {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
-            tree_t *sub_ast = sno_parse_ast(f, input_path, dump_ast_bison ? &sub : NULL);
+            tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
             fclose(f);
-            if (dump_ast_bison) { ir_dump_program(sub, stdout); return 0; }
             MERGE_AST(sub_ast);
         }
         if (!ast_prog) {
@@ -2338,18 +2314,13 @@ int main(int argc, char **argv)
         extern DESCR_t (*g_eval_str_hook)(const char *s);
         g_eval_str_hook = _eval_str_impl_fn;
     }
-    g_opt_trace   = opt_trace;
-    g_opt_dump_bb = dump_bb;
-    if (dump_sm) {
-        fprintf(stderr, "scrip: --dump-sm removed (Stack Machine excised). Use --dump-bb.\n");
-        return 1;
-    }
-    if (dump_sno) {
+    g_opt_dump_bb = dump_ir;
+    if (dump_transpile) {
         extern int tree_to_sno(const tree_t *ast, FILE *out);
         tree_to_sno(ast_prog, stdout);
         return 0;
     }
-    if (dump_bb) {
+    if (dump_ir) {
         extern void bb_print(const IR_graph_t * bbg, FILE * fp);
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
@@ -2371,64 +2342,6 @@ int main(int argc, char **argv)
             bb_print(s2->bbp.table[idx], stdout);
         }
         free(seen_all);
-        return 0;
-    }
-    if (dump_bb2) {
-        extern void bb_print(const IR_graph_t * bbg, FILE * fp);
-        extern IR_graph_t * lower_icon(const tree_t *);
-        extern IR_graph_t * lower_snobol4(const tree_t *);
-        extern IR_graph_t * lower_raku(const tree_t *);
-        extern IR_graph_t * lower_pascal(const tree_t *);
-        extern IR_graph_t * lower_prolog(const tree_t *);
-        if (is_icon) {
-            extern int lower_icon_enum(const tree_t *, const tree_t **, int);
-            extern IR_graph_t * lower_icon_proc(const tree_t *, const tree_t *);
-            const tree_t * procs[256];
-            int np = lower_icon_enum(ast_prog, procs, 256);
-            if (np <= 0) { IR_graph_t * g = lower_icon(ast_prog); if (g) bb_print(g, stdout); return 0; }
-            for (int _pi = 0; _pi < np; _pi++) {
-                const char * nm = procs[_pi]->v.sval ? procs[_pi]->v.sval : "?";
-                IR_graph_t * g = lower_icon_proc(ast_prog, procs[_pi]);
-                if (!g) continue;
-                fprintf(stdout, "; proc %s\n", nm);
-                bb_print(g, stdout);
-            }
-            return 0;
-        }
-        if (is_pascal) {
-            extern int lower_pascal_enum(const tree_t *, const tree_t **, int);
-            extern IR_graph_t * lower_pascal_proc(const tree_t *, const tree_t *);
-            const tree_t * procs[256];
-            int np = lower_pascal_enum(ast_prog, procs, 256);
-            if (np <= 0) { IR_graph_t * g = lower_pascal(ast_prog); if (g) bb_print(g, stdout); return 0; }
-            for (int _pi = 0; _pi < np; _pi++) {
-                const char * nm = procs[_pi]->v.sval ? procs[_pi]->v.sval : "?";
-                IR_graph_t * g = lower_pascal_proc(ast_prog, procs[_pi]);
-                if (!g) continue;
-                fprintf(stdout, "; proc %s\n", nm);
-                bb_print(g, stdout);
-            }
-            return 0;
-        }
-        if (is_raku) {
-            extern int lower_raku_enum(const tree_t *, const tree_t **, int);
-            extern IR_graph_t * lower_raku_proc(const tree_t *, const tree_t *);
-            const tree_t * procs[256];
-            int np = lower_raku_enum(ast_prog, procs, 256);
-            if (np <= 0) { IR_graph_t * g = lower_raku(ast_prog); if (g) bb_print(g, stdout); return 0; }
-            for (int _pi = 0; _pi < np; _pi++) {
-                const char * nm = (procs[_pi]->n > 0 && procs[_pi]->c[0] && procs[_pi]->c[0]->v.sval) ? procs[_pi]->c[0]->v.sval : "?";
-                IR_graph_t * g = lower_raku_proc(ast_prog, procs[_pi]);
-                if (!g) continue;
-                fprintf(stdout, "; proc %s\n", nm);
-                bb_print(g, stdout);
-            }
-            return 0;
-        }
-        IR_graph_t * g = is_raku ? lower_raku(ast_prog) : is_prolog ? lower_prolog(ast_prog) : is_pascal ? lower_pascal(ast_prog) : lower_snobol4(ast_prog);
-        if (!g) { fprintf(stderr, "scrip: --dump-bb2 lowering returned NULL\n"); return 1; }
-        fprintf(stdout, "; proc main\n");
-        bb_print(g, stdout);
         return 0;
     }
     if (mode_compile_x86) {
@@ -2745,11 +2658,7 @@ int main(int argc, char **argv)
         ast_tree_free(ast_prog); ast_prog = NULL;
         return 1;
     }
-    if (mode_monitor) {
-        fprintf(stderr, "[NO-SM-BB] --monitor: trampoline codegen deleted (FACT RULE); unavailable\n");
-        ast_tree_free(ast_prog); ast_prog = NULL;
-        return 1;
-    } else if (mode_run) {
+    if (mode_run) {
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
