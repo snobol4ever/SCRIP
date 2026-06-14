@@ -6,6 +6,7 @@ extern "C" {
 #include "emit_bb.h"
 #include "emit.h"
 #include "dtp.h"
+const char *rt_nv_cstr(const char *name);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -14,14 +15,18 @@ std::string bb_pattern_unary_s() {
     if (!PLATFORM_X86) return std::string();
     g_us_seq++;
     static char lbuf[24];
-    if (_.op_dval == 1.0)
-        return x86("comment", "IR_PATTERN_UNARY_S var-cset: ledger nv-get pending")
-             + x86("label",   _.lbl_α)
-             + x86_bomb("PATTERN cset variable-arg object: native construction-time eval pending (ledger nv-get from emitted code)")
-             + x86("def",     "β")
-             + x86_bomb("PATTERN cset variable-arg object: native construction-time eval pending (ledger nv-get from emitted code)");
-    return x86("comment", "IR_PATTERN_UNARY_S")
+    return x86("comment", _.op_dval == 1.0 ? "IR_PATTERN_UNARY_S var-cset (construction-time NV-get)" : "IR_PATTERN_UNARY_S")
          + x86("label",   _.lbl_α)
+         + ( _.op_dval == 1.0
+             ? ( x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), (strtab_label(lbuf, sizeof lbuf, (_.op_sval ? _.op_sval : "")), lbuf))
+               + x86("push", "rbx")
+               + x86("mov",  "rbx", "rsp")
+               + x86("and",  "rsp", -16L)
+               + x86("call", "rt_nv_cstr", (uint64_t)(uintptr_t)(void*)(const char*(*)(const char*))rt_nv_cstr)
+               + x86("mov",  "rsp", "rbx")
+               + x86("pop",  "rbx")
+               + x86("mov",  "r9", "rax") )
+             : std::string() )
          + x86("lea",     "rdi", FRQ(_.op_off))
          + x86("lea",     "rsi", "[rip + __]",
                  !strcmp((_.op_kind ? _.op_kind : "ANY"), "NOTANY") ? (uint64_t)(uintptr_t)bb_notany_proto
@@ -44,7 +49,9 @@ std::string bb_pattern_unary_s() {
                :                         (uint64_t)(uintptr_t)&bb_any_proto_desc,
                  (std::string(".Lus") + std::to_string(g_us_seq) + "_desc"))
          + x86("mov32",   "r8d", 0L)
-         + x86("lea",     "r9",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), (strtab_label(lbuf, sizeof lbuf, (_.op_sval ? _.op_sval : "")), lbuf))
+         + ( _.op_dval == 1.0
+             ? std::string()
+             : x86("lea",     "r9",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), (strtab_label(lbuf, sizeof lbuf, (_.op_sval ? _.op_sval : "")), lbuf)) )
          + x86("push",    "rbx")
          + x86("mov",     "rbx", "rsp")
          + x86("and",     "rsp", -16L)
