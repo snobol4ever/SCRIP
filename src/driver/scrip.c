@@ -300,6 +300,7 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
             if (nd->op == IR_CASE) return 0;
+            if (nd->op == IR_INITIAL) return 0;
             if (nd->op == IR_SWAP) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (icn_rk_bool_cond_emittable(nd)||icn_rk_bool_truthy_emittable(nd)) {} else return 0; }
             if (nd->op == IR_GEN_SCAN) {
@@ -310,8 +311,8 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
                 if (nd->γ.node && nd->γ.node->op == IR_CALL && !icn_gen_scan_body_slotful(nd)) return 0;
             }
             { extern int g_icn_globals_nv;
-              if (nd->op == IR_VAR && IR_EXEC(nd).state == 1 && !g_icn_globals_nv) return 0;
-              if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && IR_EXEC(nd).state != 1 && !icn_graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
+              if (nd->op == IR_VAR && IR_LIT(nd).sval && is_global(IR_LIT(nd).sval) && !g_icn_globals_nv) return 0;
+              if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !icn_graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
               if (nd->op == IR_ASSIGN && IR_LIT(nd).sval) {
                   int lhs_global = is_global(IR_LIT(nd).sval);
                   if (lhs_global && g_icn_globals_nv) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
