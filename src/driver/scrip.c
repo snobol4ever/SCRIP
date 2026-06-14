@@ -208,7 +208,6 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     if (r->op == IR_FIELD_GET) return 1;
     if (r->op == IR_GATHER || r->op == IR_MAP || r->op == IR_GREP) return 1;
-    if (r->op == IR_NFA_MATCH) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
     if (r->op == IR_GEN_SCAN) return gen_scan_body_slotful(r);
     return 0;
@@ -266,7 +265,7 @@ static int assign_safe_kind(IR_e t) {
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL || t == IR_FIELD_GET ||
            t == IR_BINOP || t == IR_IF || t == IR_WHILE || t == IR_UNTIL || t == IR_REPEAT ||
            t == IR_BREAK || t == IR_NEXT || t == IR_CONJ || t == IR_GEN_SCAN ||
-           t == IR_GATHER || t == IR_MAP || t == IR_GREP || t == IR_NFA_MATCH;
+           t == IR_GATHER || t == IR_MAP || t == IR_GREP;
 }
 static int graph_has_local_assign(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) {
@@ -289,6 +288,7 @@ static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, cons
     return 0;
 }
 static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
+    extern int rt_builtin_is_known(const char *name);
     if (!s2) return 0;
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
@@ -299,7 +299,7 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
-            if (nd->op == IR_NFA_MATCH) return 0;
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval)) return 0;
             if (nd->op == IR_CASE) return 0;
             if (nd->op == IR_INITIAL) return 0;
             if (nd->op == IR_SWAP) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }

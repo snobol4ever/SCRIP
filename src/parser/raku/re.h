@@ -55,10 +55,6 @@ void       nfa_free(Nfa *nfa);
 Nfa_state *nfa_states(Nfa *nfa);
 int        nfa_group_by_name(const Nfa *nfa, const char *name);
 void       nfa_group_name_copy(const Nfa *nfa, int g, char *dst64);
-void       nfa_bb_exec(const Nfa *nfa, const char *subject, Match *result);
-struct IR_graph_t;
-void       nfa_bb_graph_exec(struct IR_graph_t *bbg, int ngroups, const char *subject, Match *result);
-struct IR_graph_t *nfa_to_bb(Nfa *nfa);
 #endif
 typedef int (*Code_fn)(const char *code, int pos, const char *subject,
                             void *userdata);
