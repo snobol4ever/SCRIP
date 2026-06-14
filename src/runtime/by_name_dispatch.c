@@ -2001,7 +2001,7 @@ DESCR_t proc_as_value(const char *name) {
         }
     }
     static const char *builtins[] = {
-        "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin","__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite","__pas_reset","__pas_fclose","write","writes","read","reads","close","open","remove","flush",
+        "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin","__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite","__pas_reset","__pas_fclose","write","writes","read","reads","close","open","remove","flush",
         "put","get","pull","push","pop","list","image","proc","type","copy",
         "string","integer","real","numeric","ord","char","reverse","sort","sortf",
         "find","match","many","any","upto","bal","move","tab","pos",
@@ -2095,6 +2095,15 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if (!strcmp(fn, "__pas_chrlit") && nargs == 1) {
         *out = IS_INT_fn(args[0]) ? args[0] : INTVAL(0); return 1;
+    }
+    if (!strcmp(fn, "__pas_enum_name") && nargs == 2) {
+        long long ord = IS_INT_fn(args[0]) ? args[0].i : (IS_REAL_fn(args[0]) ? (long long)args[0].r : 0);
+        const char *csv = VARVAL_fn(args[1]); if (!csv) csv = "";
+        const char *p = csv; long long k = 0;
+        while (*p && k < ord) { if (*p == ',') k++; p++; }
+        const char *st = p; while (*p && *p != ',') p++;
+        size_t L = (size_t)(p - st); char *s = (char *)GC_malloc(L + 1); memcpy(s, st, L); s[L] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = s }; return 1;
     }
     if (!strcmp(fn, "__pas_read_i") && nargs == 0) {
         long long v = 0; scanf(" %lld", &v); *out = INTVAL(v); return 1;
