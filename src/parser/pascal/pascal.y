@@ -54,6 +54,7 @@ static int is_pas_io(const char *fn) {
 }
 static const char *pas_ptrvar_target(const char *v);
 static const char *pas_ptrexpr_target(tree_t *e);
+static const char *pas_with_sel_rtype(tree_t *sel);
 static int pas_rectype_nf(const char *rn);
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs);
 static tree_t *mk_chr_wrap(tree_t *e);
@@ -256,7 +257,7 @@ static const char *pas_selector_rectype(tree_t *e) { if (!e) return NULL;
     return NULL; }
 static const char *pas_ptrexpr_target(tree_t *e) { if (!e) return NULL;
     if (e->t == TT_VAR && e->v.sval) return pas_ptrvar_target(e->v.sval);
-    if (e->t == TT_IDX && e->n >= 2 && e->c[0] && e->c[1] && e->c[1]->t == TT_ILIT) { const char *rt = pas_selector_rectype(e->c[0]); if (rt) return pas_rectype_field_ptrto_by_index(rt, e->c[1]->v.ival); }
+    if (e->t == TT_IDX && e->n >= 2 && e->c[0] && e->c[1] && e->c[1]->t == TT_ILIT) { const char *rt = pas_with_sel_rtype(e->c[0]); if (rt) return pas_rectype_field_ptrto_by_index(rt, e->c[1]->v.ival); }
     return NULL; }
 #define PAS_LOCAL_MAX 64
 #define PAS_NEST_MAX  16
@@ -313,6 +314,14 @@ static int pas_is_setexpr(tree_t *e) { if (!e) return 0;
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, name)); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *pas_arith_or_set(tree_e ak, const char *setfn, tree_t *a, tree_t *b) { return (pas_is_setexpr(a) || pas_is_setexpr(b)) ? mk_set_bin(setfn, a, b) : bin(ak, a, b); }
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
+    if (sel && sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && sel->c[0]->t == TT_IDX && sel->c[0]->n >= 2
+        && sel->c[0]->c[0] && sel->c[0]->c[0]->t == TT_FNC && sel->c[0]->c[0]->n >= 2
+        && sel->c[0]->c[0]->c[0] && sel->c[0]->c[0]->c[0]->v.sval && !strcmp(sel->c[0]->c[0]->c[0]->v.sval, "__pas_deref")) {
+        tree_t *e = ast_node_new(TT_FNC);
+        ast_push(e, leaf_s(TT_VAR, "__pas_field_idx_set"));
+        ast_push(e, sel->c[0]->c[0]->c[1]); ast_push(e, sel->c[0]->c[1]); ast_push(e, sel->c[1]); ast_push(e, rhs);
+        return e;
+    }
     if (sel && sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && sel->c[0]->t == TT_FNC && sel->c[0]->n >= 2
         && sel->c[0]->c[0] && sel->c[0]->c[0]->v.sval && !strcmp(sel->c[0]->c[0]->v.sval, "__pas_deref")) {
         tree_t *e = ast_node_new(TT_FNC);
