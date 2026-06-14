@@ -60,12 +60,10 @@ std::string bb_cell_unify() {
          + x86("test", "eax", "eax")
          + x86("je", "ω")
          + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω"))
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(bcu_sh() == 1 || bcu_sh() == 5,
            x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω"))
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(bcu_sh() == 2,
            x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[1])))
          + x86("mov", "rsi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[2])))
@@ -73,8 +71,7 @@ std::string bb_cell_unify() {
          + x86("test", "eax", "eax")
          + x86("je", "ω")
          + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω"))
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(bcu_sh() == 3,
            x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[1])))
          + x86("movsd", "xmm0", F64(bcu_fv()))
@@ -82,8 +79,7 @@ std::string bb_cell_unify() {
          + x86("test", "eax", "eax")
          + x86("je", "ω")
          + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω"))
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(bcu_sh() == 4,
            x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[1])))
          + x86("mov", "esi", (long)_.op_parts_ival[2])
@@ -94,8 +90,7 @@ std::string bb_cell_unify() {
          + x86("test", "eax", "eax")
          + x86("je", "ω")
          + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω")
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"))
          + IF(_.op_parts_str[0] != 0,
            x86("def", L(0))
          + x86(".quad", LS(0), _.op_parts_str[0])
@@ -103,8 +98,7 @@ std::string bb_cell_unify() {
          + x86(".string", _.op_parts_str[0])))
          + IF(bcu_sh() == 6,
            x86("jmp", "ω")
-         + x86("def", "β")
-         + x86("jmp", "ω"))
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(bcu_sh() < 0, x86_bomb("bb_cell_unify: unadmitted operand shape reached the emitter"));
     return std::string();
 }

@@ -25,8 +25,7 @@ std::string bb_det_is() {
              + x86("test", "eax", "eax")
              + x86("je", "ω")
              + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω"))
+             + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(_.op_parts_ival[0] == 1,
                x86("label", _.lbl_α)
              + x86("comment", "IR_DET_IS")
@@ -38,8 +37,7 @@ std::string bb_det_is() {
              + x86("test", "eax", "eax")
              + x86("je", "ω")
              + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω")
+             + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"))
              + x86("def", L(0))
              + x86(".quad", LS(0), _.op_parts_str[0])
              + x86("label", LS(0))
@@ -55,8 +53,7 @@ std::string bb_det_is() {
              + x86("test", "eax", "eax")
              + x86("je", "ω")
              + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω")
+             + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"))
              + x86("def", L(0))
              + x86(".quad", LS(0), _.op_parts_str[0])
              + x86("label", LS(0))
@@ -70,7 +67,6 @@ std::string bb_det_is() {
              + x86("test", "eax", "eax")
              + x86("je", "ω")
              + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω"));
+             + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")));
     return std::string();
 }

@@ -497,6 +497,13 @@ int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
     return k;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int gz_node_bounded(const IR_t *g) {
+    if (!g) return 1;
+    switch (g->op) {
+    case IR_CELL_CALL: case IR_CELL_CHOICE: case IR_CELL_FINDALL: case IR_CELL_ITE: return 0;
+    default: return 1;
+    }
+}
 static void gz_fill_goal(IR_t *g, bb_label_t *gγ, bb_label_t *gω, bb_label_t *gβ) {
     g_emit.op_sval = (g->op == IR_DET_WRITE || g->op == IR_BUILTIN) ? IR_LIT(g).sval : NULL;
     g_emit.op_ival = (g->op == IR_CELL_CALL) ? 0 : IR_LIT(g).ival;
@@ -551,20 +558,28 @@ static bb_label_t * gz_emit_chain(IR_t *head, bb_label_t *chain_γ, bb_label_t *
     int cid = g_flat_node_id++;
     bb_label_t **cl = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **cb = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    IR_t **gn = (IR_t **)alloca(sizeof(IR_t *) * n);
+    int k = 0;
+    for (IR_t *g = head; g; g = g->γ.node) gn[k++] = g;
     for (int i = 0; i < n; i++) { cl[i] = emit_label_alloc("gzi%d_g%d_α", cid, i); cb[i] = emit_label_alloc("gzi%d_g%d_β", cid, i); }
     if (entry) emit_label_define_bb(entry);
     int i = 0;
     for (IR_t *g = head; g; g = g->γ.node) {
         emit_label_define_bb(cl[i]);
         bb_label_t *next_γ = (i + 1 < n) ? cl[i + 1] : chain_γ;
-        bb_label_t *gw = (g->op == IR_CELL_CUT && cut_ω) ? cut_ω : (i == 0 ? chain_ω : cb[i - 1]);
+        int p = i - 1;
+        while (p >= 0 && gz_node_bounded(gn[p])) p--;
+        bb_label_t *gw = (g->op == IR_CELL_CUT && cut_ω) ? cut_ω : (p < 0 ? chain_ω : cb[p]);
+        g_emit.op_bounded = (gz_node_bounded(g) && i + 1 < n) ? 1 : 0;
         gz_emit_cell(g, next_γ, gw, cb[i], cut_ω, callees, ncallees);
+        g_emit.op_bounded = 0;
         i++;
     }
     return cb[n - 1];
 }
 static void gz_emit_ite(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_t **callees, int *ncallees) {
     pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)(intptr_t)IR_LIT(g).ival;
+    g_emit.op_bounded = 0;
     int cid = g_flat_node_id++;
     bb_label_t *Lg1 = emit_label_alloc("gzi%d_c1", cid);
     bb_label_t *Lg2 = emit_label_alloc("gzi%d_c2", cid);

@@ -32,8 +32,7 @@ std::string bb_det_write() {
                x86("mov", "rdi", (long)_.op_ival)
              + x86("call", "rt_write_int", (uint64_t)(uintptr_t)(void *)rt_write_int))
          + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω")
+         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"))
          + IF(!_.op_sb && _.op_sval,
                x86("def", L(0))
              + x86(".quad", LS(0), _.op_sval)
