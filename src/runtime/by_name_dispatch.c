@@ -76,10 +76,7 @@ int script_try_call_builtin(tree_t *call, DESCR_t *out_descr) {
                 const char *pat = VARVAL_fn(pd); if (!pat) pat = "";
                 { Nfa *nfa = nfa_build(pat);
                   if (!nfa) { *out_descr = FAILDESCR; return 1; }
-                  static int nfa_bb = -1;
-                  if (nfa_bb < 0) { const char *e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0]=='1') ? 1 : 0; }
-                  if (nfa_bb) nfa_bb_exec(nfa, subj, &g_match);
-                  else        nfa_exec(nfa, subj, &g_match);
+                  nfa_exec(nfa, subj, &g_match);
                   g_subject = subj;
                   int verdict = g_match.matched ? 1 : 0;
                   nfa_free(nfa);
@@ -1525,10 +1522,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *pat  = VARVAL_fn(args[1]); if (!pat)  pat  = "";
         Nfa *nfa = nfa_build(pat);
         if (!nfa) { *out = FAILDESCR; return 1; }
-        static int nfa_bb = -1;
-        if (nfa_bb < 0) { const char *e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0] == '1') ? 1 : 0; }
-        if (nfa_bb) nfa_bb_exec(nfa, subj, &g_match);
-        else        nfa_exec(nfa, subj, &g_match);
+        nfa_exec(nfa, subj, &g_match);
         g_subject = subj;
         int verdict = g_match.matched ? 1 : 0;
         nfa_free(nfa);

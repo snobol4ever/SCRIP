@@ -2316,26 +2316,6 @@ IR_t * IR_interp_node(IR_t * bb) {
         IR_EXEC(bb).value = NULVCL;
         return bb->γ.node;
     }
-    case IR_NFA_MATCH: {
-        extern Match g_match; extern const char * g_subject;
-        IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
-        IR_graph_t * sb  = blks ? blks[0] : (IR_graph_t *)0;
-        IR_graph_t * bbg = blks ? blks[1] : (IR_graph_t *)0;
-        void * nfa = (void *)(intptr_t) IR_LIT(bb).ival;
-        if (!sb || !bbg || !nfa) { IR_EXEC(bb).value = FAILDESCR; return bb->ω.node; }
-        bb_reset(sb);
-        DESCR_t sd = IR_interp_once(sb);
-        char * subj = VARVAL_fn(sd); if (!subj) subj = "";
-        static int nfa_bb = -1;
-        if (nfa_bb < 0) { const char * e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0] == '1') ? 1 : 0; }
-        if (nfa_bb) nfa_bb_graph_exec(bbg, nfa_ngroups((const Nfa *) nfa), subj, &g_match);
-        else        nfa_exec((const Nfa *) nfa, subj, &g_match);
-        if (nfa_bb) { int ng = nfa_ngroups((const Nfa *) nfa); for (int g = 0; g < ng && g < MAX_GROUPS; g++) nfa_group_name_copy((const Nfa *) nfa, g, g_match.group_name[g]); }
-        g_subject = subj;
-        int verdict = g_match.matched ? 1 : 0;
-        IR_EXEC(bb).value = verdict ? INTVAL(1) : FAILDESCR;
-        return verdict ? bb->γ.node : bb->ω.node;
-    }
     case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I:
     case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL:
     case IR_ASSIGN: {

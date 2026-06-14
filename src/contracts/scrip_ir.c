@@ -151,17 +151,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_LCONCAT] = "IR_LCONCAT",
     [IR_FIND_GEN] = "IR_FIND_GEN",
     [IR_SEQ_GEN] = "IR_SEQ_GEN",
-    [IR_NFA_CHAR] = "IR_NFA_CHAR",
-    [IR_NFA_ANY] = "IR_NFA_ANY",
-    [IR_NFA_CLASS] = "IR_NFA_CLASS",
-    [IR_NFA_SPLIT] = "IR_NFA_SPLIT",
-    [IR_NFA_EPS] = "IR_NFA_EPS",
-    [IR_NFA_BOL] = "IR_NFA_BOL",
-    [IR_NFA_EOL] = "IR_NFA_EOL",
-    [IR_NFA_CAP_OPEN] = "IR_NFA_CAP_OPEN",
-    [IR_NFA_CAP_CLOSE] = "IR_NFA_CAP_CLOSE",
-    [IR_NFA_ACCEPT] = "IR_NFA_ACCEPT",
-    [IR_NFA_MATCH] = "IR_NFA_MATCH",
+    [IR_PAT_ATP] = "IR_PAT_ATP",
     [IR_GATHER] = "IR_GATHER",
     [IR_MAP] = "IR_MAP",
     [IR_GREP] = "IR_GREP",
@@ -302,7 +292,7 @@ void bb_reset(IR_graph_t * bbg) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
         IR_EXEC(bb).value   = FAILDESCR;
-        if (bb->op != IR_PAT_ARBNO && bb->op != IR_SCAN && bb->op != IR_GEN_SCAN && bb->op != IR_GOTO && bb->op != IR_GATHER && bb->op != IR_MAP && bb->op != IR_GREP && bb->op != IR_NFA_MATCH && bb->op != IR_PROG && bb->op != IR_SUSPEND && !(bb->op == IR_SEQ && IR_LIT(bb).dval == 1.0) && !(bb->op == IR_CALL && (IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 3.0)) && !ir_is_scan_kind(bb->op)) IR_EXEC(bb).counter = 0;
+        if (bb->op != IR_PAT_ARBNO && bb->op != IR_SCAN && bb->op != IR_GEN_SCAN && bb->op != IR_GOTO && bb->op != IR_GATHER && bb->op != IR_MAP && bb->op != IR_GREP && bb->op != IR_PROG && bb->op != IR_SUSPEND && !(bb->op == IR_SEQ && IR_LIT(bb).dval == 1.0) && !(bb->op == IR_CALL && (IR_LIT(bb).dval == 2.0 || IR_LIT(bb).dval == 3.0)) && !ir_is_scan_kind(bb->op)) IR_EXEC(bb).counter = 0;
         IR_EXEC(bb).state   = 0;
     }
     ag_ring_clear(bbg);
