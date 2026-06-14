@@ -1511,6 +1511,7 @@ static int binop_operand_streams(IR_t *e) {
         case IR_FIND_GEN: case IR_SEQ_GEN: case IR_SUSPEND: case IR_REPEAT:
             return 1;
         case IR_CALL_DEFINE:
+        case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
         case IR_CALL:
             if (IR_LIT(e).sval && rt_proc_is_registered(IR_LIT(e).sval)) return 0;
             return 1;
@@ -1844,11 +1845,14 @@ static int icn_arg_entry_terminal(IR_t *ae) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_generator_kind(IR_e t);
+static int ir_is_scan_kind(IR_e t) { return t == IR_SCAN_POS || t == IR_SCAN_ANY || t == IR_SCAN_MATCH || t == IR_SCAN_MANY || t == IR_SCAN_TAB || t == IR_SCAN_MOVE || t == IR_SCAN_UPTO || t == IR_SCAN_FIND || t == IR_SCAN_BAL; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int icn_subchain_node_is_generator(IR_t *nd) {
     extern int g_icn_scan_regs_live;
     if (!nd) return 0;
     if (ir_is_generator_kind(nd->op)) return 1;
     if (g_icn_scan_regs_live && nd->op == IR_CALL && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "upto") || !strcmp(IR_LIT(nd).sval, "find") || !strcmp(IR_LIT(nd).sval, "bal"))) return 1;
+    if (nd->op == IR_SCAN_UPTO || nd->op == IR_SCAN_FIND || nd->op == IR_SCAN_BAL) return 1;
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1866,7 +1870,7 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live && c->op == IR_CALL && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node; }
+        { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live && (c->op == IR_CALL || ir_is_scan_kind(c->op)) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node; }
     }
     { extern int g_icn_scan_regs_live; if (g_icn_scan_regs_live) for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i]; }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
@@ -2621,6 +2625,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_LIT_F:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_NUL:    if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL_DEFINE:
+    case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
     case IR_CALL: {
         IR_t *a0 = ir_call_arg(nd, 0);
         g_emit.op_arg_slot_n = 0;
@@ -3301,6 +3306,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
     case IR_RETURN: return 1;
     case IR_CALL_DEFINE: return 0;
+    case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
     case IR_CALL:  return (IR_LIT(n).dval == 2.0 || IR_LIT(n).dval == 3.0 || IR_LIT(n).dval == 5.0) ? 0 : (int)IR_LIT(n).ival;
     case IR_PATTERN_LIT: return 0;
     case IR_PATTERN_LEN: case IR_PATTERN_POS: case IR_PATTERN_RPOS: case IR_PATTERN_TAB: case IR_PATTERN_RTAB: return 0;
