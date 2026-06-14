@@ -51,7 +51,6 @@ std::string bb_ite();
 std::string bb_catch();
 std::string bb_cut();
 std::string bb_goal();
-std::string bb_resolve(IR_t * pBB);
 std::string bb_choice();
 std::string bb_atom();
 std::string bb_logicvar(IR_t * pBB);
