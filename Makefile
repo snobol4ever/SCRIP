@@ -70,7 +70,6 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt_protected.c \
     $(RT)/rt/pat_pool.c \
     $(SRC)/runtime/core/core.c \
-    $(SRC)/runtime/core/invoke.c \
     $(SRC)/runtime/core/argval.c \
     $(SRC)/runtime/core/name_save.c \
     $(SRC)/runtime/core/name_t.c \
@@ -285,8 +284,6 @@ RT_PIC_SRCS := \
     $(SRC)/parser/rebus/rebus.tab.c \
     $(SRC)/parser/rebus/lex.rebus.c \
     $(SRC)/parser/rebus/rebus_lower.c \
-    $(SRC)/parser/rebus/rebus_emit.c \
-    $(SRC)/parser/rebus/rebus_print.c \
     $(SRC)/parser/pascal/pascal.tab.c \
     $(SRC)/parser/pascal/pascal.lex.c \
     $(SRC)/parser/pascal/pascal_driver.c
@@ -322,7 +319,6 @@ scrip:
 	$(CC) $(CBASE) -c $(SRC)/parser/snobol4/snobol4.lex.c -o $(OBJ)/snobol4.lex.o
 	$(CC) $(CBASE) -c $(SRC)/parser/snobol4/snobol4.tab.c -o $(OBJ)/snobol4.tab.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/core.c               -o $(OBJ)/snobol4.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/core/invoke.c                 -o $(OBJ)/snobol4_invoke.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/argval.c                 -o $(OBJ)/snobol4_argval.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/name_save.c                    -o $(OBJ)/snobol4_nmd.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/name_t.c                         -o $(OBJ)/name_t.o
@@ -514,8 +510,6 @@ scrip:
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus.tab.c    -o $(OBJ)/rebus.tab.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/lex.rebus.c    -o $(OBJ)/lex.rebus.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_lower.c  -o $(OBJ)/rebus_lower.o
-	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_emit.c   -o $(OBJ)/rebus_emit.o
-	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_print.c  -o $(OBJ)/rebus_print.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/gen_runtime.c -o $(OBJ)/gen_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/by_name_dispatch.c -o $(OBJ)/by_name_dispatch.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolution.c  -o $(OBJ)/resolution.o

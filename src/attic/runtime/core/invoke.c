@@ -1,3 +1,6 @@
+/* DEAD CODE — moved from src/runtime/core/invoke.c (GC oracle --gc-sections 2026-06-14, sweep pass 3).
+ * Dead: ARGVAL_fn, INVOKE_fn. No surviving caller (ld: zero unresolved refs to these on removal).
+ * Validated: all-6-language emit byte-identical real-vs-GC + zero emitted-call references. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
