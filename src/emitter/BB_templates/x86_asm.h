@@ -198,13 +198,19 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline uint8_t x86_jcc_op(const char * mnem) {
-    if (!strcmp(mnem, "je"))  return 0x84;
-    if (!strcmp(mnem, "jne")) return 0x85;
-    if (!strcmp(mnem, "jl"))  return 0x8C;
-    if (!strcmp(mnem, "jge")) return 0x8D;
-    if (!strcmp(mnem, "jle")) return 0x8E;
-    if (!strcmp(mnem, "jg"))  return 0x8F;
-    return 0x85;
+    if (!strcmp(mnem, "je")  || !strcmp(mnem, "jz"))  return 0x84;
+    if (!strcmp(mnem, "jne") || !strcmp(mnem, "jnz")) return 0x85;
+    if (!strcmp(mnem, "jb")  || !strcmp(mnem, "jc")  || !strcmp(mnem, "jnae")) return 0x82;
+    if (!strcmp(mnem, "jae") || !strcmp(mnem, "jnc") || !strcmp(mnem, "jnb"))  return 0x83;
+    if (!strcmp(mnem, "jbe") || !strcmp(mnem, "jna"))  return 0x86;
+    if (!strcmp(mnem, "ja")  || !strcmp(mnem, "jnbe")) return 0x87;
+    if (!strcmp(mnem, "js"))  return 0x88;
+    if (!strcmp(mnem, "jns")) return 0x89;
+    if (!strcmp(mnem, "jl")  || !strcmp(mnem, "jnge")) return 0x8C;
+    if (!strcmp(mnem, "jge") || !strcmp(mnem, "jnl"))  return 0x8D;
+    if (!strcmp(mnem, "jle") || !strcmp(mnem, "jng"))  return 0x8E;
+    if (!strcmp(mnem, "jg")  || !strcmp(mnem, "jnle")) return 0x8F;
+    fprintf(stderr, "[x86] FATAL x86_jcc_op: unknown condition code '%s' (no BINARY opcode; add it)\n", mnem); abort();
 }
 inline std::string x86_jcc(const char * mnem, int port) {
     return MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
