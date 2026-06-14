@@ -18,18 +18,18 @@ std::string bb_cell_ite() {
          + IF(_.op_parts_ival[0] >= 0 && _.op_sa == 1,
            x86("comment", "IR_CELL_ITE")
          + x86("mov", FR(bcit_gate_off()), (long)1)
-         + x86("jmp", PORT_DELTA))
+         + x86_jmp_tgt(X86T_TGT0))
          + IF(_.op_parts_ival[0] >= 0 && _.op_sa == 2,
            x86("comment", "IR_CELL_ITE")
          + x86("mov", FR(bcit_gate_off()), (long)2)
-         + x86("jmp", PORT_DELTA))
+         + x86_jmp_tgt(X86T_TGT0))
          + IF(_.op_parts_ival[0] >= 0 && _.op_sa == 3,
            x86("comment", "IR_CELL_ITE")
          + x86("def", "β")
          + x86("mov", "eax", FR(bcit_gate_off()))
          + x86("cmp", "eax", (long)1)
-         + x86("je", PORT_DELTA)
-         + x86("jmp", PORT_EPSILON))
+         + x86_jcc_tgt("je", X86T_TGT0)
+         + x86_jmp_tgt(X86T_TGT1))
          + IF(_.op_parts_ival[0] >= 0 && (_.op_sa < 0 || _.op_sa > 3), x86_bomb("bb_cell_ite: unknown aspect"));
     return std::string();
 }

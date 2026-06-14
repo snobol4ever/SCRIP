@@ -29,7 +29,7 @@ std::string bb_query_frame() {
              + x86("def",  "ω")
              + x86("mov",  "edi", FR(0))
              + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
-             + x86("jmp",  "δ");
+             + x86_jmp_tgt(X86T_TGT0);
     return x86("comment", "IR_QUERY_FRAME")
          + x86("def",   "γ")
          + x86("mov32", "eax", 1L)

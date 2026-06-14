@@ -43,18 +43,18 @@ std::string bb_callee_frame() {
                  + x86("def", "β")
                  + x86("push", "r12")
                  + x86("mov", "r12", "rdi")
-                 + IF(_.op_parts_ival[2] <= 1, x86("jmp", "δ")))
+                 + IF(_.op_parts_ival[2] <= 1, x86_jmp_tgt(X86T_TGT0)))
              + IF(_.op_sa == 2,
                    x86("mov", "eax", FR(4))
                  + x86("cmp", "eax", (long)_.op_off)
-                 + x86("je", "δ"))
-             + IF(_.op_sa == 3, x86("jmp", "δ"))
+                 + x86_jcc_tgt("je", X86T_TGT0))
+             + IF(_.op_sa == 3, x86_jmp_tgt(X86T_TGT0))
              + IF(_.op_sa == 4,
                    x86("comment", "IR_CALLEE_FRAME")
                  + x86("mov", FR(4), (long)_.op_off)
                  + x86("mov", "edi", FR(0))
                  + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
-                 + x86("jmp", "δ"))
+                 + x86_jmp_tgt(X86T_TGT0))
              + IF(_.op_sa < 0 || _.op_sa > 4, x86_bomb("bb_callee_frame: unknown aspect"));
     return std::string();
 }
