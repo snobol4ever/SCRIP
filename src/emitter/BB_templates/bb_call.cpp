@@ -482,7 +482,7 @@ static IR_t * rkbool_cond_relop(IR_graph_t * cond) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int is_jct_call(IR_t * r) {
-    return r && r->op == IR_CALL && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
+    return r && (r->op == IR_CALL || ir_is_call_kind(r->op)) && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
