@@ -2,8 +2,6 @@
 #include "scrip_cc.h"
 #define AST_PRINT_MAX_DEPTH 64
 static int ast_print_width = 140;
-void ir_set_print_width(int w) { if (w > 0) ast_print_width = w; }
-int  ir_get_print_width(void)  { return ast_print_width; }
 static void print_escaped(const char * s, FILE * f) {
     if (!s) { fputs("(null)", f); return; }
     fputc('"', f);
