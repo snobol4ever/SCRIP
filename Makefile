@@ -137,7 +137,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_call_define.cpp \
     $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp \
     $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp \
-    $(SRC)/emitter/BB_templates/bb_call_rk_bool.cpp \
+    $(SRC)/emitter/BB_templates/bb_call_bool.cpp \
     $(SRC)/emitter/BB_templates/bb_call_userproc.cpp \
     $(SRC)/emitter/BB_templates/bb_call_fn.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_relop.cpp \
@@ -212,7 +212,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_dtp_assign.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_stub.cpp \
     $(SRC)/emitter/BB_templates/bb_gather.cpp \
-    $(SRC)/emitter/BB_templates/bb_rk_mapgrep.cpp \
+    $(SRC)/emitter/BB_templates/bb_mapgrep.cpp \
     $(SRC)/emitter/BB_templates/bb_assign_local.cpp \
     $(SRC)/emitter/BB_templates/bb_field_get.cpp \
     $(SRC)/emitter/BB_templates/bb_swap.cpp \
@@ -388,7 +388,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_define.cpp   -o $(OBJ)/bb_call_define.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp  -o $(OBJ)/bb_call_proc_staged.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp   -o $(OBJ)/bb_call_write_slot.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_rk_bool.cpp      -o $(OBJ)/bb_call_rk_bool.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_bool.cpp      -o $(OBJ)/bb_call_bool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_userproc.cpp     -o $(OBJ)/bb_call_userproc.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_fn.cpp      -o $(OBJ)/bb_call_fn.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_relop.cpp       -o $(OBJ)/bb_binop_relop.o
@@ -465,7 +465,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_dtp_assign.cpp  -o $(OBJ)/bb_dtp_assign.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_stub.cpp -o $(OBJ)/bb_pattern_stub.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_rk_mapgrep.cpp -o $(OBJ)/bb_rk_mapgrep.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_mapgrep.cpp -o $(OBJ)/bb_mapgrep.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_swap.cpp -o $(OBJ)/bb_swap.o

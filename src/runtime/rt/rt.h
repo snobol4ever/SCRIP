@@ -156,7 +156,7 @@ int  rt_grammar_flavor(int i);
 int  rt_grammar_has_top(const char *gname);
 void rt_call_builtin(const char *name, int nargs);
 int  rt_builtin_is_known(const char *name);
-int  rt_rk_is_truthy(DESCR_t v);
+int  rt_is_truthy(DESCR_t v);
 DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 int  rt_field_get(const char *fname);
 int  rt_field_set(const char *fname);

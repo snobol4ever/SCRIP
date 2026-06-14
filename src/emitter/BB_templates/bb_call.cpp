@@ -27,7 +27,7 @@ uint64_t rt_proc_byref_mask(const char * name);
 DESCR_t * rt_gvar_cell(const char * name);
 extern int g_emit_frame_caller_dl;
 DESCR_t NV_GET_fn(const char * name);
-int  rt_rk_is_truthy(DESCR_t v);
+int  rt_is_truthy(DESCR_t v);
 int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 }
 #include "x86_asm.h"
@@ -87,7 +87,7 @@ extern std::string bb_call_write_binop_str(IR_t *);
 extern std::string bb_call_write_legacy_str(IR_t *, int);
 extern std::string bb_call_userproc_str(IR_t *);
 extern std::string bb_call_fn_str(IR_t *);
-extern std::string bb_call_rk_bool_str(IR_t *);
+extern std::string bb_call_bool_str(IR_t *);
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 static std::string marshal_single_call(IR_t * lf, int aoff, int lblid);
@@ -481,18 +481,18 @@ static IR_t * rkbool_cond_relop(IR_graph_t * cond) {
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int rk_is_jct_call(IR_t * r) {
+static int is_jct_call(IR_t * r) {
     return r && r->op == IR_CALL && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_rk_bool_truthy_cond_str(IR_t * pBB) {
+static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * e = cond ? cond->entry : NULL;
-    if (!e) return x86_bomb("bb_call_rk_bool_truthy: empty cond sub-graph");
+    if (!e) return x86_bomb("bb_call_bool_truthy: empty cond sub-graph");
     std::string s = x86("label", _.lbl_α)
-                  + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rt_rk_is_truthy -> branch true=γ / false=ω]");
+                  + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rt_is_truthy -> branch true=γ / false=ω]");
     if (e->op == IR_LIT_I) {
         s += x86("mov32", "edi", (long)6) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
     } else if (e->op == IR_LIT_S) {
@@ -501,20 +501,20 @@ static std::string bb_call_rk_bool_truthy_cond_str(IR_t * pBB) {
         int voff = bb_varslot(IR_LIT(e).sval);
         s += x86_frame_load64("rdi", voff) + x86_frame_load64("rsi", voff + 8);
     } else {
-        return x86_bomb("bb_call_rk_bool_truthy: unhandled cond entry kind");
+        return x86_bomb("bb_call_bool_truthy: unhandled cond entry kind");
     }
-    return s + x86("call", "rt_rk_is_truthy", (uint64_t)(uintptr_t)(void *)rt_rk_is_truthy)
+    return s + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
              + x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_rk_bool_jct_cond_str(IR_t * pBB) {
+static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * relnd = rkbool_cond_relop(cond);
-    if (!relnd) return x86_bomb("bb_call_rk_bool_jct: no relop in cond sub-graph");
+    if (!relnd) return x86_bomb("bb_call_bool_jct: no relop in cond sub-graph");
     IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
-    if (!ra || !rb) return x86_bomb("bb_call_rk_bool_jct: relop operands unresolved");
+    if (!ra || !rb) return x86_bomb("bb_call_bool_jct: relop operands unresolved");
     int lhs_slot = bb_slot_claim(16);
     int rhs_slot = bb_slot_claim(16);
     std::string s = x86("label", _.lbl_α)
@@ -528,16 +528,16 @@ static std::string bb_call_rk_bool_jct_cond_str(IR_t * pBB) {
              + x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_rk_bool_cond_str(IR_t * pBB) {
+static std::string bb_call_bool_cond_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * relnd = rkbool_cond_relop(cond);
-    if (!relnd) return bb_call_rk_bool_truthy_cond_str(pBB);
+    if (!relnd) return bb_call_bool_truthy_cond_str(pBB);
     IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
-    if (!ra || !rb) return x86_bomb("bb_call_rk_bool_cond: relop operands unresolved");
-    if (rk_is_jct_call(ra) || rk_is_jct_call(rb)) return bb_call_rk_bool_jct_cond_str(pBB);
-    if (!arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_bomb("bb_call_rk_bool_cond: relop operands unhandled");
+    if (!ra || !rb) return x86_bomb("bb_call_bool_cond: relop operands unresolved");
+    if (is_jct_call(ra) || is_jct_call(rb)) return bb_call_bool_jct_cond_str(pBB);
+    if (!arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_bomb("bb_call_bool_cond: relop operands unhandled");
     int scratch = bb_slot_alloc16(relnd);
     return x86("label", _.lbl_α)
          + x86("comment", "BOX __rk_bool [dval=2 relop condition -> branch true=γ / false=ω]")
@@ -555,11 +555,11 @@ std::string bb_call(IR_t * pBB) {
     g_emit.op_call_route = bb_call_route_classify(_.node);
     switch (g_emit.op_call_route) {
         case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
-        case CALL_ROUTE_RK_BOOL_COND:  return bb_call_rk_bool_cond_str(pBB);
+        case CALL_ROUTE_RK_BOOL_COND:  return bb_call_bool_cond_str(pBB);
         case CALL_ROUTE_DVAL2_BOMB:    return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
         case CALL_ROUTE_GVAR_USERPROC: return bb_call_gvar_userproc_str(pBB);
         case CALL_ROUTE_PROC_STAGED:   return bb_call_proc_staged_str(pBB);
-        case CALL_ROUTE_RK_BOOL_SLOT:  return bb_call_rk_bool_str(pBB);
+        case CALL_ROUTE_RK_BOOL_SLOT:  return bb_call_bool_str(pBB);
         case CALL_ROUTE_WRITE_SLOT:    return bb_call_write_slot_str(pBB);
         case CALL_ROUTE_WRITE_BINOP:   return bb_call_write_binop_str(pBB);
         case CALL_ROUTE_WRITE_LEGACY:  return bb_call_write_legacy_str(pBB, 1);

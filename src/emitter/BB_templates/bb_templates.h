@@ -93,7 +93,7 @@ std::string bb_assign_frame();
 std::string bb_assign_frame_ref();
 std::string bb_alt();
 std::string bb_gather();
-std::string bb_rk_mapgrep();
+std::string bb_mapgrep();
 std::string bb_query_frame();
 std::string bb_det_write();
 std::string bb_det_nl();

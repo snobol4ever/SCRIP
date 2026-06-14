@@ -13,7 +13,7 @@ static int rkbool_arg_is_relop(IR_t * a0) {
     return a0 && a0->op == IR_BINOP && IR_LIT(a0).ival >= BINOP_LT && IR_LIT(a0).ival <= BINOP_NE;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_call_rk_bool_str(IR_t * pBB) {
+std::string bb_call_bool_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     IR_t * a0 = ir_call_arg(_.node, 0);
     if (rkbool_arg_is_relop(a0))
@@ -23,12 +23,12 @@ std::string bb_call_rk_bool_str(IR_t * pBB) {
              + x86("def", "β")
              + x86("jmp", "ω");
     int off = _.op_a_slot;
-    if (off < 0) return x86_bomb("bb_call_rk_bool: arg slot not allocated");
+    if (off < 0) return x86_bomb("bb_call_bool: arg slot not allocated");
     return x86("label", _.lbl_α)
          + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
          + x86("mov", "rdi", FRQ(off))
          + x86("mov", "rsi", FRQ(off + 8))
-         + x86("call", "rt_rk_is_truthy", (uint64_t)(uintptr_t)(void *)rt_rk_is_truthy)
+         + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
          + x86("test", "eax", "eax")
          + x86("je", "ω")
          + x86("jmp", "γ")
@@ -38,7 +38,7 @@ std::string bb_call_rk_bool_str(IR_t * pBB) {
         return x86("label", _.lbl_α)
              + x86_frame_load64("rdi", off)
              + x86_frame_load64("rsi", off + 8)
-             + x86("call", "rt_rk_is_truthy", (uint64_t)(uintptr_t)(void *)rt_rk_is_truthy)
+             + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
              + x86("test", "eax", "eax")
              + x86("je", "ω")
              + x86("jmp", "γ")
@@ -49,7 +49,7 @@ std::string bb_call_rk_bool_str(IR_t * pBB) {
              + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
              + x86("mov", "rdi", FRQ(off))
              + x86("mov", "rsi", FRQ(off + 8))
-             + x86("call", "rt_rk_is_truthy@PLT")
+             + x86("call", "rt_is_truthy@PLT")
              + x86("test", "eax", "eax")
              + x86("je",   std::string(_.lbl_ω))
              + x86("jmp",  std::string(_.lbl_γ))

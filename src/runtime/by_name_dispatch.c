@@ -704,7 +704,7 @@ static int builtin_is_generator(const char *name)
         || !strcmp(name, "seq");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_rk_is_truthy(DESCR_t v) {
+int rt_is_truthy(DESCR_t v) {
     if (IS_FAIL_fn(v)) return 0;
     if (IS_INT_fn(v))  return v.i != 0;
     if (IS_REAL_fn(v)) return v.r != 0.0;
@@ -1462,7 +1462,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             *out = rt_call_proc_descr(procname, total); return 1;
         }
         if (g_stage2.proc_table[pi].bb_idx >= 0) {
-            extern DESCR_t rk_ir_call_proc(int pi, DESCR_t *args, int nargs);
+            extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
             extern int rt_proc_has_native_fn(const char *name);
             if (rt_proc_has_native_fn(procname)) {
                 extern DESCR_t g_call_args[];
@@ -1470,7 +1470,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
                 *out = rt_call_proc_descr(procname, total); return 1;
             }
-            *out = rk_ir_call_proc(pi, callargs, total); return 1;
+            *out = ir_call_proc(pi, callargs, total); return 1;
         }
         *out = proc_table_call(pi, callargs, total); return 1;
     }
@@ -2017,7 +2017,7 @@ DESCR_t proc_as_value(const char *name) {
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rk_write_str(FILE *dest, const char *s) {
+void out_write_str(FILE *dest, const char *s) {
     if (!s || !*s) return;
     if (s[0] == '\x03') {
         char flav = s[1];
@@ -2032,7 +2032,7 @@ void rk_write_str(FILE *dest, const char *s) {
                 while (*p && depth > 0) { if (*p == '\x03') depth++; else if (*p == '\x04') depth--; p++; }
                 size_t L = (size_t)(p - start);
                 char *mb = GC_malloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
-                rk_write_str(dest, mb);
+                out_write_str(dest, mb);
             } else {
                 while (*p && *p != '\x01' && *p != '\x04') { fputc((unsigned char)*p, dest); p++; }
             }
@@ -2054,11 +2054,11 @@ void rk_write_str(FILE *dest, const char *s) {
     fputs(s, dest);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void rk_write_descr(FILE *dest, DESCR_t av) {
+static void out_write_descr(FILE *dest, DESCR_t av) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
-    const char *s = VARVAL_fn(av); if (s) rk_write_str(dest, s);
+    const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
@@ -2181,7 +2181,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             DESCR_t av = args[_wi];
             if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
             if (av.v == DT_SNUL) continue;
-            rk_write_descr(dest, av);
+            out_write_descr(dest, av);
         }
         if (nl) fputc('\n', dest);
         *out = nargs > start ? args[nargs-1] : (nargs > 0 ? args[0] : NULVCL);

@@ -56,7 +56,7 @@ extern int         Δ;
 #include "../tools/emit_per_kind_audit.h"
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static int icn_rt_arity(const IR_t *n) {
+static int node_arity(const IR_t *n) {
     switch (n->op) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: return 0;
@@ -69,7 +69,7 @@ static int icn_rt_arity(const IR_t *n) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * icn_ring_to_tree(IR_graph_t *g) {
+static IR_t * ring_to_tree(IR_graph_t *g) {
     if (!g || !g->entry) return NULL;
     IR_t *chain[256]; int nc = 0;
     for (IR_t *cur = g->entry; cur && cur->op != IR_SUCCEED && cur->op != IR_FAIL && nc < 256; cur = cur->γ.node) chain[nc++] = cur;
@@ -78,7 +78,7 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     IR_t *stk[256]; int sp = 0;
     for (int i = 0; i < nc; i++) {
         IR_t *n = chain[i];
-        int ar = icn_rt_arity(n);
+        int ar = node_arity(n);
         if (ar < 0 || ar > sp) return NULL;
         if (n->op == IR_CALL) {
             if (ar != 1) return NULL;
@@ -100,7 +100,7 @@ static IR_t * icn_ring_to_tree(IR_graph_t *g) {
     return stk[0];
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int icn_kind_native_stub(IR_e t) {
+static int kind_native_stub(IR_e t) {
     return t == IR_GEN_ALT || t == IR_KEYWORD || t == IR_PROC_GEN ||
            t == IR_CSET_UNION || t == IR_CSET_DIFF || t == IR_CSET_INTER || t == IR_CSET_COMPL ||
            t == IR_SUSPEND ||
@@ -108,7 +108,7 @@ static int icn_kind_native_stub(IR_e t) {
            t == IR_BINOP_GEN ||
            t == IR_MAP || t == IR_GREP;
 }
-static int icn_alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
+static int alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     int n = 0;
     IR_t * const * arms = bb_operand_aux_get(g, alt, &n);
     if (!arms || n <= 0 || n > 5) return 0;
@@ -118,77 +118,77 @@ static int icn_alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     }
     return 1;
 }
-static int icn_alt_safe_kind(IR_e t) {
+static int alt_safe_kind(IR_e t) {
     return t == IR_ALT || t == IR_CALL || t == IR_EVERY || t == IR_FAIL ||
            t == IR_SUCCEED || t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL;
 }
-static int icn_graph_has_alt(const IR_graph_t *g) {
+static int graph_has_alt(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_ALT) return 1;
     return 0;
 }
-static int icn_keyword_supported(const char *kw) {
+static int keyword_supported(const char *kw) {
     if (!kw) return 0;
     if (kw[0] == '&') kw++;
     return !strcmp(kw, "subject") || !strcmp(kw, "pos") || !strcmp(kw, "null") || !strcmp(kw, "fail");
 }
-static int icn_scan_safe_kind(IR_e t) {
+static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
            t == IR_VAR || t == IR_KEYWORD || t == IR_GEN_SCAN || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_EVERY;
 }
-static IR_t *icn_scan_lit_entry(IR_t *nd, IR_e want) {
+static IR_t *scan_lit_entry(IR_t *nd, IR_e want) {
     IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae || ae->op != want) return (IR_t *)0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return (IR_t *)0;
     return ae;
 }
-static int icn_scan_fn_lit_arg(IR_t *nd, IR_e want) {
-    return icn_scan_lit_entry(nd, want) != (IR_t *)0;
+static int scan_fn_lit_arg(IR_t *nd, IR_e want) {
+    return scan_lit_entry(nd, want) != (IR_t *)0;
 }
-static int icn_scan_tab_arg_ok(IR_t *nd) {
+static int scan_tab_arg_ok(IR_t *nd) {
     IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae) return 0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
     if (ae->op == IR_LIT_I && IR_LIT(ae).ival >= 1) return 1;
-    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval && (!strcmp(IR_LIT(ae).sval, "any") || !strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "many") || !strcmp(IR_LIT(ae).sval, "upto") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && icn_scan_fn_lit_arg(ae, IR_LIT_S)) return 1;
+    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval && (!strcmp(IR_LIT(ae).sval, "any") || !strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "many") || !strcmp(IR_LIT(ae).sval, "upto") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && scan_fn_lit_arg(ae, IR_LIT_S)) return 1;
     return 0;
 }
-static int icn_graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
-static int icn_scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *sg, int depth) {
+static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
+static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *sg, int depth) {
     if (!sg || !sg->all || sg->n <= 0 || depth > 16) return 0;
     for (int i = 0; i < sg->n; i++) {
         IR_t *nd = sg->all[i];
         if (!nd) continue;
-        if (!icn_scan_safe_kind(nd->op)) return 0;
+        if (!scan_safe_kind(nd->op)) return 0;
         if (nd->op == IR_VAR) {
-            if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') { if (!icn_keyword_supported(IR_LIT(nd).sval)) return 0; }
-            else if (IR_EXEC(nd).state == 1 || !IR_LIT(nd).sval || !icn_graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
+            if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') { if (!keyword_supported(IR_LIT(nd).sval)) return 0; }
+            else if (IR_EXEC(nd).state == 1 || !IR_LIT(nd).sval || !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
         }
-        if (nd->op == IR_KEYWORD && !icn_keyword_supported(IR_LIT(nd).sval)) return 0;
+        if (nd->op == IR_KEYWORD && !keyword_supported(IR_LIT(nd).sval)) return 0;
         if (nd->op == IR_CALL || ir_is_scan_kind(nd->op)) {
             if (!IR_LIT(nd).sval) return 0;
-            if (!strcmp(IR_LIT(nd).sval, "any") || !strcmp(IR_LIT(nd).sval, "match") || !strcmp(IR_LIT(nd).sval, "many") || !strcmp(IR_LIT(nd).sval, "upto")) { if (!(IR_LIT(nd).dval == 3.0 && icn_scan_fn_lit_arg(nd, IR_LIT_S))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "tab")) { if (!(IR_LIT(nd).dval == 3.0 && icn_scan_tab_arg_ok(nd))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "move")) { if (!(IR_LIT(nd).dval == 3.0 && icn_scan_fn_lit_arg(nd, IR_LIT_I))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "pos")) { IR_t *pe = icn_scan_lit_entry(nd, IR_LIT_I); if (!(IR_LIT(nd).dval == 3.0 && pe && IR_LIT(pe).ival >= 1)) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "find")) { IR_t *fe = icn_scan_lit_entry(nd, IR_LIT_S); if (!(IR_LIT(nd).dval == 3.0 && fe && IR_LIT(fe).sval && IR_LIT(fe).sval[0] && strlen(IR_LIT(fe).sval) <= 32)) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "bal")) { IR_t *be = icn_scan_lit_entry(nd, IR_LIT_S); if (!(IR_LIT(nd).dval == 3.0 && be && IR_LIT(be).sval && IR_LIT(be).sval[0] && !strchr(IR_LIT(be).sval, 40) && !strchr(IR_LIT(be).sval, 41))) return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "any") || !strcmp(IR_LIT(nd).sval, "match") || !strcmp(IR_LIT(nd).sval, "many") || !strcmp(IR_LIT(nd).sval, "upto")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_S))) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "tab")) { if (!(IR_LIT(nd).dval == 3.0 && scan_tab_arg_ok(nd))) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "move")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_I))) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "pos")) { IR_t *pe = scan_lit_entry(nd, IR_LIT_I); if (!(IR_LIT(nd).dval == 3.0 && pe && IR_LIT(pe).ival >= 1)) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "find")) { IR_t *fe = scan_lit_entry(nd, IR_LIT_S); if (!(IR_LIT(nd).dval == 3.0 && fe && IR_LIT(fe).sval && IR_LIT(fe).sval[0] && strlen(IR_LIT(fe).sval) <= 32)) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "bal")) { IR_t *be = scan_lit_entry(nd, IR_LIT_S); if (!(IR_LIT(nd).dval == 3.0 && be && IR_LIT(be).sval && IR_LIT(be).sval[0] && !strchr(IR_LIT(be).sval, 40) && !strchr(IR_LIT(be).sval, 41))) return 0; }
             else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
         }
         if (nd->op == IR_BINOP && IR_LIT(nd).ival != BINOP_CONCAT) return 0;
         if (nd->op == IR_GEN_SCAN) {
             IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
             IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival;
-            if (!icn_scan_subgraph_safe(s2, gi, g, ssg, depth + 1) || !icn_scan_subgraph_safe(s2, gi, g, bsg, depth + 1)) return 0;
+            if (!scan_subgraph_safe(s2, gi, g, ssg, depth + 1) || !scan_subgraph_safe(s2, gi, g, bsg, depth + 1)) return 0;
         }
     }
     return 1;
 }
-static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run);
-static int icn_graph_native_emittable(stage2_t *s2) { return icn_graph_native_emittable_mode(s2, 0); }
-static int icn_gen_scan_body_slotful(IR_t *r) {
+static int graph_native_emittable_mode(stage2_t *s2, int for_run);
+static int graph_native_emittable(stage2_t *s2) { return graph_native_emittable_mode(s2, 0); }
+static int gen_scan_body_slotful(IR_t *r) {
     if (!r || r->op != IR_GEN_SCAN || IR_LIT(r).dval != 1.0) return 0;
     IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(r).ival;
     IR_t *bt = bsg ? bsg->entry : (IR_t *)0;
@@ -199,7 +199,7 @@ static int icn_gen_scan_body_slotful(IR_t *r) {
     if (bt && (bt->op == IR_CALL || ir_is_scan_kind(bt->op)) && IR_LIT(bt).dval == 3.0 && IR_LIT(bt).sval && (!strcmp(IR_LIT(bt).sval, "tab") || !strcmp(IR_LIT(bt).sval, "move") || !strcmp(IR_LIT(bt).sval, "pos") || !strcmp(IR_LIT(bt).sval, "any") || !strcmp(IR_LIT(bt).sval, "match") || !strcmp(IR_LIT(bt).sval, "many") || !strcmp(IR_LIT(bt).sval, "upto") || !strcmp(IR_LIT(bt).sval, "find") || !strcmp(IR_LIT(bt).sval, "bal"))) return 1;
     return 0;
 }
-static int icn_rhs_kind_ok(IR_t *r) {
+static int rhs_kind_ok(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_I || r->op == IR_LIT_S) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
@@ -208,38 +208,39 @@ static int icn_rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     if (r->op == IR_FIELD_GET) return 1;
     if (r->op == IR_GATHER || r->op == IR_MAP || r->op == IR_GREP) return 1;
+    if (r->op == IR_NFA_MATCH) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
-    if (r->op == IR_GEN_SCAN) return icn_gen_scan_body_slotful(r);
+    if (r->op == IR_GEN_SCAN) return gen_scan_body_slotful(r);
     return 0;
 }
-static int icn_local_assign_rhs_ok(IR_t *nd) {
+static int local_assign_rhs_ok(IR_t *nd) {
     IR_t *r = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t*)0);
-    return icn_rhs_kind_ok(r);
+    return rhs_kind_ok(r);
 }
-static int icn_graph_has_binop(const IR_graph_t *g);
-static int icn_local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
+static int graph_has_binop(const IR_graph_t *g);
+static int local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
     IR_t *rhs = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
     if (!rhs) for (int i = 0; i < g->n; i++) { IR_t *p = g->all[i]; if (p && p->γ.node == nd) { rhs = p; break; } }
-    if (rhs && rhs->op == IR_LIT_F) return !icn_graph_has_binop(g);
-    return icn_rhs_kind_ok(rhs);
+    if (rhs && rhs->op == IR_LIT_F) return !graph_has_binop(g);
+    return rhs_kind_ok(rhs);
 }
-static int icn_rk_arith_operand_ok(IR_t *r) {
+static int arith_operand_ok(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_I) return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD)) return 1;
     return 0;
 }
-static int icn_rk_is_jct_call(IR_t *r) {
+static int is_jct_call(IR_t *r) {
     return r && r->op == IR_CALL && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
 }
-static int icn_rk_jct_marshallable(IR_t *r) {
+static int jct_marshallable(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_LIT_F || r->op == IR_LIT_NUL) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_CALL && (IR_LIT(r).dval == 2.0 || IR_LIT(r).dval == 3.0 || IR_LIT(r).dval == 5.0)) return 1;
     return 0;
 }
-static int icn_rk_bool_truthy_emittable(IR_t *nd) {
+static int bool_truthy_emittable(IR_t *nd) {
     if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval,"__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
     IR_graph_t **blks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
     IR_graph_t *cond = blks ? blks[0] : (IR_graph_t *)0;
@@ -247,7 +248,7 @@ static int icn_rk_bool_truthy_emittable(IR_t *nd) {
     IR_t *e = cond->entry;
     return (e->op == IR_LIT_I || e->op == IR_LIT_S || (e->op == IR_VAR && IR_LIT(e).sval && IR_LIT(e).sval[0] != '&'));
 }
-static int icn_rk_bool_cond_emittable(IR_t *nd) {
+static int bool_cond_emittable(IR_t *nd) {
     if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval, "__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
     IR_graph_t **blks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
     IR_graph_t *cond = blks ? blks[0] : (IR_graph_t *)0;
@@ -257,28 +258,28 @@ static int icn_rk_bool_cond_emittable(IR_t *nd) {
     if (!rel) return 0;
     IR_t *ra = ir_pair_arg(rel, 0); IR_t *rb = ir_pair_arg(rel, 1);
     if (!ra || !rb) { int n = 0; IR_t * const *aux = bb_operand_aux_get(cond, rel, &n); if (aux && n >= 2) { ra = aux[0]; rb = aux[1]; } }
-    if ((icn_rk_is_jct_call(ra) || icn_rk_is_jct_call(rb)) && icn_rk_jct_marshallable(ra) && icn_rk_jct_marshallable(rb)) return 1;
-    return icn_rk_arith_operand_ok(ra) && icn_rk_arith_operand_ok(rb);
+    if ((is_jct_call(ra) || is_jct_call(rb)) && jct_marshallable(ra) && jct_marshallable(rb)) return 1;
+    return arith_operand_ok(ra) && arith_operand_ok(rb);
 }
-static int icn_assign_safe_kind(IR_e t) {
+static int assign_safe_kind(IR_e t) {
     return t == IR_ASSIGN || t == IR_VAR || t == IR_CALL || t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL || t == IR_FIELD_GET ||
            t == IR_BINOP || t == IR_IF || t == IR_WHILE || t == IR_UNTIL || t == IR_REPEAT ||
            t == IR_BREAK || t == IR_NEXT || t == IR_CONJ || t == IR_GEN_SCAN ||
-           t == IR_GATHER || t == IR_MAP || t == IR_GREP;
+           t == IR_GATHER || t == IR_MAP || t == IR_GREP || t == IR_NFA_MATCH;
 }
-static int icn_graph_has_local_assign(const IR_graph_t *g) {
+static int graph_has_local_assign(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) {
         IR_t *nd = g->all[ni];
         if (nd && nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval)) return 1;
     }
     return 0;
 }
-static int icn_graph_has_binop(const IR_graph_t *g) {
+static int graph_has_binop(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_BINOP) return 1;
     return 0;
 }
-static int icn_graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name) {
+static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name) {
     for (int i = 0; i < g->n; i++) { IR_t *m = g->all[i]; if (m && m->op == IR_ASSIGN && IR_LIT(m).sval && !strcmp(IR_LIT(m).sval, name)) return 1; }
     for (int p = 0; p < s2->proc_count; p++) {
         if (s2->proc_table[p].bb_idx != gi) continue;
@@ -287,39 +288,40 @@ static int icn_graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, 
     }
     return 0;
 }
-static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
+static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
     if (!s2) return 0;
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
         if (!g || !g->all) continue;
-        int has_alt = icn_graph_has_alt(g);
-        int has_lassign = icn_graph_has_local_assign(g);
-        int has_binop = icn_graph_has_binop(g);
+        int has_alt = graph_has_alt(g);
+        int has_lassign = graph_has_local_assign(g);
+        int has_binop = graph_has_binop(g);
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
+            if (nd->op == IR_NFA_MATCH) return 0;
             if (nd->op == IR_CASE) return 0;
             if (nd->op == IR_INITIAL) return 0;
             if (nd->op == IR_SWAP) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }
-            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (icn_rk_bool_cond_emittable(nd)||icn_rk_bool_truthy_emittable(nd)) {} else return 0; }
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0; }
             if (nd->op == IR_GEN_SCAN) {
                 if (IR_LIT(nd).dval != 1.0) return 0;
                 IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
                 IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival;
-                if (!icn_scan_subgraph_safe(s2, gi, g, ssg, 0) || !icn_scan_subgraph_safe(s2, gi, g, bsg, 0)) return 0;
-                if (nd->γ.node && (nd->γ.node->op == IR_CALL || ir_is_scan_kind(nd->γ.node->op)) && !icn_gen_scan_body_slotful(nd)) return 0;
+                if (!scan_subgraph_safe(s2, gi, g, ssg, 0) || !scan_subgraph_safe(s2, gi, g, bsg, 0)) return 0;
+                if (nd->γ.node && (nd->γ.node->op == IR_CALL || ir_is_scan_kind(nd->γ.node->op)) && !gen_scan_body_slotful(nd)) return 0;
             }
             {
-              if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !icn_graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
+              if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
               if (nd->op == IR_ASSIGN && IR_LIT(nd).sval) {
                   int lhs_global = is_global(IR_LIT(nd).sval);
                   if (lhs_global) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
-                  else if (icn_local_assign_rhs_ok_g(g, nd)) { /* wave-1 local assign: bb_assign_local (lit/var/binop rhs) */ }
+                  else if (local_assign_rhs_ok_g(g, nd)) { /* wave-1 local assign: bb_assign_local (lit/var/binop rhs) */ }
                   else return 0; /* other rhs shapes: native store arm not built -> clean EXCISE, never abort */
               } }
             if (has_alt) {
-                if (!icn_alt_safe_kind(nd->op)) return 0;
-                if (nd->op == IR_ALT && !icn_alt_arms_all_simple_lit(g, nd)) return 0;
+                if (!alt_safe_kind(nd->op)) return 0;
+                if (nd->op == IR_ALT && !alt_arms_all_simple_lit(g, nd)) return 0;
             }
         }
     }
@@ -2364,7 +2366,7 @@ int main(int argc, char **argv)
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
-            if ((is_icon || is_raku) && !icn_graph_native_emittable(s2)) {
+            if ((is_icon || is_raku) && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Icon scan/keyword/cset/gen-alt/"
                                 "suspend, or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
@@ -2396,8 +2398,8 @@ int main(int argc, char **argv)
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern int descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
             extern int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname);
-            IR_t *icn_root = icn_ring_to_tree(bbg);
-            int use_chain = (icn_root == NULL);
+            IR_t *root_node = ring_to_tree(bbg);
+            int use_chain = (root_node == NULL);
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
             g_frame_active = 1;
@@ -2425,7 +2427,7 @@ int main(int argc, char **argv)
             int n_gram_emit = 0;
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
-                printf("icn_proc_startup:\n");
+                printf("proc_startup:\n");
                 printf("  push rbp\n");
                 printf("  mov rbp, rsp\n");
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
@@ -2460,7 +2462,7 @@ int main(int argc, char **argv)
                     printf("  .section .text\n");
                     printf("  .intel_syntax noprefix\n");
                     printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    printf("  lea rsi, [rip + icn_proc_%s_\xce\xb1]\n", proc_names_buf[i]);
+                    printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", proc_names_buf[i]);
                     printf("  call rt_proc_set_fn@PLT\n");
                 }
                 printf("  pop rbp\n");
@@ -2471,7 +2473,7 @@ int main(int argc, char **argv)
             printf("  push rbp\n");
             printf("  mov rbp, rsp\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
-                printf("  call icn_proc_startup\n");
+                printf("  call proc_startup\n");
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
             printf("  xor esi, esi\n");
@@ -2485,7 +2487,7 @@ int main(int argc, char **argv)
                 int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 rc = use_chain ? descr_flat_chain_build_text(bbg->entry, stdout, "main")
-                               : codegen_flat_build(icn_root, stdout, "main");
+                               : codegen_flat_build(root_node, stdout, "main");
                 g_descr_flat_chain = saved;
             }
             g_frame_active = 0;
@@ -2757,7 +2759,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
             }
-            if ((is_icon || is_raku) && !icn_graph_native_emittable_mode(s2, 1)) {
+            if ((is_icon || is_raku) && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "
                                 "or Raku map/grep). EXCISED — mode-2 (--interp) is the oracle for this rung.\n");
@@ -2801,13 +2803,13 @@ int main(int argc, char **argv)
             }
             extern void *rt_frame(void);
             extern bb_box_fn descr_flat_chain_build(IR_t * entry);
-            IR_t *icn_root = icn_ring_to_tree(bbg);
+            IR_t *root_node = ring_to_tree(bbg);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
-            if (icn_root) {
+            if (root_node) {
                 extern int g_descr_flat_chain;
                 int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
-                fn = bb_build_flat(icn_root);
+                fn = bb_build_flat(root_node);
                 g_descr_flat_chain = saved;
             } else {
                 fn = descr_flat_chain_build(bbg->entry);

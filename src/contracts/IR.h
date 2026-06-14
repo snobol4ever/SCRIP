@@ -171,6 +171,7 @@ typedef enum {
     IR_NFA_CAP_OPEN,
     IR_NFA_CAP_CLOSE,
     IR_NFA_ACCEPT,
+    IR_NFA_MATCH,
     IR_PAT_ATP,
     IR_DO_WHILE,
     IR_PAT_BAL,
