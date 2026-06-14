@@ -14,13 +14,7 @@ static const char * scan_lbl(const char * s) { s = s ? s : ""; const char * l = 
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_stmt() {
     if (!PLATFORM_X86) return std::string();
-    if (MEDIUM_TEXT && !_.op_scan_pat_lit)
-        return x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)");
-    if (MEDIUM_TEXT && _.op_scan_pat_lit && !(_.op_sval && _.op_sval[0]) && !_.op_scan_subj_lit)
-        return x86_bomb("bb_scan: TEXT(mode-4) non-literal subject needs native PB-RB graph (pending)");
-    if (MEDIUM_TEXT && _.op_scan_pat_lit && (_.op_sval && _.op_sval[0] || _.op_scan_subj_lit) && _.op_ival && !_.op_scan_replace_lit)
-        return x86_bomb("bb_scan: TEXT(mode-4) non-literal replacement needs native PB-RB graph (pending)");
-    if (MEDIUM_TEXT)
+    if (_.op_scan_pat_lit)
         return x86("comment", "IR_SCAN")
              + x86("label",   _.lbl_α)
              + IF(_.op_sval && _.op_sval[0], x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)_.op_sval, scan_lbl(_.op_sval)))
@@ -37,6 +31,12 @@ std::string bb_scan_stmt() {
              + x86("jmp",     "γ")
              + x86("def",     "β")
              + x86("jmp",     "ω");
+    if (MEDIUM_TEXT && !(_.op_sval && _.op_sval[0]) && !_.op_scan_subj_lit)
+        return x86_bomb("bb_scan: TEXT(mode-4) non-literal subject needs native PB-RB graph (pending)");
+    if (MEDIUM_TEXT && (_.op_sval && _.op_sval[0] || _.op_scan_subj_lit) && _.op_ival && !_.op_scan_replace_lit)
+        return x86_bomb("bb_scan: TEXT(mode-4) non-literal replacement needs native PB-RB graph (pending)");
+    if (MEDIUM_TEXT)
+        return x86_bomb("bb_scan: TEXT(mode-4) non-literal pattern needs native PB-RB graph (pending)");
     return x86("comment", "IR_SCAN")
          + x86("label",   _.lbl_α)
          + x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)(intptr_t)_.op_scan_pat)
