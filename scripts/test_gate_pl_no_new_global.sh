@@ -75,7 +75,7 @@ g_resolve_exception
 g_resolve_nb_store
 g_resolve_nb_count
 "
-DOOMED_FLOOR=17   # distinct doomed symbols present today; RATCHET — only ever lower this, never raise.
+DOOMED_FLOOR=15   # distinct doomed symbols present today; RATCHET — only ever lower this, never raise.
 
 # ---- enumerate distinct g_* actually present -----------------------------------------------------
 PRESENT=$(grep -rhoE '\bg_[a-zA-Z_][a-zA-Z0-9_]*' $PL_FILES 2>/dev/null | sort -u)

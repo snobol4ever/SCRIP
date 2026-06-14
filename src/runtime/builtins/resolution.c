@@ -130,29 +130,6 @@ void resolve_bb_bind_arg(int slot, void *caller_term) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void resolve_bb_env_pop(Term **saved) { free(g_resolve_env); g_resolve_env = saved; }
-#define RESOLVE_NB_STORE_SIZE 64
-typedef struct { char *key; Term *val; } Resolve_NbEntry;
-static Resolve_NbEntry g_resolve_nb_store[RESOLVE_NB_STORE_SIZE];
-static int        g_resolve_nb_count = 0;
-static void resolve_nb_setval(const char *key, Term *val) {
-    for (int i = 0; i < g_resolve_nb_count; i++) {
-        if (strcmp(g_resolve_nb_store[i].key, key) == 0) {
-            g_resolve_nb_store[i].val = val; return;
-        }
-    }
-    if (g_resolve_nb_count < RESOLVE_NB_STORE_SIZE) {
-        g_resolve_nb_store[g_resolve_nb_count].key = strdup(key);
-        g_resolve_nb_store[g_resolve_nb_count].val = val;
-        g_resolve_nb_count++;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static Term *resolve_nb_getval(const char *key) {
-    for (int i = 0; i < g_resolve_nb_count; i++)
-        if (strcmp(g_resolve_nb_store[i].key, key) == 0)
-            return g_resolve_nb_store[i].val;
-    return NULL;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define RESOLVE_CATCH_STACK_MAX 64
 typedef struct {
