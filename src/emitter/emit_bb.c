@@ -2080,6 +2080,13 @@ static int ir_is_generator_kind(IR_e t) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
+    int bk = -1;
+    if (gi->op != IR_TO && gi->op != IR_TO_BY) return -1;
+    for (int oi = 0; oi < gi->n_operands; oi++) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)gi->operands[oi] && ir_is_generator_kind(nodes[k]->op) && k > bk) bk = k;
+    return bk;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int call_args_single_shot(IR_t *pBB) {
     int nargs = (int)(pBB ? IR_LIT(pBB).ival : 0);
     for (int j = 0; j < nargs; j++) { IR_t *ax = ir_call_arg(pBB, j); if (!ax) break; if (gen_bb_is_gen_arg(ax)) return 0; }
@@ -3215,7 +3222,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k]; omega_resolved = 1; omega_k = k; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
         if (omega_resolved && nodes[i]->ω.node && nodes[i]->ω.node->op == IR_EVERY) {
-            if (ir_is_generator_kind(nodes[i]->op)) { node_ω = lbls[omega_k]; }
+            if (ir_is_generator_kind(nodes[i]->op)) { node_ω = lbls[omega_k]; int bk = to_inner_gen_operand_k(nodes[i], nodes, n); if (bk >= 0) node_ω = betas[bk]; }
             else { for (int gk = 0; gk < n; gk++) if (ir_is_generator_kind(nodes[gk]->op)) node_ω = betas[gk]; }
         }
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
