@@ -1695,6 +1695,27 @@ static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_section(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_t *base = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
+    IR_t *i1   = (pBB && pBB->n_operands > 1) ? pBB->operands[1] : NULL;
+    IR_t *i2   = (pBB && pBB->n_operands > 2) ? pBB->operands[2] : NULL;
+    if (!base || !i1 || !i2) { fprintf(stderr, "[IBB] FATAL flat_drive_section: IR_SECTION needs base + i1 + i2 operands\n"); abort(); }
+    int id = g_flat_node_id++;
+    bb_label_t *i1_done = emit_label_alloc("xsec%d_i1_done", id);
+    bb_label_t *i1_β    = emit_label_alloc("xsec%d_i1_b",    id);
+    bb_label_t *i2_done = emit_label_alloc("xsec%d_i2_done", id);
+    bb_label_t *i2_β    = emit_label_alloc("xsec%d_i2_b",    id);
+    walk_bb_flat(i1, i1_done, lbl_ω, i1_β);
+    emit_label_define_bb(i1_done);
+    walk_bb_flat(i2, i2_done, lbl_ω, i2_β);
+    emit_label_define_bb(i2_done);
+    g_emit.op_sa = bb_slot_get(i1);
+    g_emit.op_sb = bb_slot_get(i2);
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *obj_box = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
     IR_t *rhs_box = (pBB && pBB->n_operands > 1) ? pBB->operands[1] : NULL;
@@ -3122,6 +3143,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_INITIAL:    flat_drive_initial(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CASE:       flat_drive_case(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FIELD_GET:  flat_drive_field_get(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SECTION:    flat_drive_section(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FIELD_SET:  flat_drive_field_set(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_IDX:        flat_drive_idx_get(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_IDX_SET:    flat_drive_idx_set(nd, lbl_γ, lbl_ω, lbl_β); break;
