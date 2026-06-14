@@ -51,7 +51,7 @@ static inline IR_t *bb_proc_entry(const ProcEntry *e)
 {
     IR_graph_t *g = bb_graph_of_proc(e);
     if (!g) return NULL;
-    if (e->sno_entry_idx >= 0 && e->sno_entry_idx < g->n && g->all[e->sno_entry_idx]) return g->all[e->sno_entry_idx];
+    if (e->proc_entry_idx >= 0 && e->proc_entry_idx < g->n && g->all[e->proc_entry_idx]) return g->all[e->proc_entry_idx];
     return g->entry;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -65,9 +65,9 @@ extern int          scan_pos;
 typedef struct { const char *subj; int pos; uint64_t sigma; uint64_t delta; uint64_t Delta; } ScanEntry;
 extern ScanEntry scan_stack[SCAN_STACK_MAX];
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
-ScanSubjRegs rt_icn_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta);
-void rt_icn_scan_leave(uint64_t *out3);
-DESCR_t rt_icn_substr(const char *sigma, int64_t a, int64_t b);
+ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta);
+void rt_scan_leave(uint64_t *out3);
+DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 extern int          scan_depth;
 extern const char  *global_names[GLOBAL_MAX];
 extern int          global_count;

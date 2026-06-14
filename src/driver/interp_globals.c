@@ -1,7 +1,7 @@
 #include "interp_private.h"
 char g_script_exception[512] = "";
-Raku_match g_raku_match;
-const char *g_raku_subject = "";
+Match g_match;
+const char *g_subject = "";
 #define FH_MAX 64
 FILE *fh_table[FH_MAX];
 char *fh_name[FH_MAX];

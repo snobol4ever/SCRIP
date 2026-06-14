@@ -13,7 +13,7 @@
 #include "parser/prolog/term.h"
 #include "parser/prolog/prolog_runtime.h"
 #include "parser/prolog/prolog_atom.h"
-#include "parser/raku/raku_re.h"
+#include "parser/raku/re.h"
 #include "parser/prolog/prolog_builtin.h"
 #include "parser/icon/icon_driver.h"
 #include "parser/raku/raku_driver.h"
@@ -44,8 +44,8 @@ extern int         Δ;
 extern int         Σlen;
 #include "interp.h"
 extern char  g_script_exception[512];
-extern Raku_match  g_raku_match;
-extern const char *g_raku_subject;
+extern Match  g_match;
+extern const char *g_subject;
 extern int   g_kw_ctx;
 #define FH_MAX 64
 extern FILE *fh_table[FH_MAX];

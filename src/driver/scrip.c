@@ -2294,8 +2294,8 @@ int main(int argc, char **argv)
     }
     if (dump_bb) {
         extern void bb_print(const IR_graph_t * bbg, FILE * fp);
-        extern int g_icn_postfix_resume;
-        if (is_icon) g_icn_postfix_resume = 1;
+        extern int g_postfix_resume;
+        if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
@@ -2378,8 +2378,8 @@ int main(int argc, char **argv)
         extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
         extern int g_frame_active;
         if (is_icon || is_raku) {
-            extern int g_icn_postfix_resume;
-            if (is_icon) g_icn_postfix_resume = 1;
+            extern int g_postfix_resume;
+            if (is_icon) g_postfix_resume = 1;
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
@@ -2578,9 +2578,9 @@ int main(int argc, char **argv)
             }
             IR_graph_t *sbbg = s2->bbp.table[main_bb_idx];
             extern int g_flat_node_id;
-            extern int g_sno_m4_dense_nid;
+            extern int g_m4_dense_nid;
             g_flat_node_id = 0;
-            g_sno_m4_dense_nid = 1;
+            g_m4_dense_nid = 1;
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
             rt_proc_reset();
@@ -2601,7 +2601,7 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
             }
-            static int sno_pidx_buf[64];
+            static int pidx_buf[64];
             int n_procs = 0;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -2623,35 +2623,35 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                gvar_flat_chain_build_text_at(s2->bbp.table[idx], s2->proc_table[_pi].sno_entry_idx, stdout, pname);
+                gvar_flat_chain_build_text_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_idx, stdout, pname);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
-                if (n_procs < 64) sno_pidx_buf[n_procs++] = _pi;
+                if (n_procs < 64) pidx_buf[n_procs++] = _pi;
             }
             if (n_procs > 0) {
                 printf("  .section .rodata\n");
                 for (int i = 0; i < n_procs; i++) {
-                    ProcEntry *pe = &s2->proc_table[sno_pidx_buf[i]];
-                    printf("  .Lsno_pn%d: .string \"%s\"\n", i, pe->name);
+                    ProcEntry *pe = &s2->proc_table[pidx_buf[i]];
+                    printf("  .Lpn%d: .string \"%s\"\n", i, pe->name);
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
-                        printf("  .Lsno_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
-                    printf("  .Lsno_pnames%d:\n", i);
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) printf("  .quad .Lsno_pp%d_%d\n", i, k);
+                        printf("  .Lpp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                    printf("  .Lpnames%d:\n", i);
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) printf("  .quad .Lpp%d_%d\n", i, k);
                     printf("  .quad 0\n");
                 }
                 printf("  .section .text\n  .intel_syntax noprefix\n");
-                printf("sno_proc_startup:\n  push rbp\n  mov rbp, rsp\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
+                printf("proc_startup:\n  push rbp\n  mov rbp, rsp\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
                 for (int i = 0; i < n_procs; i++) {
-                    ProcEntry *pe = &s2->proc_table[sno_pidx_buf[i]];
-                    printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
-                    printf("  lea rsi, [rip + .Lsno_pnames%d]\n", i);
+                    ProcEntry *pe = &s2->proc_table[pidx_buf[i]];
+                    printf("  lea rdi, [rip + .Lpn%d]\n", i);
+                    printf("  lea rsi, [rip + .Lpnames%d]\n", i);
                     printf("  mov edx, %d\n", pe->nparams);
                     printf("  call rt_proc_register@PLT\n");
-                    printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
+                    printf("  lea rdi, [rip + .Lpn%d]\n", i);
                     printf("  lea rsi, [rip + %s_\xce\xb1]\n", pe->name);
                     printf("  call rt_proc_set_fn@PLT\n");
                     int _fidx = pe->bb_idx;
                     if (_fidx >= 0 && _fidx < s2->bbp.count && s2->bbp.table[_fidx] && s2->bbp.table[_fidx]->nslots > 0) {
-                        printf("  lea rdi, [rip + .Lsno_pn%d]\n", i);
+                        printf("  lea rdi, [rip + .Lpn%d]\n", i);
                         printf("  mov esi, %d\n", s2->bbp.table[_fidx]->nslots - 1);
                         printf("  mov edx, %d\n", pe->decl_level);
                         printf("  call rt_proc_set_frame@PLT\n");
@@ -2660,12 +2660,12 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n  ret\n");
             }
             printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n");
-            if (n_procs > 0) printf("  call sno_proc_startup\n");
+            if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             printf("  call rt_frame@PLT\n  mov rdi, rax\n  xor esi, esi\n");
-            printf("  call sno_flat_\xce\xb1\n");
+            printf("  call flat_\xce\xb1\n");
             printf("  xor eax, eax\n  pop rbp\n  ret\n");
-            int rc = gvar_flat_chain_build_text(sbbg, stdout, "sno_flat");
+            int rc = gvar_flat_chain_build_text(sbbg, stdout, "flat");
             g_frame_active = 0;
             xa_emit_strtab_rodata();
             fflush(stdout);
@@ -2684,8 +2684,8 @@ int main(int argc, char **argv)
         ast_tree_free(ast_prog); ast_prog = NULL;
         return 1;
     } else if (mode_interp) {
-        extern int g_icn_postfix_resume;
-        if (is_icon) g_icn_postfix_resume = 1;
+        extern int g_postfix_resume;
+        if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
@@ -2747,8 +2747,8 @@ int main(int argc, char **argv)
                         "Aborting (by design).\n");
         abort();
     } else if (mode_run) {
-        extern int g_icn_postfix_resume;
-        if (is_icon) g_icn_postfix_resume = 1;
+        extern int g_postfix_resume;
+        if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
@@ -2919,7 +2919,7 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                bb_box_fn pfn = gvar_flat_chain_build_at(s2->bbp.table[idx], s2->proc_table[_pi].sno_entry_idx, pname);
+                bb_box_fn pfn = gvar_flat_chain_build_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_idx, pname);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }

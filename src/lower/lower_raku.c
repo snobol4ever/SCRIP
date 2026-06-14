@@ -337,10 +337,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         const char * smode = (t->n > 2 && t->c[2] && t->c[2]->v.sval) ? t->c[2]->v.sval : "match";
         const tree_t * pat = t->c[1];
         if (!strcmp(smode, "match") && pat && pat->t == TT_QLIT && pat->v.sval) {
-            extern struct IR_graph_t * raku_nfa_to_bb(void * nfa);
-            extern void * raku_nfa_build(const char * pattern);
-            void * nfa = raku_nfa_build(pat->v.sval);
-            IR_graph_t * bbg = nfa ? raku_nfa_to_bb(nfa) : NULL;
+            extern struct IR_graph_t * nfa_to_bb(void * nfa);
+            extern void * nfa_build(const char * pattern);
+            void * nfa = nfa_build(pat->v.sval);
+            IR_graph_t * bbg = nfa ? nfa_to_bb(nfa) : NULL;
             if (bbg && bbg->entry) {
                 IR_t * nd = build(cx, IR_NFA_MATCH, γ, ω); IR_LIT(nd).ival = (int64_t)(intptr_t) nfa; IR_LIT(nd).dval = 2.0;
                 IR_graph_t * sb = rk_arg_block(cx, t->c[0]);

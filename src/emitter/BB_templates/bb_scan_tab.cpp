@@ -4,7 +4,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-DESCR_t rt_icn_substr(const char *sigma, int64_t a, int64_t b);
+DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
@@ -32,7 +32,7 @@ std::string bb_scan_tab() {
          + x86("mov",     "r14", "rdx")
          + x86("push",    "r10")
          + x86("push",    "r10")
-         + x86("call",    "rt_icn_substr", (uint64_t)(uintptr_t)(void*)rt_icn_substr)
+         + x86("call",    "rt_substr", (uint64_t)(uintptr_t)(void*)rt_substr)
          + x86("pop",     "r10")
          + x86("pop",     "r10")
          + x86("mov",     FRQ(_.op_off),     "rax")

@@ -7,7 +7,7 @@
 #include "../../parser/prolog/prolog_runtime.h"
 #include "../../parser/prolog/prolog_atom.h"
 #include "../../runtime/builtins/resolution.h"
-#include "../../parser/raku/raku_re.h"
+#include "../../parser/raku/re.h"
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
@@ -81,11 +81,11 @@ static void suspend_buf_push(DESCR_t v) {
     g_suspend_buf.items[g_suspend_buf.count++] = v;
 }
 typedef struct { DESCR_t * items; int count; } SuspendList;
-#define SNO_SAVE_MAX 4096
-typedef struct { const char * name; DESCR_t old; } SnoSaveEnt;
-static SnoSaveEnt   g_sno_save[SNO_SAVE_MAX];
-static int          g_sno_save_top = 0;
-static const char * g_sno_cur_func = NULL;
+#define SAVE_MAX 4096
+typedef struct { const char * name; DESCR_t old; } SaveEnt;
+static SaveEnt   g_save_stack[SAVE_MAX];
+static int          g_save_stack_top = 0;
+static const char * g_cur_func = NULL;
 #define RESOLVE_NB_SIZE 64
 typedef struct { int atom_id; Term *val; } PlNbSlot;
 static PlNbSlot g_resolve_nb[RESOLVE_NB_SIZE];
@@ -2317,7 +2317,7 @@ IR_t * IR_interp_node(IR_t * bb) {
         return bb->γ.node;
     }
     case IR_NFA_MATCH: {
-        extern Raku_match g_raku_match; extern const char * g_raku_subject;
+        extern Match g_match; extern const char * g_subject;
         IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
         IR_graph_t * sb  = blks ? blks[0] : (IR_graph_t *)0;
         IR_graph_t * bbg = blks ? blks[1] : (IR_graph_t *)0;
@@ -2328,11 +2328,11 @@ IR_t * IR_interp_node(IR_t * bb) {
         char * subj = VARVAL_fn(sd); if (!subj) subj = "";
         static int nfa_bb = -1;
         if (nfa_bb < 0) { const char * e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0] == '1') ? 1 : 0; }
-        if (nfa_bb) raku_nfa_bb_graph_exec(bbg, raku_nfa_ngroups((const Raku_nfa *) nfa), subj, &g_raku_match);
-        else        raku_nfa_exec((const Raku_nfa *) nfa, subj, &g_raku_match);
-        if (nfa_bb) { int ng = raku_nfa_ngroups((const Raku_nfa *) nfa); for (int g = 0; g < ng && g < MAX_GROUPS; g++) raku_nfa_group_name_copy((const Raku_nfa *) nfa, g, g_raku_match.group_name[g]); }
-        g_raku_subject = subj;
-        int verdict = g_raku_match.matched ? 1 : 0;
+        if (nfa_bb) nfa_bb_graph_exec(bbg, nfa_ngroups((const Nfa *) nfa), subj, &g_match);
+        else        nfa_exec((const Nfa *) nfa, subj, &g_match);
+        if (nfa_bb) { int ng = nfa_ngroups((const Nfa *) nfa); for (int g = 0; g < ng && g < MAX_GROUPS; g++) nfa_group_name_copy((const Nfa *) nfa, g, g_match.group_name[g]); }
+        g_subject = subj;
+        int verdict = g_match.matched ? 1 : 0;
         IR_EXEC(bb).value = verdict ? INTVAL(1) : FAILDESCR;
         return verdict ? bb->γ.node : bb->ω.node;
     }
@@ -2463,19 +2463,19 @@ IR_t * IR_interp_node(IR_t * bb) {
                 IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
                 Scope * sc = &g_stage2.proc_table[upi].lower_sc;
                 int np = g_stage2.proc_table[upi].nparams;
-                if (!fg || frame_depth >= FRAME_STACK_MAX || g_sno_save_top + sc->n > SNO_SAVE_MAX) {
+                if (!fg || frame_depth >= FRAME_STACK_MAX || g_save_stack_top + sc->n > SAVE_MAX) {
                     IR_EXEC(bb).value = FAILDESCR; return bb->ω.node;
                 }
-                int save_base = g_sno_save_top;
+                int save_base = g_save_stack_top;
                 for (int k = 0; k < sc->n; k++) {
                     const char * nm = sc->e[k].name; if (!nm) continue;
-                    g_sno_save[g_sno_save_top].name = nm;
-                    g_sno_save[g_sno_save_top].old  = NV_GET_fn(nm);
-                    g_sno_save_top++;
+                    g_save_stack[g_save_stack_top].name = nm;
+                    g_save_stack[g_save_stack_top].old  = NV_GET_fn(nm);
+                    g_save_stack_top++;
                     NV_SET_fn(nm, (k < np && k < nargs) ? args[k] : NULVCL);
                 }
-                const char * saved_func = g_sno_cur_func;
-                g_sno_cur_func = IR_LIT(bb).sval;
+                const char * saved_func = g_cur_func;
+                g_cur_func = IR_LIT(bb).sval;
                 GenFrame * _f = &frame_stack[frame_depth++];
                 memset(_f, 0, sizeof *_f);
                 DESCR_t _ring_save[AG_RING];
@@ -2491,10 +2491,10 @@ IR_t * IR_interp_node(IR_t * bb) {
                 bb_restore_state(fg, _snap);
                 memcpy(fg->ring, _ring_save, sizeof _ring_save);
                 fg->ring_head = _ring_head; fg->ring_depth = _ring_depth;
-                g_sno_cur_func = saved_func;
-                for (int k = g_sno_save_top - 1; k >= save_base; k--)
-                    NV_SET_fn(g_sno_save[k].name, g_sno_save[k].old);
-                g_sno_save_top = save_base;
+                g_cur_func = saved_func;
+                for (int k = g_save_stack_top - 1; k >= save_base; k--)
+                    NV_SET_fn(g_save_stack[k].name, g_save_stack[k].old);
+                g_save_stack_top = save_base;
                 IR_EXEC(bb).value = out;
                 return IS_FAIL_fn(out) ? bb->ω.node : bb->γ.node;
             }
@@ -2930,7 +2930,7 @@ IR_t * IR_interp_node(IR_t * bb) {
             rv = FAILDESCR;
             g_ir_return_val = FAILDESCR;
         } else if (IR_LIT(bb).dval == 1.0) {
-            rv = g_sno_cur_func ? NV_GET_fn(g_sno_cur_func) : NULVCL;
+            rv = g_cur_func ? NV_GET_fn(g_cur_func) : NULVCL;
             g_ir_return_val = IS_FAIL_fn(rv) ? NULVCL : rv;
         } else {
             rv = NULVCL;
@@ -6074,17 +6074,17 @@ DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) {
     IR_graph_t * fg = bb_graph_of_proc(&g_stage2.proc_table[upi]);
     Scope * sc = &g_stage2.proc_table[upi].lower_sc;
     int np = g_stage2.proc_table[upi].nparams;
-    if (!fg || frame_depth >= FRAME_STACK_MAX || g_sno_save_top + sc->n > SNO_SAVE_MAX) return FAILDESCR;
-    int save_base = g_sno_save_top;
+    if (!fg || frame_depth >= FRAME_STACK_MAX || g_save_stack_top + sc->n > SAVE_MAX) return FAILDESCR;
+    int save_base = g_save_stack_top;
     for (int k = 0; k < sc->n; k++) {
         const char * nm = sc->e[k].name; if (!nm) continue;
-        g_sno_save[g_sno_save_top].name = nm;
-        g_sno_save[g_sno_save_top].old  = NV_GET_fn(nm);
-        g_sno_save_top++;
+        g_save_stack[g_save_stack_top].name = nm;
+        g_save_stack[g_save_stack_top].old  = NV_GET_fn(nm);
+        g_save_stack_top++;
         NV_SET_fn(nm, (k < np && k < nargs) ? args[k] : NULVCL);
     }
-    const char * saved_func = g_sno_cur_func;
-    g_sno_cur_func = g_stage2.proc_table[upi].name;
+    const char * saved_func = g_cur_func;
+    g_cur_func = g_stage2.proc_table[upi].name;
     GenFrame * _f = &frame_stack[frame_depth++];
     memset(_f, 0, sizeof *_f);
     DESCR_t _ring_save[AG_RING];
@@ -6098,9 +6098,9 @@ DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) {
     bb_restore_state(fg, _snap);
     memcpy(fg->ring, _ring_save, sizeof _ring_save);
     fg->ring_head = _ring_head; fg->ring_depth = _ring_depth;
-    g_sno_cur_func = saved_func;
-    for (int k = g_sno_save_top - 1; k >= save_base; k--)
-        NV_SET_fn(g_sno_save[k].name, g_sno_save[k].old);
-    g_sno_save_top = save_base;
+    g_cur_func = saved_func;
+    for (int k = g_save_stack_top - 1; k >= save_base; k--)
+        NV_SET_fn(g_save_stack[k].name, g_save_stack[k].old);
+    g_save_stack_top = save_base;
     return out;
 }

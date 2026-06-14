@@ -2,7 +2,7 @@
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
 #include "../driver/interp_private.h"
-#include "../parser/raku/raku_re.h"
+#include "../parser/raku/re.h"
 #include "core.h"
 #include "pattern_match.h"
 #include "rt/rt.h"
@@ -74,15 +74,15 @@ int script_try_call_builtin(tree_t *call, DESCR_t *out_descr) {
                     { *out_descr = exec_stmt(NULL, &sd, pd, NULL, 0) ? INTVAL(1) : FAILDESCR; return 1; }
                 }
                 const char *pat = VARVAL_fn(pd); if (!pat) pat = "";
-                { Raku_nfa *nfa = raku_nfa_build(pat);
+                { Nfa *nfa = nfa_build(pat);
                   if (!nfa) { *out_descr = FAILDESCR; return 1; }
                   static int nfa_bb = -1;
                   if (nfa_bb < 0) { const char *e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0]=='1') ? 1 : 0; }
-                  if (nfa_bb) raku_nfa_bb_exec(nfa, subj, &g_raku_match);
-                  else        raku_nfa_exec(nfa, subj, &g_raku_match);
-                  g_raku_subject = subj;
-                  int verdict = g_raku_match.matched ? 1 : 0;
-                  raku_nfa_free(nfa);
+                  if (nfa_bb) nfa_bb_exec(nfa, subj, &g_match);
+                  else        nfa_exec(nfa, subj, &g_match);
+                  g_subject = subj;
+                  int verdict = g_match.matched ? 1 : 0;
+                  nfa_free(nfa);
                   { *out_descr = verdict ? INTVAL(1) : FAILDESCR; return 1; }
                 }
             }
@@ -91,30 +91,30 @@ int script_try_call_builtin(tree_t *call, DESCR_t *out_descr) {
                 DESCR_t pd = interp_eval(call->c[2]);
                 const char *subj = VARVAL_fn(sd); if (!subj) subj = "";
                 const char *pat  = VARVAL_fn(pd); if (!pat)  pat  = "";
-                Raku_nfa *nfa = raku_nfa_build(pat);
+                Nfa *nfa = nfa_build(pat);
                 if (!nfa) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int slen = (int)strlen(subj);
                 char *out = GC_malloc(slen * 4 + 4); out[0] = '\0';
                 int pos = 0, count = 0;
                 while (pos <= slen) {
-                    Raku_match m;
-                    raku_nfa_exec(nfa, subj + pos, &m);
+                    Match m;
+                    nfa_exec(nfa, subj + pos, &m);
                     if (!m.matched) break;
                     int mlen = m.full_end - m.full_start;
                     if (count > 0) { int ol=strlen(out); out[ol]='\x01'; out[ol+1]='\0'; }
                     strncat(out, subj + pos + m.full_start, (size_t)mlen);
-                    g_raku_match = m;
-                    g_raku_match.full_start += pos;
-                    g_raku_match.full_end   += pos;
+                    g_match = m;
+                    g_match.full_start += pos;
+                    g_match.full_end   += pos;
                     for (int g=0;g<m.ngroups;g++) {
-                        if (m.group_start[g]>=0) g_raku_match.group_start[g]+=pos;
-                        if (m.group_end[g]>=0)   g_raku_match.group_end[g]+=pos;
+                        if (m.group_start[g]>=0) g_match.group_start[g]+=pos;
+                        if (m.group_end[g]>=0)   g_match.group_end[g]+=pos;
                     }
-                    g_raku_subject = subj;
+                    g_subject = subj;
                     pos += m.full_start + (mlen > 0 ? mlen : 1);
                     count++;
                 }
-                raku_nfa_free(nfa);
+                nfa_free(nfa);
                 { *out_descr = count > 0 ? STRVAL(out) : FAILDESCR; return 1; }
             }
             if (!strcmp(fn,"re_subst") && nargs == 2) {
@@ -131,22 +131,22 @@ int script_try_call_builtin(tree_t *call, DESCR_t *out_descr) {
                 char *pat  = GC_malloc(plen+1); memcpy(pat, tok, plen); pat[plen]='\0';
                 char *repl = GC_malloc(rlen+1); memcpy(repl, sep1+1, rlen); repl[rlen]='\0';
                 int global = (*(sep2+1)=='g');
-                Raku_nfa *nfa = raku_nfa_build(pat);
+                Nfa *nfa = nfa_build(pat);
                 if (!nfa) { *out_descr = sd; return 1; }
                 int slen=(int)strlen(subj);
                 char *res = GC_malloc(slen*4+rlen*8+4); res[0]='\0';
                 int pos=0, did_one=0;
                 while (pos<=slen) {
-                    Raku_match m; raku_nfa_exec(nfa, subj+pos, &m);
+                    Match m; nfa_exec(nfa, subj+pos, &m);
                     if (!m.matched) { strncat(res, subj+pos, (size_t)(slen-pos)); break; }
                     strncat(res, subj+pos, (size_t)m.full_start);
                     strcat(res, repl);
-                    g_raku_match=m; g_raku_subject=subj;
+                    g_match=m; g_subject=subj;
                     int advance=m.full_start+(m.full_end-m.full_start>0?m.full_end-m.full_start:1);
                     pos+=advance; did_one=1;
                     if (!global) { strncat(res, subj+pos, (size_t)(slen-pos)); break; }
                 }
-                raku_nfa_free(nfa);
+                nfa_free(nfa);
                 if (call->c[1]->t==TERM_VAR && call->c[1]->v.ival>=0 &&
                     call->c[1]->v.ival<FRAME.env_n && frame_depth>0)
                     FRAME.env[call->c[1]->v.ival] = STRVAL(res);
@@ -233,41 +233,41 @@ int script_try_call_builtin(tree_t *call, DESCR_t *out_descr) {
                 fputs(content,fp); fclose(fp);
                 { *out_descr = INTVAL(0); return 1; }
             }
-            if (!strcmp(fn,"raku_nfa_compile") && nargs == 1) {
+            if (!strcmp(fn,"nfa_compile") && nargs == 1) {
                 DESCR_t pd = interp_eval(call->c[1]);
                 const char *pat = VARVAL_fn(pd); if (!pat) pat = "";
-                { Raku_nfa *nfa = raku_nfa_build(pat);
+                { Nfa *nfa = nfa_build(pat);
                   if (!nfa) { printf("NFA:%s:ERROR\n", pat); { *out_descr = INTVAL(0); return 1; } }
-                  printf("NFA:%s:states=%d\n", pat, raku_nfa_state_count(nfa));
-                  raku_nfa_free(nfa);
+                  printf("NFA:%s:states=%d\n", pat, nfa_state_count(nfa));
+                  nfa_free(nfa);
                 }
                 { *out_descr = INTVAL(0); return 1; }
             }
             if (!strcmp(fn,"re_named_capture") && nargs == 1) {
                 DESCR_t nd = interp_eval(call->c[1]);
                 const char *name = VARVAL_fn(nd); if (!name) name = "";
-                if (!g_raku_match.matched) { *out_descr = STRVAL(GC_strdup("")); return 1; }
+                if (!g_match.matched) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int g = -1;
-                for (int i=0;i<g_raku_match.ngroups;i++)
-                    if (strcmp(g_raku_match.group_name[i],name)==0){g=i;break;}
-                if (g<0||g_raku_match.group_start[g]<0) { *out_descr = STRVAL(GC_strdup("")); return 1; }
-                int gs=g_raku_match.group_start[g], ge=g_raku_match.group_end[g];
+                for (int i=0;i<g_match.ngroups;i++)
+                    if (strcmp(g_match.group_name[i],name)==0){g=i;break;}
+                if (g<0||g_match.group_start[g]<0) { *out_descr = STRVAL(GC_strdup("")); return 1; }
+                int gs=g_match.group_start[g], ge=g_match.group_end[g];
                 if (ge<gs) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int len=ge-gs; char *out=GC_malloc(len+1);
-                memcpy(out,g_raku_subject+gs,(size_t)len); out[len]='\0';
+                memcpy(out,g_subject+gs,(size_t)len); out[len]='\0';
                 { *out_descr = STRVAL(out); return 1; }
             }
             if ((!strcmp(fn,"fh_capture") || !strcmp(fn,"re_capture")) && nargs == 1) {
                 DESCR_t nd = interp_eval(call->c[1]);
                 int n = (int)(IS_INT_fn(nd) ? nd.i : 0);
-                if (!g_raku_match.matched || n < 0 || n >= g_raku_match.ngroups
-                    || g_raku_match.group_start[n] < 0) { *out_descr = STRVAL(GC_strdup("")); return 1; }
-                int gs = g_raku_match.group_start[n];
-                int ge = g_raku_match.group_end[n];
+                if (!g_match.matched || n < 0 || n >= g_match.ngroups
+                    || g_match.group_start[n] < 0) { *out_descr = STRVAL(GC_strdup("")); return 1; }
+                int gs = g_match.group_start[n];
+                int ge = g_match.group_end[n];
                 if (ge < gs) { *out_descr = STRVAL(GC_strdup("")); return 1; }
                 int len = ge - gs;
                 char *out = GC_malloc(len + 1);
-                memcpy(out, g_raku_subject + gs, (size_t)len);
+                memcpy(out, g_subject + gs, (size_t)len);
                 out[len] = '\0';
                 { *out_descr = STRVAL(out); return 1; }
             }
@@ -899,10 +899,10 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     if (!body) { *out = FAILDESCR; return 1; }
     int topflv = gram_get_flavor(qn);
     char pat[4096]; gram_expand(gname, body, topflv, pat, sizeof pat, 0);
-    Raku_nfa *nfa = raku_nfa_build(pat);
+    Nfa *nfa = nfa_build(pat);
     if (!nfa) { *out = FAILDESCR; return 1; }
-    Raku_match m; raku_nfa_exec(nfa, subj, &m);
-    raku_nfa_free(nfa);
+    Match m; nfa_exec(nfa, subj, &m);
+    nfa_free(nfa);
     int slen = (int)strlen(subj);
     int ok = m.matched && m.full_start == 0 && m.full_end == slen;
     *out = ok ? STRVAL(GC_strdup(subj)) : NULVCL; return 1;
@@ -1477,15 +1477,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "re_match") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]); if (!subj) subj = "";
         const char *pat  = VARVAL_fn(args[1]); if (!pat)  pat  = "";
-        Raku_nfa *nfa = raku_nfa_build(pat);
+        Nfa *nfa = nfa_build(pat);
         if (!nfa) { *out = FAILDESCR; return 1; }
         static int nfa_bb = -1;
         if (nfa_bb < 0) { const char *e = getenv("RK_NFA_BB"); nfa_bb = (e && e[0] == '1') ? 1 : 0; }
-        if (nfa_bb) raku_nfa_bb_exec(nfa, subj, &g_raku_match);
-        else        raku_nfa_exec(nfa, subj, &g_raku_match);
-        g_raku_subject = subj;
-        int verdict = g_raku_match.matched ? 1 : 0;
-        raku_nfa_free(nfa);
+        if (nfa_bb) nfa_bb_exec(nfa, subj, &g_match);
+        else        nfa_exec(nfa, subj, &g_match);
+        g_subject = subj;
+        int verdict = g_match.matched ? 1 : 0;
+        nfa_free(nfa);
         *out = verdict ? INTVAL(1) : FAILDESCR; return 1;
     }
     if (!strcmp(fn, "nfa_accepts") && nargs == 2) {
@@ -1521,29 +1521,29 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "re_match_global") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]); if (!subj) subj = "";
         const char *pat  = VARVAL_fn(args[1]); if (!pat)  pat  = "";
-        Raku_nfa *nfa = raku_nfa_build(pat);
+        Nfa *nfa = nfa_build(pat);
         if (!nfa) { *out = STRVAL(GC_strdup("")); return 1; }
         int slen = (int)strlen(subj);
         char *acc = GC_malloc((size_t)slen * 4 + 4); acc[0] = '\0';
         int pos = 0, count = 0;
         while (pos <= slen) {
-            Raku_match m; raku_nfa_exec(nfa, subj + pos, &m);
+            Match m; nfa_exec(nfa, subj + pos, &m);
             if (!m.matched) break;
             int mlen = m.full_end - m.full_start;
             if (count > 0) { int ol = (int)strlen(acc); acc[ol] = SOH; acc[ol + 1] = '\0'; }
             strncat(acc, subj + pos + m.full_start, (size_t)mlen);
-            g_raku_match = m;
-            g_raku_match.full_start += pos;
-            g_raku_match.full_end   += pos;
+            g_match = m;
+            g_match.full_start += pos;
+            g_match.full_end   += pos;
             for (int g = 0; g < m.ngroups; g++) {
-                if (m.group_start[g] >= 0) g_raku_match.group_start[g] += pos;
-                if (m.group_end[g]   >= 0) g_raku_match.group_end[g]   += pos;
+                if (m.group_start[g] >= 0) g_match.group_start[g] += pos;
+                if (m.group_end[g]   >= 0) g_match.group_end[g]   += pos;
             }
-            g_raku_subject = subj;
+            g_subject = subj;
             pos += m.full_start + (mlen > 0 ? mlen : 1);
             count++;
         }
-        raku_nfa_free(nfa);
+        nfa_free(nfa);
         *out = count > 0 ? STRVAL(acc) : FAILDESCR; return 1;
     }
     if (!strcmp(fn, "re_subst") && nargs == 2) {
@@ -1558,51 +1558,51 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char *pat  = GC_malloc((size_t)plen + 1); memcpy(pat, tok, (size_t)plen); pat[plen] = '\0';
         char *repl = GC_malloc((size_t)rlen + 1); memcpy(repl, sep1 + 1, (size_t)rlen); repl[rlen] = '\0';
         int global = (*(sep2 + 1) == 'g');
-        Raku_nfa *nfa = raku_nfa_build(pat);
+        Nfa *nfa = nfa_build(pat);
         if (!nfa) { *out = args[0]; return 1; }
         int slen = (int)strlen(subj);
         char *res = GC_malloc((size_t)slen * 4 + (size_t)rlen * 8 + 4); res[0] = '\0';
         int pos = 0, did_one = 0;
         while (pos <= slen) {
-            Raku_match m; raku_nfa_exec(nfa, subj + pos, &m);
+            Match m; nfa_exec(nfa, subj + pos, &m);
             if (!m.matched) { strncat(res, subj + pos, (size_t)(slen - pos)); break; }
             strncat(res, subj + pos, (size_t)m.full_start);
             strcat(res, repl);
-            g_raku_match = m; g_raku_subject = subj;
+            g_match = m; g_subject = subj;
             int advance = m.full_start + (m.full_end - m.full_start > 0 ? m.full_end - m.full_start : 1);
             pos += advance; did_one = 1;
             if (!global) { strncat(res, subj + pos, (size_t)(slen - pos)); break; }
         }
-        raku_nfa_free(nfa);
+        nfa_free(nfa);
         *out = did_one ? STRVAL(res) : args[0]; return 1;
     }
-    if (!strcmp(fn, "raku_nfa_compile") && nargs == 1) {
+    if (!strcmp(fn, "nfa_compile") && nargs == 1) {
         const char *pat = VARVAL_fn(args[0]); if (!pat) pat = "";
-        Raku_nfa *nfa = raku_nfa_build(pat);
+        Nfa *nfa = nfa_build(pat);
         if (!nfa) { printf("NFA:%s:ERROR\n", pat); *out = INTVAL(0); return 1; }
-        printf("NFA:%s:states=%d\n", pat, raku_nfa_state_count(nfa));
-        raku_nfa_free(nfa);
+        printf("NFA:%s:states=%d\n", pat, nfa_state_count(nfa));
+        nfa_free(nfa);
         *out = INTVAL(0); return 1;
     }
     if (!strcmp(fn, "re_capture") && nargs == 1) {
         int n = (int)(IS_INT_fn(args[0]) ? args[0].i : 0);
-        if (!g_raku_match.matched || n < 0 || n >= g_raku_match.ngroups || g_raku_match.group_start[n] < 0) { *out = STRVAL(GC_strdup("")); return 1; }
-        int gs = g_raku_match.group_start[n], ge = g_raku_match.group_end[n];
+        if (!g_match.matched || n < 0 || n >= g_match.ngroups || g_match.group_start[n] < 0) { *out = STRVAL(GC_strdup("")); return 1; }
+        int gs = g_match.group_start[n], ge = g_match.group_end[n];
         if (ge < gs) { *out = STRVAL(GC_strdup("")); return 1; }
         int len = ge - gs; char *o = GC_malloc((size_t)len + 1);
-        memcpy(o, g_raku_subject + gs, (size_t)len); o[len] = '\0';
+        memcpy(o, g_subject + gs, (size_t)len); o[len] = '\0';
         *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "re_named_capture") && nargs == 1) {
         const char *name = VARVAL_fn(args[0]); if (!name) name = "";
-        if (!g_raku_match.matched) { *out = STRVAL(GC_strdup("")); return 1; }
+        if (!g_match.matched) { *out = STRVAL(GC_strdup("")); return 1; }
         int g = -1;
-        for (int i = 0; i < g_raku_match.ngroups; i++) if (strcmp(g_raku_match.group_name[i], name) == 0) { g = i; break; }
-        if (g < 0 || g_raku_match.group_start[g] < 0) { *out = STRVAL(GC_strdup("")); return 1; }
-        int gs = g_raku_match.group_start[g], ge = g_raku_match.group_end[g];
+        for (int i = 0; i < g_match.ngroups; i++) if (strcmp(g_match.group_name[i], name) == 0) { g = i; break; }
+        if (g < 0 || g_match.group_start[g] < 0) { *out = STRVAL(GC_strdup("")); return 1; }
+        int gs = g_match.group_start[g], ge = g_match.group_end[g];
         if (ge < gs) { *out = STRVAL(GC_strdup("")); return 1; }
         int len = ge - gs; char *o = GC_malloc((size_t)len + 1);
-        memcpy(o, g_raku_subject + gs, (size_t)len); o[len] = '\0';
+        memcpy(o, g_subject + gs, (size_t)len); o[len] = '\0';
         *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "push_pure") && nargs >= 2) {

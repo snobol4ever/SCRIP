@@ -3,7 +3,7 @@
 #include <math.h>
 #include "lower.h"
 /*====================================================================================================================================================================================================*/
-int g_icn_postfix_resume = 0;
+int g_postfix_resume = 0;
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
 /*====================================================================================================================================================================================================*/
 typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; } icx_t;
@@ -95,7 +95,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         prev = ar;
         if (is_idx_or_list && ar) ir_operand_push(call, ar);
     }
-    cx->beta = g_icn_postfix_resume ? aω : ω;
+    cx->beta = g_postfix_resume ? aω : ω;
     return entry;
 }
 /*====================================================================================================================================================================================================*/

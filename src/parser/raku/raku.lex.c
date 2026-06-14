@@ -939,7 +939,7 @@ static int raku_after_smatch  = 0;
 static int raku_match_global   = 0;
 static char *raku_subst_pat    = NULL;
 static int raku_expect_rebody  = 0;
-static int raku_rebody_depth   = 0;
+static int rebody_depth   = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void raku_lex_error(const char *msg) {
     fprintf(stderr, "raku lex error line %d: %s\n", raku_yylineno, msg);
@@ -1500,7 +1500,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
-{ if (raku_expect_rebody) { raku_expect_rebody = 0; raku_strpos = 0; raku_rebody_depth = 1; BEGIN(STR_REBODY); } else { return '{'; } }
+{ if (raku_expect_rebody) { raku_expect_rebody = 0; raku_strpos = 0; rebody_depth = 1; BEGIN(STR_REBODY); } else { return '{'; } }
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
@@ -1747,13 +1747,13 @@ YY_RULE_SETUP
 	YY_BREAK
 case 119:
 YY_RULE_SETUP
-{ if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = '{'; raku_rebody_depth++; }
+{ if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = '{'; rebody_depth++; }
 	YY_BREAK
 case 120:
 YY_RULE_SETUP
 {
-    raku_rebody_depth--;
-    if (raku_rebody_depth == 0) {
+    rebody_depth--;
+    if (rebody_depth == 0) {
         raku_strbuf[raku_strpos] = '\0';
         raku_yylval.sval = strdup(raku_strbuf);
         BEGIN(INITIAL);

@@ -2,21 +2,21 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#include "raku_re.h"
-static void cc_set(Raku_cc *cc, unsigned char c) { cc->bits[c>>3] |= (1u << (c&7)); }
-static void cc_setrange(Raku_cc *cc, unsigned char lo, unsigned char hi) {
+#include "re.h"
+static void cc_set(Cc *cc, unsigned char c) { cc->bits[c>>3] |= (1u << (c&7)); }
+static void cc_setrange(Cc *cc, unsigned char lo, unsigned char hi) {
     for (unsigned c = lo; c <= hi; c++) cc_set(cc, (unsigned char)c);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void cc_invert(Raku_cc *cc) { for (int i=0;i<32;i++) cc->bits[i]^=0xFFu; }
-int raku_cc_test(const Raku_cc *cc, unsigned char c) { return (cc->bits[c>>3]>>(c&7))&1; }
-static void cc_fill_digit(Raku_cc *cc) { cc_setrange(cc,'0','9'); }
-static void cc_fill_word(Raku_cc *cc)  { cc_setrange(cc,'a','z'); cc_setrange(cc,'A','Z');
+static void cc_invert(Cc *cc) { for (int i=0;i<32;i++) cc->bits[i]^=0xFFu; }
+int cc_test(const Cc *cc, unsigned char c) { return (cc->bits[c>>3]>>(c&7))&1; }
+static void cc_fill_digit(Cc *cc) { cc_setrange(cc,'0','9'); }
+static void cc_fill_word(Cc *cc)  { cc_setrange(cc,'a','z'); cc_setrange(cc,'A','Z');
                                           cc_setrange(cc,'0','9'); cc_set(cc,'_'); }
-static void cc_fill_space(Raku_cc *cc) { cc_set(cc,' '); cc_set(cc,'\t'); cc_set(cc,'\n');
+static void cc_fill_space(Cc *cc) { cc_set(cc,' '); cc_set(cc,'\t'); cc_set(cc,'\n');
                                           cc_set(cc,'\r'); cc_set(cc,'\f'); cc_set(cc,'\v'); }
 #define NFA_INIT_CAP 64
-struct Raku_nfa {
+struct Nfa {
     Nfa_state *states;
     int        n;
     int        cap;
@@ -24,12 +24,12 @@ struct Raku_nfa {
     int        accept;
     int        ngroups;
     char       group_name[MAX_GROUPS][64];
-    Raku_code_fn code_fn;
+    Code_fn code_fn;
     void        *code_ud;
     int          has_code;
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int nfa_alloc(Raku_nfa *nfa) {
+static int nfa_alloc(Nfa *nfa) {
     if (nfa->n >= nfa->cap) {
         nfa->cap *= 2;
         nfa->states = realloc(nfa->states, (size_t)nfa->cap * sizeof(Nfa_state));
@@ -44,7 +44,7 @@ static int nfa_alloc(Raku_nfa *nfa) {
     return id;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int nfa_state(Raku_nfa *nfa, Nfa_kind kind, int out1, int out2) {
+static int nfa_state(Nfa *nfa, Nfa_kind kind, int out1, int out2) {
     int id = nfa_alloc(nfa);
     nfa->states[id].kind = kind;
     nfa->states[id].out1 = out1;
@@ -56,7 +56,7 @@ typedef struct {
     const char *pat;
     int         pos;
     int         len;
-    Raku_nfa   *nfa;
+    Nfa   *nfa;
     char        errbuf[128];
     int         ok;
     int         group_counter;
@@ -89,13 +89,13 @@ static int parse_charclass(Re_parser *p) {
             char esc = consume(p);
             switch (esc) {
                 case 'd': cc_fill_digit(&s->cc); break;
-                case 'D': { Raku_cc t={0}; cc_fill_digit(&t); cc_invert(&t);
+                case 'D': { Cc t={0}; cc_fill_digit(&t); cc_invert(&t);
                              for(int i=0;i<32;i++) s->cc.bits[i]|=t.bits[i]; } break;
                 case 'w': cc_fill_word(&s->cc); break;
-                case 'W': { Raku_cc t={0}; cc_fill_word(&t); cc_invert(&t);
+                case 'W': { Cc t={0}; cc_fill_word(&t); cc_invert(&t);
                              for(int i=0;i<32;i++) s->cc.bits[i]|=t.bits[i]; } break;
                 case 's': cc_fill_space(&s->cc); break;
-                case 'S': { Raku_cc t={0}; cc_fill_space(&t); cc_invert(&t);
+                case 'S': { Cc t={0}; cc_fill_space(&t); cc_invert(&t);
                              for(int i=0;i<32;i++) s->cc.bits[i]|=t.bits[i]; } break;
                 default:  cc_set(&s->cc,(unsigned char)esc); break;
             }
@@ -231,7 +231,7 @@ static int parse_quantified(Re_parser *p, int *out_start, int *out_accept) {
     char q = peek(p);
     if (q=='*'||q=='+'||q=='?') {
         consume(p);
-        Raku_nfa *nfa=p->nfa;
+        Nfa *nfa=p->nfa;
         if (q=='*') {
             int split=nfa_alloc(nfa), acc=nfa_alloc(nfa);
             nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=a_start; nfa->states[split].out2=acc;
@@ -274,7 +274,7 @@ static int parse_alt(Re_parser *p, int *out_start, int *out_accept) {
         consume(p);
         int r_start, r_acc;
         if (!parse_concat(p,&r_start,&r_acc)) return 0;
-        Raku_nfa *nfa=p->nfa;
+        Nfa *nfa=p->nfa;
         int split=nfa_alloc(nfa), join=nfa_alloc(nfa);
         nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=l_start; nfa->states[split].out2=r_start;
         nfa->states[l_acc].out1=join; nfa->states[r_acc].out1=join;
@@ -284,8 +284,8 @@ static int parse_alt(Re_parser *p, int *out_start, int *out_accept) {
     *out_start=l_start; *out_accept=l_acc; return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-Raku_nfa *raku_nfa_build(const char *pattern) {
-    Raku_nfa *nfa = malloc(sizeof *nfa);
+Nfa *nfa_build(const char *pattern) {
+    Nfa *nfa = malloc(sizeof *nfa);
     nfa->cap=NFA_INIT_CAP; nfa->n=0; nfa->ngroups=0;
     memset(nfa->group_name,0,sizeof nfa->group_name);
     nfa->states=malloc((size_t)nfa->cap*sizeof(Nfa_state));
@@ -295,8 +295,8 @@ Raku_nfa *raku_nfa_build(const char *pattern) {
     p.nfa=nfa; p.ok=1; p.errbuf[0]='\0'; p.group_counter=0;
     int frag_start, frag_acc;
     if (!parse_alt(&p,&frag_start,&frag_acc)||!p.ok) {
-        fprintf(stderr,"raku_re: compile error: %s\n",p.errbuf);
-        raku_nfa_free(nfa); return NULL;
+        fprintf(stderr,"re: compile error: %s\n",p.errbuf);
+        nfa_free(nfa); return NULL;
     }
     int acc=nfa_state(nfa,NK_ACCEPT,NFA_NULL,NFA_NULL);
     nfa->states[frag_acc].out1=acc;
@@ -304,17 +304,17 @@ Raku_nfa *raku_nfa_build(const char *pattern) {
     return nfa;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int        raku_nfa_state_count(const Raku_nfa *nfa) { return nfa?nfa->n:0; }
-int        raku_nfa_start(const Raku_nfa *nfa) { return nfa?nfa->start:NFA_NULL; }
-int        raku_nfa_accept(const Raku_nfa *nfa) { return nfa?nfa->accept:NFA_NULL; }
-int        raku_nfa_ngroups(const Raku_nfa *nfa) { return nfa?nfa->ngroups:0; }
-void       raku_nfa_group_name_copy(const Raku_nfa *nfa, int g, char *dst64) {
+int        nfa_state_count(const Nfa *nfa) { return nfa?nfa->n:0; }
+int        nfa_start(const Nfa *nfa) { return nfa?nfa->start:NFA_NULL; }
+int        nfa_accept(const Nfa *nfa) { return nfa?nfa->accept:NFA_NULL; }
+int        nfa_ngroups(const Nfa *nfa) { return nfa?nfa->ngroups:0; }
+void       nfa_group_name_copy(const Nfa *nfa, int g, char *dst64) {
     if (!dst64) return; dst64[0]='\0';
     if (!nfa||g<0||g>=MAX_GROUPS) return;
     memcpy(dst64, nfa->group_name[g], 64);
 }
-Nfa_state *raku_nfa_states(Raku_nfa *nfa) { return nfa?nfa->states:0; }
-void raku_nfa_free(Raku_nfa *nfa) { if(!nfa)return; free(nfa->states); free(nfa); }
+Nfa_state *nfa_states(Nfa *nfa) { return nfa?nfa->states:0; }
+void nfa_free(Nfa *nfa) { if(!nfa)return; free(nfa->states); free(nfa); }
 #define MAX_STATES 512
 typedef struct { int ids[MAX_STATES]; int n; } State_set;
 typedef struct {
@@ -323,7 +323,7 @@ typedef struct {
 } Cap_snap;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static Cap_snap g_snaps[MAX_STATES];
-static void ss_add(State_set *ss, Cap_snap *snaps, const Raku_nfa *nfa, int id,
+static void ss_add(State_set *ss, Cap_snap *snaps, const Nfa *nfa, int id,
                    char *visited, int pos, int slen, const Cap_snap *cur_snap) {
     if (id==NFA_NULL||visited[id]) return;
     visited[id]=1;
@@ -352,19 +352,19 @@ static void ss_add(State_set *ss, Cap_snap *snaps, const Raku_nfa *nfa, int id,
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void eps_closure_into(State_set *ss, Cap_snap *snaps, const Raku_nfa *nfa,
+static void eps_closure_into(State_set *ss, Cap_snap *snaps, const Nfa *nfa,
                               int start, int pos, int slen, const Cap_snap *snap) {
     char visited[MAX_STATES]; memset(visited,0,(size_t)nfa->n);
     ss_add(ss,snaps,nfa,start,visited,pos,slen,snap);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void raku_nfa_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result) {
+void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
     memset(result,0,sizeof *result);
     result->matched=0;
     for (int i=0;i<MAX_GROUPS;i++) { result->group_start[i]=-1; result->group_end[i]=-1; }
     result->ngroups=nfa->ngroups;
     if (!nfa||!subject) return;
-    if (nfa->n>MAX_STATES) { fprintf(stderr,"raku_re: NFA too large\n"); return; }
+    if (nfa->n>MAX_STATES) { fprintf(stderr,"re: NFA too large\n"); return; }
     int slen=(int)strlen(subject);
     int anchored_bol=(nfa->states[nfa->start].kind==NK_ANCHOR_BOL);
     Cap_snap blank; for(int i=0;i<MAX_GROUPS;i++){blank.gs[i]=-1;blank.ge[i]=-1;}
@@ -391,7 +391,7 @@ void raku_nfa_exec(const Raku_nfa *nfa, const char *subject, Raku_match *result)
                 switch (s->kind) {
                     case NK_CHAR:  advance=(s->ch==ch); break;
                     case NK_ANY:   advance=(ch!='\n');  break;
-                    case NK_CLASS: advance=raku_cc_test(&s->cc,ch); break;
+                    case NK_CLASS: advance=cc_test(&s->cc,ch); break;
                     default: break;
                 }
                 if (advance) {

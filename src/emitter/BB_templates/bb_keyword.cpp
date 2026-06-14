@@ -7,8 +7,8 @@ extern "C" {
 extern int g_descr_flat_chain;
 extern int g_gvar_flat_chain;
 extern int g_scan_regs_live;
-struct DESCR_t rt_icn_keyword_subject(void);
-struct DESCR_t rt_icn_keyword_pos(void);
+struct DESCR_t rt_keyword_subject(void);
+struct DESCR_t rt_keyword_pos(void);
 DESCR_t rt_keyword_read(const char *sval);
 }
 #include "x86_asm.h"
@@ -27,7 +27,7 @@ std::string bb_keyword() {
                  + tail;
         return x86("comment", "IR_KEYWORD_subject_call")
              + x86("label",   _.lbl_α)
-             + x86("call", "rt_icn_keyword_subject", (uint64_t)(uintptr_t)(void *)rt_icn_keyword_subject)
+             + x86("call", "rt_keyword_subject", (uint64_t)(uintptr_t)(void *)rt_keyword_subject)
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + tail;
@@ -43,7 +43,7 @@ std::string bb_keyword() {
                  + tail;
         return x86("comment", "IR_KEYWORD_pos_call")
              + x86("label",   _.lbl_α)
-             + x86("call", "rt_icn_keyword_pos", (uint64_t)(uintptr_t)(void *)rt_icn_keyword_pos)
+             + x86("call", "rt_keyword_pos", (uint64_t)(uintptr_t)(void *)rt_keyword_pos)
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + tail;
