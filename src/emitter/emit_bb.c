@@ -1882,7 +1882,6 @@ static int icn_arg_entry_terminal(IR_t *ae) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_generator_kind(IR_e t);
-static int ir_is_scan_kind(IR_e t) { return t == IR_SCAN_POS || t == IR_SCAN_ANY || t == IR_SCAN_MATCH || t == IR_SCAN_MANY || t == IR_SCAN_TAB || t == IR_SCAN_MOVE || t == IR_SCAN_UPTO || t == IR_SCAN_FIND || t == IR_SCAN_BAL; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int icn_subchain_node_is_generator(IR_t *nd) {
     extern int g_icn_scan_regs_live;
