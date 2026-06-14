@@ -79,8 +79,12 @@ the shims when the native chain covers the corpus.
    Lon-stamped, recorded in the ledger below. The logic lives in BBs; the runtime is not an escape hatch.
 
 ### Permission ledger (rule 3: symbol · who needs it · status)
-- **nv get/set** (named-variable read/write from emitted code) — S2 operand fetch (`SPAN(cvar)`),
-  S3 DT_P assign/fetch, S5 capture-commit stores + substitution write-back. STATUS: **REQUESTED**.
+- **nv get** (`rt_nv_cstr`, named-variable read from emitted code, `const char*(const char*)`) —
+  S2 operand fetch (`SPAN(cvar)` immediate scan, via `bb_match_span_var`), stored single-var cset
+  construction-time evaluate-and-bake (`P=ANY(var)`/SPAN/BREAK/BREAKX/NOTANY, via `bb_pattern_unary_s`).
+  STATUS: **STAMPED** (Lon 2026-06-14).
+- **nv set** (named-variable write from emitted code) — S3 DT_P assign/fetch (covered by the already-stamped
+  `rt_gvar_assign_pat`), S5 capture-commit stores + substitution write-back. STATUS: **REQUESTED**.
 - **raw allocator** (GC_MALLOC-equivalent, bytes in/ptr out, no logic) — S5 substitution splice only
   (new subject string, unbounded size). NOT needed for S3 builds (see D5). STATUS: **REQUESTED**.
 - Grandfathered shim calls (`rt_scan*`, `rt_defer_match`, `rt_cap_assign_cursor`): die at their S-rungs;
