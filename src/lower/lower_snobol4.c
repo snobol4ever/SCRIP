@@ -168,7 +168,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         if (nm) {
             if (!strcmp(nm,"REM")  || !strcmp(nm,"rem"))   { IR_t * nd = IR_node_alloc(pg, IR_PAT_REM);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
             if (!strcmp(nm,"ARB")  || !strcmp(nm,"arb"))   { IR_t * nd = IR_node_alloc(pg, IR_PAT_ARB);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
-            if (!strcmp(nm,"FENCE")|| !strcmp(nm,"fence"))  { IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"FENCE")|| !strcmp(nm,"fence"))  { IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); IR_LIT(nd).ival = 1; return nd; }
             if (!strcmp(nm,"ABORT")|| !strcmp(nm,"abort"))  { IR_t * nd = IR_node_alloc(pg, IR_PAT_ABORT); γ_to(nd, succ); ω_to(nd, fail); return nd; }
             if (!strcmp(nm,"BAL")  || !strcmp(nm,"bal"))    { IR_t * nd = IR_node_alloc(pg, IR_PAT_BAL);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
             if (!strcmp(nm,"FAIL") || !strcmp(nm,"fail"))   { IR_t * nd = IR_node_alloc(pg, IR_FAIL);      γ_to(nd, succ); ω_to(nd, fail); return nd; }
