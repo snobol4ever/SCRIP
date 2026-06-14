@@ -973,6 +973,56 @@ int rt_pl_agg_count_finish(void *acc_v, void *result_term)
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int agg_num(Term *t, long *iv, double *dv, int *isf)
+{
+    t = t ? term_deref(t) : (Term *)0;
+    if (!t) return 0;
+    if (t->tag == TERM_INT)   { *iv = t->ival; *isf = 0; return 1; }
+    if (t->tag == TERM_FLOAT) { *dv = t->fval; *isf = 1; return 1; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_agg_sum_finish(void *acc_v, void *result_term)
+{
+    extern Trail g_resolve_trail;
+    pl_findall_acc *a = (pl_findall_acc *)acc_v;
+    int n = a ? a->n : 0;
+    long si = 0; double sd = 0.0; int isf = 0;
+    for (int i = 0; i < n; i++) {
+        long iv = 0; double dv = 0.0; int ef = 0;
+        if (!agg_num(a->items[i], &iv, &dv, &ef)) return 0;
+        if (ef) { sd += dv; isf = 1; } else { si += iv; sd += (double)iv; }
+    }
+    int mark = trail_mark(&g_resolve_trail);
+    Term *r = isf ? term_new_float(sd) : term_new_int(si);
+    if (!unify(term_deref((Term *)result_term), r, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_agg_minmax_finish(void *acc_v, void *result_term, int want_max)
+{
+    extern Trail g_resolve_trail;
+    pl_findall_acc *a = (pl_findall_acc *)acc_v;
+    int n = a ? a->n : 0;
+    if (n <= 0) return 0;
+    long bi = 0; double bd = 0.0; int isf = 0, have = 0;
+    for (int i = 0; i < n; i++) {
+        long iv = 0; double dv = 0.0; int ef = 0;
+        if (!agg_num(a->items[i], &iv, &dv, &ef)) return 0;
+        double cur = ef ? dv : (double)iv;
+        double best = isf ? bd : (double)bi;
+        if (!have || (want_max ? (cur > best) : (cur < best))) { if (ef) { bd = dv; isf = 1; } else { bi = iv; bd = (double)iv; isf = 0; } have = 1; }
+    }
+    int mark = trail_mark(&g_resolve_trail);
+    Term *r = isf ? term_new_float(bd) : term_new_int(bi);
+    if (!unify(term_deref((Term *)result_term), r, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_agg_max_finish(void *acc_v, void *result_term) { return rt_pl_agg_minmax_finish(acc_v, result_term, 1); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_agg_min_finish(void *acc_v, void *result_term) { return rt_pl_agg_minmax_finish(acc_v, result_term, 0); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define RT_PL_NB_MAX 256
 static struct { const char *key; Term *val; } g_rt_pl_nb[RT_PL_NB_MAX];
 static int g_rt_pl_nb_n = 0;

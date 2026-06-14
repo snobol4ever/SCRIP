@@ -13,6 +13,9 @@ extern "C" void * rt_pl_findall_begin(void);
 extern "C" void rt_pl_findall_collect(void *acc, void *tmpl_term);
 extern "C" int rt_pl_findall_finish(void *acc, void *result_term);
 extern "C" int rt_pl_agg_count_finish(void *acc, void *result_term);
+extern "C" int rt_pl_agg_sum_finish(void *acc, void *result_term);
+extern "C" int rt_pl_agg_max_finish(void *acc, void *result_term);
+extern "C" int rt_pl_agg_min_finish(void *acc, void *result_term);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *bcfa_areg(int i) { static const char * t[3] = { "rsi", "rdx", "rcx" }; return t[i]; }
 static int bcfa_child() { return (int)_.op_parts_ival[0]; }
@@ -22,12 +25,19 @@ static int bcfa_result() { return (int)_.op_parts_ival[6]; }
 static int bcfa_acc() { return (int)_.op_parts_ival[7]; }
 static int bcfa_is_fail() { return (int)_.op_parts_ival[8]; }
 static int bcfa_agg() { return (int)_.op_parts_ival[10]; }
+static std::string bcfa_finish_call() {
+    switch (bcfa_agg()) {
+    case 1: return x86("call", "rt_pl_agg_count_finish", (uint64_t)(uintptr_t)(void *)rt_pl_agg_count_finish);
+    case 2: return x86("call", "rt_pl_agg_sum_finish",   (uint64_t)(uintptr_t)(void *)rt_pl_agg_sum_finish);
+    case 3: return x86("call", "rt_pl_agg_max_finish",   (uint64_t)(uintptr_t)(void *)rt_pl_agg_max_finish);
+    case 4: return x86("call", "rt_pl_agg_min_finish",   (uint64_t)(uintptr_t)(void *)rt_pl_agg_min_finish);
+    default: return x86("call", "rt_pl_findall_finish",  (uint64_t)(uintptr_t)(void *)rt_pl_findall_finish);
+    }
+}
 static std::string bcfa_finish() {
     return x86("mov", "rdi", FRQ(GZ_CELL_OFF(bcfa_acc())))
          + x86("mov", "rsi", FRQ(GZ_CELL_OFF(bcfa_result())))
-         + (bcfa_agg() == 1
-            ? x86("call", "rt_pl_agg_count_finish", (uint64_t)(uintptr_t)(void *)rt_pl_agg_count_finish)
-            : x86("call", "rt_pl_findall_finish", (uint64_t)(uintptr_t)(void *)rt_pl_findall_finish))
+         + bcfa_finish_call()
          + x86("test", "eax", "eax")
          + x86("je", "ω")
          + x86("jmp", "γ")
