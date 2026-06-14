@@ -479,7 +479,7 @@ static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
     if (ar > 3) return NULL;
     if (!pl_gz_call_args_ok(zc, ar)) return NULL;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
-    if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 4) return NULL;
+    if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 8) return NULL;
     pl_gz_choice_state_t *st = (pl_gz_choice_state_t *)GC_MALLOC(sizeof *st);
     if (!st) return NULL;
     st->nclauses = bc->nbodies; st->arity = ar; st->mark_slot = 0;
@@ -507,7 +507,7 @@ static IR_graph_t *g_gz_visiting[16]; static int g_gz_nvisiting = 0;
 static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t **bc_out) {
     if (!cg || !cg->entry || cg->entry->op != IR_CHOICE || ar > 3) return 0;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
-    if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 4) return 0;
+    if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 8) return 0;
     for (int v = 0; v < g_gz_nvisiting; v++) if (g_gz_visiting[v] == cg) { if (bc_out) *bc_out = bc; return 1; }
     if (g_gz_nvisiting >= 16) return 0;
     g_gz_visiting[g_gz_nvisiting++] = cg;
@@ -550,7 +550,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         return wa0->op == IR_ATOM || wa0->op == IR_LIT_I || wa0->op == IR_LOGICVAR || wa0->op == IR_STRUCT;
     }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
-        if (ir_pair_arg(gg,0)->op != IR_LOGICVAR) return 0;
+        if (ir_pair_arg(gg,0)->op != IR_LOGICVAR && ir_pair_arg(gg,0)->op != IR_LIT_I && ir_pair_arg(gg,0)->op != IR_LIT_F) return 0;
         IR_t *rhs = ir_pair_arg(gg,1);
         IR_t *q0 = (rhs->n_operands > 0) ? rhs->operands[0] : NULL, *q1 = (rhs->n_operands > 1) ? rhs->operands[1] : NULL;
         int rhs_const = (rhs->op == IR_LIT_I) || (rhs->op == IR_LIT_F) || ((rhs->op == IR_ARITH) && pl_gz_arith_const(rhs));
@@ -750,6 +750,7 @@ static int pl_gz_clause_nsynth(bb_conj_state_t *zs, int ar) {
     int nsynth = 0;
     for (int i = ar; i < zs->ngoals; i++) {
         IR_t *gg = zs->goals[i];
+        if (gg && gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
         if (!gg || gg->op != IR_GOAL) continue;
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
         if (!pl_gz_goal_callee(gg, &zc2, &ar2)) return -1;
@@ -872,9 +873,19 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
         } else if (IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "nl")) {
             nn = pl_gz_det_node(IR_DET_NL);
         } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
+            IR_t *lhs = ir_pair_arg(gg,0);
+            IR_t *na = NULL;
+            if (lhs->op == IR_LOGICVAR) { na = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(lhs).ival, ar, lbase)); }
+            else {
+                int kk = synth_next++;
+                IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+                IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+                ir_operand_push(cu, ca); ir_operand_push(cu, lhs);
+                if (!head) head = cu; else { tail->γ.node = cu; memcpy(tail->γ.sz, "α", 3); }
+                tail = cu; na = pl_gz_lv(kk);
+            }
             nn = pl_gz_det_node(IR_DET_IS);
             if (!nn) return 0;
-            IR_t *na = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(ir_pair_arg(gg,0)).ival, ar, lbase));
             IR_t *nb = pl_gz_arith_slot_map(ir_pair_arg(gg,1), ar, lbase);
             if (!na || !nb) return 0;
             ir_operand_push(nn, na); ir_operand_push(nn, nb);
@@ -940,7 +951,7 @@ static pl_gz_callee_t * pl_gz_callee_get_choice(IR_graph_t *cg, int ar, bb_choic
     if (!ce->frame_node) return NULL;
     IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;
     callees[(*ncallees)++] = ce;
-    bb_conj_state_t *zsk[4]; int lbase[4]; int total = 0;
+    bb_conj_state_t *zsk[8]; int lbase[8]; int total = 0;
     for (int k = 0; k < bc->nbodies; k++) {
         zsk[k] = NULL;
         if (!pl_gz_rule_clause(bc->bodies[k], ar, &zsk[k])) return NULL;
