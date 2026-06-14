@@ -61,6 +61,15 @@ std::string bb_gvar_assign() {
                    + x86("jmp",  "γ")
                    + x86("def",  "β")
                    + x86("jmp",  "ω"))
+             : (_.op_a_node_kind == (int)IR_VAR_FRAME || _.op_a_node_kind == (int)IR_VAR_FRAME_REF) ?
+                    (_.op_a_slot < 0 ? x86_bomb("bb_gvar_assign frame-var: op_a_slot==-1 (frame var slot not promoted)")
+                   : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
+                   + x86("mov", "rsi", FRQ(_.op_a_slot))
+                   + x86("mov", "rdx", FRQ(_.op_a_slot + 8))
+                   + x86("call","rt_gvar_assign_descr", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int64_t, int64_t))rt_gvar_assign_descr)
+                   + x86("jmp", "γ")
+                   + x86("def", "β")
+                   + x86("jmp", "ω"))
              : _.op_a_node_kind == (int)IR_CALL ?
                     (_.op_a_slot < 0 ? x86_bomb("bb_gvar_assign call-result: op_a_slot==-1 (call result slot not promoted)")
                    : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
