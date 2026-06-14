@@ -2435,6 +2435,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
+                resolve_call_kinds_descr(s2->bbp.table[idx]);
                 descr_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
                 if (n_procs < 64) snprintf(proc_names_buf[n_procs++], 128, "%s", pname);
                 free(pn);
@@ -2503,6 +2504,7 @@ int main(int argc, char **argv)
                 extern int g_descr_flat_chain;
                 int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
+                resolve_call_kinds_descr(bbg);
                 rc = use_chain ? descr_flat_chain_build_text(bbg->entry, stdout, "main")
                                : codegen_flat_build(root_node, stdout, "main");
                 g_descr_flat_chain = saved;
@@ -2795,6 +2797,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
+                resolve_call_kinds_descr(s2->bbp.table[idx]);
                 bb_box_fn pfn = descr_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
@@ -2823,6 +2826,7 @@ int main(int argc, char **argv)
             IR_t *root_node = ring_to_tree(bbg);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
+            resolve_call_kinds_descr(bbg);
             if (root_node) {
                 extern int g_descr_flat_chain;
                 int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
