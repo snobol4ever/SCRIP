@@ -233,6 +233,8 @@ typedef enum {
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/
+static inline int ir_is_scan_kind(IR_e t) { return t == IR_SCAN_POS || t == IR_SCAN_ANY || t == IR_SCAN_MATCH || t == IR_SCAN_MANY || t == IR_SCAN_TAB || t == IR_SCAN_MOVE || t == IR_SCAN_UPTO || t == IR_SCAN_FIND || t == IR_SCAN_BAL; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
 typedef struct { IR_t * node; char sz[4]; } IR_ref_t;
