@@ -3707,6 +3707,7 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         else if (w && w->op == IR_SUCCEED) node_ω = &lbl_γ;
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
+    if (n == 0) emit_jmp_label(&lbl_γ, JMP_JMP);
     emit_label_define_bb(&lbl_β);
     emit_jmp_label(&lbl_ω, JMP_JMP);
     emit_label_define_bb(&lbl_γ);
