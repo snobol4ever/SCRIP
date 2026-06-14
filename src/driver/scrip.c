@@ -268,10 +268,9 @@ static int icn_assign_safe_kind(IR_e t) {
            t == IR_GATHER || t == IR_MAP || t == IR_GREP;
 }
 static int icn_graph_has_local_assign(const IR_graph_t *g) {
-    extern int g_icn_globals_nv;
     for (int ni = 0; ni < g->n; ni++) {
         IR_t *nd = g->all[ni];
-        if (nd && nd->op == IR_ASSIGN && IR_LIT(nd).sval && !(g_icn_globals_nv && is_global(IR_LIT(nd).sval))) return 1;
+        if (nd && nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval)) return 1;
     }
     return 0;
 }
@@ -310,12 +309,11 @@ static int icn_graph_native_emittable_mode(stage2_t *s2, int for_run) {
                 if (!icn_scan_subgraph_safe(s2, gi, g, ssg, 0) || !icn_scan_subgraph_safe(s2, gi, g, bsg, 0)) return 0;
                 if (nd->γ.node && (nd->γ.node->op == IR_CALL || ir_is_scan_kind(nd->γ.node->op)) && !icn_gen_scan_body_slotful(nd)) return 0;
             }
-            { extern int g_icn_globals_nv;
-              if (nd->op == IR_VAR && IR_LIT(nd).sval && is_global(IR_LIT(nd).sval) && !g_icn_globals_nv) return 0;
+            {
               if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !icn_graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
               if (nd->op == IR_ASSIGN && IR_LIT(nd).sval) {
                   int lhs_global = is_global(IR_LIT(nd).sval);
-                  if (lhs_global && g_icn_globals_nv) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
+                  if (lhs_global) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
                   else if (icn_local_assign_rhs_ok_g(g, nd)) { /* wave-1 local assign: bb_assign_local (lit/var/binop rhs) */ }
                   else return 0; /* other rhs shapes: native store arm not built -> clean EXCISE, never abort */
               } }
@@ -2045,14 +2043,6 @@ int main(int argc, char **argv)
         }
         else if (strcmp(argv[argi], "--trace")         == 0) { opt_trace          = 1; argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench          = 1; argi++; }
-        else if (strncmp(argv[argi], "--icn-globals=", 14) == 0) {
-            extern int g_icn_globals_nv;
-            const char * v = argv[argi] + 14;
-            if      (strcmp(v, "nv")   == 0) g_icn_globals_nv = 1;
-            else if (strcmp(v, "slot") == 0) g_icn_globals_nv = 0;
-            else { fprintf(stderr, "scrip: --icn-globals= must be slot or nv\n"); return 1; }
-            argi++;
-        }
         else if (strcmp(argv[argi], "--case-sensitive") == 0) { argi++; }
         else if (strcmp(argv[argi], "--fold-case")     == 0) {
             fprintf(stderr, "scrip: --fold-case is no longer supported; SCRIP is case-sensitive only\n");
