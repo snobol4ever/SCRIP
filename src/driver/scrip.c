@@ -547,6 +547,10 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         return (lv && (rv || rc)) || (rv && lc) || (lc && rc);
     }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "nl") && IR_LIT(gg).ival == 0) return 1;
+    if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "throw") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+        const IR_t *ba = ir_call_arg(gg,0);
+        return ba->op == IR_ATOM || ba->op == IR_LIT_I || ba->op == IR_LIT_F || ba->op == IR_LOGICVAR || ba->op == IR_STRUCT;
+    }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "write") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
         const IR_t *wa0 = ir_call_arg(gg,0);
         return wa0->op == IR_ATOM || wa0->op == IR_LIT_I || wa0->op == IR_LIT_F || wa0->op == IR_LOGICVAR || wa0->op == IR_STRUCT;
@@ -878,6 +882,15 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
             ir_operand_push(nn, na); ir_operand_push(nn, nb);
         } else if (IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "nl")) {
             nn = pl_gz_det_node(IR_DET_NL);
+        } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "throw") && IR_LIT(gg).ival == 1) {
+            IR_t *ball = ir_call_arg(gg, 0);
+            if (!ball) return 0;
+            IR_t *nb = (ball->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(ball).ival, ar, lbase))
+                     : (ball->op == IR_STRUCT)   ? pl_gz_struct_slot_map(ball, ar, lbase) : ball;
+            if (!nb) return 0;
+            nn = pl_gz_det_node(IR_DET_THROW);
+            if (!nn) return 0;
+            IR_LIT(nn).ival = (int64_t)(intptr_t)nb;
         } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
             IR_t *lhs = ir_pair_arg(gg,0);
             IR_t *na = NULL;
@@ -1177,6 +1190,16 @@ static IR_t * pl_gz_arith_to_struct(const IR_t *nd) {
 static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees) {
     if (!gg) return 0;
     if (gg->op == IR_SUCCEED) return 1;
+    if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "throw") && IR_LIT(gg).ival == 1) {
+        IR_t *ball = ir_call_arg(gg, 0);
+        if (!ball) return 0;
+        IR_t *cn = pl_gz_det_node(IR_DET_THROW);
+        if (!cn) return 0;
+        IR_LIT(cn).ival = (int64_t)(intptr_t)ball;
+        if (!*head) *head = cn; else { (*tail)->γ.node = cn; memcpy((*tail)->γ.sz, "α", 3); }
+        *tail = cn;
+        return 1;
+    }
     if (gg->op == IR_ITE) {
         bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(gg).ival;
         if (!zi) return 0;

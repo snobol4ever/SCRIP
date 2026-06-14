@@ -115,6 +115,8 @@ std::string bb_callee_frame();
 std::string bb_cell_cut();
 std::string bb_cell_ite();
 std::string bb_cell_findall();
+std::string bb_det_throw();
+std::string bb_cell_catch();
 std::string bb_det_sort();
 std::string bb_det_numbervars();
 std::string bb_det_term_string();
