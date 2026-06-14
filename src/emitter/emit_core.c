@@ -470,6 +470,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_RETURN: { extern int g_descr_flat_chain; if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0; g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_AUGOP:
+    case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN:
     case IR_CALL: {
         bb_emit_x86(bb_call(nd));
         return 0;
