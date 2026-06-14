@@ -45,14 +45,14 @@ typedef struct {
     const char *                 lbl_γ;
     const char *                 lbl_ω;
     const char *                 lbl_β;
-    const char *                 lbl_δ;
-    const char *                 lbl_ε;
+    const char *                 lbl_t0;
+    const char *                 lbl_t1;
     struct bb_label_t *          lbl_α_p;
     struct bb_label_t *          lbl_γ_p;
     struct bb_label_t *          lbl_ω_p;
     struct bb_label_t *          lbl_β_p;
-    struct bb_label_t *          lbl_δ_p;
-    struct bb_label_t *          lbl_ε_p;
+    struct bb_label_t *          lbl_t0_p;
+    struct bb_label_t *          lbl_t1_p;
     void *                       child_fn;
     const char *                 op_name1;
     const char *                 op_name2;

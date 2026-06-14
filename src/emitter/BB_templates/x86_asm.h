@@ -16,13 +16,11 @@ extern "C" {
 #include "emit_bb.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-enum { X86P_ALPHA = 0, X86P_BETA = 1, X86P_GAMMA = 2, X86P_OMEGA = 3, X86P_DELTA = 4, X86P_EPSILON = 5 };
+enum { X86P_ALPHA = 0, X86P_BETA = 1, X86P_GAMMA = 2, X86P_OMEGA = 3 };
 #define PORT_ALPHA   "\xCE\xB1"
 #define PORT_BETA    "\xCE\xB2"
 #define PORT_GAMMA   "\xCE\xB3"
 #define PORT_OMEGA   "\xCF\x89"
-#define PORT_DELTA   "\xCE\xB4"
-#define PORT_EPSILON "\xCE\xB5"
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline int x86_rnum(const char * r) {
     if (!r) return 0;
@@ -46,14 +44,16 @@ inline int x86_rnum(const char * r) {
 }
 inline const char * x86_portname(int p) {
     switch (p) { case X86P_ALPHA: return _.lbl_α; case X86P_BETA: return _.lbl_β;
-                 case X86P_GAMMA: return _.lbl_γ; case X86P_DELTA: return _.lbl_δ;
-                 case X86P_EPSILON: return _.lbl_ε; default: return _.lbl_ω; }
+                 case X86P_GAMMA: return _.lbl_γ; default: return _.lbl_ω; }
 }
 inline struct bb_label_t * x86_portlbl(int p) {
     switch (p) { case X86P_ALPHA: return _.lbl_α_p; case X86P_BETA: return _.lbl_β_p;
-                 case X86P_GAMMA: return _.lbl_γ_p; case X86P_DELTA: return _.lbl_δ_p;
-                 case X86P_EPSILON: return _.lbl_ε_p; default: return _.lbl_ω_p; }
+                 case X86P_GAMMA: return _.lbl_γ_p; default: return _.lbl_ω_p; }
 }
+inline const char *           x86_tgt0()    { return _.lbl_t0; }
+inline struct bb_label_t *    x86_tgt0_p()  { return _.lbl_t0_p; }
+inline const char *           x86_tgt1()    { return _.lbl_t1; }
+inline struct bb_label_t *    x86_tgt1_p()  { return _.lbl_t1_p; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_Lrec(const std::string & b) { std::string r; r += (char)'L'; r += (char)(unsigned char)b.size(); r += b; return r; }
 inline std::string x86_Jrec(int port)              { std::string r; r += (char)'J'; r += (char)(unsigned char)port; return r; }
@@ -222,6 +222,23 @@ inline std::string x86_jmp(int port) {
 }
 inline std::string x86_deflabel(int port) {
     return MEDIUM_BINARY ? x86_Drec(port) : (std::string(" ") + x86_portname(port) + ":\n");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+enum { X86T_TGT0 = 4, X86T_TGT1 = 5 };
+inline std::string x86_jmp_tgt(int t) {
+    const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
+    return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(t))
+                         : (std::string(" jmp ") + nm + "\n");
+}
+inline std::string x86_jcc_tgt(const char * mnem, int t) {
+    const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
+    return MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(t))
+                         : (std::string(" ") + mnem + " " + nm + "\n");
+}
+inline std::string x86_call_tgt(int t) {
+    const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
+    return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(t))
+                         : (std::string(" call ") + nm + "\n");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define X86_INTERNAL_BASE 6
@@ -459,8 +476,7 @@ struct opnd {
 inline int x86_port_of(const char * s) {
     if ((unsigned char)s[0] == 0xCE) {
         switch ((unsigned char)s[1]) { case 0xB1: return X86P_ALPHA; case 0xB2: return X86P_BETA;
-                                       case 0xB3: return X86P_GAMMA; case 0xB4: return X86P_DELTA;
-                                       case 0xB5: return X86P_EPSILON; }
+                                       case 0xB3: return X86P_GAMMA; }
     }
     if ((unsigned char)s[0] == 0xCF && (unsigned char)s[1] == 0x89) return X86P_OMEGA;
     return -1;
@@ -677,6 +693,8 @@ inline std::string x86_lit_bytes(const std::string & b) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
+    if (id == X86T_TGT0) return _.lbl_t0_p;
+    if (id == X86T_TGT1) return _.lbl_t1_p;
     return id < X86_INTERNAL_BASE ? x86_portlbl(id) : &internal[id - X86_INTERNAL_BASE];
 }
 inline void bb_emit_x86(const std::string & s) {

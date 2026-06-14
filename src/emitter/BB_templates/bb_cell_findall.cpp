@@ -53,7 +53,7 @@ std::string bb_cell_findall() {
          + x86("call", "rt_enter", (uint64_t)(uintptr_t)(void *)rt_enter)
          + x86("mov", "rdi", "rax")
          + FOR(0, na, [&](int i) { return x86("mov", bcfa_areg(i), FRQ(GZ_CELL_OFF((int)_.op_parts_ival[3 + i]))); })
-         + x86("call", "δ")
+         + x86_call_tgt(X86T_TGT0)
          + x86("def", L(0))
          + x86("test", "eax", "eax")
          + x86("je", L(1))
@@ -62,7 +62,7 @@ std::string bb_cell_findall() {
          + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bcfa_acc())))
          + x86("call", "rt_pl_findall_collect", (uint64_t)(uintptr_t)(void *)rt_pl_findall_collect)
          + x86("mov", "rdi", FRQ(GZ_CELL_OFF(bcfa_child())))
-         + x86("call", "ε")
+         + x86_call_tgt(X86T_TGT1)
          + x86("jmp", L(0))
          + x86("def", L(1))
          + bcfa_finish();

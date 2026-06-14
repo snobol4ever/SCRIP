@@ -24,14 +24,14 @@ std::string bb_cell_call() {
                            + x86("call", "rt_enter", (uint64_t)(uintptr_t)(void *)rt_enter)
                            + x86("mov", "rdi", "rax")
                            + FOR(0, ((int)_.op_parts_ival[1] < 3 ? (int)_.op_parts_ival[1] : 3), [&](int i) { return x86("mov", bcc_areg(i), FRQ(GZ_CELL_OFF((int)_.op_parts_ival[3 + i]))); })
-                           + x86("call", "δ")
+                           + x86_call_tgt(X86T_TGT0)
                            + x86("def", L(0))
                            + x86("test", "eax", "eax")
                            + x86("jne", "γ")
                            + x86("jmp", "ω")
                            + x86("def", "β")
                            + x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[0])))
-                           + x86("call", "ε")
+                           + x86_call_tgt(X86T_TGT1)
                            + x86("jmp", L(0)));
     return std::string();
 }
