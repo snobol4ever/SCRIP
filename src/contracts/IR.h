@@ -242,6 +242,8 @@ static inline int ir_is_scan_kind(IR_e t) { return t == IR_SCAN_POS || t == IR_S
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_call_kind(IR_e t) { return t == IR_CALL_PROC_STAGED || t == IR_CALL_USERPROC || t == IR_CALL_BYNAME || t == IR_CALL_BUILTIN; }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
 typedef struct { IR_t * node; char sz[4]; } IR_ref_t;
