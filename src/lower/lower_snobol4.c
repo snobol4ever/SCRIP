@@ -182,16 +182,32 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
     case TT_BREAK: case TT_BREAKX: {
         IR_e op = (t->t == TT_BREAK) ? IR_PAT_BREAK : IR_PAT_BREAKX;
         IR_t * nd = IR_node_alloc(pg, op); γ_to(nd, succ); ω_to(nd, fail);
-        if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }
+            else IR_LIT(nd).sval = arg->v.sval; }
+        return nd; }
     case TT_SPAN: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_SPAN); γ_to(nd, succ); ω_to(nd, fail);
-        if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).ival = 1; }
+            else IR_LIT(nd).sval = arg->v.sval; }
+        return nd; }
     case TT_ANY: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_ANY); γ_to(nd, succ); ω_to(nd, fail);
-        if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }
+            else IR_LIT(nd).sval = arg->v.sval; }
+        return nd; }
     case TT_NOTANY: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_NOTANY); γ_to(nd, succ); ω_to(nd, fail);
-        if (t->n > 0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; return nd; }
+        if (t->n > 0 && t->c[0]) {
+            const tree_t * arg = t->c[0];
+            if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }
+            else IR_LIT(nd).sval = arg->v.sval; }
+        return nd; }
     case TT_POS: {
         IR_t * nd = IR_node_alloc(pg, IR_PAT_POS); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {

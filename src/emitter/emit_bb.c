@@ -2252,6 +2252,9 @@ static int scan_pat_m3_native_safe(IR_graph_t *pg) {
             || nd->op == IR_REF_INVARIANT || nd->op == IR_PATTERN_DEFER) return 0;
         if ((nd->op == IR_PAT_POS || nd->op == IR_PAT_LEN || nd->op == IR_PAT_TAB || nd->op == IR_PAT_RTAB)
             && IR_LIT(nd).dval != 0.0) return 0;
+        if ((nd->op == IR_PAT_ANY || nd->op == IR_PAT_NOTANY || nd->op == IR_PAT_BREAK || nd->op == IR_PAT_BREAKX)
+            && IR_LIT(nd).dval != 0.0) return 0;
+        if (nd->op == IR_PAT_SPAN && IR_LIT(nd).ival == 1) return 0;
     }
     return 1;
 }
