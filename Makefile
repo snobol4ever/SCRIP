@@ -237,7 +237,6 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit_bb.c \
     \
     $(SRC)/machine/bb_boxes.c \
-    $(SRC)/attic/smx_dead_stubs.c \
     $(SRC)/machine/sm_prog.c \
     $(SRC)/lower/lower_common.c \
     $(SRC)/lower/tree_to_sno.c \
@@ -489,7 +488,6 @@ scrip:
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
 	$(CC) $(CRT) -c $(SRC)/machine/bb_boxes.c -o $(OBJ)/bb_boxes.o
-	$(CC) $(CRT) -c $(SRC)/attic/smx_dead_stubs.c -o $(OBJ)/smx_dead_stubs.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -DIR_DEFINE_NAMES \
 	    -c $(SRC)/contracts/ast_print.c -o $(OBJ)/ast_print.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/snocone/snocone_lex.c        -o $(OBJ)/snocone_lex.o

@@ -59,7 +59,6 @@ const char *scan_subj  = "";
 int         scan_pos   = 1;
 ScanEntry scan_stack[SCAN_STACK_MAX];
 int         scan_depth = 0;
-int sm_yield_to_caller(DESCR_t v) { (void)v; return 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);

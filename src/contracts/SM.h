@@ -100,5 +100,4 @@ typedef enum {
 } SM_op_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct GeneratorState GeneratorState;
-const char *sm_opcode_name(SM_op_t op);
 #endif
