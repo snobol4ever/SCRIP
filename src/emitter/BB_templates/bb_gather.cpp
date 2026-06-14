@@ -42,7 +42,7 @@ std::string bb_gather() {
          + x86("cmp64",     "rcx", (long)gatherN())
          + x86("jge",       "ω")
          + x86("lea",       "rdx", "[rip + __]", valsPtr(), valsLbl())
-         + x86("mov",       "rsi", "rdx", "rcx")
+         + x86("mov",       "rsi", "[rdx + rcx*8]")
          + x86("mov",       FRQ(resoff()), (long)6)
          + x86("mov",       FRQ(resoff() + 8), "rsi")
          + x86("inc",       FRQ(cursoff()))

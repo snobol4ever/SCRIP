@@ -207,6 +207,7 @@ static int icn_rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     if (r->op == IR_FIELD_GET) return 1;
+    if (r->op == IR_GATHER || r->op == IR_MAP || r->op == IR_GREP) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
     if (r->op == IR_GEN_SCAN) return icn_gen_scan_body_slotful(r);
     return 0;
@@ -261,7 +262,8 @@ static int icn_assign_safe_kind(IR_e t) {
     return t == IR_ASSIGN || t == IR_VAR || t == IR_CALL || t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL || t == IR_FIELD_GET ||
            t == IR_BINOP || t == IR_IF || t == IR_WHILE || t == IR_UNTIL || t == IR_REPEAT ||
-           t == IR_BREAK || t == IR_NEXT || t == IR_CONJ || t == IR_GEN_SCAN;
+           t == IR_BREAK || t == IR_NEXT || t == IR_CONJ || t == IR_GEN_SCAN ||
+           t == IR_GATHER || t == IR_MAP || t == IR_GREP;
 }
 static int icn_graph_has_local_assign(const IR_graph_t *g) {
     extern int g_icn_globals_nv;
