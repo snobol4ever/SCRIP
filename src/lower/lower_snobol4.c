@@ -540,6 +540,25 @@ static IR_t * sno_build_leaf_ir(snx_t * cx, const tree_t * t, IR_t * g, IR_t * w
     return NULL;
 }
 /*====================================================================================================================================================================================================*/
+/* ── concat: wire each part as an operand box feeding a binary cat (seq = cat(seq, part)), exactly like lower_expr's binop ── */
+static void sno_seq_flatten_ops(const tree_t * t, lc_vec * out, int * nonleaf) {
+    if (!t) return;
+    if (t->t == TT_SEQ) { sno_seq_flatten_ops((t->n > 0) ? t->c[0] : NULL, out, nonleaf); sno_seq_flatten_ops((t->n > 1) ? t->c[1] : NULL, out, nonleaf); return; }
+    lc_vec_push(out, &t);
+    if (t->t == TT_FNC || lc_is_binop(t->t) || is_sno_unop(t->t)) *nonleaf = 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_concat_chain(snx_t * cx, const tree_t ** ops, int n, IR_t * cont, IR_t * nxt, IR_t ** res) {
+    if (n == 1) return lower_expr(cx, ops[0], cont, nxt, res);
+    IR_t * op = build(cx, IR_BINOP, cont, nxt); IR_LIT(op).ival = (long long) lc_binop_code(TT_CAT);
+    IR_t * lr = NULL, * rr = NULL;
+    IR_t * ea = sno_concat_chain(cx, ops, n - 1, NULL, nxt, &lr);
+    IR_t * eb = lower_expr(cx, ops[n - 1], op, nxt, &rr);
+    γ_to(lr, eb);
+    { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); ir_operand_push(op, lr); ir_operand_push(op, rr); }
+    *res = op; return ea;
+}
+/*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
     if (rhs && rhs->t == TT_ALT) {
@@ -744,6 +763,9 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             IR_node_alloc(cx->g, IR_SEQ);
             return NULL;
         }
+        /* non-leaf part (CALL/ARITH) present → wire parts as operand boxes feeding binary cat; all-leaf stays on op_parts fast path */
+        { lc_vec ov; lc_vec_init(&ov, (int) sizeof(const tree_t *)); int nonleaf = 0; sno_seq_flatten_ops(rhs, &ov, &nonleaf);
+          if (nonleaf && ov.n >= 1) { const tree_t ** ops = (const tree_t **) ov.data; IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs; IR_t * res = NULL; IR_t * entry = sno_concat_chain(cx, ops, ov.n, asn, ω, &res); ir_operand_push(asn, res); return entry; } }
         lc_vec lv; lc_vec_init(&lv, (int) sizeof(const tree_t *)); int fold = 1;
         lc_vec stv; lc_vec_init(&stv, (int) sizeof(const tree_t *)); lc_vec_push(&stv, &rhs);
         while (stv.n > 0 && fold) {

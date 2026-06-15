@@ -343,34 +343,43 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
     static const char * lang_names[] = { "?", "SNO", "SCO", "REB", "ICN", "PL", "RKU" };
     const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
     fprintf(fp, "IR_graph_t lang=%s n=%d entry=%d\n", lname, bbg->n, bb_index_of(bbg, bbg->entry));
-    for (int i = 0; i < bbg->n; i++) {
+    int nn = bbg->n;
+    for (int i = 0; i < nn; i++) {                              /* sequential, in node-number order */
         const IR_t * bb = bbg->all[i];
-        if (!bb) { fprintf(fp, "[%4d] ·\n", i); continue; }
-        const char * opn = bb_op_name(bb->op); if (strncmp(opn, "IR_", 3) == 0) opn += 3;
-        char gp[16], wp[16];
-        if (bb->γ.node) snprintf(gp, sizeof gp, "%dα", bb->γ.node->idx); else snprintf(gp, sizeof gp, "·");
-        if (bb->ω.node) snprintf(wp, sizeof wp, "%dβ", bb->ω.node->idx); else snprintf(wp, sizeof wp, "·");
-        fprintf(fp, "[%4d] %-18s γ=%-6s ω=%-6s", i, opn, gp, wp);
-        if (bb->op != IR_SCAN && bb->n_operands > 0) {
-            fprintf(fp, " ops:[");
-            for (int j = 0; j < bb->n_operands; j++) fprintf(fp, "%s%d", j ? "," : "", bb->operands[j] ? bb->operands[j]->idx : -1);
-            fprintf(fp, "]");
-        }
+        if (!bb) { fprintf(fp, "%4d:    .    .  []\n", i); continue; }
+        char gp[8], wp[8];
+        if (bb->γ.node) snprintf(gp, sizeof gp, "%d", bb->γ.node->idx); else snprintf(gp, sizeof gp, ".");
+        if (bb->ω.node) snprintf(wp, sizeof wp, "%d", bb->ω.node->idx); else snprintf(wp, sizeof wp, ".");
+        int na = 0; IR_t * const * ops = NULL;
+        if (bb->n_operands > 0) { na = bb->n_operands; ops = bb->operands; }            /* on-node operands */
+        else { ops = bb_operand_aux_get(bbg, bb, &na); }                                /* else aux-map */
+        char ob[128]; int op = 0; ob[0] = 0;
+        if (bb->op != IR_SCAN && na > 0 && ops) for (int j = 0; j < na && op < 110; j++) op += snprintf(ob + op, sizeof ob - op, "%s%d", j ? " " : "", ops[j] ? ops[j]->idx : -1);
+        const char * opn = bb_op_name(bb->op);                 /* keep IR_ prefix */
+        fprintf(fp, "%4d: %4s %4s  %-22s [%s]", i, gp, wp, opn, ob);
         switch (bb->op) {
             case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
             case IR_LIT_F: fprintf(fp, " dval=%g",   IR_LIT(bb).dval);             break;
             case IR_LIT_S: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-            case IR_VAR:   fprintf(fp, " var=\"%s\"%s",  IR_LIT(bb).sval ? IR_LIT(bb).sval : "", IR_EXEC(bb).state == 1 ? " scope=global" : ""); break;
+            case IR_VAR:   fprintf(fp, " var=\"%s\"%s",  IR_LIT(bb).sval ? IR_LIT(bb).sval : "", IR_EXEC(bb).state == 1 ? " global" : ""); break;
+            case IR_BINOP: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
+            case IR_SEQ:   fprintf(fp, " parts(sub-graphs)"); break;
             case IR_FIELD_GET:
             case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
             default:
                 if (IR_LIT(bb).sval) fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval);
-                if (IR_LIT(bb).ival) fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival);
+                else if (IR_LIT(bb).ival) fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival);
                 break;
         }
-        { static int xd = -1; if (xd < 0) { const char * e = getenv("SCRIP_DUMP_X"); xd = (e && e[0] == '1') ? 1 : 0; }
-          if (xd) fprintf(fp, "  X{dval=%g ctr=%lld st=%lld gsz=%s wsz=%s}", IR_LIT(bb).dval, (long long)IR_EXEC(bb).counter, (long long)IR_EXEC(bb).state, bb->γ.node ? bb->γ.sz : "·", bb->ω.node ? bb->ω.sz : "·"); }
         fprintf(fp, "\n");
+    }
+    for (int i = 0; i < nn; i++) {                              /* recurse only true sub-graph nodes (leaf-SEQ/scan) */
+        const IR_t * bb = bbg->all[i];
+        if (!bb || bb->op != IR_SEQ || IR_LIT(bb).dval != 1.0) continue;
+        IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
+        IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
+        if (L) { fprintf(fp, "; SEQ[%d] part0:\n", i); bb_print(L, fp); }
+        if (R) { fprintf(fp, "; SEQ[%d] part1:\n", i); bb_print(R, fp); }
     }
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
