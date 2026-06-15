@@ -207,7 +207,7 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
     std::string s;
     for (int j = 0; j < nn; j++) s += ((nbrm >> j) & 1ull) ? marshal_varparam_addr(nsubs[j]->entry, avbase + j * 16, j) : marshal_call_arg(nsubs[j]->entry, nsubs[j], avbase + j * 16, lf, j);
     if (MEDIUM_TEXT) {
-        std::string fl = emit_fmt(".Lcallfn%d", lblid);
+        std::string fl = emit_fmt(".Lcallfn%d", g_flat_node_id++);
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + nfn + "\"").c_str())
            + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
