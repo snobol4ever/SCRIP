@@ -196,7 +196,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     if (r->op == IR_FIELD_GET) return 1;
-    if (r->op == IR_GATHER || r->op == IR_MAP || r->op == IR_GREP) return 1;
+    if (r->op == IR_GATHER) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
     if (r->op == IR_GEN_SCAN) return gen_scan_body_slotful(r);
     return 0;
@@ -280,6 +280,7 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval)) return 0;
             if (nd->op == IR_CASE) return 0;
             if (nd->op == IR_INITIAL) return 0;
+            if (nd->op == IR_MAP || nd->op == IR_GREP) return 0;
             if (nd->op == IR_SWAP) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0; }
             if (nd->op == IR_GEN_SCAN) {
