@@ -1306,6 +1306,12 @@ int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
         int numeric = str_rel ? 0 : (IS_INT_fn(scalar) || IS_REAL_fn(scalar));
         return junction_collapse(scalar, jct, tt_op, numeric) ? 1 : 0;
     }
+    if (num_rel && (IS_REAL_fn(lhs) || IS_REAL_fn(rhs)) && (IS_INT_fn(lhs) || IS_REAL_fn(lhs)) && (IS_INT_fn(rhs) || IS_REAL_fn(rhs))) {
+        double a = to_real(lhs), b = to_real(rhs);
+        switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
+                      case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; }
+        return 0;
+    }
     if (IS_INT_fn(lhs) && IS_INT_fn(rhs)) {
         int64_t a = lhs.i, b = rhs.i;
         switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
