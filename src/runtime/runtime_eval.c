@@ -13,6 +13,60 @@ extern int exec_stmt(const char  *subj_name,
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
+typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
+extern void          *lower_snobol4(const tree_t *prog);
+extern eval_chain_fn  gvar_flat_chain_build(void *g);
+extern void           rt_eval_run(eval_chain_fn fn, void *zeta);
+#define EVAL_TMP "ZZEVALZZ"
+/*--------------------------------------------------------------------------------------------------------------------*/
+__asm__(
+".text\n"
+".globl rt_eval_run\n"
+"rt_eval_run:\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  movq %rdi, %rax\n"
+"  movq %rsi, %rdi\n"
+"  xorl %esi, %esi\n"
+"  call *%rax\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  ret\n"
+);
+void rt_eval_run(eval_chain_fn fn, void *zeta);
+/*--------------------------------------------------------------------------------------------------------------------*/
+static eval_chain_fn eval_build_chain(const char *s)
+{
+    if (!s || !*s) return NULL;
+    { extern void bb_pool_init(void); bb_pool_init(); }
+    size_t n = strlen(s);
+    char *src = (char *)malloc(n + 4);
+    if (!src) return NULL;
+    snprintf(src, n + 4, "(%s)", s);
+    tree_t *e = parse_expr_pat_from_str(src);
+    free(src);
+    if (!e) return NULL;
+    tree_t *var = ast_stmt_new(TT_VAR);
+    var->v.sval = strdup(EVAL_TMP);
+    tree_t *st = ast_stmt_new(TT_STMT);
+    ast_push(st, ast_attr_int(":line", 1));
+    ast_push(st, ast_attr_int(":stno", 1));
+    ast_push(st, ast_attr_expr(":subj", var));
+    ast_push(st, ast_attr_leaf(":eq", ""));
+    ast_push(st, ast_attr_expr(":repl", e));
+    tree_t *prog = ast_stmt_new(TT_PROGRAM);
+    ast_push(prog, st);
+    void *g = lower_snobol4(prog);
+    if (!g) return NULL;
+    return gvar_flat_chain_build(g);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_node(tree_t *e)
 {
     (void)e;
@@ -123,6 +177,17 @@ const char *exec_code(DESCR_t code_block)
 DESCR_t EXPVAL_fn(DESCR_t expr_d)
 {
     if (expr_d.v == DT_E) {
+        if (expr_d.slen == 3) {
+            eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
+            if (!fn) return FAILDESCR;
+            int64_t eval_frame[512];
+            memset(eval_frame, 0, sizeof eval_frame);
+            DESCR_t saved = NV_GET_fn(EVAL_TMP);
+            rt_eval_run(fn, (void *)eval_frame);
+            DESCR_t result = NV_GET_fn(EVAL_TMP);
+            NV_SET_fn(EVAL_TMP, saved);
+            return result;
+        }
         if (expr_d.slen == 1) {
             extern DESCR_t sm_eval_subexpr(int entry_pc);
             int entry_pc = (int)expr_d.i;
@@ -160,12 +225,11 @@ DESCR_t CONVE_fn(DESCR_t str_d)
 {
     const char *s = VARVAL_fn(str_d);
     if (!s || !*s) return FAILDESCR;
-    tree_t *tree = parse_expr_pat_from_str(s);
-    if (!tree) return FAILDESCR;
+    eval_chain_fn fn = eval_build_chain(s);
+    if (!fn) return FAILDESCR;
     DESCR_t d;
     d.v    = DT_E;
-    d.slen = 0;
-    d.s    = NULL;
-    d.ptr  = tree;
+    d.slen = 3;
+    d.ptr  = (void *)fn;
     return d;
 }
