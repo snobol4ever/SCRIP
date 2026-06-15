@@ -596,6 +596,22 @@ class Dog is Animal { method bark() { return "woof"; } }
 sub main() { my $d = Dog.new(name => "Rex"); say($d.name()); }
 EOF
 
+# --- RK-OO-B1: user `method new` overrides built-in obj_new; `self.bless(k => v)` constructs ---
+raku "method_new_override" "37" << 'EOF'
+class Temperature { has $.celsius; method new($c) { return self.bless(celsius => $c); } }
+sub main() { my $t = Temperature.new(37); say($t.celsius); }
+EOF
+
+raku "bless_named" "9" << 'EOF'
+class T { has $.c; method mk() { return self.bless(c => 9); } }
+sub main() { my $t = T.mk(); say($t.c); }
+EOF
+
+raku "type_object_method" "9" << 'EOF'
+class C { has $.x; method make($v) { return self.bless(x => $v); } }
+sub main() { my $o = C.make(9); say($o.x); }
+EOF
+
 # --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }
