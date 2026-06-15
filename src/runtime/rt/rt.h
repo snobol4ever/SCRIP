@@ -124,7 +124,6 @@ typedef struct {
     void (*set_last_ok)(int x);
 } rt_vstack_ops_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_in_native_chunk(void);
 #include "bb_box.h"
 void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);

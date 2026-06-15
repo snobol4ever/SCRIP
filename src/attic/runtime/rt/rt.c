@@ -499,3 +499,12 @@ static void rt_register_cap(cap_t *c)
     if (g_rt_cap_count < RT_MAX_CAPTURES)
         g_rt_cap_list[g_rt_cap_count++] = c;
 }
+/* DEAD CODE — excised from src/runtime/rt/rt.c (+ decl from src/runtime/rt/rt.h)
+ * Reason: rt_in_native_chunk — 0 callers (none in runtime/driver/templates, not
+ *         emitted: no x86 call-site → not in ROOTS_EMIT). Its sole input
+ *         g_native_chunk_depth is a static never written anywhere (permanently 0,
+ *         so the predicate was a constant 0). Unmasked by the batch-4 weak-stub
+ *         removals; fixpoint iteration. GC oracle confirmed dead 2026-06-15.
+ */
+static int     g_native_chunk_depth = 0;
+int rt_in_native_chunk(void) { return g_native_chunk_depth > 0; }
