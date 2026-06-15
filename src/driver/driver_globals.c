@@ -31,7 +31,6 @@ void fh_free(int idx){
     if(fh_init&&idx>=3&&idx<FH_MAX){ fh_table[idx]=NULL; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void stmt_init(void) {}
 extern DESCR_t      eval_expr(const char *src);
 extern const char  *exec_code(DESCR_t code_block);
 extern int exec_stmt(const char *subj_name,

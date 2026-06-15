@@ -129,3 +129,6 @@ void walk_bb_register_child_label(IR_t *nd, const char *α_label) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void lower_flat_reset(void) { g_flat_slot_count = 0; g_flat_node_id = 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* ATTIC: dead-code sweep batch 4 (origin src/emitter/emit_bb.c, base 4c9b6bd) — lower_flat_set_cap_fixup: setter for g_cap_fixup_cb, never called; macro alias bb_flat_set_cap_fixup_cb never invoked. GC-oracle dead. Provenance only; not compiled. */
+void lower_flat_set_cap_fixup(void (*cb)(void *cap_ptr, const char *child_α_label)) { g_cap_fixup_cb = cb; }

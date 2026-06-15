@@ -21,3 +21,12 @@ IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
     bbg->entry = bb;
     return bbg;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* ATTIC: dead-code sweep batch 4 (origin src/lower/lower_icon.c, base 4c9b6bd) — collect_procs: self-recursive only, never called from any reachable fn in this TU (collect_procs_vec is the live variant). GC-oracle dead. Provenance only; not compiled. */
+static int collect_procs(const tree_t * t, const tree_t ** out, int max, int n) {
+    if (!t || n >= max) return n;
+    if (t->t == TT_STMT) return collect_procs(stmt_subj(t), out, max, n);
+    if (t->t == TT_PROC_DECL) { out[n++] = t; return n; }
+    for (int i = 0; i < t->n; i++) n = collect_procs(t->c[i], out, max, n);
+    return n;
+}
