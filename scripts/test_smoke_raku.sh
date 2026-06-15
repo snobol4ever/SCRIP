@@ -493,6 +493,22 @@ raku "str_lines_elems" "3" << 'EOF'
 sub main() { my @a = "a\nb\nc".lines; say(elems(@a)); }
 EOF
 
+raku "list_join_sep" "1-2-3" << 'EOF'
+sub main() { my @a = (1, 2, 3); say(@a.join("-")); }
+EOF
+
+raku "list_join_default" "123" << 'EOF'
+sub main() { my @a = (1, 2, 3); say(@a.join); }
+EOF
+
+raku "list_elems_method" "3" << 'EOF'
+sub main() { my @a = (10, 20, 30); say(@a.elems); }
+EOF
+
+raku "split_then_join" "x|y|z" << 'EOF'
+sub main() { my @a = "x,y,z".split(","); say(@a.join("|")); }
+EOF
+
 raku "grammar_token" "12345" << 'EOF'
 grammar G {
     token TOP { \d+ }

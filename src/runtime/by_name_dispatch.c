@@ -253,6 +253,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "chomp")) { size_t b = n; if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)GC_malloc(b + 1); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "wordcase")) { char *r = (char *)GC_malloc(n + 1); memcpy(r, s, n + 1); int start = 1; for (size_t i = 0; i < n; i++) { if (isspace((unsigned char)r[i])) start = 1; else { if (start) r[i] = (char)toupper((unsigned char)r[i]); start = 0; } } *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "lines")) { char *r = (char *)GC_malloc(2 * n + 1); int op = 0, first = 1; size_t i = 0; while (i < n) { if (!first) r[op++] = SOH; first = 0; while (i < n && s[i] != '\n') { if (s[i] != '\r') r[op++] = s[i]; i++; } if (i < n) i++; } r[op] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "elems")) { if (n == 0) { *out = INTVAL(0); return 1; } int c = 1; for (size_t i = 0; i < n; i++) if (s[i] == SOH) c++; *out = INTVAL(c); return 1; }
+    if (!strcmp(meth, "join")) { const char *sep = ""; char jb[64]; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } size_t sl = strlen(sep); int nsep = 0; for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)GC_malloc(n + (size_t)nsep * sl + 1); int op = 0; for (size_t i = 0; i < n; i++) { if (s[i] == SOH) { memcpy(r + op, sep, sl); op += (int)sl; } else r[op++] = s[i]; } r[op] = '\0'; *out = STRVAL(r); return 1; }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
