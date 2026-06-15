@@ -356,6 +356,47 @@ sub main() {
 }
 EOF
 
+# --- string methods (Str: uc/lc/tc/chars/flip/trim) — runtime dispatch, both native modes ---
+raku "str_uc" "HELLO" << 'EOF'
+sub main() { say("hello".uc); }
+EOF
+
+raku "str_lc" "hello" << 'EOF'
+sub main() { say("HeLLo".lc); }
+EOF
+
+raku "str_tc" "Hello world" << 'EOF'
+sub main() { say("hello world".tc); }
+EOF
+
+raku "str_chars" "5" << 'EOF'
+sub main() { say("hello".chars); }
+EOF
+
+raku "str_flip" "cba" << 'EOF'
+sub main() { say("abc".flip); }
+EOF
+
+raku "str_trim" "hi" << 'EOF'
+sub main() { say("  hi  ".trim); }
+EOF
+
+raku "str_method_var" "ABC" << 'EOF'
+sub main() { my $s = "abc"; say($s.uc); }
+EOF
+
+raku "str_method_paren" "WORLD" << 'EOF'
+sub main() { say("world".uc()); }
+EOF
+
+raku "coerce_int" "42" << 'EOF'
+sub main() { my $s = "42"; say($s.Int + 0); }
+EOF
+
+raku "coerce_str" "7" << 'EOF'
+sub main() { my $n = 7; say($n.Str); }
+EOF
+
 raku "grammar_token" "12345" << 'EOF'
 grammar G {
     token TOP { \d+ }

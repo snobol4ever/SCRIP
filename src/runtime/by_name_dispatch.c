@@ -4,6 +4,7 @@
 #include "../driver/driver_private.h"
 #include "../parser/raku/re.h"
 #include "core.h"
+#include "core/utf8.h"
 #include "pattern_match.h"
 #include "rt/rt.h"
 #include <stdio.h>
@@ -223,6 +224,21 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     int slen = (int)strlen(subj);
     int ok = m.matched && m.full_start == 0 && m.full_end == slen;
     *out = ok ? STRVAL(GC_strdup(subj)) : NULVCL; return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_str_method(const char *meth, DESCR_t recv, DESCR_t *out) {
+    if (!meth || !*meth) return 0;
+    char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = ""; size_t n = strlen(s);
+    if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
+    if (!strcmp(meth, "uc")) { char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "lc") || !strcmp(meth, "fc")) { char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "tc")) { char *r = (char *)GC_malloc(n + 1); memcpy(r, s, n + 1); if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "tclc")) { char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "flip")) { char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; r[n] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "trim")) { size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)GC_malloc(b - a + 1); memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "Str")) { *out = STRVAL(GC_strdup(s)); return 1; }
+    if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
+    return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static long g_pas_heap_ctr = 0;
@@ -800,6 +816,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *gname = VARVAL_fn(args[0]);
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
         }
+        if (nargs == 2 && args[0].v != DT_DATA && rt_str_method(mname0, args[0], out)) return 1;
         if (args[0].v != DT_DATA || !args[0].u) { *out = FAILDESCR; return 1; }
         DATINST_t *inst = (DATINST_t *)args[0].u;
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;

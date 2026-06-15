@@ -87,8 +87,10 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dat_field_get(const char *fname, DESCR_t obj) {
     DESCR_t *cell = data_field_ptr(fname, obj);
-    if (!cell) return FAILDESCR;
-    return *cell;
+    if (cell) return *cell;
+    extern int rt_str_method(const char *meth, DESCR_t recv, DESCR_t *out);
+    DESCR_t r; if (obj.v != DT_DATA && rt_str_method(fname, obj, &r)) return r;
+    return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
