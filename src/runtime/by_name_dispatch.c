@@ -847,6 +847,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "obj_new") && nargs >= 1) {
         const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }
+        char newproc[256]; resolve_method_chain(cname, "new", newproc, sizeof newproc);
+        extern int rt_proc_has_native_fn(const char *name);
+        if (meth_is_user_proc(newproc)) {
+            int pi;
+            for (pi = 0; pi < g_stage2.proc_count; pi++)
+                if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, newproc)) break;
+            if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(newproc)) {
+                extern DESCR_t g_call_args[];
+                extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+                int total = nargs; for (int k = 0; k < total && k < 64; k++) g_call_args[k] = args[k];
+                *out = rt_call_proc_descr(newproc, total); return 1;
+            }
+            extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
+            *out = ir_call_proc(pi, args, nargs); return 1;
+        }
         DatType *dt = dat_find_type(cname); if (!dt) { *out = FAILDESCR; return 1; }
         DESCR_t fvals[64];
         for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = NULVCL;
@@ -860,11 +875,44 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
         const char *mname0 = VARVAL_fn(args[1]);
+        if (mname0 && !strcmp(mname0, "bless")) {
+            const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }
+            DatType *dt = dat_find_type(cname); if (!dt) { *out = FAILDESCR; return 1; }
+            DESCR_t fvals[64];
+            for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = NULVCL;
+            for (int ci = 2; ci + 1 < nargs; ci += 2) {
+                const char *kname = VARVAL_fn(args[ci]); if (!kname) continue;
+                for (int fi = 0; fi < dt->nfields && fi < 64; fi++)
+                    if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; }
+            }
+            *out = dat_construct(dt, fvals, dt->nfields); return 1;
+        }
         if (mname0 && !strcmp(mname0, "parse") && nargs == 3) {
             const char *gname = VARVAL_fn(args[0]);
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
         }
         if (nargs >= 2 && args[0].v != DT_DATA && rt_str_method(mname0, args[0], &args[2], nargs - 2, out)) return 1;
+        if (args[0].v != DT_DATA) {
+            const char *tname = VARVAL_fn(args[0]);
+            extern int rt_proc_has_native_fn(const char *name);
+            if (tname && dat_find_type(tname)) {
+                char tproc[256]; resolve_method_chain(tname, mname0, tproc, sizeof tproc);
+                if (meth_is_user_proc(tproc)) {
+                    int nextra = nargs - 2, total = 1 + nextra;
+                    DESCR_t *ca = GC_malloc((size_t)total * sizeof(DESCR_t));
+                    ca[0] = args[0]; for (int k = 0; k < nextra; k++) ca[1 + k] = args[2 + k];
+                    int pi; for (pi = 0; pi < g_stage2.proc_count; pi++)
+                        if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, tproc)) break;
+                    if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(tproc)) {
+                        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+                        for (int k = 0; k < total && k < 64; k++) g_call_args[k] = ca[k];
+                        *out = rt_call_proc_descr(tproc, total); return 1;
+                    }
+                    extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
+                    *out = ir_call_proc(pi, ca, total); return 1;
+                }
+            }
+        }
         if (args[0].v != DT_DATA || !args[0].u) { *out = FAILDESCR; return 1; }
         DATINST_t *inst = (DATINST_t *)args[0].u;
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;

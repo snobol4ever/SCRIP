@@ -455,6 +455,22 @@ class_body_list
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free($3);
           $$ = exprlist_append($1, e); }
+    | class_body_list KW_METHOD KW_NEW '(' param_list ')' block
+        { ExprList *params = $5; int np = params ? params->count : 0;
+          tree_t *e = ast_node_new(TT_SUB_DECL);
+          e->v.ival = (long long)(np + 1);
+          tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern("new"); expr_add_child(e, nn);
+          if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
+          tree_t *body = $7;
+          for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
+          $$ = exprlist_append($1, e); }
+    | class_body_list KW_METHOD KW_NEW '(' ')' block
+        { tree_t *e = ast_node_new(TT_SUB_DECL);
+          e->v.ival = (long long)(1);
+          tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern("new"); expr_add_child(e, nn);
+          tree_t *body = $6;
+          for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
+          $$ = exprlist_append($1, e); }
     ;
 grammar_decl
     : KW_GRAMMAR IDENT '{' grammar_body_list '}'
@@ -591,6 +607,12 @@ call_expr
           ExprList *nargs = $5;
           if (nargs) { for (int i = 0; i < nargs->count; i++) ast_push(c, nargs->items[i]); exprlist_free(nargs); }
           $$ = c; }
+    | IDENT '.' KW_NEW '(' arg_list ')'
+        { tree_t *c = ast_node_new(TT_NEW);
+          ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
+          ExprList *args = $5;
+          if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
+          $$ = c; }
     | IDENT '.' KW_NEW '(' ')'
         { tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
@@ -613,6 +635,13 @@ call_expr
           ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
           ExprList *args = $5;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
+          $$ = c; }
+    | atom '.' IDENT '(' named_arg_list ')'
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, $1);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ExprList *nargs = $5;
+          if (nargs) { for (int i = 0; i < nargs->count; i++) ast_push(c, nargs->items[i]); exprlist_free(nargs); }
           $$ = c; }
     | atom '.' IDENT '(' ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
