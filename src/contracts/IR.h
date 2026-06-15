@@ -233,6 +233,7 @@ typedef enum {
     IR_GOTO_DYN,
     IR_DET_ASSERTZ,
     IR_CELL_DYNITER,
+    IR_INDIRECT_ASSIGN_LIT_S,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/

@@ -821,6 +821,12 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         /* indirect assignment, compile-time-constant name:  $'lit' = RHS  ≡  lit = RHS  (SPITBOL Ch.7 indirect reference) */
         if (subj->t == TT_INDIRECT && subj->n == 1 && subj->c[0] && subj->c[0]->t == TT_QLIT && subj->c[0]->v.sval)
             return lower_assign(cx, subj->c[0]->v.sval, repl, γ_tgt, ω_tgt, 0);
+        /* indirect assignment, runtime name held in a variable:  $V = 'lit'  → resolve V's value to a name then assign the string (SPITBOL Ch.7 indirect reference) */
+        if (subj->t == TT_INDIRECT && subj->n == 1 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[0]->v.sval && repl && repl->t == TT_QLIT) {
+            IR_t * asn = build(cx, IR_INDIRECT_ASSIGN_LIT_S, γ_tgt, ω_tgt); IR_LIT(asn).sval = (char *) subj->c[0]->v.sval;
+            IR_t * lit = build(cx, IR_LIT_S, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval ? repl->v.sval : "";
+            return lit;
+        }
         /* assignment:  LHS = RHS  (plain VAR or KEYWORD LHS only) */
         if (subj->t != TT_VAR && subj->t != TT_KEYWORD) return NULL;
         const char * lhs = subj->v.sval;

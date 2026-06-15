@@ -100,6 +100,11 @@ void rt_gvar_assign_str(const char *name, const char *str)
     NV_SET_fn(name ? name : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_indirect_assign_str(const char *holder, const char *str)
+{
+    rt_gvar_assign_str(rt_nv_cstr(holder ? holder : ""), str);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_pat(const char *name, void *head)
 {
     DESCR_t d;
