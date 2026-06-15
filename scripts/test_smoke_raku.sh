@@ -397,6 +397,26 @@ raku "coerce_str" "7" << 'EOF'
 sub main() { my $n = 7; say($n.Str); }
 EOF
 
+raku "str_contains_t" "1" << 'EOF'
+sub main() { say("hello".contains("ell")); }
+EOF
+
+raku "str_contains_f" "0" << 'EOF'
+sub main() { say("hello".contains("xyz")); }
+EOF
+
+raku "str_index" "2" << 'EOF'
+sub main() { say("hello".index("l")); }
+EOF
+
+raku "str_substr2" "ell" << 'EOF'
+sub main() { say("hello".substr(1, 3)); }
+EOF
+
+raku "str_substr1" "llo" << 'EOF'
+sub main() { say("hello".substr(2)); }
+EOF
+
 raku "grammar_token" "12345" << 'EOF'
 grammar G {
     token TOP { \d+ }
