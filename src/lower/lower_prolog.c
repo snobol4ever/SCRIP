@@ -462,7 +462,7 @@ static int lower_pl_dyniter_graph(const char *name, int arity) {
     if (!nd) return -1;
     pl_gz_dyniter_state_t *st = (pl_gz_dyniter_state_t *)GC_MALLOC(sizeof *st);
     if (!st) return -1;
-    st->functor_atom = prolog_atom_intern(name); st->arity = arity; st->cursor_slot = arity; st->mark_slot = arity + 1;
+    st->functor_atom = prolog_atom_intern(name); st->functor_name = prolog_atom_name(st->functor_atom); st->arity = arity; st->cursor_slot = arity; st->mark_slot = arity + 1;
     IR_LIT(nd).ival = (int64_t)(intptr_t)st;
     nd->γ.node = PSUCC; memcpy(nd->γ.sz, "α", 3); nd->ω.node = PFAIL; memcpy(nd->ω.sz, "α", 3);
     g->entry = nd; g->body_root = nd; g->nslots = arity + 2;

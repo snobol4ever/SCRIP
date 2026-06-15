@@ -837,9 +837,8 @@ int rt_pl_dyn_assertz_cell(void *clause_cell, int prepend)
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { dyn_clause_t *next; } dyn_cursor_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_dyn_iter_begin(int functor_atom, long arity)
+void *rt_pl_dyn_iter_begin(const char *name, long arity)
 {
-    const char *name = prolog_atom_name(functor_atom);
     dyn_pred_row_t *row = name ? dyn_pred_find(name, arity) : (dyn_pred_row_t *)0;
     dyn_cursor_t *cur = (dyn_cursor_t *)GC_MALLOC(sizeof *cur);
     cur->next = row ? row->head : (dyn_clause_t *)0;

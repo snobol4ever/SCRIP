@@ -484,7 +484,6 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
         const IR_t *r0 = ir_call_arg(gg,0);
-        if (r0->op == IR_STRUCT) { for (int oi = 0; oi < r0->n_operands; oi++) if (r0->operands[oi] && r0->operands[oi]->op == IR_LIT_I) return 0; }
         return r0->op == IR_ATOM || r0->op == IR_LOGICVAR || r0->op == IR_STRUCT;
     }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "write") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
@@ -1738,7 +1737,6 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (nn) { ir_operand_push(nn, skey); ir_operand_push(nn, sval); }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
         IR_t *h0 = ir_call_arg(gg,0);
-        if (h0 && h0->op == IR_STRUCT) { for (int oi = 0; oi < h0->n_operands; oi++) if (h0->operands[oi] && h0->operands[oi]->op == IR_LIT_I) return 0; }
         IR_t *shead = NULL;
         if (h0->op == IR_LOGICVAR) { shead = h0; }
         else if (h0->op == IR_STRUCT || h0->op == IR_ATOM) {
