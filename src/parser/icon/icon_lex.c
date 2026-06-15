@@ -517,17 +517,6 @@ IcnToken icn_lex_next(IcnLexer *lx) {
     return lex_one(lx);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IcnToken icn_lex_peek(IcnLexer *lx) {
-    size_t saved_pos  = lx->pos;
-    int    saved_line = lx->line;
-    int    saved_col  = lx->col;
-    IcnToken t = lex_one(lx);
-    lx->pos  = saved_pos;
-    lx->line = saved_line;
-    lx->col  = saved_col;
-    return t;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 const char *icn_tk_name(IcnTkKind kind) {
     switch (kind) {
         case TK_EOF:       return "EOF";

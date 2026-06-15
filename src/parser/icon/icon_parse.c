@@ -798,7 +798,3 @@ CODE_t *icn_parse_file(IcnParser *p, tree_t **out_ast) {
     if (out_ast) *out_ast = ast_prog;
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-tree_t *icn_parse_expr(IcnParser *p) {
-    return parse_expr(p);
-}

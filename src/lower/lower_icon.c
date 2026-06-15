@@ -36,8 +36,6 @@ static tree_e icn_augop_binop_tt(int a) {
     default: return (tree_e) 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_user_proc(icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->npn; i++) if (cx->pn[i] && !strcmp(cx->pn[i], nm)) return 1; return 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_unop_tt(tree_e tt) {
     switch (tt) {
     case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_RANDOM: case TT_INTERROGATE: case TT_MATCH_UNARY: return 1;
@@ -416,8 +414,6 @@ static void collect_procs_vec(const tree_t * t, lc_vec * out) {
     for (int i = 0; i < t->n; i++) collect_procs_vec(t->c[i], out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int lower_icon_enum(const tree_t * prog, const tree_t ** out, int max) { return collect_procs(prog, out, max, 0); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fill_pnames(const tree_t * prog, lc_vec * pn) {
     lc_vec ps; lc_vec_init(&ps, (int) sizeof(const tree_t *));
     collect_procs_vec(prog, &ps);
@@ -430,27 +426,9 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     if (pd && pd->n > 2 && pd->c[2]) return lower_proc_body(&cx, pd->c[2]);
     IR_graph_t * g = IR_alloc(64, IR_LANG_ICN); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * lower_icon(const tree_t * prog) {
-    lc_vec ps; lc_vec_init(&ps, (int) sizeof(const tree_t *)); collect_procs_vec(prog, &ps);
-    if (ps.n > 0) return lower_icon_proc(prog, LC_AT(&ps, const tree_t *, 0));
-    IR_graph_t * g = IR_alloc(64, IR_LANG_ICN); icx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
-}
 /*====================================================================================================================================================================================================*/
 #include "bb_program.h"
 #include "IR_interp_state.h"
-IR_graph_t *lower_proc_gen(struct GeneratorState *gs) {
-    if (!gs) return NULL;
-    IR_graph_t *bbg = IR_alloc(4, IR_LANG_ICN);
-    if (!bbg) return NULL;
-    IR_t *bb = IR_node_alloc(bbg, IR_PROC_GEN);
-    if (!bb) return NULL;
-    IR_EXEC(bb).counter = (int64_t)(uintptr_t)gs;
-    bb->γ.node = NULL;
-    bb->ω.node = NULL;
-    bbg->entry = bb;
-    return bbg;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_subtree_has_suspend(const tree_t *n) {
     if (!n) return 0;

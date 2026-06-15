@@ -24,13 +24,3 @@ int is_protected_pat_name(const char *name)
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-int protected_pat_name_to_sm_op(const char *name)
-{
-    if (!name) return -1;
-    for (int i = 0; g_protected_pat_op[i].name; i++) {
-        if (strcmp(name, g_protected_pat_op[i].name) == 0)
-            return (int)g_protected_pat_op[i].op;
-    }
-    return -1;
-}

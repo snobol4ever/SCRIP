@@ -3,11 +3,6 @@
 #include "utf8.h"
 #include <string.h>
 #include <stdlib.h>
-/*====================================================================================================================*/
-DESCR_t SIZE_fn(DESCR_t s) {
-    const char *STRVAL_fn = VARVAL_fn(s);
-    return INTVAL((int64_t)utf8_strlen(STRVAL_fn));
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t DUPL_fn(DESCR_t s, DESCR_t n) {
     const char *STRVAL_fn = VARVAL_fn(s);
@@ -120,42 +115,6 @@ DESCR_t BCHAR_fn(DESCR_t n) {
     buf[0] = (char)(code & 0xFF);
     buf[1] = '\0';
     return BSTRVAL(buf, 1);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t INTGER_fn(DESCR_t v) {
-    if (IS_INT(v))  return v;
-    if (IS_REAL(v)) return INTVAL((int64_t)v.r);
-    if (IS_STR(v)) {
-        const char *s = v.s ? v.s : "";
-        while (*s == ' ') s++;
-        if (!*s) return NULVCL;
-        char *end;
-        long long iv = strtoll(s, &end, 10);
-        while (*end == ' ') end++;
-        if (*end) return NULVCL;
-        return INTVAL((int64_t)iv);
-    }
-    return NULVCL;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t real_fn(DESCR_t v) {
-    if (IS_REAL(v)) return v;
-    if (IS_INT(v))  return REALVAL((double)v.i);
-    if (IS_STR(v)) {
-        const char *s = v.s ? v.s : "";
-        while (*s == ' ') s++;
-        if (!*s) return NULVCL;
-        char *end;
-        double rv = strtod(s, &end);
-        while (*end == ' ') end++;
-        if (*end) return NULVCL;
-        return REALVAL(rv);
-    }
-    return NULVCL;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t string_fn(DESCR_t v) {
-    return STRVAL(VARVAL_fn(v));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int ident(DESCR_t a, DESCR_t b) {

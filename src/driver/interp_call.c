@@ -33,15 +33,6 @@ void init_save_frame(void) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int shadow_get(const char *name, DESCR_t *out) {
-    for (int d = call_depth - 1; d >= 0; d--) {
-        CallFrame *fr = &call_stack[d];
-        for (int j = 0; j < fr->nshadow; j++)
-            if (strcmp(fr->shadow[j].name, name) == 0) { *out = fr->shadow[j].val; return 1; }
-    }
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 void shadow_set_cur(const char *name, DESCR_t val) {
     if (call_depth <= 0) return;
     CallFrame *fr = &call_stack[call_depth - 1];
@@ -60,17 +51,6 @@ int shadow_has(const char *name) {
         CallFrame *fr = &call_stack[d];
         for (int j = 0; j < fr->nshadow; j++)
             if (strcmp(fr->shadow[j].name, name) == 0) return 1;
-    }
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int is_current_frame_local(const char *name) {
-    if (call_depth <= 0 || !name) return 0;
-    CallFrame *fr = &call_stack[call_depth - 1];
-    if (!fr->saved_names) return 0;
-    for (int i = 0; i < fr->nsaved; i++) {
-        if (fr->saved_names[i] && strcmp(fr->saved_names[i], name) == 0)
-            return 1;
     }
     return 0;
 }

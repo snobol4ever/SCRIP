@@ -72,7 +72,6 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/core.c \
     $(SRC)/runtime/core/argval.c \
     $(SRC)/runtime/core/name_save.c \
-    $(SRC)/runtime/core/name_t.c \
     $(SRC)/runtime/core/stmt_exec.c \
     $(SRC)/runtime/runtime_eval.c \
     $(SRC)/runtime/unification.c \
@@ -86,7 +85,6 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/values.c \
     $(SRC)/runtime/invocation.c \
     $(SRC)/runtime/aggregates.c \
-    $(SRC)/runtime/tree.c \
     $(SRC)/runtime/string_builtins.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
@@ -235,7 +233,6 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp \
     $(SRC)/emitter/emit_bb.c \
     \
-    $(SRC)/machine/bb_boxes.c \
     $(SRC)/machine/sm_prog.c \
     $(SRC)/lower/lower_common.c \
     $(SRC)/lower/tree_to_sno.c \
@@ -255,7 +252,6 @@ RT_PIC_SRCS := \
     $(SRC)/driver/interp_hooks.c \
     $(SRC)/driver/interp_data.c \
     $(SRC)/driver/interp_call.c \
-    $(SRC)/driver/interp_ref.c \
     $(SRC)/driver/interp_ast_stubs.c \
     $(SRC)/driver/scrip_sm.c \
     $(SRC)/driver/stmt_ast.c \
@@ -321,7 +317,6 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/core.c               -o $(OBJ)/snobol4.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/argval.c                 -o $(OBJ)/snobol4_argval.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/name_save.c                    -o $(OBJ)/snobol4_nmd.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/core/name_t.c                         -o $(OBJ)/name_t.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/stmt_exec.c                  -o $(OBJ)/stmt_exec.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/runtime_eval.c                  -o $(OBJ)/eval_code.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/unification.c                  -o $(OBJ)/unification.o
@@ -335,7 +330,6 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/values.c                     -o $(OBJ)/values.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/invocation.c                 -o $(OBJ)/invocation.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/aggregates.c                 -o $(OBJ)/aggregates.o
-	$(CC) $(CRT)   -c $(SRC)/runtime/tree.c                       -o $(OBJ)/tree.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/string_builtins.c           -o $(OBJ)/string_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
@@ -482,7 +476,6 @@ scrip:
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_strtab_rodata.cpp     -o $(OBJ)/xa_strtab_rodata.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
-	$(CC) $(CRT) -c $(SRC)/machine/bb_boxes.c -o $(OBJ)/bb_boxes.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -DIR_DEFINE_NAMES \
 	    -c $(SRC)/contracts/ast_print.c -o $(OBJ)/ast_print.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/snocone/snocone_lex.c        -o $(OBJ)/snocone_lex.o
@@ -533,7 +526,6 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/driver/interp_hooks.c   -o $(OBJ)/interp_hooks.o
 	$(CC) $(CRT)   -c $(SRC)/driver/interp_data.c    -o $(OBJ)/interp_data.o
 	$(CC) $(CRT)   -c $(SRC)/driver/interp_call.c    -o $(OBJ)/interp_call.o
-	$(CC) $(CRT)   -c $(SRC)/driver/interp_ref.c     -o $(OBJ)/interp_ref.o
 	$(CC) $(CRT)   -c $(SRC)/driver/interp_ast_stubs.c -o $(OBJ)/interp_ast_stubs.o
 	$(CC) $(CRT)   -c $(SRC)/driver/scrip_sm.c       -o $(OBJ)/scrip_sm.o
 	$(CC) $(CRT)   -c $(SRC)/driver/stmt_ast.c       -o $(OBJ)/stmt_ast.o

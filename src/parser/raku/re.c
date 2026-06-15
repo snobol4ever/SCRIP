@@ -305,15 +305,6 @@ Nfa *nfa_build(const char *pattern) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int        nfa_state_count(const Nfa *nfa) { return nfa?nfa->n:0; }
-int        nfa_start(const Nfa *nfa) { return nfa?nfa->start:NFA_NULL; }
-int        nfa_accept(const Nfa *nfa) { return nfa?nfa->accept:NFA_NULL; }
-int        nfa_ngroups(const Nfa *nfa) { return nfa?nfa->ngroups:0; }
-void       nfa_group_name_copy(const Nfa *nfa, int g, char *dst64) {
-    if (!dst64) return; dst64[0]='\0';
-    if (!nfa||g<0||g>=MAX_GROUPS) return;
-    memcpy(dst64, nfa->group_name[g], 64);
-}
-Nfa_state *nfa_states(Nfa *nfa) { return nfa?nfa->states:0; }
 void nfa_free(Nfa *nfa) { if(!nfa)return; free(nfa->states); free(nfa); }
 #define MAX_STATES 512
 typedef struct { int ids[MAX_STATES]; int n; } State_set;

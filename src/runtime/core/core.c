@@ -383,13 +383,6 @@ static DESCR_t _b_LOAD_stub(DESCR_t *args, int nargs) {
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void comm_stno(int n) {
-    ++kw_stcount;
-    g_core_err_stmt = n;
-    if (kw_stlimit >= 0 && kw_stcount > kw_stlimit)
-        core_runtime_error(22, NULL);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val) {
     if (!name || name[0] == '_') return;
     if (monitor_quiet_depth > 0) return;
@@ -1140,16 +1133,6 @@ static DESCR_t _b_tree_c(DESCR_t *a, int n) {
     return FIELD_GET_fn(a[0], "c");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _b_field_value(DESCR_t *a, int n) {
-    if (n < 1) return NULVCL;
-    return FIELD_GET_fn(a[0], "value");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _b_field_next(DESCR_t *a, int n) {
-    if (n < 1) return NULVCL;
-    return FIELD_GET_fn(a[0], "next");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern DESCR_t rsort_fn(DESCR_t t);
 static DESCR_t _RSORT_(DESCR_t *a, int n) { return rsort_fn(n>0?a[0]:NULVCL); }
 static DESCR_t _CLEAR_(DESCR_t *a, int n) {
@@ -1167,10 +1150,6 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
     const char *lbl = VARVAL_fn(a[0]);
     if (lbl) strncpy(_setexit_label, lbl, sizeof(_setexit_label)-1);
     return NULVCL;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-const char *setexit_label_get(void) {
-    return _setexit_label[0] ? _setexit_label : NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _FUNCTION_(DESCR_t *a, int n) {
@@ -1236,10 +1215,6 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
 static DATBLK_t *_udef_lookup(const char *name);
 typedef struct { char *typename; int nfields; char **fields; } DataClosure;
 typedef struct { char *typename; char *fieldname; } FieldClosure;
-static DESCR_t _data_ctor_fn(DESCR_t *args, int nargs) {
-    (void)args; (void)nargs;
-    return NULVCL;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define DATA_MAX_TYPES 64
 #define DATA_MAX_FIELDS 16
@@ -1804,41 +1779,6 @@ void core_lib_init(void) {
     g_protected_pat_vars_armed = 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-char *STRDUP_fn(const char *s) {
-    if (!s) return GC_strdup("");
-    return GC_strdup(s);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-char *STRCONCAT_fn(const char *a, const char *b) {
-    if (!a) a = "";
-    if (!b) b = "";
-    size_t la = strlen(a), lb = strlen(b);
-    char *r = GC_malloc(la + lb + 1);
-    memcpy(r, a, la);
-    memcpy(r + la, b, lb);
-    r[la + lb] = '\0';
-    return r;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t CONCAT_fn(DESCR_t a, DESCR_t b) {
-    if (IS_FAIL(a)) return FAILDESCR;
-    if (IS_FAIL(b)) return FAILDESCR;
-    if (IS_PAT(a) || IS_PAT(b))
-        return pat_cat(a, b);
-    int a_null = IS_NULL_fn(a);
-    int b_null = IS_NULL_fn(b);
-    if (a_null && b_null) return NULVCL;
-    if (a_null)            return b;
-    if (b_null)            return a;
-    const char *sa = VARVAL_fn(a);
-    const char *sb = VARVAL_fn(b);
-    return STRVAL(STRCONCAT_fn(sa, sb));
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int64_t size(const char *s) {
-    return s ? (int64_t)strlen(s) : 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 char *VARVAL_fn(DESCR_t v) {
     char buf[64];
     switch (v.v) {
@@ -2104,13 +2044,6 @@ static int _var_init_done = 0;
 typedef struct { const char *name; DESCR_t *ptr; } VarReg;
 static VarReg _var_reg[VAR_REG_MAX];
 static int    _var_reg_n = 0;
-void NV_REG_fn(const char *name, DESCR_t *ptr) {
-    if (_var_reg_n < VAR_REG_MAX) {
-        _var_reg[_var_reg_n].name = name;
-        _var_reg[_var_reg_n].ptr  = ptr;
-        _var_reg_n++;
-    }
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void _var_init(void) {
     if (_var_init_done) return;
@@ -2296,73 +2229,6 @@ void NV_CLEAR_fn(void) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void nv_reset(void) { NV_CLEAR_fn(); }
-int nv_snapshot(NvPair **out) {
-    _var_init();
-    int count = 0;
-    for (int i = 0; i < VAR_BUCKETS; i++)
-        for (NV_t *e = _var_buckets[i]; e; e = e->next)
-            if (!IS_NULL(e->val)) count++;
-    if (count == 0) { *out = NULL; return 0; }
-    NvPair *pairs = GC_MALLOC((size_t)count * sizeof(NvPair));
-    if (!pairs) { *out = NULL; return 0; }
-    int idx = 0;
-    for (int i = 0; i < VAR_BUCKETS; i++)
-        for (NV_t *e = _var_buckets[i]; e; e = e->next)
-            if (!IS_NULL(e->val)) { pairs[idx].name = e->name; pairs[idx].val = e->val; idx++; }
-    *out = pairs;
-    return count;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void nv_restore(const NvPair *pairs, int n) {
-    nv_reset();
-    for (int i = 0; i < n; i++) NV_SET_fn(pairs[i].name, pairs[i].val);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void NV_SYNC_fn(void) {
-    for (int _ri = 0; _ri < _var_reg_n; _ri++) {
-        DESCR_t v = NV_GET_fn(_var_reg[_ri].name);
-        if (!IS_NULL(v) && v.v != 0)
-            *_var_reg[_ri].ptr = v;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t INDR_GET_fn(const char *name) {
-    DESCR_t indirect_name = NV_GET_fn(name);
-    const char *target = VARVAL_fn(indirect_name);
-    return NV_GET_fn(target);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void INDR_SET_fn(const char *name, DESCR_t val) {
-    DESCR_t indirect_name = NV_GET_fn(name);
-    const char *target = VARVAL_fn(indirect_name);
-    NV_SET_fn(target, val);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t NAME_fn(const char *varname) {
-    if (!varname || !*varname) return FAILDESCR;
-    if (strcmp(varname, "STLIMIT")  == 0 ||
-        strcmp(varname, "ANCHOR")   == 0 ||
-        strcmp(varname, "TRIM")     == 0 ||
-        strcmp(varname, "FULLSCAN") == 0 ||
-        strcmp(varname, "STCOUNT")  == 0 ||
-        strcmp(varname, "STNO")     == 0 ||
-        strcmp(varname, "ALPHABET") == 0 ||
-        strcmp(varname, "CASE")     == 0 ||
-        strcmp(varname, "MAXLNGTH") == 0 ||
-        strcmp(varname, "FTRACE")   == 0 ||
-        strcmp(varname, "ERRLIMIT") == 0 ||
-        strcmp(varname, "CODE")     == 0 ||
-        strcmp(varname, "FNCLEVEL") == 0 ||
-        strcmp(varname, "RTNTYPE")  == 0 ||
-        strcmp(varname, "INPUT")    == 0 ||
-        strcmp(varname, "OUTPUT")   == 0)
-        return NAMEVAL(GC_strdup(varname));
-    DESCR_t *cell = NV_PTR_fn(varname);
-    if (cell) return NAMEPTR(cell);
-    return NAMEVAL(GC_strdup(varname));
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     if (!kw_name) return 0;
     int64_t iv = IS_INT(val) ? val.i : (int64_t)to_real(val);
@@ -2434,16 +2300,10 @@ void NPUSH_fn(void) {
     fprintf(stderr, "SEQ%04d NPUSH depth=%d top=%lld\n",
             ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-int NHAS_FRAME_fn(void) { return _ntop >= 0; }
 void NINC_fn(void) {
     if (_ntop >= 0) _nstack[_ntop]++;
     fprintf(stderr, "SEQ%04d NINC  depth=%d top=%lld\n",
             ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void NINC_AT_fn(int frame) {
-    if (frame >= 0 && frame <= _ntop) _nstack[frame]++;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void NDEC_fn(void) { if (_ntop >= 0) _nstack[_ntop]--; }
@@ -2457,23 +2317,6 @@ void NPOP_fn(void) {
 #define VSTACK_MAX 1024
 static DESCR_t _vstack[VSTACK_MAX];
 static int    _vstop = -1;
-void PUSH_fn(DESCR_t v) {
-    if (_vstop < VSTACK_MAX - 1) _vstack[++_vstop] = v;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t POP_fn(void) {
-    if (_vstop >= 0) return _vstack[_vstop--];
-    return NULVCL;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t TOP_fn(void) {
-    if (_vstop >= 0) return _vstack[_vstop];
-    return NULVCL;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int STACK_DEPTH_fn(void) {
-    return _vstop + 1;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define FUNC_BUCKETS 128
 typedef struct _FNCBLK_t {
@@ -2491,23 +2334,6 @@ typedef struct _FNCBLK_t {
 static FNCBLK_t *_func_buckets[FUNC_BUCKETS];
 static int        _func_init_done = 0;
 static unsigned _func_hash(const char *name);
-static int fn_has_builtin(const char *name) {
-    if (!name) return 0;
-    _func_init();
-    unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
-        if (strcmp(e->name, name) == 0 && e->fn != NULL) return 1;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int core_fn_registered(const char *name) {
-    if (!name) return 0;
-    _func_init();
-    unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
-        if (strcmp(e->name, name) == 0) return 1;
-    return 0;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void _func_init(void) {
     if (_func_init_done) return;
@@ -2819,18 +2645,6 @@ const char *FUNC_ENTRY_fn(const char *fname) {
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int FUNC_IS_ENTRY_LABEL(const char *label) {
-    _func_init();
-    if (!label || !*label) return 0;
-    for (int b = 0; b < FUNC_BUCKETS; b++) {
-        for (FNCBLK_t *e = _func_buckets[b]; e; e = e->next) {
-            const char *el = e->entry_label ? e->entry_label : e->name;
-            if (el && strcmp(el, label) == 0) return 1;
-        }
-    }
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static FILE *_input_fp = NULL;
 static char *_input_buf = NULL;
 static size_t _input_cap = 0;
@@ -2925,16 +2739,5 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     }
     return NULVCL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-void indirect_goto(const char *varname) {
-    DESCR_t v = NV_GET_fn(varname);
-    const char *lbl = IS_STR(v) ? v.s : "(nil)";
-    fprintf(stderr, "indirect_goto: var=%s label=%s (not implemented)\n",
-            varname, lbl);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int nhome_info(void) { return (_nhome_top >= 0) ? _nhome[_nhome_top] : -1; }
-int NTOP_INDEX_fn(void) { return _ntop; }
-int64_t NSTACK_AT_fn(int frame) { return (frame>=0 && frame<NSTACK_MAX) ? _nstack[frame] : 0; }
 int _x4_pending_parent_frame = -1;
 int _command_pending_parent_frame = -1;

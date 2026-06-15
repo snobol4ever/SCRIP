@@ -392,17 +392,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
 }
-/*====================================================================================================================================================================================================*/
-int lower_raku_enum(const tree_t * prog, const tree_t ** out, int max) {
-    int n = 0;
-    if (!prog) return 0;
-    for (int i = 0; i < prog->n; i++) {
-        const tree_t * d = prog->c[i];
-        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
-        if (d && d->t == TT_SUB_DECL) { if (out && n < max) out[n] = d; n++; }
-    }
-    return n;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_register_proc(const tree_t * proc, const char * name, int nparams) {
     int pi = stage2_proc_grow(&g_stage2);
@@ -509,19 +498,6 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         if (e) { entry = e; sentry = e; }
     }
     g->entry = entry; return g;
-}
-/*====================================================================================================================================================================================================*/
-IR_graph_t * lower_raku(const tree_t * prog) {
-    IR_graph_t * g = IR_alloc(8192, IR_LANG_RKU);
-    rcx_t cx; cx.g = g;
-    IR_t * top = IR_node_alloc(g, IR_PROG);
-    for (int i = 0; i < prog->n; i++) {
-        const tree_t * d = prog->c[i];
-        if (d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
-        ir_operand_push(top, lower_decl(&cx, d));
-    }
-    g->entry = top;
-    return g;
 }
 /*====================================================================================================================================================================================================*/
 #include "stage2.h"
