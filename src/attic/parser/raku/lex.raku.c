@@ -1,3 +1,13 @@
+/* DEAD CODE (whole file) — orphaned stale lexer, moved from src/parser/raku/lex.raku.c
+ * Reason: superseded by src/parser/raku/raku.lex.c (the file the Makefile actually
+ *         compiles — SRCS line 279, compile rule line 504). This copy is a pre-rename,
+ *         pre-`--noline` flex artifact: note the #line directives and the old
+ *         lex.<name>.c output naming, whereas the current regen emits <name>.lex.c via
+ *         `flex --noline`. Not in the Makefile, not #included, zero references (git grep).
+ *         Never compiled => removal is definitionally build-neutral. Identified
+ *         2026-06-15 while verifying the input/yyunput lexer cut; this stale copy had
+ *         previously misled the dead-code sweep (listed as a live cut target at :1919).
+ */
 #line 2 "parser/raku/lex.raku.c"
 
 #line 4 "parser/raku/lex.raku.c"
