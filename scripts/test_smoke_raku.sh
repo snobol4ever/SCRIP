@@ -437,6 +437,26 @@ raku "num_round" "4" << 'EOF'
 sub main() { my $x = 3.5; say($x.round); }
 EOF
 
+raku "bool_int_t" "1" << 'EOF'
+sub main() { say(5.Bool); }
+EOF
+
+raku "bool_int_f" "0" << 'EOF'
+sub main() { say(0.Bool); }
+EOF
+
+raku "bool_str_empty" "0" << 'EOF'
+sub main() { my $s = ""; say($s.Bool); }
+EOF
+
+raku "num_succ" "6" << 'EOF'
+sub main() { say(5.succ); }
+EOF
+
+raku "num_pred" "4" << 'EOF'
+sub main() { say(5.pred); }
+EOF
+
 raku "grammar_token" "12345" << 'EOF'
 grammar G {
     token TOP { \d+ }
