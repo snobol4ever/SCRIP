@@ -18,7 +18,7 @@
 #   bb_unop, bb_succeed, bb_keyword, bb_return, bb_call,
 #   bb_binop_arith, bb_binop_relop, bb_binop_gvar_arith, bb_binop_gvar_relop,
 #   bb_binop_gvar_arith_slot, bb_binop_concat_slot.
-# ICON helper files (exempt): bb_call_fn, bb_call_proc_staged, bb_call_userproc, bb_call_write_slot.
+# ICON helper files (exempt): bb_call_fn, bb_call_proc_staged, bb_call_write_slot.
 #
 # Usage: bash scripts/test_gate_bb_one_box.sh
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -90,7 +90,6 @@ src/emitter/BB_templates/bb_binop_concat_slot.cpp
 ICN_HELPER_FILES="
 src/emitter/BB_templates/bb_call_fn.cpp
 src/emitter/BB_templates/bb_call_proc_staged.cpp
-src/emitter/BB_templates/bb_call_userproc.cpp
 src/emitter/BB_templates/bb_call_write_slot.cpp
 "
 strip_comments() { perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$1"; }

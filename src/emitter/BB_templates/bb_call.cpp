@@ -85,7 +85,6 @@ extern std::string bb_call_proc_staged_str(IR_t *);
 extern std::string bb_call_write_slot_str(IR_t *);
 extern std::string bb_call_write_binop_str(IR_t *);
 extern std::string bb_call_write_legacy_str(IR_t *, int);
-extern std::string bb_call_userproc_str(IR_t *);
 extern std::string bb_call_fn_str(IR_t *);
 extern std::string bb_call_bool_str(IR_t *);
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -564,7 +563,6 @@ std::string bb_call(IR_t * pBB) {
         case CALL_ROUTE_WRITE_BINOP:   return bb_call_write_binop_str(pBB);
         case CALL_ROUTE_WRITE_LEGACY:  return bb_call_write_legacy_str(pBB, 1);
         case CALL_ROUTE_WRITE_EMPTY:   return std::string();
-        case CALL_ROUTE_USERPROC:      return bb_call_userproc_str(pBB);
         case CALL_ROUTE_FN:            return bb_call_fn_str(pBB);
         default: break;
     }

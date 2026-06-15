@@ -2651,7 +2651,6 @@ int bb_call_route_classify(IR_t * nd) {
     if (g_gvar_flat_chain && dv == 2.0 && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (g_descr_flat_chain && !strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
     switch (g_emit.op_write_route) { case 1: return CALL_ROUTE_WRITE_SLOT; case 2: case 3: return CALL_ROUTE_WRITE_BINOP; case 4: return CALL_ROUTE_WRITE_LEGACY; case 5: return CALL_ROUTE_WRITE_EMPTY; default: break; }
-    if (fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_USERPROC;
     if (fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     return CALL_ROUTE_FATAL;
 }
