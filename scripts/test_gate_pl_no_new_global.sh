@@ -44,6 +44,11 @@ PL_FILES=$(ls \
 # g_pl_throw_ball        the single IN-FLIGHT thrown term (one value, like errno) — NOT the §10 #7
 #                        exception-frame STACK; the catch FRAMES are box frame cells, only the ball
 #                        crossing a C-call return needs a global. Cleared on catch-match / consumed once.
+# g_pl_dyn_pred_table/_n/_cap  DYNAMIC clause store (assert/retract/abolish) — a heap clause DB, the
+#                        §10-sanctioned "we need *a* clause store" (the mutable sibling of the static
+#                        g_pl_pred_table). NOT a control/value stack: per-activation control still lives
+#                        in box frame cells + the trail. The store holds Term* clause copies keyed by
+#                        (functor-name, arity); ASSERTZ inserts, RETRACT scan+deletes, ABOLISH clears.
 SANCTIONED="
 g_resolve_trail
 g_pl_pred_table
@@ -54,6 +59,9 @@ g_stage2
 g_pl_nl_arith
 g_pl_nl_builtins
 g_pl_throw_ball
+g_pl_dyn_pred_table
+g_pl_dyn_pred_n
+g_pl_dyn_pred_cap
 "
 
 # ---- TIER 2: LEGACY-DOOMED — grandfathered, ratchet to zero (each IS a §10 NOT-NEEDED structure) -

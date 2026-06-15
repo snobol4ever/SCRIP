@@ -1073,6 +1073,13 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
                 if (nk0 && nk0->op != IR_LOGICVAR) (*nsynth)++;
                 if (nv1 && nv1->op != IR_LOGICVAR) (*nsynth)++;
             }
+            if (!strcmp(fn,"retract") && IR_LIT(gg).ival == 1) {
+                IR_t *r0 = ir_call_arg(gg,0);
+                if (r0 && r0->op != IR_LOGICVAR) (*nsynth)++;
+            }
+            if (!strcmp(fn,"abolish") && IR_LIT(gg).ival == 1) {
+                (*nsynth) += 2;
+            }
             if (!strcmp(fn,"findall")) { /* bb_findall_state_t already built by lower_prolog; no extra synth slots */ }
             if ((!strcmp(fn,"atomic_list_concat")||!strcmp(fn,"concat_atom")) && IR_LIT(gg).ival == 2) {
                 IR_t *al0 = ir_call_arg(gg,0);
@@ -1668,6 +1675,36 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         } else return 0;
         nn = pl_gz_det_node(nb_set ? IR_DET_NB_SETVAL : IR_DET_NB_GETVAL);
         if (nn) { ir_operand_push(nn, skey); ir_operand_push(nn, sval); }
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+        IR_t *h0 = ir_call_arg(gg,0);
+        IR_t *shead = NULL;
+        if (h0->op == IR_LOGICVAR) { shead = h0; }
+        else if (h0->op == IR_STRUCT || h0->op == IR_ATOM) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, h0);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            shead = pl_gz_lv(kk); if (!shead) return 0;
+        } else return 0;
+        nn = pl_gz_det_node(IR_DET_RETRACT);
+        if (nn) { ir_operand_push(nn, shead); }
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"abolish") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+        IR_t *spec = ir_call_arg(gg,0);
+        if (!spec || (spec->op != IR_STRUCT && spec->op != IR_ARITH) || spec->n_operands < 2) return 0;
+        IR_t *fn_a = spec->operands[0], *ar_a = spec->operands[1];
+        if (!fn_a || fn_a->op != IR_ATOM || !ar_a || ar_a->op != IR_LIT_I) return 0;
+        int kf = (*synth_next)++; IR_t *cuf = pl_gz_det_node(IR_CELL_UNIFY); if (!cuf) return 0;
+        IR_t *caf = pl_gz_lv(kf); if (!caf) return 0;
+        ir_operand_push(cuf, caf); ir_operand_push(cuf, fn_a);
+        if (!*head) *head = cuf; else { (*tail)->γ.node = cuf; memcpy((*tail)->γ.sz, "α", 3); } *tail = cuf;
+        IR_t *sfn = pl_gz_lv(kf); if (!sfn) return 0;
+        int ka = (*synth_next)++; IR_t *cua = pl_gz_det_node(IR_CELL_UNIFY); if (!cua) return 0;
+        IR_t *caa = pl_gz_lv(ka); if (!caa) return 0;
+        ir_operand_push(cua, caa); ir_operand_push(cua, ar_a);
+        if (!*head) *head = cua; else { (*tail)->γ.node = cua; memcpy((*tail)->γ.sz, "α", 3); } *tail = cua;
+        IR_t *sar = pl_gz_lv(ka); if (!sar) return 0;
+        nn = pl_gz_det_node(IR_DET_ABOLISH);
+        if (nn) { ir_operand_push(nn, sfn); ir_operand_push(nn, sar); }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (!strcmp(IR_LIT(gg).sval,"atomic_list_concat")||!strcmp(IR_LIT(gg).sval,"concat_atom")) && IR_LIT(gg).ival == 2 && ir_call_arg(gg,0) && ir_call_arg(gg,1)) {
         const char *alcfn = IR_LIT(gg).sval;
         IR_t *al0 = ir_call_arg(gg,0), *al1 = ir_call_arg(gg,1);

@@ -487,6 +487,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_CELL_FINDALL:    { bb_prepare(nd); bb_emit_x86(bb_cell_findall()); return 0; }
     case IR_DET_THROW:       { bb_prepare(nd); bb_emit_x86(bb_det_throw()); return 0; }
     case IR_CELL_CATCH:      { bb_prepare(nd); bb_emit_x86(bb_cell_catch()); return 0; }
+    case IR_DET_RETRACT:     { bb_prepare(nd); bb_emit_x86(bb_det_retract()); return 0; }
+    case IR_DET_ABOLISH:     { bb_prepare(nd); bb_emit_x86(bb_det_abolish()); return 0; }
     case IR_FAIL:            bb_emit_x86(bb_fail());                            return 0;
     case IR_NEG:
     case IR_POS:
