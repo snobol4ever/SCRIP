@@ -107,7 +107,7 @@ static inline int NAME_SET(DESCR_t nd, DESCR_t val) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t *interp_eval_ref(tree_t *e);
+DESCR_t *eval_ast_ref(tree_t *e);
 DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
 int string_section_assign(tree_t *lhs, DESCR_t val);
 typedef struct { char name[64]; int nfields; char fields[64][64]; } DatType;

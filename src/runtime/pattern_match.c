@@ -474,9 +474,9 @@ DESCR_t rsort_fn(DESCR_t arr) {
     return sorted;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t interp_eval_pat(tree_t *e) {
+DESCR_t eval_ast_pat(tree_t *e) {
     (void)e;
-    fprintf(stderr, "[B0b] BOMB interp_eval_pat: AST-walk evaluator deleted; runtime pattern eval needs DT_P builders (B-ladder)\n");
+    fprintf(stderr, "[B0b] BOMB eval_ast_pat: AST-walk evaluator deleted; runtime pattern eval needs DT_P builders (B-ladder)\n");
     abort();
 }
 #define RT_DCAP_MAX 32

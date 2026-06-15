@@ -2,7 +2,7 @@
 DESCR_t _eval_str_impl_fn(const char *s) {
     tree_t *tree = parse_expr_pat_from_str(s);
     if (!tree) return FAILDESCR;
-    return interp_eval_pat(tree);
+    return eval_ast_pat(tree);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _eval_pat_impl_fn(DESCR_t pat) {

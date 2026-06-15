@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_rs23_diag_capture.sh — run smoke + corpus under scrip-rs23-diag,
-# capturing RS23DIAG: lines that record any interp_eval call reached
+# capturing RS23DIAG: lines that record any eval_ast call reached
 # from a BB-adapter ancestor frame.
 #
 # Output: /tmp/rs23_diag.log (raw) + /tmp/rs23_diag_unique.log (sorted -u).

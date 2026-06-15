@@ -200,7 +200,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
                 }
                 int succeeded = 1;
                 if (s_pattern) {
-                    DESCR_t pat_d = interp_eval_pat(s_pattern);
+                    DESCR_t pat_d = eval_ast_pat(s_pattern);
                     if (IS_FAIL_fn(pat_d)) {
                         succeeded = 0;
                     } else {
