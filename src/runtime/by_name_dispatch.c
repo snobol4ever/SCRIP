@@ -226,7 +226,7 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     *out = ok ? STRVAL(GC_strdup(subj)) : NULVCL; return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_str_method(const char *meth, DESCR_t recv, DESCR_t *out) {
+int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
     char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = ""; size_t n = strlen(s);
     if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
@@ -238,6 +238,9 @@ int rt_str_method(const char *meth, DESCR_t recv, DESCR_t *out) {
     if (!strcmp(meth, "trim")) { size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)GC_malloc(b - a + 1); memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "Str")) { *out = STRVAL(GC_strdup(s)); return 1; }
     if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
+    if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
+    if (!strcmp(meth, "index") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; const char *hit = strstr(s, nd); *out = hit ? INTVAL((long)(hit - s)) : NULVCL; return 1; }
+    if (!strcmp(meth, "substr") && nmargs >= 1) { long from = IS_INT_fn(margs[0]) ? (long)margs[0].i : atol(to_cstring(margs[0], sb, sizeof sb)); long ln = (nmargs >= 2) ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : atol(to_cstring(margs[1], sb, sizeof sb))) : (long)utf8_strlen(s) - from; if (from < 0) from = 0; if (ln < 0) ln = 0; *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln)); return 1; }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -816,7 +819,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *gname = VARVAL_fn(args[0]);
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
         }
-        if (nargs == 2 && args[0].v != DT_DATA && rt_str_method(mname0, args[0], out)) return 1;
+        if (nargs >= 2 && args[0].v != DT_DATA && rt_str_method(mname0, args[0], &args[2], nargs - 2, out)) return 1;
         if (args[0].v != DT_DATA || !args[0].u) { *out = FAILDESCR; return 1; }
         DATINST_t *inst = (DATINST_t *)args[0].u;
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;
