@@ -2641,14 +2641,6 @@ static tree_t *sc_str_literal(const char *txt) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *sc_label_new(ScParseState *st, const char *prefix) {
-    static int global_label_seq = 0;
-    char buf[64];
-    (void)st;
-    snprintf(buf, sizeof buf, "%s_%04d", prefix, ++global_label_seq);
-    return strdup(buf);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static struct IfHead *sc_if_head_new(ScParseState *st, tree_t *cond) {
     struct IfHead *h = calloc(1, sizeof *h);
     h->cond        = cond;
@@ -2846,14 +2838,6 @@ static void sc_loop_pop(ScParseState *st) {
     free(f);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static LoopFrame *sc_loop_find_innermost(ScParseState *st, int want_loop) {
-    for (LoopFrame *f = st->loop_top; f; f = f->outer) {
-        if (want_loop && !f->is_loop) continue;
-        return f;
-    }
-    return NULL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PST-SC-4h (2026-05-16): emit TT_LOOP_BREAK([QLIT(user_label)]) — no goto STMT_t.
  * lower.c resolves the target via g_loop_stack at lower time. */
 static void sc_append_break(ScParseState *st, char *user_label) {
@@ -2908,11 +2892,6 @@ static struct SwitchHead *sc_switch_head_new(ScParseState *st, tree_t *disc) {
     sc_loop_push(st, NULL, NULL, 0);
     st->cur_switch = h;
     return h;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PST-SC-4f: no implicit break gotos in the pure syntax tree — lower handles fallthrough */
-static void sc_switch_emit_implicit_break(ScParseState *st, struct SwitchHead *h) {
-    (void)st; (void)h;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PST-SC-4f: record (value, before_body snapshot) — no label STMT_t emitted */

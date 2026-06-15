@@ -684,11 +684,6 @@ static char  strbuf[65536];
 static int   strpos;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int snobol4_get_stmt_lineno(void) { return g_stmt_lineno; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token mktok(int k, const char *sv, long iv, double dv) {
-    Token t; t.kind=k; t.sval=sv; t.ival=iv; t.dval=dv; t.lineno=lineno;
-    return t;
-}
 
 #define INITIAL 0
 #define LABEL 1
@@ -2444,20 +2439,7 @@ YY_BUFFER_STATE yy_scan_bytes  (const char * yybytes, int  _yybytes_len , yyscan
 	BEGIN(_new_state);
 }
 
-    static void yy_pop_state  (yyscan_t yyscanner)
-{
-    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
-	if ( --yyg->yy_start_stack_ptr < 0 )
-		YY_FATAL_ERROR( "start-condition stack underflow" );
 
-	BEGIN(yyg->yy_start_stack[yyg->yy_start_stack_ptr]);
-}
-
-    static int yy_top_state  (yyscan_t yyscanner)
-{
-    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
-	return yyg->yy_start_stack[yyg->yy_start_stack_ptr - 1];
-}
 
 #ifndef YY_EXIT_FAILURE
 #define YY_EXIT_FAILURE 2
@@ -2485,20 +2467,7 @@ static void yynoreturn yy_fatal_error (const char* msg , yyscan_t yyscanner)
 		yyg->yy_hold_char = *yyg->yy_c_buf_p; \
 		*yyg->yy_c_buf_p = '\0'; \
 		yyleng = yyless_macro_arg; \
-		} \
-	while ( 0 )
-
-/* Accessor  methods (get/set functions) to struct members. */
-
-/** Get the user-defined data for this scanner.
- * @param yyscanner The scanner object.
- */
-YY_EXTRA_TYPE yyget_extra  (yyscan_t yyscanner)
-{
-    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
-    return yyextra;
-}
-
+		}
 /** Get the current line number.
  * @param yyscanner The scanner object.
  */
@@ -2512,18 +2481,6 @@ int yyget_lineno  (yyscan_t yyscanner)
     return yylineno;
 }
 
-/** Get the current column number.
- * @param yyscanner The scanner object.
- */
-int yyget_column  (yyscan_t yyscanner)
-{
-    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
-
-        if (! YY_CURRENT_BUFFER)
-            return 0;
-    
-    return yycolumn;
-}
 
 /** Get the input stream.
  * @param yyscanner The scanner object.
@@ -2562,15 +2519,6 @@ char *yyget_text  (yyscan_t yyscanner)
     return yytext;
 }
 
-/** Set the user-defined data. This data is never touched by the scanner.
- * @param user_defined The data to be associated with this scanner.
- * @param yyscanner The scanner object.
- */
-void yyset_extra (YY_EXTRA_TYPE  user_defined , yyscan_t yyscanner)
-{
-    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
-    yyextra = user_defined ;
-}
 
 /** Set the current line number.
  * @param _line_number line number
@@ -2587,20 +2535,6 @@ void yyset_lineno (int  _line_number , yyscan_t yyscanner)
     yylineno = _line_number;
 }
 
-/** Set the current column.
- * @param _column_no column number
- * @param yyscanner The scanner object.
- */
-void yyset_column (int  _column_no , yyscan_t yyscanner)
-{
-    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
-
-        /* column is only valid if an input buffer exists. */
-        if (! YY_CURRENT_BUFFER )
-           YY_FATAL_ERROR( "yyset_column called with no buffer" );
-    
-    yycolumn = _column_no;
-}
 
 /** Set the input stream. This does not discard the current
  * input buffer.
@@ -2660,39 +2594,6 @@ int yylex_init(yyscan_t* ptr_yy_globals)
     return yy_init_globals ( *ptr_yy_globals );
 }
 
-/* yylex_init_extra has the same functionality as yylex_init, but follows the
- * convention of taking the scanner as the last argument. Note however, that
- * this is a *pointer* to a scanner, as it will be allocated by this call (and
- * is the reason, too, why this function also must handle its own declaration).
- * The user defined value in the first argument will be available to yyalloc in
- * the yyextra field.
- */
-int yylex_init_extra( YY_EXTRA_TYPE yy_user_defined, yyscan_t* ptr_yy_globals )
-{
-    struct yyguts_t dummy_yyguts;
-
-    yyset_extra (yy_user_defined, &dummy_yyguts);
-
-    if (ptr_yy_globals == NULL){
-        errno = EINVAL;
-        return 1;
-    }
-
-    *ptr_yy_globals = (yyscan_t) yyalloc ( sizeof( struct yyguts_t ), &dummy_yyguts );
-
-    if (*ptr_yy_globals == NULL){
-        errno = ENOMEM;
-        return 1;
-    }
-
-    /* By setting to 0xAA, we expose bugs in
-    yy_init_globals. Leave at 0x00 for releases. */
-    memset(*ptr_yy_globals,0x00,sizeof(struct yyguts_t));
-
-    yyset_extra (yy_user_defined, *ptr_yy_globals);
-
-    return yy_init_globals ( *ptr_yy_globals );
-}
 
 static int yy_init_globals (yyscan_t yyscanner)
 {
@@ -2907,26 +2808,9 @@ Token lex_next(Lex *lx) {
     return flex_lex_next(lx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-Token lex_peek(Lex *lx) {
-    if (!lx->peeked) { lx->peek=lex_next(lx); lx->peeked=1; }
-    return lx->peek;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int  lex_at_end(Lex *lx) { return lex_peek(lx).kind==T_EOF; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void lex_destroy(Lex *lx) { flex_lex_destroy(lx); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern CODE_t *parse_program_tokens(Lex *stream);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-CODE_t *sno_parse(FILE *f, const char *fname) {
-    Lex lx; memset(&lx,0,sizeof lx);
-    flex_lex_open(&lx,f,fname);
-    CODE_t *prog = parse_program_tokens(&lx);
-    flex_lex_destroy(&lx);
-    return prog;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *sno_parse_ast(FILE *f, const char *fname, CODE_t **code_out) {
     Lex lx; memset(&lx,0,sizeof lx);
@@ -2937,6 +2821,4 @@ tree_t *sno_parse_ast(FILE *f, const char *fname, CODE_t **code_out) {
     if (code_out) *code_out = prog;
     return ast;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void sno_reset(void) { sno_nerrors = 0; n_inc = 0; }
 
