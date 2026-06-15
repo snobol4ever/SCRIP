@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "lower.h"
-#include "IR_interp_state.h"
+#include "box_state.h"
 /*====================================================================================================================================================================================================*/
 #define SNO_MAXSTMTS 2048
 typedef struct {

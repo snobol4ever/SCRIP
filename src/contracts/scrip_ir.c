@@ -1,5 +1,5 @@
 #include "IR.h"
-#include "IR_interp_state.h"
+#include "box_state.h"
 #include "bb_program.h"
 #include <stdlib.h>
 #include <string.h>
