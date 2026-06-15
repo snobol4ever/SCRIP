@@ -203,11 +203,10 @@ static int rhs_kind_ok(IR_t *r) {
     return 0;
 }
 static int graph_has_binop(const IR_graph_t *g);
-static int graph_has_pow(const IR_graph_t *g);
 static int local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
     IR_t *rhs = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
     if (!rhs) for (int i = 0; i < g->n; i++) { IR_t *p = g->all[i]; if (p && p->γ.node == nd) { rhs = p; break; } }
-    if (rhs && rhs->op == IR_LIT_F) return !graph_has_pow(g);
+    if (rhs && rhs->op == IR_LIT_F) return 1;
     return rhs_kind_ok(rhs);
 }
 static int arith_operand_ok(IR_t *r) {
@@ -256,10 +255,6 @@ static int graph_has_local_assign(const IR_graph_t *g) {
 }
 static int graph_has_binop(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_BINOP) return 1;
-    return 0;
-}
-static int graph_has_pow(const IR_graph_t *g) {
-    for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_BINOP && IR_LIT(g->all[ni]).ival == BINOP_POW) return 1;
     return 0;
 }
 static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name) {
