@@ -2,8 +2,8 @@
 # build_scrip_rs23_diag.sh — RS-23 diagnostic build of scrip.
 #
 # Compiles + links scrip with src/driver/rs23_diag.c included and
-# -Wl,--wrap=interp_eval so every interp_eval call routes through
-# __wrap_interp_eval first.  The wrap logs any call whose stack
+# -Wl,--wrap=eval_ast so every eval_ast call routes through
+# __wrap_eval_ast first.  The wrap logs any call whose stack
 # contains a BB-adapter ancestor (bb_eval_value / bb_exec_stmt /
 # coro_call / coro_eval / coro_drive).
 #
@@ -34,9 +34,9 @@ gcc -O0 -g -w \
     -DIR_DEFINE_NAMES \
     -c "$SRC/driver/rs23_diag.c" -o "$OBJ/rs23_diag.o"
 
-# Relink the existing objs + the wrapper with --wrap=interp_eval.
+# Relink the existing objs + the wrapper with --wrap=eval_ast.
 gcc -m64 -no-pie -rdynamic \
-    -Wl,--wrap=interp_eval \
+    -Wl,--wrap=eval_ast \
     "$OBJ"/*.o \
     -lgc -lm \
     -o "$ROOT/scrip-rs23-diag"

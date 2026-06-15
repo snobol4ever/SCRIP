@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # test_isolation_ir_sm.sh — RS-15 grep gate.
 #
-# NOTE (CLI-3M-9, 2026-05-18): execute_program, interp_eval, interp_eval_pat,
-# interp_eval_ref, call_user_function are ALL DELETED from the codebase.
-# interp_exec.c and interp_eval.c no longer exist.
+# NOTE (CLI-3M-9, 2026-05-18): execute_program, eval_ast, eval_ast_pat,
+# eval_ast_ref, call_user_function are ALL DELETED from the codebase.
+# interp_exec.c and the AST eval rail no longer exist.
 # This gate is trivially satisfied — the symbols cannot appear in SM files
 # because they do not exist anywhere. Gate kept for documentation.
 #
@@ -40,11 +40,11 @@ SM_FILES=(
 # bb_eval_value (coro_value.c) and bb_exec_stmt (coro_stmt.c).
 # RS-23e (session 2026-05-05) promoted both BB adapters into this gate
 # after the RS-23a/b/c/d/extra rungs and the diag binary
-# (`scrip-rs23-diag` with `-Wl,--wrap=interp_eval`) verified zero
-# `interp_eval` calls reach from any BB-adapter ancestor across smoke +
+# (`scrip-rs23-diag` with `-Wl,--wrap=eval_ast`) verified zero
+# `eval_ast` calls reach from any BB-adapter ancestor across smoke +
 # unified_broker + full Icon corpus 263.  The two physical fallthroughs
 # at coro_value.c:1382 and coro_stmt.c:269 were hardened to abort with a
-# diagnostic; the `extern DESCR_t interp_eval(...)` declarations were
+# diagnostic; the `extern DESCR_t eval_ast(...)` declarations were
 # removed from both files.  RS-23 (2026-05-03) had attempted this
 # promotion prematurely after RS-22f-stmt; that attempt regressed
 # smoke_icon/raku/unified_broker because indirect call paths went
@@ -53,9 +53,9 @@ SM_FILES=(
 
 IR_SYMS=(
     "execute_program"
-    "interp_eval"
-    "interp_eval_pat"
-    "interp_eval_ref"
+    "eval_ast"
+    "eval_ast_pat"
+    "eval_ast_ref"
     "call_user_function"
 )
 

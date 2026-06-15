@@ -8,7 +8,7 @@
 #include "descr.h"
 #include "scrip_cc.h"
 #include "ast.h"
-DESCR_t __real_interp_eval(tree_t *e);
+DESCR_t __real_eval_ast(tree_t *e);
 #define DEDUP_CAP 1024
 static unsigned long g_seen[DEDUP_CAP];
 static int g_seen_n = 0;
@@ -63,7 +63,7 @@ static void diag_init_once(void) {
     if (!g_diag_fp) g_diag_fp = stderr;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t __wrap_interp_eval(tree_t *e) {
+DESCR_t __wrap_eval_ast(tree_t *e) {
     diag_init_once();
     g_wrap_calls++;
     char caller[128] = {0};
@@ -81,7 +81,7 @@ DESCR_t __wrap_interp_eval(tree_t *e) {
             fflush(g_diag_fp);
         }
     }
-    return __real_interp_eval(e);
+    return __real_eval_ast(e);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #endif
