@@ -1,6 +1,6 @@
 %define api.prefix {raku_yy}
 %code requires {
-#include "../../ast/ast.h"
+#include "ast.h"
 #include "../snobol4/scrip_cc.h"
 typedef struct ExprList {
     tree_t **items;
@@ -11,7 +11,7 @@ typedef struct ExprList {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 %{
-#include "../../ast/ast.h"
+#include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include "raku.tab.h"
 #include "raku_driver.h"
@@ -260,6 +260,22 @@ stmt
           fe->v.sval=(char*)intern($3); free($3);
           expr_add_child(fe,var_node($1));
           $$=expr_binary(TT_ASSIGN,fe,$5); }
+    | VAR_TWIGIL '=' expr ';'
+        { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD);
+          fe->v.sval=(char*)intern($1); free($1);
+          $$=expr_binary(TT_ASSIGN,fe,$3); }
+    | VAR_SCALAR '.' IDENT '(' arg_list ')' ';'
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, var_node($1));
+          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ExprList *args = $5;
+          if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
+          $$ = c; }
+    | VAR_SCALAR '.' IDENT '(' ')' ';'
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, var_node($1));
+          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          $$ = c; }
     | VAR_ARRAY '[' expr ']' '=' expr ';'
         { tree_t *c=ast_node_new(TT_ARR_SET);
           ast_push(c,var_node($1)); ast_push(c,$3); ast_push(c,$6); $$=c; }
@@ -387,6 +403,23 @@ class_decl
             const char *cname = intern($2); free($2);
             ExprList *body = $4;
             tree_t *cd = ast_node_new(TT_CLASS_DECL);
+            ast_push(cd, leaf_sval(TT_VAR, cname));
+            if (body) {
+                for (int i = 0; i < body->count; i++)
+                    if (body->items[i]) ast_push(cd, body->items[i]);
+                exprlist_free(body);
+            }
+            $$ = cd;
+        }
+    | KW_CLASS IDENT IDENT IDENT '{' class_body_list '}'
+        {
+            const char *cname = intern($2); free($2);
+            const char *iskw  = $3;
+            const char *pname = intern($4); free($4);
+            ExprList *body = $6;
+            tree_t *cd = ast_node_new(TT_CLASS_DECL);
+            if (iskw && !strcmp(iskw, "is")) cd->v.sval = (char *)pname;
+            free((void *)iskw);
             ast_push(cd, leaf_sval(TT_VAR, cname));
             if (body) {
                 for (int i = 0; i < body->count; i++)

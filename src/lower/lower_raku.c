@@ -210,7 +210,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_NUL: { IR_t * nd = build(cx, IR_LIT_NUL, γ, ω); *res = nd; return nd; }
     case TT_VAR: { if (rk_is_grammar_name(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; } IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_ASSIGN: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR) {
+    case TT_ASSIGN: if (t->n > 1 && t->c[0] && (t->c[0]->t == TT_FIELD || t->c[0]->t == TT_TWIGIL_FIELD)) {
+        const tree_t * lhs = t->c[0];
+        const char * fname = (lhs->t == TT_TWIGIL_FIELD) ? lhs->v.sval : ((lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval);
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "field_set"; IR_LIT(nd).ival = 3; IR_LIT(nd).dval = 1.0;
+        IR_t * succ = nd; IR_t * entry = nd; IR_t * r = NULL;
+        IR_t * ev = lower_rv(cx, t->c[1], succ, ω, &r); succ = ev; entry = ev;
+        IR_t * nl = build(cx, IR_LIT_S, succ, ω); IR_LIT(nl).sval = fname; succ = nl; entry = nl;
+        if (lhs->t == TT_TWIGIL_FIELD) { IR_t * sv = build(cx, IR_VAR, succ, ω); IR_LIT(sv).sval = "self"; succ = sv; entry = sv; }
+        else { IR_t * eo = lower_rv(cx, lhs->c[0], succ, ω, &r); succ = eo; entry = eo; }
+        *res = nd; return entry; }
+        else if (t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR) {
         const tree_t * rhs = t->c[1];
         if (rhs && rhs->t == TT_FNC && rhs->n > 1 && rhs->c[0] && rhs->c[0]->v.sval && !strcmp(rhs->c[0]->v.sval, "pop") && rhs->c[1] && rhs->c[1]->t == TT_VAR) {
             IR_t * asA = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asA).sval = rhs->c[1]->v.sval;
@@ -455,6 +465,15 @@ static void rk_register_classes(const tree_t * prog) {
         if (pos < (int)sizeof(spec) - 1) spec[pos++] = ')';
         spec[pos] = '\0';
         record_register(spec);
+    }
+    extern void class_inherit(const char *child, const char *parent);
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (!d || d->t != TT_CLASS_DECL) continue;
+        const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+        const char * pname = d->v.sval;
+        if (cname && pname && *pname) class_inherit(cname, pname);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

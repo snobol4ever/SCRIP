@@ -48,6 +48,27 @@ DatType *dat_find_type(const char *name) {
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void class_inherit(const char *child, const char *parent) {
+    if (!child || !parent) return;
+    DatType *c = dat_find_type(child); DatType *p = dat_find_type(parent);
+    if (!c || !p) return;
+    if (c->parent[0]) return;
+    char merged[64][64]; int m = 0;
+    for (int i = 0; i < p->nfields && m < 63; i++) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; m++; }
+    for (int i = 0; i < c->nfields && m < 63; i++) {
+        int dup = 0; for (int j = 0; j < m; j++) if (strcmp(merged[j], c->fields[i]) == 0) { dup = 1; break; }
+        if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; m++; }
+    }
+    for (int i = 0; i < m; i++) strncpy(c->fields[i], merged[i], 63);
+    c->nfields = m;
+    strncpy(c->parent, parent, 63); c->parent[63] = '\0';
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_parent(const char *name) {
+    DatType *t = dat_find_type(name);
+    return (t && t->parent[0]) ? t->parent : (const char *)0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int dat_type_count(void) { return dat_ntypes; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_name(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].name : (const char *)0; }

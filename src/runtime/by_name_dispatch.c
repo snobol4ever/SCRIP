@@ -53,7 +53,7 @@ int rt_builtin_is_known(const char *name)
         "elems", "push_pure",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
-        "obj_new", "meth_call",
+        "obj_new", "meth_call", "field_set",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -259,6 +259,22 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static long g_pas_heap_ctr = 0;
+/*--------------------------------------------------------------------------------------------------------------------*/
+static const char *resolve_method_chain(const char *cls, const char *mname, char *buf, int bufsz) {
+    extern const char *dat_parent(const char *name);
+    extern int rt_proc_has_native_fn(const char *name);
+    const char *c = cls;
+    while (c && *c) {
+        snprintf(buf, bufsz, "%s__%s", c, mname);
+        int found = rt_proc_has_native_fn(buf);
+        if (!found) for (int pi = 0; pi < g_stage2.proc_count; pi++)
+            if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, buf)) { found = 1; break; }
+        if (found) return buf;
+        c = dat_parent(c);
+    }
+    snprintf(buf, bufsz, "%s__%s", cls, mname);
+    return buf;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *val) {
     if (!cur) cur = ""; if (!val) val = ""; if (fi < 0) return GC_strdup(cur); if (ei < 0) ei = 0;
@@ -814,6 +830,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(fn, "say_fh")) fputc('\n', fp);
         *out = INTVAL(0); return 1;
     }
+    if (!strcmp(fn, "field_set") && nargs == 3) {
+        extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
+        const char *fname = VARVAL_fn(args[1]); if (!fname) fname = "";
+        DESCR_t *cell = data_field_ptr(fname, args[0]);
+        if (cell) *cell = args[2];
+        *out = args[2]; return 1;
+    }
     if (!strcmp(fn, "obj_new") && nargs >= 1) {
         const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }
         DatType *dt = dat_find_type(cname); if (!dt) { *out = FAILDESCR; return 1; }
@@ -839,11 +862,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;
         if (!cname) { *out = FAILDESCR; return 1; }
         const char *mname = VARVAL_fn(args[1]); if (!mname || !*mname) { *out = FAILDESCR; return 1; }
-        char procname[256]; int plen = 0;
-        for (; cname[plen] && plen < 127; plen++) procname[plen] = cname[plen];
-        procname[plen++] = '_'; procname[plen++] = '_';
-        for (int k = 0; mname[k] && plen < 255; k++) procname[plen++] = mname[k];
-        procname[plen] = '\0';
+        char procname[256];
+        resolve_method_chain(cname, mname, procname, sizeof procname);
         int nextra = nargs - 2;
         int total = 1 + nextra;
         DESCR_t *callargs = GC_malloc((size_t)total * sizeof(DESCR_t));

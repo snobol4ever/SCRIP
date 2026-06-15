@@ -2416,6 +2416,19 @@ int main(int argc, char **argv)
                       printf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
                       printf("  call record_register@PLT\n");
                   } }
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern const char *dat_parent(const char *);
+                  int n_cls = dat_type_count();
+                  for (int ci = 0; ci < n_cls; ci++) {
+                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+                      const char *pn = dat_parent(cn); if (!pn || !*pn) continue;
+                      printf("  .section .rodata\n");
+                      printf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
+                      printf("  .Lclsparent%d: .string \"%s\"\n", ci, pn);
+                      printf("  .section .text\n  .intel_syntax noprefix\n");
+                      printf("  lea rdi, [rip + .Lclschild%d]\n", ci);
+                      printf("  lea rsi, [rip + .Lclsparent%d]\n", ci);
+                      printf("  call class_inherit@PLT\n");
+                  } }
                 { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
                   int n_gram = rt_grammar_count();
                   for (int gi = 0; gi < n_gram; gi++) {
