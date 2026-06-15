@@ -32,7 +32,6 @@ extern DESCR_t pat_at_cursor(const char *varname);
 #include "runtime/builtins/gen_runtime.h"
 #include "runtime/builtins/resolution.h"
 extern DESCR_t      eval_expr(const char *src);
-extern const char  *exec_code(DESCR_t code_block);
 extern int exec_stmt(const char *subj_name,
                      DESCR_t    *subj_var,
                      DESCR_t     pat,

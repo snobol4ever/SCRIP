@@ -39,7 +39,6 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 extern DESCR_t pat_at_cursor(const char *varname);
 static void stmt_init(void) {}
 extern DESCR_t      eval_expr(const char *src);
-extern const char  *exec_code(DESCR_t code_block);
 extern int exec_stmt(const char *subj_name,
                           DESCR_t    *subj_var,
                           DESCR_t     pat,
