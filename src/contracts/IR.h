@@ -227,6 +227,8 @@ typedef enum {
     IR_CALL_GVAR_USERPROC,
     IR_DET_THROW,
     IR_CELL_CATCH,
+    IR_DET_RETRACT,
+    IR_DET_ABOLISH,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/

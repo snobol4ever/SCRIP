@@ -749,6 +749,62 @@ int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct dyn_clause { Term *head; Term *body; struct dyn_clause *next; } dyn_clause_t;
+typedef struct { const char *name; long arity; dyn_clause_t *head; dyn_clause_t *tail; } dyn_pred_row_t;
+static dyn_pred_row_t *g_pl_dyn_pred_table = (dyn_pred_row_t *)0;
+static long            g_pl_dyn_pred_n     = 0;
+static long            g_pl_dyn_pred_cap   = 0;
+/*--------------------------------------------------------------------------------------------------------------------*/
+static dyn_pred_row_t *dyn_pred_find(const char *name, long arity)
+{
+    for (long i = 0; i < g_pl_dyn_pred_n; i++) if (g_pl_dyn_pred_table[i].name && !strcmp(g_pl_dyn_pred_table[i].name, name) && g_pl_dyn_pred_table[i].arity == arity) return &g_pl_dyn_pred_table[i];
+    return (dyn_pred_row_t *)0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void dyn_term_key(Term *t, const char **name_out, long *arity_out)
+{
+    Term *d = t ? term_deref(t) : (Term *)0;
+    if (d && d->tag == TERM_COMPOUND) { *name_out = prolog_atom_name(d->compound.functor); *arity_out = d->compound.arity; return; }
+    if (d && d->tag == TERM_ATOM) { *name_out = prolog_atom_name(d->atom_id); *arity_out = 0; return; }
+    *name_out = (const char *)0; *arity_out = 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_dyn_abolish_cell(void *fn_cell, void *ar_cell)
+{
+    Term *fn = term_deref((Term *)fn_cell);
+    Term *ar = term_deref((Term *)ar_cell);
+    if (!fn || fn->tag != TERM_ATOM || !ar || ar->tag != TERM_INT) return 1;
+    const char *name = prolog_atom_name(fn->atom_id);
+    if (!name) return 1;
+    dyn_pred_row_t *row = dyn_pred_find(name, ar->ival);
+    if (row) { row->head = (dyn_clause_t *)0; row->tail = (dyn_clause_t *)0; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_dyn_retract_cell(void *head_cell)
+{
+    extern Trail g_resolve_trail;
+    Term *pat = term_deref((Term *)head_cell);
+    const char *name = (const char *)0; long arity = 0;
+    dyn_term_key(pat, &name, &arity);
+    if (!name) return 0;
+    dyn_pred_row_t *row = dyn_pred_find(name, arity);
+    if (!row) return 0;
+    dyn_clause_t *prev = (dyn_clause_t *)0;
+    for (dyn_clause_t *c = row->head; c; prev = c, c = c->next) {
+        int mark = trail_mark(&g_resolve_trail);
+        Term *var_map[256]; int var_cap = 256, var_n = 0;
+        Term *hcopy = copy_term_deep(c->head, var_map, &var_cap, &var_n);
+        if (hcopy && unify(pat, hcopy, &g_resolve_trail)) {
+            if (prev) prev->next = c->next; else row->head = c->next;
+            if (row->tail == c) row->tail = prev;
+            return 1;
+        }
+        trail_unwind(&g_resolve_trail, mark);
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 /* THROW/CATCH — the single in-flight thrown term (a value, like errno; NOT a control/frame stack:
  * the catch FRAMES are box frame cells, only the ball-in-flight needs to cross C-call returns). The
  * GZ model: throw() copies the ball here + the box fails; failure rides the existing ω/return wiring
