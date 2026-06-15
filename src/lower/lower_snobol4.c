@@ -944,6 +944,7 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
         const tree_t * go_u = sno_goto_node(s, TT_GOTO_U, ":go");
         IR_t * nxt = next_label(cx, i);
         IR_t * go_tgt_u = go_u ? resolve(cx, sno_goto_label(go_u)) : NULL;
+        if (go_u && !go_tgt_u) { const char * gdn = sno_goto_label(go_u); IR_t * gd = build(cx, IR_GOTO_DYN, nxt, nxt); IR_LIT(gd).sval = (gdn && gdn[0]) ? strdup(gdn) : NULL; go_tgt_u = gd; }
         IR_t * go_tgt_s = go_s ? resolve(cx, sno_goto_label(go_s)) : NULL;
         IR_t * go_tgt_f = go_f ? resolve(cx, sno_goto_label(go_f)) : NULL;
         IR_t * γ_tgt, * ω_tgt;

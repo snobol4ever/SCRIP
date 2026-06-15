@@ -87,6 +87,10 @@ the shims when the native chain covers the corpus.
   `rt_gvar_assign_pat`), S5 capture-commit stores + substitution write-back. STATUS: **REQUESTED**.
 - **raw allocator** (GC_MALLOC-equivalent, bytes in/ptr out, no logic) — S5 substitution splice only
   (new subject string, unbounded size). NOT needed for S3 builds (see D5). STATUS: **REQUESTED**.
+- **dyn-goto run** (`rt_goto_dyn`, emitted code → runtime, `void(const char *)`) — `:<C>`/`:(C)`-to-CODE-value
+  runtime jump box (`bb_goto_dyn`); does `NV_GET` + DT_C-slen-3 check + `rt_eval_run` (reuses the stamped EVAL
+  rail via the shared `run_code_chain` factor — NO-DUPLICATED-LOGIC). STATUS: **PROVISIONAL** — authorized by
+  the DT_C-jump-box rung design recorded in GOAL-SNOBOL4-BB.md; pending Lon ratification.
 - Grandfathered shim calls (`rt_scan*`, `rt_defer_match`, `rt_cap_assign_cursor`): die at their S-rungs;
   zero new uses.
 
