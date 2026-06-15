@@ -457,6 +457,30 @@ raku "num_pred" "4" << 'EOF'
 sub main() { say(5.pred); }
 EOF
 
+raku "str_words" "a b c" << 'EOF'
+sub main() { say("a b c".words); }
+EOF
+
+raku "str_words_collapse" "hi there" << 'EOF'
+sub main() { say("  hi   there  ".words); }
+EOF
+
+raku "str_words_elems" "3" << 'EOF'
+sub main() { my @a = "a b c".words; say(elems(@a)); }
+EOF
+
+raku "str_split" "a b c" << 'EOF'
+sub main() { say("a,b,c".split(",")); }
+EOF
+
+raku "str_split_elems" "3" << 'EOF'
+sub main() { my @a = "a,b,c".split(","); say(elems(@a)); }
+EOF
+
+raku "str_comb_elems" "5" << 'EOF'
+sub main() { my @a = "hello".comb; say(elems(@a)); }
+EOF
+
 raku "grammar_token" "12345" << 'EOF'
 grammar G {
     token TOP { \d+ }
