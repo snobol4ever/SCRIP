@@ -579,6 +579,23 @@ class Dog is Animal { method speak() { return "Woof"; } }
 sub main() { my $d = Dog.new(name => "Rex"); say($d.speak()); }
 EOF
 
+# --- RK-OO-A2: public-attribute auto-accessor (.x() with parens routes to the field, not a missing proc) ---
+raku "accessor_paren" "3" << 'EOF'
+class Point { has $.x; has $.y; }
+sub main() { my $p = Point.new(x => 3, y => 4); say($p.x()); }
+EOF
+
+raku "accessor_method_wins" "105" << 'EOF'
+class Box { has $.v; method v() { return $!v + 100; } }
+sub main() { my $b = Box.new(v => 5); say($b.v()); }
+EOF
+
+raku "accessor_inherited" "Rex" << 'EOF'
+class Animal { has $.name; }
+class Dog is Animal { method bark() { return "woof"; } }
+sub main() { my $d = Dog.new(name => "Rex"); say($d.name()); }
+EOF
+
 # --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }
