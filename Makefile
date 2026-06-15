@@ -247,12 +247,12 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/contracts/scrip_ir.c \
     $(SRC)/runtime/rt_runtime.c \
-    $(SRC)/driver/interp_globals.c \
-    $(SRC)/driver/interp_label.c \
-    $(SRC)/driver/interp_hooks.c \
-    $(SRC)/driver/interp_data.c \
-    $(SRC)/driver/interp_call.c \
-    $(SRC)/driver/interp_ast_stubs.c \
+    $(SRC)/driver/driver_globals.c \
+    $(SRC)/driver/driver_label.c \
+    $(SRC)/driver/driver_hooks.c \
+    $(SRC)/driver/driver_data.c \
+    $(SRC)/driver/driver_call.c \
+    $(SRC)/driver/driver_ast_stubs.c \
     $(SRC)/driver/scrip_sm.c \
     $(SRC)/driver/stmt_ast.c \
     $(SRC)/driver/polyglot.c \
@@ -521,12 +521,12 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
-	$(CC) $(CRT)   -c $(SRC)/driver/interp_globals.c -o $(OBJ)/interp_globals.o
-	$(CC) $(CRT)   -c $(SRC)/driver/interp_label.c   -o $(OBJ)/interp_label.o
-	$(CC) $(CRT)   -c $(SRC)/driver/interp_hooks.c   -o $(OBJ)/interp_hooks.o
-	$(CC) $(CRT)   -c $(SRC)/driver/interp_data.c    -o $(OBJ)/interp_data.o
-	$(CC) $(CRT)   -c $(SRC)/driver/interp_call.c    -o $(OBJ)/interp_call.o
-	$(CC) $(CRT)   -c $(SRC)/driver/interp_ast_stubs.c -o $(OBJ)/interp_ast_stubs.o
+	$(CC) $(CRT)   -c $(SRC)/driver/driver_globals.c -o $(OBJ)/driver_globals.o
+	$(CC) $(CRT)   -c $(SRC)/driver/driver_label.c   -o $(OBJ)/driver_label.o
+	$(CC) $(CRT)   -c $(SRC)/driver/driver_hooks.c   -o $(OBJ)/driver_hooks.o
+	$(CC) $(CRT)   -c $(SRC)/driver/driver_data.c    -o $(OBJ)/driver_data.o
+	$(CC) $(CRT)   -c $(SRC)/driver/driver_call.c    -o $(OBJ)/driver_call.o
+	$(CC) $(CRT)   -c $(SRC)/driver/driver_ast_stubs.c -o $(OBJ)/driver_ast_stubs.o
 	$(CC) $(CRT)   -c $(SRC)/driver/scrip_sm.c       -o $(OBJ)/scrip_sm.o
 	$(CC) $(CRT)   -c $(SRC)/driver/stmt_ast.c       -o $(OBJ)/stmt_ast.o
 	$(CC) $(CRT)   -c $(SRC)/driver/polyglot.c -o $(OBJ)/polyglot.o

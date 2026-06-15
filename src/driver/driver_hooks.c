@@ -1,4 +1,4 @@
-#include "interp_private.h"
+#include "driver_private.h"
 DESCR_t _eval_str_impl_fn(const char *s) {
     tree_t *tree = parse_expr_pat_from_str(s);
     if (!tree) return FAILDESCR;

@@ -1,4 +1,4 @@
-#include "interp_private.h"
+#include "driver_private.h"
 CallFrame  call_stack[CALL_STACK_MAX];
 int        call_depth = 0;
 InitEnt init_tab[INIT_MAX];

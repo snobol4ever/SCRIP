@@ -10,7 +10,7 @@
 #include "parser/rebus/rebus_lower.h"
 #include "runtime/builtins/gen_runtime.h"
 #include "runtime/builtins/resolution.h"
-#include "driver/interp.h"
+#include "driver/driver.h"
 #include "driver/polyglot.h"
 #include "lower.h"
 #include "SM.h"

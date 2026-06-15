@@ -1,4 +1,4 @@
-#include "interp_private.h"
+#include "driver_private.h"
 void label_table_build(stage2_t *s2, const tree_t *prog)
 {
     s2->label_count = 0;

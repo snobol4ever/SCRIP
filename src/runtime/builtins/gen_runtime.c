@@ -76,5 +76,5 @@ DESCR_t rt_keyword_subject(void) { return scan_subj ? STRVAL(scan_subj) : NULVCL
 DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-#include "../../driver/interp_private.h"
+#include "../../driver/driver_private.h"
 #include <time.h>
