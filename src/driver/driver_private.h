@@ -1,5 +1,5 @@
-#ifndef INTERP_PRIVATE_H
-#define INTERP_PRIVATE_H
+#ifndef DRIVER_PRIVATE_H
+#define DRIVER_PRIVATE_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +42,7 @@ extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
 extern int         Σlen;
-#include "interp.h"
+#include "driver.h"
 extern char  g_script_exception[512];
 extern Match  g_match;
 extern const char *g_subject;
@@ -58,7 +58,7 @@ void  fh_free(int idx);
 const char *define_spec_from_expr(tree_t *subj);
 const char *define_entry_from_expr(tree_t *subj);
 #include "stage2.h"
-#include "interp.h"
+#include "driver.h"
 #define LABEL_MAX STAGE2_LABEL_MAX
 #define CALL_STACK_MAX 256
 #define SHADOW_MAX 32

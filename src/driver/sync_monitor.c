@@ -7,7 +7,7 @@
 #include "runtime/builtins/resolution.h"
 #include "lower.h"
 #include "SM.h"
-#include "interp.h"
+#include "driver.h"
 #include "parser/snobol4/scrip_cc.h"
 #include "parser/prolog/term.h"
 #include "parser/prolog/prolog_atom.h"

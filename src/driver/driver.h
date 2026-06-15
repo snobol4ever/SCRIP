@@ -1,5 +1,5 @@
-#ifndef INTERP_H
-#define INTERP_H
+#ifndef DRIVER_H
+#define DRIVER_H
 #include <stdint.h>
 #include <setjmp.h>
 #include "parser/snobol4/scrip_cc.h"

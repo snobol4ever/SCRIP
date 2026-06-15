@@ -7,7 +7,7 @@
 #include "bb_program.h"
 #include "../runtime/builtins/gen_runtime.h"
 #include "../runtime/builtins/resolution.h"
-#include "interp_private.h"
+#include "driver_private.h"
 #include "polyglot.h"
 extern int g_core_err_active;
 static void sm_resolve_proc_entry_pcs(stage2_t *s2)

@@ -1,7 +1,7 @@
 #include "by_name_dispatch.h"
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
-#include "../driver/interp_private.h"
+#include "../driver/driver_private.h"
 #include "../parser/raku/re.h"
 #include "core.h"
 #include "pattern_match.h"
