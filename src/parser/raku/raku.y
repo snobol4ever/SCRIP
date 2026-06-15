@@ -437,6 +437,24 @@ class_body_list
     | class_body_list KW_HAS VAR_SCALAR ';'
         { tree_t *fv = leaf_sval(TT_VAR, strip_sigil($3)); free($3);
           $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_TWIGIL ';'
+        { free($3); tree_t *fv = leaf_sval(TT_VAR, $4); free($4);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_SCALAR ';'
+        { free($3); tree_t *fv = leaf_sval(TT_VAR, strip_sigil($4)); free($4);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_TWIGIL '=' expr ';'
+        { tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($3); free($3); expr_add_child(fv, $5);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_SCALAR '=' expr ';'
+        { const char *fn = strip_sigil($3); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free($3); expr_add_child(fv, $5);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_TWIGIL '=' expr ';'
+        { free($3); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($4); free($4); expr_add_child(fv, $6);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_SCALAR '=' expr ';'
+        { free($3); const char *fn = strip_sigil($4); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free($4); expr_add_child(fv, $6);
+          $$ = exprlist_append($1, fv); }
     | class_body_list KW_METHOD IDENT '(' param_list ')' block
         { ExprList *params = $5; int np = params ? params->count : 0;
           tree_t *e = ast_node_new(TT_SUB_DECL);

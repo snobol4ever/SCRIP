@@ -612,6 +612,33 @@ class C { has $.x; method make($v) { return self.bless(x => $v); } }
 sub main() { my $o = C.make(9); say($o.x); }
 EOF
 
+# --- RK-OO-A4: typed attributes (type ignored) + constant default values (BUILDPLAN op 400) ---
+raku "attr_typed" "3" << 'EOF'
+class Point { has Int $.x; has Int $.y; }
+sub main() { my $p = Point.new(x => 3, y => 4); say($p.x); }
+EOF
+raku "attr_default_int" "42" << 'EOF'
+class Box { has $.v = 42; }
+sub main() { my $b = Box.new(); say($b.v); }
+EOF
+raku "attr_default_str" "hello" << 'EOF'
+class Greeter { has $.greeting = "hello"; }
+sub main() { my $g = Greeter.new(); say($g.greeting); }
+EOF
+raku "attr_default_override" "7" << 'EOF'
+class Box { has $.v = 42; }
+sub main() { my $b = Box.new(v => 7); say($b.v); }
+EOF
+raku "attr_typed_default" "100" << 'EOF'
+class Cfg { has Int $.limit = 100; }
+sub main() { my $c = Cfg.new(); say($c.limit); }
+EOF
+raku "attr_default_inherited" "4" << 'EOF'
+class Animal { has $.legs = 4; }
+class Dog is Animal { method describe() { return $!legs; } }
+sub main() { my $d = Dog.new(); say($d.describe()); }
+EOF
+
 # --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }

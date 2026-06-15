@@ -471,6 +471,17 @@ static void rk_register_classes(const tree_t * prog) {
         if (pos < (int)sizeof(spec) - 1) spec[pos++] = ')';
         spec[pos] = '\0';
         record_register(spec);
+        extern void dat_set_field_default_i(const char *cls, const char *field, int64_t v);
+        extern void dat_set_field_default_s(const char *cls, const char *field, const char *v);
+        extern void dat_set_field_default_r(const char *cls, const char *field, double v);
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || ch->t != TT_HAS_DECL || ch->n < 1) continue;
+            const char * fn = ch->v.sval ? ch->v.sval : ""; const tree_t * dv = ch->c[0]; if (!dv) continue;
+            if (dv->t == TT_ILIT) dat_set_field_default_i(cname, fn, dv->v.ival);
+            else if (dv->t == TT_QLIT) dat_set_field_default_s(cname, fn, dv->v.sval);
+            else if (dv->t == TT_FLIT) dat_set_field_default_r(cname, fn, dv->v.dval);
+        }
     }
     extern void class_inherit(const char *child, const char *parent);
     for (int i = 0; i < prog->n; i++) {

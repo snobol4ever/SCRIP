@@ -53,16 +53,35 @@ void class_inherit(const char *child, const char *parent) {
     DatType *c = dat_find_type(child); DatType *p = dat_find_type(parent);
     if (!c || !p) return;
     if (c->parent[0]) return;
-    char merged[64][64]; int m = 0;
-    for (int i = 0; i < p->nfields && m < 63; i++) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; m++; }
+    char merged[64][64]; DESCR_t mdef[64]; char mhas[64]; int m = 0;
+    for (int i = 0; i < p->nfields && m < 63; i++) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; m++; }
     for (int i = 0; i < c->nfields && m < 63; i++) {
         int dup = 0; for (int j = 0; j < m; j++) if (strcmp(merged[j], c->fields[i]) == 0) { dup = 1; break; }
-        if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; m++; }
+        if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; m++; }
     }
-    for (int i = 0; i < m; i++) strncpy(c->fields[i], merged[i], 63);
+    for (int i = 0; i < m; i++) { strncpy(c->fields[i], merged[i], 63); c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; }
     c->nfields = m;
     strncpy(c->parent, parent, 63); c->parent[63] = '\0';
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void dat_set_field_default_i(const char *cls, const char *field, int64_t v) {
+    DatType *t = dat_find_type(cls); if (!t) return;
+    for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = INTVAL(v); t->has_default[i] = 1; return; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void dat_set_field_default_s(const char *cls, const char *field, const char *v) {
+    DatType *t = dat_find_type(cls); if (!t) return;
+    for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = STRVAL(GC_strdup(v ? v : "")); t->has_default[i] = 1; return; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void dat_set_field_default_r(const char *cls, const char *field, double v) {
+    DatType *t = dat_find_type(cls); if (!t) return;
+    for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = REALVAL(v); t->has_default[i] = 1; return; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_field_has_default(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].has_default[j] : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t dat_type_field_default(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].defaults[j] : NULVCL; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_parent(const char *name) {
     DatType *t = dat_find_type(name);
@@ -97,8 +116,10 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
     blk->next    = NULL;
     inst->type   = blk;
     inst->fields = GC_malloc(t->nfields * sizeof(DESCR_t));
-    for (int i = 0; i < t->nfields; i++)
+    for (int i = 0; i < t->nfields; i++) {
         inst->fields[i] = (i < nargs) ? args[i] : NULVCL;
+        if (t->has_default[i] && inst->fields[i].v == DT_SNUL) inst->fields[i] = t->defaults[i];
+    }
     DESCR_t r;
     r.v    = DT_DATA;
     r.slen = 0;
