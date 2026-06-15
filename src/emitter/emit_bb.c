@@ -63,19 +63,29 @@ const char *child_cache_get_lbl(bb_box_fn fn);
 int g_flat_node_id   = 0;
 static int g_flat_slot_count = 0;
 int g_last_flat_frame_bytes = 0;
-#define BB_SLOTMAP_MAX 512
-static struct { IR_t *key; int off; } g_bb_slotmap[BB_SLOTMAP_MAX];
+typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
+static bb_slotmap_ent_t *g_bb_slotmap = NULL;
 static int g_bb_slotmap_n = 0;
+static int g_bb_slotmap_max = 0;
+static void bb_slotmap_push(IR_t *nd, int off) {
+    if (g_bb_slotmap_n >= g_bb_slotmap_max) {
+        int new_max = g_bb_slotmap_max ? g_bb_slotmap_max * 2 : 512;
+        bb_slotmap_ent_t *g = (bb_slotmap_ent_t *)realloc(g_bb_slotmap, (size_t)new_max * sizeof(bb_slotmap_ent_t));
+        if (!g) return;
+        g_bb_slotmap = g; g_bb_slotmap_max = new_max;
+    }
+    g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++;
+}
 int bb_slot_alloc(IR_t *nd) {
     int off = g_flat_slot_count;
     g_flat_slot_count += 8;
-    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    bb_slotmap_push(nd, off);
     return off;
 }
 int bb_slot_alloc16(IR_t *nd) {
     int off = g_flat_slot_count;
     g_flat_slot_count += 16;
-    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    bb_slotmap_push(nd, off);
     return off;
 }
 /* Like bb_slot_alloc16 but returns the existing slot if the node already has one.
@@ -85,13 +95,13 @@ int bb_slot_alloc16_or_get(IR_t *nd) {
     if (existing >= 0) return existing;
     int off = g_flat_slot_count;
     g_flat_slot_count += 16;
-    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    bb_slotmap_push(nd, off);
     return off;
 }
 int bb_slot_alloc24(IR_t *nd) {
     int off = g_flat_slot_count;
     g_flat_slot_count += 24;
-    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    bb_slotmap_push(nd, off);
     return off;
 }
 int bb_slot_get(IR_t *nd) {
@@ -99,7 +109,7 @@ int bb_slot_get(IR_t *nd) {
     return -1;
 }
 void bb_slot_register(IR_t *nd, int off) {
-    if (g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++; }
+    bb_slotmap_push(nd, off);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int bb_slot_claim(int bytes) {
@@ -108,16 +118,23 @@ int bb_slot_claim(int bytes) {
     return off;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-#define BB_VARSLOT_MAX 256
-static struct { const char *name; int off; } g_bb_varslot[BB_VARSLOT_MAX];
+typedef struct { const char *name; int off; } bb_varslot_ent_t;
+static bb_varslot_ent_t *g_bb_varslot = NULL;
 static int g_bb_varslot_n = 0;
+static int g_bb_varslot_max = 0;
 int bb_varslot(const char *name) {
     if (!name) name = "";
     for (int i = 0; i < g_bb_varslot_n; i++)
         if (g_bb_varslot[i].name && strcmp(g_bb_varslot[i].name, name) == 0) return g_bb_varslot[i].off;
     int off = g_flat_slot_count;
     g_flat_slot_count += 16;
-    if (g_bb_varslot_n < BB_VARSLOT_MAX) { g_bb_varslot[g_bb_varslot_n].name = name; g_bb_varslot[g_bb_varslot_n].off = off; g_bb_varslot_n++; }
+    if (g_bb_varslot_n >= g_bb_varslot_max) {
+        int new_max = g_bb_varslot_max ? g_bb_varslot_max * 2 : 256;
+        bb_varslot_ent_t *g = (bb_varslot_ent_t *)realloc(g_bb_varslot, (size_t)new_max * sizeof(bb_varslot_ent_t));
+        if (!g) return off;
+        g_bb_varslot = g; g_bb_varslot_max = new_max;
+    }
+    g_bb_varslot[g_bb_varslot_n].name = name; g_bb_varslot[g_bb_varslot_n].off = off; g_bb_varslot_n++;
     return off;
 }
 int bb_varslot_peek(const char *name) {
@@ -2047,7 +2064,7 @@ static void flat_drive_gen_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     g_scan_regs_live = saved_scan_regs_live;
     IR_t *body_term = descr_chain_terminal(body_sg->entry);
     int body_slot = body_term ? bb_slot_get(body_term) : -1;
-    if (body_slot >= 0 && bb_slot_get(pBB) < 0 && g_bb_slotmap_n < BB_SLOTMAP_MAX) { g_bb_slotmap[g_bb_slotmap_n].key = pBB; g_bb_slotmap[g_bb_slotmap_n].off = body_slot; g_bb_slotmap_n++; }
+    if (body_slot >= 0 && bb_slot_get(pBB) < 0) bb_slot_register(pBB, body_slot);
     emit_label_define_bb(body_done);
     flat_drive_scan_glue(pBB, 2, -1, regs_off, lbl_γ, lbl_ω, leaveok_β);
     emit_label_define_bb(body_fail);
