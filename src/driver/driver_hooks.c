@@ -1,8 +1,11 @@
 #include "driver_private.h"
 DESCR_t _eval_str_impl_fn(const char *s) {
-    tree_t *tree = parse_expr_pat_from_str(s);
-    if (!tree) return FAILDESCR;
-    return eval_ast_pat(tree);
+    extern DESCR_t CONVE_fn(DESCR_t);
+    extern DESCR_t EXPVAL_fn(DESCR_t);
+    DESCR_t str = STRVAL((char *)s);
+    DESCR_t compiled = CONVE_fn(str);
+    if (IS_FAIL_fn(compiled)) return FAILDESCR;
+    return EXPVAL_fn(compiled);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _eval_pat_impl_fn(DESCR_t pat) {

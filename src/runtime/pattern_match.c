@@ -348,7 +348,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     }
     if (g_eval_str_hook) return g_eval_str_hook(s);
     DESCR_t compiled = CONVE_fn(expr);
-    if (IS_FAIL_fn(compiled)) { fprintf(stderr, "DBG IS_FAIL true!\n"); return FAILDESCR; }
+    if (IS_FAIL_fn(compiled)) return FAILDESCR;
     DESCR_t _ev2 = EXPVAL_fn(compiled);
     return _ev2;
 }

@@ -324,12 +324,12 @@ tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out) {
     Lex lx = {0};
     lex_open_str_initial(&lx, buf, slen + 1, 0);
     CODE_t *prog = calloc(1, sizeof(CODE_t));
-    tree_t  *ast  = NULL;
-    PP p = {prog, NULL, NULL};
+    tree_t  *ast  = calloc(1, sizeof(tree_t)); ast->t = TT_PROGRAM;
+    PP p = {prog, NULL, ast};
     g_lx = &lx;
     snobol4_parse(&p);
     ast = p.ast_prog;
     free(buf);
     if (code_out) *code_out = prog; else free(prog);
-    return ast;
+    return (ast && ast->n > 0) ? ast : NULL;
 }
