@@ -276,6 +276,14 @@ static const char *resolve_method_chain(const char *cls, const char *mname, char
     return buf;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int meth_is_user_proc(const char *procname) {
+    extern int rt_proc_has_native_fn(const char *name);
+    if (procname && rt_proc_has_native_fn(procname)) return 1;
+    if (procname) for (int pi = 0; pi < g_stage2.proc_count; pi++)
+        if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, procname)) return 1;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *val) {
     if (!cur) cur = ""; if (!val) val = ""; if (fi < 0) return GC_strdup(cur); if (ei < 0) ei = 0;
     const char *s = cur; long k = 0; const char *fstart = NULL; const char *fend = NULL;
@@ -864,6 +872,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *mname = VARVAL_fn(args[1]); if (!mname || !*mname) { *out = FAILDESCR; return 1; }
         char procname[256];
         resolve_method_chain(cname, mname, procname, sizeof procname);
+        if (nargs == 2 && !meth_is_user_proc(procname)) {
+            extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
+            DESCR_t *acc = data_field_ptr(mname, args[0]);
+            if (acc) { *out = *acc; return 1; }
+        }
         int nextra = nargs - 2;
         int total = 1 + nextra;
         DESCR_t *callargs = GC_malloc((size_t)total * sizeof(DESCR_t));
