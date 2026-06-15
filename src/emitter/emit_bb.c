@@ -3495,11 +3495,15 @@ static void descr_chain_operand_refs(IR_t *entry) {
 }
 void resolve_call_kinds_descr(IR_graph_t *g) {
     if (!g) return;
-    for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (nd && nd->op == IR_CALL && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval && IR_LIT(nd).sval[0] && rt_proc_is_registered(IR_LIT(nd).sval)) nd->op = IR_CALL_PROC_STAGED; }
+    for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd || nd->op != IR_CALL) continue; const char *fn = IR_LIT(nd).sval; double dv = IR_LIT(nd).dval;
+        if (fn && fn[0] && dv == 3.0 && rt_proc_is_registered(fn)) { nd->op = IR_CALL_PROC_STAGED; continue; }
+        if (fn && fn[0] && dv != 2.0 && strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN; }
 }
 void resolve_call_kinds_gvar(IR_graph_t *g) {
     if (!g) return;
-    for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (nd && nd->op == IR_CALL && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0) && IR_LIT(nd).sval && IR_LIT(nd).sval[0] && rt_proc_is_registered(IR_LIT(nd).sval)) nd->op = IR_CALL_GVAR_USERPROC; }
+    for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd || nd->op != IR_CALL) continue; const char *fn = IR_LIT(nd).sval; double dv = IR_LIT(nd).dval;
+        if (fn && fn[0] && (dv == 2.0 || dv == 3.0) && rt_proc_is_registered(fn)) { nd->op = IR_CALL_GVAR_USERPROC; continue; }
+        if (fn && fn[0] && dv != 3.0 && strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn descr_flat_chain_build(IR_t *entry) {
