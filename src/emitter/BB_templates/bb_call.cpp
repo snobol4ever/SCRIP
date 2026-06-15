@@ -16,6 +16,7 @@ int  bb_slot_claim(int bytes);
 int  bb_slot_alloc16(IR_t * nd);
 int  bb_node_id(IR_t * nd);
 int  bb_varslot(const char * name);
+int  is_global(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 int64_t rt_gvar_get_int(const char * name);
 DESCR_t rt_gvar_get_descr(const char * name);
@@ -346,7 +347,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     }
     if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_CALL_DEFINE) return marshal_single_call(lf, aoff, bb_node_id(lf));
     {
-        int ps = bb_slot_get(lf);
+        int ps = (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && !is_global(IR_LIT(lf).sval)) ? -1 : bb_slot_get(lf);
         if (ps >= 0) {
             std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [r12+%d] -> [r12+%d]", idx, ps, aoff)));
             s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
