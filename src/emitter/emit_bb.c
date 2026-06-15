@@ -959,6 +959,13 @@ static int gz_arith_const_eval(const IR_t *nd, long *out) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int sno_arith_lit_coerce(const IR_t *nd, long *out) {
+    if (!nd) return 0;
+    if (nd->op == IR_LIT_I) { *out = (long)IR_LIT(nd).ival; return 1; }
+    if (nd->op == IR_LIT_S) { const char *s = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; while (*s == ' ') s++; const char *p = s; if (*p == '+' || *p == '-') p++; const char *d = p; while (*d >= '0' && *d <= '9') d++; const char *e = d; while (*e == ' ') e++; if (*e == '\0') { *out = (d > p) ? strtol(s, (char **)0, 10) : 0L; return 1; } return 0; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int gz_arith_float_eval(const IR_t *nd, double *out) {
     if (!nd) return 0;
     if (nd->op == IR_LIT_F) { *out = IR_LIT(nd).dval; return 1; }
@@ -2898,6 +2905,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         int op_is_arith = nd && (IR_LIT(nd).ival == BINOP_ADD || IR_LIT(nd).ival == BINOP_SUB || IR_LIT(nd).ival == BINOP_MUL || IR_LIT(nd).ival == BINOP_DIV || IR_LIT(nd).ival == BINOP_MOD);
         int op_is_concat = nd && (IR_LIT(nd).ival == BINOP_CONCAT);
         int op_is_pow = nd && (IR_LIT(nd).ival == BINOP_POW);
+        long _sla = 0, _slb = 0;
         g_emit.op_off = -1;
         if (g_gvar_flat_chain && op_is_pow && bb_child0(nd) && bb_child1(nd) && nd->γ.node && nd->γ.node->op == IR_ASSIGN && IR_LIT(nd->γ.node).sval
             && (bb_child0(nd)->op == IR_LIT_I || bb_child0(nd)->op == IR_LIT_F || (bb_child0(nd)->op == IR_UNOP && bb_child0(bb_child0(nd)) && bb_child0(bb_child0(nd))->op == IR_LIT_I))
@@ -2920,9 +2928,9 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = asgn->op; asgn->op = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(asgn, lbl_γ, lbl_ω, lbl_β); asgn->op = _sk; }
-        } else if (g_gvar_flat_chain && op_is_arith && bb_child0(nd) && bb_child1(nd) && bb_child0(nd)->op == IR_LIT_I && bb_child1(nd)->op == IR_LIT_I) {
-            g_emit.op_sa  = (int)IR_LIT(bb_child0(nd)).ival;
-            g_emit.op_sb  = (int)IR_LIT(bb_child1(nd)).ival;
+        } else if (g_gvar_flat_chain && op_is_arith && bb_child0(nd) && bb_child1(nd) && sno_arith_lit_coerce(bb_child0(nd), &_sla) && sno_arith_lit_coerce(bb_child1(nd), &_slb)) {
+            g_emit.op_sa  = (int)_sla;
+            g_emit.op_sb  = (int)_slb;
             g_emit.op_off = bb_slot_alloc(nd);
             g_emit.op_name1 = (const char *)0;
             g_emit.op_name2 = (const char *)0;
