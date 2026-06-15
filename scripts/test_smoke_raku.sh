@@ -1,30 +1,28 @@
 #!/usr/bin/env bash
-# test_smoke_raku.sh — per-frontend smoke for Raku, run in ALL THREE execution modes.
-#   mode 2 = --interp  (BB port-walker oracle over the lowered IR) — HARD GATE: must be all-PASS.
-#   mode 3 = --run     (stackless native x86)   — TRACKED: climbs to all-PASS as RK-EMIT lands.
-#   mode 4 = --compile (standalone x86-64 asm)   — TRACKED: emit asm -> as -> link libscrip_rt -> run.
-# ⛔ POLICY (GOAL-RAKU-BB.md "TESTING DIRECTIVE — ALWAYS RUN ALL THREE MODES", Lon 2026-05-31): every Raku
-#    execution test runs --interp, --run AND --compile on the SAME program and reports all three. Never report
-#    a mode-2 number alone. Modes 3/4 are by-design SMX abort until RK-EMIT (the bb_rk_*.cpp templates) is built,
-#    so they read 0/N today (floors MODE3_MIN/MODE4_MIN default 0); raise the floors as 3/4 come back.
-# Exit 0 iff mode-2 is all-PASS AND mode-3 PASS >= $MODE3_MIN AND mode-4 PASS >= $MODE4_MIN.
-# AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet · Claude Opus  DATE: 2026-05-31 (3-mode)
+# test_smoke_raku.sh — per-frontend smoke for Raku, run in BOTH native execution modes.
+#   mode 3 = --run     (in-process stackless native x86 BB blobs) — the primary mode.
+#   mode 4 = --compile (standalone x86-64 asm -> as -> link libscrip_rt -> run).
+# NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --interp) was DELETED — nothing walks an IR graph to
+#    interpret it in any mode. The harness no longer invokes --interp; m3 and m4 are the only modes. A program
+#    either runs natively (PASS) or is cleanly declined with a loud [SMX] banner (EXCISED) — there is no oracle
+#    fallback. DONE BAR: m3 AND m4 each PASS-or-EXCISED with ZERO silent FAIL (no abort, no miscompile).
+# Exit 0 iff mode-3 has zero FAIL AND mode-4 has zero FAIL AND m3 PASS >= $MODE3_MIN AND m4 PASS >= $MODE4_MIN.
+# AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet · Claude Opus  DATE: 2026-05-31 (3-mode; de-interp'd to 2-mode 2026-06-15)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
 RT_SO="${HERE}/../out/libscrip_rt.so"
 MODE3_MIN="${MODE3_MIN:-0}"
 MODE4_MIN="${MODE4_MIN:-0}"
-P2=0; F2=0; P3=0; F3=0; X3=0; P4=0; F4=0; X4=0; N=0
+P3=0; F3=0; X3=0; P4=0; F4=0; X4=0; N=0
 
 raku() {
     local label="$1" expected="$2"
     local tmp; tmp=$(mktemp /tmp/rk_XXXXXX.raku)
     cat > "$tmp"
     N=$((N+1))
-    local a2 a3 a4 r2 r3 r4
+    local a3 a4 r3 r4
     local e3 e4 s4 bin4
     e3=$(mktemp /tmp/rk_XXXXXX.e3); e4=$(mktemp /tmp/rk_XXXXXX.e4)
-    a2=$(timeout 8 "$SCRIP" --interp "$tmp" 2>/dev/null </dev/null)
     a3=$(timeout 8 "$SCRIP" --run    "$tmp" 2>"$e3" </dev/null)
     a4=""
     s4=$(mktemp /tmp/rk_XXXXXX.s); bin4=$(mktemp /tmp/rk_XXXXXX.bin); rm -f "$bin4"
@@ -34,20 +32,19 @@ raku() {
         fi
     fi
     # [SMX] on stderr => the native mode DELIBERATELY DECLINES this rung (its bb_*.cpp template is not built
-    # yet) => counted EXCISED, NOT FAIL. This is the Icon/Prolog three-mode "done bar": a rung is done when
-    # m2 PASS AND m3/m4 each PASS-or-EXCISED — never a silent FAIL / abort / miscompile.
+    # yet) => counted EXCISED, NOT FAIL. The done bar (interp now deleted): m3 AND m4 each PASS-or-EXCISED —
+    # never a silent FAIL / abort / miscompile.
     local smx3=0 smx4=0
     grep -qE '\[SMX\]' "$e3" && smx3=1
     grep -qE '\[SMX\]' "$e4" && smx4=1
     rm -f "$tmp" "$s4" "$bin4" "$e3" "$e4"
-    if [ "$a2" = "$expected" ]; then r2="m2 PASS"; P2=$((P2+1)); else r2="m2 FAIL"; F2=$((F2+1)); fi
     if   [ "$a3" = "$expected" ]; then r3="m3 PASS"; P3=$((P3+1));
     elif [ "$smx3" -eq 1 ];      then r3="m3 EXCS"; X3=$((X3+1));
     else                              r3="m3 FAIL"; F3=$((F3+1)); fi
     if   [ "$a4" = "$expected" ]; then r4="m4 PASS"; P4=$((P4+1));
     elif [ "$smx4" -eq 1 ];      then r4="m4 EXCS"; X4=$((X4+1));
     else                              r4="m4 FAIL"; F4=$((F4+1)); fi
-    printf "  [%s] [%s] [%s] %s\n" "$r2" "$r3" "$r4" "$label"
+    printf "  [%s] [%s] %s\n" "$r3" "$r4" "$label"
 }
 
 echo "=== Raku smoke ==="
@@ -411,10 +408,9 @@ sub main() { my $s = "hello"; if ($s ~~ /<word>([a-z]+)/) { say($<word>); } }
 EOF
 
 echo ""
-echo "mode-2 (--interp):   PASS=$P2 FAIL=$F2  / $N   (HARD GATE — must be all-PASS)"
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 EXCISED=$X3  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 EXCISED=$X4  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
-# COMPLETION BAR (Icon/Prolog three-mode discipline, adopted 2026-06-01): m2 all-PASS (the oracle) AND
-# ZERO silent m3/m4 FAIL — every native mode is either PASS or a LOUD [SMX] EXCISE. A rung is promoted
-# only when all three modes are accounted for together. Floors retained as a backstop ratchet.
-[ "$F2" -eq 0 ] && [ "$F3" -eq 0 ] && [ "$F4" -eq 0 ] && [ "$P3" -ge "$MODE3_MIN" ] && [ "$P4" -ge "$MODE4_MIN" ]
+# COMPLETION BAR (interp deleted 2026-06-15 — two native modes only): ZERO silent m3/m4 FAIL — every native
+# mode is either PASS or a LOUD [SMX] EXCISE (no abort, no miscompile, no oracle fallback). A rung is promoted
+# only when BOTH m3 and m4 are accounted for together. Floors retained as a backstop ratchet.
+[ "$F3" -eq 0 ] && [ "$F4" -eq 0 ] && [ "$P3" -ge "$MODE3_MIN" ] && [ "$P4" -ge "$MODE4_MIN" ]
