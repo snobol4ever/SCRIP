@@ -549,6 +549,36 @@ sub main() {
 }
 EOF
 
+# --- RK-OO-A1: attribute mutation (twigil-write + void method-call statement) ---
+raku "attr_mutate" "3" << 'EOF'
+class Counter { has $.n; method bump() { $!n = $!n + 1; } method val() { return $!n; } }
+sub main() { my $c = Counter.new(n => 0); $c.bump(); $c.bump(); $c.bump(); say($c.val()); }
+EOF
+
+raku "field_write_external" "5" << 'EOF'
+class P { has $.x; }
+sub main() { my $p = P.new(x => 1); $p.x = 5; say($p.x); }
+EOF
+
+# --- RK-OO-C1/C2/C4: single inheritance (attr inherit, method inherit, override) ---
+raku "inherit_attr" "Rex" << 'EOF'
+class Animal { has $.name; }
+class Dog is Animal { method bark() { return "woof"; } }
+sub main() { my $d = Dog.new(name => "Rex"); say($d.name); }
+EOF
+
+raku "inherit_method" "4" << 'EOF'
+class Animal { has $.name; method legs() { return 4; } }
+class Dog is Animal { }
+sub main() { my $d = Dog.new(name => "Rex"); say($d.legs()); }
+EOF
+
+raku "inherit_override" "Woof" << 'EOF'
+class Animal { has $.name; method speak() { return "..."; } }
+class Dog is Animal { method speak() { return "Woof"; } }
+sub main() { my $d = Dog.new(name => "Rex"); say($d.speak()); }
+EOF
+
 # --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }
