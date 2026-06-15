@@ -818,6 +818,9 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_LIT(lit).sval = (repl && repl->v.sval) ? repl->v.sval : "";
             return lit;
         }
+        /* indirect assignment, compile-time-constant name:  $'lit' = RHS  ≡  lit = RHS  (SPITBOL Ch.7 indirect reference) */
+        if (subj->t == TT_INDIRECT && subj->n == 1 && subj->c[0] && subj->c[0]->t == TT_QLIT && subj->c[0]->v.sval)
+            return lower_assign(cx, subj->c[0]->v.sval, repl, γ_tgt, ω_tgt, 0);
         /* assignment:  LHS = RHS  (plain VAR or KEYWORD LHS only) */
         if (subj->t != TT_VAR && subj->t != TT_KEYWORD) return NULL;
         const char * lhs = subj->v.sval;
