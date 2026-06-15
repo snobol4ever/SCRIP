@@ -2453,6 +2453,28 @@ int main(int argc, char **argv)
                       printf("  lea rsi, [rip + .Lclsparent%d]\n", ci);
                       printf("  call class_inherit@PLT\n");
                   } }
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+                  extern int dat_type_field_has_default(int, int); extern DESCR_t dat_type_field_default(int, int);
+                  int n_cls = dat_type_count();
+                  for (int ci = 0; ci < n_cls; ci++) {
+                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                          if (!dat_type_field_has_default(ci, fj)) continue;
+                          const char *fn = dat_type_field(ci, fj); if (!fn) continue;
+                          DESCR_t dv = dat_type_field_default(ci, fj);
+                          printf("  .section .rodata\n");
+                          printf("  .Ldefcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .Ldeffld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          if (dv.v == DT_S) { const char *sv = dv.s ? dv.s : ""; printf("  .Ldefstr%d_%d: .byte ", ci, fj); for (const char *p = sv; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n"); }
+                          else if (dv.v == DT_R) { union { double d; unsigned long long q; } u; u.d = dv.r; printf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q); }
+                          printf("  .section .text\n  .intel_syntax noprefix\n");
+                          printf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
+                          printf("  lea rsi, [rip + .Ldeffld%d_%d]\n", ci, fj);
+                          if (dv.v == DT_S) { printf("  lea rdx, [rip + .Ldefstr%d_%d]\n", ci, fj); printf("  call dat_set_field_default_s@PLT\n"); }
+                          else if (dv.v == DT_R) { printf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", ci, fj); printf("  call dat_set_field_default_r@PLT\n"); }
+                          else { printf("  mov rdx, %lld\n", (long long)dv.i); printf("  call dat_set_field_default_i@PLT\n"); }
+                      }
+                  } }
                 { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
                   int n_gram = rt_grammar_count();
                   for (int gi = 0; gi < n_gram; gi++) {

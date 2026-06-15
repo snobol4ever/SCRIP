@@ -109,11 +109,14 @@ static inline int NAME_SET(DESCR_t nd, DESCR_t val) {
 DESCR_t *eval_ast_ref(tree_t *e);
 DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
 int string_section_assign(tree_t *lhs, DESCR_t val);
-typedef struct { char name[64]; int nfields; char fields[64][64]; char parent[64]; } DatType;
+typedef struct { char name[64]; int nfields; char fields[64][64]; char parent[64]; DESCR_t defaults[64]; char has_default[64]; } DatType;
 DatType *dat_register(const char *spec);
 DatType *dat_find_type(const char *name);
 DatType *dat_find_field(const char *name, int *fidx);
 DESCR_t    dat_construct(DatType *t, DESCR_t *args, int nargs);
+void dat_set_field_default_i(const char *cls, const char *field, int64_t v);
+void dat_set_field_default_s(const char *cls, const char *field, const char *v);
+void dat_set_field_default_r(const char *cls, const char *field, double v);
 DESCR_t    dat_field_get(const char *fname, DESCR_t obj);
 DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs);
 DESCR_t call_builtin(tree_t *call, DESCR_t *args, int nargs);
