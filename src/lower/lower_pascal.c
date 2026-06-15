@@ -183,8 +183,46 @@ static IR_t * lower_unop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     return child ? child : op;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pas_lc_leaf(tree_e k, const char * s) { tree_t * e = ast_node_new(k); e->v.sval = (char *) (s ? s : ""); return e; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pas_lc_bin(tree_e k, tree_t * a, tree_t * b) { tree_t * e = ast_node_new(k); ast_push(e, a); ast_push(e, b); return e; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pas_lc_clone(const tree_t * e) { if (!e) return NULL; tree_t * c = ast_node_new(e->t); c->v = e->v; if ((e->t == TT_VAR || e->t == TT_QLIT) && e->v.sval) c->v.sval = (char *) lp_strdup(e->v.sval); for (int i = 0; i < e->n; i++) ast_push(c, pas_lc_clone(e->c[i])); return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static uint64_t pas_callee_byref_mask(const char * name) {
+    if (!name) return 0;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, name)) return g_stage2.proc_table[pi].byref_mask;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pas_vptmp_var(void) {
+    static int g_pas_vptmp_n = 0;
+    char buf[32]; snprintf(buf, sizeof buf, "__pas_vptmp_%d", g_pas_vptmp_n++);
+    tree_t * v = ast_node_new(TT_VAR); v->v.sval = lp_strdup(buf); return v;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * c0 = (t->n > 0) ? t->c[0] : NULL;
+    uint64_t brm = pas_callee_byref_mask(c0 ? c0->v.sval : NULL);
+    if (brm) { int rw = 0; for (int i = 1; i < t->n; i++) { if (((brm >> (i - 1)) & 1ULL) && t->c[i] && t->c[i]->t == TT_IDX) { rw = 1; break; } }
+        if (rw) {
+            tree_t * seq = ast_node_new(TT_SEQ_EXPR);
+            tree_t * call = ast_node_new(TT_FNC); ast_push(call, pas_lc_leaf(TT_VAR, c0 && c0->v.sval ? c0->v.sval : ""));
+            tree_t * outs[64]; int nout = 0;
+            for (int i = 1; i < t->n; i++) {
+                tree_t * arg = t->c[i];
+                if (((brm >> (i - 1)) & 1ULL) && arg && arg->t == TT_IDX && nout < 64) {
+                    tree_t * tv = pas_vptmp_var();
+                    ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
+                    ast_push(call, tv);
+                    outs[nout++] = pas_lc_bin(TT_ASSIGN, pas_lc_clone(arg), pas_lc_clone(tv));
+                } else ast_push(call, arg);
+            }
+            ast_push(seq, call);
+            for (int i = 0; i < nout; i++) ast_push(seq, outs[i]);
+            return lower(cx, seq, γ, ω);
+        }
+    }
     IR_t * nd = build(cx, IR_CALL, γ, ω);
     IR_LIT(nd).sval = (c0 && c0->v.sval) ? c0->v.sval : NULL;
     IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0;
