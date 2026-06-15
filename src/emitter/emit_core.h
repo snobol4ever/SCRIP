@@ -60,7 +60,14 @@ typedef struct bb_label_t { char name[BB_LABEL_NAME_MAX]; int offset; } bb_label
 #define bb_label_defined(lbl)  ((lbl)->offset != BB_LABEL_UNRESOLVED)
 #define emit_label_ok(l)       bb_label_defined(l)
 typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
-#define BB_PATCH_MAX   512
+/* Per-proc forward-reference patch table for the in-process binary emitter.
+   Drained per-proc (bb_emit_end / bb_label_define resolve+remove entries), so this
+   bounds one proc's *simultaneously-pending* forward refs, which grows ~linearly with
+   proc length (chain γ/ω ports resolve only at proc end). 512 overflowed for large
+   procs (e.g. pcom chartypes peak=527, pint peak=587 → build returns NULL → proc fn
+   left unregistered → runtime FAILDESCR). 65536 sits far below the rel32-jump count
+   that can fit in FLAT_BUF_MAX (256KB / ~5B ≈ 52K) and costs ~1.5MB BSS. */
+#define BB_PATCH_MAX   65536
 #define EMIT_PATCH_MAX BB_PATCH_MAX
 typedef enum { PATCH_REL8, PATCH_REL32 } bb_patch_kind_t;
 typedef struct { int site; bb_label_t * label; bb_patch_kind_t kind; } bb_patch_t;
