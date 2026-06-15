@@ -61,7 +61,7 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
             snprintf(resolve_key, sizeof resolve_key, "%s/%d", name, nargs);
             tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, resolve_key);
             if (choice) {
-                fprintf(stderr, "[PL] FATAL: brokered Prolog call path removed (interp_hooks)\n");
+                fprintf(stderr, "[PL] FATAL: brokered Prolog call path removed (driver_hooks)\n");
                 abort();
                 return FAILDESCR;
             }

@@ -1,5 +1,5 @@
-#ifndef PL_INTERP_H
-#define PL_INTERP_H
+#ifndef PL_RESOLVE_H
+#define PL_RESOLVE_H
 #include "term.h"
 #include "prolog_runtime.h"
 #include "scrip_cc.h"

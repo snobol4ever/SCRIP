@@ -4,16 +4,13 @@
 #   make scrip        — build the unified scrip x86 executable
 #   make all          — alias for scrip
 #   make setup        — install system packages + CSNOBOL4 + SPITBOL oracle
-#   make test         — run corpus (--interp, PASS=178 gate)
-#   make test-ir      — run corpus (--interp mode)
-#   make test-all     — both passes back-to-back
+#   make test         — run corpus (mode-4 gate)
 #   make monitor-ipc  — build test/monitor/monitor_ipc.so
 #   make clean        — remove build artefacts
 #   make distclean    — clean + remove /tmp caches
 #
 # Runner wrappers (run a single .sno file):
-#   make run SNO=file.sno              — default (--interp)
-#   make run-ir SNO=file.sno           — --interp (IR tree-walk)
+#   make run SNO=file.sno              — default (mode-3 --run)
 #   make run-jvm SNO=file.sno          — legacy JVM (until M-JITEM-JVM)
 #   make run-net SNO=file.sno          — legacy .NET (until M-JITEM-NET)
 #
@@ -46,7 +43,7 @@ NET_CACHE    := /tmp/scrip_net_cache
 JASMIN       := $(SRC)/backends/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
-.PHONY: all scrip scrip-interp scrip setup \
+.PHONY: all scrip setup \
         test test-ir test-all \
         native codegen-emit-test \
         monitor-ipc \
@@ -534,9 +531,6 @@ scrip:
 	$(CXX) -m64 -no-pie $(OBJ)/*.o $(LIBS) -o scrip
 	@echo "Built: scrip"
 
-# backward-compat symlink
-scrip-interp: scrip
-	@ln -sf scrip scrip-interp
 
 # test_emit_io retired (2026-05-25): it existed only to keep the dead g_text_buf/g_bin_buf
 # buffered path exercised. NO-BUFFERS ruling removed that path; emit_io.c is now pure passthrough.
@@ -575,14 +569,8 @@ setup:
 	bash $(ROOT)/setup.sh
 
 # ── Test targets ──────────────────────────────────────────────────────────────
-
-test: scrip
-	CORPUS=$(CORPUS) bash test/run_interp_broad.sh
-
-test-ir: scrip
-	INTERP="./scrip --interp" CORPUS=$(CORPUS) bash test/run_interp_broad.sh
-
-test-all: test test-ir
+# (the old --interp corpus runners were removed with the interpreter; the live
+#  gates are the scripts/ suite — see GOAL-SNOBOL4-BB.md Session Setup.)
 
 # ── EM-9: native codegen-emit-test — smoke + em8 gate for --native codegen-emit --x64 ──────────────
 # Runs: test_smoke_snobol4.sh (7/7) + test_gate_em8_snocone_jit_emit.sh (5/5).
@@ -597,9 +585,6 @@ native codegen-emit-test: scrip libscrip_rt
 
 run: scrip
 	./scrip $(SNO)
-
-run-ir: scrip
-	./scrip --interp $(SNO)
 
 # Legacy JVM runner — uses old scrip text emitter until M-JITEM-JVM lands
 run-jvm: scrip
@@ -640,7 +625,7 @@ run-net: scrip
 # ── Clean ─────────────────────────────────────────────────────────────────────
 
 clean:
-	rm -rf $(OBJ) scrip scrip-interp
+	rm -rf $(OBJ) scrip
 
 distclean: clean
 	rm -rf $(JVM_CACHE) $(NET_CACHE) /tmp/snobol4_asm_* /tmp/scrip_cc_*
