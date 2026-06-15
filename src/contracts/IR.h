@@ -50,6 +50,7 @@ typedef enum {
     IR_ALT,
     IR_SIZE,
     IR_CASE,
+    IR_CASE_ARM,
     IR_LIMIT,
     IR_SUSPEND,
     IR_PROC,

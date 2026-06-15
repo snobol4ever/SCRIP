@@ -78,6 +78,7 @@ std::string bb_assign_local();
 std::string bb_field_get();
 std::string bb_section();
 std::string bb_swap();
+std::string bb_case_arm();
 std::string bb_var_frame();
 std::string bb_var_frame_ref();
 std::string bb_to();

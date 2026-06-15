@@ -42,6 +42,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_ALT] = "IR_ALT",
     [IR_SIZE] = "IR_SIZE",
     [IR_CASE] = "IR_CASE",
+    [IR_CASE_ARM] = "IR_CASE_ARM",
     [IR_LIMIT] = "IR_LIMIT",
     [IR_SUSPEND] = "IR_SUSPEND",
     [IR_PROC] = "IR_PROC",
