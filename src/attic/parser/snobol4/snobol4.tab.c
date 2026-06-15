@@ -27,3 +27,9 @@ CODE_t *sno_parse_string(const char *src) {
     free(buf);
     return prog;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* ATTIC: dead-code sweep batch 4 (origin src/parser/snobol4/snobol4.tab.c, base 4c9b6bd) — parse_expr (static): never called in this TU; parse_program_tokens_ast / parse_expr_pat_from_str are the live entry points. GC-oracle dead. Provenance only; not compiled. */
+static tree_t *parse_expr(Lex *lx){
+    CODE_t *prog=calloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=lx;snobol4_parse(&p);
+    return prog->head?prog->head->subject:NULL;
+}

@@ -80,3 +80,6 @@ int pl_rt_assertz(Term *clause_term, int prepend) {
     zc->idx_ok = 0; zc->idx_key = NULL;
     return 1;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* ATTIC: dead-code sweep batch 4 (origin src/lower/lower_prolog.c, base 4c9b6bd) — stmt_subj (static wrapper over lc_stmt_subj): never called in this TU (icon/raku copies are live). GC-oracle dead. Provenance only; not compiled. */
+static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }

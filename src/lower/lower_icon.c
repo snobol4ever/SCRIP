@@ -409,13 +409,6 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     g->entry = succ; return g;
 }
 /*====================================================================================================================================================================================================*/
-static int collect_procs(const tree_t * t, const tree_t ** out, int max, int n) {
-    if (!t || n >= max) return n;
-    if (t->t == TT_STMT) return collect_procs(stmt_subj(t), out, max, n);
-    if (t->t == TT_PROC_DECL) { out[n++] = t; return n; }
-    for (int i = 0; i < t->n; i++) n = collect_procs(t->c[i], out, max, n);
-    return n;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void collect_procs_vec(const tree_t * t, lc_vec * out) {
     if (!t) return;

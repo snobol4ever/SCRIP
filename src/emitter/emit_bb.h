@@ -23,7 +23,6 @@ int  codegen_flat_build        (IR_t * nd, FILE * out, const char * prefix);
 void lower_flat_set_intern_str(const char * (*fn)(const char *));
 const char * emit_intern_str(const char * s);
 void lower_flat_reset        (void);
-void lower_flat_set_cap_fixup(void (*cb)(void * cap_ptr, const char * child_alpha_label));
 void walk_bb_register_child_label(IR_t * nd, const char * alpha_label);
 extern int g_flat_node_id;
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
@@ -50,7 +49,6 @@ static inline bb_label_t bb_label_from_name(const char *name) {
 #define bb_build_flat_text(p,out,pfx)    codegen_flat_build(p,out,pfx)
 #define bb_flat_set_intern_str(fn)        lower_flat_set_intern_str(fn)
 #define bb_build_flat_text_reset()        lower_flat_reset()
-#define bb_flat_set_cap_fixup_cb(cb)      lower_flat_set_cap_fixup(cb)
 #ifdef __cplusplus
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

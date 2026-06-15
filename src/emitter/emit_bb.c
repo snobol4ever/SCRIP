@@ -203,8 +203,6 @@ void data_buf_flush_pending_label(void) {
     data_buf_appendf("%s\n", g_flat_data_pending_lbl);
     g_flat_data_pending_lbl[0] = '\0';
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-void lower_flat_set_cap_fixup(void (*cb)(void *cap_ptr, const char *child_α_label)) { g_cap_fixup_cb = cb; }
 #define SYM_SIGMA   "\xCE\xA3"
 #define SYM_SIGLEN  "\xCE\xA3""len"
 #define SYM_DELTA   "\xCE\x94"

@@ -9,8 +9,6 @@
 #include "bb_pool.h"
 #include "emit_bb.h"
 #include "lower.h"
-int rt_in_native_chunk(void) __attribute__((weak));
-int rt_in_native_chunk(void) { return 0; }
 #include "ast.h"
 #include "bb_box.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
