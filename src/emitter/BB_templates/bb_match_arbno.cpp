@@ -11,10 +11,8 @@ int bb_slot_claim(int bytes);
 std::string bb_match_arbno() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (!g_emit.bb_child_lbl || !g_emit.bb_child_lbl[0]) return std::string();
-    std::string base(g_emit.bb_child_lbl);
-    if (base.size() > 3) base = base.substr(0, base.size() - 3);
-    return x86("comment", "BOX ARBNO() [BROK-2 wired generator, shy per SPITBOL pp.121/212: null first, each retry adds one instance; child entered jmp child_α, child returns jmp _wγ/_wω; δ=r14d, saved/prev in ζ-frame]")
+    return (!g_emit.bb_child_lbl || !g_emit.bb_child_lbl[0]) ? std::string()
+         : [&](std::string base) { return x86("comment", "IR_MATCH_ARBNO")
          + x86("label",   _.lbl_α)
          + x86("mov", FR(_.x86_scratch_off), "r14d")
          + x86("jmp", "γ")
@@ -29,5 +27,6 @@ std::string bb_match_arbno() {
          + x86("label", base + "_wω")
          + x86("def", "L0")
          + x86("mov", "r14d", FR(_.x86_scratch_off))
-         + x86("jmp", "ω");
+         + x86("jmp", "ω"); }
+           (std::string(g_emit.bb_child_lbl).size() > 3 ? std::string(g_emit.bb_child_lbl).substr(0, std::string(g_emit.bb_child_lbl).size() - 3) : std::string(g_emit.bb_child_lbl));
 }
