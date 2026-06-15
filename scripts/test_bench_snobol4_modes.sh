@@ -1,59 +1,27 @@
 #!/usr/bin/env bash
-# scripts/test_bench_snobol4_modes.sh — MODE-4 ONLY benchmark (Lon directive 2026-06-06)
-# Formerly benchmarked modes 2/3/4. Now mode-4 only.
-# Correctness gate: mode-4 output matches reference. Reports timing.
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIP="${SCRIP:-$HERE/../scrip}"
-RT_DIR="${RT_DIR:-$HERE/../out}"
-BENCH_DIR="${BENCH_DIR:-/home/claude/corpus/benchmarks}"
-TIMEOUT="${TIMEOUT:-30}"
-
-if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
-if [ ! -d "$BENCH_DIR" ]; then echo "SKIP bench corpus not found at $BENCH_DIR"; exit 0; fi
-[ ! -f "$RT_DIR/libscrip_rt.so" ] && { echo "SKIP libscrip_rt.so not found"; exit 0; }
-
-WORKDIR=$(mktemp -d)
-trap 'rm -rf "$WORKDIR"' EXIT
-
-compile_mode4() {
-    local sno="$1" out="$2"
-    local tmp; tmp="$(mktemp -d)"
-    "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
-    (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
-    gcc "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lgc -lm \
-        -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
-    rm -rf "$tmp"
-}
-
-echo "=== SNOBOL4 benchmark — MODE-4 ONLY ==="
-PASS=0; FAIL=0; SKIP=0
-
-while IFS= read -r sno; do
-    slug=$(basename "${sno%.sno}")
-    ref="${sno%.sno}.ref"; input="${sno%.sno}.input"
-    bin="$WORKDIR/${slug}.bin"
-    if ! compile_mode4 "$sno" "$bin"; then
-        echo "  SKIP $slug (compile failed)"; SKIP=$((SKIP+1)); continue
-    fi
-    T0=$SECONDS
-    if [ -f "$input" ]; then
-        got=$(timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
-    else
-        got=$(timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
-    fi
-    T_RUN=$((SECONDS-T0))
-    if [ -f "$ref" ]; then
-        exp=$(cat "$ref")
-        if [ "$got" = "$exp" ]; then
-            echo "  PASS $slug  time=${T_RUN}s"; PASS=$((PASS+1))
-        else
-            echo "  FAIL $slug  time=${T_RUN}s"; FAIL=$((FAIL+1))
-        fi
-    else
-        echo "  RAN  $slug  time=${T_RUN}s (no ref)"; PASS=$((PASS+1))
-    fi
-done < <(find "$BENCH_DIR" -name "*.sno" 2>/dev/null | sort)
-
-echo ""
-printf "mode-4 --compile: PASS=%d FAIL=%d SKIP=%d\n" "$PASS" "$FAIL" "$SKIP"
-[ "$FAIL" -eq 0 ]
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
+B="${BENCH_DIR:-/home/claude/corpus/benchmarks}"; CAP=200000; T="${TIMEOUT:-30}"
+[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
+[ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
+[ -d "$B" ] || { echo "SKIP bench corpus missing"; exit 0; }
+W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+printf "%-22s %-9s %10s  %s\n" BENCH STATUS "wall(ms)" "self/ref"
+ok=0; crash=0; fail=0
+for sno in "$B"/*.sno; do
+  s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
+  "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
+  if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lgc -lm -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then
+    printf "%-22s %-9s %10s  %s\n" "$s" BUILD-ERR - -; crash=$((crash+1)); continue; fi
+  t0=$(date +%s.%N); ( cd "$W" && timeout "$T" ./$s.prog </dev/null >"$s.out" 2>"$s.err" ); rc=$?; t1=$(date +%s.%N)
+  wall=$(awk "BEGIN{printf \"%.1f\",($t1-$t0)*1000}"); head -c $CAP "$W/$s.out" >"$W/$s.cap"; mv "$W/$s.cap" "$W/$s.out"
+  note=$(grep -i 'ms:' "$W/$s.out" | head -1); [ -z "$note" ] && note="(no ms)"
+  if grep -q BOMB "$W/$s.err" 2>/dev/null; then st=CRASH; note=$(grep -o 'BOMB.*' "$W/$s.err"|head -1|cut -c1-46)
+  elif [ $rc -ne 0 ] || [ ! -s "$W/$s.out" ]; then st=CRASH
+  elif [ -f "$ref" ] && ! diff -q <(grep -vi 'ms:' "$W/$s.out") <(grep -vi 'ms:' "$ref") >/dev/null 2>&1; then st=FAIL; fail=$((fail+1))
+  else st=OK; ok=$((ok+1)); fi
+  [ "$st" = CRASH ] && crash=$((crash+1))
+  printf "%-22s %-9s %10s  %s\n" "$s" "$st" "$wall" "$note"
+done
+echo; echo "REAL RESULT: OK=$ok FAIL=$fail CRASH=$crash (of $((ok+fail+crash)))"
+[ "$crash" -eq 0 ] && [ "$fail" -eq 0 ]
