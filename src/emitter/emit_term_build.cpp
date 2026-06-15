@@ -3,14 +3,6 @@ extern "C" {
 #include "IR_interp_state.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int bb_op_floaty(const char *fn) {
-    static const char *f[] = { "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "exp", "log",
-                               "float", "float_integer_part", "float_fractional_part",
-                               "truncate", "round", "ceiling", "floor", "integer", "/", NULL };
-    for (int i = 0; f[i]; i++) if (!strcmp(fn, f[i])) return 1;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string blbl_lea(const char *dst, const char *s) {
     char b[64]; b[0] = 0; if (s) strtab_label(b, sizeof b, s);
     return x86("lea", dst, "[rip + __]", (uint64_t)(uintptr_t)(s ? s : ""), b);

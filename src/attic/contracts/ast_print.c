@@ -5,3 +5,4 @@
  */
 void ir_set_print_width(int w) { if (w > 0) ast_print_width = w; }
 int  ir_get_print_width(void)  { return ast_print_width; }
+void ir_print_node_nl(const tree_t * e, FILE * f)  { print_node(e, f, 0); fputc('\n', f); }

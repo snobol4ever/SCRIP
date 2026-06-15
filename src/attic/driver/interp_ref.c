@@ -1,4 +1,4 @@
-#include "interp_private.h"
+/* ATTIC: dead code excised from src/driver/interp_ref.c (commit base 2a35216) — unreachable from main per --gc-sections oracle. Provenance only; not compiled. */
 DESCR_t *interp_eval_ref(tree_t *e)
 {
     NO_AST_WALK_GUARD("interp_eval_ref");
@@ -53,3 +53,5 @@ DESCR_t *interp_eval_ref(tree_t *e)
     default: return NULL;
     }
 }
+/* ATTIC (whole-file-dead residual decls) from src/driver/interp_ref.c */
+#include "interp_private.h"

@@ -34,16 +34,3 @@ int exec_stmt(const char  *subj_name,
     fprintf(stderr, "[B0] BOMB exec_stmt: legacy executor deleted (B0); DT_P match lands at B3 (B-ladder, GOAL-SNOBOL4-BB)\n");
     abort();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-int exec_stmt_blob(const char  *subj_name,
-                   DESCR_t     *subj_var,
-                   bb_box_fn    root_fn,
-                   DESCR_t     *repl,
-                   int          has_repl)
-{
-    DESCR_t pat;
-    pat.v    = DT_E;
-    pat.slen = 0;
-    pat.ptr  = (void *)root_fn;
-    return exec_stmt(subj_name, subj_var, pat, repl, has_repl);
-}

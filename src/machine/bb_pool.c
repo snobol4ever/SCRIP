@@ -19,8 +19,6 @@ void bb_pool_init(void) {
     pool_top   = pool_base;
     pool_limit = pool_base + BB_POOL_SIZE;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-int bb_in_pool(const void * p) { return pool_base && (const uint8_t *)p >= pool_base && (const uint8_t *)p < pool_limit; }
 bb_buf_t bb_alloc(size_t size) {
     uint8_t * start;
     uintptr_t ps;
@@ -64,18 +62,4 @@ void bb_free(bb_buf_t buf, size_t size) {
     }
     pool_top = buf;
     if (mprotect(buf, alloc, PROT_READ | PROT_WRITE) != 0) { perror("bb_free: mprotect RX→RW"); abort(); }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void bb_pool_reset(void) {
-    uint8_t * lo;
-    uint8_t * hi;
-    size_t    len;
-    if (!pool_base) return;
-    if (pool_top > pool_base) {
-        lo  = pool_base;
-        hi  = page_ceil(pool_top);
-        len = (size_t)(hi - lo);
-        if (mprotect(lo, len, PROT_READ | PROT_WRITE) != 0) { perror("bb_pool_reset: mprotect RX→RW"); abort(); }
-    }
-    pool_top = pool_base;
 }

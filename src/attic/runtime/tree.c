@@ -1,6 +1,4 @@
-#include "core.h"
-#include "sil_macros.h"
-#include <string.h>
+/* ATTIC: dead code excised from src/runtime/tree.c (commit base 2a35216) — unreachable from main per --gc-sections oracle. Provenance only; not compiled. */
 /*====================================================================================================================*/
 TREEBLK_t *expr_new(const char *tag, DESCR_t val) {
     TREEBLK_t *t = GC_malloc(sizeof(TREEBLK_t));
@@ -56,3 +54,7 @@ TREEBLK_t *tree_remove(TREEBLK_t *x, int place) {
     x->n--;
     return removed;
 }
+/* ATTIC (whole-file-dead residual decls) from src/runtime/tree.c */
+#include "core.h"
+#include "sil_macros.h"
+#include <string.h>

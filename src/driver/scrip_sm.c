@@ -34,13 +34,3 @@ stage2_t *sm_preamble(const tree_t *ast_prog){
     sm_resolve_proc_entry_pcs(s2);
     return s2;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-void stage2_free_sm_bb(stage2_t *s2)
-{
-    bb_program_free(&s2->bbp);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void stage2_free_bb_after_emit(stage2_t *s2)
-{
-    bb_program_free(&s2->bbp);
-}

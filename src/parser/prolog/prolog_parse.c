@@ -1063,14 +1063,3 @@ PlProgram *prolog_parse(const char *src, const char *filename) {
     prog->nerrors = p.nerrors;
     return prog;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-void prolog_program_free(PlProgram *prog) {
-    PlClause *cl = prog->head;
-    while (cl) {
-        PlClause *next = cl->next;
-        free(cl->body);
-        free(cl);
-        cl = next;
-    }
-    free(prog);
-}

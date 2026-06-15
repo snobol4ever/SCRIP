@@ -169,10 +169,3 @@ DESCR_t CONVE_fn(DESCR_t str_d)
     d.ptr  = tree;
     return d;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t CODE_fn(DESCR_t str_d)
-{
-    const char *s = VARVAL_fn(str_d);
-    if (!s || !*s) return FAILDESCR;
-    return code(s);
-}

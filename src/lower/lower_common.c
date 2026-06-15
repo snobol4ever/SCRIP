@@ -31,13 +31,6 @@ void bb_label_registry_add(const char * name, IR_t * landing) {
     bb_label_entry_t e; e.name = name; e.landing = landing;
     lc_vec_push(&g_bb_labels, &e);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * bb_label_landing(const char * name) {
-    if (!name) return NULL;
-    for (int i = 0; i < g_bb_labels.n; i++)
-        if (LC_AT(&g_bb_labels, bb_label_entry_t, i).name && !strcmp(LC_AT(&g_bb_labels, bb_label_entry_t, i).name, name)) return LC_AT(&g_bb_labels, bb_label_entry_t, i).landing;
-    return NULL;
-}
 /*====================================================================================================================*/
 /* Shared helpers (>=2 lowerers each)                                                                                  */
 /*====================================================================================================================*/
@@ -201,8 +194,6 @@ void * lc_vec_push(lc_vec * v, const void * elem) {
     v->n++;
     return slot;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-void * lc_vec_at(const lc_vec * v, int i) { return (char *) v->data + (size_t) i * (size_t) v->esz; }
 /*====================================================================================================================*/
 /* Shared AST→IR opcode maps — the full tree_e→BinopKind map; per-language dispatch guards select the legal subset      */
 /*====================================================================================================================*/

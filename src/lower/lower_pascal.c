@@ -39,15 +39,6 @@ static int scope_slot(const pas_scope_t * sc, const char * name) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scope_slot_chain(const pas_scope_t * sc, const char * name, long long * byref_out) {
-    if (!name) return -1;
-    for (const pas_scope_t * s = sc; s; s = s->outer) {
-        int slot = scope_slot(s, name);
-        if (slot >= 0) { if (byref_out) *byref_out = s->byref; return slot; }
-    }
-    return -1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * label_find(pcx_t * cx, const char * name) {
     if (!name) return NULL;
     for (int i = 0; i < cx->labels.n; i++) if (LC_AT(&cx->labels, pas_label_t, i).name && !strcmp(LC_AT(&cx->labels, pas_label_t, i).name, name)) return LC_AT(&cx->labels, pas_label_t, i).node;
@@ -575,14 +566,6 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     IR_t * top = succ;
     if (is_func) { IR_t * ret = build(&cx, IR_RETURN, succ, succ); IR_t * rv = build(&cx, IR_VAR, NULL, NULL); IR_LIT(rv).sval = pd->v.sval; ir_operand_push(ret, rv); top = ret; }
     IR_t * entry = lower(&cx, body, top, fail);
-    g->entry = entry ? entry : succ; return g;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * lower_pascal(const tree_t * prog) {
-    lower_pascal_enum(prog, NULL, 0);
-    IR_graph_t * g = IR_alloc(8192, IR_LANG_PAS); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; lc_vec_init(&cx.labels, (int) sizeof(pas_label_t));
-    IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
-    IR_t * entry = lower(&cx, prog, succ, fail);
     g->entry = entry ? entry : succ; return g;
 }
 /*====================================================================================================================================================================================================*/

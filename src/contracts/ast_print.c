@@ -92,7 +92,6 @@ static void print_node(const tree_t * e, FILE * f, int depth) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_print_node(const tree_t * e, FILE * f)    { print_node(e, f, 0); }
-void ir_print_node_nl(const tree_t * e, FILE * f)  { print_node(e, f, 0); fputc('\n', f); }
 #ifdef AST_PRINT_TEST
 #include <stdlib.h>
 static tree_t * mk(tree_e k)                            { tree_t * e = calloc(1, sizeof *e); e->t = k; return e; }

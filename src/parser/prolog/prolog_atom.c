@@ -81,8 +81,6 @@ const char *prolog_atom_name(int id) {
     if (id < 0 || id >= atom_len) return NULL;
     return atom_names[id];
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-int prolog_atom_count(void) { return atom_len; }
 void prolog_atom_init(void) {
     ATOM_DOT  = prolog_atom_intern(".");
     ATOM_NIL  = prolog_atom_intern("[]");

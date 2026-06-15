@@ -1,13 +1,4 @@
-#include "bb_box.h"
-#include "core.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#pragma GCC diagnostic ignored "-Wmisleading-indentation"
-#define ARBNO_INIT  8
-#define ARBNO_MAGIC 0xA2B20000u
-typedef struct { DESCR_t matched; int start; }                                        arbno_frame_t;
-typedef struct { bb_box_fn fn; void * state; int depth; int cap; arbno_frame_t * stack; uint32_t magic; } arbno_t;
+/* ATTIC: dead code excised from src/machine/bb_boxes.c (commit base 2a35216) — unreachable from main per --gc-sections oracle. Provenance only; not compiled. */
 arbno_t * bb_arbno_new(bb_box_fn fn, void * state) {
     arbno_t * ζ = calloc(1, sizeof(arbno_t));
     ζ->fn = fn; ζ->state = state; ζ->cap = ARBNO_INIT;
@@ -15,10 +6,6 @@ arbno_t * bb_arbno_new(bb_box_fn fn, void * state) {
     ζ->magic = ARBNO_MAGIC;
     return ζ;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-#define MAX_CAPTURES 256
-static cap_t * g_capture_list[MAX_CAPTURES];
-static int     g_capture_count = 0;
 void flush_pending_captures(void) { int i; for (i=0;i<g_capture_count;i++) g_capture_list[i]->has_pending=0; g_capture_count=0; }
 void reset_capture_registry (void) { g_capture_count = 0; }
 void clear_pending_flags    (void) { int i; for (i=0;i<g_capture_count;i++) g_capture_list[i]->has_pending=0; }
@@ -44,3 +31,18 @@ cap_t * bb_cap_new_call(bb_box_fn child_fn, void * child_state,
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 atp_t     * bb_atp_new    (const char * varname) { atp_t * ζ = calloc(1, sizeof(atp_t)); ζ->varname = varname; return ζ; }
+/* ATTIC (whole-file-dead residual decls) from src/machine/bb_boxes.c */
+#include "bb_box.h"
+#include "core.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#pragma GCC diagnostic ignored "-Wmisleading-indentation"
+#define ARBNO_INIT  8
+#define ARBNO_MAGIC 0xA2B20000u
+typedef struct { DESCR_t matched; int start; }                                        arbno_frame_t;
+typedef struct { bb_box_fn fn; void * state; int depth; int cap; arbno_frame_t * stack; uint32_t magic; } arbno_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+#define MAX_CAPTURES 256
+static cap_t * g_capture_list[MAX_CAPTURES];
+static int     g_capture_count = 0;
