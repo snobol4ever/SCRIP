@@ -89,8 +89,7 @@ the shims when the native chain covers the corpus.
   (new subject string, unbounded size). NOT needed for S3 builds (see D5). STATUS: **REQUESTED**.
 - **dyn-goto run** (`rt_goto_dyn`, emitted code → runtime, `void(const char *)`) — `:<C>`/`:(C)`-to-CODE-value
   runtime jump box (`bb_goto_dyn`); does `NV_GET` + DT_C-slen-3 check + `rt_eval_run` (reuses the stamped EVAL
-  rail via the shared `run_code_chain` factor — NO-DUPLICATED-LOGIC). STATUS: **PROVISIONAL** — authorized by
-  the DT_C-jump-box rung design recorded in GOAL-SNOBOL4-BB.md; pending Lon ratification.
+  rail via the shared `run_code_chain` factor — NO-DUPLICATED-LOGIC). STATUS: **STAMPED** (Lon 2026-06-15).
 - Grandfathered shim calls (`rt_scan*`, `rt_defer_match`, `rt_cap_assign_cursor`): die at their S-rungs;
   zero new uses.
 
