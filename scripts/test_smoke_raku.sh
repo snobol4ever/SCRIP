@@ -481,6 +481,18 @@ raku "str_comb_elems" "5" << 'EOF'
 sub main() { my @a = "hello".comb; say(elems(@a)); }
 EOF
 
+raku "str_wordcase" "Hello World" << 'EOF'
+sub main() { say("hello world".wordcase); }
+EOF
+
+raku "str_chomp" "hi" << 'EOF'
+sub main() { say("hi\n".chomp); }
+EOF
+
+raku "str_lines_elems" "3" << 'EOF'
+sub main() { my @a = "a\nb\nc".lines; say(elems(@a)); }
+EOF
+
 raku "grammar_token" "12345" << 'EOF'
 grammar G {
     token TOP { \d+ }
