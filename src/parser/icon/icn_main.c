@@ -88,10 +88,10 @@ int icn_main(int argc, char **argv) {
     }
     (void)prog;
     if (do_jvm) {
-        fprintf(stderr, "scrip: --jvm emit archived; use --interp or --run\n");
+        fprintf(stderr, "scrip: --jvm emit archived; use --run\n");
         return 1;
     } else {
-        fprintf(stderr, "scrip: icn emit archived; use --interp or --run\n");
+        fprintf(stderr, "scrip: icn emit archived; use --run\n");
         return 1;
     }
     free(src);

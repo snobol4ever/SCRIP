@@ -19,7 +19,7 @@ extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 extern uint32_t polyglot_lang_mask(const tree_t * prog);
 extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask);
 /*====================================================================================================================*/
-/* Label registry (consumers: lower_sno_stage2, IR_interp goto landing)                                                */
+/* Label registry (consumers: lower_sno_stage2, stage2 goto landing)                                                   */
 /*====================================================================================================================*/
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
 static lc_vec g_bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) };
