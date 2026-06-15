@@ -400,6 +400,75 @@ static int lower_pl_choice_graph(const tree_t *choice) {
     return bb_program_add(&g_stage2.bbp, g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void pl_dyn_mark(const char *name, int arity) {
+    if (!name) return;
+    for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return;
+    if (g_stage2.pl_dyn_n >= 64) return;
+    g_stage2.pl_dyn_name[g_stage2.pl_dyn_n] = name; g_stage2.pl_dyn_arity[g_stage2.pl_dyn_n] = arity; g_stage2.pl_dyn_n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pl_dyn_is_marked(const char *name, int arity) {
+    if (!name) return 0;
+    for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_dyn_mark_from_spec(const tree_t *spec) {
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && spec->c[1]) {
+        const tree_t *nm = spec->c[0], *ar = spec->c[1];
+        if ((nm->t == TT_QLIT || nm->t == TT_NAME) && nm->v.sval && ar->t == TT_ILIT) pl_dyn_mark(strdup(nm->v.sval), (int)ar->v.ival);
+        return;
+    }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_dyn_mark_from_spec(spec->c[0]); pl_dyn_mark_from_spec(spec->c[1]); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_dyn_mark_from_clause_arg(const tree_t *arg) {
+    if (!arg) return;
+    const tree_t *h = arg;
+    if (arg->t == TT_FNC && arg->v.sval && !strcmp(arg->v.sval, ":-") && arg->n == 2) h = arg->c[0];
+    if (!h) return;
+    if (h->t == TT_FNC && h->v.sval) pl_dyn_mark(strdup(h->v.sval), h->n);
+    else if ((h->t == TT_QLIT || h->t == TT_NAME) && h->v.sval) pl_dyn_mark(strdup(h->v.sval), 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_dyn_scan(const tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && t->n >= 1) {
+        const char *fn = t->v.sval;
+        if ((!strcmp(fn,"assertz")||!strcmp(fn,"asserta")||!strcmp(fn,"assert")||!strcmp(fn,"retract")||!strcmp(fn,"retractall")) && t->n == 1) pl_dyn_mark_from_clause_arg(t->c[0]);
+        else if (!strcmp(fn,"abolish") && t->n == 1) pl_dyn_mark_from_spec(t->c[0]);
+        else if (!strcmp(fn,"dynamic") && t->n == 1) pl_dyn_mark_from_spec(t->c[0]);
+    }
+    for (int i = 0; i < t->n; i++) pl_dyn_scan(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_dyn_mark_prepass(void) {
+    for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++)
+        for (Resolve_PredEntry *pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
+            const tree_t *ch = pe->choice;
+            if (!ch) continue;
+            if (ch->t == TT_CHOICE) { for (int i = 0; i < ch->n; i++) pl_dyn_scan(ch->c[i]); }
+            else pl_dyn_scan(ch);
+        }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lower_pl_dyniter_graph(const char *name, int arity) {
+    IR_graph_t *g = IR_alloc(8, IR_LANG_PL);
+    if (!g) return -1;
+    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t *nd = IR_node_alloc(g, IR_CELL_DYNITER);
+    if (!nd) return -1;
+    pl_gz_dyniter_state_t *st = (pl_gz_dyniter_state_t *)GC_MALLOC(sizeof *st);
+    if (!st) return -1;
+    st->functor_atom = prolog_atom_intern(name); st->arity = arity; st->cursor_slot = arity; st->mark_slot = arity + 1;
+    IR_LIT(nd).ival = (int64_t)(intptr_t)st;
+    nd->γ.node = PSUCC; memcpy(nd->γ.sz, "α", 3); nd->ω.node = PFAIL; memcpy(nd->ω.sz, "α", 3);
+    g->entry = nd; g->body_root = nd; g->nslots = arity + 2;
+    return bb_program_add(&g_stage2.bbp, g);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void lower_pl_register_all_preds(void) {
     for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++) {
         for (Resolve_PredEntry *pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
@@ -409,8 +478,14 @@ static void lower_pl_register_all_preds(void) {
             const char *slash = key ? strrchr(key, '/') : NULL;
             int ar = slash ? atoi(slash + 1) : 0;
             if (resolve_bb_lookup(key, ar)) continue;
+            int dyn = 0;
+            { char nm[200]; int kl = slash ? (int)(slash - key) : (int)strlen(key); if (kl > 199) kl = 199; memcpy(nm, key, kl); nm[kl] = 0; dyn = pl_dyn_is_marked(nm, ar); }
             int bb_idx = -1;
-            if (ch->t == TT_CLAUSE) {
+            if (dyn) {
+                const char *slash2 = strrchr(key, '/');
+                static char nmbuf[200]; int kl = slash2 ? (int)(slash2 - key) : (int)strlen(key); if (kl > 199) kl = 199; memcpy(nmbuf, key, kl); nmbuf[kl] = 0;
+                bb_idx = lower_pl_dyniter_graph(nmbuf, ar);
+            } else if (ch->t == TT_CLAUSE) {
                 bb_idx = lower_pl_clause_graph(ch);
             } else if (ch->t == TT_CHOICE) {
                 if (ch->n == 1) bb_idx = lower_pl_clause_graph(ch->c[0]);
@@ -512,6 +587,7 @@ static void pl_ll_prepass(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_pl_stage2(const tree_t *prog) {
     pl_ll_prepass();
+    pl_dyn_mark_prepass();
     const char *goal_key = NULL;
     char keybuf[128];
     for (int i = 0; i < prog->n; i++) {

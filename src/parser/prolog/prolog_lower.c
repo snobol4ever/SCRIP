@@ -427,8 +427,44 @@ static tree_t *tr_dup(const tree_t *e) {
     return c;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+extern void pl_dyn_mark(const char *name, int arity);
+extern int  pl_dyn_is_marked(const char *name, int arity);
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void pld_mark_spec(tree_t *spec) {
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && spec->c[1]) {
+        tree_t *nm = spec->c[0], *ar = spec->c[1];
+        if ((nm->t == TT_QLIT || nm->t == TT_NAME) && nm->v.sval && ar->t == TT_ILIT) pl_dyn_mark(strdup(nm->v.sval), (int)ar->v.ival);
+        return;
+    }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pld_mark_spec(spec->c[0]); pld_mark_spec(spec->c[1]); }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void pld_mark_clause_arg(tree_t *arg) {
+    if (!arg) return;
+    tree_t *h = arg;
+    if (arg->t == TT_FNC && arg->v.sval && !strcmp(arg->v.sval, ":-") && arg->n == 2) h = arg->c[0];
+    if (!h) return;
+    if (h->t == TT_FNC && h->v.sval) pl_dyn_mark(strdup(h->v.sval), h->n);
+    else if ((h->t == TT_QLIT || h->t == TT_NAME) && h->v.sval) pl_dyn_mark(strdup(h->v.sval), 0);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void pld_mark_scan(tree_t *t, int mark_assertz) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && t->n >= 1) {
+        const char *fn = t->v.sval;
+        if (mark_assertz && (!strcmp(fn,"assertz")||!strcmp(fn,"asserta")||!strcmp(fn,"assert")) && t->n == 1) pld_mark_clause_arg(t->c[0]);
+        else if ((!strcmp(fn,"retract")||!strcmp(fn,"retractall")) && t->n == 1) pld_mark_clause_arg(t->c[0]);
+        else if (!strcmp(fn,"abolish") && t->n == 1) pld_mark_spec(t->c[0]);
+        else if (!strcmp(fn,"dynamic") && t->n == 1) pld_mark_spec(t->c[0]);
+    }
+    for (int i = 0; i < t->n; i++) pld_mark_scan(t->c[i], mark_assertz);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 CODE_t *prolog_lower(PlProgram *pl_prog) {
+    for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) pld_mark_scan(mcl->tr, mcl->head != NULL);
     CODE_t *prog = calloc(1, sizeof(CODE_t));
+    tree_t *pld_seed[256]; int pld_seed_n = 0;
     #define PL_MAX_CLAUSES 2048
     char plunit_suite[PL_MAX_CLAUSES][64];
     {
@@ -633,6 +669,8 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                 if (a_body) expr_add_child(syn, a_body);
                 PredKey ak = key_of_head_tree(a_head);
                 if (ak.functor >= 0) {
+                    const char *aknm = prolog_atom_name(ak.functor);
+                    if (aknm && pl_dyn_is_marked(aknm, ak.arity) && pld_seed_n < 256) pld_seed[pld_seed_n++] = tr_dup(goal_tr);
                     int found = -1;
                     for (int i = 0; i < nkeys; i++)
                         if (pred_key_eq(keys[i], ak)) { found = i; break; }
@@ -728,6 +766,23 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
             else             prog->tail->next = s;
             prog->tail = s;
             prog->nstmts++;
+        }
+    }
+    if (pld_seed_n > 0) {
+        for (int i = 0; i < nkeys; i++) {
+            const char *kn = prolog_atom_name(keys[i].functor);
+            if (!kn || strcmp(kn, "main") || keys[i].arity != 0) continue;
+            tree_t *mchoice = choices[i];
+            tree_t *mclause = (mchoice && mchoice->t == TT_CHOICE && mchoice->n >= 1) ? mchoice->c[0] : mchoice;
+            if (!mclause || mclause->t != TT_CLAUSE) break;
+            int arity0 = (int)mclause->v.dval; if (arity0 < 0) arity0 = 0;
+            for (int sj = 0; sj < pld_seed_n; sj++) {
+                tree_t *g = pl_rewrite_control(pld_seed[sj]);
+                expr_add_child(mclause, g);
+                for (int j = mclause->n - 1; j > arity0 + sj; j--) mclause->c[j] = mclause->c[j - 1];
+                mclause->c[arity0 + sj] = g;
+            }
+            break;
         }
     }
     for (int i = 0; i < nkeys; i++) {

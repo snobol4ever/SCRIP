@@ -121,6 +121,8 @@ std::string bb_det_throw();
 std::string bb_cell_catch();
 std::string bb_det_retract();
 std::string bb_det_abolish();
+std::string bb_det_assertz();
+std::string bb_cell_dyniter();
 std::string bb_det_sort();
 std::string bb_det_numbervars();
 std::string bb_det_term_string();
