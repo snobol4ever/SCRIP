@@ -396,7 +396,7 @@ sub main() {
 }
 EOF
 
-# --- RK-NFA-4a-SMOKE: ~~ smartmatch verdict (lowers to NFA-as-BB; m2 oracle, m3/m4 EXCISE) ---
+# --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }
 EOF
