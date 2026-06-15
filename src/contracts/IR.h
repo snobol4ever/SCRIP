@@ -230,6 +230,7 @@ typedef enum {
     IR_CELL_CATCH,
     IR_DET_RETRACT,
     IR_DET_ABOLISH,
+    IR_GOTO_DYN,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/

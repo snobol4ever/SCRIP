@@ -3034,6 +3034,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_VAR_FRAME: case IR_VAR_FRAME_REF: g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: if (bb_child0(nd) && bb_child0(nd)->op == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD:    if (g_descr_flat_chain || g_gvar_flat_chain) { g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc16(nd); } else { g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_GOTO_DYN:   g_emit.op_sval = IR_LIT(nd).sval; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GEN_SCAN:   flat_drive_gen_scan(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SCAN:       flat_drive_scan_stmt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUBJECT:    flat_drive_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3424,6 +3425,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_PATTERN_CAT: return 2;
     case IR_PATTERN_ALT: return 2;
     case IR_DTP_ASSIGN:  return 1;
+    case IR_GOTO_DYN:    return 0;
     default:       return -1;
     }
 }

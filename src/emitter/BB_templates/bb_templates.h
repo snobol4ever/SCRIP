@@ -71,6 +71,7 @@ std::string bb_unop_gvar_slot();
 std::string bb_succeed();
 std::string bb_match_defer();
 std::string bb_keyword();
+std::string bb_goto_dyn();
 std::string bb_scan_stmt();
 std::string bb_gen_scan();
 std::string bb_gvar_assign();

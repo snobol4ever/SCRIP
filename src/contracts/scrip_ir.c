@@ -122,6 +122,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CELL_CATCH] = "IR_CELL_CATCH",
     [IR_DET_RETRACT] = "IR_DET_RETRACT",
     [IR_DET_ABOLISH] = "IR_DET_ABOLISH",
+    [IR_GOTO_DYN] = "IR_GOTO_DYN",
     [IR_TO] = "IR_TO",
     [IR_UPTO] = "IR_UPTO",
     [IR_ITERATE] = "IR_ITERATE",

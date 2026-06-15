@@ -112,6 +112,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp \
     $(SRC)/emitter/BB_templates/bb_gen_scan.cpp \
     $(SRC)/emitter/BB_templates/bb_keyword.cpp \
+    $(SRC)/emitter/BB_templates/bb_goto_dyn.cpp \
     $(SRC)/emitter/BB_templates/bb_unop.cpp \
     $(SRC)/emitter/BB_templates/bb_succeed.cpp \
     $(SRC)/emitter/BB_templates/bb_every.cpp \
@@ -358,6 +359,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp               -o $(OBJ)/bb_scan_stmt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gen_scan.cpp          -o $(OBJ)/bb_gen_scan.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_keyword.cpp           -o $(OBJ)/bb_keyword.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_goto_dyn.cpp          -o $(OBJ)/bb_goto_dyn.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_unop.cpp              -o $(OBJ)/bb_unop.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_succeed.cpp           -o $(OBJ)/bb_succeed.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_every.cpp        -o $(OBJ)/bb_every.o

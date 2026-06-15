@@ -106,6 +106,21 @@ DESCR_t code(const char *src)
     return d;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void run_code_chain(eval_chain_fn fn)
+{
+    if (!fn) return;
+    int64_t code_frame[512];
+    memset(code_frame, 0, sizeof code_frame);
+    rt_eval_run(fn, (void *)code_frame);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_goto_dyn(const char *name)
+{
+    if (!name || !*name) return;
+    DESCR_t d = NV_GET_fn(name);
+    if (d.v == DT_C && d.slen == 3) run_code_chain((eval_chain_fn)d.ptr);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t EXPVAL_fn(DESCR_t expr_d)
 {
     if (expr_d.v == DT_E) {
@@ -148,9 +163,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
         if (expr_d.slen == 3) {
             eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
             if (!fn) return FAILDESCR;
-            int64_t code_frame[512];
-            memset(code_frame, 0, sizeof code_frame);
-            rt_eval_run(fn, (void *)code_frame);
+            run_code_chain(fn);
             return NULVCL;
         }
         return NULVCL;
