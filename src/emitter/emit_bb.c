@@ -1732,6 +1732,25 @@ static void flat_drive_initial(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     walk_bb_flat(pBB->operands[0], lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void case_slot_binop_operands(IR_t *v, bb_label_t *lbl_ω) {
+    if (!v || v->op != IR_BINOP) return;
+    if (v->n_operands < 2 && g_emit_cfg) {
+        int na = 0; IR_t * const * ax = bb_operand_aux_get(g_emit_cfg, v, &na);
+        if (na >= 2 && ax[0] && ax[1]) { v->n_operands = 0; ir_operand_push(v, ax[0]); ir_operand_push(v, ax[1]); }
+    }
+    IR_t *c0 = bb_child0(v);
+    IR_t *c1 = bb_child1(v);
+    int id = g_flat_node_id++;
+    if (c0 && c0->op != IR_LIT_NUL && descr_binop_opnd_slot(c0) < 0) {
+        bb_label_t *d = emit_label_alloc("xcaseop%d_c0_done", id); bb_label_t *b = emit_label_alloc("xcaseop%d_c0_b", id);
+        walk_bb_flat(c0, d, lbl_ω, b); emit_label_define_bb(d);
+    }
+    if (c1 && c1->op != IR_LIT_NUL && descr_binop_opnd_slot(c1) < 0) {
+        bb_label_t *d = emit_label_alloc("xcaseop%d_c1_done", id); bb_label_t *b = emit_label_alloc("xcaseop%d_c1_b", id);
+        walk_bb_flat(c1, d, lbl_ω, b); emit_label_define_bb(d);
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || pBB->n_operands < 1 || !pBB->operands[0]) {
         emit_label_define_bb(lbl_β);
@@ -1739,38 +1758,62 @@ static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
         emit_jmp_label(lbl_ω, JMP_JMP);
         return;
     }
-    IR_t *chain[256];
-    int nchain = 0;
-    for (IR_t *c = pBB->operands[0]->γ.node; c && nchain < 256; c = c->γ.node) chain[nchain++] = c;
-    int npair      = nchain / 2;
-    int has_default = (nchain & 1) != 0;
     int id = g_flat_node_id++;
-    bb_label_t *sel_done = emit_label_alloc("xcase%d_sel_done", id);
-    bb_label_t *sel_β    = emit_label_alloc("xcase%d_sel_β",    id);
-    bb_label_t **val_entry = (bb_label_t **)alloca((size_t)(npair > 0 ? npair : 1) * sizeof(bb_label_t *));
-    for (int i = 0; i < npair; i++) val_entry[i] = emit_label_alloc("xcase%d_val%d", id, i);
-    walk_bb_flat(pBB->operands[0], sel_done, lbl_ω, sel_β);
-    emit_label_define_bb(sel_done);
-    for (int i = 0; i < npair; i++) {
-        bb_label_t *key_done = emit_label_alloc("xcase%d_key%d_done", id, i);
-        bb_label_t *key_β    = emit_label_alloc("xcase%d_key%d_β",    id, i);
-        walk_bb_flat(chain[2*i], key_done, lbl_ω, key_β);
+    IR_t *sel = pBB->operands[0];
+    int sel_slot  = descr_binop_opnd_slot(sel);
+    int case_slot = bb_slot_alloc16(pBB);
+    int narm = pBB->n_operands - 1;
+    for (int ai = 0; ai < narm; ai++) {
+        IR_t *arm = pBB->operands[ai + 1];
+        IR_t *key = (arm && arm->n_operands > 0) ? arm->operands[0] : NULL;
+        IR_t *val = (arm && arm->n_operands > 1) ? arm->operands[1] : NULL;
+        if (!arm || !key) continue;
+        if (!val) {
+            bb_label_t *def_done = emit_label_alloc("xcase%d_def_done", id);
+            bb_label_t *def_β    = emit_label_alloc("xcase%d_def_β",    id);
+            case_slot_binop_operands(key, lbl_ω);
+            walk_bb_flat(key, def_done, lbl_ω, def_β);
+            emit_label_define_bb(def_done);
+            IR_LIT(arm).ival = 1;
+            g_emit.op_sb  = descr_binop_opnd_slot(key);
+            g_emit.op_off = case_slot;
+            bb_label_t *def_take_β = emit_label_alloc("xcase%d_deftake_β", id);
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(def_take_β, lbl_ω);
+            EMIT_PAIR_FILL(arm, lbl_γ, lbl_ω, def_take_β);
+            bb_slot_register(pBB, case_slot);
+            return;
+        }
+        bb_label_t *key_done = emit_label_alloc("xcase%d_key%d_done", id, ai);
+        bb_label_t *key_β    = emit_label_alloc("xcase%d_key%d_β",    id, ai);
+        bb_label_t *take     = emit_label_alloc("xcase%d_take%d",     id, ai);
+        bb_label_t *next_arm = emit_label_alloc("xcase%d_next%d",     id, ai);
+        bb_label_t *cmp_β    = emit_label_alloc("xcase%d_cmp%d_β",    id, ai);
+        case_slot_binop_operands(key, lbl_ω);
+        walk_bb_flat(key, key_done, lbl_ω, key_β);
         emit_label_define_bb(key_done);
+        IR_LIT(arm).ival = 0;
+        g_emit.op_sa   = sel_slot;
+        g_emit.op_sb   = descr_binop_opnd_slot(key);
         EMIT_PAIR_RESET();
-        EMIT_PAIR_JMP(val_entry[i]);
+        EMIT_PAIR_DEF_JMP(cmp_β, lbl_ω);
+        EMIT_PAIR_FILL(arm, take, next_arm, cmp_β);
+        emit_label_define_bb(take);
+        bb_label_t *val_done = emit_label_alloc("xcase%d_val%d_done", id, ai);
+        bb_label_t *val_β    = emit_label_alloc("xcase%d_val%d_β",    id, ai);
+        case_slot_binop_operands(val, lbl_ω);
+        walk_bb_flat(val, val_done, lbl_ω, val_β);
+        emit_label_define_bb(val_done);
+        IR_LIT(arm).ival = 1;
+        g_emit.op_sb  = descr_binop_opnd_slot(val);
+        g_emit.op_off = case_slot;
+        bb_label_t *take_β = emit_label_alloc("xcase%d_take%d_β", id, ai);
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_DEF_JMP(take_β, lbl_ω);
+        EMIT_PAIR_FILL(arm, lbl_γ, lbl_ω, take_β);
+        bb_slot_register(pBB, case_slot);
+        emit_label_define_bb(next_arm);
     }
-    if (has_default) {
-        bb_label_t *def_β = emit_label_alloc("xcase%d_def_β", id);
-        walk_bb_flat(chain[nchain-1], lbl_γ, lbl_ω, def_β);
-    } else {
-        emit_jmp_label(lbl_ω, JMP_JMP);
-    }
-    for (int i = 0; i < npair; i++) {
-        bb_label_t *val_β = emit_label_alloc("xcase%d_val%d_β", id, i);
-        emit_label_define_bb(val_entry[i]);
-        walk_bb_flat(chain[2*i+1], lbl_γ, lbl_ω, val_β);
-    }
-    emit_label_define_bb(lbl_β);
     emit_jmp_label(lbl_ω, JMP_JMP);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -3361,6 +3404,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_FIELD_GET: return 0;
     case IR_SECTION: return 0;
     case IR_LIST_BANG: return 0;
+    case IR_CASE: return 0;
     case IR_ALT:   return 0;
     case IR_GATHER: return 0;
     case IR_MAP: case IR_GREP: return 0;

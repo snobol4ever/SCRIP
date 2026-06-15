@@ -60,6 +60,13 @@ extern DESCR_t pat_at_cursor(const char *varname);
 extern DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_case_eq(const DESCR_t *sel, const DESCR_t *key)
+{
+    if (!sel || !key) return 0;
+    if (sel->v == DT_I && key->v == DT_I) return sel->i == key->i;
+    { const char *ss = VARVAL_fn(*sel); const char *ks = VARVAL_fn(*key); if (ss && ks) return strcmp(ss, ks) == 0; return ss == ks; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define EXPRESSION_REG_MAX 256
 typedef struct { const char *name; void *fn; } ExpressionRegEntry;
 static ExpressionRegEntry g_expression_reg[EXPRESSION_REG_MAX];

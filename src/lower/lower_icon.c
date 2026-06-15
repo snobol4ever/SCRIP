@@ -194,11 +194,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         for (int i = 1; i < t->n; ) {
             int remaining = t->n - i;
             if (remaining == 1) {
-                IR_t * dk = build(cx, IR_LIT_NUL, NULL, NULL); IR_t * dr = NULL; IR_t * de = lower(cx, t->c[i], γ, ω, &dr); ir_operand_push(dk, de); ir_operand_push(cas, dk); i++;
+                IR_t * dk = build(cx, IR_CASE_ARM, NULL, NULL); IR_t * dr = NULL; (void) lower(cx, t->c[i], γ, ω, &dr); ir_operand_push(dk, dr); ir_operand_push(cas, dk); i++;
             } else {
-                IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[i], NULL, NULL, &kn);
-                IR_t * vn = NULL; IR_t * ve = lower(cx, t->c[i+1], γ, ω, &vn);
-                IR_t * arm = build(cx, IR_LIT_NUL, NULL, NULL); ir_operand_push(arm, ke ? ke : kn); ir_operand_push(arm, ve ? ve : vn); ir_operand_push(cas, arm); i += 2;
+                IR_t * kn = NULL; (void) lower(cx, t->c[i], NULL, NULL, &kn);
+                IR_t * vn = NULL; (void) lower(cx, t->c[i+1], γ, ω, &vn);
+                IR_t * arm = build(cx, IR_CASE_ARM, NULL, NULL); ir_operand_push(arm, kn); ir_operand_push(arm, vn); ir_operand_push(cas, arm); i += 2;
             }
         }
         *res = cas; return se; }
