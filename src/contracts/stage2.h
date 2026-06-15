@@ -64,6 +64,9 @@ typedef struct stage2_t {
     Resolve_PredTable         resolve_pred_table;
     ScripModuleRegistry  module_registry;
     int                  lang;
+    const char          *pl_dyn_name[64];
+    int                  pl_dyn_arity[64];
+    int                  pl_dyn_n;
 } stage2_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern stage2_t g_stage2;

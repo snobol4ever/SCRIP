@@ -805,6 +805,67 @@ int rt_pl_dyn_retract_cell(void *head_cell)
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static dyn_pred_row_t *dyn_pred_intern(const char *name, long arity)
+{
+    dyn_pred_row_t *r = dyn_pred_find(name, arity);
+    if (r) return r;
+    if (g_pl_dyn_pred_n >= g_pl_dyn_pred_cap) { g_pl_dyn_pred_cap = g_pl_dyn_pred_cap ? g_pl_dyn_pred_cap * 2 : 8; g_pl_dyn_pred_table = (dyn_pred_row_t *)realloc(g_pl_dyn_pred_table, (size_t)g_pl_dyn_pred_cap * sizeof(dyn_pred_row_t)); }
+    r = &g_pl_dyn_pred_table[g_pl_dyn_pred_n++];
+    r->name = name; r->arity = arity; r->head = (dyn_clause_t *)0; r->tail = (dyn_clause_t *)0;
+    return r;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_dyn_assertz_cell(void *clause_cell, int prepend)
+{
+    Term *cl = term_deref((Term *)clause_cell);
+    if (!cl) return 1;
+    Term *h = cl, *b = (Term *)0;
+    if (cl->tag == TERM_COMPOUND && cl->compound.arity == 2 && prolog_atom_name(cl->compound.functor) && !strcmp(prolog_atom_name(cl->compound.functor), ":-")) { h = term_deref(cl->compound.args[0]); b = term_deref(cl->compound.args[1]); }
+    const char *name = (const char *)0; long arity = 0;
+    dyn_term_key(h, &name, &arity);
+    if (!name) return 1;
+    Term *var_map[256]; int var_cap = 256, var_n = 0;
+    Term *hcopy = copy_term_deep(h, var_map, &var_cap, &var_n);
+    Term *bcopy = b ? copy_term_deep(b, var_map, &var_cap, &var_n) : (Term *)0;
+    dyn_pred_row_t *row = dyn_pred_intern(name, arity);
+    dyn_clause_t *node = (dyn_clause_t *)GC_MALLOC(sizeof *node);
+    node->head = hcopy ? hcopy : h; node->body = bcopy; node->next = (dyn_clause_t *)0;
+    if (prepend) { node->next = row->head; row->head = node; if (!row->tail) row->tail = node; }
+    else { if (row->tail) row->tail->next = node; else row->head = node; row->tail = node; }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct { dyn_clause_t *next; } dyn_cursor_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_dyn_iter_begin(int functor_atom, long arity)
+{
+    const char *name = prolog_atom_name(functor_atom);
+    dyn_pred_row_t *row = name ? dyn_pred_find(name, arity) : (dyn_pred_row_t *)0;
+    dyn_cursor_t *cur = (dyn_cursor_t *)GC_MALLOC(sizeof *cur);
+    cur->next = row ? row->head : (dyn_clause_t *)0;
+    return cur;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity)
+{
+    extern Trail g_resolve_trail;
+    dyn_cursor_t *cur = (dyn_cursor_t *)cursor;
+    if (!cur) return 0;
+    while (cur->next) {
+        dyn_clause_t *c = cur->next; cur->next = c->next;
+        int mark = trail_mark(&g_resolve_trail);
+        Term *var_map[256]; int var_cap = 256, var_n = 0;
+        Term *hcopy = copy_term_deep(c->head, var_map, &var_cap, &var_n);
+        int ok = 1;
+        if (arity == 0) { ok = (hcopy && hcopy->tag == TERM_ATOM); }
+        else if (!hcopy || hcopy->tag != TERM_COMPOUND || hcopy->compound.arity != (int)arity) { ok = 0; }
+        else { for (long i = 0; i < arity && ok; i++) if (!unify((Term *)arg_cell0[i], hcopy->compound.args[i], &g_resolve_trail)) ok = 0; }
+        if (ok) return 1;
+        trail_unwind(&g_resolve_trail, mark);
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 /* THROW/CATCH — the single in-flight thrown term (a value, like errno; NOT a control/frame stack:
  * the catch FRAMES are box frame cells, only the ball-in-flight needs to cross C-call returns). The
  * GZ model: throw() copies the ball here + the box fails; failure rides the existing ω/return wiring

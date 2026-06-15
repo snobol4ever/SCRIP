@@ -231,6 +231,8 @@ typedef enum {
     IR_DET_RETRACT,
     IR_DET_ABOLISH,
     IR_GOTO_DYN,
+    IR_DET_ASSERTZ,
+    IR_CELL_DYNITER,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/

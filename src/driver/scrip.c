@@ -26,6 +26,7 @@
 #include "../include/bb_box.h"
 extern void ir_print_node   (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
+extern int pl_dyn_is_marked(const char *name, int arity);
 #include "core.h"
 #include "sil_macros.h"
 #include "runtime_shim.h"
@@ -379,6 +380,7 @@ static int pl_gz_fact_inline(IR_t *gg, IR_t ***units_out, int *arity_out) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg) return 0;
+    if (zc && zc->callee && pl_dyn_is_marked(zc->callee, ar)) return 0;
     if (!pl_gz_call_args_ok(zc, ar)) return 0;
     if (!pl_gz_fact_clause_units(cg, ar, units_out)) return 0;
     *arity_out = ar;
@@ -389,6 +391,7 @@ static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg || !cg->entry || cg->entry->op != IR_CHOICE) return NULL;
+    if (zc && zc->callee && pl_dyn_is_marked(zc->callee, ar)) return NULL;
     if (ar > 3) return NULL;
     if (!pl_gz_call_args_ok(zc, ar)) return NULL;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
@@ -442,6 +445,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc, &ar2);
         if (!cg2 || ar2 > 3) return 0;
         if (!pl_gz_call_args_ok(zc, ar2)) return 0;
+        if (cg2->entry && cg2->entry->op == IR_CELL_DYNITER) return 1;
         if (cg2->entry && cg2->entry->op == IR_CHOICE)
             return pl_gz_choice_rule_clauses(cg2, ar2, NULL);
         return 1;
@@ -669,6 +673,7 @@ static int pl_gz_rule_inline_check(IR_t *gg) {
     if (!cg) return 0;
     if (ar > 3) return 0;
     if (!pl_gz_call_args_ok(zc, ar)) return 0;
+    if (cg->entry && cg->entry->op == IR_CELL_DYNITER) return 1;
     if (cg->entry && cg->entry->op == IR_CHOICE)
         return pl_gz_choice_rule_clauses(cg, ar, NULL);
     bb_conj_state_t *zs = NULL;
@@ -955,8 +960,24 @@ static pl_gz_callee_t * pl_gz_callee_get_choice(IR_graph_t *cg, int ar, bb_choic
         if (!pl_gz_rule_callee_body(zsk[k], bc->bodies[k], ce, k, lbase[k], callees, ncallees)) return NULL;
     return ce;
 }
+static pl_gz_callee_t * pl_gz_callee_get_dyniter(IR_graph_t *cg, int ar, pl_gz_callee_t **callees, int *ncallees) {
+    for (int k = 0; k < *ncallees; k++) if (callees[k]->graph_key == (void *)cg) return callees[k];
+    if (*ncallees >= 8) return NULL;
+    pl_gz_callee_t *ce = (pl_gz_callee_t *)GC_MALLOC(sizeof *ce);
+    if (!ce) return NULL;
+    memset(ce, 0, sizeof *ce);
+    ce->graph_key = (void *)cg; ce->arity = ar; ce->base = 0; ce->mark_slot = 0;
+    ce->nclauses = 1; ce->nlocals = 2;
+    ce->frame_node = pl_gz_det_node(IR_CALLEE_FRAME);
+    if (!ce->frame_node) return NULL;
+    IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;
+    callees[(*ncallees)++] = ce;
+    ce->body_head = cg->entry;
+    return ce;
+}
 static pl_gz_callee_t * pl_gz_callee_get_any(IR_t *gg, IR_graph_t *cg, int ar, pl_gz_callee_t **callees, int *ncallees) {
     (void)gg;
+    if (cg->entry && cg->entry->op == IR_CELL_DYNITER) return pl_gz_callee_get_dyniter(cg, ar, callees, ncallees);
     if (cg->entry && cg->entry->op == IR_CHOICE) {
         bb_choice_state_t *bc = NULL;
         if (!pl_gz_choice_rule_clauses(cg, ar, &bc)) return NULL;
@@ -1082,6 +1103,10 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
             if (!strcmp(fn,"retract") && IR_LIT(gg).ival == 1) {
                 IR_t *r0 = ir_call_arg(gg,0);
                 if (r0 && r0->op != IR_LOGICVAR) (*nsynth)++;
+            }
+            if ((!strcmp(fn,"assertz")||!strcmp(fn,"asserta")||!strcmp(fn,"assert")) && IR_LIT(gg).ival == 1) {
+                IR_t *a0 = ir_call_arg(gg,0);
+                if (a0 && a0->op != IR_LOGICVAR) (*nsynth)++;
             }
             if (!strcmp(fn,"abolish") && IR_LIT(gg).ival == 1) {
                 (*nsynth) += 2;
@@ -1683,6 +1708,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (nn) { ir_operand_push(nn, skey); ir_operand_push(nn, sval); }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
         IR_t *h0 = ir_call_arg(gg,0);
+        if (h0 && h0->op == IR_STRUCT) { for (int oi = 0; oi < h0->n_operands; oi++) if (h0->operands[oi] && h0->operands[oi]->op == IR_LIT_I) return 0; }
         IR_t *shead = NULL;
         if (h0->op == IR_LOGICVAR) { shead = h0; }
         else if (h0->op == IR_STRUCT || h0->op == IR_ATOM) {
@@ -1694,6 +1720,20 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         } else return 0;
         nn = pl_gz_det_node(IR_DET_RETRACT);
         if (nn) { ir_operand_push(nn, shead); }
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && (!strcmp(IR_LIT(gg).sval,"assertz")||!strcmp(IR_LIT(gg).sval,"asserta")||!strcmp(IR_LIT(gg).sval,"assert")) && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+        int prepend = !strcmp(IR_LIT(gg).sval,"asserta");
+        IR_t *c0 = ir_call_arg(gg,0);
+        IR_t *sclause = NULL;
+        if (c0->op == IR_LOGICVAR) { sclause = c0; }
+        else if (c0->op == IR_STRUCT || c0->op == IR_ATOM || c0->op == IR_ARITH) {
+            int kk = (*synth_next)++; IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, c0);
+            if (!*head) *head = cu; else { (*tail)->γ.node = cu; memcpy((*tail)->γ.sz, "α", 3); } *tail = cu;
+            sclause = pl_gz_lv(kk); if (!sclause) return 0;
+        } else return 0;
+        nn = pl_gz_det_node(IR_DET_ASSERTZ);
+        if (nn) { IR_LIT(nn).ival = prepend; ir_operand_push(nn, sclause); }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"abolish") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
         IR_t *spec = ir_call_arg(gg,0);
         if (!spec || (spec->op != IR_STRUCT && spec->op != IR_ARITH) || spec->n_operands < 2) return 0;

@@ -490,7 +490,7 @@ static int gz_node_bounded(const IR_t *g) {
     if (!g) return 1;
     switch (g->op) {
     case IR_CELL_CALL: case IR_CELL_CHOICE: case IR_CELL_FINDALL: case IR_CELL_ITE:
-    case IR_CELL_CATCH:
+    case IR_CELL_CATCH: case IR_CELL_DYNITER:
     case IR_CELL_CUT:  case IR_CUT:
         return 0;   /* generators + cut-barrier + catch: never collapse their β */
     default: return 1;
@@ -1430,6 +1430,17 @@ void bb_prepare(IR_t *nd) {
         g_emit.op_parts_n = 2;
         g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
         g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
+        return;
+    }
+    if (nd->op == IR_DET_ASSERTZ) {
+        IR_t *a0 = bb_child0(nd);
+        g_emit.op_parts_n = 1;
+        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
+        g_emit.op_parts_ival[1] = (int64_t)IR_LIT(nd).ival;
+        return;
+    }
+    if (nd->op == IR_CELL_DYNITER) {
+        g_emit.bb_zn = (void *)nd;
         return;
     }
 }
