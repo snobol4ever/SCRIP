@@ -4,7 +4,7 @@
 /*====================================================================================================================*/
 #define BB_DEFINE_NAMES
 #include "lower.h"
-#include "IR_interp_state.h"
+#include "box_state.h"
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
 #include <stdio.h>

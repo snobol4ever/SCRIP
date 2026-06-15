@@ -1,4 +1,4 @@
-#include "IR_interp_state.h"
+#include "box_state.h"
 #include "rt/rt.h"
 #include "lower.h"
 #include "../../emitter/sil_macros.h"

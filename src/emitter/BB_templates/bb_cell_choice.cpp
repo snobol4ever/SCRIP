@@ -6,7 +6,7 @@ extern "C" {
 #include "emit.h"
 #include "emit_bb.h"
 #include "IR.h"
-#include "IR_interp_state.h"
+#include "box_state.h"
 }
 #include "x86_asm.h"
 extern "C" int  rt_trail_mark(void);

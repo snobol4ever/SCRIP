@@ -1,6 +1,6 @@
 #include "BB_templates/bb_common.h"
 extern "C" {
-#include "IR_interp_state.h"
+#include "box_state.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string blbl_lea(const char *dst, const char *s) {
