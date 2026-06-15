@@ -417,6 +417,26 @@ raku "str_substr1" "llo" << 'EOF'
 sub main() { say("hello".substr(2)); }
 EOF
 
+raku "num_abs_pos" "5" << 'EOF'
+sub main() { say(5.abs); }
+EOF
+
+raku "num_abs_neg" "5" << 'EOF'
+sub main() { my $n = 3 - 8; say($n.abs); }
+EOF
+
+raku "num_floor" "3" << 'EOF'
+sub main() { my $x = 3.7; say($x.floor); }
+EOF
+
+raku "num_ceiling" "4" << 'EOF'
+sub main() { my $x = 3.2; say($x.ceiling); }
+EOF
+
+raku "num_round" "4" << 'EOF'
+sub main() { my $x = 3.5; say($x.round); }
+EOF
+
 raku "grammar_token" "12345" << 'EOF'
 grammar G {
     token TOP { \d+ }
