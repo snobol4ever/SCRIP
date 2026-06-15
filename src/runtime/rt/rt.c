@@ -182,13 +182,14 @@ typedef struct { DESCR_t slot[RT_FRAME_SLOT_MAX]; int nslots; } rt_frame_t;
 static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
-#define RT_PROC_MAX 512
 #define PROC_FRAME_QWORDS 512
 #define PROC_FRAME_DEPTH  4096
 #define CALL_ARGS_MAX     64
 typedef struct { const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask; int frame_bytes; } rt_proc_t;
-static rt_proc_t g_rt_gen_procs[RT_PROC_MAX];
+static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
+static int           g_rt_gen_proc_cap = 0;
+static void rt_gen_proc_grow(void) { if (g_rt_gen_proc_count < g_rt_gen_proc_cap) return; int nc = g_rt_gen_proc_cap ? g_rt_gen_proc_cap * 2 : 64; rt_proc_t *np = (rt_proc_t *)realloc(g_rt_gen_procs, (size_t)nc * sizeof(rt_proc_t)); if (!np) return; g_rt_gen_procs = np; g_rt_gen_proc_cap = nc; }
 void rt_proc_register(const char *name, const char **pnames, int nparams)
 {
     if (!name) return;
@@ -199,7 +200,8 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
             return;
         }
     }
-    if (g_rt_gen_proc_count >= RT_PROC_MAX) return;
+    rt_gen_proc_grow();
+    if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0; p->frame_bytes = 0;
 }
@@ -225,7 +227,8 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (!name) return;
     for (int i = 0; i < g_rt_gen_proc_count; i++)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].fn = fn; return; }
-    if (g_rt_gen_proc_count >= RT_PROC_MAX) return;
+    rt_gen_proc_grow();
+    if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0; p->frame_bytes = 0;
 }
@@ -269,12 +272,13 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; DESCR_t old; } NameSaveEnt;
-#define NAME_SAVE_MAX 4096
-#define PROC_FRAME_NEST_MAX 256
 #define PROC_FRAME_NEST_QWORDS 512
 #define PROC_FRAME_ARENA_QWORDS (8 * 1024 * 1024)
-static NameSaveEnt g_name_save[NAME_SAVE_MAX];
+#define PROC_FRAME_NEST_MAX (PROC_FRAME_ARENA_QWORDS / PROC_FRAME_NEST_QWORDS)
+static NameSaveEnt   *g_name_save = (NameSaveEnt *)0;
 static int            g_name_save_top = 0;
+static int            g_name_save_cap = 0;
+static void rt_name_save_grow(void) { if (g_name_save_top < g_name_save_cap) return; int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt)); if (!np) return; g_name_save = np; g_name_save_cap = nc; }
 static int64_t        g_proc_frame_nest_arena[PROC_FRAME_ARENA_QWORDS] __attribute__((aligned(16)));
 static int            g_proc_frame_nest_depth = 0;
 static long           g_proc_frame_cursor_qw = 0;
@@ -283,6 +287,7 @@ int rt_name_save_push(const char **names, DESCR_t *args, int nargs, int n)
     int base = g_name_save_top;
     for (int k = 0; k < n; k++) {
         const char *nm = names ? names[k] : (const char *)0; if (!nm) continue;
+        rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break;
         g_name_save[g_name_save_top].name = nm;
         g_name_save[g_name_save_top].old  = NV_GET_fn(nm);
         g_name_save_top++;
@@ -307,7 +312,6 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     if (!p || !p->fn) return FAILDESCR;
     int np = p->nparams;
     const char **pn = p->pnames;
-    if (g_name_save_top + np + 1 > NAME_SAVE_MAX) return FAILDESCR;
     if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
@@ -383,7 +387,6 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     if (!p || !p->fn) return FAILDESCR;
     int np = p->nparams;
     int ns = (p->frame_nslots > np) ? p->frame_nslots : np;
-    if (g_name_save_top + 1 > NAME_SAVE_MAX) return FAILDESCR;
     if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;

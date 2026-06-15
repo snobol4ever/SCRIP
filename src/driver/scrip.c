@@ -2407,7 +2407,8 @@ int main(int argc, char **argv)
             printf("  .text\n");
             g_frame_active = 1;
             int n_procs = 0;
-            static char proc_names_buf[64][128];
+            int _pnbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
+            const char **proc_names_buf = (const char **)malloc((size_t)_pnbcap * sizeof(const char *));
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -2423,7 +2424,7 @@ int main(int argc, char **argv)
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 resolve_call_kinds_descr(s2->bbp.table[idx]);
                 descr_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
-                if (n_procs < 64) snprintf(proc_names_buf[n_procs++], 128, "%s", pname);
+                proc_names_buf[n_procs++] = pname;
                 free(pn);
             }
             int n_cls_emit = 0;
@@ -2485,6 +2486,7 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n");
                 printf("  ret\n");
             }
+            free(proc_names_buf);
             printf("  .globl main\n");
             printf("main:\n");
             printf("  push rbp\n");
