@@ -3735,21 +3735,21 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
     xa_dispatch(XA_FLAT_PROLOGUE);
     if (g_is_text) g_emit_pos += 7;
     emit_label_define_bb(&lbl_α_body);
-    enum { CH_MAX = 512 };
-    IR_t *nodes[CH_MAX]; int n = 0;
-    IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
+    int nodes_cap = 512, queue_cap = 512;
+    IR_t **nodes = (IR_t **)malloc(sizeof(IR_t *) * nodes_cap); int n = 0;
+    IR_t **queue = (IR_t **)malloc(sizeof(IR_t *) * queue_cap); int qh = 0, qt = 0;
     IR_t *e0 = gvar_chain_resolve_stmt(entry);
     if (gvar_chain_is_real(e0)) queue[qt++] = e0;
     while (qh < qt) {
         IR_t *c = queue[qh++];
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
-        if (n >= CH_MAX) { fprintf(stderr, "[SBB] FATAL sno chain exceeds CH_MAX\n"); abort(); }
+        if (n >= nodes_cap) { nodes_cap *= 2; nodes = (IR_t **)realloc(nodes, sizeof(IR_t *) * nodes_cap); }
         nodes[n++] = c;
         IR_t *g = gvar_chain_resolve_stmt(c->γ.node);
         IR_t *w = gvar_chain_resolve_stmt(c->ω.node);
-        if (gvar_chain_is_real(g) && qt < CH_MAX) queue[qt++] = g;
-        if (gvar_chain_is_real(w) && qt < CH_MAX) queue[qt++] = w;
+        if (gvar_chain_is_real(g)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); } queue[qt++] = g; }
+        if (gvar_chain_is_real(w)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); } queue[qt++] = w; }
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
@@ -3781,6 +3781,7 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         xa_dispatch(XA_FLAT_DATA_SECTION);
         data_buf_reset();
     }
+    free(nodes); free(queue);
     return 0;
 }
 bb_box_fn gvar_flat_chain_build(IR_graph_t *g) {
