@@ -1,6 +1,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "rt/rt.h"
+#include "builtins/gen.h"
 #include "builtins/resolution.h"
 #include "../parser/prolog/prolog_atom.h"
 #include <stdlib.h>
@@ -159,4 +160,20 @@ long rt_arith(int lk, long li, const char *ls,
     if (op[0] == '/' && op[1] == '\0') return rv ? lv / rv : 0;
     if (op[0] == '%' && op[1] == '\0') return rv ? lv % rv : 0;
     return lv + rv;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
+    int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
+    int anyf = lf || rf;
+    double ld = to_real(a), rd = to_real(b);
+    int64_t li = to_int(a), ri = to_int(b);
+    switch (op) {
+        case BINOP_ADD: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
+        case BINOP_SUB: return anyf ? REALVAL(ld - rd) : INTVAL(li - ri);
+        case BINOP_MUL: return anyf ? REALVAL(ld * rd) : INTVAL(li * ri);
+        case BINOP_DIV: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(ld / rd); if (ri == 0) return FAILDESCR; return (li % ri == 0) ? INTVAL(li / ri) : REALVAL((double)li / (double)ri);
+        case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
+        case BINOP_POW: return REALVAL(pow(ld, rd));
+        default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
+    }
 }
