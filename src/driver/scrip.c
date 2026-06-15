@@ -477,6 +477,11 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
         const IR_t *ba = ir_call_arg(gg,0);
         return ba->op == IR_ATOM || ba->op == IR_LIT_I || ba->op == IR_LIT_F || ba->op == IR_LOGICVAR || ba->op == IR_STRUCT;
     }
+    if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+        const IR_t *r0 = ir_call_arg(gg,0);
+        if (r0->op == IR_STRUCT) { for (int oi = 0; oi < r0->n_operands; oi++) if (r0->operands[oi] && r0->operands[oi]->op == IR_LIT_I) return 0; }
+        return r0->op == IR_ATOM || r0->op == IR_LOGICVAR || r0->op == IR_STRUCT;
+    }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "write") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
         const IR_t *wa0 = ir_call_arg(gg,0);
         return wa0->op == IR_ATOM || wa0->op == IR_LIT_I || wa0->op == IR_LIT_F || wa0->op == IR_LOGICVAR || wa0->op == IR_STRUCT;
@@ -618,6 +623,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
         if (nd->op == IR_BUILTIN) {
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "nl") && IR_LIT(nd).ival == 0) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "throw") && IR_LIT(nd).ival == 1) continue;
+            if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "retract") && IR_LIT(nd).ival == 1) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "write") && IR_LIT(nd).ival == 1) continue;
             if (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"writeq")||!strcmp(IR_LIT(nd).sval,"write_canonical")) && IR_LIT(nd).ival == 1) continue;
             if (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "is") && IR_LIT(nd).ival == 2) continue;
@@ -688,6 +694,7 @@ static int pl_gz_nsynth_chain(IR_t *entry, int ar) {
     int nsynth = 0;
     for (IR_t *gg = entry; gg && gg->op != IR_SUCCEED && gg->op != IR_FAIL; gg = gg->γ.node) {
         if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
+        if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0) && ir_call_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
         if (gg->op == IR_CATCH) {
             bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)IR_LIT(gg).ival;
             if (!zc || !zc->goal_g || !zc->rec_g) return -1;
@@ -716,6 +723,7 @@ static int pl_gz_clause_nsynth(bb_conj_state_t *zs, int ar) {
             continue;
         }
         if (gg && gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
+        if (gg && gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0) && ir_call_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
         if (!gg || gg->op != IR_GOAL) continue;
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
         if (!pl_gz_goal_callee(gg, &zc2, &ar2)) return -1;
@@ -832,6 +840,23 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         nn = pl_gz_det_node(IR_DET_THROW);
         if (!nn) return 0;
         IR_LIT(nn).ival = (int64_t)(intptr_t)nb;
+    } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
+        IR_t *h0 = ir_call_arg(gg,0);
+        IR_t *shead = NULL;
+        if (h0->op == IR_LOGICVAR) { shead = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(h0).ival, ar, lbase)); }
+        else {
+            int kk = synth_next++;
+            IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+            IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+            IR_t *hm = pl_gz_struct_slot_map(h0, ar, lbase); if (!hm) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, hm);
+            if (!head) head = cu; else { tail->γ.node = cu; memcpy(tail->γ.sz, "α", 3); }
+            tail = cu; shead = pl_gz_lv(kk);
+        }
+        if (!shead) return 0;
+        nn = pl_gz_det_node(IR_DET_RETRACT);
+        if (!nn) return 0;
+        ir_operand_push(nn, shead);
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         IR_t *lhs = ir_pair_arg(gg,0);
         IR_t *na = NULL;
@@ -908,7 +933,7 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
     }
     for (int i = ar; i < zs->ngoals; i++)
         if (!pl_gz_callee_body_node(zs->goals[i], ar, lbase, &synth_next, &head, &tail, ce, callees, ncallees)) return 0;
-    if (!head && ce->nclauses > 1) return 0;
+    if (!head && ce->nclauses > 1) { IR_t *sc = pl_gz_det_node(IR_SUCCEED); if (!sc) return 0; head = tail = sc; }
     ce->clause_head[clause_idx] = head;
     if (clause_idx == 0) ce->body_head = head;
     return 1;
