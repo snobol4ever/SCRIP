@@ -2602,8 +2602,9 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
             }
-            static int pidx_buf[64];
-            static int peak_buf[64];
+            int _pbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
+            int *pidx_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
+            int *peak_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
             int n_procs = 0;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -2627,8 +2628,8 @@ int main(int argc, char **argv)
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 gvar_flat_chain_build_text_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_idx, stdout, pname);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
-                { extern int g_last_flat_frame_bytes; if (n_procs < 64) peak_buf[n_procs] = g_last_flat_frame_bytes; }
-                if (n_procs < 64) pidx_buf[n_procs++] = _pi;
+                { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
+                pidx_buf[n_procs++] = _pi;
             }
             if (n_procs > 0) {
                 printf("  .section .rodata\n");
@@ -2667,6 +2668,7 @@ int main(int argc, char **argv)
                 }
                 printf("  pop rbp\n  ret\n");
             }
+            free(pidx_buf); free(peak_buf);
             printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n");
             if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
