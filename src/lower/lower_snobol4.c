@@ -807,7 +807,10 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             return NULL;
         }
         IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
-        return lower_expr(cx, rhs, asn, ω, NULL); }
+        IR_t * xbox = build(cx, is_kw ? IR_KEYWORD : IR_VAR, NULL, ω); IR_LIT(xbox).sval = (char *) lhs;
+        IR_t * vr = NULL; IR_t * entry = lower_expr(cx, rhs, asn, ω, &vr);
+        ir_operand_push(asn, xbox); ir_operand_push(asn, vr);
+        return entry; }
     }
 }
 /*====================================================================================================================================================================================================*/

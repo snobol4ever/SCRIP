@@ -8,6 +8,7 @@ void rt_gvar_assign_str(const char * name, const char * str);
 void rt_gvar_assign_var(const char * dst, const char * src);
 void rt_gvar_assign_int(const char * name, int64_t val);
 void rt_gvar_assign_descr(const char * name, int64_t lo, int64_t hi);
+#include "../../runtime/builtins/gen.h"
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -47,6 +48,14 @@ std::string bb_gvar_assign() {
                   + x86("jmp",  "ω")
              : _.op_a_node_kind == (int)IR_BINOP ?
                     (_.op_a_slot < 0 ? x86_bomb("bb_gvar_assign int-binop: op_a_slot==-1 (binop slot not promoted)")
+                   : _.op_a_ival_sg == (int)BINOP_CONCAT ?
+                    (x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
+                   + x86("mov",  "rsi", FRQ(_.op_a_slot))
+                   + x86("mov",  "rdx", FRQ(_.op_a_slot + 8))
+                   + x86("call", "rt_gvar_assign_descr", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int64_t, int64_t))rt_gvar_assign_descr)
+                   + x86("jmp",  "γ")
+                   + x86("def",  "β")
+                   + x86("jmp",  "ω"))
                    : x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
                    + x86("mov",  "rsi", FRQ(_.op_a_slot))
                    + x86("call", "rt_gvar_assign_int", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int64_t))rt_gvar_assign_int)

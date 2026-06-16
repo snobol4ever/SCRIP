@@ -62,6 +62,7 @@ std::string bb_binop_gvar_arith();
 std::string bb_binop_gvar_relop();
 std::string bb_binop_gvar_arith_slot();
 std::string bb_binop_concat_slot();
+std::string bb_binop_gvar_concat();
 std::string bb_lit();
 std::string bb_lit_scalar();
 std::string bb_var();

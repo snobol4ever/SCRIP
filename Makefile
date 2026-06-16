@@ -141,6 +141,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_binop_gvar_arith_slot.cpp \
     $(SRC)/emitter/BB_templates/bb_unop_gvar_slot.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp \
+    $(SRC)/emitter/BB_templates/bb_binop_gvar_concat.cpp \
     $(SRC)/emitter/BB_templates/bb_match_any.cpp \
     $(SRC)/emitter/BB_templates/bb_match_notany.cpp \
     $(SRC)/emitter/BB_templates/bb_match_span.cpp \
@@ -390,6 +391,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_arith_slot.cpp -o $(OBJ)/bb_binop_gvar_arith_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_unop_gvar_slot.cpp -o $(OBJ)/bb_unop_gvar_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_concat.cpp -o $(OBJ)/bb_binop_gvar_concat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_any.cpp          -o $(OBJ)/bb_match_any.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_notany.cpp  -o $(OBJ)/bb_match_notany.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_span.cpp    -o $(OBJ)/bb_match_span.o
