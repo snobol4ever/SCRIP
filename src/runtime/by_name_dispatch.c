@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include <ctype.h>
 #include <gc/gc.h>
 #include <math.h>
@@ -54,6 +55,7 @@ int rt_builtin_is_known(const char *name)
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
         "obj_new", "meth_call", "field_set",
+        "TIME", "DATE",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -2360,6 +2362,14 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             if (strncmp(hay + i, needle, nlen) == 0) { *out = INTVAL(i + 1); return 1; }
         }
         *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn,"TIME") && nargs <= 1) {
+        *out = INTVAL((long long)(clock() * 1000 / CLOCKS_PER_SEC)); return 1;
+    }
+    if (!strcmp(fn,"DATE") && nargs <= 1) {
+        time_t now = time(NULL); struct tm *tm = localtime(&now);
+        char *buf = (char *)GC_malloc(64); strftime(buf, 64, "%m/%d/%Y %H:%M:%S", tm);
+        *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn,"SIZE") && nargs == 1) {
         DESCR_t v = args[0];

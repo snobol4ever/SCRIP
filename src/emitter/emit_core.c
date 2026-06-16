@@ -431,6 +431,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_BINOP_GVAR_ARITH_SLOT: bb_emit_x86(bb_binop_gvar_arith_slot()); return 0;
     case IR_UNOP_GVAR_SLOT:       bb_emit_x86(bb_unop_gvar_slot());    return 0;
     case IR_BINOP_CONCAT:         bb_emit_x86(bb_binop_concat_slot()); return 0;
+    case IR_BINOP_GVAR_CONCAT:    bb_emit_x86(bb_binop_gvar_concat()); return 0;
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
     case IR_EVERY:                bb_emit_x86(bb_every());          return 0;
     case IR_TO:
