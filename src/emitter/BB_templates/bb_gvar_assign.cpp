@@ -48,7 +48,7 @@ std::string bb_gvar_assign() {
                   + x86("jmp",  "ω")
              : _.op_a_node_kind == (int)IR_BINOP ?
                     (_.op_a_slot < 0 ? x86_bomb("bb_gvar_assign int-binop: op_a_slot==-1 (binop slot not promoted)")
-                   : _.op_a_ival_sg == (int)BINOP_CONCAT ?
+                   : (_.op_a_ival_sg == (int)BINOP_CONCAT || _.op_a_descr) ?
                     (x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
                    + x86("mov",  "rsi", FRQ(_.op_a_slot))
                    + x86("mov",  "rdx", FRQ(_.op_a_slot + 8))

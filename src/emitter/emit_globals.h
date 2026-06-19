@@ -24,6 +24,8 @@ typedef struct {
     int64_t                      op_a_counter;
     int64_t                      op_a_ival_sg;
     double                       op_a_dval;
+    int                          op_a_descr;
+    int                          op_arith_descr;
     int                          op_parts_n;
     int                          op_parts_tag[16];
     const char *                 op_parts_str[16];

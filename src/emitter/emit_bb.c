@@ -1460,6 +1460,16 @@ static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int bb_arith_is_dynamic(IR_t *nd) {
+    if (!nd || nd->op != IR_BINOP) return 0;
+    int64_t o = IR_LIT(nd).ival;
+    if (!(o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL || o == BINOP_DIV || o == BINOP_MOD)) return 0;
+    IR_t *a = bb_child0(nd), *b = bb_child1(nd);
+    int ad = a && (a->op == IR_CALL || ir_is_call_kind(a->op));
+    int bd = b && (b->op == IR_CALL || ir_is_call_kind(b->op));
+    return (ad && bd) ? 1 : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_e binop_slot_kind(IR_t *nd) {
     int64_t op = nd ? IR_LIT(nd).ival : -1;
     if ((op >= BINOP_LT && op <= BINOP_NE) || (op >= BINOP_SLT && op <= BINOP_SNE)) return IR_BINOP_RELOP;
@@ -2966,6 +2976,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_BINOP: {
         g_emit.op_relop_descr = 0;
         g_emit.op_num_real = 0;
+        g_emit.op_arith_descr = 0;
         if (g_gvar_flat_chain && nd && !bb_child0(nd) && g_emit_cfg) { int _na = 0; IR_t * const * _ax = bb_operand_aux_get(g_emit_cfg, nd, &_na); if (_na >= 2 && _ax[0] && _ax[1]) { nd->n_operands = 0; ir_operand_push(nd, _ax[0]); ir_operand_push(nd, _ax[1]); } }
         int op_is_rel = nd && ((IR_LIT(nd).ival >= BINOP_LT && IR_LIT(nd).ival <= BINOP_NE) ||
                                (IR_LIT(nd).ival >= BINOP_SLT && IR_LIT(nd).ival <= BINOP_SNE));
@@ -3038,7 +3049,8 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             g_emit.op_name2 = (bb_child1(nd)->op == IR_VAR) ? IR_LIT(bb_child1(nd)).sval : (const char *)0;
             g_emit.op_sa    = (bb_child0(nd)->op != IR_LIT_I && bb_child0(nd)->op != IR_VAR) ? bb_slot_get(bb_child0(nd)) : -1;
             g_emit.op_sb    = (bb_child1(nd)->op != IR_LIT_I && bb_child1(nd)->op != IR_VAR) ? bb_slot_get(bb_child1(nd)) : -1;
-            g_emit.op_off   = bb_slot_alloc(nd);
+            g_emit.op_arith_descr = bb_arith_is_dynamic(nd);
+            g_emit.op_off   = g_emit.op_arith_descr ? bb_slot_alloc16(nd) : bb_slot_alloc(nd);
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->op; nd->op = IR_BINOP_GVAR_ARITH_SLOT; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; }

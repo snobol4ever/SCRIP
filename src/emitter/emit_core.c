@@ -336,6 +336,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_a_counter = op_a ? IR_EXEC(op_a).counter : 0;
     g_emit.op_a_ival_sg = op_a ? IR_LIT(op_a).ival : 0;
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
+    { extern int bb_arith_is_dynamic(IR_t *nd); g_emit.op_a_descr = bb_arith_is_dynamic(op_a) ? 1 : 0; }
     switch (nd->op) {
     case IR_PAT_LIT:         bb_emit_x86(bb_lit());               return 0;
     case IR_PAT_ANY:         bb_emit_x86(bb_match_any());           return 0;
