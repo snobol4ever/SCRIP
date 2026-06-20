@@ -39,6 +39,7 @@ typedef struct {
     const char *                 op_scan_replace_lit;
     int                          op_sa;
     int                          op_sb;
+    int                          op_sc;
     int                          op_off;
     int                          op_bounded;
     int                          op_relop_descr;

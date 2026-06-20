@@ -1779,24 +1779,29 @@ static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (pBB && pBB->n_operands >= 2) {
+    if (pBB && pBB->n_operands >= 3 && pBB->operands[0] && pBB->operands[1] && pBB->operands[2]) {
         int id = g_flat_node_id++;
         IR_t *base_box = pBB->operands[0];
         IR_t *idx_box  = pBB->operands[1];
-        IR_t *rhs_box  = pBB->n_operands > 2 ? pBB->operands[2] : NULL;
+        IR_t *rhs_box  = pBB->operands[2];
         bb_label_t *base_done = emit_label_alloc("xidxs%d_base_done", id);
         bb_label_t *base_β    = emit_label_alloc("xidxs%d_base_b",    id);
         bb_label_t *idx_done  = emit_label_alloc("xidxs%d_idx_done",  id);
         bb_label_t *idx_β     = emit_label_alloc("xidxs%d_idx_b",     id);
-        walk_bb_flat(base_box, base_done, lbl_ω, base_β);
+        bb_label_t *rhs_done  = emit_label_alloc("xidxs%d_rhs_done",  id);
+        bb_label_t *rhs_β     = emit_label_alloc("xidxs%d_rhs_b",     id);
+        if (bb_slot_get(base_box) >= 0) emit_jmp_label(base_done, JMP_JMP); else walk_bb_flat(base_box, base_done, lbl_ω, base_β);
         emit_label_define_bb(base_done);
-        walk_bb_flat(idx_box, idx_done, lbl_ω, idx_β);
+        if (bb_slot_get(idx_box) >= 0) emit_jmp_label(idx_done, JMP_JMP); else walk_bb_flat(idx_box, idx_done, lbl_ω, idx_β);
         emit_label_define_bb(idx_done);
-        if (rhs_box) {
-            bb_label_t *rhs_done = emit_label_alloc("xidxs%d_rhs_done", id);
-            bb_label_t *rhs_β    = emit_label_alloc("xidxs%d_rhs_b",    id);
-            walk_bb_flat(rhs_box, rhs_done, lbl_ω, rhs_β);
-            emit_label_define_bb(rhs_done);
+        if (bb_slot_get(rhs_box) >= 0) emit_jmp_label(rhs_done, JMP_JMP); else walk_bb_flat(rhs_box, rhs_done, lbl_ω, rhs_β);
+        emit_label_define_bb(rhs_done);
+        int sa = bb_slot_get(base_box), sb = bb_slot_get(idx_box), sc = bb_slot_get(rhs_box);
+        if (sa >= 0 && sb >= 0 && sc >= 0) {
+            EMIT_PAIR_RESET();
+            g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_sc = sc; g_emit.op_off = bb_slot_alloc16(pBB);
+            EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+            return;
         }
     }
     EMIT_PAIR_RESET();
@@ -3526,6 +3531,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_MAP: case IR_GREP: return 0;
     case IR_GEN_SCAN: return 0;
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
+    case IR_IDX_SET: return 3;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
     case IR_INDIRECT_ASSIGN_LIT_S: return 1;
