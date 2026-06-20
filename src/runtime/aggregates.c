@@ -117,3 +117,15 @@ int table_has(TBBLK_t *tbl, const char *key) {
         if (strcmp(e->key, key) == 0) return 1;
     return 0;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_table_idx_get(DESCR_t base, DESCR_t key) {
+    if (base.v != DT_T || !base.tbl) return NULVCL;
+    const char *ks = VARVAL_fn(key);
+    return table_get(base.tbl, ks ? ks : "");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_table_idx_set(DESCR_t base, DESCR_t key, DESCR_t val) {
+    if (base.v != DT_T || !base.tbl) return;
+    const char *ks = VARVAL_fn(key);
+    table_set_descr(base.tbl, ks ? ks : "", key, val);
+}
