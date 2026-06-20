@@ -345,7 +345,22 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_deflabel_id(nskip);
         return s;
     }
-    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_CALL_DEFINE) return marshal_single_call(lf, aoff, bb_node_id(lf));
+    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_CALL_DEFINE || ir_is_call_kind(lf->op)) return marshal_single_call(lf, aoff, bb_node_id(lf));
+    if (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && is_global(IR_LIT(lf).sval)) {
+        std::string s;
+        if (MEDIUM_TEXT) {
+            char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
+            s += x86("comment", emit_fmt("marshal arg%d = global VAR NV_GET -> [r12+%d]", idx, aoff));
+            s += x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str());
+            s += x86("call", "NV_GET_fn@PLT");
+        } else {
+            s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(lf).sval);
+            s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
+        }
+        s += x86_frame_store64(aoff, "rax");
+        s += x86_frame_store64(aoff + 8, "rdx");
+        return s;
+    }
     {
         int ps = (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && !is_global(IR_LIT(lf).sval)) ? -1 : bb_slot_get(lf);
         if (ps >= 0) {
