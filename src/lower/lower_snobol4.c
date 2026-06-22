@@ -136,6 +136,17 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
         sno_call_channels(cx, nd, t);
         *res = nd; return nd;
     }
+    case TT_IDX:     {
+        if (t->n >= 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[1] && (t->c[1]->t == TT_ILIT || t->c[1]->t == TT_VAR)) {
+            IR_t * idx = build(cx, IR_IDX, cont, nxt);
+            IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = t->c[0]->v.sval;
+            IR_t * key_box; if (t->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = t->c[1]->v.ival; }
+            else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = t->c[1]->v.sval; }
+            ir_operand_push(idx, base_box); ir_operand_push(idx, key_box);
+            *res = idx; return idx;
+        }
+        IR_t * s = build(cx, IR_SUCCEED, cont, nxt); *res = s; return s;
+    }
     default: { IR_t * s = build(cx, IR_SUCCEED, cont, nxt); *res = s; return s; }
     }
 }
@@ -482,6 +493,18 @@ static int sno_has_idx(const tree_t * t) {
     for (int i = 0; i < t->n; i++) if (sno_has_idx(t->c[i])) return 1;
     return 0;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int sno_idx_operand_ok(const tree_t * o) {
+    if (!o) return 0;
+    if (o->t == TT_VAR || o->t == TT_KEYWORD || o->t == TT_ILIT || o->t == TT_FLIT) return 1;
+    if (o->t == TT_IDX && o->n >= 2 && o->c[0] && o->c[0]->t == TT_VAR && o->c[1] && (o->c[1]->t == TT_ILIT || o->c[1]->t == TT_VAR)) return 1;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int sno_arith_idx_lowerable(const tree_t * t) {
+    if (!t || !lc_is_binop(t->t) || t->n < 2) return 0;
+    return sno_idx_operand_ok(t->c[0]) && sno_idx_operand_ok(t->c[1]);
+}
 static int sno_leaf_buildable(const tree_t * t) {
     const char * s; int hit;
     if (!t) return 0;
@@ -807,8 +830,8 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
             return NULL;
         }
-        /* binop RHS containing array ref → PARTIAL ORPHAN: edgeless ASSIGN + edgeless BINOP(ival) + left VAR (ω only); oracle bails mid-lower, label chains nxt */
-        if (lc_is_binop(rhs->t) && sno_has_idx(rhs)) {
+        /* binop RHS containing array ref → PARTIAL ORPHAN, EXCEPT the supported table-read shape (both operands are VAR/KEYWORD/ILIT/FLIT or a T<VAR|LIT_I> idx-read) which lowers normally via lower_expr's IR_IDX operand box */
+        if (lc_is_binop(rhs->t) && sno_has_idx(rhs) && !sno_arith_idx_lowerable(rhs)) {
             IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
             IR_t * bop = IR_node_alloc(cx->g, IR_BINOP); IR_LIT(bop).ival = lc_binop_code(rhs->t);
             const tree_t * lop = (rhs->n > 0) ? rhs->c[0] : NULL;
@@ -862,6 +885,18 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_t * asn = build(cx, IR_INDIRECT_ASSIGN_LIT_S, γ_tgt, ω_tgt); IR_LIT(asn).sval = (char *) subj->c[0]->v.sval;
             IR_t * lit = build(cx, IR_LIT_S, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval ? repl->v.sval : "";
             return lit;
+        }
+        /* table write with ARITH value:  T<k> = expr  (base=VAR, key=VAR|LIT_I, value=arith BINOP of materializable operands) → value box chained before IR_IDX_SET, read from its slot */
+        if (subj->t == TT_IDX && subj->n >= 2 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[1]
+            && (subj->c[1]->t == TT_ILIT || subj->c[1]->t == TT_VAR)
+            && repl && lc_is_binop(repl->t) && sno_idx_operand_ok(repl->c[0]) && sno_idx_operand_ok(repl->c[1])) {
+            IR_t * st = build(cx, IR_IDX_SET, γ_tgt, ω_tgt);
+            IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
+            IR_t * key_box; if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
+            else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval; }
+            IR_t * vr = NULL; IR_t * ventry = lower_expr(cx, repl, st, ω_tgt, &vr);
+            ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, vr);
+            return ventry;
         }
         /* table int/var-key write:  T<k> = v  (base=VAR, key=VAR|LIT_I, value=VAR|LIT_I) → IR_IDX_SET(operands[base,key,value]) */
         if (subj->t == TT_IDX && subj->n >= 2 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[1]
