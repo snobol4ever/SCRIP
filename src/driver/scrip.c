@@ -199,6 +199,8 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CASE) return 1;
     if (r->op == IR_GATHER) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
+    if (r->op == IR_UNOP) { int64_t u = IR_LIT(r).ival; if (u == TT_MNS || u == TT_PLS || u == TT_SIZE || u == TT_NONNULL || u == TT_NULL || u == TT_NOT) return 1; }
+    if (r->op == IR_NEG || r->op == IR_POS || r->op == IR_SIZE || r->op == IR_NONNULL || r->op == IR_NULL_TEST || r->op == IR_NOT) return 1;
     if (r->op == IR_GEN_SCAN) return gen_scan_body_slotful(r);
     return 0;
 }
