@@ -118,6 +118,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_every.cpp \
     $(SRC)/emitter/BB_templates/bb_to.cpp \
     $(SRC)/emitter/BB_templates/bb_idx_set.cpp \
+    $(SRC)/emitter/BB_templates/bb_idx_get.cpp \
     $(SRC)/emitter/BB_templates/bb_alt.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_pos.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_any.cpp \
@@ -369,6 +370,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_every.cpp        -o $(OBJ)/bb_every.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_to.cpp           -o $(OBJ)/bb_to.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_idx_set.cpp      -o $(OBJ)/bb_idx_set.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_idx_get.cpp      -o $(OBJ)/bb_idx_get.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_alt.cpp          -o $(OBJ)/bb_alt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_pos.cpp     -o $(OBJ)/bb_scan_pos.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_any.cpp     -o $(OBJ)/bb_scan_any.o

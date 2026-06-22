@@ -86,6 +86,7 @@ std::string bb_var_frame();
 std::string bb_var_frame_ref();
 std::string bb_to();
 std::string bb_idx_set();
+std::string bb_idx_get();
 std::string bb_scan_pos();
 std::string bb_scan_any();
 std::string bb_scan_match();

@@ -393,7 +393,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_LIT_NUL:              bb_emit_x86(bb_lit_scalar());         return 0;
     case IR_VAR:                  { extern int is_global(const char *); if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword()); else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global()); else bb_emit_x86(bb_var()); } return 0;
     case IR_ASSIGN: {
-        extern int g_descr_flat_chain; if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP || op_a->op == IR_UNOP || op_a->op == IR_VAR || op_a->op == IR_VAR_FRAME || op_a->op == IR_VAR_FRAME_REF || op_a->op == IR_CALL || ir_is_call_kind(op_a->op) || op_a->op == IR_CALL_DEFINE)) { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
+        extern int g_descr_flat_chain; if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP || op_a->op == IR_UNOP || op_a->op == IR_VAR || op_a->op == IR_VAR_FRAME || op_a->op == IR_VAR_FRAME_REF || op_a->op == IR_CALL || ir_is_call_kind(op_a->op) || op_a->op == IR_CALL_DEFINE || op_a->op == IR_IDX)) { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
@@ -438,6 +438,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_TO:
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_LIST_BANG:            bb_emit_x86(bb_iterate(nd));      return 0;
+    case IR_IDX:                  bb_emit_x86(bb_idx_get());        return 0;
     case IR_IDX_SET:              bb_emit_x86(bb_idx_set());        return 0;
     case IR_ALT:                  bb_prepare(nd); { bb_emit_x86(bb_alt()); } return 0;
     case IR_SCAN_POS:             { bb_emit_x86(bb_scan_pos()); } return 0;
