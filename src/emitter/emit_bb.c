@@ -233,6 +233,7 @@ const char *emit_intern_str(const char *s) {
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 static void descr_chain_operand_refs(IR_t *entry);
 static void gvar_stmt_operand_refs(IR_t *head);
+static int gvar_prewalk_idx_operand(IR_t *idx, bb_label_t *lbl_ω);
 static IR_t * bb_child0(const IR_t *n) { return (n && n->n_operands > 0) ? n->operands[0] : NULL; }
 static IR_t * bb_child1(const IR_t *n) { return (n && n->n_operands > 1) ? n->operands[1] : NULL; }
 extern int memcmp(const void *, const void *, size_t);
@@ -1467,14 +1468,19 @@ static void flat_drive_seq(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int bb_arith_dyn_kind(IR_t *o) { return o && (o->op == IR_CALL || ir_is_call_kind(o->op) || o->op == IR_IDX); }
+static int bb_arith_materializable(IR_t *o) {
+    return o && (o->op == IR_CALL || ir_is_call_kind(o->op) || o->op == IR_IDX || o->op == IR_LIT_I || (o->op == IR_VAR && IR_LIT(o).sval));
+}
 int bb_arith_is_dynamic(IR_t *nd) {
     if (!nd || nd->op != IR_BINOP) return 0;
     int64_t o = IR_LIT(nd).ival;
     if (!(o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL || o == BINOP_DIV || o == BINOP_MOD)) return 0;
     IR_t *a = bb_child0(nd), *b = bb_child1(nd);
-    int ad = a && (a->op == IR_CALL || ir_is_call_kind(a->op));
-    int bd = b && (b->op == IR_CALL || ir_is_call_kind(b->op));
-    return (ad && bd) ? 1 : 0;
+    int adyn = bb_arith_dyn_kind(a), bdyn = bb_arith_dyn_kind(b);
+    if (!adyn && !bdyn) return 0;
+    if (!bb_arith_materializable(a) || !bb_arith_materializable(b)) return 0;
+    return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_e binop_slot_kind(IR_t *nd) {
@@ -1793,6 +1799,35 @@ static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
 static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (pBB && pBB->n_operands >= 3 && pBB->operands[0] && pBB->operands[1] && pBB->operands[2] && pBB->operands[0]->op == IR_VAR
         && (pBB->operands[1]->op == IR_LIT_I || pBB->operands[1]->op == IR_VAR)
+        && pBB->operands[2]->op == IR_BINOP) {
+        IR_t *base_box = pBB->operands[0];
+        IR_t *key_box  = pBB->operands[1];
+        IR_t *val_box  = pBB->operands[2];
+        int vslot = gvar_prewalk_idx_operand(val_box, lbl_ω);
+        if (vslot < 0) {
+            int id = g_flat_node_id++;
+            bb_label_t *v_done = emit_label_alloc("xgvidxv%d_done", id);
+            bb_label_t *v_β    = emit_label_alloc("xgvidxv%d_β",    id);
+            g_gvar_callarg_live = 1;
+            walk_bb_flat(val_box, v_done, lbl_ω, v_β);
+            g_gvar_callarg_live = 0;
+            emit_label_define_bb(v_done);
+            vslot = bb_slot_get(val_box);
+        }
+        g_emit.op_name1 = IR_LIT(base_box).sval;
+        g_emit.op_name2 = (const char *)0;
+        g_emit.op_parts_str[2] = (const char *)0;
+        g_emit.bb_lk = (int)key_box->op; g_emit.bb_li = (int64_t)IR_LIT(key_box).ival;
+        if (key_box->op == IR_VAR) g_emit.op_name2 = IR_LIT(key_box).sval;
+        g_emit.bb_rk = (int)IR_BINOP; g_emit.bb_ri = 0;
+        g_emit.op_sa = bb_slot_claim(16); g_emit.op_sb = bb_slot_claim(16); g_emit.op_sc = vslot;
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        return;
+    }
+    if (pBB && pBB->n_operands >= 3 && pBB->operands[0] && pBB->operands[1] && pBB->operands[2] && pBB->operands[0]->op == IR_VAR
+        && (pBB->operands[1]->op == IR_LIT_I || pBB->operands[1]->op == IR_VAR)
         && (pBB->operands[2]->op == IR_LIT_I || pBB->operands[2]->op == IR_VAR)) {
         IR_t *base_box = pBB->operands[0];
         IR_t *key_box  = pBB->operands[1];
@@ -2081,6 +2116,19 @@ static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
     }
     for (int i = 0; i < nargs; i++) g_emit.op_arg_slot[i] = slots[i];
     g_emit.op_arg_slot_n = nargs;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int gvar_prewalk_idx_operand(IR_t *idx, bb_label_t *lbl_ω) {
+    if (!idx || idx->op != IR_IDX) return -1;
+    if (g_flat_slot_count < 16) (void)bb_slot_claim(16 - g_flat_slot_count);
+    int id = g_flat_node_id++;
+    bb_label_t *idx_done = emit_label_alloc("xgvidx%d_done", id);
+    bb_label_t *idx_β    = emit_label_alloc("xgvidx%d_β",    id);
+    g_gvar_callarg_live = 1;
+    walk_bb_flat(idx, idx_done, lbl_ω, idx_β);
+    g_gvar_callarg_live = 0;
+    emit_label_define_bb(idx_done);
+    return bb_slot_get(idx);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
@@ -3049,6 +3097,25 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             EMIT_PAIR_RESET();
             EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
             { IR_e _sk = nd->op; nd->op = IR_BINOP_GVAR_ARITH; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; }
+        } else if (g_gvar_flat_chain && op_is_arith && bb_arith_is_dynamic(nd) && (bb_child0(nd)->op == IR_IDX || bb_child1(nd)->op == IR_IDX)) {
+            IR_t *c0 = bb_child0(nd), *c1 = bb_child1(nd);
+            int sa = (c0->op == IR_IDX) ? gvar_prewalk_idx_operand(c0, lbl_ω) : bb_slot_get(c0);
+            int sb = (c1->op == IR_IDX) ? gvar_prewalk_idx_operand(c1, lbl_ω) : bb_slot_get(c1);
+            if (sa < 0) sa = bb_slot_claim(16);
+            if (sb < 0) sb = bb_slot_claim(16);
+            g_emit.bb_lk    = (int)ir_norm_call_kind(c0->op);
+            g_emit.bb_rk    = (int)ir_norm_call_kind(c1->op);
+            g_emit.bb_li    = (c0->op == IR_LIT_I) ? IR_LIT(c0).ival : 0;
+            g_emit.bb_ri    = (c1->op == IR_LIT_I) ? IR_LIT(c1).ival : 0;
+            g_emit.op_name1 = (c0->op == IR_VAR) ? IR_LIT(c0).sval : (const char *)0;
+            g_emit.op_name2 = (c1->op == IR_VAR) ? IR_LIT(c1).sval : (const char *)0;
+            g_emit.op_sa    = sa;
+            g_emit.op_sb    = sb;
+            g_emit.op_arith_descr = 1;
+            g_emit.op_off   = bb_slot_alloc16(nd);
+            EMIT_PAIR_RESET();
+            EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+            { IR_e _sk = nd->op; nd->op = IR_BINOP_GVAR_ARITH_SLOT; EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; }
         } else if (g_gvar_flat_chain && op_is_arith && bb_child0(nd) && bb_child1(nd) &&
                    ((bb_child0(nd)->op == IR_LIT_I) || (bb_child0(nd)->op == IR_VAR && IR_LIT(bb_child0(nd)).sval) || bb_slot_get(bb_child0(nd)) >= 0) &&
                    ((bb_child1(nd)->op == IR_LIT_I) || (bb_child1(nd)->op == IR_VAR && IR_LIT(bb_child1(nd)).sval) || bb_slot_get(bb_child1(nd)) >= 0)) {

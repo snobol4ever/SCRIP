@@ -14,8 +14,8 @@ std::string bb_idx_set() {
         return x86_bomb("bb_idx_set: unhandled (needs base name + base/key/value scratch slots)");
     if (!(_.bb_lk == (int)IR_LIT_I || (_.bb_lk == (int)IR_VAR && _.op_name2 && _.op_parts_lbl[1])))
         return x86_bomb("bb_idx_set: unhandled key kind (LIT_I immediate or VAR by-name only)");
-    if (!(_.bb_rk == (int)IR_LIT_I || (_.bb_rk == (int)IR_VAR && _.op_parts_str[2] && _.op_parts_lbl[2])))
-        return x86_bomb("bb_idx_set: unhandled value kind (LIT_I immediate or VAR by-name only)");
+    if (!(_.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_BINOP || (_.bb_rk == (int)IR_VAR && _.op_parts_str[2] && _.op_parts_lbl[2])))
+        return x86_bomb("bb_idx_set: unhandled value kind (LIT_I immediate, BINOP slot, or VAR by-name only)");
     std::string s = x86("label", _.lbl_α)
                   + x86("comment", "IR_IDX_SET (subscript_set, by-name)")
                   + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
@@ -33,6 +33,10 @@ std::string bb_idx_set() {
     if (_.bb_rk == (int)IR_LIT_I)
         s += x86("movabs", "rax", (uint64_t)DT_I)     + x86("mov", FRQ(_.op_sc),     "rax")
            + x86("movabs", "rax", (uint64_t)_.bb_ri)  + x86("mov", FRQ(_.op_sc + 8), "rax");
+    else if (_.bb_rk == (int)IR_BINOP)
+        s += x86("mov",  "rax", FRQ(_.op_sc))
+           + x86("movabs", "rdx", (uint64_t)DT_I)     + x86("mov", FRQ(_.op_sc),     "rdx")
+           + x86("mov",  FRQ(_.op_sc + 8), "rax");
     else
         s += x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_parts_str[2], _.op_parts_lbl[2])
            + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
