@@ -156,6 +156,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_IDX_SET] = "IR_IDX_SET",
     [IR_KEY_GEN] = "IR_KEY_GEN",
     [IR_SWAP] = "IR_SWAP",
+    [IR_RASGN] = "IR_RASGN",
     [IR_SEQ_EXPR] = "IR_SEQ_EXPR",
     [IR_INITIAL] = "IR_INITIAL",
     [IR_LCONCAT] = "IR_LCONCAT",

@@ -2740,6 +2740,31 @@ static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_rasgn(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    IR_t *l_var = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
+    IR_t *rhs   = (pBB && pBB->n_operands > 1) ? pBB->operands[1] : NULL;
+    if (!l_var || !rhs || l_var->op != IR_VAR || !IR_LIT(l_var).sval) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_rasgn: x<-v requires an IR_VAR lvalue + rhs operand\n");
+        abort();
+    }
+    int id = g_flat_node_id++;
+    bb_label_t *l_done = emit_label_alloc("xrasgn%d_l",  id);
+    bb_label_t *r_done = emit_label_alloc("xrasgn%d_r",  id);
+    bb_label_t *l_β    = emit_label_alloc("xrasgn%d_lb", id);
+    bb_label_t *r_β    = emit_label_alloc("xrasgn%d_rb", id);
+    walk_bb_flat(l_var, l_done, lbl_ω, l_β);
+    emit_label_define_bb(l_done);
+    walk_bb_flat(rhs, r_done, lbl_ω, r_β);
+    emit_label_define_bb(r_done);
+    g_emit.op_sb     = bb_varslot_peek(IR_LIT(l_var).sval);
+    g_emit.op_a_slot = (rhs->op == IR_VAR && IR_LIT(rhs).sval) ? bb_varslot_peek(IR_LIT(rhs).sval) : bb_slot_get(rhs);
+    g_emit.op_sc     = bb_slot_claim(16);
+    g_emit.op_off    = bb_slot_claim(16);
+    EMIT_PAIR_RESET();
+    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+    EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int while_operand_simple(IR_t *o) {
     if (!o) return 0;
     switch (o->op) {
@@ -3267,6 +3292,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         }
         flat_drive_return(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SWAP:       flat_drive_swap(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_RASGN:      flat_drive_rasgn(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_WHILE:
     case IR_UNTIL:
         if (g_gvar_flat_chain || g_descr_flat_chain) {
