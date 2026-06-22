@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.."
 JASMIN=src/backends/jasmin.jar
 CORPUS_ROOT="${CORPUS:-$(cd "$(dirname "$0")/../../.." 2>/dev/null && pwd || echo "")}"
 NULL_SNO="$CORPUS_ROOT/programs/snobol4/smoke/null.sno"
-ROMAN=/home/claude/corpus/benchmarks/roman.sno
+ROMAN=/home/claude/corpus/benchmarks/snobol4/roman.sno
 WORDCOUNT=/home/claude/corpus/crosscheck/strings/wordcount.sno
 
 TMPD=$(mktemp -d)

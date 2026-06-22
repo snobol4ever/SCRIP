@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks}"; CAP=200000; T="${TIMEOUT:-30}"
+B="${BENCH_DIR:-/home/claude/corpus/benchmarks/snobol4}"; CAP=200000; T="${TIMEOUT:-30}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
 [ -d "$B" ] || { echo "SKIP bench corpus missing"; exit 0; }

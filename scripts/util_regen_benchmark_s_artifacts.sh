@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # util_regen_benchmark_s_artifacts.sh — regenerate the mode-4 (--compile) x86 .s
 # artifact for every SNOBOL4 benchmark, placed side-by-side with its .sno source
-# in corpus/benchmarks/, and commit ONLY the artifacts whose bytes actually changed.
+# in corpus/benchmarks/snobol4/, and commit ONLY the artifacts whose bytes actually changed.
 #
 # Run before handoff on any session that touches codegen, i.e. any of:
 #   src/emitter/emit_bb.c, src/emitter/emit_core.c, src/emitter/BB_templates/*.cpp,
@@ -17,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 CORPUS="${CORPUS:-/home/claude/corpus}"
-BENCH="${BENCH_DIR:-$CORPUS/benchmarks}"
+BENCH="${BENCH_DIR:-$CORPUS/benchmarks/snobol4}"
 
 if [ ! -x "$SCRIP" ];  then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 if [ ! -d "$BENCH" ];  then echo "SKIP  benchmark corpus not found: $BENCH"; exit 0; fi
