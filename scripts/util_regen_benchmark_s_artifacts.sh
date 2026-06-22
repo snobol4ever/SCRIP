@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# util_regen_benchmark_s_artifacts.sh — regenerate the mode-4 (--compile) x86 .s
+# artifact for every SNOBOL4 benchmark, placed side-by-side with its .sno source
+# in corpus/benchmarks/, and commit ONLY the artifacts whose bytes actually changed.
+#
+# Run before handoff on any session that touches codegen, i.e. any of:
+#   src/emitter/emit_bb.c, src/emitter/emit_core.c, src/emitter/BB_templates/*.cpp,
+#   src/emitter/x86_asm.h, src/lower/lower_snobol4.c, or the runtime sinks they call.
+#
+# The .s is the honest current compiler output: a benchmark whose codegen still
+# bombs an unimplemented shape emits a loud bomb stub INTO the .s (it still
+# assembles); when the gap is later closed the .s changes and is recommitted.
+# scrip --compile is deterministic, so re-running with an unchanged compiler
+# produces byte-identical .s and yields NO commit (idempotent).
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/.." && pwd)"
+SCRIP="${SCRIP:-$ROOT/scrip}"
+CORPUS="${CORPUS:-/home/claude/corpus}"
+BENCH="${BENCH_DIR:-$CORPUS/benchmarks}"
+
+if [ ! -x "$SCRIP" ];  then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
+if [ ! -d "$BENCH" ];  then echo "SKIP  benchmark corpus not found: $BENCH"; exit 0; fi
+
+cd "$BENCH"
+fail=0
+echo "Emitting benchmark .s artifacts (mode-4 --compile)..."
+for sno in *.sno; do
+    s="${sno%.sno}"
+    if timeout 30 "$SCRIP" --compile "$sno" > "/tmp/bench_$s.s" 2>/dev/null < /dev/null && [ -s "/tmp/bench_$s.s" ]; then
+        if gcc -c "/tmp/bench_$s.s" -o "/tmp/bench_$s.o" 2>"/tmp/bench_$s.aserr"; then
+            mv "/tmp/bench_$s.s" "$s.s"
+            echo "  OK    $s.s"
+        else
+            echo "  AS-FAIL $s.s (assembler rejected; NOT updated): $(head -1 "/tmp/bench_$s.aserr")"
+            fail=1
+        fi
+    else
+        echo "  EMIT-FAIL $s.s (empty/crash; NOT updated)"
+        fail=1
+    fi
+done
+
+echo "Committing changed artifacts to corpus..."
+cd "$CORPUS"
+git add benchmarks/*.s 2>/dev/null || true
+if git diff --cached --quiet -- benchmarks 2>/dev/null; then
+    echo "  No changes — benchmark .s artifacts already current."
+else
+    RUNG="${1:-regen}"
+    git -c user.name="LCherryholmes" -c user.email="lcherryh@yahoo.com" \
+        commit -q -m "benchmark x86 .s artifacts: $RUNG" -- benchmarks
+    echo "  Committed:"; git show --stat --oneline HEAD | sed -n '1,40p'
+fi
+
+echo "Done.$([ "$fail" -ne 0 ] && echo '  (one or more benchmarks did not produce a clean .s — see above.)')"
+exit "$fail"

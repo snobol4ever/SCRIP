@@ -791,7 +791,18 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_LIT(seq).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (rhs->n > 1) ? rhs->c[1] : NULL);
         return seq; }
     default: {
-        /* TT_IDX/TT_INDIRECT/TT_VLIST/TT_DEFER as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
+        /* TT_IDX read RHS (OUTPUT = T<k>): base=VAR, key=VAR|LIT_I → IR_ASSIGN(operands[idx]) where idx=IR_IDX(operands[base,key]) */
+        if (rhs->t == TT_IDX && rhs->n >= 2 && rhs->c[0] && rhs->c[0]->t == TT_VAR && rhs->c[1]
+            && (rhs->c[1]->t == TT_ILIT || rhs->c[1]->t == TT_VAR)) {
+            IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
+            IR_t * idx = build(cx, IR_IDX, asn, ω);
+            IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = rhs->c[0]->v.sval;
+            IR_t * key_box; if (rhs->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = rhs->c[1]->v.ival; }
+            else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = rhs->c[1]->v.sval; }
+            ir_operand_push(idx, base_box); ir_operand_push(idx, key_box); ir_operand_push(asn, idx);
+            return idx;
+        }
+        /* TT_IDX(other shape)/TT_INDIRECT/TT_VLIST/TT_DEFER as RHS: oracle emits orphan ASSIGN (no γ/ω), label chains to nxt */
         if (rhs->t == TT_IDX || rhs->t == TT_INDIRECT || rhs->t == TT_VLIST || rhs->t == TT_DEFER) {
             IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
             return NULL;
@@ -851,6 +862,19 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_t * asn = build(cx, IR_INDIRECT_ASSIGN_LIT_S, γ_tgt, ω_tgt); IR_LIT(asn).sval = (char *) subj->c[0]->v.sval;
             IR_t * lit = build(cx, IR_LIT_S, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval ? repl->v.sval : "";
             return lit;
+        }
+        /* table int/var-key write:  T<k> = v  (base=VAR, key=VAR|LIT_I, value=VAR|LIT_I) → IR_IDX_SET(operands[base,key,value]) */
+        if (subj->t == TT_IDX && subj->n >= 2 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[1]
+            && (subj->c[1]->t == TT_ILIT || subj->c[1]->t == TT_VAR)
+            && repl && (repl->t == TT_ILIT || repl->t == TT_VAR)) {
+            IR_t * st = build(cx, IR_IDX_SET, γ_tgt, ω_tgt);
+            IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
+            IR_t * key_box; if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
+            else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval; }
+            IR_t * val_box; if (repl->t == TT_ILIT) { val_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(val_box).ival = repl->v.ival; }
+            else { val_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval; }
+            ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, val_box);
+            return st;
         }
         /* assignment:  LHS = RHS  (plain VAR or KEYWORD LHS only) */
         if (subj->t != TT_VAR && subj->t != TT_KEYWORD) return NULL;
