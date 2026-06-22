@@ -221,6 +221,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_field_get.cpp \
     $(SRC)/emitter/BB_templates/bb_section.cpp \
     $(SRC)/emitter/BB_templates/bb_swap.cpp \
+    $(SRC)/emitter/BB_templates/bb_rasgn.cpp \
     $(SRC)/emitter/BB_templates/bb_case_arm.cpp \
     $(SRC)/emitter/XA_templates/xa_stubs.cpp \
     $(SRC)/emitter/XA_templates/xa_macro_library.cpp \
@@ -475,6 +476,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_section.cpp -o $(OBJ)/bb_section.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_swap.cpp -o $(OBJ)/bb_swap.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_rasgn.cpp -o $(OBJ)/bb_rasgn.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_case_arm.cpp -o $(OBJ)/bb_case_arm.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
 	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o

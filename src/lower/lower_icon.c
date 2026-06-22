@@ -259,6 +259,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * lr = NULL; lower(cx, (t->n > 0) ? t->c[0] : NULL, nd, ω, &lr);
         IR_t * rr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, ω, &rr);
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
+    case TT_REVASSIGN: { IR_t * nd = build(cx, IR_RASGN, γ, ω);
+        IR_t * lr = NULL; lower(cx, (t->n > 0) ? t->c[0] : NULL, nd, ω, &lr);
+        IR_t * rr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, ω, &rr);
+        ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
 }
