@@ -541,6 +541,15 @@ void rt_subject_load_nv(const char *name, void *slot)
     Σ = s; Σlen = len;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_subject_load_lit(const char *s, void *slot)
+{
+    if (!s) s = "";
+    int len = (int)strlen(s);
+    ((const char **)slot)[0] = s;
+    *(int *)((char *)slot + 8) = len;
+    Σ = s; Σlen = len;          /* capture base for rt_cap_assign_cursor — must mirror the NV arm */
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
 {
     struct part_t { int tag; int pad; const char *s; } *p = (struct part_t *)parts;
