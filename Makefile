@@ -85,7 +85,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/string_builtins.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
-    $(SRC)/emitter/bb_pat_build.cpp \
+    $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_term_build.cpp \
     $(SRC)/emitter/emit_globals.c \
@@ -337,7 +337,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/string_builtins.c           -o $(OBJ)/string_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/bb_pat_build.cpp           -o $(OBJ)/bb_pat_build.o
+	$(CXX) $(CXXRT) -c $(SRC)/runtime/rt/bb_pat_build.cpp        -o $(OBJ)/bb_pat_build.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_defer.cpp   -o $(OBJ)/bb_match_defer.o
