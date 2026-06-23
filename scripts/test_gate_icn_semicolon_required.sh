@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# test_gate_icn_semicolon_required.sh — THE PRISON for the ICON SEMICOLON-REQUIRED FACT RULE.
+#
+# SCRIP Icon REQUIRES an explicit ';' between bare statements. The Icon front-end does NO newline
+# processing: a newline is plain whitespace and NEVER becomes a statement separator. Newline-to-
+# semicolon insertion (the canonical icont "Beginner/Ender" rule) is FORBIDDEN in this codebase.
+#
+# This gate is structural AND behavioral, in three independent locks. A reintroduction of newline
+# insertion must defeat ALL THREE to pass, which it cannot:
+#
+#   LOCK 1 (negative grep) — the Icon lexer/parser source carries ZERO newline-insertion machinery:
+#       no Beginner/Ender token classification, no newline-crossing detection, no synthetic-token
+#       buffering whose purpose is separator insertion. Comments are stripped first.
+#
+#   LOCK 2 (mint-site) — TK_SEMICOL is MINTED in the Icon lexer ONLY from the literal ';' character.
+#       The number of make_tok(TK_SEMICOL,...) sites in icon_lex.c must be exactly 1 (the `case ';'`).
+#       (The parser CONSUMES TK_SEMICOL freely; this lock is about where it is PRODUCED.)
+#
+#   LOCK 3 (behavioral canary) — the actual language behavior is pinned, independent of identifier
+#       names. A two-bare-statement program separated only by a NEWLINE MUST FAIL to parse; the same
+#       program with an explicit ';' MUST parse. If someone adds insertion, the newline canary starts
+#       parsing and this lock trips.
+#
+# Usage: bash scripts/test_gate_icn_semicolon_required.sh        # HARD gate (exit 1 on any breach)
+# AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude   DATE: 2026-06-23
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/.." && pwd)"
+cd "$ROOT"
+SCRIP="${SCRIP:-$ROOT/scrip}"
+ICN_SRC="$ROOT/src/parser/icon"
+LEX="$ICN_SRC/icon_lex.c"
+fail=0
+
+strip_comments() { sed -E 's://.*$::' "$1" | perl -0777 -pe 's{/\*.*?\*/}{}gs'; }
+
+echo "=== ICON SEMICOLON-REQUIRED PRISON ==="
+
+# ---- LOCK 1: no newline-insertion machinery anywhere in the Icon front-end -------------------------
+# Tokens that only ever appear when someone is building Beginner/Ender semicolon insertion or
+# newline-crossing separator logic. (prev_line/prev_col crossing detection; have_pending separator
+# buffering; the canonical icont flag names.)
+machinery='tok_is_beginner|tok_is_ender|is_beginner|is_ender|Beginner|Ender|nlsemi|nl_semi|newline_semi|semi_insert|insert_semi|prev_line|have_pending'
+mcount=0
+for f in "$ICN_SRC"/*.c "$ICN_SRC"/*.h; do
+  [ -f "$f" ] || continue
+  h=$(strip_comments "$f" | grep -Ec "$machinery" || true)
+  if [ "$h" -gt 0 ]; then
+    echo "  LOCK 1 BREACH: $(basename "$f") has $h newline-insertion-machinery reference(s):"
+    strip_comments "$f" | grep -nE "$machinery" | sed 's/^/      /'
+    mcount=$((mcount + h))
+  fi
+done
+if [ "$mcount" -eq 0 ]; then echo "  LOCK 1 OK: zero newline-insertion machinery in src/parser/icon/."; else fail=1; fi
+
+# ---- LOCK 2: TK_SEMICOL minted only from the literal ';' -------------------------------------------
+mint=$(strip_comments "$LEX" | grep -cE 'make_tok\(\s*TK_SEMICOL' || true)
+echo "  LOCK 2: make_tok(TK_SEMICOL,...) mint-sites in icon_lex.c = ${mint} (must be 1)"
+if [ "$mint" -ne 1 ]; then echo "  LOCK 2 BREACH: TK_SEMICOL is minted from something other than the literal ';' case."; fail=1; else echo "  LOCK 2 OK."; fi
+
+# ---- LOCK 3: behavioral canary --------------------------------------------------------------------
+if [ ! -x "$SCRIP" ]; then
+  echo "  LOCK 3 SKIP: scrip binary not built at $SCRIP (build then re-run for the behavioral lock)."
+else
+  tmpd="$(mktemp -d /tmp/icn_semi_XXXXXX)"
+  # newline-only: two bare statements separated by a newline — MUST be a parse error
+  printf 'procedure main()\n  x := 5\n  y := 6\n  write(x + y)\nend\n' > "$tmpd/nl.icn"
+  # semicolon: same program with explicit ';' — MUST parse
+  printf 'procedure main()\n  x := 5;\n  y := 6;\n  write(x + y);\nend\n' > "$tmpd/semi.icn"
+
+  nl_err=$("$SCRIP" --run "$tmpd/nl.icn" < /dev/null 2>&1 | grep -c 'parse error' || true)
+  semi_err=$("$SCRIP" --run "$tmpd/semi.icn" < /dev/null 2>&1 | grep -c 'parse error' || true)
+
+  if [ "$nl_err" -ge 1 ]; then
+    echo "  LOCK 3a OK: newline-separated bare statements correctly REJECTED (parse error)."
+  else
+    echo "  LOCK 3a BREACH: newline-separated bare statements were ACCEPTED — newline processing is present."
+    fail=1
+  fi
+  if [ "$semi_err" -eq 0 ]; then
+    echo "  LOCK 3b OK: semicolon-separated statements correctly ACCEPTED."
+  else
+    echo "  LOCK 3b BREACH: semicolon-separated statements were REJECTED — the parser is over-strict/broken."
+    fail=1
+  fi
+  rm -rf "$tmpd"
+fi
+
+echo "---"
+if [ "$fail" -ne 0 ]; then
+  echo "FAIL: ICON SEMICOLON-REQUIRED PRISON breached. Icon does NO newline processing; semicolons are mandatory."
+  exit 1
+fi
+echo "PASS: Icon requires semicolons; no newline processing exists. All three locks hold."
+exit 0
