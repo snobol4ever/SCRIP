@@ -10,7 +10,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <gc/gc.h>
-extern bb_node_t gen_bb_make_proc_box(tree_t *proc, DESCR_t *args, int nargs);
 #define NO_AST_WALK_GUARD(fn_name) \
     do { if (g_sm_dispatch_active && !g_ast_pump_active && g_lang == LANG_ICN) { \
         fprintf(stderr, "FATAL: " fn_name " reached from SM dispatch (Icon BB incomplete)\n"); \

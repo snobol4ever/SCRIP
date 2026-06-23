@@ -83,7 +83,6 @@ int     static_get(tree_t *proc, const char *name, DESCR_t *out);
 void    static_set(tree_t *proc, const char *name, DESCR_t val);
 DESCR_t sm_call_proc(int entry_pc, int nparams, DESCR_t *args, int nargs);
 DESCR_t proc_table_call(int pi, DESCR_t *args, int nargs);
-bb_node_t gen_bb_pump_proc_by_name(const char *name, DESCR_t *args, int nargs);
 int       is_suspendable(tree_t *e);
 void      init_save_frame(void);
 const char *real_str(double r, char *buf, int bufsz);
