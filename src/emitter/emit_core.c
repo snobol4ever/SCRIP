@@ -367,7 +367,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_SPAN:    bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_BREAK:   bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_BREAKX:  bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_LEN:     bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;
+    case IR_PATTERN_LEN:     bb_emit_x86(bb_pattern_len());                                                                                             return 0;
     case IR_PATTERN_POS:     bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_RPOS:    bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_TAB:     bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;
@@ -383,7 +383,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_ALT:     bb_pattern_stub("bb_pattern_alt: DT_P builder pending (DDS)");                                                            return 0;
     case IR_PATTERN_CAPTURE: bb_pattern_stub("bb_pattern_capture: builder pending (B8)");                 return 0;
     case IR_PATTERN_DEFER:   bb_pattern_stub("bb_pattern_defer: builder pending (B10)");                  return 0;
-    case IR_DTP_ASSIGN:      bb_prepare(nd); bb_pattern_stub("bb_dtp_assign: DT_P builder pending (DDS)");      return 0;
+    case IR_DTP_ASSIGN:      { const char *vn = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.bb_ls = vn; IR_t *child = (nd->n_operands > 0) ? nd->operands[0] : NULL; if (child) return walk_bb_node(child, out); return 0; }
     case IR_PAT_ASSIGN_COND:
     case IR_PAT_ASSIGN_IMM:  bb_emit_x86(bb_match_capture());         return 0;
     case IR_ARITH:           bb_prepare(nd); bb_emit_x86(bb_arith());           return 0;
