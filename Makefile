@@ -85,6 +85,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/string_builtins.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
+    $(SRC)/emitter/bb_pat_build.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_term_build.cpp \
     $(SRC)/emitter/emit_globals.c \
@@ -111,6 +112,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_assign_frame_ref.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_splice_empty.cpp \
+    $(SRC)/emitter/BB_templates/bb_pattern_len.cpp \
     $(SRC)/emitter/BB_templates/bb_gen_scan.cpp \
     $(SRC)/emitter/BB_templates/bb_keyword.cpp \
     $(SRC)/emitter/BB_templates/bb_goto_dyn.cpp \
@@ -333,6 +335,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/string_builtins.c           -o $(OBJ)/string_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/bb_pat_build.cpp           -o $(OBJ)/bb_pat_build.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_defer.cpp   -o $(OBJ)/bb_match_defer.o
@@ -456,6 +459,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_stub.cpp -o $(OBJ)/bb_pattern_stub.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_splice_empty.cpp -o $(OBJ)/bb_scan_splice_empty.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_len.cpp -o $(OBJ)/bb_pattern_len.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_mapgrep.cpp -o $(OBJ)/bb_mapgrep.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o

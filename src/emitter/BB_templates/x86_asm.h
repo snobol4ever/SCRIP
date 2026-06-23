@@ -575,6 +575,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
                                                     : (std::string(" call ") + x86_portname(a.port) + "\n");
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" call ") + a.sym + "\n";
+        if (a.kind == XK_REG) { int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40; return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n"); }
         return std::string();
     }
     if (!strcmp(mnem, "push")) return x86_push(a.txt);

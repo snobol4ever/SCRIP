@@ -613,3 +613,14 @@ int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
 int cset_has(const char *cv, int clen, unsigned char ch) {
     return cv && clen > 0 && memchr(cv, ch, (size_t)clen) != NULL;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
+{
+    DESCR_t val = NV_GET_fn(varname ? varname : "");
+    if (ival_flag) {
+        if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
+        else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
+    }
+    if (val.v == DT_P && val.p) return val.p;
+    return NULL;
+}
