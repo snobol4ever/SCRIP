@@ -110,7 +110,7 @@ void rt_gvar_assign_pat(const char *name, void *head)
     DESCR_t d;
     d.v    = DT_P;
     d.slen = 0;
-    d.p    = (struct _DTP_t *)head;
+    d.p    = head;
     NV_SET_fn(name ? name : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
