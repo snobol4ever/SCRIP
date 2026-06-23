@@ -14,7 +14,7 @@ extern "C" void bb_build_len_blob(const char *name, int I) {
     IR_graph_t *g = IR_alloc(8, 0);
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *nd    = IR_node_alloc(g, IR_PATTERN_LEN);
+    IR_t *nd    = IR_node_alloc(g, IR_MATCH_LEN);
     lc_γ_to(nd, PSUCC);
     lc_ω_to(nd, PFAIL);
     IR_LIT(nd).ival = (int64_t)I;
