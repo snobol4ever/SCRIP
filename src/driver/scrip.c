@@ -2558,6 +2558,8 @@ int main(int argc, char **argv)
             g_gz_no_struct_ptr = 0;
             if (gz_root) {
                 extern int pl_gz_codegen(IR_t * nd, FILE * out, const char * prefix);
+                extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
+                g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
                 printf("  .intel_syntax noprefix\n");
                 printf("  .text\n");
                 printf("  .globl main\n");
