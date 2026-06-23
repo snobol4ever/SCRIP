@@ -2404,7 +2404,20 @@ static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ,
     IR_t *subj  = IR_node_alloc(pg, IR_SUBJECT);
     IR_t *match = IR_node_alloc(pg, IR_MATCH);
     if (!subj || !match) return 0;
-    IR_LIT(subj).sval = IR_LIT(pBB).sval;
+    /* Subject is either a named variable (pBB.sval) or a bare string literal
+       (op_scan_subj_lit). The walk_bb_node preamble (emit_core.c) sets op_sval
+       from subj->sval and op_a_sval from operands[0]. So: a NAMED subject keeps
+       its name in subj->sval (NV arm); a LITERAL subject keeps subj->sval empty
+       and carries the literal as an IR_LIT_S operand → op_a_sval (literal arm). */
+    if (IR_LIT(pBB).sval && IR_LIT(pBB).sval[0]) {
+        IR_LIT(subj).sval = IR_LIT(pBB).sval;
+    } else {
+        IR_LIT(subj).sval = "";
+        IR_t *slit = IR_node_alloc(pg, IR_LIT_S);
+        if (!slit) return 0;
+        IR_LIT(slit).sval = g_emit.op_scan_subj_lit ? g_emit.op_scan_subj_lit : "";
+        if (!ir_operand_push(subj, slit)) return 0;
+    }
     if (!ir_operand_push(match, pg->entry)) return 0;
     IR_graph_t *save_cfg = g_emit_cfg;
     int save_subject_slot = g_subject_slot;
@@ -2453,7 +2466,8 @@ static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
         if (scan_val_is_single_lit(sg))                    g_emit.op_scan_subj_lit = IR_LIT(sg->entry).sval ? IR_LIT(sg->entry).sval : "";
         if (scan_val_is_single_lit(rg))                    g_emit.op_scan_replace_lit = IR_LIT(rg->entry).sval ? IR_LIT(rg->entry).sval : "";
         int is_empty_repl = (IR_LIT(pBB).ival && g_emit.op_scan_replace_lit != NULL && g_emit.op_scan_replace_lit[0] == ' ' && !g_emit.op_scan_subj_lit);
-        if (!g_emit.op_scan_pat_lit && pBB && IR_LIT(pBB).sval && IR_LIT(pBB).sval[0]
+        if (!g_emit.op_scan_pat_lit && pBB
+            && ((IR_LIT(pBB).sval && IR_LIT(pBB).sval[0]) || g_emit.op_scan_subj_lit)
             && (!IR_LIT(pBB).ival || is_empty_repl)
             && (g_is_text || scan_pat_m3_native_safe(pg))) {
             if (flat_drive_scan_native(pBB, pg, lbl_γ, lbl_ω, lbl_β, is_empty_repl)) return;

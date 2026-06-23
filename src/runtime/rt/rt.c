@@ -12,6 +12,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+/* Subject capture base (pattern_match.c). A nested user-proc call whose body
+   runs its own SUBJ?PAT clobbers these globals; save/restore across the callee
+   so the caller's pending capture/scan keeps its own subject base. Mirrors the
+   save_Σ discipline in runtime_eval.c. */
+extern const char *Σ;
+extern int Σlen;
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
@@ -328,7 +334,9 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     long save_cursor = g_proc_frame_cursor_qw;
     g_proc_frame_cursor_qw += fqw;
     g_proc_frame_nest_depth++;
+    const char *save_Σ = Σ; int save_Σlen = Σlen;
     DESCR_t fret = p->fn(fb, 0);
+    Σ = save_Σ; Σlen = save_Σlen;
     g_proc_frame_nest_depth--;
     g_proc_frame_cursor_qw = save_cursor;
     DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : NV_GET_fn(name);
@@ -406,7 +414,9 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     ((void **)fb)[0] = sl;
     DESCR_t *slots = (DESCR_t *)((char *)fb + 16);
     for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
+    const char *save_Σ = Σ; int save_Σlen = Σlen;
     DESCR_t fret = p->fn(fb, 0);
+    Σ = save_Σ; Σlen = save_Σlen;
     g_proc_frame_nest_depth--;
     g_proc_frame_cursor_qw = save_cursor;
     DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : NV_GET_fn(name);

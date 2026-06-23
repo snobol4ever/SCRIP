@@ -10,6 +10,7 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_subject_load_nv(const char *name, void *slot);
+extern "C" void rt_subject_load_lit(const char *s, void *slot);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static const char * bb_subj_nlbl() {
     static char b[24];
@@ -35,12 +36,27 @@ static std::string bb_subject_nv_arm() {
          + x86("jmp",     "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static const char * bb_subj_litlbl() {
+    static char b[24];
+    const char * s = _.op_a_sval ? _.op_a_sval : "";
+    const char * l = emit_intern_str(s);
+    if (l) return l;
+    strtab_label(b, sizeof b, s); return b;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_subject_lit_arm() {
     return x86("comment", "IR_SUBJECT")
          + x86("label",   _.lbl_α)
-         + x86("mov",     "rax", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_a_sval, emit_intern_str(_.op_a_sval))
-         + x86("mov",     FRQ(_.op_sa), "rax")
-         + x86("mov",     FR(_.op_sa + 8), (long)strlen(_.op_a_sval))
+         + x86("lea",     "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_a_sval ? _.op_a_sval : ""), bb_subj_litlbl())
+         + x86("lea",     "rsi", FR(_.op_sa))
+         + x86("push",    "r10")
+         + x86("push",    "rbx")
+         + x86("mov",     "rbx", "rsp")
+         + x86("and",     "rsp", -16L)
+         + x86("call",    "rt_subject_load_lit", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, void *))rt_subject_load_lit)
+         + x86("mov",     "rsp", "rbx")
+         + x86("pop",     "rbx")
+         + x86("pop",     "r10")
          + x86("jmp",     "γ")
          + x86("def",     "β")
          + x86("jmp",     "ω");
