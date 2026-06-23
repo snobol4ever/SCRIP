@@ -697,8 +697,9 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         if (sno_leaf_buildable(rhs)) {
             IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
             IR_t * leaf = sno_build_leaf_ir(cx, rhs, dtp, ω);
-            ir_operand_push(dtp, leaf);
-            return leaf;
+            IR_t * cap = (leaf && leaf->γ.node && leaf->γ.node->op == IR_PATTERN_CAPTURE) ? leaf->γ.node : leaf;
+            ir_operand_push(dtp, cap);
+            return cap;
         }
         /* not buildable (variant) → ORPHAN plain ASSIGN (oracle bails before any pattern node) */
         IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;

@@ -48,3 +48,29 @@ extern "C" void bb_build_break_blob(const char *name, const char *cset) {
     IR_free(g);
     if (fn) rt_gvar_assign_pat(name, (void *)fn);
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_build_break_capture_blob(const char *name, const char *cset, const char *capvar) {
+    bb_pool_init();
+    IR_graph_t *g = IR_alloc(8, 0);
+    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t *inner = IR_node_alloc(g, IR_MATCH_BREAK);
+    IR_t *cap   = IR_node_alloc(g, IR_MATCH_ASSIGN_COND);
+    IR_LIT(inner).sval = cset;
+    lc_γ_to(inner, PSUCC);
+    lc_ω_to(inner, PFAIL);
+    IR_LIT(cap).sval = capvar;
+    IR_LIT(cap).ival = 0;
+    ir_operand_push(cap, inner);
+    lc_γ_to(cap, PSUCC);
+    lc_ω_to(cap, PFAIL);
+    IR_graph_t *saved_cfg = g_emit_cfg;
+    int saved_fa = g_frame_active;
+    g_emit_cfg   = g;
+    g_frame_active = 1;
+    bb_box_fn fn = bb_build_flat(cap);
+    g_emit_cfg   = saved_cfg;
+    g_frame_active = saved_fa;
+    IR_free(g);
+    if (fn) rt_gvar_assign_pat(name, (void *)fn);
+}
