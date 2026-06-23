@@ -65,6 +65,7 @@ std::string bb_succeed();
 std::string bb_match_defer();
 std::string bb_pattern_len();
 std::string bb_pattern_break();
+std::string bb_pattern_capture();
 std::string bb_keyword();
 std::string bb_goto_dyn();
 std::string bb_scan_stmt();

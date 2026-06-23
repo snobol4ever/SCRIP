@@ -3260,6 +3260,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_PATTERN_ARB:     g_emit.op_kind = "ARB";     g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_FENCE:   g_emit.op_kind = "FENCE";   g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_ABORT:   g_emit.op_kind = "ABORT";   g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_PATTERN_CAPTURE: g_emit.op_kind = "CAPTURE"; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_ival = IR_LIT(nd).ival; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_CAT: g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; g_emit.op_sb = (nd->n_operands > 1) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_ALT: g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; g_emit.op_sb = (nd->n_operands > 1) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_DTP_ASSIGN:  g_emit.op_sa = (nd->n_operands > 0) ? bb_slot_get(nd->operands[0]) : -1; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;

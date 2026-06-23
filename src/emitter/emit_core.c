@@ -381,7 +381,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_FENCE_P: bb_pattern_stub("bb_pattern_fence_p: builder pending (B9)");                 return 0;
     case IR_PATTERN_CAT:     bb_pattern_stub("bb_pattern_cat: DT_P builder pending (DDS)");                                                            return 0;
     case IR_PATTERN_ALT:     bb_pattern_stub("bb_pattern_alt: DT_P builder pending (DDS)");                                                            return 0;
-    case IR_PATTERN_CAPTURE: bb_pattern_stub("bb_pattern_capture: builder pending (B8)");                 return 0;
+    case IR_PATTERN_CAPTURE: bb_emit_x86(bb_pattern_capture());                                                                                         return 0;
     case IR_PATTERN_DEFER:   bb_pattern_stub("bb_pattern_defer: builder pending (B10)");                  return 0;
     case IR_DTP_ASSIGN:      { const char *vn = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.bb_ls = vn; IR_t *child = (nd->n_operands > 0) ? nd->operands[0] : NULL; if (child) { g_emit.pat_via_dtp = 1; int rc = walk_bb_node(child, out); g_emit.pat_via_dtp = 0; return rc; } return 0; }
     case IR_MATCH_ASSIGN_COND:
