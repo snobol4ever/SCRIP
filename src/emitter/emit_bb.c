@@ -2425,6 +2425,7 @@ static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ,
         g_emit.op_sval = IR_LIT(pBB).sval;
         g_emit.op_sa   = g_match_start_slot;
         { extern void bb_emit_splice_empty_call(void); bb_emit_splice_empty_call(); }
+        emit_jmp_label(lbl_γ, JMP_JMP);   /* splice is straight-line; scan owns success exit */
     } else {
         emit_jmp_label(lbl_γ, JMP_JMP);
     }
