@@ -589,6 +589,10 @@ int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
         if (llen > 0 && strncmp(Σ + cur_delta, lit, (size_t)llen) != 0) return -1;
         return cur_delta + llen;
     }
+    if (val.v == DT_P && val.p) {
+        int (*head)(const char *, int, int) = (int (*)(const char *, int, int))val.p;
+        return head(Σ, cur_delta, (int)Σlen);
+    }
     return -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
