@@ -12,7 +12,7 @@ extern int64_t kw_anchor;
 std::string bb_match_advance() {
     if (!PLATFORM_X86) return std::string();
     return (_.op_sa < 0 || _.op_off < 0)
-         ? x86_bomb("IR_PAT_MATCH: subject/start slot not promoted (flat_drive_match)")
+         ? x86_bomb("IR_MATCH: subject/start slot not promoted (flat_drive_match)")
          : x86("comment", "IR_MATCH_ADVANCE")
          + x86("add", FR(_.op_off), (long)1)
          + x86("mov", "eax", FR(_.op_off))

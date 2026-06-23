@@ -44,20 +44,20 @@ static const char * kname(IR_e t) {
     case IR_ASSIGN: return "ASGN"; case IR_CALL: return "CALL"; case IR_LIT_S: return "LIT_S";
     case IR_ASSIGN_LIT_S: return "ASGN_LS"; case IR_ASSIGN_LIT_I: return "ASGN_LI";
     case IR_ASSIGN_VAR: return "ASGN_V"; case IR_ASSIGN_CONCAT: return "ASGN_C"; case IR_ASSIGN_CALL: return "ASGN_K";
-    case IR_PAT_LIT: return "PLIT"; case IR_PAT_REM: return "PREM"; case IR_PAT_ARB: return "PARB";
-    case IR_PAT_SPAN: return "PSPAN"; case IR_PAT_SPAN_VAR: return "PSPANV"; case IR_PAT_ANY: return "PANY"; case IR_PAT_NOTANY: return "PNANY"; case IR_PAT_BREAK: return "PBRK"; case IR_PAT_BREAKX: return "PBRKX";
-    case IR_PAT_CAT: return "PCAT"; case IR_PAT_ALT: return "PALT";
-    case IR_PAT_LEN: return "PLEN"; case IR_PAT_POS: return "PPOS"; case IR_PAT_TAB: return "PTAB"; case IR_PAT_RTAB: return "PRTAB";
-    case IR_PAT_FENCE: return "PFNC"; case IR_PAT_ABORT: return "PABT"; case IR_PAT_ARBNO: return "PARBN";
-    case IR_PAT_ASSIGN_COND: return "PCAP"; case IR_PAT_ASSIGN_IMM: return "PCAPI"; case IR_PAT_ATP: return "PATP";
-    case IR_PAT_DEFER: return "PDEF"; case IR_PAT_BAL: return "PBAL";
+    case IR_MATCH_LIT: return "PLIT"; case IR_MATCH_REM: return "PREM"; case IR_MATCH_ARB: return "PARB";
+    case IR_MATCH_SPAN: return "PSPAN"; case IR_MATCH_SPAN_VAR: return "PSPANV"; case IR_MATCH_ANY: return "PANY"; case IR_MATCH_NOTANY: return "PNANY"; case IR_MATCH_BREAK: return "PBRK"; case IR_MATCH_BREAKX: return "PBRKX";
+    case IR_MATCH_CAT: return "PCAT"; case IR_MATCH_ALT: return "PALT";
+    case IR_MATCH_LEN: return "PLEN"; case IR_MATCH_POS: return "PPOS"; case IR_MATCH_TAB: return "PTAB"; case IR_MATCH_RTAB: return "PRTAB";
+    case IR_MATCH_FENCE: return "PFNC"; case IR_MATCH_ABORT: return "PABT"; case IR_MATCH_ARBNO: return "PARBN";
+    case IR_MATCH_ASSIGN_COND: return "PCAP"; case IR_MATCH_ASSIGN_IMM: return "PCAPI"; case IR_MATCH_ATP: return "PATP";
+    case IR_MATCH_DEFER: return "PDEF"; case IR_MATCH_BAL: return "PBAL";
     case IR_GCONJ: return "GCONJ"; case IR_DISJ: return "DISJ"; case IR_UNIFY: return "UNIFY"; case IR_ARITH: return "ARITH"; case IR_CUT: return "CUT";
     case IR_BUILTIN: return "BLTIN"; case IR_ATOM: return "ATOM"; case IR_STRUCT: return "STRCT"; case IR_LOGICVAR: return "LVAR";
     case IR_ITE: return "ITE";
     case IR_GATHER: return "GTHR";
     case IR_SUBJECT: return "SUBJ";
     case IR_REF_INVARIANT: return "REFINV";
-    case IR_PAT_MATCH: return "PATMAT";
+    case IR_MATCH: return "PATMAT";
     default: return "?";
     }
 }

@@ -144,7 +144,7 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_RETURN: return lower_nary(cx, t, IR_RETURN, γ, ω);
     case TT_TRY: return lower_nary(cx, t, IR_CATCH, γ, ω);
     case TT_DIE: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "die"; return nd; }
-    case TT_SMATCH: return lower_nary(cx, t, IR_PAT_MATCH, γ, ω);
+    case TT_SMATCH: return lower_nary(cx, t, IR_MATCH, γ, ω);
     case TT_CAPTURE: return lower_nary(cx, t, IR_PATTERN_CAPTURE, γ, ω);
     case TT_NAMED_CAPTURE: return lower_nary(cx, t, IR_PATTERN_CAPTURE, γ, ω);
     case TT_FH_CAPTURE: return lower_nary(cx, t, IR_PATTERN_CAPTURE, γ, ω);

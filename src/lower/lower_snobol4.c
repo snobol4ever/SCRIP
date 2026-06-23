@@ -154,8 +154,8 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
 /* ── pattern sub-graph builder ──────────────────────────────────────── */
 static int is_pat_consumer(IR_e op) {
     switch (op) {
-    case IR_PAT_LEN: case IR_PAT_TAB: case IR_PAT_RTAB: case IR_PAT_REM: case IR_PAT_BREAK:
-    case IR_PAT_BREAKX: case IR_PAT_SPAN: case IR_PAT_ANY: case IR_PAT_NOTANY: case IR_PAT_LIT: case IR_PAT_ARB: case IR_PAT_ARBNO: return 1;
+    case IR_MATCH_LEN: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_REM: case IR_MATCH_BREAK:
+    case IR_MATCH_BREAKX: case IR_MATCH_SPAN: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_LIT: case IR_MATCH_ARB: case IR_MATCH_ARBNO: return 1;
     default: return 0; }
 }
 static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_t * fail);
@@ -171,27 +171,27 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
     if (!t) return succ;
     switch (t->t) {
     case TT_QLIT: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_LIT); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_LIT); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_VAR: {
         /* built-in SNOBOL4 pattern names → specific opcodes */
         const char * nm = t->v.sval;
         if (nm) {
-            if (!strcmp(nm,"REM")  || !strcmp(nm,"rem"))   { IR_t * nd = IR_node_alloc(pg, IR_PAT_REM);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
-            if (!strcmp(nm,"ARB")  || !strcmp(nm,"arb"))   { IR_t * nd = IR_node_alloc(pg, IR_PAT_ARB);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
-            if (!strcmp(nm,"FENCE")|| !strcmp(nm,"fence"))  { IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); IR_LIT(nd).ival = 1; return nd; }
-            if (!strcmp(nm,"ABORT")|| !strcmp(nm,"abort"))  { IR_t * nd = IR_node_alloc(pg, IR_PAT_ABORT); γ_to(nd, succ); ω_to(nd, fail); return nd; }
-            if (!strcmp(nm,"BAL")  || !strcmp(nm,"bal"))    { IR_t * nd = IR_node_alloc(pg, IR_PAT_BAL);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"REM")  || !strcmp(nm,"rem"))   { IR_t * nd = IR_node_alloc(pg, IR_MATCH_REM);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"ARB")  || !strcmp(nm,"arb"))   { IR_t * nd = IR_node_alloc(pg, IR_MATCH_ARB);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"FENCE")|| !strcmp(nm,"fence"))  { IR_t * nd = IR_node_alloc(pg, IR_MATCH_FENCE); γ_to(nd, succ); ω_to(nd, fail); IR_LIT(nd).ival = 1; return nd; }
+            if (!strcmp(nm,"ABORT")|| !strcmp(nm,"abort"))  { IR_t * nd = IR_node_alloc(pg, IR_MATCH_ABORT); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+            if (!strcmp(nm,"BAL")  || !strcmp(nm,"bal"))    { IR_t * nd = IR_node_alloc(pg, IR_MATCH_BAL);   γ_to(nd, succ); ω_to(nd, fail); return nd; }
             if (!strcmp(nm,"FAIL") || !strcmp(nm,"fail"))   { IR_t * nd = IR_node_alloc(pg, IR_FAIL);      γ_to(nd, succ); ω_to(nd, fail); return nd; }
         }
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_DEFER); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_ARB: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_ARB); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_ARB); γ_to(nd, succ); ω_to(nd, fail); return nd; }
     case TT_REM: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_REM); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_REM); γ_to(nd, succ); ω_to(nd, fail); return nd; }
     case TT_BREAK: case TT_BREAKX: {
-        IR_e op = (t->t == TT_BREAK) ? IR_PAT_BREAK : IR_PAT_BREAKX;
+        IR_e op = (t->t == TT_BREAK) ? IR_MATCH_BREAK : IR_MATCH_BREAKX;
         IR_t * nd = IR_node_alloc(pg, op); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
@@ -199,35 +199,35 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             else IR_LIT(nd).sval = arg->v.sval; }
         return nd; }
     case TT_SPAN: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_SPAN); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_SPAN); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
             if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).ival = 1; }
             else IR_LIT(nd).sval = arg->v.sval; }
         return nd; }
     case TT_ANY: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_ANY); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_ANY); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
             if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }
             else IR_LIT(nd).sval = arg->v.sval; }
         return nd; }
     case TT_NOTANY: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_NOTANY); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_NOTANY); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
             if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }
             else IR_LIT(nd).sval = arg->v.sval; }
         return nd; }
     case TT_POS: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_POS); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_POS); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
             if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 2.0; }
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_RPOS: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_POS); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_POS); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = "r";
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
@@ -235,21 +235,21 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_LEN: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_LEN); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_LEN); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
             if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 1.0; }
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_TAB: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_TAB); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_TAB); γ_to(nd, succ); ω_to(nd, fail);
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
             if (arg->t == TT_VAR || arg->t == TT_KEYWORD) { IR_LIT(nd).sval = arg->v.sval; IR_LIT(nd).dval = 2.0; }
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_RTAB: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_RTAB); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_RTAB); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = "r";
         if (t->n > 0 && t->c[0]) {
             const tree_t * arg = t->c[0];
@@ -257,7 +257,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             else IR_LIT(nd).ival = arg->v.ival; }
         return nd; }
     case TT_ARBNO: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_ARBNO); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_ARBNO); γ_to(nd, succ); ω_to(nd, fail);
         bb_arbno_state_t * az = (bb_arbno_state_t *) calloc(1, sizeof *az);
         if (az) {
             extern IR_graph_t * sno_pat_graph_fwd(const tree_t *);
@@ -288,7 +288,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         IR_t * cont = succ; /* continuation for successful match */
         /* allocate the chain of PAT_ALT nodes right-to-left */
         /* final PAT_ALT (for last pair): γ=succ, ω=fail */
-        IR_t * final_alt = IR_node_alloc(pg, IR_PAT_ALT); γ_to(final_alt, succ); ω_to(final_alt, fail);
+        IR_t * final_alt = IR_node_alloc(pg, IR_MATCH_ALT); γ_to(final_alt, succ); ω_to(final_alt, fail);
         /* build from rightmost alt backwards; each non-last alt gets its own PAT_ALT continuation */
         /* alts[na-1] is last (rightmost): γ→final_alt, ω→fail */
         IR_t * last_entry = lower_pat_node(pg, alts[na-1], final_alt, fail);
@@ -296,7 +296,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         IR_t * prev_entry = last_entry;
         IR_t * prev_alt = final_alt;
         for (int i = na-2; i >= 1; i--) {
-            IR_t * alt_nd = IR_node_alloc(pg, IR_PAT_ALT); γ_to(alt_nd, final_alt); ω_to(alt_nd, prev_entry);
+            IR_t * alt_nd = IR_node_alloc(pg, IR_MATCH_ALT); γ_to(alt_nd, final_alt); ω_to(alt_nd, prev_entry);
             IR_t * e = lower_pat_node(pg, alts[i], alt_nd, prev_entry);
             prev_entry = e; prev_alt = alt_nd; }
         (void)prev_alt;
@@ -304,7 +304,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         IR_t * first_entry = lower_pat_node(pg, alts[0], prev_alt, prev_entry);
         return first_entry; }
     case TT_CAPT_COND_ASGN: {  /* pat . var */
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_ASSIGN_COND); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_ASSIGN_COND); γ_to(nd, succ); ω_to(nd, fail);
         const char * vn = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : "";
         IR_LIT(nd).sval = (char *) vn;
         if (t->n > 0 && t->c[0]) {
@@ -313,7 +313,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         }
         return nd; }
     case TT_CAPT_IMMED_ASGN: { /* pat $ var */
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_ASSIGN_IMM); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_ASSIGN_IMM); γ_to(nd, succ); ω_to(nd, fail);
         const char * vn = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : "";
         IR_LIT(nd).sval = (char *) vn;
         if (t->n > 0 && t->c[0]) {
@@ -333,7 +333,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             /* only allocate PAT_CAT if succ is the graph's SUCCEED exit (idx=0) */
             /* any other succ means there's already a non-trivial continuation — no PAT_CAT needed */
             int need_cat = succ && succ->op == IR_SUCCEED && succ == pg->all[0];
-            IR_t * cat = need_cat ? IR_node_alloc(pg, IR_PAT_CAT) : succ;
+            IR_t * cat = need_cat ? IR_node_alloc(pg, IR_MATCH_CAT) : succ;
             if (need_cat) { γ_to(cat, succ); ω_to(cat, fail); }
             IR_t * re = lower_pat_node(pg, rc, cat, fail);
             /* lower lc; capture/FAIL.ω → tail of lc (the immediately preceding element or its inner operand) */
@@ -342,7 +342,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             /* backtrack-ω: rc node.ω → le_tail (if consumer) or le_tail's inner operand (if capture) */
             if (re && le_tail) {
                 if (is_pat_consumer(le_tail->op)) ω_to(re, le_tail);
-                else if ((le_tail->op == IR_PAT_ASSIGN_COND || le_tail->op == IR_PAT_ASSIGN_IMM) && le_tail->n_operands > 0)
+                else if ((le_tail->op == IR_MATCH_ASSIGN_COND || le_tail->op == IR_MATCH_ASSIGN_IMM) && le_tail->n_operands > 0)
                     ω_to(re, le_tail->operands[0]);
             }
             return le;
@@ -352,7 +352,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             /* only a fresh PAT_CAT when succ is the graph SUCCEED exit; an inner concat */
             /* (succ already a real continuation, e.g. 060 outer REM-capture) gets none */
             int need_cat = succ && succ->op == IR_SUCCEED && succ == pg->all[0];
-            IR_t * cat = need_cat ? IR_node_alloc(pg, IR_PAT_CAT) : succ;
+            IR_t * cat = need_cat ? IR_node_alloc(pg, IR_MATCH_CAT) : succ;
             if (need_cat) { γ_to(cat, succ); ω_to(cat, fail); }
             /* rc is lowered with succ=PAT_CAT (PAT_LEN.γ→PAT_CAT in 049) */
             IR_t * re = lower_pat_node(pg, rc, cat, fail);
@@ -377,7 +377,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         if (lc_has_capture) {
             /* oracle allocation order: PAT_CAT first, then rc, then lc */
             /* pre-allocate PAT_CAT so it gets a lower index than both rc and lc nodes */
-            IR_t * cat = IR_node_alloc(pg, IR_PAT_CAT); γ_to(cat, succ); ω_to(cat, fail);
+            IR_t * cat = IR_node_alloc(pg, IR_MATCH_CAT); γ_to(cat, succ); ω_to(cat, fail);
             /* lower rc with succ=PAT_CAT (e.g. RPOS.γ→PAT_CAT) */
             IR_t * re_tail = NULL;
             IR_t * re = lower_pat_node_tail(pg, rc, cat, fail, &re_tail);
@@ -387,9 +387,9 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             /* backtrack-ω: re tail (e.g. RPOS) ω → lc's innermost resumable element */
             if (re_tail && le_tail) {
                 IR_t * btgt = NULL;
-                if ((le_tail->op == IR_PAT_ASSIGN_COND || le_tail->op == IR_PAT_ASSIGN_IMM) && le_tail->n_operands > 0)
+                if ((le_tail->op == IR_MATCH_ASSIGN_COND || le_tail->op == IR_MATCH_ASSIGN_IMM) && le_tail->n_operands > 0)
                     btgt = le_tail->operands[0];
-                else if (le_tail->op == IR_PAT_DEFER)
+                else if (le_tail->op == IR_MATCH_DEFER)
                     btgt = le_tail;
                 else if (is_pat_consumer(le_tail->op))
                     btgt = le_tail;
@@ -407,18 +407,18 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
         return le; }
     case TT_FENCE: {
         if (t->n > 0 && t->c[0]) {
-            IR_t * seal = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(seal, succ); ω_to(seal, fail);
+            IR_t * seal = IR_node_alloc(pg, IR_MATCH_FENCE); γ_to(seal, succ); ω_to(seal, fail);
             return lower_pat_node(pg, t->c[0], seal, fail); }
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_FENCE); γ_to(nd, succ); ω_to(nd, fail); return nd; }
     case TT_DEFER: {  /* *VAR deferred pattern reference */
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_DEFER); γ_to(nd, succ); ω_to(nd, fail);
         const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
         IR_LIT(nd).sval = (char *) nm; IR_LIT(nd).ival = 1; return nd; }
     case TT_FNC: {  /* functional pattern node: use PAT_DEFER as fallback */
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_DEFER); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = t->v.sval; return nd; }
     default: {
-        IR_t * nd = IR_node_alloc(pg, IR_PAT_DEFER); γ_to(nd, succ); ω_to(nd, fail);
+        IR_t * nd = IR_node_alloc(pg, IR_MATCH_DEFER); γ_to(nd, succ); ω_to(nd, fail);
         IR_LIT(nd).sval = "?"; return nd; }
     }
 }

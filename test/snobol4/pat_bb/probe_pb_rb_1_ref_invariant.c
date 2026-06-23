@@ -1,4 +1,4 @@
-/* PB-RB-1 mode-3 execution probe — REF_INVARIANT over a sealed IR_PAT_LIT.
+/* PB-RB-1 mode-3 execution probe — REF_INVARIANT over a sealed IR_MATCH_LIT.
    Builds SUBJECT('abc') -> REF_INVARIANT('b') -> SUCCEED as a four-port flat chain,
    JITs it via gvar_flat_chain_build, disassembles, and runs it with rt_frame.
    Confirms: the 'b' literal-matcher head (a bb_box_fn, emit-time constant) lands in
@@ -29,8 +29,8 @@ int main(void) {
     subj_lit->sval = "abc";
     subj->α = subj_lit;
 
-    /* REF_INVARIANT('b') over a sealed IR_PAT_LIT('b') carried in operand_aux */
-    IR_t *sealed = IR_node_alloc(g, IR_PAT_LIT);
+    /* REF_INVARIANT('b') over a sealed IR_MATCH_LIT('b') carried in operand_aux */
+    IR_t *sealed = IR_node_alloc(g, IR_MATCH_LIT);
     sealed->sval = "b";
     IR_t *ref = IR_node_alloc(g, IR_REF_INVARIANT);
     ref->sval = "b";
@@ -53,7 +53,7 @@ int main(void) {
     FILE *bf = fopen("/tmp/probe_ref_inv.bin", "wb");
     if (bf) { fwrite(code, 1, 256, bf); fclose(bf); }
     printf("PROBE: gvar_flat_chain_build OK, fn=%p\n", (void*)fn);
-    printf("PROBE: sealed IR_PAT_LIT('b') head emitted as a separate box; ");
+    printf("PROBE: sealed IR_MATCH_LIT('b') head emitted as a separate box; ");
     printf("REF_INVARIANT loads its address into a ζ-slot.\n");
 
     /* run it: rt_frame() -> rdi (ζ frame base), entry-selector 0 */

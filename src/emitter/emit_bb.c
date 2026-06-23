@@ -404,12 +404,12 @@ static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
         IR_t *cat_arms[64]; IR_t *catnd = NULL;
         int catn = gather_lowered_cat_arms(ch, cat_arms, NULL, 64, &catnd, pBB);
         IR_t *stop_arms[64]; int stop_n = 0; int stop_has_arbno = 0;
-        if (catn == 0) { IR_t *sc = ch; while (sc && sc != pBB && is_pat_chain_elem(sc->op) && stop_n < 64) { if (sc->op == IR_PAT_ARBNO) stop_has_arbno = 1; stop_arms[stop_n++] = sc; sc = sc->γ.node; } }
+        if (catn == 0) { IR_t *sc = ch; while (sc && sc != pBB && is_pat_chain_elem(sc->op) && stop_n < 64) { if (sc->op == IR_MATCH_ARBNO) stop_has_arbno = 1; stop_arms[stop_n++] = sc; sc = sc->γ.node; } }
         if (catn >= 2) {
             flat_drive_cat_arms(catnd, cat_arms, NULL, catn, cap_γ, lbl_ω, lbl_β);
         } else if (stop_n >= 2 && stop_has_arbno) {
             flat_drive_cat_arms(NULL, stop_arms, NULL, stop_n, cap_γ, lbl_ω, lbl_β);
-        } else if (ch->γ.node && ch->γ.node->op == IR_PAT_ALT) {
+        } else if (ch->γ.node && ch->γ.node->op == IR_MATCH_ALT) {
             int na = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, ch->γ.node, &na);
             if (aux && na > 0) {
                 walk_bb_flat(ch->γ.node, cap_γ, lbl_ω, lbl_β);
@@ -438,7 +438,7 @@ static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     emit_label_define_bb(cap_γ);
     EMIT_PAIR_RESET();
     g_emit.op_off = st;
-    IR_LIT(pBB).ival = (pBB->op == IR_PAT_ASSIGN_IMM) ? 2 : 1;
+    IR_LIT(pBB).ival = (pBB->op == IR_MATCH_ASSIGN_IMM) ? 2 : 1;
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -883,7 +883,7 @@ static void flat_drive_ite(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int bb_kind_is_driver_owned(int t) {
-    return t == IR_PAT_CAT || t == IR_PAT_ALT || t == IR_PAT_FENCE || t == IR_GCONJ;
+    return t == IR_MATCH_CAT || t == IR_MATCH_ALT || t == IR_MATCH_FENCE || t == IR_GCONJ;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static const char *bb_intern_into(char *buf, const char *sval) {
@@ -2336,33 +2336,33 @@ static void flat_drive_gvar_assign_binop(IR_t *pBB, bb_label_t *lbl_γ, bb_label
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int scan_pat_is_single_lit(IR_graph_t *pg) {
-    if (!pg || !pg->entry || pg->entry->op != IR_PAT_LIT) return 0;
+    if (!pg || !pg->entry || pg->entry->op != IR_MATCH_LIT) return 0;
     int nlit = 0;
     for (int i = 0; i < pg->n; i++) {
         IR_e t = pg->all[i]->op;
         if (t == IR_SUCCEED || t == IR_FAIL) continue;
-        if (t == IR_PAT_LIT) { nlit++; continue; }
+        if (t == IR_MATCH_LIT) { nlit++; continue; }
         return 0;
     }
     return nlit == 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static const char * scan_pat_cat_concat(IR_graph_t *pg) {
-    if (!pg || !pg->entry || pg->entry->op != IR_PAT_LIT) return NULL;
+    if (!pg || !pg->entry || pg->entry->op != IR_MATCH_LIT) return NULL;
     int nlit = 0, ncat = 0;
     for (int i = 0; i < pg->n; i++) {
         IR_e t = pg->all[i]->op;
         if (t == IR_SUCCEED || t == IR_FAIL) continue;
-        if (t == IR_PAT_LIT) { nlit++; continue; }
-        if (t == IR_PAT_CAT) { ncat++; continue; }
+        if (t == IR_MATCH_LIT) { nlit++; continue; }
+        if (t == IR_MATCH_CAT) { ncat++; continue; }
         return NULL;
     }
     if (nlit < 2 || ncat < 1) return NULL;
     size_t total = 0;
-    for (IR_t *c = pg->entry; c && c->op == IR_PAT_LIT; c = c->γ.node) total += IR_LIT(c).sval ? strlen(IR_LIT(c).sval) : 0;
+    for (IR_t *c = pg->entry; c && c->op == IR_MATCH_LIT; c = c->γ.node) total += IR_LIT(c).sval ? strlen(IR_LIT(c).sval) : 0;
     char *buf = (char *)GC_MALLOC_ATOMIC(total + 1);
     size_t off = 0;
-    for (IR_t *c = pg->entry; c && c->op == IR_PAT_LIT; c = c->γ.node) { const char *s = IR_LIT(c).sval ? IR_LIT(c).sval : ""; size_t n = strlen(s); memcpy(buf + off, s, n); off += n; }
+    for (IR_t *c = pg->entry; c && c->op == IR_MATCH_LIT; c = c->γ.node) { const char *s = IR_LIT(c).sval ? IR_LIT(c).sval : ""; size_t n = strlen(s); memcpy(buf + off, s, n); off += n; }
     buf[off] = 0;
     return buf;
 }
@@ -2387,13 +2387,13 @@ static int scan_pat_m3_native_safe(IR_graph_t *pg) {
     for (int i = 0; i < pg->n; i++) {
         IR_t *nd = pg->all[i];
         if (!nd) continue;
-        if (nd->op == IR_PAT_ARBNO || (nd->op == IR_PAT_FENCE && IR_LIT(nd).ival != 1)
+        if (nd->op == IR_MATCH_ARBNO || (nd->op == IR_MATCH_FENCE && IR_LIT(nd).ival != 1)
             || nd->op == IR_REF_INVARIANT || nd->op == IR_PATTERN_DEFER) return 0;
-        if ((nd->op == IR_PAT_POS || nd->op == IR_PAT_LEN || nd->op == IR_PAT_TAB || nd->op == IR_PAT_RTAB)
+        if ((nd->op == IR_MATCH_POS || nd->op == IR_MATCH_LEN || nd->op == IR_MATCH_TAB || nd->op == IR_MATCH_RTAB)
             && IR_LIT(nd).dval != 0.0) return 0;
-        if ((nd->op == IR_PAT_ANY || nd->op == IR_PAT_NOTANY || nd->op == IR_PAT_BREAK || nd->op == IR_PAT_BREAKX)
+        if ((nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX)
             && IR_LIT(nd).dval != 0.0) return 0;
-        if (nd->op == IR_PAT_SPAN && IR_LIT(nd).ival == 1) return 0;
+        if (nd->op == IR_MATCH_SPAN && IR_LIT(nd).ival == 1) return 0;
     }
     return 1;
 }
@@ -2401,7 +2401,7 @@ static int scan_pat_m3_native_safe(IR_graph_t *pg) {
 static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β, int is_empty_repl) {
     if (!pg || !pg->entry) return 0;
     IR_t *subj  = IR_node_alloc(pg, IR_SUBJECT);
-    IR_t *match = IR_node_alloc(pg, IR_PAT_MATCH);
+    IR_t *match = IR_node_alloc(pg, IR_MATCH);
     if (!subj || !match) return 0;
     IR_LIT(subj).sval = IR_LIT(pBB).sval;
     if (!ir_operand_push(match, pg->entry)) return 0;
@@ -2482,10 +2482,10 @@ static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int is_pat_chain_elem(IR_e t) {
     switch (t) {
-    case IR_PAT_LIT: case IR_PAT_ANY: case IR_PAT_NOTANY: case IR_PAT_SPAN: case IR_PAT_SPAN_VAR: case IR_PAT_BREAK: case IR_PAT_BREAKX:
-    case IR_PAT_LEN: case IR_PAT_POS: case IR_PAT_TAB: case IR_PAT_RTAB: case IR_PAT_ATP: case IR_PAT_REM:
-    case IR_PAT_ARB: case IR_PAT_FENCE: case IR_PAT_ABORT: case IR_PAT_DEFER: case IR_PAT_ARBNO:
-    case IR_PAT_ALT: case IR_PAT_ASSIGN_COND: case IR_PAT_ASSIGN_IMM:
+    case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_SPAN_VAR: case IR_MATCH_BREAK: case IR_MATCH_BREAKX:
+    case IR_MATCH_LEN: case IR_MATCH_POS: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_ATP: case IR_MATCH_REM:
+    case IR_MATCH_ARB: case IR_MATCH_FENCE: case IR_MATCH_ABORT: case IR_MATCH_DEFER: case IR_MATCH_ARBNO:
+    case IR_MATCH_ALT: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
     case IR_FAIL: case IR_SUCCEED:
         return 1;
     default: return 0;
@@ -2513,7 +2513,7 @@ static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, IR_t **joins, int c
     IR_t *c = entry;
     while (c && c != stop && is_pat_chain_elem(c->op) && !(joins && c->op == IR_SUCCEED) && n < cap) {
         IR_t *jn = NULL;
-        if (joins && c->γ.node && c->γ.node->op == IR_PAT_ALT) {
+        if (joins && c->γ.node && c->γ.node->op == IR_MATCH_ALT) {
             IR_t *J = c->γ.node;
             IR_t *sib = c->ω.node;
             if (sib && is_pat_chain_elem(sib->op) && sib->γ.node == J) jn = J;
@@ -2523,7 +2523,7 @@ static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, IR_t **joins, int c
         n++;
         c = jn ? jn->γ.node : c->γ.node;
     }
-    if (n >= 2 && c && c->op == IR_PAT_CAT && bb_match_nkids(c) == 0) { if (cat_out) *cat_out = c; return n; }
+    if (n >= 2 && c && c->op == IR_MATCH_CAT && bb_match_nkids(c) == 0) { if (cat_out) *cat_out = c; return n; }
     if (joins && n >= 2 && c && c->op == IR_SUCCEED) { if (cat_out) *cat_out = NULL; return n; }
     return 0;
 }
@@ -2531,7 +2531,7 @@ static int gather_lowered_cat_arms(IR_t *entry, IR_t **arms, IR_t **joins, int c
 static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *elem = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
     if (!elem) {
-        fprintf(stderr, "[SBB] FATAL flat_drive_match: IR_PAT_MATCH has no element in operands\n");
+        fprintf(stderr, "[SBB] FATAL flat_drive_match: IR_MATCH has no element in operands\n");
         abort();
     }
     if (g_subject_slot < 0) {
@@ -2545,14 +2545,14 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     /* detect γ/ω-threaded inline alt chain (no operand_aux, arms linked via ω) */
     int inline_alt_n = 0;
     IR_t *inline_alt_arms[64];
-    if (catn == 0 && elem->γ.node && elem->γ.node->op == IR_PAT_ALT) {
+    if (catn == 0 && elem->γ.node && elem->γ.node->op == IR_MATCH_ALT) {
         int na = 0; bb_operand_aux_get(g_emit_cfg, elem->γ.node, &na);
         if (na == 0) inline_alt_n = gather_inline_alt_arms(elem, inline_alt_arms, 64);
     }
     if (catn == 0 && inline_alt_n < 2 && elem->γ.node) {
         IR_e gt = elem->γ.node->op;
         int real_sibling = (gt != IR_SUCCEED && gt != IR_FAIL) &&
-                           (is_pat_chain_elem(gt) || (gt == IR_PAT_CAT && bb_match_nkids(elem->γ.node) == 0));
+                           (is_pat_chain_elem(gt) || (gt == IR_MATCH_CAT && bb_match_nkids(elem->γ.node) == 0));
         if (real_sibling) {
             fprintf(stderr, "[SBB] FATAL flat_drive_match: lowered chain shape not gatherable (entry kind=%d, next kind=%d) — single-walk would silently drop siblings (PB-RB)\n", (int)elem->op, (int)gt);
             abort();
@@ -2566,12 +2566,12 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     g_match_start_slot = st;
     IR_e _sk = pBB->op;
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
-    pBB->op = IR_PAT_MATCH_HEAD;
+    pBB->op = IR_MATCH_HEAD;
     FILL(pBB, match_retry, lbl_ω, lbl_β);
     pBB->op = _sk;
     emit_label_define_bb(match_retry);
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
-    pBB->op = IR_PAT_MATCH_RETRY;
+    pBB->op = IR_MATCH_RETRY;
     FILL(pBB, match_retry, lbl_ω, elem_β);
     pBB->op = _sk;
     if (catn >= 2) {
@@ -2594,7 +2594,7 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     }
     emit_label_define_bb(match_adv);
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
-    pBB->op = IR_PAT_MATCH_ADVANCE;
+    pBB->op = IR_MATCH_ADVANCE;
     FILL(pBB, match_retry, lbl_ω, elem_β);
     pBB->op = _sk;
 }
@@ -2843,26 +2843,26 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         return;
     }
     switch (nd->op) {
-    case IR_PAT_LIT:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_ARB:    g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_REM:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_SPAN:   g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_span";   g_emit.op_kind = "SPAN";   g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_SPAN_VAR: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_spanv"; g_emit.op_kind = "SPANV"; g_emit.x86_scratch_off = bb_slot_claim(16); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_ANY:    g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_any";    g_emit.op_kind = "ANY";    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_BREAK:  g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_brk";    g_emit.op_kind = "BREAK";  g_emit.x86_scratch_off = bb_slot_claim(4); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_BREAKX: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_brkx";   g_emit.op_kind = "BREAKX"; g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_NOTANY: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_notany"; g_emit.op_kind = "NOTANY"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_LEN:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_POS:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_ATP:    g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_DEFER:  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_TAB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_RTAB:   FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_FENCE:  flat_drive_fence(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_ABORT:  { bb_label_t *seal = g_scan_seal_lbl ? g_scan_seal_lbl : lbl_ω; FILL(nd, lbl_γ, seal, lbl_β); break; }
-    case IR_PAT_CAT:    flat_drive_cat(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_ALT:    flat_drive_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_ARBNO: {
+    case IR_MATCH_LIT:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ARB:    g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_REM:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_SPAN:   g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_span";   g_emit.op_kind = "SPAN";   g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_SPAN_VAR: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_spanv"; g_emit.op_kind = "SPANV"; g_emit.x86_scratch_off = bb_slot_claim(16); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ANY:    g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_any";    g_emit.op_kind = "ANY";    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_BREAK:  g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_brk";    g_emit.op_kind = "BREAK";  g_emit.x86_scratch_off = bb_slot_claim(4); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_BREAKX: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_brkx";   g_emit.op_kind = "BREAKX"; g_emit.x86_scratch_off = bb_slot_claim(8); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_NOTANY: g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.op_name2 = "bb_notany"; g_emit.op_kind = "NOTANY"; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_LEN:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_POS:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ATP:    g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_DEFER:  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_TAB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_RTAB:   FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_FENCE:  flat_drive_fence(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ABORT:  { bb_label_t *seal = g_scan_seal_lbl ? g_scan_seal_lbl : lbl_ω; FILL(nd, lbl_γ, seal, lbl_β); break; }
+    case IR_MATCH_CAT:    flat_drive_cat(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ALT:    flat_drive_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ARBNO: {
         bb_arbno_state_t *az = (bb_arbno_state_t *)(intptr_t)IR_EXEC(nd).counter;
         IR_graph_t *inner = az ? az->inner : NULL;
         IR_t *ch = (inner && inner->entry) ? inner->entry : ((bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : ((IR_t*)0));
@@ -2872,8 +2872,8 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         g_emit.x86_scratch_off = bb_slot_claim(8);
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_PAT_ASSIGN_IMM:  flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_ASSIGN_COND: flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ASSIGN_IMM:  flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ASSIGN_COND: flat_drive_capture(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GCONJ:     flat_drive_conj(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_QUERY_FRAME: flat_drive_gz_query(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GOAL:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3242,7 +3242,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SCAN:       flat_drive_scan_stmt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUBJECT:    flat_drive_subject(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_REF_INVARIANT: flat_drive_ref_invariant(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_PAT_MATCH:  flat_drive_match(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH:  flat_drive_match(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_LIT: g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_LEN:  g_emit.op_kind = "LEN";  g_emit.op_ival = IR_LIT(nd).ival; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_PATTERN_POS:  g_emit.op_kind = "POS";  g_emit.op_ival = IR_LIT(nd).ival; g_emit.op_off = bb_slot_alloc24(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3350,7 +3350,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_node_is_alt_arm(IR_t *nd) {
     if (!nd || !g_emit_cfg) return 0;
-    if (!(nd->γ.node && (nd->γ.node->op == IR_ALT || nd->γ.node->op == IR_PAT_ALT))) return 0;
+    if (!(nd->γ.node && (nd->γ.node->op == IR_ALT || nd->γ.node->op == IR_MATCH_ALT))) return 0;
     int na = 0;
     IR_t * const * arms = bb_operand_aux_get(g_emit_cfg, nd->γ.node, &na);
     for (int i = 0; i < na && arms; i++) if (arms[i] == nd) return 1;
@@ -3447,7 +3447,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
 /* Drive nd via walk_bb_flat, but if nd is the first arm of a γ/ω-threaded inline alt
    chain (PAT_ALT with no operand_aux), drive all arms with cascading ω-labels. */
 static void walk_bb_flat_or_inline_alt(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (nd && nd->γ.node && nd->γ.node->op == IR_PAT_ALT) {
+    if (nd && nd->γ.node && nd->γ.node->op == IR_MATCH_ALT) {
         int na = 0; bb_operand_aux_get(g_emit_cfg, nd->γ.node, &na);
         if (na == 0) {
             IR_t *alt_arms[64]; int na2 = gather_inline_alt_arms(nd, alt_arms, 64);
@@ -3528,16 +3528,16 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
         }
         return;
     }
-    if (nd->op == IR_PAT_ASSIGN_COND || nd->op == IR_PAT_ASSIGN_IMM) {
+    if (nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_IMM) {
         IR_t *ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : (nd->n_operands > 0 ? nd->operands[0] : (IR_t*)0);
         IR_t *sc = ch;
         while (sc && sc != nd && is_pat_chain_elem(sc->op)) { pre_build_children_text(sc, out, base_prefix); sc = sc->γ.node; }
         return;
     }
-    if (nd->op == IR_PAT_ARBNO || nd->op == IR_PAT_CALLOUT) {
+    if (nd->op == IR_MATCH_ARBNO || nd->op == IR_MATCH_CALLOUT) {
         IR_t *ch = NULL;
         IR_graph_t *chg = NULL;
-        if (nd->op == IR_PAT_ARBNO) {
+        if (nd->op == IR_MATCH_ARBNO) {
             bb_arbno_state_t *az = (bb_arbno_state_t *)(intptr_t)IR_EXEC(nd).counter;
             IR_graph_t *inner = az ? az->inner : NULL;
             ch = (inner && inner->entry) ? inner->entry : NULL;
@@ -3552,7 +3552,7 @@ static void pre_build_children_text(IR_t *nd, FILE *out, const char *base_prefix
             IR_graph_t *save_cfg = g_emit_cfg;
             if (chg) g_emit_cfg = chg;
             emitter_init_text(out, TEXT_MODE_INVOCATION);
-            codegen_flat_body(ch, child_prefix, 1, nd->op == IR_PAT_ARBNO ? 1 : 0);
+            codegen_flat_body(ch, child_prefix, 1, nd->op == IR_MATCH_ARBNO ? 1 : 0);
             emitter_end();
             g_emit_cfg = save_cfg;
             char α_lbl[128];
@@ -3580,12 +3580,12 @@ static void pre_build_children(IR_t *nd) {
         }
         return;
     }
-    if (nd->op == IR_PAT_ASSIGN_COND || nd->op == IR_PAT_ASSIGN_IMM) {
+    if (nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_IMM) {
         IR_t *ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : ((IR_t*)0);
         if (ch) pre_build_children(ch);
         return;
     }
-    if (nd->op == IR_PAT_ARBNO || nd->op == IR_PAT_CALLOUT) {
+    if (nd->op == IR_MATCH_ARBNO || nd->op == IR_MATCH_CALLOUT) {
         IR_t *ch = (bb_match_nkids(nd) > 0) ? bb_match_kid(nd, 0) : ((IR_t*)0);
         if (ch && !child_cache_get(ch)) {
             pre_build_children(ch);
@@ -3823,11 +3823,11 @@ static void gvar_chain_prebuild_children_text(IR_graph_t *g, FILE *out, const ch
     }
     for (int i = 0; i < nr; i++) {
         IR_t *nd = reached[i];
-        if (nd->op == IR_PAT_ARBNO) { pre_build_children_text(nd, out, prefix); continue; }
+        if (nd->op == IR_MATCH_ARBNO) { pre_build_children_text(nd, out, prefix); continue; }
         if (nd->op != IR_SCAN) continue;
         IR_graph_t *pg = (IR_graph_t *)(intptr_t)IR_EXEC(nd).counter;
         if (!pg || !pg->all) continue;
-        for (int j = 0; j < pg->n; j++) if (pg->all[j] && pg->all[j]->op == IR_PAT_ARBNO) pre_build_children_text(pg->all[j], out, prefix);
+        for (int j = 0; j < pg->n; j++) if (pg->all[j] && pg->all[j]->op == IR_MATCH_ARBNO) pre_build_children_text(pg->all[j], out, prefix);
     }
 }
 static void gvar_chain_operand_refs(IR_graph_t *g) {
@@ -3955,8 +3955,8 @@ int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
     for (int i = 0; i < g->n && !has_ref; i++) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
-        if (nd->op == IR_REF_INVARIANT || nd->op == IR_PAT_ARBNO) { has_ref = 1; break; }
-        if (nd->op == IR_SCAN) { IR_graph_t *pg = (IR_graph_t *)(intptr_t)IR_EXEC(nd).counter; if (pg && pg->all) { for (int j = 0; j < pg->n; j++) if (pg->all[j] && pg->all[j]->op == IR_PAT_ARBNO) { has_ref = 1; break; } } }
+        if (nd->op == IR_REF_INVARIANT || nd->op == IR_MATCH_ARBNO) { has_ref = 1; break; }
+        if (nd->op == IR_SCAN) { IR_graph_t *pg = (IR_graph_t *)(intptr_t)IR_EXEC(nd).counter; if (pg && pg->all) { for (int j = 0; j < pg->n; j++) if (pg->all[j] && pg->all[j]->op == IR_MATCH_ARBNO) { has_ref = 1; break; } } }
     }
     if (has_ref) { g_child_cache_n = 0; g_text_child_counter = 0; gvar_chain_prebuild_children_text(g, out, prefix); }
     gvar_chain_operand_refs(g);

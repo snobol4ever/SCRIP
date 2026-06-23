@@ -1,4 +1,4 @@
-/* PB-RB-CONV groundwork probe — BB_MATCH drives an IR_PAT_ALT in the LOWERED encoding.
+/* PB-RB-CONV groundwork probe — BB_MATCH drives an IR_MATCH_ALT in the LOWERED encoding.
    The live lowerer (lower.c wire_alt) carries alternation arms in the operand_aux sidecar
    (PEERS RULE) and port-wires them (arm.gamma -> ALT node, arm0.omega -> arm1 entry); it
    never populates the legacy counter-held bb_match_kids_state_t that flat_drive_alt read.
@@ -30,15 +30,15 @@ int main(void) {
     subj_lit->sval = "abc";
     subj->α = subj_lit;
 
-    IR_t *lq  = IR_node_alloc(g, IR_PAT_LIT); lq->sval = "q";
-    IR_t *lb  = IR_node_alloc(g, IR_PAT_LIT); lb->sval = "b";
-    IR_t *alt = IR_node_alloc(g, IR_PAT_ALT);
+    IR_t *lq  = IR_node_alloc(g, IR_MATCH_LIT); lq->sval = "q";
+    IR_t *lb  = IR_node_alloc(g, IR_MATCH_LIT); lb->sval = "b";
+    IR_t *alt = IR_node_alloc(g, IR_MATCH_ALT);
     lq->γ = alt; lq->ω = lb;
     lb->γ = alt; lb->ω = fail;
     IR_t *arms[2] = { lq, lb };
     bb_operand_aux_set(g, alt, arms, 2);
 
-    IR_t *match = IR_node_alloc(g, IR_PAT_MATCH);
+    IR_t *match = IR_node_alloc(g, IR_MATCH);
     IR_t *aux[1] = { alt };
     bb_operand_aux_set(g, match, aux, 1);
 

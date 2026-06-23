@@ -10,7 +10,7 @@ extern "C" {
 std::string bb_match_head() {
     if (!PLATFORM_X86) return std::string();
     return (_.op_sa < 0 || _.op_off < 0)
-         ? x86_bomb("IR_PAT_MATCH: subject/start slot not promoted (flat_drive_match)")
+         ? x86_bomb("IR_MATCH: subject/start slot not promoted (flat_drive_match)")
          : x86("comment", "IR_MATCH_HEAD")
          + x86("label",   _.lbl_α)
          + x86("mov", "r13",  FRQ(_.op_sa))

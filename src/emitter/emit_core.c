@@ -338,29 +338,29 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
     { extern int bb_arith_is_dynamic(IR_t *nd); g_emit.op_a_descr = bb_arith_is_dynamic(op_a) ? 1 : 0; }
     switch (nd->op) {
-    case IR_PAT_LIT:         bb_emit_x86(bb_lit());               return 0;
-    case IR_PAT_ANY:         bb_emit_x86(bb_match_any());           return 0;
-    case IR_PAT_NOTANY:      bb_emit_x86(bb_match_notany());        return 0;
-    case IR_PAT_SPAN:        bb_emit_x86(bb_match_span());            return 0;
-    case IR_PAT_BREAK:       bb_emit_x86(bb_match_break());           return 0;
-    case IR_PAT_BREAKX:      bb_emit_x86(bb_match_breakx());          return 0;
-    case IR_PAT_ARB:         bb_emit_x86(bb_match_arb());             return 0;
-    case IR_PAT_CAT:         bb_emit_x86(bb_match_cat());             return 0;
-    case IR_PAT_ALT:         bb_emit_x86(bb_match_alt());             return 0;
-    case IR_PAT_LEN:         bb_emit_x86(bb_match_len());           return 0;
-    case IR_PAT_POS:         bb_emit_x86(bb_match_pos());             return 0;
-    case IR_PAT_TAB:         bb_emit_x86(bb_match_tab());             return 0;
-    case IR_PAT_RTAB:        bb_emit_x86(bb_match_rtab());            return 0;
-    case IR_PAT_SPAN_VAR:    bb_emit_x86(bb_match_span_var());        return 0;
-    case IR_PAT_ATP:         bb_emit_x86(bb_match_atp());             return 0;
-    case IR_PAT_REM:         bb_emit_x86(bb_match_rem());           return 0;
-    case IR_PAT_FENCE:       bb_emit_x86(bb_match_fence());           return 0;
-    case IR_PAT_ABORT:       bb_emit_x86(bb_match_abort());           return 0;
-    case IR_PAT_ARBNO:       bb_emit_x86(bb_match_arbno());             return 0;
+    case IR_MATCH_LIT:         bb_emit_x86(bb_lit());               return 0;
+    case IR_MATCH_ANY:         bb_emit_x86(bb_match_any());           return 0;
+    case IR_MATCH_NOTANY:      bb_emit_x86(bb_match_notany());        return 0;
+    case IR_MATCH_SPAN:        bb_emit_x86(bb_match_span());            return 0;
+    case IR_MATCH_BREAK:       bb_emit_x86(bb_match_break());           return 0;
+    case IR_MATCH_BREAKX:      bb_emit_x86(bb_match_breakx());          return 0;
+    case IR_MATCH_ARB:         bb_emit_x86(bb_match_arb());             return 0;
+    case IR_MATCH_CAT:         bb_emit_x86(bb_match_cat());             return 0;
+    case IR_MATCH_ALT:         bb_emit_x86(bb_match_alt());             return 0;
+    case IR_MATCH_LEN:         bb_emit_x86(bb_match_len());           return 0;
+    case IR_MATCH_POS:         bb_emit_x86(bb_match_pos());             return 0;
+    case IR_MATCH_TAB:         bb_emit_x86(bb_match_tab());             return 0;
+    case IR_MATCH_RTAB:        bb_emit_x86(bb_match_rtab());            return 0;
+    case IR_MATCH_SPAN_VAR:    bb_emit_x86(bb_match_span_var());        return 0;
+    case IR_MATCH_ATP:         bb_emit_x86(bb_match_atp());             return 0;
+    case IR_MATCH_REM:         bb_emit_x86(bb_match_rem());           return 0;
+    case IR_MATCH_FENCE:       bb_emit_x86(bb_match_fence());           return 0;
+    case IR_MATCH_ABORT:       bb_emit_x86(bb_match_abort());           return 0;
+    case IR_MATCH_ARBNO:       bb_emit_x86(bb_match_arbno());             return 0;
     case IR_SUBJECT:         bb_emit_x86(bb_subject());             return 0;
-    case IR_PAT_MATCH_HEAD:    bb_emit_x86(bb_match_head());        return 0;
-    case IR_PAT_MATCH_RETRY:   bb_emit_x86(bb_match_retry());       return 0;
-    case IR_PAT_MATCH_ADVANCE: bb_emit_x86(bb_match_advance());     return 0;
+    case IR_MATCH_HEAD:    bb_emit_x86(bb_match_head());        return 0;
+    case IR_MATCH_RETRY:   bb_emit_x86(bb_match_retry());       return 0;
+    case IR_MATCH_ADVANCE: bb_emit_x86(bb_match_advance());     return 0;
     case IR_PATTERN_LIT:     bb_pattern_stub("bb_pattern_lit: DT_P builder pending (DDS)");                                                            return 0;
     case IR_PATTERN_ANY:     bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_NOTANY:  bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
@@ -384,8 +384,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_CAPTURE: bb_pattern_stub("bb_pattern_capture: builder pending (B8)");                 return 0;
     case IR_PATTERN_DEFER:   bb_pattern_stub("bb_pattern_defer: builder pending (B10)");                  return 0;
     case IR_DTP_ASSIGN:      { const char *vn = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.bb_ls = vn; IR_t *child = (nd->n_operands > 0) ? nd->operands[0] : NULL; if (child) { g_emit.pat_via_dtp = 1; int rc = walk_bb_node(child, out); g_emit.pat_via_dtp = 0; return rc; } return 0; }
-    case IR_PAT_ASSIGN_COND:
-    case IR_PAT_ASSIGN_IMM:  bb_emit_x86(bb_match_capture());         return 0;
+    case IR_MATCH_ASSIGN_COND:
+    case IR_MATCH_ASSIGN_IMM:  bb_emit_x86(bb_match_capture());         return 0;
     case IR_ARITH:           bb_prepare(nd); bb_emit_x86(bb_arith());           return 0;
     case IR_LIT_I:
     case IR_LIT_S:
@@ -455,7 +455,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MAP:
     case IR_GREP:                 bb_prepare(nd); { bb_emit_x86(bb_mapgrep()); } return 0;
     case IR_SIZE:                 bb_emit_x86(bb_unop());        return 0;
-    case IR_PAT_DEFER:            bb_emit_x86(bb_match_defer());    return 0;
+    case IR_MATCH_DEFER:            bb_emit_x86(bb_match_defer());    return 0;
     case IR_CUT:             bb_emit_x86(bb_cut());                                 return 0;
     case IR_DISJ:          bb_emit_x86(bb_disj());                                 return 0;
     case IR_GCONJ:          bb_emit_x86(bb_conj());                                 return 0;
