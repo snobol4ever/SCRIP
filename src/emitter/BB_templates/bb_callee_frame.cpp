@@ -10,11 +10,11 @@ extern "C" int  rt_trail_mark(void);
 extern "C" void rt_trail_unwind(int mark);
 extern "C" void rt_pl_cells_init(void ** cells, int n);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *bcf_areg(int i) { static const char * t[3] = { "rsi", "rdx", "rcx" }; return t[i]; }
+static const char *bcf_areg(int i) { static const char * t[4] = { "rsi", "rdx", "rcx", "r8" }; return t[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_callee_frame() {
     if (PLATFORM_X86)
-        return (_.op_parts_n == 0 || _.op_parts_ival[0] < 0 || _.op_parts_ival[0] > 3 || _.op_parts_ival[1] < 0) ? x86_bomb("bb_callee_frame: unadmitted callee shape reached the emitter")
+        return (_.op_parts_n == 0 || _.op_parts_ival[0] < 0 || _.op_parts_ival[0] > 4 || _.op_parts_ival[1] < 0) ? x86_bomb("bb_callee_frame: unadmitted callee shape reached the emitter")
              : IF(_.op_sa == 0,
                    x86("comment", "IR_CALLEE_FRAME")
                  + x86("push", "r12")

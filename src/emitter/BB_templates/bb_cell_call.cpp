@@ -8,9 +8,9 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" void * rt_enter(void **slot, int nslots);
 /*--------------------------------------------------------------------------------------------------------------------*/
-static const char *bcc_areg(int i) { static const char * t[3] = { "rsi", "rdx", "rcx" }; return t[i]; }
-static bool bcc_sh() { return _.op_parts_n > 0 && _.op_parts_ival[0] >= 0 && _.op_parts_ival[1] >= 0 && _.op_parts_ival[1] <= 3 && _.op_parts_ival[2] >= 0; }
-static bool bcc_ar() { return _.op_parts_ival[3] != -2 && _.op_parts_ival[4] != -2 && _.op_parts_ival[5] != -2; }
+static const char *bcc_areg(int i) { static const char * t[4] = { "rsi", "rdx", "rcx", "r8" }; return t[i]; }
+static bool bcc_sh() { return _.op_parts_n > 0 && _.op_parts_ival[0] >= 0 && _.op_parts_ival[1] >= 0 && _.op_parts_ival[1] <= 4 && _.op_parts_ival[2] >= 0; }
+static bool bcc_ar() { return _.op_parts_ival[3] != -2 && _.op_parts_ival[4] != -2 && _.op_parts_ival[5] != -2 && _.op_parts_ival[6] != -2; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cell_call() {
     x86_begin();
@@ -23,7 +23,7 @@ std::string bb_cell_call() {
                            + x86("mov32", "esi", (long)_.op_parts_ival[2])
                            + x86("call", "rt_enter", (uint64_t)(uintptr_t)(void *)rt_enter)
                            + x86("mov", "rdi", "rax")
-                           + FOR(0, ((int)_.op_parts_ival[1] < 3 ? (int)_.op_parts_ival[1] : 3), [&](int i) { return x86("mov", bcc_areg(i), FRQ(GZ_CELL_OFF((int)_.op_parts_ival[3 + i]))); })
+                           + FOR(0, ((int)_.op_parts_ival[1] < 4 ? (int)_.op_parts_ival[1] : 4), [&](int i) { return x86("mov", bcc_areg(i), FRQ(GZ_CELL_OFF((int)_.op_parts_ival[3 + i]))); })
                            + x86_call_tgt(X86T_TGT0)
                            + x86("def", L(0))
                            + x86("test", "eax", "eax")

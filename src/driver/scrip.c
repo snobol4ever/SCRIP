@@ -407,7 +407,7 @@ static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg || !cg->entry || cg->entry->op != IR_CHOICE) return NULL;
     if (zc && zc->callee && pl_dyn_is_marked(zc->callee, ar)) return NULL;
-    if (ar > 3) return NULL;
+    if (ar > 4) return NULL;
     if (!pl_gz_call_args_ok(zc, ar)) return NULL;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
     if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 8) return NULL;
@@ -436,7 +436,7 @@ static int pl_findall_conj_member_admissible(const IR_t *g);
  * surfaces at the outer frame). */
 static IR_graph_t *g_gz_visiting[16]; static int g_gz_nvisiting = 0;
 static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t **bc_out) {
-    if (!cg || !cg->entry || cg->entry->op != IR_CHOICE || ar > 3) return 0;
+    if (!cg || !cg->entry || cg->entry->op != IR_CHOICE || ar > 4) return 0;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
     if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 8) return 0;
     for (int v = 0; v < g_gz_nvisiting; v++) if (g_gz_visiting[v] == cg) { if (bc_out) *bc_out = bc; return 1; }
@@ -452,13 +452,27 @@ static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t *
     return ok;
 }
 static int pl_gz_arith_const(const IR_t *nd);
+/* A comparison/arith operand admissible by the GZ det path: a bare var, an integer/float literal,
+ * or an arith expr in one of the shapes the `is/2` RHS already supports (const-foldable, var op lit,
+ * var op var).  Used so `X > Y + N` and `X =\= Y - N` are admitted exactly like `R is Y + N`. */
+static int pl_gz_cmp_operand_ok(const IR_t *nd) {
+    if (!nd) return 0;
+    if (nd->op == IR_LOGICVAR || nd->op == IR_LIT_I || nd->op == IR_LIT_F) return 1;
+    if (nd->op == IR_ARITH) {
+        IR_t *q0 = (nd->n_operands > 0) ? nd->operands[0] : NULL, *q1 = (nd->n_operands > 1) ? nd->operands[1] : NULL;
+        if (pl_gz_arith_const(nd)) return 1;
+        if (IR_LIT(nd).sval && q0 && q1 && q0->op == IR_LOGICVAR && q1->op == IR_LIT_I) return 1;
+        if (IR_LIT(nd).sval && q0 && q1 && q0->op == IR_LOGICVAR && q1->op == IR_LOGICVAR) return 1;
+    }
+    return 0;
+}
 static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (!gg) return 0;
     if (gg->op == IR_SUCCEED || gg->op == IR_FAIL || gg->op == IR_CUT) return 1;
     if (gg->op == IR_GOAL) {
         bb_goal_state_t *zc = NULL; int ar2 = 0;
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc, &ar2);
-        if (!cg2 || ar2 > 3) return 0;
+        if (!cg2 || ar2 > 4) return 0;
         if (!pl_gz_call_args_ok(zc, ar2)) return 0;
         if (cg2->entry && cg2->entry->op == IR_CELL_DYNITER) return 1;
         if (cg2->entry && cg2->entry->op == IR_CHOICE)
@@ -587,7 +601,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         const char *fn = IR_LIT(gg).sval;
         int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
-        if (is_cmp) return (ir_pair_arg(gg,0)->op == IR_LIT_I || ir_pair_arg(gg,0)->op == IR_LOGICVAR) && (ir_pair_arg(gg,1)->op == IR_LIT_I || ir_pair_arg(gg,1)->op == IR_LOGICVAR);
+        if (is_cmp) return pl_gz_cmp_operand_ok(ir_pair_arg(gg,0)) && pl_gz_cmp_operand_ok(ir_pair_arg(gg,1));
         int is_tcmp = (strcmp(fn,"@<")==0||strcmp(fn,"@>")==0||strcmp(fn,"@=<")==0||strcmp(fn,"@>=")==0||strcmp(fn,"==")==0||strcmp(fn,"\\==")==0);
         if (!is_tcmp) return 0;
         const IR_t *q0 = ir_pair_arg(gg,0), *q1 = ir_pair_arg(gg,1);
@@ -691,7 +705,7 @@ static int pl_gz_rule_inline_check(IR_t *gg) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg) return 0;
-    if (ar > 3) return 0;
+    if (ar > 4) return 0;
     if (!pl_gz_call_args_ok(zc, ar)) return 0;
     if (cg->entry && cg->entry->op == IR_CELL_DYNITER) return 1;
     if (cg->entry && cg->entry->op == IR_CHOICE)
@@ -704,10 +718,24 @@ static pl_gz_callee_t * pl_gz_callee_get_any(IR_t *gg, IR_graph_t *cg, int ar, p
 /* PL-GZ-5c: graph slot s of one clause → frame slot.  Head slots 0..ar-1 are shared (the args);
  * each clause's locals live in its own frame range starting at lbase (single-clause lbase==ar ⇒ identity). */
 static int pl_gz_slot_map(int s, int ar, int lbase) { return s < ar ? s : lbase + (s - ar); }
+/* Number of synth temps a comparison goal needs: one per arith-expr operand (each is pre-evaluated
+ * into a fresh slot by an IR_DET_IS before the IR_DET_CMP).  Bare var/lit operands need none. */
+static int pl_gz_cmp_nsynth(IR_t *gg) {
+    if (!gg || gg->op != IR_BUILTIN || !IR_LIT(gg).sval || IR_LIT(gg).ival != 2) return 0;
+    const char *fn = IR_LIT(gg).sval;
+    int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
+    if (!is_cmp) return 0;
+    IR_t *a0 = ir_pair_arg(gg,0), *a1 = ir_pair_arg(gg,1);
+    int n = 0;
+    if (a0 && a0->op == IR_ARITH) n++;
+    if (a1 && a1->op == IR_ARITH) n++;
+    return n;
+}
 static int pl_gz_nsynth_chain(IR_t *entry, int ar) {
     int nsynth = 0;
     for (IR_t *gg = entry; gg && gg->op != IR_SUCCEED && gg->op != IR_FAIL; gg = gg->γ.node) {
         if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
+        nsynth += pl_gz_cmp_nsynth(gg);
         if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0) && ir_call_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
         if (gg->op == IR_CATCH) {
             bb_catch_state_t *zc = (bb_catch_state_t *)(intptr_t)IR_LIT(gg).ival;
@@ -737,6 +765,7 @@ static int pl_gz_clause_nsynth(bb_conj_state_t *zs, int ar) {
             continue;
         }
         if (gg && gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
+        if (gg) nsynth += pl_gz_cmp_nsynth(gg);
         if (gg && gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0) && ir_call_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
         if (!gg || gg->op != IR_GOAL) continue;
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
@@ -782,7 +811,7 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
     if (gg->op == IR_GOAL) {
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc2, &ar2);
-        if (!cg2 || ar2 > 3 || !pl_gz_call_args_ok(zc2, ar2)) return 0;
+        if (!cg2 || ar2 > 4 || !pl_gz_call_args_ok(zc2, ar2)) return 0;
         pl_gz_callee_t *ce2 = pl_gz_callee_get_any(gg, cg2, ar2, callees, ncallees);
         if (!ce2) return 0;
         pl_gz_call_state_t *cs2 = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs2);
@@ -892,12 +921,29 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         const char *fn = IR_LIT(gg).sval;
         int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
         if (!is_cmp) return 0;
+        IR_t *pc0 = ir_pair_arg(gg,0), *pc1 = ir_pair_arg(gg,1);
+        IR_t *na = NULL, *nb = NULL;
+        if (pc0->op == IR_ARITH) {
+            int kk = synth_next++;
+            IR_t *nis = pl_gz_det_node(IR_DET_IS); if (!nis) return 0;
+            IR_t *dst = pl_gz_lv(kk); if (!dst) return 0;
+            IR_t *am = pl_gz_arith_slot_map(pc0, ar, lbase); if (!am) return 0;
+            ir_operand_push(nis, dst); ir_operand_push(nis, am);
+            if (!head) head = nis; else { tail->γ.node = nis; memcpy(tail->γ.sz, "α", 3); }
+            tail = nis; na = pl_gz_lv(kk);
+        } else na = (pc0->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(pc0).ival, ar, lbase)) : pc0;
+        if (pc1->op == IR_ARITH) {
+            int kk = synth_next++;
+            IR_t *nis = pl_gz_det_node(IR_DET_IS); if (!nis) return 0;
+            IR_t *dst = pl_gz_lv(kk); if (!dst) return 0;
+            IR_t *am = pl_gz_arith_slot_map(pc1, ar, lbase); if (!am) return 0;
+            ir_operand_push(nis, dst); ir_operand_push(nis, am);
+            if (!head) head = nis; else { tail->γ.node = nis; memcpy(tail->γ.sz, "α", 3); }
+            tail = nis; nb = pl_gz_lv(kk);
+        } else nb = (pc1->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(pc1).ival, ar, lbase)) : pc1;
         nn = pl_gz_det_node(IR_DET_CMP);
         if (!nn) return 0;
         IR_LIT(nn).sval = fn;
-        IR_t *pc0 = ir_pair_arg(gg,0), *pc1 = ir_pair_arg(gg,1);
-        IR_t *na = (pc0->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(pc0).ival, ar, lbase)) : pc0;
-        IR_t *nb = (pc1->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(pc1).ival, ar, lbase)) : pc1;
         if (!na || !nb) return 0;
         ir_operand_push(nn, na); ir_operand_push(nn, nb);
     } else {
@@ -1332,7 +1378,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         }
         bb_goal_state_t *zc = NULL;
         IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
-        if (!cg || ar > 3 || !pl_gz_call_args_ok(zc, ar)) return 0;
+        if (!cg || ar > 4 || !pl_gz_call_args_ok(zc, ar)) return 0;
         pl_gz_callee_t *ce = pl_gz_callee_get_any(gg, cg, ar, callees, ncallees);
         if (!ce) return 0;
         pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
@@ -1620,7 +1666,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (!is_fail && groot && groot->op == IR_GOAL) cg = pl_gz_goal_callee(groot, &zc, &ar);
         int tmpl_ok = fs && fs->tmpl && (fs->tmpl->op == IR_LOGICVAR || fs->tmpl->op == IR_STRUCT || fs->tmpl->op == IR_ARITH || fs->tmpl->op == IR_ATOM || fs->tmpl->op == IR_LIT_I || fs->tmpl->op == IR_LIT_F);
         int res_ok = fs && fs->result && fs->result->op == IR_LOGICVAR;
-        int goal_ok = is_fail || (cg && ar <= 3 && pl_gz_call_args_ok(zc, ar) && (cg->entry && (cg->entry->op == IR_CHOICE ? pl_gz_choice_rule_clauses(cg, ar, NULL) : pl_gz_rule_inline_check(groot))));
+        int goal_ok = is_fail || (cg && ar <= 4 && pl_gz_call_args_ok(zc, ar) && (cg->entry && (cg->entry->op == IR_CHOICE ? pl_gz_choice_rule_clauses(cg, ar, NULL) : pl_gz_rule_inline_check(groot))));
         if (res_ok && tmpl_ok && goal_ok) {
             pl_gz_findall_state_t *fst = (pl_gz_findall_state_t *)GC_MALLOC(sizeof *fst);
             if (!fst) return 0;
@@ -1672,7 +1718,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         bb_goal_state_t *zc = NULL; int ar = 0; IR_graph_t *cg = NULL;
         if (!is_fail && groot && groot->op == IR_GOAL) cg = pl_gz_goal_callee(groot, &zc, &ar);
         int res_ok = fs && fs->result && fs->result->op == IR_LOGICVAR;
-        int goal_ok = is_fail || (cg && ar <= 3 && pl_gz_call_args_ok(zc, ar) && (cg->entry && (cg->entry->op == IR_CHOICE ? pl_gz_choice_rule_clauses(cg, ar, NULL) : pl_gz_rule_inline_check(groot))));
+        int goal_ok = is_fail || (cg && ar <= 4 && pl_gz_call_args_ok(zc, ar) && (cg->entry && (cg->entry->op == IR_CHOICE ? pl_gz_choice_rule_clauses(cg, ar, NULL) : pl_gz_rule_inline_check(groot))));
         if (agg_mode > 0 && res_ok && goal_ok) {
             pl_gz_findall_state_t *fst = (pl_gz_findall_state_t *)GC_MALLOC(sizeof *fst);
             if (!fst) return 0;
