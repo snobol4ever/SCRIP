@@ -124,6 +124,7 @@ static int flat_chain_set_has(IR_t *nd) {
     return 0;
 }
 int                 g_subject_slot       = -1;
+int                 g_match_start_slot   = -1;
 bb_label_t *        g_scan_seal_lbl      = NULL;
 const char *        g_match_elem_lbl     = NULL;
 const char *        g_match_advance_lbl  = NULL;
@@ -2386,7 +2387,7 @@ static int scan_pat_m3_native_safe(IR_graph_t *pg) {
     for (int i = 0; i < pg->n; i++) {
         IR_t *nd = pg->all[i];
         if (!nd) continue;
-        if (nd->op == IR_PAT_ARBNO || (nd->op == IR_PAT_FENCE && IR_LIT(nd).ival != 1) || nd->op == IR_PAT_DEFER
+        if (nd->op == IR_PAT_ARBNO || (nd->op == IR_PAT_FENCE && IR_LIT(nd).ival != 1)
             || nd->op == IR_REF_INVARIANT || nd->op == IR_PATTERN_DEFER) return 0;
         if ((nd->op == IR_PAT_POS || nd->op == IR_PAT_LEN || nd->op == IR_PAT_TAB || nd->op == IR_PAT_RTAB)
             && IR_LIT(nd).dval != 0.0) return 0;
@@ -2397,7 +2398,7 @@ static int scan_pat_m3_native_safe(IR_graph_t *pg) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β, int is_empty_repl) {
     if (!pg || !pg->entry) return 0;
     IR_t *subj  = IR_node_alloc(pg, IR_SUBJECT);
     IR_t *match = IR_node_alloc(pg, IR_PAT_MATCH);
@@ -2420,7 +2421,13 @@ static int flat_drive_scan_native(IR_t *pBB, IR_graph_t *pg, bb_label_t *lbl_γ,
     flat_drive_match(match, dcap_ok, dcap_fail, lbl_β);
     emit_label_define_bb(dcap_ok);
     emit_aligned_call_rt("rt_dcap_end_ok", (void *)rt_dcap_end_ok);
-    emit_jmp_label(lbl_γ, JMP_JMP);
+    if (is_empty_repl) {
+        g_emit.op_sval = IR_LIT(pBB).sval;
+        g_emit.op_sa   = g_match_start_slot;
+        { extern void bb_emit_splice_empty_call(void); bb_emit_splice_empty_call(); }
+    } else {
+        emit_jmp_label(lbl_γ, JMP_JMP);
+    }
     emit_label_define_bb(dcap_fail);
     emit_aligned_call_rt("rt_dcap_end_fail", (void *)rt_dcap_end_fail);
     emit_jmp_label(lbl_ω, JMP_JMP);
@@ -2443,9 +2450,11 @@ static void flat_drive_scan_stmt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
         else { const char * cc = scan_pat_cat_concat(pg); if (cc)  g_emit.op_scan_pat_lit  = cc; }
         if (scan_val_is_single_lit(sg))                    g_emit.op_scan_subj_lit = IR_LIT(sg->entry).sval ? IR_LIT(sg->entry).sval : "";
         if (scan_val_is_single_lit(rg))                    g_emit.op_scan_replace_lit = IR_LIT(rg->entry).sval ? IR_LIT(rg->entry).sval : "";
-        if (!g_emit.op_scan_pat_lit && pBB && IR_LIT(pBB).sval && IR_LIT(pBB).sval[0] && !IR_LIT(pBB).ival
+        int is_empty_repl = (IR_LIT(pBB).ival && g_emit.op_scan_replace_lit != NULL && g_emit.op_scan_replace_lit[0] == ' ' && !g_emit.op_scan_subj_lit);
+        if (!g_emit.op_scan_pat_lit && pBB && IR_LIT(pBB).sval && IR_LIT(pBB).sval[0]
+            && (!IR_LIT(pBB).ival || is_empty_repl)
             && (g_is_text || scan_pat_m3_native_safe(pg))) {
-            if (flat_drive_scan_native(pBB, pg, lbl_γ, lbl_ω, lbl_β)) return;
+            if (flat_drive_scan_native(pBB, pg, lbl_γ, lbl_ω, lbl_β, is_empty_repl)) return;
         }
     }
     EMIT_PAIR_RESET();
@@ -2554,6 +2563,7 @@ static void flat_drive_match(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     bb_label_t *match_adv   = emit_label_alloc("smatch%d_adv",   id);
     bb_label_t *elem_β      = emit_label_alloc("smatch%d_elemb", id);
     int st = bb_slot_alloc16(pBB);
+    g_match_start_slot = st;
     IR_e _sk = pBB->op;
     g_emit.op_sa = g_subject_slot; g_emit.op_off = st;
     pBB->op = IR_PAT_MATCH_HEAD;

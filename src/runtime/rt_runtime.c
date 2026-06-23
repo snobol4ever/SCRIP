@@ -498,3 +498,22 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) { (void)upi; (void)args; (void)nargs; fprintf(stderr, "[NO-IR-INTERP] ir_call_proc: IR interpreter deleted (walked IR via IR_interp_pump); native BB proc-call pending\n"); return FAILDESCR; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern const char *Σ;
+extern int Σlen;
+void rt_scan_splice_empty(const char *subj_name, int m_start, int m_end)
+{
+    if (!subj_name || !subj_name[0]) return;
+    DESCR_t sv = VARVAL_d_fn(NV_GET_fn(subj_name));
+    const char *s = ""; int slen = 0;
+    if (sv.v == DT_S || sv.v == DT_SNUL) { s = sv.s ? sv.s : ""; slen = sv.slen ? (int)sv.slen : (int)strlen(s); }
+    if (m_start < 0 || m_end < m_start || m_end > slen) return;
+    int new_len = m_start + (slen - m_end);
+    char *ns = (char *)GC_MALLOC((size_t)new_len + 1);
+    if (!ns) return;
+    if (m_start > 0) memcpy(ns, s, (size_t)m_start);
+    if (slen - m_end > 0) memcpy(ns + m_start, s + m_end, (size_t)(slen - m_end));
+    ns[new_len] = '\0';
+    DESCR_t nv = { .v = DT_S, .slen = (uint32_t)new_len, .s = ns };
+    NV_SET_fn(subj_name, nv);
+}
