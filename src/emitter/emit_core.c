@@ -361,7 +361,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_HEAD:    bb_emit_x86(bb_match_head());        return 0;
     case IR_MATCH_RETRY:   bb_emit_x86(bb_match_retry());       return 0;
     case IR_MATCH_ADVANCE: bb_emit_x86(bb_match_advance());     return 0;
-    case IR_PATTERN_LIT:     bb_pattern_stub("bb_pattern_lit: DT_P builder pending (DDS)");                                                            return 0;
+    case IR_PATTERN_LIT:     bb_emit_x86(bb_pattern_lit());                                                                                             return 0;
     case IR_PATTERN_ANY:     bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_NOTANY:  bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_SPAN:    bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
@@ -379,7 +379,33 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_FAIL: case IR_PATTERN_REM: case IR_PATTERN_SUCCEED: bb_pattern_stub("bb_pattern_nullary: DT_P builder pending (DDS)");             return 0;
     case IR_PATTERN_ARBNO:   bb_pattern_stub("bb_pattern_arbno: builder pending (B9)");                   return 0;
     case IR_PATTERN_FENCE_P: bb_pattern_stub("bb_pattern_fence_p: builder pending (B9)");                 return 0;
-    case IR_PATTERN_CAT:     bb_pattern_stub("bb_pattern_cat: DT_P builder pending (DDS)");                                                            return 0;
+    case IR_PATTERN_CAT: {
+        if (g_emit.pat_via_dtp) {
+            /* TR-CAT: extract the BREAK(cset) . capvar lit shape and stage it for bb_pattern_cat(). */
+            IR_t *a = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
+            IR_t *b = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0;
+            if (a && b && a->op == IR_PATTERN_BREAK && b->op == IR_PATTERN_LIT) {
+                const char *capvar = "";
+                IR_graph_t *g = nd->own;
+                for (int i = 0; g && i < g->n; i++) {
+                    IR_t *x = g->all[i];
+                    if (x && x->op == IR_PATTERN_CAPTURE && x->n_operands > 0 && x->operands[0] == a) {
+                        capvar = IR_LIT(x).sval ? IR_LIT(x).sval : "";
+                        break;
+                    }
+                }
+                g_emit.op_sval   = IR_LIT(a).sval ? IR_LIT(a).sval : "";  /* cset  */
+                g_emit.op_name1  = IR_LIT(b).sval ? IR_LIT(b).sval : "";  /* lit   */
+                g_emit.op_a_sval = capvar;                                /* capvar */
+                bb_emit_x86(bb_pattern_cat());
+                return 0;
+            }
+            bb_pattern_stub("bb_pattern_cat: unsupported shape (only BREAK . VAR LIT)");
+            return 0;
+        }
+        bb_emit_x86(bb_pattern_cat());   /* chain-entry passthrough */
+        return 0;
+    }
     case IR_PATTERN_ALT:     bb_pattern_stub("bb_pattern_alt: DT_P builder pending (DDS)");                                                            return 0;
     case IR_PATTERN_CAPTURE: bb_emit_x86(bb_pattern_capture());                                                                                         return 0;
     case IR_PATTERN_DEFER:   bb_pattern_stub("bb_pattern_defer: builder pending (B10)");                  return 0;
