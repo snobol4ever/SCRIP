@@ -19,7 +19,6 @@ typedef enum {
     DT_DATA = 100,
 } DTYPE_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
-struct _DTP_t;
 struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;
@@ -30,7 +29,7 @@ typedef struct DESCR_t {
         char              *s;
         int64_t            i;
         double             r;
-        struct _DTP_t     *p;
+        void              *p;
         struct _ARBLK_t   *arr;
         struct _TBBLK_t   *tbl;
         struct _DATINST_t *u;
