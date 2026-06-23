@@ -54,27 +54,27 @@ static const kind_entry_t g_kinds[] = {
     { IR_NONNULL,         "IR_NONNULL" },
     { IR_INTERROGATE,     "IR_INTERROGATE" },
     { IR_NOT,             "IR_NOT" },
-    { IR_PAT_LIT,         "IR_PAT_LIT" },
-    { IR_PAT_ANY,         "IR_PAT_ANY" },
-    { IR_PAT_SPAN,        "IR_PAT_SPAN" },
-    { IR_PAT_SPAN_VAR,    "IR_PAT_SPAN_VAR" },
-    { IR_PAT_BREAK,       "IR_PAT_BREAK" },
-    { IR_PAT_BREAKX,      "IR_PAT_BREAKX" },
-    { IR_PAT_ARB,         "IR_PAT_ARB" },
-    { IR_PAT_ARBNO,       "IR_PAT_ARBNO" },
-    { IR_PAT_CAT,         "IR_PAT_CAT" },
-    { IR_PAT_ALT,         "IR_PAT_ALT" },
-    { IR_PAT_ASSIGN_IMM,  "IR_PAT_ASSIGN_IMM" },
-    { IR_PAT_ASSIGN_COND, "IR_PAT_ASSIGN_COND" },
-    { IR_PAT_LEN,         "IR_PAT_LEN" },
-    { IR_PAT_NOTANY,      "IR_PAT_NOTANY" },
-    { IR_PAT_POS,         "IR_PAT_POS" },
-    { IR_PAT_TAB,         "IR_PAT_TAB" },
-    { IR_PAT_RTAB,        "IR_PAT_RTAB" },
-    { IR_PAT_REM,         "IR_PAT_REM" },
-    { IR_PAT_FENCE,       "IR_PAT_FENCE" },
-    { IR_PAT_ABORT,       "IR_PAT_ABORT" },
-    { IR_PAT_CALLOUT,     "IR_PAT_CALLOUT" },
+    { IR_MATCH_LIT,         "IR_MATCH_LIT" },
+    { IR_MATCH_ANY,         "IR_MATCH_ANY" },
+    { IR_MATCH_SPAN,        "IR_MATCH_SPAN" },
+    { IR_MATCH_SPAN_VAR,    "IR_MATCH_SPAN_VAR" },
+    { IR_MATCH_BREAK,       "IR_MATCH_BREAK" },
+    { IR_MATCH_BREAKX,      "IR_MATCH_BREAKX" },
+    { IR_MATCH_ARB,         "IR_MATCH_ARB" },
+    { IR_MATCH_ARBNO,       "IR_MATCH_ARBNO" },
+    { IR_MATCH_CAT,         "IR_MATCH_CAT" },
+    { IR_MATCH_ALT,         "IR_MATCH_ALT" },
+    { IR_MATCH_ASSIGN_IMM,  "IR_MATCH_ASSIGN_IMM" },
+    { IR_MATCH_ASSIGN_COND, "IR_MATCH_ASSIGN_COND" },
+    { IR_MATCH_LEN,         "IR_MATCH_LEN" },
+    { IR_MATCH_NOTANY,      "IR_MATCH_NOTANY" },
+    { IR_MATCH_POS,         "IR_MATCH_POS" },
+    { IR_MATCH_TAB,         "IR_MATCH_TAB" },
+    { IR_MATCH_RTAB,        "IR_MATCH_RTAB" },
+    { IR_MATCH_REM,         "IR_MATCH_REM" },
+    { IR_MATCH_FENCE,       "IR_MATCH_FENCE" },
+    { IR_MATCH_ABORT,       "IR_MATCH_ABORT" },
+    { IR_MATCH_CALLOUT,     "IR_MATCH_CALLOUT" },
     { IR_CHOICE,       "IR_CHOICE" },
     { IR_UNIFY,        "IR_UNIFY" },
     { IR_CUT,          "IR_CUT" },
@@ -271,28 +271,28 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     case IR_LIT_S:        nd->sval = "audit_lit"; break;
     case IR_VAR:          nd->sval = "audit_var"; break;
     case IR_ASSIGN:       nd->sval = "audit_dst"; nd->α = g_audit_child2[0]; nd->β = g_audit_child2[1]; break;
-    case IR_PAT_LIT:      nd->sval = "audit"; break;
-    case IR_PAT_ANY:      nd->sval = "abc"; break;
-    case IR_PAT_SPAN:     nd->sval = "0123"; break;
-    case IR_PAT_SPAN_VAR: nd->sval = "V"; nd->ival = 1; break;
-    case IR_PAT_BREAK:    nd->sval = "."; break;
-    case IR_PAT_BREAKX:   nd->sval = "."; break;
-    case IR_PAT_NOTANY:   nd->sval = "xyz"; break;
-    case IR_PAT_LEN:      nd->ival = 5; break;
-    case IR_PAT_POS:      nd->ival = 0; break;
-    case IR_PAT_TAB:      nd->ival = 10; break;
-    case IR_PAT_RTAB:     nd->ival = 10; break;
-    case IR_PAT_ASSIGN_IMM:
-    case IR_PAT_ASSIGN_COND:
+    case IR_MATCH_LIT:      nd->sval = "audit"; break;
+    case IR_MATCH_ANY:      nd->sval = "abc"; break;
+    case IR_MATCH_SPAN:     nd->sval = "0123"; break;
+    case IR_MATCH_SPAN_VAR: nd->sval = "V"; nd->ival = 1; break;
+    case IR_MATCH_BREAK:    nd->sval = "."; break;
+    case IR_MATCH_BREAKX:   nd->sval = "."; break;
+    case IR_MATCH_NOTANY:   nd->sval = "xyz"; break;
+    case IR_MATCH_LEN:      nd->ival = 5; break;
+    case IR_MATCH_POS:      nd->ival = 0; break;
+    case IR_MATCH_TAB:      nd->ival = 10; break;
+    case IR_MATCH_RTAB:     nd->ival = 10; break;
+    case IR_MATCH_ASSIGN_IMM:
+    case IR_MATCH_ASSIGN_COND:
         nd->sval = "captured";
         nd->counter = (int64_t)(intptr_t)&g_audit_kids1;
         break;
-    case IR_PAT_CAT:
-    case IR_PAT_ALT:
-    case IR_PAT_ARBNO:
+    case IR_MATCH_CAT:
+    case IR_MATCH_ALT:
+    case IR_MATCH_ARBNO:
         nd->counter = (int64_t)(intptr_t)&g_audit_kids2;
         break;
-    case IR_PAT_CALLOUT:  nd->sval = "audit_callout"; break;
+    case IR_MATCH_CALLOUT:  nd->sval = "audit_callout"; break;
     case IR_LOGICVAR:       nd->ival = 0; nd->sval = "X"; break;
     case IR_ATOM:      nd->sval = "foo"; break;
     case IR_GOAL:   nd->sval = "p"; nd->α = g_audit_child2[0]; nd->ival = 1; break;

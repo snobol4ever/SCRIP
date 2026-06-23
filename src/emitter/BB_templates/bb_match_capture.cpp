@@ -12,8 +12,8 @@ extern "C" void rt_cap_assign_cursor(const char *varname, int saved_delta, int c
 std::string bb_match_capture() {
     if (!PLATFORM_X86) return std::string();
     static char b[24];
-    return _.op_off < 0 ? x86_bomb("IR_PAT_ASSIGN: start slot not promoted (flat_drive_capture)")
-         : !(_.op_sval ? _.op_sval : "")[0] ? x86_bomb("IR_PAT_ASSIGN: empty capture variable name")
+    return _.op_off < 0 ? x86_bomb("IR_MATCH_ASSIGN: start slot not promoted (flat_drive_capture)")
+         : !(_.op_sval ? _.op_sval : "")[0] ? x86_bomb("IR_MATCH_ASSIGN: empty capture variable name")
          : (strtab_label(b, sizeof b, _.op_sval ? _.op_sval : ""), (int)_.op_ival == 0
               ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE")
                 + x86("label",   _.lbl_α)

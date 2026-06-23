@@ -1,4 +1,4 @@
-/* PB-RB-4 mode-3 execution probe — BB_MATCH drives an IR_PAT_ALT('q','b') graph over 'abc'.
+/* PB-RB-4 mode-3 execution probe — BB_MATCH drives an IR_MATCH_ALT('q','b') graph over 'abc'.
    Exercises the WITHIN-POSITION second-alternative fall-through of flat_drive_alt under the
    restored 3-piece bb_match (PB-RB-3): at start 0, 'q' fails -> ci_omega0 falls into 'b',
    which fails vs 'a' -> ci_omega1 -> ALT exhausted -> match_advance; at start 1, 'q' fails,
@@ -32,14 +32,14 @@ int main(void) {
     subj_lit->sval = "abc";
     subj->α = subj_lit;
 
-    IR_t *lq = IR_node_alloc(g, IR_PAT_LIT); lq->sval = "q";
-    IR_t *lb = IR_node_alloc(g, IR_PAT_LIT); lb->sval = "b";
-    IR_t *alt = IR_node_alloc(g, IR_PAT_ALT);
+    IR_t *lq = IR_node_alloc(g, IR_MATCH_LIT); lq->sval = "q";
+    IR_t *lb = IR_node_alloc(g, IR_MATCH_LIT); lb->sval = "b";
+    IR_t *alt = IR_node_alloc(g, IR_MATCH_ALT);
     g_kids[0] = lq; g_kids[1] = lb;
     g_ks.kids = g_kids; g_ks.nkids = 2;
     alt->counter = (int64_t)(intptr_t)&g_ks;
 
-    IR_t *match = IR_node_alloc(g, IR_PAT_MATCH);
+    IR_t *match = IR_node_alloc(g, IR_MATCH);
     IR_t *aux[1] = { alt };
     bb_operand_aux_set(g, match, aux, 1);
 

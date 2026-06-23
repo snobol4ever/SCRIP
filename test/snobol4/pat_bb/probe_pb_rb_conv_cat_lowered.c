@@ -1,5 +1,5 @@
-/* PB-RB-CONV groundwork probe — BB_MATCH drives an IR_PAT_CAT in the LOWERED (wire_seq) encoding.
-   The live lowerer (lower.c wire_seq) sets NO sidecar for IR_PAT_CAT (only IR_GCONJ gets ival
+/* PB-RB-CONV groundwork probe — BB_MATCH drives an IR_MATCH_CAT in the LOWERED (wire_seq) encoding.
+   The live lowerer (lower.c wire_seq) sets NO sidecar for IR_MATCH_CAT (only IR_GCONJ gets ival
    state) and never populates the legacy counter-held bb_match_kids_state_t that flat_drive_cat
    read: the arms are PORT-CHAINED — kid i's gamma -> kid i+1's entry, last kid's gamma -> the
    CAT node — and lower_match_entry hands MATCH entry[0] (the FIRST arm), not the CAT node.
@@ -33,10 +33,10 @@ int main(void) {
     subj_lit->sval = "aab";
     subj->α = subj_lit;
 
-    IR_t *la  = IR_node_alloc(g, IR_PAT_LIT); la->sval = "a";
-    IR_t *lb  = IR_node_alloc(g, IR_PAT_LIT); lb->sval = "b";
-    IR_t *cat = IR_node_alloc(g, IR_PAT_CAT);
-    IR_t *match = IR_node_alloc(g, IR_PAT_MATCH);
+    IR_t *la  = IR_node_alloc(g, IR_MATCH_LIT); la->sval = "a";
+    IR_t *lb  = IR_node_alloc(g, IR_MATCH_LIT); lb->sval = "b";
+    IR_t *cat = IR_node_alloc(g, IR_MATCH_CAT);
+    IR_t *match = IR_node_alloc(g, IR_MATCH);
     la->γ  = lb;    la->ω  = match;
     lb->γ  = cat;   lb->ω  = match;
     cat->γ = match; cat->ω = match;

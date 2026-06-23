@@ -1,4 +1,4 @@
-/* PB-RB-4 mode-3 execution probe — BB_MATCH drives an IR_PAT_CAT('a','b') graph over 'aab'.
+/* PB-RB-4 mode-3 execution probe — BB_MATCH drives an IR_MATCH_CAT('a','b') graph over 'aab'.
    Exercises the right-omega -> left-beta INNER backtrack edge of flat_drive_cat under the
    restored 3-piece bb_match (PB-RB-3): at start 0, 'a' matches (delta 0->1), 'b' fails vs
    subject[1]=='a' -> right_omega -> left_beta -> lit'a' beta undoes delta -> xcat_omega ->
@@ -32,14 +32,14 @@ int main(void) {
     subj_lit->sval = "aab";
     subj->α = subj_lit;
 
-    IR_t *la = IR_node_alloc(g, IR_PAT_LIT); la->sval = "a";
-    IR_t *lb = IR_node_alloc(g, IR_PAT_LIT); lb->sval = "b";
-    IR_t *cat = IR_node_alloc(g, IR_PAT_CAT);
+    IR_t *la = IR_node_alloc(g, IR_MATCH_LIT); la->sval = "a";
+    IR_t *lb = IR_node_alloc(g, IR_MATCH_LIT); lb->sval = "b";
+    IR_t *cat = IR_node_alloc(g, IR_MATCH_CAT);
     g_kids[0] = la; g_kids[1] = lb;
     g_ks.kids = g_kids; g_ks.nkids = 2;
     cat->counter = (int64_t)(intptr_t)&g_ks;
 
-    IR_t *match = IR_node_alloc(g, IR_PAT_MATCH);
+    IR_t *match = IR_node_alloc(g, IR_MATCH);
     IR_t *aux[1] = { cat };
     bb_operand_aux_set(g, match, aux, 1);
 

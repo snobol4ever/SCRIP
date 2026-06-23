@@ -34,9 +34,9 @@ static int run_match(const char *subj_s, const char *lit_s) {
     IR_t *subj_lit = IR_node_alloc(g, IR_LIT_S);
     subj_lit->sval = subj_s;
     subj->α = subj_lit;
-    IR_t *elem = IR_node_alloc(g, IR_PAT_LIT);
+    IR_t *elem = IR_node_alloc(g, IR_MATCH_LIT);
     elem->sval = lit_s;
-    IR_t *match = IR_node_alloc(g, IR_PAT_MATCH);
+    IR_t *match = IR_node_alloc(g, IR_MATCH);
     IR_t *aux[1] = { elem };
     bb_operand_aux_set(g, match, aux, 1);
     subj->γ  = match; subj->ω  = fail;

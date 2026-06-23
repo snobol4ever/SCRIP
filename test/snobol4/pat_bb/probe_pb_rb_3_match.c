@@ -1,4 +1,4 @@
-/* PB-RB-3 mode-3 execution probe — BB_MATCH inline-drives a sealed IR_PAT_LIT element.
+/* PB-RB-3 mode-3 execution probe — BB_MATCH inline-drives a sealed IR_MATCH_LIT element.
    Builds SUBJECT('abc') -> MATCH(element='b') -> SUCCEED as a four-port flat chain,
    JITs it via gvar_flat_chain_build, and runs it with rt_frame. The MATCH box runs the
    SPITBOL Manual ch.18 unanchored OUTER start-loop: 'b' fails at cursor 0 ('a'), the
@@ -30,10 +30,10 @@ int main(void) {
     subj_lit->sval = "abc";
     subj->α = subj_lit;
 
-    /* MATCH driving a sealed IR_PAT_LIT('b') carried in operand_aux */
-    IR_t *elem = IR_node_alloc(g, IR_PAT_LIT);
+    /* MATCH driving a sealed IR_MATCH_LIT('b') carried in operand_aux */
+    IR_t *elem = IR_node_alloc(g, IR_MATCH_LIT);
     elem->sval = "b";
-    IR_t *match = IR_node_alloc(g, IR_PAT_MATCH);
+    IR_t *match = IR_node_alloc(g, IR_MATCH);
     IR_t *aux[1] = { elem };
     bb_operand_aux_set(g, match, aux, 1);
 

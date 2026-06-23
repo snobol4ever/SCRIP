@@ -1,4 +1,4 @@
-/* PB-RB-5 probe — CAPTURE boxes in the flat chain (IR_PAT_ASSIGN_COND / IR_PAT_ASSIGN_IMM
+/* PB-RB-5 probe — CAPTURE boxes in the flat chain (IR_MATCH_ASSIGN_COND / IR_MATCH_ASSIGN_IMM
    de-brokered to flat-inline emission). Builds the capture EXACTLY as lower.c TT_CAPT_*_ASGN
    wires it: the ASSIGN node's α field holds the child's entry, the child's γ points BACK to
    the ASSIGN node (the mode-2 oracle back-edge; the flat walker drives by labels so the
@@ -48,13 +48,13 @@ static int run_phase(const char *tag, int imm, IR_t *(*mk_child)(IR_graph_t *, I
     subj_lit->sval = "abc";
     subj->α = subj_lit;
 
-    IR_t *asg = IR_node_alloc(g, imm ? IR_PAT_ASSIGN_IMM : IR_PAT_ASSIGN_COND);
+    IR_t *asg = IR_node_alloc(g, imm ? IR_MATCH_ASSIGN_IMM : IR_MATCH_ASSIGN_COND);
     asg->sval = var;
     IR_t *child = mk_child(g, asg, fail);
     asg->α = child;
     asg->γ = succ; asg->ω = fail;
 
-    IR_t *match = IR_node_alloc(g, IR_PAT_MATCH);
+    IR_t *match = IR_node_alloc(g, IR_MATCH);
     IR_t *aux[1] = { asg };
     bb_operand_aux_set(g, match, aux, 1);
 
@@ -76,15 +76,15 @@ static int run_phase(const char *tag, int imm, IR_t *(*mk_child)(IR_graph_t *, I
 }
 
 static IR_t *mk_lit_b(IR_graph_t *g, IR_t *back, IR_t *fail) {
-    IR_t *lb = IR_node_alloc(g, IR_PAT_LIT); lb->sval = "b";
+    IR_t *lb = IR_node_alloc(g, IR_MATCH_LIT); lb->sval = "b";
     lb->γ = back; lb->ω = fail;
     return lb;
 }
 
 static IR_t *mk_alt_qb(IR_graph_t *g, IR_t *back, IR_t *fail) {
-    IR_t *lq  = IR_node_alloc(g, IR_PAT_LIT); lq->sval = "q";
-    IR_t *lb  = IR_node_alloc(g, IR_PAT_LIT); lb->sval = "b";
-    IR_t *alt = IR_node_alloc(g, IR_PAT_ALT);
+    IR_t *lq  = IR_node_alloc(g, IR_MATCH_LIT); lq->sval = "q";
+    IR_t *lb  = IR_node_alloc(g, IR_MATCH_LIT); lb->sval = "b";
+    IR_t *alt = IR_node_alloc(g, IR_MATCH_ALT);
     lq->γ = back; lq->ω = lb;
     lb->γ = back; lb->ω = fail;
     IR_t *arms[2] = { lq, lb };
