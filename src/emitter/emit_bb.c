@@ -1216,6 +1216,7 @@ void bb_prepare(IR_t *nd) {
             g_emit.op_parts_ival[3] = (st && st->nargs > 0) ? ((st->args[0] && st->args[0]->op == IR_LOGICVAR) ? IR_LIT(st->args[0]).ival : -2) : -1;
             g_emit.op_parts_ival[4] = (st && st->nargs > 1) ? ((st->args[1] && st->args[1]->op == IR_LOGICVAR) ? IR_LIT(st->args[1]).ival : -2) : -1;
             g_emit.op_parts_ival[5] = (st && st->nargs > 2) ? ((st->args[2] && st->args[2]->op == IR_LOGICVAR) ? IR_LIT(st->args[2]).ival : -2) : -1;
+            g_emit.op_parts_ival[6] = (st && st->nargs > 3) ? ((st->args[3] && st->args[3]->op == IR_LOGICVAR) ? IR_LIT(st->args[3]).ival : -2) : -1;
         }
         if (nd->op == IR_CELL_ITE) {
             const pl_gz_ite_state_t * is = (const pl_gz_ite_state_t *)(intptr_t)IR_LIT(nd).ival;
