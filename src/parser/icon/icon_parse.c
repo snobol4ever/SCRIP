@@ -487,7 +487,7 @@ static tree_t *parse_expr(IcnParser *p) {
         tree_t *e = ast_node_new(TT_RETURN);
         if (!check(p, TK_SEMICOL) && !check(p, TK_RPAREN) &&
             !check(p, TK_EOF)  && !check(p, TK_THEN) &&
-            !check(p, TK_ELSE) && !check(p, TK_DO))
+            !check(p, TK_ELSE) && !check(p, TK_DO) && !check(p, TK_RBRACE))
             push_child(e, parse_expr(p));
         return e;
     }
@@ -642,8 +642,13 @@ static tree_t *parse_stmt(IcnParser *p) {
     if (check(p, TK_RETURN)) {
         advance(p);
         tree_t *e = ast_node_new(TT_RETURN);
-        if (!check(p, TK_SEMICOL)) push_child(e, parse_expr(p));
-        expect(p, TK_SEMICOL, "return statement");
+        if (!check(p, TK_SEMICOL) && !check(p, TK_RBRACE) && !check(p, TK_END) &&
+            !check(p, TK_EOF) && !check(p, TK_ELSE))
+            push_child(e, parse_expr(p));
+        if (!check(p, TK_RBRACE) && !check(p, TK_END) && !check(p, TK_EOF))
+            expect(p, TK_SEMICOL, "return statement");
+        else
+            match(p, TK_SEMICOL);
         return e;
     }
     if (check(p, TK_SUSPEND)) {
@@ -782,8 +787,22 @@ CODE_t *icn_parse_file(IcnParser *p, tree_t **out_ast) {
                 if (!match(p, TK_COMMA)) break;
             }
             match(p, TK_SEMICOL);
+        } else if (check(p, TK_LINK) || check(p, TK_INVOCABLE)) {
+            int is_link = check(p, TK_LINK);
+            advance(p);
+            top = ast_node_new(is_link ? TT_LINK : TT_INVOCABLE);
+            while (!check(p, TK_SEMICOL) && !check(p, TK_EOF)) {
+                if (p->cur.kind == TK_IDENT || p->cur.kind == TK_STRING) {
+                    push_child(top, e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len));
+                    advance(p);
+                } else {
+                    advance(p);
+                }
+                if (!match(p, TK_COMMA)) break;
+            }
+            match(p, TK_SEMICOL);
         } else {
-            parser_error(p, "expected 'procedure', 'record', or 'global'");
+            parser_error(p, "expected 'procedure', 'record', 'global', 'link', or 'invocable'");
             break;
         }
         if (top) {
