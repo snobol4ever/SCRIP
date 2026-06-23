@@ -123,7 +123,12 @@ static int keyword_supported(const char *kw) {
 static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
-           t == IR_VAR || t == IR_KEYWORD || t == IR_GEN_SCAN || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_EVERY;
+           t == IR_VAR || t == IR_KEYWORD || t == IR_GEN_SCAN || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_EVERY || t == IR_CONJ || t == IR_ASSIGN || t == IR_IF || t == IR_WHILE || t == IR_UNTIL;
+}
+static int sg_var_assigned(IR_graph_t *sg, const char *name) {
+    if (!sg || !sg->all || !name) return 0;
+    for (int i = 0; i < sg->n; i++) { IR_t *m = sg->all[i]; if (m && m->op == IR_ASSIGN && IR_LIT(m).sval && !strcmp(IR_LIT(m).sval, name)) return 1; }
+    return 0;
 }
 static IR_t *scan_lit_entry(IR_t *nd, IR_e want) {
     IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
@@ -163,8 +168,9 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
         if (!scan_safe_kind(nd->op)) return 0;
         if (nd->op == IR_VAR) {
             if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') { if (!keyword_supported(IR_LIT(nd).sval)) return 0; }
-            else if (IR_EXEC(nd).state == 1 || !IR_LIT(nd).sval || !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
+            else if (IR_EXEC(nd).state == 1 || !IR_LIT(nd).sval || (!graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval) && !sg_var_assigned(sg, IR_LIT(nd).sval))) return 0;
         }
+        if (nd->op == IR_ASSIGN) { if (!IR_LIT(nd).sval || is_global(IR_LIT(nd).sval)) return 0; }
         if (nd->op == IR_KEYWORD && !keyword_supported(IR_LIT(nd).sval)) return 0;
         if (nd->op == IR_CALL || ir_is_scan_kind(nd->op)) {
             if (!IR_LIT(nd).sval) return 0;
@@ -177,7 +183,7 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
             else if (!strcmp(IR_LIT(nd).sval, "bal")) { IR_t *be = scan_lit_entry(nd, IR_LIT_S); if (!(IR_LIT(nd).dval == 3.0 && be && IR_LIT(be).sval && IR_LIT(be).sval[0] && !strchr(IR_LIT(be).sval, 40) && !strchr(IR_LIT(be).sval, 41))) return 0; }
             else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
         }
-        if (nd->op == IR_BINOP && IR_LIT(nd).ival != BINOP_CONCAT) return 0;
+        if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE); if (bc != BINOP_CONCAT && !is_rel) return 0; }
         if (nd->op == IR_GEN_SCAN) {
             IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
             IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival;

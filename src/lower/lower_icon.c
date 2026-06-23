@@ -79,12 +79,15 @@ static IR_t * icn_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((icx_t *) vcx)->g, IR_LANG_ICN, icn_arg_lower, vcx, a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_arg_is_scan_fn(const tree_t * a) { if (!a) return 0; if (a->t == TT_STMT) a = stmt_subj(a); if (!a || a->t != TT_FNC) return 0; const char * nm = (a->n > 0 && a->c[0]) ? a->c[0]->v.sval : NULL; return nm && (!strcmp(nm, "tab") || !strcmp(nm, "move") || !strcmp(nm, "pos") || !strcmp(nm, "any") || !strcmp(nm, "match") || !strcmp(nm, "many") || !strcmp(nm, "upto") || !strcmp(nm, "find") || !strcmp(nm, "bal")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name; IR_LIT(call).ival = nargs;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     int is_idx_or_list = name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"));
-    if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { chains = 1; break; } }
+    int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
+    if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { if (is_cursor_mover && icn_arg_is_scan_fn(t->c[argbase + k])) continue; chains = 1; break; } }
     int subgraph = !chains;
     if (subgraph) {
         lc_call_argblks(call, is_idx_or_list ? 2.0 : 3.0, nargs, arg_block, cx, (const tree_t * const *) &t->c[argbase]);
