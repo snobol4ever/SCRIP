@@ -20,40 +20,6 @@
 extern const char * Σ;
 extern int          Σlen;
 extern void rt_dcap_begin(void); extern void rt_dcap_end_ok(void); extern void rt_dcap_end_fail(void);
-extern DESCR_t gen_bb_not(void*,int);
-extern DESCR_t gen_bb_repalt(void*,int);
-extern DESCR_t gen_bb_while_gen(void*,int);
-extern DESCR_t gen_bb_until_gen(void*,int);
-extern DESCR_t gen_bb_repeat_gen(void*,int);
-extern DESCR_t gen_bb_case_gen(void*,int);
-extern DESCR_t gen_bb_compound_gen(void*,int);
-extern DESCR_t gen_bb_field_gen(void*,int);     extern field_gen_state_t   *field_gen_new(void);
-extern DESCR_t gen_bb_section_gen(void*,int);   extern section_gen_state_t *section_gen_new(void);
-extern DESCR_t gen_bb_key_gen(void*,int);       extern kw_gen_state_t      *kw_gen_new(void);
-extern DESCR_t gen_bb_listcon_gen(void*,int);   extern listcon_state_t     *listcon_gen_new(void);
-extern DESCR_t gen_bb_proc_call(void*,int);      extern proc_call_state_t   *proc_call_new(void);
-extern DESCR_t gen_bb_noop(void*,int);          extern noop_state_t        *noop_new(void);
-extern DESCR_t gen_bb_intlit(void*,int);        extern intlit_state_t      *intlit_new(void);
-extern DESCR_t gen_bb_reallit(void*,int);       extern reallit_state_t     *reallit_new(void);
-extern DESCR_t gen_bb_strlit(void*,int);        extern strlit_state_t      *strlit_new(void);
-extern DESCR_t gen_bb_csetlit(void*,int);       extern csetlit_state_t     *csetlit_new(void);
-extern DESCR_t gen_bb_global(void*,int);        extern global_state_t      *global_new(void);
-extern DESCR_t gen_bb_if_bb(void*,int);         extern if_state_t          *if_new(void);
-extern DESCR_t gen_bb_initial(void*,int);       extern initial_state_t     *initial_new(void);
-extern DESCR_t gen_bb_invocable(void*,int);     extern invocable_state_t   *invocable_new(void);
-extern DESCR_t gen_bb_link(void*,int);          extern link_state_t        *link_new(void);
-extern DESCR_t gen_bb_record_bb(void*,int);     extern record_state_t      *record_new(void);
-extern DESCR_t gen_bb_return_bb(void*,int);     extern return_state_t      *return_new(void);
-extern DESCR_t gen_bb_fail_bb(void*,int);       extern fail_state_t        *fail_new(void);
-extern DESCR_t gen_bb_unop(void*,int);          extern unop_state_t        *unop_new(void);
-extern DESCR_t gen_bb_next_bb(void*,int);       extern next_state_t        *next_new(void);
-extern DESCR_t gen_bb_break_bb(void*,int);      extern break_state_t       *break_new(void);
-extern DESCR_t gen_bb_create(void*,int);        extern create_state_t      *create_new(void);
-extern DESCR_t gen_bb_coexplist(void*,int);     extern coexplist_state_t   *coexplist_new(void);
-extern DESCR_t gen_bb_arglist(void*,int);       extern arglist_state_t     *arglist_new(void);
-extern DESCR_t gen_bb_procdecl(void*,int);      extern procdecl_state_t    *procdecl_new(void);
-extern DESCR_t gen_bb_procbody(void*,int);      extern procbody_state_t    *procbody_new(void);
-extern DESCR_t gen_bb_proccode(void*,int);      extern proccode_state_t    *proccode_new(void);
 extern atp_t    * bb_atp_new                (const char *varname);
 extern cap_t    * bb_cap_new_call           (bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
 extern cap_t    * bb_cap_new                (bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
@@ -1696,12 +1662,13 @@ static void flat_drive_to(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_
     }
     g_emit.op_sa  = bb_slot_get(bb_child0(pBB));
     g_emit.op_sb  = bb_slot_get(bb_child1(pBB));
+    g_emit.op_num_real = (IR_LIT(pBB).sval && strcmp(IR_LIT(pBB).sval, "ar") == 0) ? 1 : 0;
     /* Use bb_slot_alloc16_or_get so that if this TO node was already walked in the
        chain pre-pass (before a parent BINOP_GEN visit), the second walk reuses the
        same slot.  Both walks then operate on the same frame location. */
     int already = (bb_slot_get(pBB) >= 0);
     g_emit.op_off = bb_slot_alloc16_or_get(pBB);
-    if (!already) (void)bb_slot_claim(8);  /* claim the counter byte only once */
+    if (!already) (void)bb_slot_claim(g_emit.op_num_real ? 16 : 8);  /* claim counter slot: 16B for real (type+val), 8B for int */
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1859,13 +1826,16 @@ static void flat_drive_initial(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     }
     int id = g_flat_node_id++;
     bb_label_t *body_entry = emit_label_alloc("xinit%d_body", id);
+    bb_label_t *mark_done  = emit_label_alloc("xinit%d_mark", id);
+    g_emit.op_sc = id;
     EMIT_PAIR_RESET();
     EMIT_PAIR_JMP(lbl_γ);
     EMIT_PAIR_JMP(body_entry);
+    EMIT_PAIR_DEF_JMP(mark_done, lbl_γ);
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
     emit_label_define_bb(body_entry);
-    walk_bb_flat(pBB->operands[0], lbl_γ, lbl_ω, lbl_β);
+    walk_bb_flat(pBB->operands[0], mark_done, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void case_slot_binop_operands(IR_t *v, bb_label_t *lbl_ω) {
@@ -3424,7 +3394,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
     }
-    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i]; if (c && (c->op == IR_ASSIGN || c->op == IR_ASSIGN_LIT_S || c->op == IR_ASSIGN_LIT_I || c->op == IR_ASSIGN_VAR || c->op == IR_ASSIGN_CONCAT || c->op == IR_ASSIGN_CALL) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); } }
+    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i]; if (c && (c->op == IR_ASSIGN || c->op == IR_ASSIGN_LIT_S || c->op == IR_ASSIGN_LIT_I || c->op == IR_ASSIGN_VAR || c->op == IR_ASSIGN_CONCAT || c->op == IR_ASSIGN_CALL) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); if (c && c->op == IR_RASGN && c->n_operands > 0 && c->operands[0] && c->operands[0]->op == IR_VAR && IR_LIT(c->operands[0]).sval && !is_global(IR_LIT(c->operands[0]).sval)) (void)bb_varslot(IR_LIT(c->operands[0]).sval); } }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
