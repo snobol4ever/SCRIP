@@ -14,4 +14,5 @@ DESCR_t     kw_read(const char *kw);
 DESCR_t     rt_keyword_read(const char *sval);
 const char *kw_cset_name(const char *ptr);
 int         kw_cset_len(const char *ptr);
+const char *kw_cset_const_str(const char *kw);
 #endif

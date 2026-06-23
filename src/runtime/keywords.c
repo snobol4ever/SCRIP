@@ -45,6 +45,16 @@ int kw_cset_len(const char *ptr) {
     return -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+const char *kw_cset_const_str(const char *kw) {
+    if (!kw) return (const char *)0;
+    if (kw[0] == '&') kw++;
+    if (!strcmp(kw, "lcase"))   return "abcdefghijklmnopqrstuvwxyz";
+    if (!strcmp(kw, "ucase"))   return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (!strcmp(kw, "letters")) return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    if (!strcmp(kw, "digits"))  return "0123456789";
+    return (const char *)0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
     if (!strcmp(kw,"pos"))     return INTVAL(scan_pos);
