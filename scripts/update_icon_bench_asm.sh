@@ -15,16 +15,16 @@
 #
 # Usage:
 #   scripts/update_icon_bench_asm.sh [GLOB]
-#     GLOB defaults to 'rung36_jcon_*.icn' (the JCON benchmark family).
-#   ICON_CORPUS=<dir>   override the corpus icon dir (default /home/claude/corpus/programs/icon)
+#     GLOB defaults to '*.icn' (the whole Icon benchmark corpus).
+#   ICON_CORPUS=<dir>   override the corpus icon dir (default /home/claude/corpus/benchmarks/icon)
 #   CHECK=1             dry-run: report what WOULD change, write nothing (exit 1 if any drift)
 #
 # Exit: 0 normally; with CHECK=1, 0 if every .s is already current, 1 if any would change.
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP="$ROOT/scrip"
-CORPUS="${ICON_CORPUS:-/home/claude/corpus/programs/icon}"
-GLOB="${1:-rung36_jcon_*.icn}"
+CORPUS="${ICON_CORPUS:-/home/claude/corpus/benchmarks/icon}"
+GLOB="${1:-*.icn}"
 CHECK="${CHECK:-0}"
 [ -x "$SCRIP" ] || { echo "FATAL: $SCRIP not built (run scripts/build_scrip.sh)"; exit 2; }
 [ -d "$CORPUS" ] || { echo "FATAL: corpus dir $CORPUS not found"; exit 2; }
