@@ -207,6 +207,7 @@ extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
 static int        g_bb_alpha_seq = 0;
+void g_bb_alpha_seq_reset(void) { g_bb_alpha_seq = 0; }
 static void bb_fill_alpha(IR_t *nd) {
     extern int g_m4_dense_nid;
     bb_label_t *a = &g_α_ring[g_α_ring_i++ & 7];
