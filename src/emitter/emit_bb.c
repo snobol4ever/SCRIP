@@ -2292,8 +2292,10 @@ static void flat_drive_gvar_seq_passthrough(IR_t *pBB, bb_label_t *lbl_γ, bb_la
 static void flat_drive_gvar_concat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *c0 = bb_child0(nd), *c1 = bb_child1(nd);
     int s0 = -1, s1 = -1;
-    if (c0) { int id = g_flat_node_id++; bb_label_t *d = emit_label_alloc("xgvcat%d_0d", id); bb_label_t *b = emit_label_alloc("xgvcat%d_0b", id); g_gvar_callarg_live = 1; walk_bb_flat(c0, d, lbl_ω, b); g_gvar_callarg_live = 0; emit_label_define_bb(d); s0 = bb_slot_get(c0); }
-    if (c1) { int id = g_flat_node_id++; bb_label_t *d = emit_label_alloc("xgvcat%d_1d", id); bb_label_t *b = emit_label_alloc("xgvcat%d_1b", id); g_gvar_callarg_live = 1; walk_bb_flat(c1, d, lbl_ω, b); g_gvar_callarg_live = 0; emit_label_define_bb(d); s1 = bb_slot_get(c1); }
+    if (c0 && bb_slot_get(c0) >= 0) { s0 = bb_slot_get(c0); }
+    else if (c0) { int id = g_flat_node_id++; bb_label_t *d = emit_label_alloc("xgvcat%d_0d", id); bb_label_t *b = emit_label_alloc("xgvcat%d_0b", id); g_gvar_callarg_live = 1; walk_bb_flat(c0, d, lbl_ω, b); g_gvar_callarg_live = 0; emit_label_define_bb(d); s0 = bb_slot_get(c0); }
+    if (c1 && bb_slot_get(c1) >= 0) { s1 = bb_slot_get(c1); }
+    else if (c1) { int id = g_flat_node_id++; bb_label_t *d = emit_label_alloc("xgvcat%d_1d", id); bb_label_t *b = emit_label_alloc("xgvcat%d_1b", id); g_gvar_callarg_live = 1; walk_bb_flat(c1, d, lbl_ω, b); g_gvar_callarg_live = 0; emit_label_define_bb(d); s1 = bb_slot_get(c1); }
     g_emit.op_sa = s0; g_emit.op_sb = s1; g_emit.op_ival = BINOP_CONCAT; g_emit.op_off = bb_slot_alloc16(nd);
     g_emit.bb_lk = c0 ? (int)c0->op : -1; g_emit.bb_rk = c1 ? (int)c1->op : -1;
     EMIT_PAIR_RESET();
