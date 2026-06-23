@@ -15,13 +15,17 @@
 #include <gc/gc.h>
 #include <math.h>
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int builtin_is_generator(const char *name)
+/* Public: generator builtins (multi-shot / scan-context) + list mutators that need
+   rt_call_arr byname routing rather than the deterministic-only known-builtin path. */
+int rt_builtin_is_generator(const char *name)
 {
     if (!name) return 0;
     return !strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "any")
         || !strcmp(name, "many") || !strcmp(name, "bal") || !strcmp(name, "key")
-        || !strcmp(name, "seq");
+        || !strcmp(name, "seq")
+        || !strcmp(name, "push") || !strcmp(name, "put");
 }
+static int builtin_is_generator(const char *name) { return rt_builtin_is_generator(name); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_is_truthy(DESCR_t v) {
     if (IS_FAIL_fn(v)) return 0;
