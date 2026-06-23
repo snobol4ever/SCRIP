@@ -339,41 +339,72 @@ static int bb_index_of(const IR_graph_t * bbg, const IR_t * bb) {
     return -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis, int *order, int *norder) {
+    if (!nd) return;
+    int ix = nd->idx;
+    if (ix < 0 || ix >= bbg->n || bbg->all[ix] != nd || vis[ix]) return;
+    vis[ix] = 1; order[(*norder)++] = ix;
+    bb_emit_order_visit(bbg, nd->γ.node, vis, order, norder);
+    bb_emit_order_visit(bbg, nd->ω.node, vis, order, norder);
+    int na = 0; IR_t * const * ops = NULL;
+    if (nd->n_operands > 0) { na = nd->n_operands; ops = nd->operands; } else { ops = bb_operand_aux_get((IR_graph_t *)bbg, (IR_t *)nd, &na); }
+    if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) {
+    const IR_t * bb = (i >= 0 && i < bbg->n) ? bbg->all[i] : NULL;
+    char sq[8]; if (seq >= 0) snprintf(sq, sizeof sq, "%d", seq); else snprintf(sq, sizeof sq, "-");
+    if (!bb) { fprintf(fp, "%4s %4d:    .    .  %-22s []\n", sq, i, "(null)"); return; }
+    char gp[8], wp[8];
+    if (bb->γ.node) snprintf(gp, sizeof gp, "%d", bb->γ.node->idx); else snprintf(gp, sizeof gp, ".");
+    if (bb->ω.node) snprintf(wp, sizeof wp, "%d", bb->ω.node->idx); else snprintf(wp, sizeof wp, ".");
+    int na = 0; IR_t * const * ops = NULL;
+    if (bb->n_operands > 0) { na = bb->n_operands; ops = bb->operands; } else { ops = bb_operand_aux_get((IR_graph_t *)bbg, (IR_t *)bb, &na); }
+    char ob[160]; int op = 0; ob[0] = 0;
+    if (bb->op != IR_SCAN && na > 0 && ops) for (int j = 0; j < na && op < 140; j++) op += snprintf(ob + op, sizeof ob - op, "%s%d", j ? " " : "", ops[j] ? ops[j]->idx : -1);
+    const char * opn = bb_op_name(bb->op);
+    fprintf(fp, "%4s %4d: %4s %4s  %-22s [%s]", sq, i, gp, wp, opn, ob);
+    switch (bb->op) {
+        case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
+        case IR_LIT_F: fprintf(fp, " dval=%g", IR_LIT(bb).dval); break;
+        case IR_LIT_S: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_VAR: fprintf(fp, " var=\"%s\"%s", IR_LIT(bb).sval ? IR_LIT(bb).sval : "", IR_EXEC(bb).state == 1 ? " global" : ""); break;
+        case IR_LOGICVAR: fprintf(fp, " slot=%lld", (long long)IR_LIT(bb).ival); break;
+        case IR_ATOM: fprintf(fp, " atom=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_BINOP: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
+        case IR_ARITH: fprintf(fp, " arith=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_GOAL: fprintf(fp, " callee=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_BUILTIN: fprintf(fp, " builtin=\"%s\"/%lld", IR_LIT(bb).sval ? IR_LIT(bb).sval : "", (long long)IR_LIT(bb).ival); break;
+        case IR_SEQ: fprintf(fp, " parts(sub-graphs)"); break;
+        case IR_FIELD_GET:
+        case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        default:
+            if (IR_LIT(bb).sval) fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval);
+            else if (IR_LIT(bb).ival) fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival);
+            break;
+    }
+    fprintf(fp, "\n");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void bb_print(const IR_graph_t * bbg, FILE * fp) {
     if (!bbg) { fprintf(fp, "(null IR_graph_t)\n"); return; }
     static const char * lang_names[] = { "?", "SNO", "SCO", "REB", "ICN", "PL", "RKU" };
     const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
-    fprintf(fp, "IR_graph_t lang=%s n=%d entry=%d\n", lname, bbg->n, bb_index_of(bbg, bbg->entry));
+    fprintf(fp, "IR_graph_t lang=%s n=%d entry=%d nslots=%d\n", lname, bbg->n, bb_index_of(bbg, bbg->entry), bbg->nslots);
+    fprintf(fp, ";  seq node:    γ    ω  kind                   [operands]  payload   (linear emit order: γ-spine DFS from entry, then ω, then operands)\n");
     int nn = bbg->n;
-    for (int i = 0; i < nn; i++) {                              /* sequential, in node-number order */
-        const IR_t * bb = bbg->all[i];
-        if (!bb) { fprintf(fp, "%4d:    .    .  []\n", i); continue; }
-        char gp[8], wp[8];
-        if (bb->γ.node) snprintf(gp, sizeof gp, "%d", bb->γ.node->idx); else snprintf(gp, sizeof gp, ".");
-        if (bb->ω.node) snprintf(wp, sizeof wp, "%d", bb->ω.node->idx); else snprintf(wp, sizeof wp, ".");
-        int na = 0; IR_t * const * ops = NULL;
-        if (bb->n_operands > 0) { na = bb->n_operands; ops = bb->operands; }            /* on-node operands */
-        else { ops = bb_operand_aux_get(bbg, bb, &na); }                                /* else aux-map */
-        char ob[128]; int op = 0; ob[0] = 0;
-        if (bb->op != IR_SCAN && na > 0 && ops) for (int j = 0; j < na && op < 110; j++) op += snprintf(ob + op, sizeof ob - op, "%s%d", j ? " " : "", ops[j] ? ops[j]->idx : -1);
-        const char * opn = bb_op_name(bb->op);                 /* keep IR_ prefix */
-        fprintf(fp, "%4d: %4s %4s  %-22s [%s]", i, gp, wp, opn, ob);
-        switch (bb->op) {
-            case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
-            case IR_LIT_F: fprintf(fp, " dval=%g",   IR_LIT(bb).dval);             break;
-            case IR_LIT_S: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-            case IR_VAR:   fprintf(fp, " var=\"%s\"%s",  IR_LIT(bb).sval ? IR_LIT(bb).sval : "", IR_EXEC(bb).state == 1 ? " global" : ""); break;
-            case IR_BINOP: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
-            case IR_SEQ:   fprintf(fp, " parts(sub-graphs)"); break;
-            case IR_FIELD_GET:
-            case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-            default:
-                if (IR_LIT(bb).sval) fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval);
-                else if (IR_LIT(bb).ival) fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival);
-                break;
-        }
-        fprintf(fp, "\n");
-    }
+    char * vis = (char *) calloc(nn > 0 ? nn : 1, 1);
+    int * order = (int *) malloc((size_t)(nn > 0 ? nn : 1) * sizeof(int));
+    int norder = 0;
+    if (vis && order) {
+        bb_emit_order_visit(bbg, bbg->entry, vis, order, &norder);
+        for (int sq = 0; sq < norder; sq++) bb_print_node_line(bbg, fp, sq, order[sq]);
+        int any_unreached = 0;
+        for (int i = 0; i < nn; i++) if (!vis[i] && bbg->all[i]) { any_unreached = 1; break; }
+        if (any_unreached) fprintf(fp, "; --- unreached (not on emit spine; shown for completeness) ---\n");
+        if (any_unreached) for (int i = 0; i < nn; i++) if (!vis[i] && bbg->all[i]) bb_print_node_line(bbg, fp, -1, i);
+    } else { for (int i = 0; i < nn; i++) bb_print_node_line(bbg, fp, i, i); }
+    free(vis); free(order);
     for (int i = 0; i < nn; i++) {                              /* recurse only true sub-graph nodes (leaf-SEQ/scan) */
         const IR_t * bb = bbg->all[i];
         if (!bb || bb->op != IR_SEQ || IR_LIT(bb).dval != 1.0) continue;
