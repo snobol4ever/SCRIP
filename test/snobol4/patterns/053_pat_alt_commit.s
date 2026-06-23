@@ -24,23 +24,17 @@ push r12
   lea r10, [rip + Δ]
 flat_α_body:
 snoch0_n0_α:
+# IR_PATTERN_LIT passthrough (chain entry; matcher built inside CAT blob)
 bb1_α:
- lea rdi, [rip + .S0]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n1_α
  snoch0_n0_β:
- lea rdi, [rip + .S0]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n1_α:
+# IR_PATTERN_LIT passthrough (chain entry; matcher built inside CAT blob)
 bb2_α:
- lea rdi, [rip + .S0]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n3_α
  snoch0_n1_β:
- lea rdi, [rip + .S0]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n2_α:
 # IR_LIT_scalar
 bb3_α:
@@ -49,18 +43,18 @@ bb3_α:
  jmp snoch0_n5_α
 snoch0_n3_α:
 bb4_α:
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S0]
  call rt_bomb@PLT
  ud2
  snoch0_n3_β:
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S0]
  call rt_bomb@PLT
  ud2
 snoch0_n4_α:
 bb5_α:
 # IR_ASSIGN_LIT_S
- lea rdi, [rip + .S2]
- lea rsi, [rip + .S3]
+ lea rdi, [rip + .S1]
+ lea rsi, [rip + .S2]
  call rt_gvar_assign_str@PLT
  jmp snoch0_n5_α
  snoch0_n4_β:
@@ -80,18 +74,15 @@ bb6_α:
 .Lx7_0_s:
  .string "X"
 snoch0_n6_α:
+# IR_PATTERN_LIT passthrough (chain entry; matcher built inside CAT blob)
 bb7_α:
- lea rdi, [rip + .S0]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n9_α
  snoch0_n6_β:
- lea rdi, [rip + .S0]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n7_α:
 # IR_SUBJECT
 bb8_α:
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S1]
  lea rsi, [r12 + 112]
  push r10
  push rbx
@@ -128,7 +119,7 @@ bb11_α:
  mov dword ptr [r12 + 144], r14d
 # IR_MATCH_DEFER
 bb12_α:
- lea rdi, [rip + .S5]
+ lea rdi, [rip + .S4]
  mov esi, 0
  push rbx
  mov rbx, rsp
@@ -168,7 +159,7 @@ bb12_α:
  jmp smatch12_adv
 xcap15_γ:
 # IR_MATCH_CAPTURE_COND
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  mov esi, dword ptr [r12 + 144]
  mov edx, r14d
  mov ecx, 0
@@ -214,11 +205,11 @@ bb15_α:
  jmp flat_γ
 snoch0_n9_α:
 bb16_α:
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S0]
  call rt_bomb@PLT
  ud2
  snoch0_n9_β:
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S0]
  call rt_bomb@PLT
  ud2
 snoch0_n10_α:
@@ -238,26 +229,26 @@ bb17_α:
 snoch0_n11_α:
 bb18_α:
 # IR_ASSIGN_LIT_S
- lea rdi, [rip + .S6]
- lea rsi, [rip + .S7]
+ lea rdi, [rip + .S5]
+ lea rsi, [rip + .S6]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
  snoch0_n11_β:
  jmp flat_γ
 snoch0_n12_α:
 bb19_α:
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S0]
  call rt_bomb@PLT
  ud2
  snoch0_n12_β:
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S0]
  call rt_bomb@PLT
  ud2
 snoch0_n13_α:
 bb20_α:
 # IR_ASSIGN_VAR
- lea rdi, [rip + .S6]
- lea rsi, [rip + .S4]
+ lea rdi, [rip + .S5]
+ lea rsi, [rip + .S3]
  call rt_gvar_assign_var@PLT
  jmp flat_γ
  snoch0_n13_β:
@@ -279,12 +270,11 @@ xor edx, edx
 pop r12
 ret
 .section .rodata
-.S0: .string "bb_pattern_lit: DT_P builder pending (DDS)"
-.S1: .string "bb_pattern_alt: DT_P builder pending (DDS)"
-.S2: .string "X"
-.S3: .string "b"
-.S4: .string "V"
-.S5: .string "P"
-.S6: .string "OUTPUT"
-.S7: .string "no match"
+.S0: .string "bb_pattern_alt: DT_P builder pending (DDS)"
+.S1: .string "X"
+.S2: .string "b"
+.S3: .string "V"
+.S4: .string "P"
+.S5: .string "OUTPUT"
+.S6: .string "no match"
 .text

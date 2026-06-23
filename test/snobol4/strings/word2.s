@@ -53,19 +53,16 @@ bb3_α:
 .Lx4_0_s:
  .string "INPUT"
 snoch0_n3_α:
+# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
 bb4_α:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n5_α
  snoch0_n3_β:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n4_α:
 bb5_α:
 # IR_ASSIGN_VAR
- lea rdi, [rip + .S2]
- lea rsi, [rip + .S3]
+ lea rdi, [rip + .S1]
+ lea rsi, [rip + .S2]
  call rt_gvar_assign_var@PLT
  jmp snoch0_n6_α
  snoch0_n4_β:
@@ -94,18 +91,15 @@ bb7_α:
 .Lx9_0_s:
  .string "LINE"
 snoch0_n7_α:
+# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
 bb8_α:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n9_α
  snoch0_n7_β:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n8_α:
 # IR_SUBJECT
 bb9_α:
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S1]
  lea rsi, [r12 + 152]
  push r10
  push rbx
@@ -139,7 +133,7 @@ smatch14_retry:
  mov r14d, dword ptr [r12 + 168]
 # IR_MATCH_DEFER
 bb12_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  mov esi, 0
  push rbx
  mov rbx, rsp
@@ -206,32 +200,32 @@ xscan11_dfail:
 jmp snoch0_n2_α
 snoch0_n9_α:
 bb14_α:
- lea rdi, [rip + .S5]
+ lea rdi, [rip + .S4]
  call rt_bomb@PLT
  ud2
  snoch0_n9_β:
- lea rdi, [rip + .S5]
+ lea rdi, [rip + .S4]
  call rt_bomb@PLT
  ud2
 snoch0_n10_α:
 bb15_α:
 # IR_ASSIGN_CONCAT 5 parts
  mov dword ptr [r12 + 208], 1
- lea rax, [rip + .S7]
+ lea rax, [rip + .S6]
  mov qword ptr [r12 + 216], rax
  mov dword ptr [r12 + 224], 0
- lea rax, [rip + .S8]
+ lea rax, [rip + .S7]
  mov qword ptr [r12 + 232], rax
  mov dword ptr [r12 + 240], 1
- lea rax, [rip + .S9]
+ lea rax, [rip + .S8]
  mov qword ptr [r12 + 248], rax
  mov dword ptr [r12 + 256], 0
- lea rax, [rip + .S10]
+ lea rax, [rip + .S9]
  mov qword ptr [r12 + 264], rax
  mov dword ptr [r12 + 272], 1
- lea rax, [rip + .S11]
+ lea rax, [rip + .S10]
  mov qword ptr [r12 + 280], rax
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S5]
  lea rsi, [r12 + 208]
  mov edx, 5
  push r10
@@ -246,32 +240,23 @@ bb15_α:
  snoch0_n10_β:
  jmp snoch0_n2_α
 snoch0_n11_α:
+# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
 bb16_α:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n12_α
  snoch0_n11_β:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n12_α:
+# IR_PATTERN_LIT passthrough (chain entry; matcher built inside CAT blob)
 bb17_α:
- lea rdi, [rip + .S12]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n13_α
  snoch0_n12_β:
- lea rdi, [rip + .S12]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n13_α:
+# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
 bb18_α:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n14_α
  snoch0_n13_β:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n14_α:
 bb19_α:
  lea rdi, [rip + .S0]
@@ -282,39 +267,33 @@ bb19_α:
  call rt_bomb@PLT
  ud2
 snoch0_n15_α:
+# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
 bb20_α:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n16_α
  snoch0_n15_β:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n16_α:
 bb21_α:
- lea rdi, [rip + .S13]
+ lea rdi, [rip + .S11]
  call rt_bomb@PLT
  ud2
  snoch0_n16_β:
- lea rdi, [rip + .S13]
+ lea rdi, [rip + .S11]
  call rt_bomb@PLT
  ud2
 snoch0_n17_α:
+# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
 bb22_α:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n18_α
  snoch0_n17_β:
- lea rdi, [rip + .S1]
- call rt_bomb@PLT
- ud2
+ jmp snoch0_n2_α
 snoch0_n18_α:
 bb23_α:
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S12]
  call rt_bomb@PLT
  ud2
  snoch0_n18_β:
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S12]
  call rt_bomb@PLT
  ud2
 flat_β:
@@ -335,17 +314,16 @@ pop r12
 ret
 .section .rodata
 .S0: .string "bb_pattern_unary_i: DT_P builder pending (DDS)"
-.S1: .string "bb_pattern_cat: DT_P builder pending (DDS)"
-.S2: .string "LINE"
-.S3: .string "INPUT"
-.S4: .string "PAT"
-.S5: .string "bb_pattern_arb: DT_P builder pending (DDS)"
-.S6: .string "OUTPUT"
-.S7: .string "WHO"
-.S8: .string " invented the "
-.S9: .string "WHAT"
-.S10: .string " in "
-.S11: .string "WHEN"
-.S12: .string "bb_pattern_lit: DT_P builder pending (DDS)"
-.S13: .string "bb_pattern_nullary: DT_P builder pending (DDS)"
+.S1: .string "LINE"
+.S2: .string "INPUT"
+.S3: .string "PAT"
+.S4: .string "bb_pattern_arb: DT_P builder pending (DDS)"
+.S5: .string "OUTPUT"
+.S6: .string "WHO"
+.S7: .string " invented the "
+.S8: .string "WHAT"
+.S9: .string " in "
+.S10: .string "WHEN"
+.S11: .string "bb_pattern_nullary: DT_P builder pending (DDS)"
+.S12: .string "bb_pattern_cat: unsupported shape (only BREAK . VAR LIT)"
 .text
