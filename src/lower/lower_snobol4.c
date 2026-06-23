@@ -509,6 +509,8 @@ static int sno_leaf_buildable(const tree_t * t) {
     const char * s; int hit;
     if (!t) return 0;
     if (t->t == TT_QLIT) return 1;
+    /* capture wrapper pat . var / pat $ var: buildable iff the inner pattern (c[0]) is — c[1] is the target NAME, not a pattern */
+    if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 0 && t->c[0]) return sno_leaf_buildable(t->c[0]);
     if (t->t == TT_VAR && (s = t->v.sval)) {
         hit  = (!strcmp(s,"REM")||!strcmp(s,"rem")||!strcmp(s,"ARB")||!strcmp(s,"arb")||!strcmp(s,"FAIL")||!strcmp(s,"fail"));
         hit |= (!strcmp(s,"SUCCEED")||!strcmp(s,"succeed")||!strcmp(s,"FENCE")||!strcmp(s,"fence")||!strcmp(s,"ABORT")||!strcmp(s,"abort"));
@@ -534,6 +536,16 @@ static int sno_seq_has_pat_leaf(const tree_t * t) {
 }
 static IR_t * sno_build_leaf_ir(snx_t * cx, const tree_t * t, IR_t * g, IR_t * w) {
     if (!t) return NULL;
+    /* capture wrapper: IR_PATTERN_CAPTURE holds target name in sval (ival=1 ⇒ immediate $, 0 ⇒ conditional .), inner pattern as operand */
+    if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 0 && t->c[0]) {
+        IR_t * cap = build(cx, IR_PATTERN_CAPTURE, g, w);
+        IR_LIT(cap).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : (char *) "";
+        IR_LIT(cap).ival = (t->t == TT_CAPT_IMMED_ASGN) ? 1 : 0;
+        IR_t * inner = sno_build_leaf_ir(cx, t->c[0], cap, w);
+        ir_operand_push(cap, inner);
+        γ_to(inner, cap);
+        return inner;
+    }
     if (t->t == TT_QLIT) { IR_t * nd = build(cx, IR_PATTERN_LIT, g, w); IR_LIT(nd).sval = t->v.sval; return nd; }
     if (t->t == TT_VAR && t->v.sval) {
         const char * s = t->v.sval; IR_e pe = (IR_e)0; int hit = 1;
@@ -680,7 +692,15 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         }
     }
     if (rhs && (rhs->t == TT_CAPT_COND_ASGN || rhs->t == TT_CAPT_IMMED_ASGN)) {
-        /* capture as value-assign RHS → ORPHAN plain ASSIGN only (oracle bails before any pattern node) */
+        /* bare capture RHS (PAT = BREAK(',') . W): build single capture leaf via IR_PATTERN_* runtime builder.   */
+        /* sno_build_leaf_ir returns the inner-pattern entry and wires inner.γ→CAPTURE, CAPTURE.γ→dtp (g arg).     */
+        if (sno_leaf_buildable(rhs)) {
+            IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
+            IR_t * leaf = sno_build_leaf_ir(cx, rhs, dtp, ω);
+            ir_operand_push(dtp, leaf);
+            return leaf;
+        }
+        /* not buildable (variant) → ORPHAN plain ASSIGN (oracle bails before any pattern node) */
         IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
         return NULL;
     }
