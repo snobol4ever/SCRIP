@@ -11,6 +11,7 @@ extern "C" {
 void rt_write_any_nl(DESCR_t d);
 int  rt_proc_is_registered(const char *name);
 int  rt_builtin_is_known(const char *name);
+int  rt_builtin_is_generator(const char *name);
 int  bb_slot_get(IR_t * nd);
 int  bb_slot_claim(int bytes);
 int  bb_slot_alloc16(IR_t * nd);

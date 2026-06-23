@@ -2839,6 +2839,9 @@ int bb_call_route_classify(IR_t * nd) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int64_t narg = g_emit.op_ival; IR_t * a0 = ir_call_arg(nd, 0); double dv = g_emit.op_dval;
     if (g_descr_flat_chain && dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (g_descr_flat_chain && dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
+    /* Generators (find/seq/upto/…) and list mutators (push/put) are excluded from rt_builtin_is_known
+       but rt_call_arr handles them — route through BYNAME for dv==2.0 and dv==3.0 (subgraph mode). */
+    if (g_descr_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (g_descr_flat_chain && dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
     if (g_gvar_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_GVAR_USERPROC;
     if (g_descr_flat_chain && fn[0] && rt_proc_is_registered(fn) && dv == 3.0) return CALL_ROUTE_PROC_STAGED;
@@ -3029,6 +3032,8 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             }
             if (IR_LIT(nd).dval == 3.0 && (int)IR_LIT(nd).ival > 0 && IR_LIT(nd).sval && rt_proc_is_registered(IR_LIT(nd).sval))
                 flat_drive_userproc(nd, lbl_γ, lbl_ω, lbl_β);
+            else if (IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval && rt_builtin_is_generator(IR_LIT(nd).sval))
+                flat_drive_call_builtin(nd, lbl_γ, lbl_ω, lbl_β);
             else
                 FILL(nd, lbl_γ, lbl_ω, lbl_β);
             break;
@@ -3046,7 +3051,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         int is_write_fn   = (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes")));
         int write_str_simple1 = (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "write") && (int)IR_LIT(nd).ival == 1 && a0 && a0->op == IR_LIT_S && IR_LIT(a0).sval);
         int write_simple1 = ((is_write_fn && (int)IR_LIT(nd).ival == 1 && is_intexpr_shape) || write_str_simple1);
-        int builtin_ok    = (IR_LIT(nd).sval && rt_builtin_is_known(IR_LIT(nd).sval) && call_args_single_shot(nd) && !write_simple1);
+        int builtin_ok    = (IR_LIT(nd).sval && (rt_builtin_is_known(IR_LIT(nd).sval) || (nd->op == IR_CALL_BUILTIN && rt_builtin_is_generator(IR_LIT(nd).sval))) && call_args_single_shot(nd) && !write_simple1);
         if (IR_LIT(nd).sval && rt_proc_is_registered(IR_LIT(nd).sval))
             flat_drive_call_userproc(nd, lbl_γ, lbl_ω, lbl_β);
         else if (builtin_ok)
@@ -3685,7 +3690,11 @@ void resolve_call_kinds_descr(IR_graph_t *g) {
     for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; int iscall = (nd->op == IR_CALL || nd->op == IR_CALL_DEFINE || ir_is_call_kind(nd->op));
         if (nd->op == IR_CALL) { const char *fn = IR_LIT(nd).sval; double dv = IR_LIT(nd).dval;
             if (fn && fn[0] && dv == 3.0 && rt_proc_is_registered(fn)) nd->op = IR_CALL_PROC_STAGED;
-            else if (fn && fn[0] && dv != 2.0 && strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN; }
+            else if (fn && fn[0] && dv != 2.0 && strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN;
+            /* Generators (find/seq/upto/…) and list mutators (push/put) stay dv==2.0 and are excluded
+               from rt_builtin_is_known, but rt_call_arr handles them — tag as BUILTIN so they get
+               the flat_drive_call_builtin path (arg-walk + EMIT_PAIR_FILL) instead of raw FILL. */
+            else if (fn && fn[0] && dv == 2.0 && rt_builtin_is_generator(fn)) nd->op = IR_CALL_BUILTIN; }
         if (iscall && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0 || IR_LIT(nd).dval == 5.0)) { IR_graph_t **bk = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
             if (bk) for (int j = 0; j < (int) IR_LIT(nd).ival; j++) if (bk[j]) resolve_call_kinds_descr(bk[j]); } }
 }
