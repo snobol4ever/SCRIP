@@ -365,7 +365,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_ANY:     bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_NOTANY:  bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_SPAN:    bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_BREAK:   bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
+    case IR_PATTERN_BREAK:   bb_emit_x86(bb_pattern_break());                                                                                           return 0;
     case IR_PATTERN_BREAKX:  bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
     case IR_PATTERN_LEN:     bb_emit_x86(bb_pattern_len());                                                                                             return 0;
     case IR_PATTERN_POS:     bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;

@@ -113,6 +113,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_splice_empty.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_len.cpp \
+    $(SRC)/emitter/BB_templates/bb_pattern_break.cpp \
     $(SRC)/emitter/BB_templates/bb_gen_scan.cpp \
     $(SRC)/emitter/BB_templates/bb_keyword.cpp \
     $(SRC)/emitter/BB_templates/bb_goto_dyn.cpp \
@@ -460,6 +461,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_stub.cpp -o $(OBJ)/bb_pattern_stub.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_splice_empty.cpp -o $(OBJ)/bb_scan_splice_empty.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_len.cpp -o $(OBJ)/bb_pattern_len.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_break.cpp -o $(OBJ)/bb_pattern_break.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_mapgrep.cpp -o $(OBJ)/bb_mapgrep.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
