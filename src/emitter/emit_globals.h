@@ -89,6 +89,7 @@ typedef struct {
     char                         bb_rs_buf[64];
     char                         bb_op_buf[64];
     const char *                 bb_ls;
+    int                          pat_via_dtp;
     const char *                 bb_rs;
     const char *                 bb_op_lbl;
     int                          bb_lk;
