@@ -2633,6 +2633,11 @@ int main(int argc, char **argv)
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
             g_frame_active = 1;
+            extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+            gva_collect_reset();
+            gva_collect_icon_globals();
+            int n_gva_icn = gva_count();
+            g_gva_active = (n_gva_icn > 0) ? 1 : 0;
             int n_procs = 0;
             int _pnbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             const char **proc_names_buf = (const char **)malloc((size_t)_pnbcap * sizeof(const char *));
@@ -2753,12 +2758,21 @@ int main(int argc, char **argv)
                 printf("  ret\n");
             }
             free(proc_names_buf);
+            if (n_gva_icn > 0) {
+                printf("  .section .rodata\n");
+                for (int k = 0; k < n_gva_icn; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
+                printf("  .align 8\n__gva_names:\n");
+                for (int k = 0; k < n_gva_icn; k++) printf("  .quad .Lgvan%d\n", k);
+                printf("  .section .bss\n  .align 16\n__gva: .space %d, 0\n", n_gva_icn * 16);
+                printf("  .section .text\n  .intel_syntax noprefix\n");
+            }
             printf("  .globl main\n");
             printf("main:\n");
             printf("  push rbp\n");
             printf("  mov rbp, rsp\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
                 printf("  call proc_startup\n");
+            if (n_gva_icn > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_icn);
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
             printf("  xor esi, esi\n");
@@ -2776,6 +2790,7 @@ int main(int argc, char **argv)
                                : codegen_flat_build(root_node, stdout, "main");
                 g_descr_flat_chain = saved;
             }
+            g_gva_active = 0;
             g_frame_active = 0;
             extern void xa_emit_strtab_rodata(void);
             xa_emit_strtab_rodata();
