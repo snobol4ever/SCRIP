@@ -299,29 +299,44 @@ Frames are **immutable plain JS arrays** — transitions create new arrays,
 old ones are GC'd. No `memcpy`, no snapshot/restore, no arena. The GC *is*
 the stack allocator.
 
-### Benchmark: SCRIP vs spipatjs
+### Benchmark: SCRIP vs SPITBOL vs CSNOBOL4
 
-Head-to-head against Phil Budne's
-[spipatjs](https://github.com/philbudne/spipatjs) (3,090 lines, GNAT PE
-node-graph model) — same Node.js v22 process, same JIT warmup, 20,000
-iterations each. **SCRIP wins all 8 benchmarks.**
+Corpus benchmarks (`corpus/benchmarks/snobol4/*.sno`) run head-to-head
+against the two reference oracles — SPITBOL x64 (official `spitbol/x64`)
+and CSNOBOL4 2.3.4 (Phil Budne). Each figure is the program's own `TIME()`
+compute loop in milliseconds (process startup and compile time excluded).
+SCRIP is the mode-4 `--compile` native binary, gcc `-O0`. Lower is faster.
 
-| ID | Pattern | SCRIP | spipatjs | ratio |
-|----|---------|--------:|--------:|------:|
-| B01 | Literal match | 207,510 | 6,354 | **32.7×** |
-| B02 | BREAK+SPAN word scan | 23,578 | 6,072 | **3.9×** |
-| B03 | ARB backtrack depth 12 | 28,602 | 6,418 | **4.5×** |
-| B04 | ARBNO multi-rep | 232,160 | 6,875 | **33.8×** |
-| B05 | BAL balanced parens | 179,353 | 6,457 | **27.8×** |
-| B06 | Wide ALT (4 alternatives) | 9,196 | 6,379 | **1.4×** |
-| B07 | Deep SEQ (10 literals) | 163,845 | 6,268 | **26.1×** |
-| B08 | CAPT_IMM capture | 415,434 | 6,406 | **64.9×** |
+| Benchmark | SPITBOL | CSNOBOL4 | SCRIP native | vs SPITBOL | vs CSNOBOL4 |
+|-----------|--------:|---------:|-------------:|-----------:|------------:|
+| arith_loop | 24 | 131 | 1,604 | 68× slower | 12× slower |
+| fibonacci | 94 | 534 | 6,191 | 66× slower | 12× slower |
+| func_call | 424 | 2,440 | 32,371 | 76× slower | 13× slower |
+| func_call_overhead | 425 | 2,454 | 32,542 | 77× slower | 13× slower |
+| mixed_workload | 99 | 455 | 4,034 | 41× slower | 8.9× slower |
+| op_dispatch | 67 | 369 | 3,515 | 53× slower | 9.5× slower |
+| pattern_bt | 485 | 549 | 963 | **2.0× slower** | **1.8× slower** |
+| string_concat | 138 | 311 | 1,618 | 12× slower | 5.2× slower |
+| string_manip | 391 | 1,672 | 21,220 | 54× slower | 13× slower |
+| string_pattern | 380 | 1,822 | 8,047 | 21× slower | 4.4× slower |
+| table_access | 202 | 1,969 | 11,327 | 56× slower | 5.8× slower |
+| var_access | 702 | 3,529 | 44,766 | 64× slower | 13× slower |
 
-*ops/sec · Node.js v22.22.0 · see `test/js/bench_engine.js`*
+*milliseconds (compute loop) · 12/16 benchmarks green; `roman` (recursion
+bug), `eval_fixed`/`eval_dynamic` (EVAL/CODE unimplemented), and
+`indirect_dispatch` (undefined-function call in the program — SPITBOL
+errors on it too) excluded.*
 
-spipatjs's throughput is nearly flat (~6,000–6,900 ops/sec) regardless of
-pattern complexity — `Object.freeze()` on every match result dominates.
-SCRIP's immutable-frame design avoids all post-match allocation.
+These are honest current numbers, not the target. SCRIP native code today
+runs roughly **40–77× slower than SPITBOL** and **5–13× slower than
+CSNOBOL4** on whole-program workloads — the "ten times faster" goal is not
+yet met and is presently inverted against the SPITBOL oracle. The lone
+bright spot is `pattern_bt` (≈2× off SPITBOL), the one benchmark dominated
+by pattern-match backtracking — the Byrd-box path the native templates
+implement directly. The gap elsewhere reflects the `-O0` build, a
+descriptor-heavy runtime over libgc, and per-call overhead in
+`rt_call_named_proc` (linear proc-table scan + name save/restore).
+Re-grounding this claim is tracked under the REC-COV / RC-5 rung.
 
 
 ## The Bootstrap Goal
