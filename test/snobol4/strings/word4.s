@@ -399,16 +399,9 @@ bb21_α:
 smatch33_retry:
 # IR_MATCH_RETRY
  mov r14d, dword ptr [r12 + 48]
-# IR_MATCH_DEFER
+# IR_MATCH_DEFER inlined frozen head (FZ-5b)
 bb23_α:
- lea rdi, [rip + .S5]
- mov esi, 0
- push rbx
- mov rbx, rsp
- and rsp, -16
- call rt_defer_get_pat_fn@PLT
- mov rsp, rbx
- pop rbx
+ lea rax, [rip + flat_c0_α]
  test rax, rax
  jz .Lx36_0
  push rax

@@ -68,7 +68,7 @@ bb3_α:
 .Lx4_0_s:
  .string "INPUT"
 snoch0_n3_α:
-# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
+# IR_PATTERN_CAT passthrough (chain entry)
 bb4_α:
  jmp snoch0_n5_α
  snoch0_n3_β:
@@ -102,7 +102,7 @@ bb7_α:
  snoch0_n6_β:
  jmp snoch0_n2_α
 snoch0_n7_α:
-# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
+# IR_PATTERN_CAT passthrough (chain entry)
 bb8_α:
  jmp snoch0_n9_α
  snoch0_n7_β:
@@ -251,7 +251,7 @@ bb15_α:
  snoch0_n10_β:
  jmp snoch0_n2_α
 snoch0_n11_α:
-# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
+# IR_PATTERN_CAT passthrough (chain entry)
 bb16_α:
  jmp snoch0_n12_α
  snoch0_n11_β:
@@ -263,7 +263,7 @@ bb17_α:
  snoch0_n12_β:
  jmp snoch0_n2_α
 snoch0_n13_α:
-# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
+# IR_PATTERN_CAT passthrough (chain entry)
 bb18_α:
  jmp snoch0_n14_α
  snoch0_n13_β:
@@ -278,7 +278,7 @@ bb19_α:
  call rt_bomb@PLT
  ud2
 snoch0_n15_α:
-# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
+# IR_PATTERN_CAT passthrough (chain entry)
 bb20_α:
  jmp snoch0_n16_α
  snoch0_n15_β:
@@ -293,7 +293,7 @@ bb21_α:
  call rt_bomb@PLT
  ud2
 snoch0_n17_α:
-# IR_PATTERN_CAT passthrough (chain entry; builder emitted via DTP_ASSIGN)
+# IR_PATTERN_CAT passthrough (chain entry)
 bb22_α:
  jmp snoch0_n18_α
  snoch0_n17_β:
@@ -336,5 +336,5 @@ ret
 .S9: .string " in "
 .S10: .string "WHEN"
 .S11: .string "bb_pattern_nullary: DT_P builder pending (DDS)"
-.S12: .string "bb_pattern_cat: unsupported shape (only BREAK . VAR LIT)"
+.S12: .string "bb_pattern_cat: non-frozen stored CAT shape (invariant CATs freeze upstream; structural-variance stitch pending)"
 .text
