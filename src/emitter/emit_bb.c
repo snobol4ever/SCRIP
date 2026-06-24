@@ -146,6 +146,7 @@ int g_scan_regs_live = 0;
 #define FLAT_CHAIN_SET_MAX 512
 static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
 static int   g_flat_chain_set_n = 0;
+static bb_label_t *g_limit_gen_beta = NULL;   /* chain hands flat_drive_limit its generator's resume β */
 static int flat_chain_set_has(IR_t *nd) {
     for (int i = 0; i < g_flat_chain_set_n; i++) if (g_flat_chain_set[i] == nd) return 1;
     return 0;
@@ -1953,37 +1954,30 @@ static void flat_drive_case(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_limit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || pBB->n_operands < 2 || !pBB->operands[0] || !pBB->operands[1]) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_limit: IR_LIMIT requires α (generator) and β (count expr)\n");
+        fprintf(stderr, "[IBB] FATAL flat_drive_limit: IR_LIMIT requires generator (operand0) and count (operand1)\n");
         abort();
     }
-    {
-        IR_t *g = pBB->operands[0];
-        while (g && g->op == IR_ASSIGN) g = bb_child1(g);
-        int ok = g && (g->op == IR_TO || g->op == IR_TO_BY || g->op == IR_ALT ||
-                       g->op == IR_BINOP_GEN || g->op == IR_LIST_BANG);
-        if (!ok) {
-            fprintf(stderr, "[IBB] FATAL flat_drive_limit: generator kind=%d has no mode-3 two-port emission (limit deferred)\n",
-                    (int)(g ? g->op : -1));
-            abort();
-        }
+    IR_t *cnt = pBB->operands[1];
+    while (cnt && cnt->op == IR_ASSIGN) cnt = bb_child1(cnt);
+    if (!cnt || cnt->op != IR_LIT_I) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_limit: only literal-integer counts are supported (kind=%d)\n", (int)(cnt ? cnt->op : -1));
+        abort();
     }
-    int id = g_flat_node_id++;
-    bb_label_t *count_done = emit_label_alloc("xlimit%d_count_done", id);
-    bb_label_t *count_β    = emit_label_alloc("xlimit%d_count_b",    id);
-    bb_label_t *got_value  = emit_label_alloc("xlimit%d_got",        id);
-    bb_label_t *gen_resume = emit_label_alloc("xlimit%d_gen_resume", id);
-    walk_bb_flat(pBB->operands[1], count_done, lbl_ω, count_β);
-    emit_label_define_bb(count_done);
-    EMIT_PAIR_RESET();
-    EMIT_PAIR_JMP(lbl_ω);
-    walk_bb_flat(pBB->operands[0], got_value, lbl_ω, gen_resume);
-    emit_label_define_bb(got_value);
-    EMIT_PAIR_RESET();
-    EMIT_PAIR_JMP(lbl_γ);
-    emit_label_define_bb(lbl_β);
-    EMIT_PAIR_RESET();
-    EMIT_PAIR_JMP(lbl_ω);
-    EMIT_PAIR_JMP(gen_resume);
+    int gen_slot = bb_slot_get(pBB->operands[0]);
+    if (gen_slot < 0) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_limit: generator result slot not materialised (generator must be on-spine)\n");
+        abort();
+    }
+    if (!g_limit_gen_beta) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_limit: generator resume label not supplied by chain\n");
+        abort();
+    }
+    g_emit.op_off  = bb_slot_alloc16_or_get(pBB);
+    g_emit.op_sa   = gen_slot;
+    IR_LIT(pBB).ival = (int64_t)IR_LIT(cnt).ival;
+    g_emit.lbl_t0   = g_limit_gen_beta->name;
+    g_emit.lbl_t0_p = g_limit_gen_beta;
+    FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_return(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
@@ -3476,6 +3470,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         lbls[i]  = emit_label_alloc("xchain%d_n%d_α", id, i);
         betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
     }
+    for (int i = 0; i < n; i++) if (nodes[i]->op == IR_LIMIT) {
+        int loff = bb_slot_alloc16_or_get(nodes[i]);
+        (void)bb_slot_claim(8);
+        bb_emit_limit_init(loff);
+    }
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = &lbl_γ;
@@ -3493,6 +3492,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (ir_is_generator_kind(nodes[i]->op)) { node_ω = lbls[omega_k]; int bk = to_inner_gen_operand_k(nodes[i], nodes, n); if (bk >= 0) node_ω = betas[bk]; }
             else { for (int gk = 0; gk < n; gk++) if (ir_is_generator_kind(nodes[gk]->op)) node_ω = betas[gk]; }
         }
+        g_limit_gen_beta = NULL;
+        if (nodes[i]->op == IR_LIMIT && nodes[i]->n_operands > 0) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[0]) { g_limit_gen_beta = betas[k]; break; }
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
@@ -3679,6 +3680,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_MAP: case IR_GREP: return 0;
     case IR_GEN_SCAN: return 0;
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
+    case IR_LIMIT: return 0;   /* push LIMIT result (so a consumer wires its arg to us) without rewriting our lowerer-set operands [generator, count, gen-entry]; the generator stays on-spine */
     case IR_IDX_SET: return 3;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;

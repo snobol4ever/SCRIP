@@ -313,6 +313,13 @@ void net_push_i4(FILE * out, int v) {
     else                            { fprintf(out, "    ldc.i4     %d\n", v); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_emit_limit_init(int limit_slot_off) {
+    if (!PLATFORM_X86) return;
+    g_emit.op_off = limit_slot_off;
+    bb_emit_x86(bb_limit_init());
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
@@ -465,6 +472,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_EVERY:                bb_emit_x86(bb_every());          return 0;
     case IR_TO:
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
+    case IR_LIMIT:               bb_emit_x86(bb_limit());          return 0;
     case IR_LIST_BANG:            bb_emit_x86(bb_iterate(nd));      return 0;
     case IR_IDX:                  bb_emit_x86(bb_idx_get());        return 0;
     case IR_IDX_SET:              bb_emit_x86(bb_idx_set());        return 0;

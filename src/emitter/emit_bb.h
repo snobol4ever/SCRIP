@@ -33,6 +33,7 @@ int resolve_emit_callee_block_body(const char *name, int arity, bb_label_t *bγ,
 extern IR_t *resolve_bb_entry_node(const char *name, int arity);
 int  bb_kind_is_driver_owned(int t);
 void bb_prepare_capture_arbno(IR_t *nd, int imm);
+void bb_emit_limit_init(int limit_slot_off);
 const char * child_cache_get_lbl   (bb_box_fn fn);
 extern void (*g_cap_fixup_cb)      (void *cap_ptr, const char *child_alpha_label);
 extern char   g_flat_data_buf[];

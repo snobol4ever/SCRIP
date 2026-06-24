@@ -251,7 +251,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * inner_beta = cx->beta;
         IR_t * lr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, ω, &lr);
         ir_operand_push(nd, er); ir_operand_push(nd, lr); ir_operand_push(nd, ee);
-        cx->beta = (inner_beta && inner_beta != nd) ? inner_beta : ee;
+        (void)inner_beta; cx->beta = nd;
         *res = nd; return ee; }
     case TT_LCONCAT: { IR_t * nd = build(cx, IR_LCONCAT, γ, ω);
         IR_t * lr = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &lr); IR_t * lβ = cx->beta;
