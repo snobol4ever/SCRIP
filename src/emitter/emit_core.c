@@ -429,7 +429,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ASSIGN: {
         extern int g_descr_flat_chain; if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP || op_a->op == IR_UNOP || op_a->op == IR_VAR || op_a->op == IR_VAR_FRAME || op_a->op == IR_VAR_FRAME_REF || op_a->op == IR_CALL || ir_is_call_kind(op_a->op) || op_a->op == IR_CALL_DEFINE || op_a->op == IR_IDX)) { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
-        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
+        fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
     case IR_ASSIGN_LIT_S: { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_lit_s()); return 0; }
     case IR_INDIRECT_ASSIGN_LIT_S: { bb_prepare(nd); bb_emit_x86(bb_indirect_assign_lit_s()); return 0; }
@@ -443,7 +443,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_KEYWORD: { bb_emit_x86(bb_keyword()); return 0; }
     case IR_GOTO_DYN: { bb_emit_x86(bb_goto_dyn()); return 0; }
     case IR_RETURN: { extern int g_descr_flat_chain; if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0; g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
-        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
+        fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_AUGOP:
     case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
     case IR_CALL: {
@@ -451,8 +451,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         return 0;
     }
     case IR_CALL_DEFINE:          bb_emit_x86(bb_call_define());        return 0;
-    case IR_FIELD_GET:            { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_field_get()); return 0; } fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
-    case IR_SECTION:              { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_section()); return 0; } fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
+    case IR_FIELD_GET:            { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_field_get()); return 0; } fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
+    case IR_SECTION:              { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_section()); return 0; } fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_CASE_ARM:            { bb_emit_x86(bb_case_arm()); return 0; }
     case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
     case IR_RASGN:                bb_emit_x86(bb_rasgn());          return 0;
@@ -542,7 +542,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_UNOP:
     case IR_NOT:                  bb_emit_x86(bb_unop());           return 0;
     default:
-        fprintf(out, "; [walk_bb_node: kind=%d unhandled]\n", (int)nd->op);
+        fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op);
         return 1;
     }
 }
