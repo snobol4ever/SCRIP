@@ -482,6 +482,12 @@ static void rk_register_classes(const tree_t * prog) {
             else if (dv->t == TT_QLIT) dat_set_field_default_s(cname, fn, dv->v.sval);
             else if (dv->t == TT_FLIT) dat_set_field_default_r(cname, fn, dv->v.dval);
         }
+        extern void dat_set_field_required(const char *cls, const char *field);
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || ch->t != TT_HAS_DECL || ch->n != 0) continue;
+            const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_required(cname, fn);
+        }
     }
     extern void class_inherit(const char *child, const char *parent);
     for (int i = 0; i < prog->n; i++) {

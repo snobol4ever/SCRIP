@@ -455,6 +455,30 @@ class_body_list
     | class_body_list KW_HAS IDENT VAR_SCALAR '=' expr ';'
         { free($3); const char *fn = strip_sigil($4); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free($4); expr_add_child(fv, $6);
           $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_TWIGIL IDENT IDENT ';'
+        { tree_t *fv;
+          if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($3); }
+          else fv = leaf_sval(TT_VAR, $3);
+          free($3); free($4); free($5);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_SCALAR IDENT IDENT ';'
+        { tree_t *fv; const char *fn = strip_sigil($3);
+          if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
+          else fv = leaf_sval(TT_VAR, fn);
+          free($3); free($4); free($5);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_TWIGIL IDENT IDENT ';'
+        { tree_t *fv;
+          if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($4); }
+          else fv = leaf_sval(TT_VAR, $4);
+          free($3); free($4); free($5); free($6);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_SCALAR IDENT IDENT ';'
+        { tree_t *fv; const char *fn = strip_sigil($4);
+          if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
+          else fv = leaf_sval(TT_VAR, fn);
+          free($3); free($4); free($5); free($6);
+          $$ = exprlist_append($1, fv); }
     | class_body_list KW_METHOD IDENT '(' param_list ')' block
         { ExprList *params = $5; int np = params ? params->count : 0;
           tree_t *e = ast_node_new(TT_SUB_DECL);
