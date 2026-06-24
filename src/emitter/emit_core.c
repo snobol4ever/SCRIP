@@ -474,6 +474,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_TO:
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_LIMIT:               bb_emit_x86(bb_limit());          return 0;
+    case IR_SUSPEND:             bb_emit_x86(bb_suspend());        return 0;
     case IR_LIST_BANG:            bb_emit_x86(bb_iterate(nd));      return 0;
     case IR_IDX:                  bb_emit_x86(bb_idx_get());        return 0;
     case IR_IDX_SET:              bb_emit_x86(bb_idx_set());        return 0;

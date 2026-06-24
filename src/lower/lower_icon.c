@@ -187,10 +187,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_INITIAL: { IR_t * ini = build(cx, IR_INITIAL, γ, ω);
         if (t->n > 0 && t->c[0]) { IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], γ, ω, &br); ir_operand_push(ini, be); }
         *res = ini; return ini; }
-    case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, γ, ω); IR_LIT(sn).dval = 1.0;
-        if (t->n > 0 && t->c[0]) { IR_graph_t * eg = arg_block(cx, t->c[0]); IR_EXEC(sn).counter = (int64_t)(intptr_t) eg; }
-        if (t->n > 1 && t->c[1]) { IR_graph_t * bg = arg_block(cx, t->c[1]); IR_LIT(sn).ival  = (long long)(intptr_t) bg; }
-        *res = sn; return sn; }
+    case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
+        IR_t * ev = NULL; IR_t * e_entry = sn;
+        if (t->n > 0 && t->c[0]) { e_entry = lower(cx, t->c[0], sn, cx->pfail ? cx->pfail : ω, &ev); }
+        ir_operand_push(sn, ev);
+        if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; IR_t * d_entry = lower(cx, t->c[1], γ, γ, &dv); ir_operand_push(sn, d_entry); }
+        else ir_operand_push(sn, γ);
+        *res = sn; return e_entry; }
     case TT_CASE: { if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
         IR_t * cas = build(cx, IR_CASE, γ, ω);
         IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], cas, ω, &sr); ir_operand_push(cas, sr);
