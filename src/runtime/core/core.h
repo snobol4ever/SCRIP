@@ -292,6 +292,8 @@ DESCR_t var_as_pattern(DESCR_t v);
 DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 DESCR_t *NV_PTR_fn(const char *name);
+int NV_bind_gva(const char *name, DESCR_t *cell);
+DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 const char *NV_name_from_ptr(const DESCR_t *ptr);
 extern DESCR_t (*g_eval_pat_hook)(DESCR_t pat);
 extern DESCR_t (*g_eval_str_hook)(const char *s);

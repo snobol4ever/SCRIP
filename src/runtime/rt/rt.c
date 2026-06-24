@@ -218,6 +218,13 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_reset(void) { g_rt_gen_proc_count = 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
+    if (!cells) return cells;
+    for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
+    return cells;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_registered(const char *name)
 {
     if (!name) return 0;

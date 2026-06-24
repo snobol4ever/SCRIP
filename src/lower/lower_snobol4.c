@@ -1155,7 +1155,7 @@ int lower_sno_stage2(const tree_t *prog) {
         g_stage2.proc_table[fpi].proc     = NULL;
         g_stage2.proc_table[fpi].entry_pc = -1;
         g_stage2.proc_table[fpi].bb_idx   = bb_idx;
-        g_stage2.proc_table[fpi].nparams  = np;
+        g_stage2.proc_table[fpi].nparams  = np + nl;
         g_stage2.proc_table[fpi].proc_entry_idx = body->idx;
         Scope *sc = &g_stage2.proc_table[fpi].lower_sc;
         sc->n = 0;

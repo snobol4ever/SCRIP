@@ -325,6 +325,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
     g_emit.op_sval = IR_LIT(nd).sval;
+    { extern int g_gva_active; extern int gva_index_of(const char *); g_emit.op_gva_k = (g_gva_active && IR_LIT(nd).sval) ? gva_index_of(IR_LIT(nd).sval) : -1; }
     g_emit.op_ival = IR_LIT(nd).ival;
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;

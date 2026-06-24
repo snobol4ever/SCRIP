@@ -2035,6 +2035,8 @@ void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val) {
 typedef struct _VarEntry {
     char   *name;
     DESCR_t  val;
+    DESCR_t *cell;
+    int      is_gva;
     struct _VarEntry *next;
 } NV_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -2099,7 +2101,7 @@ DESCR_t NV_GET_fn(const char *name) {
     }
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
-        if (strcmp(e->name, name) == 0) return e->val;
+        if (strcmp(e->name, name) == 0) return e->is_gva ? *e->cell : e->val;
     return NULVCL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -2167,7 +2169,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, name) == 0) {
-            e->val = val;
+            if (e->is_gva) *e->cell = val; else e->val = val;
             for (int _ri = 0; _ri < _var_reg_n; _ri++)
                 if (strcmp(_var_reg[_ri].name, name) == 0) { *_var_reg[_ri].ptr = val; break; }
             comm_var(name, val);
@@ -2177,6 +2179,8 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     NV_t *e = GC_malloc(sizeof(NV_t));
     e->name = GC_strdup(name);
     e->val  = val;
+    e->cell = (DESCR_t *)0;
+    e->is_gva = 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
     for (int _ri = 0; _ri < _var_reg_n; _ri++)
@@ -2204,13 +2208,27 @@ DESCR_t *NV_PTR_fn(const char *name) {
     if (strcmp(name, "RTNTYPE")  == 0) return NULL;
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
-        if (strcmp(e->name, name) == 0) return &e->val;
+        if (strcmp(e->name, name) == 0) return e->is_gva ? e->cell : &e->val;
     NV_t *e = GC_malloc(sizeof(NV_t));
     e->name = GC_strdup(name);
     e->val  = NULVCL;
+    e->cell = (DESCR_t *)0;
+    e->is_gva = 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
     return &e->val;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int NV_bind_gva(const char *name, DESCR_t *cell) {
+    if (!name || !cell) return 0;
+    DESCR_t *p = NV_PTR_fn(name);
+    if (!p) return 0;
+    *cell = *p;
+    _var_init();
+    unsigned h = _var_hash(name);
+    for (NV_t *e = _var_buckets[h]; e; e = e->next)
+        if (strcmp(e->name, name) == 0) { e->cell = cell; e->is_gva = 1; return 1; }
+    return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *NV_name_from_ptr(const DESCR_t *ptr) {
