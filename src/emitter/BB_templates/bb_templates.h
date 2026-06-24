@@ -85,6 +85,7 @@ std::string bb_var_frame();
 std::string bb_var_frame_ref();
 std::string bb_to();
 std::string bb_limit();
+std::string bb_suspend();
 std::string bb_limit_init();
 std::string bb_idx_set();
 std::string bb_idx_get();

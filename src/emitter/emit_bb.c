@@ -147,6 +147,7 @@ int g_scan_regs_live = 0;
 static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
 static int   g_flat_chain_set_n = 0;
 static bb_label_t *g_limit_gen_beta = NULL;   /* chain hands flat_drive_limit its generator's resume β */
+static bb_label_t *g_suspend_dobody_beta = NULL; /* chain hands flat_drive_suspend its do-body resume label */
 static int flat_chain_set_has(IR_t *nd) {
     for (int i = 0; i < g_flat_chain_set_n; i++) if (g_flat_chain_set[i] == nd) return 1;
     return 0;
@@ -1984,6 +1985,27 @@ static void flat_drive_limit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_suspend(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    if (!pBB || pBB->n_operands < 1 || !pBB->operands[0]) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_suspend: IR_SUSPEND requires an expr-value operand\n");
+        abort();
+    }
+    int ev_slot = bb_slot_get(pBB->operands[0]);
+    if (ev_slot < 0) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_suspend: expr value slot not materialised (operand0 must be on-spine)\n");
+        abort();
+    }
+    if (!g_suspend_dobody_beta) {
+        fprintf(stderr, "[IBB] FATAL flat_drive_suspend: do-body resume label not supplied by chain\n");
+        abort();
+    }
+    g_emit.op_sa   = ev_slot;
+    g_emit.op_off  = bb_slot_alloc16_or_get(pBB);
+    g_emit.lbl_t0   = g_suspend_dobody_beta->name;
+    g_emit.lbl_t0_p = g_suspend_dobody_beta;
+    FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_return(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     (void)lbl_γ; (void)lbl_β;
     bb_label_t *slab_succ = g_emit.flat_succ_p ? g_emit.flat_succ_p : lbl_γ;
@@ -3278,6 +3300,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SEQ_EXPR:   flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_EVERY:      flat_drive_every(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIMIT:      flat_drive_limit(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SUSPEND:    flat_drive_suspend(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO:         flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_MAP:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3465,6 +3488,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
     }
     { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i]; if (c && (c->op == IR_ASSIGN || c->op == IR_ASSIGN_LIT_S || c->op == IR_ASSIGN_LIT_I || c->op == IR_ASSIGN_VAR || c->op == IR_ASSIGN_CONCAT || c->op == IR_ASSIGN_CALL) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); if (c && c->op == IR_RASGN && c->n_operands > 0 && c->operands[0] && c->operands[0]->op == IR_VAR && IR_LIT(c->operands[0]).sval && !is_global(IR_LIT(c->operands[0]).sval)) (void)bb_varslot(IR_LIT(c->operands[0]).sval); } }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -3499,10 +3523,14 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         g_limit_gen_beta = NULL;
         if (nodes[i]->op == IR_LIMIT && nodes[i]->n_operands > 0) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[0]) { g_limit_gen_beta = betas[k]; break; }
+        g_suspend_dobody_beta = NULL;
+        if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[1]) { g_suspend_dobody_beta = lbls[k]; break; }
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
-    emit_jmp_label(&lbl_ω, JMP_JMP);
+    { bb_label_t *resume_tgt = &lbl_ω;
+      for (int i = 0; i < n; i++) if (nodes[i]->op == IR_SUSPEND) { resume_tgt = betas[i]; break; }
+      emit_jmp_label(resume_tgt, JMP_JMP); }
     emit_label_define_bb(&lbl_γ);
     xa_dispatch(XA_FLAT_EPILOGUE);
     if (text_externalise && g_is_text) {
