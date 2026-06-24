@@ -11,8 +11,8 @@ extern "C" void * rt_enter(void **slot, int nslots);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static const char *bcc_areg(int i) { static const char * t[4] = { "rsi", "rdx", "rcx", "r8" }; return t[i]; }
 static const char *bcc_rdiq(int off) { static char b[8][48]; static int i; i = (i + 1) & 7; snprintf(b[i], 48, "qword ptr [rdi + %d]", off); return b[i]; }
-static bool bcc_sh() { return _.op_parts_n > 0 && _.op_parts_ival[0] >= 0 && _.op_parts_ival[1] >= 0 && _.op_parts_ival[1] <= 8 && _.op_parts_ival[2] >= 0; }
-static bool bcc_ar() { for (int i = 0; i < (int)_.op_parts_ival[1] && i < 8; i++) if (_.op_parts_ival[3 + i] == -2) return false; return true; }
+static bool bcc_sh() { return _.op_parts_n > 0 && _.op_parts_ival[0] >= 0 && _.op_parts_ival[1] >= 0 && _.op_parts_ival[1] <= 28 && _.op_parts_ival[2] >= 0; }
+static bool bcc_ar() { for (int i = 0; i < (int)_.op_parts_ival[1] && i < 28; i++) if (_.op_parts_ival[3 + i] == -2) return false; return true; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cell_call() {
     x86_begin();
