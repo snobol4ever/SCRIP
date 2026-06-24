@@ -14,12 +14,12 @@ static const char *bcf_areg(int i) { static const char * t[4] = { "rsi", "rdx", 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_callee_frame() {
     if (PLATFORM_X86)
-        return (_.op_parts_n == 0 || _.op_parts_ival[0] < 0 || _.op_parts_ival[0] > 4 || _.op_parts_ival[1] < 0) ? x86_bomb("bb_callee_frame: unadmitted callee shape reached the emitter")
+        return (_.op_parts_n == 0 || _.op_parts_ival[0] < 0 || _.op_parts_ival[0] > 8 || _.op_parts_ival[1] < 0) ? x86_bomb("bb_callee_frame: unadmitted callee shape reached the emitter")
              : IF(_.op_sa == 0,
                    x86("comment", "IR_CALLEE_FRAME")
                  + x86("push", "r12")
                  + x86("mov", "r12", "rdi")
-                 + FOR(0, (int)_.op_parts_ival[0], [&](int i) { return x86("mov", FRQ(GZ_CELL_OFF(i)), bcf_areg(i)); })
+                 + FOR(0, ((int)_.op_parts_ival[0] < 4 ? (int)_.op_parts_ival[0] : 4), [&](int i) { return x86("mov", FRQ(GZ_CELL_OFF(i)), bcf_areg(i)); })
                  + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
                  + x86("mov", FR(0), "eax")
                  + IF(_.op_parts_ival[2] > 1, x86("mov", FR(4), (long)1))
