@@ -742,6 +742,38 @@ class Dog is Animal { }
 sub main() { my $d = Dog.new(name => "Rex"); say($d.WHAT); }
 EOF
 
+# --- RK-OO-A3: `@.`/`%.` array & hash attributes. Aggregate attrs auto-vivify to an EMPTY aggregate
+#     (the `\x01`-separated empty string ""), distinct from a scalar attr's Any. Lexer mints
+#     VAR_ARRAY_TWIGIL/VAR_HASH_TWIGIL for @./@!/%./%!; a per-field `sigil` on DatType drives the
+#     vivification in dat_construct (and is replayed into the m4 binary via dat_set_field_sigil@PLT,
+#     mirroring is-rw). Accessor result is bound to a var before further method calls (existing grammar
+#     limit). `.new(field => @var)` plumbs a provided aggregate, overriding the empty default. ---
+raku "attr_array_empty" "0" << 'EOF'
+class Stack { has @.items; }
+sub main() { my $s = Stack.new(); my @e = $s.items; say(@e.elems); }
+EOF
+raku "attr_array_init" "$(printf '3\n20')" << 'EOF'
+class Stack { has @.items; }
+sub main() { my @v = 10, 20, 30; my $t = Stack.new(items => @v); my @i = $t.items; say(@i.elems); say(arr_get(@i, 1)); }
+EOF
+raku "attr_array_inherited" "0" << 'EOF'
+class Base { has @.log; }
+class Derived is Base { has $.id; }
+sub main() { my $d = Derived.new(id => 7); my @l = $d.log; say(@l.elems); }
+EOF
+raku "attr_array_in_method" "4" << 'EOF'
+class Bag { has @.items; method count() { my @c = @.items; return @c.elems; } }
+sub main() { my @v = 1, 2, 3, 4; my $b = Bag.new(items => @v); say($b.count()); }
+EOF
+raku "attr_hash_empty" "0" << 'EOF'
+class Config { has %.opts; }
+sub main() { my $c = Config.new(); my $h = $c.opts; say(hash_exists($h, 'x')); }
+EOF
+raku "attr_hash_init" "Raku" << 'EOF'
+class Config { has %.opts; }
+sub main() { my %seed = ''; hash_set(%seed, 'lang', 'Raku'); my $d = Config.new(opts => %seed); my $h2 = $d.opts; say(hash_get($h2, 'lang')); }
+EOF
+
 # --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }

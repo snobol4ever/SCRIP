@@ -494,6 +494,12 @@ static void rk_register_classes(const tree_t * prog) {
             if (!ch || ch->t != TT_RW_DECL) continue;
             const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_rw(cname, fn);
         }
+        extern void dat_set_field_sigil(const char *cls, const char *field, int sig);
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || (ch->t != TT_ARR_DECL && ch->t != TT_HASH_DECL)) continue;
+            const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_sigil(cname, fn, ch->t == TT_ARR_DECL ? '@' : '%');
+        }
     }
     extern void class_inherit(const char *child, const char *parent);
     for (int i = 0; i < prog->n; i++) {

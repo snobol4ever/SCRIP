@@ -117,6 +117,10 @@ WS       [ \t\r]
     raku_yylval.sval = nm; return VAR_NAMED_CAPTURE; }
 "$."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_TWIGIL; }
 "$!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_TWIGIL; }
+"@."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_ARRAY_TWIGIL; }
+"@!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_ARRAY_TWIGIL; }
+"%."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_HASH_TWIGIL; }
+"%!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_HASH_TWIGIL; }
 "$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
 "@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
 "%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
