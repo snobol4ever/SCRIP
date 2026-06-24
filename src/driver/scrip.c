@@ -2680,18 +2680,21 @@ int main(int argc, char **argv)
                       printf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
                       printf("  call record_register@PLT\n");
                   } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern const char *dat_parent(const char *);
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nparents(int); extern const char *dat_type_parent_at(int, int);
                   int n_cls = dat_type_count();
                   for (int ci = 0; ci < n_cls; ci++) {
                       const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      const char *pn = dat_parent(cn); if (!pn || !*pn) continue;
+                      int np = dat_type_nparents(ci); if (np <= 0) continue;
                       printf("  .section .rodata\n");
                       printf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
-                      printf("  .Lclsparent%d: .string \"%s\"\n", ci, pn);
+                      for (int pj = 0; pj < np; pj++) printf("  .Lclsp%d_%d: .string \"%s\"\n", ci, pj, dat_type_parent_at(ci, pj));
+                      printf("  .balign 8\n  .Lclsparr%d:\n", ci);
+                      for (int pj = 0; pj < np; pj++) printf("  .quad .Lclsp%d_%d\n", ci, pj);
                       printf("  .section .text\n  .intel_syntax noprefix\n");
                       printf("  lea rdi, [rip + .Lclschild%d]\n", ci);
-                      printf("  lea rsi, [rip + .Lclsparent%d]\n", ci);
-                      printf("  call class_inherit@PLT\n");
+                      printf("  lea rsi, [rip + .Lclsparr%d]\n", ci);
+                      printf("  mov rdx, %d\n", np);
+                      printf("  call class_inherit_multi@PLT\n");
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
                   extern int dat_type_field_has_default(int, int); extern DESCR_t dat_type_field_default(int, int);

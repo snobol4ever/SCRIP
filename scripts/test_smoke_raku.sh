@@ -599,6 +599,109 @@ class Dog is Animal { method speak() { return "Woof"; } }
 sub main() { my $d = Dog.new(name => "Rex"); say($d.speak()); }
 EOF
 
+# --- RK-OO-C3: C3 MRO linearization. Three-deep chains exercise the MRO walk that the 2-level
+#     tests above do not. For a linear chain the C3 linearization is [child, parent, grandparent, ...];
+#     method lookup walks it in order (most-derived wins), TWEAK fires it in reverse (least-derived first). ---
+raku "mro_method_grandparent" "A" << 'EOF'
+class A { method who() { return "A"; } }
+class B is A { }
+class C is B { }
+sub main() { my $c = C.new(); say($c.who()); }
+EOF
+
+raku "mro_override_middle_wins" "B" << 'EOF'
+class A { method who() { return "A"; } }
+class B is A { method who() { return "B"; } }
+class C is B { }
+sub main() { my $c = C.new(); say($c.who()); }
+EOF
+
+raku "mro_attr_grandparent" "Rex" << 'EOF'
+class A { has $.name; }
+class B is A { }
+class C is B { method tag() { return "C"; } }
+sub main() { my $c = C.new(name => "Rex"); say($c.name); }
+EOF
+
+raku "mro_tweak_order_3" "$(printf 'A\nB\nC')" << 'EOF'
+class A { method TWEAK() { say("A"); } }
+class B is A { method TWEAK() { say("B"); } }
+class C is B { method TWEAK() { say("C"); } }
+sub main() { my $c = C.new(); }
+EOF
+
+# --- RK-OO-C5: callsame / nextsame / callwith — re-dispatch to the next candidate in the MRO.
+#     callsame/nextsame re-invoke the next class's same-named method with the current args;
+#     callwith re-invokes it with explicit args. NOTE: a callwith arg that is a bare computed
+#     expression (callwith($n + 1)) hits a PRE-EXISTING general call-arg limitation (a binop
+#     call-argument is marshaled as a single leaf — reproduces on clean HEAD with abs($x + 10));
+#     bind to a var first (my $m = $n + 1; callwith($m)). ---
+raku "callsame_2level" "B+A" << 'EOF'
+class A { method g() { return "A"; } }
+class B is A { method g() { return "B+" ~ callsame(); } }
+sub main() { my $b = B.new(); say($b.g()); }
+EOF
+
+raku "callsame_3level" "C+B+A" << 'EOF'
+class A { method g() { return "A"; } }
+class B is A { method g() { return "B+" ~ callsame(); } }
+class C is B { method g() { return "C+" ~ callsame(); } }
+sub main() { my $c = C.new(); say($c.g()); }
+EOF
+
+raku "nextsame_passes_args" "B+A:7" << 'EOF'
+class A { method g($n) { return "A:" ~ $n; } }
+class B is A { method g($n) { return "B+" ~ nextsame(); } }
+sub main() { my $b = B.new(); say($b.g(7)); }
+EOF
+
+raku "callwith_new_arg" "B:5/A:99" << 'EOF'
+class A { method g($n) { return "A:" ~ $n; } }
+class B is A { method g($n) { return "B:" ~ $n ~ "/" ~ callwith(99); } }
+sub main() { my $b = B.new(); say($b.g(5)); }
+EOF
+
+raku "callwith_var_arg" "B:5/A:15" << 'EOF'
+class A { method g($n) { return "A:" ~ $n; } }
+class B is A { method g($n) { my $m = $n + 10; return "B:" ~ $n ~ "/" ~ callwith($m); } }
+sub main() { my $b = B.new(); say($b.g(5)); }
+EOF
+
+# --- RK-OO-C6: multiple inheritance (is A is B) + real c3_merge. Classic diamond
+#     D is B is C, both B,C derive A -> C3 linearization [D,B,C,A]. Method lookup picks the
+#     most-derived; callsame walks the FULL C3 order (B's callsame reaches sibling C, then A);
+#     attributes from every ancestor merge into D. ---
+raku "diamond_method_c3" "B" << 'EOF'
+class A { method greet() { return "A"; } }
+class B is A { method greet() { return "B"; } }
+class C is A { method greet() { return "C"; } }
+class D is B is C { }
+sub main() { my $d = D.new(); say($d.greet()); }
+EOF
+
+raku "diamond_callsame_c3order" "B>C>A" << 'EOF'
+class A { method greet() { return "A"; } }
+class B is A { method greet() { return "B>" ~ callsame(); } }
+class C is A { method greet() { return "C>" ~ callsame(); } }
+class D is B is C { }
+sub main() { my $d = D.new(); say($d.greet()); }
+EOF
+
+raku "diamond_attr_merge" "XY" << 'EOF'
+class A { has $.base; }
+class B is A { }
+class C is A { has $.mid; }
+class D is B is C { }
+sub main() { my $d = D.new(base => "X", mid => "Y"); say($d.base ~ $d.mid); }
+EOF
+
+raku "mi_two_parents_methods" "$(printf 'hi\nbye')" << 'EOF'
+class Greeter { method hello() { return "hi"; } }
+class Farewell { method bye() { return "bye"; } }
+class Both is Greeter is Farewell { }
+sub main() { my $b = Both.new(); say($b.hello()); say($b.bye()); }
+EOF
+
 # --- RK-OO-A2: public-attribute auto-accessor (.x() with parens routes to the field, not a missing proc) ---
 raku "accessor_paren" "3" << 'EOF'
 class Point { has $.x; has $.y; }

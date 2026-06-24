@@ -17,6 +17,7 @@ DatType *dat_register(const char *spec) {
     int ni = 0;
     while (*p && *p != '(' && ni < 63) t->name[ni++] = *p++;
     t->name[ni] = '\0';
+    strncpy(t->mro[0], t->name, 63); t->mro[0][63] = '\0'; t->mro_len = 1;
     if (*p == '(') p++;
     while (*p && *p != ')') {
         while (*p == ' ' || *p == '\t') p++;
@@ -50,18 +51,77 @@ DatType *dat_find_type(const char *name) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void class_inherit(const char *child, const char *parent) {
     if (!child || !parent) return;
-    DatType *c = dat_find_type(child); DatType *p = dat_find_type(parent);
-    if (!c || !p) return;
-    if (c->parent[0]) return;
+    const char *one[1]; one[0] = parent;
+    class_inherit_multi(child, one, 1);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int c3_in_tail(char list[][64], int len, const char *name) {
+    for (int k = 1; k < len; k++) if (strcmp(list[k], name) == 0) return 1;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int c3_merge(char lists[][64][64], int *lens, int nlists, char out[][64], int outmax) {
+    int outn = 0;
+    for (;;) {
+        int picked = 0;
+        for (int i = 0; i < nlists; i++) {
+            if (lens[i] == 0) continue;
+            const char *cand = lists[i][0];
+            int rejected = 0;
+            for (int j = 0; j < nlists; j++) if (c3_in_tail(lists[j], lens[j], cand)) { rejected = 1; break; }
+            if (rejected) continue;
+            char cb[64]; strncpy(cb, cand, 63); cb[63] = '\0';
+            if (outn < outmax) { strncpy(out[outn], cb, 63); out[outn][63] = '\0'; outn++; }
+            for (int j = 0; j < nlists; j++) {
+                int w = 0;
+                for (int k = 0; k < lens[j]; k++) if (strcmp(lists[j][k], cb) != 0) { if (w != k) strncpy(lists[j][w], lists[j][k], 63); lists[j][w][63] = '\0'; w++; }
+                lens[j] = w;
+            }
+            picked = 1; break;
+        }
+        if (!picked) break;
+    }
+    return outn;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void compute_mro_multi(DatType *c) {
+    static char lists[12][64][64]; static int lens[12]; static char merged[64][64];
+    int nlists = 0;
+    for (int pi = 0; pi < c->nparents && nlists < 11; pi++) {
+        DatType *p = dat_find_type(c->parents[pi]); int L = 0;
+        if (p) { for (int k = 0; k < p->mro_len && L < 64; k++) { strncpy(lists[nlists][L], p->mro[k], 63); lists[nlists][L][63] = '\0'; L++; } }
+        else  { strncpy(lists[nlists][L], c->parents[pi], 63); lists[nlists][L][63] = '\0'; L++; }
+        lens[nlists] = L; nlists++;
+    }
+    int L = 0; for (int pi = 0; pi < c->nparents && L < 64; pi++) { strncpy(lists[nlists][L], c->parents[pi], 63); lists[nlists][L][63] = '\0'; L++; } lens[nlists] = L; nlists++;
+    int mn = c3_merge(lists, lens, nlists, merged, 64);
+    c->mro_len = 0;
+    strncpy(c->mro[c->mro_len], c->name, 63); c->mro[c->mro_len][63] = '\0'; c->mro_len++;
+    for (int k = 0; k < mn && c->mro_len < 64; k++) { strncpy(c->mro[c->mro_len], merged[k], 63); c->mro[c->mro_len][63] = '\0'; c->mro_len++; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void class_inherit_multi(const char *child, const char **parents, int nparents) {
+    if (!child || nparents <= 0) return;
+    DatType *c = dat_find_type(child); if (!c) return;
+    if (c->nparents > 0) return;
     char merged[64][64]; DESCR_t mdef[64]; char mhas[64]; char mreq[64]; char mrw[64]; char msig[64]; int m = 0;
-    for (int i = 0; i < p->nfields && m < 63; i++) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; mrw[m] = p->rw[i]; msig[m] = p->sigil[i]; m++; }
+    for (int pi = 0; pi < nparents; pi++) {
+        DatType *p = dat_find_type(parents[pi]); if (!p) continue;
+        for (int i = 0; i < p->nfields && m < 63; i++) {
+            int dup = 0; for (int j = 0; j < m; j++) if (!strcmp(merged[j], p->fields[i])) { dup = 1; break; }
+            if (!dup) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; mrw[m] = p->rw[i]; msig[m] = p->sigil[i]; m++; }
+        }
+    }
     for (int i = 0; i < c->nfields && m < 63; i++) {
-        int dup = 0; for (int j = 0; j < m; j++) if (strcmp(merged[j], c->fields[i]) == 0) { dup = 1; break; }
+        int dup = 0; for (int j = 0; j < m; j++) if (!strcmp(merged[j], c->fields[i])) { dup = 1; break; }
         if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; mreq[m] = c->required[i]; mrw[m] = c->rw[i]; msig[m] = c->sigil[i]; m++; }
     }
-    for (int i = 0; i < m; i++) { strncpy(c->fields[i], merged[i], 63); c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; c->rw[i] = mrw[i]; c->sigil[i] = msig[i]; }
+    for (int i = 0; i < m; i++) { strncpy(c->fields[i], merged[i], 63); c->fields[i][63] = '\0'; c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; c->rw[i] = mrw[i]; c->sigil[i] = msig[i]; }
     c->nfields = m;
-    strncpy(c->parent, parent, 63); c->parent[63] = '\0';
+    c->nparents = 0;
+    for (int pi = 0; pi < nparents && c->nparents < 8; pi++) { strncpy(c->parents[c->nparents], parents[pi], 63); c->parents[c->nparents][63] = '\0'; c->nparents++; }
+    strncpy(c->parent, parents[0], 63); c->parent[63] = '\0';
+    compute_mro_multi(c);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_i(const char *cls, const char *field, int64_t v) {
@@ -109,11 +169,24 @@ const char *dat_parent(const char *name) {
     return (t && t->parent[0]) ? t->parent : (const char *)0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int dat_mro(const char *name, const char **out, int max) {
+    DatType *t = dat_find_type(name);
+    if (!t) return 0;
+    int n = (t->mro_len < max) ? t->mro_len : max;
+    for (int i = 0; i < n; i++) out[i] = t->mro[i];
+    if (n == 0 && max > 0) { out[0] = t->name; n = 1; }
+    return n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int dat_type_count(void) { return dat_ntypes; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_name(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].name : (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int dat_type_nfields(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nfields : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_nparents(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nparents : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_type_parent_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nparents) ? dat_types[i].parents[j] : (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_field(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].fields[j] : (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/

@@ -177,6 +177,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> mul_expr unary_expr postfix_expr call_expr block
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt
 %type <node> unless_stmt until_stmt repeat_stmt class_decl grammar_decl
+%type <sval> is_clauses
 %type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
 %right '=' OP_BIND
 %left  OP_OR
@@ -400,11 +401,12 @@ sub_decl
           $$=e; }
     ;
 class_decl
-    : KW_CLASS IDENT '{' class_body_list '}'
+    : KW_CLASS IDENT is_clauses '{' class_body_list '}'
         {
             const char *cname = intern($2); free($2);
-            ExprList *body = $4;
+            ExprList *body = $5;
             tree_t *cd = ast_node_new(TT_CLASS_DECL);
+            if ($3) cd->v.sval = $3;
             ast_push(cd, leaf_sval(TT_VAR, cname));
             if (body) {
                 for (int i = 0; i < body->count; i++)
@@ -413,22 +415,17 @@ class_decl
             }
             $$ = cd;
         }
-    | KW_CLASS IDENT IDENT IDENT '{' class_body_list '}'
+    ;
+is_clauses
+    :  { $$ = (char *)0; }
+    | is_clauses IDENT IDENT
         {
-            const char *cname = intern($2); free($2);
-            const char *iskw  = $3;
-            const char *pname = intern($4); free($4);
-            ExprList *body = $6;
-            tree_t *cd = ast_node_new(TT_CLASS_DECL);
-            if (iskw && !strcmp(iskw, "is")) cd->v.sval = (char *)pname;
-            free((void *)iskw);
-            ast_push(cd, leaf_sval(TT_VAR, cname));
-            if (body) {
-                for (int i = 0; i < body->count; i++)
-                    if (body->items[i]) ast_push(cd, body->items[i]);
-                exprlist_free(body);
-            }
-            $$ = cd;
+            if ($2 && !strcmp($2, "is") && $3) {
+                size_t l2 = strlen($3);
+                if (!$1) { char *m = (char *)malloc(l2 + 1); memcpy(m, $3, l2 + 1); $$ = m; }
+                else { size_t l1 = strlen($1); char *m = (char *)malloc(l1 + l2 + 2); memcpy(m, $1, l1); m[l1] = '\x01'; memcpy(m + l1 + 1, $3, l2 + 1); free($1); $$ = m; }
+            } else { $$ = $1; }
+            free($2); free($3);
         }
     ;
 class_body_list
