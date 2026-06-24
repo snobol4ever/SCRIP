@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# handoff_status.sh — THE ONLY SANCTIONED SOURCE OF A HANDOFF COMPLETION CLAIM.
+# handoff_status.sh — THE ONLY SANCTIONED SOURCE OF A CHAT SESSION COMPLETION CLAIM.
 #
-# Per RULES.md FACT RULE (2026-06-24): the assistant MUST NOT compose "HANDOFF COMPLETE"
+# Per RULES.md FACT RULE (2026-06-24): the assistant MUST NOT compose "CHAT SESSION COMPLETE"
 # as prose. It runs THIS script and presents the verbatim output.
 #
 # It does NOT hardcode a repo count. With no args it DISCOVERS every git repo that has an
@@ -26,8 +26,8 @@ if [ ${#REPOS[@]} -eq 0 ]; then
   done
   IFS=$'\n' REPOS=($(printf '%s\n' "${REPOS[@]}" | sort)); unset IFS
 fi
-echo "=== HANDOFF STATUS — checking ${#REPOS[@]} repo(s) ($src); ground truth from git ==="
-[ ${#REPOS[@]} -eq 0 ] && { echo "HANDOFF BLOCKED — no git repos with an 'origin' remote found under $WS"; exit 1; }
+echo "=== CHAT SESSION STATUS — checking ${#REPOS[@]} repo(s) ($src); ground truth from git ==="
+[ ${#REPOS[@]} -eq 0 ] && { echo "CHAT SESSION WAITING — no git repos with an 'origin' remote found under $WS"; exit 1; }
 blocked=0; reasons=()
 for r in "${REPOS[@]}"; do
   name=$(basename "$r")
@@ -43,5 +43,5 @@ for r in "${REPOS[@]}"; do
   printf "  %-22s %-10s local=%s origin=%s\n" "$name [$br]" "$st" "${lh:0:9}" "${oh:0:9}"
 done
 echo "------------------------------------------------------------"
-if [ "$blocked" -eq 0 ] && [ ${#reasons[@]} -eq 0 ]; then echo "HANDOFF COMPLETE"; exit 0
-else echo "HANDOFF BLOCKED — DO NOT report done:"; printf '  - %s\n' "${reasons[@]}"; exit 1; fi
+if [ "$blocked" -eq 0 ] && [ ${#reasons[@]} -eq 0 ]; then echo "CHAT SESSION COMPLETE"; exit 0
+else echo "CHAT SESSION WAITING — not done:"; printf '  - %s\n' "${reasons[@]}"; exit 1; fi
