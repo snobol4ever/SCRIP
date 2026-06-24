@@ -925,6 +925,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (cn && !strcmp(mm, "name")) { *out = STRVAL(GC_strdup(cn)); return 1; }
             *out = FAILDESCR; return 1;
         }
+        if (mname0 && !strcmp(mname0, "WHAT")) {
+            const char *cn = NULL;
+            if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
+            else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
+            if (cn) { *out = STRVAL(GC_strdup(cn)); return 1; }
+            *out = FAILDESCR; return 1;
+        }
         if (mname0 && !strcmp(mname0, "bless")) {
             const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }
             DatType *dt = dat_find_type(cname); if (!dt) { *out = FAILDESCR; return 1; }
