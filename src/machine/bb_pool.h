@@ -13,4 +13,6 @@ void     bb_free         (bb_buf_t buf, size_t size);
 void     bb_pool_destroy (void);
 void     bb_pool_reset   (void);
 size_t   bb_pool_used    (void);
+size_t   bb_pool_mark    (void);
+void     bb_pool_release (size_t mark);
 #endif

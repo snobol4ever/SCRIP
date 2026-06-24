@@ -1,11 +1,7 @@
 #include "driver_private.h"
 DESCR_t _eval_str_impl_fn(const char *s) {
-    extern DESCR_t CONVE_fn(DESCR_t);
-    extern DESCR_t EXPVAL_fn(DESCR_t);
-    DESCR_t str = STRVAL((char *)s);
-    DESCR_t compiled = CONVE_fn(str);
-    if (IS_FAIL_fn(compiled)) return FAILDESCR;
-    return EXPVAL_fn(compiled);
+    extern DESCR_t eval_string_transient(const char *s);
+    return eval_string_transient(s);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _eval_pat_impl_fn(DESCR_t pat) {
