@@ -108,7 +108,7 @@ static int alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     return 1;
 }
 static int alt_safe_kind(IR_e t) {
-    return t == IR_ALT || t == IR_CALL || t == IR_EVERY || t == IR_FAIL ||
+    return t == IR_ALT || t == IR_CALL || t == IR_EVERY || t == IR_FAIL || t == IR_LIMIT ||
            t == IR_SUCCEED || t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL;
 }
 static int graph_has_alt(const IR_graph_t *g) {
