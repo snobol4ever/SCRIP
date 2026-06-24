@@ -389,26 +389,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_PATTERN_FENCE_P: bb_pattern_stub("bb_pattern_fence_p: builder pending (B9)");                 return 0;
     case IR_PATTERN_CAT: {
         if (g_emit.pat_via_dtp) {
-            /* TR-CAT: extract the BREAK(cset) . capvar lit shape and stage it for bb_pattern_cat(). */
-            IR_t *a = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
-            IR_t *b = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0;
-            if (a && b && a->op == IR_PATTERN_BREAK && b->op == IR_PATTERN_LIT) {
-                const char *capvar = "";
-                IR_graph_t *g = nd->own;
-                for (int i = 0; g && i < g->n; i++) {
-                    IR_t *x = g->all[i];
-                    if (x && x->op == IR_PATTERN_CAPTURE && x->n_operands > 0 && x->operands[0] == a) {
-                        capvar = IR_LIT(x).sval ? IR_LIT(x).sval : "";
-                        break;
-                    }
-                }
-                g_emit.op_sval   = IR_LIT(a).sval ? IR_LIT(a).sval : "";  /* cset  */
-                g_emit.op_name1  = IR_LIT(b).sval ? IR_LIT(b).sval : "";  /* lit   */
-                g_emit.op_a_sval = capvar;                                /* capvar */
-                bb_emit_x86(bb_pattern_cat());
-                return 0;
-            }
-            bb_pattern_stub("bb_pattern_cat: unsupported shape (only BREAK . VAR LIT)");
+            bb_pattern_stub("bb_pattern_cat: non-frozen stored CAT shape (invariant CATs freeze upstream; structural-variance stitch pending)");
             return 0;
         }
         bb_emit_x86(bb_pattern_cat());   /* chain-entry passthrough */

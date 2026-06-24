@@ -2932,7 +2932,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_MATCH_LEN:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_MATCH_POS:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_MATCH_ATP:    g_emit.op_name1 = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_MATCH_DEFER:  FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_DEFER:  { extern IR_t *fz_inlinable_head(const char *); IR_t *ihd = fz_inlinable_head(IR_LIT(nd).sval); bb_box_fn cfn = ihd ? child_cache_get(ihd) : (bb_box_fn)0; g_emit.bb_child_fn = (void *)cfn; g_emit.child_fn = (void *)cfn; g_emit.bb_child_lbl = cfn ? child_cache_get_lbl(cfn) : (const char *)0; FILL(nd, lbl_γ, lbl_ω, lbl_β); break; }
     case IR_MATCH_TAB:    FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_MATCH_RTAB:   FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_MATCH_FENCE:  flat_drive_fence(nd, lbl_γ, lbl_ω, lbl_β); break;
