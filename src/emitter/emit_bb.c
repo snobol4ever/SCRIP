@@ -2523,7 +2523,8 @@ static void flat_drive_subject(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_ref_invariant(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    IR_t *ch = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
+    int n_aux = 0; IR_t * const * aux = bb_operand_aux_get(g_emit_cfg, pBB, &n_aux);
+    IR_t *ch = (n_aux > 0 && aux) ? aux[0] : NULL;
     bb_box_fn cfn = ch ? child_cache_get(ch) : NULL;
     g_emit.child_fn    = (void *)cfn;
     g_emit.bb_child_fn = (void *)cfn;

@@ -631,6 +631,28 @@ static IR_t * sno_concat_chain(snx_t * cx, const tree_t ** ops, int n, IR_t * co
 }
 /*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
+/* FZ-2: build the kids-channel matcher graph for BREAK(cset) . capvar  LIT(lit), allocated into the
+   MAIN graph cx->g so the IR_REF_INVARIANT pre-pass (g_emit_cfg == cx->g) can seal it. Mirrors the
+   runtime-side sno_break_cap_lit_graph exactly: CAT kids=[ASSIGN_COND[capvar]->BREAK(cset), LIT(lit)].
+   The cat's kids state + kids array are calloc'd (live for the whole compile). Returns the CAT entry. */
+static IR_t * sno_freeze_break_cap_lit_ir(snx_t * cx, const char * cset, const char * capvar, const char * lit) {
+    IR_graph_t * g = cx->g;
+    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
+    IR_t * brk   = IR_node_alloc(g, IR_MATCH_BREAK);
+    IR_t * cap   = IR_node_alloc(g, IR_MATCH_ASSIGN_COND);
+    IR_t * litn  = IR_node_alloc(g, IR_MATCH_LIT);
+    IR_t * cat   = IR_node_alloc(g, IR_MATCH_CAT);
+    IR_LIT(brk).sval = (char *) cset; γ_to(brk, PSUCC); ω_to(brk, PFAIL);
+    IR_LIT(cap).sval = (char *) capvar; IR_LIT(cap).ival = 0; ir_operand_push(cap, brk); γ_to(cap, PSUCC); ω_to(cap, PFAIL);
+    IR_LIT(litn).sval = (char *) lit; γ_to(litn, PSUCC); ω_to(litn, PFAIL);
+    γ_to(cat, PSUCC); ω_to(cat, PFAIL);
+    IR_t ** kids = (IR_t **) calloc(2, sizeof(IR_t *)); kids[0] = cap; kids[1] = litn;
+    bb_match_kids_state_t * zk = (bb_match_kids_state_t *) calloc(1, sizeof(*zk)); zk->kids = kids; zk->nkids = 2;
+    IR_EXEC(cat).counter = (int64_t)(intptr_t) zk;
+    return cat;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
     if (rhs && getenv("SCRIP_FZ_DEBUG")) fprintf(stderr, "FZ-CLASSIFY lhs=%s tt=%d kind=%d islands=%d\n", lhs ? lhs : "?", (int) rhs->t, sno_pat_kind(rhs), sno_pat_islands(rhs));
     if (rhs && rhs->t == TT_ALT) {
@@ -753,6 +775,17 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             } else { lc_vec_push(&lv3, &nd); }
         }
         const tree_t ** leaves = (const tree_t **) lv3.data; int nl = lv3.n;
+        if (nl == 2) {
+            const tree_t * l0 = leaves[0]; const tree_t * l1 = leaves[1];
+            if (l0 && l1 && l0->t == TT_CAPT_COND_ASGN && l0->n >= 2 && l0->c[0] && l0->c[0]->t == TT_BREAK
+                && l0->c[0]->n == 1 && l0->c[0]->c[0] && l0->c[0]->c[0]->t == TT_QLIT && l1->t == TT_QLIT) {
+                const char * cset = l0->c[0]->c[0]->v.sval; const char * capvar = l0->c[1] ? l0->c[1]->v.sval : ""; const char * lit = l1->v.sval;
+                IR_t * cat = sno_freeze_break_cap_lit_ir(cx, cset, capvar, lit);
+                IR_t * ref = build(cx, IR_REF_INVARIANT, γ, ω); IR_LIT(ref).sval = (char *) lhs;
+                bb_operand_aux_set(cx->g, ref, &cat, 1);
+                return ref;
+            }
+        }
         if (nl >= 2) {
             IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
             IR_t ** pats = (IR_t **) calloc((size_t) nl, sizeof(IR_t *));

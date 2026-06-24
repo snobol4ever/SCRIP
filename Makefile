@@ -116,6 +116,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_pattern_break.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_capture.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_cat.cpp \
+    $(SRC)/emitter/BB_templates/bb_ref_invariant.cpp \
     $(SRC)/emitter/BB_templates/bb_pattern_lit.cpp \
     $(SRC)/emitter/BB_templates/bb_gen_scan.cpp \
     $(SRC)/emitter/BB_templates/bb_keyword.cpp \
@@ -469,6 +470,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_break.cpp -o $(OBJ)/bb_pattern_break.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_capture.cpp -o $(OBJ)/bb_pattern_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_cat.cpp -o $(OBJ)/bb_pattern_cat.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_ref_invariant.cpp -o $(OBJ)/bb_ref_invariant.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_lit.cpp -o $(OBJ)/bb_pattern_lit.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_mapgrep.cpp -o $(OBJ)/bb_mapgrep.o
