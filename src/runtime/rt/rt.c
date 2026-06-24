@@ -456,6 +456,8 @@ DESCR_t rt_size_d(uint64_t lo, uint64_t hi)
         DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r;
     }
     if (v.v == DT_DATA && v.u) {
+        DESCR_t tag = FIELD_GET_fn(v, "gen_type");
+        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)FIELD_GET_fn(v, "frame_size").i; return r; }
         if (v.u->type) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)v.u->type->nfields; return r; }
         { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
     }
