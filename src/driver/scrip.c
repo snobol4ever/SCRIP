@@ -420,11 +420,14 @@ static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
     pl_gz_choice_state_t *st = (pl_gz_choice_state_t *)GC_MALLOC(sizeof *st);
     if (!st) return NULL;
     st->nclauses = bc->nbodies; st->arity = ar; st->mark_slot = 0;
+    st->args   = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1));
+    st->consts = (IR_t **)GC_MALLOC(sizeof(IR_t *) * bc->nbodies * (ar > 0 ? ar : 1));
+    if (!st->args || !st->consts) return NULL;
     for (int j = 0; j < ar; j++) st->args[j] = zc->args[j];
     for (int k = 0; k < bc->nbodies; k++) {
         IR_t **units = NULL;
         if (!pl_gz_fact_clause_units(bc->bodies[k], ar, &units)) return NULL;
-        for (int j = 0; j < ar; j++) st->consts[k][j] = units ? ((units[j]->n_operands > 1) ? units[j]->operands[1] : NULL) : NULL;
+        for (int j = 0; j < ar; j++) st->consts[k * ar + j] = units ? ((units[j]->n_operands > 1) ? units[j]->operands[1] : NULL) : NULL;
     }
     return st;
 }
@@ -440,13 +443,13 @@ static int pl_findall_conj_member_admissible(const IR_t *g);
  * Validation recurses through clause bodies; the visiting list breaks self/mutual recursion cycles
  * (a graph already on the list is being validated up-stack — assume ok here; a real failure
  * surfaces at the outer frame). */
-static IR_graph_t *g_gz_visiting[16]; static int g_gz_nvisiting = 0;
+static IR_graph_t **g_gz_visiting = NULL; static int g_gz_nvisiting = 0; static int g_gz_visiting_cap = 0;
 static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t **bc_out) {
     if (!cg || !cg->entry || cg->entry->op != IR_CHOICE || ar > 4) return 0;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
     if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 32) return 0;
     for (int v = 0; v < g_gz_nvisiting; v++) if (g_gz_visiting[v] == cg) { if (bc_out) *bc_out = bc; return 1; }
-    if (g_gz_nvisiting >= 16) return 0;
+    if (g_gz_nvisiting >= g_gz_visiting_cap) { int nc = g_gz_visiting_cap ? g_gz_visiting_cap * 2 : 16; IR_graph_t **nv = (IR_graph_t **)GC_MALLOC(sizeof(IR_graph_t *) * nc); if (!nv) return 0; for (int i = 0; i < g_gz_nvisiting; i++) nv[i] = g_gz_visiting[i]; g_gz_visiting = nv; g_gz_visiting_cap = nc; }
     g_gz_visiting[g_gz_nvisiting++] = cg;
     int ok = 1;
     for (int k = 0; k < bc->nbodies && ok; k++) {
@@ -1176,7 +1179,7 @@ static pl_gz_callee_t * pl_gz_callee_get(IR_graph_t *cg, int ar, bb_conj_state_t
     if (!ce) return NULL;
     memset(ce, 0, sizeof *ce);
     ce->graph_key = (void *)cg; ce->arity = ar; ce->base = 0; ce->mark_slot = 0;
-    ce->nclauses = 1;
+    ce->nclauses = 1; ce->clause_head = (IR_t **)GC_MALLOC(sizeof(IR_t *) * 1);
     ce->frame_node = pl_gz_det_node(IR_CALLEE_FRAME);
     if (!ce->frame_node) return NULL;
     IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;
@@ -1196,7 +1199,7 @@ static pl_gz_callee_t * pl_gz_callee_get_choice(IR_graph_t *cg, int ar, bb_choic
     if (!ce) return NULL;
     memset(ce, 0, sizeof *ce);
     ce->graph_key = (void *)cg; ce->arity = ar; ce->base = 0; ce->mark_slot = 0;
-    ce->nclauses = bc->nbodies;
+    ce->nclauses = bc->nbodies; ce->clause_head = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (bc->nbodies > 0 ? bc->nbodies : 1));
     ce->frame_node = pl_gz_det_node(IR_CALLEE_FRAME);
     if (!ce->frame_node) return NULL;
     IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;
@@ -1221,7 +1224,7 @@ static pl_gz_callee_t * pl_gz_callee_get_dyniter(IR_graph_t *cg, int ar, pl_gz_c
     if (!ce) return NULL;
     memset(ce, 0, sizeof *ce);
     ce->graph_key = (void *)cg; ce->arity = ar; ce->base = 0; ce->mark_slot = 0;
-    ce->nclauses = 1; ce->nlocals = 2;
+    ce->nclauses = 1; ce->nlocals = 2; ce->clause_head = (IR_t **)GC_MALLOC(sizeof(IR_t *) * 1);
     ce->frame_node = pl_gz_det_node(IR_CALLEE_FRAME);
     if (!ce->frame_node) return NULL;
     IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;

@@ -27,7 +27,7 @@ static int bcch_mark_off() { return GZ_CELL_OFF(bcch_st()->mark_slot); }
 static int bcch_cur_off()  { return GZ_CELL_OFF(bcch_st()->mark_slot + 1); }
 static int bcch_clause_dead(int k) {
     for (int j = 0; j < bcch_A(); j++) {
-        const IR_t *a = bcch_st()->args[j], *c = bcch_st()->consts[k][j];
+        const IR_t *a = bcch_st()->args[j], *c = bcch_st()->consts[k * bcch_A() + j];
         if (a && c && a->op != IR_LOGICVAR && !cc_consts_match(a, c)) return 1;
     }
     return 0;
@@ -48,7 +48,7 @@ static std::string bcch_clause(int k, int *ro_id, std::string *seals) {
     if (bcch_clause_dead(k)) return x86("jmp", L(k));
     std::string out;
     for (int j = 0; j < bcch_A(); j++) {
-        const IR_t *a = bcch_st()->args[j], *c = bcch_st()->consts[k][j];
+        const IR_t *a = bcch_st()->args[j], *c = bcch_st()->consts[k * bcch_A() + j];
         if (!a || !c) return x86_bomb("bb_cell_choice: missing arg/const node");
         out += bcch_arg_unify(a, c, k, *ro_id);
         if (a->op == IR_LOGICVAR && c->op == IR_ATOM) { *seals += x86_ro_seal_str(*ro_id, IR_LIT(c).sval); (*ro_id)++; }
