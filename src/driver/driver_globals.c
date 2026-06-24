@@ -1,5 +1,6 @@
 #include "driver_private.h"
 char g_script_exception[512] = "";
+int g_script_try_depth = 0;
 Match g_match;
 const char *g_subject = "";
 #define FH_MAX 64
@@ -57,4 +58,14 @@ trace_hook:
     }
     if (shadow_has(name) && name && name[0] != '&' && trace_is_active(name))
         comm_var(name, val);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_script_die_surface(const char *msg) {
+    const char *m = msg ? msg : "Died";
+    size_t mlen = strlen(m); if (mlen > 511) mlen = 511;
+    memcpy(g_script_exception, m, mlen); g_script_exception[mlen] = '\0';
+    if (g_script_try_depth > 0) return;
+    fflush(NULL);
+    fprintf(stderr, "%s\n", g_script_exception);
+    exit(1);
 }

@@ -59,6 +59,7 @@ int rt_builtin_is_known(const char *name)
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
         "obj_new", "meth_call", "field_set",
+        "die", "script_die",
         "TIME", "DATE",
         NULL
     };
@@ -288,6 +289,25 @@ static int meth_is_user_proc(const char *procname) {
     if (procname) for (int pi = 0; pi < g_stage2.proc_count; pi++)
         if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, procname)) return 1;
     return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
+    extern const char *dat_parent(const char *name);
+    extern int rt_proc_has_native_fn(const char *name);
+    if (!cname || !*cname) return;
+    const char *chain[32]; int n = 0;
+    for (const char *c = cname; c && *c && n < 32; c = dat_parent(c)) chain[n++] = c;
+    for (int i = n - 1; i >= 0; i--) {
+        char proc[256]; snprintf(proc, sizeof proc, "%s__TWEAK", chain[i]);
+        if (!meth_is_user_proc(proc)) continue;
+        int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
+        if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
+            extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            g_call_args[0] = self; rt_call_proc_descr(proc, 1);
+        } else {
+            extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); DESCR_t a0 = self; ir_call_proc(pi, &a0, 1);
+        }
+    }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *val) {
@@ -732,9 +752,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if ((!strcmp(fn, "die") || !strcmp(fn, "script_die")) && nargs >= 1) {
         const char *m = VARVAL_fn(args[0]); if (!m) m = "Died";
-        extern char g_script_exception[512];
-        size_t mlen = strlen(m); if (mlen > 511) mlen = 511;
-        memcpy(g_script_exception, m, mlen); g_script_exception[mlen] = '\0';
+        extern void rt_script_die_surface(const char *msg);
+        rt_script_die_surface(m);
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "exc_clear") && nargs == 0) {
@@ -881,6 +900,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
         const char *mname0 = VARVAL_fn(args[1]);
+        if (mname0 && mname0[0] == '^') {
+            const char *mm = mname0 + 1; const char *cn = NULL;
+            if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
+            else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
+            if (cn && !strcmp(mm, "name")) { *out = STRVAL(GC_strdup(cn)); return 1; }
+            *out = FAILDESCR; return 1;
+        }
         if (mname0 && !strcmp(mname0, "bless")) {
             const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }
             DatType *dt = dat_find_type(cname); if (!dt) { *out = FAILDESCR; return 1; }
