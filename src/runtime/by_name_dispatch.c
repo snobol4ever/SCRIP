@@ -58,7 +58,7 @@ int rt_builtin_is_known(const char *name)
         "elems", "push_pure",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
-        "obj_new", "meth_call", "field_set",
+        "obj_new", "meth_call", "field_set", "field_set_pub",
         "die", "script_die",
         "TIME", "DATE",
         NULL
@@ -866,6 +866,24 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "field_set") && nargs == 3) {
         extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
         const char *fname = VARVAL_fn(args[1]); if (!fname) fname = "";
+        DESCR_t *cell = data_field_ptr(fname, args[0]);
+        if (cell) *cell = args[2];
+        *out = args[2]; return 1;
+    }
+    if (!strcmp(fn, "field_set_pub") && nargs == 3) {
+        extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
+        const char *fname = VARVAL_fn(args[1]); if (!fname) fname = "";
+        if (args[0].v == DT_DATA && args[0].u) {
+            DATINST_t *di = (DATINST_t *)args[0].u;
+            const char *cn = (di && di->type) ? di->type->name : NULL;
+            DatType *dt = cn ? dat_find_type(cn) : NULL;
+            if (dt) { int isrw = 0, found = 0;
+                for (int i = 0; i < dt->nfields; i++) if (!strcmp(dt->fields[i], fname)) { found = 1; isrw = dt->rw[i]; break; }
+                if (found && !isrw) {
+                    extern void rt_script_die_surface(const char *msg);
+                    char _m[256]; snprintf(_m, sizeof _m, "Cannot modify an immutable attribute '$.%s' (declare it 'is rw' to allow assignment)", fname);
+                    rt_script_die_surface(_m); *out = FAILDESCR; return 1; } }
+        }
         DESCR_t *cell = data_field_ptr(fname, args[0]);
         if (cell) *cell = args[2];
         *out = args[2]; return 1;

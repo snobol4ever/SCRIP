@@ -53,13 +53,13 @@ void class_inherit(const char *child, const char *parent) {
     DatType *c = dat_find_type(child); DatType *p = dat_find_type(parent);
     if (!c || !p) return;
     if (c->parent[0]) return;
-    char merged[64][64]; DESCR_t mdef[64]; char mhas[64]; char mreq[64]; int m = 0;
-    for (int i = 0; i < p->nfields && m < 63; i++) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; m++; }
+    char merged[64][64]; DESCR_t mdef[64]; char mhas[64]; char mreq[64]; char mrw[64]; int m = 0;
+    for (int i = 0; i < p->nfields && m < 63; i++) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; mrw[m] = p->rw[i]; m++; }
     for (int i = 0; i < c->nfields && m < 63; i++) {
         int dup = 0; for (int j = 0; j < m; j++) if (strcmp(merged[j], c->fields[i]) == 0) { dup = 1; break; }
-        if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; mreq[m] = c->required[i]; m++; }
+        if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; mreq[m] = c->required[i]; mrw[m] = c->rw[i]; m++; }
     }
-    for (int i = 0; i < m; i++) { strncpy(c->fields[i], merged[i], 63); c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; }
+    for (int i = 0; i < m; i++) { strncpy(c->fields[i], merged[i], 63); c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; c->rw[i] = mrw[i]; }
     c->nfields = m;
     strncpy(c->parent, parent, 63); c->parent[63] = '\0';
 }
@@ -84,9 +84,16 @@ void dat_set_field_required(const char *cls, const char *field) {
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->required[i] = 1; return; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void dat_set_field_rw(const char *cls, const char *field) {
+    DatType *t = dat_find_type(cls); if (!t) return;
+    for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->rw[i] = 1; return; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int dat_type_field_has_default(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].has_default[j] : 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int dat_type_field_required(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].required[j] : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_field_rw(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].rw[j] : 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dat_type_field_default(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].defaults[j] : NULVCL; }
 /*--------------------------------------------------------------------------------------------------------------------*/

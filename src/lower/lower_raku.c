@@ -217,7 +217,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_ASSIGN: if (t->n > 1 && t->c[0] && (t->c[0]->t == TT_FIELD || t->c[0]->t == TT_TWIGIL_FIELD)) {
         const tree_t * lhs = t->c[0];
         const char * fname = (lhs->t == TT_TWIGIL_FIELD) ? lhs->v.sval : ((lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval);
-        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "field_set"; IR_LIT(nd).ival = 3; IR_LIT(nd).dval = 1.0;
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = (lhs->t == TT_TWIGIL_FIELD) ? "field_set" : "field_set_pub"; IR_LIT(nd).ival = 3; IR_LIT(nd).dval = 1.0;
         IR_t * succ = nd; IR_t * entry = nd; IR_t * r = NULL;
         IR_t * ev = lower_rv(cx, t->c[1], succ, ω, &r); succ = ev; entry = ev;
         IR_t * nl = build(cx, IR_LIT_S, succ, ω); IR_LIT(nl).sval = fname; succ = nl; entry = nl;
@@ -487,6 +487,12 @@ static void rk_register_classes(const tree_t * prog) {
             const tree_t * ch = d->c[j];
             if (!ch || ch->t != TT_HAS_DECL || ch->n != 0) continue;
             const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_required(cname, fn);
+        }
+        extern void dat_set_field_rw(const char *cls, const char *field);
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || ch->t != TT_RW_DECL) continue;
+            const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_rw(cname, fn);
         }
     }
     extern void class_inherit(const char *child, const char *parent);

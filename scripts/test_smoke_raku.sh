@@ -555,9 +555,29 @@ class Counter { has $.n; method bump() { $!n = $!n + 1; } method val() { return 
 sub main() { my $c = Counter.new(n => 0); $c.bump(); $c.bump(); $c.bump(); say($c.val()); }
 EOF
 
-raku "field_write_external" "5" << 'EOF'
-class P { has $.x; }
+# --- RK-OO-A2 `is rw`: external accessor write is gated on the `is rw` trait (Raku default is readonly).
+#     WITH `is rw` the public accessor returns a writable value -> `$p.x = v` succeeds. WITHOUT it the
+#     attribute is immutable and external assignment DIES (X::Assignment::RO "Cannot modify an immutable").
+#     Internal `$!x = v` (direct attribute, TWIGIL) is ALWAYS allowed regardless of `is rw`. ---
+raku "field_write_rw" "5" << 'EOF'
+class P { has $.x is rw; }
 sub main() { my $p = P.new(x => 1); $p.x = 5; say($p.x); }
+EOF
+
+raku "field_write_ro_dies" "" << 'EOF'
+class Q { has $.x; }
+sub main() { my $q = Q.new(x => 1); $q.x = 5; say("unreached"); }
+EOF
+
+raku "field_write_rw_typed" "99" << 'EOF'
+class Box { has Int $.v is rw; }
+sub main() { my $b = Box.new(v => 1); $b.v = 99; say($b.v); }
+EOF
+
+raku "field_write_rw_inherited" "20" << 'EOF'
+class Base { has $.x is rw; }
+class Sub is Base { method bump() { $!x = $!x + 5; } }
+sub main() { my $s = Sub.new(x => 10); $s.x = 20; say($s.x); }
 EOF
 
 # --- RK-OO-C1/C2/C4: single inheritance (attr inherit, method inherit, override) ---
