@@ -645,11 +645,11 @@ static void gz_emit_callee(pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *nc
     int cid = g_flat_node_id++;
     bb_label_t *cl_γ = emit_label_alloc("gzp%d_γ", cid);
     bb_label_t *cl_ω = emit_label_alloc("gzp%d_ω", cid);
-    int nb[16]; int nbtot = 0;
+    int nb[32]; int nbtot = 0;
     for (int c = 0; c < NC; c++) { nb[c] = 0; for (IR_t *g = gz_clause_head_of(ce, c); g; g = g->γ.node) nb[c]++; nbtot += nb[c]; }
     bb_label_t **pgl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nbtot > 0 ? nbtot : 1));
     bb_label_t **pgb = (bb_label_t **)alloca(sizeof(bb_label_t *) * (nbtot > 0 ? nbtot : 1));
-    bb_label_t *cladv[16]; bb_label_t *redo[16]; int cbase[16];
+    bb_label_t *cladv[32]; bb_label_t *redo[32]; int cbase[32];
     int j = 0;
     for (int c = 0; c < NC; c++) {
         cbase[c] = j;
