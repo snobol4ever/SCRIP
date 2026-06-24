@@ -389,7 +389,7 @@ static IR_graph_t * pl_gz_goal_callee(IR_t *gg, bb_goal_state_t **zc_out, int *a
     const char *fn = (zc && zc->callee) ? zc->callee : IR_LIT(gg).sval;
     if (!zc || !fn) return NULL;
     int ar = zc->arity;
-    if (ar < 0 || ar > 8) return NULL;
+    if (ar < 0 || ar > 28) return NULL;
     char key[256]; snprintf(key, sizeof key, "%s/%d", fn, ar);
     Resolve_PredEntry_BB *e = resolve_bb_lookup(key, ar);
     if (!e) return NULL;
@@ -477,7 +477,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (gg->op == IR_GOAL) {
         bb_goal_state_t *zc = NULL; int ar2 = 0;
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc, &ar2);
-        if (!cg2 || ar2 > 8) return 0;
+        if (!cg2 || ar2 > 28) return 0;
         if (!pl_gz_call_args_ok(zc, ar2)) return 0;
         if (cg2->entry && cg2->entry->op == IR_CELL_DYNITER) return 1;
         if (cg2->entry && cg2->entry->op == IR_CHOICE)
@@ -737,7 +737,7 @@ static int pl_gz_rule_inline_check(IR_t *gg) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg) return 0;
-    if (ar > 8) return 0;
+    if (ar > 28) return 0;
     if (!pl_gz_call_args_ok(zc, ar)) return 0;
     if (cg->entry && cg->entry->op == IR_CELL_DYNITER) return 1;
     if (cg->entry && cg->entry->op == IR_CHOICE)
@@ -745,8 +745,8 @@ static int pl_gz_rule_inline_check(IR_t *gg) {
     bb_conj_state_t *zs = NULL;
     return pl_gz_rule_clause(cg, ar, &zs);
 }
-static pl_gz_callee_t * pl_gz_callee_get(IR_graph_t *cg, int ar, bb_conj_state_t *zs, pl_gz_callee_t **callees, int *ncallees);
-static pl_gz_callee_t * pl_gz_callee_get_any(IR_t *gg, IR_graph_t *cg, int ar, pl_gz_callee_t **callees, int *ncallees);
+static pl_gz_callee_t * pl_gz_callee_get(IR_graph_t *cg, int ar, bb_conj_state_t *zs, pl_gz_callee_vec_t *cv);
+static pl_gz_callee_t * pl_gz_callee_get_any(IR_t *gg, IR_graph_t *cg, int ar, pl_gz_callee_vec_t *cv);
 /* PL-GZ-5c: graph slot s of one clause → frame slot.  Head slots 0..ar-1 are shared (the args);
  * each clause's locals live in its own frame range starting at lbase (single-clause lbase==ar ⇒ identity). */
 static int pl_gz_slot_map(int s, int ar, int lbase) { return s < ar ? s : lbase + (s - ar); }
@@ -922,15 +922,15 @@ static IR_t * pl_gz_arith_flatten(const IR_t *nd, int ar, int lbase, int *snp, I
     return pl_gz_lv(kk);
 }
 static int pl_gz_chain_det(IR_t *head);
-static int pl_gz_callee_build_root(IR_t *root, IR_t **rhead, int ar, int lbase, int *snp, pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees);
-static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **headp, IR_t **tailp, pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees) {
+static int pl_gz_callee_build_root(IR_t *root, IR_t **rhead, int ar, int lbase, int *snp, pl_gz_callee_t *ce, pl_gz_callee_vec_t *cv);
+static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **headp, IR_t **tailp, pl_gz_callee_t *ce, pl_gz_callee_vec_t *cv) {
     IR_t *head = *headp, *tail = *tailp; int synth_next = *snp; IR_t *nn = NULL;
     if (gg->op == IR_SUCCEED) return 1;
     if (gg->op == IR_GOAL) {
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc2, &ar2);
-        if (!cg2 || ar2 > 8 || !pl_gz_call_args_ok(zc2, ar2)) return 0;
-        pl_gz_callee_t *ce2 = pl_gz_callee_get_any(gg, cg2, ar2, callees, ncallees);
+        if (!cg2 || ar2 > 28 || !pl_gz_call_args_ok(zc2, ar2)) return 0;
+        pl_gz_callee_t *ce2 = pl_gz_callee_get_any(gg, cg2, ar2, cv);
         if (!ce2) return 0;
         pl_gz_call_state_t *cs2 = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs2);
         if (!cs2) return 0;
@@ -969,9 +969,9 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)GC_MALLOC(sizeof *is);
         if (!is) return 0;
         memset(is, 0, sizeof *is);
-        if (!pl_gz_callee_build_root(zi->cond_root, &is->cond_head, ar, lbase, &synth_next, ce, callees, ncallees)) { return 0; }
-        if (!pl_gz_callee_build_root(zi->then_root, &is->then_head, ar, lbase, &synth_next, ce, callees, ncallees)) { return 0; }
-        if (!pl_gz_callee_build_root(zi->else_root, &is->else_head, ar, lbase, &synth_next, ce, callees, ncallees)) { return 0; }
+        if (!pl_gz_callee_build_root(zi->cond_root, &is->cond_head, ar, lbase, &synth_next, ce, cv)) { return 0; }
+        if (!pl_gz_callee_build_root(zi->then_root, &is->then_head, ar, lbase, &synth_next, ce, cv)) { return 0; }
+        if (!pl_gz_callee_build_root(zi->else_root, &is->else_head, ar, lbase, &synth_next, ce, cv)) { return 0; }
         if (!pl_gz_chain_det(is->then_head) || !pl_gz_chain_det(is->else_head)) { return 0; }
         is->gate_slot = synth_next++;
         nn = pl_gz_det_node(IR_CELL_ITE);
@@ -993,10 +993,10 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         if (!cst) return 0;
         memset(cst, 0, sizeof *cst);
         IR_t *gh = NULL, *gt = NULL;
-        for (IR_t *sg = zc->goal_g->entry; sg && sg->op != IR_SUCCEED && sg->op != IR_FAIL; sg = sg->γ.node) if (!pl_gz_callee_body_node(sg, ar, lbase, &synth_next, &gh, &gt, ce, callees, ncallees)) return 0;
+        for (IR_t *sg = zc->goal_g->entry; sg && sg->op != IR_SUCCEED && sg->op != IR_FAIL; sg = sg->γ.node) if (!pl_gz_callee_body_node(sg, ar, lbase, &synth_next, &gh, &gt, ce, cv)) return 0;
         cst->goal_head = gh;
         IR_t *rh = NULL, *rtl = NULL;
-        for (IR_t *sg = zc->rec_g->entry; sg && sg->op != IR_SUCCEED && sg->op != IR_FAIL; sg = sg->γ.node) if (!pl_gz_callee_body_node(sg, ar, lbase, &synth_next, &rh, &rtl, ce, callees, ncallees)) return 0;
+        for (IR_t *sg = zc->rec_g->entry; sg && sg->op != IR_SUCCEED && sg->op != IR_FAIL; sg = sg->γ.node) if (!pl_gz_callee_body_node(sg, ar, lbase, &synth_next, &rh, &rtl, ce, cv)) return 0;
         cst->recovery_head = rh;
         IR_t *cat = pl_gz_struct_slot_map(zc->catcher, ar, lbase);
         if (!cat) return 0;
@@ -1116,7 +1116,7 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
     *headp = head; *tailp = tail; *snp = synth_next;
     return 1;
 }
-static int pl_gz_callee_build_root(IR_t *root, IR_t **rhead, int ar, int lbase, int *snp, pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees) {
+static int pl_gz_callee_build_root(IR_t *root, IR_t **rhead, int ar, int lbase, int *snp, pl_gz_callee_t *ce, pl_gz_callee_vec_t *cv) {
     IR_t *h = NULL, *t = NULL;
     *rhead = NULL;
     if (!root || root->op == IR_SUCCEED) return 1;
@@ -1124,14 +1124,14 @@ static int pl_gz_callee_build_root(IR_t *root, IR_t **rhead, int ar, int lbase, 
         bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)IR_LIT(root).ival;
         if (!zs || !zs->goals || zs->ngoals <= 0 || zs->ngoals > 64) return 0;
         for (int i = 0; i < zs->ngoals; i++)
-            if (!pl_gz_callee_body_node(zs->goals[i], ar, lbase, snp, &h, &t, ce, callees, ncallees)) return 0;
+            if (!pl_gz_callee_body_node(zs->goals[i], ar, lbase, snp, &h, &t, ce, cv)) return 0;
     } else {
-        if (!pl_gz_callee_body_node(root, ar, lbase, snp, &h, &t, ce, callees, ncallees)) return 0;
+        if (!pl_gz_callee_body_node(root, ar, lbase, snp, &h, &t, ce, cv)) return 0;
     }
     *rhead = h;
     return 1;
 }
-static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_callee_t *ce, int clause_idx, int lbase, pl_gz_callee_t **callees, int *ncallees) {
+static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_callee_t *ce, int clause_idx, int lbase, pl_gz_callee_vec_t *cv) {
     IR_t *head = NULL, *tail = NULL;
     int ar = ce->arity;
     int nlocals_real = cg->nslots - ar;
@@ -1163,16 +1163,15 @@ static int pl_gz_rule_callee_body(bb_conj_state_t *zs, IR_graph_t *cg, pl_gz_cal
         tail = cu;
     }
     for (int i = ar; i < zs->ngoals; i++) {
-        if (!pl_gz_callee_body_node(zs->goals[i], ar, lbase, &synth_next, &head, &tail, ce, callees, ncallees)) { return 0; }
+        if (!pl_gz_callee_body_node(zs->goals[i], ar, lbase, &synth_next, &head, &tail, ce, cv)) { return 0; }
     }
     if (!head && ce->nclauses > 1) { IR_t *sc = pl_gz_det_node(IR_SUCCEED); if (!sc) return 0; head = tail = sc; }
     ce->clause_head[clause_idx] = head;
     if (clause_idx == 0) ce->body_head = head;
     return 1;
 }
-static pl_gz_callee_t * pl_gz_callee_get(IR_graph_t *cg, int ar, bb_conj_state_t *zs, pl_gz_callee_t **callees, int *ncallees) {
-    for (int k = 0; k < *ncallees; k++) if (callees[k]->graph_key == (void *)cg) return callees[k];
-    if (*ncallees >= 8) return NULL;
+static pl_gz_callee_t * pl_gz_callee_get(IR_graph_t *cg, int ar, bb_conj_state_t *zs, pl_gz_callee_vec_t *cv) {
+    for (int k = 0; k < cv->n; k++) if (cv->v[k]->graph_key == (void *)cg) return cv->v[k];
     pl_gz_callee_t *ce = (pl_gz_callee_t *)GC_MALLOC(sizeof *ce);
     if (!ce) return NULL;
     memset(ce, 0, sizeof *ce);
@@ -1181,19 +1180,18 @@ static pl_gz_callee_t * pl_gz_callee_get(IR_graph_t *cg, int ar, bb_conj_state_t
     ce->frame_node = pl_gz_det_node(IR_CALLEE_FRAME);
     if (!ce->frame_node) return NULL;
     IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;
-    callees[(*ncallees)++] = ce;
+    if (!pl_gz_callees_push(cv, ce)) return (pl_gz_callee_t *)0;
     int nsynth = pl_gz_clause_nsynth(zs, ar);
     if (nsynth < 0) { return NULL; }
     ce->nlocals = (cg->nslots - ar) + nsynth;
-    if (!pl_gz_rule_callee_body(zs, cg, ce, 0, ar, callees, ncallees)) { return NULL; }
+    if (!pl_gz_rule_callee_body(zs, cg, ce, 0, ar, cv)) { return NULL; }
     return ce;
 }
 /* PL-GZ-5c: multi-clause RULE callee — the seed's path/2.  ONE frame: [args | clause-0 locals+synth |
  * clause-1 locals+synth | … | child slots].  mark at [ζ+0], cursor at [ζ+4]; per-clause body chains;
  * the SHELL-FIRST memo makes self/mutual recursion terminate at admit time exactly as in 5b. */
-static pl_gz_callee_t * pl_gz_callee_get_choice(IR_graph_t *cg, int ar, bb_choice_state_t *bc, pl_gz_callee_t **callees, int *ncallees) {
-    for (int k = 0; k < *ncallees; k++) if (callees[k]->graph_key == (void *)cg) return callees[k];
-    if (*ncallees >= 8) return NULL;
+static pl_gz_callee_t * pl_gz_callee_get_choice(IR_graph_t *cg, int ar, bb_choice_state_t *bc, pl_gz_callee_vec_t *cv) {
+    for (int k = 0; k < cv->n; k++) if (cv->v[k]->graph_key == (void *)cg) return cv->v[k];
     pl_gz_callee_t *ce = (pl_gz_callee_t *)GC_MALLOC(sizeof *ce);
     if (!ce) return NULL;
     memset(ce, 0, sizeof *ce);
@@ -1202,7 +1200,7 @@ static pl_gz_callee_t * pl_gz_callee_get_choice(IR_graph_t *cg, int ar, bb_choic
     ce->frame_node = pl_gz_det_node(IR_CALLEE_FRAME);
     if (!ce->frame_node) return NULL;
     IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;
-    callees[(*ncallees)++] = ce;
+    if (!pl_gz_callees_push(cv, ce)) return (pl_gz_callee_t *)0;
     bb_conj_state_t *zsk[32]; int lbase[32]; int total = 0;
     for (int k = 0; k < bc->nbodies; k++) {
         zsk[k] = NULL;
@@ -1214,12 +1212,11 @@ static pl_gz_callee_t * pl_gz_callee_get_choice(IR_graph_t *cg, int ar, bb_choic
     }
     ce->nlocals = total;
     for (int k = 0; k < bc->nbodies; k++)
-        if (!pl_gz_rule_callee_body(zsk[k], bc->bodies[k], ce, k, lbase[k], callees, ncallees)) return NULL;
+        if (!pl_gz_rule_callee_body(zsk[k], bc->bodies[k], ce, k, lbase[k], cv)) return NULL;
     return ce;
 }
-static pl_gz_callee_t * pl_gz_callee_get_dyniter(IR_graph_t *cg, int ar, pl_gz_callee_t **callees, int *ncallees) {
-    for (int k = 0; k < *ncallees; k++) if (callees[k]->graph_key == (void *)cg) return callees[k];
-    if (*ncallees >= 8) return NULL;
+static pl_gz_callee_t * pl_gz_callee_get_dyniter(IR_graph_t *cg, int ar, pl_gz_callee_vec_t *cv) {
+    for (int k = 0; k < cv->n; k++) if (cv->v[k]->graph_key == (void *)cg) return cv->v[k];
     pl_gz_callee_t *ce = (pl_gz_callee_t *)GC_MALLOC(sizeof *ce);
     if (!ce) return NULL;
     memset(ce, 0, sizeof *ce);
@@ -1228,21 +1225,21 @@ static pl_gz_callee_t * pl_gz_callee_get_dyniter(IR_graph_t *cg, int ar, pl_gz_c
     ce->frame_node = pl_gz_det_node(IR_CALLEE_FRAME);
     if (!ce->frame_node) return NULL;
     IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;
-    callees[(*ncallees)++] = ce;
+    if (!pl_gz_callees_push(cv, ce)) return (pl_gz_callee_t *)0;
     ce->body_head = cg->entry;
     return ce;
 }
-static pl_gz_callee_t * pl_gz_callee_get_any(IR_t *gg, IR_graph_t *cg, int ar, pl_gz_callee_t **callees, int *ncallees) {
+static pl_gz_callee_t * pl_gz_callee_get_any(IR_t *gg, IR_graph_t *cg, int ar, pl_gz_callee_vec_t *cv) {
     (void)gg;
-    if (cg->entry && cg->entry->op == IR_CELL_DYNITER) return pl_gz_callee_get_dyniter(cg, ar, callees, ncallees);
+    if (cg->entry && cg->entry->op == IR_CELL_DYNITER) return pl_gz_callee_get_dyniter(cg, ar, cv);
     if (cg->entry && cg->entry->op == IR_CHOICE) {
         bb_choice_state_t *bc = NULL;
         if (!pl_gz_choice_rule_clauses(cg, ar, &bc)) return NULL;
-        return pl_gz_callee_get_choice(cg, ar, bc, callees, ncallees);
+        return pl_gz_callee_get_choice(cg, ar, bc, cv);
     }
     bb_conj_state_t *zs = NULL;
     if (!pl_gz_rule_clause(cg, ar, &zs)) { return NULL; }
-    return pl_gz_callee_get(cg, ar, zs, callees, ncallees);
+    return pl_gz_callee_get(cg, ar, zs, cv);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth);
@@ -1419,8 +1416,8 @@ static int pl_gz_arith_const(const IR_t *nd) {
     }
     return 0;
 }
-static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees);
-static int pl_gz_build_root(IR_t *root, IR_t **rhead, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees) {
+static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next, int *cslot, pl_gz_callee_vec_t *cv);
+static int pl_gz_build_root(IR_t *root, IR_t **rhead, int *synth_next, int *cslot, pl_gz_callee_vec_t *cv) {
     IR_t *h = NULL, *t = NULL;
     *rhead = NULL;
     if (!root || root->op == IR_SUCCEED) return 1;
@@ -1428,9 +1425,9 @@ static int pl_gz_build_root(IR_t *root, IR_t **rhead, int *synth_next, int *cslo
         bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)IR_LIT(root).ival;
         if (!zs || !zs->goals || zs->ngoals <= 0 || zs->ngoals > 64) return 0;
         for (int i = 0; i < zs->ngoals; i++)
-            if (!pl_gz_build_goal(zs->goals[i], &h, &t, synth_next, cslot, callees, ncallees)) return 0;
+            if (!pl_gz_build_goal(zs->goals[i], &h, &t, synth_next, cslot, cv)) return 0;
     } else {
-        if (!pl_gz_build_goal(root, &h, &t, synth_next, cslot, callees, ncallees)) return 0;
+        if (!pl_gz_build_goal(root, &h, &t, synth_next, cslot, cv)) return 0;
     }
     *rhead = h;
     return 1;
@@ -1448,10 +1445,10 @@ static int pl_gz_chain_det(IR_t *head) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* build a flat goal chain from a sub-graph entry (follow γ until the sub-graph's IR_SUCCEED/IR_FAIL
  * terminator) — used for catch's goal/recovery sub-graphs, which are NOT GCONJ-wrapped at lower time. */
-static int pl_gz_build_chain_from(IR_t *entry, IR_t **chain_head, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees) {
+static int pl_gz_build_chain_from(IR_t *entry, IR_t **chain_head, int *synth_next, int *cslot, pl_gz_callee_vec_t *cv) {
     IR_t *h = NULL, *t = NULL;
     for (IR_t *g = entry; g && g->op != IR_SUCCEED && g->op != IR_FAIL; g = g->γ.node)
-        if (!pl_gz_build_goal(g, &h, &t, synth_next, cslot, callees, ncallees)) return 0;
+        if (!pl_gz_build_goal(g, &h, &t, synth_next, cslot, cv)) return 0;
     *chain_head = h;
     return 1;
 }
@@ -1466,7 +1463,7 @@ static IR_t * pl_gz_arith_to_struct(const IR_t *nd) {
     }
     return c;
 }
-static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next, int *cslot, pl_gz_callee_t **callees, int *ncallees) {
+static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next, int *cslot, pl_gz_callee_vec_t *cv) {
     if (!gg) return 0;
     if (gg->op == IR_SUCCEED) return 1;
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "throw") && IR_LIT(gg).ival == 1) {
@@ -1485,9 +1482,9 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)GC_MALLOC(sizeof *is);
         if (!is) return 0;
         memset(is, 0, sizeof *is);
-        if (!pl_gz_build_root(zi->cond_root, &is->cond_head, synth_next, cslot, callees, ncallees)) return 0;
-        if (!pl_gz_build_root(zi->then_root, &is->then_head, synth_next, cslot, callees, ncallees)) return 0;
-        if (!pl_gz_build_root(zi->else_root, &is->else_head, synth_next, cslot, callees, ncallees)) return 0;
+        if (!pl_gz_build_root(zi->cond_root, &is->cond_head, synth_next, cslot, cv)) return 0;
+        if (!pl_gz_build_root(zi->then_root, &is->then_head, synth_next, cslot, cv)) return 0;
+        if (!pl_gz_build_root(zi->else_root, &is->else_head, synth_next, cslot, cv)) return 0;
         if (!pl_gz_chain_det(is->then_head) || !pl_gz_chain_det(is->else_head)) return 0;
         if (*cslot + 1 > 2046) return 0;
         is->gate_slot = (*cslot)++;
@@ -1504,8 +1501,8 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         pl_gz_catch_state_t *cst = (pl_gz_catch_state_t *)GC_MALLOC(sizeof *cst);
         if (!cst) return 0;
         memset(cst, 0, sizeof *cst);
-        if (!pl_gz_build_chain_from(zc->goal_g->entry, &cst->goal_head, synth_next, cslot, callees, ncallees)) return 0;
-        if (!pl_gz_build_chain_from(zc->rec_g->entry, &cst->recovery_head, synth_next, cslot, callees, ncallees)) return 0;
+        if (!pl_gz_build_chain_from(zc->goal_g->entry, &cst->goal_head, synth_next, cslot, cv)) return 0;
+        if (!pl_gz_build_chain_from(zc->rec_g->entry, &cst->recovery_head, synth_next, cslot, cv)) return 0;
         cst->catcher = zc->catcher;
         if (*cslot + 1 > 2046) return 0;
         cst->mark_slot = (*cslot)++;
@@ -1550,8 +1547,8 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         }
         bb_goal_state_t *zc = NULL;
         IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
-        if (!cg || ar > 8 || !pl_gz_call_args_ok(zc, ar)) { return 0; }
-        pl_gz_callee_t *ce = pl_gz_callee_get_any(gg, cg, ar, callees, ncallees);
+        if (!cg || ar > 28 || !pl_gz_call_args_ok(zc, ar)) { return 0; }
+        pl_gz_callee_t *ce = pl_gz_callee_get_any(gg, cg, ar, cv);
         if (!ce) { return 0; }
         pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
         if (!cs) return 0;
@@ -1849,7 +1846,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
             if (*cslot + (is_fail ? 1 : 2) > 2046) return 0;
             fst->acc_slot = (*cslot)++;
             if (!is_fail) {
-                pl_gz_callee_t *ce = pl_gz_callee_get_any(groot, cg, ar, callees, ncallees);
+                pl_gz_callee_t *ce = pl_gz_callee_get_any(groot, cg, ar, cv);
                 if (!ce) return 0;
                 pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
                 if (!cs) return 0;
@@ -1900,7 +1897,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
             if (*cslot + (is_fail ? 1 : 2) > 2046) return 0;
             fst->acc_slot = (*cslot)++;
             if (!is_fail) {
-                pl_gz_callee_t *ce = pl_gz_callee_get_any(groot, cg, ar, callees, ncallees);
+                pl_gz_callee_t *ce = pl_gz_callee_get_any(groot, cg, ar, cv);
                 if (!ce) return 0;
                 pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
                 if (!cs) return 0;
@@ -2262,13 +2259,13 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
     int ncells = g->nslots + nsynth;
     int synth_next = g->nslots;
     int cslot = ncells;
-    pl_gz_callee_t *callees[8]; int ncallees = 0;
+    pl_gz_callee_vec_t cv; cv.cap = 8; cv.n = 0; cv.v = (pl_gz_callee_t **)GC_MALLOC(sizeof(pl_gz_callee_t *) * cv.cap);
     for (int i = 0; i < ng; i++) {
-        if (!pl_gz_build_goal(goals_buf[i], &head, &tail, &synth_next, &cslot, callees, &ncallees)) { return NULL; }
+        if (!pl_gz_build_goal(goals_buf[i], &head, &tail, &synth_next, &cslot, &cv)) { return NULL; }
     }
     IR_t *headB = NULL, *tailB = NULL;
     for (int i = 0; i < ngB; i++)
-        if (!pl_gz_build_goal(goalsB_buf[i], &headB, &tailB, &synth_next, &cslot, callees, &ncallees)) return NULL;
+        if (!pl_gz_build_goal(goalsB_buf[i], &headB, &tailB, &synth_next, &cslot, &cv)) return NULL;
     IR_t *qf = pl_gz_det_node(IR_QUERY_FRAME);
     if (!qf) return NULL;
     if (head || headB) ir_operand_push(qf, head);
