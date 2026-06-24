@@ -87,59 +87,60 @@ typedef struct ExprList {
     VAR_HASH = 267,                /* VAR_HASH  */
     VAR_TWIGIL = 268,              /* VAR_TWIGIL  */
     IDENT = 269,                   /* IDENT  */
-    VAR_CAPTURE = 270,             /* VAR_CAPTURE  */
-    VAR_FH = 271,                  /* VAR_FH  */
-    VAR_NAMED_CAPTURE = 272,       /* VAR_NAMED_CAPTURE  */
-    KW_MY = 273,                   /* KW_MY  */
-    KW_SAY = 274,                  /* KW_SAY  */
-    KW_PRINT = 275,                /* KW_PRINT  */
-    KW_IF = 276,                   /* KW_IF  */
-    KW_ELSE = 277,                 /* KW_ELSE  */
-    KW_ELSIF = 278,                /* KW_ELSIF  */
-    KW_WHILE = 279,                /* KW_WHILE  */
-    KW_FOR = 280,                  /* KW_FOR  */
-    KW_SUB = 281,                  /* KW_SUB  */
-    KW_GATHER = 282,               /* KW_GATHER  */
-    KW_TAKE = 283,                 /* KW_TAKE  */
-    KW_RETURN = 284,               /* KW_RETURN  */
-    KW_GIVEN = 285,                /* KW_GIVEN  */
-    KW_WHEN = 286,                 /* KW_WHEN  */
-    KW_DEFAULT = 287,              /* KW_DEFAULT  */
-    KW_EXISTS = 288,               /* KW_EXISTS  */
-    KW_DELETE = 289,               /* KW_DELETE  */
-    KW_UNLESS = 290,               /* KW_UNLESS  */
-    KW_UNTIL = 291,                /* KW_UNTIL  */
-    KW_REPEAT = 292,               /* KW_REPEAT  */
-    KW_MAP = 293,                  /* KW_MAP  */
-    KW_GREP = 294,                 /* KW_GREP  */
-    KW_SORT = 295,                 /* KW_SORT  */
-    KW_TRY = 296,                  /* KW_TRY  */
-    KW_CATCH = 297,                /* KW_CATCH  */
-    KW_DIE = 298,                  /* KW_DIE  */
-    KW_CLASS = 299,                /* KW_CLASS  */
-    KW_METHOD = 300,               /* KW_METHOD  */
-    KW_HAS = 301,                  /* KW_HAS  */
-    KW_NEW = 302,                  /* KW_NEW  */
-    KW_GRAMMAR = 303,              /* KW_GRAMMAR  */
-    KW_TOKEN = 304,                /* KW_TOKEN  */
-    KW_RULE = 305,                 /* KW_RULE  */
-    KW_REGEX = 306,                /* KW_REGEX  */
-    OP_FATARROW = 307,             /* OP_FATARROW  */
-    OP_RANGE = 308,                /* OP_RANGE  */
-    OP_RANGE_EX = 309,             /* OP_RANGE_EX  */
-    OP_ARROW = 310,                /* OP_ARROW  */
-    OP_EQ = 311,                   /* OP_EQ  */
-    OP_NE = 312,                   /* OP_NE  */
-    OP_LE = 313,                   /* OP_LE  */
-    OP_GE = 314,                   /* OP_GE  */
-    OP_SEQ = 315,                  /* OP_SEQ  */
-    OP_SNE = 316,                  /* OP_SNE  */
-    OP_AND = 317,                  /* OP_AND  */
-    OP_OR = 318,                   /* OP_OR  */
-    OP_BIND = 319,                 /* OP_BIND  */
-    OP_SMATCH = 320,               /* OP_SMATCH  */
-    OP_DIV = 321,                  /* OP_DIV  */
-    UMINUS = 322                   /* UMINUS  */
+    CARET = 270,                   /* CARET  */
+    VAR_CAPTURE = 271,             /* VAR_CAPTURE  */
+    VAR_FH = 272,                  /* VAR_FH  */
+    VAR_NAMED_CAPTURE = 273,       /* VAR_NAMED_CAPTURE  */
+    KW_MY = 274,                   /* KW_MY  */
+    KW_SAY = 275,                  /* KW_SAY  */
+    KW_PRINT = 276,                /* KW_PRINT  */
+    KW_IF = 277,                   /* KW_IF  */
+    KW_ELSE = 278,                 /* KW_ELSE  */
+    KW_ELSIF = 279,                /* KW_ELSIF  */
+    KW_WHILE = 280,                /* KW_WHILE  */
+    KW_FOR = 281,                  /* KW_FOR  */
+    KW_SUB = 282,                  /* KW_SUB  */
+    KW_GATHER = 283,               /* KW_GATHER  */
+    KW_TAKE = 284,                 /* KW_TAKE  */
+    KW_RETURN = 285,               /* KW_RETURN  */
+    KW_GIVEN = 286,                /* KW_GIVEN  */
+    KW_WHEN = 287,                 /* KW_WHEN  */
+    KW_DEFAULT = 288,              /* KW_DEFAULT  */
+    KW_EXISTS = 289,               /* KW_EXISTS  */
+    KW_DELETE = 290,               /* KW_DELETE  */
+    KW_UNLESS = 291,               /* KW_UNLESS  */
+    KW_UNTIL = 292,                /* KW_UNTIL  */
+    KW_REPEAT = 293,               /* KW_REPEAT  */
+    KW_MAP = 294,                  /* KW_MAP  */
+    KW_GREP = 295,                 /* KW_GREP  */
+    KW_SORT = 296,                 /* KW_SORT  */
+    KW_TRY = 297,                  /* KW_TRY  */
+    KW_CATCH = 298,                /* KW_CATCH  */
+    KW_DIE = 299,                  /* KW_DIE  */
+    KW_CLASS = 300,                /* KW_CLASS  */
+    KW_METHOD = 301,               /* KW_METHOD  */
+    KW_HAS = 302,                  /* KW_HAS  */
+    KW_NEW = 303,                  /* KW_NEW  */
+    KW_GRAMMAR = 304,              /* KW_GRAMMAR  */
+    KW_TOKEN = 305,                /* KW_TOKEN  */
+    KW_RULE = 306,                 /* KW_RULE  */
+    KW_REGEX = 307,                /* KW_REGEX  */
+    OP_FATARROW = 308,             /* OP_FATARROW  */
+    OP_RANGE = 309,                /* OP_RANGE  */
+    OP_RANGE_EX = 310,             /* OP_RANGE_EX  */
+    OP_ARROW = 311,                /* OP_ARROW  */
+    OP_EQ = 312,                   /* OP_EQ  */
+    OP_NE = 313,                   /* OP_NE  */
+    OP_LE = 314,                   /* OP_LE  */
+    OP_GE = 315,                   /* OP_GE  */
+    OP_SEQ = 316,                  /* OP_SEQ  */
+    OP_SNE = 317,                  /* OP_SNE  */
+    OP_AND = 318,                  /* OP_AND  */
+    OP_OR = 319,                   /* OP_OR  */
+    OP_BIND = 320,                 /* OP_BIND  */
+    OP_SMATCH = 321,               /* OP_SMATCH  */
+    OP_DIV = 322,                  /* OP_DIV  */
+    UMINUS = 323                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -156,7 +157,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 160 "raku.tab.h"
+#line 161 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;

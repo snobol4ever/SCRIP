@@ -656,6 +656,53 @@ class Sub is Base { method who() { return $!id; } }
 sub main() { my $s = Sub.new(id => 5); say($s.who()); }
 EOF
 
+# --- RK-OO-B2 op-800 ABSENT case: a missing required attr now SURFACES natively (die-route) — sets the
+#     Rakudo X::Attribute::Required message, flushes stdout, exits 1. stdout is therefore EMPTY (the post-
+#     construction say() never runs). Both modes. Resolves the death-surfacing deferred at 386ffeb. ---
+raku "attr_required_absent" "" << 'EOF'
+class Point { has $.x is required; has $.y; }
+sub main() { my $p = Point.new(y => 9); say("unreached"); }
+EOF
+raku "attr_required_absent_inherited" "" << 'EOF'
+class Base { has $.id is required; }
+class Sub is Base { method who() { return $!id; } }
+sub main() { my $s = Sub.new(); say($s.who()); }
+EOF
+# --- native die route: an uncaught die surfaces to stderr + exit 1; statements after it do NOT run, so only
+#     the pre-die output reaches stdout (the death is on stderr, not asserted here). Both modes. ---
+raku "die_uncaught_halts" "before" << 'EOF'
+sub main() { say("before"); die("boom"); say("after"); }
+EOF
+
+# --- RK-OO-B3: TWEAK submethod auto-fires at construction (Rakudo BUILDALLPLAN). Fired from the dat_construct
+#     chokepoint (so obj_new / bless / type-name construct all run it); each class's own TWEAK fires, parent
+#     before child (least-derived first), correctly non-inheriting (each TWEAK is a distinctly-named proc). ---
+raku "tweak_fires" "$(printf 'tweaked\ndone')" << 'EOF'
+class Widget { has $.id; method TWEAK() { say("tweaked"); } }
+sub main() { my $w = Widget.new(id => 1); say("done"); }
+EOF
+raku "tweak_derived_attr" "25" << 'EOF'
+class Box { has $.w; has $.area; method TWEAK() { $!area = $!w * $!w; } }
+sub main() { my $b = Box.new(w => 5); say($b.area); }
+EOF
+raku "tweak_inherited_order" "$(printf 'base-tweak\nsub-tweak')" << 'EOF'
+class Base { has $.x; method TWEAK() { say("base-tweak"); } }
+class Sub is Base { has $.y; method TWEAK() { say("sub-tweak"); } }
+sub main() { my $s = Sub.new(x => 1, y => 2); }
+EOF
+
+# --- RK-OO-F (intro): .^name metamethod — the '^' metaop was LEXER-BLOCKED; now reachable after the verified
+#     flex-2.6.4 lexer regen (raku.lex.c rebuilt behavior-equivalent). Runtime handler reads the instance/type's
+#     existing class name, so both modes work with no per-class emission. Returns the class name (Rakudo Metamodel). ---
+raku "meta_name_instance" "Dog" << 'EOF'
+class Dog { has $.name; }
+sub main() { my $d = Dog.new(name => "Rex"); say($d.^name); }
+EOF
+raku "meta_name_typeobj" "Cat" << 'EOF'
+class Cat { }
+sub main() { say(Cat.^name); }
+EOF
+
 # --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }

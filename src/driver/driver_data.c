@@ -129,8 +129,9 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
     }
     for (int i = 0; i < t->nfields; i++) {
         if (t->required[i] && inst->fields[i].v == DT_SNUL) {
-            extern char g_script_exception[512];
-            snprintf(g_script_exception, sizeof g_script_exception, "The attribute '$!%s' is required, but you did not provide a value for it.", t->fields[i]);
+            extern void rt_script_die_surface(const char *msg);
+            char _m[512]; snprintf(_m, sizeof _m, "The attribute '$!%s' is required, but you did not provide a value for it.", t->fields[i]);
+            rt_script_die_surface(_m);
             break;
         }
     }
@@ -138,6 +139,8 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
     r.v    = DT_DATA;
     r.slen = 0;
     r.u    = inst;
+    extern void rt_fire_buildplan_tweak(const char *cname, DESCR_t self);
+    rt_fire_buildplan_tweak(t->name, r);
     return r;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

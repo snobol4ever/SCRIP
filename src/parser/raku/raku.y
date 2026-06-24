@@ -151,6 +151,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token <dval> LIT_FLOAT
 %token <sval> LIT_STR LIT_INTERP_STR LIT_REGEX LIT_MATCH_GLOBAL LIT_SUBST
 %token <sval> VAR_SCALAR VAR_ARRAY VAR_HASH VAR_TWIGIL IDENT
+%token CARET
 %token <ival> VAR_CAPTURE
 %token <ival> VAR_FH
 %token <sval> VAR_NAMED_CAPTURE
@@ -670,6 +671,18 @@ call_expr
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node($1)); free($1);
           ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          $$ = c; }
+    | IDENT '.' CARET IDENT
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, var_node($1)); free($1);
+          { size_t _l = strlen($4); char *_m = (char*)malloc(_l+2); _m[0]='^'; memcpy(_m+1,$4,_l); _m[_l+1]='\0'; ast_push(c, leaf_sval(TT_QLIT, _m)); free(_m); }
+          free($4);
+          $$ = c; }
+    | atom '.' CARET IDENT
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, $1);
+          { size_t _l = strlen($4); char *_m = (char*)malloc(_l+2); _m[0]='^'; memcpy(_m+1,$4,_l); _m[_l+1]='\0'; ast_push(c, leaf_sval(TT_QLIT, _m)); free(_m); }
+          free($4);
           $$ = c; }
     | atom '.' IDENT '(' arg_list ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
