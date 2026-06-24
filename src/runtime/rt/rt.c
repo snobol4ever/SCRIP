@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <gc.h>
 /* Subject capture base (pattern_match.c). A nested user-proc call whose body
    runs its own SUBJ?PAT clobbers these globals; save/restore across the callee
    so the caller's pending capture/scan keeps its own subject base. Mirrors the
@@ -263,7 +264,15 @@ void rt_arg_stage(int idx, DESCR_t v)
 {
     if (idx >= 0 && idx < CALL_ARGS_MAX) g_call_args[idx] = v;
 }
-static int64_t g_proc_arena[PROC_FRAME_DEPTH * PROC_FRAME_QWORDS];
+/* Lazily heap-allocated (GC-scanned) so the 16 MB never sits in static BSS:
+ * programs that make no procedure calls (e.g. all Prolog GZ programs) never
+ * allocate it, sparing Boehm a ~MB conservative root scan at startup. */
+static int64_t *g_proc_arena = (int64_t *)0;
+static int64_t *proc_arena(void) {
+    if (!g_proc_arena)
+        g_proc_arena = (int64_t *)GC_MALLOC((size_t)(PROC_FRAME_DEPTH * PROC_FRAME_QWORDS) * sizeof(int64_t));
+    return g_proc_arena;
+}
 static int     g_proc_depth = 0;
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
@@ -278,7 +287,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: recursion depth exceeded (%d)\n", PROC_FRAME_DEPTH);
         abort();
     }
-    char *fb = (char *)&g_proc_arena[g_proc_depth * PROC_FRAME_QWORDS];
+    char *fb = (char *)&proc_arena()[g_proc_depth * PROC_FRAME_QWORDS];
     g_proc_depth++;
     *(DESCR_t *)(fb + 0) = NULVCL;
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
@@ -332,7 +341,14 @@ static NameSaveEnt   *g_name_save = (NameSaveEnt *)0;
 static int            g_name_save_top = 0;
 static int            g_name_save_cap = 0;
 static void rt_name_save_grow(void) { if (g_name_save_top < g_name_save_cap) return; int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt)); if (!np) return; g_name_save = np; g_name_save_cap = nc; }
-static int64_t        g_proc_frame_nest_arena[PROC_FRAME_ARENA_QWORDS] __attribute__((aligned(16)));
+/* Lazily heap-allocated (GC-scanned), see proc_arena() above — keeps 64 MB out
+ * of static BSS so unused-procedure-call programs skip the startup root scan. */
+static int64_t *g_proc_frame_nest_arena = (int64_t *)0;
+static int64_t *proc_nest_arena(void) {
+    if (!g_proc_frame_nest_arena)
+        g_proc_frame_nest_arena = (int64_t *)GC_MALLOC((size_t)PROC_FRAME_ARENA_QWORDS * sizeof(int64_t));
+    return g_proc_frame_nest_arena;
+}
 static int            g_proc_frame_nest_depth = 0;
 static long           g_proc_frame_cursor_qw = 0;
 int rt_name_save_push(const char **names, DESCR_t *args, int nargs, int n)
@@ -372,7 +388,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     if (g_proc_frame_cursor_qw + fqw > PROC_FRAME_ARENA_QWORDS) return FAILDESCR;
     int save_base = rt_name_save_push(pn, args, nargs, np);
     rt_name_save_push(&name, (DESCR_t *)0, 0, 1);
-    void *fb = (void *)&g_proc_frame_nest_arena[g_proc_frame_cursor_qw];
+    void *fb = (void *)&proc_nest_arena()[g_proc_frame_cursor_qw];
     long save_cursor = g_proc_frame_cursor_qw;
     g_proc_frame_cursor_qw += fqw;
     g_proc_frame_nest_depth++;
@@ -449,7 +465,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     if (g_proc_frame_cursor_qw + fqw > PROC_FRAME_ARENA_QWORDS) return FAILDESCR;
     int save_base = g_name_save_top;
     rt_name_save_push(&name, (DESCR_t *)0, 0, 1);
-    void *fb = (void *)&g_proc_frame_nest_arena[g_proc_frame_cursor_qw];
+    void *fb = (void *)&proc_nest_arena()[g_proc_frame_cursor_qw];
     long save_cursor = g_proc_frame_cursor_qw;
     g_proc_frame_cursor_qw += fqw;
     g_proc_frame_nest_depth++;
