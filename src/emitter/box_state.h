@@ -2,6 +2,7 @@
 #define SCRIP_BOX_STATE_H
 /*--------------------------------------------------------------------------------------------------------------------*/
 #include "IR.h"
+#include <gc.h>
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     DESCR_t value; int64_t counter; int state;
@@ -47,6 +48,11 @@ typedef struct { int nclauses; int arity; int mark_slot; IR_t * args[8]; IR_t * 
 typedef struct { void * graph_key; int base; int arity; int nlocals; int mark_slot; IR_t * body_head; IR_t * frame_node; void * lblA; void * lblB; int nchild;
                  int nclauses; IR_t * clause_head[32]; int body_emitted; } pl_gz_callee_t;
 typedef struct { pl_gz_callee_t * callee; int nargs; IR_t ** args; int child_slot; } pl_gz_call_state_t;
+typedef struct { pl_gz_callee_t ** v; int n; int cap; } pl_gz_callee_vec_t;
+static inline pl_gz_callee_t * pl_gz_callees_push(pl_gz_callee_vec_t * cv, pl_gz_callee_t * ce) {
+    if (cv->n >= cv->cap) { int nc = cv->cap ? cv->cap * 2 : 8; pl_gz_callee_t ** nv = (pl_gz_callee_t **)GC_MALLOC(sizeof(pl_gz_callee_t *) * nc); if (!nv) return (pl_gz_callee_t *)0; for (int i = 0; i < cv->n; i++) nv[i] = cv->v[i]; cv->v = nv; cv->cap = nc; }
+    cv->v[cv->n++] = ce; return ce;
+}
 typedef struct { pl_gz_call_state_t * call; IR_t * tmpl; int result_slot; int acc_slot; int is_fail; int agg_mode; } pl_gz_findall_state_t;
 typedef struct { int functor_atom; const char * functor_name; int arity; int cursor_slot; int mark_slot; } pl_gz_dyniter_state_t;
 typedef struct { IR_t * cond_head; IR_t * then_head; IR_t * else_head; int gate_slot; } pl_gz_ite_state_t;
