@@ -151,6 +151,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token <dval> LIT_FLOAT
 %token <sval> LIT_STR LIT_INTERP_STR LIT_REGEX LIT_MATCH_GLOBAL LIT_SUBST
 %token <sval> VAR_SCALAR VAR_ARRAY VAR_HASH VAR_TWIGIL IDENT
+%token <sval> VAR_ARRAY_TWIGIL VAR_HASH_TWIGIL
 %token CARET
 %token <ival> VAR_CAPTURE
 %token <ival> VAR_FH
@@ -434,6 +435,18 @@ class_body_list
     :  { $$ = exprlist_new(); }
     | class_body_list KW_HAS VAR_TWIGIL ';'
         { tree_t *fv = leaf_sval(TT_VAR, $3); free($3);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_ARRAY_TWIGIL ';'
+        { tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern($3); free($3);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_HASH_TWIGIL ';'
+        { tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern($3); free($3);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_ARRAY_TWIGIL ';'
+        { free($3); tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern($4); free($4);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_HASH_TWIGIL ';'
+        { free($3); tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern($4); free($4);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_SCALAR ';'
         { tree_t *fv = leaf_sval(TT_VAR, strip_sigil($3)); free($3);
@@ -759,6 +772,14 @@ atom
         { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node($2)); ast_push(c,$4); $$=c; }
     | IDENT           { $$=var_node($1); }
     | VAR_TWIGIL
+        { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
+          fe->v.sval = (char *)intern($1); free($1);
+          $$ = fe; }
+    | VAR_ARRAY_TWIGIL
+        { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
+          fe->v.sval = (char *)intern($1); free($1);
+          $$ = fe; }
+    | VAR_HASH_TWIGIL
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
           fe->v.sval = (char *)intern($1); free($1);
           $$ = fe; }
