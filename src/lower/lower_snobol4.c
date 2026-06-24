@@ -505,6 +505,42 @@ static int sno_arith_idx_lowerable(const tree_t * t) {
     if (!t || !lc_is_binop(t->t) || t->n < 2) return 0;
     return sno_idx_operand_ok(t->c[0]) && sno_idx_operand_ok(t->c[1]);
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_kind(const tree_t * t) {
+    const char * s; int k0, k1;
+    if (!t) return 1;
+    switch (t->t) {
+    case TT_QLIT: case TT_ILIT: case TT_FLIT: case TT_CSET: case TT_NUL: case TT_ARB: case TT_REM: case TT_FAIL: case TT_SUCCEED: case TT_FENCE: case TT_ABORT: case TT_BAL: case TT_CAPT_CURSOR: return 1;
+    case TT_DEFER: return 2;
+    case TT_INDIRECT: case TT_FNC: return 3;
+    case TT_VAR: s = t->v.sval; return (s && (!strcmp(s,"REM")||!strcmp(s,"rem")||!strcmp(s,"ARB")||!strcmp(s,"arb")||!strcmp(s,"FAIL")||!strcmp(s,"fail")||!strcmp(s,"SUCCEED")||!strcmp(s,"succeed")||!strcmp(s,"FENCE")||!strcmp(s,"fence")||!strcmp(s,"ABORT")||!strcmp(s,"abort")||!strcmp(s,"BAL")||!strcmp(s,"bal"))) ? 1 : 3;
+    case TT_SPAN: case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_BREAKX: case TT_LEN: case TT_POS: case TT_RPOS: case TT_TAB: case TT_RTAB: return (t->n >= 1 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_ILIT || t->c[0]->t == TT_CSET)) ? 1 : ((t->n >= 1 && t->c[0]) ? 2 : 1);
+    case TT_SEQ: case TT_CAT: case TT_ALT: k0 = (t->n >= 1) ? sno_pat_kind(t->c[0]) : 1; k1 = (t->n >= 2) ? sno_pat_kind(t->c[1]) : 1; return (k0 > k1) ? k0 : k1;
+    case TT_ARBNO: return (t->n >= 1) ? sno_pat_kind(t->c[0]) : 1;
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: return (t->n >= 1 && t->c[0]) ? sno_pat_kind(t->c[0]) : 1;
+    default: return 3;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void sno_island_walk(const tree_t * t, int parent_variant, int * islands) {
+    if (!t) return;
+    if (sno_pat_kind(t) < 3) { if (parent_variant) (*islands)++; return; }
+    switch (t->t) {
+    case TT_SEQ: case TT_CAT: case TT_ALT: if (t->n >= 1) sno_island_walk(t->c[0], 1, islands); if (t->n >= 2) sno_island_walk(t->c[1], 1, islands); break;
+    case TT_ARBNO: if (t->n >= 1) sno_island_walk(t->c[0], 1, islands); break;
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: if (t->n >= 1) sno_island_walk(t->c[0], 1, islands); break;
+    default: break;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_islands(const tree_t * rhs) {
+    int islands = 0;
+    if (!rhs) return 0;
+    if (sno_pat_kind(rhs) < 3) return 1;
+    sno_island_walk(rhs, 1, &islands);
+    return islands;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int sno_leaf_buildable(const tree_t * t) {
     const char * s; int hit;
     if (!t) return 0;
@@ -596,6 +632,7 @@ static IR_t * sno_concat_chain(snx_t * cx, const tree_t ** ops, int n, IR_t * co
 /*====================================================================================================================================================================================================*/
 /* ── assignment lowerer ──────────────────────────────────────────────── */
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
+    if (rhs && getenv("SCRIP_FZ_DEBUG")) fprintf(stderr, "FZ-CLASSIFY lhs=%s tt=%d kind=%d islands=%d\n", lhs ? lhs : "?", (int) rhs->t, sno_pat_kind(rhs), sno_pat_islands(rhs));
     if (rhs && rhs->t == TT_ALT) {
         lc_vec qv; lc_vec_init(&qv, (int) sizeof(const tree_t *)); int allq = 1;
         lc_vec st2; lc_vec_init(&st2, (int) sizeof(const tree_t *)); lc_vec_push(&st2, &rhs);
