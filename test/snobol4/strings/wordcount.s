@@ -301,7 +301,15 @@ bb21_α:
 snoch0_n16_α:
 bb22_α:
 # IR_BINOP_GVAR_ARITH
+ mov rdx, qword ptr [rbx + 64]
+ cmp edx, 6
+ jne .Lx31_0
  mov rax, qword ptr [rbx + 72]
+ jmp .Lx31_1
+.Lx31_0:
+ lea rdi, [rip + .S7]
+ call rt_gvar_get_int@PLT
+.Lx31_1:
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 120], rax

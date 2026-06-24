@@ -134,26 +134,26 @@ push r12
   mov r12, rdi
   lea r10, [rip + Δ]
 flat_α_body:
-snoch7_n0_α:
+snoch8_n0_α:
 bb5_α:
 # IR_CALL_DEFINE
  lea rdi, [rip + .S2]
  call rt_proc_define@PLT
- jmp snoch7_n1_α
- snoch7_n0_β:
- jmp snoch7_n1_α
-snoch7_n1_α:
+ jmp snoch8_n1_α
+ snoch8_n0_β:
+ jmp snoch8_n1_α
+snoch8_n1_α:
 # IR_LIT_I
 bb6_α:
  mov qword ptr [r12 + 16], 6
- mov rax, qword ptr [rip + .Lx10_0]
+ mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 24], rax
- jmp xgvarg9_done
- xgvarg9_β:
+ jmp xgvarg10_done
+ xgvarg10_β:
  jmp flat_γ
-.Lx10_0:
+.Lx11_0:
  .quad 41
-xgvarg9_done:
+xgvarg10_done:
 bb7_α:
 # BOX IR_CALL bumpit(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+16] -> [r12+48]
@@ -162,10 +162,10 @@ bb7_α:
  mov rax, qword ptr [r12 + 24]
  mov qword ptr [r12 + 56], rax
   .section .rodata
-  .Lprocfn12: .string "bumpit"
+  .Lprocfn13: .string "bumpit"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn12]
+   lea rdi, [rip + .Lprocfn13]
  lea rsi, [r12 + 48]
  mov edx, 1
  call rt_call_named_proc@PLT
@@ -173,10 +173,10 @@ bb7_α:
  mov qword ptr [r12 + 40], rdx
  cmp eax, 99
  je flat_γ
- jmp snoch7_n2_α
-snoch7_n1_β:
+ jmp snoch8_n2_α
+snoch8_n1_β:
  jmp flat_γ
-snoch7_n2_α:
+snoch8_n2_α:
 bb8_α:
 # IR_ASSIGN_CALL
  lea rdi, [rip + .S3]
@@ -184,7 +184,7 @@ bb8_α:
  mov rdx, qword ptr [r12 + 40]
  call rt_gvar_assign_descr@PLT
  jmp flat_γ
- snoch7_n2_β:
+ snoch8_n2_β:
  jmp flat_γ
 flat_β:
 jmp flat_ω
