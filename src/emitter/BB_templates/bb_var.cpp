@@ -11,7 +11,17 @@ DESCR_t NV_GET_fn(const char * name);
 std::string bb_var() {
     x86_begin();
     if (PLATFORM_X86)
-        return (g_gvar_flat_chain && _.op_off >= 0 && _.op_sval && _.op_sval[0] != '&') ?
+        return (g_gvar_flat_chain && _.op_off >= 0 && _.op_gva_k >= 0) ?
+               x86("comment", "IR_VAR gva")
+             + x86("label",   _.lbl_α)
+             + x86("mov",     "rax", RDQ("rbx", _.op_gva_k * 16))
+             + x86("mov",     "rdx", RDQ("rbx", _.op_gva_k * 16 + 8))
+             + x86("mov",     FRQ(_.op_off),     "rax")
+             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86("jmp",     "γ")
+             + x86("def",     "β")
+             + x86("jmp",     "ω") :
+               (g_gvar_flat_chain && _.op_off >= 0 && _.op_sval && _.op_sval[0] != '&') ?
                x86("comment", "IR_VAR")
              + x86("label",   _.lbl_α)
              + x86("mov",     "rdi", ROQ(0))

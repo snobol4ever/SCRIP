@@ -2814,13 +2814,28 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n  ret\n");
             }
             free(pidx_buf); free(peak_buf);
+            extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+            gva_collect_reset();
+            gva_collect_graph(sbbg);
+            int n_gva = gva_count();
+            if (n_gva > 0) {
+                printf("  .section .rodata\n");
+                for (int k = 0; k < n_gva; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
+                printf("  .align 8\n__gva_names:\n");
+                for (int k = 0; k < n_gva; k++) printf("  .quad .Lgvan%d\n", k);
+                printf("  .section .bss\n  .align 16\n__gva: .space %d, 0\n", n_gva * 16);
+                printf("  .section .text\n  .intel_syntax noprefix\n");
+            }
             printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n");
             if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
+            if (n_gva > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva);
             printf("  call rt_frame@PLT\n  mov rdi, rax\n  xor esi, esi\n");
             printf("  call flat_\xce\xb1\n");
             printf("  xor eax, eax\n  pop rbp\n  ret\n");
+            g_gva_active = (n_gva > 0) ? 1 : 0;
             int rc = gvar_flat_chain_build_text(sbbg, stdout, "flat");
+            g_gva_active = 0;
             g_frame_active = 0;
             xa_emit_strtab_rodata();
             fflush(stdout);

@@ -109,8 +109,35 @@ int bb_varslot_peek(const char *name) {
         if (g_bb_varslot[i].name && strcmp(g_bb_varslot[i].name, name) == 0) return g_bb_varslot[i].off;
     return -1;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static const char **g_gva_names = NULL;
+static int g_gva_n = 0;
+static int g_gva_max = 0;
+int gva_name_eligible(const char *name) {
+    if (!name || !name[0]) return 0;
+    if (name[0] == '&') return 0;
+    static const char *excl[] = { "INPUT","OUTPUT","PUNCH","TERMINAL","PUNCHAR","STLIMIT","STCOUNT","STNO","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH","FTRACE","TRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE","ALPHABET","ABEND","DUMP","STEXEC","ERRTYPE","ERRTEXT","GTRACE","FATALLIMIT","PARM","PI", (const char *)0 };
+    for (int i = 0; excl[i]; i++) if (strcmp(name, excl[i]) == 0) return 0;
+    return 1;
+}
+void gva_collect_reset(void) { g_gva_n = 0; }
+int gva_index_of(const char *name) {
+    if (!name) return -1;
+    for (int i = 0; i < g_gva_n; i++) if (g_gva_names[i] && strcmp(g_gva_names[i], name) == 0) return i;
+    return -1;
+}
+int gva_collect_var(const char *name) {
+    if (!gva_name_eligible(name)) return -1;
+    int k = gva_index_of(name); if (k >= 0) return k;
+    if (g_gva_n >= g_gva_max) { int nm = g_gva_max ? g_gva_max * 2 : 256; const char **g = (const char **)realloc(g_gva_names, (size_t)nm * sizeof(const char *)); if (!g) return -1; g_gva_names = g; g_gva_max = nm; }
+    g_gva_names[g_gva_n] = name; return g_gva_n++;
+}
+int gva_count(void) { return g_gva_n; }
+const char *gva_name(int k) { return (k >= 0 && k < g_gva_n) ? g_gva_names[k] : (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 int g_descr_flat_chain = 0;
 int g_gvar_flat_chain = 0;
+int g_gva_active = 0;
 int g_gvar_callarg_live = 0;
 int g_emit_frame_caller_dl = -1;
 int g_frame_active = 0;
@@ -4011,6 +4038,19 @@ bb_box_fn gvar_flat_chain_build_at(IR_graph_t *g, int entry_idx, const char *pre
     g->entry = save_entry;
     (void)prefix;
     return fn;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void gva_collect_graph(IR_graph_t *g) {
+    if (!g || !g->all) return;
+    for (int i = 0; i < g->n; i++) {
+        IR_t *nd = g->all[i]; if (!nd || !IR_LIT(nd).sval) continue;
+        switch (nd->op) {
+        case IR_VAR: case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_BINOP_GVAR_ARITH: case IR_BINOP_GVAR_RELOP: case IR_BINOP_GVAR_ARITH_SLOT: case IR_BINOP_GVAR_CONCAT:
+            (void)gva_collect_var(IR_LIT(nd).sval); break;
+        default: break;
+        }
+        for (int q = 0; q < nd->n_operands; q++) { IR_t *o = nd->operands[q]; if (o && o->op == IR_VAR && IR_LIT(o).sval) (void)gva_collect_var(IR_LIT(o).sval); }
+    }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int gvar_flat_chain_build_text_at(IR_graph_t *g, int entry_idx, FILE *out, const char *prefix) {
