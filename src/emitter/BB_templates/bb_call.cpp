@@ -107,7 +107,7 @@ static int arith_kind_ok(IR_t * nd) {
     if (!nd) return 0;
     if (nd->op == IR_LIT_I || nd->op == IR_VAR_FRAME || nd->op == IR_VAR_FRAME_REF) return 1;
     if (nd->op == IR_VAR && IR_LIT(nd).sval) return 1;
-    if ((nd->op == IR_CALL && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0)) || nd->op == IR_CALL_DEFINE) return 1;
+    if (nd->op == IR_CALL || nd->op == IR_CALL_DEFINE || ir_is_call_kind(nd->op)) return 1;
     if (arith_is_arith_binop(nd)) return 1;
     return 0;
 }
@@ -136,7 +136,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
         s += x86_reg_disp32_load64("rax", "rax", 8);
     } else if (a->op == IR_LIT_I) {
         s += x86_movabs_r64("rax", (uint64_t)IR_LIT(a).ival);
-    } else if ((a->op == IR_CALL && (IR_LIT(a).dval == 2.0 || IR_LIT(a).dval == 3.0)) || a->op == IR_CALL_DEFINE) {
+    } else if (a->op == IR_CALL || a->op == IR_CALL_DEFINE || ir_is_call_kind(a->op)) {
         int sc = bb_slot_alloc16(a);
         s += marshal_single_call(a, sc, bb_node_id(a));
         s += x86_frame_load64("rax", sc + 8);
@@ -165,7 +165,7 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b) {
         s += x86("mov", "rcx", "rax");
     } else if (b->op == IR_LIT_I) {
         s += x86("mov", "rcx", (long)IR_LIT(b).ival);
-    } else if ((b->op == IR_CALL && (IR_LIT(b).dval == 2.0 || IR_LIT(b).dval == 3.0)) || b->op == IR_CALL_DEFINE) {
+    } else if (b->op == IR_CALL || b->op == IR_CALL_DEFINE || ir_is_call_kind(b->op)) {
         int sc = bb_slot_alloc16(b);
         s += marshal_single_call(b, sc, bb_node_id(b));
         s += x86_frame_load64("rcx", sc + 8);
