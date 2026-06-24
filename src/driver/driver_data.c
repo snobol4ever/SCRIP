@@ -154,6 +154,12 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
 DESCR_t dat_field_get(const char *fname, DESCR_t obj) {
     DESCR_t *cell = data_field_ptr(fname, obj);
     if (cell) return *cell;
+    if (fname && !strcmp(fname, "WHAT")) {
+        const char *cn = (const char *)0;
+        if (obj.v >= DT_DATA && obj.u) { DATBLK_t *b = obj.u->type; cn = b ? b->name : (const char *)0; }
+        else { const char *s = VARVAL_fn(obj); if (s && dat_find_type(s)) cn = s; }
+        if (cn) return STRVAL(GC_strdup(cn));
+    }
     extern int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out);
     DESCR_t r; if (obj.v != DT_DATA && rt_str_method(fname, obj, (DESCR_t *)0, 0, &r)) return r;
     return FAILDESCR;

@@ -723,6 +723,25 @@ class Cat { }
 sub main() { say(Cat.^name); }
 EOF
 
+# --- RK-OO-F `.WHAT`: returns the type object (modeled as the class-name string, consistent with `.^name`
+#     and type-object representation). Instance form `$obj.WHAT` rides the field-read resolver; the paren
+#     form (`$obj.WHAT()`, `Class.WHAT()`) rides `meth_call`. Runtime handler reads the existing class name,
+#     so both modes work with no per-class emission. (Bare `Class.WHAT` no-paren is the pre-existing
+#     bareword-method grammar limitation, not specific to WHAT.) ---
+raku "what_instance" "Point" << 'EOF'
+class Point { has $.x; }
+sub main() { my $p = Point.new(x => 1); say($p.WHAT); }
+EOF
+raku "what_typeobj_paren" "Cat" << 'EOF'
+class Cat { }
+sub main() { say(Cat.WHAT()); }
+EOF
+raku "what_subclass" "Dog" << 'EOF'
+class Animal { has $.name; }
+class Dog is Animal { }
+sub main() { my $d = Dog.new(name => "Rex"); say($d.WHAT); }
+EOF
+
 # --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }
