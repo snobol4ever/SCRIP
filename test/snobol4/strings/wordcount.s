@@ -1,11 +1,34 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "NUMERALS"
+  .Lgvan1: .string "WORD"
+  .Lgvan2: .string "WPAT"
+  .Lgvan3: .string "LINE"
+  .Lgvan4: .string "N"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .quad .Lgvan2
+  .quad .Lgvan3
+  .quad .Lgvan4
+  .section .bss
+  .align 16
+__gva: .space 80, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 5
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -81,19 +104,15 @@ bb7_α:
  snoch0_n6_β:
  jmp snoch0_n7_α
 snoch0_n7_α:
-# IR_VAR
+# IR_VAR gva
 bb8_α:
- mov rdi, qword ptr [rip + .Lx10_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 64]
+ mov rdx, qword ptr [rbx + 72]
  mov qword ptr [r12 + 16], rax
  mov qword ptr [r12 + 24], rdx
  jmp snoch0_n9_α
  snoch0_n7_β:
  jmp flat_γ
-.Lx10_0:
- .quad .Lx10_0_s
-.Lx10_0_s:
- .string "N"
 snoch0_n8_α:
 # IR_LIT_scalar
 bb9_α:
@@ -228,19 +247,15 @@ bb16_α:
  snoch0_n11_β:
  jmp flat_γ
 snoch0_n12_α:
-# IR_VAR
+# IR_VAR gva
 bb17_α:
- mov rdi, qword ptr [rip + .Lx23_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 64]
+ mov rdx, qword ptr [rbx + 72]
  mov qword ptr [r12 + 72], rax
  mov qword ptr [r12 + 80], rdx
  jmp snoch0_n14_α
  snoch0_n12_β:
  jmp snoch0_n8_α
-.Lx23_0:
- .quad .Lx23_0_s
-.Lx23_0_s:
- .string "N"
 snoch0_n13_α:
 # IR_LIT_S
 bb18_α:
@@ -286,8 +301,7 @@ bb21_α:
 snoch0_n16_α:
 bb22_α:
 # IR_BINOP_GVAR_ARITH
- lea rdi, [rip + .S7]
- call rt_gvar_get_int@PLT
+ mov rax, qword ptr [rbx + 72]
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 120], rax
@@ -297,9 +311,9 @@ bb22_α:
 snoch0_n17_α:
 bb23_α:
 # IR_ASSIGN
- lea rdi, [rip + .S7]
- mov rsi, qword ptr [r12 + 120]
- call rt_gvar_assign_int@PLT
+ mov rax, qword ptr [r12 + 120]
+ mov qword ptr [rbx + 64], 6
+ mov qword ptr [rbx + 72], rax
  jmp snoch0_n8_α
  snoch0_n17_β:
  jmp snoch0_n8_α

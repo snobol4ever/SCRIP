@@ -47,31 +47,17 @@ bb2_α:
  .quad 42
 xgvarg3_done:
 bb3_α:
-# BOX IR_CALL EQ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+16] -> [r12+64]
- mov rax, qword ptr [r12 + 16]
+# BOX IR_CALL EQ(...) inline integer relop [four-port, FAIL->ω]
+ movabs rax, 42
  mov qword ptr [r12 + 64], rax
- mov rax, qword ptr [r12 + 24]
- mov qword ptr [r12 + 72], rax
-# marshal arg1 = producer-box slot [r12+32] -> [r12+80]
- mov rax, qword ptr [r12 + 32]
- mov qword ptr [r12 + 80], rax
- mov rax, qword ptr [r12 + 40]
- mov qword ptr [r12 + 88], rax
-  .section .rodata
-  .Lbynamefn6: .string "EQ"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn6]
- lea rsi, [r12 + 64]
- mov edx, 2
- call rt_call_arr@PLT
- mov qword ptr [r12 + 48], rax
- mov qword ptr [r12 + 56], rdx
- cmp eax, 99
- je snoch0_n2_α
+ mov rcx, 42
+ mov qword ptr [r12 + 48], 0
+ mov qword ptr [r12 + 56], 0
+ mov rax, qword ptr [r12 + 64]
+ cmp rax, rcx
+ jne snoch0_n2_α
  jmp snoch0_n1_α
-snoch0_n0_β:
+ snoch0_n0_β:
  jmp snoch0_n2_α
 snoch0_n1_α:
 # IR_LIT_scalar
@@ -97,52 +83,38 @@ bb6_α:
 snoch0_n4_α:
 # IR_LIT_I
 bb7_α:
- mov qword ptr [r12 + 96], 6
- mov rax, qword ptr [rip + .Lx11_0]
- mov qword ptr [r12 + 104], rax
- jmp xgvarg10_done
- xgvarg10_β:
+ mov qword ptr [r12 + 80], 6
+ mov rax, qword ptr [rip + .Lx10_0]
+ mov qword ptr [r12 + 88], rax
+ jmp xgvarg9_done
+ xgvarg9_β:
  jmp snoch0_n7_α
-.Lx11_0:
+.Lx10_0:
  .quad 42
-xgvarg10_done:
+xgvarg9_done:
 # IR_LIT_I
 bb8_α:
- mov qword ptr [r12 + 112], 6
- mov rax, qword ptr [rip + .Lx13_0]
- mov qword ptr [r12 + 120], rax
- jmp xgvarg12_done
- xgvarg12_β:
+ mov qword ptr [r12 + 96], 6
+ mov rax, qword ptr [rip + .Lx12_0]
+ mov qword ptr [r12 + 104], rax
+ jmp xgvarg11_done
+ xgvarg11_β:
  jmp snoch0_n7_α
-.Lx13_0:
+.Lx12_0:
  .quad 99
-xgvarg12_done:
+xgvarg11_done:
 bb9_α:
-# BOX IR_CALL NE(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+96] -> [r12+144]
- mov rax, qword ptr [r12 + 96]
- mov qword ptr [r12 + 144], rax
- mov rax, qword ptr [r12 + 104]
- mov qword ptr [r12 + 152], rax
-# marshal arg1 = producer-box slot [r12+112] -> [r12+160]
- mov rax, qword ptr [r12 + 112]
- mov qword ptr [r12 + 160], rax
- mov rax, qword ptr [r12 + 120]
- mov qword ptr [r12 + 168], rax
-  .section .rodata
-  .Lbynamefn15: .string "NE"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn15]
- lea rsi, [r12 + 144]
- mov edx, 2
- call rt_call_arr@PLT
+# BOX IR_CALL NE(...) inline integer relop [four-port, FAIL->ω]
+ movabs rax, 42
  mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
- cmp eax, 99
+ mov rcx, 99
+ mov qword ptr [r12 + 112], 0
+ mov qword ptr [r12 + 120], 0
+ mov rax, qword ptr [r12 + 128]
+ cmp rax, rcx
  je snoch0_n7_α
  jmp snoch0_n6_α
-snoch0_n4_β:
+ snoch0_n4_β:
  jmp snoch0_n7_α
 snoch0_n5_α:
 bb10_α:

@@ -1,11 +1,28 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "N"
+  .Lgvan1: .string "S"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .section .bss
+  .align 16
+__gva: .space 32, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 2
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -142,19 +159,15 @@ bb8_α:
 snoch0_n6_β:
  jmp snoch0_n8_α
 snoch0_n7_α:
-# IR_VAR
+# IR_VAR gva
 bb9_α:
- mov rdi, qword ptr [rip + .Lx15_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 144], rax
  mov qword ptr [r12 + 152], rdx
  jmp snoch0_n9_α
  snoch0_n7_β:
  jmp snoch0_n8_α
-.Lx15_0:
- .quad .Lx15_0_s
-.Lx15_0_s:
- .string "S"
 snoch0_n8_α:
 xgvarg16_done:
 # IR_LIT_I
@@ -214,28 +227,24 @@ bb12_α:
  jmp snoch0_n8_α
 snoch0_n10_α:
 bb13_α:
-# IR_ASSIGN_CALL
- lea rdi, [rip + .S1]
- mov rsi, qword ptr [r12 + 176]
- mov rdx, qword ptr [r12 + 184]
- call rt_gvar_assign_descr@PLT
+# IR_ASSIGN_CALL gva
+ mov rax, qword ptr [r12 + 176]
+ mov rcx, qword ptr [r12 + 184]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rcx
  jmp snoch0_n11_α
  snoch0_n10_β:
  jmp snoch0_n11_α
 snoch0_n11_α:
-# IR_VAR
+# IR_VAR gva
 bb14_α:
- mov rdi, qword ptr [rip + .Lx25_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 256], rax
  mov qword ptr [r12 + 264], rdx
  jmp xgvarg23_done
  xgvarg23_β:
  jmp snoch0_n4_α
-.Lx25_0:
- .quad .Lx25_0_s
-.Lx25_0_s:
- .string "N"
 xgvarg23_done:
 # IR_LIT_I
 bb15_α:
@@ -249,31 +258,18 @@ bb15_α:
  .quad 0
 xgvarg26_done:
 bb16_α:
-# BOX IR_CALL EQ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+256] -> [r12+304]
- mov rax, qword ptr [r12 + 256]
+# BOX IR_CALL EQ(...) inline integer relop [four-port, FAIL->ω]
+   lea rdi, [rip + .S1]
+ call rt_gvar_get_int@PLT
  mov qword ptr [r12 + 304], rax
- mov rax, qword ptr [r12 + 264]
- mov qword ptr [r12 + 312], rax
-# marshal arg1 = producer-box slot [r12+272] -> [r12+320]
- mov rax, qword ptr [r12 + 272]
- mov qword ptr [r12 + 320], rax
- mov rax, qword ptr [r12 + 280]
- mov qword ptr [r12 + 328], rax
-  .section .rodata
-  .Lbynamefn29: .string "EQ"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn29]
- lea rsi, [r12 + 304]
- mov edx, 2
- call rt_call_arr@PLT
- mov qword ptr [r12 + 288], rax
- mov qword ptr [r12 + 296], rdx
- cmp eax, 99
- je snoch0_n4_α
+ mov rcx, 0
+ mov qword ptr [r12 + 288], 0
+ mov qword ptr [r12 + 296], 0
+ mov rax, qword ptr [r12 + 304]
+ cmp rax, rcx
+ jne snoch0_n4_α
  jmp snoch0_n13_α
-snoch0_n11_β:
+ snoch0_n11_β:
  jmp snoch0_n4_α
 snoch0_n12_α:
 bb17_α:

@@ -129,9 +129,11 @@ ret
   .Lpn0: .string "swap"
   .Lpp0_0: .string "a"
   .Lpp0_1: .string "b"
+  .Lpp0_2: .string "tmp"
   .Lpnames0:
   .quad .Lpp0_0
   .quad .Lpp0_1
+  .quad .Lpp0_2
   .quad 0
   .section .text
   .intel_syntax noprefix
@@ -142,7 +144,7 @@ proc_startup:
   call rt_proc_reset@PLT
   lea rdi, [rip + .Lpn0]
   lea rsi, [rip + .Lpnames0]
-  mov edx, 2
+  mov edx, 3
   call rt_proc_register@PLT
   lea rdi, [rip + .Lpn0]
   lea rsi, [rip + swap_α]
@@ -152,11 +154,30 @@ proc_startup:
   call rt_proc_set_frame_bytes@PLT
   pop rbp
   ret
+  .section .rodata
+  .Lgvan0: .string "tmp"
+  .Lgvan1: .string "a"
+  .Lgvan2: .string "b"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .quad .Lgvan2
+  .section .bss
+  .align 16
+__gva: .space 48, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call proc_startup
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 3
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi

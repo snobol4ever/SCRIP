@@ -1,11 +1,28 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "X"
+  .Lgvan1: .string "V"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .section .bss
+  .align 16
+__gva: .space 32, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 2
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -97,19 +114,15 @@ bb5_α:
  snoch4_n1_β:
  jmp snoch4_n2_α
 snoch4_n2_α:
-# IR_VAR
+# IR_VAR gva
 bb6_α:
- mov rdi, qword ptr [rip + .Lx8_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 0], rax
  mov qword ptr [r12 + 8], rdx
  jmp snoch4_n3_α
  snoch4_n2_β:
  jmp snoch4_n4_α
-.Lx8_0:
- .quad .Lx8_0_s
-.Lx8_0_s:
- .string "X"
 snoch4_n3_α:
 # IR_SUBJECT
 bb7_α:
@@ -235,19 +248,15 @@ bb17_α:
  snoch4_n4_β:
  jmp flat_γ
 snoch4_n5_α:
-# IR_VAR
+# IR_VAR gva
 bb18_α:
- mov rdi, qword ptr [rip + .Lx27_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 72], rax
  mov qword ptr [r12 + 80], rdx
  jmp snoch4_n7_α
  snoch4_n5_β:
  jmp flat_γ
-.Lx27_0:
- .quad .Lx27_0_s
-.Lx27_0_s:
- .string "V"
 snoch4_n6_α:
 bb19_α:
 # IR_ASSIGN_LIT_S

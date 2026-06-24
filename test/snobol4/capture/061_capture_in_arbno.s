@@ -1,11 +1,30 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "X"
+  .Lgvan1: .string "N"
+  .Lgvan2: .string "V"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .quad .Lgvan2
+  .section .bss
+  .align 16
+__gva: .space 48, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 3
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -54,19 +73,15 @@ bb4_α:
  snoch0_n3_β:
  jmp snoch0_n4_α
 snoch0_n4_α:
-# IR_VAR
+# IR_VAR gva
 bb5_α:
- mov rdi, qword ptr [rip + .Lx6_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 0], rax
  mov qword ptr [r12 + 8], rdx
  jmp snoch0_n5_α
  snoch0_n4_β:
  jmp flat_γ
-.Lx6_0:
- .quad .Lx6_0_s
-.Lx6_0_s:
- .string "X"
 snoch0_n5_α:
 # IR_SUBJECT
 bb6_α:
@@ -180,19 +195,15 @@ xscan7_dfail:
  pop rbx
 jmp flat_γ
 snoch0_n6_α:
-# IR_VAR
+# IR_VAR gva
 bb15_α:
- mov rdi, qword ptr [rip + .Lx22_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 32]
+ mov rdx, qword ptr [rbx + 40]
  mov qword ptr [r12 + 64], rax
  mov qword ptr [r12 + 72], rdx
  jmp snoch0_n7_α
  snoch0_n6_β:
  jmp snoch0_n8_α
-.Lx22_0:
- .quad .Lx22_0_s
-.Lx22_0_s:
- .string "V"
 snoch0_n7_α:
 bb16_α:
 # IR_ASSIGN_VAR
@@ -203,19 +214,15 @@ bb16_α:
  snoch0_n7_β:
  jmp snoch0_n8_α
 snoch0_n8_α:
-# IR_VAR
+# IR_VAR gva
 bb17_α:
- mov rdi, qword ptr [rip + .Lx25_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 80], rax
  mov qword ptr [r12 + 88], rdx
  jmp snoch0_n9_α
  snoch0_n8_β:
  jmp snoch0_n4_α
-.Lx25_0:
- .quad .Lx25_0_s
-.Lx25_0_s:
- .string "N"
 snoch0_n9_α:
 # IR_LIT_scalar
 bb18_α:
@@ -225,8 +232,7 @@ bb18_α:
 snoch0_n10_α:
 bb19_α:
 # IR_BINOP_GVAR_ARITH
- lea rdi, [rip + .S2]
- call rt_gvar_get_int@PLT
+ mov rax, qword ptr [rbx + 24]
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 96], rax
@@ -236,9 +242,9 @@ bb19_α:
 snoch0_n11_α:
 bb20_α:
 # IR_ASSIGN
- lea rdi, [rip + .S2]
- mov rsi, qword ptr [r12 + 96]
- call rt_gvar_assign_int@PLT
+ mov rax, qword ptr [r12 + 96]
+ mov qword ptr [rbx + 16], 6
+ mov qword ptr [rbx + 24], rax
  jmp snoch0_n4_α
  snoch0_n11_β:
  jmp snoch0_n4_α

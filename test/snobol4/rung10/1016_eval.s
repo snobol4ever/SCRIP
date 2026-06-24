@@ -1,11 +1,34 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "expr"
+  .Lgvan1: .string "output"
+  .Lgvan2: .string "q"
+  .Lgvan3: .string "sexp"
+  .Lgvan4: .string "fexp"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .quad .Lgvan2
+  .quad .Lgvan3
+  .quad .Lgvan4
+  .section .bss
+  .align 16
+__gva: .space 80, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 5
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -24,19 +47,15 @@ push r12
   lea r10, [rip + Δ]
 flat_α_body:
 snoch0_n0_α:
-# IR_VAR
+# IR_VAR gva
 bb1_α:
- mov rdi, qword ptr [rip + .Lx4_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 16], rax
  mov qword ptr [r12 + 24], rdx
  jmp xgvarg2_done
  xgvarg2_β:
  jmp snoch0_n2_α
-.Lx4_0:
- .quad .Lx4_0_s
-.Lx4_0_s:
- .string "expr"
 xgvarg2_done:
 bb2_α:
 # BOX IR_CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -132,19 +151,15 @@ bb8_α:
  snoch0_n4_β:
  jmp snoch0_n5_α
 snoch0_n5_α:
-# IR_VAR
+# IR_VAR gva
 bb9_α:
- mov rdi, qword ptr [rip + .Lx18_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 48]
+ mov rdx, qword ptr [rbx + 56]
  mov qword ptr [r12 + 128], rax
  mov qword ptr [r12 + 136], rdx
  jmp xgvarg16_done
  xgvarg16_β:
  jmp snoch0_n7_α
-.Lx18_0:
- .quad .Lx18_0_s
-.Lx18_0_s:
- .string "sexp"
 xgvarg16_done:
 bb10_α:
 # BOX IR_CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -216,19 +231,15 @@ bb13_α:
  snoch0_n6_β:
  jmp flat_γ
 snoch0_n7_α:
-# IR_VAR
+# IR_VAR gva
 bb14_α:
- mov rdi, qword ptr [rip + .Lx28_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 64]
+ mov rdx, qword ptr [rbx + 72]
  mov qword ptr [r12 + 240], rax
  mov qword ptr [r12 + 248], rdx
  jmp xgvarg26_done
  xgvarg26_β:
  jmp snoch0_n10_α
-.Lx28_0:
- .quad .Lx28_0_s
-.Lx28_0_s:
- .string "fexp"
 xgvarg26_done:
 bb15_α:
 # BOX IR_CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]

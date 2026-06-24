@@ -1,11 +1,26 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "P"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .section .bss
+  .align 16
+__gva: .space 16, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 1
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -111,28 +126,24 @@ snoch0_n1_β:
  jmp snoch0_n3_α
 snoch0_n2_α:
 bb6_α:
-# IR_ASSIGN_CALL
- lea rdi, [rip + .S0]
- mov rsi, qword ptr [r12 + 96]
- mov rdx, qword ptr [r12 + 104]
- call rt_gvar_assign_descr@PLT
+# IR_ASSIGN_CALL gva
+ mov rax, qword ptr [r12 + 96]
+ mov rcx, qword ptr [r12 + 104]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rcx
  jmp snoch0_n3_α
  snoch0_n2_β:
  jmp snoch0_n3_α
 snoch0_n3_α:
-# IR_VAR
+# IR_VAR gva
 bb7_α:
- mov rdi, qword ptr [rip + .Lx14_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 144], rax
  mov qword ptr [r12 + 152], rdx
  jmp xgvarg12_done
  xgvarg12_β:
  jmp snoch0_n5_α
-.Lx14_0:
- .quad .Lx14_0_s
-.Lx14_0_s:
- .string "P"
 xgvarg12_done:
 bb8_α:
 # BOX IR_CALL x(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -167,19 +178,15 @@ bb9_α:
  snoch0_n4_β:
  jmp snoch0_n5_α
 snoch0_n5_α:
-# IR_VAR
+# IR_VAR gva
 bb10_α:
- mov rdi, qword ptr [rip + .Lx20_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 192], rax
  mov qword ptr [r12 + 200], rdx
  jmp xgvarg18_done
  xgvarg18_β:
  jmp snoch0_n7_α
-.Lx20_0:
- .quad .Lx20_0_s
-.Lx20_0_s:
- .string "P"
 xgvarg18_done:
 bb11_α:
 # BOX IR_CALL y(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -214,19 +221,15 @@ bb12_α:
  snoch0_n6_β:
  jmp snoch0_n7_α
 snoch0_n7_α:
-# IR_VAR
+# IR_VAR gva
 bb13_α:
- mov rdi, qword ptr [rip + .Lx26_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 240], rax
  mov qword ptr [r12 + 248], rdx
  jmp xgvarg24_done
  xgvarg24_β:
  jmp flat_γ
-.Lx26_0:
- .quad .Lx26_0_s
-.Lx26_0_s:
- .string "P"
 xgvarg24_done:
 bb14_α:
 # BOX IR_CALL x(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]

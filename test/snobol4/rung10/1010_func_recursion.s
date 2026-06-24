@@ -1,11 +1,32 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "fact"
+  .Lgvan1: .string "n"
+  .Lgvan2: .string "output"
+  .Lgvan3: .string "fact2"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .quad .Lgvan2
+  .quad .Lgvan3
+  .section .bss
+  .align 16
+__gva: .space 64, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 4
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi

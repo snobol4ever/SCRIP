@@ -96,11 +96,28 @@ proc_startup:
   call rt_proc_set_frame_bytes@PLT
   pop rbp
   ret
+  .section .rodata
+  .Lgvan0: .string "double"
+  .Lgvan1: .string "s"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .section .bss
+  .align 16
+__gva: .space 32, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call proc_startup
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 2
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi

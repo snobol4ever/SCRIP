@@ -1,11 +1,28 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "A"
+  .Lgvan1: .string "I"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .section .bss
+  .align 16
+__gva: .space 32, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 2
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -59,11 +76,11 @@ snoch0_n0_β:
  jmp snoch0_n2_α
 snoch0_n1_α:
 bb3_α:
-# IR_ASSIGN_CALL
- lea rdi, [rip + .S0]
- mov rsi, qword ptr [r12 + 32]
- mov rdx, qword ptr [r12 + 40]
- call rt_gvar_assign_descr@PLT
+# IR_ASSIGN_CALL gva
+ mov rax, qword ptr [r12 + 32]
+ mov rcx, qword ptr [r12 + 40]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rcx
  jmp snoch0_n2_α
  snoch0_n1_β:
  jmp snoch0_n2_α
@@ -83,54 +100,41 @@ bb5_α:
  snoch0_n3_β:
  jmp snoch0_n4_α
 snoch0_n4_α:
-# IR_VAR
+# IR_VAR gva
 bb6_α:
- mov rdi, qword ptr [rip + .Lx9_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 64], rax
  mov qword ptr [r12 + 72], rdx
  jmp snoch0_n5_α
  snoch0_n4_β:
  jmp snoch0_n6_α
-.Lx9_0:
- .quad .Lx9_0_s
-.Lx9_0_s:
- .string "I"
 snoch0_n5_α:
-# IR_VAR
+# IR_VAR gva
 bb7_α:
- mov rdi, qword ptr [rip + .Lx11_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 80], rax
  mov qword ptr [r12 + 88], rdx
  jmp snoch0_n7_α
  snoch0_n5_β:
  jmp snoch0_n6_α
-.Lx11_0:
- .quad .Lx11_0_s
-.Lx11_0_s:
- .string "I"
 snoch0_n6_α:
-# IR_VAR
+# IR_VAR gva
 bb8_α:
- mov rdi, qword ptr [rip + .Lx13_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 96], rax
  mov qword ptr [r12 + 104], rdx
  jmp snoch0_n8_α
  snoch0_n6_β:
  jmp snoch0_n9_α
-.Lx13_0:
- .quad .Lx13_0_s
-.Lx13_0_s:
- .string "I"
 snoch0_n7_α:
 bb9_α:
 # IR_BINOP_GVAR_ARITH
- lea rdi, [rip + .S1]
- lea rsi, [rip + .S1]
- mov rdx, 2
- call rt_gvar_arith@PLT
+ mov rax, qword ptr [rbx + 24]
+ mov rcx, qword ptr [rbx + 24]
+ imul rax, rcx
  mov qword ptr [r12 + 112], rax
  jmp snoch0_n10_α
  snoch0_n7_β:
@@ -142,19 +146,15 @@ bb10_α:
  snoch0_n8_β:
  jmp snoch0_n9_α
 snoch0_n9_α:
-# IR_VAR
+# IR_VAR gva
 bb11_α:
- mov rdi, qword ptr [rip + .Lx18_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 120], rax
  mov qword ptr [r12 + 128], rdx
  jmp xgvarg16_done
  xgvarg16_β:
  jmp snoch0_n12_α
-.Lx18_0:
- .quad .Lx18_0_s
-.Lx18_0_s:
- .string "I"
 xgvarg16_done:
 # IR_LIT_I
 bb12_α:
@@ -168,62 +168,48 @@ bb12_α:
  .quad 5
 xgvarg19_done:
 bb13_α:
-# BOX IR_CALL LE(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+120] -> [r12+168]
- mov rax, qword ptr [r12 + 120]
+# BOX IR_CALL LE(...) inline integer relop [four-port, FAIL->ω]
+   lea rdi, [rip + .S1]
+ call rt_gvar_get_int@PLT
  mov qword ptr [r12 + 168], rax
- mov rax, qword ptr [r12 + 128]
- mov qword ptr [r12 + 176], rax
-# marshal arg1 = producer-box slot [r12+136] -> [r12+184]
- mov rax, qword ptr [r12 + 136]
- mov qword ptr [r12 + 184], rax
- mov rax, qword ptr [r12 + 144]
- mov qword ptr [r12 + 192], rax
-  .section .rodata
-  .Lbynamefn22: .string "LE"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn22]
- lea rsi, [r12 + 168]
- mov edx, 2
- call rt_call_arr@PLT
- mov qword ptr [r12 + 152], rax
- mov qword ptr [r12 + 160], rdx
- cmp eax, 99
- je snoch0_n12_α
+ mov rcx, 5
+ mov qword ptr [r12 + 152], 0
+ mov qword ptr [r12 + 160], 0
+ mov rax, qword ptr [r12 + 168]
+ cmp rax, rcx
+ jg snoch0_n12_α
  jmp snoch0_n4_α
-snoch0_n9_β:
+ snoch0_n9_β:
  jmp snoch0_n12_α
 snoch0_n10_α:
 bb14_α:
 # IR_BINOP_GVAR_ARITH
- lea rdi, [rip + .S1]
- lea rsi, [rip + .S1]
- mov rdx, 2
- call rt_gvar_arith@PLT
- mov qword ptr [r12 + 200], rax
- jmp xgvidxv23_done
- xgvidxv23_β:
+ mov rax, qword ptr [rbx + 24]
+ mov rcx, qword ptr [rbx + 24]
+ imul rax, rcx
+ mov qword ptr [r12 + 184], rax
+ jmp xgvidxv22_done
+ xgvidxv22_β:
  jmp snoch0_n6_α
-xgvidxv23_done:
+xgvidxv22_done:
 bb15_α:
 # IR_IDX_SET (subscript_set, by-name)
  lea rdi, [rip + .S0]
  call NV_GET_fn@PLT
- mov qword ptr [r12 + 208], rax
- mov qword ptr [r12 + 216], rdx
+ mov qword ptr [r12 + 192], rax
+ mov qword ptr [r12 + 200], rdx
  lea rdi, [rip + .S1]
  call NV_GET_fn@PLT
- mov qword ptr [r12 + 224], rax
- mov qword ptr [r12 + 232], rdx
+ mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 216], rdx
  mov rax, qword ptr [r12 + 112]
  movabs rdx, 6
  mov qword ptr [r12 + 112], rdx
  mov qword ptr [r12 + 120], rax
- mov rdi, qword ptr [r12 + 208]
- mov rsi, qword ptr [r12 + 216]
- mov rdx, qword ptr [r12 + 224]
- mov rcx, qword ptr [r12 + 232]
+ mov rdi, qword ptr [r12 + 192]
+ mov rsi, qword ptr [r12 + 200]
+ mov rdx, qword ptr [r12 + 208]
+ mov rcx, qword ptr [r12 + 216]
  mov r8, qword ptr [r12 + 112]
  mov r9, qword ptr [r12 + 120]
  call subscript_set@PLT
@@ -235,11 +221,10 @@ bb15_α:
 snoch0_n11_α:
 bb16_α:
 # IR_BINOP_GVAR_ARITH
- lea rdi, [rip + .S1]
- call rt_gvar_get_int@PLT
+ mov rax, qword ptr [rbx + 24]
  mov rcx, 1
  add rax, rcx
- mov qword ptr [r12 + 240], rax
+ mov qword ptr [r12 + 224], rax
  jmp snoch0_n13_α
  snoch0_n11_β:
  jmp snoch0_n9_α
@@ -252,9 +237,9 @@ bb17_α:
 snoch0_n13_α:
 bb18_α:
 # IR_ASSIGN
- lea rdi, [rip + .S1]
- mov rsi, qword ptr [r12 + 240]
- call rt_gvar_assign_int@PLT
+ mov rax, qword ptr [r12 + 224]
+ mov qword ptr [rbx + 16], 6
+ mov qword ptr [rbx + 24], rax
  jmp snoch0_n9_α
  snoch0_n13_β:
  jmp snoch0_n9_α
@@ -272,17 +257,17 @@ bb20_α:
 # IR_IDX (subscript_get, by-name)
  lea rdi, [rip + .S0]
  call NV_GET_fn@PLT
- mov qword ptr [r12 + 248], rax
- mov qword ptr [r12 + 256], rdx
+ mov qword ptr [r12 + 232], rax
+ mov qword ptr [r12 + 240], rdx
  lea rdi, [rip + .S1]
  call NV_GET_fn@PLT
  mov rcx, rdx
  mov rdx, rax
- mov rdi, qword ptr [r12 + 248]
- mov rsi, qword ptr [r12 + 256]
+ mov rdi, qword ptr [r12 + 232]
+ mov rsi, qword ptr [r12 + 240]
  call subscript_get@PLT
- mov qword ptr [r12 + 264], rax
- mov qword ptr [r12 + 272], rdx
+ mov qword ptr [r12 + 248], rax
+ mov qword ptr [r12 + 256], rdx
  jmp snoch0_n16_α
  snoch0_n15_β:
  jmp snoch0_n17_α
@@ -290,26 +275,22 @@ snoch0_n16_α:
 bb21_α:
 # IR_ASSIGN
  lea rdi, [rip + .S2]
- mov rsi, qword ptr [r12 + 264]
- mov rdx, qword ptr [r12 + 272]
+ mov rsi, qword ptr [r12 + 248]
+ mov rdx, qword ptr [r12 + 256]
  call rt_gvar_assign_descr@PLT
  jmp snoch0_n17_α
  snoch0_n16_β:
  jmp snoch0_n17_α
 snoch0_n17_α:
-# IR_VAR
+# IR_VAR gva
 bb22_α:
- mov rdi, qword ptr [rip + .Lx34_0]
- call NV_GET_fn@PLT
- mov qword ptr [r12 + 280], rax
- mov qword ptr [r12 + 288], rdx
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
+ mov qword ptr [r12 + 264], rax
+ mov qword ptr [r12 + 272], rdx
  jmp snoch0_n18_α
  snoch0_n17_β:
  jmp snoch0_n19_α
-.Lx34_0:
- .quad .Lx34_0_s
-.Lx34_0_s:
- .string "I"
 snoch0_n18_α:
 # IR_LIT_scalar
 bb23_α:
@@ -317,75 +298,57 @@ bb23_α:
  snoch0_n18_β:
  jmp snoch0_n19_α
 snoch0_n19_α:
-# IR_VAR
+# IR_VAR gva
 bb24_α:
- mov rdi, qword ptr [rip + .Lx38_0]
- call NV_GET_fn@PLT
- mov qword ptr [r12 + 296], rax
- mov qword ptr [r12 + 304], rdx
- jmp xgvarg36_done
- xgvarg36_β:
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
+ mov qword ptr [r12 + 280], rax
+ mov qword ptr [r12 + 288], rdx
+ jmp xgvarg35_done
+ xgvarg35_β:
  jmp flat_γ
-.Lx38_0:
- .quad .Lx38_0_s
-.Lx38_0_s:
- .string "I"
-xgvarg36_done:
+xgvarg35_done:
 # IR_LIT_I
 bb25_α:
- mov qword ptr [r12 + 312], 6
- mov rax, qword ptr [rip + .Lx40_0]
- mov qword ptr [r12 + 320], rax
- jmp xgvarg39_done
- xgvarg39_β:
+ mov qword ptr [r12 + 296], 6
+ mov rax, qword ptr [rip + .Lx39_0]
+ mov qword ptr [r12 + 304], rax
+ jmp xgvarg38_done
+ xgvarg38_β:
  jmp flat_γ
-.Lx40_0:
+.Lx39_0:
  .quad 5
-xgvarg39_done:
+xgvarg38_done:
 bb26_α:
-# BOX IR_CALL LE(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+296] -> [r12+344]
- mov rax, qword ptr [r12 + 296]
- mov qword ptr [r12 + 344], rax
- mov rax, qword ptr [r12 + 304]
- mov qword ptr [r12 + 352], rax
-# marshal arg1 = producer-box slot [r12+312] -> [r12+360]
- mov rax, qword ptr [r12 + 312]
- mov qword ptr [r12 + 360], rax
- mov rax, qword ptr [r12 + 320]
- mov qword ptr [r12 + 368], rax
-  .section .rodata
-  .Lbynamefn42: .string "LE"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn42]
- lea rsi, [r12 + 344]
- mov edx, 2
- call rt_call_arr@PLT
+# BOX IR_CALL LE(...) inline integer relop [four-port, FAIL->ω]
+   lea rdi, [rip + .S1]
+ call rt_gvar_get_int@PLT
  mov qword ptr [r12 + 328], rax
- mov qword ptr [r12 + 336], rdx
- cmp eax, 99
- je flat_γ
+ mov rcx, 5
+ mov qword ptr [r12 + 312], 0
+ mov qword ptr [r12 + 320], 0
+ mov rax, qword ptr [r12 + 328]
+ cmp rax, rcx
+ jg flat_γ
  jmp snoch0_n15_α
-snoch0_n19_β:
+ snoch0_n19_β:
  jmp flat_γ
 snoch0_n20_α:
 bb27_α:
 # IR_BINOP_GVAR_ARITH
- lea rdi, [rip + .S1]
- call rt_gvar_get_int@PLT
+ mov rax, qword ptr [rbx + 24]
  mov rcx, 1
  add rax, rcx
- mov qword ptr [r12 + 376], rax
+ mov qword ptr [r12 + 344], rax
  jmp snoch0_n21_α
  snoch0_n20_β:
  jmp snoch0_n19_α
 snoch0_n21_α:
 bb28_α:
 # IR_ASSIGN
- lea rdi, [rip + .S1]
- mov rsi, qword ptr [r12 + 376]
- call rt_gvar_assign_int@PLT
+ mov rax, qword ptr [r12 + 344]
+ mov qword ptr [rbx + 16], 6
+ mov qword ptr [rbx + 24], rax
  jmp snoch0_n19_α
  snoch0_n21_β:
  jmp snoch0_n19_α
