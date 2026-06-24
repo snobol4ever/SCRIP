@@ -171,7 +171,15 @@ bb10_α:
 snoch0_n9_α:
 bb11_α:
 # IR_BINOP_GVAR_ARITH
+ mov rdx, qword ptr [rbx + 16]
+ cmp edx, 6
+ jne .Lx18_0
  mov rax, qword ptr [rbx + 24]
+ jmp .Lx18_1
+.Lx18_0:
+ lea rdi, [rip + .S4]
+ call rt_gvar_get_int@PLT
+.Lx18_1:
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 160], rax

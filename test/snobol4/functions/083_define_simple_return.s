@@ -135,26 +135,26 @@ push r12
   mov r12, rdi
   lea r10, [rip + Δ]
 flat_α_body:
-snoch7_n0_α:
+snoch8_n0_α:
 bb5_α:
 # IR_CALL_DEFINE
  lea rdi, [rip + .S2]
  call rt_proc_define@PLT
- jmp snoch7_n1_α
- snoch7_n0_β:
- jmp snoch7_n1_α
-snoch7_n1_α:
+ jmp snoch8_n1_α
+ snoch8_n0_β:
+ jmp snoch8_n1_α
+snoch8_n1_α:
 # IR_LIT_I
 bb6_α:
  mov qword ptr [r12 + 16], 6
- mov rax, qword ptr [rip + .Lx10_0]
+ mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 24], rax
- jmp xgvarg9_done
- xgvarg9_β:
- jmp snoch7_n3_α
-.Lx10_0:
+ jmp xgvarg10_done
+ xgvarg10_β:
+ jmp snoch8_n3_α
+.Lx11_0:
  .quad 5
-xgvarg9_done:
+xgvarg10_done:
 bb7_α:
 # BOX IR_CALL double(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+16] -> [r12+48]
@@ -163,42 +163,42 @@ bb7_α:
  mov rax, qword ptr [r12 + 24]
  mov qword ptr [r12 + 56], rax
   .section .rodata
-  .Lprocfn12: .string "double"
+  .Lprocfn13: .string "double"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn12]
+   lea rdi, [rip + .Lprocfn13]
  lea rsi, [r12 + 48]
  mov edx, 1
  call rt_call_named_proc@PLT
  mov qword ptr [r12 + 32], rax
  mov qword ptr [r12 + 40], rdx
  cmp eax, 99
- je snoch7_n3_α
- jmp snoch7_n2_α
-snoch7_n1_β:
- jmp snoch7_n3_α
-snoch7_n2_α:
+ je snoch8_n3_α
+ jmp snoch8_n2_α
+snoch8_n1_β:
+ jmp snoch8_n3_α
+snoch8_n2_α:
 bb8_α:
 # IR_ASSIGN_CALL
  lea rdi, [rip + .S3]
  mov rsi, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  call rt_gvar_assign_descr@PLT
- jmp snoch7_n3_α
- snoch7_n2_β:
- jmp snoch7_n3_α
-snoch7_n3_α:
+ jmp snoch8_n3_α
+ snoch8_n2_β:
+ jmp snoch8_n3_α
+snoch8_n3_α:
 # IR_LIT_I
 bb9_α:
  mov qword ptr [r12 + 64], 6
- mov rax, qword ptr [rip + .Lx15_0]
+ mov rax, qword ptr [rip + .Lx16_0]
  mov qword ptr [r12 + 72], rax
- jmp xgvarg14_done
- xgvarg14_β:
+ jmp xgvarg15_done
+ xgvarg15_β:
  jmp flat_γ
-.Lx15_0:
+.Lx16_0:
  .quad 21
-xgvarg14_done:
+xgvarg15_done:
 bb10_α:
 # BOX IR_CALL double(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+64] -> [r12+96]
@@ -207,10 +207,10 @@ bb10_α:
  mov rax, qword ptr [r12 + 72]
  mov qword ptr [r12 + 104], rax
   .section .rodata
-  .Lprocfn17: .string "double"
+  .Lprocfn18: .string "double"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn17]
+   lea rdi, [rip + .Lprocfn18]
  lea rsi, [r12 + 96]
  mov edx, 1
  call rt_call_named_proc@PLT
@@ -218,10 +218,10 @@ bb10_α:
  mov qword ptr [r12 + 88], rdx
  cmp eax, 99
  je flat_γ
- jmp snoch7_n4_α
-snoch7_n3_β:
+ jmp snoch8_n4_α
+snoch8_n3_β:
  jmp flat_γ
-snoch7_n4_α:
+snoch8_n4_α:
 bb11_α:
 # IR_ASSIGN_CALL
  lea rdi, [rip + .S3]
@@ -229,7 +229,7 @@ bb11_α:
  mov rdx, qword ptr [r12 + 88]
  call rt_gvar_assign_descr@PLT
  jmp flat_γ
- snoch7_n4_β:
+ snoch8_n4_β:
  jmp flat_γ
 flat_β:
 jmp flat_ω

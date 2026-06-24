@@ -108,7 +108,15 @@ bb7_α:
 snoch0_n5_α:
 bb8_α:
 # IR_BINOP_GVAR_ARITH
+ mov rdx, qword ptr [rbx + 0]
+ cmp edx, 6
+ jne .Lx13_0
  mov rax, qword ptr [rbx + 8]
+ jmp .Lx13_1
+.Lx13_0:
+ lea rdi, [rip + .S0]
+ call rt_gvar_get_int@PLT
+.Lx13_1:
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 80], rax
