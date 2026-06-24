@@ -31,6 +31,8 @@ typedef struct {
     const char *                 op_parts_str[32];
     const char *                 op_parts_lbl[32];
     int64_t                      op_parts_ival[32];
+    int64_t *                    gz_arg_slots;
+    int                          gz_arg_slots_cap;
     int64_t                      op_scan_pat;
     int64_t                      op_scan_subj;
     int64_t                      op_scan_repl;
