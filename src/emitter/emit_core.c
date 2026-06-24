@@ -414,6 +414,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         bb_emit_x86(bb_pattern_cat());   /* chain-entry passthrough */
         return 0;
     }
+    case IR_REF_INVARIANT:   bb_emit_x86(bb_ref_invariant());                                                                                           return 0;
     case IR_PATTERN_ALT:     bb_pattern_stub("bb_pattern_alt: DT_P builder pending (DDS)");                                                            return 0;
     case IR_PATTERN_CAPTURE: bb_emit_x86(bb_pattern_capture());                                                                                         return 0;
     case IR_PATTERN_DEFER:   bb_pattern_stub("bb_pattern_defer: builder pending (B10)");                  return 0;
