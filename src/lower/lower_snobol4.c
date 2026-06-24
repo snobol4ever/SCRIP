@@ -653,6 +653,64 @@ static IR_t * sno_freeze_break_cap_lit_ir(snx_t * cx, const char * cset, const c
     return cat;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FZ-3: general kids-channel matcher-graph builder for a fully-invariant pattern subtree, allocated into g; combinators (ALT/CAT) carry their arms on the kids channel (bb_match_kids_state_t on IR_EXEC.counter) the flat drivers read, captures carry their inner as operand[0], leaves carry the literal in IR_LIT — the representation bb_build_flat seals. PSUCC/PFAIL are the shared subgraph terminals. Returns the subtree entry. */
+static void sno_freeze_kids_attach(IR_t * nd, IR_t ** kids, int nkids) {
+    IR_t ** kk = (IR_t **) calloc((size_t) nkids, sizeof(IR_t *)); for (int i = 0; i < nkids; i++) kk[i] = kids[i];
+    bb_match_kids_state_t * zk = (bb_match_kids_state_t *) calloc(1, sizeof(*zk)); zk->kids = kk; zk->nkids = nkids;
+    IR_EXEC(nd).counter = (int64_t)(intptr_t) zk;
+}
+static IR_t * sno_freeze_pat_ir(IR_graph_t * g, const tree_t * t, IR_t * PSUCC, IR_t * PFAIL) {
+    if (!t) return PSUCC;
+    switch (t->t) {
+    case TT_QLIT: { IR_t * nd = IR_node_alloc(g, IR_MATCH_LIT); IR_LIT(nd).sval = t->v.sval; γ_to(nd, PSUCC); ω_to(nd, PFAIL); return nd; }
+    case TT_SPAN: case TT_ANY: case TT_NOTANY: case TT_BREAK: case TT_BREAKX: {
+        IR_e op = (t->t==TT_SPAN)?IR_MATCH_SPAN:(t->t==TT_ANY)?IR_MATCH_ANY:(t->t==TT_NOTANY)?IR_MATCH_NOTANY:(t->t==TT_BREAK)?IR_MATCH_BREAK:IR_MATCH_BREAKX;
+        IR_t * nd = IR_node_alloc(g, op); if (t->n>0 && t->c[0]) IR_LIT(nd).sval = t->c[0]->v.sval; γ_to(nd, PSUCC); ω_to(nd, PFAIL); return nd; }
+    case TT_LEN: case TT_POS: case TT_RPOS: case TT_TAB: case TT_RTAB: {
+        IR_e op = (t->t==TT_LEN)?IR_MATCH_LEN:(t->t==TT_POS)?IR_MATCH_POS:(t->t==TT_RPOS)?IR_MATCH_POS:(t->t==TT_TAB)?IR_MATCH_TAB:IR_MATCH_RTAB;
+        IR_t * nd = IR_node_alloc(g, op); if (t->t==TT_RPOS || t->t==TT_RTAB) IR_LIT(nd).sval = "r"; if (t->n>0 && t->c[0]) IR_LIT(nd).ival = t->c[0]->v.ival; γ_to(nd, PSUCC); ω_to(nd, PFAIL); return nd; }
+    case TT_ARB: { IR_t * nd = IR_node_alloc(g, IR_MATCH_ARB); γ_to(nd, PSUCC); ω_to(nd, PFAIL); return nd; }
+    case TT_REM: { IR_t * nd = IR_node_alloc(g, IR_MATCH_REM); γ_to(nd, PSUCC); ω_to(nd, PFAIL); return nd; }
+    case TT_VAR: { const char * s = t->v.sval ? t->v.sval : ""; IR_e op = IR_MATCH_REM; int hit = 1;
+        if      (!strcmp(s,"REM")||!strcmp(s,"rem")) op = IR_MATCH_REM; else if (!strcmp(s,"ARB")||!strcmp(s,"arb")) op = IR_MATCH_ARB;
+        else if (!strcmp(s,"FAIL")||!strcmp(s,"fail")) op = IR_FAIL; else if (!strcmp(s,"FENCE")||!strcmp(s,"fence")) op = IR_MATCH_FENCE;
+        else if (!strcmp(s,"ABORT")||!strcmp(s,"abort")) op = IR_MATCH_ABORT; else hit = 0;
+        if (hit) { IR_t * nd = IR_node_alloc(g, op); γ_to(nd, PSUCC); ω_to(nd, PFAIL); return nd; } return PSUCC; }
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: {
+        IR_t * nd = IR_node_alloc(g, (t->t==TT_CAPT_IMMED_ASGN)?IR_MATCH_ASSIGN_IMM:IR_MATCH_ASSIGN_COND);
+        IR_LIT(nd).sval = (t->n>1 && t->c[1]) ? t->c[1]->v.sval : (char *) ""; γ_to(nd, PSUCC); ω_to(nd, PFAIL);
+        IR_t * inner = sno_freeze_pat_ir(g, (t->n>0)?t->c[0]:NULL, nd, PFAIL); ir_operand_push(nd, inner); return nd; }
+    case TT_ALT: {
+        lc_vec av; lc_vec_init(&av, (int) sizeof(const tree_t *)); const tree_t * cur = t;
+        while (cur && cur->t == TT_ALT) { lc_vec_push(&av, (cur->n>1)?&cur->c[1]:&cur); cur = (cur->n>0)?cur->c[0]:NULL; }
+        if (cur) lc_vec_push(&av, &cur);
+        const tree_t ** alts = (const tree_t **) av.data; int na = av.n;
+        for (int li = 0, ri = na-1; li < ri; li++, ri--) { const tree_t * tmp = alts[li]; alts[li] = alts[ri]; alts[ri] = tmp; }
+        if (na < 2) return sno_freeze_pat_ir(g, alts[0], PSUCC, PFAIL);
+        IR_t * nd = IR_node_alloc(g, IR_MATCH_ALT); γ_to(nd, PSUCC); ω_to(nd, PFAIL);
+        IR_t ** kids = (IR_t **) alloca((size_t) na * sizeof(IR_t *));
+        for (int i = 0; i < na; i++) kids[i] = sno_freeze_pat_ir(g, alts[i], PSUCC, PFAIL);
+        sno_freeze_kids_attach(nd, kids, na); return nd; }
+    case TT_SEQ: case TT_CAT: {
+        lc_vec lv; lc_vec_init(&lv, (int) sizeof(const tree_t *));
+        lc_vec st; lc_vec_init(&st, (int) sizeof(const tree_t *)); lc_vec_push(&st, &t);
+        while (st.n > 0) { st.n--; const tree_t * nx = LC_AT(&st, const tree_t *, st.n); if (!nx) break;
+            if (nx->t == TT_SEQ || nx->t == TT_CAT) { if (nx->n>1) lc_vec_push(&st, &nx->c[1]); if (nx->n>0) lc_vec_push(&st, &nx->c[0]); }
+            else lc_vec_push(&lv, &nx); }
+        const tree_t ** parts = (const tree_t **) lv.data; int np = lv.n;
+        if (np < 2) return sno_freeze_pat_ir(g, (np==1)?parts[0]:NULL, PSUCC, PFAIL);
+        IR_t * nd = IR_node_alloc(g, IR_MATCH_CAT); γ_to(nd, PSUCC); ω_to(nd, PFAIL);
+        IR_t ** kids = (IR_t **) alloca((size_t) np * sizeof(IR_t *));
+        for (int i = 0; i < np; i++) kids[i] = sno_freeze_pat_ir(g, parts[i], PSUCC, PFAIL);
+        sno_freeze_kids_attach(nd, kids, np); return nd; }
+    default: { IR_t * nd = IR_node_alloc(g, IR_MATCH_REM); γ_to(nd, PSUCC); ω_to(nd, PFAIL); return nd; }
+    }
+}
+static IR_t * sno_freeze_pat_graph_entry(IR_graph_t * g, const tree_t * rhs) {
+    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
+    return sno_freeze_pat_ir(g, rhs, PSUCC, PFAIL);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
     if (rhs && getenv("SCRIP_FZ_DEBUG")) fprintf(stderr, "FZ-CLASSIFY lhs=%s tt=%d kind=%d islands=%d\n", lhs ? lhs : "?", (int) rhs->t, sno_pat_kind(rhs), sno_pat_islands(rhs));
     if (rhs && rhs->t == TT_ALT) {
@@ -763,6 +821,13 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         /* not buildable (variant) → ORPHAN plain ASSIGN (oracle bails before any pattern node) */
         IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
         return NULL;
+    }
+    /* FZ-3: fully-invariant stored SEQ *pattern* the buildable path rejects (ALT-of-literals leaf, etc.) → freeze the whole matcher graph to one sealed IR_REF_INVARIANT blob via the kids-channel builder into cx->g (so the pre-pass seals it); sno_has_pat guards against value concatenations (42 ' items') that are also kind==1 + non-buildable but are NOT patterns */
+    if (rhs && rhs->t == TT_SEQ && sno_has_pat(rhs) && sno_pat_kind(rhs) == 1 && !sno_seq_buildable(rhs)) {
+        IR_t * head = sno_freeze_pat_graph_entry(cx->g, rhs);
+        IR_t * ref = build(cx, IR_REF_INVARIANT, γ, ω); IR_LIT(ref).sval = (char *) lhs;
+        bb_operand_aux_set(cx->g, ref, &head, 1);
+        return ref;
     }
     if (rhs && rhs->t == TT_SEQ && sno_seq_buildable(rhs) && sno_seq_has_pat_leaf(rhs)) {
         lc_vec lv3; lc_vec_init(&lv3, (int) sizeof(const tree_t *));
