@@ -14,7 +14,7 @@ static const char *bcf_areg(int i) { static const char * t[4] = { "rsi", "rdx", 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_callee_frame() {
     if (PLATFORM_X86)
-        return (_.op_parts_n == 0 || _.op_parts_ival[0] < 0 || _.op_parts_ival[0] > 28 || _.op_parts_ival[1] < 0) ? x86_bomb("bb_callee_frame: unadmitted callee shape reached the emitter")
+        return (_.op_parts_n == 0 || _.op_parts_ival[0] < 0 || _.op_parts_ival[1] < 0) ? x86_bomb("bb_callee_frame: unadmitted callee shape reached the emitter")
              : IF(_.op_sa == 0,
                    x86("comment", "IR_CALLEE_FRAME")
                  + x86("push", "r12")

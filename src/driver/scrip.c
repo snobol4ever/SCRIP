@@ -389,7 +389,7 @@ static IR_graph_t * pl_gz_goal_callee(IR_t *gg, bb_goal_state_t **zc_out, int *a
     const char *fn = (zc && zc->callee) ? zc->callee : IR_LIT(gg).sval;
     if (!zc || !fn) return NULL;
     int ar = zc->arity;
-    if (ar < 0 || ar > 28) return NULL;
+    if (ar < 0) return NULL;
     char key[256]; snprintf(key, sizeof key, "%s/%d", fn, ar);
     Resolve_PredEntry_BB *e = resolve_bb_lookup(key, ar);
     if (!e) return NULL;
@@ -477,7 +477,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (gg->op == IR_GOAL) {
         bb_goal_state_t *zc = NULL; int ar2 = 0;
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc, &ar2);
-        if (!cg2 || ar2 > 28) return 0;
+        if (!cg2 || ar2 < 0) return 0;
         if (!pl_gz_call_args_ok(zc, ar2)) return 0;
         if (cg2->entry && cg2->entry->op == IR_CELL_DYNITER) return 1;
         if (cg2->entry && cg2->entry->op == IR_CHOICE)
@@ -737,7 +737,7 @@ static int pl_gz_rule_inline_check(IR_t *gg) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg) return 0;
-    if (ar > 28) return 0;
+    if (ar < 0) return 0;
     if (!pl_gz_call_args_ok(zc, ar)) return 0;
     if (cg->entry && cg->entry->op == IR_CELL_DYNITER) return 1;
     if (cg->entry && cg->entry->op == IR_CHOICE)
@@ -929,7 +929,7 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
     if (gg->op == IR_GOAL) {
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
         IR_graph_t *cg2 = pl_gz_goal_callee(gg, &zc2, &ar2);
-        if (!cg2 || ar2 > 28 || !pl_gz_call_args_ok(zc2, ar2)) return 0;
+        if (!cg2 || ar2 < 0 || !pl_gz_call_args_ok(zc2, ar2)) return 0;
         pl_gz_callee_t *ce2 = pl_gz_callee_get_any(gg, cg2, ar2, cv);
         if (!ce2) return 0;
         pl_gz_call_state_t *cs2 = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs2);
@@ -1547,7 +1547,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         }
         bb_goal_state_t *zc = NULL;
         IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
-        if (!cg || ar > 28 || !pl_gz_call_args_ok(zc, ar)) { return 0; }
+        if (!cg || ar < 0 || !pl_gz_call_args_ok(zc, ar)) { return 0; }
         pl_gz_callee_t *ce = pl_gz_callee_get_any(gg, cg, ar, cv);
         if (!ce) { return 0; }
         pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
