@@ -639,6 +639,23 @@ class Dog is Animal { method describe() { return $!legs; } }
 sub main() { my $d = Dog.new(); say($d.describe()); }
 EOF
 
+# --- RK-OO-B2 op-800 is-required DATA MODEL: present-case (field supplied) constructs + reads back. The
+#     absent-case death is wired in dat_construct but its NATIVE surfacing waits on the die-route prerequisite
+#     (uncaught die aborts; caught needs try/CATCH which EXCISES) — so only the present case is asserted here. ---
+raku "attr_required_present" "7" << 'EOF'
+class Point { has $.x is required; has $.y; }
+sub main() { my $p = Point.new(x => 7, y => 9); say($p.x); }
+EOF
+raku "attr_required_typed_present" "12" << 'EOF'
+class Box { has Int $.w is required; }
+sub main() { my $b = Box.new(w => 12); say($b.w); }
+EOF
+raku "attr_required_inherited_present" "5" << 'EOF'
+class Base { has $.id is required; }
+class Sub is Base { method who() { return $!id; } }
+sub main() { my $s = Sub.new(id => 5); say($s.who()); }
+EOF
+
 # --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly EXCISE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }

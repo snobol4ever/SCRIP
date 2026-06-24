@@ -2689,6 +2689,23 @@ int main(int argc, char **argv)
                           else { printf("  mov rdx, %lld\n", (long long)dv.i); printf("  call dat_set_field_default_i@PLT\n"); }
                       }
                   } }
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+                  extern int dat_type_field_required(int, int);
+                  int n_cls = dat_type_count();
+                  for (int ci = 0; ci < n_cls; ci++) {
+                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                          if (!dat_type_field_required(ci, fj)) continue;
+                          const char *fn = dat_type_field(ci, fj); if (!fn) continue;
+                          printf("  .section .rodata\n");
+                          printf("  .Lreqcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .Lreqfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .section .text\n  .intel_syntax noprefix\n");
+                          printf("  lea rdi, [rip + .Lreqcls%d_%d]\n", ci, fj);
+                          printf("  lea rsi, [rip + .Lreqfld%d_%d]\n", ci, fj);
+                          printf("  call dat_set_field_required@PLT\n");
+                      }
+                  } }
                 { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
                   int n_gram = rt_grammar_count();
                   for (int gi = 0; gi < n_gram; gi++) {
