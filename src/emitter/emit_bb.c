@@ -1241,7 +1241,7 @@ void bb_prepare(IR_t *nd) {
             g_emit.op_parts_ival[0] = st ? (int64_t)st->child_slot : -1;
             g_emit.op_parts_ival[1] = st ? (int64_t)st->nargs : -1;
             g_emit.op_parts_ival[2] = (st && st->callee) ? (int64_t)(st->callee->arity + st->callee->nlocals + st->callee->nchild) : -1;
-            for (int _ai = 0; _ai < 8; _ai++)
+            for (int _ai = 0; _ai < 28; _ai++)
                 g_emit.op_parts_ival[3 + _ai] = (st && st->nargs > _ai) ? ((st->args[_ai] && st->args[_ai]->op == IR_LOGICVAR) ? IR_LIT(st->args[_ai]).ival : -2) : -1;
         }
         if (nd->op == IR_CELL_ITE) {

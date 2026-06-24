@@ -935,7 +935,7 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         pl_gz_call_state_t *cs2 = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs2);
         if (!cs2) return 0;
         memset(cs2, 0, sizeof *cs2);
-        cs2->callee = ce2; cs2->nargs = ar2;
+        cs2->callee = ce2; cs2->nargs = ar2; cs2->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar2 > 0 ? ar2 : 1));
         for (int ai = 0; ai < ar2; ai++) {
             IR_t *a = zc2->args[ai];
             if (a->op == IR_LOGICVAR) {
@@ -1556,7 +1556,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
         if (!cs) return 0;
         memset(cs, 0, sizeof *cs);
-        cs->callee = ce; cs->nargs = ar;
+        cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1));
         if (*cslot + 1 > 2046) { return 0; }
         cs->child_slot = (*cslot)++;
         for (int ai = 0; ai < ar; ai++) {
@@ -1854,7 +1854,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
                 pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
                 if (!cs) return 0;
                 memset(cs, 0, sizeof *cs);
-                cs->callee = ce; cs->nargs = ar;
+                cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1));
                 cs->child_slot = (*cslot)++;
                 for (int ai = 0; ai < ar; ai++) {
                     IR_t *a = zc->args[ai];
@@ -1905,7 +1905,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
                 pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
                 if (!cs) return 0;
                 memset(cs, 0, sizeof *cs);
-                cs->callee = ce; cs->nargs = ar; cs->child_slot = (*cslot)++;
+                cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1)); cs->child_slot = (*cslot)++;
                 for (int ai = 0; ai < ar; ai++) { IR_t *a = zc->args[ai]; if (!a || a->op != IR_LOGICVAR) return 0; cs->args[ai] = a; }
                 fst->call = cs;
             }

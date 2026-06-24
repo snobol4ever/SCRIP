@@ -46,7 +46,7 @@ typedef struct { IR_t ** args; int nargs; const char * callee; int arity; void *
 typedef struct { int nclauses; int arity; int mark_slot; IR_t * args[8]; IR_t * consts[32][8]; } pl_gz_choice_state_t;
 typedef struct { void * graph_key; int base; int arity; int nlocals; int mark_slot; IR_t * body_head; IR_t * frame_node; void * lblA; void * lblB; int nchild;
                  int nclauses; IR_t * clause_head[32]; int body_emitted; } pl_gz_callee_t;
-typedef struct { pl_gz_callee_t * callee; int nargs; IR_t * args[8]; int child_slot; } pl_gz_call_state_t;
+typedef struct { pl_gz_callee_t * callee; int nargs; IR_t ** args; int child_slot; } pl_gz_call_state_t;
 typedef struct { pl_gz_call_state_t * call; IR_t * tmpl; int result_slot; int acc_slot; int is_fail; int agg_mode; } pl_gz_findall_state_t;
 typedef struct { int functor_atom; const char * functor_name; int arity; int cursor_slot; int mark_slot; } pl_gz_dyniter_state_t;
 typedef struct { IR_t * cond_head; IR_t * then_head; IR_t * else_head; int gate_slot; } pl_gz_ite_state_t;
