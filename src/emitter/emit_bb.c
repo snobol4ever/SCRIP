@@ -996,7 +996,7 @@ static int gz_arith_var_plus_const(const IR_t *nd, int *var_slot, const char **o
     if (nd->op != IR_ARITH || !IR_LIT(nd).sval || !p0 || !p1) return 0;
     const char *op = IR_LIT(nd).sval;
     if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0||
-        strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0) {
+        strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0||strcmp(op,"//")==0||strcmp(op,"div")==0||strcmp(op,"/")==0) {
         if (p0->op == IR_LOGICVAR && p1->op == IR_LIT_I) {
             *var_slot = (int)IR_LIT(p0).ival; *op_out = op; *c_out = (long)IR_LIT(p1).ival; return 1;
         }
@@ -1009,7 +1009,7 @@ static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char
     if (!nd || nd->op != IR_ARITH || !IR_LIT(nd).sval || !b0 || !b1) return 0;
     const char *op = IR_LIT(nd).sval;
     if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0||
-        strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0) {
+        strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0||strcmp(op,"//")==0||strcmp(op,"div")==0||strcmp(op,"/")==0) {
         if (b0->op == IR_LOGICVAR && b1->op == IR_LOGICVAR) {
             *slot1 = (int)IR_LIT(b0).ival; *slot2 = (int)IR_LIT(b1).ival; *op_out = op; return 1;
         }

@@ -376,7 +376,7 @@ static int pl_gz_call_args_ok(bb_goal_state_t *zc, int ar) {
     for (int i = 0; i < ar; i++) {
         IR_t *a = zc->args[i];
         if (!a) return 0;
-        if (a->op == IR_LOGICVAR) { if ((int)IR_LIT(a).ival < 0 || (int)IR_LIT(a).ival >= 64) return 0; continue; }
+        if (a->op == IR_LOGICVAR) { if ((int)IR_LIT(a).ival < 0 || (int)IR_LIT(a).ival >= 2048) return 0; continue; }
         if (a->op == IR_ATOM && IR_LIT(a).sval) continue;
         if (a->op == IR_LIT_I) continue;
         if (a->op == IR_STRUCT) continue;
@@ -458,19 +458,12 @@ static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t *
     return ok;
 }
 static int pl_gz_arith_const(const IR_t *nd);
+static int pl_gz_arith_nested_ok(const IR_t *nd);
 /* A comparison/arith operand admissible by the GZ det path: a bare var, an integer/float literal,
- * or an arith expr in one of the shapes the `is/2` RHS already supports (const-foldable, var op lit,
- * var op var).  Used so `X > Y + N` and `X =\= Y - N` are admitted exactly like `R is Y + N`. */
+ * or any (possibly nested) arith expression over var/lit leaves using flat-supported ops.  Flattened
+ * bottom-up into IR_DET_IS steps at build time, so `X > Y*A+N` and `X =\= (Y-N)*2` are admitted. */
 static int pl_gz_cmp_operand_ok(const IR_t *nd) {
-    if (!nd) return 0;
-    if (nd->op == IR_LOGICVAR || nd->op == IR_LIT_I || nd->op == IR_LIT_F) return 1;
-    if (nd->op == IR_ARITH) {
-        IR_t *q0 = (nd->n_operands > 0) ? nd->operands[0] : NULL, *q1 = (nd->n_operands > 1) ? nd->operands[1] : NULL;
-        if (pl_gz_arith_const(nd)) return 1;
-        if (IR_LIT(nd).sval && q0 && q1 && q0->op == IR_LOGICVAR && q1->op == IR_LIT_I) return 1;
-        if (IR_LIT(nd).sval && q0 && q1 && q0->op == IR_LOGICVAR && q1->op == IR_LOGICVAR) return 1;
-    }
-    return 0;
+    return pl_gz_arith_nested_ok(nd);
 }
 static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (!gg) return 0;
@@ -527,11 +520,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         if (ir_pair_arg(gg,0)->op != IR_LOGICVAR && ir_pair_arg(gg,0)->op != IR_LIT_I && ir_pair_arg(gg,0)->op != IR_LIT_F) return 0;
         IR_t *rhs = ir_pair_arg(gg,1);
-        IR_t *q0 = (rhs->n_operands > 0) ? rhs->operands[0] : NULL, *q1 = (rhs->n_operands > 1) ? rhs->operands[1] : NULL;
-        int rhs_const = (rhs->op == IR_LIT_I) || (rhs->op == IR_LIT_F) || ((rhs->op == IR_ARITH) && pl_gz_arith_const(rhs));
-        int rhs_varop = (rhs->op == IR_LOGICVAR) || (rhs->op == IR_ARITH && IR_LIT(rhs).sval && q0 && q1 && q0->op == IR_LOGICVAR && q1->op == IR_LIT_I);
-        int rhs_bivar = (rhs->op == IR_ARITH && IR_LIT(rhs).sval && q0 && q1 && q0->op == IR_LOGICVAR && q1->op == IR_LOGICVAR);
-        return rhs_const || rhs_varop || rhs_bivar;
+        return pl_gz_arith_nested_ok(rhs);
     }
     if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "succ") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         const IR_t *sa0 = ir_pair_arg(gg,0), *sa1 = ir_pair_arg(gg,1);
@@ -648,7 +637,7 @@ static int pl_gz_rule_body_goal_ok(IR_t *gg) {
 }
 static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
     if (!cg || !cg->entry || !cg->all) return 0;
-    if (cg->nslots < ar || cg->nslots > 16) return 0;
+    if (cg->nslots < ar || cg->nslots > 2048) return 0;
     for (int i = 0; i < cg->n; i++) {
         IR_t *nd = cg->all[i];
         if (!nd) continue;
@@ -724,8 +713,9 @@ static pl_gz_callee_t * pl_gz_callee_get_any(IR_t *gg, IR_graph_t *cg, int ar, p
 /* PL-GZ-5c: graph slot s of one clause → frame slot.  Head slots 0..ar-1 are shared (the args);
  * each clause's locals live in its own frame range starting at lbase (single-clause lbase==ar ⇒ identity). */
 static int pl_gz_slot_map(int s, int ar, int lbase) { return s < ar ? s : lbase + (s - ar); }
-/* Number of synth temps a comparison goal needs: one per arith-expr operand (each is pre-evaluated
- * into a fresh slot by an IR_DET_IS before the IR_DET_CMP).  Bare var/lit operands need none. */
+static int pl_gz_expr_nsynth(const IR_t *nd);
+/* Synth temps a comparison goal needs: enough to flatten each arith-expr operand into IR_DET_IS
+ * steps before the IR_DET_CMP.  Bare var/lit operands need none. */
 static int pl_gz_cmp_nsynth(IR_t *gg) {
     if (!gg || gg->op != IR_BUILTIN || !IR_LIT(gg).sval || IR_LIT(gg).ival != 2) return 0;
     const char *fn = IR_LIT(gg).sval;
@@ -733,14 +723,14 @@ static int pl_gz_cmp_nsynth(IR_t *gg) {
     if (!is_cmp) return 0;
     IR_t *a0 = ir_pair_arg(gg,0), *a1 = ir_pair_arg(gg,1);
     int n = 0;
-    if (a0 && a0->op == IR_ARITH) n++;
-    if (a1 && a1->op == IR_ARITH) n++;
+    if (a0) n += pl_gz_expr_nsynth(a0);
+    if (a1) n += pl_gz_expr_nsynth(a1);
     return n;
 }
 static int pl_gz_nsynth_chain(IR_t *entry, int ar) {
     int nsynth = 0;
     for (IR_t *gg = entry; gg && gg->op != IR_SUCCEED && gg->op != IR_FAIL; gg = gg->γ.node) {
-        if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
+        if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0)) { if (ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++; nsynth += pl_gz_expr_nsynth(ir_pair_arg(gg,1)); }
         nsynth += pl_gz_cmp_nsynth(gg);
         if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0) && ir_call_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
         if (gg->op == IR_CATCH) {
@@ -754,7 +744,7 @@ static int pl_gz_nsynth_chain(IR_t *entry, int ar) {
         if (gg->op != IR_GOAL) continue;
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
         if (!pl_gz_goal_callee(gg, &zc2, &ar2)) return -1;
-        for (int ai = 0; ai < ar2 && ai < 3; ai++) if (zc2->args[ai] && zc2->args[ai]->op != IR_LOGICVAR) nsynth++;
+        for (int ai = 0; ai < ar2; ai++) if (zc2->args[ai] && zc2->args[ai]->op != IR_LOGICVAR) nsynth++;
     }
     return nsynth;
 }
@@ -770,13 +760,13 @@ static int pl_gz_clause_nsynth(bb_conj_state_t *zs, int ar) {
             int b = pl_gz_nsynth_chain(zc->rec_g->entry, ar); if (b < 0) return -1; nsynth += b;
             continue;
         }
-        if (gg && gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
+        if (gg && gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0)) { if (ir_pair_arg(gg,0)->op != IR_LOGICVAR) nsynth++; nsynth += pl_gz_expr_nsynth(ir_pair_arg(gg,1)); }
         if (gg) nsynth += pl_gz_cmp_nsynth(gg);
         if (gg && gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0) && ir_call_arg(gg,0)->op != IR_LOGICVAR) nsynth++;
         if (!gg || gg->op != IR_GOAL) continue;
         bb_goal_state_t *zc2 = NULL; int ar2 = 0;
         if (!pl_gz_goal_callee(gg, &zc2, &ar2)) return -1;
-        for (int ai = 0; ai < ar2 && ai < 3; ai++)
+        for (int ai = 0; ai < ar2; ai++)
             if (zc2->args[ai] && zc2->args[ai]->op != IR_LOGICVAR) nsynth++;
     }
     return nsynth;
@@ -810,6 +800,73 @@ static IR_t * pl_gz_struct_slot_map(const IR_t *nd, int ar, int lbase) {
         return c;
     }
     return NULL;
+}
+/* PL-GZ nested-arith: ops the flat IR_DET_IS emitter arms (var-op-lit / var-op-var) accept.  Any
+ * arith node using one of these can be evaluated by a single flat IS over slot/lit operands; a
+ * nested expression is flattened bottom-up into a chain of such steps via fresh synth slots. */
+static int pl_gz_flat_arith_op_ok(const char *op) {
+    return op && (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0||
+                  strcmp(op,"//")==0||strcmp(op,"div")==0||strcmp(op,"/")==0||strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||
+                  strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0);
+}
+/* A var/lit leaf, or a binary tree of supported ops over such leaves. */
+static int pl_gz_arith_nested_ok(const IR_t *nd) {
+    if (!nd) return 0;
+    if (nd->op == IR_LOGICVAR || nd->op == IR_LIT_I || nd->op == IR_LIT_F) return 1;
+    if (nd->op == IR_ARITH && IR_LIT(nd).sval && pl_gz_flat_arith_op_ok(IR_LIT(nd).sval)) {
+        IR_t *q0 = (nd->n_operands > 0) ? nd->operands[0] : NULL, *q1 = (nd->n_operands > 1) ? nd->operands[1] : NULL;
+        if (!q0 || !q1) return 0;
+        return pl_gz_arith_nested_ok(q0) && pl_gz_arith_nested_ok(q1);
+    }
+    return 0;
+}
+/* Number of IR_ARITH nodes in an expression (used to bound synth-slot demand for flattening:
+ * a safe upper bound is 2 * this, allowing one slot per node plus one lit-materialisation each). */
+static int pl_gz_arith_node_count(const IR_t *nd) {
+    if (!nd || nd->op != IR_ARITH) return 0;
+    IR_t *q0 = (nd->n_operands > 0) ? nd->operands[0] : NULL, *q1 = (nd->n_operands > 1) ? nd->operands[1] : NULL;
+    return 1 + pl_gz_arith_node_count(q0) + pl_gz_arith_node_count(q1);
+}
+static int pl_gz_expr_nsynth(const IR_t *nd) { return 2 * pl_gz_arith_node_count(nd); }
+/* Emit a flat IR_DET_IS computing dstslot = op(L,R) onto head/tail.  L,R are each a slot var or a
+ * literal.  The emitter handles lit/lit (const), var/lit, var/var — not lit/var, so materialise a
+ * literal L into a slot when R is a var. */
+static int pl_gz_arith_emit_is(int dstslot, const char *op, int64_t opival, IR_t *L, IR_t *R, int *snp, IR_t **headp, IR_t **tailp) {
+    if (!L || !R) return 0;
+    if (L->op != IR_LOGICVAR && R->op == IR_LOGICVAR) {
+        int kk = (*snp)++;
+        IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+        IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+        ir_operand_push(cu, ca); ir_operand_push(cu, L);
+        if (!*headp) *headp = cu; else { (*tailp)->γ.node = cu; memcpy((*tailp)->γ.sz, "α", 3); } *tailp = cu;
+        L = pl_gz_lv(kk); if (!L) return 0;
+    }
+    IR_t *a = pl_gz_det_node(IR_ARITH); if (!a) return 0;
+    IR_LIT(a).sval = op; IR_LIT(a).ival = opival;
+    ir_operand_push(a, L); ir_operand_push(a, R);
+    IR_t *nis = pl_gz_det_node(IR_DET_IS); if (!nis) return 0;
+    IR_t *dst = pl_gz_lv(dstslot); if (!dst) return 0;
+    ir_operand_push(nis, dst); ir_operand_push(nis, a);
+    if (!*headp) *headp = nis; else { (*tailp)->γ.node = nis; memcpy((*tailp)->γ.sz, "α", 3); } *tailp = nis;
+    return 1;
+}
+/* Flatten a (possibly nested) arith expression into a chain of flat IS steps appended to head/tail;
+ * returns the leaf for nd (a slot-mapped var, a literal, or a fresh synth-slot var holding an
+ * internal sub-expression's value).  Slot mapping is via pl_gz_slot_map(ar,lbase) — pass ar=0,lbase=0
+ * for the generic (already-final-slot) path. */
+static IR_t * pl_gz_arith_flatten(const IR_t *nd, int ar, int lbase, int *snp, IR_t **headp, IR_t **tailp) {
+    if (!nd) return NULL;
+    if (nd->op == IR_LIT_I) { IR_t *c = pl_gz_det_node(IR_LIT_I); if (c) IR_LIT(c).ival = IR_LIT(nd).ival; return c; }
+    if (nd->op == IR_LIT_F) { IR_t *c = pl_gz_det_node(IR_LIT_F); if (c) IR_LIT(c).dval = IR_LIT(nd).dval; return c; }
+    if (nd->op == IR_LOGICVAR) return pl_gz_lv(pl_gz_slot_map((int)IR_LIT(nd).ival, ar, lbase));
+    if (nd->op != IR_ARITH || !IR_LIT(nd).sval) return NULL;
+    IR_t *m0 = (nd->n_operands > 0) ? nd->operands[0] : NULL, *m1 = (nd->n_operands > 1) ? nd->operands[1] : NULL;
+    if (!m0 || !m1) return NULL;
+    IR_t *L = pl_gz_arith_flatten(m0, ar, lbase, snp, headp, tailp); if (!L) return NULL;
+    IR_t *R = pl_gz_arith_flatten(m1, ar, lbase, snp, headp, tailp); if (!R) return NULL;
+    int kk = (*snp)++;
+    if (!pl_gz_arith_emit_is(kk, IR_LIT(nd).sval, IR_LIT(nd).ival, L, R, snp, headp, tailp)) return NULL;
+    return pl_gz_lv(kk);
 }
 static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **headp, IR_t **tailp, pl_gz_callee_t *ce, pl_gz_callee_t **callees, int *ncallees) {
     IR_t *head = *headp, *tail = *tailp; int synth_next = *snp; IR_t *nn = NULL;
@@ -907,7 +964,7 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         if (!nn) return 0;
         ir_operand_push(nn, shead);
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval, "is") && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
-        IR_t *lhs = ir_pair_arg(gg,0);
+        IR_t *lhs = ir_pair_arg(gg,0), *rhs = ir_pair_arg(gg,1);
         IR_t *na = NULL;
         if (lhs->op == IR_LOGICVAR) { na = pl_gz_lv(pl_gz_slot_map((int)IR_LIT(lhs).ival, ar, lbase)); }
         else {
@@ -918,39 +975,41 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
             if (!head) head = cu; else { tail->γ.node = cu; memcpy(tail->γ.sz, "α", 3); }
             tail = cu; na = pl_gz_lv(kk);
         }
-        nn = pl_gz_det_node(IR_DET_IS);
-        if (!nn) return 0;
-        IR_t *nb = pl_gz_arith_slot_map(ir_pair_arg(gg,1), ar, lbase);
-        if (!na || !nb) return 0;
-        ir_operand_push(nn, na); ir_operand_push(nn, nb);
+        if (!na) return 0;
+        if (rhs->op == IR_ARITH) {
+            IR_t *m0 = (rhs->n_operands > 0) ? rhs->operands[0] : NULL, *m1 = (rhs->n_operands > 1) ? rhs->operands[1] : NULL;
+            if (!m0 || !m1) return 0;
+            IR_t *L = pl_gz_arith_flatten(m0, ar, lbase, &synth_next, &head, &tail); if (!L) return 0;
+            IR_t *R = pl_gz_arith_flatten(m1, ar, lbase, &synth_next, &head, &tail); if (!R) return 0;
+            if (L->op != IR_LOGICVAR && R->op == IR_LOGICVAR) {
+                int kk = synth_next++;
+                IR_t *cu = pl_gz_det_node(IR_CELL_UNIFY); if (!cu) return 0;
+                IR_t *ca = pl_gz_lv(kk); if (!ca) return 0;
+                ir_operand_push(cu, ca); ir_operand_push(cu, L);
+                if (!head) head = cu; else { tail->γ.node = cu; memcpy(tail->γ.sz, "α", 3); } tail = cu;
+                L = pl_gz_lv(kk); if (!L) return 0;
+            }
+            IR_t *a = pl_gz_det_node(IR_ARITH); if (!a) return 0;
+            IR_LIT(a).sval = IR_LIT(rhs).sval; IR_LIT(a).ival = IR_LIT(rhs).ival;
+            ir_operand_push(a, L); ir_operand_push(a, R);
+            nn = pl_gz_det_node(IR_DET_IS); if (!nn) return 0;
+            ir_operand_push(nn, na); ir_operand_push(nn, a);
+        } else {
+            IR_t *nb = pl_gz_arith_flatten(rhs, ar, lbase, &synth_next, &head, &tail); if (!nb) return 0;
+            nn = pl_gz_det_node(IR_DET_IS); if (!nn) return 0;
+            ir_operand_push(nn, na); ir_operand_push(nn, nb);
+        }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && IR_LIT(gg).ival == 2 && ir_pair_arg(gg,0) && ir_pair_arg(gg,1)) {
         const char *fn = IR_LIT(gg).sval;
         int is_cmp = (strcmp(fn,"<")==0||strcmp(fn,">")==0||strcmp(fn,">=")==0||strcmp(fn,"=<")==0||strcmp(fn,"=:=")==0||strcmp(fn,"=\\=")==0);
         if (!is_cmp) return 0;
         IR_t *pc0 = ir_pair_arg(gg,0), *pc1 = ir_pair_arg(gg,1);
-        IR_t *na = NULL, *nb = NULL;
-        if (pc0->op == IR_ARITH) {
-            int kk = synth_next++;
-            IR_t *nis = pl_gz_det_node(IR_DET_IS); if (!nis) return 0;
-            IR_t *dst = pl_gz_lv(kk); if (!dst) return 0;
-            IR_t *am = pl_gz_arith_slot_map(pc0, ar, lbase); if (!am) return 0;
-            ir_operand_push(nis, dst); ir_operand_push(nis, am);
-            if (!head) head = nis; else { tail->γ.node = nis; memcpy(tail->γ.sz, "α", 3); }
-            tail = nis; na = pl_gz_lv(kk);
-        } else na = (pc0->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(pc0).ival, ar, lbase)) : pc0;
-        if (pc1->op == IR_ARITH) {
-            int kk = synth_next++;
-            IR_t *nis = pl_gz_det_node(IR_DET_IS); if (!nis) return 0;
-            IR_t *dst = pl_gz_lv(kk); if (!dst) return 0;
-            IR_t *am = pl_gz_arith_slot_map(pc1, ar, lbase); if (!am) return 0;
-            ir_operand_push(nis, dst); ir_operand_push(nis, am);
-            if (!head) head = nis; else { tail->γ.node = nis; memcpy(tail->γ.sz, "α", 3); }
-            tail = nis; nb = pl_gz_lv(kk);
-        } else nb = (pc1->op == IR_LOGICVAR) ? pl_gz_lv(pl_gz_slot_map((int)IR_LIT(pc1).ival, ar, lbase)) : pc1;
+        IR_t *na = pl_gz_arith_flatten(pc0, ar, lbase, &synth_next, &head, &tail);
+        IR_t *nb = pl_gz_arith_flatten(pc1, ar, lbase, &synth_next, &head, &tail);
+        if (!na || !nb) return 0;
         nn = pl_gz_det_node(IR_DET_CMP);
         if (!nn) return 0;
         IR_LIT(nn).sval = fn;
-        if (!na || !nb) return 0;
         ir_operand_push(nn, na); ir_operand_push(nn, nb);
     } else {
         nn = pl_gz_det_node(IR_DET_WRITE);
@@ -1222,7 +1281,7 @@ static int pl_gz_count_synth_goal(IR_t *gg, int *nsynth) {
     bb_goal_state_t *zc = NULL; int ar = 0;
     IR_graph_t *cg = pl_gz_goal_callee(gg, &zc, &ar);
     if (!cg) return 0;
-    for (int ai = 0; ai < ar && ai < 3; ai++)
+    for (int ai = 0; ai < ar; ai++)
         if (zc->args[ai] && zc->args[ai]->op != IR_LOGICVAR) (*nsynth)++;
     return 1;
 }
@@ -1323,7 +1382,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (!pl_gz_build_root(zi->then_root, &is->then_head, synth_next, cslot, callees, ncallees)) return 0;
         if (!pl_gz_build_root(zi->else_root, &is->else_head, synth_next, cslot, callees, ncallees)) return 0;
         if (!pl_gz_chain_det(is->then_head) || !pl_gz_chain_det(is->else_head)) return 0;
-        if (*cslot + 1 > 62) return 0;
+        if (*cslot + 1 > 2046) return 0;
         is->gate_slot = (*cslot)++;
         IR_t *cn = pl_gz_det_node(IR_CELL_ITE);
         if (!cn) return 0;
@@ -1341,7 +1400,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (!pl_gz_build_chain_from(zc->goal_g->entry, &cst->goal_head, synth_next, cslot, callees, ncallees)) return 0;
         if (!pl_gz_build_chain_from(zc->rec_g->entry, &cst->recovery_head, synth_next, cslot, callees, ncallees)) return 0;
         cst->catcher = zc->catcher;
-        if (*cslot + 1 > 62) return 0;
+        if (*cslot + 1 > 2046) return 0;
         cst->mark_slot = (*cslot)++;
         IR_t *cn = pl_gz_det_node(IR_CELL_CATCH);
         if (!cn) return 0;
@@ -1373,7 +1432,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         }
         pl_gz_choice_state_t *st = pl_gz_choice_inline(gg);
         if (st) {
-            if (*cslot + 2 > 62) return 0;
+            if (*cslot + 2 > 2046) return 0;
             st->mark_slot = *cslot; *cslot += 2;
             IR_t *cn = pl_gz_det_node(IR_CELL_CHOICE);
             if (!cn) return 0;
@@ -1391,7 +1450,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         if (!cs) return 0;
         memset(cs, 0, sizeof *cs);
         cs->callee = ce; cs->nargs = ar;
-        if (*cslot + 1 > 62) return 0;
+        if (*cslot + 1 > 2046) return 0;
         cs->child_slot = (*cslot)++;
         for (int ai = 0; ai < ar; ai++) {
             IR_t *a = zc->args[ai];
@@ -1680,7 +1739,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
             fst->is_fail = is_fail;
             fst->tmpl = fs->tmpl;
             fst->result_slot = (int)IR_LIT(fs->result).ival;
-            if (*cslot + (is_fail ? 1 : 2) > 62) return 0;
+            if (*cslot + (is_fail ? 1 : 2) > 2046) return 0;
             fst->acc_slot = (*cslot)++;
             if (!is_fail) {
                 pl_gz_callee_t *ce = pl_gz_callee_get_any(groot, cg, ar, callees, ncallees);
@@ -1731,7 +1790,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
             memset(fst, 0, sizeof *fst);
             fst->is_fail = is_fail; fst->agg_mode = agg_mode; fst->tmpl = agg_tmpl;
             fst->result_slot = (int)IR_LIT(fs->result).ival;
-            if (*cslot + (is_fail ? 1 : 2) > 62) return 0;
+            if (*cslot + (is_fail ? 1 : 2) > 2046) return 0;
             fst->acc_slot = (*cslot)++;
             if (!is_fail) {
                 pl_gz_callee_t *ce = pl_gz_callee_get_any(groot, cg, ar, callees, ncallees);
@@ -1971,7 +2030,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int g_gz_no_struct_ptr = 0;
 static IR_t * pl_gz_admit(IR_graph_t *g) {
-    if (!g || !g->all || g->nslots > 64) return NULL;
+    if (!g || !g->all || g->nslots > 2048) return NULL;
     IR_t *gconjs[2] = {NULL, NULL}; int ngconj = 0;
     IR_t *softdisj = NULL; IR_t *soft_arm0 = NULL;
     IR_t *claimed[8]; int nclaimed = 0;
@@ -2019,7 +2078,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
             }
             if (!parent_ok) return NULL;
         }
-        if (nd->op == IR_LOGICVAR && ((int)IR_LIT(nd).ival < 0 || (int)IR_LIT(nd).ival >= 64)) return NULL;
+        if (nd->op == IR_LOGICVAR && ((int)IR_LIT(nd).ival < 0 || (int)IR_LIT(nd).ival >= 2048)) return NULL;
         if (nd->op == IR_UNIFY) {
             IR_t *l = (nd->n_operands > 0) ? nd->operands[0] : NULL, *r = (nd->n_operands > 1) ? nd->operands[1] : NULL;
             if (!l || !r) return NULL;
