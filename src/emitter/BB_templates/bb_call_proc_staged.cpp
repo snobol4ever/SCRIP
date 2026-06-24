@@ -26,8 +26,13 @@ static bb_label_t * bb_call_staged_beta_target() {
     return _.lbl_ω_p;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int bcps_arg_slot(IR_t * call, IR_graph_t ** argblks, int i) {
+    if (call && IR_LIT(call).dval == 1.0) { IR_t * a = ir_call_arg(call, i); int s = a ? bb_slot_get(a) : -1; return s < 0 ? 0 : s; }
+    IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int s = prod ? bb_slot_get(prod) : -1; return s < 0 ? 0 : s;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_bin_arm() { int off = bb_slot_alloc16(_.node); bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter; uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return FOR(0, (int)_.op_ival, [&](int i) { IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int slot = prod ? bb_slot_get(prod) : -1; if (slot < 0) slot = 0; return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp); })
+    return FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp); })
          + x86("mov", "rdi", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""))
          + x86("mov32", "esi", (long)_.op_ival)
          + x86("call", "rt_call_proc_descr", fptr)
@@ -46,7 +51,7 @@ static std::string bcps_txt_arm() { int off = bb_slot_alloc16(_.node); bb_label_
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")
          + x86("directive", ".intel_syntax noprefix")
-         + FOR(0, (int)_.op_ival, [&](int i) { IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int slot = prod ? bb_slot_get(prod) : -1; if (slot < 0) slot = 0; return x86("mov", "edi", std::to_string(i)) + x86("mov", "rsi", "[r12+" + std::to_string(slot) + "]") + x86("mov", "rdx", "[r12+" + std::to_string(slot + 8) + "]") + x86("call", "rt_arg_stage@PLT"); })
+         + FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("mov", "edi", std::to_string(i)) + x86("mov", "rsi", "[r12+" + std::to_string(slot) + "]") + x86("mov", "rdx", "[r12+" + std::to_string(slot + 8) + "]") + x86("call", "rt_arg_stage@PLT"); })
          + x86("directive", (std::string(" lea rdi, [rip + .Lcall") + std::to_string(_.nid) + "_pname]").c_str())
          + x86("mov", "esi", std::to_string((int)_.op_ival))
          + x86("call", "rt_call_proc_descr@PLT")

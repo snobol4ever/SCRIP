@@ -2002,8 +2002,9 @@ static void flat_drive_return(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω,
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     int nargs = (int)(pBB ? IR_LIT(pBB).ival : 0);
+    int chained = (pBB && IR_LIT(pBB).dval == 1.0);
     bb_label_t *prev_done = NULL;
-    for (int j = 0; j < nargs; j++) {
+    if (!chained) for (int j = 0; j < nargs; j++) {
         IR_t *ax = ir_call_arg(pBB, j);
         if (!ax) break;
         int id = g_flat_node_id++;
@@ -2878,7 +2879,7 @@ int bb_call_route_classify(IR_t * nd) {
     if (g_descr_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (g_descr_flat_chain && dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
     if (g_gvar_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_GVAR_USERPROC;
-    if (g_descr_flat_chain && fn[0] && rt_proc_is_registered(fn) && dv == 3.0) return CALL_ROUTE_PROC_STAGED;
+    if (g_descr_flat_chain && fn[0] && rt_proc_is_registered(fn) && (dv == 3.0 || dv == 1.0)) return CALL_ROUTE_PROC_STAGED;
     if (g_gvar_flat_chain && dv == 3.0 && fn[0] && !rt_proc_is_registered(fn)) return CALL_ROUTE_BYNAME;
     if (g_gvar_flat_chain && dv == 2.0 && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (g_descr_flat_chain && !strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
