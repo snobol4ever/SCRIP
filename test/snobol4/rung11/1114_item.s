@@ -1,11 +1,32 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "aaa"
+  .Lgvan1: .string "output"
+  .Lgvan2: .string "ama"
+  .Lgvan3: .string "tt"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .quad .Lgvan2
+  .quad .Lgvan3
+  .section .bss
+  .align 16
+__gva: .space 64, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 4
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -59,28 +80,24 @@ snoch0_n0_β:
  jmp snoch0_n2_α
 snoch0_n1_α:
 bb3_α:
-# IR_ASSIGN_CALL
- lea rdi, [rip + .S0]
- mov rsi, qword ptr [r12 + 32]
- mov rdx, qword ptr [r12 + 40]
- call rt_gvar_assign_descr@PLT
+# IR_ASSIGN_CALL gva
+ mov rax, qword ptr [r12 + 32]
+ mov rcx, qword ptr [r12 + 40]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rcx
  jmp snoch0_n2_α
  snoch0_n1_β:
  jmp snoch0_n2_α
 snoch0_n2_α:
-# IR_VAR
+# IR_VAR gva
 bb4_α:
- mov rdi, qword ptr [rip + .Lx9_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 64], rax
  mov qword ptr [r12 + 72], rdx
  jmp xgvarg7_done
  xgvarg7_β:
  jmp snoch0_n4_α
-.Lx9_0:
- .quad .Lx9_0_s
-.Lx9_0_s:
- .string "aaa"
 xgvarg7_done:
 # IR_LIT_I
 bb5_α:

@@ -1,11 +1,26 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "X"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .section .bss
+  .align 16
+__gva: .space 16, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 1
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -54,19 +69,15 @@ bb4_α:
  snoch0_n3_β:
  jmp snoch0_n4_α
 snoch0_n4_α:
-# IR_VAR
+# IR_VAR gva
 bb5_α:
- mov rdi, qword ptr [rip + .Lx6_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 0], rax
  mov qword ptr [r12 + 8], rdx
  jmp snoch0_n5_α
  snoch0_n4_β:
  jmp flat_γ
-.Lx6_0:
- .quad .Lx6_0_s
-.Lx6_0_s:
- .string "X"
 snoch0_n5_α:
 bb6_α:
 # IR_ASSIGN_VAR

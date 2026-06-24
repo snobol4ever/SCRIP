@@ -1,11 +1,26 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "X"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .section .bss
+  .align 16
+__gva: .space 16, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 1
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -121,28 +136,24 @@ snoch0_n1_β:
  jmp snoch0_n3_α
 snoch0_n2_α:
 bb7_α:
-# IR_ASSIGN_CALL
- lea rdi, [rip + .S0]
- mov rsi, qword ptr [r12 + 104]
- mov rdx, qword ptr [r12 + 112]
- call rt_gvar_assign_descr@PLT
+# IR_ASSIGN_CALL gva
+ mov rax, qword ptr [r12 + 104]
+ mov rcx, qword ptr [r12 + 112]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rcx
  jmp snoch0_n3_α
  snoch0_n2_β:
  jmp snoch0_n3_α
 snoch0_n3_α:
-# IR_VAR
+# IR_VAR gva
 bb8_α:
- mov rdi, qword ptr [rip + .Lx16_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 152], rax
  mov qword ptr [r12 + 160], rdx
  jmp xgvarg14_done
  xgvarg14_β:
  jmp snoch0_n5_α
-.Lx16_0:
- .quad .Lx16_0_s
-.Lx16_0_s:
- .string "X"
 xgvarg14_done:
 bb9_α:
 # BOX IR_CALL real(...) -> rt_call_arr [operand-marshal, FAIL->ω]
@@ -177,19 +188,15 @@ bb10_α:
  snoch0_n4_β:
  jmp snoch0_n5_α
 snoch0_n5_α:
-# IR_VAR
+# IR_VAR gva
 bb11_α:
- mov rdi, qword ptr [rip + .Lx22_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 200], rax
  mov qword ptr [r12 + 208], rdx
  jmp xgvarg20_done
  xgvarg20_β:
  jmp flat_γ
-.Lx22_0:
- .quad .Lx22_0_s
-.Lx22_0_s:
- .string "X"
 xgvarg20_done:
 bb12_α:
 # BOX IR_CALL imag(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]

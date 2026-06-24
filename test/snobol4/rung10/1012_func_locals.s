@@ -1,11 +1,36 @@
   .intel_syntax noprefix
   .text
+  .section .rodata
+  .Lgvan0: .string "output"
+  .Lgvan1: .string "a"
+  .Lgvan2: .string "b"
+  .Lgvan3: .string "d"
+  .Lgvan4: .string "lfunc"
+  .Lgvan5: .string "checklocal"
+  .align 8
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
+  .quad .Lgvan2
+  .quad .Lgvan3
+  .quad .Lgvan4
+  .quad .Lgvan5
+  .section .bss
+  .align 16
+__gva: .space 96, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call core_lib_init@PLT
   call rt_proc_reset@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 6
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
@@ -209,19 +234,15 @@ bb13_α:
  snoch0_n6_β:
  jmp flat_γ
 snoch0_n7_α:
-# IR_VAR
+# IR_VAR gva
 bb14_α:
- mov rdi, qword ptr [rip + .Lx25_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 240], rax
  mov qword ptr [r12 + 248], rdx
  jmp xgvarg23_done
  xgvarg23_β:
  jmp snoch0_n10_α
-.Lx25_0:
- .quad .Lx25_0_s
-.Lx25_0_s:
- .string "a"
 xgvarg23_done:
 # IR_LIT_S
 bb15_α:
@@ -273,19 +294,15 @@ bb17_α:
  snoch0_n8_β:
  jmp flat_γ
 snoch0_n9_α:
-# IR_VAR
+# IR_VAR gva
 bb18_α:
- mov rdi, qword ptr [rip + .Lx33_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 48]
+ mov rdx, qword ptr [rbx + 56]
  mov qword ptr [r12 + 320], rax
  mov qword ptr [r12 + 328], rdx
  jmp xgvarg31_done
  xgvarg31_β:
  jmp snoch0_n12_α
-.Lx33_0:
- .quad .Lx33_0_s
-.Lx33_0_s:
- .string "d"
 xgvarg31_done:
 # IR_LIT_S
 bb19_α:
