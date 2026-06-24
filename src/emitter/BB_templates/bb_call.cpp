@@ -440,11 +440,55 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
     return std::string();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int relop_call_fail_idx(const char * fn) {
+    if (!fn) return -1;
+    if (!strcmp(fn, "LT")) return BINOP_LT;
+    if (!strcmp(fn, "LE")) return BINOP_LE;
+    if (!strcmp(fn, "GT")) return BINOP_GT;
+    if (!strcmp(fn, "GE")) return BINOP_GE;
+    if (!strcmp(fn, "EQ")) return BINOP_EQ;
+    if (!strcmp(fn, "NE")) return BINOP_NE;
+    return -1;
+}
+static const char * relop_idx_fail_mnem(int op) {
+    return op == BINOP_LT ? "jge" : op == BINOP_LE ? "jg" : op == BINOP_GT ? "jle" : op == BINOP_GE ? "jl" : op == BINOP_EQ ? "jne" : "je";
+}
+static IR_t * relop_arg_simple_operand(IR_graph_t * sg) {
+    if (!sg || !sg->entry) return NULL;
+    IR_t * e = sg->entry;
+    if (e->γ.node && e->γ.node->op != IR_SUCCEED && e->γ.node->op != IR_FAIL) return NULL;
+    return arith_kind_ok(e) ? e : NULL;
+}
+static std::string bb_call_relop_inline_str(IR_t * pBB, const char * fn, IR_graph_t ** subs, int relop) {
+    int resoff = bb_slot_alloc16(_.node);
+    IR_t * a = relop_arg_simple_operand(subs[0]);
+    IR_t * b = relop_arg_simple_operand(subs[1]);
+    int scratch = bb_slot_claim(16);
+    std::string s = x86("label", _.lbl_α)
+        + x86("comment", emit_fmt("BOX IR_CALL %s(...) inline integer relop [four-port, FAIL->ω]", fn));
+    s += arith_opnd_a(NULL, a);
+    s += x86_frame_store64(scratch, "rax");
+    s += arith_opnd_b(NULL, b);
+    s += x86("mov", FRQ(resoff), (long)DT_SNUL);
+    s += x86("mov", FRQ(resoff + 8), (long)0);
+    s += x86_frame_load64("rax", scratch);
+    s += x86("cmp", "rax", "rcx");
+    s += x86(relop_idx_fail_mnem(relop), "ω");
+    s += x86("jmp", "γ");
+    s += x86("def", "β");
+    s += x86("jmp", "ω");
+    return s;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
+    { int _rl = relop_call_fail_idx(fn);
+      if (g_gvar_flat_chain && _rl >= 0 && narg == 2 && subs && subs[0] && subs[1]
+          && relop_arg_simple_operand(subs[0]) && relop_arg_simple_operand(subs[1]))
+          return bb_call_relop_inline_str(pBB, fn, subs, _rl); }
     int resoff  = bb_slot_alloc16(_.node);
     int argbase = (narg > 0) ? bb_slot_claim((int)narg * 16) : resoff;
     if (MEDIUM_TEXT) {
