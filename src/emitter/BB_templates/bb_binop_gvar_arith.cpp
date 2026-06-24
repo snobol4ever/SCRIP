@@ -37,10 +37,19 @@ std::string bb_binop_gvar_arith() {
                               && _.op_name1 && _.op_name2,
                             x86("label", _.lbl_α)
                           + x86("comment", "IR_BINOP_GVAR_ARITH")
-                          + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
-                          + x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1])
-                          + x86("mov", "rdx", (long)_.op_ival)
-                          + x86("call", "rt_gvar_arith", (uint64_t)(uintptr_t)(void *) rt_gvar_arith)
+                          + IF(_.op_gva_k1 >= 0 && _.op_gva_k2 >= 0,
+                              x86("mov", "rax", RDQ("rbx", _.op_gva_k1 * 16 + 8))
+                            + x86("mov", "rcx", RDQ("rbx", _.op_gva_k2 * 16 + 8))
+                            + IF(_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
+                            + IF(_.op_ival == BINOP_SUB, x86("sub",  "rax", "rcx"))
+                            + IF(_.op_ival == BINOP_MUL, x86("imul", "rax", "rcx"))
+                            + IF(_.op_ival == BINOP_DIV, x86("cqo") + x86("idiv", "rcx"))
+                            + IF(_.op_ival == BINOP_MOD, x86("cqo") + x86("idiv", "rcx") + x86("mov", "rax", "rdx")))
+                          + IF(!(_.op_gva_k1 >= 0 && _.op_gva_k2 >= 0),
+                              x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
+                            + x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1])
+                            + x86("mov", "rdx", (long)_.op_ival)
+                            + x86("call", "rt_gvar_arith", (uint64_t)(uintptr_t)(void *) rt_gvar_arith))
                           + x86("mov", FRQ(_.op_off), "rax")
                           + x86("jmp", "γ")
                           + x86("def", "β")
@@ -50,8 +59,11 @@ std::string bb_binop_gvar_arith() {
                               && (_.op_name1 || _.op_name2) && !(_.op_name1 && _.op_name2),
                             x86("label", _.lbl_α)
                           + x86("comment", "IR_BINOP_GVAR_ARITH")
-                          + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_name1 ? _.op_name1 : _.op_name2), (_.op_name1 ? _.op_parts_lbl[0] : _.op_parts_lbl[1]))
-                          + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int)
+                          + IF((_.op_name1 ? _.op_gva_k1 : _.op_gva_k2) >= 0,
+                              x86("mov", "rax", RDQ("rbx", (_.op_name1 ? _.op_gva_k1 : _.op_gva_k2) * 16 + 8)))
+                          + IF((_.op_name1 ? _.op_gva_k1 : _.op_gva_k2) < 0,
+                              x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_name1 ? _.op_name1 : _.op_name2), (_.op_name1 ? _.op_parts_lbl[0] : _.op_parts_lbl[1]))
+                            + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int))
                           + IF( _.op_name1, x86("mov", "rcx", (long)_.op_sb))
                           + IF(!_.op_name1, x86("mov", "rcx", "rax"))
                           + IF(!_.op_name1, x86("mov", "rax", (long)_.op_sa))

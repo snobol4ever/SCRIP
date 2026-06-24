@@ -8,6 +8,8 @@
 /*====================================================================================================================*/
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
+    if (IS_NULL_fn(a)) return b;
+    if (IS_NULL_fn(b)) return a;
     DESCR_t as = descr_to_str(a);
     DESCR_t bs = descr_to_str(b);
     const char *asp = (as.v == DT_S || as.v == DT_SNUL) ? VARVAL_fn(as) : NULL;
