@@ -2696,6 +2696,7 @@ static void flat_drive_global_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *
     IR_t *c0 = bb_child0(pBB);
     g_emit.op_sa  = c0 ? bb_slot_get(c0) : -1;
     g_emit.op_off = bb_slot_alloc16(pBB);
+    g_emit.op_gva_k = g_gva_active ? gva_index_of(IR_LIT(pBB).sval) : -1;
     IR_e _sk = pBB->op; pBB->op = IR_ASSIGN_DESCR;
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
     pBB->op = _sk;
@@ -3284,7 +3285,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_GREP:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO_BY:      flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ALT:        if (g_descr_flat_chain) flat_drive_alt_gen(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_gen_alt(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_VAR:        if (g_descr_flat_chain && nd && IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') { g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else if (g_descr_flat_chain && nd && IR_LIT(nd).sval) { extern int is_global(const char *); if (is_global(IR_LIT(nd).sval)) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); g_emit.op_sval = IR_LIT(nd).sval; } else { int voff = bb_varslot_peek(IR_LIT(nd).sval); g_emit.op_sa = voff; if (voff >= 0) { g_emit.op_off = voff; if (bb_slot_get(nd) < 0) bb_slot_register(nd, voff); } else g_emit.op_off = -1; } } else if (g_gvar_flat_chain && nd && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&') { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); g_emit.op_sval = IR_LIT(nd).sval; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_VAR:        if (g_descr_flat_chain && nd && IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') { g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); } else if (g_descr_flat_chain && nd && IR_LIT(nd).sval) { extern int is_global(const char *); if (is_global(IR_LIT(nd).sval)) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_gva_k = g_gva_active ? gva_index_of(IR_LIT(nd).sval) : -1; } else { int voff = bb_varslot_peek(IR_LIT(nd).sval); g_emit.op_sa = voff; if (voff >= 0) { g_emit.op_off = voff; if (bb_slot_get(nd) < 0) bb_slot_register(nd, voff); } else g_emit.op_off = -1; } } else if (g_gvar_flat_chain && nd && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&') { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); g_emit.op_sval = IR_LIT(nd).sval; } else { g_emit.op_sa = -1; g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I:
     case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL:
     case IR_ASSIGN:     { IR_t *ac0 = bb_child0(nd);
@@ -4056,6 +4057,11 @@ void gva_collect_graph(IR_graph_t *g) {
         }
         for (int q = 0; q < nd->n_operands; q++) { IR_t *o = nd->operands[q]; if (o && o->op == IR_VAR && IR_LIT(o).sval) (void)gva_collect_var(IR_LIT(o).sval); }
     }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void gva_collect_icon_globals(void) {
+    extern const char *global_names[]; extern int global_count;
+    for (int i = 0; i < global_count; i++) if (global_names[i]) (void)gva_collect_var(global_names[i]);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int gvar_flat_chain_build_text_at(IR_graph_t *g, int entry_idx, FILE *out, const char *prefix) {
