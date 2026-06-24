@@ -306,6 +306,7 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
                 }
             }
             if (nd->op == IR_INITIAL) return 0;
+            if (nd->op == IR_SUSPEND) return 0; /* user-defined generator: lowering present (TT_SUSPEND stashes expr/do-body subgraphs) but NO native driver — no bb_suspend, no flat_drive_suspend, and the resume-spine across the proc-call boundary needs the FACT-RULE ruling on the (void*,int entry) proc-activation re-entry (see .github/DESIGN-ICON-SUSPEND.md). Until then: clean EXCISE, never silently route to fail (the walk_bb_flat default jmp-ω) which yields empty output / a counting-loop hang */
             if (nd->op == IR_IDX_SET) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> clean EXCISE, never abort */
             if (nd->op == IR_RASGN) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_RASGN + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> clean EXCISE, never silently wrong, until flat-chain rhs slotting is fixed */
             if (nd->op == IR_MAP || nd->op == IR_GREP) return 0;
