@@ -501,14 +501,18 @@ static void rk_register_classes(const tree_t * prog) {
             const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_sigil(cname, fn, ch->t == TT_ARR_DECL ? '@' : '%');
         }
     }
-    extern void class_inherit(const char *child, const char *parent);
+    extern void class_inherit_multi(const char *child, const char **parents, int nparents);
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
         if (!d || d->t != TT_CLASS_DECL) continue;
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         const char * pname = d->v.sval;
-        if (cname && pname && *pname) class_inherit(cname, pname);
+        if (cname && pname && *pname) {
+            char pbuf[8][64]; const char * pl[8]; int np = 0; const char * s = pname;
+            while (*s && np < 8) { const char * nx = strchr(s, '\x01'); size_t L = nx ? (size_t)(nx - s) : strlen(s); if (L > 63) L = 63; memcpy(pbuf[np], s, L); pbuf[np][L] = '\0'; pl[np] = pbuf[np]; np++; if (!nx) break; s = nx + 1; }
+            if (np > 0) class_inherit_multi(cname, pl, np);
+        }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

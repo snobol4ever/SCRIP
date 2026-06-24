@@ -60,6 +60,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
         "obj_new", "meth_call", "field_set", "field_set_pub",
         "die", "script_die",
+        "callsame", "nextsame", "callwith",
         "TIME", "DATE",
         NULL
     };
@@ -267,17 +268,18 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
 /*--------------------------------------------------------------------------------------------------------------------*/
 static long g_pas_heap_ctr = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
-static const char *resolve_method_chain(const char *cls, const char *mname, char *buf, int bufsz) {
-    extern const char *dat_parent(const char *name);
+static const char *resolve_method_chain(const char *cls, const char *mname, char *buf, int bufsz, int *pfound) {
+    extern int dat_mro(const char *name, const char **out, int max);
     extern int rt_proc_has_native_fn(const char *name);
-    const char *c = cls;
-    while (c && *c) {
-        snprintf(buf, bufsz, "%s__%s", c, mname);
+    if (pfound) *pfound = -1;
+    const char *chain[64]; int nchain = dat_mro(cls, chain, 64);
+    if (nchain == 0) { chain[0] = cls; nchain = 1; }
+    for (int ci = 0; ci < nchain; ci++) {
+        snprintf(buf, bufsz, "%s__%s", chain[ci], mname);
         int found = rt_proc_has_native_fn(buf);
         if (!found) for (int pi = 0; pi < g_stage2.proc_count; pi++)
             if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, buf)) { found = 1; break; }
-        if (found) return buf;
-        c = dat_parent(c);
+        if (found) { if (pfound) *pfound = ci; return buf; }
     }
     snprintf(buf, bufsz, "%s__%s", cls, mname);
     return buf;
@@ -291,12 +293,37 @@ static int meth_is_user_proc(const char *procname) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct { DESCR_t self; char mname[128]; const char *mro[64]; int mro_len; int found_idx; DESCR_t args[16]; int nargs; } RedispFrame;
+static RedispFrame g_redisp[64];
+static int g_redisp_top = 0;
+/*--------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int total) {
+    int pi;
+    for (pi = 0; pi < g_stage2.proc_count; pi++)
+        if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, procname) == 0) break;
+    if (pi >= g_stage2.proc_count) {
+        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
+        return rt_call_proc_descr(procname, total);
+    }
+    if (g_stage2.proc_table[pi].bb_idx >= 0) {
+        extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); extern int rt_proc_has_native_fn(const char *name);
+        if (rt_proc_has_native_fn(procname)) {
+            extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
+            return rt_call_proc_descr(procname, total);
+        }
+        return ir_call_proc(pi, callargs, total);
+    }
+    return proc_table_call(pi, callargs, total);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
-    extern const char *dat_parent(const char *name);
+    extern int dat_mro(const char *name, const char **out, int max);
     extern int rt_proc_has_native_fn(const char *name);
     if (!cname || !*cname) return;
-    const char *chain[32]; int n = 0;
-    for (const char *c = cname; c && *c && n < 32; c = dat_parent(c)) chain[n++] = c;
+    const char *chain[64]; int n = dat_mro(cname, chain, 64);
+    if (n == 0) { chain[0] = cname; n = 1; }
     for (int i = n - 1; i >= 0; i--) {
         char proc[256]; snprintf(proc, sizeof proc, "%s__TWEAK", chain[i]);
         if (!meth_is_user_proc(proc)) continue;
@@ -756,6 +783,33 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         rt_script_die_surface(m);
         *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "callsame") || !strcmp(fn, "nextsame") || !strcmp(fn, "callwith")) {
+        if (g_redisp_top <= 0) { *out = FAILDESCR; return 1; }
+        RedispFrame *f = &g_redisp[g_redisp_top - 1];
+        int next = -1;
+        for (int i = f->found_idx + 1; i < f->mro_len; i++) {
+            char cand[256]; snprintf(cand, sizeof cand, "%s__%s", f->mro[i], f->mname);
+            if (meth_is_user_proc(cand)) { next = i; break; }
+        }
+        if (next < 0) { *out = FAILDESCR; return 1; }
+        char nproc[256]; snprintf(nproc, sizeof nproc, "%s__%s", f->mro[next], f->mname);
+        DESCR_t ca[16]; int total;
+        if (!strcmp(fn, "callwith")) { total = 1 + nargs; if (total > 16) total = 16; ca[0] = f->self; for (int k = 0; k + 1 < total; k++) ca[1 + k] = args[k]; }
+        else { total = f->nargs; if (total > 16) total = 16; for (int k = 0; k < total; k++) ca[k] = f->args[k]; }
+        const char *smro[64]; int smro_len = f->mro_len < 64 ? f->mro_len : 64; for (int k = 0; k < smro_len; k++) smro[k] = f->mro[k];
+        char smname[128]; snprintf(smname, sizeof smname, "%s", f->mname); DESCR_t sself = f->self;
+        int rd = -1;
+        if (g_redisp_top < 64) {
+            rd = g_redisp_top++;
+            g_redisp[rd].self = sself; snprintf(g_redisp[rd].mname, sizeof g_redisp[rd].mname, "%s", smname);
+            for (int k = 0; k < smro_len; k++) g_redisp[rd].mro[k] = smro[k];
+            g_redisp[rd].mro_len = smro_len; g_redisp[rd].found_idx = next;
+            g_redisp[rd].nargs = total; for (int k = 0; k < total; k++) g_redisp[rd].args[k] = ca[k];
+        }
+        DESCR_t r = invoke_method_proc(nproc, ca, total);
+        if (rd >= 0) g_redisp_top--;
+        *out = r; return 1;
+    }
     if (!strcmp(fn, "exc_clear") && nargs == 0) {
         extern char g_script_exception[512];
         g_script_exception[0] = '\0';
@@ -890,7 +944,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "obj_new") && nargs >= 1) {
         const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }
-        char newproc[256]; resolve_method_chain(cname, "new", newproc, sizeof newproc);
+        char newproc[256]; resolve_method_chain(cname, "new", newproc, sizeof newproc, NULL);
         extern int rt_proc_has_native_fn(const char *name);
         if (meth_is_user_proc(newproc)) {
             int pi;
@@ -953,7 +1007,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *tname = VARVAL_fn(args[0]);
             extern int rt_proc_has_native_fn(const char *name);
             if (tname && dat_find_type(tname)) {
-                char tproc[256]; resolve_method_chain(tname, mname0, tproc, sizeof tproc);
+                char tproc[256]; resolve_method_chain(tname, mname0, tproc, sizeof tproc, NULL);
                 if (meth_is_user_proc(tproc)) {
                     int nextra = nargs - 2, total = 1 + nextra;
                     DESCR_t *ca = GC_malloc((size_t)total * sizeof(DESCR_t));
@@ -976,7 +1030,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!cname) { *out = FAILDESCR; return 1; }
         const char *mname = VARVAL_fn(args[1]); if (!mname || !*mname) { *out = FAILDESCR; return 1; }
         char procname[256];
-        resolve_method_chain(cname, mname, procname, sizeof procname);
+        int found_idx = -1;
+        resolve_method_chain(cname, mname, procname, sizeof procname, &found_idx);
         if (nargs == 2 && !meth_is_user_proc(procname)) {
             extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
             DESCR_t *acc = data_field_ptr(mname, args[0]);
@@ -987,27 +1042,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t *callargs = GC_malloc((size_t)total * sizeof(DESCR_t));
         callargs[0] = args[0];
         for (int k = 0; k < nextra; k++) callargs[1 + k] = args[2 + k];
-        int pi;
-        for (pi = 0; pi < g_stage2.proc_count; pi++)
-            if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, procname) == 0) break;
-        if (pi >= g_stage2.proc_count) {
-            extern DESCR_t g_call_args[];
-            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-            for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
-            *out = rt_call_proc_descr(procname, total); return 1;
+        int rd = -1;
+        if (g_redisp_top < 64) {
+            rd = g_redisp_top++;
+            extern int dat_mro(const char *name, const char **out, int max);
+            g_redisp[rd].self = args[0]; snprintf(g_redisp[rd].mname, sizeof g_redisp[rd].mname, "%s", mname);
+            g_redisp[rd].mro_len = dat_mro(cname, g_redisp[rd].mro, 64);
+            if (g_redisp[rd].mro_len == 0) { g_redisp[rd].mro[0] = cname; g_redisp[rd].mro_len = 1; }
+            g_redisp[rd].found_idx = found_idx;
+            g_redisp[rd].nargs = total < 16 ? total : 16;
+            for (int k = 0; k < g_redisp[rd].nargs; k++) g_redisp[rd].args[k] = callargs[k];
         }
-        if (g_stage2.proc_table[pi].bb_idx >= 0) {
-            extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
-            extern int rt_proc_has_native_fn(const char *name);
-            if (rt_proc_has_native_fn(procname)) {
-                extern DESCR_t g_call_args[];
-                extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-                for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
-                *out = rt_call_proc_descr(procname, total); return 1;
-            }
-            *out = ir_call_proc(pi, callargs, total); return 1;
-        }
-        *out = proc_table_call(pi, callargs, total); return 1;
+        DESCR_t _mr = invoke_method_proc(procname, callargs, total);
+        if (rd >= 0) g_redisp_top--;
+        *out = _mr; return 1;
     }
     if (!strcmp(fn, "re_match") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]); if (!subj) subj = "";
