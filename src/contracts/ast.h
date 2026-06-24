@@ -51,6 +51,7 @@ typedef enum tree_e {
     TT_TWIGIL_FIELD,
     TT_GRAMMAR_DECL,      TT_REGEX_DECL,
     TT_HAS_DECL,
+    TT_RW_DECL,
     TT_KIND_COUNT
 } tree_e;
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -199,6 +200,7 @@ static const char * const tt_e_name[TT_KIND_COUNT] = {
     [TT_TWIGIL_FIELD]     = "TT_TWIGIL_FIELD",
     [TT_GRAMMAR_DECL]     = "TT_GRAMMAR_DECL",   [TT_REGEX_DECL]       = "TT_REGEX_DECL",
     [TT_HAS_DECL]         = "TT_HAS_DECL",
+    [TT_RW_DECL]          = "TT_RW_DECL",
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 #endif
