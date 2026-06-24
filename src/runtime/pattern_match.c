@@ -347,10 +347,8 @@ DESCR_t EVAL_fn(DESCR_t expr) {
         if (endp && *endp == '\0') return REALVAL(rv);
     }
     if (g_eval_str_hook) return g_eval_str_hook(s);
-    DESCR_t compiled = CONVE_fn(expr);
-    if (IS_FAIL_fn(compiled)) return FAILDESCR;
-    DESCR_t _ev2 = EXPVAL_fn(compiled);
-    return _ev2;
+    extern DESCR_t eval_string_transient(const char *s);
+    return eval_string_transient(s);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {

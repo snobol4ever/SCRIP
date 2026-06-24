@@ -10,6 +10,8 @@ tree_t *ast_stmt_new(tree_e kind)
     return n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void ast_tree_free_dyn(tree_t *p) { ast_tree_free(p); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *sa_new(tree_e kind) { return ast_stmt_new(kind); }
 static void sa_add(tree_t *parent, tree_t *child)
 {

@@ -304,9 +304,13 @@ void IR_free(IR_graph_t * bbg) {
         if (!bb) continue;
         free(bb);
     }
+    free(bbg->lit);
+    free(bbg->exec);
     free(bbg->all);
     free(bbg);
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void IR_free_dyn(void * g) { IR_free((IR_graph_t *)g); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int bb_program_add(bb_program_t * p, IR_graph_t * bbg) {
     if (!bbg) return -1;
