@@ -350,6 +350,8 @@ int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs
         else if (strcmp(op,"-")==0) rv = rv - (double)rhs_ival;
         else if (strcmp(op,"*")==0) rv = rv * (double)rhs_ival;
         else if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { long li=(long)rv; if (!rhs_ival) return 0; rv=(double)(li%rhs_ival); }
+        else if (strcmp(op,"//")==0||strcmp(op,"div")==0) { long li=(long)rv; if (!rhs_ival) return 0; rv=(double)(li/rhs_ival); }
+        else if (strcmp(op,"/")==0) { if (!rhs_ival) return 0; rv = rv / (double)rhs_ival; }
     } else { rv = (double)rhs_ival; }
     long ival = (long)rv;
     Term *vt = ((double)ival == rv) ? term_new_int(ival) : term_new_float(rv);
@@ -372,6 +374,7 @@ int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op
     else if (strcmp(op,"-")==0) rv = a - b;
     else if (strcmp(op,"*")==0) rv = a * b;
     else if (strcmp(op,"/")==0) { if (!b) return 0; rv = a / b; }
+    else if (strcmp(op,"//")==0||strcmp(op,"div")==0) { long la=(long)a,lb=(long)b; if (!lb) return 0; rv=(double)(la/lb); }
     else if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { long la=(long)a,lb=(long)b; if (!lb) return 0; rv=(double)(la%lb); }
     else return 0;
     long ival = (long)rv;
