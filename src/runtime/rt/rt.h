@@ -130,6 +130,8 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn);
 void rt_proc_reset(void);
 void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
+DESCR_t rt_proc_call_gen(const char *name, int nargs);
+DESCR_t rt_proc_resume_gen(void);
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *sl);
 void rt_proc_set_frame(const char *name, int nslots, int decl_level);

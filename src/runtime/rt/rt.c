@@ -289,6 +289,41 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     return result;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+#define RT_GEN_ACT_MAX 256
+typedef struct { char *frame; bb_box_fn fn; } rt_gen_act_t;
+static int64_t     g_gen_arena[RT_GEN_ACT_MAX * PROC_FRAME_QWORDS];
+static rt_gen_act_t g_gen_act[RT_GEN_ACT_MAX];
+static int          g_gen_act_top = 0;
+DESCR_t rt_proc_call_gen(const char *name, int nargs)
+{
+    rt_proc_t *p = (rt_proc_t *)0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
+    if (!p || !p->fn) { fprintf(stderr, "[SUSP] rt_proc_call_gen: generator '%s' has no stackless slab\n", name ? name : "(null)"); abort(); }
+    if (g_gen_act_top >= RT_GEN_ACT_MAX) { fprintf(stderr, "[SUSP] rt_proc_call_gen: generator activation depth exceeded (%d)\n", RT_GEN_ACT_MAX); abort(); }
+    char *fb = (char *)&g_gen_arena[g_gen_act_top * PROC_FRAME_QWORDS];
+    *(DESCR_t *)(fb + 0) = NULVCL;
+    if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
+    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
+    g_gen_act[g_gen_act_top].frame = fb;
+    g_gen_act[g_gen_act_top].fn    = p->fn;
+    g_gen_act_top++;
+    (void)p->fn((void *)fb, 0);
+    DESCR_t result = *(DESCR_t *)(fb + 0);
+    if (IS_FAIL(result)) g_gen_act_top--;
+    return result;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_resume_gen(void)
+{
+    if (g_gen_act_top <= 0) return FAILDESCR;
+    rt_gen_act_t *a = &g_gen_act[g_gen_act_top - 1];
+    (void)a->fn((void *)a->frame, 1);
+    DESCR_t result = *(DESCR_t *)(a->frame + 0);
+    if (IS_FAIL(result)) g_gen_act_top--;
+    return result;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; DESCR_t old; } NameSaveEnt;
 #define PROC_FRAME_NEST_QWORDS 512
 #define PROC_FRAME_ARENA_QWORDS (8 * 1024 * 1024)
