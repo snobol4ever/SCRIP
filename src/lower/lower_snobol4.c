@@ -710,8 +710,31 @@ static IR_t * sno_freeze_pat_graph_entry(IR_graph_t * g, const tree_t * rhs) {
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     return sno_freeze_pat_ir(g, rhs, PSUCC, PFAIL);
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* FZ-5a: once-assigned-invariant pattern analysis (behavior-neutral foundation; FZ-5b consumes fz_inlinable_head). A stored pattern variable assigned EXACTLY ONCE via a frozen IR_REF_INVARIANT and never reassigned holds the same sealed matcher head for its whole life, so a match site referencing it can bake that head directly and skip the per-match rt_defer_get_pat_fn fetch. The proof is conservative: name is inlinable iff assigns==1 AND a frozen head was recorded AND the program is dynamic-write-safe (no indirect assignment, no EVAL/CODE/CONVERT that could rewrite a named cell at runtime). fz5_count_assign fires for every assignment; fz5_note_frozen records the head at each IR_REF_INVARIANT store; fz5_finalize runs once over the complete graph. */
+#define FZ5_MAX 1024
+static const char * g_fz5_name[FZ5_MAX];
+static IR_t       * g_fz5_head[FZ5_MAX];
+static int          g_fz5_acount[FZ5_MAX];
+static int          g_fz5_inl[FZ5_MAX];
+static int          g_fz5_n;
+static int          g_fz5_unsafe;
+static void fz5_reset(void) { g_fz5_n = 0; g_fz5_unsafe = 0; }
+static int fz5_find(const char * nm) { for (int i = 0; i < g_fz5_n; i++) if (g_fz5_name[i] && nm && !strcmp(g_fz5_name[i], nm)) return i; return -1; }
+static int fz5_intern(const char * nm) { int k = fz5_find(nm); if (k >= 0) return k; if (g_fz5_n >= FZ5_MAX) return -1; k = g_fz5_n++; g_fz5_name[k] = nm; g_fz5_head[k] = (IR_t *) 0; g_fz5_acount[k] = 0; g_fz5_inl[k] = 0; return k; }
+static void fz5_count_assign(const char * nm) { if (!nm || !nm[0]) return; int k = fz5_intern(nm); if (k >= 0) g_fz5_acount[k]++; }
+static void fz5_note_frozen(const char * nm, IR_t * head) { if (!nm || !nm[0]) return; int k = fz5_intern(nm); if (k >= 0) g_fz5_head[k] = head; }
+static void fz5_finalize(IR_graph_t * g) {
+    for (int i = 0; g && i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd) continue;
+        if (nd->op == IR_INDIRECT_ASSIGN_LIT_S) g_fz5_unsafe = 1;
+        if (ir_is_call_kind(nd->op)) { const char * cn = IR_LIT(nd).sval; if (cn && (!strcmp(cn,"EVAL")||!strcmp(cn,"eval")||!strcmp(cn,"CODE")||!strcmp(cn,"code")||!strcmp(cn,"CONVERT")||!strcmp(cn,"convert"))) g_fz5_unsafe = 1; } }
+    for (int i = 0; i < g_fz5_n; i++) g_fz5_inl[i] = (!g_fz5_unsafe && g_fz5_head[i] && g_fz5_acount[i] == 1) ? 1 : 0;
+    if (getenv("SCRIP_FZ_DEBUG")) { fprintf(stderr, "FZ5-ANALYZE unsafe=%d names=%d\n", g_fz5_unsafe, g_fz5_n); for (int i = 0; i < g_fz5_n; i++) if (g_fz5_head[i]) fprintf(stderr, "FZ5  name=%s assigns=%d frozen=1 inlinable=%d\n", g_fz5_name[i], g_fz5_acount[i], g_fz5_inl[i]); }
+}
+IR_t * fz_inlinable_head(const char * nm) { int k = fz5_find(nm); return (k >= 0 && g_fz5_inl[k]) ? g_fz5_head[k] : (IR_t *) 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, int is_kw) {
+    fz5_count_assign(lhs);
     if (rhs && getenv("SCRIP_FZ_DEBUG")) fprintf(stderr, "FZ-CLASSIFY lhs=%s tt=%d kind=%d islands=%d\n", lhs ? lhs : "?", (int) rhs->t, sno_pat_kind(rhs), sno_pat_islands(rhs));
     if (rhs && rhs->t == TT_ALT) {
         lc_vec qv; lc_vec_init(&qv, (int) sizeof(const tree_t *)); int allq = 1;
@@ -809,16 +832,14 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         }
     }
     if (rhs && (rhs->t == TT_CAPT_COND_ASGN || rhs->t == TT_CAPT_IMMED_ASGN)) {
-        /* bare capture RHS (PAT = BREAK(',') . W): build single capture leaf via IR_PATTERN_* runtime builder.   */
-        /* sno_build_leaf_ir returns the inner-pattern entry and wires inner.γ→CAPTURE, CAPTURE.γ→dtp (g arg).     */
+        /* FZ-4: bare capture RHS (PAT = BREAK(',') . W) — a buildable leaf carries only literal operands (QLIT/ILIT) so it is fully INVARIANT; freeze the whole matcher graph to one sealed IR_REF_INVARIANT blob via the kids-channel builder (sno_freeze_pat_ir handles TT_CAPT_* directly), exactly as FZ-3 does for invariant SEQ — no per-shape runtime builder (bb_build_break_capture_blob retired). A structurally-variant capture still orphans to plain ASSIGN (oracle bails before any pattern node). */
         if (sno_leaf_buildable(rhs)) {
-            IR_t * dtp = build(cx, IR_DTP_ASSIGN, γ, ω); IR_LIT(dtp).sval = (char *) lhs;
-            IR_t * leaf = sno_build_leaf_ir(cx, rhs, dtp, ω);
-            IR_t * cap = (leaf && leaf->γ.node && leaf->γ.node->op == IR_PATTERN_CAPTURE) ? leaf->γ.node : leaf;
-            ir_operand_push(dtp, cap);
-            return cap;
+            IR_t * head = sno_freeze_pat_graph_entry(cx->g, rhs);
+            IR_t * ref = build(cx, IR_REF_INVARIANT, γ, ω); IR_LIT(ref).sval = (char *) lhs;
+            bb_operand_aux_set(cx->g, ref, &head, 1);
+            fz5_note_frozen(lhs, head);
+            return ref;
         }
-        /* not buildable (variant) → ORPHAN plain ASSIGN (oracle bails before any pattern node) */
         IR_t * asn = IR_node_alloc(cx->g, IR_ASSIGN); IR_LIT(asn).sval = (char *) lhs;
         return NULL;
     }
@@ -827,6 +848,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_t * head = sno_freeze_pat_graph_entry(cx->g, rhs);
         IR_t * ref = build(cx, IR_REF_INVARIANT, γ, ω); IR_LIT(ref).sval = (char *) lhs;
         bb_operand_aux_set(cx->g, ref, &head, 1);
+        fz5_note_frozen(lhs, head);
         return ref;
     }
     if (rhs && rhs->t == TT_SEQ && sno_seq_buildable(rhs) && sno_seq_has_pat_leaf(rhs)) {
@@ -848,6 +870,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
                 IR_t * cat = sno_freeze_break_cap_lit_ir(cx, cset, capvar, lit);
                 IR_t * ref = build(cx, IR_REF_INVARIANT, γ, ω); IR_LIT(ref).sval = (char *) lhs;
                 bb_operand_aux_set(cx->g, ref, &cat, 1);
+                fz5_note_frozen(lhs, cat);
                 return ref;
             }
         }
@@ -1185,6 +1208,7 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
             if (g_sno4_lab_n < SNO_MAXSTMTS) { g_sno4_lab_names[g_sno4_lab_n] = nm; g_sno4_lab_nodes[g_sno4_lab_n] = lbuf[i]; g_sno4_lab_n++; } } }
     /* 5. entry */
     g->entry = (N > 0) ? lbuf[0] : cx->PSUCC;
+    fz5_reset();
     /* 6. lower each stmt */
     for (int i = 0; i < N; i++) {
         const tree_t * s = stmts[i];
@@ -1203,6 +1227,7 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
         IR_t * entry = lower_stmt_body(cx, s, γ_tgt, ω_tgt);
         γ_to(lbuf[i], entry ? entry : (cx->g->n == n_before && go_u && go_tgt_u && go_tgt_u->op != IR_RETURN ? go_tgt_u : nxt));
     }
+    fz5_finalize(g);
     return g;
 }
 
