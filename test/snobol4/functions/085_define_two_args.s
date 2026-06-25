@@ -119,11 +119,25 @@ __gva_names:
 __gva: .space 48, 0
   .section .text
   .intel_syntax noprefix
+  .section .rodata
+  .Lprocn0: .string "add"
+  .align 8
+__proc_names:
+  .quad .Lprocn0
+  .section .bss
+  .align 8
+__proc: .space 8, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call proc_startup
+  lea rdi, [rip + __proc]
+  lea rsi, [rip + __proc_names]
+  mov edx, 1
+  call rt_proc_table_fill@PLT
   lea rdi, [rip + __gva_names]
   lea rsi, [rip + __gva]
   mov edx, 3
@@ -189,14 +203,10 @@ bb8_α:
  mov qword ptr [r12 + 80], rax
  mov rax, qword ptr [r12 + 40]
  mov qword ptr [r12 + 88], rax
-  .section .rodata
-  .Lprocfn16: .string "add"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn16]
+   mov rdi, [rip + __proc + 0]
  lea rsi, [r12 + 64]
  mov edx, 2
- call rt_call_named_proc@PLT
+ call rt_call_proc_direct@PLT
  mov qword ptr [r12 + 48], rax
  mov qword ptr [r12 + 56], rdx
  cmp eax, 99
@@ -218,25 +228,25 @@ snoch9_n3_α:
 # IR_LIT_I
 bb10_α:
  mov qword ptr [r12 + 96], 6
- mov rax, qword ptr [rip + .Lx19_0]
+ mov rax, qword ptr [rip + .Lx18_0]
  mov qword ptr [r12 + 104], rax
- jmp xgvarg18_done
- xgvarg18_β:
+ jmp xgvarg17_done
+ xgvarg17_β:
  jmp flat_γ
-.Lx19_0:
+.Lx18_0:
  .quad 10
-xgvarg18_done:
+xgvarg17_done:
 # IR_LIT_I
 bb11_α:
  mov qword ptr [r12 + 112], 6
- mov rax, qword ptr [rip + .Lx21_0]
+ mov rax, qword ptr [rip + .Lx20_0]
  mov qword ptr [r12 + 120], rax
- jmp xgvarg20_done
- xgvarg20_β:
+ jmp xgvarg19_done
+ xgvarg19_β:
  jmp flat_γ
-.Lx21_0:
+.Lx20_0:
  .quad 32
-xgvarg20_done:
+xgvarg19_done:
 bb12_α:
 # BOX IR_CALL add(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+96] -> [r12+144]
@@ -249,14 +259,10 @@ bb12_α:
  mov qword ptr [r12 + 160], rax
  mov rax, qword ptr [r12 + 120]
  mov qword ptr [r12 + 168], rax
-  .section .rodata
-  .Lprocfn23: .string "add"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn23]
+   mov rdi, [rip + __proc + 0]
  lea rsi, [r12 + 144]
  mov edx, 2
- call rt_call_named_proc@PLT
+ call rt_call_proc_direct@PLT
  mov qword ptr [r12 + 128], rax
  mov qword ptr [r12 + 136], rdx
  cmp eax, 99

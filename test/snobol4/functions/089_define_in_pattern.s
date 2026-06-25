@@ -150,11 +150,25 @@ __gva_names:
 __gva: .space 16, 0
   .section .text
   .intel_syntax noprefix
+  .section .rodata
+  .Lprocn0: .string "upcase"
+  .align 8
+__proc_names:
+  .quad .Lprocn0
+  .section .bss
+  .align 8
+__proc: .space 8, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call proc_startup
+  lea rdi, [rip + __proc]
+  lea rsi, [rip + __proc_names]
+  mov edx, 1
+  call rt_proc_table_fill@PLT
   lea rdi, [rip + __gva_names]
   lea rsi, [rip + __gva]
   mov edx, 1
@@ -206,14 +220,10 @@ bb8_α:
  mov qword ptr [r12 + 48], rax
  mov rax, qword ptr [r12 + 24]
  mov qword ptr [r12 + 56], rax
-  .section .rodata
-  .Lprocfn16: .string "upcase"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn16]
+   mov rdi, [rip + __proc + 0]
  lea rsi, [r12 + 48]
  mov edx, 1
- call rt_call_named_proc@PLT
+ call rt_call_proc_direct@PLT
  mov qword ptr [r12 + 32], rax
  mov qword ptr [r12 + 40], rdx
  cmp eax, 99
@@ -235,16 +245,16 @@ snoch11_n3_α:
 # IR_LIT_S
 bb10_α:
  mov qword ptr [r12 + 64], 1
- mov rax, qword ptr [rip + .Lx19_0]
+ mov rax, qword ptr [rip + .Lx18_0]
  mov qword ptr [r12 + 72], rax
- jmp xgvarg18_done
- xgvarg18_β:
+ jmp xgvarg17_done
+ xgvarg17_β:
  jmp flat_γ
-.Lx19_0:
- .quad .Lx19_0_s
-.Lx19_0_s:
+.Lx18_0:
+ .quad .Lx18_0_s
+.Lx18_0_s:
  .string "world"
-xgvarg18_done:
+xgvarg17_done:
 bb11_α:
 # BOX IR_CALL upcase(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+64] -> [r12+96]
@@ -252,14 +262,10 @@ bb11_α:
  mov qword ptr [r12 + 96], rax
  mov rax, qword ptr [r12 + 72]
  mov qword ptr [r12 + 104], rax
-  .section .rodata
-  .Lprocfn21: .string "upcase"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn21]
+   mov rdi, [rip + __proc + 0]
  lea rsi, [r12 + 96]
  mov edx, 1
- call rt_call_named_proc@PLT
+ call rt_call_proc_direct@PLT
  mov qword ptr [r12 + 80], rax
  mov qword ptr [r12 + 88], rdx
  cmp eax, 99

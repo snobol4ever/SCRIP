@@ -111,11 +111,25 @@ __gva_names:
 __gva: .space 64, 0
   .section .text
   .intel_syntax noprefix
+  .section .rodata
+  .Lprocn0: .string "bump"
+  .align 8
+__proc_names:
+  .quad .Lprocn0
+  .section .bss
+  .align 8
+__proc: .space 8, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call proc_startup
+  lea rdi, [rip + __proc]
+  lea rsi, [rip + __proc_names]
+  mov edx, 1
+  call rt_proc_table_fill@PLT
   lea rdi, [rip + __gva_names]
   lea rsi, [rip + __gva]
   mov edx, 4
@@ -200,14 +214,10 @@ bb11_α:
  imul rax, rcx
  mov qword ptr [r12 + 32], 6
  mov qword ptr [r12 + 40], rax
-  .section .rodata
-  .Lprocfn18: .string "bump"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn18]
+   mov rdi, [rip + __proc + 0]
  lea rsi, [r12 + 32]
  mov edx, 1
- call rt_call_named_proc@PLT
+ call rt_call_proc_direct@PLT
  mov qword ptr [r12 + 16], rax
  mov qword ptr [r12 + 24], rdx
  cmp eax, 99
@@ -251,32 +261,32 @@ bb15_α:
  mov rdx, qword ptr [rbx + 56]
  mov qword ptr [r12 + 96], rax
  mov qword ptr [r12 + 104], rdx
- jmp xgvarg23_done
- xgvarg23_β:
+ jmp xgvarg22_done
+ xgvarg22_β:
  jmp snoch8_n13_α
-xgvarg23_done:
+xgvarg22_done:
 # IR_LIT_I
 bb16_α:
  mov qword ptr [r12 + 112], 6
- mov rax, qword ptr [rip + .Lx27_0]
+ mov rax, qword ptr [rip + .Lx26_0]
  mov qword ptr [r12 + 120], rax
- jmp xgvarg26_done
- xgvarg26_β:
+ jmp xgvarg25_done
+ xgvarg25_β:
  jmp snoch8_n13_α
-.Lx27_0:
+.Lx26_0:
  .quad 5
-xgvarg26_done:
+xgvarg25_done:
 bb17_α:
 # BOX IR_CALL LT(...) inline integer relop [four-port, FAIL->ω]
  mov rdx, qword ptr [rbx + 48]
  cmp edx, 6
- jne .Lx29_0
+ jne .Lx28_0
  mov rax, qword ptr [rbx + 56]
- jmp .Lx29_1
-.Lx29_0:
+ jmp .Lx28_1
+.Lx28_0:
    lea rdi, [rip + .S5]
  call rt_gvar_get_int@PLT
-.Lx29_1:
+.Lx28_1:
  mov qword ptr [r12 + 144], rax
  mov rcx, 5
  mov qword ptr [r12 + 128], 0
@@ -302,13 +312,13 @@ bb19_α:
 # IR_BINOP_GVAR_ARITH
  mov rdx, qword ptr [rbx + 48]
  cmp edx, 6
- jne .Lx33_0
+ jne .Lx32_0
  mov rax, qword ptr [rbx + 56]
- jmp .Lx33_1
-.Lx33_0:
+ jmp .Lx32_1
+.Lx32_0:
  lea rdi, [rip + .S5]
  call rt_gvar_get_int@PLT
-.Lx33_1:
+.Lx32_1:
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 160], rax
