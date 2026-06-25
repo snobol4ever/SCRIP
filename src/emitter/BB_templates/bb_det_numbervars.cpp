@@ -15,9 +15,9 @@ std::string bb_det_numbervars() {
     int s_end   = (int)_.op_parts_ival[2];
     return x86("label", _.lbl_α)
          + x86("comment", "IR_DET_NUMBERVARS")
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(s_term)))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF(s_start)))
-         + x86("mov", "rdx", FRQ(GZ_CELL_OFF(s_end)))
+         + x86("lea", "rdi", FR(GZ_CELL_OFF(s_term)))
+         + x86("lea", "rsi", FR(GZ_CELL_OFF(s_start)))
+         + x86("lea", "rdx", FR(GZ_CELL_OFF(s_end)))
          + x86("call", "rt_pl_numbervars_cell", (uint64_t)(uintptr_t)(void *)rt_pl_numbervars_cell)
          + x86("test", "eax", "eax")
          + x86("jne", "γ")

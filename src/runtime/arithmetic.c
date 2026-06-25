@@ -118,21 +118,12 @@ int ge(DESCR_t a, DESCR_t b) {
 long rt_arith(int lk, long li, const char *ls,
                   int rk, long ri, const char *rs, const char *op)
 {
-    extern Term **g_resolve_env;
-    extern void rt_pl_env_ensure(int slot);
-    (void)ls; (void)rs;
-    if (lk == IR_LOGICVAR && li >= 0) rt_pl_env_ensure(li);
-    if (rk == IR_LOGICVAR && ri >= 0) rt_pl_env_ensure(ri);
+    /* PL-DESCR-2 sub-flip 2: g_resolve_env (the Term* shadow env) is DELETED. rt_arith is reached only by the
+     * legacy non-cell boxes (IR_ARITH-by-slot); the GZ path uses rt_pl_is_cell_arith on inline cells. With the
+     * shadow gone, a logicvar operand simply falls through to its literal default (lv=li / rv=ri). */
+    (void)ls; (void)rs; (void)lk; (void)rk;
     long lv = li;
-    if (lk == IR_LOGICVAR && g_resolve_env && li >= 0) {
-        Term *t = g_resolve_env[li] ? term_deref(g_resolve_env[li]) : NULL;
-        if (t && t->tag == TERM_INT) lv = t->ival;
-    }
     long rv = ri;
-    if (rk == IR_LOGICVAR && g_resolve_env && ri >= 0) {
-        Term *t = g_resolve_env[ri] ? term_deref(g_resolve_env[ri]) : NULL;
-        if (t && t->tag == TERM_INT) rv = t->ival;
-    }
     if (!op) return lv + rv;
     if (strcmp(op, "sign")==0)     return (lv > 0) ? 1 : (lv < 0) ? -1 : 0;
     if (strcmp(op, "abs")==0)      return (lv < 0) ? -lv : lv;

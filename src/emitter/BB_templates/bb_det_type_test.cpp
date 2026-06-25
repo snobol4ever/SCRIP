@@ -16,7 +16,7 @@ std::string bb_det_type_test() {
     if (!fn || slot < 0) return x86_bomb("bb_det_type_test: missing fn or slot");
     return x86("label", _.lbl_α)
          + x86("comment", "IR_DET_TYPE_TEST")
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(slot)))
+         + x86("lea", "rdi", FR(GZ_CELL_OFF(slot)))
          + x86("mov", "rsi", ROQ(0))
          + x86("call", "rt_pl_type_test_cell", (uint64_t)(uintptr_t)(void *)rt_pl_type_test_cell)
          + x86("test", "eax", "eax")

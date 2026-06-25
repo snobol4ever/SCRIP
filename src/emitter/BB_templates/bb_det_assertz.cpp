@@ -14,7 +14,7 @@ std::string bb_det_assertz() {
     long prepend = _.op_parts_ival[1];
     return x86("label", _.lbl_α)
          + x86("comment", "IR_DET_ASSERTZ")
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(s_cl)))
+         + x86("lea", "rdi", FR(GZ_CELL_OFF(s_cl)))
          + x86("mov32", "esi", prepend)
          + x86("call", "rt_pl_dyn_assertz_cell", (uint64_t)(uintptr_t)(void *)rt_pl_dyn_assertz_cell)
          + x86("test", "eax", "eax")

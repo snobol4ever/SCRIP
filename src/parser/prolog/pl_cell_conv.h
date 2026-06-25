@@ -43,20 +43,32 @@ static inline Term *pl_cell_to_term(pl_cell_t *c) {
 }
 /*-- Term -> inline cell : build an inline-cell image of a Term and unify it into dst (recurses compounds) -----------*/
 static inline int pl_unify_term_into_cell(pl_cell_t *dst, Term *t, pl_trail_t *trail);
-static inline pl_cell_t pl_term_to_cell_word(Term *t) {
+/* Term -> inline-cell WORD, preserving variable sharing: a memo (Term var -> its allocated cell) makes every
+ * occurrence of one logic variable collapse to a single cell, so e.g. the copy f(Y,Y) round-trips with Y shared
+ * (without the memo each occurrence would mint a fresh unbound cell and A==B would wrongly fail). */
+static inline pl_cell_t pl_term_to_cell_word_m(Term *t, Term **vk, pl_cell_t **vv, int *vn, int cap) {
     t = term_deref(t);
     if (!t) return pl_make_int(0);
-    if (t->tag == TERM_VAR)   { pl_cell_t *v = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t)); pl_init_var(v, t->var_slot); return *v; }
+    if (t->tag == TERM_VAR) {
+        for (int i = 0; i < *vn; i++) if (vk[i] == t) return pl_make_ref(vv[i], t->var_slot);
+        pl_cell_t *v = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t)); pl_init_var(v, t->var_slot);
+        if (*vn < cap) { vk[*vn] = t; vv[*vn] = v; (*vn)++; }
+        return *v;
+    }
     if (t->tag == TERM_INT)   return pl_make_int((int64_t)t->ival);
     if (t->tag == TERM_ATOM)  return pl_make_atom(t->atom_id);
     if (t->tag == TERM_FLOAT) return pl_make_float(t->fval);
     if (t->tag == TERM_COMPOUND) {
         int fn = t->compound.functor, ar = t->compound.arity;
         pl_cell_t *aa = (pl_cell_t *)PL_CELL_ALLOC((size_t)(ar > 0 ? ar : 1) * sizeof(pl_cell_t));
-        for (int i = 0; i < ar; i++) aa[i] = pl_term_to_cell_word(t->compound.args[i]);
+        for (int i = 0; i < ar; i++) aa[i] = pl_term_to_cell_word_m(t->compound.args[i], vk, vv, vn, cap);
         return pl_make_compound(fn, ar, aa);
     }
     return pl_make_int(0);
+}
+static inline pl_cell_t pl_term_to_cell_word(Term *t) {
+    Term *vk[256]; pl_cell_t *vv[256]; int vn = 0;
+    return pl_term_to_cell_word_m(t, vk, vv, &vn, 256);
 }
 static inline int pl_unify_term_into_cell(pl_cell_t *dst, Term *t, pl_trail_t *trail) {
     pl_cell_t w = pl_term_to_cell_word(t);

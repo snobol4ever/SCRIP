@@ -35,7 +35,7 @@ static int bcch_clause_dead(int k) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_arg_unify(const IR_t *a, const IR_t *c, int lk, int ro_id) {
     if (a->op != IR_LOGICVAR) return std::string();
-    return x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)IR_LIT(a).ival)))
+    return x86("lea", "rdi", FR(GZ_CELL_OFF((int)IR_LIT(a).ival)))
          + x86("mov", "esi", (long)c->op)
          + x86("mov", "rdx", (c->op == IR_LIT_I) ? (long)IR_LIT(c).ival : 0L)
          + (c->op == IR_ATOM ? x86_ro_load_q("rcx", ro_id) : x86("mov", "ecx", (long)0))

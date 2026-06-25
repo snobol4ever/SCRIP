@@ -54,7 +54,6 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
         memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);
         trail_init(&g_resolve_trail);
         g_resolve_cut_flag = 0;
-        g_resolve_env      = NULL;
         g_resolve_active   = 0;
     }
     memset(&s2->module_registry, 0, sizeof s2->module_registry);

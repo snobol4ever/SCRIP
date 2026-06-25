@@ -36,7 +36,7 @@ static std::string bcfa_finish_call() {
 }
 static std::string bcfa_finish() {
     return x86("mov", "rdi", FRQ(GZ_CELL_OFF(bcfa_acc())))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF(bcfa_result())))
+         + x86("lea", "rsi", FR(GZ_CELL_OFF(bcfa_result())))
          + bcfa_finish_call()
          + x86("test", "eax", "eax")
          + x86("je", "ω")
@@ -62,7 +62,7 @@ std::string bb_cell_findall() {
          + x86("mov32", "esi", (long)bcfa_callee_nslots())
          + x86("call", "rt_enter", (uint64_t)(uintptr_t)(void *)rt_enter)
          + x86("mov", "rdi", "rax")
-         + FOR(0, na, [&](int i) { return x86("mov", bcfa_areg(i), FRQ(GZ_CELL_OFF((int)_.op_parts_ival[3 + i]))); })
+         + FOR(0, na, [&](int i) { return x86("lea", bcfa_areg(i), FR(GZ_CELL_OFF((int)_.op_parts_ival[3 + i]))); })
          + x86_call_tgt(X86T_TGT0)
          + x86("def", L(0))
          + x86("test", "eax", "eax")

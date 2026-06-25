@@ -14,8 +14,8 @@ std::string bb_det_char_type() {
     int s_type = (int)_.op_parts_ival[1];
     return x86("label", _.lbl_α)
          + x86("comment", "IR_DET_CHAR_TYPE")
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(s_char)))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF(s_type)))
+         + x86("lea", "rdi", FR(GZ_CELL_OFF(s_char)))
+         + x86("lea", "rsi", FR(GZ_CELL_OFF(s_type)))
          + x86("xor", "edx", "edx")
          + x86("call", "rt_pl_char_type_cell", (uint64_t)(uintptr_t)(void *)rt_pl_char_type_cell)
          + x86("test", "eax", "eax")

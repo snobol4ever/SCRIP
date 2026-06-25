@@ -18,7 +18,7 @@ std::string bb_det_format() {
          + x86("comment", "IR_DET_FORMAT")
          + x86("mov", "rdi", ROQ(0))
          + IF(arity == 2 && list_slot >= 0,
-               x86("mov", "rsi", FRQ(GZ_CELL_OFF(list_slot))))
+               x86("lea", "rsi", FR(GZ_CELL_OFF(list_slot))))
          + IF(!(arity == 2 && list_slot >= 0),
                x86("xor", "esi", "esi"))
          + x86("call", "rt_pl_format_cell", (uint64_t)(uintptr_t)(void *)rt_pl_format_cell)

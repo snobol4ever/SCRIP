@@ -403,8 +403,8 @@ inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store64(int off, const char * reg) {
-    int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    int g = x86_rnum(reg); uint8_t rex = 0x48; if (g >= 8) rex |= 0x04;
+    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov qword ptr [rsp + ") + std::to_string(off) + "], " + reg + "\n";
 }
 inline std::string x86_rsp_store32_imm(int off, long imm) {
@@ -412,8 +412,8 @@ inline std::string x86_rsp_store32_imm(int off, long imm) {
     return std::string(" mov dword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string((uint32_t)imm) + "\n";
 }
 inline std::string x86_rsp_load64(const char * reg, int off) {
-    int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    int g = x86_rnum(reg); uint8_t rex = 0x48; if (g >= 8) rex |= 0x04;
+    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov ") + reg + ", qword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 inline const char * RSP(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }

@@ -66,7 +66,7 @@ static inline pl_cell_t *pl_deref(pl_cell_t *c) {
 static inline int pl_is_var(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_PLVAR; }   /* unbound */
 static inline int pl_is_int(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_I; }
 static inline int pl_is_atom(pl_cell_t *c)     { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_A; }
-static inline int pl_is_float(pl_cell_t *c)    { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_R; }
+static inline int plc_is_float(pl_cell_t *c)    { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_R; }
 static inline int pl_is_compound(pl_cell_t *c) { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_PLREF; }
 
 /* value extractors (read the deref'd cell) */
@@ -75,7 +75,7 @@ static inline int     pl_atom_id(pl_cell_t *c)  { return (int)pl_deref(c)->i; }
 static inline double  pl_float_val(pl_cell_t *c) { return pl_deref(c)->r; }
 
 /* functor/arity straight from the discriminator — NO heap deref (the indexing win) */
-static inline int pl_functor(pl_cell_t *c) { return (int)(pl_deref(c)->slen >> 16); }
+static inline int plc_functor(pl_cell_t *c) { return (int)(pl_deref(c)->slen >> 16); }
 static inline int pl_arity(pl_cell_t *c)   { return (int)(pl_deref(c)->slen & 0xFFFFu); }
 static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
 

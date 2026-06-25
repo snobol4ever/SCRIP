@@ -14,8 +14,8 @@ std::string bb_det_term_string() {
     int s_result = (int)_.op_parts_ival[1];
     return x86("label", _.lbl_α)
          + x86("comment", "IR_DET_TERM_STRING")
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(s_term)))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF(s_result)))
+         + x86("lea", "rdi", FR(GZ_CELL_OFF(s_term)))
+         + x86("lea", "rsi", FR(GZ_CELL_OFF(s_result)))
          + x86("call", "rt_pl_term_string_cell", (uint64_t)(uintptr_t)(void *)rt_pl_term_string_cell)
          + x86("test", "eax", "eax")
          + x86("jne", "γ")

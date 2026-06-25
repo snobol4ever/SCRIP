@@ -16,6 +16,10 @@
 #include <ctype.h>
 #include <gc/gc.h>
 #include <setjmp.h>
+/* PL-DESCR-2 sub-flip 2: hot is/cmp helpers read inline cells natively (no term_new_* on the scalar hot path). */
+#include "../../parser/prolog/pl_cell.h"
+#define PL_CELL_ALLOC(n) GC_MALLOC(n)
+#include "../../parser/prolog/pl_cell_conv.h"
 #include "../include/dtp.h"
 extern const char *Σ;
 extern int         Δ;
@@ -288,22 +292,22 @@ int rt_type_test_term(const char *fn, void *t0) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_int(void *lhs_cell, long val) {
-    extern Trail g_resolve_trail;
-    Term *lhs = (Term *)lhs_cell;
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs) return 0;
-    Term *vt = term_new_int(val);
-    int mark = trail_mark(&g_resolve_trail);
-    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    pl_cell_t w = pl_make_int((int64_t)val);
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_float(void *lhs_cell, double val) {
-    extern Trail g_resolve_trail;
-    Term *lhs = (Term *)lhs_cell;
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs) return 0;
-    Term *vt = term_new_float(val);
-    int mark = trail_mark(&g_resolve_trail);
-    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    pl_cell_t w = pl_make_float(val);
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -311,17 +315,15 @@ int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void
     if (!op) return 0;
     double l = 0.0, r = 0.0;
     if (lhs_cell) {
-        Term *t = term_deref((Term *)lhs_cell);
-        if (!t) return 0;
-        if (t->tag == TERM_INT)   l = (double)t->ival;
-        else if (t->tag == TERM_FLOAT) l = t->fval;
+        pl_cell_t *t = pl_deref((pl_cell_t *)lhs_cell);
+        if ((int)t->v == DT_I)      l = (double)t->i;
+        else if ((int)t->v == DT_R) l = t->r;
         else return 0;
     } else { l = (double)lhs_ival; }
     if (rhs_cell) {
-        Term *t = term_deref((Term *)rhs_cell);
-        if (!t) return 0;
-        if (t->tag == TERM_INT)   r = (double)t->ival;
-        else if (t->tag == TERM_FLOAT) r = t->fval;
+        pl_cell_t *t = pl_deref((pl_cell_t *)rhs_cell);
+        if ((int)t->v == DT_I)      r = (double)t->i;
+        else if ((int)t->v == DT_R) r = t->r;
         else return 0;
     } else { r = (double)rhs_ival; }
     if (strcmp(op,"=:=")==0) return (l==r)?1:0;
@@ -335,15 +337,14 @@ int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival) {
-    extern Trail g_resolve_trail;
-    Term *lhs = (Term *)lhs_cell;
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs) return 0;
     double rv = 0.0;
     if (rhs_cell) {
-        Term *t = term_deref((Term *)rhs_cell);
-        if (!t) return 0;
-        if (t->tag == TERM_INT)   rv = (double)t->ival;
-        else if (t->tag == TERM_FLOAT) rv = t->fval;
+        pl_cell_t *t = pl_deref((pl_cell_t *)rhs_cell);
+        if ((int)t->v == DT_I)      rv = (double)t->i;
+        else if ((int)t->v == DT_R) rv = t->r;
         else return 0;
         if (!op) { }
         else if (strcmp(op,"+")==0) rv = rv + (double)rhs_ival;
@@ -354,20 +355,19 @@ int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs
         else if (strcmp(op,"/")==0) { if (!rhs_ival) return 0; rv = rv / (double)rhs_ival; }
     } else { rv = (double)rhs_ival; }
     long ival = (long)rv;
-    Term *vt = ((double)ival == rv) ? term_new_int(ival) : term_new_float(rv);
-    int mark = trail_mark(&g_resolve_trail);
-    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    pl_cell_t w = ((double)ival == rv) ? pl_make_int((int64_t)ival) : pl_make_float(rv);
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op) {
-    extern Trail g_resolve_trail;
-    Term *lhs = (Term *)lhs_cell;
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs || !cell1 || !cell2) return 0;
-    Term *t1 = term_deref((Term *)cell1), *t2 = term_deref((Term *)cell2);
-    if (!t1 || !t2) return 0;
-    double a = (t1->tag == TERM_INT) ? (double)t1->ival : (t1->tag == TERM_FLOAT) ? t1->fval : -1e300;
-    double b = (t2->tag == TERM_INT) ? (double)t2->ival : (t2->tag == TERM_FLOAT) ? t2->fval : -1e300;
+    pl_cell_t *t1 = pl_deref((pl_cell_t *)cell1), *t2 = pl_deref((pl_cell_t *)cell2);
+    double a = ((int)t1->v == DT_I) ? (double)t1->i : ((int)t1->v == DT_R) ? t1->r : -1e300;
+    double b = ((int)t2->v == DT_I) ? (double)t2->i : ((int)t2->v == DT_R) ? t2->r : -1e300;
     if (a == -1e300 || b == -1e300) return 0;
     double rv;
     if (!op || strcmp(op,"+")==0) rv = a + b;
@@ -378,9 +378,9 @@ int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op
     else if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { long la=(long)a,lb=(long)b; if (!lb) return 0; rv=(double)(la%lb); }
     else return 0;
     long ival = (long)rv;
-    Term *vt = ((double)ival == rv) ? term_new_int(ival) : term_new_float(rv);
-    int mark = trail_mark(&g_resolve_trail);
-    if (!unify(term_deref(lhs), vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
+    pl_cell_t w = ((double)ival == rv) ? pl_make_int((int64_t)ival) : pl_make_float(rv);
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -392,9 +392,40 @@ void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
     return term_new_compound(fid, arity, args);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/* Materialize a cell graph to a Term graph while preserving VARIABLE IDENTITY across BOTH operands of a
+ * comparison: a shared memo (deref'd cell address -> one Term var) guarantees that the same logic variable
+ * appearing in t0 and t1 maps to the SAME Term* — which is what resolve_term_compare's pointer-identity var
+ * test (a==b) needs. Going through plain pl_cell_to_term mints a fresh Term var per visit, so X==Y after X=Y
+ * would wrongly compare two distinct vars as unequal ("diff"). */
+static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap) {
+    pl_cell_t *d = pl_deref(c);
+    int t = (int)d->v;
+    if (t == DT_PLVAR) {
+        for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return vterm[i];
+        Term *fresh = term_new_var((int)d->slen);
+        if (*vn < cap) { vaddr[*vn] = d; vterm[*vn] = fresh; (*vn)++; }
+        return fresh;
+    }
+    if (t == DT_I) return term_new_int((long)d->i);
+    if (t == DT_A) return term_new_atom((int)d->i);
+    if (t == DT_R) return term_new_float(d->r);
+    if (t == DT_PLREF) {
+        int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
+        pl_cell_t *aa = (pl_cell_t *)d->p;
+        Term **args = (Term **)GC_MALLOC((size_t)(ar > 0 ? ar : 1) * sizeof(Term *));
+        for (int i = 0; i < ar; i++) args[i] = rt_cmp_cell_to_term_shared(&aa[i], vaddr, vterm, vn, cap);
+        return term_new_compound(fn, ar, args);
+    }
+    return term_new_var(-1);
+}
 int rt_term_cmp_terms(const char *op, void *t0, void *t1) {
     if (!op) return 0;
-    int c = resolve_term_compare((Term *)t0, (Term *)t1);
+    /* @</==/\\== etc on the GZ path receive cell ADDRESSES; compare on Term views (standard order of terms),
+     * sharing one var memo across both operands so identical variables compare identical. */
+    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
+    Term *T0 = rt_cmp_cell_to_term_shared((pl_cell_t *)t0, vaddr, vterm, &vn, 256);
+    Term *T1 = rt_cmp_cell_to_term_shared((pl_cell_t *)t1, vaddr, vterm, &vn, 256);
+    int c = resolve_term_compare(T0, T1);
     if (strcmp(op, "==")   == 0) return (c == 0) ? 1 : 0;
     if (strcmp(op, "\\==") == 0) return (c != 0) ? 1 : 0;
     if (strcmp(op, "@<")   == 0) return (c <  0) ? 1 : 0;
