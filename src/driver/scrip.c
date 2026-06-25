@@ -3064,6 +3064,10 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
             }
+            { extern int g_proc_direct_active; extern void proc_collect_reset(void); extern void proc_collect_graph(IR_graph_t *); extern int proc_slot_count(void);
+              proc_collect_reset(); proc_collect_graph(sbbg);
+              for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *pn2 = s2->proc_table[_pi].name; if (!pn2 || strcmp(pn2, "main") == 0) continue; int idx2 = s2->proc_table[_pi].bb_idx; if (idx2 < 0 || idx2 >= s2->bbp.count || !s2->bbp.table[idx2] || !s2->bbp.table[idx2]->entry) continue; proc_collect_graph(s2->bbp.table[idx2]); }
+              g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
             int _pbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             int *pidx_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
             int *peak_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
@@ -3132,6 +3136,7 @@ int main(int argc, char **argv)
             }
             free(pidx_buf); free(peak_buf);
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+            extern int proc_slot_count(void); extern int g_proc_direct_active;
             gva_collect_reset();
             gva_collect_graph(sbbg);
             int n_gva = gva_count();
@@ -3143,9 +3148,20 @@ int main(int argc, char **argv)
                 printf("  .section .bss\n  .align 16\n__gva: .space %d, 0\n", n_gva * 16);
                 printf("  .section .text\n  .intel_syntax noprefix\n");
             }
+            int n_proc_slot = proc_slot_count();
+            if (n_proc_slot > 0) {
+                extern const char *proc_slot_name(int);
+                printf("  .section .rodata\n");
+                for (int k = 0; k < n_proc_slot; k++) printf("  .Lprocn%d: .string \"%s\"\n", k, proc_slot_name(k));
+                printf("  .align 8\n__proc_names:\n");
+                for (int k = 0; k < n_proc_slot; k++) printf("  .quad .Lprocn%d\n", k);
+                printf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", n_proc_slot * 8);
+                printf("  .section .text\n  .intel_syntax noprefix\n");
+            }
             printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n");
             if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
+            if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva);
             printf("  call rt_frame@PLT\n  mov rdi, rax\n  xor esi, esi\n");
             printf("  call flat_\xce\xb1\n");
@@ -3153,6 +3169,7 @@ int main(int argc, char **argv)
             g_gva_active = (n_gva > 0) ? 1 : 0;
             int rc = gvar_flat_chain_build_text(sbbg, stdout, "flat");
             g_gva_active = 0;
+            g_proc_direct_active = 0;
             g_frame_active = 0;
             xa_emit_strtab_rodata();
             fflush(stdout);
