@@ -4,6 +4,7 @@
 #include "../../parser/snobol4/scrip_cc.h"
 #include "../rt/rt_protected.h"
 extern int g_protected_pat_vars_armed;
+int g_call_fastpath_off = 0;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2722,7 +2723,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _io_chan[ch].fp = f;
         _io_chan[ch].is_output = 0;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? strdup(vn) : NULL;
+        _io_chan[ch].varname = vn ? strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
     } else {
         if (_input_fp && _input_fp != stdin) fclose(_input_fp);
         _input_fp = f;
@@ -2750,7 +2751,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         _io_chan[ch].fp = f;
         _io_chan[ch].is_output = 1;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? strdup(vn) : NULL;
+        _io_chan[ch].varname = vn ? strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
     } else {
         fclose(f);
         return FAILDESCR;
