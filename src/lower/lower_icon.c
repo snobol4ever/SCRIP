@@ -60,6 +60,7 @@ static int is_resumable(const tree_t * t) {
 }
 /*====================================================================================================================================================================================================*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static int icn_subtree_has_suspend(const tree_t *n);
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
@@ -421,7 +422,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192, IR_LANG_ICN); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->psucc = PSUCC; cx->pfail = PFAIL;
-    IR_t * succ = PSUCC; IR_t * fail = PFAIL;
+    IR_t * succ = icn_subtree_has_suspend(body) ? PFAIL : PSUCC; IR_t * fail = PFAIL;
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
         IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); succ = entry; fail = entry;
