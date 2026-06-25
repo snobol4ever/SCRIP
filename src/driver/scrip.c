@@ -149,6 +149,14 @@ static int scan_fn_cset_arg(IR_t *nd) {
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
     return kw_cset_const_str(IR_LIT(ae).sval) != (const char *)0;
 }
+static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
+static int scan_any_cset_var_ok(stage2_t *s2, int gi, IR_graph_t *g, IR_t *nd) {
+    IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
+    if (!ae || ae->op != IR_VAR || !IR_LIT(ae).sval || IR_LIT(ae).sval[0] == '&') return 0;
+    if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
+    return graph_var_assigned_or_param(s2, gi, g, IR_LIT(ae).sval);
+}
 static int scan_tab_arg_ok(IR_t *nd) {
     IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
@@ -174,7 +182,8 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
         if (nd->op == IR_KEYWORD && !keyword_supported(IR_LIT(nd).sval)) return 0;
         if (nd->op == IR_CALL || ir_is_scan_kind(nd->op)) {
             if (!IR_LIT(nd).sval) return 0;
-            if (!strcmp(IR_LIT(nd).sval, "any") || !strcmp(IR_LIT(nd).sval, "many") || !strcmp(IR_LIT(nd).sval, "upto")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_cset_arg(nd))) return 0; }
+            if (!strcmp(IR_LIT(nd).sval, "any")) { if (!(IR_LIT(nd).dval == 3.0 && (scan_fn_cset_arg(nd) || scan_any_cset_var_ok(s2, gi, g, nd)))) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "many") || !strcmp(IR_LIT(nd).sval, "upto")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_cset_arg(nd))) return 0; }
             else if (!strcmp(IR_LIT(nd).sval, "match")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_S))) return 0; }
             else if (!strcmp(IR_LIT(nd).sval, "tab")) { if (!(IR_LIT(nd).dval == 3.0 && scan_tab_arg_ok(nd))) return 0; }
             else if (!strcmp(IR_LIT(nd).sval, "move")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_I))) return 0; }
@@ -228,6 +237,7 @@ static int rhs_kind_ok(IR_t *r) {
     { extern void *dat_find_type(const char *name); if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && IR_LIT(r).sval && dat_find_type(IR_LIT(r).sval)) return 1; }
     { extern int rt_builtin_is_known(const char *name); const char *bn = IR_LIT(r).sval; if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && bn && rt_builtin_is_known(bn)) return 1; }
     if (r->op == IR_FIELD_GET) return 1;
+    if (r->op == IR_TO || r->op == IR_TO_BY) return 1;
     if (r->op == IR_CONJ) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
     { extern int is_global(const char *); if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) { IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0; } }
     if (r->op == IR_CASE) return 1;
@@ -305,6 +315,7 @@ static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, cons
 static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
     extern int rt_builtin_is_known(const char *name);
     if (!s2) return 0;
+    if (getenv("SCRIP_ICN_NOGATE")) return 1;
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
         if (!g || !g->all) continue;

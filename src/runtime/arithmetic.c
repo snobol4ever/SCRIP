@@ -180,3 +180,13 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
         default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
     }
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_num_neg(DESCR_t a) {
+    if (IS_REAL_fn(a)) return REALVAL(-to_real(a));
+    return INTVAL(-to_int(a));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_num_pos(DESCR_t a) {
+    if (IS_REAL_fn(a)) return REALVAL(to_real(a));
+    return INTVAL(to_int(a));
+}

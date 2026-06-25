@@ -2129,6 +2129,13 @@ static const char *scan_cset_or_lit_arg(IR_t *nd) {
     return (const char *)0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static const char *scan_cset_var_arg(IR_t *nd) {
+    IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && arg_entry_terminal(sblks[0]->entry)) ? sblks[0]->entry : (IR_t *)0;
+    if (ae && ae->op == IR_VAR && IR_LIT(ae).sval && IR_LIT(ae).sval[0] != '&') return IR_LIT(ae).sval;
+    return (const char *)0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_generator_kind(IR_e t);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int subchain_node_is_generator(IR_t *nd) {
@@ -3080,8 +3087,10 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             if (nd->op == IR_SCAN_ANY || nd->op == IR_SCAN_MATCH) {
                 IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
                 const char *cs = (nd->op == IR_SCAN_ANY) ? scan_cset_or_lit_arg(nd) : ((sblks && (int)IR_LIT(nd).ival == 1 && sblks[0] && sblks[0]->entry && sblks[0]->entry->op == IR_LIT_S && arg_entry_terminal(sblks[0]->entry)) ? IR_LIT(sblks[0]->entry).sval : (const char *)0);
+                const char *cv = (!cs && nd->op == IR_SCAN_ANY) ? scan_cset_var_arg(nd) : (const char *)0;
                 g_emit.op_name1 = cs;
-                g_emit.op_sa  = -1;
+                g_emit.op_name2 = cv;
+                g_emit.op_sa  = cv ? bb_varslot_peek(cv) : -1;
                 g_emit.op_sb  = -1;
                 g_emit.op_off = bb_slot_alloc16(nd);
                 FILL(nd, lbl_γ, lbl_ω, lbl_β);

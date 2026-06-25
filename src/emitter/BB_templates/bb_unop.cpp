@@ -7,6 +7,8 @@ extern "C" {
 #include "descr.h"
 extern int g_descr_flat_chain;
 struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
+struct DESCR_t rt_num_neg(struct DESCR_t a);
+struct DESCR_t rt_num_pos(struct DESCR_t a);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -90,10 +92,12 @@ std::string bb_unop() {
              + x86("jmp",  "ω") :
                x86("comment", "IR_UNOP")
              + x86("label",   _.lbl_α)
-             + x86("mov", "rax", FRQ(_.op_sa + 8))
-             + IF(uop() == UO_NEG, x86("neg", "rax"))
-             + x86("mov", FRQ(_.op_off),     (long)DT_I)
-             + x86("mov", FRQ(_.op_off + 8), "rax")
+             + x86("mov", "rdi", FRQ(_.op_sa))
+             + x86("mov", "rsi", FRQ(_.op_sa + 8))
+             + IF(uop() == UO_NEG, x86("call", "rt_num_neg", (uint64_t)(uintptr_t)(void *)rt_num_neg))
+             + IF(uop() != UO_NEG, x86("call", "rt_num_pos", (uint64_t)(uintptr_t)(void *)rt_num_pos))
+             + x86("mov", FRQ(_.op_off),     "rax")
+             + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86("jmp", "γ")
              + x86("def",  "β")
              + x86("jmp",  "ω");
