@@ -95,6 +95,15 @@ DESCR_t table_get(TBBLK_t *tbl, const char *key) {
     return NULVCL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t table_get_found(TBBLK_t *tbl, const char *key, int *found) {
+    *found = 0;
+    if (!tbl || !key) return NULVCL;
+    unsigned h = _tbl_hash(key);
+    for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next)
+        if (strcmp(e->key, key) == 0) { *found = 1; return e->val; }
+    return NULVCL;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) {
     if (!tbl || !key) return;
     unsigned h = _tbl_hash(key);

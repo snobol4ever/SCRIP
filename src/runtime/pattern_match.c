@@ -139,12 +139,11 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         if (IS_INT_fn(idx))       { snprintf(kb,sizeof kb,"%lld",(long long)idx.i); ks=kb; }
         else if (IS_REAL_fn(idx)) { snprintf(kb,sizeof kb,"%g",idx.r); ks=kb; }
         else                      { ks = VARVAL_fn(idx); if (!ks) ks=""; }
-        if (!table_has(arr.tbl, ks)) {
-            if (arr.tbl->dflt.v != DT_FAIL && arr.tbl->dflt.v != 0)
-                return arr.tbl->dflt;
-            return NULVCL;
-        }
-        return table_get(arr.tbl, ks);
+        int found; DESCR_t hit = table_get_found(arr.tbl, ks, &found);
+        if (found) return hit;
+        if (arr.tbl->dflt.v != DT_FAIL && arr.tbl->dflt.v != 0)
+            return arr.tbl->dflt;
+        return NULVCL;
     }
     if (arr.v == DT_I) {
         char ibuf[32]; snprintf(ibuf, sizeof ibuf, "%lld", (long long)arr.i);
