@@ -3721,7 +3721,7 @@ static int descr_chain_arity(const IR_t *n) {
     switch (n->op) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: case IR_VAR_FRAME: case IR_VAR_FRAME_REF: return 0;
-    case IR_FIELD_GET: return 0;
+    case IR_FIELD_GET: return 1;
     case IR_FIELD_SET: return 0;
     case IR_SECTION: return 0;
     case IR_LIST_BANG: return 0;
