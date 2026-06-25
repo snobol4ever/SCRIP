@@ -749,26 +749,18 @@ static int rt_pl_nb_ensure(int id)
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_nb_setval_cell(void *key_cell, void *val_cell)
+/* PL-DESCR-3 incr.2: slot helpers — the nb value-work (SWI deep-copy on store / deep-copy+unify on fetch) lives here */
+/* once; both the [rbx+k*16] GVA arm (compile-time slot) and the by-name fallback below reach the global through these. */
+void *rt_pl_nb_copy_persist(void *val_cell)
 {
-    Term *k = term_deref((Term *)key_cell);
-    if (!k || k->tag != TERM_ATOM) return 0;
-    int id = k->atom_id;
-    if (!rt_pl_nb_ensure(id)) return 0;
     Term *var_map[256]; int var_cap = 256, var_n = 0;
-    Term *stored = copy_term_deep(term_deref((Term *)val_cell), var_map, &var_cap, &var_n);
-    if (!stored) return 0;
-    g_rt_pl_nb[id] = stored;
-    return 1;
+    return (void *)copy_term_deep(term_deref((Term *)val_cell), var_map, &var_cap, &var_n);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
+int rt_pl_nb_getval_ptr(void *stored_cell, void *val_cell)
 {
     extern Trail g_resolve_trail;
-    Term *k = term_deref((Term *)key_cell);
-    if (!k || k->tag != TERM_ATOM) return 0;
-    int id = k->atom_id;
-    Term *val = (id >= 0 && id < g_rt_pl_nb_n) ? g_rt_pl_nb[id] : (Term *)0;
+    Term *val = (Term *)stored_cell;
     if (!val) return 0;
     int mark = trail_mark(&g_resolve_trail);
     Term *var_map[256]; int var_cap = 256, var_n = 0;
@@ -776,6 +768,25 @@ int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
     if (!fresh) fresh = val;
     if (!unify((Term *)val_cell, fresh, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_nb_setval_cell(void *key_cell, void *val_cell)
+{
+    Term *k = term_deref((Term *)key_cell);
+    if (!k || k->tag != TERM_ATOM) return 0;
+    int id = k->atom_id;
+    if (!rt_pl_nb_ensure(id)) return 0;
+    g_rt_pl_nb[id] = (Term *)rt_pl_nb_copy_persist(val_cell);
+    return g_rt_pl_nb[id] ? 1 : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
+{
+    Term *k = term_deref((Term *)key_cell);
+    if (!k || k->tag != TERM_ATOM) return 0;
+    int id = k->atom_id;
+    Term *val = (id >= 0 && id < g_rt_pl_nb_n) ? g_rt_pl_nb[id] : (Term *)0;
+    return rt_pl_nb_getval_ptr((void *)val, val_cell);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct dyn_clause { Term *head; Term *body; struct dyn_clause *next; } dyn_clause_t;
