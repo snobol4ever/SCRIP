@@ -315,7 +315,6 @@ static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, cons
 static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
     extern int rt_builtin_is_known(const char *name);
     if (!s2) return 0;
-    if (getenv("SCRIP_ICN_NOGATE")) return 1;
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
         if (!g || !g->all) continue;
@@ -2696,10 +2695,9 @@ int main(int argc, char **argv)
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_icon) icn_register_record_types(s2);
-            if ((is_icon || is_raku) && !graph_native_emittable(s2)) {
+            if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
-                                "this program (a box has no MEDIUM_TEXT arm — Icon scan/keyword/cset/gen-alt/"
-                                "suspend, or Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
+                                "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
@@ -3240,10 +3238,9 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
             }
             if (is_icon) icn_register_record_types(s2);
-            if ((is_icon || is_raku) && !graph_native_emittable_mode(s2, 1)) {
+            if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
-                                "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "
-                                "or Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
+                                "(a box has no MEDIUM_BINARY arm — Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
