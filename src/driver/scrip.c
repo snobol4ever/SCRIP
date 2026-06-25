@@ -2036,7 +2036,14 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
             sval = pl_gz_lv(kk); if (!sval) return 0;
         } else return 0;
         nn = pl_gz_det_node(nb_set ? IR_DET_NB_SETVAL : IR_DET_NB_GETVAL);
-        if (nn) { ir_operand_push(nn, skey); ir_operand_push(nn, sval); }
+        if (nn) {
+            ir_operand_push(nn, skey); ir_operand_push(nn, sval);
+            if (nk0->op == IR_ATOM && IR_LIT(nk0).sval) {
+                IR_LIT(nn).sval = IR_LIT(nk0).sval;
+                extern int gva_collect_var(const char *);
+                (void)gva_collect_var(IR_LIT(nn).sval);
+            }
+        }
     } else if (gg->op == IR_BUILTIN && IR_LIT(gg).sval && !strcmp(IR_LIT(gg).sval,"retract") && IR_LIT(gg).ival == 1 && ir_call_arg(gg,0)) {
         IR_t *h0 = ir_call_arg(gg,0);
         IR_t *shead = NULL;
@@ -2970,19 +2977,32 @@ int main(int argc, char **argv)
                 return 1;
             }
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
+            extern void gva_collect_reset(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+            gva_collect_reset();
             g_gz_no_struct_ptr = 0;
             IR_t *gz_root = pl_gz_admit(pl_main);
             g_gz_no_struct_ptr = 0;
+            int n_gva_pl = gva_count();
+            g_gva_active = (n_gva_pl > 0) ? 1 : 0;
             if (gz_root) {
                 extern int pl_gz_codegen(IR_t * nd, FILE * out, const char * prefix);
                 extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
                 g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
                 printf("  .intel_syntax noprefix\n");
                 printf("  .text\n");
+                if (n_gva_pl > 0) {
+                    printf("  .section .rodata\n");
+                    for (int k = 0; k < n_gva_pl; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
+                    printf("  .align 8\n__gva_names:\n");
+                    for (int k = 0; k < n_gva_pl; k++) printf("  .quad .Lgvan%d\n", k);
+                    printf("  .section .bss\n  .align 16\n__gva: .space %d, 0\n", n_gva_pl * 16);
+                    printf("  .section .text\n  .intel_syntax noprefix\n");
+                }
                 printf("  .globl main\n");
                 printf("main:\n");
                 printf("  push rbp\n");
                 printf("  mov rbp, rsp\n");
+                if (n_gva_pl > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_pl);
                 printf("  call rt_frame@PLT\n");
                 printf("  mov rdi, rax\n");
                 printf("  xor esi, esi\n");
@@ -2994,9 +3014,11 @@ int main(int argc, char **argv)
                 extern void xa_emit_strtab_rodata(void);
                 xa_emit_strtab_rodata();
                 fflush(stdout);
+                g_gva_active = 0;
                 ir_delete_all(s2);
                 return rc;
             }
+            g_gva_active = 0;
             fprintf(stderr, "[PL-GZ FENCE] --compile --target=x86: program not admitted by pl_gz_admit — the GZ cell path is the only Prolog backend (flat + rich/heap-env tiers DELETED per PL-GZ GUT, 2026-06-13).\n");
             return 1;
         }
@@ -3276,11 +3298,21 @@ int main(int argc, char **argv)
                 abort();
             }
             IR_graph_t *pl_main = s2->bbp.table[main_bb_idx];
+            extern void gva_collect_reset(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+            extern DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
+            gva_collect_reset();
             IR_t *gz_root = pl_gz_admit(pl_main);
+            int n_gva_pl = gva_count();
+            void *pl_gva_arena = (void *)0;
+            if (n_gva_pl > 0) {
+                pl_gva_arena = GC_MALLOC((size_t)n_gva_pl * sizeof(DESCR_t));
+                const char **nms = (const char **)GC_MALLOC((size_t)n_gva_pl * sizeof(char *));
+                if (pl_gva_arena && nms) { for (int i = 0; i < n_gva_pl; i++) nms[i] = gva_name(i); gva_register(nms, (DESCR_t *)pl_gva_arena, n_gva_pl); g_gva_active = 1; }
+            }
             if (gz_root) {
                 extern bb_box_fn pl_gz_build(IR_t * nd);
                 bb_box_fn gzfn = pl_gz_build(gz_root);
-                if (gzfn) { ir_delete_all(s2); (void)gzfn(rt_frame(), 0); goto run_done; }
+                if (gzfn) { ir_delete_all(s2); if (g_gva_active && pl_gva_arena) m3_enter_with_rbx(gzfn, rt_frame(), 0, pl_gva_arena); else (void)gzfn(rt_frame(), 0); goto run_done; }
             }
             fprintf(stderr, "[PL-GZ FENCE] --run: program not admitted by pl_gz_admit — the GZ cell path is "
                             "the only Prolog execution path (flat + rich/heap-env tiers DELETED per PL-GZ GUT, "

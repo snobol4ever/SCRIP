@@ -1435,6 +1435,7 @@ void bb_prepare(IR_t *nd) {
         g_emit.op_parts_n = 2;
         g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
         g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
+        g_emit.op_gva_k = (g_gva_active && IR_LIT(nd).sval) ? gva_index_of(IR_LIT(nd).sval) : -1;
         return;
     }
     if (nd->op == IR_DET_RETRACT) {
