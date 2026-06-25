@@ -358,6 +358,20 @@ static IR_t * pl_gz_det_node(int kind) {
     if (!g_pl_gz_pool) return NULL;
     return IR_node_alloc(g_pl_gz_pool, (IR_e)kind);
 }
+/* THE DIRECTIVE (Lon 2026-06-24): every BB-local collection grows geometrically (×2) — NO fixed [N]
+   ceiling, NO `> N` overflow fence. Start cap 0 (NULL buf); first push allocates 8. GC-managed, so a
+   stale buffer after a grow is reclaimed automatically. Used for the GZ admit goal/claim buffers. */
+static IR_t **pl_gz_irbuf_push(IR_t **buf, int *n, int *cap, IR_t *v) {
+    if (*n >= *cap) {
+        int nc = *cap ? *cap * 2 : 8;
+        IR_t **nb = (IR_t **)GC_MALLOC(sizeof(IR_t *) * nc);
+        if (!nb) return buf;                 /* OOM: GC aborts before this in practice */
+        for (int i = 0; i < *n; i++) nb[i] = buf[i];
+        buf = nb; *cap = nc;
+    }
+    buf[(*n)++] = v;
+    return buf;
+}
 static int pl_gz_fact_clause_units(IR_graph_t *cg, int ar, IR_t ***units_out) {
     if (!cg || !cg->entry || !cg->all) return 0;
     for (int i = 0; i < cg->n; i++) {
@@ -750,7 +764,7 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
         }
         if (nd->op == IR_LOGICVAR && ((int)IR_LIT(nd).ival < 0 || (int)IR_LIT(nd).ival >= cg->nslots)) return 0;
     }
-    IR_t *pl_claimed[16]; int pl_nclaimed = 0;
+    IR_t **pl_claimed = NULL; int pl_nclaimed = 0, pl_claimed_cap = 0;
     for (int i = 0; i < cg->n; i++) {
         IR_t *ind = cg->all[i];
         if (!ind) continue;
@@ -758,10 +772,10 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
             bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(ind).ival;
             if (!zi) return 0;
             IR_t *rr[3] = { zi->cond_root, zi->then_root, zi->else_root };
-            for (int k = 0; k < 3; k++) if (rr[k] && rr[k]->op == IR_GCONJ) { if (pl_nclaimed >= 16) return 0; pl_claimed[pl_nclaimed++] = rr[k]; }
+            for (int k = 0; k < 3; k++) if (rr[k] && rr[k]->op == IR_GCONJ) pl_claimed = pl_gz_irbuf_push(pl_claimed, &pl_nclaimed, &pl_claimed_cap, rr[k]);
         } else if (ind->op == IR_DISJ) {
             int na = 0; IR_t * const *arms = bb_operand_aux_get(cg, ind, &na);
-            for (int k = 0; k < na; k++) if (arms[k] && arms[k]->op == IR_GCONJ) { if (pl_nclaimed >= 16) return 0; pl_claimed[pl_nclaimed++] = arms[k]; }
+            for (int k = 0; k < na; k++) if (arms[k] && arms[k]->op == IR_GCONJ) pl_claimed = pl_gz_irbuf_push(pl_claimed, &pl_nclaimed, &pl_claimed_cap, arms[k]);
         }
     }
     IR_t *gconj = NULL;
@@ -2198,7 +2212,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
     if (!g || !g->all || g->nslots > 2048) return NULL;
     IR_t *gconjs[2] = {NULL, NULL}; int ngconj = 0;
     IR_t *softdisj = NULL; IR_t *soft_arm0 = NULL;
-    IR_t *claimed[8]; int nclaimed = 0;
+    IR_t **claimed = NULL; int nclaimed = 0, claimed_cap = 0;
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (!nd || nd->op != IR_ITE) continue;
@@ -2206,7 +2220,7 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         if (!zi) return NULL;
         IR_t *rr[3] = { zi->cond_root, zi->then_root, zi->else_root };
         for (int k = 0; k < 3; k++)
-            if (rr[k] && rr[k]->op == IR_GCONJ) { if (nclaimed >= 8) return NULL; claimed[nclaimed++] = rr[k]; }
+            if (rr[k] && rr[k]->op == IR_GCONJ) claimed = pl_gz_irbuf_push(claimed, &nclaimed, &claimed_cap, rr[k]);
     }
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
@@ -2291,27 +2305,27 @@ static IR_t * pl_gz_admit(IR_graph_t *g) {
         if (ngconj > 1) return NULL;
         gconj = (ngconj == 1) ? gconjs[0] : NULL;
     }
-    IR_t *goals_buf[64]; int ng = 0;
+    IR_t **goals_buf = NULL; int ng = 0, goals_cap = 0;
     if (gconj) {
         bb_conj_state_t *zs = (bb_conj_state_t *)(intptr_t)IR_LIT(gconj).ival;
-        if (!zs || !zs->goals || zs->ngoals <= 0 || zs->ngoals > 64) return NULL;
-        for (int i = 0; i < zs->ngoals; i++) goals_buf[ng++] = zs->goals[i];
+        if (!zs || !zs->goals || zs->ngoals <= 0) return NULL;
+        for (int i = 0; i < zs->ngoals; i++) goals_buf = pl_gz_irbuf_push(goals_buf, &ng, &goals_cap, zs->goals[i]);
     } else if (softdisj) {
-        goals_buf[ng++] = soft_arm0;
+        goals_buf = pl_gz_irbuf_push(goals_buf, &ng, &goals_cap, soft_arm0);
     } else if (g->entry && g->entry->op == IR_ITE) {
         IR_t *cur = g->entry;
-        while (cur && cur->op != IR_SUCCEED && cur->op != IR_FAIL && ng < 64) {
-            if (cur->op != IR_GCONJ) goals_buf[ng++] = cur;
+        while (cur && cur->op != IR_SUCCEED && cur->op != IR_FAIL) {
+            if (cur->op != IR_GCONJ) goals_buf = pl_gz_irbuf_push(goals_buf, &ng, &goals_cap, cur);
             cur = cur->γ.node;
         }
     } else if (!(g->entry && g->entry->op == IR_SUCCEED)) {
         return NULL;
     }
-    IR_t *goalsB_buf[64]; int ngB = 0;
+    IR_t **goalsB_buf = NULL; int ngB = 0, goalsB_cap = 0;
     if (outer2) {
         bb_conj_state_t *zo = (bb_conj_state_t *)(intptr_t)IR_LIT(outer2).ival;
-        if (!zo || !zo->goals || zo->ngoals < 2 || zo->ngoals > 64) return NULL;
-        for (int i = 1; i < zo->ngoals; i++) goalsB_buf[ngB++] = zo->goals[i];
+        if (!zo || !zo->goals || zo->ngoals < 2) return NULL;
+        for (int i = 1; i < zo->ngoals; i++) goalsB_buf = pl_gz_irbuf_push(goalsB_buf, &ngB, &goalsB_cap, zo->goals[i]);
     }
     IR_t *head = NULL, *tail = NULL;
     int nsynth = 0;
