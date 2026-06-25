@@ -136,7 +136,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
                 _skip_proc_register: ;
             }
             if (proc->t == TT_RECORD) {
-                eval_ast(proc);
+                /* record types register from IR_RECORD_DEF via icn_register_record_types; no AST eval */
             }
         } else if (s_lang == LANG_PL) {
             tree_t *sub = subj;
