@@ -119,7 +119,10 @@ long rt_arith(int lk, long li, const char *ls,
                   int rk, long ri, const char *rs, const char *op)
 {
     extern Term **g_resolve_env;
+    extern void rt_pl_env_ensure(int slot);
     (void)ls; (void)rs;
+    if (lk == IR_LOGICVAR && li >= 0) rt_pl_env_ensure(li);
+    if (rk == IR_LOGICVAR && ri >= 0) rt_pl_env_ensure(ri);
     long lv = li;
     if (lk == IR_LOGICVAR && g_resolve_env && li >= 0) {
         Term *t = g_resolve_env[li] ? term_deref(g_resolve_env[li]) : NULL;
