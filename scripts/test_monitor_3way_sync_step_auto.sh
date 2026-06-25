@@ -180,7 +180,7 @@ fi
 # Catch-all activated via SCRIP_TRACE/SCRIP_FTRACE only;
 # no source modification, no LOAD-chain.
 if [[ "$want_scr" = "1" ]]; then
-    SCR_RUN_FLAG="${SCRIP_RUN_FLAG:---interp}"
+    SCR_RUN_FLAG="${SCRIP_RUN_FLAG:---run}"
     MONITOR_BIN=1 \
     MONITOR_READY_PIPE="$TMP/scr.ready" \
     MONITOR_GO_PIPE="$TMP/scr.go" \
