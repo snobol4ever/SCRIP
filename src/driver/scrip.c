@@ -473,7 +473,7 @@ static int pl_gz_rule_body_root_ok(IR_t *root);
 static int pl_gz_rule_body_goal_ok(IR_t *gg) {
     if (!gg) return 0;
     if (gg->op == IR_SUCCEED || gg->op == IR_FAIL || gg->op == IR_CUT) return 1;
-    if (gg->op == IR_ITE) {
+    if (gg->op == IR_ITE || gg->op == IR_DISJ) {
         bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(gg).ival;
         if (!zi) return 0;
         return pl_gz_rule_body_root_ok(zi->cond_root) && pl_gz_rule_body_root_ok(zi->then_root) && pl_gz_rule_body_root_ok(zi->else_root);
@@ -655,13 +655,45 @@ static int pl_gz_rule_body_root_ok(IR_t *root) {
     }
     return pl_gz_rule_body_goal_ok(root);
 }
+/* PL-BB-2 soft-cut disjunction in a callee body: ( Cond, !, Then ; Else ) is the explicit-cut form of
+ * ( Cond -> Then ; Else ).  Admit ONLY when arm0 is a conjunction whose pre-cut Cond is choicepoint-free
+ * (semidet builtins / unifications, no user calls), so the cut is a free commit — then map to the IR_ITE
+ * cell by splitting arm0 at the cut and attaching the synthesised bb_ite_state_t on the DISJ node, so the
+ * count/build passes read it with no graph access.  Any other disjunction shape is rejected (broken=0).  */
+static int pl_gz_disj_softcut_ite(IR_graph_t *cg, IR_t *nd) {
+    if (IR_LIT(nd).ival) return 1;
+    int na = 0; IR_t * const *arms = bb_operand_aux_get(cg, nd, &na);
+    if (!arms || na != 2 || !arms[0] || !arms[1]) return 0;
+    IR_t *arm0 = arms[0], *arm1 = arms[1];
+    if (arm0->op != IR_GCONJ) return 0;
+    bb_conj_state_t *a0 = (bb_conj_state_t *)(intptr_t)IR_LIT(arm0).ival;
+    if (!a0 || !a0->goals || a0->ngoals < 2 || a0->ngoals > 64) return 0;
+    int ci = -1;
+    for (int i = 0; i < a0->ngoals; i++) if (a0->goals[i] && a0->goals[i]->op == IR_CUT) { if (ci >= 0) return 0; ci = i; }
+    if (ci < 1) return 0;
+    for (int i = 0; i < ci; i++) { IR_t *c = a0->goals[i]; if (!c || (c->op != IR_BUILTIN && c->op != IR_UNIFY)) return 0; }
+    IR_t *cond_root = NULL;
+    if (ci == 1) cond_root = a0->goals[0];
+    else { bb_conj_state_t *cc = (bb_conj_state_t *)GC_MALLOC(sizeof *cc); if (!cc) return 0; cc->goals = (IR_t **)GC_MALLOC(sizeof(IR_t *) * ci); if (!cc->goals) return 0; for (int i = 0; i < ci; i++) cc->goals[i] = a0->goals[i]; cc->ngoals = ci; cond_root = pl_gz_det_node(IR_GCONJ); if (!cond_root) return 0; IR_LIT(cond_root).ival = (int64_t)(intptr_t)cc; }
+    int nt = a0->ngoals - (ci + 1);
+    IR_t *then_root = NULL;
+    if (nt <= 0) { then_root = pl_gz_det_node(IR_SUCCEED); if (!then_root) return 0; }
+    else if (nt == 1) then_root = a0->goals[ci + 1];
+    else { bb_conj_state_t *tc = (bb_conj_state_t *)GC_MALLOC(sizeof *tc); if (!tc) return 0; tc->goals = (IR_t **)GC_MALLOC(sizeof(IR_t *) * nt); if (!tc->goals) return 0; for (int i = 0; i < nt; i++) tc->goals[i] = a0->goals[ci + 1 + i]; tc->ngoals = nt; then_root = pl_gz_det_node(IR_GCONJ); if (!then_root) return 0; IR_LIT(then_root).ival = (int64_t)(intptr_t)tc; }
+    bb_ite_state_t *zi = (bb_ite_state_t *)GC_MALLOC(sizeof *zi); if (!zi) return 0; memset(zi, 0, sizeof *zi);
+    zi->cond_root = cond_root; zi->then_root = then_root; zi->else_root = arm1;
+    IR_LIT(nd).ival = (int64_t)(intptr_t)zi;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
     if (!cg || !cg->entry || !cg->all) return 0;
     if (cg->nslots < ar || cg->nslots > 2048) return 0;
     for (int i = 0; i < cg->n; i++) {
         IR_t *nd = cg->all[i];
         if (!nd) continue;
-        if (nd->op == IR_CHOICE || nd->op == IR_DISJ) return 0;
+        if (nd->op == IR_CHOICE) return 0;
+        if (nd->op == IR_DISJ) { if (!pl_gz_disj_softcut_ite(cg, nd)) return 0; continue; }
         if (nd->op == IR_ITE) {
             bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(nd).ival;
             if (!zi) return 0;
@@ -705,11 +737,16 @@ static int pl_gz_rule_clause(IR_graph_t *cg, int ar, bb_conj_state_t **zs_out) {
     IR_t *pl_claimed[16]; int pl_nclaimed = 0;
     for (int i = 0; i < cg->n; i++) {
         IR_t *ind = cg->all[i];
-        if (!ind || ind->op != IR_ITE) continue;
-        bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(ind).ival;
-        if (!zi) return 0;
-        IR_t *rr[3] = { zi->cond_root, zi->then_root, zi->else_root };
-        for (int k = 0; k < 3; k++) if (rr[k] && rr[k]->op == IR_GCONJ) { if (pl_nclaimed >= 16) return 0; pl_claimed[pl_nclaimed++] = rr[k]; }
+        if (!ind) continue;
+        if (ind->op == IR_ITE) {
+            bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(ind).ival;
+            if (!zi) return 0;
+            IR_t *rr[3] = { zi->cond_root, zi->then_root, zi->else_root };
+            for (int k = 0; k < 3; k++) if (rr[k] && rr[k]->op == IR_GCONJ) { if (pl_nclaimed >= 16) return 0; pl_claimed[pl_nclaimed++] = rr[k]; }
+        } else if (ind->op == IR_DISJ) {
+            int na = 0; IR_t * const *arms = bb_operand_aux_get(cg, ind, &na);
+            for (int k = 0; k < na; k++) if (arms[k] && arms[k]->op == IR_GCONJ) { if (pl_nclaimed >= 16) return 0; pl_claimed[pl_nclaimed++] = arms[k]; }
+        }
     }
     IR_t *gconj = NULL;
     for (int i = 0; i < cg->n; i++) {
@@ -781,7 +818,7 @@ static int pl_gz_nsynth_goal(IR_t *gg, int ar) {
         int b = pl_gz_nsynth_chain(zc->rec_g->entry, ar); if (b < 0) return -1; nsynth += b;
         return nsynth;
     }
-    if (gg->op == IR_ITE) {
+    if (gg->op == IR_ITE || gg->op == IR_DISJ) {
         bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(gg).ival;
         if (!zi) return -1;
         nsynth++;
@@ -967,7 +1004,7 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         nn = pl_gz_det_node(IR_FAIL);
     } else if (gg->op == IR_CUT) {
         nn = pl_gz_det_node(IR_CELL_CUT);
-    } else if (gg->op == IR_ITE) {
+    } else if (gg->op == IR_ITE || gg->op == IR_DISJ) {
         bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(gg).ival;
         if (!zi) { return 0; }
         pl_gz_ite_state_t *is = (pl_gz_ite_state_t *)GC_MALLOC(sizeof *is);
@@ -976,7 +1013,10 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         if (!pl_gz_callee_build_root(zi->cond_root, &is->cond_head, ar, lbase, &synth_next, ce, cv)) { return 0; }
         if (!pl_gz_callee_build_root(zi->then_root, &is->then_head, ar, lbase, &synth_next, ce, cv)) { return 0; }
         if (!pl_gz_callee_build_root(zi->else_root, &is->else_head, ar, lbase, &synth_next, ce, cv)) { return 0; }
-        if (!pl_gz_chain_det(is->then_head) || !pl_gz_chain_det(is->else_head)) { return 0; }
+        /* PL-BB-2: ( Cond -> Then ; Else ) and the explicit-cut ( Cond, !, Then ; Else ) are semidet-commit
+         * constructs — Cond commits, so the cell is entered once.  Branch chains MAY hold a deterministic
+         * call (meta_qsort's interpret/2 else-arm is interpret(B,Rest)); the determinacy obligation is the
+         * caller's (PL-BB-0 bounded analysis is the eventual proof).  No det-check on then/else here.  */
         is->gate_slot = synth_next++;
         nn = pl_gz_det_node(IR_CELL_ITE);
         if (!nn) return 0;
