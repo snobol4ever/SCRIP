@@ -259,8 +259,15 @@ bb15_α:
 xgvarg26_done:
 bb16_α:
 # BOX IR_CALL EQ(...) inline integer relop [four-port, FAIL->ω]
+ mov rdx, qword ptr [rbx + 0]
+ cmp edx, 6
+ jne .Lx29_0
+ mov rax, qword ptr [rbx + 8]
+ jmp .Lx29_1
+.Lx29_0:
    lea rdi, [rip + .S1]
  call rt_gvar_get_int@PLT
+.Lx29_1:
  mov qword ptr [r12 + 304], rax
  mov rcx, 0
  mov qword ptr [r12 + 288], 0

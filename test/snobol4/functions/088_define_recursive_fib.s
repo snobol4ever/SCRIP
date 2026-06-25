@@ -53,19 +53,19 @@ bb3_α:
 snoch0_n1_α:
 # IR_VAR
 bb4_α:
- mov rdi, qword ptr [rip + .Lx8_0]
+ mov rdi, qword ptr [rip + .Lx9_0]
  call NV_GET_fn@PLT
  mov qword ptr [r12 + 80], rax
  mov qword ptr [r12 + 88], rdx
  jmp snoch0_n3_α
  snoch0_n1_β:
  jmp snoch0_n4_α
-.Lx8_0:
- .quad .Lx8_0_s
-.Lx8_0_s:
+.Lx9_0:
+ .quad .Lx9_0_s
+.Lx9_0_s:
  .string "n"
 snoch0_n2_α:
-xgvarg9_done:
+xgvarg10_done:
 bb5_α:
 # BOX IR_CALL fib(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = inline gvar-arith subexpr -> [r12+112]
@@ -78,10 +78,10 @@ bb5_α:
  mov qword ptr [r12 + 112], 6
  mov qword ptr [r12 + 120], rax
   .section .rodata
-  .Lprocfn11: .string "fib"
+  .Lprocfn12: .string "fib"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn11]
+   lea rdi, [rip + .Lprocfn12]
  lea rsi, [r12 + 112]
  mov edx, 1
  call rt_call_named_proc@PLT
@@ -106,7 +106,7 @@ snoch0_n4_β:
 jmp fib_γ
 jmp fib_γ
 snoch0_n5_α:
-xgvarg13_done:
+xgvarg14_done:
 bb7_α:
 # BOX IR_CALL fib(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = inline gvar-arith subexpr -> [r12+160]
@@ -119,10 +119,10 @@ bb7_α:
  mov qword ptr [r12 + 160], 6
  mov qword ptr [r12 + 168], rax
   .section .rodata
-  .Lprocfn15: .string "fib"
+  .Lprocfn16: .string "fib"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn15]
+   lea rdi, [rip + .Lprocfn16]
  lea rsi, [r12 + 160]
  mov edx, 1
  call rt_call_named_proc@PLT
@@ -239,26 +239,26 @@ push r12
   mov r12, rdi
   lea r10, [rip + Δ]
 flat_α_body:
-snoch19_n0_α:
+snoch20_n0_α:
 bb10_α:
 # IR_CALL_DEFINE
  lea rdi, [rip + .S2]
  call rt_proc_define@PLT
- jmp snoch19_n1_α
- snoch19_n0_β:
- jmp snoch19_n1_α
-snoch19_n1_α:
+ jmp snoch20_n1_α
+ snoch20_n0_β:
+ jmp snoch20_n1_α
+snoch20_n1_α:
 # IR_LIT_I
 bb11_α:
  mov qword ptr [r12 + 16], 6
- mov rax, qword ptr [rip + .Lx22_0]
+ mov rax, qword ptr [rip + .Lx23_0]
  mov qword ptr [r12 + 24], rax
- jmp xgvarg21_done
- xgvarg21_β:
- jmp snoch19_n3_α
-.Lx22_0:
+ jmp xgvarg22_done
+ xgvarg22_β:
+ jmp snoch20_n3_α
+.Lx23_0:
  .quad 0
-xgvarg21_done:
+xgvarg22_done:
 bb12_α:
 # BOX IR_CALL fib(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+16] -> [r12+48]
@@ -267,42 +267,42 @@ bb12_α:
  mov rax, qword ptr [r12 + 24]
  mov qword ptr [r12 + 56], rax
   .section .rodata
-  .Lprocfn24: .string "fib"
+  .Lprocfn25: .string "fib"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn24]
+   lea rdi, [rip + .Lprocfn25]
  lea rsi, [r12 + 48]
  mov edx, 1
  call rt_call_named_proc@PLT
  mov qword ptr [r12 + 32], rax
  mov qword ptr [r12 + 40], rdx
  cmp eax, 99
- je snoch19_n3_α
- jmp snoch19_n2_α
-snoch19_n1_β:
- jmp snoch19_n3_α
-snoch19_n2_α:
+ je snoch20_n3_α
+ jmp snoch20_n2_α
+snoch20_n1_β:
+ jmp snoch20_n3_α
+snoch20_n2_α:
 bb13_α:
 # IR_ASSIGN_CALL
  lea rdi, [rip + .S3]
  mov rsi, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  call rt_gvar_assign_descr@PLT
- jmp snoch19_n3_α
- snoch19_n2_β:
- jmp snoch19_n3_α
-snoch19_n3_α:
+ jmp snoch20_n3_α
+ snoch20_n2_β:
+ jmp snoch20_n3_α
+snoch20_n3_α:
 # IR_LIT_I
 bb14_α:
  mov qword ptr [r12 + 64], 6
- mov rax, qword ptr [rip + .Lx27_0]
+ mov rax, qword ptr [rip + .Lx28_0]
  mov qword ptr [r12 + 72], rax
- jmp xgvarg26_done
- xgvarg26_β:
- jmp snoch19_n5_α
-.Lx27_0:
+ jmp xgvarg27_done
+ xgvarg27_β:
+ jmp snoch20_n5_α
+.Lx28_0:
  .quad 1
-xgvarg26_done:
+xgvarg27_done:
 bb15_α:
 # BOX IR_CALL fib(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+64] -> [r12+96]
@@ -311,42 +311,42 @@ bb15_α:
  mov rax, qword ptr [r12 + 72]
  mov qword ptr [r12 + 104], rax
   .section .rodata
-  .Lprocfn29: .string "fib"
+  .Lprocfn30: .string "fib"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn29]
+   lea rdi, [rip + .Lprocfn30]
  lea rsi, [r12 + 96]
  mov edx, 1
  call rt_call_named_proc@PLT
  mov qword ptr [r12 + 80], rax
  mov qword ptr [r12 + 88], rdx
  cmp eax, 99
- je snoch19_n5_α
- jmp snoch19_n4_α
-snoch19_n3_β:
- jmp snoch19_n5_α
-snoch19_n4_α:
+ je snoch20_n5_α
+ jmp snoch20_n4_α
+snoch20_n3_β:
+ jmp snoch20_n5_α
+snoch20_n4_α:
 bb16_α:
 # IR_ASSIGN_CALL
  lea rdi, [rip + .S3]
  mov rsi, qword ptr [r12 + 80]
  mov rdx, qword ptr [r12 + 88]
  call rt_gvar_assign_descr@PLT
- jmp snoch19_n5_α
- snoch19_n4_β:
- jmp snoch19_n5_α
-snoch19_n5_α:
+ jmp snoch20_n5_α
+ snoch20_n4_β:
+ jmp snoch20_n5_α
+snoch20_n5_α:
 # IR_LIT_I
 bb17_α:
  mov qword ptr [r12 + 112], 6
- mov rax, qword ptr [rip + .Lx32_0]
+ mov rax, qword ptr [rip + .Lx33_0]
  mov qword ptr [r12 + 120], rax
- jmp xgvarg31_done
- xgvarg31_β:
- jmp snoch19_n7_α
-.Lx32_0:
+ jmp xgvarg32_done
+ xgvarg32_β:
+ jmp snoch20_n7_α
+.Lx33_0:
  .quad 6
-xgvarg31_done:
+xgvarg32_done:
 bb18_α:
 # BOX IR_CALL fib(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+112] -> [r12+144]
@@ -355,42 +355,42 @@ bb18_α:
  mov rax, qword ptr [r12 + 120]
  mov qword ptr [r12 + 152], rax
   .section .rodata
-  .Lprocfn34: .string "fib"
+  .Lprocfn35: .string "fib"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn34]
+   lea rdi, [rip + .Lprocfn35]
  lea rsi, [r12 + 144]
  mov edx, 1
  call rt_call_named_proc@PLT
  mov qword ptr [r12 + 128], rax
  mov qword ptr [r12 + 136], rdx
  cmp eax, 99
- je snoch19_n7_α
- jmp snoch19_n6_α
-snoch19_n5_β:
- jmp snoch19_n7_α
-snoch19_n6_α:
+ je snoch20_n7_α
+ jmp snoch20_n6_α
+snoch20_n5_β:
+ jmp snoch20_n7_α
+snoch20_n6_α:
 bb19_α:
 # IR_ASSIGN_CALL
  lea rdi, [rip + .S3]
  mov rsi, qword ptr [r12 + 128]
  mov rdx, qword ptr [r12 + 136]
  call rt_gvar_assign_descr@PLT
- jmp snoch19_n7_α
- snoch19_n6_β:
- jmp snoch19_n7_α
-snoch19_n7_α:
+ jmp snoch20_n7_α
+ snoch20_n6_β:
+ jmp snoch20_n7_α
+snoch20_n7_α:
 # IR_LIT_I
 bb20_α:
  mov qword ptr [r12 + 160], 6
- mov rax, qword ptr [rip + .Lx37_0]
+ mov rax, qword ptr [rip + .Lx38_0]
  mov qword ptr [r12 + 168], rax
- jmp xgvarg36_done
- xgvarg36_β:
+ jmp xgvarg37_done
+ xgvarg37_β:
  jmp flat_γ
-.Lx37_0:
+.Lx38_0:
  .quad 10
-xgvarg36_done:
+xgvarg37_done:
 bb21_α:
 # BOX IR_CALL fib(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+160] -> [r12+192]
@@ -399,10 +399,10 @@ bb21_α:
  mov rax, qword ptr [r12 + 168]
  mov qword ptr [r12 + 200], rax
   .section .rodata
-  .Lprocfn39: .string "fib"
+  .Lprocfn40: .string "fib"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn39]
+   lea rdi, [rip + .Lprocfn40]
  lea rsi, [r12 + 192]
  mov edx, 1
  call rt_call_named_proc@PLT
@@ -410,10 +410,10 @@ bb21_α:
  mov qword ptr [r12 + 184], rdx
  cmp eax, 99
  je flat_γ
- jmp snoch19_n8_α
-snoch19_n7_β:
+ jmp snoch20_n8_α
+snoch20_n7_β:
  jmp flat_γ
-snoch19_n8_α:
+snoch20_n8_α:
 bb22_α:
 # IR_ASSIGN_CALL
  lea rdi, [rip + .S3]
@@ -421,7 +421,7 @@ bb22_α:
  mov rdx, qword ptr [r12 + 184]
  call rt_gvar_assign_descr@PLT
  jmp flat_γ
- snoch19_n8_β:
+ snoch20_n8_β:
  jmp flat_γ
 flat_β:
 jmp flat_ω

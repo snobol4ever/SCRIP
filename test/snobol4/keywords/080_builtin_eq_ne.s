@@ -84,25 +84,25 @@ snoch0_n4_α:
 # IR_LIT_I
 bb7_α:
  mov qword ptr [r12 + 80], 6
- mov rax, qword ptr [rip + .Lx10_0]
+ mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 88], rax
- jmp xgvarg9_done
- xgvarg9_β:
+ jmp xgvarg10_done
+ xgvarg10_β:
  jmp snoch0_n7_α
-.Lx10_0:
+.Lx11_0:
  .quad 42
-xgvarg9_done:
+xgvarg10_done:
 # IR_LIT_I
 bb8_α:
  mov qword ptr [r12 + 96], 6
- mov rax, qword ptr [rip + .Lx12_0]
+ mov rax, qword ptr [rip + .Lx13_0]
  mov qword ptr [r12 + 104], rax
- jmp xgvarg11_done
- xgvarg11_β:
+ jmp xgvarg12_done
+ xgvarg12_β:
  jmp snoch0_n7_α
-.Lx12_0:
+.Lx13_0:
  .quad 99
-xgvarg11_done:
+xgvarg12_done:
 bb9_α:
 # BOX IR_CALL NE(...) inline integer relop [four-port, FAIL->ω]
  movabs rax, 42

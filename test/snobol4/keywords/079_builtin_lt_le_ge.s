@@ -78,25 +78,25 @@ snoch0_n3_α:
 # IR_LIT_I
 bb6_α:
  mov qword ptr [r12 + 80], 6
- mov rax, qword ptr [rip + .Lx9_0]
+ mov rax, qword ptr [rip + .Lx10_0]
  mov qword ptr [r12 + 88], rax
- jmp xgvarg8_done
- xgvarg8_β:
+ jmp xgvarg9_done
+ xgvarg9_β:
  jmp flat_γ
-.Lx9_0:
+.Lx10_0:
  .quad 5
-xgvarg8_done:
+xgvarg9_done:
 # IR_LIT_I
 bb7_α:
  mov qword ptr [r12 + 96], 6
- mov rax, qword ptr [rip + .Lx11_0]
+ mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 104], rax
- jmp xgvarg10_done
- xgvarg10_β:
+ jmp xgvarg11_done
+ xgvarg11_β:
  jmp flat_γ
-.Lx11_0:
+.Lx12_0:
  .quad 5
-xgvarg10_done:
+xgvarg11_done:
 bb8_α:
 # BOX IR_CALL LE(...) inline integer relop [four-port, FAIL->ω]
  movabs rax, 5
@@ -129,25 +129,25 @@ snoch0_n6_α:
 # IR_LIT_I
 bb11_α:
  mov qword ptr [r12 + 144], 6
- mov rax, qword ptr [rip + .Lx16_0]
- mov qword ptr [r12 + 152], rax
- jmp xgvarg15_done
- xgvarg15_β:
- jmp flat_γ
-.Lx16_0:
- .quad 7
-xgvarg15_done:
-# IR_LIT_I
-bb12_α:
- mov qword ptr [r12 + 160], 6
  mov rax, qword ptr [rip + .Lx18_0]
- mov qword ptr [r12 + 168], rax
+ mov qword ptr [r12 + 152], rax
  jmp xgvarg17_done
  xgvarg17_β:
  jmp flat_γ
 .Lx18_0:
- .quad 5
+ .quad 7
 xgvarg17_done:
+# IR_LIT_I
+bb12_α:
+ mov qword ptr [r12 + 160], 6
+ mov rax, qword ptr [rip + .Lx20_0]
+ mov qword ptr [r12 + 168], rax
+ jmp xgvarg19_done
+ xgvarg19_β:
+ jmp flat_γ
+.Lx20_0:
+ .quad 5
+xgvarg19_done:
 bb13_α:
 # BOX IR_CALL GE(...) inline integer relop [four-port, FAIL->ω]
  movabs rax, 7
