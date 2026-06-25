@@ -619,6 +619,7 @@ DESCR_t rt_size_d(uint64_t lo, uint64_t hi)
     v.i    = (int64_t)hi;
     if (IS_FAIL_fn(v)) return FAILDESCR;
     if (v.v == DT_SNUL) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
+    if (v.v == DT_T) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.tbl ? v.tbl->size : 0); return r; }
     if (v.v == DT_S) {
         size_t n = v.slen ? (size_t)v.slen : (v.s ? strlen(v.s) : 0);
         DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r;

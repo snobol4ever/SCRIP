@@ -226,7 +226,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     { extern void *dat_find_type(const char *name); if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && IR_LIT(r).sval && dat_find_type(IR_LIT(r).sval)) return 1; }
-    { extern int rt_builtin_is_known(const char *name); const char *bn = IR_LIT(r).sval; if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && bn && rt_builtin_is_known(bn) && strcmp(bn,"table")) return 1; }
+    { extern int rt_builtin_is_known(const char *name); const char *bn = IR_LIT(r).sval; if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && bn && rt_builtin_is_known(bn)) return 1; }
     if (r->op == IR_FIELD_GET) return 1;
     if (r->op == IR_CONJ) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
     { extern int is_global(const char *); if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) { IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0; } }
@@ -323,7 +323,7 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
                 }
             }
             if (nd->op == IR_SUSPEND && (nd->n_operands < 1 || !nd->operands[0])) return 0; /* admit user-defined generator suspend only when the expr-value operand is present (the resume-spine: bb_suspend yields operand[0], β runs operand[1] do-body; native driver landed — pieces 1-5 of DESIGN-ICON-SUSPEND); a malformed suspend with no value operand still EXCISES */
-            if (nd->op == IR_IDX_SET) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> clean EXCISE, never abort */
+            if (0 && nd->op == IR_IDX_SET) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> clean EXCISE, never abort */
             if (nd->op == IR_RASGN) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_RASGN + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> clean EXCISE, never silently wrong, until flat-chain rhs slotting is fixed */
             if (nd->op == IR_MAP || nd->op == IR_GREP) return 0;
             if (nd->op == IR_FIELD_SET) { IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_GEN_SCAN) return 0; } /* generator-RHS field-set: rhs slot unfilled (bb_field_set bombs) -> clean EXCISE until generator-into-field value-flow built */
