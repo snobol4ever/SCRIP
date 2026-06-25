@@ -16,7 +16,7 @@ typedef enum tree_e {
     TT_CAPT_COND_ASGN,    TT_CAPT_IMMED_ASGN,   TT_CAPT_CURSOR,
     TT_FNC,               TT_IDX,               TT_ASSIGN,            TT_SCAN,              TT_SWAP,
     TT_SUSPEND,           TT_TO,                TT_TO_BY,             TT_LIMIT,             TT_CREATE,
-    TT_ALTERNATE,         TT_ITERATE,           TT_MAKELIST,
+    TT_ALTERNATE,         TT_REPALT,            TT_ITERATE,           TT_MAKELIST,
     TT_UNIFY,             TT_CLAUSE,            TT_CHOICE,            TT_CUT,               TT_TRAIL_MARK,        TT_TRAIL_UNWIND,
     TT_LT,                TT_LE,                TT_GT,                TT_GE,                TT_EQ,                TT_NE,
     TT_LLT,               TT_LLE,               TT_LGT,               TT_LGE,               TT_LEQ,               TT_LNE,

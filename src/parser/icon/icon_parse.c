@@ -241,8 +241,12 @@ static tree_t *parse_postfix(IcnParser *p) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_unary(IcnParser *p);
+static tree_t *parse_repalt(IcnParser *p) {
+    if (check(p, TK_BAR)) { advance(p); return e_unary(TT_REPALT, parse_repalt(p)); }
+    return parse_postfix(p);
+}
 static tree_t *parse_limit(IcnParser *p) {
-    tree_t *n = parse_postfix(p);
+    tree_t *n = parse_repalt(p);
     if (!n) return NULL;
     if (check(p, TK_BACKSLASH)) {
         advance(p);

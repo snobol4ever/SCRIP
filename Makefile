@@ -126,6 +126,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_every.cpp \
     $(SRC)/emitter/BB_templates/bb_to.cpp \
     $(SRC)/emitter/BB_templates/bb_limit.cpp \
+    $(SRC)/emitter/BB_templates/bb_repalt.cpp \
     $(SRC)/emitter/BB_templates/bb_suspend.cpp \
     $(SRC)/emitter/BB_templates/bb_initial.cpp \
     $(SRC)/emitter/BB_templates/bb_idx_set.cpp \
@@ -376,6 +377,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_every.cpp        -o $(OBJ)/bb_every.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_to.cpp           -o $(OBJ)/bb_to.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_limit.cpp        -o $(OBJ)/bb_limit.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_repalt.cpp       -o $(OBJ)/bb_repalt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_suspend.cpp      -o $(OBJ)/bb_suspend.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_initial.cpp      -o $(OBJ)/bb_initial.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_idx_set.cpp      -o $(OBJ)/bb_idx_set.o

@@ -1998,6 +1998,61 @@ static void flat_drive_limit(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/* Emit e's value-operands (e.g. the from/to bounds of an IR_TO) so they get frame slots before e itself is walked.
+   For a single-node value producer (literal, var) e has no operands and this is a no-op.  Mirrors case_slot_binop_operands. */
+static void repalt_emit_operand_slots(IR_t *e, bb_label_t *lbl_ω) {
+    if (!e) return;
+    for (int k = 0; k < e->n_operands; k++) {
+        IR_t *o = e->operands[k];
+        if (!o || o->op == IR_LIT_NUL) continue;
+        if (descr_binop_opnd_slot(o) >= 0) continue;
+        int id = g_flat_node_id++;
+        bb_label_t *d = emit_label_alloc("xrepaltop%d_done", id);
+        bb_label_t *b = emit_label_alloc("xrepaltop%d_b",    id);
+        walk_bb_flat(o, d, lbl_ω, b);
+        emit_label_define_bb(d);
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* IR_REPALT — Icon repeated alternation `|e`.  The sub-expression e is the lowerer-set operand[0], driven INTERNALLY
+   here (it is NOT on the main spine), so flat_drive_repalt owns all four of e's edges.  Modelled on JCON ir_a_RepAlt:
+   a one-bit `yielded` flag (frame slot at off+16, like bb_limit's counter) toggles JCON's MoveLabel/IndirectGoto.
+     restart (= REPALT α / fresh start): yielded:=0; (re-)evaluate e's bounds; run e.
+     e succeeds:  copy e's value into the REPALT slot; yielded:=1; jmp γ (yield).
+     e fails:     if yielded, jmp restart (re-run e from scratch — the infinite repeat); else jmp ω (|e produced nothing).
+     REPALT β (consumer resume): jmp e-β (pump e for its next value, no bounds re-eval).
+   This yields e's value-sequence over and over, but fails immediately if a fresh start of e produces nothing. */
+static void flat_drive_repalt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    if (!pBB || pBB->n_operands < 1 || !pBB->operands[0]) {
+        emit_label_define_bb(lbl_β);
+        emit_jmp_label(lbl_ω, JMP_JMP);
+        return;
+    }
+    int id = g_flat_node_id++;
+    IR_t *e = pBB->operands[0];
+    int already = (bb_slot_get(pBB) >= 0);
+    int off = bb_slot_alloc16_or_get(pBB);
+    if (!already) (void)bb_slot_claim(8);
+    bb_label_t *restart = emit_label_alloc("xrepalt%d_restart", id);
+    bb_label_t *e_succ  = emit_label_alloc("xrepalt%d_esucc",   id);
+    bb_label_t *e_fail  = emit_label_alloc("xrepalt%d_efail",   id);
+    bb_label_t *e_beta  = emit_label_alloc("xrepalt%d_e_beta",  id);
+    emit_label_define_bb(restart);
+    bb_emit_repalt_clear(off);
+    repalt_emit_operand_slots(e, lbl_ω);
+    walk_bb_flat(e, e_succ, e_fail, e_beta);
+    emit_label_define_bb(e_succ);
+    bb_emit_repalt_yield(off, descr_binop_opnd_slot(e));
+    bb_slot_register(pBB, off);
+    emit_jmp_label(lbl_γ, JMP_JMP);
+    emit_label_define_bb(e_fail);
+    bb_emit_repalt_test(off);
+    emit_jmp_label(restart, JMP_JE);
+    emit_jmp_label(lbl_ω, JMP_JMP);
+    emit_label_define_bb(lbl_β);
+    emit_jmp_label(e_beta, JMP_JMP);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_suspend(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB || pBB->n_operands < 1 || !pBB->operands[0]) {
         fprintf(stderr, "[IBB] FATAL flat_drive_suspend: IR_SUSPEND requires an expr-value operand\n");
@@ -2249,7 +2304,7 @@ static int gen_bb_is_gen_arg(IR_t *e) {
     if (!e) return 0;
     if (e->op == IR_ASSIGN) return gen_bb_is_gen_arg(bb_child1(e));
     switch (e->op) {
-        case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT:
+        case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT: case IR_REPALT:
         case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
         case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
         case IR_GATHER: case IR_MAP: case IR_GREP:
@@ -2260,7 +2315,7 @@ static int gen_bb_is_gen_arg(IR_t *e) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_is_generator_kind(IR_e t) {
     switch (t) {
-        case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT:
+        case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT: case IR_REPALT:
         case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
         case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
         case IR_GATHER: case IR_MAP: case IR_GREP:
@@ -3319,6 +3374,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_SEQ_EXPR:   flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_EVERY:      flat_drive_every(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIMIT:      flat_drive_limit(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_REPALT:     flat_drive_repalt(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUSPEND:    flat_drive_suspend(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_TO:         flat_drive_to(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GATHER:     FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3735,6 +3791,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_LIST_BANG: return 0;
     case IR_CASE: return 0;
     case IR_ALT:   return 0;
+    case IR_REPALT: return 0;   /* |e — sub-expression is the lowerer-set operand[0], driven internally by flat_drive_repalt; result slot is REPALT's own (e's value copied in at yield) */
     case IR_GATHER: return 0;
     case IR_MAP: case IR_GREP: return 0;
     case IR_GEN_SCAN: return 0;
