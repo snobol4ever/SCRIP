@@ -3423,7 +3423,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β);
         }
         break;
-    case IR_PROC_GEN: { IR_e _sk = nd->op; nd->op = IR_CALL_PROC_STAGED; flat_drive_call_userproc(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; break; }
+    case IR_PROC_GEN: { IR_e _sk = nd->op; nd->op = IR_CALL_PROC_STAGED; flat_drive_userproc(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; break; }
     case IR_INITIAL:    flat_drive_initial(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CASE:       flat_drive_case(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FIELD_GET:  flat_drive_field_get(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3537,6 +3537,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             break;
         }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
+        if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         if (nodes[i]->op == IR_EVERY) { for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)(nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL)) { node_γ = lbls[k]; break; } }
         int omega_resolved = 0; int omega_k = -1;
         for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k]; omega_resolved = 1; omega_k = k; break; }
