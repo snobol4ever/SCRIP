@@ -188,8 +188,15 @@ bb12_α:
 xgvarg20_done:
 bb13_α:
 # BOX IR_CALL LE(...) inline integer relop [four-port, FAIL->ω]
+ mov rdx, qword ptr [rbx + 16]
+ cmp edx, 6
+ jne .Lx23_0
+ mov rax, qword ptr [rbx + 24]
+ jmp .Lx23_1
+.Lx23_0:
    lea rdi, [rip + .S1]
  call rt_gvar_get_int@PLT
+.Lx23_1:
  mov qword ptr [r12 + 168], rax
  mov rcx, 5
  mov qword ptr [r12 + 152], 0
@@ -205,31 +212,31 @@ bb14_α:
 # IR_BINOP_GVAR_ARITH
  mov rdx, qword ptr [rbx + 16]
  cmp edx, 6
- jne .Lx25_0
+ jne .Lx26_0
  mov rcx, qword ptr [rbx + 24]
- jmp .Lx25_1
-.Lx25_0:
+ jmp .Lx26_1
+.Lx26_0:
  lea rdi, [rip + .S1]
  call rt_gvar_get_int@PLT
  mov rcx, rax
-.Lx25_1:
+.Lx26_1:
  mov qword ptr [r12 + 184], rcx
  mov rdx, qword ptr [rbx + 16]
  cmp edx, 6
- jne .Lx25_2
+ jne .Lx26_2
  mov rax, qword ptr [rbx + 24]
- jmp .Lx25_3
-.Lx25_2:
+ jmp .Lx26_3
+.Lx26_2:
  lea rdi, [rip + .S1]
  call rt_gvar_get_int@PLT
-.Lx25_3:
+.Lx26_3:
  mov rcx, qword ptr [r12 + 184]
  imul rax, rcx
  mov qword ptr [r12 + 184], rax
- jmp xgvidxv23_done
- xgvidxv23_β:
+ jmp xgvidxv24_done
+ xgvidxv24_β:
  jmp snoch0_n6_α
-xgvidxv23_done:
+xgvidxv24_done:
 bb15_α:
 # IR_IDX_SET: AXS inline DT_A+int fast path, else subscript_set
  lea rdi, [rip + .S0]
@@ -246,19 +253,19 @@ bb15_α:
  mov qword ptr [r12 + 120], rax
  mov rax, qword ptr [r12 + 192]
  cmp eax, 4
- jne .Lx27_0
+ jne .Lx28_0
  mov rax, qword ptr [r12 + 208]
  cmp eax, 6
- jne .Lx27_0
+ jne .Lx28_0
  mov rsi, qword ptr [r12 + 200]
  mov rcx, qword ptr [r12 + 216]
  mov r8, qword ptr [rsi]
  sub ecx, r8d
- js .Lx27_0
+ js .Lx28_0
  mov r9, qword ptr [rsi + 4]
  sub r9d, r8d
  cmp ecx, r9d
- jg .Lx27_0
+ jg .Lx28_0
  mov r11, qword ptr [rsi + 24]
  movsxd rcx, ecx
  add rcx, rcx
@@ -271,7 +278,7 @@ bb15_α:
  mov qword ptr [r11 + 0], rax
  mov qword ptr [r11 + 8], rdx
  jmp snoch0_n6_α
-.Lx27_0:
+.Lx28_0:
  mov rdi, qword ptr [r12 + 192]
  mov rsi, qword ptr [r12 + 200]
  mov rdx, qword ptr [r12 + 208]
@@ -289,13 +296,13 @@ bb16_α:
 # IR_BINOP_GVAR_ARITH
  mov rdx, qword ptr [rbx + 16]
  cmp edx, 6
- jne .Lx29_0
+ jne .Lx30_0
  mov rax, qword ptr [rbx + 24]
- jmp .Lx29_1
-.Lx29_0:
+ jmp .Lx30_1
+.Lx30_0:
  lea rdi, [rip + .S1]
  call rt_gvar_get_int@PLT
-.Lx29_1:
+.Lx30_1:
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 224], rax
@@ -336,19 +343,19 @@ bb20_α:
  lea rdi, [rip + .S0]
  call NV_GET_fn@PLT
  cmp eax, 4
- jne .Lx35_0
+ jne .Lx36_0
  mov r8, qword ptr [r12 + 232]
  cmp r8d, 6
- jne .Lx35_0
+ jne .Lx36_0
  mov rcx, qword ptr [r12 + 240]
  mov rsi, rdx
  mov r8, qword ptr [rsi]
  sub ecx, r8d
- js .Lx35_0
+ js .Lx36_0
  mov r9, qword ptr [rsi + 4]
  sub r9d, r8d
  cmp ecx, r9d
- jg .Lx35_0
+ jg .Lx36_0
  mov r11, qword ptr [rsi + 24]
  movsxd rcx, ecx
  add rcx, rcx
@@ -358,7 +365,7 @@ bb20_α:
  mov qword ptr [r12 + 248], rax
  mov qword ptr [r12 + 256], rdx
  jmp snoch0_n16_α
-.Lx35_0:
+.Lx36_0:
  mov rdi, rax
  mov rsi, rdx
  mov rdx, qword ptr [r12 + 232]
@@ -402,25 +409,32 @@ bb24_α:
  mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 280], rax
  mov qword ptr [r12 + 288], rdx
- jmp xgvarg40_done
- xgvarg40_β:
+ jmp xgvarg41_done
+ xgvarg41_β:
  jmp flat_γ
-xgvarg40_done:
+xgvarg41_done:
 # IR_LIT_I
 bb25_α:
  mov qword ptr [r12 + 296], 6
- mov rax, qword ptr [rip + .Lx44_0]
+ mov rax, qword ptr [rip + .Lx45_0]
  mov qword ptr [r12 + 304], rax
- jmp xgvarg43_done
- xgvarg43_β:
+ jmp xgvarg44_done
+ xgvarg44_β:
  jmp flat_γ
-.Lx44_0:
+.Lx45_0:
  .quad 5
-xgvarg43_done:
+xgvarg44_done:
 bb26_α:
 # BOX IR_CALL LE(...) inline integer relop [four-port, FAIL->ω]
+ mov rdx, qword ptr [rbx + 16]
+ cmp edx, 6
+ jne .Lx47_0
+ mov rax, qword ptr [rbx + 24]
+ jmp .Lx47_1
+.Lx47_0:
    lea rdi, [rip + .S1]
  call rt_gvar_get_int@PLT
+.Lx47_1:
  mov qword ptr [r12 + 328], rax
  mov rcx, 5
  mov qword ptr [r12 + 312], 0
@@ -436,13 +450,13 @@ bb27_α:
 # IR_BINOP_GVAR_ARITH
  mov rdx, qword ptr [rbx + 16]
  cmp edx, 6
- jne .Lx47_0
+ jne .Lx49_0
  mov rax, qword ptr [rbx + 24]
- jmp .Lx47_1
-.Lx47_0:
+ jmp .Lx49_1
+.Lx49_0:
  lea rdi, [rip + .S1]
  call rt_gvar_get_int@PLT
-.Lx47_1:
+.Lx49_1:
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 344], rax

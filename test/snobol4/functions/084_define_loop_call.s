@@ -268,8 +268,15 @@ bb16_α:
 xgvarg26_done:
 bb17_α:
 # BOX IR_CALL LT(...) inline integer relop [four-port, FAIL->ω]
+ mov rdx, qword ptr [rbx + 48]
+ cmp edx, 6
+ jne .Lx29_0
+ mov rax, qword ptr [rbx + 56]
+ jmp .Lx29_1
+.Lx29_0:
    lea rdi, [rip + .S5]
  call rt_gvar_get_int@PLT
+.Lx29_1:
  mov qword ptr [r12 + 144], rax
  mov rcx, 5
  mov qword ptr [r12 + 128], 0
@@ -295,13 +302,13 @@ bb19_α:
 # IR_BINOP_GVAR_ARITH
  mov rdx, qword ptr [rbx + 48]
  cmp edx, 6
- jne .Lx32_0
+ jne .Lx33_0
  mov rax, qword ptr [rbx + 56]
- jmp .Lx32_1
-.Lx32_0:
+ jmp .Lx33_1
+.Lx33_0:
  lea rdi, [rip + .S5]
  call rt_gvar_get_int@PLT
-.Lx32_1:
+.Lx33_1:
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 160], rax

@@ -121,26 +121,26 @@ push r12
   mov r12, rdi
   lea r10, [rip + Δ]
 flat_α_body:
-snoch7_n0_α:
+snoch8_n0_α:
 bb4_α:
 # IR_CALL_DEFINE
  lea rdi, [rip + .S1]
  call rt_proc_define@PLT
- jmp snoch7_n1_α
- snoch7_n0_β:
- jmp snoch7_n1_α
-snoch7_n1_α:
+ jmp snoch8_n1_α
+ snoch8_n0_β:
+ jmp snoch8_n1_α
+snoch8_n1_α:
 # IR_LIT_I
 bb5_α:
  mov qword ptr [r12 + 16], 6
- mov rax, qword ptr [rip + .Lx10_0]
+ mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 24], rax
- jmp xgvarg9_done
- xgvarg9_β:
- jmp snoch7_n3_α
-.Lx10_0:
+ jmp xgvarg10_done
+ xgvarg10_β:
+ jmp snoch8_n3_α
+.Lx11_0:
  .quad 5
-xgvarg9_done:
+xgvarg10_done:
 bb6_α:
 # BOX IR_CALL ispos(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+16] -> [r12+48]
@@ -149,63 +149,63 @@ bb6_α:
  mov rax, qword ptr [r12 + 24]
  mov qword ptr [r12 + 56], rax
   .section .rodata
-  .Lprocfn12: .string "ispos"
+  .Lprocfn13: .string "ispos"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn12]
+   lea rdi, [rip + .Lprocfn13]
  lea rsi, [r12 + 48]
  mov edx, 1
  call rt_call_named_proc@PLT
  mov qword ptr [r12 + 32], rax
  mov qword ptr [r12 + 40], rdx
  cmp eax, 99
- je snoch7_n3_α
- jmp snoch7_n2_α
-snoch7_n1_β:
- jmp snoch7_n3_α
-snoch7_n2_α:
+ je snoch8_n3_α
+ jmp snoch8_n2_α
+snoch8_n1_β:
+ jmp snoch8_n3_α
+snoch8_n2_α:
 # IR_LIT_scalar
 bb7_α:
- jmp snoch7_n4_α
- snoch7_n2_β:
- jmp snoch7_n5_α
-snoch7_n3_α:
+ jmp snoch8_n4_α
+ snoch8_n2_β:
+ jmp snoch8_n5_α
+snoch8_n3_α:
 # IR_LIT_scalar
 bb8_α:
- jmp snoch7_n6_α
- snoch7_n3_β:
- jmp snoch7_n5_α
-snoch7_n4_α:
+ jmp snoch8_n6_α
+ snoch8_n3_β:
+ jmp snoch8_n5_α
+snoch8_n4_α:
 bb9_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S3]
  call rt_gvar_assign_str@PLT
- jmp snoch7_n5_α
- snoch7_n4_β:
- jmp snoch7_n5_α
-snoch7_n5_α:
-xargsub17_n0_α:
+ jmp snoch8_n5_α
+ snoch8_n4_β:
+ jmp snoch8_n5_α
+snoch8_n5_α:
+xargsub18_n0_α:
 # IR_LIT_I
 bb10_α:
  mov qword ptr [r12 + 64], 6
- mov rax, qword ptr [rip + .Lx18_0]
+ mov rax, qword ptr [rip + .Lx19_0]
  mov qword ptr [r12 + 72], rax
- jmp xargsub17_n1_α
- xargsub17_n0_β:
- jmp snoch7_n8_α
-.Lx18_0:
+ jmp xargsub18_n1_α
+ xargsub18_n0_β:
+ jmp snoch8_n8_α
+.Lx19_0:
  .quad 3
-xargsub17_n1_α:
+xargsub18_n1_α:
 bb11_α:
 # IR_UNOP_GVAR_SLOT
  mov rax, 3
  neg rax
  mov qword ptr [r12 + 80], rax
- jmp xgvarg16_done
- xargsub17_n1_β:
- jmp snoch7_n8_α
-xgvarg16_done:
+ jmp xgvarg17_done
+ xargsub18_n1_β:
+ jmp snoch8_n8_α
+xgvarg17_done:
 bb12_α:
 # BOX IR_CALL ispos(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+80] -> [r12+104]
@@ -214,58 +214,58 @@ bb12_α:
  mov rax, qword ptr [r12 + 88]
  mov qword ptr [r12 + 112], rax
   .section .rodata
-  .Lprocfn21: .string "ispos"
+  .Lprocfn22: .string "ispos"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn21]
+   lea rdi, [rip + .Lprocfn22]
  lea rsi, [r12 + 104]
  mov edx, 1
  call rt_call_named_proc@PLT
  mov qword ptr [r12 + 88], rax
  mov qword ptr [r12 + 96], rdx
  cmp eax, 99
- je snoch7_n8_α
- jmp snoch7_n7_α
-snoch7_n5_β:
- jmp snoch7_n8_α
-snoch7_n6_α:
+ je snoch8_n8_α
+ jmp snoch8_n7_α
+snoch8_n5_β:
+ jmp snoch8_n8_α
+snoch8_n6_α:
 bb13_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S4]
  call rt_gvar_assign_str@PLT
- jmp snoch7_n5_α
- snoch7_n6_β:
- jmp snoch7_n5_α
-snoch7_n7_α:
+ jmp snoch8_n5_α
+ snoch8_n6_β:
+ jmp snoch8_n5_α
+snoch8_n7_α:
 # IR_LIT_scalar
 bb14_α:
- jmp snoch7_n9_α
- snoch7_n7_β:
+ jmp snoch8_n9_α
+ snoch8_n7_β:
  jmp flat_γ
-snoch7_n8_α:
+snoch8_n8_α:
 # IR_LIT_scalar
 bb15_α:
- jmp snoch7_n10_α
- snoch7_n8_β:
+ jmp snoch8_n10_α
+ snoch8_n8_β:
  jmp flat_γ
-snoch7_n9_α:
+snoch8_n9_α:
 bb16_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S4]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
- snoch7_n9_β:
+ snoch8_n9_β:
  jmp flat_γ
-snoch7_n10_α:
+snoch8_n10_α:
 bb17_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S5]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
- snoch7_n10_β:
+ snoch8_n10_β:
  jmp flat_γ
 flat_β:
 jmp flat_ω

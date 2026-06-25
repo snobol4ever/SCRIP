@@ -93,8 +93,15 @@ bb6_α:
 xgvarg9_done:
 bb7_α:
 # BOX IR_CALL GT(...) inline integer relop [four-port, FAIL->ω]
+ mov rdx, qword ptr [rbx + 0]
+ cmp edx, 6
+ jne .Lx12_0
+ mov rax, qword ptr [rbx + 8]
+ jmp .Lx12_1
+.Lx12_0:
    lea rdi, [rip + .S0]
  call rt_gvar_get_int@PLT
+.Lx12_1:
  mov qword ptr [r12 + 64], rax
  mov rcx, 5
  mov qword ptr [r12 + 48], 0
@@ -110,13 +117,13 @@ bb8_α:
 # IR_BINOP_GVAR_ARITH
  mov rdx, qword ptr [rbx + 0]
  cmp edx, 6
- jne .Lx13_0
+ jne .Lx14_0
  mov rax, qword ptr [rbx + 8]
- jmp .Lx13_1
-.Lx13_0:
+ jmp .Lx14_1
+.Lx14_0:
  lea rdi, [rip + .S0]
  call rt_gvar_get_int@PLT
-.Lx13_1:
+.Lx14_1:
  mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 80], rax
