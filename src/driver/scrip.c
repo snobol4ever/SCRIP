@@ -433,7 +433,7 @@ static pl_gz_choice_state_t * pl_gz_choice_inline(IR_t *gg) {
     if (ar > 4) return NULL;
     if (!pl_gz_call_args_ok(zc, ar)) return NULL;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
-    if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 32) return NULL;
+    if (!bc || !bc->bodies || bc->nbodies < 2) return NULL;
     pl_gz_choice_state_t *st = (pl_gz_choice_state_t *)GC_MALLOC(sizeof *st);
     if (!st) return NULL;
     st->nclauses = bc->nbodies; st->arity = ar; st->mark_slot = 0;
@@ -464,7 +464,7 @@ static IR_graph_t **g_gz_visiting = NULL; static int g_gz_nvisiting = 0; static 
 static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t **bc_out) {
     if (!cg || !cg->entry || cg->entry->op != IR_CHOICE || ar > 4) return 0;
     bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
-    if (!bc || !bc->bodies || bc->nbodies < 2 || bc->nbodies > 32) return 0;
+    if (!bc || !bc->bodies || bc->nbodies < 2) return 0;
     for (int v = 0; v < g_gz_nvisiting; v++) if (g_gz_visiting[v] == cg) { if (bc_out) *bc_out = bc; return 1; }
     if (g_gz_nvisiting >= g_gz_visiting_cap) { int nc = g_gz_visiting_cap ? g_gz_visiting_cap * 2 : 16; IR_graph_t **nv = (IR_graph_t **)GC_MALLOC(sizeof(IR_graph_t *) * nc); if (!nv) return 0; for (int i = 0; i < g_gz_nvisiting; i++) nv[i] = g_gz_visiting[i]; g_gz_visiting = nv; g_gz_visiting_cap = nc; }
     g_gz_visiting[g_gz_nvisiting++] = cg;
@@ -1261,7 +1261,8 @@ static pl_gz_callee_t * pl_gz_callee_get_choice(IR_graph_t *cg, int ar, bb_choic
     if (!ce->frame_node) return NULL;
     IR_LIT(ce->frame_node).ival = (int64_t)(intptr_t)ce;
     if (!pl_gz_callees_push(cv, ce)) return (pl_gz_callee_t *)0;
-    bb_conj_state_t *zsk[32]; int lbase[32]; int total = 0;
+    int nbod = bc->nbodies > 0 ? bc->nbodies : 1;
+    bb_conj_state_t **zsk = (bb_conj_state_t **)alloca(sizeof(bb_conj_state_t *) * nbod); int *lbase = (int *)alloca(sizeof(int) * nbod); int total = 0;
     for (int k = 0; k < bc->nbodies; k++) {
         zsk[k] = NULL;
         if (!pl_gz_rule_clause(bc->bodies[k], ar, &zsk[k])) return NULL;

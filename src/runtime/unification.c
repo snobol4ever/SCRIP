@@ -13,6 +13,7 @@ void *rt_node_to_term(int kind, long ival, const char *sval, double dval)
     switch (kind) {
     case IR_LOGICVAR: {
         int slot = (int)ival;
+        rt_pl_env_ensure(slot);
         Term *t = (g_resolve_env && slot >= 0 && g_resolve_env[slot]) ? term_deref(g_resolve_env[slot]) : NULL;
         if (!t) { t = term_new_var(slot); if (g_resolve_env && slot >= 0) g_resolve_env[slot] = t; }
         return t;
@@ -37,6 +38,7 @@ int rt_unify_terms(void *l, void *r)
 int rt_unify_const(int slot, int kind, long ival, const char *sval, double dval)
 {
     extern Term **g_resolve_env;
+    rt_pl_env_ensure(slot);
     Term *vt = (g_resolve_env && slot >= 0 && g_resolve_env[slot]) ? term_deref(g_resolve_env[slot]) : (Term *)0;
     if (!vt) { vt = term_new_var(slot); if (g_resolve_env && slot >= 0) g_resolve_env[slot] = vt; }
     if (vt->tag == TERM_VAR) return rt_unify_terms(vt, rt_node_to_term(kind, ival, sval, dval));
@@ -51,6 +53,7 @@ int rt_unify_const(int slot, int kind, long ival, const char *sval, double dval)
 int rt_unify_var_var(int lslot, int rslot)
 {
     extern Term **g_resolve_env;
+    rt_pl_env_ensure(lslot > rslot ? lslot : rslot);
     Term *lt = (g_resolve_env && lslot >= 0 && g_resolve_env[lslot]) ? term_deref(g_resolve_env[lslot]) : (Term *)0;
     if (!lt) { lt = term_new_var(lslot); if (g_resolve_env && lslot >= 0) g_resolve_env[lslot] = lt; }
     Term *rt_ = (g_resolve_env && rslot >= 0 && g_resolve_env[rslot]) ? term_deref(g_resolve_env[rslot]) : (Term *)0;
@@ -58,9 +61,24 @@ int rt_unify_var_var(int lslot, int rslot)
     return rt_unify_terms(lt, rt_);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static size_t pl_resolve_env_cap = 0;
+void rt_pl_env_ensure(int slot)
+{
+    extern Term **g_resolve_env;
+    if (slot < 0) return;
+    if (g_resolve_env && (size_t)slot < pl_resolve_env_cap) return;
+    size_t need = (size_t)slot + 1, nc = pl_resolve_env_cap ? pl_resolve_env_cap : 64;
+    while (nc < need) nc *= 2;
+    Term **ne = (Term **)GC_MALLOC(nc * sizeof(Term *));
+    for (size_t i = 0; i < pl_resolve_env_cap; i++) ne[i] = g_resolve_env ? g_resolve_env[i] : (Term *)0;
+    for (size_t i = pl_resolve_env_cap; i < nc; i++) ne[i] = (Term *)0;
+    g_resolve_env = ne; pl_resolve_env_cap = nc;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_cells_init(void **cells, int n)
 {
     extern Term **g_resolve_env;
+    rt_pl_env_ensure(n - 1);
     for (int i = 0; i < n; i++) {
         Term *v = term_new_var(i);
         cells[i] = v;
@@ -72,7 +90,7 @@ void rt_pl_gz_init(void *frame, int nslots)
 {
     extern Term **g_resolve_env;
     prolog_atom_init();
-    if (!g_resolve_env) g_resolve_env = (Term **)GC_MALLOC((size_t)(nslots + 64) * sizeof(Term *));
+    rt_pl_env_ensure(nslots + 63);
     Term **cells = (Term **)(((char *)frame) + 8);
     for (int i = 0; i < nslots; i++) {
         Term *v = term_new_var(i);
