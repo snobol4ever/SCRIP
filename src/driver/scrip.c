@@ -226,6 +226,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     { extern void *dat_find_type(const char *name); if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && IR_LIT(r).sval && dat_find_type(IR_LIT(r).sval)) return 1; }
+    { extern int rt_builtin_is_known(const char *name); const char *bn = IR_LIT(r).sval; if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && bn && rt_builtin_is_known(bn) && strcmp(bn,"table")) return 1; }
     if (r->op == IR_FIELD_GET) return 1;
     if (r->op == IR_CASE) return 1;
     if (r->op == IR_GATHER) return 1;
