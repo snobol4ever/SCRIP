@@ -65,6 +65,42 @@ int main(void) {
     for (int k = 0; k < 1000; k++) pl_trail_push(&big, &scratch);
     CHECK(pl_trail_mark(&big) == 1000, "trail grew to 1000 entries with no fixed cap");
 
+    /* 7. pl_unify: two unbound vars alias, then binding one is seen through the other */
+    pl_trail_t u; pl_trail_init(&u);
+    pl_cell_t P, Q; pl_init_var(&P, 0); pl_init_var(&Q, 1);
+    int mu0 = pl_trail_mark(&u);
+    CHECK(pl_unify(&P, &Q, &u), "unify(var P, var Q) succeeds");
+    pl_cell_t seven = pl_make_int(7);
+    CHECK(pl_unify(&P, &seven, &u), "unify(P, 7) succeeds");
+    CHECK(pl_is_int(&Q) && pl_int_val(&Q) == 7, "Q sees 7 through the P-Q alias");
+    pl_trail_unwind(&u, mu0);
+    CHECK(pl_is_var(&P) && pl_is_var(&Q) && pl_deref(&P) == &P && pl_deref(&Q) == &Q, "unwind restores P and Q unbound");
+
+    /* 8. pl_unify: scalar (mis)matches by value, distinct tags never unify */
+    pl_cell_t i3a = pl_make_int(3), i3b = pl_make_int(3), i9 = pl_make_int(9);
+    CHECK(pl_unify(&i3a, &i3b, &u), "unify(3, 3) succeeds");
+    CHECK(!pl_unify(&i3a, &i9, &u), "unify(3, 9) fails");
+    pl_cell_t a5 = pl_make_atom(5), a5b = pl_make_atom(5), a6 = pl_make_atom(6);
+    CHECK(pl_unify(&a5, &a5b, &u), "unify(atom5, atom5) succeeds");
+    CHECK(!pl_unify(&a5, &a6, &u), "unify(atom5, atom6) fails");
+    CHECK(!pl_unify(&i3a, &a5, &u), "unify(int, atom) fails (distinct tags)");
+
+    /* 9. pl_unify: recursive compound — f(X,2) vs f(1,Y) binds X=1,Y=2; functor mismatch fails */
+    pl_cell_t argsL[2], argsR[2];
+    pl_init_var(&argsL[0], 0); argsL[1] = pl_make_int(2);   /* f(X, 2) */
+    argsR[0] = pl_make_int(1); pl_init_var(&argsR[1], 1);   /* f(1, Y) */
+    pl_cell_t fL = pl_make_compound(/*functor=*/100, /*arity=*/2, argsL);
+    pl_cell_t fR = pl_make_compound(/*functor=*/100, /*arity=*/2, argsR);
+    int mu1 = pl_trail_mark(&u);
+    CHECK(pl_unify(&fL, &fR, &u), "unify(f(X,2), f(1,Y)) succeeds");
+    CHECK(pl_is_int(&argsL[0]) && pl_int_val(&argsL[0]) == 1, "X bound to 1");
+    CHECK(pl_is_int(&argsR[1]) && pl_int_val(&argsR[1]) == 2, "Y bound to 2");
+    pl_trail_unwind(&u, mu1);
+    CHECK(pl_is_var(&argsL[0]) && pl_is_var(&argsR[1]), "unwind restores X and Y unbound");
+    pl_cell_t gL = pl_make_compound(/*functor=*/100, 2, argsL);
+    pl_cell_t gR = pl_make_compound(/*functor=*/200, 2, argsR);   /* different functor */
+    CHECK(!pl_unify(&gL, &gR, &u), "unify(f/2, g/2) fails on functor mismatch");
+
     printf("=== %s (%d failure%s) ===\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;
 }
