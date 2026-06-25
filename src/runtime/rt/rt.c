@@ -304,6 +304,16 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     return result;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+#define RT_INITIAL_MAX 8192
+static int64_t g_initial_fired[RT_INITIAL_MAX];
+static int     g_initial_fired_n = 0;
+int64_t rt_initial_fire(int64_t site)
+{
+    for (int i = 0; i < g_initial_fired_n; i++) if (g_initial_fired[i] == site) return 0;
+    if (g_initial_fired_n < RT_INITIAL_MAX) g_initial_fired[g_initial_fired_n++] = site;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define RT_GEN_ACT_MAX 256
 typedef struct { char *frame; bb_box_fn fn; } rt_gen_act_t;
 static int64_t     g_gen_arena[RT_GEN_ACT_MAX * PROC_FRAME_QWORDS];

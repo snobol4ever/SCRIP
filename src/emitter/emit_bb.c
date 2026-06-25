@@ -227,6 +227,7 @@ const char *emit_intern_str(const char *s) {
     return (g_flat_intern_str && g_is_text) ? g_flat_intern_str(s) : NULL;
 }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail);
 static void descr_chain_operand_refs(IR_t *entry);
 static void gvar_stmt_operand_refs(IR_t *head);
 static int gvar_prewalk_idx_operand(IR_t *idx, bb_label_t *lbl_ω);
@@ -1874,16 +1875,12 @@ static void flat_drive_initial(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     }
     int id = g_flat_node_id++;
     bb_label_t *body_entry = emit_label_alloc("xinit%d_body", id);
-    bb_label_t *mark_done  = emit_label_alloc("xinit%d_mark", id);
     g_emit.op_sc = id;
     EMIT_PAIR_RESET();
-    EMIT_PAIR_JMP(lbl_γ);
     EMIT_PAIR_JMP(body_entry);
-    EMIT_PAIR_DEF_JMP(mark_done, lbl_γ);
-    EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
     emit_label_define_bb(body_entry);
-    walk_bb_flat(pBB->operands[0], mark_done, lbl_ω, lbl_β);
+    flat_emit_arg_subchain(pBB->operands[0], lbl_γ, lbl_ω);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void case_slot_binop_operands(IR_t *v, bb_label_t *lbl_ω) {
