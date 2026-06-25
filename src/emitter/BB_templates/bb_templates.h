@@ -77,6 +77,7 @@ std::string bb_gen_scan();
 std::string bb_gvar_assign();
 std::string bb_assign_local();
 std::string bb_field_get();
+std::string bb_field_set();
 std::string bb_section();
 std::string bb_swap();
 std::string bb_rasgn();
