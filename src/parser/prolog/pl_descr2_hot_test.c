@@ -1,6 +1,6 @@
 /* PL-DESCR-2 sub-flip-2 HOT-HELPER isolated test — validates the is/cmp/unify-const logic that the READY doc
  * (PL-DESCR-2-SUBFLIP2-READY.md) pre-wrote, BEFORE it is pasted into rt_runtime.c/unification.c. The bodies below
- * are byte-faithful to the READY versions except the global `g_pl_trail` is a passed-in local trail and atoms are
+ * are byte-faithful to the READY versions except the real-helper trail global is here a passed-in local trail and atoms are
  * given directly (no intern), so a green run here proves the cell-native arithmetic/comparison/unify SEMANTICS.
  * Build: gcc -I src/contracts -I src/parser/prolog -o /tmp/pl_descr2_hot_test src/parser/prolog/pl_descr2_hot_test.c && /tmp/pl_descr2_hot_test
  */
@@ -11,7 +11,7 @@
 static int fails = 0;
 #define CHECK(cond, msg) do { if (!(cond)) { printf("  FAIL: %s\n", msg); fails++; } else { printf("  ok:   %s\n", msg); } } while (0)
 
-/*-- the READY-doc hot bodies, trail passed in (== g_pl_trail in the real helper) -------------------------------------*/
+/*-- the READY-doc hot bodies, trail passed in (== the real-helper trail global) -------------------------------------*/
 static int hot_is_int(pl_cell_t *lhs, long val, pl_trail_t *tr) {
     if (!lhs) return 0;
     pl_cell_t w = pl_make_int((int64_t)val);

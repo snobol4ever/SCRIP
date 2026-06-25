@@ -733,20 +733,32 @@ int rt_pl_agg_max_finish(void *acc_v, void *result_term) { return rt_pl_agg_minm
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_agg_min_finish(void *acc_v, void *result_term) { return rt_pl_agg_minmax_finish(acc_v, result_term, 0); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-#define RT_PL_NB_MAX 256
-static struct { const char *key; Term *val; } g_rt_pl_nb[RT_PL_NB_MAX];
+static Term **g_rt_pl_nb = (Term **)0;
 static int g_rt_pl_nb_n = 0;
+static int rt_pl_nb_ensure(int id)
+{
+    if (id < 0) return 0;
+    if (id >= g_rt_pl_nb_n) {
+        extern void *GC_malloc(size_t); extern void *GC_realloc(void *, size_t);
+        int nc = g_rt_pl_nb_n ? g_rt_pl_nb_n : 16; while (nc <= id) nc *= 2;
+        Term **nv = (Term **)(g_rt_pl_nb ? GC_realloc(g_rt_pl_nb, (size_t)nc * sizeof(Term *)) : GC_malloc((size_t)nc * sizeof(Term *)));
+        if (!nv) return 0;
+        for (int i = g_rt_pl_nb_n; i < nc; i++) nv[i] = (Term *)0;
+        g_rt_pl_nb = nv; g_rt_pl_nb_n = nc;
+    }
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_setval_cell(void *key_cell, void *val_cell)
 {
     Term *k = term_deref((Term *)key_cell);
     if (!k || k->tag != TERM_ATOM) return 0;
-    const char *name = prolog_atom_name(k->atom_id);
-    if (!name) return 0;
+    int id = k->atom_id;
+    if (!rt_pl_nb_ensure(id)) return 0;
     Term *var_map[256]; int var_cap = 256, var_n = 0;
     Term *stored = copy_term_deep(term_deref((Term *)val_cell), var_map, &var_cap, &var_n);
     if (!stored) return 0;
-    for (int i = 0; i < g_rt_pl_nb_n; i++) if (g_rt_pl_nb[i].key && !strcmp(g_rt_pl_nb[i].key, name)) { g_rt_pl_nb[i].val = stored; return 1; }
-    if (g_rt_pl_nb_n < RT_PL_NB_MAX) { g_rt_pl_nb[g_rt_pl_nb_n].key = name; g_rt_pl_nb[g_rt_pl_nb_n].val = stored; g_rt_pl_nb_n++; }
+    g_rt_pl_nb[id] = stored;
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -755,10 +767,8 @@ int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
     extern Trail g_resolve_trail;
     Term *k = term_deref((Term *)key_cell);
     if (!k || k->tag != TERM_ATOM) return 0;
-    const char *name = prolog_atom_name(k->atom_id);
-    if (!name) return 0;
-    Term *val = (Term *)0;
-    for (int i = 0; i < g_rt_pl_nb_n; i++) if (g_rt_pl_nb[i].key && !strcmp(g_rt_pl_nb[i].key, name)) { val = g_rt_pl_nb[i].val; break; }
+    int id = k->atom_id;
+    Term *val = (id >= 0 && id < g_rt_pl_nb_n) ? g_rt_pl_nb[id] : (Term *)0;
     if (!val) return 0;
     int mark = trail_mark(&g_resolve_trail);
     Term *var_map[256]; int var_cap = 256, var_n = 0;
