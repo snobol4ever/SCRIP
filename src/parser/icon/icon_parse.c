@@ -103,6 +103,7 @@ static tree_t *parse_primary(IcnParser *p) {
     }
     if (t.kind == TK_LPAREN) {
         advance(p);
+        if (check(p, TK_RPAREN)) { advance(p); return ast_node_new(TT_SEQ_EXPR); }
         tree_t *first = parse_expr(p);
         if (check(p, TK_SEMICOL)) {
             tree_t *seq = ast_node_new(TT_SEQ_EXPR);
@@ -115,6 +116,17 @@ static tree_t *parse_primary(IcnParser *p) {
             expect(p, TK_RPAREN, "sequence expression");
             return seq;
         }
+        if (check(p, TK_COMMA)) {
+            tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+            push_child(seq, first);
+            while (check(p, TK_COMMA)) {
+                advance(p);
+                if (check(p, TK_RPAREN)) break;
+                push_child(seq, parse_expr(p));
+            }
+            expect(p, TK_RPAREN, "mutual evaluation");
+            return seq;
+        }
         expect(p, TK_RPAREN, "grouped expression");
         return first;
     }
@@ -122,10 +134,12 @@ static tree_t *parse_primary(IcnParser *p) {
         advance(p);
         tree_t *lst = ast_node_new(TT_MAKELIST);
         if (!check(p, TK_RBRACK)) {
-            push_child(lst, parse_expr(p));
+            if (check(p, TK_COMMA)) push_child(lst, ast_node_new(TT_NUL));
+            else push_child(lst, parse_expr(p));
             while (check(p, TK_COMMA)) {
                 advance(p);
-                if (check(p, TK_RBRACK)) break;
+                if (check(p, TK_RBRACK)) { push_child(lst, ast_node_new(TT_NUL)); break; }
+                if (check(p, TK_COMMA)) { push_child(lst, ast_node_new(TT_NUL)); continue; }
                 push_child(lst, parse_expr(p));
             }
         }
@@ -147,7 +161,9 @@ static tree_t *parse_primary(IcnParser *p) {
         advance(p);
         return ast_node_new(TT_LOOP_NEXT);
     }
-    if (t.kind == TK_CASE) {
+    if (t.kind == TK_CASE   || t.kind == TK_RETURN || t.kind == TK_SUSPEND ||
+        t.kind == TK_IF     || t.kind == TK_EVERY  || t.kind == TK_WHILE   ||
+        t.kind == TK_UNTIL  || t.kind == TK_REPEAT || t.kind == TK_CREATE) {
         return parse_expr(p);
     }
     if (t.kind == TK_LBRACE) {
@@ -503,7 +519,15 @@ static tree_t *parse_expr(IcnParser *p) {
         if (body) push_child(e, body);
         return e;
     }
-    if (check(p, TK_BREAK)) { advance(p); return ast_node_new(TT_LOOP_BREAK); }
+    if (check(p, TK_BREAK)) {
+        advance(p);
+        tree_t *e = ast_node_new(TT_LOOP_BREAK);
+        if (!check(p, TK_SEMICOL) && !check(p, TK_RPAREN) && !check(p, TK_RBRACE) &&
+            !check(p, TK_EOF)  && !check(p, TK_THEN) && !check(p, TK_ELSE) &&
+            !check(p, TK_DO)   && !check(p, TK_END)  && !check(p, TK_OF))
+            push_child(e, parse_expr(p));
+        return e;
+    }
     if (check(p, TK_NEXT))  { advance(p); return ast_node_new(TT_LOOP_NEXT); }
     if (check(p, TK_IF)) {
         advance(p);
@@ -544,6 +568,12 @@ static tree_t *parse_expr(IcnParser *p) {
         advance(p);
         tree_t *e = ast_node_new(TT_REPEAT);
         push_child(e, parse_block_or_expr(p));
+        return e;
+    }
+    if (check(p, TK_CREATE)) {
+        advance(p);
+        tree_t *e = ast_node_new(TT_CREATE);
+        push_child(e, parse_expr(p));
         return e;
     }
     if (check(p, TK_CASE)) {
@@ -657,12 +687,18 @@ static tree_t *parse_stmt(IcnParser *p) {
         push_child(e, parse_expr(p));
         tree_t *body = parse_do_clause(p);
         if (body) push_child(e, body);
-        expect(p, TK_SEMICOL, "suspend statement");
+        if (!check(p, TK_RBRACE) && !check(p, TK_END) && !check(p, TK_EOF))
+            expect(p, TK_SEMICOL, "suspend statement");
+        else
+            match(p, TK_SEMICOL);
         return e;
     }
     if (check(p, TK_FAIL)) {
         advance(p);
-        expect(p, TK_SEMICOL, "fail statement");
+        if (!check(p, TK_RBRACE) && !check(p, TK_END) && !check(p, TK_EOF))
+            expect(p, TK_SEMICOL, "fail statement");
+        else
+            match(p, TK_SEMICOL);
         return ast_node_new(TT_PROC_FAIL);
     }
     if (check(p, TK_INITIAL)) {
