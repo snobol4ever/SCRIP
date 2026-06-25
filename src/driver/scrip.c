@@ -2415,6 +2415,13 @@ static int pl_findall_conj_member_admissible(const IR_t *g) {
     return 0;
 }
 /*====================================================================================================================*/
+static void m3_enter_with_rbx(bb_box_fn fn, void *frame, int entry, void *gva_base) {
+    register void *r_di asm("rdi") = frame;
+    register long  r_si asm("rsi") = (long)entry;
+    register void *r_bx asm("rbx") = gva_base;
+    __asm__ volatile("call *%[f]" : : [f]"r"(fn), "r"(r_di), "r"(r_si), "r"(r_bx) : "rax","rcx","rdx","r8","r9","r10","r11","memory","cc");
+}
+/*====================================================================================================================*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -3152,6 +3159,19 @@ int main(int argc, char **argv)
             int main_bb_idx = -1;
             rt_proc_reset();
             g_frame_active = 1;
+            void *m3_gva_arena = (void *)0;
+            {
+                extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+                gva_collect_reset();
+                gva_collect_icon_globals();
+                int n_gva_m3 = gva_count();
+                if (n_gva_m3 > 0) {
+                    m3_gva_arena = calloc((size_t)n_gva_m3, sizeof(DESCR_t));
+                    const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
+                    for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
+                    if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
+                }
+            }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
@@ -3235,7 +3255,7 @@ int main(int argc, char **argv)
                 abort();
             }
             ir_delete_all(s2);
-            (void)fn(rt_frame(), 0);
+            { extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, rt_frame(), 0, m3_gva_arena); else (void)fn(rt_frame(), 0); }
             goto run_done;
         }
         if (is_prolog) {
