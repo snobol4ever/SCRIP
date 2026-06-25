@@ -114,4 +114,35 @@ static inline void pl_bind(pl_cell_t *cell, pl_cell_t word, pl_trail_t *trail) {
     *v = word;
 }
 
+/*-- unify: structural unification of two inline cells, trailing each binding ------------------------------------------*
+ * Semantics mirror the canonical Term unify() in prolog_unify.c, one tag layer down on inline cells:
+ *   - deref both; identical cell ⇒ already unified.
+ *   - two unbound vars ⇒ alias the first onto the second (ref word); trail restores the first's self-ref on unwind.
+ *   - var vs non-var ⇒ copy the non-var's SELF-CONTAINED 16-byte word into the var cell (an int/atom/float carries its
+ *     value inline; a DT_PLREF carries {functor⊕arity, heap_ptr} so the copy shares the immutable arg block — args are
+ *     only ever mutated through their own trailed var cells, so structure sharing is safe).
+ *   - non-var vs non-var ⇒ tags must match, then: int/float by payload, atom by id, compound by functor⊕arity (the
+ *     packed disc) then recursively over the arity inline arg cells in the two heap blocks.
+ * Allocation-free: unify only reads and binds existing cells; the compound arg blocks are built by the caller. */
+static inline int pl_unify(pl_cell_t *a, pl_cell_t *b, pl_trail_t *trail) {
+    pl_cell_t *A = pl_deref(a), *B = pl_deref(b);
+    if (A == B) return 1;
+    int av = (int)A->v == DT_PLVAR, bv = (int)B->v == DT_PLVAR;
+    if (av && bv) { pl_bind(A, pl_make_ref(B, (int)A->slen), trail); return 1; }
+    if (av) { pl_bind(A, *B, trail); return 1; }
+    if (bv) { pl_bind(B, *A, trail); return 1; }
+    if (A->v != B->v) return 0;
+    if ((int)A->v == DT_I) return A->i == B->i;
+    if ((int)A->v == DT_A) return A->i == B->i;
+    if ((int)A->v == DT_R) return A->r == B->r;
+    if ((int)A->v == DT_PLREF) {
+        if (A->slen != B->slen) return 0;
+        int ar = (int)(A->slen & 0xFFFFu);
+        pl_cell_t *aa = (pl_cell_t *)A->p, *bb = (pl_cell_t *)B->p;
+        for (int i = 0; i < ar; i++) if (!pl_unify(&aa[i], &bb[i], trail)) return 0;
+        return 1;
+    }
+    return 0;
+}
+
 #endif

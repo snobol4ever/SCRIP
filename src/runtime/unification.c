@@ -79,9 +79,10 @@ void rt_pl_cells_init(void **cells, int n)
 {
     extern Term **g_resolve_env;
     rt_pl_env_ensure(n - 1);
+    char *base = (char *)cells;
     for (int i = 0; i < n; i++) {
         Term *v = term_new_var(i);
-        cells[i] = v;
+        *(Term **)(base + (size_t)16 * (size_t)i) = v;
         if (g_resolve_env) g_resolve_env[i] = v;
     }
 }
@@ -91,10 +92,10 @@ void rt_pl_gz_init(void *frame, int nslots)
     extern Term **g_resolve_env;
     prolog_atom_init();
     rt_pl_env_ensure(nslots + 63);
-    Term **cells = (Term **)(((char *)frame) + 8);
+    char *base = (char *)frame;
     for (int i = 0; i < nslots; i++) {
         Term *v = term_new_var(i);
-        cells[i] = v;
+        *(Term **)(base + 8 + (size_t)16 * (size_t)i) = v;
         g_resolve_env[i] = v;
     }
 }
@@ -102,7 +103,7 @@ void rt_pl_gz_init(void *frame, int nslots)
 void * rt_enter(void **slot, int nslots)
 {
     extern void *GC_malloc(size_t);
-    if (!*slot) *slot = GC_malloc((size_t)(8 + 8 * (nslots > 0 ? nslots : 1)));
+    if (!*slot) *slot = GC_malloc((size_t)(8 + 16 * (nslots > 0 ? nslots : 1)));
     return *slot;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
