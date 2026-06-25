@@ -141,6 +141,7 @@ int g_gva_active = 0;
 int g_gvar_callarg_live = 0;
 int g_emit_frame_caller_dl = -1;
 int g_frame_active = 0;
+int g_gen_proc_active = 0;
 int g_scan_regs_live = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define FLAT_CHAIN_SET_MAX 512
@@ -2909,6 +2910,9 @@ int bb_call_route_classify(IR_t * nd) {
     if (g_descr_flat_chain && dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
     /* Generators (find/seq/upto/…) and list mutators (push/put) are excluded from rt_builtin_is_known
        but rt_call_arr handles them — route through BYNAME for dv==2.0 and dv==3.0 (subgraph mode). */
+    /* A user-defined generator proc that happens to share a builtin name (e.g. `upto`) must route as a
+       proc generator, not the builtin — registered+generator wins over rt_builtin_is_generator below. */
+    if (g_descr_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
     if (g_descr_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (g_descr_flat_chain && dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
     if (g_gvar_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_GVAR_USERPROC;
@@ -3418,6 +3422,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             flat_drive_unop(nd, lbl_γ, lbl_ω, lbl_β);
         }
         break;
+    case IR_PROC_GEN: { IR_e _sk = nd->op; nd->op = IR_CALL_PROC_STAGED; flat_drive_call_userproc(nd, lbl_γ, lbl_ω, lbl_β); nd->op = _sk; break; }
     case IR_INITIAL:    flat_drive_initial(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CASE:       flat_drive_case(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FIELD_GET:  flat_drive_field_get(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3499,7 +3504,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
@@ -3738,6 +3743,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
     case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
     case IR_CALL:  return (IR_LIT(n).dval == 2.0 || IR_LIT(n).dval == 3.0 || IR_LIT(n).dval == 5.0) ? 0 : (int)IR_LIT(n).ival;
+    case IR_PROC_GEN: return 0;
     case IR_PATTERN_LIT: return 0;
     case IR_PATTERN_LEN: case IR_PATTERN_POS: case IR_PATTERN_RPOS: case IR_PATTERN_TAB: case IR_PATTERN_RTAB: return 0;
     case IR_PATTERN_ANY: case IR_PATTERN_NOTANY: case IR_PATTERN_SPAN: case IR_PATTERN_BREAK: case IR_PATTERN_BREAKX: return 0;
@@ -3765,6 +3771,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
         if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }
     IR_t *stk[512]; int sp = 0;
@@ -3782,7 +3789,8 @@ void resolve_call_kinds_descr(IR_graph_t *g) {
     if (!g) return;
     for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; int iscall = (nd->op == IR_CALL || nd->op == IR_CALL_DEFINE || ir_is_call_kind(nd->op));
         if (nd->op == IR_CALL) { const char *fn = IR_LIT(nd).sval; double dv = IR_LIT(nd).dval;
-            if (fn && fn[0] && dv == 3.0 && rt_proc_is_registered(fn)) nd->op = IR_CALL_PROC_STAGED;
+            if (fn && fn[0] && dv == 3.0 && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) nd->op = IR_PROC_GEN;
+            else if (fn && fn[0] && dv == 3.0 && rt_proc_is_registered(fn)) nd->op = IR_CALL_PROC_STAGED;
             else if (fn && fn[0] && dv != 2.0 && strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN;
             /* Generators (find/seq/upto/…) and list mutators (push/put) stay dv==2.0 and are excluded
                from rt_builtin_is_known, but rt_call_arr handles them — tag as BUILTIN so they get

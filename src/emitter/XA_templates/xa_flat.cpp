@@ -69,11 +69,16 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                        + "    .global " + (g_emit.flat_lbl_ω ? g_emit.flat_lbl_ω : "") + "\n";
             }
             extern int g_frame_active;
+            extern int g_gen_proc_active;
             if (g_emit.flat_wired) {
                 return banner;
             }
             if (g_frame_active) {
-                return banner + "push r12\n  mov r12, rdi\n  lea r10, [rip + Δ]\n";
+                std::string pro = banner + "push r12\n  mov r12, rdi\n  lea r10, [rip + Δ]\n";
+                if (g_gen_proc_active)
+                    pro += std::string("  cmp esi, 0\n")
+                         + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
+                return pro;
             }
             return banner
                  + "lea r10, [rip + Δ]\n"

@@ -320,7 +320,7 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
                     if (!arm || arm->op != IR_CASE_ARM || arm->n_operands < 1 || !arm->operands[0]) return 0;
                 }
             }
-            if (nd->op == IR_SUSPEND) return 0; /* user-defined generator: lowering present (TT_SUSPEND stashes expr/do-body subgraphs) but NO native driver — no bb_suspend, no flat_drive_suspend, and the resume-spine across the proc-call boundary needs the FACT-RULE ruling on the (void*,int entry) proc-activation re-entry (see .github/DESIGN-ICON-SUSPEND.md). Until then: clean EXCISE, never silently route to fail (the walk_bb_flat default jmp-ω) which yields empty output / a counting-loop hang */
+            if (nd->op == IR_SUSPEND && (nd->n_operands < 1 || !nd->operands[0])) return 0; /* admit user-defined generator suspend only when the expr-value operand is present (the resume-spine: bb_suspend yields operand[0], β runs operand[1] do-body; native driver landed — pieces 1-5 of DESIGN-ICON-SUSPEND); a malformed suspend with no value operand still EXCISES */
             if (nd->op == IR_IDX_SET) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> clean EXCISE, never abort */
             if (nd->op == IR_RASGN) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_RASGN + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> clean EXCISE, never silently wrong, until flat-chain rhs slotting is fixed */
             if (nd->op == IR_MAP || nd->op == IR_GREP) return 0;
@@ -2693,6 +2693,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
+                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
                 fprintf(stderr, "[IBB] FATAL: mode-4 driver: main BB graph not found\n");
@@ -2728,7 +2729,9 @@ int main(int argc, char **argv)
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 resolve_call_kinds_descr(s2->bbp.table[idx]);
+                { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 descr_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
+                { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 proc_names_buf[n_procs++] = pname;
                 free(pn);
             }
@@ -3161,6 +3164,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
+                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
             }
             if (is_icon) icn_register_record_types(s2);
             if ((is_icon || is_raku) && !graph_native_emittable_mode(s2, 1)) {
@@ -3183,7 +3187,10 @@ int main(int argc, char **argv)
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 resolve_call_kinds_descr(s2->bbp.table[idx]);
+                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
+                { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 bb_box_fn pfn = descr_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
+                { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
             {

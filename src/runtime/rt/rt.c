@@ -200,7 +200,7 @@ static int        g_rt_frame_depth = 0;
 #define PROC_FRAME_QWORDS 512
 #define PROC_FRAME_DEPTH  4096
 #define CALL_ARGS_MAX     64
-typedef struct { const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask; int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; } rt_proc_t;
+typedef struct { const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask; int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; } rt_proc_t;
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
 static int           g_rt_gen_proc_cap = 0;
@@ -219,7 +219,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0; p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0;
+    p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0; p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static rt_proc_t *rt_proc_find(const char *name);
@@ -247,6 +247,21 @@ int rt_proc_has_native_fn(const char *name)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].fn != (bb_box_fn)0;
     return 0;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_generator(const char *name, int is_gen)
+{
+    if (!name) return;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_is_generator(const char *name)
+{
+    if (!name) return 0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].is_generator;
+    return 0;
+}
 void rt_proc_set_fn(const char *name, bb_box_fn fn)
 {
     if (!name) return;
@@ -255,7 +270,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0; p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0;
+    p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0; p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
