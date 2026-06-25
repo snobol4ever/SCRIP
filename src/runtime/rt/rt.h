@@ -150,6 +150,8 @@ void rt_arg_stage(int idx, DESCR_t v);
 extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
 int  rt_proc_has_native_fn(const char *name);
+void rt_proc_set_generator(const char *name, int is_gen);
+int  rt_proc_is_generator(const char *name);
 void rt_grammar_register(const char *qname, const char *body, int flavor);
 int  rt_grammar_count(void);
 const char *rt_grammar_qname(int i);
