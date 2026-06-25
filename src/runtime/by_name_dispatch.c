@@ -270,6 +270,7 @@ static long g_pas_heap_ctr = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
 static const char *resolve_method_chain(const char *cls, const char *mname, char *buf, int bufsz, int *pfound) {
     extern int dat_mro(const char *name, const char **out, int max);
+    extern int dat_roles(const char *name, const char **out, int max);
     extern int rt_proc_has_native_fn(const char *name);
     if (pfound) *pfound = -1;
     const char *chain[64]; int nchain = dat_mro(cls, chain, 64);
@@ -280,6 +281,14 @@ static const char *resolve_method_chain(const char *cls, const char *mname, char
         if (!found) for (int pi = 0; pi < g_stage2.proc_count; pi++)
             if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, buf)) { found = 1; break; }
         if (found) { if (pfound) *pfound = ci; return buf; }
+        const char *roles[8]; int nr = dat_roles(chain[ci], roles, 8);
+        for (int ri = 0; ri < nr; ri++) {
+            snprintf(buf, bufsz, "%s__%s", roles[ri], mname);
+            int rf = rt_proc_has_native_fn(buf);
+            if (!rf) for (int pi = 0; pi < g_stage2.proc_count; pi++)
+                if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, buf)) { rf = 1; break; }
+            if (rf) { if (pfound) *pfound = ci; return buf; }
+        }
     }
     snprintf(buf, bufsz, "%s__%s", cls, mname);
     return buf;

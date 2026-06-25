@@ -124,6 +124,35 @@ void class_inherit_multi(const char *child, const char **parents, int nparents) 
     compute_mro_multi(c);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void class_compose_role(const char *child, const char *role) {
+    if (!child || !role) return;
+    DatType *c = dat_find_type(child); if (!c) return;
+    DatType *r = dat_find_type(role);  if (!r) return;
+    for (int mi = 0; mi < r->nmethods; mi++) {
+        const char *m = r->methods[mi];
+        int own = 0; for (int k = 0; k < c->nmethods; k++) if (!strcmp(c->methods[k], m)) { own = 1; break; }
+        if (own) continue;
+        for (int pri = 0; pri < c->nroles; pri++) {
+            DatType *rp = dat_find_type(c->roles[pri]); if (!rp) continue;
+            int clash = 0; for (int k = 0; k < rp->nmethods; k++) if (!strcmp(rp->methods[k], m)) { clash = 1; break; }
+            if (clash) { extern void rt_script_die_surface(const char *msg); char _m[256]; snprintf(_m, sizeof _m, "Method '%s' must be resolved by class %s because it exists in multiple roles (%s, %s)", m, child, c->roles[pri], role); rt_script_die_surface(_m); return; }
+        }
+    }
+    for (int i = 0; i < r->nfields && c->nfields < 63; i++) {
+        int dup = 0; for (int j = 0; j < c->nfields; j++) if (!strcmp(c->fields[j], r->fields[i])) { dup = 1; break; }
+        if (!dup) { int k = c->nfields; strncpy(c->fields[k], r->fields[i], 63); c->fields[k][63] = '\0'; c->defaults[k] = r->defaults[i]; c->has_default[k] = r->has_default[i]; c->required[k] = r->required[i]; c->rw[k] = r->rw[i]; c->sigil[k] = r->sigil[i]; c->nfields++; }
+    }
+    int dupr = 0; for (int i = 0; i < c->nroles; i++) if (!strcmp(c->roles[i], role)) { dupr = 1; break; }
+    if (!dupr && c->nroles < 8) { strncpy(c->roles[c->nroles], role, 63); c->roles[c->nroles][63] = '\0'; c->nroles++; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void dat_add_method(const char *type, const char *mname) {
+    if (!type || !mname || !*mname) return;
+    DatType *t = dat_find_type(type); if (!t) return;
+    for (int i = 0; i < t->nmethods; i++) if (!strcmp(t->methods[i], mname)) return;
+    if (t->nmethods < 32) { strncpy(t->methods[t->nmethods], mname, 63); t->methods[t->nmethods][63] = '\0'; t->nmethods++; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_i(const char *cls, const char *field, int64_t v) {
     DatType *t = dat_find_type(cls); if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = INTVAL(v); t->has_default[i] = 1; return; }
@@ -178,6 +207,14 @@ int dat_mro(const char *name, const char **out, int max) {
     return n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int dat_roles(const char *name, const char **out, int max) {
+    DatType *t = dat_find_type(name);
+    if (!t) return 0;
+    int n = (t->nroles < max) ? t->nroles : max;
+    for (int i = 0; i < n; i++) out[i] = t->roles[i];
+    return n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int dat_type_count(void) { return dat_ntypes; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_name(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].name : (const char *)0; }
@@ -187,6 +224,14 @@ int dat_type_nfields(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].n
 int dat_type_nparents(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nparents : 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_parent_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nparents) ? dat_types[i].parents[j] : (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_nroles(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nroles : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_type_role_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nroles) ? dat_types[i].roles[j] : (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_nmethods(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nmethods : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_type_method_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nmethods) ? dat_types[i].methods[j] : (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_field(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].fields[j] : (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/

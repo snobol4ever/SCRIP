@@ -17,6 +17,31 @@ static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (int i = 0
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_method_is_stub(const tree_t * m) { if (!m || m->t != TT_SUB_DECL) return 0; int bs = (int) m->v.ival; if (bs < 1) bs = 1; if (m->n - bs != 1) return 0; const tree_t * b = m->c[bs]; return b && b->t == TT_YADA; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * rk_find_type_decl(const tree_t * prog, const char * name) {
+    if (!prog || !name) return NULL;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (!d || (d->t != TT_CLASS_DECL && d->t != TT_ROLE_DECL)) continue;
+        const char * tn = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+        if (tn && !strcmp(tn, name)) return d;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_type_provides_real_method(const tree_t * decl, const char * mname) {
+    if (!decl || !mname) return 0;
+    for (int j = 1; j < decl->n; j++) {
+        const tree_t * ch = decl->c[j];
+        if (!ch || ch->t != TT_SUB_DECL || rk_method_is_stub(ch)) continue;
+        const char * nm = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
+        if (nm && !strcmp(nm, mname)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
@@ -453,7 +478,7 @@ static void rk_register_classes(const tree_t * prog) {
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
-        if (!d || d->t != TT_CLASS_DECL) continue;
+        if (!d || (d->t != TT_CLASS_DECL && d->t != TT_ROLE_DECL)) continue;
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!cname || !*cname) continue;
         if (g_rk_class_n < RK_GRAM_MAX && !rk_is_class_name(cname)) g_rk_class_names[g_rk_class_n++] = cname;
@@ -471,6 +496,13 @@ static void rk_register_classes(const tree_t * prog) {
         if (pos < (int)sizeof(spec) - 1) spec[pos++] = ')';
         spec[pos] = '\0';
         record_register(spec);
+        extern void dat_add_method(const char *type, const char *mname);
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || ch->t != TT_SUB_DECL || rk_method_is_stub(ch)) continue;
+            const char * mname = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
+            if (mname) dat_add_method(cname, mname);
+        }
         extern void dat_set_field_default_i(const char *cls, const char *field, int64_t v);
         extern void dat_set_field_default_s(const char *cls, const char *field, const char *v);
         extern void dat_set_field_default_r(const char *cls, const char *field, double v);
@@ -509,9 +541,29 @@ static void rk_register_classes(const tree_t * prog) {
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         const char * pname = d->v.sval;
         if (cname && pname && *pname) {
-            char pbuf[8][64]; const char * pl[8]; int np = 0; const char * s = pname;
-            while (*s && np < 8) { const char * nx = strchr(s, '\x01'); size_t L = nx ? (size_t)(nx - s) : strlen(s); if (L > 63) L = 63; memcpy(pbuf[np], s, L); pbuf[np][L] = '\0'; pl[np] = pbuf[np]; np++; if (!nx) break; s = nx + 1; }
+            char pbuf[8][64]; const char * pl[8]; int np = 0; char rbuf[8][64]; int nr = 0; const char * s = pname;
+            while (*s) { const char * nx = strchr(s, '\x01'); size_t L = nx ? (size_t)(nx - s) : strlen(s);
+                if (L >= 1) { char tag = s[0]; const char * nm = s + 1; size_t NL = L - 1; if (NL > 63) NL = 63;
+                    if (tag == 'i' && np < 8) { memcpy(pbuf[np], nm, NL); pbuf[np][NL] = '\0'; pl[np] = pbuf[np]; np++; }
+                    else if (tag == 'd' && nr < 8) { memcpy(rbuf[nr], nm, NL); rbuf[nr][NL] = '\0'; nr++; } }
+                if (!nx) break; s = nx + 1; }
             if (np > 0) class_inherit_multi(cname, pl, np);
+            extern void class_compose_role(const char *child, const char *role);
+            for (int ri = 0; ri < nr; ri++) class_compose_role(cname, rbuf[ri]);
+            extern void rt_script_die_surface(const char *msg);
+            const tree_t * cdecl = rk_find_type_decl(prog, cname);
+            for (int ri = 0; ri < nr; ri++) {
+                const tree_t * rdecl = rk_find_type_decl(prog, rbuf[ri]); if (!rdecl) continue;
+                for (int j = 1; j < rdecl->n; j++) {
+                    const tree_t * ch = rdecl->c[j];
+                    if (!ch || ch->t != TT_SUB_DECL || !rk_method_is_stub(ch)) continue;
+                    const char * rm = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
+                    if (!rm) continue;
+                    int sat = rk_type_provides_real_method(cdecl, rm);
+                    for (int rj = 0; rj < nr && !sat; rj++) { const tree_t * od = rk_find_type_decl(prog, rbuf[rj]); if (rk_type_provides_real_method(od, rm)) sat = 1; }
+                    if (!sat) { char _m[256]; snprintf(_m, sizeof _m, "Method '%s' must be implemented by class %s because it is required by role %s", rm, cname, rbuf[ri]); rt_script_die_surface(_m); }
+                }
+            }
         }
     }
 }
@@ -527,12 +579,12 @@ static void rk_discover_procs(const tree_t * prog) {
             if (!nm) continue;
             int np = (int) d->v.ival;
             rk_register_proc(d, nm, np);
-        } else if (d->t == TT_CLASS_DECL) {
+        } else if (d->t == TT_CLASS_DECL || d->t == TT_ROLE_DECL) {
             const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
             if (!cname || !*cname) continue;
             for (int j = 1; j < d->n; j++) {
                 const tree_t * ch = d->c[j];
-                if (!ch || ch->t != TT_SUB_DECL) continue;
+                if (!ch || ch->t != TT_SUB_DECL || rk_method_is_stub(ch)) continue;
                 const char * mname = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
                 if (!mname) continue;
                 char qname[256]; snprintf(qname, sizeof qname, "%s__%s", cname, mname);
@@ -607,7 +659,7 @@ void lower_raku_stage2(const tree_t *prog) {
             const tree_t * s = prog->c[i];
             if (!s) continue;
             if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
-            if (s->t == TT_SUB_DECL || s->t == TT_CLASS_DECL || s->t == TT_GRAMMAR_DECL) continue;
+            if (s->t == TT_SUB_DECL || s->t == TT_CLASS_DECL || s->t == TT_ROLE_DECL || s->t == TT_GRAMMAR_DECL) continue;
             IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, fail, &r);
             if (e) { entry = e; sentry = e; }
         }
