@@ -221,7 +221,9 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0; p->frame_bytes = 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_reset(void) { g_rt_gen_proc_count = 0; }
+static rt_proc_t *rt_proc_find(const char *name);
+void rt_proc_cache_clear(void);
+void rt_proc_reset(void) { g_rt_gen_proc_count = 0; rt_proc_cache_clear(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
@@ -346,6 +348,8 @@ static NameSaveEnt   *g_name_save = (NameSaveEnt *)0;
 static int            g_name_save_top = 0;
 static int            g_name_save_cap = 0;
 static struct { const char *name; DESCR_t *cell; int valid; } g_cell_cache[DCR_CELL_CACHE_SIZE];
+static int            g_proc_idx_slot[DCR_CELL_CACHE_SIZE];
+static const char    *g_proc_idx_key[DCR_CELL_CACHE_SIZE];
 static int rt_call_fastpath_ok(void) { return !g_call_fastpath_off; }
 static int rt_name_side_effecting(const char *nm)
 {
@@ -404,9 +408,7 @@ void rt_name_restore(int base)
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 {
     if (!name) return FAILDESCR;
-    rt_proc_t *p = (rt_proc_t *)0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
+    rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
     int np = p->nparams;
     const char **pn = p->pnames;
@@ -431,11 +433,15 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     return result;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_cache_clear(void) { for (int i = 0; i < DCR_CELL_CACHE_SIZE; i++) g_proc_idx_key[i] = (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 static rt_proc_t * rt_proc_find(const char *name)
 {
     if (!name) return (rt_proc_t *)0;
+    unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
+    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count) return &g_rt_gen_procs[ci]; }
     for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return &g_rt_gen_procs[i];
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return &g_rt_gen_procs[i]; }
     return (rt_proc_t *)0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
