@@ -3307,7 +3307,6 @@ int main(int argc, char **argv)
             goto run_done;
         }
         if (is_prolog) {
-            extern Term **g_resolve_env;
             extern void *rt_frame(void);
             extern int g_frame_active;
             int main_bb_idx = -1;

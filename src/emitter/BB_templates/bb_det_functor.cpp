@@ -17,9 +17,9 @@ std::string bb_det_functor() {
     if (sl0 < 0 || sl1 < 0 || sl2 < 0) return x86_bomb("bb_det_functor: invalid slot");
     return x86("label", _.lbl_α)
          + x86("comment", "IR_DET_FUNCTOR")
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(sl0)))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF(sl1)))
-         + x86("mov", "rdx", FRQ(GZ_CELL_OFF(sl2)))
+         + x86("lea", "rdi", FR(GZ_CELL_OFF(sl0)))
+         + x86("lea", "rsi", FR(GZ_CELL_OFF(sl1)))
+         + x86("lea", "rdx", FR(GZ_CELL_OFF(sl2)))
          + x86("call", "rt_pl_functor_cell", (uint64_t)(uintptr_t)(void *)rt_pl_functor_cell)
          + x86("test", "eax", "eax")
          + x86("je", "ω")

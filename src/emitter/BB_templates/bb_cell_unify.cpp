@@ -14,25 +14,35 @@ extern "C" int rt_pl_unify_cell_const(void *cell_term, int kind, long ival, cons
 extern "C" int rt_pl_unify_cell_float(void *cell_term, double dval);
 extern "C" void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
 extern "C" void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr);
+extern "C" void *rt_pl_lit_cell(int kind, long ival, const char *sval, double dval);
+extern "C" void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string gzu_atom_lea(const char *dst, const char *s) { char b[64]; b[0] = 0; if (s) strtab_label(b, sizeof b, s); return x86("lea", dst, "[rip + __]", (uint64_t)(uintptr_t)(s ? s : ""), b); }
-static std::string gzu_node_atom(const char *sval) { return x86("mov32", "edi", (long)IR_ATOM) + x86("xor", "rsi", "rsi") + gzu_atom_lea("rdx", sval ? sval : "[]") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_node_to_term", (uint64_t)(uintptr_t)(void *)rt_node_to_term); }
+/* gzu_build now returns rax = a cell ADDRESS (PL-DESCR-2): a logic-var slot yields lea [r12+off]; a literal/atom
+ * is materialised into its own heap cell via rt_pl_lit_cell; a compound is built from its args' 16-byte cell
+ * WORDS (copied through r11) into a fresh heap compound cell via rt_pl_compound_cell. Operands flow to unify by
+ * address; a copied self-ref var word aliases the caller's logic var into the structure. */
+static std::string gzu_lit_atom(const char *sval) { return x86("mov32", "edi", (long)IR_ATOM) + x86("xor", "rsi", "rsi") + gzu_atom_lea("rdx", sval ? sval : "[]") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell); }
+static std::string gzu_word_copy(int dstoff) {
+    return x86("mov", "r11", RDQ("rax", 0)) + x86("mov", RSP(dstoff), "r11")
+         + x86("mov", "r11", RDQ("rax", 8)) + x86("mov", RSP(dstoff + 8), "r11");
+}
 std::string gzu_build(const IR_t *nd) {
     if (!nd) return x86("xor", "eax", "eax");
-    if (nd->op == IR_LOGICVAR) { int slot = (int)IR_LIT(nd).ival; return (slot < 0) ? x86("xor", "eax", "eax") : x86("mov", "rax", FRQ(GZ_CELL_OFF(slot))); }
-    if (nd->op == IR_ATOM)  return gzu_node_atom(IR_LIT(nd).sval);
-    if (nd->op == IR_LIT_I) return x86("mov32", "edi", (long)IR_LIT_I) + x86("mov", "rsi", (long)IR_LIT(nd).ival) + x86("xor", "edx", "edx") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_node_to_term", (uint64_t)(uintptr_t)(void *)rt_node_to_term);
-    if (nd->op == IR_LIT_F) return x86("mov32", "edi", (long)IR_LIT_F) + x86("xor", "rsi", "rsi") + x86("xor", "edx", "edx") + x86("movsd", "xmm0", F64(IR_LIT(nd).dval)) + x86("call", "rt_node_to_term", (uint64_t)(uintptr_t)(void *)rt_node_to_term);
+    if (nd->op == IR_LOGICVAR) { int slot = (int)IR_LIT(nd).ival; return (slot < 0) ? x86("xor", "eax", "eax") : x86("lea", "rax", FR(GZ_CELL_OFF(slot))); }
+    if (nd->op == IR_ATOM)  return gzu_lit_atom(IR_LIT(nd).sval);
+    if (nd->op == IR_LIT_I) return x86("mov32", "edi", (long)IR_LIT_I) + x86("mov", "rsi", (long)IR_LIT(nd).ival) + x86("xor", "edx", "edx") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
+    if (nd->op == IR_LIT_F) return x86("mov32", "edi", (long)IR_LIT_F) + x86("xor", "rsi", "rsi") + x86("xor", "edx", "edx") + x86("movsd", "xmm0", F64(IR_LIT(nd).dval)) + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
     if (nd->op == IR_STRUCT || nd->op == IR_ARITH) {
         int arity = (int)IR_LIT(nd).ival;
-        if (arity <= 0 || !ir_call_arg(nd, 0)) return gzu_node_atom(IR_LIT(nd).sval);
-        int frm = (arity * 8 + 15) & ~15;
+        if (arity <= 0 || !ir_call_arg(nd, 0)) return gzu_lit_atom(IR_LIT(nd).sval);
+        int frm = (arity * 16 + 15) & ~15;
         return x86("sub", "rsp", (long)frm)
-             + FOR(0, arity, [&](int i) { return IF(ir_call_arg(nd, i) != NULL, gzu_build(ir_call_arg(nd, i)) + x86("mov", RSP(i * 8), "rax")); })
+             + FOR(0, arity, [&](int i) { return IF(ir_call_arg(nd, i) != NULL, gzu_build(ir_call_arg(nd, i)) + gzu_word_copy(i * 16)); })
              + gzu_atom_lea("rdi", IR_LIT(nd).sval ? IR_LIT(nd).sval : "[]")
              + x86("mov32", "esi", (long)arity)
              + x86("mov", "rdx", "rsp")
-             + x86("call", "rt_compound_build_n", (uint64_t)(uintptr_t)(void *)rt_compound_build_n)
+             + x86("call", "rt_pl_compound_cell", (uint64_t)(uintptr_t)(void *)rt_pl_compound_cell)
              + x86("add", "rsp", (long)frm);
     }
     return x86("xor", "eax", "eax");
@@ -65,15 +75,15 @@ std::string bb_cell_unify() {
            x86("jmp", "γ")
          + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(bcu_sh() == 2,
-           x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[1])))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[2])))
+           x86("lea", "rdi", FR(GZ_CELL_OFF((int)_.op_parts_ival[1])))
+         + x86("lea", "rsi", FR(GZ_CELL_OFF((int)_.op_parts_ival[2])))
          + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void *)rt_unify_terms)
          + x86("test", "eax", "eax")
          + x86("je", "ω")
          + x86("jmp", "γ")
          + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(bcu_sh() == 3,
-           x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[1])))
+           x86("lea", "rdi", FR(GZ_CELL_OFF((int)_.op_parts_ival[1])))
          + x86("movsd", "xmm0", F64(bcu_fv()))
          + x86("call", "rt_pl_unify_cell_float", (uint64_t)(uintptr_t)(void *)rt_pl_unify_cell_float)
          + x86("test", "eax", "eax")
@@ -81,7 +91,7 @@ std::string bb_cell_unify() {
          + x86("jmp", "γ")
          + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(bcu_sh() == 4,
-           x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[1])))
+           x86("lea", "rdi", FR(GZ_CELL_OFF((int)_.op_parts_ival[1])))
          + x86("mov", "esi", (long)_.op_parts_ival[2])
          + x86("mov", "rdx", (long)_.op_parts_ival[3])
          + IF(_.op_parts_str[0] != 0, x86("mov", "rcx", ROQ(0)))

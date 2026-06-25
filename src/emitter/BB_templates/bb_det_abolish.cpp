@@ -14,8 +14,8 @@ std::string bb_det_abolish() {
     int s_ar = (int)_.op_parts_ival[1];
     return x86("label", _.lbl_α)
          + x86("comment", "IR_DET_ABOLISH")
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(s_fn)))
-         + x86("mov", "rsi", FRQ(GZ_CELL_OFF(s_ar)))
+         + x86("lea", "rdi", FR(GZ_CELL_OFF(s_fn)))
+         + x86("lea", "rsi", FR(GZ_CELL_OFF(s_ar)))
          + x86("call", "rt_pl_dyn_abolish_cell", (uint64_t)(uintptr_t)(void *)rt_pl_dyn_abolish_cell)
          + x86("test", "eax", "eax")
          + x86("jne", "γ")

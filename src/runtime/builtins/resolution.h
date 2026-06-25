@@ -32,7 +32,6 @@ static inline IR_graph_t *bb_graph_of_pred(const Resolve_PredEntry_BB *e)
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern Trail         g_resolve_trail;
 extern int           g_resolve_cut_flag;
-extern Term        **g_resolve_env;
 extern int           g_resolve_active;
 typedef enum { RESOLVE_CP_CLAUSE = 0, RESOLVE_CP_DISJ = 1, RESOLVE_CP_RETRY = 2 } resolve_cp_type;
 typedef struct resolve_choice {

@@ -49,8 +49,13 @@ PL_FILES=$(ls \
 #                        g_pl_pred_table). NOT a control/value stack: per-activation control still lives
 #                        in box frame cells + the trail. The store holds Term* clause copies keyed by
 #                        (functor-name, arity); ASSERTZ inserts, RETRACT scan+deletes, ABOLISH clears.
+# g_pl_trail             THE TRAIL, cell form — PL-DESCR-2 sub-flip 2's inline-cell sibling of g_resolve_trail:
+#                        (cell_addr, old 16-byte word) entries for the live DESCR_t LVA path. Same DESIGN §10
+#                        survivor role (the one Prolog runtime spine); g_resolve_trail is kept only for the
+#                        legacy by-Term* helpers until PL-BB-DEMOLITION removes them. Not a value/control stack.
 SANCTIONED="
 g_resolve_trail
+g_pl_trail
 g_pl_pred_table
 g_pl_pred_n
 g_rt_pl_nb
@@ -69,7 +74,6 @@ g_pl_dyn_pred_cap
 # UNREACHABLE from GZ dispatch but still LINK. Deleting them is PL-BB-DEMOLITION. As each goes, drop
 # DOOMED_FLOOR by one. NOTHING may be ADDED here — this list is closed and only shrinks.
 DOOMED="
-g_resolve_env
 g_resolve_bfr
 g_resolve_cp_stamp
 g_resolve_catch_top
@@ -87,7 +91,7 @@ g_resolve_exception
 g_resolve_nb_store
 g_resolve_nb_count
 "
-DOOMED_FLOOR=15   # distinct doomed symbols present today; RATCHET — only ever lower this, never raise.
+DOOMED_FLOOR=14   # PL-DESCR-2 sub-flip 2 deleted g_resolve_env (the Term* shadow env). RATCHET — only ever lower.
 
 # ---- enumerate distinct g_* actually present -----------------------------------------------------
 PRESENT=$(grep -rhoE '\bg_[a-zA-Z_][a-zA-Z0-9_]*' $PL_FILES 2>/dev/null | sort -u)

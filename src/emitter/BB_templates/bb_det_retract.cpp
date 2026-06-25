@@ -13,7 +13,7 @@ std::string bb_det_retract() {
     int s_head = (int)_.op_parts_ival[0];
     return x86("label", _.lbl_α)
          + x86("comment", "IR_DET_RETRACT")
-         + x86("mov", "rdi", FRQ(GZ_CELL_OFF(s_head)))
+         + x86("lea", "rdi", FR(GZ_CELL_OFF(s_head)))
          + x86("call", "rt_pl_dyn_retract_cell", (uint64_t)(uintptr_t)(void *)rt_pl_dyn_retract_cell)
          + x86("test", "eax", "eax")
          + x86("jne", "γ")
