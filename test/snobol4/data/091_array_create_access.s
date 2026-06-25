@@ -84,15 +84,34 @@ bb3_α:
  jmp snoch0_n2_α
 snoch0_n2_α:
 bb4_α:
-# IR_IDX (subscript_get, by-name)
+# IR_IDX: AXS inline DT_A+int fast path, else subscript_get
  lea rdi, [rip + .S0]
  call NV_GET_fn@PLT
- mov qword ptr [r12 + 64], rax
- mov qword ptr [r12 + 72], rdx
+ cmp eax, 4
+ jne .Lx7_0
+ movabs rcx, 1
+ mov rsi, rdx
+ mov r8, qword ptr [rsi]
+ sub ecx, r8d
+ js .Lx7_0
+ mov r9, qword ptr [rsi + 4]
+ sub r9d, r8d
+ cmp ecx, r9d
+ jg .Lx7_0
+ mov r11, qword ptr [rsi + 24]
+ movsxd rcx, ecx
+ add rcx, rcx
+ mov rax, [r11 + rcx*8]
+ add r11, 8
+ mov rdx, [r11 + rcx*8]
+ mov qword ptr [r12 + 80], rax
+ mov qword ptr [r12 + 88], rdx
+ jmp snoch0_n3_α
+.Lx7_0:
+ mov rdi, rax
+ mov rsi, rdx
  movabs rdx, 6
  movabs rcx, 1
- mov rdi, qword ptr [r12 + 64]
- mov rsi, qword ptr [r12 + 72]
  call subscript_get@PLT
  mov qword ptr [r12 + 80], rax
  mov qword ptr [r12 + 88], rdx
@@ -111,15 +130,34 @@ bb5_α:
  jmp snoch0_n4_α
 snoch0_n4_α:
 bb6_α:
-# IR_IDX (subscript_get, by-name)
+# IR_IDX: AXS inline DT_A+int fast path, else subscript_get
  lea rdi, [rip + .S0]
  call NV_GET_fn@PLT
- mov qword ptr [r12 + 96], rax
- mov qword ptr [r12 + 104], rdx
+ cmp eax, 4
+ jne .Lx10_0
+ movabs rcx, 3
+ mov rsi, rdx
+ mov r8, qword ptr [rsi]
+ sub ecx, r8d
+ js .Lx10_0
+ mov r9, qword ptr [rsi + 4]
+ sub r9d, r8d
+ cmp ecx, r9d
+ jg .Lx10_0
+ mov r11, qword ptr [rsi + 24]
+ movsxd rcx, ecx
+ add rcx, rcx
+ mov rax, [r11 + rcx*8]
+ add r11, 8
+ mov rdx, [r11 + rcx*8]
+ mov qword ptr [r12 + 112], rax
+ mov qword ptr [r12 + 120], rdx
+ jmp snoch0_n5_α
+.Lx10_0:
+ mov rdi, rax
+ mov rsi, rdx
  movabs rdx, 6
  movabs rcx, 3
- mov rdi, qword ptr [r12 + 96]
- mov rsi, qword ptr [r12 + 104]
  call subscript_get@PLT
  mov qword ptr [r12 + 112], rax
  mov qword ptr [r12 + 120], rdx
@@ -138,15 +176,34 @@ bb7_α:
  jmp snoch0_n6_α
 snoch0_n6_α:
 bb8_α:
-# IR_IDX (subscript_get, by-name)
+# IR_IDX: AXS inline DT_A+int fast path, else subscript_get
  lea rdi, [rip + .S0]
  call NV_GET_fn@PLT
- mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
+ cmp eax, 4
+ jne .Lx13_0
+ movabs rcx, 5
+ mov rsi, rdx
+ mov r8, qword ptr [rsi]
+ sub ecx, r8d
+ js .Lx13_0
+ mov r9, qword ptr [rsi + 4]
+ sub r9d, r8d
+ cmp ecx, r9d
+ jg .Lx13_0
+ mov r11, qword ptr [rsi + 24]
+ movsxd rcx, ecx
+ add rcx, rcx
+ mov rax, [r11 + rcx*8]
+ add r11, 8
+ mov rdx, [r11 + rcx*8]
+ mov qword ptr [r12 + 144], rax
+ mov qword ptr [r12 + 152], rdx
+ jmp snoch0_n7_α
+.Lx13_0:
+ mov rdi, rax
+ mov rsi, rdx
  movabs rdx, 6
  movabs rcx, 5
- mov rdi, qword ptr [r12 + 128]
- mov rsi, qword ptr [r12 + 136]
  call subscript_get@PLT
  mov qword ptr [r12 + 144], rax
  mov qword ptr [r12 + 152], rdx
