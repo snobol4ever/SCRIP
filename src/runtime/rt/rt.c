@@ -30,6 +30,9 @@ extern int     exec_stmt(const char *subj_name, DESCR_t *subj_var,
                          DESCR_t pat, DESCR_t *repl, int has_repl);
 extern DESCR_t NV_GET_fn(const char *name);
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
+extern DESCR_t *NV_PTR_fn(const char *name);
+extern int is_protected_pat_name(const char *name);
+extern int g_call_fastpath_off;
 extern DESCR_t NAME_fn(const char *varname);
 extern char   *VARVAL_fn(DESCR_t v);
 extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
@@ -333,13 +336,33 @@ DESCR_t rt_proc_resume_gen(void)
     return result;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char *name; DESCR_t old; } NameSaveEnt;
+typedef struct { const char *name; DESCR_t *cell; DESCR_t old; } NameSaveEnt;
 #define PROC_FRAME_NEST_QWORDS 512
 #define PROC_FRAME_ARENA_QWORDS (8 * 1024 * 1024)
 #define PROC_FRAME_NEST_MAX (PROC_FRAME_ARENA_QWORDS / PROC_FRAME_NEST_QWORDS)
+#define DCR_CELL_CACHE_SIZE 2048
+#define DCR_CELL_CACHE_MASK (DCR_CELL_CACHE_SIZE - 1)
 static NameSaveEnt   *g_name_save = (NameSaveEnt *)0;
 static int            g_name_save_top = 0;
 static int            g_name_save_cap = 0;
+static struct { const char *name; DESCR_t *cell; int valid; } g_cell_cache[DCR_CELL_CACHE_SIZE];
+static int rt_call_fastpath_ok(void) { return !g_call_fastpath_off; }
+static int rt_name_side_effecting(const char *nm)
+{
+    static const char *S[] = { "TERMINAL", "ALPHABET", "STCOUNT", "STNO", 0 };
+    if (is_protected_pat_name(nm)) return 1;
+    for (int i = 0; S[i]; i++) if (strcmp(nm, S[i]) == 0) return 1;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t *rt_cell_for(const char *nm)
+{
+    unsigned h = (unsigned)(((uintptr_t)nm >> 4) & DCR_CELL_CACHE_MASK);
+    if (g_cell_cache[h].valid && g_cell_cache[h].name == nm) return g_cell_cache[h].cell;
+    DESCR_t *c = rt_name_side_effecting(nm) ? (DESCR_t *)0 : NV_PTR_fn(nm);
+    g_cell_cache[h].name = nm; g_cell_cache[h].cell = c; g_cell_cache[h].valid = 1;
+    return c;
+}
 static void rt_name_save_grow(void) { if (g_name_save_top < g_name_save_cap) return; int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt)); if (!np) return; g_name_save = np; g_name_save_cap = nc; }
 /* Lazily heap-allocated (GC-scanned), see proc_arena() above — keeps 64 MB out
  * of static BSS so unused-procedure-call programs skip the startup root scan. */
@@ -354,21 +377,27 @@ static long           g_proc_frame_cursor_qw = 0;
 int rt_name_save_push(const char **names, DESCR_t *args, int nargs, int n)
 {
     int base = g_name_save_top;
+    int fast = rt_call_fastpath_ok();
     for (int k = 0; k < n; k++) {
         const char *nm = names ? names[k] : (const char *)0; if (!nm) continue;
         rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break;
+        DESCR_t *cell = fast ? rt_cell_for(nm) : (DESCR_t *)0;
+        DESCR_t arg = (k < nargs) ? args[k] : NULVCL;
         g_name_save[g_name_save_top].name = nm;
-        g_name_save[g_name_save_top].old  = NV_GET_fn(nm);
+        g_name_save[g_name_save_top].cell = cell;
+        if (cell) { g_name_save[g_name_save_top].old = *cell; *cell = arg; }
+        else { g_name_save[g_name_save_top].old = NV_GET_fn(nm); NV_SET_fn(nm, arg); }
         g_name_save_top++;
-        NV_SET_fn(nm, (k < nargs) ? args[k] : NULVCL);
     }
     return base;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_name_restore(int base)
 {
-    for (int k = g_name_save_top - 1; k >= base; k--)
-        NV_SET_fn(g_name_save[k].name, g_name_save[k].old);
+    for (int k = g_name_save_top - 1; k >= base; k--) {
+        if (g_name_save[k].cell) *g_name_save[k].cell = g_name_save[k].old;
+        else NV_SET_fn(g_name_save[k].name, g_name_save[k].old);
+    }
     g_name_save_top = base;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -397,7 +426,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     Σ = save_Σ; Σlen = save_Σlen;
     g_proc_frame_nest_depth--;
     g_proc_frame_cursor_qw = save_cursor;
-    DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : NV_GET_fn(name);
+    DESCR_t *rcell = rt_call_fastpath_ok() ? rt_cell_for(name) : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
     rt_name_restore(save_base);
     return result;
 }
@@ -448,7 +477,6 @@ uint64_t rt_proc_byref_mask(const char *name)
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *rt_gvar_cell(const char *name)
 {
-    extern DESCR_t *NV_PTR_fn(const char *name);
     return NV_PTR_fn(name);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -477,7 +505,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     Σ = save_Σ; Σlen = save_Σlen;
     g_proc_frame_nest_depth--;
     g_proc_frame_cursor_qw = save_cursor;
-    DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : NV_GET_fn(name);
+    DESCR_t *rcell = rt_call_fastpath_ok() ? rt_cell_for(name) : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
     rt_name_restore(save_base);
     return result;
 }
