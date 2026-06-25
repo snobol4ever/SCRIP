@@ -108,11 +108,25 @@ __gva_names:
 __gva: .space 32, 0
   .section .text
   .intel_syntax noprefix
+  .section .rodata
+  .Lprocn0: .string "double"
+  .align 8
+__proc_names:
+  .quad .Lprocn0
+  .section .bss
+  .align 8
+__proc: .space 8, 0
+  .section .text
+  .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
   call proc_startup
+  lea rdi, [rip + __proc]
+  lea rsi, [rip + __proc_names]
+  mov edx, 1
+  call rt_proc_table_fill@PLT
   lea rdi, [rip + __gva_names]
   lea rsi, [rip + __gva]
   mov edx, 2
@@ -162,14 +176,10 @@ bb7_α:
  mov qword ptr [r12 + 48], rax
  mov rax, qword ptr [r12 + 24]
  mov qword ptr [r12 + 56], rax
-  .section .rodata
-  .Lprocfn13: .string "double"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn13]
+   mov rdi, [rip + __proc + 0]
  lea rsi, [r12 + 48]
  mov edx, 1
- call rt_call_named_proc@PLT
+ call rt_call_proc_direct@PLT
  mov qword ptr [r12 + 32], rax
  mov qword ptr [r12 + 40], rdx
  cmp eax, 99
@@ -191,14 +201,14 @@ snoch8_n3_α:
 # IR_LIT_I
 bb9_α:
  mov qword ptr [r12 + 64], 6
- mov rax, qword ptr [rip + .Lx16_0]
+ mov rax, qword ptr [rip + .Lx15_0]
  mov qword ptr [r12 + 72], rax
- jmp xgvarg15_done
- xgvarg15_β:
+ jmp xgvarg14_done
+ xgvarg14_β:
  jmp flat_γ
-.Lx16_0:
+.Lx15_0:
  .quad 21
-xgvarg15_done:
+xgvarg14_done:
 bb10_α:
 # BOX IR_CALL double(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+64] -> [r12+96]
@@ -206,14 +216,10 @@ bb10_α:
  mov qword ptr [r12 + 96], rax
  mov rax, qword ptr [r12 + 72]
  mov qword ptr [r12 + 104], rax
-  .section .rodata
-  .Lprocfn18: .string "double"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lprocfn18]
+   mov rdi, [rip + __proc + 0]
  lea rsi, [r12 + 96]
  mov edx, 1
- call rt_call_named_proc@PLT
+ call rt_call_proc_direct@PLT
  mov qword ptr [r12 + 80], rax
  mov qword ptr [r12 + 88], rdx
  cmp eax, 99
