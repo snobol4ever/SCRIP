@@ -228,6 +228,8 @@ static int rhs_kind_ok(IR_t *r) {
     { extern void *dat_find_type(const char *name); if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && IR_LIT(r).sval && dat_find_type(IR_LIT(r).sval)) return 1; }
     { extern int rt_builtin_is_known(const char *name); const char *bn = IR_LIT(r).sval; if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && bn && rt_builtin_is_known(bn) && strcmp(bn,"table")) return 1; }
     if (r->op == IR_FIELD_GET) return 1;
+    if (r->op == IR_CONJ) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
+    { extern int is_global(const char *); if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) { IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0; } }
     if (r->op == IR_CASE) return 1;
     if (r->op == IR_GATHER) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
