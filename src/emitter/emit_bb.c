@@ -1849,54 +1849,27 @@ static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (pBB && pBB->n_operands >= 3 && pBB->operands[0] && pBB->operands[1] && pBB->operands[2] && pBB->operands[0]->op == IR_VAR
-        && (pBB->operands[1]->op == IR_LIT_I || pBB->operands[1]->op == IR_VAR)
-        && pBB->operands[2]->op == IR_BINOP) {
-        IR_t *base_box = pBB->operands[0];
-        IR_t *key_box  = pBB->operands[1];
-        IR_t *val_box  = pBB->operands[2];
-        int vslot = gvar_prewalk_idx_operand(val_box, lbl_ω);
-        if (vslot < 0) {
-            int id = g_flat_node_id++;
-            bb_label_t *v_done = emit_label_alloc("xgvidxv%d_done", id);
-            bb_label_t *v_β    = emit_label_alloc("xgvidxv%d_β",    id);
-            g_gvar_callarg_live = 1;
-            walk_bb_flat(val_box, v_done, lbl_ω, v_β);
-            g_gvar_callarg_live = 0;
-            emit_label_define_bb(v_done);
-            vslot = bb_slot_get(val_box);
-        }
-        g_emit.op_name1 = IR_LIT(base_box).sval;
-        g_emit.op_name2 = (const char *)0;
-        g_emit.op_parts_str[2] = (const char *)0;
-        g_emit.bb_lk = (int)key_box->op; g_emit.bb_li = (int64_t)IR_LIT(key_box).ival;
-        if (key_box->op == IR_VAR) g_emit.op_name2 = IR_LIT(key_box).sval;
-        g_emit.bb_rk = (int)IR_BINOP; g_emit.bb_ri = 0;
-        g_emit.op_sa = bb_slot_claim(16); g_emit.op_sb = bb_slot_claim(16); g_emit.op_sc = vslot;
+    IR_t *base_box = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : (IR_t *)0;
+    IR_t *key_box  = (pBB && pBB->n_operands > 1) ? pBB->operands[1] : (IR_t *)0;
+    IR_t *val_box  = (pBB && pBB->n_operands > 2) ? pBB->operands[2] : (IR_t *)0;
+    if (!base_box || !key_box || !val_box) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
         EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
         return;
     }
-    if (pBB && pBB->n_operands >= 3 && pBB->operands[0] && pBB->operands[1] && pBB->operands[2] && pBB->operands[0]->op == IR_VAR
-        && (pBB->operands[1]->op == IR_LIT_I || pBB->operands[1]->op == IR_VAR)
-        && (pBB->operands[2]->op == IR_LIT_I || pBB->operands[2]->op == IR_VAR)) {
-        IR_t *base_box = pBB->operands[0];
-        IR_t *key_box  = pBB->operands[1];
-        IR_t *val_box  = pBB->operands[2];
-        g_emit.op_name1 = IR_LIT(base_box).sval;
-        g_emit.op_name2 = (const char *)0;
-        g_emit.op_parts_str[2] = (const char *)0;
-        g_emit.bb_lk = (int)key_box->op; g_emit.bb_li = (int64_t)IR_LIT(key_box).ival;
-        if (key_box->op == IR_VAR) g_emit.op_name2 = IR_LIT(key_box).sval;
-        g_emit.bb_rk = (int)val_box->op; g_emit.bb_ri = (int64_t)IR_LIT(val_box).ival;
-        if (val_box->op == IR_VAR) g_emit.op_parts_str[2] = IR_LIT(val_box).sval;
-        g_emit.op_sa = bb_slot_claim(16); g_emit.op_sb = bb_slot_claim(16); g_emit.op_sc = bb_slot_claim(16);
-        EMIT_PAIR_RESET();
-        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
-        return;
-    }
+    int id = g_flat_node_id++;
+    bb_label_t *val_done  = emit_label_alloc("xiset%d_val_done",  id);
+    bb_label_t *val_β     = emit_label_alloc("xiset%d_val_β",     id);
+    bb_label_t *key_done   = emit_label_alloc("xiset%d_key_done",  id);
+    bb_label_t *key_β      = emit_label_alloc("xiset%d_key_β",     id);
+    bb_label_t *base_done   = emit_label_alloc("xiset%d_base_done", id);
+    bb_label_t *base_β      = emit_label_alloc("xiset%d_base_β",    id);
+    if (!flat_chain_set_has(val_box) && bb_slot_get(val_box) < 0) { walk_bb_flat(val_box, val_done, lbl_ω, val_β); emit_label_define_bb(val_done); }
+    if (!flat_chain_set_has(key_box) && bb_slot_get(key_box) < 0) { walk_bb_flat(key_box, key_done, lbl_ω, key_β); emit_label_define_bb(key_done); }
+    if (!flat_chain_set_has(base_box) && bb_slot_get(base_box) < 0) { walk_bb_flat(base_box, base_done, lbl_ω, base_β); emit_label_define_bb(base_done); }
+    g_emit.op_sb = bb_slot_get(key_box);
+    g_emit.op_sc = bb_slot_get(val_box);
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
