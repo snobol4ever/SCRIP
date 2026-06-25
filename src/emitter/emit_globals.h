@@ -46,6 +46,7 @@ typedef struct {
     int                          op_gva_k;
     int                          op_gva_k1;
     int                          op_gva_k2;
+    int                          op_proc_k;
     int                          op_bounded;
     int                          op_relop_descr;
     int                          op_num_real;

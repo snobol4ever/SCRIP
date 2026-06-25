@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# scripts/test_crosscheck_snobol4.sh — MODE-4 ONLY (Lon directive 2026-06-06)
-# Formerly cross-checked modes 2/3/4. Now mode-4 only.
-# Runs snobol4 crosscheck corpus through --compile→as→gcc→run.
+# scripts/test_crosscheck_snobol4.sh
+# Runs snobol4 crosscheck corpus through mode-4 (--compile->as->gcc->run) for the PASS/FAIL baseline.
+# BOTH-MODE PARITY (mode-3 == mode-4 == ref) is enforced by scripts/test_mode34_parity.sh per
+# GOAL-MODE34-IDENTICAL.md (supersedes the former "MODE-4 ONLY" directive of 2026-06-06). Run BOTH:
+#   bash scripts/test_crosscheck_snobol4.sh    # mode-4 PASS/FAIL baseline
+#   bash scripts/test_mode34_parity.sh         # mode-3 vs mode-4 1:1 parity census
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"

@@ -25,6 +25,8 @@ int gva_index_of(const char * name);
 DESCR_t rt_gvar_get_descr(const char * name);
 DESCR_t rt_call_named_proc(const char * name, DESCR_t * args, int nargs);
 DESCR_t rt_call_named_proc_sl(const char * name, DESCR_t * args, int nargs, void * sl);
+DESCR_t rt_call_proc_direct(long idx, DESCR_t * args, int nargs);
+int  rt_proc_index_of(const char * name);
 int  rt_proc_frame_nslots(const char * name);
 int  rt_proc_decl_level(const char * name);
 uint64_t rt_proc_byref_mask(const char * name);
@@ -405,6 +407,20 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
         uint64_t brm = rt_proc_byref_mask(fn);
         for (int i = 0; i < (int)narg; i++)
             s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, subs[i], argbase + i * 16, _.node, i);
+        if (_.op_proc_k >= 0) {
+            s += x86("directive", (std::string(" mov rdi, [rip + __proc + ") + std::to_string(_.op_proc_k * 8) + "]").c_str());
+            s += x86("lea", "rsi", FRQ(argbase));
+            s += x86("mov32", "edx", (long)(narg));
+            s += x86("call", "rt_call_proc_direct@PLT");
+            s += x86("mov", FRQ(resoff), "rax");
+            s += x86("mov", FRQ(resoff + 8), "rdx");
+            s += x86("cmp", "eax", "99");
+            s += x86("je", "ω");
+            s += x86("jmp", "γ");
+            s += x86("label", emit_fmt("%s", _.lbl_β));
+            s += x86("jmp", "ω");
+            return s;
+        }
         std::string fl = emit_fmt(".Lprocfn%d", g_flat_node_id++);
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())

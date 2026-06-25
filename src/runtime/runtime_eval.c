@@ -136,7 +136,7 @@ DESCR_t eval_string_transient(const char *s) {
 DESCR_t eval_node(tree_t *e)
 {
     (void)e;
-    fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted (mode-1 era); nothing interprets tree_t at runtime\n");
+    fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n");
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

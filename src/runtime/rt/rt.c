@@ -469,6 +469,52 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     return result;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
+{
+    if (idx < 0 || idx >= g_rt_gen_proc_count) return FAILDESCR;
+    rt_proc_t *p = &g_rt_gen_procs[idx];
+    if (!p->fn) return FAILDESCR;
+    rt_proc_resolve_cells(p);
+    int np = p->nparams;
+    const char **pn = p->pnames;
+    const char *name = p->name;
+    if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
+    int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
+    if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
+    long fqw = (long)(((fbytes + 15) & ~15) / 8);
+    if (g_proc_frame_cursor_qw + fqw > PROC_FRAME_ARENA_QWORDS) return FAILDESCR;
+    int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
+    rt_name_save_push(&name, &p->rcell, (DESCR_t *)0, 0, 1);
+    void *fb = (void *)&proc_nest_arena()[g_proc_frame_cursor_qw];
+    long save_cursor = g_proc_frame_cursor_qw;
+    g_proc_frame_cursor_qw += fqw;
+    g_proc_frame_nest_depth++;
+    const char *save_Σ = Σ; int save_Σlen = Σlen;
+    DESCR_t fret = p->fn(fb, 0);
+    Σ = save_Σ; Σlen = save_Σlen;
+    g_proc_frame_nest_depth--;
+    g_proc_frame_cursor_qw = save_cursor;
+    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
+    rt_name_restore(save_base);
+    return result;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_index_of(const char *name)
+{
+    if (!name) return -1;
+    unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
+    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count) return ci; }
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return i; }
+    return -1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_table_fill(int64_t *tab, const char **names, int n)
+{
+    if (!tab || !names) return;
+    for (int k = 0; k < n; k++) tab[k] = (int64_t)rt_proc_index_of(names[k]);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_cache_clear(void) { for (int i = 0; i < DCR_CELL_CACHE_SIZE; i++) g_proc_idx_key[i] = (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static rt_proc_t * rt_proc_find(const char *name)
