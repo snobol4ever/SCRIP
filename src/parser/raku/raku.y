@@ -163,6 +163,8 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_MAP KW_GREP KW_SORT
 %token KW_TRY KW_CATCH KW_DIE
 %token KW_CLASS KW_METHOD KW_HAS KW_NEW
+%token KW_ROLE
+%token YADA
 %token KW_GRAMMAR KW_TOKEN KW_RULE KW_REGEX
 %token OP_FATARROW
 %token OP_RANGE OP_RANGE_EX
@@ -176,7 +178,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> stmt expr atom range_expr cmp_expr jct_expr add_expr closure
 %type <node> mul_expr unary_expr postfix_expr call_expr block
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt
-%type <node> unless_stmt until_stmt repeat_stmt class_decl grammar_decl
+%type <node> unless_stmt until_stmt repeat_stmt class_decl grammar_decl role_decl
 %type <sval> is_clauses
 %type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
 %right '=' OP_BIND
@@ -308,6 +310,7 @@ stmt
     | repeat_stmt       { $$=$1; }
     | sub_decl          { $$=$1; }
     | class_decl        { $$=$1; }
+    | role_decl         { $$=$1; }
     | grammar_decl      { $$=$1; }
     ;
 if_stmt
@@ -416,14 +419,32 @@ class_decl
             $$ = cd;
         }
     ;
+role_decl
+    : KW_ROLE IDENT '{' class_body_list '}'
+        {
+            const char *rname = intern($2); free($2);
+            ExprList *body = $4;
+            tree_t *rd = ast_node_new(TT_ROLE_DECL);
+            ast_push(rd, leaf_sval(TT_VAR, rname));
+            if (body) {
+                for (int i = 0; i < body->count; i++)
+                    if (body->items[i]) ast_push(rd, body->items[i]);
+                exprlist_free(body);
+            }
+            $$ = rd;
+        }
+    ;
 is_clauses
     :  { $$ = (char *)0; }
     | is_clauses IDENT IDENT
         {
-            if ($2 && !strcmp($2, "is") && $3) {
+            char tag = 0;
+            if ($2 && !strcmp($2, "is")) tag = 'i';
+            else if ($2 && !strcmp($2, "does")) tag = 'd';
+            if (tag && $3) {
                 size_t l2 = strlen($3);
-                if (!$1) { char *m = (char *)malloc(l2 + 1); memcpy(m, $3, l2 + 1); $$ = m; }
-                else { size_t l1 = strlen($1); char *m = (char *)malloc(l1 + l2 + 2); memcpy(m, $1, l1); m[l1] = '\x01'; memcpy(m + l1 + 1, $3, l2 + 1); free($1); $$ = m; }
+                if (!$1) { char *m = (char *)malloc(l2 + 2); m[0] = tag; memcpy(m + 1, $3, l2 + 1); $$ = m; }
+                else { size_t l1 = strlen($1); char *m = (char *)malloc(l1 + l2 + 3); memcpy(m, $1, l1); m[l1] = '\x01'; m[l1 + 1] = tag; memcpy(m + l1 + 2, $3, l2 + 1); free($1); $$ = m; }
             } else { $$ = $1; }
             free($2); free($3);
         }
@@ -578,6 +599,7 @@ param_list
     ;
 block
     : '{' stmt_list '}'  { $$=make_seq($2); }
+    | '{' YADA '}'       { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); $$=make_seq(l); }
     ;
 closure
     : '{' expr '}'  { $$=$2; }

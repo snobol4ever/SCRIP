@@ -2827,6 +2827,38 @@ int main(int argc, char **argv)
                           printf("  call dat_set_field_sigil@PLT\n");
                       }
                   } }
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nmethods(int); extern const char *dat_type_method_at(int, int);
+                  int n_cls = dat_type_count();
+                  for (int ci = 0; ci < n_cls; ci++) {
+                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+                      int nm = dat_type_nmethods(ci); if (nm <= 0) continue;
+                      for (int mj = 0; mj < nm; mj++) {
+                          const char *mn = dat_type_method_at(ci, mj); if (!mn || !*mn) continue;
+                          printf("  .section .rodata\n");
+                          printf("  .Lmethcls%d_%d: .byte ", ci, mj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .Lmethnm%d_%d: .byte ", ci, mj); for (const char *p = mn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .section .text\n  .intel_syntax noprefix\n");
+                          printf("  lea rdi, [rip + .Lmethcls%d_%d]\n", ci, mj);
+                          printf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
+                          printf("  call dat_add_method@PLT\n");
+                      }
+                  } }
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nroles(int); extern const char *dat_type_role_at(int, int);
+                  int n_cls = dat_type_count();
+                  for (int ci = 0; ci < n_cls; ci++) {
+                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+                      int nr = dat_type_nroles(ci); if (nr <= 0) continue;
+                      for (int rj = 0; rj < nr; rj++) {
+                          const char *rn = dat_type_role_at(ci, rj); if (!rn || !*rn) continue;
+                          printf("  .section .rodata\n");
+                          printf("  .Lrolechild%d_%d: .byte ", ci, rj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .Lrolename%d_%d: .byte ", ci, rj); for (const char *p = rn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .section .text\n  .intel_syntax noprefix\n");
+                          printf("  lea rdi, [rip + .Lrolechild%d_%d]\n", ci, rj);
+                          printf("  lea rsi, [rip + .Lrolename%d_%d]\n", ci, rj);
+                          printf("  call class_compose_role@PLT\n");
+                      }
+                  } }
                 { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
                   int n_gram = rt_grammar_count();
                   for (int gi = 0; gi < n_gram; gi++) {

@@ -702,6 +702,99 @@ class Both is Greeter is Farewell { }
 sub main() { my $b = Both.new(); say($b.hello()); say($b.bye()); }
 EOF
 
+# --- RK-OO-D1: roles. `role R { ... }` declares a role; `class C does R` FLATTENS R's methods and
+#     attributes into C (Rakudo RoleToClassApplier semantics). Composition is compile-time: the role's
+#     methods compile once as R__m and the consuming class finds them via a composition-lookup in the
+#     resolver — the role is NOT placed in the MRO (does != is). Precedence is own > role > inherited:
+#     at each MRO level the class's own method is tried, then its composed roles, before descending.
+#     Role attributes become real fields on the instance (merged into the class DatType). Both modes:
+#     mode-4 bakes class_compose_role@PLT so the binary's class carries its roles list. ---
+raku "role_method_flatten" "hi" << 'EOF'
+role Greet { method hello() { return "hi"; } }
+class Dog does Greet { has $.name; }
+sub main() { my $d = Dog.new(name => "Rex"); say($d.hello()); }
+EOF
+raku "role_attr_on_consumer" "42" << 'EOF'
+role HasId { has $.id; }
+class Widget does HasId { }
+sub main() { my $w = Widget.new(id => 42); say($w.id); }
+EOF
+raku "role_own_method_wins" "class" << 'EOF'
+role R { method who() { return "role"; } }
+class C does R { method who() { return "class"; } }
+sub main() { my $c = C.new(); say($c.who()); }
+EOF
+raku "role_beats_inherited" "role" << 'EOF'
+class Base { method who() { return "base"; } }
+role R { method who() { return "role"; } }
+class C is Base does R { }
+sub main() { my $c = C.new(); say($c.who()); }
+EOF
+
+# --- RK-OO-D2: role method-conflict detection (Rakudo RoleToClassApplier check_local_method /
+#     X::Role::Unresolved::Method). When 2+ composed roles supply the same method name and the consuming
+#     class does NOT provide its own method of that name, that is an UNRESOLVED conflict and a COMPILE-TIME
+#     error (composition is compile-time). Detection lives in class_compose_role driven by per-type method
+#     lists on DatType; it fires before main in both modes (in-process during m3 --run; at binary startup
+#     in m4 — and also in-process at m4 COMPILE since lowering runs class_compose_role, so the .s is refused).
+#     A class that defines its own same-named method RESOLVES the conflict (class wins). Distinct method
+#     names across roles compose without conflict. Conflict case asserts empty stdout (die on stderr). ---
+raku "role_conflict_unresolved" "" << 'EOF'
+role A { method m() { return "a"; } }
+role B { method m() { return "b"; } }
+class C does A does B { }
+sub main() { my $c = C.new(); say($c.m()); }
+EOF
+raku "role_conflict_resolved" "C" << 'EOF'
+role A { method m() { return "a"; } }
+role B { method m() { return "b"; } }
+class C does A does B { method m() { return "C"; } }
+sub main() { my $c = C.new(); say($c.m()); }
+EOF
+raku "role_two_roles_distinct" "$(printf 'f\nb')" << 'EOF'
+role A { method foo() { return "f"; } }
+role B { method bar() { return "b"; } }
+class C does A does B { }
+sub main() { my $c = C.new(); say($c.foo()); say($c.bar()); }
+EOF
+
+# --- RK-OO-D3: required (stub) methods. A role method whose body is the yada `{...}` declares a REQUIREMENT,
+#     not an implementation (Rakudo RoleToClassApplier @stubs / X::Role::Unimplemented). The consuming class
+#     MUST provide a real method of that name (itself or via a sibling role); otherwise it is a COMPILE-TIME
+#     error. `{...}` lexes to a YADA token -> a TT_YADA-bodied TT_SUB_DECL, which the lowerer recognizes as a
+#     stub (and does NOT register/compile as a real proc). The requirement is checked in the composition pass
+#     from the AST; unsatisfied -> rt_script_die_surface (compile-time death, empty stdout both modes). ---
+raku "required_unimplemented" "" << 'EOF'
+role R { method needed() {...} }
+class C does R { }
+sub main() { my $c = C.new(); say("made"); }
+EOF
+raku "required_by_class" "7" << 'EOF'
+role R { method needed() {...} }
+class C does R { method needed() { return 7; } }
+sub main() { my $c = C.new(); say($c.needed()); }
+EOF
+raku "required_by_sibling" "ok" << 'EOF'
+role Need { method act() {...} }
+role Give { method act() { return "ok"; } }
+class C does Need does Give { }
+sub main() { my $c = C.new(); say($c.act()); }
+EOF
+
+# --- RK-OO-D4: role punning. Using a role directly where a class is expected (`Role.new(...)`) auto-puns the
+#     role into a class that does only that role (Rakudo RolePunning). Here it falls out of the role-as-DatType
+#     registration: a role registers a DatType (fields) and its methods as Role__m, so `Role.new` constructs an
+#     instance and method/attribute access resolves through the role's own name exactly like a class. (Pun
+#     identity is simplified to the role's own type; the common instantiate/call/access path is correct.) ---
+raku "pun_method" "hello" << 'EOF'
+role Speaks { method talk() { return "hello"; } }
+sub main() { my $s = Speaks.new(); say($s.talk()); }
+EOF
+raku "pun_attr" "5" << 'EOF'
+role Point { has $.x; }
+sub main() { my $p = Point.new(x => 5); say($p.x); }
+EOF
+
 # --- RK-OO-A2: public-attribute auto-accessor (.x() with parens routes to the field, not a missing proc) ---
 raku "accessor_paren" "3" << 'EOF'
 class Point { has $.x; has $.y; }

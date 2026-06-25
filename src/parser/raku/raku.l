@@ -57,6 +57,7 @@ WS       [ \t\r]
 "CATCH"         { return KW_CATCH; }
 "die"           { return KW_DIE; }
 "class"         { return KW_CLASS; }
+"role"          { return KW_ROLE; }
 "grammar"       { return KW_GRAMMAR; }
 "token"         { raku_expect_rebody = 1; return KW_TOKEN; }
 "rule"          { raku_expect_rebody = 1; return KW_RULE; }
@@ -71,6 +72,7 @@ WS       [ \t\r]
 "ne"            { return OP_SNE; }
 "div"           { return OP_DIV; }
 "..^"           { return OP_RANGE_EX; }
+"..."           { return YADA; }
 "^"             { return CARET; }
 ".."            { return OP_RANGE; }
 "->"            { return OP_ARROW; }

@@ -123,26 +123,28 @@ typedef struct ExprList {
     KW_METHOD = 303,               /* KW_METHOD  */
     KW_HAS = 304,                  /* KW_HAS  */
     KW_NEW = 305,                  /* KW_NEW  */
-    KW_GRAMMAR = 306,              /* KW_GRAMMAR  */
-    KW_TOKEN = 307,                /* KW_TOKEN  */
-    KW_RULE = 308,                 /* KW_RULE  */
-    KW_REGEX = 309,                /* KW_REGEX  */
-    OP_FATARROW = 310,             /* OP_FATARROW  */
-    OP_RANGE = 311,                /* OP_RANGE  */
-    OP_RANGE_EX = 312,             /* OP_RANGE_EX  */
-    OP_ARROW = 313,                /* OP_ARROW  */
-    OP_EQ = 314,                   /* OP_EQ  */
-    OP_NE = 315,                   /* OP_NE  */
-    OP_LE = 316,                   /* OP_LE  */
-    OP_GE = 317,                   /* OP_GE  */
-    OP_SEQ = 318,                  /* OP_SEQ  */
-    OP_SNE = 319,                  /* OP_SNE  */
-    OP_AND = 320,                  /* OP_AND  */
-    OP_OR = 321,                   /* OP_OR  */
-    OP_BIND = 322,                 /* OP_BIND  */
-    OP_SMATCH = 323,               /* OP_SMATCH  */
-    OP_DIV = 324,                  /* OP_DIV  */
-    UMINUS = 325                   /* UMINUS  */
+    KW_ROLE = 306,                 /* KW_ROLE  */
+    YADA = 307,                    /* YADA  */
+    KW_GRAMMAR = 308,              /* KW_GRAMMAR  */
+    KW_TOKEN = 309,                /* KW_TOKEN  */
+    KW_RULE = 310,                 /* KW_RULE  */
+    KW_REGEX = 311,                /* KW_REGEX  */
+    OP_FATARROW = 312,             /* OP_FATARROW  */
+    OP_RANGE = 313,                /* OP_RANGE  */
+    OP_RANGE_EX = 314,             /* OP_RANGE_EX  */
+    OP_ARROW = 315,                /* OP_ARROW  */
+    OP_EQ = 316,                   /* OP_EQ  */
+    OP_NE = 317,                   /* OP_NE  */
+    OP_LE = 318,                   /* OP_LE  */
+    OP_GE = 319,                   /* OP_GE  */
+    OP_SEQ = 320,                  /* OP_SEQ  */
+    OP_SNE = 321,                  /* OP_SNE  */
+    OP_AND = 322,                  /* OP_AND  */
+    OP_OR = 323,                   /* OP_OR  */
+    OP_BIND = 324,                 /* OP_BIND  */
+    OP_SMATCH = 325,               /* OP_SMATCH  */
+    OP_DIV = 326,                  /* OP_DIV  */
+    UMINUS = 327                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -159,7 +161,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 163 "raku.tab.h"
+#line 165 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;
