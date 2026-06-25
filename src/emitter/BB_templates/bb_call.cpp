@@ -20,6 +20,8 @@ int  bb_varslot(const char * name);
 int  is_global(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 int64_t rt_gvar_get_int(const char * name);
+extern int g_gva_active;
+int gva_index_of(const char * name);
 DESCR_t rt_gvar_get_descr(const char * name);
 DESCR_t rt_call_named_proc(const char * name, DESCR_t * args, int nargs);
 DESCR_t rt_call_named_proc_sl(const char * name, DESCR_t * args, int nargs, void * sl);
@@ -120,11 +122,15 @@ static const char * relop_fail_mnem(IR_t * nd) {
     return IR_LIT(nd).ival == BINOP_LT ? "jge" : IR_LIT(nd).ival == BINOP_LE ? "jg" : IR_LIT(nd).ival == BINOP_GT ? "jle" : IR_LIT(nd).ival == BINOP_GE ? "jl" : IR_LIT(nd).ival == BINOP_EQ ? "jne" : "je";
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
+static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
     std::string s;
     if (a->op == IR_VAR && IR_LIT(a).sval) {
-        if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); s += x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT"); }
-        else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(a).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+        std::string slow;
+        if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); slow = x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT"); }
+        else { slow = x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(a).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+        int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(a).sval) : -1;
+        if (k >= 0) s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rax", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1)) + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
+        else s += slow;
     } else if (a->op == IR_VAR_FRAME) {
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
@@ -146,12 +152,16 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a) {
     return s;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b) {
+static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
     std::string s;
     if (b->op == IR_VAR && IR_LIT(b).sval) {
-        if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); s += x86("directive", (std::string(" lea rdi, [rip + ") + b2 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT"); }
-        else { s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(b).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
-        s += x86("mov", "rcx", "rax");
+        std::string slow;
+        if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); slow = x86("directive", (std::string(" lea rdi, [rip + ") + b2 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT"); }
+        else { slow = x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(b).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+        slow += x86("mov", "rcx", "rax");
+        int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(b).sval) : -1;
+        if (k >= 0) s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rcx", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1)) + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
+        else s += slow;
     } else if (b->op == IR_VAR_FRAME) {
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
@@ -460,15 +470,16 @@ static IR_t * relop_arg_simple_operand(IR_graph_t * sg) {
     return arith_kind_ok(e) ? e : NULL;
 }
 static std::string bb_call_relop_inline_str(IR_t * pBB, const char * fn, IR_graph_t ** subs, int relop) {
+    x86_begin();
     int resoff = bb_slot_alloc16(_.node);
     IR_t * a = relop_arg_simple_operand(subs[0]);
     IR_t * b = relop_arg_simple_operand(subs[1]);
     int scratch = bb_slot_claim(16);
     std::string s = x86("label", _.lbl_α)
         + x86("comment", emit_fmt("BOX IR_CALL %s(...) inline integer relop [four-port, FAIL->ω]", fn));
-    s += arith_opnd_a(NULL, a);
+    s += arith_opnd_a(NULL, a, 0);
     s += x86_frame_store64(scratch, "rax");
-    s += arith_opnd_b(NULL, b);
+    s += arith_opnd_b(NULL, b, 2);
     s += x86("mov", FRQ(resoff), (long)DT_SNUL);
     s += x86("mov", FRQ(resoff + 8), (long)0);
     s += x86_frame_load64("rax", scratch);
