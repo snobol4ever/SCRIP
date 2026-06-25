@@ -260,6 +260,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         icn_retag_scan_body(bsg, 0);
         IR_EXEC(gs).counter = (int64_t)(intptr_t) ssg; IR_LIT(gs).ival = (long long)(intptr_t) bsg; *res = gs; return gs; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_REPALT: { IR_t * nd = build(cx, IR_REPALT, γ, ω);
+        IR_t * er = NULL; (void) lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &er);
+        ir_operand_push(nd, er);
+        cx->beta = nd; *res = nd; return nd; }
     case TT_LIMIT: { IR_t * nd = build(cx, IR_LIMIT, γ, ω);
         IR_t * er = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, nd, ω, &er);
         IR_t * inner_beta = cx->beta;

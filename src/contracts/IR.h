@@ -48,6 +48,7 @@ typedef enum {
     IR_UNTIL,
     IR_REPEAT,
     IR_ALT,
+    IR_REPALT,
     IR_SIZE,
     IR_CASE,
     IR_CASE_ARM,

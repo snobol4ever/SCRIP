@@ -320,6 +320,25 @@ extern "C" void bb_emit_limit_init(int limit_slot_off) {
     bb_emit_x86(bb_limit_init());
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_emit_repalt_clear(int off) {
+    if (!PLATFORM_X86) return;
+    g_emit.op_off = off;
+    bb_emit_x86(bb_repalt_clear());
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_emit_repalt_yield(int off, int e_slot) {
+    if (!PLATFORM_X86) return;
+    g_emit.op_off = off;
+    g_emit.op_sa  = e_slot;
+    bb_emit_x86(bb_repalt_yield());
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_emit_repalt_test(int off) {
+    if (!PLATFORM_X86) return;
+    g_emit.op_off = off;
+    bb_emit_x86(bb_repalt_test());
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
