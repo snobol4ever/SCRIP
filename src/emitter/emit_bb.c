@@ -3432,6 +3432,10 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_IDX_SET:    flat_drive_idx_set(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIST_BANG:  flat_drive_list_bang(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CONJ:
+        if (g_descr_flat_chain && nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) {
+            int voff = bb_slot_get(nd->operands[0]);
+            if (voff >= 0) bb_slot_register(nd, voff);
+        }
         emit_jmp_label(lbl_γ, JMP_JMP);
         emit_label_define_bb(lbl_β);
         emit_jmp_label(lbl_ω, JMP_JMP);
@@ -3734,6 +3738,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_GEN_SCAN: return 0;
     case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
     case IR_LIMIT: return 0;   /* push LIMIT result (so a consumer wires its arg to us) without rewriting our lowerer-set operands [generator, count, gen-entry]; the generator stays on-spine */
+    case IR_CONJ:  return 0;   /* (e1;..;en) value = last conjunct's value; CONJ pushes its result (consumer wires to it) and keeps its lowerer-set operand [last-conjunct value-node]; slot aliased to that conjunct at emit */
     case IR_IDX_SET: return 3;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
