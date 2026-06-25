@@ -616,7 +616,7 @@ static void sno_seq_flatten_ops(const tree_t * t, lc_vec * out, int * nonleaf) {
     if (!t) return;
     if (t->t == TT_SEQ) { sno_seq_flatten_ops((t->n > 0) ? t->c[0] : NULL, out, nonleaf); sno_seq_flatten_ops((t->n > 1) ? t->c[1] : NULL, out, nonleaf); return; }
     lc_vec_push(out, &t);
-    if (t->t == TT_FNC || lc_is_binop(t->t) || is_sno_unop(t->t)) *nonleaf = 1;
+    if (t->t == TT_FNC || lc_is_binop(t->t) || is_sno_unop(t->t) || t->t == TT_KEYWORD) *nonleaf = 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_concat_chain(snx_t * cx, const tree_t ** ops, int n, IR_t * cont, IR_t * nxt, IR_t ** res) {
