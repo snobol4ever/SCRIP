@@ -14,26 +14,56 @@ std::string bb_idx_get() {
         return x86_bomb("bb_idx_get: unhandled (needs base name + result/scratch slots)");
     if (!(_.bb_lk == (int)IR_LIT_I || (_.bb_lk == (int)IR_VAR && _.op_name2 && _.op_parts_lbl[1])))
         return x86_bomb("bb_idx_get: unhandled key kind (LIT_I immediate or VAR by-name only)");
+    x86_begin();
+    int byname = (_.bb_lk == (int)IR_VAR);
     std::string s = x86("label", _.lbl_α)
-                  + x86("comment", "IR_IDX (subscript_get, by-name)")
-                  + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
-                  + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
-                  + x86("mov",  FRQ(_.op_sa),     "rax")
-                  + x86("mov",  FRQ(_.op_sa + 8), "rdx");
-    if (_.bb_lk == (int)IR_LIT_I)
-        s += x86("movabs", "rdx", (uint64_t)DT_I)
-           + x86("movabs", "rcx", (uint64_t)_.bb_li);
-    else
+                  + x86("comment", "IR_IDX: AXS inline DT_A+int fast path, else subscript_get");
+    if (byname)
         s += x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1])
            + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
-           + x86("mov",  "rcx", "rdx")
-           + x86("mov",  "rdx", "rax");
-    return s + x86("mov",  "rdi", FRQ(_.op_sa))
-             + x86("mov",  "rsi", FRQ(_.op_sa + 8))
-             + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
-             + x86("mov",  FRQ(_.op_off),     "rax")
-             + x86("mov",  FRQ(_.op_off + 8), "rdx")
-             + x86("jmp",  "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω");
+           + x86("mov",  FRQ(_.op_sa),     "rax")
+           + x86("mov",  FRQ(_.op_sa + 8), "rdx");
+    s += x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
+       + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
+       + x86("cmp",  "eax", (long)DT_A)
+       + x86("jne",  L(0));
+    if (byname)
+        s += x86("mov", "r8", FRQ(_.op_sa))
+           + x86("cmp", "r8d", (long)DT_I)
+           + x86("jne", L(0))
+           + x86("mov", "rcx", FRQ(_.op_sa + 8));
+    else
+        s += x86("movabs", "rcx", (uint64_t)(int64_t) _.bb_li);
+    s += x86("mov", "rsi", "rdx")
+       + x86("mov", "r8",  "[rsi]")
+       + x86("sub", "ecx", "r8d")
+       + x86("js",  L(0))
+       + x86("mov", "r9",  "[rsi + 4]")
+       + x86("sub", "r9d", "r8d")
+       + x86("cmp", "ecx", "r9d")
+       + x86("jg",  L(0))
+       + x86("mov", "r11", "[rsi + 24]")
+       + x86("movsxd", "rcx", "ecx")
+       + x86("add", "rcx", "rcx")
+       + x86("mov", "rax", "[r11 + rcx*8]")
+       + x86("add", "r11", (long)8)
+       + x86("mov", "rdx", "[r11 + rcx*8]")
+       + x86("mov", FRQ(_.op_off),     "rax")
+       + x86("mov", FRQ(_.op_off + 8), "rdx")
+       + x86("jmp", "γ")
+       + x86("def", L(0))
+       + x86("mov", "rdi", "rax")
+       + x86("mov", "rsi", "rdx");
+    if (byname)
+        s += x86("mov", "rdx", FRQ(_.op_sa))
+           + x86("mov", "rcx", FRQ(_.op_sa + 8));
+    else
+        s += x86("movabs", "rdx", (uint64_t)DT_I)
+           + x86("movabs", "rcx", (uint64_t)(int64_t) _.bb_li);
+    return s + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
+             + x86("mov", FRQ(_.op_off),     "rax")
+             + x86("mov", FRQ(_.op_off + 8), "rdx")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω");
 }
