@@ -429,7 +429,8 @@ inline std::string x86_cmp_imm64(const char * reg, long imm) {
 }
 inline std::string x86_load_indexed8(const char * dst, const char * base, const char * idx) {
     int g = x86_rnum(dst), b = x86_rnum(base), x = x86_rnum(idx);
-    std::string code; code += (char)0x48; code += (char)0x8B;
+    uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (x >= 8) rex |= 0x02; if (b >= 8) rex |= 0x01;
+    std::string code; code += (char)rex; code += (char)0x8B;
     code += (char)(0x00 | ((g & 7) << 3) | 0x04);
     code += (char)((3 << 6) | ((x & 7) << 3) | (b & 7));
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", [" + base + " + " + idx + "*8]\n");
