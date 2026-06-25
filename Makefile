@@ -221,6 +221,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_mapgrep.cpp \
     $(SRC)/emitter/BB_templates/bb_assign_local.cpp \
     $(SRC)/emitter/BB_templates/bb_field_get.cpp \
+    $(SRC)/emitter/BB_templates/bb_field_set.cpp \
     $(SRC)/emitter/BB_templates/bb_section.cpp \
     $(SRC)/emitter/BB_templates/bb_swap.cpp \
     $(SRC)/emitter/BB_templates/bb_rasgn.cpp \
@@ -478,6 +479,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_mapgrep.cpp -o $(OBJ)/bb_mapgrep.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_field_set.cpp -o $(OBJ)/bb_field_set.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_section.cpp -o $(OBJ)/bb_section.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_swap.cpp -o $(OBJ)/bb_swap.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_rasgn.cpp -o $(OBJ)/bb_rasgn.o

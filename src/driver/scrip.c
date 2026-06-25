@@ -194,6 +194,19 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
 }
 static int graph_native_emittable_mode(stage2_t *s2, int for_run);
 static int graph_native_emittable(stage2_t *s2) { return graph_native_emittable_mode(s2, 0); }
+static void icn_register_record_types(stage2_t *s2) {
+    extern void *dat_register(const char *spec);
+    extern void *dat_find_type(const char *name);
+    if (!s2) return;
+    for (int gi = 0; gi < s2->bbp.count; gi++) {
+        IR_graph_t *g = s2->bbp.table[gi];
+        if (!g || !g->all) continue;
+        for (int ni = 0; ni < g->n; ni++) {
+            IR_t *nd = g->all[ni];
+            if (nd && nd->op == IR_RECORD_DEF && IR_LIT(nd).sval && !dat_find_type(IR_LIT(nd).sval)) dat_register(IR_LIT(nd).sval);
+        }
+    }
+}
 static int gen_scan_body_slotful(IR_t *r) {
     if (!r || r->op != IR_GEN_SCAN || IR_LIT(r).dval != 1.0) return 0;
     IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(r).ival;
@@ -212,6 +225,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT)) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
+    { extern void *dat_find_type(const char *name); if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && IR_LIT(r).sval && dat_find_type(IR_LIT(r).sval)) return 1; }
     if (r->op == IR_FIELD_GET) return 1;
     if (r->op == IR_CASE) return 1;
     if (r->op == IR_GATHER) return 1;
@@ -310,6 +324,8 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
             if (nd->op == IR_IDX_SET) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> clean EXCISE, never abort */
             if (nd->op == IR_RASGN) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_RASGN + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> clean EXCISE, never silently wrong, until flat-chain rhs slotting is fixed */
             if (nd->op == IR_MAP || nd->op == IR_GREP) return 0;
+            if (nd->op == IR_FIELD_SET) { IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_GEN_SCAN) return 0; } /* generator-RHS field-set: rhs slot unfilled (bb_field_set bombs) -> clean EXCISE until generator-into-field value-flow built */
+            if (nd->op == IR_BINOP) { IR_t *bl = (nd->γ.node); for (int _bi=0; _bi<g->n; _bi++){ IR_t *pp=g->all[_bi]; if (pp && pp->γ.node==nd && pp->op==IR_FIELD_GET) return 0; } (void)bl; } /* binop fed by a FIELD_GET producer on the spine: chain operand-ref wires the field-get OBJECT var not its result slot -> wrong slot -> clean EXCISE until two-consecutive-producer chain wiring fixed */ /* binop with FIELD_GET operand: chain operand-ref wires the field-get's OBJECT var, not the field-get result slot -> wrong slot -> clean EXCISE until two-consecutive-producer chain wiring fixed */
             if (nd->op == IR_SWAP) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0; }
             if (nd->op == IR_GEN_SCAN) {
@@ -2637,6 +2653,7 @@ int main(int argc, char **argv)
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
+            if (is_icon) icn_register_record_types(s2);
             if ((is_icon || is_raku) && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Icon scan/keyword/cset/gen-alt/"
@@ -3098,6 +3115,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
             }
+            if (is_icon) icn_register_record_types(s2);
             if ((is_icon || is_raku) && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Icon scan/keyword/cset/gen-alt/suspend, "

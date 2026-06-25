@@ -163,6 +163,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * vr = NULL; lower(cx, rhs, set, ω, &vr); ir_operand_push(set, vr);
             *res = set; return entry;
         }
+        if (lhs && lhs->t == TT_FIELD) {
+            IR_t * set = build(cx, IR_FIELD_SET, γ, ω);
+            IR_LIT(set).sval = (lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval;
+            IR_t * br = NULL; IR_t * entry = lower(cx, lhs->c[0], set, ω, &br); ir_operand_push(set, br);
+            IR_t * vr = NULL; lower(cx, rhs, set, ω, &vr); ir_operand_push(set, vr);
+            *res = set; return entry;
+        }
         IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_t * lr = NULL, * rr = NULL;
         IR_t * eb = lower(cx, rhs, asn, ω, &rr); IR_t * ea = lower(cx, lhs, eb, ω, &lr);
         ir_operand_push(asn, rr); ir_operand_push(asn, lr); *res = asn; return ea;

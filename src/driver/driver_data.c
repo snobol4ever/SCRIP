@@ -248,6 +248,12 @@ DESCR_t dat_field_get(const char *fname, DESCR_t obj) {
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t dat_field_set(const char *fname, DESCR_t obj, DESCR_t val) {
+    DESCR_t *cell = data_field_ptr(fname, obj);
+    if (cell) { *cell = val; return val; }
+    return FAILDESCR;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
     if (nargs < 1) return FAILDESCR;
     const char *raw_spec = VARVAL_fn(args[0]);

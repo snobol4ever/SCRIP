@@ -1726,8 +1726,10 @@ static void flat_drive_field_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     int id = g_flat_node_id++;
     bb_label_t *obj_done = emit_label_alloc("xfget%d_obj_done", id);
     bb_label_t *obj_β    = emit_label_alloc("xfget%d_obj_β",    id);
-    walk_bb_flat(obj_box, obj_done, lbl_ω, obj_β);
-    emit_label_define_bb(obj_done);
+    if (!flat_chain_set_has(obj_box) && bb_slot_get(obj_box) < 0) {
+        walk_bb_flat(obj_box, obj_done, lbl_ω, obj_β);
+        emit_label_define_bb(obj_done);
+    }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
@@ -1766,10 +1768,14 @@ static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
     bb_label_t *rhs_β    = emit_label_alloc("xfset%d_rhs_β",    id);
     bb_label_t *obj_done = emit_label_alloc("xfset%d_obj_done", id);
     bb_label_t *obj_β    = emit_label_alloc("xfset%d_obj_β",    id);
-    walk_bb_flat(rhs_box, rhs_done, lbl_ω, rhs_β);
-    emit_label_define_bb(rhs_done);
-    walk_bb_flat(obj_box, obj_done, lbl_ω, obj_β);
-    emit_label_define_bb(obj_done);
+    if (!flat_chain_set_has(rhs_box) && bb_slot_get(rhs_box) < 0) {
+        walk_bb_flat(rhs_box, rhs_done, lbl_ω, rhs_β);
+        emit_label_define_bb(rhs_done);
+    }
+    if (!flat_chain_set_has(obj_box) && bb_slot_get(obj_box) < 0) {
+        walk_bb_flat(obj_box, obj_done, lbl_ω, obj_β);
+        emit_label_define_bb(obj_done);
+    }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
@@ -3705,6 +3711,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
     case IR_VAR:   case IR_KEYWORD: case IR_VAR_FRAME: case IR_VAR_FRAME_REF: return 0;
     case IR_FIELD_GET: return 0;
+    case IR_FIELD_SET: return 0;
     case IR_SECTION: return 0;
     case IR_LIST_BANG: return 0;
     case IR_CASE: return 0;

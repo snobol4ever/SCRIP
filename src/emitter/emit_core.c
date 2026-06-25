@@ -434,6 +434,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     }
     case IR_CALL_DEFINE:          bb_emit_x86(bb_call_define());        return 0;
     case IR_FIELD_GET:            { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_field_get()); return 0; } fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
+    case IR_FIELD_SET:            { extern int g_descr_flat_chain; if (g_descr_flat_chain) { IR_t *rhs_b = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; g_emit.op_sb = rhs_b ? bb_slot_get(rhs_b) : -1; bb_emit_x86(bb_field_set()); return 0; } fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_SECTION:              { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_section()); return 0; } fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_CASE_ARM:            { bb_emit_x86(bb_case_arm()); return 0; }
     case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
