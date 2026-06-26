@@ -212,6 +212,8 @@ extern int g_monitor_bin;
 extern int monitor_quiet_depth;
 void comm_stno(int n);
 void comm_var(const char *name, DESCR_t val);
+void mon_emit_label_bin(int64_t stno);
+void mon_emit_value_bin(const char *name, DESCR_t val);
 void comm_call(const char *fname);
 void comm_return(const char *fname, DESCR_t retval);
 int  trace_is_active(const char *name);
