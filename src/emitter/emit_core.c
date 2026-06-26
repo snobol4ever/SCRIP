@@ -353,6 +353,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_sval = IR_LIT(nd).sval;
     { extern int g_gva_active; extern int gva_index_of(const char *); g_emit.op_gva_k = (g_gva_active && IR_LIT(nd).sval) ? gva_index_of(IR_LIT(nd).sval) : -1; }
     { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *); g_emit.op_proc_k = (g_proc_direct_active && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
+    g_emit.op_stno = IR_EXEC(nd).stno;
     g_emit.op_ival = IR_LIT(nd).ival;
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;

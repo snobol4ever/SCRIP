@@ -62,6 +62,7 @@ std::string bb_return();
 std::string bb_unop();
 std::string bb_unop_gvar_slot();
 std::string bb_succeed();
+std::string bb_mon_label_tap();
 std::string bb_match_defer();
 std::string bb_pattern_len();
 std::string bb_pattern_break();
