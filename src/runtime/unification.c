@@ -14,7 +14,7 @@
 /*====================================================================================================================*/
 void *rt_node_to_term(int kind, long ival, const char *sval, double dval)
 {
-    /* env-free (g_resolve_env deleted): IR_LOGICVAR materialises a fresh Term var view of the slot. On the GZ
+    /* env-free (the shadow env array is deleted): IR_LOGICVAR materialises a fresh Term var view of the slot. On the GZ
      * path this is reached only by the legacy literal/atom builders; logic-var operands are read inline. */
     switch (kind) {
     case IR_LOGICVAR: { int slot = (int)ival; return term_new_var(slot); }
@@ -37,8 +37,8 @@ int rt_unify_terms(void *l, void *r)
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* Legacy slot-indexed unifiers (the non-cell bb_unify box). DEAD on the GZ path (uses IR_CELL_UNIFY); gutted so
- * g_resolve_env can be deleted. */
+/* Legacy slot-indexed unifiers (the non-cell bb_unify box). DEAD on the GZ path (uses IR_CELL_UNIFY); gutted so the
+ * shadow env array can be deleted. */
 int rt_unify_const(int slot, int kind, long ival, const char *sval, double dval)
 {
     (void)slot; (void)kind; (void)ival; (void)sval; (void)dval; return 0;

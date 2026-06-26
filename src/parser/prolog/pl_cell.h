@@ -22,19 +22,15 @@
  *
  * Trail entry = (cell_addr, old 16-byte word); unwind restores the word. Cells are mutated in place.
  *
- * NOTE: DT_PLVAR / DT_PLREF are defined here as constants in the free region of the DTYPE_t value space
- * (after DT_FH=12, before DT_FAIL=99). PL-DESCR-2 promotes them into the DTYPE_t enum in descr.h once the
- * cell is integrated onto the live LVA path; until then this header stays isolated and does not perturb the
- * shared contract used by the SNOBOL4/Icon flat-chain path.
+ * NOTE: DT_PLVAR / DT_PLREF are now real DTYPE_t enum members in descr.h (promoted from this header's former
+ * #defines once the cell landed on the live LVA path, PL-DESCR-2). They occupy the free region of the value
+ * space (after DT_FH=12, before DT_FAIL=99) and do not perturb the SNOBOL4/Icon flat-chain contract.
  */
 /*--------------------------------------------------------------------------------------------------------------------*/
 #include "descr.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define DT_PLVAR  13   /* Prolog logic variable (unbound self-ref or bound ref); promote into DTYPE_t in DESCR-2 */
-#define DT_PLREF  14   /* Prolog compound/list heap reference */
 
 typedef DESCR_t pl_cell_t;
 

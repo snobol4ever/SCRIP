@@ -119,7 +119,7 @@ int ge(DESCR_t a, DESCR_t b) {
 long rt_arith(int lk, long li, const char *ls,
                   int rk, long ri, const char *rs, const char *op)
 {
-    /* PL-DESCR-2 sub-flip 2: g_resolve_env (the Term* shadow env) is DELETED. rt_arith is reached only by the
+    /* PL-DESCR-2 sub-flip 2: the Term-pointer shadow env array is DELETED. rt_arith is reached only by the
      * legacy non-cell boxes (IR_ARITH-by-slot); the GZ path uses rt_pl_is_cell_arith on inline cells. With the
      * shadow gone, a logicvar operand simply falls through to its literal default (lv=li / rv=ri). */
     (void)ls; (void)rs; (void)lk; (void)rk;

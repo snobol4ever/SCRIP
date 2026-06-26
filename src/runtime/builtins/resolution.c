@@ -19,7 +19,7 @@ extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 #include <setjmp.h>
 Trail         g_resolve_trail;
 int           g_resolve_cut_flag = 0;
-/* PL-DESCR-2 sub-flip 2: the inline-cell trail (Prolog's single binding-undo spine). g_resolve_env (the
+/* PL-DESCR-2 sub-flip 2: the inline-cell trail (Prolog's single binding-undo spine). The Term-pointer shadow env array (the
  * Term* shadow env-stack, LEGACY-DOOMED #2) is DELETED — the inline cell IS the value, no shadow array. */
 #include "../../parser/prolog/pl_cell.h"
 pl_trail_t    g_pl_trail          = { 0, 0, 0 };
