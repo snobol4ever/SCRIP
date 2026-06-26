@@ -115,6 +115,14 @@ void rt_indirect_assign_str(const char *holder, const char *str)
     rt_gvar_assign_str(rt_nv_cstr(holder ? holder : ""), str);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_indirect_assign_var(const char *holder, const char *val_name)
+{
+    const char *target = rt_nv_cstr(holder ? holder : "");
+    DESCR_t val = NV_GET_fn(val_name ? val_name : "");
+    NV_SET_fn(target ? target : "", val);
+    if (g_monitor_bin) mon_emit_value_bin(target ? target : "", val);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_pat(const char *name, void *head)
 {
     DESCR_t d;

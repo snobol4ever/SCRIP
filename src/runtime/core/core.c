@@ -461,7 +461,7 @@ void comm_var(const char *name, DESCR_t val) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void comm_call(const char *fname) {
     if (!fname || !*fname) return;
-    if (kw_ftrace > 0) {
+    if (kw_ftrace > 0 && !g_monitor_bin) {
         fprintf(stdout, "****%-7lld  %s()\n",
                 (long long)kw_stcount, fname);
         fflush(stdout);
@@ -480,7 +480,7 @@ void comm_call(const char *fname) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void comm_return(const char *fname, DESCR_t retval) {
     if (!fname || !*fname) return;
-    if (kw_ftrace > 0) {
+    if (kw_ftrace > 0 && !g_monitor_bin) {
         const char *s = VARVAL_fn(retval);
         fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n",
                 (long long)kw_stcount, fname, s ? s : "");

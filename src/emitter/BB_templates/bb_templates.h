@@ -14,6 +14,7 @@ std::string bb_match_rtab();
 std::string bb_match_span_var();
 std::string bb_gvar_assign_lit_s();
 std::string bb_indirect_assign_lit_s();
+std::string bb_indirect_assign_var();
 std::string bb_gvar_assign_lit_i();
 std::string bb_gvar_assign_var();
 std::string bb_gvar_assign_concat();

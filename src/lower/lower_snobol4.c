@@ -1068,6 +1068,12 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_t * lit = build(cx, IR_LIT_S, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval ? repl->v.sval : "";
             return lit;
         }
+        /* indirect assignment, runtime name in var, runtime value in var:  $V = W  → rt_indirect_assign_var(V, W) */
+        if (subj->t == TT_INDIRECT && subj->n == 1 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[0]->v.sval && repl && repl->t == TT_VAR && repl->v.sval) {
+            IR_t * asn = build(cx, IR_INDIRECT_ASSIGN_VAR, γ_tgt, ω_tgt); IR_LIT(asn).sval = (char *) subj->c[0]->v.sval; IR_LIT(asn).dval = 0.0;
+            IR_t * lit = build(cx, IR_LIT_S, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval;
+            return lit;
+        }
         /* table write with ARITH value:  T<k> = expr  (base=VAR, key=VAR|LIT_I, value=arith BINOP of materializable operands) → value box chained before IR_IDX_SET, read from its slot */
         if (subj->t == TT_IDX && subj->n >= 2 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[1]
             && (subj->c[1]->t == TT_ILIT || subj->c[1]->t == TT_VAR)
