@@ -62,6 +62,9 @@ static const char * sno_goto_label(const tree_t * ch) {
     if (!ch || !ch->n || !ch->c[0]) return NULL; return ch->c[0]->v.sval; }
 static const char * sno_stmt_label(const tree_t * s) {
     const tree_t * lbl = sno_attr(s, ":lbl"); return lbl ? lbl->v.sval : NULL; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int32_t sno_stmt_stno(const tree_t * s) {
+    const tree_t * a = sno_attr(s, ":stno"); return (a && a->v.sval) ? (int32_t)atoi(a->v.sval) : 0; }
 static int sno_pat_builtin(const char * nm) {
     if (!nm) return 0;
     return !strcmp(nm,"REM") || !strcmp(nm,"rem") || !strcmp(nm,"ARB") || !strcmp(nm,"arb") || !strcmp(nm,"FENCE") || !strcmp(nm,"fence")
@@ -1198,7 +1201,7 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
     /* 3. label SUCCEED nodes [4..4+N-1] */
     IR_t * lbuf[SNO_MAXSTMTS];
     cx->labels = lbuf; cx->nlabels = N;
-    for (int i = 0; i < N; i++) lbuf[i] = IR_node_alloc(g, IR_SUCCEED);
+    for (int i = 0; i < N; i++) { lbuf[i] = IR_node_alloc(g, IR_SUCCEED); IR_EXEC(lbuf[i]).stno = sno_stmt_stno(stmts[i]); }
     /* 4. label name → stmt-index map */
     const char * lname_buf[SNO_MAXSTMTS]; cx->lname = lname_buf;
     g_sno4_lab_n = 0;
