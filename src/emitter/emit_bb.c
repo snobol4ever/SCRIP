@@ -3996,6 +3996,16 @@ static IR_t *gvar_chain_resolve_stmt(IR_t *n) {
     }
     return n;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int32_t gvar_chain_skip_stno(IR_t *n) {
+    int guard = 0; int32_t st = 0;
+    while (n && guard++ < 4096) {
+        if (n->op == IR_SUCCEED && n->γ.node != NULL) { if (st == 0 && IR_EXEC(n).stno != 0) st = IR_EXEC(n).stno; n = n->γ.node; continue; }
+        if ((n->op == IR_SEQ || n->op == IR_SEQ_EXPR) && IR_LIT(n).dval == 1.0 && n->γ.node != NULL) { n = n->γ.node; continue; }
+        break;
+    }
+    return st;
+}
 static int gvar_chain_is_real(IR_t *n) { return n && n->op != IR_SUCCEED && n->op != IR_FAIL; }
 static int gvar_chain_arity(const IR_t *n) {
     if (n && (n->op == IR_SEQ || n->op == IR_SEQ_EXPR) && IR_LIT(n).dval == 1.0) return 0;
@@ -4103,19 +4113,25 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
     emit_label_define_bb(&lbl_α_body);
     int nodes_cap = 512, queue_cap = 512;
     IR_t **nodes = (IR_t **)malloc(sizeof(IR_t *) * nodes_cap); int n = 0;
+    int32_t *nstno = (int32_t *)malloc(sizeof(int32_t) * nodes_cap);
     IR_t **queue = (IR_t **)malloc(sizeof(IR_t *) * queue_cap); int qh = 0, qt = 0;
+    int32_t *qstno = (int32_t *)malloc(sizeof(int32_t) * queue_cap);
+    int32_t e0_st = gvar_chain_skip_stno(entry);
     IR_t *e0 = gvar_chain_resolve_stmt(entry);
-    if (gvar_chain_is_real(e0)) queue[qt++] = e0;
+    if (gvar_chain_is_real(e0)) { qstno[qt] = e0_st; queue[qt++] = e0; }
     while (qh < qt) {
+        int32_t c_st = qstno[qh];
         IR_t *c = queue[qh++];
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
-        if (n >= nodes_cap) { nodes_cap *= 2; nodes = (IR_t **)realloc(nodes, sizeof(IR_t *) * nodes_cap); }
-        nodes[n++] = c;
+        if (n >= nodes_cap) { nodes_cap *= 2; nodes = (IR_t **)realloc(nodes, sizeof(IR_t *) * nodes_cap); nstno = (int32_t *)realloc(nstno, sizeof(int32_t) * nodes_cap); }
+        nstno[n] = c_st; nodes[n++] = c;
+        int32_t g_st = gvar_chain_skip_stno(c->γ.node);
+        int32_t w_st = gvar_chain_skip_stno(c->ω.node);
         IR_t *g = gvar_chain_resolve_stmt(c->γ.node);
         IR_t *w = gvar_chain_resolve_stmt(c->ω.node);
-        if (gvar_chain_is_real(g)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); } queue[qt++] = g; }
-        if (gvar_chain_is_real(w)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); } queue[qt++] = w; }
+        if (gvar_chain_is_real(g)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); qstno = (int32_t *)realloc(qstno, sizeof(int32_t) * queue_cap); } qstno[qt] = g_st; queue[qt++] = g; }
+        if (gvar_chain_is_real(w)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); qstno = (int32_t *)realloc(qstno, sizeof(int32_t) * queue_cap); } qstno[qt] = w_st; queue[qt++] = w; }
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
@@ -4126,6 +4142,7 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(lbls[i]);
+        { extern int g_monitor_bin; if (g_monitor_bin && nstno[i] != 0) { extern void emit_mon_label_tap(int32_t); emit_mon_label_tap(nstno[i]); } }
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
         IR_t *g = gvar_chain_resolve_stmt(nodes[i]->γ.node);
@@ -4147,7 +4164,7 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         xa_dispatch(XA_FLAT_DATA_SECTION);
         data_buf_reset();
     }
-    free(nodes); free(queue);
+    free(nodes); free(queue); free(nstno); free(qstno);
     return 0;
 }
 bb_box_fn gvar_flat_chain_build(IR_graph_t *g) {
