@@ -29,6 +29,7 @@ std::string bb_lit_scalar() {
         return x86("comment", "IR_LIT_S")
              + x86("label",   _.lbl_α)
              + x86("mov",    FRQ(_.op_off), (long)DT_S)
+             + IF(_.op_ival != 0, x86("mov", FR(_.op_off + 4), (long)-1))
              + x86_ro_load_q("rax", 0)
              + x86("mov",    FRQ(_.op_off + 8), "rax")
              + x86("jmp", "γ")
