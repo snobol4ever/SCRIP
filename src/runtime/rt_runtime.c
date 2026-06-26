@@ -192,82 +192,7 @@ static int resolve_term_is_proper_list(Term *t) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern void pl_write(Term *);
-/*--------------------------------------------------------------------------------------------------------------------*/
-extern void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
-static const char *rt_atomic_text_helper(Term *t, char *buf, size_t bufsz) {
-    t = t ? term_deref(t) : NULL;
-    if (!t) return NULL;
-    if (t->tag == TERM_ATOM) return prolog_atom_name(t->atom_id);
-    if (t->tag == TERM_INT)  { snprintf(buf, bufsz, "%ld", t->ival); return buf; }
-    return NULL;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int rt_atom_length(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
-    extern Trail g_resolve_trail;
-    int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
-    char buf[256]; const char *txt = rt_atomic_text_helper(t0, buf, sizeof buf);
-    if (!txt) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    Term *vt = term_new_int((long)strlen(txt));
-    if (!unify(t1, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    return 1;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int rt_case_atom_common(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int up) {
-    extern Trail g_resolve_trail;
-    int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
-    char buf[256]; const char *txt = rt_atomic_text_helper(t0, buf, sizeof buf);
-    if (!txt) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    size_t n = strlen(txt); char *out = (char *)GC_MALLOC(n + 1);
-    for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)txt[i]) : (char)tolower((unsigned char)txt[i]);
-    out[n] = '\0';
-    Term *vt = term_new_atom(prolog_atom_intern(out));
-    if (!unify(t1, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    return 1;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int rt_upcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
-    return rt_case_atom_common(k0, i0, s0, k1, i1, s1, 1);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int rt_downcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
-    return rt_case_atom_common(k0, i0, s0, k1, i1, s1, 0);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-int rt_atom_string_pair(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
-    extern Trail g_resolve_trail;
-    int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
-    Term *d0 = t0 ? term_deref(t0) : NULL;
-    Term *d1 = t1 ? term_deref(t1) : NULL;
-    char buf[256]; const char *txt = NULL; Term *dst = NULL;
-    if (d0 && d0->tag != TERM_VAR) { txt = rt_atomic_text_helper(d0, buf, sizeof buf); dst = t1; }
-    else if (d1 && d1->tag != TERM_VAR) { txt = rt_atomic_text_helper(d1, buf, sizeof buf); dst = t0; }
-    if (!txt || !dst) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    Term *vt = term_new_atom(prolog_atom_intern(txt));
-    if (!unify(dst, vt, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    return 1;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int bb_body_has_live_choice(IR_graph_t *bbg);
-/*--------------------------------------------------------------------------------------------------------------------*/
-int rt_copy_term(int k0, long i0, const char *s0, int k1, long i1, const char *s1) {
-    extern Trail g_resolve_trail;
-    int mark = trail_mark(&g_resolve_trail);
-    Term *t0 = (Term *)rt_node_to_term(k0, i0, s0, 0.0);
-    Term *t1 = (Term *)rt_node_to_term(k1, i1, s1, 0.0);
-    Term *d0 = t0 ? term_deref(t0) : NULL;
-    Term *cp = bb_copy_term(d0 ? d0 : t0);
-    if (!unify(t1, cp, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    return 1;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int type_test_common(const char *fn, Term *t) {
     Term *d = t ? term_deref(t) : NULL;
@@ -313,26 +238,26 @@ int rt_pl_is_cell_float(void *lhs_cell, double val) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void *rhs_cell, long rhs_ival) {
     if (!op) return 0;
-    double l = 0.0, r = 0.0;
+    int li_int = 1, ri_int = 1; long la = lhs_ival, ra = rhs_ival; double l = 0.0, r = 0.0;
     if (lhs_cell) {
         pl_cell_t *t = pl_deref((pl_cell_t *)lhs_cell);
-        if ((int)t->v == DT_I)      l = (double)t->i;
-        else if ((int)t->v == DT_R) l = t->r;
-        else return 0;
-    } else { l = (double)lhs_ival; }
+        if ((int)t->v == DT_I) { la = (long)t->i; } else if ((int)t->v == DT_R) { l = t->r; li_int = 0; } else return 0;
+    }
     if (rhs_cell) {
         pl_cell_t *t = pl_deref((pl_cell_t *)rhs_cell);
-        if ((int)t->v == DT_I)      r = (double)t->i;
-        else if ((int)t->v == DT_R) r = t->r;
-        else return 0;
-    } else { r = (double)rhs_ival; }
-    if (strcmp(op,"=:=")==0) return (l==r)?1:0;
-    if (strcmp(op,"=\\=")==0) return (l!=r)?1:0;
-    if (strcmp(op,"<"  )==0) return (l< r)?1:0;
-    if (strcmp(op,">"  )==0) return (l> r)?1:0;
-    if (strcmp(op,"=<" )==0) return (l<=r)?1:0;
-    if (strcmp(op,"<=" )==0) return (l<=r)?1:0;
-    if (strcmp(op,">=" )==0) return (l>=r)?1:0;
+        if ((int)t->v == DT_I) { ra = (long)t->i; } else if ((int)t->v == DT_R) { r = t->r; ri_int = 0; } else return 0;
+    }
+    char c0 = op[0], c1 = op[1];
+    int cmp;  /* -2 LT, -1 LE, 0 EQ, 1 GE, 2 GT, 3 NE */
+    if (c0 == '<') cmp = (c1 == '=') ? -1 : -2;
+    else if (c0 == '>') cmp = (c1 == '=') ? 1 : 2;
+    else if (c0 == '=') { if (c1 == '<') cmp = -1; else if (c1 == ':') cmp = 0; else if (c1 == '\\') cmp = 3; else return 0; }
+    else return 0;
+    if (li_int && ri_int) {
+        switch (cmp) { case -2: return la< ra; case -1: return la<=ra; case 0: return la==ra; case 1: return la>=ra; case 2: return la> ra; case 3: return la!=ra; }
+    }
+    if (li_int) l = (double)la; if (ri_int) r = (double)ra;
+    switch (cmp) { case -2: return l< r; case -1: return l<=r; case 0: return l==r; case 1: return l>=r; case 2: return l> r; case 3: return l!=r; }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -340,22 +265,41 @@ int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs
     extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs) return 0;
-    double rv = 0.0;
+    pl_cell_t w;
     if (rhs_cell) {
         pl_cell_t *t = pl_deref((pl_cell_t *)rhs_cell);
-        if ((int)t->v == DT_I)      rv = (double)t->i;
-        else if ((int)t->v == DT_R) rv = t->r;
-        else return 0;
-        if (!op) { }
-        else if (strcmp(op,"+")==0) rv = rv + (double)rhs_ival;
-        else if (strcmp(op,"-")==0) rv = rv - (double)rhs_ival;
-        else if (strcmp(op,"*")==0) rv = rv * (double)rhs_ival;
-        else if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { long li=(long)rv; if (!rhs_ival) return 0; rv=(double)(li%rhs_ival); }
-        else if (strcmp(op,"//")==0||strcmp(op,"div")==0) { long li=(long)rv; if (!rhs_ival) return 0; rv=(double)(li/rhs_ival); }
-        else if (strcmp(op,"/")==0) { if (!rhs_ival) return 0; rv = rv / (double)rhs_ival; }
-    } else { rv = (double)rhs_ival; }
-    long ival = (long)rv;
-    pl_cell_t w = ((double)ival == rv) ? pl_make_int((int64_t)ival) : pl_make_float(rv);
+        char oc = op ? op[0] : 0; char oc2 = op ? op[1] : 0;
+        if ((int)t->v == DT_I) {
+            long lv = (long)t->i, res;
+            switch (oc) {
+            case 0:   res = lv; break;
+            case '+': res = lv + rhs_ival; break;
+            case '-': res = lv - rhs_ival; break;
+            case '*': res = lv * rhs_ival; break;
+            case '/': if (oc2 == '/') { if (!rhs_ival) return 0; res = lv / rhs_ival; } else { if (!rhs_ival) return 0; double q = (double)lv / (double)rhs_ival; w = ((double)(long)q == q) ? pl_make_int((int64_t)(long)q) : pl_make_float(q); goto bind; } break;
+            case 'm': if (!rhs_ival) return 0; res = lv % rhs_ival; break;
+            case 'r': if (!rhs_ival) return 0; res = lv % rhs_ival; break;
+            case 'd': if (!rhs_ival) return 0; res = lv / rhs_ival; break;
+            default:  return 0;
+            }
+            w = pl_make_int((int64_t)res);
+        } else if ((int)t->v == DT_R) {
+            double rv = t->r;
+            switch (oc) {
+            case 0:   break;
+            case '+': rv = rv + (double)rhs_ival; break;
+            case '-': rv = rv - (double)rhs_ival; break;
+            case '*': rv = rv * (double)rhs_ival; break;
+            case '/': if (!rhs_ival) return 0; rv = rv / (double)rhs_ival; break;
+            case 'm': case 'r': { long li=(long)rv; if (!rhs_ival) return 0; rv=(double)(li%rhs_ival); } break;
+            case 'd': { long li=(long)rv; if (!rhs_ival) return 0; rv=(double)(li/rhs_ival); } break;
+            default:  return 0;
+            }
+            long iv = (long)rv;
+            w = ((double)iv == rv) ? pl_make_int((int64_t)iv) : pl_make_float(rv);
+        } else return 0;
+    } else { w = pl_make_int((int64_t)rhs_ival); }
+bind:;
     int mark = pl_trail_mark(&g_pl_trail);
     if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
@@ -366,19 +310,39 @@ int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs || !cell1 || !cell2) return 0;
     pl_cell_t *t1 = pl_deref((pl_cell_t *)cell1), *t2 = pl_deref((pl_cell_t *)cell2);
-    double a = ((int)t1->v == DT_I) ? (double)t1->i : ((int)t1->v == DT_R) ? t1->r : -1e300;
-    double b = ((int)t2->v == DT_I) ? (double)t2->i : ((int)t2->v == DT_R) ? t2->r : -1e300;
-    if (a == -1e300 || b == -1e300) return 0;
-    double rv;
-    if (!op || strcmp(op,"+")==0) rv = a + b;
-    else if (strcmp(op,"-")==0) rv = a - b;
-    else if (strcmp(op,"*")==0) rv = a * b;
-    else if (strcmp(op,"/")==0) { if (!b) return 0; rv = a / b; }
-    else if (strcmp(op,"//")==0||strcmp(op,"div")==0) { long la=(long)a,lb=(long)b; if (!lb) return 0; rv=(double)(la/lb); }
-    else if (strcmp(op,"mod")==0||strcmp(op,"rem")==0) { long la=(long)a,lb=(long)b; if (!lb) return 0; rv=(double)(la%lb); }
-    else return 0;
-    long ival = (long)rv;
-    pl_cell_t w = ((double)ival == rv) ? pl_make_int((int64_t)ival) : pl_make_float(rv);
+    char oc = op ? op[0] : 0; char oc2 = op ? op[1] : 0;
+    pl_cell_t w;
+    if ((int)t1->v == DT_I && (int)t2->v == DT_I) {
+        long a = (long)t1->i, b = (long)t2->i, res;
+        switch (oc) {
+        case 0:   res = a + b; break;
+        case '+': res = a + b; break;
+        case '-': res = a - b; break;
+        case '*': res = a * b; break;
+        case '/': if (oc2 == '/') { if (!b) return 0; res = a / b; } else { if (!b) return 0; double q=(double)a/(double)b; w = ((double)(long)q==q)?pl_make_int((int64_t)(long)q):pl_make_float(q); goto bind; } break;
+        case 'm': case 'r': if (!b) return 0; res = a % b; break;
+        case 'd': if (!b) return 0; res = a / b; break;
+        default:  return 0;
+        }
+        w = pl_make_int((int64_t)res);
+    } else {
+        double a = ((int)t1->v == DT_I) ? (double)t1->i : ((int)t1->v == DT_R) ? t1->r : -1e300;
+        double b = ((int)t2->v == DT_I) ? (double)t2->i : ((int)t2->v == DT_R) ? t2->r : -1e300;
+        if (a == -1e300 || b == -1e300) return 0;
+        double rv;
+        switch (oc) {
+        case 0: case '+': rv = a + b; break;
+        case '-': rv = a - b; break;
+        case '*': rv = a * b; break;
+        case '/': if (!b) return 0; rv = a / b; break;
+        case 'm': case 'r': { long la=(long)a,lb=(long)b; if (!lb) return 0; rv=(double)(la%lb); } break;
+        case 'd': { long la=(long)a,lb=(long)b; if (!lb) return 0; rv=(double)(la/lb); } break;
+        default:  return 0;
+        }
+        long iv = (long)rv;
+        w = ((double)iv == rv) ? pl_make_int((int64_t)iv) : pl_make_float(rv);
+    }
+bind:;
     int mark = pl_trail_mark(&g_pl_trail);
     if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;

@@ -50,8 +50,6 @@ typedef struct {
     int                          op_bounded;
     int                          op_relop_descr;
     int                          op_num_real;
-    const char *                 op_call_sym;
-    void *                        op_call_fp;
     int                          op_write_route;
     int                          op_call_route;
     const char *                 lbl_α;
