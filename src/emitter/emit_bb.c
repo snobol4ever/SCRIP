@@ -1533,6 +1533,7 @@ static IR_e binop_slot_kind(IR_t *nd) {
     if ((op >= BINOP_LT && op <= BINOP_NE) || (op >= BINOP_SLT && op <= BINOP_SNE)) return IR_BINOP_RELOP;
     if (op == BINOP_CONCAT)               return IR_BINOP_CONCAT;
     if (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || op == BINOP_POW) return IR_BINOP_ARITH;
+    if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return IR_BINOP_ARITH;
     return IR_BINOP;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1570,6 +1571,7 @@ static int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
     if (!nd) return 0;
     int64_t op = IR_LIT(nd).ival;
     if (op == BINOP_POW) return 1;
+    if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return 1;
     int is_num = (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || (op >= BINOP_LT && op <= BINOP_NE));
     if (!is_num) return 0;
     return binop_operand_real_static(g, bb_child0(nd), 0) || binop_operand_real_static(g, bb_child1(nd), 0);
