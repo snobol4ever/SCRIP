@@ -10,6 +10,7 @@ typedef enum {
     BINOP_CONCAT,
     BINOP_SLT, BINOP_SLE, BINOP_SGT, BINOP_SGE, BINOP_SEQ, BINOP_SNE,
     BINOP_POW,
+    BINOP_CUNION, BINOP_CDIFF, BINOP_CINTER,
 } BinopKind;
 /*--------------------------------------------------------------------------------------------------------------------*/
 #ifndef EXPR_T_DEFINED

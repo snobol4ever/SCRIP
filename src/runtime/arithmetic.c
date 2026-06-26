@@ -2,6 +2,7 @@
 #include "sil_macros.h"
 #include "rt/rt.h"
 #include "builtins/gen.h"
+#include "builtins/gen_runtime.h"
 #include "builtins/resolution.h"
 #include "../parser/prolog/prolog_atom.h"
 #include <stdlib.h>
@@ -176,6 +177,9 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
         case BINOP_DIV: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(ld / rd); if (ri == 0) return FAILDESCR; return (li % ri == 0) ? INTVAL(li / ri) : REALVAL((double)li / (double)ri);
         case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
         case BINOP_POW: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_descr(li, ri);
+        case BINOP_CUNION: return CSETVAL(cset_canonical(cset_union(a.s ? a.s : "", b.s ? b.s : "")));
+        case BINOP_CDIFF:  return CSETVAL(cset_canonical(cset_diff(a.s ? a.s : "", b.s ? b.s : "")));
+        case BINOP_CINTER: return CSETVAL(cset_canonical(cset_inter(a.s ? a.s : "", b.s ? b.s : "")));
         default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
     }
 }
