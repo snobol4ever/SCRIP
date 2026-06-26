@@ -68,6 +68,8 @@ std::string bb_binop_gvar_arith_slot() {
                           + IF(_.op_ival == BINOP_MOD, x86("cqo"))
                           + IF(_.op_ival == BINOP_MOD, x86("idiv", "rcx"))
                           + IF(_.op_ival == BINOP_MOD, x86("mov", "rax", "rdx"))
+                          + x86("mov", FRQ(_.op_off + 8), "rax")
+                          + x86("movabs", "rax", (uint64_t)DT_I)
                           + x86("mov", FRQ(_.op_off), "rax")
                           + x86("jmp", "γ")
                           + x86("def", "β")
