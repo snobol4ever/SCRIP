@@ -208,6 +208,7 @@ void   output_val(DESCR_t v);
 DESCR_t input_read(void);
 void   output_str(const char *s);
 extern int monitor_fd;
+extern int g_monitor_bin;
 extern int monitor_quiet_depth;
 void comm_stno(int n);
 void comm_var(const char *name, DESCR_t val);

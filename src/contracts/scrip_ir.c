@@ -370,6 +370,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) 
     if (bb->op != IR_SCAN && na > 0 && ops) for (int j = 0; j < na && op < 140; j++) op += snprintf(ob + op, sizeof ob - op, "%s%d", j ? " " : "", ops[j] ? ops[j]->idx : -1);
     const char * opn = bb_op_name(bb->op);
     fprintf(fp, "%4s %4d: %4s %4s  %-22s [%s]", sq, i, gp, wp, opn, ob);
+    if (IR_EXEC(bb).stno != 0) fprintf(fp, " stno=%d", (int)IR_EXEC(bb).stno);
     switch (bb->op) {
         case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_LIT_F: fprintf(fp, " dval=%g", IR_LIT(bb).dval); break;

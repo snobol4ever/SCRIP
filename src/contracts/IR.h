@@ -277,6 +277,7 @@ typedef struct {
     DESCR_t      value;
     int64_t      counter;
     int          state;
+    int32_t      stno;
 } IR_exec_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 struct IR_graph_t {

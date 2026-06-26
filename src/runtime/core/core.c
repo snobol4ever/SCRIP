@@ -24,7 +24,7 @@ int monitor_fd  = -1;
 int monitor_ack_fd = -1;
 int monitor_ready = 0;
 int monitor_quiet_depth = 0;
-static int   monitor_bin_mode = 0;
+int g_monitor_bin = 0;
 static void  mon_at_exit(void);
 static uint32_t intern_name_bin(const char *p, int len);
 static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
@@ -199,7 +199,7 @@ static uint32_t intern_name_bin(const char *p, int len) {
     g_bin_names[id]     = copy;
     g_bin_name_lens[id] = len;
     g_bin_n_names       = id + 1;
-    if (monitor_bin_mode && monitor_fd >= 0) {
+    if (g_monitor_bin && monitor_fd >= 0) {
         mon_send_bin(MWK_NAME_DEF, (uint32_t)id, MWT_STRING,
                      (len > 0) ? (const void *)copy : NULL, (uint32_t)len);
     }
@@ -210,7 +210,7 @@ static void mon_at_exit(void) {
     static int already = 0;
     if (already) return;
     already = 1;
-    if (monitor_fd >= 0 && monitor_bin_mode) {
+    if (monitor_fd >= 0 && g_monitor_bin) {
         unsigned char hdr[MW_HDR_BYTES];
         mw_pack_hdr(hdr, MWK_END, MW_NAME_ID_NONE, MWT_NULL, 0);
         ssize_t w = write(monitor_fd, hdr, MW_HDR_BYTES);
@@ -259,7 +259,7 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno) {
-    if (monitor_fd < 0 || !monitor_bin_mode) return;
+    if (monitor_fd < 0 || !g_monitor_bin) return;
     unsigned char buf[8];
     for (int k = 0; k < 8; k++) buf[k] = (unsigned char)(((uint64_t)stno >> (k*8)) & 0xff);
     mon_send_bin(MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, buf, 8);
@@ -403,7 +403,7 @@ void comm_var(const char *name, DESCR_t val) {
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
     if (kw_trace <= 0 && !trace_registered(name)) return;
-    if (monitor_bin_mode) {
+    if (g_monitor_bin) {
         uint32_t name_id = intern_name_bin(name, (int)strlen(name));
         if (name_id == MW_NAME_ID_NONE) return;
         uint8_t type = scrip_tag_to_wire(val.v);
@@ -451,7 +451,7 @@ void comm_call(const char *fname) {
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
     if (kw_ftrace <= 0 && !trace_registered(fname)) return;
-    if (monitor_bin_mode) {
+    if (g_monitor_bin) {
         uint32_t name_id = intern_name_bin(fname, (int)strlen(fname));
         if (name_id == MW_NAME_ID_NONE) return;
         mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0);
@@ -471,7 +471,7 @@ void comm_return(const char *fname, DESCR_t retval) {
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
     if (kw_ftrace <= 0 && !trace_registered(fname)) return;
-    if (monitor_bin_mode) {
+    if (g_monitor_bin) {
         uint32_t name_id = intern_name_bin(fname, (int)strlen(fname));
         if (name_id == MW_NAME_ID_NONE) return;
         const char *rt = kw_rtntype[0] ? kw_rtntype : "RETURN";
@@ -1614,7 +1614,7 @@ void core_lib_init(void) {
     {
         const char *ev_bin = getenv("MONITOR_BIN");
         if (ev_bin && ev_bin[0] && ev_bin[0] != '0') {
-            monitor_bin_mode = 1;
+            g_monitor_bin = 1;
             atexit(mon_at_exit);
         }
     }
