@@ -521,7 +521,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     }
     {
         const char *s   = (obj.v == DT_S) ? obj.s : NULL;
-        int64_t     slen = s ? (int64_t)(obj.slen > 0 ? obj.slen : strlen(s)) : 0;
+        int64_t     slen = !s ? 0 : (IS_CSET_fn(obj) ? (int64_t)strlen(s) : (int64_t)(obj.slen > 0 ? obj.slen : strlen(s)));
         if (!s || idx >= slen) return 0;
         char *ch = GC_malloc(2);
         ch[0] = s[idx];
