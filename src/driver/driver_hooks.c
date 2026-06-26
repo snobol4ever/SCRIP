@@ -1,4 +1,5 @@
 #include "driver_private.h"
+extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 DESCR_t _eval_str_impl_fn(const char *s) {
     extern DESCR_t eval_string_transient(const char *s);
     return eval_string_transient(s);
@@ -66,7 +67,7 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
             }
         }
     }
-    if (FNCEX_fn(name)) return APPLY_fn(name, args, nargs);
+    if (FNCEX_fn(name)) { DESCR_t _r = rt_call_named_proc(name, args, nargs); if (!IS_FAIL_fn(_r)) return _r; const char *_ent = FUNC_ENTRY_fn(name); if (_ent && strcmp(_ent, name) != 0) { _r = rt_call_named_proc(_ent, args, nargs); if (!IS_FAIL_fn(_r)) return _r; } }
     return call_user_function(name, args, nargs);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

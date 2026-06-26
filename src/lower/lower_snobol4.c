@@ -121,6 +121,8 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
         IR_t * eb = lower_expr(cx, t->c[1], op, nxt, &rr);
         γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); } ir_operand_push(op, lr); ir_operand_push(op, rr); *res = op; return ea;
     }
+    if (t->t == TT_NAME && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
+        IR_t * nd = build(cx, IR_LIT_S, cont, nxt); IR_LIT(nd).sval = t->c[0]->v.sval; *res = nd; return nd; }
     if (is_sno_unop(t->t)) {
         IR_t * op = build(cx, IR_UNOP, cont, nxt); IR_LIT(op).ival = (long long) t->t;
         IR_t * orr = NULL; IR_t * ea = lower_expr(cx, t->c[0], op, nxt, &orr);
@@ -1317,7 +1319,14 @@ int lower_sno_stage2(const tree_t *prog) {
         char params[STAGE2_FRAME_SLOT_MAX][64]; int np = 0;
         char locals[STAGE2_FRAME_SLOT_MAX][64]; int nl = 0;
         if (!sno_parse_define_proto(dsubj->c[0]->v.sval, fname, params, &np, locals, &nl)) continue;
-        IR_t *body = lower_snobol4_label(fname);
+        const char *entry_lbl = fname;
+        if (dsubj->n >= 2 && dsubj->c[1]) {
+            const tree_t *a1 = dsubj->c[1];
+            if (a1->t == TT_NAME && a1->n > 0 && a1->c[0] && a1->c[0]->v.sval) entry_lbl = a1->c[0]->v.sval;
+            else if (a1->t == TT_VAR  && a1->v.sval) entry_lbl = a1->v.sval;
+            else if (a1->t == TT_QLIT && a1->v.sval) entry_lbl = a1->v.sval;
+        }
+        IR_t *body = lower_snobol4_label(entry_lbl);
         if (!body) continue;
         int fpi  = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[fpi].name     = strdup(fname);
