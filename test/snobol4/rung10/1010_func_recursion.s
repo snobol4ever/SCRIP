@@ -160,356 +160,316 @@ bb7_α:
  snoch0_n2_β:
  jmp flat_γ
 snoch0_n3_α:
-xargsub17_n0_α:
-# IR_VAR
+# IR_LIT_S
 bb8_α:
- mov rdi, qword ptr [rip + .Lx19_0]
- call NV_GET_fn@PLT
- mov qword ptr [r12 + 176], rax
- mov qword ptr [r12 + 184], rdx
- jmp xargsub17_n1_α
- xargsub17_n0_β:
+ mov qword ptr [r12 + 176], 1
+ mov rax, qword ptr [rip + .Lx17_0]
+ mov qword ptr [r12 + 184], rax
+ jmp xgvarg16_done
+ xgvarg16_β:
+ jmp snoch0_n6_α
+.Lx17_0:
+ .quad .Lx17_0_s
+.Lx17_0_s:
+ .string "facto"
+xgvarg16_done:
+# IR_LIT_S
+bb9_α:
+ mov qword ptr [r12 + 192], 1
+ mov rax, qword ptr [rip + .Lx19_0]
+ mov qword ptr [r12 + 200], rax
+ jmp xgvarg18_done
+ xgvarg18_β:
  jmp snoch0_n6_α
 .Lx19_0:
  .quad .Lx19_0_s
 .Lx19_0_s:
- .string "facto"
-xargsub17_n1_α:
-# IR_VAR
-bb9_α:
- mov rdi, qword ptr [rip + .Lx22_0]
- call NV_GET_fn@PLT
- mov qword ptr [r12 + 192], rax
- mov qword ptr [r12 + 200], rdx
- jmp xunop20_arg_done
- xunop20_arg_β:
- jmp snoch0_n6_α
-.Lx22_0:
- .quad .Lx22_0_s
-.Lx22_0_s:
- .string "facto"
-xunop20_arg_done:
-jmp xgvarg16_done
-xargsub17_n1_β:
-jmp snoch0_n6_α
-xgvarg16_done:
-# IR_LIT_S
-bb10_α:
- mov qword ptr [r12 + 208], 1
- mov rax, qword ptr [rip + .Lx24_0]
- mov qword ptr [r12 + 216], rax
- jmp xgvarg23_done
- xgvarg23_β:
- jmp snoch0_n6_α
-.Lx24_0:
- .quad .Lx24_0_s
-.Lx24_0_s:
  .string "fact"
-xgvarg23_done:
-bb11_α:
+xgvarg18_done:
+bb10_α:
 # BOX IR_CALL opsyn(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = gvar NV_GET -> [r12+240]
-   lea rdi, [rip + .S0]
- call NV_GET_fn@PLT
+# marshal arg0 = producer-box slot [r12+176] -> [r12+224]
+ mov rax, qword ptr [r12 + 176]
+ mov qword ptr [r12 + 224], rax
+ mov rax, qword ptr [r12 + 184]
+ mov qword ptr [r12 + 232], rax
+# marshal arg1 = producer-box slot [r12+192] -> [r12+240]
+ mov rax, qword ptr [r12 + 192]
  mov qword ptr [r12 + 240], rax
- mov qword ptr [r12 + 248], rdx
-# marshal arg1 = producer-box slot [r12+208] -> [r12+256]
- mov rax, qword ptr [r12 + 208]
- mov qword ptr [r12 + 256], rax
- mov rax, qword ptr [r12 + 216]
- mov qword ptr [r12 + 264], rax
+ mov rax, qword ptr [r12 + 200]
+ mov qword ptr [r12 + 248], rax
   .section .rodata
-  .Lbynamefn26: .string "opsyn"
+  .Lbynamefn21: .string "opsyn"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn26]
- lea rsi, [r12 + 240]
+   lea rdi, [rip + .Lbynamefn21]
+ lea rsi, [r12 + 224]
  mov edx, 2
  call rt_call_arr@PLT
- mov qword ptr [r12 + 224], rax
- mov qword ptr [r12 + 232], rdx
+ mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 216], rdx
  cmp eax, 99
  je snoch0_n6_α
  jmp xgvarg15_done
 xgvarg15_β:
  jmp snoch0_n6_α
 xgvarg15_done:
-bb12_α:
+bb11_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+224] -> [r12+288]
- mov rax, qword ptr [r12 + 224]
- mov qword ptr [r12 + 288], rax
- mov rax, qword ptr [r12 + 232]
- mov qword ptr [r12 + 296], rax
+# marshal arg0 = producer-box slot [r12+208] -> [r12+272]
+ mov rax, qword ptr [r12 + 208]
+ mov qword ptr [r12 + 272], rax
+ mov rax, qword ptr [r12 + 216]
+ mov qword ptr [r12 + 280], rax
   .section .rodata
-  .Lbynamefn28: .string "differ"
+  .Lbynamefn23: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn28]
- lea rsi, [r12 + 288]
+   lea rdi, [rip + .Lbynamefn23]
+ lea rsi, [r12 + 272]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 272], rax
- mov qword ptr [r12 + 280], rdx
+ mov qword ptr [r12 + 256], rax
+ mov qword ptr [r12 + 264], rdx
  cmp eax, 99
  je snoch0_n6_α
  jmp snoch0_n5_α
 snoch0_n3_β:
  jmp snoch0_n6_α
 snoch0_n4_α:
-bb13_α:
+bb12_α:
 # IR_ASSIGN_LIT_S
- lea rdi, [rip + .S1]
- lea rsi, [rip + .S2]
+ lea rdi, [rip + .S0]
+ lea rsi, [rip + .S1]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
  snoch0_n4_β:
  jmp flat_γ
 snoch0_n5_α:
 # IR_LIT_scalar
-bb14_α:
+bb13_α:
  jmp snoch0_n7_α
  snoch0_n5_β:
  jmp flat_γ
 snoch0_n6_α:
 # IR_LIT_I
-bb15_α:
- mov qword ptr [r12 + 304], 6
- mov rax, qword ptr [rip + .Lx33_0]
- mov qword ptr [r12 + 312], rax
- jmp xgvarg32_done
- xgvarg32_β:
+bb14_α:
+ mov qword ptr [r12 + 288], 6
+ mov rax, qword ptr [rip + .Lx28_0]
+ mov qword ptr [r12 + 296], rax
+ jmp xgvarg27_done
+ xgvarg27_β:
  jmp snoch0_n9_α
-.Lx33_0:
+.Lx28_0:
  .quad 4
-xgvarg32_done:
-bb16_α:
+xgvarg27_done:
+bb15_α:
 # BOX IR_CALL facto(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+304] -> [r12+336]
- mov rax, qword ptr [r12 + 304]
- mov qword ptr [r12 + 336], rax
- mov rax, qword ptr [r12 + 312]
- mov qword ptr [r12 + 344], rax
+# marshal arg0 = producer-box slot [r12+288] -> [r12+320]
+ mov rax, qword ptr [r12 + 288]
+ mov qword ptr [r12 + 320], rax
+ mov rax, qword ptr [r12 + 296]
+ mov qword ptr [r12 + 328], rax
   .section .rodata
-  .Lbynamefn35: .string "facto"
+  .Lbynamefn30: .string "facto"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn35]
- lea rsi, [r12 + 336]
+   lea rdi, [rip + .Lbynamefn30]
+ lea rsi, [r12 + 320]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 320], rax
- mov qword ptr [r12 + 328], rdx
+ mov qword ptr [r12 + 304], rax
+ mov qword ptr [r12 + 312], rdx
  cmp eax, 99
  je snoch0_n9_α
- jmp xgvarg31_done
-xgvarg31_β:
+ jmp xgvarg26_done
+xgvarg26_β:
  jmp snoch0_n9_α
-xgvarg31_done:
+xgvarg26_done:
 # IR_LIT_I
-bb17_α:
- mov qword ptr [r12 + 352], 6
- mov rax, qword ptr [rip + .Lx37_0]
- mov qword ptr [r12 + 360], rax
- jmp xgvarg36_done
- xgvarg36_β:
+bb16_α:
+ mov qword ptr [r12 + 336], 6
+ mov rax, qword ptr [rip + .Lx32_0]
+ mov qword ptr [r12 + 344], rax
+ jmp xgvarg31_done
+ xgvarg31_β:
  jmp snoch0_n9_α
-.Lx37_0:
+.Lx32_0:
  .quad 24
-xgvarg36_done:
-bb18_α:
+xgvarg31_done:
+bb17_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+320] -> [r12+384]
- mov rax, qword ptr [r12 + 320]
+# marshal arg0 = producer-box slot [r12+304] -> [r12+368]
+ mov rax, qword ptr [r12 + 304]
+ mov qword ptr [r12 + 368], rax
+ mov rax, qword ptr [r12 + 312]
+ mov qword ptr [r12 + 376], rax
+# marshal arg1 = producer-box slot [r12+336] -> [r12+384]
+ mov rax, qword ptr [r12 + 336]
  mov qword ptr [r12 + 384], rax
- mov rax, qword ptr [r12 + 328]
+ mov rax, qword ptr [r12 + 344]
  mov qword ptr [r12 + 392], rax
-# marshal arg1 = producer-box slot [r12+352] -> [r12+400]
- mov rax, qword ptr [r12 + 352]
- mov qword ptr [r12 + 400], rax
- mov rax, qword ptr [r12 + 360]
- mov qword ptr [r12 + 408], rax
   .section .rodata
-  .Lbynamefn39: .string "ne"
+  .Lbynamefn34: .string "ne"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn39]
- lea rsi, [r12 + 384]
+   lea rdi, [rip + .Lbynamefn34]
+ lea rsi, [r12 + 368]
  mov edx, 2
  call rt_call_arr@PLT
- mov qword ptr [r12 + 368], rax
- mov qword ptr [r12 + 376], rdx
+ mov qword ptr [r12 + 352], rax
+ mov qword ptr [r12 + 360], rdx
  cmp eax, 99
  je snoch0_n9_α
  jmp snoch0_n8_α
 snoch0_n6_β:
  jmp snoch0_n9_α
 snoch0_n7_α:
-bb19_α:
+bb18_α:
 # IR_ASSIGN_LIT_S
- lea rdi, [rip + .S1]
- lea rsi, [rip + .S3]
+ lea rdi, [rip + .S0]
+ lea rsi, [rip + .S2]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
  snoch0_n7_β:
  jmp flat_γ
 snoch0_n8_α:
 # IR_LIT_scalar
-bb20_α:
+bb19_α:
  jmp snoch0_n10_α
  snoch0_n8_β:
  jmp flat_γ
 snoch0_n9_α:
 # IR_LIT_S
+bb20_α:
+ mov qword ptr [r12 + 400], 1
+ mov rax, qword ptr [rip + .Lx38_0]
+ mov qword ptr [r12 + 408], rax
+ jmp xgvarg37_done
+ xgvarg37_β:
+ jmp snoch0_n11_α
+.Lx38_0:
+ .quad .Lx38_0_s
+.Lx38_0_s:
+ .string "fact2(n)"
+xgvarg37_done:
+# IR_LIT_S
 bb21_α:
  mov qword ptr [r12 + 416], 1
- mov rax, qword ptr [rip + .Lx43_0]
+ mov rax, qword ptr [rip + .Lx40_0]
  mov qword ptr [r12 + 424], rax
- jmp xgvarg42_done
- xgvarg42_β:
+ jmp xgvarg39_done
+ xgvarg39_β:
  jmp snoch0_n11_α
-.Lx43_0:
- .quad .Lx43_0_s
-.Lx43_0_s:
- .string "fact2(n)"
-xgvarg42_done:
-xargsub45_n0_α:
-# IR_VAR
+.Lx40_0:
+ .quad .Lx40_0_s
+.Lx40_0_s:
+ .string "fact2_entry"
+xgvarg39_done:
 bb22_α:
- mov rdi, qword ptr [rip + .Lx47_0]
- call NV_GET_fn@PLT
- mov qword ptr [r12 + 432], rax
- mov qword ptr [r12 + 440], rdx
- jmp xargsub45_n1_α
- xargsub45_n0_β:
- jmp snoch0_n11_α
-.Lx47_0:
- .quad .Lx47_0_s
-.Lx47_0_s:
- .string "fact2_entry"
-xargsub45_n1_α:
-# IR_VAR
-bb23_α:
- mov rdi, qword ptr [rip + .Lx50_0]
- call NV_GET_fn@PLT
- mov qword ptr [r12 + 448], rax
- mov qword ptr [r12 + 456], rdx
- jmp xunop48_arg_done
- xunop48_arg_β:
- jmp snoch0_n11_α
-.Lx50_0:
- .quad .Lx50_0_s
-.Lx50_0_s:
- .string "fact2_entry"
-xunop48_arg_done:
-jmp xgvarg44_done
-xargsub45_n1_β:
-jmp snoch0_n11_α
-xgvarg44_done:
-bb24_α:
 # BOX IR_CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+416] -> [r12+480]
+# marshal arg0 = producer-box slot [r12+400] -> [r12+448]
+ mov rax, qword ptr [r12 + 400]
+ mov qword ptr [r12 + 448], rax
+ mov rax, qword ptr [r12 + 408]
+ mov qword ptr [r12 + 456], rax
+# marshal arg1 = producer-box slot [r12+416] -> [r12+464]
  mov rax, qword ptr [r12 + 416]
- mov qword ptr [r12 + 480], rax
+ mov qword ptr [r12 + 464], rax
  mov rax, qword ptr [r12 + 424]
- mov qword ptr [r12 + 488], rax
-# marshal arg1 = gvar NV_GET -> [r12+496]
-   lea rdi, [rip + .S4]
- call NV_GET_fn@PLT
- mov qword ptr [r12 + 496], rax
- mov qword ptr [r12 + 504], rdx
+ mov qword ptr [r12 + 472], rax
   .section .rodata
-  .Lbynamefn52: .string "define"
+  .Lbynamefn42: .string "define"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn52]
- lea rsi, [r12 + 480]
+   lea rdi, [rip + .Lbynamefn42]
+ lea rsi, [r12 + 448]
  mov edx, 2
  call rt_call_arr@PLT
- mov qword ptr [r12 + 464], rax
- mov qword ptr [r12 + 472], rdx
+ mov qword ptr [r12 + 432], rax
+ mov qword ptr [r12 + 440], rdx
  cmp eax, 99
  je snoch0_n11_α
  jmp snoch0_n11_α
 snoch0_n9_β:
  jmp snoch0_n11_α
 snoch0_n10_α:
-bb25_α:
+bb23_α:
 # IR_ASSIGN_LIT_S
- lea rdi, [rip + .S1]
- lea rsi, [rip + .S5]
+ lea rdi, [rip + .S0]
+ lea rsi, [rip + .S3]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
  snoch0_n10_β:
  jmp flat_γ
 snoch0_n11_α:
 # IR_LIT_I
-bb26_α:
- mov qword ptr [r12 + 512], 6
- mov rax, qword ptr [rip + .Lx56_0]
- mov qword ptr [r12 + 520], rax
- jmp xgvarg55_done
- xgvarg55_β:
+bb24_α:
+ mov qword ptr [r12 + 480], 6
+ mov rax, qword ptr [rip + .Lx46_0]
+ mov qword ptr [r12 + 488], rax
+ jmp xgvarg45_done
+ xgvarg45_β:
  jmp snoch0_n13_α
-.Lx56_0:
+.Lx46_0:
  .quad 6
-xgvarg55_done:
-bb27_α:
+xgvarg45_done:
+bb25_α:
 # BOX IR_CALL fact2(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+512] -> [r12+544]
- mov rax, qword ptr [r12 + 512]
- mov qword ptr [r12 + 544], rax
- mov rax, qword ptr [r12 + 520]
- mov qword ptr [r12 + 552], rax
+# marshal arg0 = producer-box slot [r12+480] -> [r12+512]
+ mov rax, qword ptr [r12 + 480]
+ mov qword ptr [r12 + 512], rax
+ mov rax, qword ptr [r12 + 488]
+ mov qword ptr [r12 + 520], rax
   .section .rodata
-  .Lbynamefn58: .string "fact2"
+  .Lbynamefn48: .string "fact2"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn58]
- lea rsi, [r12 + 544]
+   lea rdi, [rip + .Lbynamefn48]
+ lea rsi, [r12 + 512]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 528], rax
- mov qword ptr [r12 + 536], rdx
+ mov qword ptr [r12 + 496], rax
+ mov qword ptr [r12 + 504], rdx
  cmp eax, 99
  je snoch0_n13_α
- jmp xgvarg54_done
-xgvarg54_β:
+ jmp xgvarg44_done
+xgvarg44_β:
  jmp snoch0_n13_α
-xgvarg54_done:
+xgvarg44_done:
 # IR_LIT_I
-bb28_α:
- mov qword ptr [r12 + 560], 6
- mov rax, qword ptr [rip + .Lx60_0]
- mov qword ptr [r12 + 568], rax
- jmp xgvarg59_done
- xgvarg59_β:
+bb26_α:
+ mov qword ptr [r12 + 528], 6
+ mov rax, qword ptr [rip + .Lx50_0]
+ mov qword ptr [r12 + 536], rax
+ jmp xgvarg49_done
+ xgvarg49_β:
  jmp snoch0_n13_α
-.Lx60_0:
+.Lx50_0:
  .quad 720
-xgvarg59_done:
-bb29_α:
+xgvarg49_done:
+bb27_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+528] -> [r12+592]
+# marshal arg0 = producer-box slot [r12+496] -> [r12+560]
+ mov rax, qword ptr [r12 + 496]
+ mov qword ptr [r12 + 560], rax
+ mov rax, qword ptr [r12 + 504]
+ mov qword ptr [r12 + 568], rax
+# marshal arg1 = producer-box slot [r12+528] -> [r12+576]
  mov rax, qword ptr [r12 + 528]
- mov qword ptr [r12 + 592], rax
+ mov qword ptr [r12 + 576], rax
  mov rax, qword ptr [r12 + 536]
- mov qword ptr [r12 + 600], rax
-# marshal arg1 = producer-box slot [r12+560] -> [r12+608]
- mov rax, qword ptr [r12 + 560]
- mov qword ptr [r12 + 608], rax
- mov rax, qword ptr [r12 + 568]
- mov qword ptr [r12 + 616], rax
+ mov qword ptr [r12 + 584], rax
   .section .rodata
-  .Lbynamefn62: .string "ne"
+  .Lbynamefn52: .string "ne"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn62]
- lea rsi, [r12 + 592]
+   lea rdi, [rip + .Lbynamefn52]
+ lea rsi, [r12 + 560]
  mov edx, 2
  call rt_call_arr@PLT
- mov qword ptr [r12 + 576], rax
- mov qword ptr [r12 + 584], rdx
+ mov qword ptr [r12 + 544], rax
+ mov qword ptr [r12 + 552], rdx
  cmp eax, 99
  je snoch0_n13_α
  jmp snoch0_n12_α
@@ -517,30 +477,30 @@ snoch0_n11_β:
  jmp snoch0_n13_α
 snoch0_n12_α:
 # IR_LIT_scalar
-bb30_α:
+bb28_α:
  jmp snoch0_n14_α
  snoch0_n12_β:
  jmp flat_γ
 snoch0_n13_α:
 # IR_LIT_scalar
-bb31_α:
+bb29_α:
  jmp snoch0_n15_α
  snoch0_n13_β:
  jmp flat_γ
 snoch0_n14_α:
-bb32_α:
+bb30_α:
 # IR_ASSIGN_LIT_S
- lea rdi, [rip + .S1]
- lea rsi, [rip + .S6]
+ lea rdi, [rip + .S0]
+ lea rsi, [rip + .S4]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
  snoch0_n14_β:
  jmp flat_γ
 snoch0_n15_α:
-bb33_α:
+bb31_α:
 # IR_ASSIGN_LIT_S
- lea rdi, [rip + .S1]
- lea rsi, [rip + .S7]
+ lea rdi, [rip + .S0]
+ lea rsi, [rip + .S5]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
  snoch0_n15_β:
@@ -562,12 +522,10 @@ xor edx, edx
 pop r12
 ret
 .section .rodata
-.S0: .string "facto"
-.S1: .string "output"
-.S2: .string "FAIL 1010/001: fact(5)=120"
-.S3: .string "FAIL 1010/002: opsyn alias"
-.S4: .string "fact2_entry"
-.S5: .string "FAIL 1010/003: facto(4)=24 via alias"
-.S6: .string "FAIL 1010/004: fact2(6)=720 alt entry"
-.S7: .string "PASS 1010_func_recursion (4/4)"
+.S0: .string "output"
+.S1: .string "FAIL 1010/001: fact(5)=120"
+.S2: .string "FAIL 1010/002: opsyn alias"
+.S3: .string "FAIL 1010/003: facto(4)=24 via alias"
+.S4: .string "FAIL 1010/004: fact2(6)=720 alt entry"
+.S5: .string "PASS 1010_func_recursion (4/4)"
 .text
