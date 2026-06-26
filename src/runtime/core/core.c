@@ -265,6 +265,24 @@ void mon_emit_label_bin(int64_t stno) {
     mon_send_bin(MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, buf, 8);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void mon_emit_value_bin(const char *name, DESCR_t val) {
+    if (monitor_fd < 0 || !g_monitor_bin || !monitor_ready) return;
+    uint32_t name_id = intern_name_bin(name, (int)strlen(name));
+    if (name_id == MW_NAME_ID_NONE) return;
+    uint8_t type = scrip_tag_to_wire(val.v);
+    const void *vp = NULL; uint32_t vlen = 0;
+    int64_t i_buf; double r_buf;
+    switch (type) {
+        case MWT_STRING: case MWT_NAME:
+            if (val.s) { vlen = val.slen ? val.slen : (uint32_t)strlen(val.s); vp = vlen ? (const void *)val.s : NULL; } break;
+        case MWT_INTEGER: { int64_t iv = val.i; unsigned char *p = (unsigned char *)&i_buf;
+            for (int k = 0; k < 8; k++) p[k] = (unsigned char)((iv >> (k*8)) & 0xff); vp = &i_buf; vlen = 8; break; }
+        case MWT_REAL: { memcpy(&r_buf, &val.r, sizeof(r_buf)); vp = &r_buf; vlen = 8; break; }
+        default: break;
+    }
+    mon_send_bin(MWK_VALUE, name_id, type, vp, vlen);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void _arg_str(DESCR_t a, const char **out_p, int *out_len) {
     if (a.v == DT_S && a.s) {
         *out_p   = a.s;
