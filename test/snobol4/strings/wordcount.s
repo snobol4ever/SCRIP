@@ -184,7 +184,7 @@ snoch0_n13_α:
 bb15_α:
 # IR_BINOP_GVAR_CONCAT
  mov rdi, 6
- mov rsi, qword ptr [r12 + 48]
+ mov rsi, qword ptr [r12 + 56]
  mov rdx, qword ptr [r12 + 80]
  mov rcx, qword ptr [r12 + 88]
  call str_concat_d@PLT
@@ -352,7 +352,7 @@ xgvcat32_1d:
 bb25_α:
 # IR_BINOP_GVAR_CONCAT
  mov rdi, 6
- mov rsi, qword ptr [r12 + 96]
+ mov rsi, qword ptr [r12 + 104]
  mov rdx, qword ptr [r12 + 184]
  mov rcx, qword ptr [r12 + 192]
  call str_concat_d@PLT
@@ -365,7 +365,7 @@ snoch0_n19_α:
 bb26_α:
 # IR_BINOP_GVAR_CONCAT
  mov rdi, 6
- mov rsi, qword ptr [r12 + 104]
+ mov rsi, qword ptr [r12 + 112]
  mov rdx, qword ptr [r12 + 152]
  mov rcx, qword ptr [r12 + 160]
  call str_concat_d@PLT

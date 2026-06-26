@@ -467,7 +467,7 @@ snoch0_n28_α:
 bb39_α:
 # IR_BINOP_GVAR_CONCAT
  mov rdi, 6
- mov rsi, qword ptr [r12 + 304]
+ mov rsi, qword ptr [r12 + 312]
  mov rdx, qword ptr [r12 + 320]
  mov rcx, qword ptr [r12 + 328]
  call str_concat_d@PLT
