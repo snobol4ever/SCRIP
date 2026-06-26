@@ -165,6 +165,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_match_span_var.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp \
     $(SRC)/emitter/BB_templates/bb_indirect_assign_lit_s.cpp \
+    $(SRC)/emitter/BB_templates/bb_indirect_assign_var.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_i.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_var.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp \
@@ -416,6 +417,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_span_var.cpp -o $(OBJ)/bb_match_span_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp -o $(OBJ)/bb_gvar_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_indirect_assign_lit_s.cpp -o $(OBJ)/bb_indirect_assign_lit_s.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_indirect_assign_var.cpp    -o $(OBJ)/bb_indirect_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_i.cpp -o $(OBJ)/bb_gvar_assign_lit_i.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_var.cpp    -o $(OBJ)/bb_gvar_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp -o $(OBJ)/bb_gvar_assign_concat.o

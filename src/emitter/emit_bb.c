@@ -1107,6 +1107,7 @@ void bb_prepare(IR_t *nd) {
     if (nd->op == IR_ASSIGN_LIT_I) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
     if (nd->op == IR_ASSIGN_LIT_S) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return; }
     if (nd->op == IR_INDIRECT_ASSIGN_LIT_S) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return; }
+    if (nd->op == IR_INDIRECT_ASSIGN_VAR)   { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return; }
     if (nd->op == IR_ASSIGN_VAR)   { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return; }
     if (nd->op == IR_ASSIGN_CALL)  { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
     if (nd->op == IR_ASSIGN_DESCR) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
@@ -3403,6 +3404,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         else flat_drive_assign(nd, lbl_γ, lbl_ω, lbl_β); } break;
     case IR_VAR_FRAME: case IR_VAR_FRAME_REF: g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_INDIRECT_ASSIGN_LIT_S: flat_drive_indirect_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_INDIRECT_ASSIGN_VAR:   flat_drive_indirect_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: if (bb_child0(nd) && bb_child0(nd)->op == IR_BINOP) flat_drive_gvar_assign_binop(nd, lbl_γ, lbl_ω, lbl_β); else flat_drive_gvar_assign(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD:    if (g_descr_flat_chain || g_gvar_flat_chain) { g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = bb_slot_alloc16(nd); } else { g_emit.op_off = -1; } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GOTO_DYN:   g_emit.op_sval = IR_LIT(nd).sval; FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3828,6 +3830,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
     case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
     case IR_INDIRECT_ASSIGN_LIT_S: return 1;
+    case IR_INDIRECT_ASSIGN_VAR:   return 1;
     case IR_RETURN: return 1;
     case IR_CALL_DEFINE: return 0;
     case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
@@ -4000,11 +4003,20 @@ static IR_t *gvar_chain_resolve_stmt(IR_t *n) {
 static int32_t gvar_chain_skip_stno(IR_t *n) {
     int guard = 0; int32_t st = 0;
     while (n && guard++ < 4096) {
-        if (n->op == IR_SUCCEED && n->γ.node != NULL) { if (st == 0 && IR_EXEC(n).stno != 0) st = IR_EXEC(n).stno; n = n->γ.node; continue; }
+        if (n->op == IR_SUCCEED && n->γ.node != NULL) { if (IR_EXEC(n).stno != 0) st = IR_EXEC(n).stno; n = n->γ.node; continue; }
         if ((n->op == IR_SEQ || n->op == IR_SEQ_EXPR) && IR_LIT(n).dval == 1.0 && n->γ.node != NULL) { n = n->γ.node; continue; }
         break;
     }
     return st;
+}
+static int gvar_chain_collect_stnos(IR_t *n, int32_t *out, int max) {
+    int guard = 0; int cnt = 0;
+    while (n && guard++ < 4096) {
+        if (n->op == IR_SUCCEED && n->γ.node != NULL) { if (IR_EXEC(n).stno != 0 && cnt < max) out[cnt++] = IR_EXEC(n).stno; n = n->γ.node; continue; }
+        if ((n->op == IR_SEQ || n->op == IR_SEQ_EXPR) && IR_LIT(n).dval == 1.0 && n->γ.node != NULL) { n = n->γ.node; continue; }
+        break;
+    }
+    return cnt;
 }
 static int gvar_chain_is_real(IR_t *n) { return n && n->op != IR_SUCCEED && n->op != IR_FAIL; }
 static int gvar_chain_arity(const IR_t *n) {
@@ -4114,24 +4126,33 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
     int nodes_cap = 512, queue_cap = 512;
     IR_t **nodes = (IR_t **)malloc(sizeof(IR_t *) * nodes_cap); int n = 0;
     int32_t *nstno = (int32_t *)malloc(sizeof(int32_t) * nodes_cap);
+    int32_t *nstno_extra = (int32_t *)malloc(sizeof(int32_t) * nodes_cap * 8);
+    int *nstno_cnt = (int *)malloc(sizeof(int) * nodes_cap);
     IR_t **queue = (IR_t **)malloc(sizeof(IR_t *) * queue_cap); int qh = 0, qt = 0;
     int32_t *qstno = (int32_t *)malloc(sizeof(int32_t) * queue_cap);
-    int32_t e0_st = gvar_chain_skip_stno(entry);
+    int32_t *qstno_extra = (int32_t *)malloc(sizeof(int32_t) * queue_cap * 8);
+    int *qstno_cnt = (int *)malloc(sizeof(int) * queue_cap);
+    int32_t e0_stbuf[8]; int e0_cnt = gvar_chain_collect_stnos(entry, e0_stbuf, 8);
+    int32_t e0_st = e0_cnt > 0 ? e0_stbuf[e0_cnt - 1] : 0;
     IR_t *e0 = gvar_chain_resolve_stmt(entry);
-    if (gvar_chain_is_real(e0)) { qstno[qt] = e0_st; queue[qt++] = e0; }
+    if (gvar_chain_is_real(e0)) { qstno[qt] = e0_st; memcpy(qstno_extra + qt*8, e0_stbuf, sizeof(int32_t)*e0_cnt); qstno_cnt[qt] = e0_cnt; queue[qt++] = e0; }
     while (qh < qt) {
         int32_t c_st = qstno[qh];
+        int c_cnt = qstno_cnt[qh];
+        int32_t c_extra[8]; memcpy(c_extra, qstno_extra + qh*8, sizeof(int32_t)*c_cnt);
         IR_t *c = queue[qh++];
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
-        if (n >= nodes_cap) { nodes_cap *= 2; nodes = (IR_t **)realloc(nodes, sizeof(IR_t *) * nodes_cap); nstno = (int32_t *)realloc(nstno, sizeof(int32_t) * nodes_cap); }
-        nstno[n] = c_st; nodes[n++] = c;
-        int32_t g_st = gvar_chain_skip_stno(c->γ.node);
-        int32_t w_st = gvar_chain_skip_stno(c->ω.node);
+        if (n >= nodes_cap) { nodes_cap *= 2; nodes = (IR_t **)realloc(nodes, sizeof(IR_t *) * nodes_cap); nstno = (int32_t *)realloc(nstno, sizeof(int32_t) * nodes_cap); nstno_extra = (int32_t *)realloc(nstno_extra, sizeof(int32_t) * nodes_cap * 8); nstno_cnt = (int *)realloc(nstno_cnt, sizeof(int) * nodes_cap); }
+        nstno[n] = c_st; memcpy(nstno_extra + n*8, c_extra, sizeof(int32_t)*c_cnt); nstno_cnt[n] = c_cnt; nodes[n++] = c;
+        int32_t g_stbuf[8]; int g_cnt = gvar_chain_collect_stnos(c->γ.node, g_stbuf, 8);
+        int32_t w_stbuf[8]; int w_cnt = gvar_chain_collect_stnos(c->ω.node, w_stbuf, 8);
+        int32_t g_st = g_cnt > 0 ? g_stbuf[g_cnt - 1] : 0;
+        int32_t w_st = w_cnt > 0 ? w_stbuf[w_cnt - 1] : 0;
         IR_t *g = gvar_chain_resolve_stmt(c->γ.node);
         IR_t *w = gvar_chain_resolve_stmt(c->ω.node);
-        if (gvar_chain_is_real(g)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); qstno = (int32_t *)realloc(qstno, sizeof(int32_t) * queue_cap); } qstno[qt] = g_st; queue[qt++] = g; }
-        if (gvar_chain_is_real(w)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); qstno = (int32_t *)realloc(qstno, sizeof(int32_t) * queue_cap); } qstno[qt] = w_st; queue[qt++] = w; }
+        if (gvar_chain_is_real(g)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); qstno = (int32_t *)realloc(qstno, sizeof(int32_t) * queue_cap); qstno_extra = (int32_t *)realloc(qstno_extra, sizeof(int32_t) * queue_cap * 8); qstno_cnt = (int *)realloc(qstno_cnt, sizeof(int) * queue_cap); } qstno[qt] = g_st; memcpy(qstno_extra + qt*8, g_stbuf, sizeof(int32_t)*g_cnt); qstno_cnt[qt] = g_cnt; queue[qt++] = g; }
+        if (gvar_chain_is_real(w)) { if (qt >= queue_cap) { queue_cap *= 2; queue = (IR_t **)realloc(queue, sizeof(IR_t *) * queue_cap); qstno = (int32_t *)realloc(qstno, sizeof(int32_t) * queue_cap); qstno_extra = (int32_t *)realloc(qstno_extra, sizeof(int32_t) * queue_cap * 8); qstno_cnt = (int *)realloc(qstno_cnt, sizeof(int) * queue_cap); } qstno[qt] = w_st; memcpy(qstno_extra + qt*8, w_stbuf, sizeof(int32_t)*w_cnt); qstno_cnt[qt] = w_cnt; queue[qt++] = w; }
     }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
@@ -4140,9 +4161,10 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         lbls[i]  = emit_label_alloc("snoch%d_n%d_α", id, i);
         betas[i] = emit_label_alloc("snoch%d_n%d_β", id, i);
     }
+    int32_t emitted_stnos[512]; int n_emitted = 0;
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(lbls[i]);
-        { extern int g_monitor_bin; if (g_monitor_bin && nstno[i] != 0) { extern void emit_mon_label_tap(int32_t); emit_mon_label_tap(nstno[i]); } }
+        { extern int g_monitor_bin; if (g_monitor_bin && nstno_cnt[i] > 0) { extern void emit_mon_label_tap(int32_t); for (int ki = 0; ki < nstno_cnt[i]; ki++) { int32_t s = nstno_extra[i*8+ki]; int seen=0; for(int si=0;si<n_emitted;si++) if(emitted_stnos[si]==s){seen=1;break;} if(!seen){if(n_emitted<512)emitted_stnos[n_emitted++]=s; emit_mon_label_tap(s);} } } }
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
         IR_t *g = gvar_chain_resolve_stmt(nodes[i]->γ.node);
@@ -4164,7 +4186,7 @@ static int codegen_gvar_flat_chain_body(IR_t *entry, const char *prefix) {
         xa_dispatch(XA_FLAT_DATA_SECTION);
         data_buf_reset();
     }
-    free(nodes); free(queue); free(nstno); free(qstno);
+    free(nodes); free(queue); free(nstno); free(nstno_extra); free(nstno_cnt); free(qstno); free(qstno_extra); free(qstno_cnt);
     return 0;
 }
 bb_box_fn gvar_flat_chain_build(IR_graph_t *g) {
