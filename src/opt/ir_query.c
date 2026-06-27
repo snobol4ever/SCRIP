@@ -77,3 +77,13 @@ int subchain_node_is_generator(IR_t *nd) {
     if (nd->op == IR_SCAN_UPTO || nd->op == IR_SCAN_FIND || nd->op == IR_SCAN_BAL) return 1;
     return 0;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int resolve_ite_entries_em(const IR_t *nd, IR_t **out_cond, IR_t **out_then, IR_t **out_else) {
+    if (!nd || nd->op != IR_ITE) return 0;
+    bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(nd).ival;
+    if (!zi) return 0;
+    if (out_cond) *out_cond = zi->cond;
+    if (out_then) *out_then = zi->then_;
+    if (out_else) *out_else = zi->else_;
+    return 1;
+}
