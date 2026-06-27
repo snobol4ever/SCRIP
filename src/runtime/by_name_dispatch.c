@@ -348,6 +348,34 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) {
+    extern int dat_mro(const char *name, const char **out, int max);
+    extern int dat_class_has_build(const char *cls);
+    extern int dat_build_keys(const char *cls, const char **out, int max);
+    extern int rt_proc_has_native_fn(const char *name);
+    if (!cname || !*cname) return;
+    const char *chain[64]; int n = dat_mro(cname, chain, 64);
+    if (n == 0) { chain[0] = cname; n = 1; }
+    for (int i = n - 1; i >= 0; i--) {
+        if (!dat_class_has_build(chain[i])) continue;
+        char proc[256]; snprintf(proc, sizeof proc, "%s__BUILD", chain[i]);
+        if (!meth_is_user_proc(proc)) continue;
+        const char *keys[16]; int nk = dat_build_keys(chain[i], keys, 16);
+        DESCR_t callargs[20]; callargs[0] = self;
+        for (int k = 0; k < nk && k < 19; k++) { DESCR_t v = NULVCL;
+            for (int ci = 0; ci + 1 < nnamed; ci += 2) { const char *kn = VARVAL_fn(named[ci]); if (kn && keys[k] && !strcmp(kn, keys[k])) { v = named[ci + 1]; break; } }
+            callargs[1 + k] = v; }
+        int total = 1 + nk;
+        int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
+        if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
+            extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k]; rt_call_proc_descr(proc, total);
+        } else {
+            extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); ir_call_proc(pi, callargs, total);
+        }
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *val) {
     if (!cur) cur = ""; if (!val) val = ""; if (fi < 0) return GC_strdup(cur); if (ei < 0) ei = 0;
     const char *s = cur; long k = 0; const char *fstart = NULL; const char *fend = NULL;
@@ -1124,6 +1152,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             *out = ir_call_proc(pi, args, nargs); return 1;
         }
         DatType *dt = dat_find_type(cname); if (!dt) { *out = FAILDESCR; return 1; }
+        extern int dat_has_build_mro(const char *cls);
+        if (dat_has_build_mro(cname)) {
+            extern DESCR_t rt_construct_build(DatType *t, DESCR_t *named, int nnamed);
+            *out = rt_construct_build(dt, &args[1], nargs - 1); return 1;
+        }
         DESCR_t fvals[64];
         for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = NULVCL;
         for (int ci = 1; ci + 1 < nargs; ci += 2) {

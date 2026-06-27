@@ -959,6 +959,27 @@ raku "tweak_fires" "$(printf 'tweaked\ndone')" << 'EOF'
 class Widget { has $.id; method TWEAK() { say("tweaked"); } }
 sub main() { my $w = Widget.new(id => 1); say("done"); }
 EOF
+raku "build_named_custom" "$(printf '10\n10')" << 'EOF'
+class Point { has $.x; has $.y; submethod BUILD(:$x, :$y) { $!x = $x * 2; $!y = $y; } }
+sub main() { my $p = Point.new(x => 5, y => 10); say($p.x); say($p.y); }
+EOF
+raku "build_autofill_suppressed" "$(printf '1\n[]')" << 'EOF'
+class C { has $.x; has $.y; submethod BUILD(:$x) { $!x = $x; } }
+sub main() { my $c = C.new(x => 1, y => 99); say($c.x); say("[" ~ $c.y ~ "]"); }
+EOF
+raku "build_inherited_order" "$(printf 'buildA\nbuildB\ntweakB\n1\n2')" << 'EOF'
+class A { has $.a; submethod BUILD(:$a) { say("buildA"); $!a = $a; } }
+class B is A { has $.b; submethod BUILD(:$b) { say("buildB"); $!b = $b; } method TWEAK() { say("tweakB"); } }
+sub main() { my $o = B.new(a => 1, b => 2); say($o.a); say($o.b); }
+EOF
+raku "build_required_set" "42" << 'EOF'
+class R { has $.id is required; submethod BUILD(:$id) { $!id = $id; } }
+sub main() { my $r = R.new(id => 42); say($r.id); }
+EOF
+raku "build_method_keyword" "$(printf '7\n8')" << 'EOF'
+class Q { has $.m; has $.n; method BUILD(:$m, :$n) { $!m = $m; $!n = $n; } }
+sub main() { my $q = Q.new(m => 7, n => 8); say($q.m); say($q.n); }
+EOF
 raku "tweak_derived_attr" "25" << 'EOF'
 class Box { has $.w; has $.area; method TWEAK() { $!area = $!w * $!w; } }
 sub main() { my $b = Box.new(w => 5); say($b.area); }
@@ -1280,6 +1301,20 @@ raku "op_overload_int_unaffected" "$(printf '12\n2\n35')" << 'EOF'
 class Vec { has $.x; }
 multi sub infix:<+>(Vec $a, Vec $b) { return Vec.new(x => $a.x + $b.x); }
 sub main() { my $a = 7; my $b = 5; say($a + $b); say($a - $b); say($a * $b); }
+EOF
+raku "op_overload_relop_objs" "7" << 'EOF'
+class Box { has $.n; }
+multi sub infix:<<>(Box $a, Box $b) { return $a.n < $b.n; }
+sub main() { my $a = Box.new(n => 3); my $b = Box.new(n => 7); say($a < $b); }
+EOF
+raku "op_overload_relop_subtype" "30" << 'EOF'
+class Animal { has $.size; }
+class Dog is Animal { }
+multi sub infix:<<>(Animal $a, Animal $b) { return $a.size + $b.size; }
+sub main() { my $d1 = Dog.new(size => 10); my $d2 = Dog.new(size => 20); say($d1 < $d2); }
+EOF
+raku "op_overload_relop_int_unaffected" "$(printf '9\n9')" << 'EOF'
+sub main() { say(3 < 9); say(5 < 9); }
 EOF
 
 echo ""

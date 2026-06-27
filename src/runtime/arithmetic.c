@@ -52,6 +52,12 @@ int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
+    if (a.v != DT_DATA && b.v != DT_DATA) return 0;
+    DESCR_t r; if (!rt_binop_overload(a, b, op, &r)) return 0;
+    *out = r; extern int rt_is_truthy(DESCR_t v); return rt_is_truthy(r) ? 2 : 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t add(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
     if (IS_NULL(a)) a = INTVAL(0);

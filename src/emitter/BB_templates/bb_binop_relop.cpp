@@ -9,6 +9,7 @@ extern "C" {
 #include "../../runtime/builtins/gen.h"
 extern int g_descr_flat_chain;
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
+int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -17,6 +18,13 @@ std::string bb_binop_relop() {
         return (g_descr_flat_chain && !_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
                  ? x86("label", _.lbl_α)
                  + x86("comment", "IR_BINOP_RELOP")
+                 + x86("mov", "eax", FR(_.op_sa))
+                 + x86("cmp", "eax", (long)DT_DATA)
+                 + x86("je", L(0))
+                 + x86("mov", "eax", FR(_.op_sb))
+                 + x86("cmp", "eax", (long)DT_DATA)
+                 + x86("je", L(0))
+                 + x86("def", L(1))
                  + x86("mov", "rax", FRQ(_.op_sa + 8))
                  + x86("mov", "rcx", FRQ(_.op_sb + 8))
                  + x86("cmp", "rax", "rcx")
@@ -25,6 +33,19 @@ std::string bb_binop_relop() {
                  + x86("mov", FRQ(_.op_off), "rcx")
                  + x86("mov", "rcx", FRQ(_.op_sb + 8))
                  + x86("mov", FRQ(_.op_off + 8), "rcx")
+                 + x86("jmp", "γ")
+                 + x86("def", L(0))
+                 + x86("mov", "rdi", FRQ(_.op_sa))
+                 + x86("mov", "rsi", FRQ(_.op_sa + 8))
+                 + x86("mov", "rdx", FRQ(_.op_sb))
+                 + x86("mov", "rcx", FRQ(_.op_sb + 8))
+                 + x86("mov", "r8d", (long)_.op_ival)
+                 + x86("lea", "r9", FRQ(_.op_off))
+                 + x86("call", "rt_relop_overload", (uint64_t)(uintptr_t)(void*)rt_relop_overload)
+                 + x86("test", "eax", "eax")
+                 + x86("je", L(1))
+                 + x86("cmp", "eax", (long)1)
+                 + x86("je", "ω")
                  + x86("jmp", "γ")
                  + x86("def", "β")
                  + x86("jmp", "ω")

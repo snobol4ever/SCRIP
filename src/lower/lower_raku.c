@@ -525,6 +525,11 @@ static void rk_register_classes(const tree_t * prog) {
             const char * dollar = strchr(mname, '$');
             if (dollar) { char base[128]; int bl = (int)(dollar - mname); if (bl > 127) bl = 127; memcpy(base, mname, bl); base[bl] = '\0'; dat_add_method(cname, base); }
             else dat_add_method(cname, mname);
+            if (!strcmp(mname, "BUILD")) {
+                extern void dat_set_build_key(const char *cls, const char *key);
+                int bs = (int)ch->v.ival; if (bs < 1) bs = 1; dat_set_build_key(cname, NULL);
+                for (int p = 1; p < bs; p++) { const tree_t * pp = ch->c[p]; const char * pk = (pp && pp->v.sval) ? pp->v.sval : NULL; if (pk && *pk) dat_set_build_key(cname, pk); }
+            }
         }
         extern void dat_set_field_default_i(const char *cls, const char *field, int64_t v);
         extern void dat_set_field_default_s(const char *cls, const char *field, const char *v);
