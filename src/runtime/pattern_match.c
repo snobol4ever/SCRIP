@@ -568,6 +568,7 @@ void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
     buf[off] = '\0';
     DESCR_t d = { .v = DT_S, .slen = (uint32_t)total, .s = buf };
     NV_SET_fn(dst ? dst : "", d);
+    if (g_monitor_bin) mon_emit_value_bin(dst ? dst : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_at_cursor(const char *varname, int cur_delta)

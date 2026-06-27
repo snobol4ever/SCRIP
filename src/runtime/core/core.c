@@ -25,6 +25,7 @@ int monitor_ack_fd = -1;
 int monitor_ready = 0;
 int monitor_quiet_depth = 0;
 int g_monitor_bin = 0;
+int g_mon_max_stno = 0;
 static void  mon_at_exit(void);
 static uint32_t intern_name_bin(const char *p, int len);
 static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
@@ -211,6 +212,14 @@ static void mon_at_exit(void) {
     if (already) return;
     already = 1;
     if (monitor_fd >= 0 && g_monitor_bin) {
+        if (g_mon_max_stno > 0 && monitor_ready) {
+            int64_t es = (int64_t)g_mon_max_stno + 1; unsigned char lhdr[MW_HDR_BYTES]; unsigned char lbuf[8];
+            for (int k = 0; k < 8; k++) lbuf[k] = (unsigned char)(((uint64_t)es >> (k*8)) & 0xff);
+            mw_pack_hdr(lhdr, MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, 8);
+            struct iovec iov[2]; iov[0].iov_base = lhdr; iov[0].iov_len = MW_HDR_BYTES; iov[1].iov_base = lbuf; iov[1].iov_len = 8;
+            ssize_t lw = writev(monitor_fd, iov, 2); (void)lw;
+            if (monitor_ack_fd >= 0) { char ack[1]; ssize_t r = read(monitor_ack_fd, ack, 1); (void)r; }
+        }
         unsigned char hdr[MW_HDR_BYTES];
         mw_pack_hdr(hdr, MWK_END, MW_NAME_ID_NONE, MWT_NULL, 0);
         ssize_t w = write(monitor_fd, hdr, MW_HDR_BYTES);
@@ -267,6 +276,7 @@ void mon_emit_label_bin(int64_t stno) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_value_bin(const char *name, DESCR_t val) {
     if (monitor_fd < 0 || !g_monitor_bin || !monitor_ready) return;
+    if (!name || !name[0] || name[0] == '_' || name[0] == '&' || NV_PTR_fn(name) == NULL) return;
     uint32_t name_id = intern_name_bin(name, (int)strlen(name));
     if (name_id == MW_NAME_ID_NONE) return;
     uint8_t type = scrip_tag_to_wire(val.v);

@@ -108,6 +108,7 @@ void rt_gvar_assign_str(const char *name, const char *str)
     d.s    = (char *)(str ? str : "");
     d.slen = (uint32_t)strlen(d.s);
     NV_SET_fn(name ? name : "", d);
+    if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_indirect_assign_str(const char *holder, const char *str)
@@ -139,6 +140,7 @@ void rt_gvar_assign_int(const char *name, int64_t val)
     d.slen = 0;
     d.i    = val;
     NV_SET_fn(name ? name : "", d);
+    if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
@@ -182,6 +184,7 @@ void rt_gvar_assign_var(const char *dst, const char *src)
 {
     DESCR_t d = NV_GET_fn(src ? src : "");
     NV_SET_fn(dst ? dst : "", d);
+    if (g_monitor_bin) mon_emit_value_bin(dst ? dst : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
@@ -193,6 +196,7 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
     d.slen = u.f.slen;
     d.i    = hi;
     NV_SET_fn(name ? name : "", d);
+    if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern DESCR_t VARVAL_d_fn(DESCR_t d);
@@ -456,7 +460,11 @@ void mon_emit_call_bin(const char *fname) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_return_bin(const char *fname, DESCR_t retval) {
     if (!g_monitor_bin || !fname) return;
+    char saved_rt[16]; memcpy(saved_rt, kw_rtntype, sizeof(saved_rt));
+    const char *disc = IS_FAIL_fn(retval) ? "FRETURN" : "RETURN";
+    size_t dl = strlen(disc); if (dl > 15) dl = 15; memcpy(kw_rtntype, disc, dl); kw_rtntype[dl] = '\0';
     int64_t saved = kw_ftrace; kw_ftrace = 1; comm_return(fname, retval); kw_ftrace = saved;
+    memcpy(kw_rtntype, saved_rt, sizeof(saved_rt));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)

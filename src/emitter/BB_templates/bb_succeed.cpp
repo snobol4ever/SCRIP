@@ -25,6 +25,7 @@ std::string bb_mon_label_tap() {
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_mon_label_tap(int32_t stno) {
     if (!PLATFORM_X86) return;
+    { extern int g_mon_max_stno; if (stno > g_mon_max_stno) g_mon_max_stno = stno; }
     _.op_stno = stno;
     bb_emit_x86(bb_mon_label_tap());
 }
