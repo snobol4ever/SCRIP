@@ -1,6 +1,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "rt/rt.h"
+#include "rk_opname.h"
 #include "builtins/gen.h"
 #include "builtins/gen_runtime.h"
 #include "builtins/resolution.h"
@@ -26,6 +27,29 @@ static DESCR_t coerce_numeric(DESCR_t v) {
             return INTVAL((int64_t)strtoll(v.s ? v.s : "", NULL, 10));
     }
     return v;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rk_op_canon_base_c(const char *cat, const char *op, char *outbuf, int n) { rk_op_canon_base(cat, op, outbuf, (size_t)n); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_binop_opstr(int op) {
+    switch (op) { case BINOP_ADD: return "+"; case BINOP_SUB: return "-"; case BINOP_MUL: return "*"; case BINOP_DIV: return "/"; case BINOP_MOD: return "%"; case BINOP_POW: return "**";
+                  case BINOP_LT: return "<"; case BINOP_LE: return "<="; case BINOP_GT: return ">"; case BINOP_GE: return ">="; case BINOP_EQ: return "=="; case BINOP_NE: return "!=";
+                  case BINOP_CONCAT: return "~"; case BINOP_SEQ: return "eq"; case BINOP_SNE: return "ne"; case BINOP_SLT: return "lt"; case BINOP_SLE: return "le"; case BINOP_SGT: return "gt"; case BINOP_SGE: return "ge"; default: return (const char *)0; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
+    if (a.v != DT_DATA && b.v != DT_DATA) return 0;
+    const char *ops = rk_binop_opstr(op); if (!ops) return 0;
+    char base[96]; rk_op_canon_base("infix", ops, base, sizeof base);
+    extern int rt_proc_enum_count(void); extern const char *rt_proc_enum_name(int i);
+    char prefix[112]; int pl = snprintf(prefix, sizeof prefix, "%s$", base);
+    int found = 0, pcount = rt_proc_enum_count();
+    for (int pi = 0; pi < pcount; pi++) { const char *pn = rt_proc_enum_name(pi); if (pn && !strncmp(pn, prefix, (size_t)pl)) { found = 1; break; } }
+    if (!found) return 0;
+    extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+    DESCR_t args[3]; args[0] = STRVAL(GC_strdup(base)); args[1] = a; args[2] = b;
+    DESCR_t r = FAILDESCR; if (script_try_call_builtin_by_name("__multi_call", args, 3, &r)) { *out = r; return 1; }
+    return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t add(DESCR_t a, DESCR_t b) {

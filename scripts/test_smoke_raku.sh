@@ -1250,6 +1250,38 @@ class Counter { has $.n; method add($k) { return Counter.new(n => $.n + $k); } }
 sub main() { my $c = Counter.new(n => 10); $c .= add(5); say($c.n); }
 EOF
 
+# --- RK-OO-G2: operator overloading via `multi sub infix:<op>`. Rakudo: an operator is an ordinary multi
+#     sub named infix:<+> (prefix:<...>/postfix:<...> similarly); at a `$a OP $b` call site, a user candidate
+#     whose typed params accept the operand types WINS over the builtin numeric op. SCRIP: the lexer mints
+#     OP_NAME for infix:<...> (canonicalized to an asm-safe base via rk_op_canon_base, since <>+: are not GAS
+#     symbol chars); the multi-sub grammar registers the candidate under the usual $-mangled name; the call-site
+#     seam lives in the shared IR_BINOP_ARITH box as a value-shape (DT_DATA) guard — if either operand is a Raku
+#     object the box diverts to rt_binop_overload, which dispatches through the existing __multi_call machinery
+#     and falls through to numeric arithmetic when no candidate matches. Language-blind (DT_DATA tag, not a
+#     language gate); the int fast path is unchanged when neither operand is an object. Both native modes. ---
+raku "op_overload_add_two_objs" "$(printf '11\n22')" << 'EOF'
+class Vec { has $.x; has $.y; }
+multi sub infix:<+>(Vec $a, Vec $b) { return Vec.new(x => $a.x + $b.x, y => $a.y + $b.y); }
+sub main() { my $p = Vec.new(x => 1, y => 2); my $q = Vec.new(x => 10, y => 20); my $r = $p + $q; say($r.x); say($r.y); }
+EOF
+raku "op_overload_mixed_obj_int" "$(printf '500\n450')" << 'EOF'
+class Money { has $.cents; }
+multi sub infix:<+>(Money $a, Money $b) { return Money.new(cents => $a.cents + $b.cents); }
+multi sub infix:<*>(Money $a, $n) { return Money.new(cents => $a.cents * $n); }
+sub main() { my $a = Money.new(cents => 150); my $b = Money.new(cents => 350); my $s = $a + $b; say($s.cents); my $t = $a * 3; say($t.cents); }
+EOF
+raku "op_overload_subtype_operands" "30" << 'EOF'
+class Animal { has $.size; }
+class Dog is Animal { }
+multi sub infix:<+>(Animal $a, Animal $b) { return Animal.new(size => $a.size + $b.size); }
+sub main() { my $d1 = Dog.new(size => 10); my $d2 = Dog.new(size => 20); my $r = $d1 + $d2; say($r.size); }
+EOF
+raku "op_overload_int_unaffected" "$(printf '12\n2\n35')" << 'EOF'
+class Vec { has $.x; }
+multi sub infix:<+>(Vec $a, Vec $b) { return Vec.new(x => $a.x + $b.x); }
+sub main() { my $a = 7; my $b = 5; say($a + $b); say($a - $b); say($a * $b); }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 EXCISED=$X3  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 EXCISED=$X4  / $N   (done bar: PASS or EXCISED, never silent FAIL)"

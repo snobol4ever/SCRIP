@@ -52,8 +52,7 @@ static const char *rk_tw_bare(const char *s) { return (s && (s[0]=='.'||s[0]=='!
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *leaf_sval(tree_e k, const char *s) {
     tree_t *e = ast_node_new(k); e->v.sval = intern(s); return e;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
+}/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *var_node(const char *name) {
     return leaf_sval(TT_VAR, strip_sigil(name));
 }
@@ -189,6 +188,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_CLASS KW_METHOD KW_HAS KW_NEW
 %token KW_ROLE
 %token KW_MULTI KW_PROTO
+%token <sval> OP_NAME
 %token OP_COLON_D OP_COLON_U
 %token YADA
 %token KW_GRAMMAR KW_TOKEN KW_RULE KW_REGEX
@@ -458,6 +458,15 @@ sub_decl
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
           tree_t *body=$6;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free($3); $$=e; }
+    | KW_MULTI KW_SUB OP_NAME '(' param_list ')' block
+        { ExprList *params=$5; int np=params?params->count:0;
+          const char *mname=rk_multi_mangle($3,params);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
+          tree_t *body=$7;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($3); $$=e; }
     ;
