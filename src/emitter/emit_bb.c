@@ -475,16 +475,6 @@ int resolve_choice_bodies_em(const IR_t *nd, IR_t **out, int max) {
     return k;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int gz_node_bounded(const IR_t *g) {
-    if (!g) return 1;
-    switch (g->op) {
-    case IR_CELL_CALL: case IR_CELL_CHOICE: case IR_CELL_FINDALL: case IR_CELL_ITE:
-    case IR_CELL_CATCH: case IR_CELL_DYNITER:
-    case IR_CELL_CUT:  case IR_CUT:
-        return 0;   /* generators + cut-barrier + catch: never collapse their β */
-    default: return 1;
-    }
-}
 static void gz_fill_goal(IR_t *g, bb_label_t *gγ, bb_label_t *gω, bb_label_t *gβ) {
     g_emit.op_sval = (g->op == IR_DET_WRITE || g->op == IR_BUILTIN) ? IR_LIT(g).sval : NULL;
     g_emit.op_ival = (g->op == IR_CELL_CALL) ? 0 : IR_LIT(g).ival;
@@ -1999,15 +1989,6 @@ static const char *scan_cset_var_arg(IR_t *nd) {
     return (const char *)0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int ir_is_generator_kind(IR_e t);
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int subchain_node_is_generator(IR_t *nd) {
-    if (!nd) return 0;
-    if (ir_is_generator_kind(nd->op)) return 1;
-    if (nd->op == IR_SCAN_UPTO || nd->op == IR_SCAN_FIND || nd->op == IR_SCAN_BAL) return 1;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail) {
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
@@ -2134,15 +2115,6 @@ static void flat_drive_userproc(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t *descr_chain_terminal(IR_t *entry) {
-    int guard = 0;
-    while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 512) entry = entry->γ.node;
-    IR_t *last = entry;
-    guard = 0;
-    while (last && last->γ.node && last->γ.node->op != IR_SUCCEED && last->γ.node->op != IR_FAIL && guard++ < 512) last = last->γ.node;
-    return last;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_scan_glue(IR_t *pBB, int phase, int subj_slot, int regs_off, bb_label_t *γ, bb_label_t *ω, bb_label_t *β) {
     g_emit.op_sb = phase; g_emit.op_sa = subj_slot; g_emit.op_off = regs_off;
     g_emit.lbl_γ = γ->name; g_emit.lbl_ω = ω->name; g_emit.lbl_β = β->name;
@@ -2192,17 +2164,6 @@ static int gen_bb_is_gen_arg(IR_t *e) {
     if (!e) return 0;
     if (e->op == IR_ASSIGN) return gen_bb_is_gen_arg(bb_child1(e));
     switch (e->op) {
-        case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT: case IR_REPALT:
-        case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
-        case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
-        case IR_GATHER: case IR_MAP: case IR_GREP:
-            return 1;
-        default: return 0;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static int ir_is_generator_kind(IR_e t) {
-    switch (t) {
         case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT: case IR_REPALT:
         case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
         case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
