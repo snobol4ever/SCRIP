@@ -111,7 +111,7 @@ static inline int NAME_SET(DESCR_t nd, DESCR_t val) {
 DESCR_t *eval_ast_ref(tree_t *e);
 DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
 int string_section_assign(tree_t *lhs, DESCR_t val);
-typedef struct { char name[64]; int nfields; char fields[64][64]; char parent[64]; DESCR_t defaults[64]; char has_default[64]; char required[64]; char rw[64]; char sigil[64]; char priv[64]; char mro[64][64]; int mro_len; char parents[8][64]; int nparents; char roles[8][64]; int nroles; char methods[32][64]; int nmethods; char has_build; char build_keys[16][64]; int nbuild_keys; } DatType;
+typedef struct { char name[64]; int nfields; char fields[64][64]; char parent[64]; DESCR_t defaults[64]; char has_default[64]; char required[64]; char rw[64]; char sigil[64]; char priv[64]; char mro[64][64]; int mro_len; char parents[8][64]; int nparents; char roles[8][64]; int nroles; char methods[32][64]; int nmethods; char has_build; char build_keys[16][64]; int nbuild_keys; char handles_meth[32][64]; char handles_fld[32][64]; int nhandles; } DatType;
 DatType *dat_register(const char *spec);
 DatType *dat_find_type(const char *name);
 DatType *dat_find_field(const char *name, int *fidx);

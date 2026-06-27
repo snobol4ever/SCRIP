@@ -980,6 +980,28 @@ raku "build_method_keyword" "$(printf '7\n8')" << 'EOF'
 class Q { has $.m; has $.n; method BUILD(:$m, :$n) { $!m = $m; $!n = $n; } }
 sub main() { my $q = Q.new(m => 7, n => 8); say($q.m); say($q.n); }
 EOF
+raku "handles_delegate" "$(printf 'vroom\nhalt\ntesla')" << 'EOF'
+class Engine { method start() { return "vroom"; } method stop() { return "halt"; } }
+class Car { has $.engine handles <start stop>; has $.name; }
+sub main() { my $e = Engine.new(); my $c = Car.new(engine => $e, name => "tesla"); say($c.start()); say($c.stop()); say($c.name); }
+EOF
+raku "handles_with_arg" "105" << 'EOF'
+class Adder { method add($n) { return $n + 100; } }
+class Wrap { has $.impl handles <add>; }
+sub main() { my $a = Adder.new(); my $w = Wrap.new(impl => $a); say($w.add(5)); }
+EOF
+raku "handles_two_attrs" "$(printf 'LL\nRR')" << 'EOF'
+class L { method left() { return "LL"; } }
+class R { method right() { return "RR"; } }
+class Pair { has $.l handles <left>; has $.r handles <right>; }
+sub main() { my $ll = L.new(); my $rr = R.new(); my $p = Pair.new(l => $ll, r => $rr); say($p.left()); say($p.right()); }
+EOF
+raku "handles_inherited" "GO" << 'EOF'
+class Engine { method go() { return "GO"; } }
+class Vehicle { has $.engine handles <go>; }
+class Truck is Vehicle { }
+sub main() { my $e = Engine.new(); my $t = Truck.new(engine => $e); say($t.go()); }
+EOF
 raku "tweak_derived_attr" "25" << 'EOF'
 class Box { has $.w; has $.area; method TWEAK() { $!area = $!w * $!w; } }
 sub main() { my $b = Box.new(w => 5); say($b.area); }

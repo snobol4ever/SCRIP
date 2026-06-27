@@ -74,6 +74,7 @@ WS       [ \t\r]
 ":U"            { return OP_COLON_U; }
 ":$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
 "has"           { return KW_HAS; }
+"handles"[ \t]*"<"[^>]*">"  { const char *lt = strchr(yytext,'<'); const char *gt = strrchr(yytext,'>'); int n=(int)(gt-lt-1); if(n<0)n=0; char *w=(char*)malloc(n+1); memcpy(w,lt+1,n); w[n]=0; raku_yylval.sval=w; return KW_HANDLES; }
 "new"           { return KW_NEW; }
 "self"          { raku_yylval.sval = strdup("self"); return VAR_SCALAR; }
 "True"          { raku_yylval.ival = 1; return LIT_INT; }

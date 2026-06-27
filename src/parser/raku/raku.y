@@ -189,6 +189,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_ROLE
 %token KW_MULTI KW_PROTO
 %token <sval> OP_NAME
+%token <sval> KW_HANDLES
 %token OP_COLON_D OP_COLON_U
 %token YADA
 %token KW_GRAMMAR KW_TOKEN KW_RULE KW_REGEX
@@ -567,6 +568,22 @@ class_body_list
           else if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
           else fv = leaf_sval(TT_VAR, fn);
           free($3); free($4); free($5);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_SCALAR KW_HANDLES ';'
+        { const char *fn = strip_sigil($3); tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern(fn);
+          expr_add_child(fv, leaf_sval(TT_QLIT, $4)); free($3); free($4);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_TWIGIL KW_HANDLES ';'
+        { tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern($3);
+          expr_add_child(fv, leaf_sval(TT_QLIT, $4)); free($3); free($4);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_SCALAR KW_HANDLES ';'
+        { const char *fn = strip_sigil($4); tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern(fn);
+          expr_add_child(fv, leaf_sval(TT_QLIT, $5)); free($3); free($4); free($5);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_TWIGIL KW_HANDLES ';'
+        { tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern($4);
+          expr_add_child(fv, leaf_sval(TT_QLIT, $5)); free($3); free($4); free($5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_TWIGIL IDENT IDENT ';'
         { tree_t *fv;

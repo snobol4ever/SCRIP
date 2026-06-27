@@ -554,6 +554,15 @@ static void rk_register_classes(const tree_t * prog) {
             if (!ch || ch->t != TT_RW_DECL) continue;
             const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : ""); if (*fn) dat_set_field_rw(cname, fn);
         }
+        extern void dat_add_handles(const char *cls, const char *meth, const char *field);
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || ch->t != TT_HANDLES_DECL) continue;
+            const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : ""); if (!*fn) continue;
+            const char * words = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : "";
+            char wbuf[256]; snprintf(wbuf, sizeof wbuf, "%s", words); char * sp = wbuf; char * tok;
+            while ((tok = strtok(sp, " \t")) != (char *)0) { sp = (char *)0; if (*tok) dat_add_handles(cname, tok, fn); }
+        }
         extern void dat_set_field_sigil(const char *cls, const char *field, int sig);
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
