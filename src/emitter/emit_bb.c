@@ -1116,11 +1116,12 @@ void bb_prepare(IR_t *nd) {
         IR_t * const * arms = g_emit_cfg ? bb_operand_aux_get(g_emit_cfg, nd, &n) : ((IR_t * const *)0);
         int ok = (arms && n > 0 && n <= 5);
         for (int i = 0; ok && i < n; i++)
-            if (!arms[i] || (arms[i]->op != IR_LIT_I && arms[i]->op != IR_LIT_S)) ok = 0;
+            if (!arms[i] || (arms[i]->op != IR_LIT_I && arms[i]->op != IR_LIT_S && arms[i]->op != IR_LIT_F)) ok = 0;
         g_emit.op_parts_n = ok ? n : 0;
         for (int i = 0; ok && i < n; i++) {
-            g_emit.op_parts_tag[i]  = (arms[i]->op == IR_LIT_I) ? (int)DT_I : (int)DT_S;
-            g_emit.op_parts_ival[i] = (int64_t)IR_LIT(arms[i]).ival;
+            g_emit.op_parts_tag[i]  = (arms[i]->op == IR_LIT_I) ? (int)DT_I : (arms[i]->op == IR_LIT_F) ? (int)DT_R : (int)DT_S;
+            if (arms[i]->op == IR_LIT_F) { double fd = IR_LIT(arms[i]).dval; int64_t fb; memcpy(&fb, &fd, 8); g_emit.op_parts_ival[i] = fb; }
+            else g_emit.op_parts_ival[i] = (int64_t)IR_LIT(arms[i]).ival;
             g_emit.op_parts_str[i]  = IR_LIT(arms[i]).sval ? IR_LIT(arms[i]).sval : "";
         }
         return;
@@ -1745,11 +1746,44 @@ static void flat_drive_to(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_
     FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int ir_alt_all_literal_arms(IR_t *alt) {
+    if (!alt || !g_emit_cfg) return 0;
+    int n = 0; IR_t * const *arms = bb_operand_aux_get(g_emit_cfg, alt, &n);
+    if (!arms || n < 1 || n > 5) return 0;
+    for (int i = 0; i < n; i++) if (!arms[i] || (arms[i]->op != IR_LIT_I && arms[i]->op != IR_LIT_S && arms[i]->op != IR_LIT_F)) return 0;
+    return 1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_alt_general(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    int n = 0; IR_t * const *arms = bb_operand_aux_get(g_emit_cfg, pBB, &n);
+    if (!arms || n < 1) { emit_label_define_bb(lbl_β); emit_jmp_label(lbl_ω, JMP_JMP); return; }
+    int id = g_flat_node_id++;
+    int alt_off = bb_slot_alloc16(pBB);
+    (void)bb_slot_claim(8);
+    bb_slot_register(pBB, alt_off);
+    bb_label_t **arm_start = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **arm_succ  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **arm_beta  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    for (int i = 0; i < n; i++) { arm_start[i] = emit_label_alloc("xaltg%d_a%d_start", id, i); arm_succ[i] = emit_label_alloc("xaltg%d_a%d_succ", id, i); arm_beta[i] = emit_label_alloc("xaltg%d_a%d_beta", id, i); }
+    for (int i = 0; i < n; i++) {
+        emit_label_define_bb(arm_start[i]);
+        bb_label_t *next_fail = (i < n - 1) ? arm_start[i + 1] : lbl_ω;
+        walk_bb_flat(arms[i], arm_succ[i], next_fail, arm_beta[i]);
+        emit_label_define_bb(arm_succ[i]);
+        bb_emit_repalt_yield(alt_off, bb_slot_get(arms[i]));
+        bb_slot_register(pBB, alt_off);
+        emit_jmp_label(lbl_γ, JMP_JMP);
+    }
+    emit_label_define_bb(lbl_β);
+    emit_jmp_label(lbl_ω, JMP_JMP);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_alt_gen(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!pBB) {
         fprintf(stderr, "[IBB] FATAL flat_drive_alt_gen: null node\n");
         abort();
     }
+    if (!ir_alt_all_literal_arms(pBB)) { flat_drive_alt_general(pBB, lbl_γ, lbl_ω, lbl_β); return; }
     g_emit.node   = pBB;
     g_emit.op_off = bb_slot_alloc16(pBB);
     (void)bb_slot_claim(8);
@@ -3616,7 +3650,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ.node) {
+        IR_t *gtgt = ir_skip_alt_arms(nodes[i]->γ.node);
+        IR_t *otgt = ir_skip_alt_arms(nodes[i]->ω.node);
+        for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
             node_γ = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k];
             break;
         }
@@ -3624,7 +3660,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         if (nodes[i]->op == IR_EVERY) { for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)(nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL)) { node_γ = lbls[k]; break; } }
         int omega_resolved = 0; int omega_k = -1;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k]; omega_resolved = 1; omega_k = k; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k]; omega_resolved = 1; omega_k = k; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
         if (omega_resolved && nodes[i]->ω.node && nodes[i]->ω.node->op == IR_EVERY) {
             if (ir_is_generator_kind(nodes[i]->op)) { node_ω = lbls[omega_k]; int bk = to_inner_gen_operand_k(nodes[i], nodes, n); if (bk >= 0) node_ω = betas[bk]; }
@@ -3853,34 +3889,37 @@ static void descr_chain_operand_refs(IR_t *entry) {
     IR_t *seen[512]; int ns = 0;
     IR_t *stkv[512]; int sv = 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 512) entry = entry->γ.node; }
+    entry = ir_skip_alt_arms(entry);
     stkv[sv++] = entry;
     while (sv > 0 && nc < 512) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
+        if (ir_node_is_alt_arm(c)) continue;
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
-        if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
+        if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
     }
     for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) { int present = 0; for (int j = 0; j < ns; j++) if (seen[j] == chain[i]->ω.node) { present = 1; break; } if (!present && sv < 512) stkv[sv++] = chain[i]->ω.node; }
     while (sv > 0 && nc < 512) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
+        if (ir_node_is_alt_arm(c)) continue;
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
-        if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
+        if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
     }
     IR_t *stk[512]; int sp = 0;
     for (int i = 0; i < nc; i++) {

@@ -32,7 +32,7 @@ std::string bb_alt() {
                                                                     + x86("jmp", "γ"); })
                            + x86("def", "β")
                            + x86("jmp", L(_.op_parts_n))
-                           + FOR(0, _.op_parts_n, [&](int i) { return _.op_parts_tag[i] == (int)DT_I
+                           + FOR(0, _.op_parts_n, [&](int i) { return (_.op_parts_tag[i] == (int)DT_I || _.op_parts_tag[i] == (int)DT_R)
                                                                     ? x86("def", L(i))
                                                                     + x86(".quad", (long)_.op_parts_ival[i])
                                                                     : x86("def", L(i))
