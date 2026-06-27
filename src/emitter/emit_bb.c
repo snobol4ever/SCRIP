@@ -1086,33 +1086,38 @@ static int gz_arith_var_bivar(const IR_t *nd, int *slot1, int *slot2, const char
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void bb_prepare(IR_t *nd) {
-    if (!PLATFORM_X86) return;
-    g_emit.bb_ls = NULL;
-    g_emit.bb_rs = NULL;
-    g_emit.bb_op_lbl = NULL;
-    g_emit.bb_lk = -1;
-    if (nd->op == IR_DTP_ASSIGN) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
+static int bb_prepare_assign(IR_t *nd) {
+    if (nd->op == IR_DTP_ASSIGN) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 1; }
     if (nd->op == IR_ASSIGN) {
         IR_t *oa = (nd->n_operands > 0) ? nd->operands[0] : NULL;
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
         g_emit.bb_rs = oa ? bb_intern_into(g_emit.bb_rs_buf, IR_LIT(oa).sval) : NULL;
-        return;
+        return 1;
     }
     if (nd->op == IR_ASSIGN_CONCAT) {
         g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
         if (g_emit.op_parts_n == 1 && g_emit.op_parts_tag[0] == 0)
             g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_parts_str[0] ? g_emit.op_parts_str[0] : "");
         else if (g_emit.op_parts_n > 0) g_emit.op_off = bb_slot_claim(16 * g_emit.op_parts_n);
-        return;
+        return 1;
     }
-    if (nd->op == IR_ASSIGN_LIT_I) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
-    if (nd->op == IR_ASSIGN_LIT_S) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return; }
-    if (nd->op == IR_INDIRECT_ASSIGN_LIT_S) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return; }
-    if (nd->op == IR_INDIRECT_ASSIGN_VAR)   { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return; }
-    if (nd->op == IR_ASSIGN_VAR)   { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return; }
-    if (nd->op == IR_ASSIGN_CALL)  { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
-    if (nd->op == IR_ASSIGN_DESCR) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return; }
+    if (nd->op == IR_ASSIGN_LIT_I) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 1; }
+    if (nd->op == IR_ASSIGN_LIT_S) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return 1; }
+    if (nd->op == IR_INDIRECT_ASSIGN_LIT_S) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return 1; }
+    if (nd->op == IR_INDIRECT_ASSIGN_VAR)   { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return 1; }
+    if (nd->op == IR_ASSIGN_VAR)   { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return 1; }
+    if (nd->op == IR_ASSIGN_CALL)  { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 1; }
+    if (nd->op == IR_ASSIGN_DESCR) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 1; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void bb_prepare(IR_t *nd) {
+    if (!PLATFORM_X86) return;
+    g_emit.bb_ls = NULL;
+    g_emit.bb_rs = NULL;
+    g_emit.bb_op_lbl = NULL;
+    g_emit.bb_lk = -1;
+    if (bb_prepare_assign(nd)) return;
     if (nd->op == IR_ALT) {
         int n = 0;
         IR_t * const * arms = g_emit_cfg ? bb_operand_aux_get(g_emit_cfg, nd, &n) : ((IR_t * const *)0);
