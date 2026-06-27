@@ -26,9 +26,11 @@ void out_write_str(FILE *dest, const char *s);
 /*--------------------------------------------------------------------------------------------------------------------*/
 void rt_write_any_nl(DESCR_t d)
 {
+    extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (d.v == DT_I)       fprintf(stdout, "%lld\n", (long long)d.i);
     else if (d.v == DT_R)  { char b[64]; rt_format_float(b, sizeof b, d.r); fprintf(stdout, "%s\n", b); }
     else if (d.v == DT_FAIL) fputc('\n', stdout);
+    else if (d.v == DT_DATA) { const char *s = rk_obj_stringify(d, 1); if (s) out_write_str(stdout, s); fputc('\n', stdout); }
     else {
         char *s = VARVAL_fn(d);
         if (s) out_write_str(stdout, s);

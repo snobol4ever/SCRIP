@@ -195,6 +195,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_SEQ OP_SNE
 %token OP_AND OP_OR
 %token OP_BIND
+%token OP_DOTEQ
 %token OP_SMATCH
 %token OP_DIV
 %type <node> stmt expr atom range_expr cmp_expr jct_expr add_expr closure
@@ -284,6 +285,19 @@ stmt
         { $$=ast_node_new(TT_RETURN); }
     | VAR_SCALAR '=' expr ';'
         { $$=expr_binary(TT_ASSIGN,var_node($1),$3); }
+    | VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'
+        { tree_t *mc=ast_node_new(TT_METHCALL);
+          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
+          ExprList *args=$5; if(args){ for(int i=0;i<args->count;i++) ast_push(mc,args->items[i]); exprlist_free(args); }
+          $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
+    | VAR_SCALAR OP_DOTEQ IDENT '(' ')' ';'
+        { tree_t *mc=ast_node_new(TT_METHCALL);
+          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
+          $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
+    | VAR_SCALAR OP_DOTEQ IDENT ';'
+        { tree_t *mc=ast_node_new(TT_METHCALL);
+          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
+          $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
     | VAR_SCALAR '.' IDENT '=' expr ';'
         { tree_t *fe=ast_node_new(TT_FIELD);
           fe->v.sval=(char*)intern($3); free($3);

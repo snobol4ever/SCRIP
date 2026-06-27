@@ -1059,6 +1059,55 @@ multi sub init(Str $x) { say("has value: " ~ $x); }
 sub main() { my $u; init($u); }
 EOF
 
+# --- RK-OO-G1: user .gist / .Str / .raku override honored in implicit stringification contexts.
+#     Rakudo Mu.rakumod: say -> .gist, print/put -> .Str, string coercion (~, interpolation) -> .Str.
+#     SCRIP: say($obj) routes through the user's .gist (rt_write_any_nl / out_write_descr);
+#     $obj ~ str and "$obj" route through the user's .Str (str_concat_d). Explicit .gist()/.Str()/.raku()
+#     dispatch through the normal user-method path. No override => default (class name), unchanged.
+#     Routing is value-shape dispatched (DT_DATA), not language-gated. Both native modes. ---
+raku "gist_override_say" "Point(3, 4)" << 'EOF'
+class Point { has $.x; has $.y; method gist() { return "Point(" ~ $.x ~ ", " ~ $.y ~ ")"; } }
+sub main() { my $p = Point.new(x => 3, y => 4); say($p); }
+EOF
+raku "str_override_concat" "STR:3!" << 'EOF'
+class Point { has $.x; method Str() { return "STR:" ~ $.x; } }
+sub main() { my $p = Point.new(x => 3); say($p ~ "!"); }
+EOF
+raku "str_override_interp" "val=S9" << 'EOF'
+class P { has $.x; method Str() { return "S" ~ $.x; } }
+sub main() { my $p = P.new(x => 9); say("val=$p"); }
+EOF
+raku "gist_no_override_default" "Empty" << 'EOF'
+class Empty { has $.x; }
+sub main() { my $e = Empty.new(x => 1); say($e); }
+EOF
+raku "raku_str_gist_explicit" "$(printf 'G7\nS7\nR7')" << 'EOF'
+class P { has $.x; method gist() { return "G" ~ $.x; } method Str() { return "S" ~ $.x; } method raku() { return "R" ~ $.x; } }
+sub main() { my $p = P.new(x => 7); say($p.gist()); say($p.Str()); say($p.raku()); }
+EOF
+raku "gist_override_inherited" "DOG:Rex" << 'EOF'
+class Animal { has $.name; method gist() { return "DOG:" ~ $.name; } }
+class Dog is Animal { }
+sub main() { my $d = Dog.new(name => "Rex"); say($d); }
+EOF
+
+# --- RK-OO-G6: .= method-assignment. `$x .= meth(args)` is sugar for `$x = $x.meth(args)`
+#     (Rakudo Mu.rakumod dispatch:<.=>: mutate = mutate."$name"(|c)). Pure grammar desugar:
+#     new lexer token OP_DOTEQ (.=); productions build TT_ASSIGN(var, TT_METHCALL(var, meth, args)).
+#     No new AST kind, no lowering/runtime change — reuses the existing assign + method-call path.
+#     Works for builtin methods (no-paren / empty-paren) and user methods returning a new value.
+#     Both native modes; bison regen rc=0, 31 conflicts unchanged. ---
+raku "dotassign_builtin_uc" "HELLO" << 'EOF'
+sub main() { my $s = "hello"; $s .= uc; say($s); }
+EOF
+raku "dotassign_empty_paren" "abc" << 'EOF'
+sub main() { my $s = "ABC"; $s .= lc(); say($s); }
+EOF
+raku "dotassign_user_meth_arg" "15" << 'EOF'
+class Counter { has $.n; method add($k) { return Counter.new(n => $.n + $k); } }
+sub main() { my $c = Counter.new(n => 10); $c .= add(5); say($c.n); }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 EXCISED=$X3  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 EXCISED=$X4  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
