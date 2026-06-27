@@ -42,7 +42,7 @@ expected_for() {
 
 run_m2() {
     local sno="$1" exp="$2"
-    timeout "$TIMEOUT" "$SCRIP" --interp "$sno" < /dev/null 2>/dev/null
+    timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null
 }
 
 run_m3() {
@@ -90,7 +90,7 @@ done
 
 TT=$((SECONDS-T0))
 echo "=== SNOBOL4 pattern rung suite (038-057) — MODE-4 HARD GATE ==="
-echo "mode-2 (--interp):  PASS-M2=$PASS_M2 FAIL-M2=$FAIL_M2"
+echo "mode-2 (--run):  PASS-M2=$PASS_M2 FAIL-M2=$FAIL_M2"
 echo "mode-3 (--run):     PASS-M3=$PASS_M3 FAIL-M3=$FAIL_M3"
 echo "PASS-M4=$PASS_M4 FAIL-M4=$FAIL_M4 SKIP-M4=$SKIP_M4"
 [ -n "$FAIL_LIST" ] && printf '%b\n' "$FAIL_LIST"

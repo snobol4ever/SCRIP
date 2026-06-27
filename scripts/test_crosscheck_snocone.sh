@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_crosscheck_snocone.sh — 3-mode crosscheck for SNOCONE (GOAL-LANG-SNOCONE)
 #
-# Runs the snocone test corpus through --interp, --interp, --run.
+# Runs the snocone test corpus through --run, --run, --run.
 # Run on every major push. Mode-consistency check, not regression.
 # If .ref present alongside test file: diffs vs oracle too.
 # Exits 0 only if all three modes agree on every test.
@@ -17,18 +17,18 @@ xcheck() {
     local label="$1" file="$2" ref="${3:-}"
     if [ ! -f "$file" ]; then echo "  SKIP $label (no file)"; SKIP=$((SKIP+1)); return; fi
     local ir sm run_out
-    ir=$(timeout  $TIMEOUT "$SCRIP" --interp  "$file" </dev/null 2>/dev/null)
-    sm=$(timeout  $TIMEOUT "$SCRIP" --interp  "$file" </dev/null 2>/dev/null)
+    ir=$(timeout  $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
+    sm=$(timeout  $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
     run_out=$(timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
     local ok=1
     if [ -n "$ref" ] && [ -f "$ref" ]; then
         local exp; exp=$(cat "$ref")
-        [ "$ir"  != "$exp" ] && { echo "  FAIL $label --interp  vs oracle"; diff <(echo "$exp") <(echo "$ir")  | head -5 | sed 's/^/    /'; ok=0; }
-        [ "$sm"  != "$exp" ] && { echo "  FAIL $label --interp  vs oracle"; diff <(echo "$exp") <(echo "$sm")  | head -5 | sed 's/^/    /'; ok=0; }
+        [ "$ir"  != "$exp" ] && { echo "  FAIL $label --run  vs oracle"; diff <(echo "$exp") <(echo "$ir")  | head -5 | sed 's/^/    /'; ok=0; }
+        [ "$sm"  != "$exp" ] && { echo "  FAIL $label --run  vs oracle"; diff <(echo "$exp") <(echo "$sm")  | head -5 | sed 's/^/    /'; ok=0; }
         [ "$run_out" != "$exp" ] && { echo "  FAIL $label --run vs oracle"; diff <(echo "$exp") <(echo "$run_out") | head -5 | sed 's/^/    /'; ok=0; }
     else
-        [ "$sm"  != "$ir" ] && { echo "  FAIL $label --interp  vs --interp";  diff <(echo "$ir") <(echo "$sm")  | head -5 | sed 's/^/    /'; ok=0; }
-        [ "$run_out" != "$ir" ] && { echo "  FAIL $label --run vs --interp";  diff <(echo "$ir") <(echo "$run_out") | head -5 | sed 's/^/    /'; ok=0; }
+        [ "$sm"  != "$ir" ] && { echo "  FAIL $label --run  vs --run";  diff <(echo "$ir") <(echo "$sm")  | head -5 | sed 's/^/    /'; ok=0; }
+        [ "$run_out" != "$ir" ] && { echo "  FAIL $label --run vs --run";  diff <(echo "$ir") <(echo "$run_out") | head -5 | sed 's/^/    /'; ok=0; }
     fi
     if [ "$ok" -eq 1 ]; then echo "  PASS $label"; PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
 }

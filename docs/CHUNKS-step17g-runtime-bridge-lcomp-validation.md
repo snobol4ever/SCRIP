@@ -29,7 +29,7 @@ Two coupled changes — neither sufficient alone:
 
 The bridge-acomp validation doc noted: *"No corpus test surfaces
 SM_LCOMP today (no Icon program in `test/icon` reaches a string relop
-under `--interp` after the bridge family); when one does it will
+under `--run` after the bridge family); when one does it will
 arrive as the next surface."*
 
 Two reasons to land it preventatively rather than reactively:
@@ -124,7 +124,7 @@ end
 ```
 
 ```
-$ ./scrip --interp /tmp/probe_strrel.icn
+$ ./scrip --run /tmp/probe_strrel.icn
 seq
 slt
 sgt
@@ -135,7 +135,7 @@ All three branches taken correctly.  Trailing-value-after-if-then leak
 documented; reproducible without any SM_LCOMP path).
 
 ```
-$ ./scrip ----interp /tmp/probe_strrel.icn
+$ ./scrip ----run /tmp/probe_strrel.icn
 seq
 slt
 sgt
@@ -153,9 +153,9 @@ All gates byte-identical to baseline (CH-17g-runtime-bridge-acomp @ `d0d1ddfb`):
 | `test_isolation_ir_sm.sh` | PASS — no IR-only symbol leaks in SM runtime files |
 | `test_smoke_unified_broker.sh` | PASS=49 FAIL=0 |
 | `test_smoke_scrip_all_modes.sh` | PASS=2 FAIL=0 |
-| Icon `----interp` corpus (test_icon_all_rungs.sh) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
+| Icon `----run` corpus (test_icon_all_rungs.sh) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
 
-**New gate:** string relop probe under `--interp` produces correct
+**New gate:** string relop probe under `--run` produces correct
 output for `==`, `<<`, `>>`.
 
 ## Files

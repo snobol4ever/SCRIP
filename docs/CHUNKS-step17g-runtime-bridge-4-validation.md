@@ -31,7 +31,7 @@ applied throughout bridge-3:
 
 The in-eval branches are **not removed** — they remain on the legacy
 `coro_bb_fnc → icn_call_builtin → interp_eval` IR-walker path that
-serves `----interp`.  Pure additive, same as bridge-3.
+serves `----run`.  Pure additive, same as bridge-3.
 
 ## Why this batch
 
@@ -93,7 +93,7 @@ procedure main()
     write(image(table()));
 end
 
-$ ./scrip ----interp /tmp/probe3.icn
+$ ./scrip ----run /tmp/probe3.icn
 ababab
 olleh
 hello
@@ -109,7 +109,7 @@ hi....
 record
 table(0)
 
-$ diff <(./scrip ----interp /tmp/probe3.icn) <(./scrip --interp /tmp/probe3.icn)
+$ diff <(./scrip ----run /tmp/probe3.icn) <(./scrip --run /tmp/probe3.icn)
 $ # (empty — byte-identical)
 ```
 
@@ -120,11 +120,11 @@ procedure main()
     write("got: ", line);
 end
 
-$ echo "hello stdin" | ./scrip ----interp /tmp/probe_read.icn
+$ echo "hello stdin" | ./scrip ----run /tmp/probe_read.icn
 got: hello stdin
 
-$ diff <(echo "hello stdin" | ./scrip ----interp /tmp/probe_read.icn) \
-       <(echo "hello stdin" | ./scrip --interp /tmp/probe_read.icn)
+$ diff <(echo "hello stdin" | ./scrip ----run /tmp/probe_read.icn) \
+       <(echo "hello stdin" | ./scrip --run /tmp/probe_read.icn)
 $ # (empty — byte-identical)
 ```
 
@@ -153,9 +153,9 @@ builtin, `tab` (which is scan-context, the next bridge family).
 | isolation gate | PASS — no IR-only symbol leaks in SM runtime files |
 | unified_broker | PASS=49 FAIL=0 (byte-identical to baseline) |
 | scrip_all_modes | PASS=2 FAIL=0 |
-| Icon corpus `----interp` (test_icon_ir_all_rungs) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 (byte-identical to baseline) |
-| **NEW: trivial Icon proc using all 14 multi-arg names, `--interp` byte-identical to `----interp`** | PASS — 14 calls covering repl, reverse, map (×2 forms), trim, left, right, center, abs, max, min, sqrt, image(list(...)), image(table()) |
-| **NEW: read() under `--interp` byte-identical to `----interp`** | PASS |
+| Icon corpus `----run` (test_icon_ir_all_rungs) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 (byte-identical to baseline) |
+| **NEW: trivial Icon proc using all 14 multi-arg names, `--run` byte-identical to `----run`** | PASS — 14 calls covering repl, reverse, map (×2 forms), trim, left, right, center, abs, max, min, sqrt, image(list(...)), image(table()) |
+| **NEW: read() under `--run` byte-identical to `----run`** | PASS |
 
 ## Scan-context family deferred
 
@@ -186,7 +186,7 @@ No new opcodes, no IR fields, no `sm_lower.c` changes, no
 `sm_interp.c` changes (bridge-2's wire-up at SM_CALL_FN already
 routes every name through the helper).
 
-## What still doesn't work under `--interp`
+## What still doesn't work under `--run`
 
 Programs using:
 - **Scan-context builtins**: `tab`, `move`, `find`, `upto`, `match`,
@@ -214,7 +214,7 @@ Programs using:
 
 1. **bridge-5 (scan-context)** — `tab`, `move`, `find`, `upto`, `match`,
    `any`, `many`.  Needs `&pos`/`&subject` care.
-2. **CH-17g-irrun-lowers** — make `----interp` invoke `sm_lower` /
+2. **CH-17g-irrun-lowers** — make `----run` invoke `sm_lower` /
    `sm_resolve_proc_entry_pcs` so `entry_pc >= 0` regardless of mode.
    Unblocks CH-17g-final.
 3. **`SM_ACOMP` opcode handler** — surfaced by queens.icn after this

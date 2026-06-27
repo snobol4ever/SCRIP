@@ -22,7 +22,7 @@ every yielded value (verified empirically — first attempt produced
 Stack discipline: handler pushes `NULVCL` so the trailing
 `SM_VOID_POP` from proc-body lowering's `lower_expr(body); SM_VOID_POP`
 loop is balanced. The legacy `emit_push_expr + SM_BB_PUMP` shape was
-net-stack-zero (push 1, pop 1) — root cause of the 111 `--interp`
+net-stack-zero (push 1, pop 1) — root cause of the 111 `--run`
 divergences in the CH-17i survey (sess 2026-05-09 `dfe68c5b`).
 
 `AST_SUSPEND` deferred to follow-on sub-rung **CH-17i-suspend** —
@@ -55,8 +55,8 @@ yields to a coroutine caller, different stack discipline.
 | unified_broker                | PASS=49 FAIL=0| PASS=49 FAIL=0|
 | broad_unified_broker          | PASS=6 FAIL=0 | PASS=6 FAIL=0 |
 | scrip_all_modes               | PASS=2 FAIL=0 | PASS=2 FAIL=0 |
-| Icon `----interp` corpus        | 177/56/30/263 | 177/56/30/263 |
-| **Icon `--interp` rung01–04** | **5/24**      | **17/24**     |
+| Icon `----run` corpus        | 177/56/30/263 | 177/56/30/263 |
+| **Icon `--run` rung01–04** | **5/24**      | **17/24**     |
 
 ## Rung01 byte-identical to expected (all six)
 
@@ -71,7 +71,7 @@ yields to a coroutine caller, different stack discipline.
 
 PASS: nested_add, nested_filter, paper_mul, range, relfilter, add_proc.
 The two FAIL (`proc_fact`, `proc_locals`) are **pre-existing** —
-both fail under `----interp` too with
+both fail under `----run` too with
 `sm_call_expression: invalid entry_pc 1`. Not regressions.
 
 ## Rung03 / rung04 (7 still fail)

@@ -11,10 +11,10 @@ array-composition under chunks").
 ## What this rung does
 
 Closes the runtime gap surfaced by `test/icon/queens.icn` under
-`--interp` after bridge-4 widened Icon builtin reach.  Probe sequence:
+`--run` after bridge-4 widened Icon builtin reach.  Probe sequence:
 
 ```
-$ ./scrip --interp test/icon/queens.icn
+$ ./scrip --run test/icon/queens.icn
 sm_interp: unhandled opcode 82 (SM_ACOMP) at pc=92
 -Queens:
 ```
@@ -34,7 +34,7 @@ Two coupled changes — neither is sufficient alone:
 
 ## Mechanism investigated
 
-Probe under `--interp --dump-sm` for `if i = 0 then write("eq")`
+Probe under `--run --dump-sm` for `if i = 0 then write("eq")`
 followed by `if i < 1 then write("lt")`:
 
 ```
@@ -54,7 +54,7 @@ because Icon "bypasses sm_lower and goes through icn_runtime.c
 directly" was accurate at the time of writing but is now stale:
 CH-17b' (sess #78) made sm_lower walk Icon proc bodies, and
 chunk-side dispatch (CH-17c, CH-17g-runtime-bridge-1..4) routes
-Icon execution through `--interp`.
+Icon execution through `--run`.
 
 ## Implementation
 
@@ -131,7 +131,7 @@ about to be wrong about SM_LCOMP too — comment refreshed to remove
 SM_ACOMP from the stubbed list, narrow the SM_LCOMP entry, and
 note SM_LCOMP as a follow-on rung.  JIT codegen for SM_ACOMP is M5
 territory (named-FATAL pattern) — still h_unimpl in the JIT,
-intentional, the interpreter handler is what unblocks `--interp`.
+intentional, the interpreter handler is what unblocks `--run`.
 
 ## Why SM_LCOMP was NOT migrated in this rung
 
@@ -142,19 +142,19 @@ Bridge-acomp is scoped to numeric — string relops are a separate
 follow-on (call it bridge-lcomp).  Discipline: small contained
 rung, one observable problem at a time.  No corpus test surfaces
 SM_LCOMP today (no Icon program in `test/icon` reaches a string
-relop under `--interp` after the bridge family); when one does it
+relop under `--run` after the bridge family); when one does it
 will arrive as the next surface.
 
 ## What this does and does not unblock
 
 **Unblocks immediately:**
-- `queens.icn` under `--interp` no longer FATALs on opcode 82
+- `queens.icn` under `--run` no longer FATALs on opcode 82
   (now runs to "0 solutions total." — a different correctness
-  surface, not a SM_ACOMP issue; queens.icn under `----interp`
+  surface, not a SM_ACOMP issue; queens.icn under `----run`
   ALSO produces wrong output, "Error 3 ... Erroneous array or
   table reference" — pre-existing).
 - Any Icon proc body using `=`, `~=`, `<`, `<=`, `>`, `>=` between
-  numerics dispatches correctly under `--interp`.
+  numerics dispatches correctly under `--run`.
 - Trivial probes:
   ```
   $ cat /tmp/probe_eq.icn
@@ -163,14 +163,14 @@ will arrive as the next surface.
       if i = 0 then write("eq");
       if i < 1 then write("lt");
   end
-  $ ./scrip --interp /tmp/probe_eq.icn
+  $ ./scrip --run /tmp/probe_eq.icn
   eq
   lt
   ```
 
 **Does NOT unblock (out of scope):**
 - String relops via SM_LCOMP — same shape bug, deferred.
-- `if`-statement value leak under `--interp` (a stray operand
+- `if`-statement value leak under `--run` (a stray operand
   appears on stdout after `if-then` cases) — pre-existing,
   reproducible without any SM_ACOMP path; unrelated to this rung.
 - queens.icn correctness — independent issue (array indexing).
@@ -187,12 +187,12 @@ All gates byte-identical to baseline (CH-17g-runtime-bridge-4 @ `5e526155`):
 | `test_isolation_ir_sm.sh` | PASS — no IR-only symbol leaks in SM runtime files |
 | `test_smoke_unified_broker.sh` | PASS=49 FAIL=0 |
 | `test_smoke_scrip_all_modes.sh` | PASS=2 FAIL=0 |
-| Icon `----interp` corpus (test_icon_all_rungs.sh) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
+| Icon `----run` corpus (test_icon_all_rungs.sh) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
 
-**New gate:** `queens.icn --interp` no longer FATALs on opcode 82 — PASS.
+**New gate:** `queens.icn --run` no longer FATALs on opcode 82 — PASS.
 
-**New gate:** `if i = 0` / `if i < 1` probe under `--interp`
-produces `eq\nlt\n` (matches `----interp` modulo the pre-existing
+**New gate:** `if i = 0` / `if i < 1` probe under `--run`
+produces `eq\nlt\n` (matches `----run` modulo the pre-existing
 if-then trailing-value leak) — PASS.
 
 ## Files

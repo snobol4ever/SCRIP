@@ -7,7 +7,7 @@
 # The gather { take tok } block is structurally present as a BB_PUMP-ready
 # generator. In the polyglot broker context (SNOBOL4 or Icon driving via
 # AST_EVERY), each take() suspends and yields one parse token to the consumer.
-# In standalone --interp, parse_expr() emits tokens via say() directly.
+# In standalone --run, parse_expr() emits tokens via say() directly.
 #
 # Grammar (PEG, ordered choice):
 #   expr  <- term ((addop || mulop) term)*
@@ -78,7 +78,7 @@ sub emit($label, $val) {
 # --- Top-level parser: expr <- term (op term)* ---
 # gather { take tok } is the BB_PUMP generator shell — structurally ready for
 # AST_EVERY-driven consumption by a broker consumer (SNOBOL4/Icon/Prolog).
-# In standalone --interp, emit() (say) produces the token stream directly.
+# In standalone --run, emit() (say) produces the token stream directly.
 
 sub parse_expr($len) {
     my $pos = 0;

@@ -8,7 +8,7 @@ the fix.
 
 ## The gap
 
-Today, `--interp` of a trivial Icon program:
+Today, `--run` of a trivial Icon program:
 
 ```icon
 procedure main()
@@ -22,7 +22,7 @@ to chunk 1.  The chunk lowering is correct; the dispatch is broken.
 
 ## Where the chunk emits the call
 
-`./scrip --interp --dump-sm /tmp/probe.icn`:
+`./scrip --run --dump-sm /tmp/probe.icn`:
 
 ```
    0  SM_JUMP              -> 6
@@ -195,12 +195,12 @@ In `sm_interp.c`'s `SM_CALL_FN` handler, after the existing
 `INVOKE_fn` fallback, add the `icn_try_call_builtin_by_name` call.
 
 Gate:
-- `--interp` of `procedure main() write("hello") end` now produces
+- `--run` of `procedure main() write("hello") end` now produces
   `hello\n` instead of FATAL.
 - Curated subset of trivial Icon programs (no generators, no
   every/suspend, no E_FNC calls into not-yet-bridged builtins) run
-  end-to-end under `--interp` and produce output identical to
-  `----interp`.
+  end-to-end under `--run` and produce output identical to
+  `----run`.
 - Standard set byte-identical (this is pure addition; the bridge
   fires only when `INVOKE_fn` would have FAILed).
 
@@ -208,7 +208,7 @@ Gate:
 
 Same pattern, applied to `raku_try_call_builtin` and
 `scan_try_call_builtin`.  Optional — only land when corpus
-crosscheck reveals a Raku/SCAN program that fails under `--interp`
+crosscheck reveals a Raku/SCAN program that fails under `--run`
 and would benefit.
 
 ## Then: CH-17g-irrun-lowers
@@ -216,7 +216,7 @@ and would benefit.
 Once CH-17g-runtime-bridge unblocks the chunk path for trivial
 programs, CH-17g-irrun-lowers becomes safe:
 
-- Invoke `sm_lower` + `sm_resolve_proc_entry_pcs` from the `----interp`
+- Invoke `sm_lower` + `sm_resolve_proc_entry_pcs` from the `----run`
   non-SNO dispatch path before `polyglot_execute`.
 - `proc_table_call`'s `entry_pc >= 0` branch fires, dispatching via
   chunks.  For trivial programs covered by the bridge, output is
@@ -226,7 +226,7 @@ programs, CH-17g-irrun-lowers becomes safe:
 
   Either:
   - (a) gate the chunk dispatch behind a flag that's off by default
-    in `----interp`, on by default in `--interp` — same as today's
+    in `----run`, on by default in `--run` — same as today's
     effective behavior, just made explicit; or
   - (b) detect the failure and fall back to the legacy path; or
   - (c) accept the breakage and migrate per-builtin until the corpus
@@ -267,5 +267,5 @@ No new opcodes.  No new IR fields.  No `sm_lower.c` changes.
 | Step | Gate |
 |------|------|
 | CH-17g-runtime-bridge-1 (refactor) | Standard set byte-identical |
-| CH-17g-runtime-bridge-2 (wire) | + `--interp` of trivial Icon proc produces output |
-| CH-17g-runtime-bridge-3 (Raku/SCAN) | + Raku/SCAN smoke under `--interp` if applicable |
+| CH-17g-runtime-bridge-2 (wire) | + `--run` of trivial Icon proc produces output |
+| CH-17g-runtime-bridge-3 (Raku/SCAN) | + Raku/SCAN smoke under `--run` if applicable |

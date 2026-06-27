@@ -105,5 +105,5 @@ same design JCON ships — nothing exotic is required.
 ---
 
 ## 4. Rung set (added to GOAL-PROLOG-BB.md under PL-LOWER-REVAMP as PLR-J-*)
-See the goal file. Sequenced so each rung is independently verifiable against mode-2 (`--interp`,
+See the goal file. Sequenced so each rung is independently verifiable against mode-2 (`--run`,
 the correctness reference) and lands no bytes outside `*_templates/` (FACT rule).

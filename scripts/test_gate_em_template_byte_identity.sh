@@ -18,7 +18,7 @@
 #    different output (wrong pc value at halt time, wrong return
 #    address).  We run a small fixture of SNOBOL4 programs that
 #    terminate normally via SM_HALT and require `--run` output
-#    to match `--interp` (the interpreter, which doesn't use SEG_CODE
+#    to match `--run` (the interpreter, which doesn't use SEG_CODE
 #    at all and is the byte-identity oracle).
 #
 # 2. **Static defensive check.**  The template adapter
@@ -87,9 +87,9 @@ FAILS=""
 for f in "$TMP"/*.sno; do
     name=$(basename "$f" .sno)
 
-    # Run --interp (the byte-identity oracle: pure interpreter, no
+    # Run --run (the byte-identity oracle: pure interpreter, no
     # SEG_CODE involved).
-    sm_out=$(timeout "$TIMEOUT" "$SCRIP" --interp "$f" < /dev/null 2>/dev/null)
+    sm_out=$(timeout "$TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
     sm_rc=$?
 
     # Run --run (mode-3: walks SEG_CODE, including the SM_HALT

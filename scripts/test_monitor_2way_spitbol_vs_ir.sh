@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_monitor_2way_spitbol_vs_ir.sh — SPITBOL x64 (oracle) vs scrip --interp.
+# test_monitor_2way_spitbol_vs_ir.sh — SPITBOL x64 (oracle) vs scrip --run.
 #
 # 2-way sync-step monitor comparing the SPITBOL x64 oracle against
 # scrip's tree-walking IR interpreter.  This is the primary

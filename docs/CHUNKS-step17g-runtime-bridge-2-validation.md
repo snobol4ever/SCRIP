@@ -11,11 +11,11 @@ Wires the Icon-builtin dispatch helper extracted in bridge-1 into
 `SM_CALL_FN`'s execution path in `sm_interp.c`.  After this rung:
 
 ```
-$ ./scrip --interp /tmp/probe.icn
+$ ./scrip --run /tmp/probe.icn
 hello from icon proc
 ```
 
-— and the output is byte-identical to `----interp`.
+— and the output is byte-identical to `----run`.
 
 Before this rung, the same command FATALed with `Error 5: Undefined
 function or operation` because `SM_CALL_FN`'s dispatch path consulted
@@ -79,12 +79,12 @@ procedure main()
    write("hello from icon proc")
 end
 
-$ ./scrip ----interp /tmp/probe.icn
+$ ./scrip ----run /tmp/probe.icn
 hello from icon proc
-$ ./scrip --interp /tmp/probe.icn
+$ ./scrip --run /tmp/probe.icn
 hello from icon proc
 
-$ diff <(./scrip ----interp /tmp/probe.icn) <(./scrip --interp /tmp/probe.icn)
+$ diff <(./scrip ----run /tmp/probe.icn) <(./scrip --run /tmp/probe.icn)
 $ # BYTE-IDENTICAL
 ```
 
@@ -99,12 +99,12 @@ procedure main()
    write(42);
 end
 
-$ ./scrip --interp /tmp/probe2.icn
+$ ./scrip --run /tmp/probe2.icn
 hello
 no newline — has newline now
 42
 
-$ diff <(./scrip ----interp /tmp/probe2.icn) <(./scrip --interp /tmp/probe2.icn)
+$ diff <(./scrip ----run /tmp/probe2.icn) <(./scrip --run /tmp/probe2.icn)
 $ # BYTE-IDENTICAL
 ```
 
@@ -112,19 +112,19 @@ The chunk path `SM_BB_PUMP_PROC → coro_pump_proc_by_name → proc_trampoline �
 sm_call_proc(entry_pc=1) → sm_call_chunk(1) → sm_interp_run` now reaches
 `SM_CALL_FN s="write" nargs=1` in the chunk body and dispatches via
 `icn_try_call_builtin_by_name` to the same Icon `write` implementation
-that `----interp` uses.
+that `----run` uses.
 
 ## What still doesn't work
 
-`--interp` of any Icon program that calls a builtin not yet covered
+`--run` of any Icon program that calls a builtin not yet covered
 by `icn_try_call_builtin_by_name` (initial scope: `write`, `writes`)
 will FATAL or `longjmp` out.  The corpus has 263 Icon programs;
 many use `read`, `integer`, `string`, `type`, `copy`, `list`,
 `table`, etc.  Coverage extends one builtin at a time as future
 rungs add branches to the helper.
 
-`----interp` execution is unchanged for all Icon programs.  This rung
-adds capability to `--interp`; it does not regress `----interp`.
+`----run` execution is unchanged for all Icon programs.  This rung
+adds capability to `--run`; it does not regress `----run`.
 
 ## Files touched
 
@@ -147,12 +147,12 @@ No new opcodes, no IR fields, no `sm_lower.c` changes.
 | isolation_ir_sm | PASS — no IR-only symbol leaks in SM runtime files |
 | unified_broker | PASS=49 FAIL=0 |
 | scrip_all_modes | PASS=2 FAIL=0 |
-| Icon corpus `----interp` (`test_icon_all_rungs.sh`) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
-| `./scrip --interp /tmp/probe.icn` (`procedure main() write("hello from icon proc") end`) | byte-identical to `----interp` |
-| Multi-call Icon program (`/tmp/probe2.icn`, four calls to write/writes) | byte-identical to `----interp` |
+| Icon corpus `----run` (`test_icon_all_rungs.sh`) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
+| `./scrip --run /tmp/probe.icn` (`procedure main() write("hello from icon proc") end`) | byte-identical to `----run` |
+| Multi-call Icon program (`/tmp/probe2.icn`, four calls to write/writes) | byte-identical to `----run` |
 
 Standard set byte-identical to baseline.  The new gate (Icon
-`--interp` of trivial program produces correct output) was the
+`--run` of trivial program produces correct output) was the
 explicit success criterion in the bridge plan; it now passes.
 
 ## Next rung
@@ -161,14 +161,14 @@ Two options:
 
 - **CH-17g-runtime-bridge-3** — Raku/SCAN bridges.  Add similar helpers
   for Raku and SCAN-context dispatch if corpus crosscheck reveals
-  programs that fail under `--interp` and would benefit.
+  programs that fail under `--run` and would benefit.
 
 - **CH-17g-irrun-lowers** — invoke `sm_lower` /
-  `sm_resolve_proc_entry_pcs` from `----interp` so `entry_pc >= 0`
+  `sm_resolve_proc_entry_pcs` from `----run` so `entry_pc >= 0`
   for every proc regardless of mode.  Now safer than at the
   CH-17g-final-SURVEY decision point, because chunk dispatch
   works end-to-end for trivial programs.  Still needs a runtime
-  flag gating chunk dispatch in `----interp` mode for programs
+  flag gating chunk dispatch in `----run` mode for programs
   that hit unbridged builtins, since the bridge today only covers
   `write`/`writes` and there are ~30 more Icon builtins.
 
@@ -176,4 +176,4 @@ Recommendation: extend the helper to cover more Icon builtins
 (integer, string, real, char, type, copy, list, table, read, repl,
 upto, find, any, many, tab, move, match, …) before tackling
 irrun-lowers — each new branch lights up another slice of the
-corpus under `--interp`.
+corpus under `--run`.

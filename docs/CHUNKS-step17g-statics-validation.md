@@ -50,7 +50,7 @@ by `grep -rn static_get/static_set src/` returning only coro_runtime.c).
 | isolation | PASS |
 | unified_broker | PASS=49 |
 | scrip_all_modes | PASS=2 |
-| Icon ----interp | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
+| Icon ----run | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
 | rung36_jcon_statics | PASS |
 
 ## Files changed

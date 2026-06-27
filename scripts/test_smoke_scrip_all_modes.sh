@@ -32,8 +32,8 @@ printf "        OUTPUT = 'hello'\nEND\n" > "$SNO"
 trap 'rm -f "$SNO"' EXIT
 
 # ── interpreter modes ─────────────────────────────────────────────────────────
-check "--interp (default)" "hello" "$(timeout 8 "$SCRIP" "$SNO" < /dev/null 2>/dev/null)"
-check "--interp"           "hello" "$(timeout 8 "$SCRIP" --interp "$SNO" < /dev/null 2>/dev/null)"
+check "--run (default)" "hello" "$(timeout 8 "$SCRIP" "$SNO" < /dev/null 2>/dev/null)"
+check "--run"           "hello" "$(timeout 8 "$SCRIP" --run "$SNO" < /dev/null 2>/dev/null)"
 
 # ── x86 emit mode ─────────────────────────────────────────────────────────────
 # SM/BB-based x64 emit not yet implemented — new emitter comes box-by-box from SM/BB path.

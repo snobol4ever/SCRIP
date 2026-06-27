@@ -175,7 +175,7 @@ if [[ "$want_spl" = "1" ]]; then
     PIDS+=($!)
 fi
 
-# scrip --interp by default; --interp / --run via SCRIP_RUN_FLAG override
+# scrip --run by default; --run / --run via SCRIP_RUN_FLAG override
 # (SN-32: same harness drives SM/native codegen runs without forking the file).
 # Catch-all activated via SCRIP_TRACE/SCRIP_FTRACE only;
 # no source modification, no LOAD-chain.

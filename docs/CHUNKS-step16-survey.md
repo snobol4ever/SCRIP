@@ -63,10 +63,10 @@ handle these kinds either; it FATALs as
 "unhandled kind N (RS-23e isolation breach)".
 
 Empirical: every program in `test/prolog/*.pl` (6 of 6) aborts
-under `--interp` before atexit fires — the audit summary cannot
+under `--run` before atexit fires — the audit summary cannot
 print because the process SIGABRTs first.  The Prolog smoke gate
-(`scripts/test_smoke_prolog.sh`) does not exercise `--interp`; it
-only runs `----interp`.  Hence smoke is green while every Prolog
+(`scripts/test_smoke_prolog.sh`) does not exercise `--run`; it
+only runs `----run`.  Hence smoke is green while every Prolog
 program crashes in SM mode.
 
 **The right consumer for these kinds already exists** — in
@@ -140,10 +140,10 @@ itself — the second one pops a value pushed by the first
 (BB tick count, an integer), not a DT_E.  This is a pre-existing
 bug in the Prolog statement lowering, not Step 16's scope, but it
 means the line-1402 producer also needs migration to a
-chunk-shaped wrapper before --interp Prolog can possibly work.
+chunk-shaped wrapper before --run Prolog can possibly work.
 
 The line-1402 site is therefore Step 16-adjacent: closing Step 16
-without addressing line-1402 leaves --interp Prolog still broken,
+without addressing line-1402 leaves --run Prolog still broken,
 even after the line-1213 producer migrates correctly.
 
 ## Recommendation
@@ -162,7 +162,7 @@ Step 16 can be implemented with a clear consumer-side target:
 Step 17's entry_pc machinery.
 
 Validation discipline at that point becomes: **Prolog smoke gate
-extended to --interp**, plus full Prolog corpus crosscheck.
+extended to --run**, plus full Prolog corpus crosscheck.
 Today neither is possible because every program aborts.
 
 This matches the precedent set by CH-15-SURVEY: when the producer
@@ -219,7 +219,7 @@ Tagged-site instrumentation on a synthetic 2-clause program
 E_CHOICE.
 
 Empirical reach for Finding B: 6 of 6 `test/prolog/` programs
-abort under `--interp` before atexit fires; FATAL is
+abort under `--run` before atexit fires; FATAL is
 `bb_eval_value: unhandled kind 59 (RS-23e isolation breach)`
 where 59 = E_CHOICE in the runtime enum.
 

@@ -1,6 +1,6 @@
 // claws5.sc — CLAWS5 POS-tagged corpus tokenizer (Snocone port)
 // ENG 685, Lon Cherryholmes Sr.
-// Run: scrip --interp claws5.sc < CLAWS5inTASA.dat
+// Run: scrip --run claws5.sc < CLAWS5inTASA.dat
 //
 // Faithful Snocone port of claws5.sno / assignment3.py (claws_info pattern).
 // Function names match Python exactly: init(), new_sent(), add_tok().

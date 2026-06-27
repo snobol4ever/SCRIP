@@ -2,7 +2,7 @@
  *
  * Each construct is exercised inside a while-loop body, working around a
  * known pre-existing limitation where consecutive top-level OUTPUT statements
- * only emit the last value under --interp.
+ * only emit the last value under --run.
  *
  * Ref: 1 2 3 14 12 "nreturn ok"
  */

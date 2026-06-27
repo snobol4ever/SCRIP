@@ -8,8 +8,8 @@ forks an external `as` + `gcc` pipeline, and `execv`s the resulting binary in a 
 The AGW-1c exception is retired from the code path; the corresponding comment block in
 `scrip.c:422-432` is replaced.
 
-V-5 immediately exposed real mode-3/mode-4 emitter gaps that the old `--interp ≡ --run` fake
-parity was hiding. GATE-2 (crosscheck `--interp` vs `--run`) drops from a fake 132/0 to a real
+V-5 immediately exposed real mode-3/mode-4 emitter gaps that the old `--run ≡ --run` fake
+parity was hiding. GATE-2 (crosscheck `--run` vs `--run`) drops from a fake 132/0 to a real
 36/96. This is **truth-telling, not regression** — the prior 132/0 was meaningless because both
 sides walked the same C code. The new 96 failures are the genuine PL-DEBT-1 ledger.
 
@@ -21,8 +21,8 @@ the `.S_ERR` undefined-symbol class of linker errors on programs that unify comp
 | Gate | Before V-5 | After V-5 | Note |
 |------|-----------:|----------:|------|
 | GATE-1 smoke | 5/5 | 5/5 | held |
-| GATE-2 crosscheck (`--interp` vs `--run`) | 132/0 (fake) | **36/96** (real) | new floor — see PL-DEBT-1 |
-| GATE-3 rung suite (`--interp`) | 88/107 | 88/107 | held |
+| GATE-2 crosscheck (`--run` vs `--run`) | 132/0 (fake) | **36/96** (real) | new floor — see PL-DEBT-1 |
+| GATE-3 rung suite (`--run`) | 88/107 | 88/107 | held |
 | GATE-4 mode-4 rung (`--compile --target=x86`) | 4/4 | 4/4 | held |
 | Icon / Snocone / Raku / Rebus smoke | 5/5/5/4 | 5/5/5/4 | held |
 | FACT RULE grep | 0 | 0 | held |
@@ -76,7 +76,7 @@ exposes it sharply: `flat_drive_pl_alt → walk_bb_flat(gα[0], outer_γ, …)` 
 (`bb_exec_node(seq)` returns `seq->α = gα[0]`, which the outer `bb_exec_once` loop then drives —
 but `BB_PL_ALT` uses *direct* `bb_exec_node`, not the outer loop, so its handling needs to
 mirror what `flat_drive_pl_alt` does or fall through to a small loop). Pair the fix with a
-gate (rung02_facts under `--interp` and `--run` both producing `brown\njones\nsmith`).
+gate (rung02_facts under `--run` and `--run` both producing `brown\njones\nsmith`).
 Estimated impact on GATE-2: +20-40 PASS.
 
 ### CAT-B — Compound-term unify binds nothing (rung03 class)

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# scripts/test_icon_all_rungs.sh — Icon rung ladder runner under scrip --interp.
+# scripts/test_icon_all_rungs.sh — Icon rung ladder runner under scrip --run.
 # Self-contained. Run from anywhere with no env vars.
 # Usage: bash scripts/test_icon_all_rungs.sh [--rung RUNG] [--scrip PATH] [--corpus PATH]
 #
 # Runs rung01–rung36 (or a specific rung) of the Icon corpus against
-# scrip --interp and reports PASS/FAIL/XFAIL vs .expected files.
+# scrip --run and reports PASS/FAIL/XFAIL vs .expected files.
 # Files with a matching .xfail marker are skipped as known-unimplemented (XFAIL).
 # All rungs use timeout 8s. rung36_jcon_subjpos quarantined via .xfail (infinite
-# loop in --interp subject/&pos path, hangs to timeout; see GOAL-ICON-BB). No
+# loop in --run subject/&pos path, hangs to timeout; see GOAL-ICON-BB). No
 # legitimate rung36 program exceeds 8s (timing audit 2026-05-26).
 #
-# Replaces test_icon_all_rungs.sh (deleted, was --interp-based and gated on
-# the now-amputated Icon AST walker). The reference path for Icon is --interp.
+# Replaces test_icon_all_rungs.sh (deleted, was --run-based and gated on
+# the now-amputated Icon AST walker). The reference path for Icon is --run.
 #
 # Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7
 
@@ -89,9 +89,9 @@ run_one() {
     local stdin_file="${base}.stdin"
     local got want
     if [ -f "$stdin_file" ]; then
-        got=$(timeout "$tmo" "$SCRIP" --interp "$icn" < "$stdin_file" 2>/dev/null) || true
+        got=$(timeout "$tmo" "$SCRIP" --run "$icn" < "$stdin_file" 2>/dev/null) || true
     else
-        got=$(timeout "$tmo" "$SCRIP" --interp "$icn" < /dev/null     2>/dev/null) || true
+        got=$(timeout "$tmo" "$SCRIP" --run "$icn" < /dev/null     2>/dev/null) || true
     fi
     want=$(cat "$exp")
     if [ "$got" = "$want" ]; then
@@ -142,5 +142,5 @@ echo "--- rung36 by category ---"
     printf "  rung36_%-12s  total=%2d  PASS=%2d  FAIL=%2d  XFAIL=%2d\n" "$cat" "$total" "$p" "$f" "$x"
 done
 
-echo "--- Icon --interp: PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
+echo "--- Icon --run: PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
 [ "$FAIL" -eq 0 ]

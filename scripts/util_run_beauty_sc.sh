@@ -8,7 +8,7 @@
 #   --input  FILE   SNOBOL4 source to beautify (required, or - for stdin)
 #   --driver PATH   path to assembled driver.sc
 #                   (default: test/beauty-sc/beauty/driver.sc)
-#   --mode   MODE   scrip mode: --interp | --interp | --run (default: --interp)
+#   --mode   MODE   scrip mode: --run | --run | --run (default: --run)
 #   --timeout N     seconds (default: 15)
 #   --compare       also run oracle and diff; print PASS or FAIL
 #   --ref    FILE   diff against this .ref file instead of running oracle
@@ -25,7 +25,7 @@ SCRIP="${SCRIP:-$ROOT/scrip}"
 
 INPUT_FILE=""
 DRIVER="${CORPUS:-/home/claude/corpus}/programs/snocone/demo/beauty/beauty.sc"
-MODE="--interp"
+MODE="--run"
 TIMEOUT=15
 COMPARE=0
 REF_FILE=""

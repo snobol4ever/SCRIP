@@ -16,7 +16,7 @@ fail() { echo "GATE-PL-GZ2 FAIL: $1"; exit 1; }
 [ -f "$RT" ]    || fail "libscrip_rt.so missing (make libscrip_rt)"
 
 printf ':- initialization(main).\nmain :- write(hello), nl.\n' > "$TMP/hello.pl"
-"$SCRIP" --interp "$TMP/hello.pl" </dev/null > "$TMP/o2" 2>/dev/null || fail "hello m2 rc"
+"$SCRIP" --run "$TMP/hello.pl" </dev/null > "$TMP/o2" 2>/dev/null || fail "hello m2 rc"
 "$SCRIP" --run    "$TMP/hello.pl" </dev/null > "$TMP/o3" 2>"$TMP/e3" || fail "hello m3 rc"
 grep -q "INTERP-FALLBACK" "$TMP/e3" && fail "hello m3 fell back to the interpreter (GZ path not taken)"
 "$SCRIP" --compile --target=x86 "$TMP/hello.pl" > "$TMP/h.s" 2>/dev/null || fail "hello m4 compile rc"

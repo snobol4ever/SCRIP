@@ -6,7 +6,7 @@
 # GOAL-ICON-BB mandates running ALL modes on every gate run (the "ALWAYS TEST ALL THREE MODES" policy,
 # adopted from GOAL-PROLOG-BB's session-sync three-mode stepping). With no --mode (or --mode all, the
 # DEFAULT) every corpus program is run through all three engine paths against its .expected:
-#   interp  (Mode 2, --interp)                 — reference oracle — HARD GATE (PASS must be >= previous).
+#   interp  (Mode 2, --run)                 — reference oracle — HARD GATE (PASS must be >= previous).
 #   run     (Mode 3, --run, stackless native)  — TRACKED. A shape with no native template DECLINES LOUD
 #                                                 with the [SMX] banner -> counted EXCISED (NOT a FAIL).
 #   compile (Mode 4, --compile --target=x86)   — emit .s -> as -> link out/libscrip_rt.so -> exec.
@@ -66,7 +66,7 @@ run_prog() {
     local IN=/dev/null
     [ -f "$stdin_file" ] && IN="$stdin_file"
     case "$mode" in
-        interp)  timeout "$tmo" "$SCRIP" --interp "$icn" < "$IN" 2>"$errf" ;;
+        interp)  timeout "$tmo" "$SCRIP" --run "$icn" < "$IN" 2>"$errf" ;;
         run)     timeout "$tmo" "$SCRIP" --run    "$icn" < "$IN" 2>"$errf" ;;
         compile)
             s="$WORK/$name.s"; o="$WORK/$name.o"; bin="$WORK/${name}_bin"

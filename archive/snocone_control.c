@@ -95,7 +95,7 @@ static const char *top_break(CfState *st) {
  * ---------------------------------------------------------------------- */
 
 /* SB-5b multi-file label-collision fix:
- * scrip's ----interp/----interp/----run can invoke snocone_control_compile()
+ * scrip's ----run/----run/----run can invoke snocone_control_compile()
  * multiple times in one run (one per .sc file on the command line) and merge
  * the resulting Program* lists into a single program (driver/scrip.c).
  * If newlab() restarts at L.1 on each call, both programs end up with their

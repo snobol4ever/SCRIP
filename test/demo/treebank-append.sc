@@ -1,6 +1,6 @@
 // treebank-append.sc — Penn Treebank s-expression parser (append style, Snocone)
 // ENG 685, Lon Cherryholmes Sr.
-// Run: scrip --interp treebank-append.sc < VBGinTASA.dat
+// Run: scrip --run treebank-append.sc < VBGinTASA.dat
 //
 // TABLE-based implementation: each frame is a TABLE used as a dynamic array.
 // Children are APPENDED at the end (integer keys 1..n).  No reversal needed.

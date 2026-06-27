@@ -45,7 +45,7 @@ pl_test() {
     local label="$1" expected="$2" tmp actual
     tmp=$(mktemp /tmp/broad_XXXXXX.pl)
     cat > "$tmp"
-    actual=$(timeout "$TIMEOUT" "$SCRIP" --interp "$tmp" < /dev/null 2>/dev/null || true)
+    actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$tmp" < /dev/null 2>/dev/null || true)
     rm -f "$tmp"
     if [ "$actual" = "$expected" ]; then
         echo "  PASS $label"; pl_pass=$((pl_pass+1))
@@ -106,8 +106,8 @@ run_suite "csnobol4 Budne suite" "$HERE/test_csnobol4_budne_suite.sh" "csnobol4"
 # ── interp broad (corpus + beauty) ───────────────────────────────────────────
 run_suite "interp broad" "$HERE/test_interp_broad_corpus_and_beauty.sh" "" 0
 
-# ── Icon --interp rung ladder ───────────────────────────────────────────────────
-run_suite "Icon --interp rungs" "$HERE/test_icon_all_rungs.sh" "icon" 48
+# ── Icon --run rung ladder ───────────────────────────────────────────────────
+run_suite "Icon --run rungs" "$HERE/test_icon_all_rungs.sh" "icon" 48
 
 # ── Result ────────────────────────────────────────────────────────────────────
 if [ "$pl_fail" -gt 0 ]; then

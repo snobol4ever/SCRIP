@@ -7,7 +7,7 @@
  * AST_ADD(AST_ILIT(2), AST_ILIT(3)).
  *
  * No interpreter linking; pure parser-side verification.  When LS-4.j
- * lands, the same source will go through scrip --interp and produce
+ * lands, the same source will go through scrip --run and produce
  * the literal output "5" (matching the existing snocone smoke gate's
  * "arith" case).  For LS-4.a we verify the IR shape only.
  *

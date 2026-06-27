@@ -22,7 +22,7 @@ term construction, unify, deref).
 |------|----------:|---------:|------|
 | GATE-1 smoke | 5/5 | 5/5 | held |
 | GATE-2 crosscheck (3-mode) | 132/132 | 132/132 | held |
-| GATE-3 mode-2 (`--interp`) | 89/107 | 89/107 | held |
+| GATE-3 mode-2 (`--run`) | 89/107 | 89/107 | held |
 | GATE-3 mode-3 (`--run`) | 89/107 | 89/107 | held |
 | GATE-4 mode-4 micro-rung | 4/4 | 4/4 | held |
 | Full mode-4 corpus | 21/89 (PLAN.md baseline) | **22/89** | **+1: rung09_builtins_builtins** |
@@ -31,7 +31,7 @@ term construction, unify, deref).
 | `.S_ERR` in rung09 emit | 0 | 0 | held |
 | `PL_BUILTIN: unknown 'functor'/'arg'/'=..'` stubs in r09 emit | 3 | **0** | retired |
 
-SNOBOL4 smoke shows 5/6 (`beauty_omega --interp vs oracle` FAIL); confirmed pre-existing
+SNOBOL4 smoke shows 5/6 (`beauty_omega --run vs oracle` FAIL); confirmed pre-existing
 Milestone-2 territory, not introduced by this change.
 
 ## Code changes
@@ -100,7 +100,7 @@ functor/3-style introspection succeeding.
 
 | Mode | Before S2 | After S2 |
 |------|-----------|----------|
-| `--interp` (mode 2) | `foo 2\nb\n[foo,a,b]\nyes\nyes\nno\nno` | (unchanged) |
+| `--run` (mode 2) | `foo 2\nb\n[foo,a,b]\nyes\nyes\nno\nno` | (unchanged) |
 | `--run` (mode 3) | `foo 2\nb\n[foo,a,b]\nyes\nyes\nno\nno` | (unchanged) |
 | `--compile --target=x86` (mode 4) | `_ _\n_\n_\nyes\nyes\nno\nno` | **`foo 2\nb\n[foo,a,b]\nyes\nyes\nno\nno`** |
 

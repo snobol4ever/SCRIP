@@ -2,7 +2,7 @@
 
 **Session:** #65, 2026-05-06
 **Goal:** GOAL-CHUNKS Step 7 — close M1
-**Scope of M1:** Steps 1–7. SNOBOL4 + Snocone fully isolated through modes 2 (--interp) and 3 (--run) on the **producer side**: every `emit_push_expr` site reachable from pure SNOBOL4 / Snocone lowering has been migrated to `SM_PUSH_CHUNK` (Steps 2–4); the migration has been validated empirically (Step 5); the isolation gate has been strengthened with a structural rule covering the two zero-hit files (Step 6, partial — see deferral below).
+**Scope of M1:** Steps 1–7. SNOBOL4 + Snocone fully isolated through modes 2 (--run) and 3 (--run) on the **producer side**: every `emit_push_expr` site reachable from pure SNOBOL4 / Snocone lowering has been migrated to `SM_PUSH_CHUNK` (Steps 2–4); the migration has been validated empirically (Step 5); the isolation gate has been strengthened with a structural rule covering the two zero-hit files (Step 6, partial — see deferral below).
 
 ---
 
@@ -34,7 +34,7 @@ After M1: `grep emit_push_expr` in `sm_lower.c` returns **only** the helper defi
 | smoke_rebus | PASS=4 / 4 |
 | isolation_ir_sm (with new structural rule) | PASS |
 | csnobol4 Budne | PASS=36 / 150 (≥34 baseline) |
-| scrip_all_modes | PASS=2 (--interp, --interp) |
+| scrip_all_modes | PASS=2 (--run, --run) |
 | Step 5 chunk audit (SCRIP_CHUNKS_AUDIT=1) | zero SM_PUSH_EXPR fires across SNOBOL4/Snocone test programs; SM_PUSH_CHUNK exercised; out-of-range = 0 |
 
 ---
@@ -52,14 +52,14 @@ The structural rule only covers `snobol4_invoke.c` and `snobol4_argval.c` (both 
 
 ### 2. Three-mode parity on broad corpus is RED — pre-existing
 
-The `test_smoke_snobol4_jit.sh` gate runs ~150 crosscheck programs in `----interp` / `--interp` / `--run` and requires the SM and JIT PASS counts match the IR PASS count. Current state at M1 close:
+The `test_smoke_snobol4_jit.sh` gate runs ~150 crosscheck programs in `----run` / `--run` / `--run` and requires the SM and JIT PASS counts match the IR PASS count. Current state at M1 close:
 
 ```
-FAIL  --interp  PASS (101) < ----interp PASS (139)
-FAIL  --run PASS (101) < ----interp PASS (139)
+FAIL  --run  PASS (101) < ----run PASS (139)
+FAIL  --run PASS (101) < ----run PASS (139)
 ```
 
-**38 programs** PASS under `----interp` but FAIL under `--interp` and `--run`. Verified pre-existing: at commit `c6862096` (pre-Step-4) the same gate showed `--interp 102 / --run 101`. The CHUNKS Steps 2–6 are net-flat on this gate — no regression and no improvement.
+**38 programs** PASS under `----run` but FAIL under `--run` and `--run`. Verified pre-existing: at commit `c6862096` (pre-Step-4) the same gate showed `--run 102 / --run 101`. The CHUNKS Steps 2–6 are net-flat on this gate — no regression and no improvement.
 
 The 38-program gap is therefore independent of CHUNKS work — it predates this goal. It represents real IR-vs-SM divergences in the SM-mode pattern engine that the shallow smoke ×6 does not catch. M1's empirical proof (Step 5) was scoped to the migrated `emit_push_expr` sites; it did not, and could not, prove broad three-mode parity.
 

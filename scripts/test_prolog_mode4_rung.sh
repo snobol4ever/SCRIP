@@ -2,7 +2,7 @@
 # test_prolog_mode4_rung.sh — PL-G-1 (GOAL-PROLOG-BB)
 # Mode-4 Prolog correctness gate. For each minimal program, compile via
 # `scrip --compile --target=x86`, assemble, link, run, and diff stdout against
-# `scrip --interp`. Reports PASS=N FAIL=M.
+# `scrip --run`. Reports PASS=N FAIL=M.
 #
 # Gate threshold (GOAL-PROLOG-BB PL-G-1): mode-4 PASS >= 1 before any AGW-9 rung
 # is marked complete. Zero passing is acceptable while the bb_pl_* templates are
@@ -37,7 +37,7 @@ PASS=0; FAIL=0
 for nm in "${NAMES[@]}"; do
     PL="$WORK/$nm.pl"
     write_prog "$nm" > "$PL"
-    WANT="$(timeout 8 "$SCRIP" --interp "$PL" < /dev/null 2>/dev/null)"
+    WANT="$(timeout 8 "$SCRIP" --run "$PL" < /dev/null 2>/dev/null)"
     GOT="$(timeout 12 bash "$RUNNER" "$PL" 2>/dev/null)"
     if [ "$WANT" = "$GOT" ] && [ -n "$WANT" ]; then
         echo "  PASS $nm"

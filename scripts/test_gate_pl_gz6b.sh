@@ -34,7 +34,7 @@ m4_run() { # $1=name ; compiles $TMP/$1.pl -> runs -> stdout in $TMP/$1.o4
 run_admitted() { # $1=name $2=program(printf-format) $3=expected_stdout(printf-format) — m2==m3==m4
   local NM=$1 PRG=$2 EXP=$3
   printf "$PRG" > "$TMP/$NM.pl"
-  "$SCRIP" --interp "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
+  "$SCRIP" --run "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
   "$SCRIP" --run    "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o3" 2>"$TMP/$NM.e3" || fail "$NM m3 rc"
   grep -q "INTERP-FALLBACK" "$TMP/$NM.e3" && fail "$NM m3 fell back to the interpreter (GZ path not taken)"
   m4_run "$NM"

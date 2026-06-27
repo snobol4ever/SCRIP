@@ -11,12 +11,12 @@ EXPR kind, immediate-caller symbol, and BB-ancestor symbol once per
 unique tuple to `/tmp/rs23_diag.log` (env: `RS23_DIAG_LOG`).
 
 Ran across:
-- `test_smoke_snobol4.sh` (7 tests, --interp / --run / ----interp)
-- `test_smoke_icon.sh` (5 tests, ----interp)
+- `test_smoke_snobol4.sh` (7 tests, --run / --run / ----run)
+- `test_smoke_icon.sh` (5 tests, ----run)
 - `test_smoke_prolog.sh` (5 tests)
 - `test_smoke_raku.sh` (5 tests)
 - `test_smoke_unified_broker.sh` (49 tests, mixed modes)
-- `test_icon_all_rungs.sh` (263 programs, ----interp)
+- `test_icon_all_rungs.sh` (263 programs, ----run)
 
 Total: 570 raw events, 18 unique (kind, caller, via) tuples.
 
@@ -81,7 +81,7 @@ called it — and only logs when a BB-adapter is on the call stack.
 
 ## Mode-1 observation
 
-Smoke_icon runs `----interp` (mode 1).  In mode 1, Icon programs go
+Smoke_icon runs `----run` (mode 1).  In mode 1, Icon programs go
 through `polyglot_execute → coro_call(main)`.  `coro_call` uses
 `bb_exec_stmt` for proc bodies (RS-17b).  Therefore mode-1 Icon DOES
 exercise the BB adapters, and the gaps above DO fire in mode 1.  The

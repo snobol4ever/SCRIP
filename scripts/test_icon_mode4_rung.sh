@@ -6,13 +6,13 @@
 # For each Icon program with a matching .expected file, runs the FULL mode-4
 # native pipeline — scrip --compile --target=x86 file.icn > file.s ; as file.s ;
 # gcc -no-pie file.o -L out -lscrip_rt -Wl,-rpath,out -lm — then executes the
-# binary and diffs its stdout against scrip --interp (the mode-2 oracle).
+# binary and diffs its stdout against scrip --run (the mode-2 oracle).
 # Reports PASS/FAIL/SKIP in PASS=N FAIL=M format and never aborts the harness:
 # emit / assemble / link / run failures are caught and counted as FAIL, not fatal.
 #
 # This gate exists so EMITTER (template) rungs can be honestly verified: a
 # template that emits an empty string or stub jumps produces a binary whose
-# output diverges from --interp and is counted FAIL (HQ Invariant 0). Mode-2
+# output diverges from --run and is counted FAIL (HQ Invariant 0). Mode-2
 # (test_icon_all_rungs.sh) cannot measure mode-4 generator/template progress.
 #
 # Gate threshold (per GOAL-ICON-BB ICN-G-1): the harness must exist and run
@@ -90,10 +90,10 @@ run_one() {
     local got want
     if [ -f "$stdin_file" ]; then
         got=$(timeout "$tmo" "$bin" < "$stdin_file" 2>/dev/null) || true
-        want=$(timeout "$tmo" "$SCRIP" --interp "$icn" < "$stdin_file" 2>/dev/null) || true
+        want=$(timeout "$tmo" "$SCRIP" --run "$icn" < "$stdin_file" 2>/dev/null) || true
     else
         got=$(timeout "$tmo" "$bin" < /dev/null 2>/dev/null) || true
-        want=$(timeout "$tmo" "$SCRIP" --interp "$icn" < /dev/null 2>/dev/null) || true
+        want=$(timeout "$tmo" "$SCRIP" --run "$icn" < /dev/null 2>/dev/null) || true
     fi
 
     if [ "$got" = "$want" ]; then

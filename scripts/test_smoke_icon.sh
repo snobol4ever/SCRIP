@@ -2,8 +2,8 @@
 # test_smoke_icon.sh — per-frontend smoke for Icon, run in BOTH native execution modes.
 #   mode 3 = --run     (in-process stackless native x86 BB blobs) — the primary mode.
 #   mode 4 = --compile (standalone x86-64 asm -> assemble -> link libscrip_rt.so -> run -> compare).
-# NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --interp) was DELETED — the harness no longer
-#    invokes --interp. m3 is now the primary correctness mode (it replaced the m2 oracle's build-sanity role).
+# NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --run) was DELETED — the harness no longer
+#    invokes --run. m3 is now the primary correctness mode (it replaced the m2 oracle's build-sanity role).
 #    DONE BAR: m3 AND m4 each zero silent FAIL (all 12 emit natively today; add [SMX]-EXCISED tracking here if
 #    a future Icon test legitimately declines a rung).
 # Exit 0 iff mode-3 has zero FAIL AND mode-4 has zero FAIL AND m3 PASS >= $MODE3_MIN AND m4 PASS >= $MODE4_MIN.
