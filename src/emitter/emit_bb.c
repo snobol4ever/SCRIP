@@ -263,6 +263,8 @@ const char *emit_intern_str(const char *s) {
 }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail);
+static int ir_node_is_alt_arm(IR_t *nd);
+static IR_t *ir_skip_alt_arms(IR_t *entry);
 static void descr_chain_operand_refs(IR_t *entry);
 static void gvar_stmt_operand_refs(IR_t *head);
 static int gvar_prewalk_idx_operand(IR_t *idx, bb_label_t *lbl_ω);
@@ -2177,17 +2179,19 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
     enum { CH_MAX = 512 };
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
+    entry = ir_skip_alt_arms(entry);
     queue[qt++] = entry;
     while (qh < qt) {
         IR_t *c = queue[qh++];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
+        if (ir_node_is_alt_arm(c)) continue;
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-10] FATAL arg subchain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        { extern int g_scan_regs_live; if (g_scan_regs_live && (c->op == IR_CALL || ir_is_call_kind(c->op) || ir_is_scan_kind(c->op)) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node; }
+        if (c->γ.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->γ.node);
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
+        { extern int g_scan_regs_live; if (g_scan_regs_live && (c->op == IR_CALL || ir_is_call_kind(c->op) || ir_is_scan_kind(c->op)) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node); }
     }
     { extern int g_scan_regs_live; if (g_scan_regs_live) for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i]; }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * (n > 0 ? n : 1));
@@ -2201,10 +2205,12 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = succ;
         bb_label_t *node_ω = fail;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->γ.node) { node_γ = (i > k && subchain_node_is_generator(nodes[k])) ? betas[k] : lbls[k]; break; }
+        IR_t *gtgt = ir_skip_alt_arms(nodes[i]->γ.node);
+        IR_t *otgt = ir_skip_alt_arms(nodes[i]->ω.node);
+        for (int k = 0; k < n; k++) if (nodes[k] == gtgt) { node_γ = (i > k && subchain_node_is_generator(nodes[k])) ? betas[k] : lbls[k]; break; }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = succ;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->ω.node) { node_ω = lbls[k]; omega_resolved = 1; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = lbls[k]; omega_resolved = 1; break; }
         if (!omega_resolved) node_ω = fail;
         walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
@@ -2331,7 +2337,9 @@ static void flat_drive_gen_scan(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_�
     descr_chain_operand_refs(body_sg->entry);
     int saved_scan_regs_live = g_scan_regs_live;
     g_scan_regs_live = 1;
+    IR_graph_t *saved_cfg_scan = g_emit_cfg; g_emit_cfg = body_sg;
     flat_emit_arg_subchain(body_sg->entry, body_done, body_fail);
+    g_emit_cfg = saved_cfg_scan;
     g_scan_regs_live = saved_scan_regs_live;
     IR_t *body_term = descr_chain_terminal(body_sg->entry);
     int body_slot = body_term ? bb_slot_get(body_term) : -1;
