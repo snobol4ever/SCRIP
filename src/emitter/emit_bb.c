@@ -2244,7 +2244,9 @@ static void gvar_drive_call_arg_slots(IR_t *nd, bb_label_t *lbl_ω) {
         { IR_t *rp = res[i]; int rg = 0; while (rp && rg++ < 256) { if (rp->op == IR_BINOP && IR_LIT(rp).ival >= BINOP_LT && IR_LIT(rp).ival <= BINOP_NE) { if (res_last[i] && res_last[i]->op == IR_LIT_I && IR_LIT(res_last[i]).ival == 1 && rp->ω.node && rp->ω.node->op == IR_LIT_I && IR_LIT(rp->ω.node).ival == 0) relop_diamond = 1; break; } if (!rp->γ.node || rp->γ.node->op == IR_SUCCEED || rp->γ.node->op == IR_FAIL) break; rp = rp->γ.node; } }
         int unop_arith = ((res_last[i] && res_last[i]->op == IR_UNOP && (IR_LIT(res_last[i]).ival == TT_MNS || IR_LIT(res_last[i]).ival == TT_PLS)) || (res[i] && res[i]->op == IR_UNOP && (IR_LIT(res[i]).ival == TT_MNS || IR_LIT(res[i]).ival == TT_PLS))) ? 1 : 0;
         g_gvar_callarg_live = 1;
-        if (arg_entry_terminal(res[i]) && !unop_arith) {
+        if (res[i] && res[i]->op == IR_SEQ && IR_LIT(res[i]).dval == 1.0) {
+            /* value-concat sequence: marshal_call_arg inline-concat arm flattens it and calls rt_concat_parts_d into the arg slot; pre-computing would route the IR_SEQ to flat_drive_gvar_seq_passthrough which yields no value and claims no slot */
+        } else if (arg_entry_terminal(res[i]) && !unop_arith) {
             walk_bb_flat(res[i], arg_done, lbl_ω, arg_β);
             slots[i] = bb_slot_get(res[i]);
         } else if (relop_diamond) {
@@ -2409,12 +2411,12 @@ static void flat_drive_call_builtin(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *l
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static char g_seq_int_bufs[16][24];
 static int gvar_seq_flatten(IR_graph_t *g, int *n) {
     if (!g || !g->entry || *n >= 16) return 0;
     IR_t *e = g->entry;
     if (e->op == IR_LIT_S) { g_emit.op_parts_tag[*n] = 0; g_emit.op_parts_str[(*n)++] = IR_LIT(e).sval ? IR_LIT(e).sval : ""; return 1; }
-    if (e->op == IR_LIT_I) { int _s = (*n)++; snprintf(g_seq_int_bufs[_s], 24, "%lld", (long long)IR_LIT(e).ival); g_emit.op_parts_tag[_s] = 0; g_emit.op_parts_str[_s] = g_seq_int_bufs[_s]; return 1; }
+    if (e->op == IR_LIT_I) { char b[40]; snprintf(b, 40, "%lld", (long long)IR_LIT(e).ival); g_emit.op_parts_tag[*n] = 0; g_emit.op_parts_str[(*n)++] = strdup(b); return 1; }
+    if (e->op == IR_LIT_F) { char b[40]; gcvt(IR_LIT(e).dval, 14, b); g_emit.op_parts_tag[*n] = 0; g_emit.op_parts_str[(*n)++] = strdup(b); return 1; }
     if (e->op == IR_VAR)   { g_emit.op_parts_tag[*n] = 1; g_emit.op_parts_str[(*n)++] = IR_LIT(e).sval ? IR_LIT(e).sval : ""; return 1; }
     if (e->op == IR_SEQ)   {
         IR_graph_t *l = (IR_graph_t *)(intptr_t)IR_EXEC(e).counter;

@@ -547,7 +547,7 @@ void rt_subject_load_lit(const char *s, void *slot)
     Σ = s; Σlen = len;          /* capture base for rt_cap_assign_cursor — must mirror the NV arm */
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
+DESCR_t rt_concat_parts_d(void *parts, int n)
 {
     struct part_t { int tag; int pad; const char *s; } *p = (struct part_t *)parts;
     const char *vals[16]; int lens[16]; size_t total = 0;
@@ -560,6 +560,7 @@ void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
             if (IS_NAMEVAL(v)) v = NV_GET_fn(v.s);
             if (v.v == DT_S || v.v == DT_SNUL) { s = v.s ? v.s : ""; len = v.slen ? (int)v.slen : (int)strlen(s); }
             else if (IS_INT_fn(v)) { char *b = (char *)GC_MALLOC_ATOMIC(32); snprintf(b, 32, "%lld", (long long)v.i); s = b; len = (int)strlen(b); }
+            else if (IS_REAL_fn(v)) { char *b = (char *)GC_MALLOC_ATOMIC(40); gcvt(v.r, 14, b); s = b; len = (int)strlen(b); }
         }
         vals[i] = s; lens[i] = len; total += (size_t)len;
     }
@@ -567,6 +568,12 @@ void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
     for (int i = 0; i < n; i++) { if (lens[i] > 0) memcpy(buf + off, vals[i], (size_t)lens[i]); off += (size_t)lens[i]; }
     buf[off] = '\0';
     DESCR_t d = { .v = DT_S, .slen = (uint32_t)total, .s = buf };
+    return d;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
+{
+    DESCR_t d = rt_concat_parts_d(parts, n);
     NV_SET_fn(dst ? dst : "", d);
     if (g_monitor_bin) mon_emit_value_bin(dst ? dst : "", d);
 }
