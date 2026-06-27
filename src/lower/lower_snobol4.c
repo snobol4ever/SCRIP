@@ -92,6 +92,19 @@ static int is_sno_unop(tree_e tt) {
     default: return 0; }
 }
 /*====================================================================================================================================================================================================*/
+/* ── indirect-reference compile-time resolvability ($'lit', $.var, $.arr<k> — name/indirect cancel per SPITBOL Ch.7) ── */
+static int sno_indirect_resolvable(const tree_t * a) {
+    if (!a || a->t != TT_INDIRECT || a->n != 1 || !a->c[0]) return 0;
+    const tree_t * in = a->c[0];
+    if (in->t == TT_QLIT && in->v.sval) return 1;
+    if (in->t == TT_NAME && in->n > 0 && in->c[0]) {
+        const tree_t * g = in->c[0];
+        if (g->t == TT_VAR && g->v.sval) return 1;
+        if (g->t == TT_IDX && g->n >= 2 && g->c[0] && g->c[0]->t == TT_VAR && g->c[1] && (g->c[1]->t == TT_ILIT || g->c[1]->t == TT_VAR || g->c[1]->t == TT_QLIT)) return 1;
+    }
+    return 0;
+}
+/*====================================================================================================================================================================================================*/
 /* ── expression lowerer ─────────────────────────────────────────────── */
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res);
 static IR_graph_t * sno_arg_block(void * vcx, const tree_t * a);
@@ -123,6 +136,13 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
     }
     if (t->t == TT_NAME && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
         IR_t * nd = build(cx, IR_LIT_S, cont, nxt); IR_LIT(nd).sval = t->c[0]->v.sval; *res = nd; return nd; }
+    if (sno_indirect_resolvable(t)) {
+        const tree_t * in = t->c[0];
+        if (in->t == TT_QLIT) { IR_t * nd = build(cx, IR_VAR, cont, nxt); IR_LIT(nd).sval = in->v.sval; *res = nd; return nd; }
+        const tree_t * g = in->c[0];
+        if (g->t == TT_VAR) { IR_t * nd = build(cx, IR_VAR, cont, nxt); IR_LIT(nd).sval = g->v.sval; *res = nd; return nd; }
+        return lower_expr(cx, g, cont, nxt, res);
+    }
     if (is_sno_unop(t->t)) {
         IR_t * op = build(cx, IR_UNOP, cont, nxt); IR_LIT(op).ival = (long long) t->t;
         IR_t * orr = NULL; IR_t * ea = lower_expr(cx, t->c[0], op, nxt, &orr);
@@ -1138,7 +1158,8 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         int complex_arg = 0;
         for (int ai = 0; ai < subj->n && !complex_arg; ai++) {
             const tree_t * a = subj->c[ai];
-            if (a && (a->t == TT_INDIRECT || a->t == TT_OPSYN)) complex_arg = 1;
+            if (a && a->t == TT_OPSYN) complex_arg = 1;
+            else if (a && a->t == TT_INDIRECT && !sno_indirect_resolvable(a)) complex_arg = 1;
             else if (a && a->t == TT_IDX && !(a->n >= 2 && a->c[0] && a->c[0]->t == TT_VAR && a->c[1] && (a->c[1]->t == TT_ILIT || a->c[1]->t == TT_VAR || a->c[1]->t == TT_QLIT))) complex_arg = 1;
         }
         if (complex_arg) {
