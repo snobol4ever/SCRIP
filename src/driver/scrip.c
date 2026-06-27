@@ -2700,6 +2700,8 @@ int main(int argc, char **argv)
         extern int g_frame_active;
         if (is_icon || is_raku) {
             extern int g_postfix_resume;
+            extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
+            g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
             if (is_icon) g_postfix_resume = 1;
             stage2_t *s2 = sm_preamble(ast_prog);
             if (!s2) return 1;

@@ -1088,6 +1088,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 for (int i = 1; i < mn; i++) { if (!mro[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", mro[i]); }
                 *out = STRVAL(GC_strdup(buf)); return 1;
             }
+            if (cn && !strcmp(mm, "methods")) {
+                extern int dat_methods(const char *name, const char **out, int max); const char *ms[256]; int mn = dat_methods(cn, ms, 256);
+                char buf[2048]; int pos = 0; buf[0] = 0;
+                for (int i = 0; i < mn; i++) { if (!ms[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", ms[i]); }
+                *out = STRVAL(GC_strdup(buf)); return 1;
+            }
+            if (cn && !strcmp(mm, "attributes")) {
+                extern int dat_attributes(const char *name, const char **out, int max); const char *as[256]; int an = dat_attributes(cn, as, 256);
+                char buf[2048]; int pos = 0; buf[0] = 0;
+                for (int i = 0; i < an; i++) { if (!as[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", as[i]); }
+                *out = STRVAL(GC_strdup(buf)); return 1;
+            }
             *out = FAILDESCR; return 1;
         }
         if (mname0 && !strcmp(mname0, "WHAT")) {

@@ -235,6 +235,24 @@ const char *dat_type_method_at(int i, int j) { return (i >= 0 && i < dat_ntypes 
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_field(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].fields[j] : (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int dat_methods(const char *name, const char **out, int max) {
+    DatType *t = dat_find_type(name); if (!t) return 0; int n = 0; const char *mro[64]; int mn = dat_mro(name, mro, 64);
+    if (mn == 0) { mro[0] = name; mn = 1; }
+    for (int mi = 0; mi < mn; mi++) { DatType *c = dat_find_type(mro[mi]); if (!c) continue;
+        for (int j = 0; j < c->nmethods && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], c->methods[j])) { dup = 1; break; } if (!dup) out[n++] = c->methods[j]; }
+        for (int ri = 0; ri < c->nroles; ri++) { DatType *r = dat_find_type(c->roles[ri]); if (!r) continue;
+            for (int j = 0; j < r->nmethods && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], r->methods[j])) { dup = 1; break; } if (!dup) out[n++] = r->methods[j]; } } }
+    return n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_attributes(const char *name, const char **out, int max) {
+    DatType *t = dat_find_type(name); if (!t) return 0; int n = 0; const char *mro[64]; int mn = dat_mro(name, mro, 64);
+    if (mn == 0) { mro[0] = name; mn = 1; }
+    for (int mi = 0; mi < mn; mi++) { DatType *c = dat_find_type(mro[mi]); if (!c) continue;
+        for (int j = 0; j < c->nfields && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], c->fields[j])) { dup = 1; break; } if (!dup) out[n++] = c->fields[j]; } }
+    return n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_field(const char *name, int *fidx) {
     for (int i = 0; i < dat_ntypes; i++)
         for (int j = 0; j < dat_types[i].nfields; j++)

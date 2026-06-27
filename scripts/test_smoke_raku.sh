@@ -1040,6 +1040,31 @@ class Dog is Mammal { }
 sub main() { my $d = Dog.new(); say($d.^name); say($d.^parents); }
 EOF
 
+# --- RK-OO-F: .^methods / .^attributes introspection. Rakudo MethodContainer.nqp / AttributeContainer.nqp:
+#     the non-:local form returns the full set across the MRO (most-derived first), including composed-role
+#     methods. In SCRIP's string-based metamodel these are space-joined name lists, walked over the C3 MRO
+#     by dat_methods/dat_attributes with dedup. Both native modes (the dat method/role/field tables are
+#     replayed into the m4 binary via dat_add_method@PLT and the class spec). ---
+raku "meta_methods_mro" "bark speak eat" << 'EOF'
+class Animal { has $.name; method speak() { return "..."; } method eat() { return "om"; } }
+class Dog is Animal { has $.breed; method bark() { return "woof"; } }
+sub main() { my $d = Dog.new(name => "Rex", breed => "Lab"); say($d.^methods); }
+EOF
+raku "meta_attributes_mro" "name breed" << 'EOF'
+class Animal { has $.name; method speak() { return "..."; } }
+class Dog is Animal { has $.breed; }
+sub main() { my $d = Dog.new(name => "Rex", breed => "Lab"); say($d.^attributes); }
+EOF
+raku "meta_methods_role" "fetch hello" << 'EOF'
+role Greet { method hello() { return "hi"; } }
+class Svc does Greet { method fetch() { return "ok"; } }
+sub main() { my $s = Svc.new(); say($s.^methods); }
+EOF
+raku "meta_methods_typeobj" "tick" << 'EOF'
+class Clock { method tick() { return "t"; } }
+sub main() { say(Clock.^methods); }
+EOF
+
 # --- RK-OO-F: :D/:U definiteness constraints + .defined + my $x; (uninit decl).
 #     :D params accept only defined (non-SNUL) values; :U params accept only undefined (SNUL).
 #     Mangled as TypeName_D / TypeName_U in proc names (colon → underscore for GAS safety).
