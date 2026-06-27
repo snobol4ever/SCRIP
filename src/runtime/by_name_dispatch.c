@@ -61,6 +61,7 @@ int rt_builtin_is_known(const char *name)
         "obj_new", "meth_call", "field_set", "field_set_pub",
         "die", "script_die",
         "callsame", "nextsame", "callwith",
+        "__multi_call",
         "TIME", "DATE",
         NULL
     };
@@ -254,6 +255,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
     if (!strcmp(meth, "round")) { *out = INTVAL((long)floor(to_real(recv) + 0.5)); return 1; }
     if (!strcmp(meth, "Bool") || !strcmp(meth, "so") || !strcmp(meth, "not")) { int truthy; if (IS_INT_fn(recv)) truthy = (recv.i != 0); else if (IS_REAL_fn(recv)) truthy = (recv.r != 0.0); else truthy = (n > 0); *out = INTVAL(!strcmp(meth, "not") ? (truthy ? 0 : 1) : (truthy ? 1 : 0)); return 1; }
+    if (!strcmp(meth, "defined")) { *out = INTVAL(recv.v != DT_SNUL ? 1 : 0); return 1; }
     if ((!strcmp(meth, "succ") || !strcmp(meth, "pred")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { int d = !strcmp(meth, "succ") ? 1 : -1; if (IS_INT_fn(recv)) *out = INTVAL((long)recv.i + d); else *out = REALVAL(recv.r + d); return 1; }
     if (!strcmp(meth, "words")) { char *r = (char *)GC_malloc(n + 1); int op = 0, first = 1; size_t i = 0; while (i < n) { while (i < n && isspace((unsigned char)s[i])) i++; if (i >= n) break; if (!first) r[op++] = SOH; first = 0; while (i < n && !isspace((unsigned char)s[i])) r[op++] = s[i++]; } r[op] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "comb")) { char *r = (char *)GC_malloc(2 * n + 1); int op = 0; for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; } r[op] = '\0'; *out = STRVAL(r); return 1; }
@@ -367,8 +369,102 @@ static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *
     return o;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static const char *rt_mc_type_name(DESCR_t d) {
+    switch (d.v) {
+    case DT_I: return "Int";
+    case DT_R: return "Num";
+    case DT_S: return "Str";
+    case DT_DATA: { if (d.u && d.u->type && d.u->type->name) return d.u->type->name; return "Any"; }
+    default: return "Any";
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int rt_mc_is_subtype(const char *a, const char *b) {
+    if (!a || !b) return 0;
+    if (!strcmp(b, "Any") || !strcmp(b, "Mu") || !strcmp(b, "Cool")) return 1;
+    if (!strcmp(a, b)) return 1;
+    int a_numleaf = (!strcmp(a, "Int") || !strcmp(a, "Num") || !strcmp(a, "Rat"));
+    if ((!strcmp(b, "Numeric") || !strcmp(b, "Real")) && a_numleaf) return 1;
+    { extern int dat_mro(const char *name, const char **out, int max); const char *mro[64]; int n = dat_mro(a, mro, 64);
+      for (int i = 0; i < n; i++) if (mro[i] && !strcmp(mro[i], b)) return 1; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int rt_mc_accepts(const char *ptype, DESCR_t arg) {
+    if (!ptype || !strcmp(ptype, "Any") || !strcmp(ptype, "Mu")) return 1;
+    int require_def = 0, require_undef = 0;
+    const char *colon = strrchr(ptype, ':');
+    const char *under = strrchr(ptype, '_');
+    char base[64]; base[0] = 0;
+    if (colon && (!strcmp(colon, ":D") || !strcmp(colon, ":U"))) {
+        require_def   = !strcmp(colon, ":D");
+        require_undef = !strcmp(colon, ":U");
+        int bl = (int)(colon - ptype); if (bl > 63) bl = 63; memcpy(base, ptype, (size_t)bl); base[bl] = 0;
+    } else if (under && (!strcmp(under, "_D") || !strcmp(under, "_U"))) {
+        require_def   = !strcmp(under, "_D");
+        require_undef = !strcmp(under, "_U");
+        int bl = (int)(under - ptype); if (bl > 63) bl = 63; memcpy(base, ptype, (size_t)bl); base[bl] = 0;
+    } else { snprintf(base, sizeof base, "%s", ptype); }
+    int is_undef = (arg.v == DT_SNUL);
+    if (require_def   && is_undef) return 0;
+    if (require_undef) return is_undef;
+    if (!strcmp(base, "Any") || !strcmp(base, "Mu") || !strcmp(base, "Cool")) return 1;
+    return rt_mc_is_subtype(rt_mc_type_name(arg), base);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int rt_mc_narrower(char (*ta)[32], char (*tb)[32], int na) {
+    int narrower = 0, tied = 0;
+    for (int i = 0; i < na; i++) {
+        const char *A = ta[i], *B = tb[i];
+        if (!strcmp(A, B)) { tied++; continue; }
+        const char *cA = strrchr(A, ':'), *cB = strrchr(B, ':');
+        if (!cA || (!strcmp(cA,":D") && !strcmp(cA,":U"))) cA = strrchr(A, '_');
+        if (!cB || (!strcmp(cB,":D") && !strcmp(cB,":U"))) cB = strrchr(B, '_');
+        int aD = cA && (!strcmp(cA, ":D")||!strcmp(cA, "_D")), aU = cA && (!strcmp(cA, ":U")||!strcmp(cA, "_U"));
+        int bD = cB && (!strcmp(cB, ":D")||!strcmp(cB, "_D")), bU = cB && (!strcmp(cB, ":U")||!strcmp(cB, "_U"));
+        char baseA[32], baseB[32];
+        { int l = cA && (aD||aU) ? (int)(cA-A) : (int)strlen(A); if(l>31)l=31; memcpy(baseA,A,l); baseA[l]=0; }
+        { int l = cB && (bD||bU) ? (int)(cB-B) : (int)strlen(B); if(l>31)l=31; memcpy(baseB,B,l); baseB[l]=0; }
+        int same_base = !strcmp(baseA, baseB);
+        if (same_base && (aD||aU) && !(bD||bU)) { narrower++; continue; }
+        if (same_base && !(aD||aU) && (bD||bU)) { continue; }
+        if (rt_mc_is_subtype(baseA, baseB) && !rt_mc_is_subtype(baseB, baseA)) narrower++;
+        else if (!rt_mc_is_subtype(baseA, baseB) && !rt_mc_is_subtype(baseB, baseA)) tied++;
+    }
+    return narrower > 0 && (narrower + tied == na);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
+    if (!strcmp(fn, "__multi_call") && nargs >= 1) {
+        const char *base = VARVAL_fn(args[0]); if (!base) { *out = FAILDESCR; return 1; }
+        int na = nargs - 1; DESCR_t *aa = &args[1];
+        char prefix[160]; int pl = snprintf(prefix, sizeof prefix, "%s$", base);
+        static int acc_idx[256]; static char acc_names[256][160]; static char acc_types[256][8][32]; int nacc = 0;
+        extern int rt_proc_enum_count(void); extern const char *rt_proc_enum_name(int i);
+        int pcount = rt_proc_enum_count();
+        for (int pi = 0; pi < pcount && nacc < 256; pi++) {
+            const char *pn = rt_proc_enum_name(pi);
+            if (!pn || strncmp(pn, prefix, (size_t)pl)) continue;
+            const char *p = pn + pl; const char *e = strchr(p, '$');
+            int arity = atoi(p); if (arity != na) continue;
+            int nt = 0; const char *q = e ? e + 1 : (const char *)0;
+            while (q && nt < 8) { const char *nx = strchr(q, '$'); int len = nx ? (int)(nx - q) : (int)strlen(q); if (len > 31) len = 31; memcpy(acc_types[nacc][nt], q, (size_t)len); acc_types[nacc][nt][len] = 0; nt++; if (!nx) break; q = nx + 1; }
+            int ok = 1; for (int i = 0; i < na && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], aa[i])) { ok = 0; break; }
+            if (!ok) continue;
+            acc_idx[nacc] = pi; snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn); nacc++;
+        }
+        if (nacc == 0) { extern void rt_script_die_surface(const char *msg); char m[256]; snprintf(m, sizeof m, "Cannot resolve caller %s(...); no candidate matches the argument types", base); rt_script_die_surface(m); *out = FAILDESCR; return 1; }
+        int win = -1;
+        for (int i = 0; i < nacc; i++) { int beaten = 0;
+            for (int j = 0; j < nacc; j++) { if (i == j) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], na)) { beaten = 1; break; } }
+            if (!beaten) { win = i; break; } }
+        if (win < 0) win = 0;
+        const char *wname = acc_names[win]; (void)acc_idx;
+        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        for (int k = 0; k < na && k < 64; k++) g_call_args[k] = aa[k];
+        *out = rt_call_proc_descr(wname, na); return 1;
+    }
     if (!strcmp(fn, "__pas_sqr") && nargs == 1) {
         if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d * d; *out = r; return 1; }
         long v = IS_INT_fn(args[0]) ? args[0].i : 0;
@@ -986,6 +1082,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
             if (cn && !strcmp(mm, "name")) { *out = STRVAL(GC_strdup(cn)); return 1; }
+            if (cn && !strcmp(mm, "parents")) {
+                extern int dat_mro(const char *name, const char **out, int max); const char *mro[64]; int mn = dat_mro(cn, mro, 64);
+                char buf[1024]; int pos = 0; buf[0] = 0;
+                for (int i = 1; i < mn; i++) { if (!mro[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", mro[i]); }
+                *out = STRVAL(GC_strdup(buf)); return 1;
+            }
             *out = FAILDESCR; return 1;
         }
         if (mname0 && !strcmp(mname0, "WHAT")) {
@@ -994,6 +1096,22 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
             if (cn) { *out = STRVAL(GC_strdup(cn)); return 1; }
             *out = FAILDESCR; return 1;
+        }
+        if (mname0 && (!strcmp(mname0, "isa") || !strcmp(mname0, "does")) && nargs >= 3) {
+            const char *cn = NULL;
+            if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
+            else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
+            const char *target = VARVAL_fn(args[2]);
+            if (!cn || !target) { *out = INTVAL(0); return 1; }
+            extern int dat_mro(const char *name, const char **out, int max);
+            extern int dat_roles(const char *name, const char **out, int max);
+            int hit = 0; const char *mro[64]; int mn = dat_mro(cn, mro, 64);
+            if (mn == 0) { mro[0] = cn; mn = 1; }
+            for (int i = 0; i < mn && !hit; i++) if (mro[i] && !strcmp(mro[i], target)) hit = 1;
+            if (!hit && !strcmp(mname0, "does")) {
+                for (int i = 0; i < mn && !hit; i++) { const char *rls[8]; int rn = dat_roles(mro[i], rls, 8);
+                    for (int j = 0; j < rn && !hit; j++) if (rls[j] && !strcmp(rls[j], target)) hit = 1; } }
+            *out = INTVAL(hit ? 1 : 0); return 1;
         }
         if (mname0 && !strcmp(mname0, "bless")) {
             const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }

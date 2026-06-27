@@ -237,6 +237,8 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
 /*--------------------------------------------------------------------------------------------------------------------*/
 static rt_proc_t *rt_proc_find(const char *name);
 void rt_proc_cache_clear(void);
+int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
+const char *rt_proc_enum_name(int i) { return (i >= 0 && i < g_rt_gen_proc_count) ? g_rt_gen_procs[i].name : (const char *)0; }
 void rt_proc_reset(void) { g_rt_gen_proc_count = 0; rt_proc_cache_clear(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {

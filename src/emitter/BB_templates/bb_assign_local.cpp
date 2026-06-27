@@ -8,7 +8,17 @@ extern int g_descr_flat_chain;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_local() {
-    if (PLATFORM_X86) return IF(!(g_descr_flat_chain && _.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0), x86_bomb("bb_assign_local: needs descr flat-chain + rhs slot + varslot + own slot"))
+    if (PLATFORM_X86) return IF(!(g_descr_flat_chain && _.op_sb >= 0 && _.op_off >= 0 && (_.op_a_slot >= 0 || _.op_a_node_kind == (int)IR_LIT_NUL)), x86_bomb("bb_assign_local: needs descr flat-chain + rhs slot + varslot + own slot"))
+                           + IF(g_descr_flat_chain && _.op_sb >= 0 && _.op_off >= 0 && _.op_a_node_kind == (int)IR_LIT_NUL,
+                             x86("label", _.lbl_α)
+                           + x86("comment", "IR_ASSIGN local=NUL")
+                           + x86("mov", FRQ(_.op_sb), "0")
+                           + x86("mov", FRQ(_.op_sb + 8), "0")
+                           + x86("mov", FRQ(_.op_off), "0")
+                           + x86("mov", FRQ(_.op_off + 8), "0")
+                           + x86("jmp", "γ")
+                           + x86("def", "β")
+                           + x86("jmp", "ω"))
                            + IF(g_descr_flat_chain && _.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0,
                              x86("label", _.lbl_α)
                            + x86("comment", "IR_ASSIGN local")

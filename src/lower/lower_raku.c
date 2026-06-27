@@ -10,6 +10,12 @@ static const char * g_rk_gram_names[RK_GRAM_MAX];
 static int          g_rk_gram_n = 0;
 static const char * g_rk_class_names[RK_GRAM_MAX];
 static int          g_rk_class_n = 0;
+static char         g_rk_multi_names[RK_GRAM_MAX][128];
+static int          g_rk_multi_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_multi_n; i++) if (!strcmp(g_rk_multi_names[i], nm)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base) || g_rk_multi_n >= RK_GRAM_MAX) return; snprintf(g_rk_multi_names[g_rk_multi_n++], 128, "%s", base); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_gram_n; i++) if (!strcmp(g_rk_gram_names[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -297,6 +303,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         *res = nd; return nd; }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
+        if (nm && rk_is_multi_name(nm)) {
+            tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__multi_call";
+            tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__multi_call"; ast_push(mc, nmv);
+            tree_t * basq = ast_node_new(TT_QLIT); basq->v.sval = (char *)nm; ast_push(mc, basq);
+            for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
+            return lower_rcall(cx, mc, "__multi_call", 1, 1, γ, ω, res); }
         if (nm && !strcmp(nm, "any")) nm = "__rk_jct_any"; else if (nm && !strcmp(nm, "all")) nm = "__rk_jct_all";
         else if (nm && !strcmp(nm, "one")) nm = "__rk_jct_one"; else if (nm && !strcmp(nm, "none")) nm = "__rk_jct_none";
         if (nm && !strcmp(nm, "push") && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) {
@@ -425,8 +437,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_SEQ: case TT_PROGRAM: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
     case TT_METHCALL: return lower_rcall(cx, t, "meth_call", 0, 1, γ, ω, res);
     case TT_NEW: return lower_rcall(cx, t, "obj_new", 0, 1, γ, ω, res);
-    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, NULL, NULL); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return nd; }
-    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval; IR_t * ob = lower(cx, t->c[0], NULL, NULL); ir_operand_push(nd, ob); *res = nd; return nd; }
+    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv; }
+    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval; IR_t * obr = NULL; IR_t * eob = lower_rv(cx, t->c[0], nd, ω, &obr); ir_operand_push(nd, obr ? obr : eob); *res = nd; return eob; }
     case TT_RETURN: { if (t->n > 0 && t->c[0]) { IR_t * nd = build(cx, IR_RETURN, γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e; } IR_t * nd = build(cx, IR_RETURN, γ, ω); *res = nd; return nd; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
@@ -621,6 +633,17 @@ static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
 void lower_raku_stage2(const tree_t *prog) {
     rk_discover_grammars(prog);
     rk_register_classes(prog);
+    g_rk_multi_n = 0;
+    for (int i = 0; prog && i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (!d || d->t != TT_SUB_DECL) continue;
+        const char * nm = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+        if (!nm) continue;
+        const char * soh = strchr(nm, '$'); if (!soh) continue;
+        char base[128]; int bl = (int)(soh - nm); if (bl > 127) bl = 127; memcpy(base, nm, bl); base[bl] = 0;
+        rk_multi_name_add(base);
+    }
     rk_discover_procs(prog);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
