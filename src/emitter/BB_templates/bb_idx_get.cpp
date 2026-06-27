@@ -12,9 +12,25 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 std::string bb_idx_get() {
     if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1 && _.op_parts_lbl[0] && _.op_sa >= 0))
         return x86_bomb("bb_idx_get: unhandled (needs base name + result/scratch slots)");
-    if (!(_.bb_lk == (int)IR_LIT_I || (_.bb_lk == (int)IR_VAR && _.op_name2 && _.op_parts_lbl[1])))
-        return x86_bomb("bb_idx_get: unhandled key kind (LIT_I immediate or VAR by-name only)");
+    if (!(_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_LIT_S || (_.bb_lk == (int)IR_VAR && _.op_name2 && _.op_parts_lbl[1])))
+        return x86_bomb("bb_idx_get: unhandled key kind (LIT_I immediate, LIT_S literal, or VAR by-name only)");
     x86_begin();
+    if (_.bb_lk == (int)IR_LIT_S) {
+        return x86("label", _.lbl_α)
+             + x86("comment", "IR_IDX: string-literal key — table-only, subscript_get")
+             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
+             + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
+             + x86("mov",  "rdi", "rax")
+             + x86("mov",  "rsi", "rdx")
+             + x86("movabs", "rdx", (uint64_t)DT_S)
+             + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1])
+             + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
+             + x86("mov",  FRQ(_.op_off),     "rax")
+             + x86("mov",  FRQ(_.op_off + 8), "rdx")
+             + x86("jmp",  "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω");
+    }
     int byname = (_.bb_lk == (int)IR_VAR);
     std::string s = x86("label", _.lbl_α)
                   + x86("comment", "IR_IDX: AXS inline DT_A+int fast path, else subscript_get");
