@@ -981,6 +981,84 @@ raku "smatch named capture" "hello" <<'EOF'
 sub main() { my $s = "hello"; if ($s ~~ /<word>([a-z]+)/) { say($<word>); } }
 EOF
 
+# --- RK-OO-E1..2: multi-dispatch (multi sub). Candidates register under signature-mangled proc names
+#     (base$arity$T0$T1...); a call to the base name routes through the __multi_call runtime dispatcher,
+#     which enumerates the proc registry, filters by arity + per-arg type acceptance, and invokes the
+#     NARROWEST accepting candidate (Rakudo is_narrower: subtype beats supertype, typed beats untyped).
+#     Both native modes. ---
+raku "multi_arity" "$(printf 'one: x\ntwo: y,z')" << 'EOF'
+multi sub greet($a) { say("one: " ~ $a); }
+multi sub greet($a, $b) { say("two: " ~ $a ~ "," ~ $b); }
+sub main() { greet("x"); greet("y", "z"); }
+EOF
+raku "multi_type_int_str" "$(printf 'integer 42\nstring hello')" << 'EOF'
+multi sub describe(Int $x) { say("integer " ~ $x); }
+multi sub describe(Str $x) { say("string " ~ $x); }
+sub main() { describe(42); describe("hello"); }
+EOF
+raku "multi_typed_beats_untyped" "$(printf 'specific int\nfallback')" << 'EOF'
+multi sub f(Int $x) { say("specific int"); }
+multi sub f($x) { say("fallback"); }
+sub main() { f(5); f("str"); }
+EOF
+raku "multi_subclass_beats_parent" "a dog" << 'EOF'
+class Animal { }
+class Dog is Animal { }
+multi sub describe(Animal $a) { say("an animal"); }
+multi sub describe(Dog $d) { say("a dog"); }
+sub main() { my $d = Dog.new(); describe($d); }
+EOF
+raku "multi_two_typed_args" "$(printf 'int+int\nstr+str')" << 'EOF'
+multi sub combine(Int $a, Int $b) { say("int+int"); }
+multi sub combine(Str $a, Str $b) { say("str+str"); }
+sub main() { combine(1, 2); combine("a", "b"); }
+EOF
+
+# --- RK-OO-F: .isa / .does type tests. `.isa(T)` is true iff T is in the object's class MRO (nominal
+#     inheritance, includes self); `.does(R)` additionally consults composed roles. Returns Bool (1/0,
+#     SCRIP's boolean print form). Handled in meth_call before user-method resolution; both native modes. ---
+raku "isa_true_self_and_parent" "$(printf '1\n1')" << 'EOF'
+class Animal { }
+class Dog is Animal { }
+sub main() { my $d = Dog.new(); say($d.isa(Animal)); say($d.isa(Dog)); }
+EOF
+raku "isa_false_sibling" "$(printf '1\n0')" << 'EOF'
+class Animal { }
+class Dog is Animal { }
+class Cat is Animal { }
+sub main() { my $d = Dog.new(); say($d.isa(Animal)); say($d.isa(Cat)); }
+EOF
+raku "does_role" "$(printf '1\n1')" << 'EOF'
+role Barker { method bark() { say("woof"); } }
+class Dog does Barker { }
+sub main() { my $d = Dog.new(); say($d.does(Barker)); say($d.isa(Dog)); }
+EOF
+raku "meta_parents_chain" "$(printf 'Dog\nMammal Animal')" << 'EOF'
+class Animal { }
+class Mammal is Animal { }
+class Dog is Mammal { }
+sub main() { my $d = Dog.new(); say($d.^name); say($d.^parents); }
+EOF
+
+# --- RK-OO-F: :D/:U definiteness constraints + .defined + my $x; (uninit decl).
+#     :D params accept only defined (non-SNUL) values; :U params accept only undefined (SNUL).
+#     Mangled as TypeName_D / TypeName_U in proc names (colon → underscore for GAS safety).
+#     Narrowness: TypeName:D beats TypeName (adds constraint). .defined returns 1/0.
+#     my $x; produces SNUL (DT_SNUL=0) via the NUL arm of bb_assign_local. Both native modes. ---
+raku "defined_method_true_false" "$(printf '1\n0')" << 'EOF'
+sub main() { my $x = 5; my $u; say($x.defined); say($u.defined); }
+EOF
+raku "multi_colon_d_dispatch" "$(printf 'defined int: 42\nother')" << 'EOF'
+multi sub process(Int:D $x) { say("defined int: " ~ $x); }
+multi sub process($x) { say("other"); }
+sub main() { process(42); my $u; process($u); }
+EOF
+raku "multi_colon_u_dispatch" "uninitialized" << 'EOF'
+multi sub init(Str:U $x) { say("uninitialized"); }
+multi sub init(Str $x) { say("has value: " ~ $x); }
+sub main() { my $u; init($u); }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 EXCISED=$X3  / $N   (done bar: PASS or EXCISED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 EXCISED=$X4  / $N   (done bar: PASS or EXCISED, never silent FAIL)"

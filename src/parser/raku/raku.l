@@ -63,6 +63,10 @@ WS       [ \t\r]
 "rule"          { raku_expect_rebody = 1; return KW_RULE; }
 "regex"         { raku_expect_rebody = 1; return KW_REGEX; }
 "method"        { return KW_METHOD; }
+"multi"         { return KW_MULTI; }
+"proto"         { return KW_PROTO; }
+":D"            { return OP_COLON_D; }
+":U"            { return OP_COLON_U; }
 "has"           { return KW_HAS; }
 "new"           { return KW_NEW; }
 "self"          { raku_yylval.sval = strdup("self"); return VAR_SCALAR; }

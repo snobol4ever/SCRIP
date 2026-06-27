@@ -72,6 +72,26 @@ static tree_t *mk_junction(const char *flav, tree_t *l, tree_t *r) {
     return e;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_multi_mangle(const char *base, ExprList *params) {
+    static char buf[512]; int np = params ? params->count : 0;
+    int pos = snprintf(buf, sizeof buf, "%s$%d", base, np);
+    for (int i = 0; i < np; i++) { tree_t *p = params->items[i];
+        const char *ty = (p && p->n > 0 && p->c[0] && p->c[0]->v.sval) ? p->c[0]->v.sval : "Any";
+        char safe[64]; int j = 0;
+        for (const char *c = ty; *c && j < 63; c++, j++) safe[j] = (*c == ':') ? '_' : *c; safe[j] = 0;
+        pos += snprintf(buf + pos, sizeof buf - pos, "$%s", safe); }
+    return intern(buf);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_typed_param(const char *type, const char *name) {
+    tree_t *p = var_node(name); expr_add_child(p, leaf_sval(TT_QLIT, type)); return p;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_typed_def_param(const char *type, const char *def, const char *name) {
+    char buf[160]; snprintf(buf, sizeof buf, "%s%s", type, def);
+    return rk_typed_param(intern(buf), name);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *make_seq(ExprList *stmts) {
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     if (stmts) {
@@ -164,6 +184,8 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_TRY KW_CATCH KW_DIE
 %token KW_CLASS KW_METHOD KW_HAS KW_NEW
 %token KW_ROLE
+%token KW_MULTI KW_PROTO
+%token OP_COLON_D OP_COLON_U
 %token YADA
 %token KW_GRAMMAR KW_TOKEN KW_RULE KW_REGEX
 %token OP_FATARROW
@@ -212,6 +234,8 @@ stmt_list
 stmt
     : KW_MY VAR_SCALAR '=' expr ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
+    | KW_MY VAR_SCALAR ';'
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), ast_node_new(TT_NUL)); }
     | KW_MY VAR_ARRAY '=' expr ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
     | KW_MY VAR_ARRAY '=' expr ',' arg_list ';'
@@ -402,6 +426,22 @@ sub_decl
           tree_t *body=$5;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
+    | KW_MULTI KW_SUB IDENT '(' param_list ')' block
+        { ExprList *params=$5; int np=params?params->count:0;
+          const char *mname=rk_multi_mangle($3,params);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
+          tree_t *body=$7;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free($3); $$=e; }
+    | KW_MULTI KW_SUB IDENT '(' ')' block
+        { const char *mname=rk_multi_mangle($3,NULL);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          tree_t *body=$6;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free($3); $$=e; }
     ;
 class_decl
     : KW_CLASS IDENT is_clauses '{' class_body_list '}'
@@ -595,7 +635,13 @@ named_arg_list
     ;
 param_list
     : VAR_SCALAR             { $$=exprlist_append(exprlist_new(),var_node($1)); }
+    | IDENT VAR_SCALAR       { $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); free($1); }
+    | IDENT OP_COLON_D VAR_SCALAR { $$=exprlist_append(exprlist_new(),rk_typed_def_param($1,":D",$3)); free($1); }
+    | IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append(exprlist_new(),rk_typed_def_param($1,":U",$3)); free($1); }
     | param_list ',' VAR_SCALAR { $$=exprlist_append($1,var_node($3)); }
+    | param_list ',' IDENT VAR_SCALAR { $$=exprlist_append($1,rk_typed_param($3,$4)); free($3); }
+    | param_list ',' IDENT OP_COLON_D VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":D",$5)); free($3); }
+    | param_list ',' IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":U",$5)); free($3); }
     ;
 block
     : '{' stmt_list '}'  { $$=make_seq($2); }

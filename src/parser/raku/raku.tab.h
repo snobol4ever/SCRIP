@@ -124,27 +124,31 @@ typedef struct ExprList {
     KW_HAS = 304,                  /* KW_HAS  */
     KW_NEW = 305,                  /* KW_NEW  */
     KW_ROLE = 306,                 /* KW_ROLE  */
-    YADA = 307,                    /* YADA  */
-    KW_GRAMMAR = 308,              /* KW_GRAMMAR  */
-    KW_TOKEN = 309,                /* KW_TOKEN  */
-    KW_RULE = 310,                 /* KW_RULE  */
-    KW_REGEX = 311,                /* KW_REGEX  */
-    OP_FATARROW = 312,             /* OP_FATARROW  */
-    OP_RANGE = 313,                /* OP_RANGE  */
-    OP_RANGE_EX = 314,             /* OP_RANGE_EX  */
-    OP_ARROW = 315,                /* OP_ARROW  */
-    OP_EQ = 316,                   /* OP_EQ  */
-    OP_NE = 317,                   /* OP_NE  */
-    OP_LE = 318,                   /* OP_LE  */
-    OP_GE = 319,                   /* OP_GE  */
-    OP_SEQ = 320,                  /* OP_SEQ  */
-    OP_SNE = 321,                  /* OP_SNE  */
-    OP_AND = 322,                  /* OP_AND  */
-    OP_OR = 323,                   /* OP_OR  */
-    OP_BIND = 324,                 /* OP_BIND  */
-    OP_SMATCH = 325,               /* OP_SMATCH  */
-    OP_DIV = 326,                  /* OP_DIV  */
-    UMINUS = 327                   /* UMINUS  */
+    KW_MULTI = 307,                /* KW_MULTI  */
+    KW_PROTO = 308,                /* KW_PROTO  */
+    OP_COLON_D = 309,              /* OP_COLON_D  */
+    OP_COLON_U = 310,              /* OP_COLON_U  */
+    YADA = 311,                    /* YADA  */
+    KW_GRAMMAR = 312,              /* KW_GRAMMAR  */
+    KW_TOKEN = 313,                /* KW_TOKEN  */
+    KW_RULE = 314,                 /* KW_RULE  */
+    KW_REGEX = 315,                /* KW_REGEX  */
+    OP_FATARROW = 316,             /* OP_FATARROW  */
+    OP_RANGE = 317,                /* OP_RANGE  */
+    OP_RANGE_EX = 318,             /* OP_RANGE_EX  */
+    OP_ARROW = 319,                /* OP_ARROW  */
+    OP_EQ = 320,                   /* OP_EQ  */
+    OP_NE = 321,                   /* OP_NE  */
+    OP_LE = 322,                   /* OP_LE  */
+    OP_GE = 323,                   /* OP_GE  */
+    OP_SEQ = 324,                  /* OP_SEQ  */
+    OP_SNE = 325,                  /* OP_SNE  */
+    OP_AND = 326,                  /* OP_AND  */
+    OP_OR = 327,                   /* OP_OR  */
+    OP_BIND = 328,                 /* OP_BIND  */
+    OP_SMATCH = 329,               /* OP_SMATCH  */
+    OP_DIV = 330,                  /* OP_DIV  */
+    UMINUS = 331                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -153,7 +157,7 @@ typedef struct ExprList {
 #if ! defined RAKU_YYSTYPE && ! defined RAKU_YYSTYPE_IS_DECLARED
 union RAKU_YYSTYPE
 {
-#line 142 "raku.y"
+#line 162 "raku.y"
 
     long      ival;
     double    dval;
@@ -161,7 +165,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 165 "raku.tab.h"
+#line 169 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;

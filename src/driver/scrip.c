@@ -229,7 +229,7 @@ static int gen_scan_body_slotful(IR_t *r) {
 }
 static int rhs_kind_ok(IR_t *r) {
     if (!r) return 0;
-    if (r->op == IR_LIT_I || r->op == IR_LIT_S) return 1;
+    if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_LIT_NUL || r->op == IR_LIT_F) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT)) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
