@@ -1137,6 +1137,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             }
             *out = dat_construct(dt, fvals, dt->nfields); return 1;
         }
+        if (mname0 && !strcmp(mname0, "clone") && args[0].v == DT_DATA && args[0].u) {
+            DATINST_t *src = (DATINST_t *)args[0].u; const char *cname = (src && src->type) ? src->type->name : NULL;
+            DatType *dt = cname ? dat_find_type(cname) : NULL; if (!dt) { *out = FAILDESCR; return 1; }
+            DESCR_t fvals[64];
+            for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = (src->fields && fi < src->type->nfields) ? src->fields[fi] : NULVCL;
+            for (int ci = 2; ci + 1 < nargs; ci += 2) {
+                const char *kname = VARVAL_fn(args[ci]); if (!kname) continue;
+                for (int fi = 0; fi < dt->nfields && fi < 64; fi++) if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; }
+            }
+            *out = dat_construct(dt, fvals, dt->nfields); return 1;
+        }
         if (mname0 && !strcmp(mname0, "parse") && nargs == 3) {
             const char *gname = VARVAL_fn(args[0]);
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
