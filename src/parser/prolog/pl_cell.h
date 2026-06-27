@@ -28,6 +28,7 @@
  */
 /*--------------------------------------------------------------------------------------------------------------------*/
 #include "descr.h"
+#include "pl_area.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,29 +78,33 @@ static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
 
 /*-- trail: (addr, old 16-byte word) pairs; unwind restores the word --------------------------------------------------*/
 typedef struct { pl_cell_t *addr; pl_cell_t old; } pl_trail_ent_t;
-typedef struct { pl_trail_ent_t *ents; int top; int cap; } pl_trail_t;
+/* PL-AREAS-2: the trail backs onto a GC-INVISIBLE mmap area (pl_area.h) instead of a realloc'd array. The MARK stays
+ * an int INDEX — the emitted code stores it as a 32-bit frame cell and rt_trail_mark/rt_trail_unwind take an int, an
+ * ABI that is UNCHANGED; the area only supplies mmap-backed, pointer-stable (in-place-grow, never moves) storage so
+ * entries are indexed ents[i] over area.base. Lazy-mmap on first push (non-Prolog programs never reserve the region).
+ * GC-invisibility is safe HERE: a trail old-word is a var's PRE-binding value (an unbound self-ref), never a heap
+ * pointer (Prolog vars are single-assignment until backtrack), so no GC object is ever solely trail-reachable. */
+typedef struct { pl_area_t area; int top; } pl_trail_t;
 
-static inline void pl_trail_init(pl_trail_t *t) { t->ents = NULL; t->top = 0; t->cap = 0; }
+static inline void pl_trail_init(pl_trail_t *t) { t->area.base = t->area.top = t->area.limit = (char *)0; t->area.cap = 0; t->top = 0; }
 static inline int  pl_trail_mark(const pl_trail_t *t) { return t->top; }
 
-/* record a cell's current word before it is mutated (geometric ×2 growth — per THE DIRECTIVE, no fixed cap) */
+/* record a cell's current word before it is mutated (bump into the mmap area; in-place grow only — never moves). */
 static inline void pl_trail_push(pl_trail_t *t, pl_cell_t *addr) {
-    if (t->top >= t->cap) {
-        int nc = t->cap ? t->cap * 2 : 16;
-        pl_trail_ent_t *ne = (pl_trail_ent_t *)realloc(t->ents, (size_t)nc * sizeof(pl_trail_ent_t));
-        if (!ne) return;
-        t->ents = ne; t->cap = nc;
-    }
-    t->ents[t->top].addr = addr;
-    t->ents[t->top].old  = *addr;
+    if (!t->area.base) pl_area_init(&t->area, PL_AREA_DEFAULT_BYTES);
+    if ((size_t)(t->top + 1) * sizeof(pl_trail_ent_t) > t->area.cap) { if (!pl_area_grow(&t->area, sizeof(pl_trail_ent_t))) return; }
+    pl_trail_ent_t *ents = (pl_trail_ent_t *)t->area.base;
+    ents[t->top].addr = addr;
+    ents[t->top].old  = *addr;
     t->top++;
 }
 
 /* unwind to a mark: restore each trailed word, newest first */
 static inline void pl_trail_unwind(pl_trail_t *t, int mark) {
+    pl_trail_ent_t *ents = (pl_trail_ent_t *)t->area.base;
     while (t->top > mark) {
         t->top--;
-        *t->ents[t->top].addr = t->ents[t->top].old;
+        *ents[t->top].addr = ents[t->top].old;
     }
 }
 
