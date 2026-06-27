@@ -54,7 +54,7 @@ int rt_builtin_is_known(const char *name)
         "member", "insert", "delete", "key",
         "[]",
         "MAKELIST",
-        "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort",
+        "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
         "elems", "push_pure",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
@@ -799,7 +799,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = STRVAL(buf); return 1;
     }
+    if (!strcmp(fn, "arr_make") && nargs == 1) { long long hi = IS_INT_fn(args[0]) ? args[0].i : 0; long long n = hi + 1; if (n < 1) n = 1; ARBLK_t *b = (ARBLK_t *) GC_malloc(sizeof(ARBLK_t)); b->lo = 0; b->hi = (int) hi; b->ndim = 1; b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) GC_malloc(sizeof(DESCR_t) * (size_t) n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1; }
     if (!strcmp(fn, "arr_get") && nargs == 2) {
+        if (args[0].v == DT_A && args[0].arr) { ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; } *out = b->data[i - b->lo]; return 1; }
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         if (idx < 0 || !*cur) { *out = FAILDESCR; return 1; }
@@ -1414,6 +1416,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = STRVAL(acc); return 1;
     }
     if (!strcmp(fn, "arr_set_pure") && nargs >= 3) {
+        if (args[0].v == DT_A && args[0].arr) { ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; } b->data[i - b->lo] = args[2]; *out = args[0]; return 1; }
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb);
