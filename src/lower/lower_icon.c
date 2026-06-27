@@ -6,7 +6,7 @@
 int g_postfix_resume = 0;
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
 /*====================================================================================================================================================================================================*/
-typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; } icx_t;
+typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; IR_t * conj_resumable; } icx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -234,16 +234,16 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * CONJ = build(cx, IR_CONJ, γ, ω);
         IR_t ** val = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t * succ = CONJ;
         if (t->t == TT_SEQ_EXPR) {
-            IR_t * failt = ω; IR_t * last_beta = ω;
-            for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, failt, &val[i]); if (i == k - 1) last_beta = cx->beta; succ = ent[i]; failt = ent[i]; }
+            IR_t * failt = ω; IR_t * last_beta = ω; IR_t * rb = NULL;
+            for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, failt, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; succ = ent[i]; failt = ent[i]; }
             if (val[k - 1]) ir_operand_push(CONJ, val[k - 1]);
-            cx->beta = last_beta; *res = CONJ; return ent[0];
+            cx->conj_resumable = rb; cx->beta = last_beta; *res = CONJ; return ent[0];
         }
-        IR_t * last_beta = ω;
-        for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, ω, &val[i]); if (i == k - 1) last_beta = cx->beta; succ = ent[i]; }
+        IR_t * last_beta = ω; IR_t * rb = NULL;
+        for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, ω, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; succ = ent[i]; }
         int lr = -1; for (int i = 0; i < k; i++) { if (lr >= 0) ω_to(val[i], val[lr]); if (is_resumable(S[i])) lr = i; }
         if (val[k - 1]) ir_operand_push(CONJ, val[k - 1]);
-        cx->beta = last_beta; *res = CONJ; return ent[0];
+        cx->conj_resumable = rb; cx->beta = last_beta; *res = CONJ; return ent[0];
     }
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
         if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -404,7 +404,7 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * GEN = (t->n > 0) ? t->c[0] : NULL; const tree_t * BODY = (t->n > 1) ? t->c[1] : NULL;
     IR_t * E = build(cx, IR_EVERY, γ, ω);
-    IR_t * gen_entry; IR_t * gen_result; IR_t * gen_node;
+    IR_t * gen_entry; IR_t * gen_result; IR_t * gen_node; cx->conj_resumable = NULL;
     if (GEN && GEN->t == TT_ASSIGN && GEN->c[0] && GEN->c[0]->t == TT_VAR) {
         IR_t * asn = build(cx, IR_ASSIGN, NULL, E); IR_LIT(asn).sval = GEN->c[0]->v.sval;
         IR_t * rr = NULL; gen_entry = lower(cx, GEN->c[1], asn, E, &rr);
@@ -415,8 +415,9 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         gen_node = (cx->beta && cx->beta != E) ? cx->beta : (cx->last_gen ? cx->last_gen : gen_result);
         cx->last_gen = sg;
     }
+    IR_t * conj_rb = cx->conj_resumable;
     if (!BODY) {
-        IR_t * loop_target = (gen_node && gen_node != gen_result && gen_node != ω && gen_node != E) ? gen_node : E;
+        IR_t * loop_target = (gen_node && gen_node != gen_result && gen_node != ω && gen_node != E) ? gen_node : ((conj_rb && conj_rb != gen_result && conj_rb != ω && conj_rb != E) ? conj_rb : E);
         γ_to(gen_result, loop_target);
         ir_operand_push(E, gen_entry);
         *res = E; return gen_entry;
