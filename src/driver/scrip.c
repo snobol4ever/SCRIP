@@ -3391,6 +3391,21 @@ int main(int argc, char **argv)
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
             rt_proc_reset();
+            void *m3_gva_arena = (void *)0;
+            if (is_pascal) {
+                extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+                gva_collect_reset();
+                IR_graph_t *_mg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : (IR_graph_t *)0;
+                if (_mg) gva_collect_graph(_mg);
+                int n_gva_m3 = gva_count();
+                if (n_gva_m3 > 0) {
+                    m3_gva_arena = calloc((size_t)n_gva_m3, sizeof(DESCR_t));
+                    const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
+                    for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
+                    if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
+                }
+                if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via rbx-arena: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
+            }
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -3434,7 +3449,7 @@ int main(int argc, char **argv)
                 bb_box_fn fn = gvar_flat_chain_build(sbbg);
                 g_frame_active = 0;
                 ir_delete_all(s2);
-                if (fn) { (void)fn(rt_frame(), 0); goto run_done; }
+                if (fn) { extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, rt_frame(), 0, m3_gva_arena); else (void)fn(rt_frame(), 0); { extern int g_gva_active; g_gva_active = 0; } goto run_done; }
             }
             fprintf(stderr, "[SBB] mode-3: SNOBOL4 statement shape not yet flat-emittable (a box lacks a "
                             "MEDIUM_BINARY arm); soft fall — no output for this shape. No abort.\n");
