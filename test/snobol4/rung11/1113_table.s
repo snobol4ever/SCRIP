@@ -397,6 +397,8 @@ bb21_α:
  movabs rdx, 6
  movabs rcx, 7
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n12_α
  mov qword ptr [r12 + 336], rax
  mov qword ptr [r12 + 344], rdx
  jmp xgvarg36_done
@@ -769,6 +771,8 @@ bb45_α:
  movabs rdx, 6
  movabs rcx, 7
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n25_α
  mov qword ptr [r12 + 800], rax
  mov qword ptr [r12 + 808], rdx
  jmp xgvarg82_done

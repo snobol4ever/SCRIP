@@ -350,6 +350,8 @@ bb21_α:
  mov rdx, qword ptr [r12 + 224]
  mov rcx, qword ptr [r12 + 232]
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n17_α
  mov qword ptr [r12 + 240], rax
  mov qword ptr [r12 + 248], rdx
  jmp snoch0_n16_α

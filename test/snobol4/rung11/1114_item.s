@@ -213,6 +213,8 @@ bb10_α:
  movabs rdx, 6
  movabs rcx, 1
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n7_α
  mov qword ptr [r12 + 224], rax
  mov qword ptr [r12 + 232], rdx
  jmp xgvarg19_done
@@ -678,6 +680,8 @@ bb39_α:
  movabs rdx, 6
  movabs rcx, 1
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n19_α
  mov qword ptr [r12 + 800], rax
  mov qword ptr [r12 + 808], rdx
  jmp xgvarg74_done

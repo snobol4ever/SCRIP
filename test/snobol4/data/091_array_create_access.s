@@ -344,6 +344,8 @@ bb16_α:
  movabs rdx, 6
  movabs rcx, 1
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n7_α
  mov qword ptr [r12 + 224], rax
  mov qword ptr [r12 + 232], rdx
  jmp snoch0_n6_α
@@ -390,6 +392,8 @@ bb18_α:
  movabs rdx, 6
  movabs rcx, 3
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n9_α
  mov qword ptr [r12 + 256], rax
  mov qword ptr [r12 + 264], rdx
  jmp snoch0_n8_α
@@ -436,6 +440,8 @@ bb20_α:
  movabs rdx, 6
  movabs rcx, 5
  call subscript_get@PLT
+ cmp eax, 99
+ je flat_γ
  mov qword ptr [r12 + 288], rax
  mov qword ptr [r12 + 296], rdx
  jmp snoch0_n10_α

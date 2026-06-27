@@ -196,6 +196,8 @@ bb8_α:
  movabs rdx, 6
  movabs rcx, 1
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n5_α
  mov qword ptr [r12 + 128], rax
  mov qword ptr [r12 + 136], rdx
  jmp xgvarg13_done
