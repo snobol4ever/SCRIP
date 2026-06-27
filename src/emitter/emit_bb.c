@@ -2225,6 +2225,13 @@ static void flat_drive_gvar_assign(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lb
     } else if (c0 && c0->op == IR_LIT_S) {
         g_emit.op_parts_n = 1; g_emit.op_parts_tag[0] = 0; g_emit.op_parts_str[0] = IR_LIT(c0).sval ? IR_LIT(c0).sval : "";
     }
+    if (c0 && (c0->op == IR_CALL || ir_is_call_kind(c0->op) || c0->op == IR_IDX) && bb_slot_get(c0) < 0) {
+        int id = g_flat_node_id++;
+        bb_label_t *rhs_done = emit_label_alloc("xgca%d_done", id);
+        bb_label_t *rhs_b    = emit_label_alloc("xgca%d_b",    id);
+        walk_bb_flat(c0, rhs_done, lbl_ω, rhs_b);
+        emit_label_define_bb(rhs_done);
+    }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
