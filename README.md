@@ -339,6 +339,69 @@ descriptor-heavy runtime over libgc, and per-call overhead in
 Re-grounding this claim is tracked under the REC-COV / RC-5 rung.
 
 
+## Prolog Benchmark — SCRIP vs GNU Prolog vs SWI-Prolog
+
+The Prolog frontend is measured against the two mainstream native engines —
+**GNU Prolog 1.4.5** (gprolog, a mature WAM-to-native compiler) and **SWI-Prolog 9.0.4**
+(swipl) — on the community-standard **van Roy / Aquarius** performance suite
+(`corpus/benchmarks/prolog/bench/*.pl`, UCB/CSD 89/50). All 22 programs reach **four-way
+correctness consensus**: GNU, SWI, SCRIP mode-3 (`--run`, in-process x86 in an RX slab),
+and SCRIP mode-4 (`--compile --target=x86` → `as`+`gcc` binary) all produce output
+byte-identical to the gprolog-derived `.expected` signature.
+
+Timing follows the van Roy methodology: each program's compute core is looped *N* times
+in one process (so per-program compile amortizes to ~0 and we measure steady-state
+per-iteration compute), best-of-*N* wall time, SCRIP binaries run with a pre-sized GC
+heap to suppress collection-cycle noise. Figures are **per-iteration compute in
+milliseconds** (`m4` is the mode-4 native binary, gcc `-O0`). Lower is faster; the ratio
+is SCRIP-m4 against gprolog. Sorted fastest-relative first.
+
+| Benchmark | GNU | SWI | SCRIP m4 | m4 vs GNU | m4 vs SWI |
+|-----------|----:|----:|---------:|----------:|----------:|
+| cal | 0.072 | 0.071 | 0.034 | **0.48× (faster)** | **0.48× (faster)** |
+| sendmore | 4.288 | 10.297 | 4.286 | **1.00×** | **0.42× (faster)** |
+| deriv | 0.036 | 0.036 | 0.073 | 2.02× | 2.03× |
+| ops8 | 0.038 | 0.038 | 0.078 | 2.02× | 2.05× |
+| times10 | 0.046 | 0.046 | 0.092 | 2.02× | 2.00× |
+| divide10 | 0.038 | 0.038 | 0.078 | 2.03× | 2.05× |
+| log10 | 0.037 | 0.037 | 0.076 | 2.03× | 2.05× |
+| crypt | 0.541 | 0.778 | 1.256 | 2.32× | 1.61× |
+| queens | 64.39 | 108.2 | 209.0 | 3.25× | 1.93× |
+| queens_8 | 0.342 | 0.610 | 1.146 | 3.35× | 1.88× |
+| tak | 12.03 | 21.16 | 41.73 | 3.47× | 1.97× |
+| fib | 3.596 | 4.408 | 12.79 | 3.56× | 2.90× |
+| query | 0.092 | 0.103 | 0.330 | 3.59× | 3.20× |
+| ham | 0.281 | 0.158 | 1.031 | 3.67× | 6.53× |
+| derive | 0.038 | 0.038 | 0.158 | 4.20× | 4.16× |
+| queensn | 158.3 | 183.5 | 792.0 | 5.00× | 4.32× |
+| nreverse | 0.079 | 0.078 | 0.406 | 5.14× | 5.21× |
+| zebra | 2.305 | 2.304 | 13.65 | 5.92× | 5.92× |
+| mu | 0.083 | 0.084 | 0.524 | 6.34× | 6.24× |
+| qsort | 0.076 | 0.153 | 0.515 | 6.74× | 3.37× |
+| nrev | 0.039 | 0.079 | 0.407 | 10.48× | 5.15× |
+| meta_qsort | 0.750 | 0.521 | 9.017 | 12.03× | 17.3× |
+
+**Geomean m4 vs GNU = 3.28×** (median 3.56×). Two structural facts:
+
+- **mode-3 ≡ mode-4 on every program** — the in-process and compiled-binary paths share
+  the GZ codegen and execute identically (the design invariant, confirmed empirically).
+- **The gap tracks heap traffic, exactly as the inline-cell campaign (PL-DESCR) predicts.**
+  Search- and atom-bound programs are at parity or faster (cal 0.48×, sendmore 1.00×);
+  arithmetic-bound ones cluster near 2× (the symbolic-derivative set, crypt); recursion-bound
+  near 3.5× (fib, tak, queens); the worst are list/structure-heavy (nrev 10.5×, qsort 6.7×,
+  zebra 5.9×) and the meta-interpreter (meta_qsort 12×). That is the boxed-`Term*`
+  compound-allocation tax — PL-DESCR-2 inlined *scalars* (ints/atoms/vars) into 16-byte cells,
+  but compounds still hit the heap, which is precisely where these programs live. Against SWI,
+  SCRIP is at parity or faster on a fair fraction (SWI is itself often slower than gprolog here).
+
+These are honest current numbers, not the target. Being within ~3.3× geomean of a mature
+native WAM, with the four-port boxed model and no first-argument indexing yet, is the
+present standing; closing it is the PL-DESCR (inline compound cells, last-call optimization)
+and first-argument-indexing work. Reproduce with `scripts/test_bench_prolog_4way.sh`
+(correctness) over `corpus/benchmarks/prolog/bench/`.
+
+---
+
 ## The Bootstrap Goal
 
 The correctness target is self-hosting. Two gates:
