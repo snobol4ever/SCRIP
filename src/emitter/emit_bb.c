@@ -1515,7 +1515,7 @@ int bb_arith_is_dynamic(IR_t *nd) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int arith_emits_descr(IR_t *o) {
+int arith_emits_descr(IR_t *o) {
     if (!o || o->op != IR_BINOP || !bb_arith_is_dynamic(o)) return 0;
     IR_t *a = bb_child0(o), *b = bb_child1(o);
     int a_ok = a && (a->op == IR_CALL || ir_is_call_kind(a->op) || a->op == IR_IDX || arith_emits_descr(a));
