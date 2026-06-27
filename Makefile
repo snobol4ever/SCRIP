@@ -142,6 +142,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/BB_templates/bb_scan_find.cpp \
     $(SRC)/emitter/BB_templates/bb_scan_bal.cpp \
     $(SRC)/emitter/BB_templates/bb_iterate.cpp \
+    $(SRC)/emitter/BB_templates/bb_key_gen.cpp \
     $(SRC)/emitter/BB_templates/bb_call.cpp \
     $(SRC)/emitter/BB_templates/bb_call_define.cpp \
     $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp \
@@ -398,6 +399,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_find.cpp    -o $(OBJ)/bb_scan_find.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_bal.cpp     -o $(OBJ)/bb_scan_bal.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_iterate.cpp      -o $(OBJ)/bb_iterate.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_key_gen.cpp      -o $(OBJ)/bb_key_gen.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call.cpp         -o $(OBJ)/bb_call.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_define.cpp   -o $(OBJ)/bb_call_define.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp  -o $(OBJ)/bb_call_proc_staged.o
