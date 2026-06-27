@@ -57,9 +57,15 @@ PL_FILES=$(ls \
 #                        in src/parser/prolog/prolog_parse.c. Compile-time-only metadata read by find_binop
 #                        during PARSING; never touched at runtime — like g_pl_nl_* it is not a §10 control/value
 #                        spine. Grows by realloc only while consuming op directives between clauses.
+# g_pl_env_area          PL-AREAS-3 ENVIRONMENT area (E / R15) — the mmap bump region rt_enter allocates callee frames
+#                        off, with O(1) backtrack-reset + deterministic-pop reclamation. SANCTIONED per the ratified
+#                        PIVOT (top of GOAL-PROLOG-BB.md): a contiguous DATA region (the WAM's memory half, language-
+#                        neutral), NOT the §10 #2 environment-CONTROL stack — control stays in the four ports + frame
+#                        cells; the boxes drive control, this is a data arena (the direct sibling of g_pl_trail's area).
 SANCTIONED="
 g_resolve_trail
 g_pl_trail
+g_pl_env_area
 g_pl_pred_table
 g_pl_pred_n
 g_rt_pl_nb

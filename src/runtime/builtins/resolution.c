@@ -23,6 +23,11 @@ int           g_resolve_cut_flag = 0;
  * Term* shadow env-stack, LEGACY-DOOMED #2) is DELETED — the inline cell IS the value, no shadow array. */
 #include "../../parser/prolog/pl_cell.h"
 pl_trail_t    g_pl_trail          = { { (char *)0, (char *)0, (char *)0, 0 }, 0 };
+/* PL-AREAS-3: the ENVIRONMENT area (E / R15) — the mmap bump region rt_enter allocates callee frames off, with O(1)
+ * backtrack-reset + deterministic-pop reclamation (pl_env_bump/mark/reset). SANCTIONED per the ratified PIVOT (top of
+ * GOAL-PROLOG-BB.md): a contiguous DATA region, not a §10 control/value stack — control stays in the four ports + frame
+ * cells; the trail (g_pl_trail) and this area are the only runtime memory regions, the H sibling lands in PL-AREAS-4. */
+pl_area_t     g_pl_env_area       = { (char *)0, (char *)0, (char *)0, 0 };
 int           g_resolve_active   = 0;
 resolve_choice    *g_resolve_bfr      = NULL;
 resolve_choice    *g_resolve_cut_barrier = NULL;
