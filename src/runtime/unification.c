@@ -125,6 +125,33 @@ void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words)
     return out;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/* PL-DESCR read/write-fused head match: unify a destination cell (a clause-head arg slot) against a structure pattern
+ * whose arity 16-byte arg WORDS the caller built on the stack. deref dst: if UNBOUND (DT_PLVAR) -> WRITE mode, build the
+ * arg block once and bind dst to a DT_PLREF sharing it (one GC_MALLOC, no separate header — strictly fewer allocs than
+ * build-then-unify); if a BOUND compound (DT_PLREF) of matching functor-id<<16|arity -> READ mode, unify each existing
+ * arg cell in place against the corresponding pattern word (ZERO top-level allocation, the throwaway-cons elimination);
+ * any other tag -> fail. Behavior is identical to rt_pl_compound_cell + rt_unify_terms: in read mode pl_unify(blk[i],
+ * src[i]) is exactly the recursion the general unify would have run after building the discarded compound. */
+int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg_words)
+{
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *src = (pl_cell_t *)arg_words; if (!dst) return 0;
+    pl_cell_t *D = pl_deref((pl_cell_t *)dst);
+    int fid = prolog_atom_intern(functor_name ? functor_name : "[]");
+    if ((int)D->v == DT_PLVAR) {
+        pl_cell_t *blk = (pl_cell_t *)GC_MALLOC((size_t)(arity > 0 ? arity : 1) * sizeof(pl_cell_t));
+        for (int i = 0; i < arity; i++) blk[i] = src[i];
+        pl_bind(D, pl_make_compound(fid, arity, blk), &g_pl_trail); return 1;
+    }
+    if ((int)D->v == (int)DT_PLREF) {
+        uint32_t want = (((uint32_t)fid) << 16) | ((uint32_t)arity & 0xFFFFu); if (D->slen != want) return 0;
+        pl_cell_t *blk = (pl_cell_t *)D->p; int mark = pl_trail_mark(&g_pl_trail);
+        for (int i = 0; i < arity; i++) if (!pl_unify(&blk[i], &src[i], &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        return 1;
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell)
 {
     extern void pl_write(Term *);
