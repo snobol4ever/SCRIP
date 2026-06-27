@@ -80,4 +80,20 @@ static inline void  pl_area_reset(pl_area_t *a, char *mark) { a->top = mark; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* bytes currently in use (for instrumentation / overflow diagnostics). */
 static inline size_t pl_area_used(const pl_area_t *a) { return (size_t)(a->top - a->base); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* PL-AREAS-3 — the ENVIRONMENT-area ABI (the E region: R15=E in the ratified H/TR/E assignment). rt_enter bumps each
+ * callee frame off this region; a choice box saves the top at α and restores it on retry (backtrack-reset), and a
+ * bounded callee pops it at γ (deterministic-pop) — both O(1), zero GC. These helpers are the in-memory form (the
+ * register-residency of E in R15 is a later sub-step, exactly as PL-AREAS-2 landed the trail area before R14). The
+ * MARK is an int OFFSET (top-base), DELIBERATELY parallel to the trail's int-index mark, so the emitted code stores
+ * it in a 32-bit frame cell and reset takes an int — byte-for-byte the same ABI shape as rt_trail_mark/unwind. Lazy
+ * mmap on first bump (a non-Prolog program never reserves the region). GC-invisible for the same reason as the trail
+ * area: a frame cell holds inline scalars / refs into the env+heap areas, never a GC object solely env-reachable;
+ * survivors that must outlive their choice point are copied to the GC heap on the escape path (PL-AREAS-4). */
+static inline void *pl_env_bump(pl_area_t *a, int nbytes) {
+    if (!a->base) pl_area_init(a, PL_AREA_DEFAULT_BYTES);
+    return pl_area_bump(a, (size_t)(nbytes > 0 ? nbytes : 16));
+}
+static inline int  pl_env_mark(const pl_area_t *a) { return a->base ? (int)(a->top - a->base) : 0; }
+static inline void pl_env_reset(pl_area_t *a, int off) { if (a->base && off >= 0) a->top = a->base + off; }
 #endif

@@ -182,6 +182,29 @@ void rt_trail_unwind(int mark)
     pl_trail_unwind(&g_pl_trail, mark);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/* PL-AREAS-3 — the ENVIRONMENT-area entry points (E / R15). rt_e_bump allocates one callee frame off the mmap region;
+ * rt_e_mark/rt_e_reset are the O(1) reclamation primitives (the choice box saves the mark at α and resets on retry;
+ * a bounded callee pops at γ). The int-offset mark mirrors rt_trail_mark's int-index ABI so the emitted code stores it
+ * in a 32-bit frame cell exactly like the trail mark. Lazy-mmap on first bump. NOT YET WIRED (the live rt_enter switch
+ * is the next sub-step; these are the allocator the goal file's PL-AREAS-3 touch-point list names). */
+void *rt_e_bump(int nbytes)
+{
+    extern pl_area_t g_pl_env_area;
+    return pl_env_bump(&g_pl_env_area, nbytes);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_e_mark(void)
+{
+    extern pl_area_t g_pl_env_area;
+    return pl_env_mark(&g_pl_env_area);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+void rt_e_reset(int off)
+{
+    extern pl_area_t g_pl_env_area;
+    pl_env_reset(&g_pl_env_area, off);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 #define RT_MARK_STACK_MAX 32
 static int g_resolve_mark_stack[RT_MARK_STACK_MAX];
 static int g_resolve_mark_top = 0;

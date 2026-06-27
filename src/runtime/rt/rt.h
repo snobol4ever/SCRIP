@@ -106,6 +106,10 @@ void  rt_trail_unwind(int mark);
 void  rt_trail_mark_push(void);
 void  rt_trail_unwind_top(void);
 void  rt_trail_mark_pop(void);
+/* PL-AREAS-3 — environment-area allocator/reclamation (E / R15); int-offset mark mirrors the trail's int-index ABI. */
+void *rt_e_bump(int nbytes);
+int   rt_e_mark(void);
+void  rt_e_reset(int off);
 void  rt_cp_save_caller_env(void *caller_env);
 void  rt_choice_cut_enter(void *cp);
 void  rt_choice_cut_exit(void *cp);
