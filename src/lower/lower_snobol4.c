@@ -1168,7 +1168,18 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         IR_LIT(var).sval = (char *) vname;
         return var; }
     case TT_SEQ: { IR_node_alloc(cx->g, IR_SEQ); return NULL; }
-    case TT_IDX: return NULL;
+    /* bare subscript subject:  a<k>  → IR_IDX read box, γ=success ω=failure (OOB array ref fails, SPITBOL Ch.7); supported base=VAR key∈{ILIT,VAR,QLIT} only, else orphan */
+    case TT_IDX: {
+        if (subj->n >= 2 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[1] && (subj->c[1]->t == TT_ILIT || subj->c[1]->t == TT_VAR || subj->c[1]->t == TT_QLIT)) {
+            IR_t * idx = build(cx, IR_IDX, γ_tgt, ω_tgt);
+            IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
+            IR_t * key_box;
+            if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
+            else if (subj->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval ? subj->c[1]->v.sval : ""; }
+            else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval; }
+            ir_operand_push(idx, base_box); ir_operand_push(idx, key_box);
+            return idx; }
+        return NULL; }
     case TT_IF:    { IR_node_alloc(cx->g, IR_IF);    return NULL; }
     case TT_WHILE: {
         IR_t * w = IR_node_alloc(cx->g, IR_WHILE);

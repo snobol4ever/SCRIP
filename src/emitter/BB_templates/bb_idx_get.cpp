@@ -77,6 +77,8 @@ std::string bb_idx_get() {
         s += x86("movabs", "rdx", (uint64_t)DT_I)
            + x86("movabs", "rcx", (uint64_t)(int64_t) _.bb_li);
     return s + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
+             + x86("cmp", "eax", (long)DT_FAIL)
+             + x86("je",  "ω")
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86("jmp", "γ")
