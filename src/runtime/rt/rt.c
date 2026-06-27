@@ -677,6 +677,14 @@ DESCR_t rt_list_bang_at(DESCR_t obj, int64_t idx)
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t idx)
+{
+    extern int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t *out);
+    DESCR_t out;
+    if (list_bang_key_at(obj, idx, &out)) return out;
+    return FAILDESCR;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_cut_set(void)
 {
     extern int g_resolve_cut_flag;

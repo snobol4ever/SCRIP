@@ -495,6 +495,21 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
+    if (obj.v == DT_T && obj.tbl) {
+        TBBLK_t *tbl  = obj.tbl;
+        int64_t  seen = 0;
+        for (int b = 0; b < TABLE_BUCKETS; b++) {
+            for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
+                if (seen == idx) { *out = ep->key_descr; return 1; }
+                seen++;
+            }
+        }
+        return 0;
+    }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) { (void)upi; (void)args; (void)nargs; fprintf(stderr, "[NO-IR-INTERP] ir_call_proc: IR interpreter deleted (walked IR via IR_interp_pump); native BB proc-call pending\n"); return FAILDESCR; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern const char *Σ;
