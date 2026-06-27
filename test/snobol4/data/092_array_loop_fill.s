@@ -252,8 +252,8 @@ bb16_α:
  add rcx, rcx
  add rcx, rcx
  add r11, rcx
- mov rax, qword ptr [r12 + 112]
- mov rdx, qword ptr [r12 + 120]
+ mov rax, 6
+ mov rdx, qword ptr [r12 + 112]
  mov qword ptr [r11 + 0], rax
  mov qword ptr [r11 + 8], rdx
  jmp snoch0_n6_α
@@ -262,8 +262,8 @@ bb16_α:
  mov rsi, qword ptr [r12 + 208]
  mov rdx, qword ptr [r12 + 184]
  mov rcx, qword ptr [r12 + 192]
- mov r8, qword ptr [r12 + 112]
- mov r9, qword ptr [r12 + 120]
+ mov r8, 6
+ mov r9, qword ptr [r12 + 112]
  call subscript_set@PLT
  cmp eax, 0
  je snoch0_n6_α
