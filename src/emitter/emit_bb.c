@@ -848,16 +848,6 @@ static void flat_drive_disj(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int resolve_ite_entries_em(const IR_t *nd, IR_t **out_cond, IR_t **out_then, IR_t **out_else) {
-    if (!nd || nd->op != IR_ITE) return 0;
-    bb_ite_state_t *zi = (bb_ite_state_t *)(intptr_t)IR_LIT(nd).ival;
-    if (!zi) return 0;
-    if (out_cond) *out_cond = zi->cond;
-    if (out_then) *out_then = zi->then_;
-    if (out_else) *out_else = zi->else_;
-    return 1;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_t *ite_branch_walk_node(IR_t *entry, IR_t *root) {
     if (root && bb_kind_is_driver_owned(root->op)) return root;
     return entry;
