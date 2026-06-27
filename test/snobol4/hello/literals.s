@@ -465,8 +465,6 @@ bb59_α:
  mov rax, 1
  mov rcx, qword ptr [r12 + 40]
  add rax, rcx
- mov qword ptr [r12 + 64], rax
- movabs rax, 6
  mov qword ptr [r12 + 56], rax
  jmp snoch0_n61_α
  snoch0_n58_β:
@@ -498,8 +496,6 @@ bb63_α:
  mov rax, qword ptr [r12 + 48]
  mov rcx, 3
  imul rax, rcx
- mov qword ptr [r12 + 72], rax
- movabs rax, 6
  mov qword ptr [r12 + 64], rax
  jmp snoch0_n64_α
  snoch0_n62_β:
@@ -529,8 +525,6 @@ bb66_α:
  mov rax, 1
  mov rcx, qword ptr [r12 + 72]
  add rax, rcx
- mov qword ptr [r12 + 88], rax
- movabs rax, 6
  mov qword ptr [r12 + 80], rax
  jmp snoch0_n66_α
  snoch0_n65_β:
