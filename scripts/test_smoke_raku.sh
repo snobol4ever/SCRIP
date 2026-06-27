@@ -1065,6 +1065,25 @@ class Clock { method tick() { return "t"; } }
 sub main() { say(Clock.^methods); }
 EOF
 
+# --- RK-OO-F: .clone (Mu.clone). Shallow-copies the invocant's attribute values into a fresh instance of
+#     the same class; optional named twiddles (`$obj.clone(attr => v)`) override specific attributes, the rest
+#     carried over verbatim. Rakudo Mu.rakumod multi method clone(Mu:D: *%twiddles). Runtime-only (no lexer/
+#     grammar): handled in meth_call before user-method resolution, reusing the dat_construct field-fill (so
+#     inherited attributes across the MRO copy for free, and the original is untouched). Both native modes. ---
+raku "clone_basic" "$(printf '3\n4')" << 'EOF'
+class Point { has $.x; has $.y; }
+sub main() { my $p = Point.new(x => 3, y => 4); my $q = $p.clone(); say($q.x); say($q.y); }
+EOF
+raku "clone_twiddle" "$(printf '3\n99\n4')" << 'EOF'
+class Point { has $.x; has $.y; }
+sub main() { my $p = Point.new(x => 3, y => 4); my $r = $p.clone(y => 99); say($r.x); say($r.y); say($p.y); }
+EOF
+raku "clone_inherited" "$(printf 'Rex\n4\nPug')" << 'EOF'
+class Animal { has $.name; has $.legs; }
+class Dog is Animal { has $.breed; }
+sub main() { my $d = Dog.new(name => "Rex", legs => 4, breed => "Lab"); my $c = $d.clone(breed => "Pug"); say($c.name); say($c.legs); say($c.breed); }
+EOF
+
 # --- RK-OO-F: :D/:U definiteness constraints + .defined + my $x; (uninit decl).
 #     :D params accept only defined (non-SNUL) values; :U params accept only undefined (SNUL).
 #     Mangled as TypeName_D / TypeName_U in proc names (colon → underscore for GAS safety).
