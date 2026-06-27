@@ -57,8 +57,6 @@ bb5_α:
  mov rax, 2
  mov rcx, qword ptr [r12 + 0]
  add rax, rcx
- mov qword ptr [r12 + 16], rax
- movabs rax, 6
  mov qword ptr [r12 + 8], rax
  jmp snoch0_n5_α
  snoch0_n4_β:

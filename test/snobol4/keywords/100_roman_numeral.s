@@ -710,8 +710,7 @@ bb72_α:
 # IR_ASSIGN
  lea rdi, [rip + .S6]
  mov rsi, qword ptr [r12 + 480]
- mov rdx, qword ptr [r12 + 488]
- call rt_gvar_assign_descr@PLT
+ call rt_gvar_assign_int@PLT
  jmp snoch0_n21_α
  snoch0_n28_β:
  jmp snoch0_n21_α
