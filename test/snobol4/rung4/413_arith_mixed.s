@@ -53,10 +53,15 @@ bb1_α:
 xgvarg2_done:
 bb2_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = LIT_I -> [r12+48]
- mov qword ptr [r12 + 48], 6
- movabs rax, 1
- mov qword ptr [r12 + 56], rax
+# marshal arg0 = inline gvar-real subexpr -> [r12+48]
+ mov rdi, 6
+ movabs rsi, 1
+ mov rdx, 7
+ movabs rcx, 4611686018427387904
+ mov r8d, 0
+ call rt_num_arith@PLT
+ mov qword ptr [r12 + 48], rax
+ mov qword ptr [r12 + 56], rdx
 # marshal arg1 = producer-box slot [r12+16] -> [r12+64]
  mov rax, qword ptr [r12 + 16]
  mov qword ptr [r12 + 64], rax
@@ -98,10 +103,15 @@ bb4_α:
 xgvarg8_done:
 bb5_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = LIT_F -> [r12+112]
- mov qword ptr [r12 + 112], 7
- movabs rax, 4613937818241073152
- mov qword ptr [r12 + 120], rax
+# marshal arg0 = inline gvar-real subexpr -> [r12+112]
+ mov rdi, 7
+ movabs rsi, 4613937818241073152
+ mov rdx, 6
+ movabs rcx, 2
+ mov r8d, 3
+ call rt_num_arith@PLT
+ mov qword ptr [r12 + 112], rax
+ mov qword ptr [r12 + 120], rdx
 # marshal arg1 = producer-box slot [r12+80] -> [r12+128]
  mov rax, qword ptr [r12 + 80]
  mov qword ptr [r12 + 128], rax

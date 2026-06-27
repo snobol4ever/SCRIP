@@ -195,47 +195,27 @@ bb9_α:
  snoch8_n4_β:
  jmp snoch8_n5_α
 snoch8_n5_α:
-xargsub17_n0_α:
-# IR_LIT_I
-bb10_α:
- mov qword ptr [r12 + 64], 6
- mov rax, qword ptr [rip + .Lx18_0]
- mov qword ptr [r12 + 72], rax
- jmp xargsub17_n1_α
- xargsub17_n0_β:
- jmp snoch8_n8_α
-.Lx18_0:
- .quad 3
-xargsub17_n1_α:
-bb11_α:
-# IR_UNOP_GVAR_SLOT
- mov rax, 3
- neg rax
- mov qword ptr [r12 + 80], rax
- jmp xgvarg16_done
- xargsub17_n1_β:
- jmp snoch8_n8_α
 xgvarg16_done:
-bb12_α:
+bb10_α:
 # BOX IR_CALL ispos(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+80] -> [r12+104]
- mov rax, qword ptr [r12 + 80]
- mov qword ptr [r12 + 104], rax
- mov rax, qword ptr [r12 + 88]
- mov qword ptr [r12 + 112], rax
+# marshal arg0 = inline gvar-unop subexpr -> [r12+80]
+ movabs rax, 3
+ neg rax
+ mov qword ptr [r12 + 80], 6
+ mov qword ptr [r12 + 88], rax
    mov rdi, [rip + __proc + 0]
- lea rsi, [r12 + 104]
+ lea rsi, [r12 + 80]
  mov edx, 1
  call rt_call_proc_direct@PLT
- mov qword ptr [r12 + 88], rax
- mov qword ptr [r12 + 96], rdx
+ mov qword ptr [r12 + 64], rax
+ mov qword ptr [r12 + 72], rdx
  cmp eax, 99
  je snoch8_n8_α
  jmp snoch8_n7_α
 snoch8_n5_β:
  jmp snoch8_n8_α
 snoch8_n6_α:
-bb13_α:
+bb11_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S4]
@@ -245,18 +225,18 @@ bb13_α:
  jmp snoch8_n5_α
 snoch8_n7_α:
 # IR_LIT_scalar
-bb14_α:
+bb12_α:
  jmp snoch8_n9_α
  snoch8_n7_β:
  jmp flat_γ
 snoch8_n8_α:
 # IR_LIT_scalar
-bb15_α:
+bb13_α:
  jmp snoch8_n10_α
  snoch8_n8_β:
  jmp flat_γ
 snoch8_n9_α:
-bb16_α:
+bb14_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S4]
@@ -265,7 +245,7 @@ bb16_α:
  snoch8_n9_β:
  jmp flat_γ
 snoch8_n10_α:
-bb17_α:
+bb15_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S5]
