@@ -175,10 +175,11 @@ static void emit_proc(PNodeList *procs, tree_t *proc) {
     pnl_push(procs, st);
 }
 static tree_t *mk_array_fill(long long high);
+static tree_t *mk_array_init(const char *name, long long high);
 static int pas_array_high_get(const char *name, long long *out);
 static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, int is_function, int decl_level, const char **lnames, int lcount) {
     tree_t *body_prog = ast_node_new(TT_PROGRAM);
-    for (int _li = 0; lnames && _li < lcount; _li++) { long long _hi; if (lnames[_li] && pas_array_high_get(lnames[_li], &_hi)) ast_push(body_prog, bin(TT_ASSIGN, leaf_s(TT_VAR, lnames[_li]), mk_array_fill(_hi))); }
+    for (int _li = 0; lnames && _li < lcount; _li++) { long long _hi; if (lnames[_li] && pas_array_high_get(lnames[_li], &_hi)) ast_push(body_prog, bin(TT_ASSIGN, leaf_s(TT_VAR, lnames[_li]), mk_array_init(lnames[_li], _hi))); }
     if (body_stmt && body_stmt->t == TT_PROGRAM) { for (int i = 0; i < body_stmt->n; i++) ast_push(body_prog, body_stmt->c[i]); }
     else if (body_stmt) { ast_push(body_prog, body_stmt); }
     tree_t *proc = ast_node_new(TT_PROC_DECL);
@@ -415,6 +416,18 @@ static tree_t *mk_array_fill(long long high) {
     buf[p] = '\0';
     tree_t *q = ast_node_new(TT_QLIT); q->v.sval = buf; return q;
 }
+static int pas_array_is_pure_num(const char *name) {
+    if (!name) return 0;
+    if (pas_is_chararr(name)) return 0;
+    if (pas_arrrec_find(name, NULL) > 0) return 0;
+    if (pas_enumarr_get(name)) return 0;
+    for (int i = 0; i < g_pas_nrecvar; i++) if (g_pas_recvars[i].vname && !strcmp(g_pas_recvars[i].vname, name)) return 0;
+    return 1;
+}
+static tree_t *mk_array_init(const char *name, long long high) {
+    if (pas_array_is_pure_num(name)) return mk_fnc1("arr_make", ilit(high));
+    return mk_array_fill(high);
+}
 %}
 %union {
     tree_t    *node;
@@ -450,7 +463,7 @@ program:
         { tree_t *body = $5;
           if (g_pas_narray > 0) {
               tree_t *combined = ast_node_new(TT_PROGRAM);
-              for (int i = 0; i < g_pas_narray; i++) if (!g_pas_arrays[i].is_param) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, g_pas_arrays[i].name), mk_array_fill(g_pas_arrays[i].high)));
+              for (int i = 0; i < g_pas_narray; i++) if (!g_pas_arrays[i].is_param) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, g_pas_arrays[i].name), mk_array_init(g_pas_arrays[i].name, g_pas_arrays[i].high)));
               if (body && body->t == TT_PROGRAM) { for (int i = 0; i < body->n; i++) ast_push(combined, body->c[i]); }
               else if (body) ast_push(combined, body);
               body = combined;
