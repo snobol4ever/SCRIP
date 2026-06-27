@@ -162,19 +162,113 @@ bb7_α:
  snoch0_n2_β:
  jmp snoch0_n3_α
 snoch0_n3_α:
-# IR_LIT_scalar
 bb8_α:
- jmp snoch0_n4_α
- snoch0_n3_β:
- jmp flat_γ
-snoch0_n4_α:
+# IR_IDX: AXS inline DT_A+int fast path, else subscript_get
+ lea rdi, [rip + .S0]
+ call NV_GET_fn@PLT
+ cmp eax, 4
+ jne .Lx15_0
+ movabs rcx, 2
+ mov rsi, rdx
+ mov r8, qword ptr [rsi]
+ sub ecx, r8d
+ js .Lx15_0
+ mov r9, qword ptr [rsi + 4]
+ sub r9d, r8d
+ cmp ecx, r9d
+ jg .Lx15_0
+ mov r11, qword ptr [rsi + 24]
+ movsxd rcx, ecx
+ add rcx, rcx
+ mov rax, [r11 + rcx*8]
+ add r11, 8
+ mov rdx, [r11 + rcx*8]
+ mov qword ptr [r12 + 128], rax
+ mov qword ptr [r12 + 136], rdx
+ jmp xgvarg13_done
+.Lx15_0:
+ mov rdi, rax
+ mov rsi, rdx
+ movabs rdx, 6
+ movabs rcx, 2
+ call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n5_α
+ mov qword ptr [r12 + 128], rax
+ mov qword ptr [r12 + 136], rdx
+ jmp xgvarg13_done
+ xgvarg13_β:
+ jmp snoch0_n5_α
+xgvarg13_done:
+# IR_LIT_S
 bb9_α:
+ mov qword ptr [r12 + 144], 1
+ mov rax, qword ptr [rip + .Lx17_0]
+ mov qword ptr [r12 + 152], rax
+ jmp xgvarg16_done
+ xgvarg16_β:
+ jmp snoch0_n5_α
+.Lx17_0:
+ .quad .Lx17_0_s
+.Lx17_0_s:
+ .string "x"
+xgvarg16_done:
+bb10_α:
+# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# marshal arg0 = producer-box slot [r12+128] -> [r12+176]
+ mov rax, qword ptr [r12 + 128]
+ mov qword ptr [r12 + 176], rax
+ mov rax, qword ptr [r12 + 136]
+ mov qword ptr [r12 + 184], rax
+# marshal arg1 = producer-box slot [r12+144] -> [r12+192]
+ mov rax, qword ptr [r12 + 144]
+ mov qword ptr [r12 + 192], rax
+ mov rax, qword ptr [r12 + 152]
+ mov qword ptr [r12 + 200], rax
+  .section .rodata
+  .Lbynamefn19: .string "differ"
+  .section .text
+  .intel_syntax noprefix
+   lea rdi, [rip + .Lbynamefn19]
+ lea rsi, [r12 + 176]
+ mov edx, 2
+ call rt_call_arr@PLT
+ mov qword ptr [r12 + 160], rax
+ mov qword ptr [r12 + 168], rdx
+ cmp eax, 99
+ je snoch0_n5_α
+ jmp snoch0_n4_α
+snoch0_n3_β:
+ jmp snoch0_n5_α
+snoch0_n4_α:
+# IR_LIT_scalar
+bb11_α:
+ jmp snoch0_n6_α
+ snoch0_n4_β:
+ jmp flat_γ
+snoch0_n5_α:
+# IR_LIT_scalar
+bb12_α:
+ jmp snoch0_n7_α
+ snoch0_n5_β:
+ jmp flat_γ
+snoch0_n6_α:
+bb13_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S1]
  lea rsi, [rip + .S2]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
- snoch0_n4_β:
+ snoch0_n6_β:
+ jmp flat_γ
+snoch0_n7_α:
+bb14_α:
+# IR_ASSIGN_LIT_S
+ lea rdi, [rip + .S1]
+ lea rsi, [rip + .S3]
+ call rt_gvar_assign_str@PLT
+ jmp flat_γ
+ snoch0_n7_β:
  jmp flat_γ
 flat_β:
 jmp flat_ω
@@ -196,4 +290,5 @@ ret
 .S0: .string "a"
 .S1: .string "output"
 .S2: .string "FAIL 212/001: $.var<index> indirect array"
+.S3: .string "PASS 212_indirect_array (1/1)"
 .text

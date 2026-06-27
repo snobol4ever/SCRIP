@@ -113,13 +113,44 @@ bb6_α:
  snoch0_n3_β:
  jmp flat_γ
 snoch0_n4_α:
-# IR_LIT_scalar
+# IR_VAR
 bb7_α:
- jmp snoch0_n6_α
- snoch0_n4_β:
- jmp flat_γ
-snoch0_n5_α:
+ mov rdi, qword ptr [rip + .Lx13_0]
+ call NV_GET_fn@PLT
+ mov qword ptr [r12 + 96], rax
+ mov qword ptr [r12 + 104], rdx
+ jmp xgvarg11_done
+ xgvarg11_β:
+ jmp snoch0_n7_α
+.Lx13_0:
+ .quad .Lx13_0_s
+.Lx13_0_s:
+ .string "_no_such_var_"
+xgvarg11_done:
 bb8_α:
+# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# marshal arg0 = producer-box slot [r12+96] -> [r12+128]
+ mov rax, qword ptr [r12 + 96]
+ mov qword ptr [r12 + 128], rax
+ mov rax, qword ptr [r12 + 104]
+ mov qword ptr [r12 + 136], rax
+  .section .rodata
+  .Lbynamefn15: .string "differ"
+  .section .text
+  .intel_syntax noprefix
+   lea rdi, [rip + .Lbynamefn15]
+ lea rsi, [r12 + 128]
+ mov edx, 1
+ call rt_call_arr@PLT
+ mov qword ptr [r12 + 112], rax
+ mov qword ptr [r12 + 120], rdx
+ cmp eax, 99
+ je snoch0_n7_α
+ jmp snoch0_n6_α
+snoch0_n4_β:
+ jmp snoch0_n7_α
+snoch0_n5_α:
+bb9_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S3]
@@ -128,13 +159,34 @@ bb8_α:
  snoch0_n5_β:
  jmp flat_γ
 snoch0_n6_α:
-bb9_α:
+# IR_LIT_scalar
+bb10_α:
+ jmp snoch0_n8_α
+ snoch0_n6_β:
+ jmp flat_γ
+snoch0_n7_α:
+# IR_LIT_scalar
+bb11_α:
+ jmp snoch0_n9_α
+ snoch0_n7_β:
+ jmp flat_γ
+snoch0_n8_α:
+bb12_α:
 # IR_ASSIGN_LIT_S
  lea rdi, [rip + .S2]
  lea rsi, [rip + .S4]
  call rt_gvar_assign_str@PLT
  jmp flat_γ
- snoch0_n6_β:
+ snoch0_n8_β:
+ jmp flat_γ
+snoch0_n9_α:
+bb13_α:
+# IR_ASSIGN_LIT_S
+ lea rdi, [rip + .S2]
+ lea rsi, [rip + .S5]
+ call rt_gvar_assign_str@PLT
+ jmp flat_γ
+ snoch0_n9_β:
  jmp flat_γ
 flat_β:
 jmp flat_ω
@@ -158,4 +210,5 @@ ret
 .S2: .string "output"
 .S3: .string "FAIL 211/001: indirect assign sets named var"
 .S4: .string "FAIL 211/002: undefined indirect is null"
+.S5: .string "PASS 211_indirect_assign (2/2)"
 .text
