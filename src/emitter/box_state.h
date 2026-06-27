@@ -47,7 +47,7 @@ typedef struct { IR_t ** args; int nargs; const char * callee; int arity; void *
 typedef struct { int nclauses; int arity; int mark_slot; IR_t ** args; IR_t ** consts; } pl_gz_choice_state_t;
 typedef struct { void * graph_key; int base; int arity; int nlocals; int mark_slot; IR_t * body_head; IR_t * frame_node; void * lblA; void * lblB; int nchild;
                  int nclauses; IR_t ** clause_head; int body_emitted; } pl_gz_callee_t;
-typedef struct { pl_gz_callee_t * callee; int nargs; IR_t ** args; int child_slot; } pl_gz_call_state_t;
+typedef struct { pl_gz_callee_t * callee; int nargs; IR_t ** args; int child_slot; int det; } pl_gz_call_state_t;
 typedef struct { pl_gz_callee_t ** v; int n; int cap; } pl_gz_callee_vec_t;
 static inline pl_gz_callee_t * pl_gz_callees_push(pl_gz_callee_vec_t * cv, pl_gz_callee_t * ce) {
     if (cv->n >= cv->cap) { int nc = cv->cap ? cv->cap * 2 : 8; pl_gz_callee_t ** nv = (pl_gz_callee_t **)GC_MALLOC(sizeof(pl_gz_callee_t *) * nc); if (!nv) return (pl_gz_callee_t *)0; for (int i = 0; i < cv->n; i++) nv[i] = cv->v[i]; cv->v = nv; cv->cap = nc; }

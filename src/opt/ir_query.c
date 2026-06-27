@@ -43,7 +43,11 @@ int scan_pat_m3_native_safe(IR_graph_t *pg) {
 int gz_node_bounded(const IR_t *g) {
     if (!g) return 1;
     switch (g->op) {
-    case IR_CELL_CALL: case IR_CELL_CHOICE: case IR_CELL_FINDALL: case IR_CELL_ITE:
+    case IR_CELL_CALL: {
+        pl_gz_call_state_t *cs = (pl_gz_call_state_t *)(intptr_t)IR_LIT(g).ival;
+        return (cs && cs->det) ? 1 : 0;   /* PL-BB-1: a deterministic call retains no closure — bounded, no beta */
+    }
+    case IR_CELL_CHOICE: case IR_CELL_FINDALL: case IR_CELL_ITE:
     case IR_CELL_CATCH: case IR_CELL_DYNITER:
     case IR_CELL_CUT:  case IR_CUT:
         return 0;   /* generators + cut-barrier + catch: never collapse their β */

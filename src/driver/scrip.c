@@ -505,6 +505,62 @@ static int pl_gz_choice_rule_clauses(IR_graph_t *cg, int ar, bb_choice_state_t *
 }
 static int pl_gz_arith_const(const IR_t *nd);
 static int pl_gz_arith_nested_ok(const IR_t *nd);
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* PL-BB-1 (LOWER half) — sound conservative callee-determinacy marker for the bounded-call rung. A call is `det`
+ * (bounded) when the callee yields AT MOST ONE solution, so its retained-closure beta resume is dead and a later
+ * increment can pop the E-area frame at gamma; this layer proves only the unambiguously-sound core: a SINGLE-clause
+ * callee (entry not IR_CHOICE) whose body holds no surviving choice point — every body node is a det builtin / unify
+ * / cut / arith / struct / leaf, or an IR_GOAL to a callee that is itself det (recursed; cycle-broken — a graph
+ * already on the determinacy stack is single-clause self/mutual recursion, which adds no choice point, so det for
+ * the cycle). ANY nested IR_CHOICE / IR_DISJ / IR_ITE / IR_CATCH / IR_CELL_* makes the clause NON-det (under-marking
+ * is safe — marking too FEW calls only forgoes optimization; marking too MANY would drop solutions, so this errs to
+ * 0). Multi-clause determinacy via first-arg indexing + cut-commit (the fib/tak shape) is the harder NEXT layer. */
+static IR_graph_t **g_gz_det_visiting = NULL; static int g_gz_det_nvisiting = 0; static int g_gz_det_visiting_cap = 0;
+static int pl_gz_callee_is_det(IR_graph_t *cg, int ar);
+/* scan one clause body graph: returns 1 iff choicepoint-free (every node a det builtin / unify / cut / arith /
+ * struct / leaf, or an IR_GOAL to a det callee); sets *has_cut if any IR_CUT node is present. ANY nested
+ * IR_CHOICE / IR_DISJ / IR_ITE / IR_CATCH / IR_CELL_* is a surviving choice point — not choicepoint-free. */
+static int pl_gz_body_cpfree(IR_graph_t *body, int *has_cut) {
+    if (!body || !body->all) return 0;
+    int cpfree = 1;
+    for (int i = 0; i < body->n && cpfree; i++) {
+        IR_t *nd = body->all[i];
+        if (!nd) continue;
+        if (nd->op == IR_CUT) { if (has_cut) *has_cut = 1; continue; }
+        if (nd->op == IR_GOAL) { bb_goal_state_t *zc2 = NULL; int ar2 = 0; IR_graph_t *cg2 = pl_gz_goal_callee(nd, &zc2, &ar2); if (!cg2 || !pl_gz_callee_is_det(cg2, ar2)) cpfree = 0; continue; }
+        if (nd->op == IR_SUCCEED || nd->op == IR_FAIL || nd->op == IR_GCONJ || nd->op == IR_UNIFY || nd->op == IR_ARITH || nd->op == IR_STRUCT || nd->op == IR_LOGICVAR || nd->op == IR_LIT_I || nd->op == IR_LIT_F || nd->op == IR_ATOM || nd->op == IR_BUILTIN) continue;
+        cpfree = 0;
+    }
+    return cpfree;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* PL-BB-1 (LOWER half) — sound conservative callee-determinacy marker for the bounded-call rung. A call is `det`
+ * (bounded) when the callee yields AT MOST ONE solution, so its retained-closure beta resume is dead and the emitter
+ * elides it (bb_cell_call). SINGLE-clause callee: det iff its body is choicepoint-free. MULTI-clause callee (entry
+ * IR_CHOICE): det iff Condition A holds — every NON-last clause contains a cut (so if it reaches a solution it has
+ * committed away the later clauses + sibling CPs) AND every clause body is choicepoint-free (the last clause needs no
+ * cut — nothing follows it). Recursion is cycle-broken: a graph already on the determinacy stack is self/mutual
+ * recursion, which adds no choice point (it only deepens), so det for the cycle. Under-marking is safe (forgoes
+ * optimization); over-marking would drop solutions, so every ambiguous shape resolves to NOT-det. Condition A marks
+ * the cut-guarded recursion idiom (fib: clauses fib(0,_):-! and fib(1,_):-! cut, the last fib(N,_) clause has a det
+ * body); complementary-guard determinism (tak's X=<Y / X>Y) is a further layer not claimed here. */
+static int pl_gz_callee_is_det(IR_graph_t *cg, int ar) {
+    if (!cg || !cg->entry || !cg->all) return 0;
+    for (int v = 0; v < g_gz_det_nvisiting; v++) if (g_gz_det_visiting[v] == cg) return 1;
+    if (g_gz_det_nvisiting >= g_gz_det_visiting_cap) { int nc = g_gz_det_visiting_cap ? g_gz_det_visiting_cap * 2 : 16; IR_graph_t **nv = (IR_graph_t **)GC_MALLOC(sizeof(IR_graph_t *) * nc); if (!nv) return 0; for (int i = 0; i < g_gz_det_nvisiting; i++) nv[i] = g_gz_det_visiting[i]; g_gz_det_visiting = nv; g_gz_det_visiting_cap = nc; }
+    g_gz_det_visiting[g_gz_det_nvisiting++] = cg;
+    int det;
+    if (cg->entry->op == IR_CHOICE) {
+        bb_choice_state_t *bc = (bb_choice_state_t *)(intptr_t)IR_LIT(cg->entry).ival;
+        if (!bc || !bc->bodies || bc->nbodies < 1) det = 0;
+        else { det = 1; for (int k = 0; k < bc->nbodies && det; k++) { int has_cut = 0; if (!pl_gz_body_cpfree(bc->bodies[k], &has_cut)) det = 0; else if (k + 1 < bc->nbodies && !has_cut) det = 0; } }
+    } else {
+        int has_cut = 0;
+        det = pl_gz_body_cpfree(cg, &has_cut);
+    }
+    g_gz_det_nvisiting--;
+    return det;
+}
 /* A comparison/arith operand admissible by the GZ det path: a bare var, an integer/float literal,
  * or any (possibly nested) arith expression over var/lit leaves using flat-supported ops.  Flattened
  * bottom-up into IR_DET_IS steps at build time, so `X > Y*A+N` and `X =\= (Y-N)*2` are admitted. */
@@ -1018,7 +1074,7 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
         pl_gz_call_state_t *cs2 = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs2);
         if (!cs2) return 0;
         memset(cs2, 0, sizeof *cs2);
-        cs2->callee = ce2; cs2->nargs = ar2; cs2->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar2 > 0 ? ar2 : 1));
+        cs2->callee = ce2; cs2->nargs = ar2; cs2->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar2 > 0 ? ar2 : 1)); cs2->det = pl_gz_callee_is_det(cg2, ar2);
         for (int ai = 0; ai < ar2; ai++) {
             IR_t *a = zc2->args[ai];
             if (a->op == IR_LOGICVAR) {
@@ -1650,7 +1706,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
         pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
         if (!cs) return 0;
         memset(cs, 0, sizeof *cs);
-        cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1));
+        cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1)); cs->det = pl_gz_callee_is_det(cg, ar);
         if (*cslot + 1 > 2046) { return 0; }
         cs->child_slot = (*cslot)++;
         for (int ai = 0; ai < ar; ai++) {
@@ -1948,7 +2004,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
                 pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
                 if (!cs) return 0;
                 memset(cs, 0, sizeof *cs);
-                cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1));
+                cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1)); cs->det = pl_gz_callee_is_det(cg, ar);
                 cs->child_slot = (*cslot)++;
                 for (int ai = 0; ai < ar; ai++) {
                     IR_t *a = zc->args[ai];
@@ -1999,7 +2055,7 @@ static int pl_gz_build_goal(IR_t *gg, IR_t **head, IR_t **tail, int *synth_next,
                 pl_gz_call_state_t *cs = (pl_gz_call_state_t *)GC_MALLOC(sizeof *cs);
                 if (!cs) return 0;
                 memset(cs, 0, sizeof *cs);
-                cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1)); cs->child_slot = (*cslot)++;
+                cs->callee = ce; cs->nargs = ar; cs->args = (IR_t **)GC_MALLOC(sizeof(IR_t *) * (ar > 0 ? ar : 1)); cs->child_slot = (*cslot)++; cs->det = pl_gz_callee_is_det(cg, ar);
                 for (int ai = 0; ai < ar; ai++) { IR_t *a = zc->args[ai]; if (!a || a->op != IR_LOGICVAR) return 0; cs->args[ai] = a; }
                 fst->call = cs;
             }

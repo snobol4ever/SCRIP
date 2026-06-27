@@ -32,9 +32,10 @@ std::string bb_cell_call() {
                            + x86("test", "eax", "eax")
                            + x86("jne", "γ")
                            + x86("jmp", "ω")
-                           + x86("def", "β")
+                           + IF(!_.op_bounded,
+                             x86("def", "β")
                            + x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[0])))
                            + x86_call_tgt(X86T_TGT1)
-                           + x86("jmp", L(0)));
+                           + x86("jmp", L(0))));
     return std::string();
 }
