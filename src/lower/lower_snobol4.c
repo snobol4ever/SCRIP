@@ -1111,6 +1111,20 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, val_box);
             return st;
         }
+        /* field-accessor assignment target:  fld(obj) = value  (DATA field function as lvalue, SPITBOL Ch.7) → IR_IDX_SET(base=obj, key=LIT_S(field-name), value); subscript_set's DT_DATA string-key arm finds the field and writes it */
+        if (subj->t == TT_FNC && subj->n == 1 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->v.sval
+            && repl && (repl->t == TT_ILIT || repl->t == TT_VAR || repl->t == TT_QLIT || repl->t == TT_FLIT)) {
+            IR_t * st = build(cx, IR_IDX_SET, γ_tgt, ω_tgt);
+            IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
+            IR_t * key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = subj->v.sval;
+            IR_t * val_box;
+            if (repl->t == TT_ILIT) { val_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(val_box).ival = repl->v.ival; }
+            else if (repl->t == TT_QLIT) { val_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval ? repl->v.sval : ""; }
+            else if (repl->t == TT_FLIT) { val_box = build(cx, IR_LIT_F, NULL, NULL); IR_LIT(val_box).dval = repl->v.dval; }
+            else { val_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval; }
+            ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, val_box);
+            return st;
+        }
         /* assignment:  LHS = RHS  (plain VAR or KEYWORD LHS only) */
         if (subj->t != TT_VAR && subj->t != TT_KEYWORD) return NULL;
         const char * lhs = subj->v.sval;
