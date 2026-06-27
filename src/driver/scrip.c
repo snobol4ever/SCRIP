@@ -2915,6 +2915,29 @@ int main(int argc, char **argv)
                           printf("  call dat_add_method@PLT\n");
                       }
                   } }
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_has_build(int); extern int dat_type_nbuild_keys(int); extern const char *dat_type_build_key_at(int, int);
+                  int n_cls = dat_type_count();
+                  for (int ci = 0; ci < n_cls; ci++) {
+                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+                      if (!dat_type_has_build(ci)) continue;
+                      printf("  .section .rodata\n");
+                      printf("  .Lbldcls%d: .byte ", ci); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                      printf("  .Lbldnull%d: .byte 0\n", ci);
+                      printf("  .section .text\n  .intel_syntax noprefix\n");
+                      printf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
+                      printf("  lea rsi, [rip + .Lbldnull%d]\n", ci);
+                      printf("  call dat_set_build_key@PLT\n");
+                      int nk = dat_type_nbuild_keys(ci);
+                      for (int kj = 0; kj < nk; kj++) {
+                          const char *kn = dat_type_build_key_at(ci, kj); if (!kn || !*kn) continue;
+                          printf("  .section .rodata\n");
+                          printf("  .Lbldkey%d_%d: .byte ", ci, kj); for (const char *p = kn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .section .text\n  .intel_syntax noprefix\n");
+                          printf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
+                          printf("  lea rsi, [rip + .Lbldkey%d_%d]\n", ci, kj);
+                          printf("  call dat_set_build_key@PLT\n");
+                      }
+                  } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nroles(int); extern const char *dat_type_role_at(int, int);
                   int n_cls = dat_type_count();
                   for (int ci = 0; ci < n_cls; ci++) {

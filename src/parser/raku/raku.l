@@ -64,6 +64,7 @@ WS       [ \t\r]
 "rule"          { raku_expect_rebody = 1; return KW_RULE; }
 "regex"         { raku_expect_rebody = 1; return KW_REGEX; }
 "method"        { return KW_METHOD; }
+"submethod"     { return KW_METHOD; }
 "multi"         { return KW_MULTI; }
 "proto"         { return KW_PROTO; }
 "infix:<"[^>]+">"   { char raw[64]; int rl=(int)yyleng-8; if(rl>63)rl=63; memcpy(raw,yytext+7,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("infix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
@@ -71,6 +72,7 @@ WS       [ \t\r]
 "postfix:<"[^>]+">" { char raw[64]; int rl=(int)yyleng-10; if(rl>63)rl=63; memcpy(raw,yytext+9,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("postfix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
 ":D"            { return OP_COLON_D; }
 ":U"            { return OP_COLON_U; }
+":$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
 "has"           { return KW_HAS; }
 "new"           { return KW_NEW; }
 "self"          { raku_yylval.sval = strdup("self"); return VAR_SCALAR; }

@@ -153,6 +153,26 @@ void dat_add_method(const char *type, const char *mname) {
     if (t->nmethods < 32) { strncpy(t->methods[t->nmethods], mname, 63); t->methods[t->nmethods][63] = '\0'; t->nmethods++; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void dat_set_build_key(const char *cls, const char *key) {
+    DatType *t = dat_find_type(cls); if (!t) return; t->has_build = 1; if (!key || !*key) return;
+    if (t->nbuild_keys < 16) { strncpy(t->build_keys[t->nbuild_keys], key, 63); t->build_keys[t->nbuild_keys][63] = '\0'; t->nbuild_keys++; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_has_build_mro(const char *cls) {
+    if (!cls) return 0; extern int dat_mro(const char *name, const char **out, int max);
+    const char *mro[64]; int mn = dat_mro(cls, mro, 64); if (mn == 0) { mro[0] = cls; mn = 1; }
+    for (int mi = 0; mi < mn; mi++) { DatType *t = mro[mi] ? dat_find_type(mro[mi]) : NULL; if (t && t->has_build) return 1; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_class_has_build(const char *cls) { DatType *t = cls ? dat_find_type(cls) : NULL; return (t && t->has_build) ? 1 : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_build_keys(const char *cls, const char **out, int max) {
+    DatType *t = cls ? dat_find_type(cls) : NULL; if (!t) return 0; int n = 0;
+    for (int i = 0; i < t->nbuild_keys && n < max; i++) out[n++] = t->build_keys[i];
+    return n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_i(const char *cls, const char *field, int64_t v) {
     DatType *t = dat_find_type(cls); if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = INTVAL(v); t->has_default[i] = 1; return; }
@@ -249,6 +269,12 @@ int dat_type_nmethods(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_method_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nmethods) ? dat_types[i].methods[j] : (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_has_build(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].has_build : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_nbuild_keys(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nbuild_keys : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_type_build_key_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nbuild_keys) ? dat_types[i].build_keys[j] : (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 const char *dat_type_field(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].fields[j] : (const char *)0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int dat_methods(const char *name, const char **out, int max) {
@@ -279,7 +305,7 @@ DatType *dat_find_field(const char *name, int *fidx) {
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
+static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     DATINST_t *inst = GC_malloc(sizeof(DATINST_t));
     DATBLK_t *blk = GC_malloc(sizeof(DATBLK_t));
     blk->name    = GC_strdup(t->name);
@@ -296,21 +322,36 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
     for (int i = 0; i < t->nfields; i++) {
         if ((t->sigil[i] == '@' || t->sigil[i] == '%') && inst->fields[i].v == DT_SNUL && !t->required[i]) inst->fields[i] = STRVAL(GC_strdup(""));
     }
+    DESCR_t r; r.v = DT_DATA; r.slen = 0; r.u = inst; return r;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void dat_check_required(DatType *t, DESCR_t self) {
+    DATINST_t *inst = (DATINST_t *)self.u; if (!inst) return;
     for (int i = 0; i < t->nfields; i++) {
         if (t->required[i] && inst->fields[i].v == DT_SNUL) {
             extern void rt_script_die_surface(const char *msg);
             char _m[512]; snprintf(_m, sizeof _m, "The attribute '$!%s' is required, but you did not provide a value for it.", t->fields[i]);
-            rt_script_die_surface(_m);
-            break;
+            rt_script_die_surface(_m); break;
         }
     }
-    DESCR_t r;
-    r.v    = DT_DATA;
-    r.slen = 0;
-    r.u    = inst;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
+    DESCR_t r = dat_alloc_fill(t, args, nargs);
+    dat_check_required(t, r);
     extern void rt_fire_buildplan_tweak(const char *cname, DESCR_t self);
     rt_fire_buildplan_tweak(t->name, r);
     return r;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_construct_build(DatType *t, DESCR_t *named, int nnamed) {
+    DESCR_t self = dat_alloc_fill(t, (DESCR_t *)0, 0);
+    extern void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed);
+    rt_fire_build(t->name, self, named, nnamed);
+    dat_check_required(t, self);
+    extern void rt_fire_buildplan_tweak(const char *cname, DESCR_t self);
+    rt_fire_buildplan_tweak(t->name, self);
+    return self;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dat_field_get(const char *fname, DESCR_t obj) {
