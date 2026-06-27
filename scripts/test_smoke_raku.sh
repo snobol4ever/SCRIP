@@ -1244,6 +1244,29 @@ multi sub init(Str $x) { say("has value: " ~ $x); }
 sub main() { my $u; init($u); }
 EOF
 
+# --- RK-OO-F: :D/:U definiteness enforced on NON-multi sub/method params (runtime type-check at binding).
+#     A typed :D/:U param lowers to a __param_check("Type:D", $p, "p") builtin call prepended to the proc
+#     body (CALL_ROUTE_FN, both modes); the runtime arm calls rt_mc_accepts and fires the die surface on
+#     mismatch. :D rejects undef (SNUL); :U rejects defined; Type:D also rejects a defined wrong-type value.
+#     Faithful to Rakudo "Type check failed in binding to parameter '$p'". Multi candidates (name has '$')
+#     are skipped (dispatch already filters). Uncaught failure halts (die message on stderr).
+raku "param_colon_d_passes" "hi Tom" << 'EOF'
+sub greet(Str:D $name) { say("hi " ~ $name); }
+sub main() { greet("Tom"); }
+EOF
+raku "param_colon_d_dies" "hi Tom" << 'EOF'
+sub greet(Str:D $name) { say("hi " ~ $name); }
+sub main() { greet("Tom"); my $u; greet($u); say("after"); }
+EOF
+raku "param_colon_u_dies" "ok" << 'EOF'
+sub want(Str:U $x) { say("ok"); }
+sub main() { my $u; want($u); want("v"); say("after"); }
+EOF
+raku "param_type_mismatch_dies" "int 5" << 'EOF'
+sub takes(Int:D $n) { say("int " ~ $n); }
+sub main() { takes(5); takes("x"); say("after"); }
+EOF
+
 # --- RK-OO-G1: user .gist / .Str / .raku override honored in implicit stringification contexts.
 #     Rakudo Mu.rakumod: say -> .gist, print/put -> .Str, string coercion (~, interpolation) -> .Str.
 #     SCRIP: say($obj) routes through the user's .gist (rt_write_any_nl / out_write_descr);

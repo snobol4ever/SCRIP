@@ -651,6 +651,23 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         IR_t * r = NULL; IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
         if (e) { entry = e; sentry = e; }
     }
+    if (pd && !((pd->n > 0 && pd->c[0] && pd->c[0]->v.sval) && strchr(pd->c[0]->v.sval, '$'))) {
+        for (int k = pd->n - 1; k >= 1; k--) {
+            const tree_t * pv = pd->c[k];
+            if (!pv || pv->t != TT_VAR || !pv->v.sval) continue;
+            if (pv->n < 1 || !pv->c[0] || !pv->c[0]->v.sval) continue;
+            const char * ty = pv->c[0]->v.sval;
+            if (!strstr(ty, ":D") && !strstr(ty, ":U")) continue;
+            const char * pn = pv->v.sval;
+            tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *) "__param_check";
+            tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *) "__param_check"; ast_push(mc, nmv);
+            tree_t * tyq = ast_node_new(TT_QLIT); tyq->v.sval = (char *) ty; ast_push(mc, tyq);
+            tree_t * pvr = ast_node_new(TT_VAR); pvr->v.sval = (char *) pn; ast_push(mc, pvr);
+            tree_t * pnq = ast_node_new(TT_QLIT); pnq->v.sval = (char *) pn; ast_push(mc, pnq);
+            IR_t * r = NULL; IR_t * e = lower_rcall(&cx, mc, "__param_check", 1, 1, sentry, fail, &r);
+            if (e) { entry = e; sentry = e; }
+        }
+    }
     g->entry = entry; return g;
 }
 /*====================================================================================================================================================================================================*/
