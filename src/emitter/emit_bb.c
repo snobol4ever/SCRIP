@@ -1670,14 +1670,15 @@ static void flat_drive_field_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (pBB && pBB->n_operands >= 2 && pBB->operands[0] && pBB->operands[1] && pBB->operands[0]->op == IR_VAR
-        && (pBB->operands[1]->op == IR_LIT_I || pBB->operands[1]->op == IR_VAR)) {
+        && (pBB->operands[1]->op == IR_LIT_I || pBB->operands[1]->op == IR_VAR || pBB->operands[1]->op == IR_LIT_S)) {
         IR_t *base_box = pBB->operands[0];
         IR_t *key_box  = pBB->operands[1];
         g_emit.op_name1 = IR_LIT(base_box).sval;
         g_emit.op_name2 = (const char *)0;
         g_emit.bb_lk    = (int)key_box->op;
         g_emit.bb_li    = (int64_t)IR_LIT(key_box).ival;
-        if (key_box->op == IR_VAR) g_emit.op_name2 = IR_LIT(key_box).sval;
+        if (key_box->op == IR_VAR)   g_emit.op_name2 = IR_LIT(key_box).sval;
+        if (key_box->op == IR_LIT_S) g_emit.op_name2 = IR_LIT(key_box).sval ? IR_LIT(key_box).sval : "";
         g_emit.op_sa    = bb_slot_claim(16);
         g_emit.op_off   = bb_slot_alloc16(pBB);
         EMIT_PAIR_RESET();
@@ -1689,6 +1690,8 @@ static void flat_drive_idx_get(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int idx_operand_is_lit(IR_t *o) { return o && (o->op == IR_LIT_I || o->op == IR_LIT_S || o->op == IR_LIT_F || o->op == IR_LIT_NUL); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *base_box = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : (IR_t *)0;
@@ -1707,12 +1710,13 @@ static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     bb_label_t *key_β      = emit_label_alloc("xiset%d_key_β",     id);
     bb_label_t *base_done   = emit_label_alloc("xiset%d_base_done", id);
     bb_label_t *base_β      = emit_label_alloc("xiset%d_base_β",    id);
-    if (!flat_chain_set_has(val_box) && bb_slot_get(val_box) < 0) { walk_bb_flat(val_box, val_done, lbl_ω, val_β); emit_label_define_bb(val_done); }
-    if (!flat_chain_set_has(key_box) && bb_slot_get(key_box) < 0) { walk_bb_flat(key_box, key_done, lbl_ω, key_β); emit_label_define_bb(key_done); }
-    if (!flat_chain_set_has(base_box) && bb_slot_get(base_box) < 0) { walk_bb_flat(base_box, base_done, lbl_ω, base_β); emit_label_define_bb(base_done); }
+    if (!flat_chain_set_has(val_box) && bb_slot_get(val_box) < 0) { int sd = g_descr_flat_chain; if (idx_operand_is_lit(val_box)) g_descr_flat_chain = 1; walk_bb_flat(val_box, val_done, lbl_ω, val_β); g_descr_flat_chain = sd; emit_label_define_bb(val_done); }
+    if (!flat_chain_set_has(key_box) && bb_slot_get(key_box) < 0) { int sd = g_descr_flat_chain; if (idx_operand_is_lit(key_box)) g_descr_flat_chain = 1; walk_bb_flat(key_box, key_done, lbl_ω, key_β); g_descr_flat_chain = sd; emit_label_define_bb(key_done); }
+    if (!flat_chain_set_has(base_box) && bb_slot_get(base_box) < 0) { int sd = g_descr_flat_chain; if (idx_operand_is_lit(base_box)) g_descr_flat_chain = 1; walk_bb_flat(base_box, base_done, lbl_ω, base_β); g_descr_flat_chain = sd; emit_label_define_bb(base_done); }
     g_emit.op_a_slot = bb_slot_get(base_box);
     g_emit.op_sb = bb_slot_get(key_box);
     g_emit.op_sc = bb_slot_get(val_box);
+    { extern int arith_emits_descr(IR_t *o); g_emit.op_num_real = (val_box->op != IR_BINOP || arith_emits_descr(val_box)) ? 1 : 0; }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);

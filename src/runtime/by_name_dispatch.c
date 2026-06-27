@@ -2757,7 +2757,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 *out = INTVAL((int)FIELD_GET_fn(v,"frame_size").i); return 1;
             }
         }
-        if (IS_INT_fn(v)||IS_REAL_fn(v)) { *out = INTVAL(0); return 1; }
+        if (IS_INT_fn(v)) { const char *is = VARVAL_fn(v); *out = INTVAL(is ? (long)strlen(is) : 0); return 1; }
+        if (IS_REAL_fn(v)) { *out = INTVAL(0); return 1; }
         if (IS_CSET_fn(v)) {
             int klen = kw_cset_len(v.s);
             *out = INTVAL(klen >= 0 ? klen : (v.s ? (long)strlen(v.s) : 0));

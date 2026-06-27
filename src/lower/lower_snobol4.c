@@ -142,10 +142,12 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
         *res = nd; return nd;
     }
     case TT_IDX:     {
-        if (t->n >= 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[1] && (t->c[1]->t == TT_ILIT || t->c[1]->t == TT_VAR)) {
+        if (t->n >= 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[1] && (t->c[1]->t == TT_ILIT || t->c[1]->t == TT_VAR || t->c[1]->t == TT_QLIT)) {
             IR_t * idx = build(cx, IR_IDX, cont, nxt);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = t->c[0]->v.sval;
-            IR_t * key_box; if (t->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = t->c[1]->v.ival; }
+            IR_t * key_box;
+            if (t->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = t->c[1]->v.ival; }
+            else if (t->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = t->c[1]->v.sval ? t->c[1]->v.sval : ""; }
             else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = t->c[1]->v.sval; }
             ir_operand_push(idx, base_box); ir_operand_push(idx, key_box);
             *res = idx; return idx;
@@ -998,13 +1000,15 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         IR_LIT(seq).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (rhs->n > 1) ? rhs->c[1] : NULL);
         return seq; }
     default: {
-        /* TT_IDX read RHS (OUTPUT = T<k>): base=VAR, key=VAR|LIT_I → IR_ASSIGN(operands[idx]) where idx=IR_IDX(operands[base,key]) */
+        /* TT_IDX read RHS (OUTPUT = T<k>): base=VAR, key=VAR|LIT_I|LIT_S → IR_ASSIGN(operands[idx]) where idx=IR_IDX(operands[base,key]) */
         if (rhs->t == TT_IDX && rhs->n >= 2 && rhs->c[0] && rhs->c[0]->t == TT_VAR && rhs->c[1]
-            && (rhs->c[1]->t == TT_ILIT || rhs->c[1]->t == TT_VAR)) {
+            && (rhs->c[1]->t == TT_ILIT || rhs->c[1]->t == TT_VAR || rhs->c[1]->t == TT_QLIT)) {
             IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
             IR_t * idx = build(cx, IR_IDX, asn, ω);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = rhs->c[0]->v.sval;
-            IR_t * key_box; if (rhs->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = rhs->c[1]->v.ival; }
+            IR_t * key_box;
+            if (rhs->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = rhs->c[1]->v.ival; }
+            else if (rhs->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = rhs->c[1]->v.sval ? rhs->c[1]->v.sval : ""; }
             else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = rhs->c[1]->v.sval; }
             ir_operand_push(idx, base_box); ir_operand_push(idx, key_box); ir_operand_push(asn, idx);
             return idx;
@@ -1088,15 +1092,21 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, vr);
             return ventry;
         }
-        /* table int/var-key write:  T<k> = v  (base=VAR, key=VAR|LIT_I, value=VAR|LIT_I) → IR_IDX_SET(operands[base,key,value]) */
+        /* table int/var/str/real-key write:  T<k> = v  (base=VAR, key=VAR|LIT_I|LIT_S|LIT_F, value=VAR|LIT_I|LIT_S|LIT_F) → IR_IDX_SET(operands[base,key,value]) */
         if (subj->t == TT_IDX && subj->n >= 2 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[1]
-            && (subj->c[1]->t == TT_ILIT || subj->c[1]->t == TT_VAR)
-            && repl && (repl->t == TT_ILIT || repl->t == TT_VAR)) {
+            && (subj->c[1]->t == TT_ILIT || subj->c[1]->t == TT_VAR || subj->c[1]->t == TT_QLIT || subj->c[1]->t == TT_FLIT)
+            && repl && (repl->t == TT_ILIT || repl->t == TT_VAR || repl->t == TT_QLIT || repl->t == TT_FLIT)) {
             IR_t * st = build(cx, IR_IDX_SET, γ_tgt, ω_tgt);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
-            IR_t * key_box; if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
+            IR_t * key_box;
+            if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
+            else if (subj->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval ? subj->c[1]->v.sval : ""; }
+            else if (subj->c[1]->t == TT_FLIT) { key_box = build(cx, IR_LIT_F, NULL, NULL); IR_LIT(key_box).dval = subj->c[1]->v.dval; }
             else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval; }
-            IR_t * val_box; if (repl->t == TT_ILIT) { val_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(val_box).ival = repl->v.ival; }
+            IR_t * val_box;
+            if (repl->t == TT_ILIT) { val_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(val_box).ival = repl->v.ival; }
+            else if (repl->t == TT_QLIT) { val_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval ? repl->v.sval : ""; }
+            else if (repl->t == TT_FLIT) { val_box = build(cx, IR_LIT_F, NULL, NULL); IR_LIT(val_box).dval = repl->v.dval; }
             else { val_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval; }
             ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, val_box);
             return st;
@@ -1110,11 +1120,12 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
     switch (subj->t) {
     case TT_FNC: {
         const char * nm = subj->v.sval ? subj->v.sval : "?";
-        /* orphan CALL when any arg is TT_IDX or TT_INDIRECT (oracle behaviour) */
+        /* orphan CALL when any arg is an UNSUPPORTED complex shape (INDIRECT/OPSYN, or a subscript that is not the supported base=VAR key=ILIT|VAR|QLIT form); supported subscript args lower normally via lower_expr's IR_IDX box */
         int complex_arg = 0;
         for (int ai = 0; ai < subj->n && !complex_arg; ai++) {
             const tree_t * a = subj->c[ai];
-            if (a && (a->t == TT_IDX || a->t == TT_INDIRECT || a->t == TT_OPSYN)) complex_arg = 1;
+            if (a && (a->t == TT_INDIRECT || a->t == TT_OPSYN)) complex_arg = 1;
+            else if (a && a->t == TT_IDX && !(a->n >= 2 && a->c[0] && a->c[0]->t == TT_VAR && a->c[1] && (a->c[1]->t == TT_ILIT || a->c[1]->t == TT_VAR || a->c[1]->t == TT_QLIT))) complex_arg = 1;
         }
         if (complex_arg) {
             IR_t * nd = IR_node_alloc(cx->g, IR_CALL);
