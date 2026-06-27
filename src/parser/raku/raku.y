@@ -46,6 +46,10 @@ static const char *strip_sigil(const char *s) {
     return s;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int rk_tw_priv(const char *s) { return (s && s[0]=='!') ? 1 : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_tw_bare(const char *s) { return (s && (s[0]=='.'||s[0]=='!')) ? s+1 : s; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *leaf_sval(tree_e k, const char *s) {
     tree_t *e = ast_node_new(k); e->v.sval = intern(s); return e;
 }
@@ -305,7 +309,7 @@ stmt
           $$=expr_binary(TT_ASSIGN,fe,$5); }
     | VAR_TWIGIL '=' expr ';'
         { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval=(char*)intern($1); free($1);
+          fe->v.sval=(char*)intern(rk_tw_bare($1)); free($1);
           $$=expr_binary(TT_ASSIGN,fe,$3); }
     | VAR_SCALAR '.' IDENT '(' arg_list ')' ';'
         { tree_t *c = ast_node_new(TT_METHCALL);
@@ -603,6 +607,24 @@ class_body_list
           tree_t *body = $6;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           $$ = exprlist_append($1, e); }
+    | class_body_list KW_MULTI KW_METHOD IDENT '(' param_list ')' block
+        { ExprList *params = $6; int np = params ? params->count : 0;
+          const char *mname = rk_multi_mangle($4, params);
+          tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(np + 1);
+          tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
+          if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
+          tree_t *body = $8;
+          for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
+          free($4);
+          $$ = exprlist_append($1, e); }
+    | class_body_list KW_MULTI KW_METHOD IDENT '(' ')' block
+        { const char *mname = rk_multi_mangle($4, NULL);
+          tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(1);
+          tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
+          tree_t *body = $7;
+          for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
+          free($4);
+          $$ = exprlist_append($1, e); }
     ;
 grammar_decl
     : KW_GRAMMAR IDENT '{' grammar_body_list '}'
@@ -852,15 +874,15 @@ atom
     | IDENT           { $$=var_node($1); }
     | VAR_TWIGIL
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval = (char *)intern($1); free($1);
+          fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
           $$ = fe; }
     | VAR_ARRAY_TWIGIL
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval = (char *)intern($1); free($1);
+          fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
           $$ = fe; }
     | VAR_HASH_TWIGIL
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval = (char *)intern($1); free($1);
+          fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
           $$ = fe; }
     | '(' expr ')'    { $$=$2; }
     ;

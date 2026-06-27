@@ -2882,6 +2882,23 @@ int main(int argc, char **argv)
                           printf("  call dat_set_field_sigil@PLT\n");
                       }
                   } }
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+                  extern int dat_type_field_priv(int, int);
+                  int n_cls = dat_type_count();
+                  for (int ci = 0; ci < n_cls; ci++) {
+                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                          if (!dat_type_field_priv(ci, fj)) continue;
+                          const char *fn = dat_type_field(ci, fj); if (!fn) continue;
+                          printf("  .section .rodata\n");
+                          printf("  .Lprvcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .Lprvfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          printf("  .section .text\n  .intel_syntax noprefix\n");
+                          printf("  lea rdi, [rip + .Lprvcls%d_%d]\n", ci, fj);
+                          printf("  lea rsi, [rip + .Lprvfld%d_%d]\n", ci, fj);
+                          printf("  call dat_set_field_priv@PLT\n");
+                      }
+                  } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nmethods(int); extern const char *dat_type_method_at(int, int);
                   int n_cls = dat_type_count();
                   for (int ci = 0; ci < n_cls; ci++) {

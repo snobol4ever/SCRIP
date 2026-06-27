@@ -1739,32 +1739,32 @@ YY_RULE_SETUP
 case 94:
 YY_RULE_SETUP
 #line 125 "raku.l"
-{ raku_yylval.sval = strdup(yytext+2); return VAR_TWIGIL; }
+{ raku_yylval.sval = strdup(yytext+1); return VAR_TWIGIL; }
 	YY_BREAK
 case 95:
 YY_RULE_SETUP
 #line 126 "raku.l"
-{ raku_yylval.sval = strdup(yytext+2); return VAR_TWIGIL; }
+{ raku_yylval.sval = strdup(yytext+1); return VAR_TWIGIL; }
 	YY_BREAK
 case 96:
 YY_RULE_SETUP
 #line 127 "raku.l"
-{ raku_yylval.sval = strdup(yytext+2); return VAR_ARRAY_TWIGIL; }
+{ raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
 	YY_BREAK
 case 97:
 YY_RULE_SETUP
 #line 128 "raku.l"
-{ raku_yylval.sval = strdup(yytext+2); return VAR_ARRAY_TWIGIL; }
+{ raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
 	YY_BREAK
 case 98:
 YY_RULE_SETUP
 #line 129 "raku.l"
-{ raku_yylval.sval = strdup(yytext+2); return VAR_HASH_TWIGIL; }
+{ raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
 	YY_BREAK
 case 99:
 YY_RULE_SETUP
 #line 130 "raku.l"
-{ raku_yylval.sval = strdup(yytext+2); return VAR_HASH_TWIGIL; }
+{ raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
 	YY_BREAK
 case 100:
 YY_RULE_SETUP
