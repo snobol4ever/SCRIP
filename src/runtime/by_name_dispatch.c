@@ -1681,10 +1681,20 @@ void out_write_str(FILE *dest, const char *s) {
     fputs(s, dest);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static void out_write_descr(FILE *dest, DESCR_t av) {
+const char *rk_obj_stringify(DESCR_t d, int use_gist) {
+    if (d.v == DT_DATA && d.u && d.u->type && d.u->type->name) {
+        const char *mname = use_gist ? "gist" : "Str";
+        char proc[256]; resolve_method_chain(d.u->type->name, mname, proc, sizeof proc, NULL);
+        if (meth_is_user_proc(proc)) { DESCR_t self1 = d; DESCR_t r = invoke_method_proc(proc, &self1, 1); const char *s = VARVAL_fn(r); return s ? s : ""; }
+    }
+    const char *s = VARVAL_fn(d); return s ? s : "";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
+    if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1817,7 +1827,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             DESCR_t av = args[_wi];
             if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
             if (av.v == DT_SNUL) continue;
-            out_write_descr(dest, av);
+            out_write_descr(dest, av, nl);
         }
         if (nl) fputc('\n', dest);
         *out = nargs > start ? args[nargs-1] : (nargs > 0 ? args[0] : NULVCL);

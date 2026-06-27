@@ -107,6 +107,7 @@ WS       [ \t\r]
 "]"             { return ']'; }
 ";"             { return ';'; }
 ","             { return ','; }
+"\.="           { return OP_DOTEQ; }
 "."             { return '.'; }
 "=>"            { return OP_FATARROW; }
 {DIGIT}+"."{DIGIT}+{EXP}?  { raku_yylval.dval = atof(yytext); return LIT_FLOAT; }

@@ -7,13 +7,13 @@
 #include <string.h>
 /*====================================================================================================================*/
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
+    extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
     if (IS_NULL_fn(a)) return b;
     if (IS_NULL_fn(b)) return a;
-    DESCR_t as = descr_to_str(a);
-    DESCR_t bs = descr_to_str(b);
-    const char *asp = (as.v == DT_S || as.v == DT_SNUL) ? VARVAL_fn(as) : NULL;
-    const char *bsp = (bs.v == DT_S || bs.v == DT_SNUL) ? VARVAL_fn(bs) : NULL;
+    const char *asp, *bsp;
+    if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); asp = (as.v == DT_S || as.v == DT_SNUL) ? VARVAL_fn(as) : NULL; }
+    if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); bsp = (bs.v == DT_S || bs.v == DT_SNUL) ? VARVAL_fn(bs) : NULL; }
     if (!asp) asp = "";
     if (!bsp) bsp = "";
     size_t al = strlen(asp), bl = strlen(bsp);
