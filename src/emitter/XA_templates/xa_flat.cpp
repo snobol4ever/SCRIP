@@ -45,9 +45,15 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
         if (MEDIUM_BINARY) {
             extern int g_frame_active;
             if (g_frame_active) {
-                out_site = 20; out_lbl = g_emit.flat_β_p; out_def = false;
+                extern int g_emit_frame_caller_dl;
+                std::string disp;
+                if      (g_emit_frame_caller_dl == 1) disp = bytes(2, "\x41\x55") + bytes(3, "\x4D\x89\xE5") + bytes(4, "\x48\x83\xEC\x08");
+                else if (g_emit_frame_caller_dl == 2) disp = bytes(2, "\x41\x56") + bytes(3, "\x4D\x89\xE6") + bytes(4, "\x48\x83\xEC\x08");
+                else if (g_emit_frame_caller_dl == 3) disp = bytes(2, "\x41\x57") + bytes(3, "\x4D\x89\xE7") + bytes(4, "\x48\x83\xEC\x08");
+                out_site = 20 + (int)disp.size(); out_lbl = g_emit.flat_β_p; out_def = false;
                 return bytes(2, "\x41\x54")
                      + bytes(3, "\x49\x89\xFC")
+                     + disp
                      + bytes(2, "\x49\xBA") + u64le(TEMPLATE_ADDR_DELTA)
                      + bytes(3, "\x83\xFE\x00")
                      + bytes(2, "\x0F\x85") + u32le(0);
@@ -74,7 +80,10 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 return banner;
             }
             if (g_frame_active) {
-                std::string pro = banner + "push r12\n  mov r12, rdi\n  lea r10, [rip + Δ]\n";
+                extern int g_emit_frame_caller_dl;
+                const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
+                std::string disp = dreg ? (std::string("  push ") + dreg + "\n  mov " + dreg + ", r12\n  sub rsp, 8\n") : std::string();
+                std::string pro = banner + "push r12\n  mov r12, rdi\n" + disp + "  lea r10, [rip + Δ]\n";
                 if (g_gen_proc_active)
                     pro += std::string("  cmp esi, 0\n")
                          + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
@@ -96,7 +105,12 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_EPILOGUE");
         if (MEDIUM_BINARY) {
             extern int g_frame_active;
-            std::string unwind = g_frame_active ? bytes(2, "\x41\x5C") : bytes(4, "\x48\x83\xC4\x08");
+            extern int g_emit_frame_caller_dl;
+            std::string dpop;
+            if      (g_frame_active && g_emit_frame_caller_dl == 1) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5D");
+            else if (g_frame_active && g_emit_frame_caller_dl == 2) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5E");
+            else if (g_frame_active && g_emit_frame_caller_dl == 3) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5F");
+            std::string unwind = g_frame_active ? (dpop + bytes(2, "\x41\x5C")) : bytes(4, "\x48\x83\xC4\x08");
             std::string succ_half = g_frame_active
                  ? ( bytes(1, "\xB8") + u32le(1)
                    + bytes(2, "\x31\xD2")
@@ -132,8 +146,12 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                      + " jmp " + xa_wired_base() + "_wω\n";
             }
             if (g_frame_active) {
+                extern int g_emit_frame_caller_dl;
+                const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
+                std::string dpop = dreg ? (std::string("add rsp, 8\npop ") + dreg + "\n") : std::string();
                 return std::string("mov eax, 1\n")
                      + "xor edx, edx\n"
+                     + dpop
                      + "pop r12\n"
                      + "ret\n"
                      + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
@@ -143,6 +161,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                      + "mov qword ptr [r12+8], 0\n"
                      + "mov eax, 99\n"
                      + "xor edx, edx\n"
+                     + dpop
                      + "pop r12\n"
                      + "ret\n";
             }
