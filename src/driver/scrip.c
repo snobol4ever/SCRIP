@@ -1031,7 +1031,17 @@ static int pl_gz_callee_body_node(IR_t *gg, int ar, int lbase, int *snp, IR_t **
             if (!cu) return 0;
             IR_t *ca = pl_gz_lv(kk);
             if (!ca) return 0;
-            ir_operand_push(cu, ca); ir_operand_push(cu, a);
+            /* A compound call argument (e.g. the [H|K] in acc(T,[H|K],R)) carries SOURCE slot
+             * indices; in the callee body those must be remapped through the clause's lbase exactly
+             * as the head-pattern structs and IR_UNIFY operands are, or its interior vars alias the
+             * wrong frame cells (e.g. head binds H at lbase+0 but an unmapped body reads source slot
+             * H directly).  This was latent whenever lbase==(source local base) made the two coincide;
+             * it bites the moment an earlier clause's extra local pushes lbase past that point. */
+            IR_t *am = (a->op == IR_STRUCT) ? pl_gz_struct_slot_map(a, ar, lbase)
+                     : (a->op == IR_ARITH)  ? pl_gz_arith_slot_map(a, ar, lbase)
+                     : a;
+            if (!am) return 0;
+            ir_operand_push(cu, ca); ir_operand_push(cu, am);
             if (!head) head = cu; else { tail->γ.node = cu; memcpy(tail->γ.sz, "α", 3); }
             tail = cu;
             cs2->args[ai] = pl_gz_lv(kk);
