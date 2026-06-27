@@ -53,6 +53,10 @@ PL_FILES=$(ls \
 #                        (cell_addr, old 16-byte word) entries for the live DESCR_t LVA path. Same DESIGN §10
 #                        survivor role (the one Prolog runtime spine); g_resolve_trail is kept only for the
 #                        legacy by-Term* helpers until PL-BB-DEMOLITION removes them. Not a value/control stack.
+# g_uinfix/_n/_cap       PARSE-TIME user-operator table (the `:- op(P,xfx|xfy|yfx,Name)` directive registry),
+#                        in src/parser/prolog/prolog_parse.c. Compile-time-only metadata read by find_binop
+#                        during PARSING; never touched at runtime — like g_pl_nl_* it is not a §10 control/value
+#                        spine. Grows by realloc only while consuming op directives between clauses.
 SANCTIONED="
 g_resolve_trail
 g_pl_trail
@@ -67,6 +71,9 @@ g_pl_throw_ball
 g_pl_dyn_pred_table
 g_pl_dyn_pred_n
 g_pl_dyn_pred_cap
+g_uinfix
+g_uinfix_n
+g_uinfix_cap
 "
 
 # ---- TIER 2: LEGACY-DOOMED — grandfathered, ratchet to zero (each IS a §10 NOT-NEEDED structure) -

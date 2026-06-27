@@ -110,10 +110,44 @@ static const OpEntry BIN_OPS[] = {
     { NULL,    0,   ASSOC_NONE  }
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
+static OpEntry *g_uinfix = NULL;
+static int g_uinfix_n = 0, g_uinfix_cap = 0;
+static void user_infix_add(const char *name, int prec, Assoc assoc) {
+    for (int i = 0; i < g_uinfix_n; i++) if (strcmp(g_uinfix[i].name, name) == 0) { g_uinfix[i].prec = prec; g_uinfix[i].assoc = assoc; return; }
+    if (g_uinfix_n >= g_uinfix_cap) { g_uinfix_cap = g_uinfix_cap ? g_uinfix_cap * 2 : 8; g_uinfix = (OpEntry *)realloc(g_uinfix, g_uinfix_cap * sizeof(OpEntry)); }
+    g_uinfix[g_uinfix_n].name = strdup(name); g_uinfix[g_uinfix_n].prec = prec; g_uinfix[g_uinfix_n].assoc = assoc; g_uinfix_n++;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static const OpEntry *find_binop(const char *name) {
     for (const OpEntry *op = BIN_OPS; op->name; op++)
         if (strcmp(op->name, name) == 0) return op;
+    for (int i = 0; i < g_uinfix_n; i++)
+        if (strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
     return NULL;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int op_type_to_assoc(const char *type, Assoc *assoc_out) {
+    if (strcmp(type, "xfx") == 0) { *assoc_out = ASSOC_NONE;  return 1; }
+    if (strcmp(type, "xfy") == 0) { *assoc_out = ASSOC_RIGHT; return 1; }
+    if (strcmp(type, "yfx") == 0) { *assoc_out = ASSOC_LEFT;  return 1; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void register_op_one(int prec, const char *type, tree_t *namenode) {
+    if (!namenode) return;
+    if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i]); return; }
+    if (namenode->t != TT_QLIT || !namenode->v.sval) return;
+    Assoc assoc;
+    if (op_type_to_assoc(type, &assoc)) user_infix_add(namenode->v.sval, prec, assoc);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void register_op_directive(tree_t *goal) {
+    if (!goal || goal->t != TT_FNC || !goal->v.sval) return;
+    if (strcmp(goal->v.sval, ",") == 0 && goal->n == 2) { register_op_directive(goal->c[0]); register_op_directive(goal->c[1]); return; }
+    if (strcmp(goal->v.sval, "op") != 0 || goal->n != 3) return;
+    tree_t *pn = goal->c[0], *tn = goal->c[1], *nn = goal->c[2];
+    if (!pn || pn->t != TT_ILIT || !tn || tn->t != TT_QLIT || !tn->v.sval) return;
+    register_op_one((int)pn->v.ival, tn->v.sval, nn);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static Term *parse_term(Parser *p, int max_prec);
@@ -952,6 +986,7 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . after directive");
+        if (if_currently_active(p)) register_op_directive(body_tr);
         if (try_handle_if_directive_tree(p, body_tr, cl->lineno)) {
             cl->head = NULL; cl->body = NULL; cl->nbody = 0; cl->tr = NULL;
             return cl;
