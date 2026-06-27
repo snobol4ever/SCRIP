@@ -1,6 +1,8 @@
 #include <string>
 #include <string.h>
 #include <stdint.h>
+#include <cstdio>
+#include <cstdlib>
 #include "emit_str.h"
 extern "C" {
 #include "bb_template_common.h"
@@ -38,6 +40,7 @@ extern int g_emit_frame_caller_dl;
 DESCR_t NV_GET_fn(const char * name);
 int  rt_is_truthy(DESCR_t v);
 int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
+DESCR_t rt_concat_parts_d(void * parts, int n);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -268,6 +271,19 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
     return s;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int carg_seq_flatten(IR_graph_t * g, int * tags, const char ** strs, int * n) {
+    if (!g || !g->entry || *n >= 16) return 0;
+    IR_t * e = g->entry; int guard = 0;
+    while (e && (e->op == IR_SUCCEED || e->op == IR_FAIL) && e->γ.node && guard++ < 64) e = e->γ.node;
+    if (!e) return 0;
+    if (e->op == IR_LIT_S) { tags[*n] = 0; strs[*n] = IR_LIT(e).sval ? IR_LIT(e).sval : ""; (*n)++; return 1; }
+    if (e->op == IR_LIT_I) { char b[40]; snprintf(b, 40, "%lld", (long long) IR_LIT(e).ival); tags[*n] = 0; strs[*n] = strdup(b); (*n)++; return 1; }
+    if (e->op == IR_LIT_F) { char b[40]; gcvt(IR_LIT(e).dval, 14, b); tags[*n] = 0; strs[*n] = strdup(b); (*n)++; return 1; }
+    if (e->op == IR_VAR)   { tags[*n] = 1; strs[*n] = IR_LIT(e).sval ? IR_LIT(e).sval : ""; (*n)++; return 1; }
+    if (e->op == IR_SEQ)   { IR_graph_t * l = (IR_graph_t *)(intptr_t) IR_EXEC(e).counter; IR_graph_t * r = (IR_graph_t *)(intptr_t) IR_LIT(e).ival; return carg_seq_flatten(l, tags, strs, n) && carg_seq_flatten(r, tags, strs, n); }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
         int ps = _.op_arg_slot[idx];
@@ -362,6 +378,31 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
                 s += x86_frame_store64(aoff + 8, "rdx");
                 return s;
             }
+        }
+        if (fin && fin->op == IR_SEQ && IR_LIT(fin).dval == 1.0) {
+            int tags[16]; const char * strs[16]; int n = 0;
+            IR_graph_t * sl = (IR_graph_t *)(intptr_t) IR_EXEC(fin).counter;
+            IR_graph_t * sr = (IR_graph_t *)(intptr_t) IR_LIT(fin).ival;
+            if (!(carg_seq_flatten(sl, tags, strs, &n) && carg_seq_flatten(sr, tags, strs, &n)) || n < 1 || n > 16) return x86_bomb("marshal concat: call-arg sequence not flattenable (non-literal/var part)");
+            int scratch = bb_slot_claim(n * 16);
+            std::string s;
+            if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = inline concat %d parts -> [r12+%d]", idx, n, aoff));
+            for (int i = 0; i < n; i++) {
+                const char * pl = emit_intern_str(strs[i] ? strs[i] : "");
+                if (!pl) { static char gb[64]; strtab_label(gb, sizeof gb, strs[i] ? strs[i] : ""); pl = gb; }
+                s += x86("mov", FR(scratch + i * 16), (long) tags[i]);
+                s += x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t)(strs[i] ? strs[i] : ""), pl);
+                s += x86_frame_store64(scratch + i * 16 + 8, "rax");
+            }
+            uint64_t fptr; { DESCR_t (*fp)(void *, int) = rt_concat_parts_d; fptr = (uint64_t)(uintptr_t)(void *) fp; }
+            s += x86_frame_lea("rdi", scratch);
+            s += x86("mov", "rsi", (long) n);
+            s += x86("push", "r10") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", -16L);
+            s += x86("call", "rt_concat_parts_d", fptr);
+            s += x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "r10");
+            s += x86_frame_store64(aoff, "rax");
+            s += x86_frame_store64(aoff + 8, "rdx");
+            return s;
         }
         IR_t * relnd = NULL;
         { IR_t * rp = lf; int rg = 0; while (rp && rg++ < 256) { if (arith_is_relop(rp)) { relnd = rp; break; } if (!rp->γ.node || rp->γ.node->op == IR_SUCCEED || rp->γ.node->op == IR_FAIL) break; rp = rp->γ.node; } }

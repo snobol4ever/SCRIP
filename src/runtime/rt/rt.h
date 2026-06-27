@@ -230,3 +230,4 @@ long size_value(DESCR_t v, int *failed);
 #endif
 #endif
 void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n);
+DESCR_t rt_concat_parts_d(void *parts, int n);
