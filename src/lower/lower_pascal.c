@@ -203,6 +203,7 @@ static tree_t * pas_vptmp_var(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * c0 = (t->n > 0) ? t->c[0] : NULL;
+    if (c0 && c0->v.sval && !strcmp(c0->v.sval, "arr_make")) { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_make"; IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0; pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0); return nd; }
     uint64_t brm = pas_callee_byref_mask(c0 ? c0->v.sval : NULL);
     if (brm) { int rw = 0; for (int i = 1; i < t->n; i++) { if (((brm >> (i - 1)) & 1ULL) && t->c[i] && t->c[i]->t == TT_IDX) { rw = 1; break; } }
         if (rw) {
