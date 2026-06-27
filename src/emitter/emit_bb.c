@@ -1729,6 +1729,7 @@ static void flat_drive_idx_set(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     if (!flat_chain_set_has(val_box) && bb_slot_get(val_box) < 0) { walk_bb_flat(val_box, val_done, lbl_ω, val_β); emit_label_define_bb(val_done); }
     if (!flat_chain_set_has(key_box) && bb_slot_get(key_box) < 0) { walk_bb_flat(key_box, key_done, lbl_ω, key_β); emit_label_define_bb(key_done); }
     if (!flat_chain_set_has(base_box) && bb_slot_get(base_box) < 0) { walk_bb_flat(base_box, base_done, lbl_ω, base_β); emit_label_define_bb(base_done); }
+    g_emit.op_a_slot = bb_slot_get(base_box);
     g_emit.op_sb = bb_slot_get(key_box);
     g_emit.op_sc = bb_slot_get(val_box);
     EMIT_PAIR_RESET();
