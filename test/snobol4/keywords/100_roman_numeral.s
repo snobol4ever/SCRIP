@@ -2300,6 +2300,8 @@ bb119_α:
  mov rdx, qword ptr [r12 + 1440]
  mov rcx, qword ptr [r12 + 1448]
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n38_α
  mov qword ptr [r12 + 1456], rax
  mov qword ptr [r12 + 1464], rdx
  jmp xgvarg207_done
@@ -2426,6 +2428,8 @@ bb125_α:
  mov rdx, qword ptr [r12 + 1568]
  mov rcx, qword ptr [r12 + 1576]
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n34_α
  mov qword ptr [r12 + 1584], rax
  mov qword ptr [r12 + 1592], rdx
  jmp snoch0_n43_α
@@ -2475,6 +2479,8 @@ bb127_α:
  mov rdx, qword ptr [r12 + 1600]
  mov rcx, qword ptr [r12 + 1608]
  call subscript_get@PLT
+ cmp eax, 99
+ je snoch0_n34_α
  mov qword ptr [r12 + 1616], rax
  mov qword ptr [r12 + 1624], rdx
  jmp xgvidx222_done
