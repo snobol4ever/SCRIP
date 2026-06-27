@@ -55,6 +55,8 @@ static int is_unop_tt(tree_e tt) {
 static int is_resumable(const tree_t * t) {
     if (!t) return 0; if (t->t == TT_STMT) t = stmt_subj(t); if (!t) return 0;
     if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; return icn_call_allow_gen(nm); }
+    if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
+    if (t->t == TT_ASSIGN) { return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
     switch (t->t) {
     case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: return 1;
     default: return 0; }
