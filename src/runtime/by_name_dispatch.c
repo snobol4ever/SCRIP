@@ -166,15 +166,33 @@ static const char *gram_get(const char *qname) {
     return NULL;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_grammar_builtin_class(const char *nm) {
+    if (!nm) return NULL;
+    if (!strcmp(nm, "digit"))  return "[0-9]";
+    if (!strcmp(nm, "alpha"))  return "[a-zA-Z]";
+    if (!strcmp(nm, "alnum"))  return "[a-zA-Z0-9]";
+    if (!strcmp(nm, "upper"))  return "[A-Z]";
+    if (!strcmp(nm, "lower"))  return "[a-z]";
+    if (!strcmp(nm, "space"))  return "[ \\t\\n\\r]";
+    if (!strcmp(nm, "ws"))     return "[ \\t\\n\\r]*";
+    if (!strcmp(nm, "xdigit")) return "[0-9a-fA-F]";
+    return NULL;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void gram_expand(const char *gname, const char *body, int flavor, char *out, int outsz, int depth) {
     int op = 0, n = (int)strlen(body);
     for (int i = 0; i < n && op < outsz - 1; ) {
         char c = body[i];
         if (c == '\\' && i + 1 < n) { out[op++] = c; if (op < outsz - 1) out[op++] = body[i + 1]; i += 2; continue; }
         if (c == '\'' || c == '"') {
-            char q = c; out[op++] = c; i++;
-            while (i < n && body[i] != q && op < outsz - 1) { if (body[i] == '\\' && i + 1 < n && op < outsz - 2) { out[op++] = body[i]; out[op++] = body[i+1]; i += 2; } else out[op++] = body[i++]; }
-            if (i < n && op < outsz - 1) out[op++] = body[i++];
+            char q = c; i++;
+            while (i < n && body[i] != q && op < outsz - 2) {
+                if (body[i] == '\\' && i + 1 < n) { out[op++] = body[i]; out[op++] = body[i+1]; i += 2; continue; }
+                char lc = body[i++];
+                if (strchr(".^$*+?()[]{}|\\", lc)) out[op++] = '\\';
+                out[op++] = lc;
+            }
+            if (i < n) i++;
             continue;
         }
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
@@ -197,6 +215,11 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
                         if (op < outsz - 1) out[op++] = '(';
                         for (int k = 0; tmp[k] && op < outsz - 1; k++) out[op++] = tmp[k];
                         if (op < outsz - 1) out[op++] = ')';
+                        i = j + 1; continue;
+                    }
+                    const char *bc = rk_grammar_builtin_class(nm);
+                    if (bc) {
+                        for (int k = 0; bc[k] && op < outsz - 1; k++) out[op++] = bc[k];
                         i = j + 1; continue;
                     }
                 }

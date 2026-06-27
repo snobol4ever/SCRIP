@@ -21,6 +21,8 @@ static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (int i =
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_class_n; i++) if (!strcmp(g_rk_class_names[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_modeled_type(const char * ty) { if (!ty) return 0; static const char * k[] = { "Int", "Num", "Rat", "Str", "Numeric", "Real", "Cool", "Bool", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(ty, k[i])) return 1; return rk_is_class_name(ty); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_method_is_stub(const tree_t * m) { if (!m || m->t != TT_SUB_DECL) return 0; int bs = (int) m->v.ival; if (bs < 1) bs = 1; if (m->n - bs != 1) return 0; const tree_t * b = m->c[bs]; return b && b->t == TT_YADA; }
@@ -657,7 +659,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
             if (!pv || pv->t != TT_VAR || !pv->v.sval) continue;
             if (pv->n < 1 || !pv->c[0] || !pv->c[0]->v.sval) continue;
             const char * ty = pv->c[0]->v.sval;
-            if (!strstr(ty, ":D") && !strstr(ty, ":U")) continue;
+            if (!strstr(ty, ":D") && !strstr(ty, ":U") && !rk_is_modeled_type(ty)) continue;
             const char * pn = pv->v.sval;
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *) "__param_check";
             tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *) "__param_check"; ast_push(mc, nmv);
