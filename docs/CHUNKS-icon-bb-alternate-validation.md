@@ -14,9 +14,9 @@ Pre-rung, `AST_ALTERNATE` had no `case` in `sm_lower.c`'s
 `lower_expr` switch. Lowering hit the `default:` arm at
 `sm_lower.c:1621`, which emits `SM_PUSH_NULL` and prints a stderr
 warning when `g_expression_body_lowering` is false. Consequence:
-in value context, `x := 1 | 2 | 3` under `--interp` assigned
+in value context, `x := 1 | 2 | 3` under `--run` assigned
 `&null` to `x` and `write(x)` printed a blank line, while
-`----interp` correctly assigned `1` and printed `1`.
+`----run` correctly assigned `1` and printed `1`.
 
 Detection probe (pre-rung):
 
@@ -30,8 +30,8 @@ end
 
 | Mode | Output |
 |------|--------|
-| `----interp` | `1` / `1` |
-| `--interp` (pre-rung) | blank / `&null` |
+| `----run` | `1` / `1` |
+| `--run` (pre-rung) | blank / `&null` |
 
 In `every` context this same expression already worked, because
 `AST_EVERY`'s SM lowering at `sm_lower.c:1317` pumps its body
@@ -84,7 +84,7 @@ bash scripts/test_icon_sm_no_ast_walk.sh     # PASS=122 FAIL=115 ABORT=2
 ```
 
 All gates met. Honest mode-3 dial moved +5 PASS without regressing
-the --interp baseline or any smoke. The ABORT count is unchanged at 2
+the --run baseline or any smoke. The ABORT count is unchanged at 2
 (those programs segfault under `SCRIP_NO_AST_WALK=1` for reasons
 unrelated to `AST_ALTERNATE`).
 
@@ -99,9 +99,9 @@ procedure main()
 end
 ```
 
-- `----interp` → `1`
-- `--interp` → `1`
-- `SCRIP_NO_AST_WALK=1 --interp` → `1`
+- `----run` → `1`
+- `--run` → `1`
+- `SCRIP_NO_AST_WALK=1 --run` → `1`
 
 All three modes produce identical output. The honest mode-3 run
 no longer falls back to the AST walker for the alternation.
@@ -131,7 +131,7 @@ status; this is the goal's progress dial.
   replaces that with a `fprintf+abort` once Phases A1–A6 have
   drained all remaining kinds.
 
-- **Does not change `----interp` behaviour.** Verified by the
+- **Does not change `----run` behaviour.** Verified by the
   unchanged 177/56/30 baseline. The lowering change is SM-side
   only; the AST walker (`coro_eval` → `coro_bb_alternate`) is
   untouched.

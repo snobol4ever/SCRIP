@@ -20,7 +20,7 @@ PASS=0; FAIL=0
 _run() {
     local label="$1" file="$2" expected="$3"
     local actual
-    actual=$(timeout "$TIMEOUT" "$SCRIP" --interp "$file" < /dev/null 2>/dev/null)
+    actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$file" < /dev/null 2>/dev/null)
     if [ "$actual" = "$expected" ]; then
         echo "  PASS $label"; PASS=$((PASS+1))
     else
@@ -55,7 +55,7 @@ pl() {
 
 file_test() {
     local label="$1" path="$2" expected="$3" actual
-    actual=$(timeout "$TIMEOUT" "$SCRIP" --interp "$path" < /dev/null 2>/dev/null)
+    actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$path" < /dev/null 2>/dev/null)
     if [ "$actual" = "$expected" ]; then
         echo "  PASS $label"; PASS=$((PASS+1))
     else
@@ -185,7 +185,7 @@ EOF
 RAKU_SCRIP="$ROOT/test/raku_gather.scrip"
 RAKU_REF="$ROOT/test/raku_gather.ref"
 if [ -f "$RAKU_SCRIP" ] && [ -f "$RAKU_REF" ]; then
-    actual=$(timeout "$TIMEOUT" "$SCRIP" --interp "$RAKU_SCRIP" < /dev/null 2>/dev/null)
+    actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$RAKU_SCRIP" < /dev/null 2>/dev/null)
     expected=$(cat "$RAKU_REF")
     if [ "$actual" = "$expected" ]; then
         echo "  PASS raku_gather.scrip (SNO+RAKU polyglot, BB_PUMP via while loop)"
@@ -206,7 +206,7 @@ echo "=== Cross-language polyglot (U-19) ==="
 CROSS="$ROOT/test/cross_lang.scrip"
 REF="$ROOT/test/cross_lang.ref"
 if [ -f "$CROSS" ] && [ -f "$REF" ]; then
-    actual=$(timeout "$TIMEOUT" "$SCRIP" --interp "$CROSS" < /dev/null 2>/dev/null)
+    actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$CROSS" < /dev/null 2>/dev/null)
     expected=$(cat "$REF")
     if [ "$actual" = "$expected" ]; then
         echo "  PASS cross_lang.scrip (SNO+ICN+PL all three bb_broker modes)"
@@ -227,7 +227,7 @@ echo "=== Shared NV store (U-23) ==="
 SHARED="$ROOT/test/test_shared_nv.scrip"
 SREF="$ROOT/test/test_shared_nv.ref"
 if [ -f "$SHARED" ] && [ -f "$SREF" ]; then
-    actual=$(timeout "$TIMEOUT" "$SCRIP" --interp "$SHARED" < /dev/null 2>/dev/null)
+    actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$SHARED" < /dev/null 2>/dev/null)
     expected=$(cat "$SREF")
     if [ "$actual" = "$expected" ]; then
         echo "  PASS test_shared_nv.scrip (SNO+ICN+PL shared NV store)"
@@ -251,24 +251,24 @@ echo "$RAKU_OUT" | grep -E "^PASS|^FAIL|^SKIP" | sed 's/^/  /'
 PASS=$((PASS + RAKU_PASS))
 FAIL=$((FAIL + RAKU_FAIL))
 
-# ── OE-12: --interp polyglot smoke test ──────────────────────────────────────
-echo "=== --interp polyglot (OE-12) ==="
+# ── OE-12: --run polyglot smoke test ──────────────────────────────────────
+echo "=== --run polyglot (OE-12) ==="
 SMRUN_FILE="$ROOT/test/test_shared_nv.scrip"
 SMRUN_REF="$ROOT/test/test_shared_nv.ref"
 if [ -f "$SMRUN_FILE" ] && [ -f "$SMRUN_REF" ]; then
-    actual=$(timeout 8 "$SCRIP" --interp "$SMRUN_FILE" 2>/dev/null)
+    actual=$(timeout 8 "$SCRIP" --run "$SMRUN_FILE" 2>/dev/null)
     expected=$(cat "$SMRUN_REF")
     if [ "$actual" = "$expected" ]; then
-        echo "  PASS --interp test_shared_nv.scrip (polyglot routes to polyglot_execute)"
+        echo "  PASS --run test_shared_nv.scrip (polyglot routes to polyglot_execute)"
         PASS=$((PASS+1))
     else
-        echo "  FAIL --interp test_shared_nv.scrip"
+        echo "  FAIL --run test_shared_nv.scrip"
         printf "       exp: %s\n" "$(printf '%s' "$expected" | head -6)"
         printf "       got: %s\n" "$(printf '%s' "$actual"   | head -6)"
         FAIL=$((FAIL+1))
     fi
 else
-    echo "  SKIP --interp polyglot test (file not found)"
+    echo "  SKIP --run polyglot test (file not found)"
 fi
 
 # ── Result ───────────────────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ m4_run() { # $1=name ; compiles $TMP/$1.pl -> runs -> stdout in $TMP/$1.o4
 pin() { # $1=name $2=program(printf-format) $3=expected_stdout(printf-format) — m2 == m3 == m4 == canon
   local NM=$1 PRG=$2 EXP=$3
   printf "$PRG" > "$TMP/$NM.pl"
-  "$SCRIP" --interp "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
+  "$SCRIP" --run "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
   "$SCRIP" --run    "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o3" 2>/dev/null || fail "$NM m3 rc"
   m4_run "$NM"
   printf "$EXP" | cmp -s - "$TMP/$NM.o2" || fail "$NM m2 output not canon (got: $(tr '\n' ' ' < "$TMP/$NM.o2"))"
@@ -38,7 +38,7 @@ pin() { # $1=name $2=program(printf-format) $3=expected_stdout(printf-format) �
 pin24() { # $1=name $2=program $3=expected — m2+m4 only; m3 aborts (ITE-in-callee not yet GZ-admitted)
   local NM=$1 PRG=$2 EXP=$3
   printf "$PRG" > "$TMP/$NM.pl"
-  "$SCRIP" --interp "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
+  "$SCRIP" --run "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
   m4_run "$NM"
   printf "$EXP" | cmp -s - "$TMP/$NM.o2" || fail "$NM m2 output not canon (got: $(tr '\n' ' ' < "$TMP/$NM.o2"))"
   cmp -s "$TMP/$NM.o2" "$TMP/$NM.o4" || fail "$NM m2 vs m4 stdout differ"
@@ -62,7 +62,7 @@ pin24 negbound ':- initialization(main).\na(1).\nmain :- ( \\+ a(2) -> write(y) 
 gz_pin() { # $1=name $2=program $3=expected — like pin(), PLUS asserts the GZ path: m3 has NO INTERP-FALLBACK and the m4 .s carries gzi chain labels
   local NM=$1 PRG=$2 EXP=$3
   printf "$PRG" > "$TMP/$NM.pl"
-  "$SCRIP" --interp "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
+  "$SCRIP" --run "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
   "$SCRIP" --run    "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o3" 2>"$TMP/$NM.e3" || fail "$NM m3 rc"
   grep -q "INTERP-FALLBACK" "$TMP/$NM.e3" && fail "$NM m3 fell back to interp (not GZ-admitted)"
   m4_run "$NM"
@@ -75,7 +75,7 @@ gz_pin() { # $1=name $2=program $3=expected — like pin(), PLUS asserts the GZ 
 gz_pin_noite() { # like gz_pin() but no gzi label check — for GZ programs without ITE
   local NM=$1 PRG=$2 EXP=$3
   printf "$PRG" > "$TMP/$NM.pl"
-  "$SCRIP" --interp "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
+  "$SCRIP" --run "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o2" 2>/dev/null || fail "$NM m2 rc"
   "$SCRIP" --run    "$TMP/$NM.pl" </dev/null > "$TMP/$NM.o3" 2>"$TMP/$NM.e3" || fail "$NM m3 rc"
   grep -q "INTERP-FALLBACK" "$TMP/$NM.e3" && fail "$NM m3 fell back to interp (not GZ-admitted)"
   m4_run "$NM"

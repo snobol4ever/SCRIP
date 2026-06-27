@@ -1,4 +1,4 @@
-# CHUNKS-step17i-survey-mode3 — Icon + Prolog `--interp` gap audit
+# CHUNKS-step17i-survey-mode3 — Icon + Prolog `--run` gap audit
 
 **Rung:** CH-17i-survey-mode3  
 **Date:** 2026-05-09  
@@ -9,14 +9,14 @@
 ## Supported-surface definition
 
 **Icon:** corpus `programs/icon/*.icn` + `test/icon/coverage/*.icn`.  
-Survey: 177 programs reach `----interp` PASS vs `.expected` oracle. 30 XFAIL (known).
+Survey: 177 programs reach `----run` PASS vs `.expected` oracle. 30 XFAIL (known).
 
 **Prolog:** `test/prolog/*.pl` + `test/prolog/coverage/*.pl`.  
-Survey: 4 programs produce non-empty `----interp` output (hello, palindrome, roman, coverage_net_gaps).
+Survey: 4 programs produce non-empty `----run` output (hello, palindrome, roman, coverage_net_gaps).
 
 ---
 
-## Icon results: 177 PASS, 111 diverge under `--interp`, 30 XFAIL
+## Icon results: 177 PASS, 111 diverge under `--run`, 30 XFAIL
 
 Zero missing builtins. Zero missing opcodes. All 111 failures are **semantic**.
 
@@ -51,7 +51,7 @@ is incompatible with SM dispatch.**
 
 ---
 
-## Prolog results: 4 PASS, 1 diverges under `--interp`
+## Prolog results: 4 PASS, 1 diverges under `--run`
 
 `coverage_net_gaps.pl` — FAIL.  
 Cause: `:- initialization(main, main)` directive emits `SM_CALL_FN s="initialization" nargs=2`.
@@ -79,8 +79,8 @@ proc-body chunks to emit a proper SM opcode (mirroring CH-17f's `SM_BB_ONCE_PROC
 pattern). Each kind needs: (a) a chunk-side producer in `sm_lower.c` that emits a
 named-proc opcode instead of `SM_PUSH_EXPR + SM_BB_PUMP`; (b) a consumer handler in
 `sm_interp.c`. This is CH-17h's work (which was surveyed as dead-code-on-real-corpora
-under `----interp` because the generator kinds inside proc bodies were never reachable
-via `coro_call` in `----interp` mode — but they ARE reachable under `--interp` once
+under `----run` because the generator kinds inside proc bodies were never reachable
+via `coro_call` in `----run` mode — but they ARE reachable under `--run` once
 `sm_call_proc` dispatches into the chunk). Sub-rungs per kind:
 
 | Sub-rung | Kind(s) | Programs unblocked |

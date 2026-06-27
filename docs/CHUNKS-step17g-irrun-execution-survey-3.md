@@ -4,8 +4,8 @@
 
 ## Summary
 
-Attempted CH-17g-irrun-execution Step 2 (route `----interp` non-SNO
-through `sm_preamble` + `sm_run_with_recovery`, mirroring `--interp`).
+Attempted CH-17g-irrun-execution Step 2 (route `----run` non-SNO
+through `sm_preamble` + `sm_run_with_recovery`, mirroring `--run`).
 The dispatch arm flip was a one-line edit; build clean.  Probe.icn
 remained byte-identical.  But three gates regressed against the
 pre-rung baseline:
@@ -37,14 +37,14 @@ procedure main()
 end
 ```
 
-Pre-rung: prints `big`.  Post-Step-2 `----interp`: prints `big\n5`.
+Pre-rung: prints `big`.  Post-Step-2 `----run`: prints `big\n5`.
 The expression `x > 5` returns `5` (Icon's `>` returns the right
 operand on success); the AST walker silently discarded that value
 in stmt context.  SM dispatch leaks the descriptor onto the value
 stack and `write` (or stmt-end flushing) emits it.  This is a
 **producer gap or pop-discipline gap** — `lower_stmt`/`lower_expr`
 for `if`-condition slots needs an `SM_POP` after the value-test
-that `--interp` already needs but currently lacks for the if/while
+that `--run` already needs but currently lacks for the if/while
 condition path.
 
 ```icon
@@ -57,7 +57,7 @@ Pre-rung: prints `1\n2\n3`.  Post-Step-2: `sm_interp: stack underflow;
 Aborted`.  `1 to 3` is the E_TO generator that CH-15a migrated to
 SM_BB_PUMP_SM, but `every`'s consumer side still expects
 SM_PUSH_EXPR + SM_BB_PUMP shape per CH-15-SURVEY (line-1192
-dispatcher arm).  Under `----interp` the AST walker handled the
+dispatcher arm).  Under `----run` the AST walker handled the
 generator chain end-to-end; under SM dispatch the producer is
 migrated and the consumer is not.
 
@@ -68,7 +68,7 @@ regression class is the same: any unified-broker test that exercises
 non-SNO frontends now flows through SM dispatch and hits the gaps
 above (or sibling gaps in the same producer/consumer mismatch family).
 
-### Icon `----interp` corpus
+### Icon `----run` corpus
 
 Not re-run post-Step-2 (the smoke regression is sufficient to halt).
 Expectation per the analysis below: the corpus PASS count would
@@ -100,8 +100,8 @@ Two valid paths forward:
 
 Run CH-17i-survey-mode3 BEFORE attempting CH-17g-irrun-execution
 again.  The survey doc enumerates every bucket; CH-17i-mode3-completeness
-sub-rungs land each bucket; once the Icon and Prolog `----interp`
-PASS subsets pass byte-identical under `--interp` (i.e., the gates
+sub-rungs land each bucket; once the Icon and Prolog `----run`
+PASS subsets pass byte-identical under `--run` (i.e., the gates
 CH-17g-irrun-execution wants are achievable), THEN flip the
 dispatch arm.  Step 2 of CH-17g-irrun-execution becomes the
 *last* step of the umbrella — the act that converts mode 2 from
@@ -132,7 +132,7 @@ CH-17i-survey-mode3: build the empirical bucket list from the
 post-Step-2 evidence captured above, plus the broader corpus
 audit, plus the Prolog-side audit (queens.pl FATAL on kind 59
 already documented; the Prolog corpus has 5 PASS / 1 FAIL out
-of 6 programs under `----interp` per this session's pre-rung
+of 6 programs under `----run` per this session's pre-rung
 capture).
 
 ## Pre-rung baseline (for any future re-attempt)
@@ -140,11 +140,11 @@ capture).
 | Item                            | Value |
 |---------------------------------|-------|
 | SCRIP HEAD                    | `0c72978d` |
-| Icon corpus `----interp`          | PASS=177 FAIL=56 XFAIL=30 TOTAL=263 |
-| Prolog corpus (`test/prolog/*.pl`) `----interp` PASS subset | hello, palindrome, roman, sentences, wordcount (5/6) |
-| Prolog corpus `----interp` FAIL   | queens.pl (kind 59 / E_CHOICE) |
-| `/tmp/probe.icn ----interp` md5   | `883a26c5abfd0b454cb149c88ca26fe6` |
-| `/tmp/probe.icn --interp` md5   | `883a26c5abfd0b454cb149c88ca26fe6` |
+| Icon corpus `----run`          | PASS=177 FAIL=56 XFAIL=30 TOTAL=263 |
+| Prolog corpus (`test/prolog/*.pl`) `----run` PASS subset | hello, palindrome, roman, sentences, wordcount (5/6) |
+| Prolog corpus `----run` FAIL   | queens.pl (kind 59 / E_CHOICE) |
+| `/tmp/probe.icn ----run` md5   | `883a26c5abfd0b454cb149c88ca26fe6` |
+| `/tmp/probe.icn --run` md5   | `883a26c5abfd0b454cb149c88ca26fe6` |
 | smoke Icon                      | PASS=5 FAIL=0 |
 | smoke Prolog                    | PASS=5 FAIL=0 |
 | unified_broker                  | PASS=49 FAIL=0 |
@@ -165,8 +165,8 @@ From this session's evidence:
 |--------|---------|--------|
 | stmt-context value leak | `if x > 5 then ...` printing `5` | add SM_POP after if/while/until condition value |
 | generator producer/consumer mismatch | `every write(1 to 3)` stack underflow | finish CH-15b Icon generator migrations OR back-port consumer to expect SM_BB_PUMP_SM |
-| unhandled clause kind in `--interp` | queens.pl kind 59 / E_CHOICE | CH-17f reactivation (E_CHOICE/E_CLAUSE chunk bodies) |
+| unhandled clause kind in `--run` | queens.pl kind 59 / E_CHOICE | CH-17f reactivation (E_CHOICE/E_CLAUSE chunk bodies) |
 
 This is a starter list, not the full survey.  The full survey runs
 the Icon corpus PASS subset and the Prolog corpus PASS subset
-under `--interp` and enumerates every divergence.
+under `--run` and enumerates every divergence.

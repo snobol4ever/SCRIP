@@ -1,18 +1,18 @@
-# CH-17g-final-SURVEY — legacy `coro_call` body is the live `----interp` path; CH-17h-SURVEY's "dead weight" framing is wrong
+# CH-17g-final-SURVEY — legacy `coro_call` body is the live `----run` path; CH-17h-SURVEY's "dead weight" framing is wrong
 
 **Rung:** CH-17g-final-SURVEY (precondition audit before deletion)
 **Session:** 2026-05-09
 **Methodology:** instrument `coro_call` and `proc_table_call` with
 `fprintf(stderr, ...)` probes, build, run trivial Icon program in
-`----interp` mode, observe.  Probes reverted before commit; `git diff`
+`----run` mode, observe.  Probes reverted before commit; `git diff`
 clean.
 
 ## Finding
 
 The legacy body of `coro_call(EXPR_t *proc, DESCR_t *args, int nargs)`
 is the **live, hot, only consumer** of Icon and Raku user-proc dispatch
-in `----interp` mode.  It is not dead weight.  Deleting it breaks every
-Icon and Raku program that runs under `----interp` — the same corpus that
+in `----run` mode.  It is not dead weight.  Deleting it breaks every
+Icon and Raku program that runs under `----run` — the same corpus that
 the CHUNKS standard gate set uses to validate every rung
 (`test_icon_all_rungs.sh`, baseline 186/47/30).
 
@@ -55,7 +55,7 @@ end
 
 Run output (after `bash scripts/build_scrip.sh`):
 ```
-$ ./scrip ----interp /tmp/probe.icn < /dev/null
+$ ./scrip ----run /tmp/probe.icn < /dev/null
 [CH17G-PROBE] proc_table_call pi=0 entry_pc=-1 nparams=0
 [CH17G-PROBE] coro_call ENTERED proc=0x...
 hello from icon proc
@@ -69,22 +69,22 @@ hello from icon proc
    The fallback `coro_call(proc_table[pi].proc, ...)` is what
    produces the program's output.
 
-## Root cause: `----interp` does not invoke `sm_lower`
+## Root cause: `----run` does not invoke `sm_lower`
 
 `sm_resolve_proc_entry_pcs` (added by CH-17a) is called from
 `scrip_sm.c:sm_preamble`, which is invoked from `scrip.c:524`
 (`mode_sm_run`) and `scrip.c:540` (`mode_jit_run`).
 
-For `----interp` with non-SNO IR, `scrip.c:557–561` dispatches
+For `----run` with non-SNO IR, `scrip.c:557–561` dispatches
 to `polyglot_execute(prog)` (or `execute_program(prog)` for SNO-only).
 **Neither path calls `sm_lower`.**  Therefore
 `sm_resolve_proc_entry_pcs` never runs.  Therefore every
 `proc_table[i].entry_pc` stays at its `polyglot.c:172` initial value
 of `-1`.  Therefore `proc_table_call`'s `entry_pc >= 0` branch is
-never taken in `----interp` mode.
+never taken in `----run` mode.
 
 The Icon corpus gate (`test_icon_all_rungs.sh`) runs every
-program under `----interp`.  Its 186 PASS programs all reach the
+program under `----run`.  Its 186 PASS programs all reach the
 legacy `coro_call` body.
 
 ## What CH-17h-SURVEY got right and what it got wrong
@@ -103,7 +103,7 @@ dormant.  These are two different code paths:
 | What's dead today                       | What's live today                       |
 |----------------------------------------|----------------------------------------|
 | `sm_lower.c:1303` arm — these kinds, when encountered as **values inside expressions during SM lowering**, never reach this dispatcher. | `coro_runtime.c:431` — `coro_call`'s body, when invoked from `proc_table_call`'s fallback, **is** the engine that walks proc-body IR statement-by-statement. |
-| Resolution: a chunk-side migration of how these kinds get *lowered into SM* (CH-17h proper). | Resolution: **either** make the chunk-side path actually run end-to-end so `entry_pc >= 0` produces correct output, **or** route `----interp` through `sm_lower` first so entry_pcs resolve, **or** keep the legacy body. |
+| Resolution: a chunk-side migration of how these kinds get *lowered into SM* (CH-17h proper). | Resolution: **either** make the chunk-side path actually run end-to-end so `entry_pc >= 0` produces correct output, **or** route `----run` through `sm_lower` first so entry_pcs resolve, **or** keep the legacy body. |
 
 CH-17h's lowering-site fix doesn't reach the runtime side.  Even with
 all nine kinds migrated in `sm_lower.c`, the runtime would still need
@@ -117,18 +117,18 @@ of the following hold:
 
 1. The chunk path produces correct output for every Icon/Raku/Prolog
    program in the corpus (currently the chunks are skeleton-or-stub:
-   `--interp /tmp/probe.icn` returns FATAL "Undefined function" on
+   `--run /tmp/probe.icn` returns FATAL "Undefined function" on
    `write()` even though `entry_pc` resolves to 1).
-2. `----interp` invokes `sm_lower` (and therefore
+2. `----run` invokes `sm_lower` (and therefore
    `sm_resolve_proc_entry_pcs`) before dispatch, so `entry_pc >= 0`
    for every proc by the time `proc_table_call` is reached.
 
 Today, neither holds.
 
-### Verifying (1): `--interp` of trivial Icon proc fails
+### Verifying (1): `--run` of trivial Icon proc fails
 
 ```
-$ ./scrip --interp /tmp/probe.icn < /dev/null
+$ ./scrip --run /tmp/probe.icn < /dev/null
 ** Error 5 in statement 0
    Undefined function or operation
 ```
@@ -139,9 +139,9 @@ inside the chunk SM execution.  The infrastructure for builtin
 dispatch from chunks (likely an `SM_CALL_BUILTIN` opcode or a chunk
 hook into `coro_value.c`'s builtin table) does not exist.
 
-### Verifying (2): `----interp` does not run `sm_lower`
+### Verifying (2): `----run` does not run `sm_lower`
 
-See "Root cause" above: `scrip.c:557–561` for non-SNO `----interp`
+See "Root cause" above: `scrip.c:557–561` for non-SNO `----run`
 dispatches to `polyglot_execute` directly.  No SM lowering happens.
 
 ## Recommendation
@@ -153,11 +153,11 @@ in `GOAL-CHUNKS-STEP17.md` should be amended with two new rungs:
   add `SM_CALL_BUILTIN` opcode that walks the same `coro_value.c`
   builtin table the IR walker uses; **or** extend `sm_call_chunk` to
   dispatch a chunk-internal call by name through a lookup that hits
-  both proc_table and the builtin registry.  Gate: `--interp` of
+  both proc_table and the builtin registry.  Gate: `--run` of
   every Icon hello-world variant produces output identical to
-  `----interp`.
+  `----run`.
 - **CH-17g-irrun-lowers** — invoke `sm_lower` (or at minimum
-  `sm_resolve_proc_entry_pcs`) from the `----interp` path before
+  `sm_resolve_proc_entry_pcs`) from the `----run` path before
   `polyglot_execute`.  Gate: corpus baseline byte-identical;
   `entry_pc` resolves to `>=0` for every proc in
   `SCRIP_PROC_ENTRY_PCS=1` output regardless of mode.
@@ -187,6 +187,6 @@ this doc was written.
 | smoke rebus | PASS=4 |
 | isolation | PASS |
 | unified_broker | PASS=49 |
-| Icon corpus `----interp` | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
+| Icon corpus `----run` | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
 
 All byte-identical to the CH-17g-statics post-land baseline.

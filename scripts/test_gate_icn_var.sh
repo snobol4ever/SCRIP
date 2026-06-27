@@ -28,7 +28,7 @@ BAD=0
 A2=""; A3=""; A4=""; SMX3=0; SMX4=0; RC3=0
 run3() {
     local f="$1" TO="${2:-8}"
-    A2=$(timeout "$TO" "$SCRIP" --interp "$f" 2>/dev/null </dev/null)
+    A2=$(timeout "$TO" "$SCRIP" --run "$f" 2>/dev/null </dev/null)
     local e3; e3=$(mktemp)
     A3=$(timeout "$TO" "$SCRIP" --run "$f" 2>"$e3" </dev/null); RC3=$?
     SMX3=0; grep -q '\[SMX\]' "$e3" && SMX3=1; rm -f "$e3"

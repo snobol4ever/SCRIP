@@ -16,7 +16,7 @@ for sc in "$FIX"/*.sc; do
     ref="${base}.ref"
     [ -f "$ref" ] || continue
     name="$(basename "$base")"
-    got=$(timeout 8 "$SCRIP" --interp \
+    got=$(timeout 8 "$SCRIP" --run \
         "$SD/global.sc" "$SD/case.sc" "$SD/assign.sc" "$SD/match.sc" \
         "$SD/counter.sc" "$SD/stack.sc" "$SD/tree.sc" "$SD/ShiftReduce.sc" \
         "$SD/tdump.sc" "$SD/gen.sc" "$SD/qize.sc" "$SD/semantic.sc" \

@@ -30,7 +30,7 @@ existing user-proc / clone-or-fallback paths.
 
 `icn_call_builtin` is the path through which Icon's `write` (and ~30
 other Icon builtins) reaches stdout when an Icon program is run via
-`----interp`.  The function takes `EXPR_t *call` as its first argument
+`----run`.  The function takes `EXPR_t *call` as its first argument
 because some builtins (Raku/SCAN dispatchers, mutators that write
 back through `children[1]`'s lvalue identity, generator builtins
 inspecting `children[i]` structurally) need it.  But the bulk of
@@ -84,14 +84,14 @@ No new opcodes, no new IR fields, no `sm_lower.c` changes.
 | isolation_ir_sm | PASS — no IR-only symbol leaks in SM runtime files |
 | unified_broker | PASS=49 FAIL=0 |
 | scrip_all_modes | PASS=2 FAIL=0 |
-| Icon corpus `----interp` (`test_icon_all_rungs.sh`) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
+| Icon corpus `----run` (`test_icon_all_rungs.sh`) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 |
 
 All byte-identical to the baseline established by CH-17g-statics.
 
 ## Manual verification
 
 ```
-$ ./scrip ----interp /tmp/probe.icn
+$ ./scrip ----run /tmp/probe.icn
 hello from icon proc
 ```
 
@@ -99,7 +99,7 @@ The legacy IR-walker path still routes through `icn_call_builtin` →
 `icn_try_call_builtin_by_name` for `write`, producing the same
 output as before the refactor.
 
-`--interp` of the same program still FATALs with "Undefined function
+`--run` of the same program still FATALs with "Undefined function
 or operation" — the helper is defined but not yet wired into
 `SM_CALL_FN`.  That's CH-17g-runtime-bridge-2's work.
 
@@ -107,6 +107,6 @@ or operation" — the helper is defined but not yet wired into
 
 **CH-17g-runtime-bridge-2** — wire `icn_try_call_builtin_by_name`
 into `SM_CALL_FN`.  In `sm_interp.c`, after the existing `INVOKE_fn`
-fallback returns FAIL, call the helper.  Gate: `--interp` of the
-trivial Icon proc produces output identical to `----interp`; standard
+fallback returns FAIL, call the helper.  Gate: `--run` of the
+trivial Icon proc produces output identical to `----run`; standard
 set byte-identical.

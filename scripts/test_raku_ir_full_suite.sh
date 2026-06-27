@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_raku_ir_full_suite.sh — Full Raku rung ladder sweep (RK-27)
 #
-# Runs all RK-1 through RK-26 tests under --interp, --interp, and --run.
+# Runs all RK-1 through RK-26 tests under --run, --run, and --run.
 # Reports per-rung PASS/FAIL for each mode. Final gate: FAIL=0 in all modes.
 #
 # Gate: PASS=22 FAIL=0 per mode, all three modes.
@@ -47,30 +47,30 @@ run_mode() {
     fi
 }
 
-echo "=== Raku full suite — --interp ==="
+echo "=== Raku full suite — --run ==="
 for raku in "$TESTDIR"/*.raku; do
     [ -f "$raku" ] || continue
-    if run_mode --interp "$raku"; then
+    if run_mode --run "$raku"; then
         IR_PASS=$((IR_PASS+1))
     else
         IR_FAIL=$((IR_FAIL+1))
     fi
 done
 echo ""
-echo "  --interp:  PASS=$IR_PASS FAIL=$IR_FAIL"
+echo "  --run:  PASS=$IR_PASS FAIL=$IR_FAIL"
 
 echo ""
-echo "=== Raku full suite — --interp ==="
+echo "=== Raku full suite — --run ==="
 for raku in "$TESTDIR"/*.raku; do
     [ -f "$raku" ] || continue
-    if run_mode --interp "$raku"; then
+    if run_mode --run "$raku"; then
         SM_PASS=$((SM_PASS+1))
     else
         SM_FAIL=$((SM_FAIL+1))
     fi
 done
 echo ""
-echo "  --interp:  PASS=$SM_PASS FAIL=$SM_FAIL"
+echo "  --run:  PASS=$SM_PASS FAIL=$SM_FAIL"
 
 echo ""
 echo "=== Raku full suite — --run ==="
@@ -87,8 +87,8 @@ echo "  --run: PASS=$JIT_PASS FAIL=$JIT_FAIL"
 
 echo ""
 echo "=== Summary ==="
-echo "  --interp:  PASS=$IR_PASS FAIL=$IR_FAIL"
-echo "  --interp:  PASS=$SM_PASS FAIL=$SM_FAIL"
+echo "  --run:  PASS=$IR_PASS FAIL=$IR_FAIL"
+echo "  --run:  PASS=$SM_PASS FAIL=$SM_FAIL"
 echo "  --run: PASS=$JIT_PASS FAIL=$JIT_FAIL"
 
 TOTAL_FAIL=$((IR_FAIL + SM_FAIL + JIT_FAIL))

@@ -3,12 +3,12 @@
 # every *_driver.sno in corpus/programs/snobol4/beauty_suite/, under
 #   --compile    (mode 4: emit .s, link to libscrip_rt.so, run binary)
 # produces output byte-identical to the same driver under
-#   --interp            (mode 2: proven SM interpreter)
+#   --run            (mode 2: proven SM interpreter)
 #
 # This is a PARITY gate, not a correctness gate.  The beauty drivers'
 # own .ref files belong to GOAL-PARSER-SNOBOL4 (rung SN-7-8) and may be
 # regressing independently.  What this gate measures is solely whether
-# mode-4 (emit binary) tracks mode-3/--interp (runtime interp) — i.e.
+# mode-4 (emit binary) tracks mode-3/--run (runtime interp) — i.e.
 # whether the emitter pipeline + libscrip_rt.so reproduces what the SM
 # interpreter does on the same input.  Mode-4 cannot be more correct
 # than mode-3; the goal here is simply that they agree.
@@ -50,12 +50,12 @@ for sno in "$BEAUTY"/*_driver.sno; do
     [ ! -f "$sno" ] && continue
     name=$(basename "$sno" .sno)
 
-    # mode-3 oracle: --interp on the same source.  Don't gate on its
+    # mode-3 oracle: --run on the same source.  Don't gate on its
     # rc; just capture what it produces.  If it segfaults, mode-4
     # parity means mode-4 should produce the same (empty) output.
     # bash -c runs the child in a fresh shell so SIGSEGV trap message
     # (printed by the parent's job-control) doesn't reach our stderr.
-    bash -c "SNO_LIB='$BEAUTY' timeout '$TIMEOUT' '$SCRIP' --interp '$sno' < /dev/null" \
+    bash -c "SNO_LIB='$BEAUTY' timeout '$TIMEOUT' '$SCRIP' --run '$sno' < /dev/null" \
         > "$name.sm.out" 2>/dev/null || true
 
     # mode-4: emit -> assemble+link -> run.

@@ -59,7 +59,7 @@ references helpers by address, so they must be declared).
 |---|---|
 | GATE-1 smoke | 5/5 |
 | GATE-2 crosscheck | **43 PASS** (was 33), 1 ORACLE_MISS |
-| GATE-3 mode-2 (`--interp`) | 104/107 byte-identical (mode-2 untouched) |
+| GATE-3 mode-2 (`--run`) | 104/107 byte-identical (mode-2 untouched) |
 | GATE-3 mode-3 native (`--run`) | **39/107** (was 29) |
 | GATE-4 mode-4 minimal | 4/4 |
 | GATE-SWI | 57/57 (100%) |

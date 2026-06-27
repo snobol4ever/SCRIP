@@ -1,6 +1,6 @@
 // treebank-prepend.sc — Penn Treebank s-expression parser (LISP-style, Snocone)
 // ENG 685, Lon Cherryholmes Sr.
-// Run: scrip --interp treebank-prepend.sc < VBGinTASA.dat
+// Run: scrip --run treebank-prepend.sc < VBGinTASA.dat
 //
 // LISP-style cons-list: children PREPENDED to head, list_reverse corrects
 // order at pop time.  Mirrors treebank-prepend.sno exactly.

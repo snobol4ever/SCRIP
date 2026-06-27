@@ -19,7 +19,7 @@ CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
 bb_probe_detect() {
     local rung="$1" kind_re="$2" anchor="$3"
     local fires
-    fires=$(timeout 8 bash -c "SCRIP_EXPRS_AUDIT=1 '$SCRIP' --interp '${CORPUS}/${anchor}.icn' < /dev/null 2>&1" \
+    fires=$(timeout 8 bash -c "SCRIP_EXPRS_AUDIT=1 '$SCRIP' --run '${CORPUS}/${anchor}.icn' < /dev/null 2>&1" \
             | grep -cE "(${kind_re}).*SM_PUSH_EXPR fired" 2>/dev/null || true)
     if [ "${fires:-0}" -gt 0 ]; then
         echo "$rung needed: anchor $anchor has $fires fires"
@@ -29,7 +29,7 @@ bb_probe_detect() {
     local total=0
     for f in "${CORPUS}"/rung*.icn; do
         local c
-        c=$(timeout 8 bash -c "SCRIP_EXPRS_AUDIT=1 '$SCRIP' --interp '$f' < /dev/null 2>&1" \
+        c=$(timeout 8 bash -c "SCRIP_EXPRS_AUDIT=1 '$SCRIP' --run '$f' < /dev/null 2>&1" \
             | grep -cE "(${kind_re}).*SM_PUSH_EXPR fired" 2>/dev/null || true)
         total=$((total + ${c:-0}))
     done
@@ -42,7 +42,7 @@ bb_probe_detect() {
 }
 
 # Completion: HONEST mode 3 — output equality is necessary but not sufficient.
-#   (a) anchor --interp output matches --interp             [output witness]
+#   (a) anchor --run output matches --run             [output witness]
 #   (b) anchor passes under SCRIP_NO_AST_WALK=1         [structural witness]
 #   (c) audit counter zero for kind set across corpus   [closure witness]
 #   (d) smoke icon + snobol4 + unified-broker unchanged  [no-regression]
@@ -53,17 +53,17 @@ bb_probe_complete() {
 
     # (a) anchor output equality
     local ir_out sm_out
-    ir_out=$(timeout 8 "$SCRIP" --interp "${CORPUS}/${anchor}.icn" < /dev/null 2>&1)
-    sm_out=$(timeout 8 "$SCRIP" --interp "${CORPUS}/${anchor}.icn" < /dev/null 2>&1)
+    ir_out=$(timeout 8 "$SCRIP" --run "${CORPUS}/${anchor}.icn" < /dev/null 2>&1)
+    sm_out=$(timeout 8 "$SCRIP" --run "${CORPUS}/${anchor}.icn" < /dev/null 2>&1)
     if [ "$ir_out" != "$sm_out" ]; then
-        echo "$rung FAIL (a): anchor $anchor --interp differs from --interp"
+        echo "$rung FAIL (a): anchor $anchor --run differs from --run"
         diff <(echo "$ir_out") <(echo "$sm_out") | head -5
         fail=1
     fi
 
     # (b) anchor honest under SCRIP_NO_AST_WALK
     local h_out h_rc
-    h_out=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --interp '${CORPUS}/${anchor}.icn' < /dev/null 2>&1")
+    h_out=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --run '${CORPUS}/${anchor}.icn' < /dev/null 2>&1")
     h_rc=$?
     if [ $h_rc -eq 134 ] || echo "$h_out" | grep -q "FATAL:"; then
         echo "$rung FAIL (b): anchor $anchor cheats — aborts under SCRIP_NO_AST_WALK"
@@ -78,7 +78,7 @@ bb_probe_complete() {
     for f in "${CORPUS}"/rung*.icn; do
         local n c
         n=$(basename "$f" .icn)
-        c=$(timeout 8 bash -c "SCRIP_EXPRS_AUDIT=1 '$SCRIP' --interp '$f' < /dev/null 2>&1" \
+        c=$(timeout 8 bash -c "SCRIP_EXPRS_AUDIT=1 '$SCRIP' --run '$f' < /dev/null 2>&1" \
             | grep -cE "(${kind_re}).*SM_PUSH_EXPR fired" 2>/dev/null || true)
         if [ "${c:-0}" -gt 0 ]; then
             echo "$rung FAIL (c): $n still has $c fires for /$kind_re/"
@@ -99,9 +99,9 @@ bb_probe_complete() {
     for f in "${CORPUS}"/rung*.icn; do
         local n h_md5 ir_md5 base_h_md5
         n=$(basename "$f" .icn)
-        h_md5=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --interp '$f' < /dev/null 2>&1" \
+        h_md5=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --run '$f' < /dev/null 2>&1" \
                 | md5sum | cut -d' ' -f1)
-        ir_md5=$(timeout 8 "$SCRIP" --interp "$f" < /dev/null 2>&1 | md5sum | cut -d' ' -f1)
+        ir_md5=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>&1 | md5sum | cut -d' ' -f1)
         base_h_md5=$(grep "^$n " baselines/icon-bb/interp-honest.md5 2>/dev/null | awk '{print $3}')
         [ "$h_md5" = "$ir_md5" ] && [ "${base_h_md5:-}" != "$ir_md5" ] && \
             flipped=$((flipped + 1))
@@ -120,8 +120,8 @@ bb_probe_complete() {
 bb_probe_detect_anchor() {
     local rung="$1" anchor="$2"
     local ir h_out h_rc
-    ir=$(timeout 8 "$SCRIP" --interp "${CORPUS}/${anchor}.icn" < /dev/null 2>&1)
-    h_out=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --interp '${CORPUS}/${anchor}.icn' < /dev/null 2>&1")
+    ir=$(timeout 8 "$SCRIP" --run "${CORPUS}/${anchor}.icn" < /dev/null 2>&1)
+    h_out=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --run '${CORPUS}/${anchor}.icn' < /dev/null 2>&1")
     h_rc=$?
     if [ $h_rc -eq 134 ] || echo "$h_out" | grep -q "FATAL:" || [ "$ir" != "$h_out" ]; then
         echo "$rung needed: anchor $anchor cheats (rc=$h_rc)"
@@ -136,8 +136,8 @@ bb_probe_complete_anchor() {
     local rung="$1" anchor="$2"
     local fail=0
     local ir h_out h_rc
-    ir=$(timeout 8 "$SCRIP" --interp "${CORPUS}/${anchor}.icn" < /dev/null 2>&1)
-    h_out=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --interp '${CORPUS}/${anchor}.icn' < /dev/null 2>&1")
+    ir=$(timeout 8 "$SCRIP" --run "${CORPUS}/${anchor}.icn" < /dev/null 2>&1)
+    h_out=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --run '${CORPUS}/${anchor}.icn' < /dev/null 2>&1")
     h_rc=$?
     if [ $h_rc -eq 134 ] || echo "$h_out" | grep -q "FATAL:" || [ "$ir" != "$h_out" ]; then
         echo "$rung FAIL: anchor $anchor still cheats (rc=$h_rc)"
@@ -155,9 +155,9 @@ bb_probe_scoreboard() {
     for f in "${CORPUS}"/rung*.icn; do
         local n h_md5 ir_md5 base_h_md5
         n=$(basename "$f" .icn)
-        h_md5=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --interp '$f' < /dev/null 2>&1" \
+        h_md5=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --run '$f' < /dev/null 2>&1" \
                 | md5sum | cut -d' ' -f1)
-        ir_md5=$(timeout 8 "$SCRIP" --interp "$f" < /dev/null 2>&1 | md5sum | cut -d' ' -f1)
+        ir_md5=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>&1 | md5sum | cut -d' ' -f1)
         base_h_md5=$(grep "^$n " baselines/icon-bb/interp-honest.md5 2>/dev/null | awk '{print $3}')
         if [ "$h_md5" = "$ir_md5" ] && [ "${base_h_md5:-}" != "$ir_md5" ]; then
             flipped=$((flipped + 1))

@@ -3,7 +3,7 @@
 # Usage: CORPUS=/home/claude/corpus bash test/regression.sh [--mode MODE]
 # From:  /home/claude/SCRIP/
 #
-# Modes: --run (default), --interp, x86, jvm, net, wasm
+# Modes: --run (default), --run, x86, jvm, net, wasm
 # With no --mode flag runs --run only. Specify --mode to test other backends.
 #
 # Sections (--run mode):
@@ -68,8 +68,8 @@ run_sno() {
             else
                 SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true
             fi ;;
-        --interp)
-            SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --interp "$sno" 2>/dev/null || true ;;
+        --run)
+            SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true ;;
         x86)
             local t; t=$(mktemp -d)
             "$SCRIP" --compile "$sno" > "$t/p.s" 2>/dev/null &&

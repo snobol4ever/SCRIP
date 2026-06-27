@@ -1,6 +1,6 @@
 ```SNOBOL4
 *  cross_lang.scrip — GOAL-UNIFIED-BROKER U-19
-*  Proof: all three bb_broker modes active in one polyglot --interp.
+*  Proof: all three bb_broker modes active in one polyglot --run.
 *
 *  SNOBOL4 section: bb_broker(BB_SCAN) — pattern match drives subject scan.
 *  Counts matches of 'x' in a string; each iteration is one BB_SCAN tick.

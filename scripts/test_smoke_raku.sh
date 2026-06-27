@@ -2,8 +2,8 @@
 # test_smoke_raku.sh — per-frontend smoke for Raku, run in BOTH native execution modes.
 #   mode 3 = --run     (in-process stackless native x86 BB blobs) — the primary mode.
 #   mode 4 = --compile (standalone x86-64 asm -> as -> link libscrip_rt -> run).
-# NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --interp) was DELETED — nothing walks an IR graph to
-#    interpret it in any mode. The harness no longer invokes --interp; m3 and m4 are the only modes. A program
+# NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --run) was DELETED — nothing walks an IR graph to
+#    interpret it in any mode. The harness no longer invokes --run; m3 and m4 are the only modes. A program
 #    either runs natively (PASS) or is cleanly declined with a loud [SMX] banner (EXCISED) — there is no oracle
 #    fallback. DONE BAR: m3 AND m4 each PASS-or-EXCISED with ZERO silent FAIL (no abort, no miscompile).
 # Exit 0 iff mode-3 has zero FAIL AND mode-4 has zero FAIL AND m3 PASS >= $MODE3_MIN AND m4 PASS >= $MODE4_MIN.

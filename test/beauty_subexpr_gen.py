@@ -232,7 +232,7 @@ def run_scrip(prog_text, timeout=15):
                                      dir='/tmp', prefix='bsg_sc_') as f:
         f.write(prog_text); fname = f.name
     try:
-        r = subprocess.run([SCRIP, '--interp', fname], capture_output=True,
+        r = subprocess.run([SCRIP, '--run', fname], capture_output=True,
                            timeout=timeout, cwd='/home/claude/SCRIP')
         return r.stdout.decode('utf-8', errors='replace') if r.stdout else ''
     except subprocess.TimeoutExpired:
@@ -618,7 +618,7 @@ def main():
                         args.tests, args.attempts, args.verbose, args.seed)
 
     if args.run:
-        print('\n--- scrip --interp ---')
+        print('\n--- scrip --run ---')
         run_suite(out, args.verbose)
 
 if __name__ == '__main__':

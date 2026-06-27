@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/test_csnobol4_budne_suite.sh — CSNOBOL4 test suite regression for scrip
-# Runs all three modes: --interp (M2), --run (M3), --compile→link→run (M4).
+# Runs all three modes: --run (M2), --run (M3), --compile→link→run (M4).
 # Self-contained. Run from anywhere with no env vars.
 #
 # Runs 116 Budne-suite tests + 10 FENCE crosscheck tests = 126 total.
@@ -85,12 +85,12 @@ run_test() {
         stdin_file="$stdin_tmp"
     fi
 
-    # ── Mode 2: --interp ──────────────────────────────────────────────────
+    # ── Mode 2: --run ──────────────────────────────────────────────────
     local T0m=$SECONDS; local got2
     if [ -n "$stdin_file" ]; then
-        got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$prog_file" < "$stdin_file" 2>/dev/null || true)
+        got2=$(timeout "$TIMEOUT" "$SCRIP" --run "$prog_file" < "$stdin_file" 2>/dev/null || true)
     else
-        got2=$(timeout "$TIMEOUT" "$SCRIP" --interp "$sno" 2>/dev/null || true)
+        got2=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true)
     fi
     T_M2=$((T_M2+SECONDS-T0m))
     if [ "$got2" = "$exp" ]; then PASS2=$((PASS2+1))
@@ -129,7 +129,7 @@ done
 
 T_ALL=$((SECONDS-T0_ALL))
 TOTAL=$((PASS2+FAIL2))
-echo "mode-2 (--interp):  PASS=$PASS2 FAIL=$FAIL2  ($TOTAL run)"
+echo "mode-2 (--run):  PASS=$PASS2 FAIL=$FAIL2  ($TOTAL run)"
 echo "mode-3 (--run):     PASS=$PASS3 FAIL=$FAIL3  ($TOTAL run)"
 [ -n "$FAILURES2" ] && printf "$FAILURES2" | head -40
 [ -n "$FAILURES3" ] && printf "$FAILURES3" | head -40

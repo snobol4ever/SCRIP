@@ -612,7 +612,7 @@ setup:
 	bash $(ROOT)/setup.sh
 
 # ── Test targets ──────────────────────────────────────────────────────────────
-# (the old --interp corpus runners were removed with the interpreter; the live
+# (the old --run corpus runners were removed with the interpreter; the live
 #  gates are the scripts/ suite — see GOAL-SNOBOL4-BB.md Session Setup.)
 
 # ── EM-9: native codegen-emit-test — smoke + em8 gate for --native codegen-emit --x64 ──────────────

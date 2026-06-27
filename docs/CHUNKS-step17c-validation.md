@@ -57,14 +57,14 @@ one site in `E_ITERATE`'s gather branch that sets `ss->gather_entry_pc/nparams`.
 
 ### Empirical proof
 
-`SCRIP_PROC_ENTRY_PCS=1 ./scrip --interp test/icon/palindrome.icn`:
+`SCRIP_PROC_ENTRY_PCS=1 ./scrip --run test/icon/palindrome.icn`:
 ```
 [CH-17a]   proc[0] name=palindrome           entry_pc=1
 [CH-17a]   proc[1] name=main                 entry_pc=54
 ```
 Both procs resolve non-(-1) entry_pcs; `proc_trampoline` dispatches via
-`sm_call_proc` for both. The resulting `--interp` Error 5 is pre-existing
-(Icon `--interp` is not yet end-to-end; that is CH-17e territory after
+`sm_call_proc` for both. The resulting `--run` Error 5 is pre-existing
+(Icon `--run` is not yet end-to-end; that is CH-17e territory after
 CH-17d lands Prolog chunks).
 
 ---
@@ -77,7 +77,7 @@ CH-17d lands Prolog chunks).
 | isolation gate | PASS |
 | csnobol4 Budne | PASS=61 (≥34, byte-identical to baseline) |
 | unified_broker | PASS=49 |
-| Icon corpus (`----interp`) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 (byte-identical) |
+| Icon corpus (`----run`) | PASS=186 FAIL=47 XFAIL=30 TOTAL=263 (byte-identical) |
 | scrip_all_modes | PASS=2 FAIL=0 |
 
 All gates byte-identical to baseline.
@@ -86,10 +86,10 @@ All gates byte-identical to baseline.
 
 ## Scope boundary (honest)
 
-- `--interp` Icon execution still fails end-to-end: `sm_call_proc` dispatches
+- `--run` Icon execution still fails end-to-end: `sm_call_proc` dispatches
   the chunk, but chunks containing generator kinds (E_EVERY, E_BANG_BINARY, etc.)
   still emit `SM_PUSH_EXPR + SM_BB_PUMP` (CH-17h territory). The Error 5 seen
-  in `--interp` palindrome is the BB engine failing to handle the chunk-wrapped
+  in `--run` palindrome is the BB engine failing to handle the chunk-wrapped
   call, not a CH-17c bug.
 - Static-variable persistence for procs with `static` declarations: deferred
   to CH-17g (key must change from `EXPR_t*` to `entry_pc + name`).

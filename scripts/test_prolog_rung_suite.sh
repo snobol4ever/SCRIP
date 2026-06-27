@@ -5,7 +5,7 @@
 #
 # GOAL-PROLOG-BB mandates running ALL modes on every gate run (see GOAL "Testing discipline").
 # With no --mode (or --mode all, the DEFAULT) the corpus is run in all three engine paths:
-#   interp  (Mode 2, --interp)            — reference path      — HARD GATE (PASS must be >= previous).
+#   interp  (Mode 2, --run)            — reference path      — HARD GATE (PASS must be >= previous).
 #   run     (Mode 3, --run)               — native/stackless    — TRACKED (EXCISED until GZ regrows it).
 #   compile (Mode 4, --compile x86)       — emit→assemble→link→exec via run_prolog_via_x86_backend.sh
 #                                                                — TRACKED (EXCISED until BB-native x86 emit returns).
@@ -48,7 +48,7 @@ fi
 run_prog() {
     local mode="$1" pl="$2" tmo="$3"
     case "$mode" in
-        interp)  timeout "$tmo" "$SCRIP" --interp "$pl" < /dev/null 2>/dev/null ;;
+        interp)  timeout "$tmo" "$SCRIP" --run "$pl" < /dev/null 2>/dev/null ;;
         run)     timeout "$tmo" "$SCRIP" --run    "$pl" < /dev/null 2>/dev/null ;;
         compile) timeout "$tmo" bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null 2>/dev/null ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;

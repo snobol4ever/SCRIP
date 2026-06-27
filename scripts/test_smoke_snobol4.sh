@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_smoke_snobol4.sh — SNOBOL4 smoke, modes 3 + 4
 # Gate: mode-4 HARD. Mode 3 informational (PASS/FAIL reported, does not block).
-# NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --interp) was DELETED — the harness no longer invokes it.
+# NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --run) was DELETED — the harness no longer invokes it.
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet 4.6  DATE: 2026-06-08 (de-interp'd 2026-06-15)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_smoke_prolog.sh — per-frontend smoke for Prolog, run in ALL THREE modes.
-#   mode 2 = --interp                   (BB port-graph oracle)  — HARD GATE: must be all-PASS.
+#   mode 2 = --run                   (BB port-graph oracle)  — HARD GATE: must be all-PASS.
 #   mode 3 = --run                      (stackless native)      — TRACKED: EXCISED until GZ regrows it.
 #   mode 4 = --compile --target=x86     (emit→assemble→link→run via run_prolog_via_x86_backend.sh)
 #                                                                — TRACKED: EXCISED until BB-native x86 emit returns.
@@ -20,8 +20,8 @@ pl() {
     N=$((N+1))
     local r2 r3 r4
 
-    # mode 2 — --interp (HARD GATE)
-    local a2; a2=$(timeout 8 "$SCRIP" --interp "$tmp" 2>/dev/null </dev/null)
+    # mode 2 — --run (HARD GATE)
+    local a2; a2=$(timeout 8 "$SCRIP" --run "$tmp" 2>/dev/null </dev/null)
     if [ "$a2" = "$expected" ]; then r2="m2 PASS"; P2=$((P2+1)); else r2="m2 FAIL"; F2=$((F2+1)); fi
 
     # mode 3 — --run (tracked; EXCISED until regrown). PL-GZ-1b(d): a program the native blob does not
@@ -49,7 +49,7 @@ pl() {
     printf "  [%-10s] [%-10s] [%-10s] %s\n" "$r2" "$r3" "$r4" "$label"
 }
 
-echo "=== Prolog smoke (mode 2 = --interp · mode 3 = --run · mode 4 = --compile x86) ==="
+echo "=== Prolog smoke (mode 2 = --run · mode 3 = --run · mode 4 = --compile x86) ==="
 
 pl "write_atom" "hello" << 'EOF'
 :- initialization(main).
@@ -80,7 +80,7 @@ main :- count(3).
 EOF
 
 echo ""
-echo "mode-2 (--interp):            PASS=$P2 FAIL=$F2                / $N   (HARD GATE)"
+echo "mode-2 (--run):            PASS=$P2 FAIL=$F2                / $N   (HARD GATE)"
 echo "mode-3 (--run):               PASS=$P3 FAIL=$F3 EXCISED=$X3   / $N   (tracked)"
 echo "mode-4 (--compile x86):       PASS=$P4 FAIL=$F4 EXCISED=$X4   / $N   (tracked)"
 [ "$F2" -eq 0 ]

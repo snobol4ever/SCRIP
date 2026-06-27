@@ -4,7 +4,7 @@
 #
 # Usage:
 #   bash scripts/util_diagnose_prolog_swi.sh test_bips
-#   bash scripts/util_diagnose_prolog_swi.sh test_arith --mode --interp
+#   bash scripts/util_diagnose_prolog_swi.sh test_arith --mode --run
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
@@ -15,12 +15,12 @@ WRAP=$(mktemp /tmp/pl_wrap_XXXXXX.pl)
 trap 'rm -f "$WRAP"' EXIT
 
 BASE="${1:-}"
-MODE="--interp"
+MODE="--run"
 shift || true
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --mode) MODE="$2"; shift 2 ;;
-        --interp|--interp|--run) MODE="$1"; shift ;;
+        --run|--run|--run) MODE="$1"; shift ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
     esac
 done

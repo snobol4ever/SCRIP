@@ -2665,10 +2665,35 @@ static void flat_drive_swap(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, b
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_rasgn(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    int subs = pBB && IR_LIT(pBB).ival == 1 && pBB->n_operands >= 3;
+    if (subs) {
+        IR_t *base = pBB->operands[0];
+        IR_t *key  = pBB->operands[1];
+        IR_t *val  = pBB->operands[pBB->n_operands - 1];
+        int id = g_flat_node_id++;
+        bb_label_t *b_done = emit_label_alloc("xrasgni%d_b",  id);
+        bb_label_t *k_done = emit_label_alloc("xrasgni%d_k",  id);
+        bb_label_t *v_done = emit_label_alloc("xrasgni%d_v",  id);
+        bb_label_t *b_β    = emit_label_alloc("xrasgni%d_bb", id);
+        bb_label_t *k_β    = emit_label_alloc("xrasgni%d_kb", id);
+        bb_label_t *v_β    = emit_label_alloc("xrasgni%d_vb", id);
+        if (!flat_chain_set_has(val)  && bb_slot_get(val)  < 0) { walk_bb_flat(val,  v_done, lbl_ω, v_β); emit_label_define_bb(v_done); }
+        if (!flat_chain_set_has(key)  && bb_slot_get(key)  < 0) { walk_bb_flat(key,  k_done, lbl_ω, k_β); emit_label_define_bb(k_done); }
+        if (!flat_chain_set_has(base) && bb_slot_get(base) < 0) { walk_bb_flat(base, b_done, lbl_ω, b_β); emit_label_define_bb(b_done); }
+        g_emit.op_ival   = 1;
+        g_emit.op_a_slot = bb_slot_get(base);
+        g_emit.op_sb     = bb_slot_get(key);
+        g_emit.op_sc     = bb_slot_get(val);
+        g_emit.op_off    = bb_slot_claim(16);
+        EMIT_PAIR_RESET();
+        EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
+        EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
+        return;
+    }
     IR_t *l_var = (pBB && pBB->n_operands > 0) ? pBB->operands[0] : NULL;
     IR_t *rhs   = (pBB && pBB->n_operands > 1) ? pBB->operands[1] : NULL;
     if (!l_var || !rhs || l_var->op != IR_VAR || !IR_LIT(l_var).sval) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_rasgn: x<-v requires an IR_VAR lvalue + rhs operand\n");
+        fprintf(stderr, "[IBB] FATAL flat_drive_rasgn: x<-v requires an IR_VAR or subscript lvalue + rhs operand\n");
         abort();
     }
     int id = g_flat_node_id++;
@@ -2680,6 +2705,7 @@ static void flat_drive_rasgn(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     emit_label_define_bb(l_done);
     walk_bb_flat(rhs, r_done, lbl_ω, r_β);
     emit_label_define_bb(r_done);
+    g_emit.op_ival   = 0;
     g_emit.op_sb     = bb_varslot_peek(IR_LIT(l_var).sval);
     g_emit.op_a_slot = (rhs->op == IR_VAR && IR_LIT(rhs).sval) ? bb_varslot_peek(IR_LIT(rhs).sval) : bb_slot_get(rhs);
     g_emit.op_sc     = bb_slot_claim(16);

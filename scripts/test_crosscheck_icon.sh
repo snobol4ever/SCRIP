@@ -2,7 +2,7 @@
 # test_crosscheck_icon.sh — 3-mode crosscheck for ICON (GOAL-LANG-ICON / GOAL-ICON-BB)
 #
 # ⛔ POLICY (GOAL-ICON-BB.md "ALWAYS TEST ALL THREE MODES"): runs the Icon corpus through
-#    --interp (mode 2), --run (mode 3) AND --compile (mode 4, asm -> assemble -> link
+#    --run (mode 2), --run (mode 3) AND --compile (mode 4, asm -> assemble -> link
 #    libscrip_rt.so -> run) on the SAME program. Never fewer than all three.
 # Run on every major push. Mode-consistency check, not regression.
 # If .ref present alongside test file: diffs vs oracle too.
@@ -35,17 +35,17 @@ xcheck() {
     local label="$1" file="$2" ref="${3:-}"
     if [ ! -f "$file" ]; then echo "  SKIP $label (no file)"; SKIP=$((SKIP+1)); return; fi
     local ir run_out cmp_out
-    ir=$(timeout      $TIMEOUT "$SCRIP" --interp  "$file" </dev/null 2>/dev/null)
+    ir=$(timeout      $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
     run_out=$(timeout $TIMEOUT "$SCRIP" --run     "$file" </dev/null 2>/dev/null)
     cmp_out=$(icn_mode4_run "$file")
     local ok=1 m4exp
     if [ -n "$ref" ] && [ -f "$ref" ]; then
         local exp; exp=$(cat "$ref")
-        [ "$ir"      != "$exp" ] && { echo "  FAIL $label --interp vs oracle"; diff <(echo "$exp") <(echo "$ir")      | head -5 | sed 's/^/    /'; ok=0; }
+        [ "$ir"      != "$exp" ] && { echo "  FAIL $label --run vs oracle"; diff <(echo "$exp") <(echo "$ir")      | head -5 | sed 's/^/    /'; ok=0; }
         [ "$run_out" != "$exp" ] && { echo "  FAIL $label --run vs oracle";    diff <(echo "$exp") <(echo "$run_out") | head -5 | sed 's/^/    /'; ok=0; }
         m4exp="$exp"
     else
-        [ "$run_out" != "$ir" ] && { echo "  FAIL $label --run vs --interp";   diff <(echo "$ir") <(echo "$run_out")  | head -5 | sed 's/^/    /'; ok=0; }
+        [ "$run_out" != "$ir" ] && { echo "  FAIL $label --run vs --run";   diff <(echo "$ir") <(echo "$run_out")  | head -5 | sed 's/^/    /'; ok=0; }
         m4exp="$ir"
     fi
     # mode 4 — TRACKED (reported, not hard-gated while compile emission is being rebuilt)

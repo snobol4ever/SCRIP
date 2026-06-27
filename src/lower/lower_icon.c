@@ -292,9 +292,18 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * lr = NULL; lower(cx, (t->n > 0) ? t->c[0] : NULL, nd, ω, &lr);
         IR_t * rr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, ω, &rr);
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
-    case TT_REVASSIGN: { IR_t * nd = build(cx, IR_RASGN, γ, ω);
-        IR_t * lr = NULL; lower(cx, (t->n > 0) ? t->c[0] : NULL, nd, ω, &lr);
-        IR_t * rr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, ω, &rr);
+    case TT_REVASSIGN: {
+        const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
+        if (lhs && lhs->t == TT_IDX) {
+            IR_t * nd = build(cx, IR_RASGN, γ, ω); IR_LIT(nd).ival = 1;
+            IR_t * br = NULL; IR_t * entry = lower(cx, lhs->c[0], nd, ω, &br); ir_operand_push(nd, br);
+            for (int k = 1; k < lhs->n; k++) { IR_t * ir = NULL; lower(cx, lhs->c[k], nd, ω, &ir); ir_operand_push(nd, ir); }
+            IR_t * vr = NULL; lower(cx, rhs, nd, ω, &vr); ir_operand_push(nd, vr);
+            *res = nd; return entry;
+        }
+        IR_t * nd = build(cx, IR_RASGN, γ, ω);
+        IR_t * lr = NULL; lower(cx, lhs, nd, ω, &lr);
+        IR_t * rr = NULL; lower(cx, rhs, nd, ω, &rr);
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }

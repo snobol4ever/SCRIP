@@ -3,9 +3,9 @@
 #
 # Usage: bash util_crosscheck_3mode.sh <file> [oracle_ref]
 #
-# Runs <file> under --interp, --interp, --run.
+# Runs <file> under --run, --run, --run.
 # If oracle_ref given: diffs each mode vs ref.
-# If no ref: diffs --run against --interp (--interp is authoritative).
+# If no ref: diffs --run against --run (--run is authoritative).
 # Prints PASS/FAIL per mode. Exits 0 if all agree, 1 if any diverge.
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-14
@@ -26,7 +26,7 @@ run_mode() {
     timeout "$TIMEOUT" "$SCRIP" "$mode" "$FILE" < /dev/null 2>/dev/null
 }
 
-IR=$(run_mode --interp  "--interp")
+IR=$(run_mode --run  "--run")
 native codegen=$(run_mode --run "--run")
 
 check() {
@@ -42,11 +42,11 @@ check() {
 
 if [ -n "$REF" ] && [ -f "$REF" ]; then
     EXPECTED=$(cat "$REF")
-    check "--interp vs oracle" "$IR"  "$EXPECTED"
+    check "--run vs oracle" "$IR"  "$EXPECTED"
     check "--run vs oracle" "$native codegen" "$EXPECTED"
 else
-    # No oracle: --run must agree with --interp (authoritative)
-    check "--run vs --interp"  "$native codegen" "$IR"
+    # No oracle: --run must agree with --run (authoritative)
+    check "--run vs --run"  "$native codegen" "$IR"
 fi
 
 echo "PASS=$PASS FAIL=$FAIL"

@@ -1,14 +1,14 @@
 #!/bin/bash
-# test_icon_arith_unary_mode2.sh — Icon mode-2 (--interp) arithmetic/unary oracle gate.
+# test_icon_arith_unary_mode2.sh — Icon mode-2 (--run) arithmetic/unary oracle gate.
 #
 # Locks in two foundation correctness fixes (and the surrounding verified-correct
 # behavior) so a future change that regresses them is caught:
 #   * IR_UNOP exec arm (commit 8615c04): unary - + * \ ~ compute (were silently failing).
 #   * BINOP_POW integer result (commit de0ce21): int ^ nonneg-int -> integer, not real.
 # Grounded in canonical Icon refs/icon-master/src/runtime/oarith.r (^ / iipow / bigpowii)
-# and ocomp.r (relops). Mode-2 (--interp) is the GOAL-ICON-BB oracle (HARD gate).
+# and ocomp.r (relops). Mode-2 (--run) is the GOAL-ICON-BB oracle (HARD gate).
 #
-# Each case: a one-statement procedure, run through `scrip --interp`, output compared
+# Each case: a one-statement procedure, run through `scrip --run`, output compared
 # to the expected Icon value. Exits 0 iff every case matches.
 set -u
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -20,7 +20,7 @@ FAIL=0
 check() {
     desc="$1"; expr="$2"; want="$3"
     printf 'procedure main()\n   %s\nend\n' "$expr" > "$TMP/p.icn"
-    got=$("$SCRIP" --interp "$TMP/p.icn" < /dev/null 2>/dev/null | head -1)
+    got=$("$SCRIP" --run "$TMP/p.icn" < /dev/null 2>/dev/null | head -1)
     if [ "$got" = "$want" ]; then
         PASS=$((PASS + 1))
     else
@@ -56,7 +56,7 @@ check "num concat"         'write(1 || 2)'       '12'
 check_multi() {
     desc="$1"; expr="$2"; want="$3"
     printf 'procedure main()\n   %s\nend\n' "$expr" > "$TMP/p.icn"
-    got=$("$SCRIP" --interp "$TMP/p.icn" < /dev/null 2>/dev/null | paste -sd' ')
+    got=$("$SCRIP" --run "$TMP/p.icn" < /dev/null 2>/dev/null | paste -sd' ')
     if [ "$got" = "$want" ]; then PASS=$((PASS + 1)); else FAIL=$((FAIL + 1)); printf '  [FAIL] %-32s want=[%s] got=[%s]\n' "$desc" "$want" "$got"; fi
 }
 check_multi "to by 2"          'every write(1 to 5 by 2)'  '1 3 5'

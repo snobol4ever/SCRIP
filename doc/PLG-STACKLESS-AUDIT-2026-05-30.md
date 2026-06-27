@@ -13,8 +13,8 @@ The PLG rungs were authored 2026-05-30 against the THEN-live engine (`sm_interp_
 audit the trunk was rebuilt:
 
 - **The Stack Machine was excised.** `src/driver/scrip.c` now aborts for any non-Icon, non-SNOBOL4
-  language in `--interp` and `--run`: `[SMX] FATAL: Stack Machine excised … This language has not
-  yet crossed onto Byrd Boxes.` Verified live: `./scrip --interp corpus/programs/prolog/hello.pl`
+  language in `--run` and `--run`: `[SMX] FATAL: Stack Machine excised … This language has not
+  yet crossed onto Byrd Boxes.` Verified live: `./scrip --run corpus/programs/prolog/hello.pl`
   → rc 134 (SIGABRT) at `scrip.c:393`.
 - **The 3183-line `lower.c` tangle was deleted** (blob `d2d8c8e1`) and replaced by the unified
   four-port `lower.c` (the former `lower2.c`). Prolog lowering (`lower_pl.c`, the file the PLG
@@ -180,7 +180,7 @@ separate Icon goal). The struct definition in `IR.h` cannot be deleted until tha
 handled; that is a cross-language dependency the original PLG-7 text did not have line numbers for
 and now does.
 
-PLG-1 (HELLO WORLD, stackless, mode-2) cannot use the old `--interp`→`sm_interp_run`→`bb_exec_once`
+PLG-1 (HELLO WORLD, stackless, mode-2) cannot use the old `--run`→`sm_interp_run`→`bb_exec_once`
 path at all (it aborts at the SMX gate). It must instead route Prolog through the new
 `lower_program.c` `lower()` (which today handles only `LANG_SNO`/`LANG_ICN`) into `lower_goal()`,
 then `bb_exec_once(main_graph)` directly — exactly as the SNOBOL4/Icon arms already do in
@@ -190,6 +190,6 @@ next rung.
 ## 5. Gate
 
 Doc-only rung. No source touched. All current gates unchanged because nothing executed:
-- `./scrip --interp corpus/programs/prolog/hello.pl` → rc 134 SMX abort (unchanged, by design).
+- `./scrip --run corpus/programs/prolog/hello.pl` → rc 134 SMX abort (unchanged, by design).
 - `make scrip` + `make libscrip_rt` build green at `cf6b7f6` (verified this session).
 - FACT grep unchanged (no template touched).

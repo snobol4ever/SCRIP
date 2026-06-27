@@ -5,7 +5,7 @@
 landed correctly as a structural addition, but it does not satisfy
 its asserted role as a precondition for CH-17g-final.  Three live
 consumers of `proc_table[i].proc` remain — one is producer-side
-(harmless), two are runtime-side (load-bearing under `----interp`).
+(harmless), two are runtime-side (load-bearing under `----run`).
 
 This survey supersedes the "preconditions met" line at the bottom
 of `CHUNKS-step17g-irrun-lowers-validation.md` and the matching
@@ -46,11 +46,11 @@ Results:
 
 | Mode        | Without probe                | With proc=NULL probe          |
 |-------------|------------------------------|-------------------------------|
-| `----interp`  | `hello from icon\n` (rc=0)   | **SIGSEGV** (rc=139)          |
-| `--interp`  | `hello from icon\n` (rc=0)   | empty output (rc=0)           |
+| `----run`  | `hello from icon\n` (rc=0)   | **SIGSEGV** (rc=139)          |
+| `--run`  | `hello from icon\n` (rc=0)   | empty output (rc=0)           |
 | `--dump-sm` | (multi-instr chunk)          | 2 instrs: `SM_BB_PUMP_PROC`, `SM_HALT` |
 
-The `--interp` empty-output result is the more telling failure:
+The `--run` empty-output result is the more telling failure:
 the SM_Program is structurally truncated.  No FATAL, no abort —
 the program runs end-to-end, but the chunk is empty.
 
@@ -89,7 +89,7 @@ that lives only between `polyglot_init` and `sm_lower`, then is
 freed.  This is a small refactor, not a blocker, but it is work
 not described in CH-17g-final's spec.
 
-### 2. `coro_runtime.c:603` — `proc_table_call` legacy fallback (load-bearing under `----interp`)
+### 2. `coro_runtime.c:603` — `proc_table_call` legacy fallback (load-bearing under `----run`)
 
 ```c
 DESCR_t proc_table_call(int pi, DESCR_t *args, int nargs) {
@@ -97,17 +97,17 @@ DESCR_t proc_table_call(int pi, DESCR_t *args, int nargs) {
     extern SM_Program *g_current_sm_prog;
     if (proc_table[pi].entry_pc >= 0 && g_current_sm_prog != NULL)
         return sm_call_proc(proc_table[pi].entry_pc, ...);
-    return coro_call(proc_table[pi].proc, args, nargs);  /* ← live under ----interp */
+    return coro_call(proc_table[pi].proc, args, nargs);  /* ← live under ----run */
 }
 ```
 
-Under `----interp`, `g_current_sm_prog == NULL` (`sm_resolve_irrun_entry_pcs`
+Under `----run`, `g_current_sm_prog == NULL` (`sm_resolve_irrun_entry_pcs`
 discards the SM_Program with `sm_prog_free` immediately after
 populating entry_pcs).  The guard short-circuits the SM path; the
 legacy `coro_call(proc_table[pi].proc, ...)` path runs every
 `main()` call and every user-proc invocation.
 
-The probe's `----interp` SIGSEGV proves this: with proc=NULL,
+The probe's `----run` SIGSEGV proves this: with proc=NULL,
 `coro_call`'s scope-build dereferences NULL.
 
 ### 3. `coro_runtime.c:1179, 1267, 1557, 1775` — trampoline staging + `coro_drive_fnc`
@@ -122,7 +122,7 @@ Each staging site has a parallel entry_pc/nparams pair already
 (`coro_stage.entry_pc`, `ss->gather_entry_pc`, …).  The trampolines
 dispatch on `if (entry_pc >= 0) sm_call_proc else coro_call(proc, ...)`.
 Same shape as `proc_table_call`: legacy AST_t* path is the
-fallback used when SM is not live, which is every `----interp` non-SNO
+fallback used when SM is not live, which is every `----run` non-SNO
 program.
 
 `coro_drive_fnc` (line 1775) is the "IR walker by design"
@@ -142,33 +142,33 @@ But the same doc also says, accurately:
 
 > Entry_pc resolved + SM absent → fall through to legacy
 > `coro_call` / `interp_eval` / `pl_box_choice` path.  This is
-> the correct ----interp behaviour: entry_pcs resolve for
+> the correct ----run behaviour: entry_pcs resolve for
 > observability/future use, but execution remains on the IR path.
 
 That clause — "execution remains on the IR path" — is exactly
 the structural fact that blocks CH-17g-final.  Deleting the IR
-path while `----interp` non-SNO depends on it would break the
+path while `----run` non-SNO depends on it would break the
 entire 186/47/30 Icon corpus and Prolog corpus baseline.
 
 CH-17g-final-SURVEY (2026-05-09, the original) caught the
 runtime-side gap and recommended splitting the precondition
 into runtime-bridge + irrun-lowers.  The runtime-bridge half
-was about making `--interp` produce correct output (delivered:
+was about making `--run` produce correct output (delivered:
 27 builtin names bridged + SM_ACOMP/SM_LCOMP).  The irrun-lowers
-half was framed as "make `entry_pc` resolve in `----interp`" — but
+half was framed as "make `entry_pc` resolve in `----run`" — but
 *resolving the value* is necessary, not sufficient.  *Executing
 through it* is what CH-17g-final actually requires.
 
 ## What an actually-sufficient set of preconditions looks like
 
-To delete `proc_table[i].proc` without breaking `----interp`,
-`----interp` non-SNO must run on chunks, not on `coro_call`'s
+To delete `proc_table[i].proc` without breaking `----run`,
+`----run` non-SNO must run on chunks, not on `coro_call`'s
 legacy body.  That means one of:
 
-### Option A — `----interp` becomes an alias for `--interp` for non-SNO
+### Option A — `----run` becomes an alias for `--run` for non-SNO
 
 Simplest.  Drops a user-visible mode contract that today exists
-(non-SNO `----interp` → `polyglot_execute` walks IR; `--interp`
+(non-SNO `----run` → `polyglot_execute` walks IR; `--run`
 → chunks via `sm_call_proc`).  The two outputs are already
 byte-identical for bridged programs, so the alias is observable
 only in failure modes (a chunk gap that the IR path doesn't have).
@@ -176,13 +176,13 @@ only in failure modes (a chunk gap that the IR path doesn't have).
 This is a policy change, not a code-correctness change.  Needs
 your call.
 
-### Option B — `----interp` keeps SM live (don't `sm_prog_free` it)
+### Option B — `----run` keeps SM live (don't `sm_prog_free` it)
 
 Change `sm_resolve_irrun_entry_pcs` to retain the SM_Program
 after populating entry_pcs — set `g_current_sm_prog = sm` —
 and free it on process exit.  The dispatch guards
 (`g_current_sm_prog != NULL`) then take the SM path under
-`----interp` too.  `coro_call`'s legacy body becomes unreachable,
+`----run` too.  `coro_call`'s legacy body becomes unreachable,
 the field can be deleted, the gate can be lifted.
 
 Cost: SM_Program lives twice as long; memory bumps by
@@ -193,11 +193,11 @@ Risk: anything in `polyglot_execute`'s BB engine that today
 walks live IR (E_VAR.ival mutation in `icn_scope_patch`, the
 proc tables) must continue to work.  The SM dispatch path is
 already proven to handle hello-world; it has not been proven to
-handle every Icon corpus program — `--interp`'s known gaps
+handle every Icon corpus program — `--run`'s known gaps
 (meander.icn `tab()`, queens.icn array references, etc.) would
-become `----interp`'s gaps too unless bridged.
+become `----run`'s gaps too unless bridged.
 
-### Option C — keep both paths; rename `----interp` to acknowledge the legacy walker
+### Option C — keep both paths; rename `----run` to acknowledge the legacy walker
 
 Land everything except deleting `proc_table[i].proc` and
 `coro_call`'s body.  Rename the gate to mirror reality: the
@@ -230,8 +230,8 @@ I recommend deferring this decision until Option A/B/C is chosen.
 
 With `proc_table[proc_count].proc = NULL`:
 
-  - `----interp` /tmp/probe.icn: SIGSEGV
-  - `--interp` /tmp/probe.icn: empty output, rc=0 (chunk truncated to SM_BB_PUMP_PROC + SM_HALT)
+  - `----run` /tmp/probe.icn: SIGSEGV
+  - `--run` /tmp/probe.icn: empty output, rc=0 (chunk truncated to SM_BB_PUMP_PROC + SM_HALT)
 
 Probe reverted before commit.
 
@@ -239,13 +239,13 @@ Probe reverted before commit.
 
 **Option A.**  Rationale: AST and SM are both deleted between
 phases to enforce separation and isolation.  Option B (keep SM
-live under `----interp`) violates that principle.  Option C
+live under `----run`) violates that principle.  Option C
 (amend Step 17's "free unconditionally" criterion) preserves
 the legacy AST walker indefinitely and likewise violates it.
 Option A is the only path that ends with one execution mode,
 one set of consumers, and IR/SM both freed between phases.
 
-User-facing impact: `----interp` and `--interp` produce identical
+User-facing impact: `----run` and `--run` produce identical
 output for non-SNO programs; the flag distinction collapses.
 SNOBOL4 retains both because SNOBOL4 has its own non-SM
 interpreter (`execute_program`) that is an entirely separate
@@ -256,15 +256,15 @@ path from the AST walker this rung retires.
 Distinct from CH-17g-irrun-lowers (which delivered observability:
 entry_pcs visible).  Scope:
 
-  - `scrip.c` non-SNO `----interp` dispatch: route to the same
-    `sm_preamble` + `sm_run_with_recovery` path as `--interp`.
+  - `scrip.c` non-SNO `----run` dispatch: route to the same
+    `sm_preamble` + `sm_run_with_recovery` path as `--run`.
   - Drop `g_irrun_lowers` flag and `sm_resolve_irrun_entry_pcs`
     helper — superseded; the SM_Program now lives across
-    execution under `----interp` non-SNO via the standard
+    execution under `----run` non-SNO via the standard
     `sm_preamble` path, not via a discard-after-resolve hook.
   - Verify byte-identical output for the Icon corpus 186/47/30
     and Prolog smoke under the new dispatch.
-  - SNOBOL4 path unchanged; legacy `----interp` SNOBOL4 dispatch
+  - SNOBOL4 path unchanged; legacy `----run` SNOBOL4 dispatch
     in `scrip.c:557–561` retained as-is.
 
 After CH-17g-irrun-execution:
@@ -287,5 +287,5 @@ Then CH-17g-final closes Step 17.
 
   - smoke icon: PASS=5 FAIL=0 (clean baseline, post-revert)
   - build: clean
-  - ----interp hello.icn: PASS
-  - --interp hello.icn: PASS
+  - ----run hello.icn: PASS
+  - --run hello.icn: PASS

@@ -144,8 +144,8 @@ set +e
 [ $? -eq 1 ] || { echo "FAIL bare --compile should error"; exit 1; }
 "$SCRIP" --target=x86 "$TMP/real.sno" >/dev/null 2>&1
 [ $? -eq 1 ] || { echo "FAIL bare --target=x86 should error"; exit 1; }
-"$SCRIP" --compile --interp "$TMP/real.sno" >/dev/null 2>&1
-[ $? -eq 1 ] || { echo "FAIL mutex with --interp should error"; exit 1; }
+"$SCRIP" --compile --run "$TMP/real.sno" >/dev/null 2>&1
+[ $? -eq 1 ] || { echo "FAIL mutex with --run should error"; exit 1; }
 set -e
 echo "  PASS EM-1 errors    (flag validation regression-clean)"
 

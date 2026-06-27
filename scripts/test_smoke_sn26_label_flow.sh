@@ -85,12 +85,12 @@ else
     echo "SKIP sbl missing"
 fi
 
-# scrip --interp: matches CSN -> 3 LABELs.
+# scrip --run: matches CSN -> 3 LABELs.
 if [ -x "$SCRIP" ]; then
-    if run_one "scrip --interp"      "timeout 8 env MONITOR_BIN=1 \"$SCRIP\" --interp"   3; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
-    # scrip --interp: matches SPL on blank-line counting (post -k: 1 blank + 3 stmts + END = 5 LABELs).
-    if run_one "scrip --interp"      "timeout 8 env MONITOR_BIN=1 \"$SCRIP\" --interp"   5; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
-    # scrip --run: same as --interp (post -k).
+    if run_one "scrip --run"      "timeout 8 env MONITOR_BIN=1 \"$SCRIP\" --run"   3; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
+    # scrip --run: matches SPL on blank-line counting (post -k: 1 blank + 3 stmts + END = 5 LABELs).
+    if run_one "scrip --run"      "timeout 8 env MONITOR_BIN=1 \"$SCRIP\" --run"   5; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
+    # scrip --run: same as --run (post -k).
     if run_one "scrip --run"     "timeout 8 env MONITOR_BIN=1 \"$SCRIP\" --run"  5; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
 else
     echo "SKIP scrip missing"

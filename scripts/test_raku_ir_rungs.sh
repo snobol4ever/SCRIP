@@ -1,9 +1,9 @@
 #!/bin/bash
-# scripts/test_raku_ir_rungs.sh — Raku --interp test harness
+# scripts/test_raku_ir_rungs.sh — Raku --run test harness
 # Self-contained. Run from anywhere with no env vars required.
 # Mirrors test_icon_all_rungs.sh structure.
 #
-# Runs all test/raku/*.raku files against scrip --interp and compares
+# Runs all test/raku/*.raku files against scrip --run and compares
 # output to the corresponding .expected file.
 #
 # Gate: PASS=13 FAIL=0
@@ -37,7 +37,7 @@ run_one() {
     [ -f "$exp" ] || { echo "SKIP $(basename "$raku") (no .expected)"; return; }
     local name got want
     name=$(basename "$raku" .raku)
-    got=$(timeout 8 "$SCRIP" --interp "$raku" < /dev/null 2>/dev/null) || true
+    got=$(timeout 8 "$SCRIP" --run "$raku" < /dev/null 2>/dev/null) || true
     want=$(cat "$exp")
     if [ "$got" = "$want" ]; then
         echo "PASS $name"
@@ -56,5 +56,5 @@ for raku in "$TESTDIR"/*.raku; do
 done
 
 echo ""
-echo "--- Raku --interp: PASS=$PASS FAIL=$FAIL TOTAL=$((PASS+FAIL)) ---"
+echo "--- Raku --run: PASS=$PASS FAIL=$FAIL TOTAL=$((PASS+FAIL)) ---"
 [ "$FAIL" -eq 0 ]

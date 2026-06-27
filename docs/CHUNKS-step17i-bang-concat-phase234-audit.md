@@ -13,7 +13,7 @@ After Phase 1 (AST_LCONCAT scalar value-path) landed, the remaining
 phases of CH-17i-bang-concat have **no empirical anchor in any of the
 four corpora SCRIP exercises today**.  An audit-counter sweep across
 706 programs (271 Icon + 186 Raku + 114 Snocone + 135 Prolog) under
-`--interp` with `SCRIP_EXPRS_AUDIT=1` reports **zero programs fire
+`--run` with `SCRIP_EXPRS_AUDIT=1` reports **zero programs fire
 SM_PUSH_EXPR**.
 
 Per the documented precedent set by CH-15-SURVEY (which deferred CH-15b
@@ -80,7 +80,7 @@ result applies to them.
 
 ```
 $ for f in <corpus>/*; do
-    SCRIP_EXPRS_AUDIT=1 timeout 5 ./scrip --interp "$f" < /dev/null 2>/dev/null \
+    SCRIP_EXPRS_AUDIT=1 timeout 5 ./scrip --run "$f" < /dev/null 2>/dev/null \
       | grep "CHUNKS-AUDIT" \
       | grep -E "SM_PUSH_EXPR=[1-9]"
   done
@@ -96,7 +96,7 @@ $ for f in <corpus>/*; do
 
 All four legacy-fallthrough kinds covered by CH-17i-bang-concat (and
 its sister rungs CH-17i-section / CH-17i-limit-random) are unreachable
-under `--interp` on the entire current corpus.
+under `--run` on the entire current corpus.
 
 The corpus does contain programs whose Icon source uses these
 operators — `!` (bang), `[i:j]` (sections), `?n` (random), `\E`
@@ -113,7 +113,7 @@ proc bodies are not lowered, they're walked.  CH-17g-irrun-execution
 (unstarted as of this writing, `- [ ]` in GOAL-CHUNKS-STEP17.md) is
 the ladder rung that would route proc-body execution through SM
 dispatch.  Until it lands, the kinds in this audit will continue to
-have zero empirical reach under `--interp` regardless of any lowering
+have zero empirical reach under `--run` regardless of any lowering
 rung that targets them.
 
 ---
@@ -148,7 +148,7 @@ Findings:
    single-child generator path) handles it directly.  No SM lowering
    touches AST_BANG_BINARY for this program.
 
-2. **`bang_concat` produces wrong output under `--interp`** (empty
+2. **`bang_concat` produces wrong output under `--run`** (empty
    string instead of `xy`).  But the audit reports zero
    `SM_PUSH_EXPR` fires — the bug is not in AST_BANG_BINARY's
    lowering.  The program uses `every result ||:= !s`, and the
@@ -159,7 +159,7 @@ Findings:
 
 3. **The 4 augconcat-only programs** (no bang at all — pure `||:=`)
    either segfault or print `Error 5: undefined function` under
-   `--interp`.  Same root cause as (2) — augmented-assign lowering.
+   `--run`.  Same root cause as (2) — augmented-assign lowering.
    Separate rung territory.
 
 4. **`rung15_real_swap_lconcat` is now clean** post-Phase-1, as
@@ -215,7 +215,7 @@ SM_BB_PUMP_PROC "main"
 ```
 
 This walker lives in `libscrip_rt.so` / the in-process interpreter.
-It is reachable from `----interp` and `--interp` and `--run`
+It is reachable from `----run` and `--run` and `--run`
 (Mode 1, Mode 2, Mode 3) because all three execute scrip in-process
 and link the runtime in.
 
@@ -233,7 +233,7 @@ not embed an AST_t walker.  GOAL-CHUNKS.md is explicit:
 > iterator advance, cset membership, etc.).
 
 Therefore, every Icon/Prolog program that mode 4 must run end-to-end
-— the 177-PASS `----interp` Icon set + the 4-PASS Prolog smoke set —
+— the 177-PASS `----run` Icon set + the 4-PASS Prolog smoke set —
 must compile fully to SM.  Every kind those programs use, in every
 context (scalar value, generative, statement-level), must lower to
 SM ops the emitted backend can codegen.
@@ -256,7 +256,7 @@ explicitly so future sessions don't read the deferral as
    CH-17i-limit-random
    CH-17i-prolog-initialization
        ↓ legacy fallthrough block empty for Icon+Prolog
-3. CH-17i-mode3-completeness        (Icon/Prolog --interp == ----interp PASS)
+3. CH-17i-mode3-completeness        (Icon/Prolog --run == ----run PASS)
        ↓
 4. CH-17i-mode4-icon-prolog         (--compile covers Icon+Prolog)
        ↓
@@ -337,7 +337,7 @@ for f in /home/claude/corpus/programs/icon/*.icn \
          /home/claude/corpus/programs/snocone/**/*.sc \
          /home/claude/corpus/programs/prolog/**/*.pl; do
   [ -f "$f" ] || continue
-  audit=$(SCRIP_EXPRS_AUDIT=1 timeout 5 ./scrip --interp "$f" \
+  audit=$(SCRIP_EXPRS_AUDIT=1 timeout 5 ./scrip --run "$f" \
             < /dev/null 2>/dev/null | grep "CHUNKS-AUDIT")
   echo "$audit" | grep -qE "SM_PUSH_EXPR=[1-9]" \
     && echo "FIRES: $(basename "$f") :: $audit"
