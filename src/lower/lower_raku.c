@@ -25,6 +25,10 @@ static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_method_is_stub(const tree_t * m) { if (!m || m->t != TT_SUB_DECL) return 0; int bs = (int) m->v.ival; if (bs < 1) bs = 1; if (m->n - bs != 1) return 0; const tree_t * b = m->c[bs]; return b && b->t == TT_YADA; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_fld_bare(const char * s) { return (s && (s[0] == '.' || s[0] == '!')) ? s + 1 : s; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_fld_priv(const char * s) { return (s && s[0] == '!') ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * rk_find_type_decl(const tree_t * prog, const char * name) {
     if (!prog || !name) return NULL;
     for (int i = 0; i < prog->n; i++) {
@@ -123,7 +127,9 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_NUL: return build(cx, IR_LIT_NUL, γ, ω);
     case TT_VAR: { if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; } IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
-    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval; ir_operand_push(nd, lower(cx, t->c[0], NULL, NULL)); return nd; }
+    case TT_FIELD: { const char * fname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "field_get_pub"; IR_LIT(nd).ival = 2; IR_LIT(nd).dval = 1.0;
+        IR_t * r = NULL; IR_t * nl = build(cx, IR_LIT_S, nd, ω); IR_LIT(nl).sval = fname; IR_t * eo = lower_rv(cx, t->c[0], nl, ω, &r); return eo; }
     case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = IR_node_alloc(cx->g, IR_VAR); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); return nd; }
     case TT_ADD: return lower_binop(cx, t, "+", γ, ω);
     case TT_SUB: return lower_binop(cx, t, "-", γ, ω);
@@ -220,7 +226,7 @@ static IR_t * lower_decl(rcx_t * cx, const tree_t * t) {
             const tree_t * ch = t->c[i];
             if (!ch || ch->t == TT_SUB_DECL) continue;
             if (!first_field) { if (pos < (int)sizeof(spec) - 2) spec[pos++] = ','; }
-            const char * fn = ch->v.sval ? ch->v.sval : "";
+            const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : "");
             pos += snprintf(spec + pos, sizeof(spec) - pos, "%s", fn);
             first_field = 0;
         }
@@ -438,7 +444,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_METHCALL: return lower_rcall(cx, t, "meth_call", 0, 1, γ, ω, res);
     case TT_NEW: return lower_rcall(cx, t, "obj_new", 0, 1, γ, ω, res);
     case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv; }
-    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval; IR_t * obr = NULL; IR_t * eob = lower_rv(cx, t->c[0], nd, ω, &obr); ir_operand_push(nd, obr ? obr : eob); *res = nd; return eob; }
+    case TT_FIELD: { const char * fname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "field_get_pub"; IR_LIT(nd).ival = 2; IR_LIT(nd).dval = 1.0;
+        IR_t * r = NULL; IR_t * nl = build(cx, IR_LIT_S, nd, ω); IR_LIT(nl).sval = fname; IR_t * eo = lower_rv(cx, t->c[0], nl, ω, &r); *res = nd; return eo; }
     case TT_RETURN: { if (t->n > 0 && t->c[0]) { IR_t * nd = build(cx, IR_RETURN, γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e; } IR_t * nd = build(cx, IR_RETURN, γ, ω); *res = nd; return nd; }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
@@ -501,7 +509,7 @@ static void rk_register_classes(const tree_t * prog) {
             const tree_t * ch = d->c[j];
             if (!ch || ch->t == TT_SUB_DECL) continue;
             if (!first_field) { if (pos < (int)sizeof(spec) - 2) spec[pos++] = ','; }
-            const char * fn = ch->v.sval ? ch->v.sval : "";
+            const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : "");
             pos += snprintf(spec + pos, sizeof(spec) - pos, "%s", fn);
             first_field = 0;
         }
@@ -513,7 +521,10 @@ static void rk_register_classes(const tree_t * prog) {
             const tree_t * ch = d->c[j];
             if (!ch || ch->t != TT_SUB_DECL || rk_method_is_stub(ch)) continue;
             const char * mname = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
-            if (mname) dat_add_method(cname, mname);
+            if (!mname) continue;
+            const char * dollar = strchr(mname, '$');
+            if (dollar) { char base[128]; int bl = (int)(dollar - mname); if (bl > 127) bl = 127; memcpy(base, mname, bl); base[bl] = '\0'; dat_add_method(cname, base); }
+            else dat_add_method(cname, mname);
         }
         extern void dat_set_field_default_i(const char *cls, const char *field, int64_t v);
         extern void dat_set_field_default_s(const char *cls, const char *field, const char *v);
@@ -521,7 +532,7 @@ static void rk_register_classes(const tree_t * prog) {
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
             if (!ch || ch->t != TT_HAS_DECL || ch->n < 1) continue;
-            const char * fn = ch->v.sval ? ch->v.sval : ""; const tree_t * dv = ch->c[0]; if (!dv) continue;
+            const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : ""); const tree_t * dv = ch->c[0]; if (!dv) continue;
             if (dv->t == TT_ILIT) dat_set_field_default_i(cname, fn, dv->v.ival);
             else if (dv->t == TT_QLIT) dat_set_field_default_s(cname, fn, dv->v.sval);
             else if (dv->t == TT_FLIT) dat_set_field_default_r(cname, fn, dv->v.dval);
@@ -530,19 +541,26 @@ static void rk_register_classes(const tree_t * prog) {
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
             if (!ch || ch->t != TT_HAS_DECL || ch->n != 0) continue;
-            const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_required(cname, fn);
+            const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : ""); if (*fn) dat_set_field_required(cname, fn);
         }
         extern void dat_set_field_rw(const char *cls, const char *field);
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
             if (!ch || ch->t != TT_RW_DECL) continue;
-            const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_rw(cname, fn);
+            const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : ""); if (*fn) dat_set_field_rw(cname, fn);
         }
         extern void dat_set_field_sigil(const char *cls, const char *field, int sig);
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
             if (!ch || (ch->t != TT_ARR_DECL && ch->t != TT_HASH_DECL)) continue;
-            const char * fn = ch->v.sval ? ch->v.sval : ""; if (*fn) dat_set_field_sigil(cname, fn, ch->t == TT_ARR_DECL ? '@' : '%');
+            const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : ""); if (*fn) dat_set_field_sigil(cname, fn, ch->t == TT_ARR_DECL ? '@' : '%');
+        }
+        extern void dat_set_field_priv(const char *cls, const char *field);
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || ch->t == TT_SUB_DECL) continue;
+            if (!rk_fld_priv(ch->v.sval)) continue;
+            const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : ""); if (*fn) dat_set_field_priv(cname, fn);
         }
     }
     extern void class_inherit_multi(const char *child, const char **parents, int nparents);

@@ -58,7 +58,7 @@ int rt_builtin_is_known(const char *name)
         "elems", "push_pure",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
-        "obj_new", "meth_call", "field_set", "field_set_pub",
+        "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub",
         "die", "script_die",
         "callsame", "nextsame", "callwith",
         "__multi_call",
@@ -432,6 +432,42 @@ static int rt_mc_narrower(char (*ta)[32], char (*tb)[32], int na) {
         else if (!rt_mc_is_subtype(baseA, baseB) && !rt_mc_is_subtype(baseB, baseA)) tied++;
     }
     return narrower > 0 && (narrower + tied == na);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t *args, int nargs, DESCR_t *out) {
+    if (!cname || !mname) return 0;
+    int nm = nargs - 2; if (nm < 0) return 0; DESCR_t *ma = &args[2];
+    extern int dat_mro(const char *name, const char **out, int max);
+    extern int rt_proc_enum_count(void); extern const char *rt_proc_enum_name(int i);
+    const char *mro[64]; int mn = dat_mro(cname, mro, 64); if (mn == 0) { mro[0] = cname; mn = 1; }
+    static char acc_names[256][192]; static char acc_types[256][8][32]; int nacc = 0;
+    int pcount = rt_proc_enum_count();
+    for (int ci = 0; ci < mn && nacc < 256; ci++) {
+        if (!mro[ci]) continue;
+        char prefix[192]; int pl = snprintf(prefix, sizeof prefix, "%s__%s$", mro[ci], mname);
+        for (int pi = 0; pi < pcount && nacc < 256; pi++) {
+            const char *pn = rt_proc_enum_name(pi);
+            if (!pn || strncmp(pn, prefix, (size_t)pl)) continue;
+            const char *p = pn + pl; const char *e = strchr(p, '$');
+            int arity = atoi(p); if (arity != nm) continue;
+            int nt = 0; const char *q = e ? e + 1 : (const char *)0;
+            while (q && nt < 8) { const char *nx = strchr(q, '$'); int len = nx ? (int)(nx - q) : (int)strlen(q); if (len > 31) len = 31; memcpy(acc_types[nacc][nt], q, (size_t)len); acc_types[nacc][nt][len] = 0; nt++; if (!nx) break; q = nx + 1; }
+            int ok = 1; for (int i = 0; i < nm && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], ma[i])) { ok = 0; break; }
+            if (!ok) continue;
+            int dup = 0; for (int k = 0; k < nacc; k++) if (!strcmp(acc_names[k], pn)) { dup = 1; break; }
+            if (dup) continue;
+            snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn); nacc++;
+        }
+    }
+    if (nacc == 0) return 0;
+    int win = -1;
+    for (int i = 0; i < nacc; i++) { int beaten = 0;
+        for (int j = 0; j < nacc; j++) { if (i == j) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], nm)) { beaten = 1; break; } }
+        if (!beaten) { win = i; break; } }
+    if (win < 0) win = 0;
+    int total = 1 + nm; DESCR_t *ca = GC_malloc((size_t)total * sizeof(DESCR_t));
+    ca[0] = args[0]; for (int k = 0; k < nm; k++) ca[1 + k] = ma[k];
+    *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
@@ -1022,6 +1058,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(fn, "say_fh")) fputc('\n', fp);
         *out = INTVAL(0); return 1;
     }
+    if (!strcmp(fn, "field_get_pub") && nargs == 2) {
+        const char *fname = VARVAL_fn(args[1]); if (!fname) fname = "";
+        if (args[0].v == DT_DATA && args[0].u) {
+            DATINST_t *di = (DATINST_t *)args[0].u;
+            const char *cn = (di && di->type) ? di->type->name : NULL;
+            extern int dat_field_is_private(const char *cls, const char *field);
+            if (cn && dat_field_is_private(cn, fname)) {
+                extern void rt_script_die_surface(const char *msg);
+                char _m[256]; snprintf(_m, sizeof _m, "Attribute '$!%s' not accessible outside of class %s (it is private)", fname, cn);
+                rt_script_die_surface(_m); *out = FAILDESCR; return 1;
+            }
+        }
+        extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+        *out = dat_field_get(fname, args[0]); return 1;
+    }
     if (!strcmp(fn, "field_set") && nargs == 3) {
         extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
         const char *fname = VARVAL_fn(args[1]); if (!fname) fname = "";
@@ -1035,6 +1086,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (args[0].v == DT_DATA && args[0].u) {
             DATINST_t *di = (DATINST_t *)args[0].u;
             const char *cn = (di && di->type) ? di->type->name : NULL;
+            extern int dat_field_is_private(const char *cls, const char *field);
+            if (cn && dat_field_is_private(cn, fname)) {
+                extern void rt_script_die_surface(const char *msg);
+                char _m[256]; snprintf(_m, sizeof _m, "Attribute '$!%s' not accessible outside of class %s (it is private)", fname, cn);
+                rt_script_die_surface(_m); *out = FAILDESCR; return 1;
+            }
             DatType *dt = cn ? dat_find_type(cn) : NULL;
             if (dt) { int isrw = 0, found = 0;
                 for (int i = 0; i < dt->nfields; i++) if (!strcmp(dt->fields[i], fname)) { found = 1; isrw = dt->rw[i]; break; }
@@ -1182,7 +1239,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char procname[256];
         int found_idx = -1;
         resolve_method_chain(cname, mname, procname, sizeof procname, &found_idx);
+        if (!meth_is_user_proc(procname) && rt_multi_meth_dispatch(cname, mname, args, nargs, out)) return 1;
         if (nargs == 2 && !meth_is_user_proc(procname)) {
+            extern int dat_field_is_private(const char *cls, const char *field);
+            if (dat_field_is_private(cname, mname)) {
+                extern void rt_script_die_surface(const char *msg);
+                char _m[256]; snprintf(_m, sizeof _m, "Attribute '$!%s' not accessible outside of class %s (it is private)", mname, cname);
+                rt_script_die_surface(_m); *out = FAILDESCR; return 1;
+            }
             extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
             DESCR_t *acc = data_field_ptr(mname, args[0]);
             if (acc) { *out = *acc; return 1; }

@@ -104,19 +104,19 @@ void class_inherit_multi(const char *child, const char **parents, int nparents) 
     if (!child || nparents <= 0) return;
     DatType *c = dat_find_type(child); if (!c) return;
     if (c->nparents > 0) return;
-    char merged[64][64]; DESCR_t mdef[64]; char mhas[64]; char mreq[64]; char mrw[64]; char msig[64]; int m = 0;
+    char merged[64][64]; DESCR_t mdef[64]; char mhas[64]; char mreq[64]; char mrw[64]; char msig[64]; char mprv[64]; int m = 0;
     for (int pi = 0; pi < nparents; pi++) {
         DatType *p = dat_find_type(parents[pi]); if (!p) continue;
         for (int i = 0; i < p->nfields && m < 63; i++) {
             int dup = 0; for (int j = 0; j < m; j++) if (!strcmp(merged[j], p->fields[i])) { dup = 1; break; }
-            if (!dup) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; mrw[m] = p->rw[i]; msig[m] = p->sigil[i]; m++; }
+            if (!dup) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; mrw[m] = p->rw[i]; msig[m] = p->sigil[i]; mprv[m] = p->priv[i]; m++; }
         }
     }
     for (int i = 0; i < c->nfields && m < 63; i++) {
         int dup = 0; for (int j = 0; j < m; j++) if (!strcmp(merged[j], c->fields[i])) { dup = 1; break; }
-        if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; mreq[m] = c->required[i]; mrw[m] = c->rw[i]; msig[m] = c->sigil[i]; m++; }
+        if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; mreq[m] = c->required[i]; mrw[m] = c->rw[i]; msig[m] = c->sigil[i]; mprv[m] = c->priv[i]; m++; }
     }
-    for (int i = 0; i < m; i++) { strncpy(c->fields[i], merged[i], 63); c->fields[i][63] = '\0'; c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; c->rw[i] = mrw[i]; c->sigil[i] = msig[i]; }
+    for (int i = 0; i < m; i++) { strncpy(c->fields[i], merged[i], 63); c->fields[i][63] = '\0'; c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; c->rw[i] = mrw[i]; c->sigil[i] = msig[i]; c->priv[i] = mprv[i]; }
     c->nfields = m;
     c->nparents = 0;
     for (int pi = 0; pi < nparents && c->nparents < 8; pi++) { strncpy(c->parents[c->nparents], parents[pi], 63); c->parents[c->nparents][63] = '\0'; c->nparents++; }
@@ -140,7 +140,7 @@ void class_compose_role(const char *child, const char *role) {
     }
     for (int i = 0; i < r->nfields && c->nfields < 63; i++) {
         int dup = 0; for (int j = 0; j < c->nfields; j++) if (!strcmp(c->fields[j], r->fields[i])) { dup = 1; break; }
-        if (!dup) { int k = c->nfields; strncpy(c->fields[k], r->fields[i], 63); c->fields[k][63] = '\0'; c->defaults[k] = r->defaults[i]; c->has_default[k] = r->has_default[i]; c->required[k] = r->required[i]; c->rw[k] = r->rw[i]; c->sigil[k] = r->sigil[i]; c->nfields++; }
+        if (!dup) { int k = c->nfields; strncpy(c->fields[k], r->fields[i], 63); c->fields[k][63] = '\0'; c->defaults[k] = r->defaults[i]; c->has_default[k] = r->has_default[i]; c->required[k] = r->required[i]; c->rw[k] = r->rw[i]; c->sigil[k] = r->sigil[i]; c->priv[k] = r->priv[i]; c->nfields++; }
     }
     int dupr = 0; for (int i = 0; i < c->nroles; i++) if (!strcmp(c->roles[i], role)) { dupr = 1; break; }
     if (!dupr && c->nroles < 8) { strncpy(c->roles[c->nroles], role, 63); c->roles[c->nroles][63] = '\0'; c->nroles++; }
@@ -182,6 +182,22 @@ void dat_set_field_sigil(const char *cls, const char *field, int sig) {
     DatType *t = dat_find_type(cls); if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->sigil[i] = (char)sig; return; }
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void dat_set_field_priv(const char *cls, const char *field) {
+    DatType *t = dat_find_type(cls); if (!t) return;
+    for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->priv[i] = 1; return; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_field_is_private(const char *cls, const char *field) {
+    if (!cls || !field) return 0;
+    extern int dat_mro(const char *name, const char **out, int max);
+    const char *mro[64]; int mn = dat_mro(cls, mro, 64); if (mn == 0) { mro[0] = cls; mn = 1; }
+    for (int mi = 0; mi < mn; mi++) { DatType *t = mro[mi] ? dat_find_type(mro[mi]) : NULL; if (!t) continue;
+        for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) return t->priv[i] ? 1 : 0; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_field_priv(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].priv[j] : 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int dat_type_field_has_default(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nfields) ? dat_types[i].has_default[j] : 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/

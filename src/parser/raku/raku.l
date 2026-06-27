@@ -122,12 +122,12 @@ WS       [ \t\r]
     int len = strlen(yytext)-3;
     char *nm = malloc(len+1); memcpy(nm,yytext+2,len); nm[len]='\0';
     raku_yylval.sval = nm; return VAR_NAMED_CAPTURE; }
-"$."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_TWIGIL; }
-"$!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_TWIGIL; }
-"@."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_ARRAY_TWIGIL; }
-"@!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_ARRAY_TWIGIL; }
-"%."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_HASH_TWIGIL; }
-"%!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+2); return VAR_HASH_TWIGIL; }
+"$."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_TWIGIL; }
+"$!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_TWIGIL; }
+"@."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
+"@!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
+"%."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
+"%!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
 "$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
 "@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
 "%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }

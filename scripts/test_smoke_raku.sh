@@ -580,6 +580,68 @@ class Sub is Base { method bump() { $!x = $!x + 5; } }
 sub main() { my $s = Sub.new(x => 10); $s.x = 20; say($s.x); }
 EOF
 
+# --- RK-OO-A2 privacy: a `$!`-declared attribute gets NO public accessor (Rakudo Attribute.compose only
+#     generates an accessor when has_accessor, i.e. the `$.` public twigil). External `$obj.x` on a private
+#     attribute finds no method and DIES ("not accessible"); internal `$!x` (direct attribute) ALWAYS works;
+#     a public `$.` sibling stays externally accessible. Privacy follows the MRO (inherited private stays
+#     private; inherited public stays public). ---
+raku "priv_attr_external_dies" "" << 'EOF'
+class Secret { has $!code; method reveal() { return $!code; } }
+sub main() { my $s = Secret.new(code => 42); say($s.code()); }
+EOF
+
+raku "priv_attr_internal_ok" "42" << 'EOF'
+class Secret { has $!code; method reveal() { return $!code; } }
+sub main() { my $s = Secret.new(code => 42); say($s.reveal()); }
+EOF
+
+raku "priv_attr_inherited_dies" "" << 'EOF'
+class Base { has $!secret; method peek() { return $!secret; } }
+class Derived is Base { }
+sub main() { my $d = Derived.new(secret => 5); say($d.secret()); }
+EOF
+
+raku "priv_attr_inherited_internal_ok" "5" << 'EOF'
+class Base { has $!secret; method peek() { return $!secret; } }
+class Derived is Base { }
+sub main() { my $d = Derived.new(secret => 5); say($d.peek()); }
+EOF
+
+raku "priv_attr_public_sibling_ok" "A" << 'EOF'
+class Mix { has $.pub; has $!prv; method both() { return $.pub ~ "-" ~ $!prv; } }
+sub main() { my $m = Mix.new(pub => "A", prv => "B"); say($m.pub); }
+EOF
+
+raku "priv_attr_mixed_internal" "A-B" << 'EOF'
+class Mix { has $.pub; has $!prv; method both() { return $.pub ~ "-" ~ $!prv; } }
+sub main() { my $m = Mix.new(pub => "A", prv => "B"); say($m.both()); }
+EOF
+
+# --- RK-OO-A2 privacy, no-paren accessor form: in Raku `$obj.attr` and `$obj.attr()` are BOTH accessor
+#     method calls (no syntactic distinction), so a private attribute DIES on the no-paren form too. ---
+raku "priv_attr_external_noparen_dies" "" << 'EOF'
+class Secret { has $!code; method reveal() { return $!code; } }
+sub main() { my $s = Secret.new(code => 42); say($s.code); }
+EOF
+
+raku "pub_attr_external_noparen_ok" "Rex" << 'EOF'
+class Animal { has $.name; }
+class Dog is Animal { }
+sub main() { my $d = Dog.new(name => "Rex"); say($d.name); }
+EOF
+
+# --- RK-OO-A3 privacy (the previously-deferred `@!`/`%!` enforcement): private aggregate attributes get no
+#     public accessor either; external access DIES, while the public `@.`/`%.` accessor still resolves. ---
+raku "priv_array_attr_external_dies" "" << 'EOF'
+class Stack { has @!items; method size() { return 1; } }
+sub main() { my $s = Stack.new(); say($s.items); }
+EOF
+
+raku "priv_hash_attr_external_dies" "" << 'EOF'
+class Cfg { has %!opts; method ok() { return 1; } }
+sub main() { my $c = Cfg.new(); say($c.opts); }
+EOF
+
 # --- RK-OO-C1/C2/C4: single inheritance (attr inherit, method inherit, override) ---
 raku "inherit_attr" "Rex" << 'EOF'
 class Animal { has $.name; }
@@ -1012,6 +1074,42 @@ raku "multi_two_typed_args" "$(printf 'int+int\nstr+str')" << 'EOF'
 multi sub combine(Int $a, Int $b) { say("int+int"); }
 multi sub combine(Str $a, Str $b) { say("str+str"); }
 sub main() { combine(1, 2); combine("a", "b"); }
+EOF
+
+# --- RK-OO-E `multi method`: method-side multi-dispatch (Rakudo MROBasedMethodDispatch over typed candidates).
+#     Candidates register as `Class__name$arity$T0...` procs; `meth_call` routes a base-name call with no direct
+#     `Class__name` proc through an MRO-scoped dispatcher (mirrors `__multi_call`, invocant threaded as arg0) that
+#     filters by arity + per-arg type acceptance and invokes the narrowest. Candidates compose across the C3 MRO. ---
+raku "multi_method_type" "$(printf 'int:42\nstr:hi')" << 'EOF'
+class Printer {
+    multi method show(Int $x) { return "int:" ~ $x; }
+    multi method show(Str $s) { return "str:" ~ $s; }
+}
+sub main() { my $p = Printer.new(); say($p.show(42)); say($p.show("hi")); }
+EOF
+
+raku "multi_method_arity" "$(printf '5\n7')" << 'EOF'
+class Calc {
+    multi method add(Int $a) { return $a; }
+    multi method add(Int $a, Int $b) { return $a + $b; }
+}
+sub main() { my $c = Calc.new(); say($c.add(5)); say($c.add(3, 4)); }
+EOF
+
+raku "multi_method_mro_inherited" "$(printf 'base-int:7\nsub-str:yo')" << 'EOF'
+class Base { multi method describe(Int $x) { return "base-int:" ~ $x; } }
+class Sub is Base { multi method describe(Str $s) { return "sub-str:" ~ $s; } }
+sub main() { my $o = Sub.new(); say($o.describe(7)); say($o.describe("yo")); }
+EOF
+
+raku "multi_method_subclass_narrower" "a dog" << 'EOF'
+class Animal { }
+class Dog is Animal { }
+class Handler {
+    multi method greet(Animal $a) { return "an animal"; }
+    multi method greet(Dog $d) { return "a dog"; }
+}
+sub main() { my $h = Handler.new(); my $d = Dog.new(); say($h.greet($d)); }
 EOF
 
 # --- RK-OO-F: .isa / .does type tests. `.isa(T)` is true iff T is in the object's class MRO (nominal
