@@ -549,6 +549,54 @@ sub main() {
 }
 EOF
 
+# --- RK-GRAM: literal strings in rules/tokens. A quoted literal ("hello", '[') now matches its CONTENTS
+#     verbatim (quotes stripped) with regex-metacharacters treated as LITERAL (faithful to Raku: a string
+#     literal in a regex matches the exact characters, "." is a literal dot not any-char). Fixes gram_expand,
+#     which previously copied the quote chars into the NFA pattern so "hello" tried to match the 7 chars
+#     including quotes. Shared by both modes (runtime gram_expand). Literal+subrule mixes work. ---
+raku "grammar_literal" "hello" << 'EOF'
+grammar G { rule TOP { "hello" } }
+sub main() { say(G.parse("hello")); }
+EOF
+raku "grammar_literal_nomatch" "N" << 'EOF'
+grammar G { rule TOP { "hello" } }
+sub main() { my $r = G.parse("world"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "grammar_literal_subrule_mix" "[abc]" << 'EOF'
+grammar G { token w { \w+ } rule TOP { "[" <w> "]" } }
+sub main() { say(G.parse("[abc]")); }
+EOF
+raku "grammar_literal_metachar" "OK" << 'EOF'
+grammar G { rule TOP { "a.b" } }
+sub main() { my $r = G.parse("axb"); if ($r) { say("BAD"); } else { say("OK"); } }
+EOF
+
+# --- RK-GRAM: built-in character-class subrules. Raku's predefined named character classes
+#     (<digit> <alpha> <alnum> <upper> <lower> <space> <ws> <xdigit>) now resolve to their regex
+#     class when a <name> isn't a user-defined subrule (user subrules still win — checked first).
+#     Maps in gram_expand via rk_grammar_builtin_class. Quantifiers and inter-token whitespace compose.
+#     Shared by both modes. ---
+raku "grammar_builtin_digit" "123" << 'EOF'
+grammar G { rule TOP { <digit>+ } }
+sub main() { say(G.parse("123")); }
+EOF
+raku "grammar_builtin_alpha" "abc" << 'EOF'
+grammar G { rule TOP { <alpha>+ } }
+sub main() { say(G.parse("abc")); }
+EOF
+raku "grammar_builtin_upper_lower" "Hello" << 'EOF'
+grammar G { rule TOP { <upper> <lower>+ } }
+sub main() { say(G.parse("Hello")); }
+EOF
+raku "grammar_builtin_space" "1 2" << 'EOF'
+grammar G { rule TOP { <digit> <space> <digit> } }
+sub main() { say(G.parse("1 2")); }
+EOF
+raku "grammar_builtin_nomatch" "N" << 'EOF'
+grammar G { rule TOP { <digit>+ } }
+sub main() { my $r = G.parse("abc"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+
 # --- RK-OO-A1: attribute mutation (twigil-write + void method-call statement) ---
 raku "attr_mutate" "3" << 'EOF'
 class Counter { has $.n; method bump() { $!n = $!n + 1; } method val() { return $!n; } }
@@ -1265,6 +1313,31 @@ EOF
 raku "param_type_mismatch_dies" "int 5" << 'EOF'
 sub takes(Int:D $n) { say("int " ~ $n); }
 sub main() { takes(5); takes("x"); say("after"); }
+EOF
+
+# --- RK-OO-F: plain-type-name param enforcement (the F-tail, previously deferred). A non-:D/:U typed
+#     param (Int $x, Str $s, a user class) now runtime-checks its bound argument at proc entry and DIES
+#     faithfully ("Type check failed in binding to parameter ...") on a wrong type — Int rejects Str,
+#     subtype (a Dog for an Animal param) is ACCEPTED via the MRO check. Only types the runtime models
+#     (numeric/string leaves + registered classes) are enforced; unmodeled barewords are skipped so they
+#     cannot false-die. Reuses the __param_check builtin + rt_mc_accepts (no new IR/template). Both modes. ---
+raku "param_plain_int_passes" "42" << 'EOF'
+sub f(Int $x) { say($x); }
+sub main() { f(42); }
+EOF
+raku "param_plain_int_dies" "7" << 'EOF'
+sub f(Int $x) { say($x); }
+sub main() { f(7); f("x"); say("after"); }
+EOF
+raku "param_plain_str_passes" "hi" << 'EOF'
+sub f(Str $s) { say($s); }
+sub main() { f("hi"); }
+EOF
+raku "param_plain_class_subtype" "5" << 'EOF'
+class Animal { has $.n; }
+class Dog is Animal { }
+sub describe(Animal $a) { say($a.n); }
+sub main() { my $d = Dog.new(n => 5); describe($d); }
 EOF
 
 # --- RK-OO-G1: user .gist / .Str / .raku override honored in implicit stringification contexts.
