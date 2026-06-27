@@ -246,6 +246,8 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp \
     $(SRC)/emitter/emit_bb.c \
     $(SRC)/opt/arith_fold.c \
+    $(SRC)/opt/gva_collect.c \
+    $(SRC)/opt/proc_collect.c \
     \
     $(SRC)/machine/sm_prog.c \
     $(SRC)/lower/lower_common.c \
@@ -546,6 +548,8 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_snobol4.c -o $(OBJ)/lower_snobol4.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/branchopt.c -o $(OBJ)/branchopt.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/arith_fold.c -o $(OBJ)/arith_fold.o
+	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/gva_collect.c -o $(OBJ)/gva_collect.o
+	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/proc_collect.c -o $(OBJ)/proc_collect.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_raku.c    -o $(OBJ)/lower_raku.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_pascal.c  -o $(OBJ)/lower_pascal.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_prolog.c  -o $(OBJ)/lower_prolog.o

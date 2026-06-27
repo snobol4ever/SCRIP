@@ -11,6 +11,8 @@
 #include "../rt/rt.h"
 #include "bb_build.h"
 #include "../opt/arith_fold.h"
+#include "../opt/gva_collect.h"
+#include "../opt/proc_collect.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -111,65 +113,7 @@ int bb_varslot_peek(const char *name) {
     return -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static const char **g_gva_names = NULL;
-static int g_gva_n = 0;
-static int g_gva_max = 0;
-int gva_name_eligible(const char *name) {
-    if (!name || !name[0]) return 0;
-    if (name[0] == '&') return 0;
-    static const char *excl[] = { "INPUT","OUTPUT","PUNCH","TERMINAL","PUNCHAR","STLIMIT","STCOUNT","STNO","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH","FTRACE","TRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE","ALPHABET","ABEND","DUMP","STEXEC","ERRTYPE","ERRTEXT","GTRACE","FATALLIMIT","PARM","PI", (const char *)0 };
-    for (int i = 0; excl[i]; i++) if (strcmp(name, excl[i]) == 0) return 0;
-    return 1;
-}
-void gva_collect_reset(void) { g_gva_n = 0; }
-int gva_index_of(const char *name) {
-    if (!name) return -1;
-    for (int i = 0; i < g_gva_n; i++) if (g_gva_names[i] && strcmp(g_gva_names[i], name) == 0) return i;
-    return -1;
-}
-int gva_collect_var(const char *name) {
-    if (!gva_name_eligible(name)) return -1;
-    int k = gva_index_of(name); if (k >= 0) return k;
-    if (g_gva_n >= g_gva_max) { int nm = g_gva_max ? g_gva_max * 2 : 256; const char **g = (const char **)realloc(g_gva_names, (size_t)nm * sizeof(const char *)); if (!g) return -1; g_gva_names = g; g_gva_max = nm; }
-    g_gva_names[g_gva_n] = name; return g_gva_n++;
-}
-int gva_count(void) { return g_gva_n; }
-const char *gva_name(int k) { return (k >= 0 && k < g_gva_n) ? g_gva_names[k] : (const char *)0; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 int g_proc_direct_active = 0;
-static const char **g_proc_slot_names = NULL;
-static int g_proc_slot_n = 0;
-static int g_proc_slot_max = 0;
-void proc_collect_reset(void) { g_proc_slot_n = 0; }
-int proc_slot_of(const char *name) {
-    if (!name) return -1;
-    for (int i = 0; i < g_proc_slot_n; i++) if (g_proc_slot_names[i] && strcmp(g_proc_slot_names[i], name) == 0) return i;
-    return -1;
-}
-int proc_collect_add(const char *name) {
-    if (!name || !name[0]) return -1;
-    int k = proc_slot_of(name); if (k >= 0) return k;
-    if (g_proc_slot_n >= g_proc_slot_max) { int nm = g_proc_slot_max ? g_proc_slot_max * 2 : 64; const char **g = (const char **)realloc(g_proc_slot_names, (size_t)nm * sizeof(const char *)); if (!g) return -1; g_proc_slot_names = g; g_proc_slot_max = nm; }
-    g_proc_slot_names[g_proc_slot_n] = name; return g_proc_slot_n++;
-}
-int proc_slot_count(void) { return g_proc_slot_n; }
-const char *proc_slot_name(int k) { return (k >= 0 && k < g_proc_slot_n) ? g_proc_slot_names[k] : (const char *)0; }
-int proc_direct_eligible(const char *name) {
-    extern int rt_proc_is_registered(const char *); extern int rt_proc_frame_nslots(const char *);
-    return name && name[0] && rt_proc_is_registered(name) && rt_proc_frame_nslots(name) < 0;
-}
-void proc_collect_graph(IR_graph_t *g) {
-    if (!g || !g->all) return;
-    for (int i = 0; i < g->n; i++) {
-        IR_t *nd = g->all[i]; if (!nd || !IR_LIT(nd).sval) continue;
-        switch (nd->op) {
-        case IR_CALL: case IR_CALL_GVAR_USERPROC: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_PROC_STAGED:
-            if (proc_direct_eligible(IR_LIT(nd).sval)) (void)proc_collect_add(IR_LIT(nd).sval); break;
-        default: break;
-        }
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 int g_descr_flat_chain = 0;
 int g_gvar_flat_chain = 0;
 int g_gva_active = 0;
