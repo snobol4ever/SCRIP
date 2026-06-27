@@ -114,7 +114,7 @@ static void sno_call_channels(snx_t * cx, IR_t * call, const tree_t * t) {
 static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, cont, nxt); *res = s; return s; }
-    if (lc_is_binop(t->t)) {
+    if (lc_is_binop(t->t) && t->n >= 2) {
         IR_t * op = build(cx, IR_BINOP, cont, nxt); IR_LIT(op).ival = lc_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower_expr(cx, t->c[0], NULL, nxt, &lr);
