@@ -173,6 +173,26 @@ int dat_build_keys(const char *cls, const char **out, int max) {
     return n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void dat_add_handles(const char *cls, const char *meth, const char *field) {
+    DatType *t = dat_find_type(cls); if (!t || !meth || !*meth || !field || !*field) return;
+    for (int i = 0; i < t->nhandles; i++) if (!strcmp(t->handles_meth[i], meth)) return;
+    if (t->nhandles < 32) { strncpy(t->handles_meth[t->nhandles], meth, 63); t->handles_meth[t->nhandles][63] = '\0'; strncpy(t->handles_fld[t->nhandles], field, 63); t->handles_fld[t->nhandles][63] = '\0'; t->nhandles++; }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_handles_field(const char *cls, const char *meth, char *out, int outsz) {
+    if (!cls || !meth) return 0; extern int dat_mro(const char *name, const char **out, int max);
+    const char *mro[64]; int mn = dat_mro(cls, mro, 64); if (mn == 0) { mro[0] = cls; mn = 1; }
+    for (int mi = 0; mi < mn; mi++) { DatType *t = mro[mi] ? dat_find_type(mro[mi]) : NULL; if (!t) continue;
+        for (int i = 0; i < t->nhandles; i++) if (!strcmp(t->handles_meth[i], meth)) { snprintf(out, outsz, "%s", t->handles_fld[i]); return 1; } }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int dat_type_nhandles(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nhandles : 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_type_handles_meth_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nhandles) ? dat_types[i].handles_meth[j] : (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *dat_type_handles_fld_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nhandles) ? dat_types[i].handles_fld[j] : (const char *)0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_i(const char *cls, const char *field, int64_t v) {
     DatType *t = dat_find_type(cls); if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = INTVAL(v); t->has_default[i] = 1; return; }

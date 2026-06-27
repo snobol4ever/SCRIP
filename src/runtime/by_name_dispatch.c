@@ -1286,6 +1286,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             DESCR_t *acc = data_field_ptr(mname, args[0]);
             if (acc) { *out = *acc; return 1; }
         }
+        if (!meth_is_user_proc(procname)) {
+            extern int dat_handles_field(const char *cls, const char *meth, char *out, int outsz);
+            char delegfield[64];
+            if (dat_handles_field(cname, mname, delegfield, sizeof delegfield)) {
+                extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+                DESCR_t deleg = dat_field_get(delegfield, args[0]);
+                DESCR_t *fwd = GC_malloc((size_t)nargs * sizeof(DESCR_t)); fwd[0] = deleg; fwd[1] = args[1];
+                for (int k = 2; k < nargs; k++) fwd[k] = args[k];
+                extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+                return script_try_call_builtin_by_name("meth_call", fwd, nargs, out);
+            }
+        }
         int nextra = nargs - 2;
         int total = 1 + nextra;
         DESCR_t *callargs = GC_malloc((size_t)total * sizeof(DESCR_t));
