@@ -412,7 +412,7 @@ static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     int st = bb_slot_alloc16(pBB);
     EMIT_PAIR_RESET();
     g_emit.op_off = st;
-    IR_LIT(pBB).ival = 0;
+    g_emit.op_phase = 0;
     EMIT_PAIR_FILL(pBB, cap_γ, lbl_ω, lbl_β);
     {
         IR_t *cat_arms[64]; IR_t *catnd = NULL;
@@ -452,7 +452,7 @@ static void flat_drive_capture(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     emit_label_define_bb(cap_γ);
     EMIT_PAIR_RESET();
     g_emit.op_off = st;
-    IR_LIT(pBB).ival = (pBB->op == IR_MATCH_ASSIGN_IMM) ? 2 : 1;
+    g_emit.op_phase = (pBB->op == IR_MATCH_ASSIGN_IMM) ? 2 : 1;
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

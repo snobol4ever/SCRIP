@@ -43,6 +43,7 @@ typedef struct {
     int                          op_sb;
     int                          op_sc;
     int                          op_off;
+    int                          op_phase;
     int                          op_gva_k;
     int                          op_gva_k1;
     int                          op_gva_k2;
