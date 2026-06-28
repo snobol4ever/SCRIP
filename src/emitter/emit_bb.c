@@ -1,4 +1,5 @@
 #include "emit_bb.h"
+#include "emit_drive.h"
 #include "BB_templates/bb_templates.h"
 #include "emit_ir.h"
 #include "emit_form.h"
@@ -214,14 +215,16 @@ static IR_t *ir_skip_alt_arms(IR_t *entry);
 static void descr_chain_operand_refs(IR_t *entry);
 static void gvar_stmt_operand_refs(IR_t *head);
 static int gvar_prewalk_idx_operand(IR_t *idx, bb_label_t *lbl_ω);
-static IR_t * bb_child0(const IR_t *n) { return (n && n->n_operands > 0) ? n->operands[0] : NULL; }
-static IR_t * bb_child1(const IR_t *n) { return (n && n->n_operands > 1) ? n->operands[1] : NULL; }
+IR_t * bb_child0(const IR_t *n) { return (n && n->n_operands > 0) ? n->operands[0] : NULL; }
+IR_t * bb_child1(const IR_t *n) { return (n && n->n_operands > 1) ? n->operands[1] : NULL; }
+void bb_flat_cursor_reserve(int upto) { if (upto > g_flat_slot_count) g_flat_slot_count = upto; }
+int bb_flat_cursor(void) { return g_flat_slot_count; }
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
 static int        g_bb_alpha_seq = 0;
 void g_bb_alpha_seq_reset(void) { g_bb_alpha_seq = 0; }
-static void bb_fill_alpha(IR_t *nd) {
+void bb_fill_alpha(IR_t *nd) {
     extern int g_m4_dense_nid;
     bb_label_t *a = &g_α_ring[g_α_ring_i++ & 7];
     if (g_m4_dense_nid) emit_label_initf(a, "bb%d_α", ++g_bb_alpha_seq);
@@ -1335,7 +1338,7 @@ int arith_emits_descr(IR_t *o) {
     return a_ok && b_ok;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static IR_e binop_slot_kind(IR_t *nd) {
+IR_e binop_slot_kind(IR_t *nd) {
     int64_t op = nd ? IR_LIT(nd).ival : -1;
     if ((op >= BINOP_LT && op <= BINOP_NE) || (op >= BINOP_SLT && op <= BINOP_SNE)) return IR_BINOP_RELOP;
     if (op == BINOP_CONCAT)               return IR_BINOP_CONCAT;
@@ -1344,7 +1347,7 @@ static IR_e binop_slot_kind(IR_t *nd) {
     return IR_BINOP;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int descr_binop_opnd_slot(IR_t *o) {
+int descr_binop_opnd_slot(IR_t *o) {
     return (o && o->op != IR_LIT_F && o->op != IR_LIT_NUL) ? bb_slot_get(o) : -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1374,7 +1377,7 @@ static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth) {
     }
     return 0;
 }
-static int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
+int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
     if (!nd) return 0;
     int64_t op = IR_LIT(nd).ival;
     if (op == BINOP_POW) return 1;
@@ -2733,7 +2736,7 @@ static void flat_drive_gen_alt(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω
     EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int bb_call_write_route(IR_t *nd) {
+int bb_call_write_route(IR_t *nd) {
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
     if (g_descr_flat_chain && bb_slot_get(a0) >= 0) return 1;
@@ -3455,7 +3458,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_LIMIT && nodes[i]->n_operands > 0) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[0]) { g_limit_gen_beta = betas[k]; break; }
         g_suspend_dobody_beta = NULL;
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[1]) { g_suspend_dobody_beta = lbls[k]; break; }
-        if (emit_jcon_enabled()) emit_jcon_node(nodes[i], node_γ, node_ω, betas[i]); else walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
+        emit_drive_node(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
     { bb_label_t *resume_tgt = &lbl_ω;

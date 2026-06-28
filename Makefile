@@ -246,6 +246,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp \
     $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp \
     $(SRC)/emitter/emit_bb.c \
+    $(SRC)/emitter/emit_drive.c \
     $(SRC)/opt/arith_fold.c \
     $(SRC)/opt/gva_collect.c \
     $(SRC)/opt/proc_collect.c \
@@ -558,6 +559,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_pascal.c  -o $(OBJ)/lower_pascal.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_prolog.c  -o $(OBJ)/lower_prolog.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_bb.c -o $(OBJ)/emit_bb.o
+	$(CC) $(CRT)   -c $(SRC)/emitter/emit_drive.c -o $(OBJ)/emit_drive.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
