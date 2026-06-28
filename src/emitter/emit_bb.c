@@ -3662,7 +3662,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         int ar = descr_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
         if (ar == 1 && n->op == IR_SCAN && sp >= 1) { scan_set_subj_node(n, stk[sp - 1]); sp -= 1; }
-        else if (ar >= 1 && sp >= ar) { n->n_operands = 0; for (int k = ar; k >= 1; k--) ir_operand_push(n, stk[sp - k]); sp -= ar; }
+        else if (ar >= 1 && sp >= ar) { if (n->n_operands < ar) { n->n_operands = 0; for (int k = ar; k >= 1; k--) ir_operand_push(n, stk[sp - k]); } sp -= ar; }
         else if (ar >= 1) { sp = 0; }
         stk[sp++] = n;
     }
