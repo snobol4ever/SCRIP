@@ -256,12 +256,8 @@ struct IR_t {
     IR_t       ** operands;
     int           n_operands;
     int           tmp;
-    const char  * sval;
-    int64_t       ival;
-    double        dval;
+    union { const char * sval; int64_t ival; double dval; };
     int64_t       counter;
-    int           state;
-    int32_t       stno;
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define IR_LIT(nd)  (*(nd))
@@ -275,8 +271,6 @@ typedef struct {
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     int64_t      counter;
-    int          state;
-    int32_t      stno;
 } IR_exec_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 struct IR_graph_t {

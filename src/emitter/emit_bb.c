@@ -2680,7 +2680,7 @@ static int while_operand_simple(IR_t *o) {
     case IR_VAR: case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
         return 1;
     case IR_BINOP:
-        return IR_EXEC(o).state == 0 && while_operand_simple(bb_child0(o)) && while_operand_simple(bb_child1(o));
+        return while_operand_simple(bb_child0(o)) && while_operand_simple(bb_child1(o));
     case IR_ASSIGN:
         return bb_child0(o) && bb_child0(o)->op == IR_VAR && (!bb_child1(o) || while_operand_simple(bb_child1(o)));
     default:
@@ -2689,7 +2689,7 @@ static int while_operand_simple(IR_t *o) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int while_cond_emittable(IR_t *cond) {
-    return cond && cond->op == IR_BINOP && IR_EXEC(cond).state >= 1 &&
+    return cond && cond->op == IR_BINOP && 0 &&
            while_operand_simple(bb_child0(cond)) && while_operand_simple(bb_child1(cond));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -2701,7 +2701,7 @@ static void flat_drive_while(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, 
     IR_t *cond = bb_child0(pBB);
     IR_t *body = ((IR_t*)0);
     int is_until = (pBB->op == IR_UNTIL);
-    int cond_is_relop = (cond->op == IR_BINOP && IR_EXEC(cond).state >= 1);
+    int cond_is_relop = (cond->op == IR_BINOP && 0);
     int id = g_flat_node_id++;
     bb_label_t *cond_entry = emit_label_alloc("xwhile%d_cond", id);
     bb_label_t *gate       = emit_label_alloc("xwhile%d_gate", id);
@@ -3657,7 +3657,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_CALL_DEFINE: return 0;
     case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
     case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
-    case IR_CALL:  return (IR_LIT(n).dval == 2.0 || IR_LIT(n).dval == 3.0 || IR_LIT(n).dval == 5.0) ? 0 : (int)IR_LIT(n).ival;
+    case IR_CALL:  return n->n_operands;
     case IR_PROC_GEN: return 0;
     case IR_PATTERN_LIT: return 0;
     case IR_PATTERN_LEN: case IR_PATTERN_POS: case IR_PATTERN_RPOS: case IR_PATTERN_TAB: case IR_PATTERN_RTAB: return 0;
@@ -3828,7 +3828,7 @@ static IR_t *gvar_chain_resolve_stmt(IR_t *n) {
 static int32_t gvar_chain_skip_stno(IR_t *n) {
     int guard = 0; int32_t st = 0;
     while (n && guard++ < 4096) {
-        if (n->op == IR_SUCCEED && n->γ.node != NULL) { if (IR_EXEC(n).stno != 0) st = IR_EXEC(n).stno; n = n->γ.node; continue; }
+        if (n->op == IR_SUCCEED && n->γ.node != NULL) { if (IR_LIT(n).ival != 0) st = (int32_t)IR_LIT(n).ival; n = n->γ.node; continue; }
         if ((n->op == IR_SEQ || n->op == IR_SEQ_EXPR) && IR_LIT(n).dval == 1.0 && n->γ.node != NULL) { n = n->γ.node; continue; }
         break;
     }
@@ -3837,7 +3837,7 @@ static int32_t gvar_chain_skip_stno(IR_t *n) {
 static int gvar_chain_collect_stnos(IR_t *n, int32_t *out, int max) {
     int guard = 0; int cnt = 0;
     while (n && guard++ < 4096) {
-        if (n->op == IR_SUCCEED && n->γ.node != NULL) { if (IR_EXEC(n).stno != 0 && cnt < max) out[cnt++] = IR_EXEC(n).stno; n = n->γ.node; continue; }
+        if (n->op == IR_SUCCEED && n->γ.node != NULL) { if (IR_LIT(n).ival != 0 && cnt < max) out[cnt++] = (int32_t)IR_LIT(n).ival; n = n->γ.node; continue; }
         if ((n->op == IR_SEQ || n->op == IR_SEQ_EXPR) && IR_LIT(n).dval == 1.0 && n->γ.node != NULL) { n = n->γ.node; continue; }
         break;
     }

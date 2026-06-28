@@ -1266,7 +1266,7 @@ IR_graph_t * lower_snobol4(const tree_t * prog) {
     /* 3. label SUCCEED nodes [4..4+N-1] */
     IR_t * lbuf[SNO_MAXSTMTS];
     cx->labels = lbuf; cx->nlabels = N;
-    for (int i = 0; i < N; i++) { lbuf[i] = IR_node_alloc(g, IR_SUCCEED); IR_EXEC(lbuf[i]).stno = sno_stmt_stno(stmts[i]); }
+    for (int i = 0; i < N; i++) { lbuf[i] = IR_node_alloc(g, IR_SUCCEED); IR_LIT(lbuf[i]).ival = sno_stmt_stno(stmts[i]); }
     /* 4. label name → stmt-index map */
     const char * lname_buf[SNO_MAXSTMTS]; cx->lname = lname_buf;
     g_sno4_lab_n = 0;

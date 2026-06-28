@@ -372,12 +372,12 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) 
     const char * opn = bb_op_name(bb->op);
     fprintf(fp, "%4s %4d: %4s %4s  %-22s [%s]", sq, i, gp, wp, opn, ob);
     if (bb->tmp >= 0) fprintf(fp, " tmp=%d", bb->tmp);
-    if (IR_EXEC(bb).stno != 0) fprintf(fp, " stno=%d", (int)IR_EXEC(bb).stno);
+    if (bb->op == IR_SUCCEED && IR_LIT(bb).ival != 0) fprintf(fp, " stno=%d", (int)IR_LIT(bb).ival);
     switch (bb->op) {
         case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_LIT_F: fprintf(fp, " dval=%g", IR_LIT(bb).dval); break;
         case IR_LIT_S: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-        case IR_VAR: fprintf(fp, " var=\"%s\"%s", IR_LIT(bb).sval ? IR_LIT(bb).sval : "", IR_EXEC(bb).state == 1 ? " global" : ""); break;
+        case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_LOGICVAR: fprintf(fp, " slot=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_ATOM: fprintf(fp, " atom=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_BINOP: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;

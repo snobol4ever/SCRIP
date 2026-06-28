@@ -176,7 +176,7 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
         if (!scan_safe_kind(nd->op)) return 0;
         if (nd->op == IR_VAR) {
             if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') { if (!keyword_supported(IR_LIT(nd).sval)) return 0; }
-            else if (IR_EXEC(nd).state == 1 || !IR_LIT(nd).sval || (!graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval) && !sg_var_assigned(sg, IR_LIT(nd).sval))) return 0;
+            else if (!IR_LIT(nd).sval || (!graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval) && !sg_var_assigned(sg, IR_LIT(nd).sval))) return 0;
         }
         if (nd->op == IR_ASSIGN) { if (!IR_LIT(nd).sval || is_global(IR_LIT(nd).sval)) return 0; }
         if (nd->op == IR_KEYWORD && !keyword_supported(IR_LIT(nd).sval)) return 0;
