@@ -3315,6 +3315,8 @@ void emit_jcon_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t
     switch (nd->op) {
     case IR_LIT_S:      g_emit.op_off = jcon_value_slot(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_I:      g_emit.op_off = jcon_value_slot(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_F:      g_emit.op_off = jcon_value_slot(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_NUL:    g_emit.op_off = jcon_value_slot(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR: {
         extern int is_global(const char *);
         const char *vn = IR_LIT(nd).sval;
