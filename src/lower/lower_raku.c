@@ -278,7 +278,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             bk->γ.node = lit1; bk->ω.node = lit0;
             IR_graph_t * cblk = rk_arg_block(cx, t->c[1]);
             IR_graph_t ** blks = (IR_graph_t **) calloc(1, sizeof(IR_graph_t *)); blks[0] = cblk;
-            IR_EXEC(bk).counter = (int64_t)(intptr_t) blks;
+            (void)(blks);
             *res = nd; return bk; }
         IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -307,7 +307,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 g1->entry = e1; blks2[1] = g1;
             }
             cx->g = saved;
-            IR_EXEC(nd).counter = (int64_t)(intptr_t) blks2;
+            (void)(blks2);
         }
         *res = nd; return nd; }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
@@ -343,7 +343,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         bk->γ.node = tentry; bk->ω.node = eentry;
         IR_graph_t * cblk = rk_arg_block(cx, t->c[0]);
         IR_graph_t ** blks = (IR_graph_t **) calloc(1, sizeof(IR_graph_t *)); blks[0] = cblk;
-        IR_EXEC(bk).counter = (int64_t)(intptr_t) blks;
+        (void)(blks);
         *res = bk; return bk; }
     case TT_EVERY: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0) {
         const tree_t * src = t->c[0]->c[0];
@@ -359,7 +359,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     if (gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) { const tree_t * s = gb->c[i];
                         if (!s || s->t != TT_SUSPEND || s->n < 1 || !s->c[0]) continue; subs[k++] = rk_arg_block(cx, s->c[0]); } }
                     else if (gb->n >= 1 && gb->c[0]) subs[k++] = rk_arg_block(cx, gb->c[0]);
-                    IR_EXEC(ga).counter = (int64_t)(intptr_t) subs; } }
+                    (void)(subs); } }
             IR_t * gconj = build(cx, IR_CONJ, ga, ga);
             IR_t * gbentry = lower_rblock(cx, t->c[1], gconj, ga);
             γ_to(va, gbentry); *res = ga; return ga; }
@@ -427,17 +427,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 if (gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) { const tree_t * s = gb->c[i];
                     if (!s || s->t != TT_SUSPEND || s->n < 1 || !s->c[0]) continue; subs[k++] = rk_arg_block(cx, s->c[0]); } }
                 else if (gb->n >= 1 && gb->c[0]) subs[k++] = rk_arg_block(cx, gb->c[0]);
-                IR_EXEC(ga).counter = (int64_t)(intptr_t) subs; } }
+                (void)(subs); } }
         *res = ga; return ga; }
     case TT_SORT: return lower_rcall(cx, t, "array_sort", 0, 0, γ, ω, res);
     case TT_MAP: if (t->n > 1) { IR_t * nd = build(cx, IR_MAP, γ, ω);
-        IR_graph_t * bg = rk_arg_block(cx, t->c[0]); IR_LIT(nd).ival = (long long)(intptr_t) bg;
-        IR_graph_t * sg = rk_arg_block(cx, t->c[1]); IR_EXEC(nd).counter = (int64_t)(intptr_t) sg;
+        IR_graph_t * bg = rk_arg_block(cx, t->c[0]); (void)(bg);
+        IR_graph_t * sg = rk_arg_block(cx, t->c[1]); (void)(sg);
         *res = nd; return nd; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_GREP: if (t->n > 1) { IR_t * nd = build(cx, IR_GREP, γ, ω);
-        IR_graph_t * bg = rk_arg_block(cx, t->c[0]); IR_LIT(nd).ival = (long long)(intptr_t) bg;
-        IR_graph_t * sg = rk_arg_block(cx, t->c[1]); IR_EXEC(nd).counter = (int64_t)(intptr_t) sg;
+        IR_graph_t * bg = rk_arg_block(cx, t->c[0]); (void)(bg);
+        IR_graph_t * sg = rk_arg_block(cx, t->c[1]); (void)(sg);
         *res = nd; return nd; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CAPTURE: return lower_rcall(cx, t, "re_capture", 0, 0, γ, ω, res);

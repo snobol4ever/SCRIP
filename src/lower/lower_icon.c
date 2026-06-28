@@ -127,8 +127,8 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        if (nd->op == IR_CALL && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) { nd->op = (IR_e) k; IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter; if (blks) for (int a = 0; a < (int) IR_LIT(nd).ival; a++) icn_retag_scan_body(blks[a], depth + 1); } }
-        else if (nd->op == IR_GEN_SCAN) { icn_retag_scan_body((IR_graph_t *)(intptr_t) IR_EXEC(nd).counter, depth + 1); icn_retag_scan_body((IR_graph_t *)(intptr_t) IR_LIT(nd).ival, depth + 1); }
+        if (nd->op == IR_CALL && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) { nd->op = (IR_e) k; IR_graph_t ** blks = (IR_graph_t **)0; if (blks) for (int a = 0; a < (int) IR_LIT(nd).ival; a++) icn_retag_scan_body(blks[a], depth + 1); } }
+        else if (nd->op == IR_GEN_SCAN) { icn_retag_scan_body((IR_graph_t *)0, depth + 1); icn_retag_scan_body((IR_graph_t *) 0, depth + 1); }
     }
 }
 /*====================================================================================================================================================================================================*/
@@ -269,7 +269,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_SCAN: { IR_t * gs = build(cx, IR_GEN_SCAN, γ, ω); IR_LIT(gs).dval = 1.0;
         IR_graph_t * ssg = arg_block(cx, (t->n > 0) ? t->c[0] : NULL); IR_graph_t * bsg = arg_block(cx, (t->n > 1) ? t->c[1] : NULL);
         icn_retag_scan_body(bsg, 0);
-        IR_EXEC(gs).counter = (int64_t)(intptr_t) ssg; IR_LIT(gs).ival = (long long)(intptr_t) bsg; cx->beta = gs; *res = gs; return gs; }
+        (void)(ssg); (void)(bsg); cx->beta = gs; *res = gs; return gs; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_REPALT: { IR_t * nd = build(cx, IR_REPALT, γ, ω);
         IR_t * er = NULL; (void) lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &er);

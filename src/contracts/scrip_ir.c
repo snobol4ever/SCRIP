@@ -330,7 +330,7 @@ void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
     int cursor = 0;
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = cursor; cursor += 16; } }
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter; IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival; if (L) ir_tmp_slot_assign(L); if (R) ir_tmp_slot_assign(R); }
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)0; IR_graph_t * R = (IR_graph_t *) 0; if (L) ir_tmp_slot_assign(L); if (R) ir_tmp_slot_assign(R); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign_flat(IR_graph_t * g) {
@@ -355,7 +355,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && ir_node_produces_value(nd->op)) { nd->tmp = 16 + k * 16; k++; } }
     g->jcon_value_region = 16 + k * 16;
     g->nvalue_slots = k;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter; IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival; if (L) ir_drive_slot_assign(L); if (R) ir_drive_slot_assign(R); }
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)0; IR_graph_t * R = (IR_graph_t *) 0; if (L) ir_drive_slot_assign(L); if (R) ir_drive_slot_assign(R); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) {
@@ -417,15 +417,15 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
     for (int i = 0; i < nn; i++) {                              /* recurse only true sub-graph nodes (leaf-SEQ/scan) */
         const IR_t * bb = bbg->all[i];
         if (!bb || bb->op != IR_SEQ || IR_LIT(bb).dval != 1.0) continue;
-        IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
-        IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
+        IR_graph_t * L = (IR_graph_t *)0;
+        IR_graph_t * R = (IR_graph_t *) 0;
         if (L) { fprintf(fp, "; SEQ[%d] part0:\n", i); bb_print(L, fp); }
         if (R) { fprintf(fp, "; SEQ[%d] part1:\n", i); bb_print(R, fp); }
     }
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         if (!bb || bb->op != IR_SCAN) continue;
-        IR_graph_t * pg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
+        IR_graph_t * pg = (IR_graph_t *)0;
         if (pg) bb_print(pg, fp);
         for (int j = 0; j < bb->n_operands; j++) if (bb->operands[j]) bb_print((IR_graph_t *)(void *) bb->operands[j], fp);
     }
@@ -434,15 +434,15 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
         const IR_t * bb = bbg->all[i];
         if (!bb) continue;
         if (bb->op == IR_GEN_SCAN && IR_LIT(bb).dval == 1.0) {
-            IR_graph_t * ssg = (IR_graph_t *)(intptr_t) IR_EXEC(bb).counter;
-            IR_graph_t * bsg = (IR_graph_t *)(intptr_t) IR_LIT(bb).ival;
+            IR_graph_t * ssg = (IR_graph_t *)0;
+            IR_graph_t * bsg = (IR_graph_t *) 0;
             if (ssg) { fprintf(fp, "; X scansubj node=%d\n", i); bb_print(ssg, fp); }
             if (bsg) { fprintf(fp, "; X scanbody node=%d\n", i); bb_print(bsg, fp); }
             continue;
         }
         if (bb->op != IR_CALL && bb->op != IR_CALL_DEFINE) continue;
         if (IR_LIT(bb).dval != 2.0 && IR_LIT(bb).dval != 3.0 && IR_LIT(bb).dval != 5.0) continue;
-        IR_graph_t ** blks = (IR_graph_t **)(intptr_t) IR_EXEC(bb).counter;
+        IR_graph_t ** blks = (IR_graph_t **)0;
         if (!blks) continue;
         for (int j = 0; j < (int) IR_LIT(bb).ival; j++) if (blks[j]) { fprintf(fp, "; X argblk call=%d arg=%d\n", i, j); bb_print(blks[j], fp); }
       } }

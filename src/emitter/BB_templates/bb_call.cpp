@@ -234,7 +234,7 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
 static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
     const char * nfn = IR_LIT(lf).sval ? IR_LIT(lf).sval : "";
     int nn = (int) IR_LIT(lf).ival;
-    IR_graph_t ** nsubs = (IR_graph_t **)(intptr_t) IR_EXEC(lf).counter;
+    IR_graph_t ** nsubs = (IR_graph_t **)0;
     int avbase = (nn > 0) ? bb_slot_alloc16(nsubs[0]->entry) : bb_slot_alloc16(lf);
     for (int j = 1; j < nn; j++) bb_slot_alloc16(nsubs[j]->entry);
     int isreg = (nfn[0] && rt_proc_is_registered(nfn));
@@ -280,7 +280,7 @@ static int carg_seq_flatten(IR_graph_t * g, int * tags, const char ** strs, int 
     if (e->op == IR_LIT_I) { char b[40]; snprintf(b, 40, "%lld", (long long) IR_LIT(e).ival); tags[*n] = 0; strs[*n] = strdup(b); (*n)++; return 1; }
     if (e->op == IR_LIT_F) { char b[40]; gcvt(IR_LIT(e).dval, 14, b); tags[*n] = 0; strs[*n] = strdup(b); (*n)++; return 1; }
     if (e->op == IR_VAR)   { tags[*n] = 1; strs[*n] = IR_LIT(e).sval ? IR_LIT(e).sval : ""; (*n)++; return 1; }
-    if (e->op == IR_SEQ)   { IR_graph_t * l = (IR_graph_t *)(intptr_t) IR_EXEC(e).counter; IR_graph_t * r = (IR_graph_t *)(intptr_t) IR_LIT(e).ival; return carg_seq_flatten(l, tags, strs, n) && carg_seq_flatten(r, tags, strs, n); }
+    if (e->op == IR_SEQ)   { IR_graph_t * l = (IR_graph_t *)0; IR_graph_t * r = (IR_graph_t *) 0; return carg_seq_flatten(l, tags, strs, n) && carg_seq_flatten(r, tags, strs, n); }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -381,8 +381,8 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         }
         if (fin && fin->op == IR_SEQ && IR_LIT(fin).dval == 1.0) {
             int tags[16]; const char * strs[16]; int n = 0;
-            IR_graph_t * sl = (IR_graph_t *)(intptr_t) IR_EXEC(fin).counter;
-            IR_graph_t * sr = (IR_graph_t *)(intptr_t) IR_LIT(fin).ival;
+            IR_graph_t * sl = (IR_graph_t *)0;
+            IR_graph_t * sr = (IR_graph_t *) 0;
             if (!(carg_seq_flatten(sl, tags, strs, &n) && carg_seq_flatten(sr, tags, strs, &n)) || n < 1 || n > 16) return x86_bomb("marshal concat: call-arg sequence not flattenable (non-literal/var part)");
             int scratch = bb_slot_claim(n * 16);
             std::string s;

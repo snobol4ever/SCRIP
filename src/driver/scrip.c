@@ -131,7 +131,7 @@ static int sg_var_assigned(IR_graph_t *sg, const char *name) {
     return 0;
 }
 static IR_t *scan_lit_entry(IR_t *nd, IR_e want) {
-    IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae || ae->op != want) return (IR_t *)0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return (IR_t *)0;
@@ -143,7 +143,7 @@ static int scan_fn_lit_arg(IR_t *nd, IR_e want) {
 static int scan_fn_cset_arg(IR_t *nd) {
     extern const char *kw_cset_const_str(const char *kw);
     if (scan_lit_entry(nd, IR_LIT_S) != (IR_t *)0) return 1;
-    IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae || ae->op != IR_KEYWORD) return 0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
@@ -151,14 +151,14 @@ static int scan_fn_cset_arg(IR_t *nd) {
 }
 static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
 static int scan_any_cset_var_ok(stage2_t *s2, int gi, IR_graph_t *g, IR_t *nd) {
-    IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae || ae->op != IR_VAR || !IR_LIT(ae).sval || IR_LIT(ae).sval[0] == '&') return 0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
     return graph_var_assigned_or_param(s2, gi, g, IR_LIT(ae).sval);
 }
 static int scan_tab_arg_ok(IR_t *nd) {
-    IR_graph_t **sblks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae) return 0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
@@ -194,8 +194,8 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
         }
         if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE); if (bc != BINOP_CONCAT && !is_rel) return 0; }
         if (nd->op == IR_GEN_SCAN) {
-            IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
-            IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival;
+            IR_graph_t *ssg = (IR_graph_t *)0;
+            IR_graph_t *bsg = (IR_graph_t *) 0;
             if (!scan_subgraph_safe(s2, gi, g, ssg, depth + 1) || !scan_subgraph_safe(s2, gi, g, bsg, depth + 1)) return 0;
         }
     }
@@ -218,7 +218,7 @@ static void icn_register_record_types(stage2_t *s2) {
 }
 static int gen_scan_body_slotful(IR_t *r) {
     if (!r || r->op != IR_GEN_SCAN || IR_LIT(r).dval != 1.0) return 0;
-    IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(r).ival;
+    IR_graph_t *bsg = (IR_graph_t *) 0;
     IR_t *bt = bsg ? bsg->entry : (IR_t *)0;
     int gd = 0;
     while (bt && bt->γ.node && bt->γ.node->op != IR_SUCCEED && bt->γ.node->op != IR_FAIL && gd++ < 512) bt = bt->γ.node;
@@ -273,7 +273,7 @@ static int jct_marshallable(IR_t *r) {
 }
 static int bool_truthy_emittable(IR_t *nd) {
     if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval,"__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
-    IR_graph_t **blks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_graph_t **blks = (IR_graph_t **)0;
     IR_graph_t *cond = blks ? blks[0] : (IR_graph_t *)0;
     if (!cond || !cond->entry) return 0;
     IR_t *e = cond->entry;
@@ -281,7 +281,7 @@ static int bool_truthy_emittable(IR_t *nd) {
 }
 static int bool_cond_emittable(IR_t *nd) {
     if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval, "__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
-    IR_graph_t **blks = (IR_graph_t **)(intptr_t) IR_EXEC(nd).counter;
+    IR_graph_t **blks = (IR_graph_t **)0;
     IR_graph_t *cond = blks ? blks[0] : (IR_graph_t *)0;
     if (!cond) return 0;
     IR_t *p = cond->entry; IR_t *rel = (IR_t *)0; int gd = 0;
@@ -342,8 +342,8 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0; }
             if (nd->op == IR_GEN_SCAN) {
                 if (IR_LIT(nd).dval != 1.0) return 0;
-                IR_graph_t *ssg = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter;
-                IR_graph_t *bsg = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival;
+                IR_graph_t *ssg = (IR_graph_t *)0;
+                IR_graph_t *bsg = (IR_graph_t *) 0;
                 if (!scan_subgraph_safe(s2, gi, g, ssg, 0) || !scan_subgraph_safe(s2, gi, g, bsg, 0)) return 0;
                 if (nd->γ.node && (nd->γ.node->op == IR_CALL || ir_is_scan_kind(nd->γ.node->op)) && !gen_scan_body_slotful(nd)) return 0;
             }
