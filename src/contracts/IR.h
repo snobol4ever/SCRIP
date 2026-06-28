@@ -281,6 +281,7 @@ struct IR_graph_t {
     int            max;
     int            lang;
     int            nslots;
+    int            nvalue_slots;
     IR_t         * body_root;
     IR_lit_t     * lit;
     IR_exec_t    * exec;
@@ -336,6 +337,7 @@ int          bb_operand_aux_set(IR_graph_t * cfg, IR_t * nd, IR_t * const * src,
 IR_t * const * bb_operand_aux_get(const IR_graph_t * cfg, const IR_t * nd, int * out_n);
 int  ir_node_produces_value(IR_e op);
 void ir_tmp_slot_assign(IR_graph_t * g);
+void ir_tmp_slot_assign_flat(IR_graph_t * g);
 void         bb_reset(IR_graph_t * cfg);
 /*--------------------------------------------------------------------------------------------------------------------*/
 void         IR_free(IR_graph_t * cfg);
