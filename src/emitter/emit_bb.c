@@ -32,7 +32,6 @@ const char *child_cache_get_lbl(bb_box_fn fn);
 #define FLAT_BUF_MAX  (256 * 1024)
 int g_flat_node_id   = 0;
 static int g_flat_slot_count = 0;
-int g_value_band_base = 0;
 int g_last_flat_frame_bytes = 0;
 typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
 static bb_slotmap_ent_t *g_bb_slotmap = NULL;
@@ -54,7 +53,6 @@ int bb_slot_alloc(IR_t *nd) {
     return off;
 }
 int bb_slot_alloc16(IR_t *nd) {
-    if (nd && nd->lhs >= 0) { int off = g_value_band_base + nd->lhs; bb_slotmap_push(nd, off); return off; }
     int off = g_flat_slot_count;
     g_flat_slot_count += 16;
     bb_slotmap_push(nd, off);
@@ -65,7 +63,6 @@ int bb_slot_alloc16(IR_t *nd) {
 int bb_slot_alloc16_or_get(IR_t *nd) {
     int existing = bb_slot_get(nd);
     if (existing >= 0) return existing;
-    if (nd && nd->lhs >= 0) { int off = g_value_band_base + nd->lhs; bb_slotmap_push(nd, off); return off; }
     int off = g_flat_slot_count;
     g_flat_slot_count += 16;
     bb_slotmap_push(nd, off);
@@ -3699,9 +3696,7 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
     descr_chain_operand_refs(entry);
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
-    g_value_band_base = 0;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    if (entry->own && entry->own->nvalue_slots > 0) g_flat_slot_count = entry->own->nvalue_slots * 16;
     g_flat_chain_set_n = 0;
     g_descr_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
@@ -3717,9 +3712,7 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
 int descr_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return 1;
     descr_chain_operand_refs(entry);
-    g_value_band_base = 0;
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    if (entry->own && entry->own->nvalue_slots > 0) g_flat_slot_count = entry->own->nvalue_slots * 16;
     g_flat_chain_set_n = 0;
     g_descr_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
@@ -3735,9 +3728,7 @@ bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) 
     if (!buf) return NULL;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_descr_flat_chain = 1;
-    g_value_band_base = 16;
     g_flat_slot_count = 16;
-    if (entry->own && entry->own->nvalue_slots > 0) g_flat_slot_count = 16 + entry->own->nvalue_slots * 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "proc_flat");
@@ -3755,9 +3746,7 @@ int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, F
     descr_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_descr_flat_chain = 1;
-    g_value_band_base = 16;
     g_flat_slot_count = 16;
-    if (entry->own && entry->own->nvalue_slots > 0) g_flat_slot_count = 16 + entry->own->nvalue_slots * 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
     char prefix[256];
     snprintf(prefix, sizeof(prefix), "proc_%s", pname);
@@ -4102,9 +4091,7 @@ bb_box_fn bb_build_flat(IR_t *nd) {
     if (!g_in_prebuild) { g_child_cache_n = 0; g_in_prebuild = 1; pre_build_children(nd); g_in_prebuild = 0; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
-    g_value_band_base = 0;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    if (g_emit_cfg && g_emit_cfg->nvalue_slots > 0) g_flat_slot_count = g_emit_cfg->nvalue_slots * 16;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_body(nd, "pat_flat", 0, 0);
     int nbytes = emitter_end();
