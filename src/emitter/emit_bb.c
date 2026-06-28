@@ -3324,6 +3324,15 @@ void emit_jcon_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
         FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
+    case IR_BINOP: {
+        g_emit.op_relop_descr = 0; g_emit.op_num_real = 0; g_emit.op_arith_descr = 0; g_emit.op_gva_k1 = -1; g_emit.op_gva_k2 = -1;
+        int sa = -1, sb = -1;
+        if (binop_is_num_real(g_emit_cfg, nd)) { int ra = bb_slot_get(bb_child0(nd)), rb = bb_slot_get(bb_child1(nd)); if (ra >= 0 && rb >= 0) { sa = ra; sb = rb; g_emit.op_num_real = 1; } }
+        if (!g_emit.op_num_real) { sa = descr_binop_opnd_slot(bb_child0(nd)); sb = descr_binop_opnd_slot(bb_child1(nd)); }
+        if (sa >= 0 && sb >= 0) { g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = jcon_value_slot(nd); g_emit.op_binop_kind = (int)binop_slot_kind(nd); EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); }
+        else walk_bb_flat(nd, lbl_γ, lbl_ω, lbl_β);
+        break;
+    }
     case IR_CALL:       g_emit.op_arg_slot_n = 0; g_emit.op_write_route = bb_call_write_route(nd); EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUCCEED:    EMIT_PAIR_RESET(); EMIT_PAIR_JMP(lbl_γ); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
