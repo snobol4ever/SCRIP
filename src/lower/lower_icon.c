@@ -111,7 +111,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         if (k == 0) entry = ae;
         if (prev) γ_to(prev, ae);
         prev = ar;
-        if (is_idx_or_list && ar) ir_operand_push(call, ar);
+        if (ar) ir_operand_push(call, ar);
     }
     cx->beta = g_postfix_resume ? aω : ω;
     return entry;
