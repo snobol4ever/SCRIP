@@ -96,7 +96,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int is_idx_or_list = name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
     if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { if (is_cursor_mover && icn_arg_is_scan_fn(t->c[argbase + k])) continue; chains = 1; break; } }
-    int subgraph = !chains;
+    int subgraph = !chains && is_idx_or_list;
     if (subgraph) {
         lc_call_argblks(call, is_idx_or_list ? 2.0 : 3.0, nargs, arg_block, cx, (const tree_t * const *) &t->c[argbase]);
         int any_gen_arg = 0; for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { any_gen_arg = 1; break; }
