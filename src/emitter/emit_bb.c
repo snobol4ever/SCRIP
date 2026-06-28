@@ -1441,58 +1441,6 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     { IR_e _sk = pBB->op; pBB->op = binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); pBB->op = _sk; }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int binop_operand_streams(IR_t *e) {
-    if (!e) return 0;
-    if (e->op == IR_ASSIGN) return binop_operand_streams(bb_child1(e));
-    switch (e->op) {
-        case IR_ALT: case IR_TO: case IR_TO_BY: case IR_BINOP_GEN: case IR_ITERATE:
-        case IR_LIMIT: case IR_PROC_GEN: case IR_LIST_BANG: case IR_KEY_GEN:
-        case IR_FIND_GEN: case IR_SEQ_GEN: case IR_SUSPEND: case IR_REPEAT:
-            return 1;
-        case IR_CALL_DEFINE:
-        case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
-        case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
-        case IR_CALL:
-            if (IR_LIT(e).sval && rt_proc_is_registered(IR_LIT(e).sval)) return 0;
-            return 1;
-        default:
-            return 0;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_binop_gen_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    if (!pBB || !bb_child0(pBB) || !bb_child1(pBB)) {
-        fprintf(stderr, "[IBB] FATAL flat_drive_binop_gen_tree: missing α or β child\n");
-        abort();
-    }
-    int id = g_flat_node_id++;
-    /* lhs_seeded: LHS produced a value; restart RHS from its α.
-       rhs_done:  RHS produced a value; compute binop → γ.
-       lhs_β:     LHS retry entry (advance LHS counter).
-       rhs_β:     RHS retry entry (advance RHS counter). */
-    bb_label_t *lhs_seeded = emit_label_alloc("xbgen%d_lhs_seeded", id);
-    bb_label_t *rhs_done   = emit_label_alloc("xbgen%d_rhs_done",   id);
-    bb_label_t *lhs_β      = emit_label_alloc("xbgen%d_lhs_β",      id);
-    bb_label_t *rhs_β      = emit_label_alloc("xbgen%d_rhs_β",      id);
-    /* LHS generator: success→lhs_seeded, fail→lbl_ω (whole expr fails), retry→lhs_β */
-    walk_bb_flat(bb_child0(pBB), lhs_seeded, lbl_ω, lhs_β);
-    emit_label_define_bb(lhs_seeded);
-    /* RHS generator: success→rhs_done, fail→lhs_β (try next LHS), retry→rhs_β */
-    walk_bb_flat(bb_child1(pBB), rhs_done, lhs_β, rhs_β);
-    /* rhs_done: both operands ready → compute binop → γ.
-       Wire β of the binop box directly to rhs_β so the arith/relop template's
-       x86("def","β") lands at rhs_β and x86("jmp","ω") = overall fail.
-       After the box emit lbl_β → jmp rhs_β for the outer caller's retry. */
-    emit_label_define_bb(rhs_done);
-    if (g_descr_flat_chain) {
-        descr_binop_set_slots(pBB);
-    }
-    EMIT_PAIR_RESET();
-    { IR_e _sk = pBB->op; pBB->op = binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, rhs_β); pBB->op = _sk; }
-    emit_label_define_bb(lbl_β);
-    emit_jmp_label(rhs_β, JMP_JMP);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     IR_t *a0 = ir_call_arg(pBB, 0);
     if (!pBB || !a0) {
@@ -1998,7 +1946,7 @@ static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fa
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-10] FATAL arg subchain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->γ.node);
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
+        if ((c->op == IR_BINOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
         { extern int g_scan_regs_live; if (g_scan_regs_live && (c->op == IR_CALL || ir_is_call_kind(c->op) || ir_is_scan_kind(c->op)) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node); }
     }
     { extern int g_scan_regs_live; if (g_scan_regs_live) for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i]; }
@@ -2159,7 +2107,7 @@ static int gen_bb_is_gen_arg(IR_t *e) {
     if (e->op == IR_ASSIGN) return gen_bb_is_gen_arg(bb_child1(e));
     switch (e->op) {
         case IR_TO: case IR_TO_BY: case IR_UPTO: case IR_ALT: case IR_REPALT:
-        case IR_BINOP_GEN: case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
+        case IR_ITERATE: case IR_LIMIT: case IR_PROC_GEN:
         case IR_LIST_BANG: case IR_KEY_GEN: case IR_FIND_GEN: case IR_SEQ_GEN:
         case IR_GATHER: case IR_MAP: case IR_GREP:
             return 1;
@@ -2789,7 +2737,7 @@ static int bb_call_write_route(IR_t *nd) {
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
     if (g_descr_flat_chain && bb_slot_get(a0) >= 0) return 1;
-    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_ALT || a0->op == IR_BINOP_GEN || a0->op == IR_VAR || a0->op == IR_NEG || a0->op == IR_POS || a0->op == IR_NONNULL || a0->op == IR_NULL_TEST || a0->op == IR_NOT || a0->op == IR_SIZE || a0->op == IR_CALL || ir_is_call_kind(a0->op) || a0->op == IR_CASE || a0->op == IR_FIELD_GET || a0->op == IR_LIST_BANG || a0->op == IR_KEY_GEN || a0->op == IR_LIMIT || a0->op == IR_IDX);
+    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_ALT || a0->op == IR_VAR || a0->op == IR_NEG || a0->op == IR_POS || a0->op == IR_NONNULL || a0->op == IR_NULL_TEST || a0->op == IR_NOT || a0->op == IR_SIZE || a0->op == IR_CALL || ir_is_call_kind(a0->op) || a0->op == IR_CASE || a0->op == IR_FIELD_GET || a0->op == IR_LIST_BANG || a0->op == IR_KEY_GEN || a0->op == IR_LIMIT || a0->op == IR_IDX);
     if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_TO_BY)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
     if (wintexpr) return 4;
     if (a0->op == IR_LIT_S && IR_LIT(a0).sval) return 5;
@@ -3012,7 +2960,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
             FILL(nd, lbl_γ, lbl_ω, lbl_β);
             break;
         }
-        int is_intexpr_shape = (a0 && (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_ALT || a0->op == IR_BINOP_GEN || a0->op == IR_VAR ||
+        int is_intexpr_shape = (a0 && (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_ALT || a0->op == IR_VAR ||
                    a0->op == IR_NEG || a0->op == IR_POS || a0->op == IR_NONNULL || a0->op == IR_NULL_TEST || a0->op == IR_NOT || a0->op == IR_SIZE || a0->op == IR_CALL || ir_is_call_kind(a0->op) || a0->op == IR_CASE || a0->op == IR_FIELD_GET || a0->op == IR_LIST_BANG || a0->op == IR_KEY_GEN || a0->op == IR_LIMIT || a0->op == IR_IDX ));
         int is_write_fn   = (IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes")));
         int write_str_simple1 = (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "write") && (int)IR_LIT(nd).ival == 1 && a0 && a0->op == IR_LIT_S && IR_LIT(a0).sval);
@@ -3198,16 +3146,6 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
         EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β);
         break;
     }
-    case IR_BINOP_GEN:
-        if (bb_child0(nd) && bb_child1(nd) && !binop_operand_streams(bb_child0(nd)) && !binop_operand_streams(bb_child1(nd))) {
-            IR_e saved_kind = nd->op;
-            nd->op = IR_BINOP;
-            flat_drive_binop_tree(nd, lbl_γ, lbl_ω, lbl_β);
-            nd->op = saved_kind;
-        } else {
-            flat_drive_binop_gen_tree(nd, lbl_γ, lbl_ω, lbl_β);
-        }
-        break;
     case IR_SEQ:        if (g_gvar_flat_chain && nd && IR_LIT(nd).dval == 1.0) { flat_drive_gvar_seq_passthrough(nd, lbl_γ, lbl_ω, lbl_β); } else flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SEQ_EXPR:   flat_drive_seq(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_EVERY:      flat_drive_every(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -3404,7 +3342,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->γ.node);
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
+        if ((c->op == IR_BINOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
@@ -3420,7 +3358,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->γ.node);
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
+        if ((c->op == IR_BINOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
@@ -3656,7 +3594,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_GATHER: return 0;
     case IR_MAP: case IR_GREP: return 0;
     case IR_GEN_SCAN: return 0;
-    case IR_BINOP: case IR_BINOP_GEN: case IR_TO: case IR_TO_BY: return 2;
+    case IR_BINOP: case IR_TO: case IR_TO_BY: return 2;
     case IR_LIMIT: return 0;   /* push LIMIT result (so a consumer wires its arg to us) without rewriting our lowerer-set operands [generator, count, gen-entry]; the generator stays on-spine */
     case IR_CONJ:  return 0;   /* (e1;..;en) value = last conjunct's value; CONJ pushes its result (consumer wires to it) and keeps its lowerer-set operand [last-conjunct value-node]; slot aliased to that conjunct at emit */
     case IR_IDX_SET: return 3;
@@ -3695,7 +3633,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
+        if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
@@ -3710,7 +3648,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_GEN) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
+        if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
