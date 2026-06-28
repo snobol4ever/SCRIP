@@ -81,6 +81,8 @@ void emit_drive_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FAIL:
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_RETURN:
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     default:
         drive_unowned(nd); break;
     }
