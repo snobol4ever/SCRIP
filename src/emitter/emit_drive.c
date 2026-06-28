@@ -35,7 +35,9 @@ static int drive_value_slot(IR_t *nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void drive_unowned(IR_t *nd) {
-    fprintf(stderr, "[emit_drive] op=%d not yet on the new driver (Icon is TWO; grow this op next)\n", nd ? (int)nd->op : -1);
+    extern int bb_emit_overflow;
+    fprintf(stderr, "[SMX] emit_drive: op=%d has no native template on the universal driver yet (Icon is TWO; grow this op). EXCISED.\n", nd ? (int)nd->op : -1);
+    bb_emit_overflow = 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void emit_drive_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
