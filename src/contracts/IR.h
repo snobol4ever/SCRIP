@@ -262,12 +262,6 @@ struct IR_t {
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
-    IR_t      *node;
-    IR_t     **operands;
-    int        n;
-} bb_operand_aux_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
-typedef struct {
     const char * sval;
     int64_t      ival;
     double       dval;
@@ -290,9 +284,6 @@ struct IR_graph_t {
     IR_t         * body_root;
     IR_lit_t     * lit;
     IR_exec_t    * exec;
-    bb_operand_aux_t *operand_aux;
-    int              operand_aux_n;
-    int              operand_aux_max;
     #define AG_RING 16
     DESCR_t        ring[AG_RING];
     int            ring_head;

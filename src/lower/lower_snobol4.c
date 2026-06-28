@@ -132,7 +132,7 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
         IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower_expr(cx, t->c[0], NULL, nxt, &lr);
         IR_t * eb = lower_expr(cx, t->c[1], op, nxt, &rr);
-        γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); } ir_operand_push(op, lr); ir_operand_push(op, rr); *res = op; return ea;
+        γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr); *res = op; return ea;
     }
     if (t->t == TT_NAME && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
         IR_t * nd = build(cx, IR_LIT_S, cont, nxt); IR_LIT(nd).sval = t->c[0]->v.sval; *res = nd; return nd; }
@@ -653,7 +653,7 @@ static IR_t * sno_concat_chain(snx_t * cx, const tree_t ** ops, int n, IR_t * co
     IR_t * ea = sno_concat_chain(cx, ops, n - 1, NULL, nxt, &lr);
     IR_t * eb = lower_expr(cx, ops[n - 1], op, nxt, &rr);
     γ_to(lr, eb);
-    { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); ir_operand_push(op, lr); ir_operand_push(op, rr); }
+    { ir_operand_push(op, lr); ir_operand_push(op, rr); }
     *res = op; return ea;
 }
 /*====================================================================================================================================================================================================*/
