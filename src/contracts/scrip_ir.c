@@ -333,6 +333,15 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_LIT_NUL || op == IR_VAR || op == IR_BINOP || op == IR_UNOP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void ir_tmp_slot_assign(IR_graph_t * g) {
+    if (!g) return;
+    int cursor = 0;
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->lhs = cursor; cursor += 16; } }
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter; IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival; if (L) ir_tmp_slot_assign(L); if (R) ir_tmp_slot_assign(R); }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) {
     const IR_t * bb = (i >= 0 && i < bbg->n) ? bbg->all[i] : NULL;
     char sq[8]; if (seq >= 0) snprintf(sq, sizeof sq, "%d", seq); else snprintf(sq, sizeof sq, "-");
@@ -346,6 +355,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) 
     if (bb->op != IR_SCAN && na > 0 && ops) for (int j = 0; j < na && op < 140; j++) op += snprintf(ob + op, sizeof ob - op, "%s%d", j ? " " : "", ops[j] ? ops[j]->idx : -1);
     const char * opn = bb_op_name(bb->op);
     fprintf(fp, "%4s %4d: %4s %4s  %-22s [%s]", sq, i, gp, wp, opn, ob);
+    if (bb->lhs >= 0) fprintf(fp, " lhs=%d", bb->lhs);
     if (IR_EXEC(bb).stno != 0) fprintf(fp, " stno=%d", (int)IR_EXEC(bb).stno);
     switch (bb->op) {
         case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;

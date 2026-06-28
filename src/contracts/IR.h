@@ -334,6 +334,8 @@ IR_t       * IR_node_alloc(IR_graph_t * cfg, IR_e t);
 int          ir_operand_push(IR_t * nd, IR_t * child);
 int          bb_operand_aux_set(IR_graph_t * cfg, IR_t * nd, IR_t * const * src, int n);
 IR_t * const * bb_operand_aux_get(const IR_graph_t * cfg, const IR_t * nd, int * out_n);
+int  ir_node_produces_value(IR_e op);
+void ir_tmp_slot_assign(IR_graph_t * g);
 void         bb_reset(IR_graph_t * cfg);
 /*--------------------------------------------------------------------------------------------------------------------*/
 void         IR_free(IR_graph_t * cfg);
