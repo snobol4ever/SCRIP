@@ -3333,6 +3333,12 @@ void emit_jcon_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t
         else walk_bb_flat(nd, lbl_γ, lbl_ω, lbl_β);
         break;
     }
+    case IR_UNOP: case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NULL_TEST: case IR_SIZE: case IR_NOT: {
+        int sa = descr_binop_opnd_slot(bb_child0(nd));
+        if (sa >= 0) { g_emit.op_sa = sa; g_emit.op_off = jcon_value_slot(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); }
+        else walk_bb_flat(nd, lbl_γ, lbl_ω, lbl_β);
+        break;
+    }
     case IR_CALL:       g_emit.op_arg_slot_n = 0; g_emit.op_write_route = bb_call_write_route(nd); EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUCCEED:    EMIT_PAIR_RESET(); EMIT_PAIR_JMP(lbl_γ); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
