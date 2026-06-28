@@ -2746,6 +2746,7 @@ int main(int argc, char **argv)
             if (dup) continue;
             seen_all[seen_n++] = (const IR_t *) all;
             fprintf(stdout, "; proc %s\n", pname);
+            ir_tmp_slot_assign(s2->bbp.table[idx]);
             bb_print(s2->bbp.table[idx], stdout);
         }
         free(seen_all);
