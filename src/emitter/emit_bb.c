@@ -1403,7 +1403,7 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
         || (bb_child0(pBB)->op == IR_LIT_S && bb_child1(pBB)->op == IR_LIT_S && IR_LIT(pBB).ival == BINOP_CONCAT)) {
         EMIT_PAIR_RESET();
         EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-        { IR_e _sk = pBB->op; pBB->op = binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); pBB->op = _sk; }
+        { g_emit.op_binop_kind = (int)binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); }
         return;
     }
     int id = g_flat_node_id++;
@@ -1438,7 +1438,7 @@ static void flat_drive_binop_tree(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl
     }
     EMIT_PAIR_RESET();
     EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω);
-    { IR_e _sk = pBB->op; pBB->op = binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); pBB->op = _sk; }
+    { g_emit.op_binop_kind = (int)binop_slot_kind(pBB); EMIT_PAIR_FILL(pBB, lbl_γ, lbl_ω, lbl_β); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_call_intexpr(IR_t *pBB, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
