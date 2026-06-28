@@ -358,6 +358,15 @@ void ir_jcon_slot_assign(IR_graph_t * g) {
     g->jcon_value_region = k * 16;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void ir_drive_slot_assign(IR_graph_t * g) {
+    if (!g) return;
+    int k = 0;
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && ir_node_produces_value(nd->op)) { nd->lhs = 16 + k * 16; k++; } }
+    g->jcon_value_region = 16 + k * 16;
+    g->nvalue_slots = k;
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter; IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival; if (L) ir_drive_slot_assign(L); if (R) ir_drive_slot_assign(R); }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) {
     const IR_t * bb = (i >= 0 && i < bbg->n) ? bbg->all[i] : NULL;
     char sq[8]; if (seq >= 0) snprintf(sq, sizeof sq, "%d", seq); else snprintf(sq, sizeof sq, "-");
