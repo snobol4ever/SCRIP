@@ -342,6 +342,13 @@ void ir_tmp_slot_assign(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter; IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival; if (L) ir_tmp_slot_assign(L); if (R) ir_tmp_slot_assign(R); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void ir_tmp_slot_assign_flat(IR_graph_t * g) {
+    if (!g) return;
+    int n = 0;
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && ir_node_produces_value(nd->op)) { nd->lhs = n * 16; n++; } }
+    g->nvalue_slots = n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) {
     const IR_t * bb = (i >= 0 && i < bbg->n) ? bbg->all[i] : NULL;
     char sq[8]; if (seq >= 0) snprintf(sq, sizeof sq, "%d", seq); else snprintf(sq, sizeof sq, "-");
