@@ -465,6 +465,13 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ASSIGN_FRAME:         bb_prepare(nd); { bb_emit_x86(bb_assign_frame()); } return 0;
     case IR_VAR_FRAME_REF:        { bb_prepare(nd); bb_emit_x86(bb_var_frame_ref()); return 0; }
     case IR_ASSIGN_FRAME_REF:     bb_prepare(nd); { bb_emit_x86(bb_assign_frame_ref()); } return 0;
+    case IR_BINOP:
+        switch (g_emit.op_binop_kind) {
+        case IR_BINOP_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
+        case IR_BINOP_CONCAT: bb_emit_x86(bb_binop_concat_slot()); return 0;
+        case IR_BINOP_ARITH:
+        default:              bb_emit_x86(bb_binop_arith());       return 0;
+        }
     case IR_BINOP_RELOP:          bb_emit_x86(bb_binop_relop());       return 0;
     case IR_BINOP_ARITH:          bb_emit_x86(bb_binop_arith());       return 0;
     case IR_BINOP_GVAR_ARITH:     bb_emit_x86(bb_binop_gvar_arith());  return 0;
