@@ -349,7 +349,7 @@ void ir_tmp_slot_assign_flat(IR_graph_t * g) {
     g->nvalue_slots = n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int jcon_converted_producer(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_LIT_NUL; }
+static int jcon_converted_producer(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_LIT_NUL || op == IR_KEYWORD; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_jcon_slot_assign(IR_graph_t * g) {
     if (!g) return;
