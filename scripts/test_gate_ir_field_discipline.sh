@@ -41,7 +41,7 @@ echo "P1 write-smuggle=$P1W  P2 read-smuggle=$P2R  (pointer-through-field=$SMUGG
 echo "HARD TOTAL = $HARD   (target 0 — the ival/dval/sval union + counter deletion)"
 
 # TARGET ratchets down as constructs convert. Set to current debt to lock against growth; lower on each rung.
-TARGET="${IR_FIELD_DISCIPLINE_TARGET:-192}"
+TARGET="${IR_FIELD_DISCIPLINE_TARGET:-119}"
 if [ "$HARD" -le "$TARGET" ]; then
   echo "PASS (<= TARGET=$TARGET): discipline held — no NEW field overloading. Ratchet TARGET toward 0 as constructs convert."
   exit 0
