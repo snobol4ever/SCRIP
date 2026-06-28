@@ -3162,7 +3162,7 @@ int main(int argc, char **argv)
         }
         {
             extern int gvar_flat_chain_build_text(IR_graph_t * g, FILE * out, const char * prefix);
-            extern int gvar_flat_chain_build_text_at(IR_graph_t * g, int entry_idx, FILE * out, const char * prefix);
+            extern int gvar_flat_chain_build_text_at(IR_graph_t * g, IR_t * entry_node, FILE * out, const char * prefix);
             extern void xa_emit_strtab_rodata(void);
             extern int g_frame_active;
             extern void rt_proc_reset(void);
@@ -3230,7 +3230,7 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                gvar_flat_chain_build_text_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_idx, stdout, pname);
+                gvar_flat_chain_build_text_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_node, stdout, pname);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
                 pidx_buf[n_procs++] = _pi;
@@ -3482,7 +3482,7 @@ int main(int argc, char **argv)
                 abort();
             }
             extern bb_box_fn gvar_flat_chain_build(IR_graph_t * g);
-            extern bb_box_fn gvar_flat_chain_build_at(IR_graph_t * g, int entry_idx, const char * prefix);
+            extern bb_box_fn gvar_flat_chain_build_at(IR_graph_t * g, IR_t * entry_node, const char * prefix);
             extern void *rt_frame(void);
             extern int g_frame_active;
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
@@ -3538,7 +3538,7 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                bb_box_fn pfn = gvar_flat_chain_build_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_idx, pname);
+                bb_box_fn pfn = gvar_flat_chain_build_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_node, pname);
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);

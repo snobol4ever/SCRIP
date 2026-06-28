@@ -51,7 +51,7 @@ static inline IR_t *bb_proc_entry(const ProcEntry *e)
 {
     IR_graph_t *g = bb_graph_of_proc(e);
     if (!g) return NULL;
-    if (e->proc_entry_idx >= 0 && e->proc_entry_idx < g->n && g->all[e->proc_entry_idx]) return g->all[e->proc_entry_idx];
+    if (e->proc_entry_node) return e->proc_entry_node;
     return g->entry;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

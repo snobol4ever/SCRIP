@@ -27,7 +27,7 @@ typedef struct ProcEntry {
     int                 is_generator;
     uint64_t            byref_mask;
     int                 decl_level;
-    int                 proc_entry_idx;
+    IR_t *              proc_entry_node;
 } ProcEntry;
 /*--------------------------------------------------------------------------------------------------------------------*/
 struct Resolve_PredEntry_t;
