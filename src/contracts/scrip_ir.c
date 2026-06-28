@@ -256,47 +256,23 @@ int ir_operand_push(IR_t * nd, IR_t * child) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n) {
-    if (!bbg || !bb) return -1;
-    int slot = -1;
-    for (int i = 0; i < bbg->operand_aux_n; i++) {
-        if (bbg->operand_aux[i].node == bb) { slot = i; break; }
-    }
-    if (slot < 0) {
-        if (bbg->operand_aux_n >= bbg->operand_aux_max) {
-            int new_max = bbg->operand_aux_max ? bbg->operand_aux_max * 2 : 16;
-            bb_operand_aux_t *grown = (bb_operand_aux_t *)realloc(bbg->operand_aux, (size_t)new_max * sizeof(bb_operand_aux_t));
-            if (!grown) return -1;
-            bbg->operand_aux = grown;
-            bbg->operand_aux_max = new_max;
-        }
-        slot = bbg->operand_aux_n++;
-        bbg->operand_aux[slot].node = bb;
-        bbg->operand_aux[slot].operands = NULL;
-        bbg->operand_aux[slot].n = 0;
-    }
-    if (bbg->operand_aux[slot].operands) {
-        free(bbg->operand_aux[slot].operands);
-        bbg->operand_aux[slot].operands = NULL;
-        bbg->operand_aux[slot].n = 0;
-    }
+    (void) bbg;
+    if (!bb) return -1;
+    if (bb->operands) { free(bb->operands); bb->operands = NULL; bb->n_operands = 0; }
     if (n <= 0) return 0;
-    bbg->operand_aux[slot].operands = (IR_t **)calloc((size_t)n, sizeof(IR_t *));
-    if (!bbg->operand_aux[slot].operands) return -1;
-    if (src) for (int i = 0; i < n; i++) bbg->operand_aux[slot].operands[i] = src[i];
-    bbg->operand_aux[slot].n = n;
+    bb->operands = (IR_t **)calloc((size_t)n, sizeof(IR_t *));
+    if (!bb->operands) return -1;
+    if (src) for (int i = 0; i < n; i++) bb->operands[i] = src[i];
+    bb->n_operands = n;
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 IR_t * const * bb_operand_aux_get(const IR_graph_t * bbg, const IR_t * bb, int * out_n) {
+    (void) bbg;
     if (out_n) *out_n = 0;
-    if (!bbg || !bb) return NULL;
-    for (int i = 0; i < bbg->operand_aux_n; i++) {
-        if (bbg->operand_aux[i].node == bb) {
-            if (out_n) *out_n = bbg->operand_aux[i].n;
-            return bbg->operand_aux[i].operands;
-        }
-    }
-    return NULL;
+    if (!bb) return NULL;
+    if (out_n) *out_n = bb->n_operands;
+    return bb->operands;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void IR_free(IR_graph_t * bbg) {
