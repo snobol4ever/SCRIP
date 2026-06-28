@@ -90,7 +90,7 @@ static int icn_arg_is_scan_fn(const tree_t * a) { if (!a) return 0; if (a->t == 
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (name && !strcmp(name, "seq")) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "key") && nargs == 1) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
-    IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name; IR_LIT(call).ival = nargs;
+    IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     int is_idx_or_list = name && (!strcmp(name, "[]") || !strcmp(name, "MAKELIST"));
@@ -103,7 +103,6 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         cx->beta = (icn_call_allow_gen(name) || any_gen_arg) ? call : ω;
         return call;
     }
-    IR_LIT(call).dval = 1.0;
     IR_t * prev = NULL; IR_t * entry = call; IR_t * aω = ω;
     for (int k = 0; k < nargs; k++) {
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL;
@@ -139,11 +138,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (lc_is_binop(t->t)) {
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_F, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
-        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t); if (IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) IR_LIT(op).dval = 1.0;
+        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], op, lβ, &rr);
         IR_t * rβ = cx->beta;
         IR_t * opfail = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : NULL);
-        if (IR_LIT(op).dval == 1.0 && opfail) ω_to(op, opfail);
+        if ((IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) && opfail) ω_to(op, opfail);
         γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); }
         cx->beta = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : ω);
         *res = op; return ea; }
