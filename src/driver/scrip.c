@@ -2765,6 +2765,7 @@ int main(int argc, char **argv)
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_icon) icn_register_record_types(s2);
             if (is_icon) { extern void ir_tmp_slot_assign_flat(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_tmp_slot_assign_flat(s2->bbp.table[_gi]); }
+            if (is_icon) { extern void ir_jcon_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_jcon_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
@@ -3368,6 +3369,7 @@ int main(int argc, char **argv)
             }
             if (is_icon) icn_register_record_types(s2);
             if (is_icon) { extern void ir_tmp_slot_assign_flat(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_tmp_slot_assign_flat(s2->bbp.table[_gi]); }
+            if (is_icon) { extern void ir_jcon_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_jcon_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
