@@ -2833,7 +2833,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CUT:        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_I:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16_or_get(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_LIT_S:      if (g_descr_flat_chain || g_gvar_callarg_live) { if (nd->lhs >= 0) { g_emit.op_off = nd->lhs; bb_slot_register(nd, nd->lhs); } else g_emit.op_off = bb_slot_alloc16(nd); } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_S:      if (g_descr_flat_chain || g_gvar_callarg_live) { if (nd->tmp >= 0) { g_emit.op_off = nd->tmp; bb_slot_register(nd, nd->tmp); } else g_emit.op_off = bb_slot_alloc16(nd); } FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_F:      if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_NUL:    if (g_descr_flat_chain || g_gvar_callarg_live) g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL_DEFINE:
@@ -3308,7 +3308,7 @@ static IR_t *ir_skip_alt_arms(IR_t *entry) {
 /*====================================================================================================================*/
 int emit_jcon_enabled(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_ICN_JCON"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int jcon_value_slot(IR_t *nd) { int e = bb_slot_get(nd); if (e >= 0) return e; if (nd->lhs >= 0) { bb_slot_register(nd, nd->lhs); if (nd->lhs + 16 > g_flat_slot_count) g_flat_slot_count = nd->lhs + 16; return nd->lhs; } return bb_slot_alloc16(nd); }
+static int jcon_value_slot(IR_t *nd) { int e = bb_slot_get(nd); if (e >= 0) return e; if (nd->tmp >= 0) { bb_slot_register(nd, nd->tmp); if (nd->tmp + 16 > g_flat_slot_count) g_flat_slot_count = nd->tmp + 16; return nd->tmp; } return bb_slot_alloc16(nd); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void emit_jcon_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { walk_bb_flat(nd, lbl_γ, lbl_ω, lbl_β); return; }

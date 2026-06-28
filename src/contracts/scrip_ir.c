@@ -126,7 +126,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_INDIRECT_ASSIGN_LIT_S] = "IR_INDIRECT_ASSIGN_LIT_S",
     [IR_INDIRECT_ASSIGN_VAR] = "IR_INDIRECT_ASSIGN_VAR",
     [IR_INDIRECT_ASSIGN_DESCR] = "IR_INDIRECT_ASSIGN_DESCR",
-    [IR_TMP] = "IR_TMP",
     [IR_DET_ASSERTZ] = "IR_DET_ASSERTZ",
     [IR_CELL_DYNITER] = "IR_CELL_DYNITER",
     [IR_TO] = "IR_TO",
@@ -237,7 +236,7 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     bb->op       = t;
     bb->γ.node = NULL;
     bb->ω.node = NULL;
-    bb->lhs      = -1;
+    bb->tmp      = -1;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
     bb->idx = bbg->n;
     bb->own = bbg;
@@ -338,14 +337,14 @@ int ir_node_produces_value(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S ||
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
     int cursor = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->lhs = cursor; cursor += 16; } }
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = cursor; cursor += 16; } }
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter; IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival; if (L) ir_tmp_slot_assign(L); if (R) ir_tmp_slot_assign(R); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign_flat(IR_graph_t * g) {
     if (!g) return;
     int n = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && ir_node_produces_value(nd->op)) { nd->lhs = n * 16; n++; } }
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && ir_node_produces_value(nd->op)) { nd->tmp = n * 16; n++; } }
     g->nvalue_slots = n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -354,14 +353,14 @@ static int jcon_converted_producer(IR_e op) { return op == IR_LIT_I || op == IR_
 void ir_jcon_slot_assign(IR_graph_t * g) {
     if (!g) return;
     int k = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && jcon_converted_producer(nd->op)) { nd->lhs = 16 + k * 16; k++; } }
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && jcon_converted_producer(nd->op)) { nd->tmp = 16 + k * 16; k++; } }
     g->jcon_value_region = k * 16;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_drive_slot_assign(IR_graph_t * g) {
     if (!g) return;
     int k = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && ir_node_produces_value(nd->op)) { nd->lhs = 16 + k * 16; k++; } }
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && ir_node_produces_value(nd->op)) { nd->tmp = 16 + k * 16; k++; } }
     g->jcon_value_region = 16 + k * 16;
     g->nvalue_slots = k;
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)(intptr_t) IR_EXEC(nd).counter; IR_graph_t * R = (IR_graph_t *)(intptr_t) IR_LIT(nd).ival; if (L) ir_drive_slot_assign(L); if (R) ir_drive_slot_assign(R); }
@@ -380,7 +379,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) 
     if (bb->op != IR_SCAN && na > 0 && ops) for (int j = 0; j < na && op < 140; j++) op += snprintf(ob + op, sizeof ob - op, "%s%d", j ? " " : "", ops[j] ? ops[j]->idx : -1);
     const char * opn = bb_op_name(bb->op);
     fprintf(fp, "%4s %4d: %4s %4s  %-22s [%s]", sq, i, gp, wp, opn, ob);
-    if (bb->lhs >= 0) fprintf(fp, " lhs=%d", bb->lhs);
+    if (bb->tmp >= 0) fprintf(fp, " tmp=%d", bb->tmp);
     if (IR_EXEC(bb).stno != 0) fprintf(fp, " stno=%d", (int)IR_EXEC(bb).stno);
     switch (bb->op) {
         case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
