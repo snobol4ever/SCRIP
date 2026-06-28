@@ -91,7 +91,6 @@ static const kind_entry_t g_kinds[] = {
     { IR_ITERATE,     "IR_ITERATE" },
     { IR_GEN_ALT,   "IR_GEN_ALT" },
     { IR_LIMIT,       "IR_LIMIT" },
-    { IR_GEN_BINOP,       "IR_GEN_BINOP" },
     { IR_TO_NESTED,   "IR_TO_NESTED" },
     { IR_PROC_GEN,    "IR_PROC_GEN" },
     { IR_BREAK,           "IR_BREAK" },
@@ -107,7 +106,6 @@ static const kind_entry_t g_kinds[] = {
     { IR_CSET_INTER,      "IR_CSET_INTER" },
     { IR_GEN_SCAN,        "IR_GEN_SCAN" },
     { IR_KEYWORD,     "IR_KEYWORD" },
-    { IR_BINOP_GEN,       "IR_BINOP_GEN" },
     { IR_IDX,         "IR_IDX" },
     { IR_SECTION,     "IR_SECTION" },
     { IR_LIST_BANG,   "IR_LIST_BANG" },
@@ -316,7 +314,6 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
         break;
     case IR_BINOP:
     case IR_AUGOP:
-    case IR_BINOP_GEN:
         nd->sval = "+"; nd->α = g_audit_child2[0]; nd->β = g_audit_child2[1];
         break;
     case IR_UNOP:
