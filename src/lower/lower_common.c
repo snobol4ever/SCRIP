@@ -233,7 +233,7 @@ void lc_call_argblks(IR_t * call, double dv, int nargs, lc_argblk_fn mk, void * 
     IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
     if (!blks) return;
     for (int k = 0; k < nargs; k++) blks[k] = mk(cx, args[k]);
-    IR_EXEC(call).counter = (int64_t)(intptr_t) blks;
+    (void)(blks);
 }
 /*====================================================================================================================*/
 /* stage2 dispatcher — polyglot init then per-language stage2 entries (each owned by its lower_<lang>.c)               */

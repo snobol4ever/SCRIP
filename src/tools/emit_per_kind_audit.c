@@ -283,12 +283,12 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     case IR_MATCH_ASSIGN_IMM:
     case IR_MATCH_ASSIGN_COND:
         nd->sval = "captured";
-        nd->counter = (int64_t)(intptr_t)&g_audit_kids1;
+        (void)(&g_audit_kids1);
         break;
     case IR_MATCH_CAT:
     case IR_MATCH_ALT:
     case IR_MATCH_ARBNO:
-        nd->counter = (int64_t)(intptr_t)&g_audit_kids2;
+        (void)(&g_audit_kids2);
         break;
     case IR_MATCH_CALLOUT:  nd->sval = "audit_callout"; break;
     case IR_LOGICVAR:       nd->ival = 0; nd->sval = "X"; break;

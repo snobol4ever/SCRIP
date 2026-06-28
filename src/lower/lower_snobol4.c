@@ -110,7 +110,7 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
 static IR_graph_t * sno_arg_block(void * vcx, const tree_t * a);
 static IR_t * sno_seq_node(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt) {
     IR_t * seq = build(cx, IR_SEQ, cont, nxt); IR_LIT(seq).dval = 1.0;
-    IR_EXEC(seq).counter = (int64_t)(intptr_t) sno_arg_block(cx, (t->n > 0) ? t->c[0] : NULL);
+    (void)(sno_arg_block(cx, (t->n > 0) ? t->c[0] : NULL));
     IR_LIT(seq).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (t->n > 1) ? t->c[1] : NULL);
     return seq;
 }
@@ -290,7 +290,7 @@ static IR_t * lower_pat_node(IR_graph_t * pg, const tree_t * t, IR_t * succ, IR_
             extern IR_graph_t * sno_pat_graph_fwd(const tree_t *);
             az->inner = sno_pat_graph_fwd((t->n > 0) ? t->c[0] : NULL);
             az->cap = 64; az->pos_stack = (int *) calloc(64, sizeof(int));
-            IR_EXEC(nd).counter = (int64_t)(intptr_t) az;
+            (void)(az);
         }
         return nd; }
     case TT_ALT: {
@@ -676,7 +676,7 @@ static IR_t * sno_freeze_break_cap_lit_ir(snx_t * cx, const char * cset, const c
     γ_to(cat, PSUCC); ω_to(cat, PFAIL);
     IR_t ** kids = (IR_t **) calloc(2, sizeof(IR_t *)); kids[0] = cap; kids[1] = litn;
     bb_match_kids_state_t * zk = (bb_match_kids_state_t *) calloc(1, sizeof(*zk)); zk->kids = kids; zk->nkids = 2;
-    IR_EXEC(cat).counter = (int64_t)(intptr_t) zk;
+    (void)(zk);
     return cat;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -684,7 +684,7 @@ static IR_t * sno_freeze_break_cap_lit_ir(snx_t * cx, const char * cset, const c
 static void sno_freeze_kids_attach(IR_t * nd, IR_t ** kids, int nkids) {
     IR_t ** kk = (IR_t **) calloc((size_t) nkids, sizeof(IR_t *)); for (int i = 0; i < nkids; i++) kk[i] = kids[i];
     bb_match_kids_state_t * zk = (bb_match_kids_state_t *) calloc(1, sizeof(*zk)); zk->kids = kk; zk->nkids = nkids;
-    IR_EXEC(nd).counter = (int64_t)(intptr_t) zk;
+    (void)(zk);
 }
 static IR_t * sno_freeze_pat_ir(IR_graph_t * g, const tree_t * t, IR_t * PSUCC, IR_t * PFAIL) {
     if (!t) return PSUCC;
@@ -804,10 +804,10 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
             IR_t * alt = build(cx, IR_ALT, asn, ω);
             IR_t * s1  = build(cx, IR_SEQ, alt, ω);
-            IR_EXEC(s1).counter = (int64_t)(intptr_t) sno_arg_block(cx, (a1->n > 0) ? a1->c[0] : NULL);
+            (void)(sno_arg_block(cx, (a1->n > 0) ? a1->c[0] : NULL));
             IR_LIT(s1).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (a1->n > 1) ? a1->c[1] : NULL);
             IR_t * s0  = build(cx, IR_SEQ, alt, s1);
-            IR_EXEC(s0).counter = (int64_t)(intptr_t) sno_arg_block(cx, (a0->n > 0) ? a0->c[0] : NULL);
+            (void)(sno_arg_block(cx, (a0->n > 0) ? a0->c[0] : NULL));
             IR_LIT(s0).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (a0->n > 1) ? a0->c[1] : NULL);
             return s0;
         }
@@ -1016,7 +1016,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             return lit;
         }
         IR_t * seq = build(cx, IR_SEQ, asn, ω); IR_LIT(seq).dval = 1.0;
-        IR_EXEC(seq).counter = (int64_t)(intptr_t) sno_arg_block(cx, (rhs->n > 0) ? rhs->c[0] : NULL);
+        (void)(sno_arg_block(cx, (rhs->n > 0) ? rhs->c[0] : NULL));
         IR_LIT(seq).ival     = (int64_t)(intptr_t) sno_arg_block(cx, (rhs->n > 1) ? rhs->c[1] : NULL);
         return seq; }
     default: {
@@ -1078,7 +1078,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_graph_t * rg = lower_repl_graph(repl);
             IR_t * scan = build(cx, IR_SCAN, γ_tgt, ω_tgt);
             IR_LIT(scan).sval = (char *) vname; IR_LIT(scan).ival = 1;
-            IR_EXEC(scan).counter = (int64_t)(intptr_t) pg;
+            (void)(pg);
             ir_operand_push(scan, (IR_t *)(void *) sg);
             ir_operand_push(scan, (IR_t *)(void *) rg);
             IR_t * lit = build(cx, IR_LIT_S, scan, ω_tgt);
@@ -1185,7 +1185,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_graph_t * pg = lower_pat_graph(pt);
             IR_graph_t * sg = lower_subj_graph_lit(sv->v.sval ? sv->v.sval : "");
             IR_t * scan = build(cx, IR_SCAN, γ_tgt, ω_tgt);
-            IR_EXEC(scan).counter = (int64_t)(intptr_t) pg;
+            (void)(pg);
             ir_operand_push(scan, (IR_t *)(void *) sg);
             IR_t * lit = build(cx, IR_LIT_S, scan, ω_tgt);
             IR_LIT(lit).sval = sv->v.sval;
@@ -1196,7 +1196,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         /* emit SCAN node + VAR entry in main graph */
         IR_t * scan = build(cx, IR_SCAN, γ_tgt, ω_tgt);
         IR_LIT(scan).sval = (char *) vname;
-        IR_EXEC(scan).counter = (int64_t)(intptr_t) pg;
+        (void)(pg);
         ir_operand_push(scan, (IR_t *)(void *) sg);
         /* VAR entry: γ→scan, ω→failure_target */
         IR_t * var = build(cx, IR_VAR, scan, ω_tgt);
