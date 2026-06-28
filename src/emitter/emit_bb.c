@@ -3305,6 +3305,20 @@ static IR_t *ir_skip_alt_arms(IR_t *entry) {
     return entry;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/*====================================================================================================================*/
+int emit_jcon_enabled(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_ICN_JCON"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void emit_jcon_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+    if (!nd) { walk_bb_flat(nd, lbl_γ, lbl_ω, lbl_β); return; }
+    switch (nd->op) {
+    case IR_LIT_S:      if (nd->lhs >= 0) { g_emit.op_off = nd->lhs; bb_slot_register(nd, nd->lhs); } else g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_CALL:       g_emit.op_arg_slot_n = 0; g_emit.op_write_route = bb_call_write_route(nd); EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_SUCCEED:    EMIT_PAIR_RESET(); EMIT_PAIR_JMP(lbl_γ); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    default:            walk_bb_flat(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -3404,7 +3418,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_LIMIT && nodes[i]->n_operands > 0) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[0]) { g_limit_gen_beta = betas[k]; break; }
         g_suspend_dobody_beta = NULL;
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[1]) { g_suspend_dobody_beta = lbls[k]; break; }
-        walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
+        if (emit_jcon_enabled()) emit_jcon_node(nodes[i], node_γ, node_ω, betas[i]); else walk_bb_flat(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
     { bb_label_t *resume_tgt = &lbl_ω;
