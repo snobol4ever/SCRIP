@@ -1365,7 +1365,7 @@ int lower_sno_stage2(const tree_t *prog) {
     g_stage2.proc_table[pi].entry_pc = -1;
     g_stage2.proc_table[pi].bb_idx   = bb_idx;
     g_stage2.proc_table[pi].nparams  = 0;
-    g_stage2.proc_table[pi].proc_entry_idx = -1;
+    g_stage2.proc_table[pi].proc_entry_node = NULL;
     for (int di = 0; di < prog->n; di++) {
         const tree_t *ds = prog->c[di];
         if (!ds || ds->t != TT_STMT) continue;
@@ -1391,7 +1391,7 @@ int lower_sno_stage2(const tree_t *prog) {
         g_stage2.proc_table[fpi].entry_pc = -1;
         g_stage2.proc_table[fpi].bb_idx   = bb_idx;
         g_stage2.proc_table[fpi].nparams  = np + nl;
-        g_stage2.proc_table[fpi].proc_entry_idx = body->idx;
+        g_stage2.proc_table[fpi].proc_entry_node = body;
         Scope *sc = &g_stage2.proc_table[fpi].lower_sc;
         sc->n = 0;
         for (int k = 0; k < np && sc->n < STAGE2_FRAME_SLOT_MAX; k++) { sc->e[sc->n].name = strdup(params[k]); sc->e[sc->n].slot = sc->n; sc->n++; }

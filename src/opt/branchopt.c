@@ -1,8 +1,8 @@
 #include "branchopt.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 static double bopt_litdval(const IR_t * n) {
-    if (!n || !n->own || n->idx < 0 || n->idx >= n->own->n || n->own->all[n->idx] != n) return 0.0;
-    return n->own->lit[n->idx].dval;
+    if (!n) return 0.0;
+    return n->dval;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int bopt_is_forwarder(const IR_t * n) {

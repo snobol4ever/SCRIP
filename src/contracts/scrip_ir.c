@@ -220,9 +220,6 @@ IR_graph_t * IR_alloc(int max_nodes, int lang) {
     if (!bbg) return NULL;
     bbg->all  = calloc((size_t)max_nodes, sizeof(IR_t *));
     if (!bbg->all) { free(bbg); return NULL; }
-    bbg->lit  = calloc((size_t)max_nodes, sizeof(IR_lit_t));
-    bbg->exec = calloc((size_t)max_nodes, sizeof(IR_exec_t));
-    if (!bbg->lit || !bbg->exec) { free(bbg->lit); free(bbg->exec); free(bbg->all); free(bbg); return NULL; }
     bbg->n    = 0;
     bbg->max  = max_nodes;
     bbg->lang = lang;
@@ -238,8 +235,6 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     bb->ω.node = NULL;
     bb->tmp      = -1;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
-    bb->idx = bbg->n;
-    bb->own = bbg;
     bbg->all[bbg->n++] = bb;
     return bb;
 }
@@ -280,8 +275,6 @@ void IR_free(IR_graph_t * bbg) {
         if (!bb) continue;
         free(bb);
     }
-    free(bbg->lit);
-    free(bbg->exec);
     free(bbg->all);
     free(bbg);
 }
@@ -321,8 +314,8 @@ static int bb_index_of(const IR_graph_t * bbg, const IR_t * bb) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis, int *order, int *norder) {
     if (!nd) return;
-    int ix = nd->idx;
-    if (ix < 0 || ix >= bbg->n || bbg->all[ix] != nd || vis[ix]) return;
+    int ix = -1; for (int _i = 0; _i < bbg->n; _i++) if (bbg->all[_i] == nd) { ix = _i; break; }
+    if (ix < 0 || vis[ix]) return;
     vis[ix] = 1; order[(*norder)++] = ix;
     bb_emit_order_visit(bbg, nd->γ.node, vis, order, norder);
     bb_emit_order_visit(bbg, nd->ω.node, vis, order, norder);
@@ -370,12 +363,12 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) 
     char sq[8]; if (seq >= 0) snprintf(sq, sizeof sq, "%d", seq); else snprintf(sq, sizeof sq, "-");
     if (!bb) { fprintf(fp, "%4s %4d:    .    .  %-22s []\n", sq, i, "(null)"); return; }
     char gp[8], wp[8];
-    if (bb->γ.node) snprintf(gp, sizeof gp, "%d", bb->γ.node->idx); else snprintf(gp, sizeof gp, ".");
-    if (bb->ω.node) snprintf(wp, sizeof wp, "%d", bb->ω.node->idx); else snprintf(wp, sizeof wp, ".");
+    if (bb->γ.node) { int _k=-1; for(int _i=0;_i<bbg->n;_i++) if(bbg->all[_i]==bb->γ.node){_k=_i;break;} snprintf(gp,sizeof gp,"%d",_k); } else snprintf(gp, sizeof gp, ".");
+    if (bb->ω.node) { int _k=-1; for(int _i=0;_i<bbg->n;_i++) if(bbg->all[_i]==bb->ω.node){_k=_i;break;} snprintf(wp,sizeof wp,"%d",_k); } else snprintf(wp, sizeof wp, ".");
     int na = 0; IR_t * const * ops = NULL;
     if (bb->n_operands > 0) { na = bb->n_operands; ops = bb->operands; } else { ops = bb_operand_aux_get((IR_graph_t *)bbg, (IR_t *)bb, &na); }
     char ob[160]; int op = 0; ob[0] = 0;
-    if (bb->op != IR_SCAN && na > 0 && ops) for (int j = 0; j < na && op < 140; j++) op += snprintf(ob + op, sizeof ob - op, "%s%d", j ? " " : "", ops[j] ? ops[j]->idx : -1);
+    if (bb->op != IR_SCAN && na > 0 && ops) for (int j = 0; j < na && op < 140; j++) { int _k=-1; if(ops[j]) for(int _i=0;_i<bbg->n;_i++) if(bbg->all[_i]==ops[j]){_k=_i;break;} op += snprintf(ob + op, sizeof ob - op, "%s%d", j ? " " : "", _k); }
     const char * opn = bb_op_name(bb->op);
     fprintf(fp, "%4s %4d: %4s %4s  %-22s [%s]", sq, i, gp, wp, opn, ob);
     if (bb->tmp >= 0) fprintf(fp, " tmp=%d", bb->tmp);

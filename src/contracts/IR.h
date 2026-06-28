@@ -250,15 +250,22 @@ typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
 typedef struct { IR_t * node; char sz[4]; } IR_ref_t;
 struct IR_t {
-    IR_e      op;
-    IR_ref_t   γ;
-    IR_ref_t   ω;
-    IR_t      ** operands;
-    int          n_operands;
-    int          idx;
-    int          tmp;
-    IR_graph_t * own;
+    IR_e         op;
+    IR_ref_t     γ;
+    IR_ref_t     ω;
+    IR_t       ** operands;
+    int           n_operands;
+    int           tmp;
+    const char  * sval;
+    int64_t       ival;
+    double        dval;
+    int64_t       counter;
+    int           state;
+    int32_t       stno;
 };
+/*--------------------------------------------------------------------------------------------------------------------*/
+#define IR_LIT(nd)  (*(nd))
+#define IR_EXEC(nd) (*(nd))
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     const char * sval;
@@ -282,8 +289,6 @@ struct IR_graph_t {
     int            nvalue_slots;
     int            jcon_value_region;
     IR_t         * body_root;
-    IR_lit_t     * lit;
-    IR_exec_t    * exec;
     #define AG_RING 16
     DESCR_t        ring[AG_RING];
     int            ring_head;
@@ -291,16 +296,6 @@ struct IR_graph_t {
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * IR_alloc(int max_nodes, int lang);
-/*--------------------------------------------------------------------------------------------------------------------*/
-static inline IR_t * IR_sidecar_own(IR_t * nd) {
-    if (!nd || !nd->own || nd->idx < 0 || nd->idx >= nd->own->n || nd->own->all[nd->idx] != nd) {
-        fprintf(stderr, "IR sidecar ownership violation: nd=%p own=%p idx=%d\n", (void *)nd, nd ? (void *)nd->own : NULL, nd ? nd->idx : -1);
-        abort();
-    }
-    return nd;
-}
-#define IR_LIT(nd)  ((IR_sidecar_own((IR_t *)(nd)))->own->lit[(nd)->idx])
-#define IR_EXEC(nd) ((IR_sidecar_own((IR_t *)(nd)))->own->exec[(nd)->idx])
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t * ir_call_arg(const IR_t * nd, int j) {
     if (!nd || j < 0) return NULL;
