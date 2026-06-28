@@ -267,7 +267,6 @@ typedef struct {
 } IR_lit_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
-    DESCR_t      value;
     int64_t      counter;
     int          state;
     int32_t      stno;

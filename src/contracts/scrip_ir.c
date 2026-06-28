@@ -241,7 +241,6 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     bb->idx = bbg->n;
     bb->own = bbg;
     bbg->all[bbg->n++] = bb;
-    bbg->exec[bb->idx].value = FAILDESCR;
     return bb;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
