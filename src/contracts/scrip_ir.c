@@ -126,6 +126,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_INDIRECT_ASSIGN_LIT_S] = "IR_INDIRECT_ASSIGN_LIT_S",
     [IR_INDIRECT_ASSIGN_VAR] = "IR_INDIRECT_ASSIGN_VAR",
     [IR_INDIRECT_ASSIGN_DESCR] = "IR_INDIRECT_ASSIGN_DESCR",
+    [IR_TMP] = "IR_TMP",
     [IR_DET_ASSERTZ] = "IR_DET_ASSERTZ",
     [IR_CELL_DYNITER] = "IR_CELL_DYNITER",
     [IR_TO] = "IR_TO",
@@ -236,6 +237,7 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     bb->op       = t;
     bb->γ.node = NULL;
     bb->ω.node = NULL;
+    bb->lhs      = -1;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
     bb->idx = bbg->n;
     bb->own = bbg;

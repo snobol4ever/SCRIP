@@ -237,6 +237,7 @@ typedef enum {
     IR_INDIRECT_ASSIGN_LIT_S,
     IR_INDIRECT_ASSIGN_VAR,
     IR_INDIRECT_ASSIGN_DESCR,
+    IR_TMP,
     IR_OP_COUNT
 } IR_e;
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -256,6 +257,7 @@ struct IR_t {
     IR_t      ** operands;
     int          n_operands;
     int          idx;
+    int          lhs;
     IR_graph_t * own;
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
