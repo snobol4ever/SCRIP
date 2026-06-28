@@ -3308,10 +3308,22 @@ static IR_t *ir_skip_alt_arms(IR_t *entry) {
 /*====================================================================================================================*/
 int emit_jcon_enabled(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_ICN_JCON"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static int jcon_value_slot(IR_t *nd) { int e = bb_slot_get(nd); if (e >= 0) return e; if (nd->lhs >= 0) { bb_slot_register(nd, nd->lhs); if (nd->lhs + 16 > g_flat_slot_count) g_flat_slot_count = nd->lhs + 16; return nd->lhs; } return bb_slot_alloc16(nd); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 void emit_jcon_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { walk_bb_flat(nd, lbl_γ, lbl_ω, lbl_β); return; }
     switch (nd->op) {
-    case IR_LIT_S:      if (nd->lhs >= 0) { g_emit.op_off = nd->lhs; bb_slot_register(nd, nd->lhs); } else g_emit.op_off = bb_slot_alloc16(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_S:      g_emit.op_off = jcon_value_slot(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_I:      g_emit.op_off = jcon_value_slot(nd); FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_VAR: {
+        extern int is_global(const char *);
+        const char *vn = IR_LIT(nd).sval;
+        if (vn && vn[0] == '&') { g_emit.op_sval = vn; g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); }
+        else if (vn && is_global(vn)) { g_emit.op_sa = -1; g_emit.op_off = bb_slot_alloc16(nd); g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
+        else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; if (voff >= 0) { g_emit.op_off = voff; if (bb_slot_get(nd) < 0) bb_slot_register(nd, voff); } else g_emit.op_off = -1; }
+        else { g_emit.op_sa = -1; g_emit.op_off = -1; }
+        FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
     case IR_CALL:       g_emit.op_arg_slot_n = 0; g_emit.op_write_route = bb_call_write_route(nd); EMIT_PAIR_RESET(); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUCCEED:    EMIT_PAIR_RESET(); EMIT_PAIR_JMP(lbl_γ); EMIT_PAIR_DEF_JMP(lbl_β, lbl_ω); EMIT_PAIR_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_FAIL:       FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
