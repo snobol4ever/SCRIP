@@ -127,6 +127,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit_bb.c \
     $(SRC)/emitter/emit_drive.c \
     $(SRC)/emitter/emit_x86_drive.c \
+    $(SRC)/opt/arith_fold.c \
     $(SRC)/opt/gva_collect.c \
     $(SRC)/opt/proc_collect.c \
     $(SRC)/opt/ir_query.c \
@@ -213,6 +214,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/name_save.c                    -o $(OBJ)/snobol4_nmd.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/stmt_exec.c                  -o $(OBJ)/stmt_exec.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/runtime_eval.c                  -o $(OBJ)/eval_code.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/unification.c                  -o $(OBJ)/unification.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/runtime_init.c                  -o $(OBJ)/runtime_init.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/io_format.c                  -o $(OBJ)/io_format.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/arithmetic.c                  -o $(OBJ)/arithmetic.o
@@ -226,11 +228,15 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/string_builtins.c           -o $(OBJ)/string_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
+	$(CXX) $(CXXRT) -c $(SRC)/runtime/rt/bb_pat_build.cpp        -o $(OBJ)/bb_pat_build.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_defer.cpp   -o $(OBJ)/bb_match_defer.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_lit.cpp        -o $(OBJ)/bb_lit.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_unify.cpp     -o $(OBJ)/bb_unify.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_arith.cpp     -o $(OBJ)/bb_arith.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_conj.cpp       -o $(OBJ)/bb_conj.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_disj.cpp       -o $(OBJ)/bb_disj.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_ite.cpp       -o $(OBJ)/bb_ite.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_atom.cpp      -o $(OBJ)/bb_atom.o
@@ -245,6 +251,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_frame.cpp       -o $(OBJ)/bb_assign_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var_frame_ref.cpp      -o $(OBJ)/bb_var_frame_ref.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_frame_ref.cpp   -o $(OBJ)/bb_assign_frame_ref.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp               -o $(OBJ)/bb_scan_stmt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gen_scan.cpp          -o $(OBJ)/bb_gen_scan.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_keyword.cpp           -o $(OBJ)/bb_keyword.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_goto_dyn.cpp          -o $(OBJ)/bb_goto_dyn.o
@@ -253,11 +260,21 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_every.cpp        -o $(OBJ)/bb_every.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_to.cpp           -o $(OBJ)/bb_to.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_limit.cpp        -o $(OBJ)/bb_limit.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_repalt.cpp       -o $(OBJ)/bb_repalt.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_suspend.cpp      -o $(OBJ)/bb_suspend.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_initial.cpp      -o $(OBJ)/bb_initial.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_idx_set.cpp      -o $(OBJ)/bb_idx_set.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_idx_get.cpp      -o $(OBJ)/bb_idx_get.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_alt.cpp          -o $(OBJ)/bb_alt.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_pos.cpp     -o $(OBJ)/bb_scan_pos.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_any.cpp     -o $(OBJ)/bb_scan_any.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_match.cpp   -o $(OBJ)/bb_scan_match.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_many.cpp    -o $(OBJ)/bb_scan_many.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_tab.cpp     -o $(OBJ)/bb_scan_tab.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_move.cpp    -o $(OBJ)/bb_scan_move.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_upto.cpp    -o $(OBJ)/bb_scan_upto.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_find.cpp    -o $(OBJ)/bb_scan_find.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_bal.cpp     -o $(OBJ)/bb_scan_bal.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_iterate.cpp      -o $(OBJ)/bb_iterate.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_key_gen.cpp      -o $(OBJ)/bb_key_gen.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call.cpp         -o $(OBJ)/bb_call.o
@@ -274,6 +291,13 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_unop_gvar_slot.cpp -o $(OBJ)/bb_unop_gvar_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_concat.cpp -o $(OBJ)/bb_binop_gvar_concat.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_any.cpp          -o $(OBJ)/bb_match_any.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_notany.cpp  -o $(OBJ)/bb_match_notany.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_span.cpp    -o $(OBJ)/bb_match_span.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_break.cpp   -o $(OBJ)/bb_match_break.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_breakx.cpp  -o $(OBJ)/bb_match_breakx.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_rtab.cpp    -o $(OBJ)/bb_match_rtab.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_span_var.cpp -o $(OBJ)/bb_match_span_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp -o $(OBJ)/bb_gvar_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_indirect_assign_lit_s.cpp -o $(OBJ)/bb_indirect_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_indirect_assign_var.cpp    -o $(OBJ)/bb_indirect_assign_var.o
@@ -282,12 +306,66 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp -o $(OBJ)/bb_gvar_assign_concat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_call.cpp   -o $(OBJ)/bb_gvar_assign_call.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_descr.cpp  -o $(OBJ)/bb_gvar_assign_descr.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_pos.cpp          -o $(OBJ)/bb_match_pos.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_query_frame.cpp     -o $(OBJ)/bb_query_frame.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_write.cpp        -o $(OBJ)/bb_det_write.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_nl.cpp           -o $(OBJ)/bb_det_nl.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_is.cpp           -o $(OBJ)/bb_det_is.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_cmp.cpp          -o $(OBJ)/bb_det_cmp.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_type_test.cpp    -o $(OBJ)/bb_det_type_test.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_functor.cpp      -o $(OBJ)/bb_det_functor.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_arg.cpp          -o $(OBJ)/bb_det_arg.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_univ.cpp         -o $(OBJ)/bb_det_univ.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_format.cpp       -o $(OBJ)/bb_det_format.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_succ_plus.cpp    -o $(OBJ)/bb_det_succ_plus.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_atom_op.cpp      -o $(OBJ)/bb_det_atom_op.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_char_type.cpp    -o $(OBJ)/bb_det_char_type.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_sort.cpp          -o $(OBJ)/bb_det_sort.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_numbervars.cpp    -o $(OBJ)/bb_det_numbervars.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_term_string.cpp   -o $(OBJ)/bb_det_term_string.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_copy_term.cpp     -o $(OBJ)/bb_det_copy_term.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_nb_setval.cpp     -o $(OBJ)/bb_det_nb_setval.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_nb_getval.cpp     -o $(OBJ)/bb_det_nb_getval.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_unify.cpp       -o $(OBJ)/bb_cell_unify.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_choice.cpp      -o $(OBJ)/bb_cell_choice.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_call.cpp        -o $(OBJ)/bb_cell_call.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_callee_frame.cpp     -o $(OBJ)/bb_callee_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_cut.cpp         -o $(OBJ)/bb_cell_cut.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_ite.cpp         -o $(OBJ)/bb_cell_ite.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_findall.cpp     -o $(OBJ)/bb_cell_findall.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_throw.cpp        -o $(OBJ)/bb_det_throw.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_catch.cpp       -o $(OBJ)/bb_cell_catch.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_retract.cpp      -o $(OBJ)/bb_det_retract.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_abolish.cpp      -o $(OBJ)/bb_det_abolish.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_assertz.cpp      -o $(OBJ)/bb_det_assertz.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_dyniter.cpp     -o $(OBJ)/bb_cell_dyniter.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_tab.cpp          -o $(OBJ)/bb_match_tab.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_atp.cpp          -o $(OBJ)/bb_match_atp.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_len.cpp          -o $(OBJ)/bb_match_len.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_rem.cpp          -o $(OBJ)/bb_match_rem.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_arb.cpp          -o $(OBJ)/bb_match_arb.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_arbno.cpp             -o $(OBJ)/bb_match_arbno.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_abort.cpp     -o $(OBJ)/bb_match_abort.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_str.cpp                      -o $(OBJ)/emit_str.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_term_build.cpp               -o $(OBJ)/emit_term_build.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_fence.cpp     -o $(OBJ)/bb_match_fence.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_alt.cpp    -o $(OBJ)/bb_match_alt.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_cat.cpp    -o $(OBJ)/bb_match_cat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_subject.cpp   -o $(OBJ)/bb_subject.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_head.cpp    -o $(OBJ)/bb_match_head.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_retry.cpp   -o $(OBJ)/bb_match_retry.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_advance.cpp -o $(OBJ)/bb_match_advance.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_stub.cpp -o $(OBJ)/bb_pattern_stub.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_scan_splice_empty.cpp -o $(OBJ)/bb_scan_splice_empty.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_len.cpp -o $(OBJ)/bb_pattern_len.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_break.cpp -o $(OBJ)/bb_pattern_break.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_capture.cpp -o $(OBJ)/bb_pattern_capture.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_cat.cpp -o $(OBJ)/bb_pattern_cat.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_ref_invariant.cpp -o $(OBJ)/bb_ref_invariant.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_pattern_lit.cpp -o $(OBJ)/bb_pattern_lit.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gather.cpp  -o $(OBJ)/bb_gather.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_mapgrep.cpp -o $(OBJ)/bb_mapgrep.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_field_set.cpp -o $(OBJ)/bb_field_set.o
@@ -349,6 +427,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_icon.c    -o $(OBJ)/lower_icon.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_noicon_stubs.c -o $(OBJ)/lower_noicon_stubs.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/branchopt.c -o $(OBJ)/branchopt.o
+	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/arith_fold.c -o $(OBJ)/arith_fold.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/gva_collect.c -o $(OBJ)/gva_collect.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/proc_collect.c -o $(OBJ)/proc_collect.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/ir_query.c -o $(OBJ)/ir_query.o
