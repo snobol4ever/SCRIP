@@ -509,6 +509,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_CUT:             bb_emit_x86(bb_cut());                                 return 0;
     case IR_DISJ:          bb_emit_x86(bb_disj());                                 return 0;
     case IR_GCONJ:          bb_emit_x86(bb_conj());                                 return 0;
+    case IR_CONJ:           bb_emit_x86(bb_conj());                                 return 0;
     case IR_ITE:          bb_emit_x86(bb_ite());                                 return 0;
     case IR_CATCH:        { fprintf(stderr, "emit_core: IR_CATCH survived GZ-ONLY lowering (unreachable)\n"); abort(); }
     case IR_UNIFY:           bb_prepare(nd); bb_emit_x86(bb_unify());           return 0;
