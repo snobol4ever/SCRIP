@@ -289,6 +289,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
+    case IR_BINOP_RELOP:         bb_emit_x86(bb_binop_relop());       return 0;
     case IR_BINOP:
         switch (g_emit.op_binop_kind) {
         case BINOP_CAT_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
