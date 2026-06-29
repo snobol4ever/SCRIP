@@ -82,3 +82,6 @@ out/sm_phase2_sim_test
 /bb_macros.s
 tmp1
 refs/
+*.gcov
+*.gcda
+*.gcno
