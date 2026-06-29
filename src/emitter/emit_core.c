@@ -232,112 +232,24 @@ void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
     lbl->offset = BB_LABEL_UNRESOLVED;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void jvm_push_int2(FILE * out, long v) {
-    if (v == -1) { fprintf(out, "    iconst_m1\n"); return; }
-    if (v >= 0 && v <= 5) { fprintf(out, "    iconst_%ld\n", v); return; }
-    if (v >= -128 && v <= 127) { fprintf(out, "    bipush %ld\n", v); return; }
-    if (v >= -32768 && v <= 32767) { fprintf(out, "    sipush %ld\n", v); return; }
-    fprintf(out, "    ldc %ld\n", v);
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
-void jvm_emit_ldc_string(FILE * out, const char * s) {
-    fprintf(out, "    ldc \"");
-    for (const char * p = s; *p; p++) {
-        if      (*p == '"')  fprintf(out, "\\\"");
-        else if (*p == '\\') fprintf(out, "\\\\");
-        else if (*p == '\n') fprintf(out, "\\n");
-        else if (*p == '\r') fprintf(out, "\\r");
-        else if (*p == '\t') fprintf(out, "\\t");
-        else                 fputc(*p, out);
-    }
-    fprintf(out, "\"\n");
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 #include "IR.h"
 #include "emit_ir.h"
-void net_escape_ldstr(FILE * out, const char * s) {
-    fprintf(out, "    ldstr      \"");
-    if (!s) { fprintf(out, "\"\n"); return; }
-    for (const unsigned char * p = (const unsigned char *)s; *p; p++) {
-        if (*p == '"')       fprintf(out, "\\\"");
-        else if (*p == '\\') fprintf(out, "\\\\");
-        else if (*p < 0x20 || *p == 0x7f) fprintf(out, "\\u%04X", (unsigned)*p);
-        else fputc(*p, out);
-    }
-    fprintf(out, "\"\n");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void net_class_hdr(FILE * out, int sid, int nid) {
-    fprintf(out, ".class nested public auto ansi beforefieldinit pat_%d_%d\n", sid, nid);
-    fprintf(out, "       extends [mscorlib]System.Object\n");
-    fprintf(out, "       implements [boxes]Snobol4.Runtime.Boxes.IByrdBox\n{\n");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void net_α_hdr(FILE * out) {
-    fprintf(out, "  .method public virtual instance valuetype [boxes]Snobol4.Runtime.Boxes.Spec\n");
-    fprintf(out, "          Alpha(class [boxes]Snobol4.Runtime.Boxes.MatchState ms) cil managed\n  {\n");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void net_β_hdr(FILE * out) {
-    fprintf(out, "  .method public virtual instance valuetype [boxes]Snobol4.Runtime.Boxes.Spec\n");
-    fprintf(out, "          Beta(class [boxes]Snobol4.Runtime.Boxes.MatchState ms) cil managed\n  {\n");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void net_fail_ret(FILE * out) {
-    fprintf(out, "    ldsfld     valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::Fail\n");
-    fprintf(out, "    ret\n");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void net_cursor_load(FILE * out) {
-    fprintf(out, "    ldarg.1\n");
-    fprintf(out, "    ldfld      int32 [boxes]Snobol4.Runtime.Boxes.MatchState::Cursor\n");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void net_spec_of(FILE * out) {
-    fprintf(out, "    call       valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::Of(int32, int32)\n");
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void net_charset_class(FILE * out, int sid, int nid, const char * tag) {
-    net_class_hdr(out, sid, nid);
-    fprintf(out, "  .field private string _chars\n");
-    fprintf(out, "  .method public specialname rtspecialname instance void .ctor(string chars) cil managed\n  {\n");
-    fprintf(out, "    .maxstack 3\n    ldarg.0\n    call       instance void [mscorlib]System.Object::.ctor()\n");
-    fprintf(out, "    ldarg.0\n    ldarg.1\n    dup\n    brtrue     %s_%d_%d_NN\n    pop\n    ldstr      \"\"\n", tag, sid, nid);
-    fprintf(out, "  %s_%d_%d_NN:\n    stfld      string pat_%d_%d::_chars\n    ret\n  }\n", tag, sid, nid, sid, nid);
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-void net_push_i4(FILE * out, int v) {
-    if (v >= 0 && v <= 8)          { fprintf(out, "    ldc.i4.%d\n", v); }
-    else if (v == -1)               { fprintf(out, "    ldc.i4.m1\n"); }
-    else if (v >= -128 && v <= 127) { fprintf(out, "    ldc.i4.s   %d\n", v); }
-    else                            { fprintf(out, "    ldc.i4     %d\n", v); }
-}
+
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_emit_limit_init(int limit_slot_off) {
-    if (!PLATFORM_X86) return;
-    g_emit.op_off = limit_slot_off;
-    bb_emit_x86(bb_limit_init());
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_emit_repalt_clear(int off) {
-    if (!PLATFORM_X86) return;
-    g_emit.op_off = off;
-    bb_emit_x86(bb_repalt_clear());
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_emit_repalt_yield(int off, int e_slot) {
-    if (!PLATFORM_X86) return;
-    g_emit.op_off = off;
-    g_emit.op_sa  = e_slot;
-    bb_emit_x86(bb_repalt_yield());
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_emit_repalt_test(int off) {
-    if (!PLATFORM_X86) return;
-    g_emit.op_off = off;
-    bb_emit_x86(bb_repalt_test());
-}
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/extern "C" void bb_emit_limit_init(int limit_slot_off) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_emit_limit_init"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
@@ -416,33 +328,7 @@ typedef struct { const char * s; int addr; int len; } WasmStrEntry;
 static WasmStrEntry g_wasm_strtab[WASM_STRTAB_MAX];
 static int g_wasm_strtab_n = 0;
 static int g_wasm_str_next = WASM_STR_DATA_BASE;
-static void wasm_strtab_reset(void) { g_wasm_strtab_n = 0; g_wasm_str_next = WASM_STR_DATA_BASE; }
-int wasm_intern_str(const char * s) {
-    int len = s ? (int)strlen(s) : 0;
-    for (int i = 0; i < g_wasm_strtab_n; i++)
-        if (g_wasm_strtab[i].len == len && (len == 0 || memcmp(g_wasm_strtab[i].s, s, len) == 0)) return g_wasm_strtab[i].addr;
-    if (g_wasm_strtab_n >= WASM_STRTAB_MAX) return WASM_STR_DATA_BASE;
-    int addr = g_wasm_str_next;
-    g_wasm_strtab[g_wasm_strtab_n].s    = s;
-    g_wasm_strtab[g_wasm_strtab_n].addr = addr;
-    g_wasm_strtab[g_wasm_strtab_n].len  = len;
-    g_wasm_strtab_n++;
-    g_wasm_str_next += len + 1;
-    return addr;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
-int wasm_intern_name(const char * s) {
-    if (!s) return wasm_intern_str(s);
-    int len = (int)strlen(s);
-    static char buf[256];
-    if (len >= (int)sizeof(buf)) len = (int)sizeof(buf) - 1;
-    for (int i = 0; i < len; i++) {
-        unsigned char c = (unsigned char)s[i];
-        buf[i] = (c >= 'a' && c <= 'z') ? (char)(c - 32) : (char)c;
-    }
-    buf[len] = '\0';
-    return wasm_intern_str(buf);
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 #ifdef __cplusplus
 extern "C++" {
@@ -474,75 +360,9 @@ std::string wasm_emit_data_segments_str(void) {
 typedef struct { char name[128]; int entry_pc; int nparams; char params[WASM_MAX_PARAMS][128]; } WasmUserFn;
 static WasmUserFn g_wasm_userfns[WASM_USERFNS_MAX];
 static int        g_wasm_userfns_n = 0;
-static void wasm_userfns_reset(void) { g_wasm_userfns_n = 0; }
-WasmUserFn * wasm_userfn_find(const char * name) {
-    if (!name) return NULL;
-    for (int i = 0; i < g_wasm_userfns_n; i++) if (strcmp(g_wasm_userfns[i].name, name) == 0) return &g_wasm_userfns[i];
-    return NULL;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int wasm_parse_define_signature(WasmUserFn * fn, const char * sig) {
-    if (!sig) return 0;
-    const char * lp = strchr(sig, '(');
-    const char * rp = lp ? strchr(lp + 1, ')') : NULL;
-    if (!lp) { snprintf(fn->name, sizeof(fn->name), "%s", sig); fn->nparams = 0; return 1; }
-    int nlen = (int)(lp - sig); if (nlen >= (int)sizeof(fn->name)) nlen = (int)sizeof(fn->name) - 1;
-    memcpy(fn->name, sig, (size_t)nlen); fn->name[nlen] = '\0';
-    fn->nparams = 0;
-    if (!rp || rp <= lp + 1) return 1;
-    const char * s = lp + 1;
-    while (s < rp && fn->nparams < WASM_MAX_PARAMS) {
-        while (s < rp && (*s == ' ' || *s == '\t' || *s == ',')) s++;
-        const char * ps = s;
-        while (s < rp && *s != ',' && *s != ' ' && *s != '\t') s++;
-        int plen = (int)(s - ps); if (plen <= 0) continue;
-        if (plen >= (int)sizeof(fn->params[0])) plen = (int)sizeof(fn->params[0]) - 1;
-        memcpy(fn->params[fn->nparams], ps, (size_t)plen); fn->params[fn->nparams][plen] = '\0';
-        fn->nparams++;
-    }
-    return 1;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
-void jvm_sanitize_name(char * dst, size_t dsz, const char * src) {
-    size_t j = 0;
-    for (size_t i = 0; src[i] && j + 1 < dsz; i++) {
-        char c = src[i];
-        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') dst[j++] = c;
-        else dst[j++] = '_';
-    }
-    if (j == 0 && j + 4 < dsz) { dst[j++] = 's'; dst[j++] = 'n'; dst[j++] = 'o'; }
-    dst[j] = '\0';
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
-static char ** net_parse_define_proto(const char * proto, char ** out_fname, int * out_n) {
-    *out_fname = NULL; *out_n = 0;
-    if (!proto) return NULL;
-    const char * lp = strchr(proto, '(');
-    const char * rp = lp ? strchr(lp, ')') : NULL;
-    if (!lp) {
-        size_t flen = strlen(proto); char * fn = (char *)malloc(flen + 1);
-        memcpy(fn, proto, flen); fn[flen] = '\0'; *out_fname = fn; return NULL;
-    }
-    size_t flen = (size_t)(lp - proto); char * fn = (char *)malloc(flen + 1);
-    memcpy(fn, proto, flen); fn[flen] = '\0'; *out_fname = fn;
-    if (!rp || rp <= lp + 1) return NULL;
-    int cap = 4, count = 0;
-    char ** params = (char **)malloc((size_t)(cap + 1) * sizeof(char *));
-    const char * s = lp + 1;
-    while (s < rp) {
-        while (s < rp && (*s == ' ' || *s == '\t')) s++;
-        const char * pstart = s;
-        while (s < rp && *s != ',' && *s != ' ' && *s != '\t') s++;
-        size_t plen = (size_t)(s - pstart);
-        if (plen > 0) {
-            if (count >= cap) { cap *= 2; params = (char **)realloc(params, (size_t)(cap + 1) * sizeof(char *)); }
-            char * p = (char *)malloc(plen + 1); memcpy(p, pstart, plen); p[plen] = '\0'; params[count++] = p;
-        }
-        while (s < rp && (*s == ' ' || *s == '\t')) s++;
-        if (s < rp && *s == ',') s++;
-    }
-    params[count] = NULL; *out_n = count; return params;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 int g_m4_dense_nid = 0;
 static IR_t * g_nid_key[262144];
@@ -556,20 +376,6 @@ int bb_node_id(IR_t * nd) {
     g_nid_key[h] = nd; g_nid_val[h] = ++g_nid_count; return g_nid_val[h];
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void js_escape_string(FILE * out, const char * s) {
-    fprintf(out, "\"");
-    for (; s && *s; s++) {
-        unsigned char c = (unsigned char)*s;
-        if      (c == '"')  fprintf(out, "\\\"");
-        else if (c == '\\') fprintf(out, "\\\\");
-        else if (c == '\n') fprintf(out, "\\n");
-        else if (c == '\r') fprintf(out, "\\r");
-        else if (c == '\t') fprintf(out, "\\t");
-        else if (c < 0x20 || c > 0x7e) fprintf(out, "\\x%02x", c);
-        else fprintf(out, "%c", c);
-    }
-    fprintf(out, "\"");
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 void xa_dispatch(XA_op_t op)
 {
