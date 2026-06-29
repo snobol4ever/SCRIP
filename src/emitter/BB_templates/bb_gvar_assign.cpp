@@ -84,7 +84,7 @@ std::string bb_gvar_assign() {
                    + x86("jmp",  "γ")
                    + x86("def",  "β")
                    + x86("jmp",  "ω"))))
-             : _.op_a_node_kind == (int)IR_UNOP ?
+             : _.op_a_node_kind == (int)IR_OP_COUNT ?
                     (_.op_a_slot < 0 ? x86_bomb("bb_gvar_assign unop: op_a_slot==-1 (unop slot not promoted)")
                    : x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
                    + x86("mov",  "rsi", FRQ(_.op_a_slot))
@@ -92,7 +92,7 @@ std::string bb_gvar_assign() {
                    + x86("jmp",  "γ")
                    + x86("def",  "β")
                    + x86("jmp",  "ω"))
-             : (_.op_a_node_kind == (int)IR_VAR_FRAME || _.op_a_node_kind == (int)IR_VAR_FRAME_REF) ?
+             : (_.op_a_node_kind == (int)IR_OP_COUNT || _.op_a_node_kind == (int)IR_OP_COUNT) ?
                     (_.op_a_slot < 0 ? x86_bomb("bb_gvar_assign frame-var: op_a_slot==-1 (frame var slot not promoted)")
                    : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
                    + x86("mov", "rsi", FRQ(_.op_a_slot))
@@ -110,7 +110,7 @@ std::string bb_gvar_assign() {
                    + x86("jmp", "γ")
                    + x86("def", "β")
                    + x86("jmp", "ω"))
-             : _.op_a_node_kind == (int)IR_IDX ?
+             : _.op_a_node_kind == (int)IR_OP_COUNT ?
                     (_.op_a_slot < 0 ? x86_bomb("bb_gvar_assign idx-result: op_a_slot==-1 (idx result slot not promoted)")
                    : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
                    + x86("mov", "rsi", FRQ(_.op_a_slot))

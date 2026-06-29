@@ -65,8 +65,8 @@ static int alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     return 1;
 }
 static int alt_safe_kind(IR_e t) {
-    return t == IR_ALT || t == IR_CALL || t == IR_EVERY || t == IR_FAIL || t == IR_LIMIT ||
-           t == IR_SUCCEED || t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL;
+    return t == IR_ALT || t == IR_CALL || t == IR_EVERY || t == IR_FAIL || t == IR_OP_COUNT ||
+           t == IR_SUCCEED || t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_OP_COUNT;
 }
 static int graph_has_alt(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_ALT) return 1;
@@ -79,8 +79,8 @@ static int keyword_supported(const char *kw) {
 }
 static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
-           t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_LIT_NUL ||
-           t == IR_VAR || t == IR_KEYWORD || t == IR_GEN_SCAN || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_EVERY || t == IR_CONJ || t == IR_ASSIGN || t == IR_IF || t == IR_WHILE || t == IR_UNTIL;
+           t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_OP_COUNT ||
+           t == IR_VAR || t == IR_KEYWORD || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_EVERY || t == IR_CONJ || t == IR_ASSIGN || t == IR_IF || t == IR_OP_COUNT || t == IR_OP_COUNT;
 }
 static int sg_var_assigned(IR_graph_t *sg, const char *name) {
     if (!sg || !sg->all || !name) return 0;
@@ -150,7 +150,7 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
             else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
         }
         if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE); if (bc != BINOP_CONCAT && !is_rel) return 0; }
-        if (nd->op == IR_GEN_SCAN) {
+        if (nd->op == IR_OP_COUNT) {
             IR_graph_t *ssg = (IR_graph_t *)0;
             IR_graph_t *bsg = (IR_graph_t *) 0;
             if (!scan_subgraph_safe(s2, gi, g, ssg, depth + 1) || !scan_subgraph_safe(s2, gi, g, bsg, depth + 1)) return 0;
@@ -169,12 +169,12 @@ static void icn_register_record_types(stage2_t *s2) {
         if (!g || !g->all) continue;
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
-            if (nd && nd->op == IR_RECORD_DEF && IR_LIT(nd).sval && !dat_find_type(IR_LIT(nd).sval)) dat_register(IR_LIT(nd).sval);
+            if (nd && nd->op == IR_OP_COUNT && IR_LIT(nd).sval && !dat_find_type(IR_LIT(nd).sval)) dat_register(IR_LIT(nd).sval);
         }
     }
 }
 static int gen_scan_body_slotful(IR_t *r) {
-    if (!r || r->op != IR_GEN_SCAN || IR_LIT(r).dval != 1.0) return 0;
+    if (!r || r->op != IR_OP_COUNT || IR_LIT(r).dval != 1.0) return 0;
     IR_graph_t *bsg = (IR_graph_t *) 0;
     IR_t *bt = bsg ? bsg->entry : (IR_t *)0;
     int gd = 0;
@@ -186,23 +186,23 @@ static int gen_scan_body_slotful(IR_t *r) {
 }
 static int rhs_kind_ok(IR_t *r) {
     if (!r) return 0;
-    if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_LIT_NUL || r->op == IR_LIT_F) return 1;
+    if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_OP_COUNT || r->op == IR_LIT_F) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT)) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     { extern void *dat_find_type(const char *name); if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && IR_LIT(r).sval && dat_find_type(IR_LIT(r).sval)) return 1; }
     { extern int rt_builtin_is_known(const char *name); const char *bn = IR_LIT(r).sval; if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && bn && rt_builtin_is_known(bn)) return 1; }
-    if (r->op == IR_FIELD_GET) return 1;
-    if (r->op == IR_TO || r->op == IR_TO_BY) return 1;
+    if (r->op == IR_OP_COUNT) return 1;
+    if (r->op == IR_TO || r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_CONJ) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
     { extern int is_global(const char *); if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) { IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0; } }
-    if (r->op == IR_CASE) return 1;
-    if (r->op == IR_GATHER) return 1;
+    if (r->op == IR_OP_COUNT) return 1;
+    if (r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
-    if (r->op == IR_UNOP) { int64_t u = IR_LIT(r).ival; if (u == TT_MNS || u == TT_PLS || u == TT_SIZE || u == TT_NONNULL || u == TT_NULL || u == TT_NOT) return 1; }
-    if (r->op == IR_NEG || r->op == IR_POS || r->op == IR_SIZE || r->op == IR_NONNULL || r->op == IR_NULL_TEST || r->op == IR_NOT) return 1;
-    if (r->op == IR_GEN_SCAN) return gen_scan_body_slotful(r);
+    if (r->op == IR_OP_COUNT) { int64_t u = IR_LIT(r).ival; if (u == TT_MNS || u == TT_PLS || u == TT_SIZE || u == TT_NONNULL || u == TT_NULL || u == TT_NOT) return 1; }
+    if (r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_NOT) return 1;
+    if (r->op == IR_OP_COUNT) return gen_scan_body_slotful(r);
     return 0;
 }
 static int graph_has_binop(const IR_graph_t *g);
@@ -223,7 +223,7 @@ static int is_jct_call(IR_t *r) {
 }
 static int jct_marshallable(IR_t *r) {
     if (!r) return 0;
-    if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_LIT_F || r->op == IR_LIT_NUL) return 1;
+    if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_LIT_F || r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_CALL && (IR_LIT(r).dval == 2.0 || IR_LIT(r).dval == 3.0 || IR_LIT(r).dval == 5.0)) return 1;
     return 0;
@@ -282,20 +282,20 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval)) return 0;
-            if (nd->op == IR_CASE) {
+            if (nd->op == IR_OP_COUNT) {
                 if (nd->n_operands < 1 || !nd->operands[0]) return 0;
                 for (int aj = 1; aj < nd->n_operands; aj++) {
                     IR_t *arm = nd->operands[aj];
-                    if (!arm || arm->op != IR_CASE_ARM || arm->n_operands < 1 || !arm->operands[0]) return 0;
+                    if (!arm || arm->op != IR_OP_COUNT || arm->n_operands < 1 || !arm->operands[0]) return 0;
                 }
             }
-            if (nd->op == IR_SUSPEND && (nd->n_operands < 1 || !nd->operands[0])) return 0; /* admit user-defined generator suspend only when the expr-value operand is present (the resume-spine: bb_suspend yields operand[0], β runs operand[1] do-body; native driver landed — pieces 1-5 of DESIGN-ICON-SUSPEND); a malformed suspend with no value operand still REJECTED pre-emission */
-            if (0 && nd->op == IR_IDX_SET) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> pre-emission reject, never abort */
-            if (nd->op == IR_RASGN) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_RASGN + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> pre-emission reject, never silently wrong, until flat-chain rhs slotting is fixed */            if (nd->op == IR_FIELD_SET) { IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_GEN_SCAN) return 0; } /* generator-RHS field-set: rhs slot unfilled (bb_field_set bombs) -> pre-emission reject until generator-into-field value-flow built */
-            /* field-get→binop: FIXED — IR_FIELD_GET is now arity-1 in descr_chain_arity, so it consumes its object operand off the RPN stack and the binop reads the field-get result slot (not the leaked object var). veto removed. */
-            if (nd->op == IR_SWAP) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }
+            if (nd->op == IR_OP_COUNT && (nd->n_operands < 1 || !nd->operands[0])) return 0; /* admit user-defined generator suspend only when the expr-value operand is present (the resume-spine: bb_suspend yields operand[0], β runs operand[1] do-body; native driver landed — pieces 1-5 of DESIGN-ICON-SUSPEND); a malformed suspend with no value operand still REJECTED pre-emission */
+            if (0 && nd->op == IR_OP_COUNT) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> pre-emission reject, never abort */
+            if (nd->op == IR_OP_COUNT) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_OP_COUNT + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> pre-emission reject, never silently wrong, until flat-chain rhs slotting is fixed */            if (nd->op == IR_OP_COUNT) { IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_OP_COUNT) return 0; } /* generator-RHS field-set: rhs slot unfilled (bb_field_set bombs) -> pre-emission reject until generator-into-field value-flow built */
+            /* field-get→binop: FIXED — IR_OP_COUNT is now arity-1 in descr_chain_arity, so it consumes its object operand off the RPN stack and the binop reads the field-get result slot (not the leaked object var). veto removed. */
+            if (nd->op == IR_OP_COUNT) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0; }
-            if (nd->op == IR_GEN_SCAN) {
+            if (nd->op == IR_OP_COUNT) {
                 if (IR_LIT(nd).dval != 1.0) return 0;
                 IR_graph_t *ssg = (IR_graph_t *)0;
                 IR_graph_t *bsg = (IR_graph_t *) 0;
@@ -1246,7 +1246,7 @@ int main(int argc, char **argv)
                     if (!g || !g->all) continue;
                     for (int _ni = 0; _ni < g->n; _ni++) {
                         IR_t *nd = g->all[_ni];
-                        if (nd && nd->op == IR_RECORD_DEF && IR_LIT(nd).sval) dat_register(IR_LIT(nd).sval);
+                        if (nd && nd->op == IR_OP_COUNT && IR_LIT(nd).sval) dat_register(IR_LIT(nd).sval);
                     }
                 }
             }
