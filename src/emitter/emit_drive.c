@@ -9,6 +9,8 @@
 extern int           bb_slot_get(IR_t *nd);
 extern void          bb_slot_register(IR_t *nd, int off);
 extern int           bb_slot_alloc16(IR_t *nd);
+extern int           bb_slot_alloc16_or_get(IR_t *nd);
+extern int           bb_slot_claim(int bytes);
 extern int           bb_varslot(const char *name);
 extern int           bb_varslot_peek(const char *name);
 extern int           is_global(const char *name);
@@ -80,6 +82,17 @@ void emit_drive_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_
         g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
+    case IR_TO: {
+        if (!bb_child0(nd) || !bb_child1(nd)) { drive_unowned(nd); break; }
+        g_emit.op_sa = bb_slot_get(bb_child0(nd)); g_emit.op_sb = bb_slot_get(bb_child1(nd));
+        g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
+        int already = (bb_slot_get(nd) >= 0); g_emit.op_off = bb_slot_alloc16_or_get(nd);
+        if (!already) (void) bb_slot_claim(g_emit.op_num_real ? 16 : 8);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_EVERY:
+        if (IR_LIT(nd).ival != 0) { drive_unowned(nd); break; }
+        DRIVE_PAIR_RESET(); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CONJ:
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
