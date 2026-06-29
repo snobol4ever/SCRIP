@@ -1428,7 +1428,7 @@ int bb_call_route_classify(IR_t * nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
-    emit_drive_node(nd, lbl_γ, lbl_ω, lbl_β);
+    emit_drive(nd, lbl_γ, lbl_ω, lbl_β);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -1549,7 +1549,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_LIMIT && nodes[i]->n_operands > 0) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[0]) { g_limit_gen_beta = betas[k]; break; }
         g_suspend_dobody_beta = NULL;
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[1]) { g_suspend_dobody_beta = lbls[k]; break; }
-        emit_drive_node(nodes[i], node_γ, node_ω, betas[i]);
+        emit_drive(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
     { bb_label_t *resume_tgt = &lbl_ω;
