@@ -237,30 +237,7 @@ static void gz_emit_cell(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_
 /*--------------------------------------------------------------------------------------------------------------------*/int bb_kind_is_driver_owned(int t) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_kind_is_driver_owned"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/static const char *bb_intern_into(char *buf, const char *sval) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_intern_into"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int bb_prepare_assign(IR_t *nd) {
-    if (nd->op == IR_DTP_ASSIGN) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 1; }
-    if (nd->op == IR_ASSIGN) {
-        IR_t *oa = (nd->n_operands > 0) ? nd->operands[0] : NULL;
-        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
-        g_emit.bb_rs = oa ? bb_intern_into(g_emit.bb_rs_buf, IR_LIT(oa).sval) : NULL;
-        return 1;
-    }
-    if (nd->op == IR_ASSIGN_CONCAT) {
-        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
-        if (g_emit.op_parts_n == 1 && g_emit.op_parts_tag[0] == 0)
-            g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_parts_str[0] ? g_emit.op_parts_str[0] : "");
-        else if (g_emit.op_parts_n > 0) g_emit.op_off = bb_slot_claim(16 * g_emit.op_parts_n);
-        return 1;
-    }
-    if (nd->op == IR_ASSIGN_LIT_I) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 1; }
-    if (nd->op == IR_ASSIGN_LIT_S) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return 1; }
-    if (nd->op == IR_INDIRECT_ASSIGN_LIT_S) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return 1; }
-    if (nd->op == IR_INDIRECT_ASSIGN_VAR)   { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return 1; }
-    if (nd->op == IR_ASSIGN_VAR)   { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, g_emit.op_a_sval ? g_emit.op_a_sval : ""); return 1; }
-    if (nd->op == IR_ASSIGN_CALL)  { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 1; }
-    if (nd->op == IR_ASSIGN_DESCR) { g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 1; }
-    return 0;
-}
+/*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare(IR_t *nd) {
     if (!PLATFORM_X86) return;
@@ -268,385 +245,7 @@ void bb_prepare(IR_t *nd) {
     g_emit.bb_rs = NULL;
     g_emit.bb_op_lbl = NULL;
     g_emit.bb_lk = -1;
-    if (bb_prepare_assign(nd)) return;
-    if (nd->op == IR_ALT) {
-        int n = 0;
-        IR_t * const * arms = g_emit_cfg ? bb_operand_aux_get(g_emit_cfg, nd, &n) : ((IR_t * const *)0);
-        int ok = (arms && n > 0 && n <= 5);
-        for (int i = 0; ok && i < n; i++)
-            if (!arms[i] || (arms[i]->op != IR_LIT_I && arms[i]->op != IR_LIT_S && arms[i]->op != IR_LIT_F)) ok = 0;
-        g_emit.op_parts_n = ok ? n : 0;
-        for (int i = 0; ok && i < n; i++) {
-            g_emit.op_parts_tag[i]  = (arms[i]->op == IR_LIT_I) ? (int)DT_I : (arms[i]->op == IR_LIT_F) ? (int)DT_R : (int)DT_S;
-            if (arms[i]->op == IR_LIT_F) { double fd = IR_LIT(arms[i]).dval; int64_t fb; memcpy(&fb, &fd, 8); g_emit.op_parts_ival[i] = fb; }
-            else g_emit.op_parts_ival[i] = (int64_t)IR_LIT(arms[i]).ival;
-            g_emit.op_parts_str[i]  = IR_LIT(arms[i]).sval ? IR_LIT(arms[i]).sval : "";
-        }
-        return;
-    }
-    if (nd->op == IR_ASSIGN_FRAME || nd->op == IR_ASSIGN_FRAME_REF) {
-        IR_t *fa = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t *)0);
-        int fk = fa ? (int)ir_norm_call_kind(fa->op) : -1;
-        g_emit.bb_lk = (fk == (int)IR_LIT_I) ? 1 : (fk == (int)IR_LIT_NUL) ? 2 : (fk == (int)IR_LIT_S) ? 3 : (fk == (int)IR_VAR) ? 4 :
-                       (fk == (int)IR_VAR_FRAME) ? 5 : (fk == (int)IR_VAR_FRAME_REF) ? 6 : (fk == (int)IR_BINOP) ? 7 : (fk == (int)IR_CALL) ? 8 : 0;
-        if (g_emit.bb_lk == 3 || g_emit.bb_lk == 4) g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(fa).sval ? IR_LIT(fa).sval : "");
-        if ((g_emit.bb_lk == 5 || g_emit.bb_lk == 6) && fa) { g_emit.op_a_dval = IR_LIT(fa).dval; g_emit.op_a_ival_sg = IR_LIT(fa).ival; }
-        return;
-    }
-    if (nd->op == IR_ATOM) {
-        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
-        return;
-    }
-    if (nd->op == IR_ARITH) {
-        IR_t *l = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t*)0), *r = (nd->n_operands > 1) ? nd->operands[1] : ((IR_t*)0);
-        if (!l || !r) return;
-        g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(l).sval);
-        g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(r).sval);
-        g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(nd).sval ? IR_LIT(nd).sval : "+");
-        g_emit.bb_lk = (int)ir_norm_call_kind(l->op); g_emit.bb_li = (int64_t)IR_LIT(l).ival;
-        g_emit.bb_rk = (int)ir_norm_call_kind(r->op); g_emit.bb_ri = (int64_t)IR_LIT(r).ival;
-        return;
-    }
-    if (nd->op == IR_UNIFY || nd->op == IR_CELL_UNIFY) {
-        IR_t *l = (nd->n_operands > 0) ? nd->operands[0] : ((IR_t*)0), *r = (nd->n_operands > 1) ? nd->operands[1] : ((IR_t*)0);
-        if (nd->op == IR_CELL_UNIFY) { g_emit.op_parts_n = 1; g_emit.op_parts_ival[0] = -1; g_emit.op_parts_ival[1] = 0; g_emit.op_parts_ival[2] = 0; g_emit.op_parts_ival[3] = 0; g_emit.op_parts_str[0] = NULL; }
-        if (!l || !r) return;
-        g_emit.bb_lk = (int)l->op; g_emit.bb_li = (int64_t)IR_LIT(l).ival;
-        g_emit.bb_rk = (int)r->op; g_emit.bb_ri = (int64_t)IR_LIT(r).ival;
-        g_emit.bb_ln = (void *)l; g_emit.bb_rn = (void *)r;
-        if (l->op == IR_ATOM) g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(l).sval ? IR_LIT(l).sval : "");
-        if (r->op == IR_ATOM) g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(r).sval ? IR_LIT(r).sval : "");
-        if (nd->op == IR_CELL_UNIFY) {
-            int lk = (int)l->op, rk = (int)r->op;
-            int lc = (lk == (int)IR_ATOM || lk == (int)IR_LIT_I || lk == (int)IR_LIT_F), rc = (rk == (int)IR_ATOM || rk == (int)IR_LIT_I || rk == (int)IR_LIT_F);
-            if (lk == (int)IR_STRUCT || rk == (int)IR_STRUCT || lk == (int)IR_ARITH || rk == (int)IR_ARITH) { g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[1] = (int64_t)(intptr_t)l; g_emit.op_parts_ival[2] = (int64_t)(intptr_t)r; }
-            else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LOGICVAR && IR_LIT(l).ival == IR_LIT(r).ival) g_emit.op_parts_ival[0] = 1;
-            else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LOGICVAR) { g_emit.op_parts_ival[0] = 2; g_emit.op_parts_ival[1] = (int64_t)IR_LIT(l).ival; g_emit.op_parts_ival[2] = (int64_t)IR_LIT(r).ival; }
-            else if (lk == (int)IR_LOGICVAR && rk == (int)IR_LIT_F && (int)IR_LIT(l).ival >= 0) { g_emit.op_parts_ival[0] = 3; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(l).ival; double fd = IR_LIT(r).dval; memcpy(&g_emit.op_parts_ival[2], &fd, 8); }
-            else if (rk == (int)IR_LOGICVAR && lk == (int)IR_LIT_F && (int)IR_LIT(r).ival >= 0) { g_emit.op_parts_ival[0] = 3; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(r).ival; double fd = IR_LIT(l).dval; memcpy(&g_emit.op_parts_ival[2], &fd, 8); }
-            else if (lk == (int)IR_LOGICVAR && (rk == (int)IR_ATOM || rk == (int)IR_LIT_I) && (int)IR_LIT(l).ival >= 0) { g_emit.op_parts_ival[0] = 4; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(l).ival; g_emit.op_parts_ival[2] = (int64_t)rk; g_emit.op_parts_ival[3] = (int64_t)IR_LIT(r).ival; g_emit.op_parts_str[0] = (rk == (int)IR_ATOM) ? IR_LIT(r).sval : NULL; }
-            else if (rk == (int)IR_LOGICVAR && (lk == (int)IR_ATOM || lk == (int)IR_LIT_I) && (int)IR_LIT(r).ival >= 0) { g_emit.op_parts_ival[0] = 4; g_emit.op_parts_ival[1] = (int64_t)(int)IR_LIT(r).ival; g_emit.op_parts_ival[2] = (int64_t)lk; g_emit.op_parts_ival[3] = (int64_t)IR_LIT(l).ival; g_emit.op_parts_str[0] = (lk == (int)IR_ATOM) ? IR_LIT(l).sval : NULL; }
-            else if (lc && rc) { int eq = 0; if (lk == rk) { if (lk == (int)IR_LIT_F) eq = (IR_LIT(l).dval == IR_LIT(r).dval); else if (lk == (int)IR_LIT_I) eq = (IR_LIT(l).ival == IR_LIT(r).ival); else eq = (IR_LIT(l).sval && IR_LIT(r).sval && strcmp(IR_LIT(l).sval, IR_LIT(r).sval) == 0); } g_emit.op_parts_ival[0] = eq ? 5 : 6; }
-        }
-        return;
-    }
-    if (nd->op == IR_BUILTIN) {
-        IR_t *bu0 = ir_call_arg(nd, 0);
-        if (bu0 && bu0->op == IR_ATOM)
-            g_emit.bb_ls = bb_intern_into(g_emit.bb_ls_buf, IR_LIT(bu0).sval ? IR_LIT(bu0).sval : "");
-        IR_t *bu1 = ir_pair_arg(nd, 1);
-        if (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "is") == 0 && bu1 && bu1->op == IR_ARITH)
-            g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(bu1).sval ? IR_LIT(bu1).sval : "+");
-        if (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "is") == 0 && bu1 && bu1->op == IR_ATOM)
-            g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(bu1).sval ? IR_LIT(bu1).sval : "");
-        if (IR_LIT(nd).sval && (strcmp(IR_LIT(nd).sval, "aggregate_all") == 0 || strcmp(IR_LIT(nd).sval, "nb_setval") == 0 || strcmp(IR_LIT(nd).sval, "nb_getval") == 0)) {
-            IR_t *a1 = ir_call_arg(nd, 1);
-            if (a1 && a1->op == IR_ATOM) g_emit.bb_rs = bb_intern_into(g_emit.bb_rs_buf, IR_LIT(a1).sval ? IR_LIT(a1).sval : "");
-            IR_t *a2 = ir_call_arg(nd, 2);
-            if (a2 && a2->op == IR_ATOM) g_emit.bb_op_lbl = bb_intern_into(g_emit.bb_op_buf, IR_LIT(a2).sval ? IR_LIT(a2).sval : "");
-        }
-        int n = 0;
-        g_emit.op_parts_tag[3] = 0; g_emit.op_parts_ival[3] = 0; g_emit.op_parts_str[3] = NULL; g_emit.op_parts_ival[11] = 0;
-        for (int j = 0; j < 3; j++) {
-            IR_t *ax = ir_call_arg(nd, j);
-            if (!ax) break;
-            g_emit.op_parts_tag[j]      = (int)ax->op;
-            g_emit.op_parts_ival[j]     = (int64_t)IR_LIT(ax).ival;
-            g_emit.op_parts_str[j]      = (ax->op == IR_ATOM || ax->op == IR_STRUCT || ax->op == IR_ARITH) ? IR_LIT(ax).sval : NULL;
-            g_emit.op_parts_ival[8 + j] = (int64_t)(intptr_t)ax;
-            n = j + 1;
-        }
-        g_emit.op_parts_n = n;
-        if (n >= 2) {
-            IR_t *a1 = ir_call_arg(nd, 1);
-            if (a1 && (a1->op == IR_STRUCT || a1->op == IR_ARITH) && IR_LIT(a1).sval) {
-                IR_t *in = ir_call_arg(a1, 0);
-                if (in) { g_emit.op_parts_tag[3] = (int)in->op; g_emit.op_parts_ival[3] = (int64_t)IR_LIT(in).ival;
-                          g_emit.op_parts_str[3] = (in->op == IR_ATOM) ? IR_LIT(in).sval : NULL; g_emit.op_parts_ival[11] = (int64_t)(intptr_t)in; }
-            }
-        }
-        {
-            static char lblpool[4][64];
-            for (int j = 0; j < 4; j++) {
-                g_emit.op_parts_lbl[j] = NULL;
-                if (g_emit.op_parts_str[j] && g_emit.op_parts_str[j][0]) { strtab_label(lblpool[j], 64, g_emit.op_parts_str[j]); g_emit.op_parts_lbl[j] = lblpool[j]; }
-            }
-        }
-        {
-            static char svallblbuf[64];
-            const char *bfn = IR_LIT(nd).sval;
-            g_emit.op_sval_lbl = NULL;
-            if (bfn && bfn[0]) { strtab_label(svallblbuf, 64, bfn); g_emit.op_sval_lbl = svallblbuf; }
-        }
-        return;
-    }
-    if (nd->op == IR_GOAL) {
-        const bb_goal_state_t *zc = (const bb_goal_state_t *)(intptr_t)IR_LIT(nd).ival;
-        const char *_goal_nm = (zc && zc->callee && zc->callee[0]) ? zc->callee : (IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
-        snprintf(g_emit.bb_ls_buf, sizeof g_emit.bb_ls_buf, "%s", _goal_nm); g_emit.bb_ls = g_emit.bb_ls_buf;
-        g_emit.op_sa = zc ? zc->arity : 0;
-        int nn = zc ? zc->nargs : 0;
-        if (nn > g_emit.op_sa) nn = g_emit.op_sa;
-        g_emit.op_parts_n = nn;
-        for (int gi = 0; gi < nn && gi < 16; gi++) {
-            IR_t *a = (zc && zc->args) ? zc->args[gi] : NULL;
-            g_emit.op_parts_tag[gi]  = a ? (int)a->op : 0;
-            g_emit.op_parts_ival[gi] = (a && a->op == IR_STRUCT) ? (int64_t)(intptr_t)a : (a ? (int64_t)IR_LIT(a).ival : 0);
-            g_emit.op_parts_str[gi]  = a ? IR_LIT(a).sval : NULL;
-        }
-        return;
-    }
-    if (nd->op == IR_CATCH) {
-        g_emit.bb_zn = (void *)nd;
-        return;
-    }
-    if (nd->op == IR_CELL_CHOICE) {
-        g_emit.bb_zn = (void *)nd;
-        return;
-    }
-    if (nd->op == IR_GATHER) {
-        extern void bb_gather_prepare(IR_t *nd);
-        bb_gather_prepare(nd);
-        return;
-    }
-    if (nd->op == IR_MAP || nd->op == IR_GREP) {
-        extern void bb_mapgrep_prepare(IR_t *nd);
-        bb_mapgrep_prepare(nd);
-        return;
-    }
-    if (nd->op == IR_CALLEE_FRAME) {
-        g_emit.bb_zn = (void *)nd;
-        const pl_gz_callee_t * ce = (const pl_gz_callee_t *)(intptr_t)IR_LIT(nd).ival;
-        g_emit.op_parts_n = ce ? 1 : 0;
-        g_emit.op_parts_ival[0] = ce ? (int64_t)ce->arity : -1;
-        g_emit.op_parts_ival[1] = ce ? (int64_t)ce->nlocals : -1;
-        g_emit.op_parts_ival[2] = ce ? (int64_t)(ce->nclauses > 0 ? ce->nclauses : 1) : 1;
-        return;
-    }
-    if (nd->op == IR_CELL_CALL || nd->op == IR_CELL_ITE) {
-        g_emit.bb_zn = (void *)nd;
-        if (nd->op == IR_CELL_CALL) {
-            const pl_gz_call_state_t * st = (const pl_gz_call_state_t *)(intptr_t)IR_LIT(nd).ival;
-            g_emit.op_parts_n = st ? 1 : 0;
-            g_emit.op_parts_ival[0] = st ? (int64_t)st->child_slot : -1;
-            g_emit.op_parts_ival[1] = st ? (int64_t)st->nargs : -1;
-            g_emit.op_parts_ival[2] = (st && st->callee) ? (int64_t)(st->callee->arity + st->callee->nlocals + st->callee->nchild) : -1;
-            { int _na = st ? st->nargs : 0;
-              if (_na > g_emit.gz_arg_slots_cap) { int _nc = g_emit.gz_arg_slots_cap ? g_emit.gz_arg_slots_cap : 8; while (_nc < _na) _nc *= 2; g_emit.gz_arg_slots = (int64_t *)GC_MALLOC(sizeof(int64_t) * _nc); g_emit.gz_arg_slots_cap = _nc; }
-              for (int _ai = 0; _ai < _na; _ai++)
-                  g_emit.gz_arg_slots[_ai] = (st->args[_ai] && st->args[_ai]->op == IR_LOGICVAR) ? IR_LIT(st->args[_ai]).ival : -2; }
-        }
-        if (nd->op == IR_CELL_ITE) {
-            const pl_gz_ite_state_t * is = (const pl_gz_ite_state_t *)(intptr_t)IR_LIT(nd).ival;
-            g_emit.op_parts_n = is ? 1 : 0;
-            g_emit.op_parts_ival[0] = is ? (int64_t)is->gate_slot : -1;
-        }
-        return;
-    }
-    if (nd->op == IR_DET_THROW) {
-        g_emit.op_parts_ival[0] = IR_LIT(nd).ival;   /* the ball IR node (slot-mapped at build time) */
-        return;
-    }
-    if (nd->op == IR_CELL_CATCH) {
-        const pl_gz_catch_state_t *cst = (const pl_gz_catch_state_t *)(intptr_t)IR_LIT(nd).ival;
-        g_emit.op_parts_ival[0] = cst ? (int64_t)cst->mark_slot : -1;
-        g_emit.op_parts_ival[1] = cst ? (int64_t)(intptr_t)cst->catcher : 0;
-        return;
-    }
-    if (nd->op == IR_CELL_FINDALL) {
-        g_emit.bb_zn = (void *)nd;
-        const pl_gz_findall_state_t * fst = (const pl_gz_findall_state_t *)(intptr_t)IR_LIT(nd).ival;
-        g_emit.op_parts_n = fst ? 1 : 0;
-        pl_gz_call_state_t * cs = fst ? fst->call : (pl_gz_call_state_t *)0;
-        g_emit.op_parts_ival[0] = cs ? (int64_t)cs->child_slot : -1;
-        g_emit.op_parts_ival[1] = cs ? (int64_t)cs->nargs : 0;
-        g_emit.op_parts_ival[2] = (cs && cs->callee) ? (int64_t)(cs->callee->arity + cs->callee->nlocals + cs->callee->nchild) : 0;
-        g_emit.op_parts_ival[3] = (cs && cs->nargs > 0 && cs->args[0] && cs->args[0]->op == IR_LOGICVAR) ? (int64_t)IR_LIT(cs->args[0]).ival : -1;
-        g_emit.op_parts_ival[4] = (cs && cs->nargs > 1 && cs->args[1] && cs->args[1]->op == IR_LOGICVAR) ? (int64_t)IR_LIT(cs->args[1]).ival : -1;
-        g_emit.op_parts_ival[5] = (cs && cs->nargs > 2 && cs->args[2] && cs->args[2]->op == IR_LOGICVAR) ? (int64_t)IR_LIT(cs->args[2]).ival : -1;
-        g_emit.op_parts_ival[6] = fst ? (int64_t)fst->result_slot : -1;
-        g_emit.op_parts_ival[7] = fst ? (int64_t)fst->acc_slot : -1;
-        g_emit.op_parts_ival[8] = fst ? (int64_t)fst->is_fail : 0;
-        g_emit.op_parts_ival[9] = fst ? (int64_t)(intptr_t)fst->tmpl : 0;
-        g_emit.op_parts_ival[10] = fst ? (int64_t)fst->agg_mode : 0;
-        return;
-    }
-    if (nd->op == IR_DET_IS) {
-        const IR_t * l = bb_child0(nd);
-        const IR_t * r = bb_child1(nd);
-        long cval = 0, rc = 0;
-        int rslot = -1, bslot1 = -1, bslot2 = -1;
-        const char * rop = NULL, * bop = NULL;
-        g_emit.op_parts_n = 4;
-        for (int i = 0; i < 4; i++) g_emit.op_parts_ival[i] = 0;
-        g_emit.op_parts_str[0] = NULL;
-        if (!l || l->op != IR_LOGICVAR) { g_emit.op_parts_ival[0] = -1; return; }
-        g_emit.op_parts_ival[1] = (int64_t)IR_LIT(l).ival;
-        if (gz_arith_const_eval(r, &cval)) { g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[2] = (int64_t)cval; return; }
-        if (gz_arith_var_plus_const(r, &rslot, &rop, &rc)) { g_emit.op_parts_ival[0] = 1; g_emit.op_parts_ival[2] = (int64_t)rslot; g_emit.op_parts_ival[3] = (int64_t)rc; g_emit.op_parts_str[0] = rop; return; }
-        if (gz_arith_var_bivar(r, &bslot1, &bslot2, &bop)) { g_emit.op_parts_ival[0] = 2; g_emit.op_parts_ival[2] = (int64_t)bslot1; g_emit.op_parts_ival[3] = (int64_t)bslot2; g_emit.op_parts_str[0] = bop; return; }
-        { double fval = 0.0; if (gz_arith_float_eval(r, &fval)) { g_emit.op_parts_ival[0] = 3; memcpy(&g_emit.op_parts_ival[2], &fval, 8); return; } }
-        { double fval = 0.0;
-          if (r && r->op == IR_ARITH && IR_LIT(r).sval && ir_pair_arg(r,0) && !ir_pair_arg(r,1)) {
-              const char *op = IR_LIT(r).sval;
-              int is_int_of_float = strcmp(op,"truncate")==0||strcmp(op,"integer")==0||strcmp(op,"round")==0||strcmp(op,"ceiling")==0||strcmp(op,"floor")==0;
-              if (is_int_of_float && gz_arith_float_eval(ir_pair_arg(r,0), &fval)) {
-                  long iv = (strcmp(op,"truncate")==0||strcmp(op,"integer")==0) ? (long)fval : strcmp(op,"round")==0 ? (long)(fval+0.5) : strcmp(op,"ceiling")==0 ? (long)ceil(fval) : (long)floor(fval);
-                  g_emit.op_parts_ival[0] = 0; g_emit.op_parts_ival[2] = (int64_t)iv; return;
-              }
-          }
-        }
-        g_emit.op_parts_ival[0] = -2;
-        return;
-    }
-    if (nd->op == IR_DET_CMP) {
-        g_emit.op_sval = IR_LIT(nd).sval;
-        const IR_t * l = bb_child0(nd);
-        const IR_t * r = bb_child1(nd);
-        const char * op = g_emit.op_sval;
-        int arith = op && (!strcmp(op, "<") || !strcmp(op, ">") || !strcmp(op, ">=") || !strcmp(op, "=<") || !strcmp(op, "=:=") || !strcmp(op, "=\\="));
-        int tcmp  = op && (!strcmp(op, "@<") || !strcmp(op, "@>") || !strcmp(op, "@=<") || !strcmp(op, "@>=") || !strcmp(op, "==") || !strcmp(op, "\\=="));
-        g_emit.op_parts_n = 7;
-        for (int i = 0; i < 7; i++) g_emit.op_parts_ival[i] = 0;
-        if (!arith && !tcmp) { g_emit.op_parts_ival[0] = -1; return; }
-        if (tcmp) {
-            if (!l || !r) { g_emit.op_parts_ival[0] = -2; return; }
-            g_emit.op_parts_ival[0] = 3;
-            g_emit.op_parts_ival[1] = (l->op == IR_LOGICVAR) ? (int64_t)IR_LIT(l).ival : -1;
-            g_emit.op_parts_ival[2] = (r->op == IR_LOGICVAR) ? (int64_t)IR_LIT(r).ival : -1;
-            return;
-        }
-        if (!l || !r) { g_emit.op_parts_ival[0] = -2; return; }
-        if (l->op == IR_LIT_I && r->op == IR_LIT_I) {
-            long a = (long)IR_LIT(l).ival;
-            long b = (long)IR_LIT(r).ival;
-            int f = !strcmp(op, "<") ? (a < b) : !strcmp(op, ">") ? (a > b) : !strcmp(op, ">=") ? (a >= b) : !strcmp(op, "=<") ? (a <= b) : !strcmp(op, "=:=") ? (a == b) : (a != b);
-            g_emit.op_parts_ival[0] = f ? 1 : 0;
-            return;
-        }
-        g_emit.op_parts_ival[0] = 2;
-        g_emit.op_parts_ival[1] = (l->op == IR_LOGICVAR) ? 1 : 0;
-        g_emit.op_parts_ival[2] = (l->op == IR_LOGICVAR) ? (int64_t)IR_LIT(l).ival : 0;
-        g_emit.op_parts_ival[3] = (l->op != IR_LOGICVAR && l->op == IR_LIT_I) ? (int64_t)IR_LIT(l).ival : 0;
-        g_emit.op_parts_ival[4] = (r->op == IR_LOGICVAR) ? 1 : 0;
-        g_emit.op_parts_ival[5] = (r->op == IR_LOGICVAR) ? (int64_t)IR_LIT(r).ival : 0;
-        g_emit.op_parts_ival[6] = (r->op != IR_LOGICVAR && r->op == IR_LIT_I) ? (int64_t)IR_LIT(r).ival : 0;
-        return;
-    }
-    if (nd->op == IR_DET_TYPE_TEST) {
-        IR_t *a0 = bb_child0(nd);
-        g_emit.op_parts_n = 1;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_str[0]  = IR_LIT(nd).sval;
-        return;
-    }
-    if (nd->op == IR_DET_FUNCTOR || nd->op == IR_DET_ARG || nd->op == IR_DET_UNIV) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        IR_t *a2 = (nd->n_operands > 2) ? nd->operands[2] : NULL;
-        g_emit.op_parts_n = 3;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        g_emit.op_parts_ival[2] = a2 ? (int64_t)IR_LIT(a2).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_FORMAT) {
-        IR_t *a0 = bb_child0(nd);
-        g_emit.op_parts_n = 2;
-        g_emit.op_parts_str[0] = IR_LIT(nd).sval;
-        g_emit.op_parts_ival[0] = (int64_t)IR_LIT(nd).ival;
-        g_emit.op_parts_ival[1] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_SUCC_PLUS) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        IR_t *a2 = (nd->n_operands > 2) ? nd->operands[2] : NULL;
-        g_emit.op_parts_n = 4;
-        g_emit.op_parts_ival[0] = (int64_t)IR_LIT(nd).ival;
-        g_emit.op_parts_ival[1] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[2] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        g_emit.op_parts_ival[3] = a2 ? (int64_t)IR_LIT(a2).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_ATOM_OP) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        IR_t *a2 = (nd->n_operands > 2) ? nd->operands[2] : NULL;
-        g_emit.op_parts_n = 4;
-        g_emit.op_parts_str[0] = IR_LIT(nd).sval;
-        g_emit.op_parts_ival[0] = (int64_t)IR_LIT(nd).ival;
-        g_emit.op_parts_ival[1] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[2] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        g_emit.op_parts_ival[3] = a2 ? (int64_t)IR_LIT(a2).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_CHAR_TYPE) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        g_emit.op_parts_n = 2;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_SORT) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        g_emit.op_parts_n = 3;
-        g_emit.op_parts_ival[0] = IR_LIT(nd).ival;
-        g_emit.op_parts_ival[1] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[2] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_NUMBERVARS) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd), *a2 = (nd->n_operands > 2) ? nd->operands[2] : NULL;
-        g_emit.op_parts_n = 3;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        g_emit.op_parts_ival[2] = a2 ? (int64_t)IR_LIT(a2).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_TERM_STRING) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        g_emit.op_parts_n = 2;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_COPY_TERM) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        g_emit.op_parts_n = 2;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_NB_SETVAL || nd->op == IR_DET_NB_GETVAL) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        g_emit.op_parts_n = 2;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        g_emit.op_gva_k = (g_gva_active && IR_LIT(nd).sval) ? gva_index_of(IR_LIT(nd).sval) : -1;
-        return;
-    }
-    if (nd->op == IR_DET_RETRACT) {
-        IR_t *a0 = bb_child0(nd);
-        g_emit.op_parts_n = 1;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_ABOLISH) {
-        IR_t *a0 = bb_child0(nd), *a1 = bb_child1(nd);
-        g_emit.op_parts_n = 2;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[1] = a1 ? (int64_t)IR_LIT(a1).ival : -1;
-        return;
-    }
-    if (nd->op == IR_DET_ASSERTZ) {
-        IR_t *a0 = bb_child0(nd);
-        g_emit.op_parts_n = 1;
-        g_emit.op_parts_ival[0] = a0 ? (int64_t)IR_LIT(a0).ival : -1;
-        g_emit.op_parts_ival[1] = (int64_t)IR_LIT(nd).ival;
-        return;
-    }
-    if (nd->op == IR_CELL_DYNITER) {
-        g_emit.bb_zn = (void *)nd;
-        return;
-    }
+    (void) nd;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -838,7 +437,7 @@ int bb_call_route_classify(IR_t * nd) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_node_is_alt_arm(IR_t *nd) {
     if (!nd || !g_emit_cfg) return 0;
-    if (!(nd->γ.node && (nd->γ.node->op == IR_ALT || nd->γ.node->op == IR_MATCH_ALT))) return 0;
+    if (!(nd->γ.node && nd->γ.node->op == IR_ALT)) return 0;
     int na = 0;
     IR_t * const * arms = bb_operand_aux_get(g_emit_cfg, nd->γ.node, &na);
     for (int i = 0; i < na && arms; i++) if (arms[i] == nd) return 1;
@@ -894,7 +493,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c->op == IR_BINOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) { int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; } if (!present && qt < CH_MAX) queue[qt++] = nodes[i]->ω.node; }
@@ -910,11 +508,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c->op == IR_BINOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
     }
-    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i]; if (c && (c->op == IR_ASSIGN || c->op == IR_ASSIGN_LIT_S || c->op == IR_ASSIGN_LIT_I || c->op == IR_ASSIGN_VAR || c->op == IR_ASSIGN_CONCAT || c->op == IR_ASSIGN_CALL) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); if (c && c->op == IR_RASGN && c->n_operands > 0 && c->operands[0] && c->operands[0]->op == IR_VAR && IR_LIT(c->operands[0]).sval && !is_global(IR_LIT(c->operands[0]).sval)) (void)bb_varslot(IR_LIT(c->operands[0]).sval); } }
+    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i]; if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); if (c && c->op == IR_RASGN && c->n_operands > 0 && c->operands[0] && c->operands[0]->op == IR_VAR && IR_LIT(c->operands[0]).sval && !is_global(IR_LIT(c->operands[0]).sval)) (void)bb_varslot(IR_LIT(c->operands[0]).sval); } }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
@@ -990,29 +587,19 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_ALT:   return 0;
     case IR_REPALT: return 0;   /* |e — sub-expression is the lowerer-set operand[0], driven internally by flat_drive_repalt; result slot is REPALT's own (e's value copied in at yield) */
     case IR_GATHER: return 0;
-    case IR_MAP: case IR_GREP: return 0;
     case IR_GEN_SCAN: return 0;
     case IR_BINOP: case IR_TO: case IR_TO_BY: return 2;
     case IR_LIMIT: return 0;   /* push LIMIT result (so a consumer wires its arg to us) without rewriting our lowerer-set operands [generator, count, gen-entry]; the generator stays on-spine */
     case IR_CONJ:  return 0;   /* (e1;..;en) value = last conjunct's value; CONJ pushes its result (consumer wires to it) and keeps its lowerer-set operand [last-conjunct value-node]; slot aliased to that conjunct at emit */
     case IR_IDX_SET: return 3;
     case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
-    case IR_ASSIGN: case IR_ASSIGN_LIT_S: case IR_ASSIGN_LIT_I: case IR_ASSIGN_VAR: case IR_ASSIGN_CONCAT: case IR_ASSIGN_CALL: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
-    case IR_INDIRECT_ASSIGN_LIT_S: return 1;
-    case IR_INDIRECT_ASSIGN_VAR:   return 1;
+    case IR_ASSIGN: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
     case IR_RETURN: return 1;
     case IR_CALL_DEFINE: return 0;
     case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
     case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
     case IR_CALL:  return n->n_operands;
     case IR_PROC_GEN: return 0;
-    case IR_PATTERN_LIT: return 0;
-    case IR_PATTERN_LEN: case IR_PATTERN_POS: case IR_PATTERN_RPOS: case IR_PATTERN_TAB: case IR_PATTERN_RTAB: return 0;
-    case IR_PATTERN_ANY: case IR_PATTERN_NOTANY: case IR_PATTERN_SPAN: case IR_PATTERN_BREAK: case IR_PATTERN_BREAKX: return 0;
-    case IR_PATTERN_FAIL: case IR_PATTERN_REM: case IR_PATTERN_SUCCEED: case IR_PATTERN_FENCE: case IR_PATTERN_ABORT: case IR_PATTERN_ARB: return 0;
-    case IR_PATTERN_CAT: return 2;
-    case IR_PATTERN_ALT: return 2;
-    case IR_DTP_ASSIGN:  return 1;
     case IR_GOTO_DYN:    return 0;
     default:       return -1;
     }
@@ -1034,7 +621,6 @@ static void descr_chain_operand_refs(IR_t *entry) {
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
         if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
     }
@@ -1049,7 +635,6 @@ static void descr_chain_operand_refs(IR_t *entry) {
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_MAP || c->op == IR_GREP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
         if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
@@ -1059,7 +644,6 @@ static void descr_chain_operand_refs(IR_t *entry) {
         IR_t *n = chain[i];
         int ar = descr_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
-        if (ar == 1 && n->op == IR_SCAN && sp >= 1) { scan_set_subj_node(n, stk[sp - 1]); sp -= 1; }
         else if (ar >= 1 && sp >= ar) { if (n->n_operands < ar) { n->n_operands = 0; for (int k = ar; k >= 1; k--) ir_operand_push(n, stk[sp - k]); } sp -= ar; }
         else if (ar >= 1) { sp = 0; }
         stk[sp++] = n;
