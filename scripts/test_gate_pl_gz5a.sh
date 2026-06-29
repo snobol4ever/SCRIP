@@ -9,7 +9,7 @@
 # the body redo chain (δ). Caller const args materialize as synthetic query cells + unify-const.
 # Probes (admitted): m2 == m3 == m4 stdout BYTE-IDENTICAL, both branches on the new path.
 # Negatives: 2-clause rule pred + nested call decline IDENTICALLY via pl_gz_admit (m3 loud
-# fallback, m4 no gz labels) — recursion therefore stays excised until 5b's rt_enter ζ-tree.
+# fallback, m4 no gz labels) — recursion therefore stays declined until 5b's rt_enter ζ-tree.
 set -u
 cd "$(dirname "$0")/.."
 SCRIP=./scrip

@@ -14,7 +14,6 @@ void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
     CODE_t *prog = icn_parse_file(&parser, out_ast);
     if (parser.had_error) {
         fprintf(stderr, "icon: parse error in %s: %s\n", filename, parser.errmsg);
-        fprintf(stderr, "[SMX] icon front-end does not yet parse this program (unsupported syntax). EXCISED.\n");
         free(prog);
         if (out_ast) *out_ast = NULL;
         exit(1);
