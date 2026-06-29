@@ -297,7 +297,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         default:              bb_emit_x86(bb_binop_arith());       return 0;
         }
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
-    case IR_EVERY:                bb_emit_x86(bb_every());          return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_CONJ:                 bb_emit_x86(bb_conj());           return 0;
     case IR_RETURN: { extern int g_descr_flat_chain; if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0; g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }

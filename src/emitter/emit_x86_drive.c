@@ -90,9 +90,6 @@ void emit_x86_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t
         if (!already) (void) bb_slot_claim(g_emit.op_num_real ? 16 : 8);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_EVERY:
-        if (IR_LIT(nd).ival != 0) { drive_unowned(nd); break; }
-        DRIVE_PAIR_RESET(); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CONJ:
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
