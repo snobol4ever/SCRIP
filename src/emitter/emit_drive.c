@@ -17,7 +17,6 @@ extern int           is_global(const char *name);
 extern int           gva_index_of(const char *name);
 extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
-extern int           g_descr_flat_chain;
 /*====================================================================================================================*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define DRIVE_FILL(nd,s,f,b) do { \
