@@ -18,8 +18,8 @@ std::string bb_binop_gvar_relop() {
     if (PLATFORM_X86) {
         bool P = (g_gvar_flat_chain && _.op_off >= 0
                   && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE
-                  && (_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_LIT_NUL || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)
-                  && (_.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_LIT_NUL || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || _.op_sb >= 0));
+                  && (_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_OP_COUNT || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)
+                  && (_.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_OP_COUNT || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || _.op_sb >= 0));
         bool D = (_.op_relop_descr
                   && (_.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
                   && (_.bb_lk == (int)IR_CALL || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || (_.bb_lk == (int)IR_LIT_S && _.op_parts_lbl[0] != 0))
@@ -66,21 +66,21 @@ std::string bb_binop_gvar_relop() {
              + IF(!_.op_relop_descr && P,
                  x86("label", _.lbl_α)
                + x86("comment", "IR_BINOP_GVAR_RELOP")
-               + IF(_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_LIT_NUL, x86("mov", "rax", (long) _.bb_li))
+               + IF(_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_OP_COUNT, x86("mov", "rax", (long) _.bb_li))
                + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0,
                  x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
                + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int))
-               + IF(!(_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_LIT_NUL) && !(_.bb_lk == (int)IR_VAR && _.op_name1 != 0),
-                 x86("mov", "rax", FRQ(_.op_sa + ((_.bb_lk == (int)IR_CALL || _.bb_lk == (int)IR_VAR_FRAME || _.bb_lk == (int)IR_VAR_FRAME_REF) ? 8 : 0))))
-               + IF(_.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_LIT_NUL, x86("mov", "rcx", (long) _.bb_ri))
+               + IF(!(_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_OP_COUNT) && !(_.bb_lk == (int)IR_VAR && _.op_name1 != 0),
+                 x86("mov", "rax", FRQ(_.op_sa + ((_.bb_lk == (int)IR_CALL || _.bb_lk == (int)IR_OP_COUNT || _.bb_lk == (int)IR_OP_COUNT) ? 8 : 0))))
+               + IF(_.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_OP_COUNT, x86("mov", "rcx", (long) _.bb_ri))
                + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0,
                  x86("mov", FRQ(_.op_off), "rax")
                + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1])
                + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int)
                + x86("mov", "rcx", "rax")
                + x86("mov", "rax", FRQ(_.op_off)))
-               + IF(!(_.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_LIT_NUL) && !(_.bb_rk == (int)IR_VAR && _.op_name2 != 0),
-                 x86("mov", "rcx", FRQ(_.op_sb + ((_.bb_rk == (int)IR_CALL || _.bb_rk == (int)IR_VAR_FRAME || _.bb_rk == (int)IR_VAR_FRAME_REF) ? 8 : 0))))
+               + IF(!(_.bb_rk == (int)IR_LIT_I || _.bb_rk == (int)IR_OP_COUNT) && !(_.bb_rk == (int)IR_VAR && _.op_name2 != 0),
+                 x86("mov", "rcx", FRQ(_.op_sb + ((_.bb_rk == (int)IR_CALL || _.bb_rk == (int)IR_OP_COUNT || _.bb_rk == (int)IR_OP_COUNT) ? 8 : 0))))
                + x86("cmp", "rax", "rcx")
                + IF(_.op_ival == BINOP_LT, x86("jge", "ω"))
                + IF(_.op_ival == BINOP_LE, x86("jg",  "ω"))

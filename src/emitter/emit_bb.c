@@ -173,21 +173,21 @@ void bb_fill_alpha(IR_t *nd) {
     else                    emit_label_initf(a, "bb%d_α", nd ? bb_node_id(nd) : 0);
     g_emit.lbl_α   = a->name;
     g_emit.lbl_α_p = a;
-    if (nd && nd->op == IR_BINOP_GVAR_ARITH) { static char gvapool[3][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL; g_emit.op_parts_lbl[2] = NULL;
+    if (nd && nd->op == IR_OP_COUNT) { static char gvapool[3][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL; g_emit.op_parts_lbl[2] = NULL;
       if (g_emit.op_name1 && g_emit.op_name1[0]) { strtab_label(gvapool[0], 64, g_emit.op_name1); g_emit.op_parts_lbl[0] = gvapool[0]; }
       if (g_emit.op_name2 && g_emit.op_name2[0]) { strtab_label(gvapool[1], 64, g_emit.op_name2); g_emit.op_parts_lbl[1] = gvapool[1]; }
       if (g_emit.op_kind && !strcmp(g_emit.op_kind, "POW") && g_emit.op_sval && g_emit.op_sval[0]) { strtab_label(gvapool[2], 64, g_emit.op_sval); g_emit.op_parts_lbl[2] = gvapool[2]; } }
-    if (nd && nd->op == IR_BINOP_GVAR_ARITH_SLOT) { static char gvspool[2][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL;
+    if (nd && nd->op == IR_OP_COUNT) { static char gvspool[2][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL;
       if (g_emit.bb_lk == (int)IR_VAR && g_emit.op_name1 && g_emit.op_name1[0]) { strtab_label(gvspool[0], 64, g_emit.op_name1); g_emit.op_parts_lbl[0] = gvspool[0]; }
       if (g_emit.bb_rk == (int)IR_VAR && g_emit.op_name2 && g_emit.op_name2[0]) { strtab_label(gvspool[1], 64, g_emit.op_name2); g_emit.op_parts_lbl[1] = gvspool[1]; } }
-    if (nd && nd->op == IR_IDX) { static char idxgpool[2][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL;
+    if (nd && nd->op == IR_OP_COUNT) { static char idxgpool[2][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL;
       if (g_emit.op_name1 && g_emit.op_name1[0]) { strtab_label(idxgpool[0], 64, g_emit.op_name1); g_emit.op_parts_lbl[0] = idxgpool[0]; }
       if (g_emit.op_name2 && g_emit.op_name2[0]) { strtab_label(idxgpool[1], 64, g_emit.op_name2); g_emit.op_parts_lbl[1] = idxgpool[1]; } }
-    if (nd && nd->op == IR_IDX_SET) { static char idxspool[3][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL; g_emit.op_parts_lbl[2] = NULL;
+    if (nd && nd->op == IR_OP_COUNT) { static char idxspool[3][64]; g_emit.op_parts_lbl[0] = NULL; g_emit.op_parts_lbl[1] = NULL; g_emit.op_parts_lbl[2] = NULL;
       if (g_emit.op_name1 && g_emit.op_name1[0]) { strtab_label(idxspool[0], 64, g_emit.op_name1); g_emit.op_parts_lbl[0] = idxspool[0]; }
       if (g_emit.op_name2 && g_emit.op_name2[0]) { strtab_label(idxspool[1], 64, g_emit.op_name2); g_emit.op_parts_lbl[1] = idxspool[1]; }
       if (g_emit.op_parts_str[2] && g_emit.op_parts_str[2][0]) { strtab_label(idxspool[2], 64, g_emit.op_parts_str[2]); g_emit.op_parts_lbl[2] = idxspool[2]; } }
-    if (nd && nd->op == IR_CALL_DEFINE) { static char defpool[64]; g_emit.op_parts_lbl[0] = NULL;
+    if (nd && nd->op == IR_OP_COUNT) { static char defpool[64]; g_emit.op_parts_lbl[0] = NULL;
       int64_t narg = IR_LIT(nd).ival;
       IR_graph_t ** subs = (IR_graph_t **)0;
       IR_t * spec = (narg > 0 && subs && subs[0]) ? subs[0]->entry : NULL;
@@ -249,9 +249,9 @@ void bb_prepare(IR_t *nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int bb_arith_dyn_kind(IR_t *o) { return o && (o->op == IR_CALL || ir_is_call_kind(o->op) || o->op == IR_IDX); }
+static int bb_arith_dyn_kind(IR_t *o) { return o && (o->op == IR_CALL || ir_is_call_kind(o->op) || o->op == IR_OP_COUNT); }
 static int bb_arith_materializable(IR_t *o) {
-    return o && (o->op == IR_CALL || ir_is_call_kind(o->op) || o->op == IR_IDX || o->op == IR_LIT_I || (o->op == IR_VAR && IR_LIT(o).sval));
+    return o && (o->op == IR_CALL || ir_is_call_kind(o->op) || o->op == IR_OP_COUNT || o->op == IR_LIT_I || (o->op == IR_VAR && IR_LIT(o).sval));
 }
 int bb_arith_is_dynamic(IR_t *nd) {
     if (!nd || nd->op != IR_BINOP) return 0;
@@ -267,22 +267,22 @@ int bb_arith_is_dynamic(IR_t *nd) {
 int arith_emits_descr(IR_t *o) {
     if (!o || o->op != IR_BINOP || !bb_arith_is_dynamic(o)) return 0;
     IR_t *a = bb_child0(o), *b = bb_child1(o);
-    int a_ok = a && (a->op == IR_CALL || ir_is_call_kind(a->op) || a->op == IR_IDX || arith_emits_descr(a));
-    int b_ok = b && (b->op == IR_CALL || ir_is_call_kind(b->op) || b->op == IR_IDX || arith_emits_descr(b));
+    int a_ok = a && (a->op == IR_CALL || ir_is_call_kind(a->op) || a->op == IR_OP_COUNT || arith_emits_descr(a));
+    int b_ok = b && (b->op == IR_CALL || ir_is_call_kind(b->op) || b->op == IR_OP_COUNT || arith_emits_descr(b));
     return a_ok && b_ok;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-IR_e binop_slot_kind(IR_t *nd) {
+int binop_slot_kind(IR_t *nd) {
     int64_t op = nd ? IR_LIT(nd).ival : -1;
-    if ((op >= BINOP_LT && op <= BINOP_NE) || (op >= BINOP_SLT && op <= BINOP_SNE)) return IR_BINOP_RELOP;
-    if (op == BINOP_CONCAT)               return IR_BINOP_CONCAT;
-    if (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || op == BINOP_POW) return IR_BINOP_ARITH;
-    if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return IR_BINOP_ARITH;
-    return IR_BINOP;
+    if ((op >= BINOP_LT && op <= BINOP_NE) || (op >= BINOP_SLT && op <= BINOP_SNE)) return BINOP_CAT_RELOP;
+    if (op == BINOP_CONCAT)               return BINOP_CAT_CONCAT;
+    if (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || op == BINOP_POW) return BINOP_CAT_ARITH;
+    if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return BINOP_CAT_ARITH;
+    return BINOP_CAT_ARITH;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int descr_binop_opnd_slot(IR_t *o) {
-    return (o && o->op != IR_LIT_F && o->op != IR_LIT_NUL) ? bb_slot_get(o) : -1;
+    return (o && o->op != IR_LIT_F && o->op != IR_OP_COUNT) ? bb_slot_get(o) : -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth);
@@ -342,7 +342,7 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
 /* Emit e's value-operands (e.g. the from/to bounds of an IR_TO) so they get frame slots before e itself is walked.
    For a single-node value producer (literal, var) e has no operands and this is a no-op.  Mirrors case_slot_binop_operands. */
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* IR_REPALT — Icon repeated alternation `|e`.  The sub-expression e is the lowerer-set operand[0], driven INTERNALLY
+/* IR_OP_COUNT — Icon repeated alternation `|e`.  The sub-expression e is the lowerer-set operand[0], driven INTERNALLY
    here (it is NOT on the main spine), so flat_drive_repalt owns all four of e's edges.  Modelled on JCON ir_a_RepAlt:
    a one-bit `yielded` flag (frame slot at off+16, like bb_limit's counter) toggles JCON's MoveLabel/IndirectGoto.
      restart (= REPALT α / fresh start): yielded:=0; (re-)evaluate e's bounds; run e.
@@ -365,7 +365,7 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
     int bk = -1;
-    if (gi->op != IR_TO && gi->op != IR_TO_BY) return -1;
+    if (gi->op != IR_TO && gi->op != IR_OP_COUNT) return -1;
     for (int oi = 0; oi < gi->n_operands; oi++) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)gi->operands[oi] && ir_is_generator_kind(nodes[k]->op) && k > bk) bk = k;
     return bk;
 }
@@ -401,8 +401,8 @@ int bb_call_write_route(IR_t *nd) {
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
     if (g_descr_flat_chain && bb_slot_get(a0) >= 0) return 1;
-    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_ALT || a0->op == IR_VAR || a0->op == IR_NEG || a0->op == IR_POS || a0->op == IR_NONNULL || a0->op == IR_NULL_TEST || a0->op == IR_NOT || a0->op == IR_SIZE || a0->op == IR_CALL || ir_is_call_kind(a0->op) || a0->op == IR_CASE || a0->op == IR_FIELD_GET || a0->op == IR_LIST_BANG || a0->op == IR_KEY_GEN || a0->op == IR_LIMIT || a0->op == IR_IDX);
-    if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_TO_BY)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
+    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_OP_COUNT || a0->op == IR_ALT || a0->op == IR_VAR || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_NOT || a0->op == IR_OP_COUNT || a0->op == IR_CALL || ir_is_call_kind(a0->op) || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT);
+    if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_OP_COUNT)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
     if (wintexpr) return 4;
     if (a0->op == IR_LIT_S && IR_LIT(a0).sval) return 5;
     return 0;
@@ -491,9 +491,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->γ.node);
         if ((c->op == IR_BINOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_OP_COUNT || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if (c->op == IR_OP_COUNT && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if (c->op == IR_OP_COUNT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) { int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; } if (!present && qt < CH_MAX) queue[qt++] = nodes[i]->ω.node; }
     while (qh < qt) {
@@ -506,12 +506,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->γ.node);
         if ((c->op == IR_BINOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if (c->op == IR_GATHER && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_OP_COUNT || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if (c->op == IR_OP_COUNT && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
+        if (c->op == IR_OP_COUNT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
     }
-    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i]; if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); if (c && c->op == IR_RASGN && c->n_operands > 0 && c->operands[0] && c->operands[0]->op == IR_VAR && IR_LIT(c->operands[0]).sval && !is_global(IR_LIT(c->operands[0]).sval)) (void)bb_varslot(IR_LIT(c->operands[0]).sval); } }
+    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i]; if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); if (c && c->op == IR_OP_COUNT && c->n_operands > 0 && c->operands[0] && c->operands[0]->op == IR_VAR && IR_LIT(c->operands[0]).sval && !is_global(IR_LIT(c->operands[0]).sval)) (void)bb_varslot(IR_LIT(c->operands[0]).sval); } }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
@@ -520,7 +520,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         lbls[i]  = emit_label_alloc("xchain%d_n%d_α", id, i);
         betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
     }
-    for (int i = 0; i < n; i++) if (nodes[i]->op == IR_LIMIT) {
+    for (int i = 0; i < n; i++) if (nodes[i]->op == IR_OP_COUNT) {
         int loff = bb_slot_alloc16_or_get(nodes[i]);
         (void)bb_slot_claim(8);
         bb_emit_limit_init(loff);
@@ -547,14 +547,14 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             else { for (int gk = 0; gk < n; gk++) if (ir_is_generator_kind(nodes[gk]->op)) node_ω = betas[gk]; }
         }
         g_limit_gen_beta = NULL;
-        if (nodes[i]->op == IR_LIMIT && nodes[i]->n_operands > 0) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[0]) { g_limit_gen_beta = betas[k]; break; }
+        if (nodes[i]->op == IR_OP_COUNT && nodes[i]->n_operands > 0) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[0]) { g_limit_gen_beta = betas[k]; break; }
         g_suspend_dobody_beta = NULL;
-        if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[1]) { g_suspend_dobody_beta = lbls[k]; break; }
+        if (nodes[i]->op == IR_OP_COUNT && nodes[i]->n_operands > 1) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)nodes[i]->operands[1]) { g_suspend_dobody_beta = lbls[k]; break; }
         emit_drive(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
     { bb_label_t *resume_tgt = &lbl_ω;
-      for (int i = 0; i < n; i++) if (nodes[i]->op == IR_SUSPEND) { resume_tgt = betas[i]; break; }
+      for (int i = 0; i < n; i++) if (nodes[i]->op == IR_OP_COUNT) { resume_tgt = betas[i]; break; }
       emit_jmp_label(resume_tgt, JMP_JMP); }
     emit_label_define_bb(&lbl_γ);
     xa_dispatch(XA_FLAT_EPILOGUE);
@@ -576,31 +576,18 @@ static int g_text_child_counter = 0;static void pre_build_children_text(IR_t *nd
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int descr_chain_arity(const IR_t *n) {
     switch (n->op) {
-    case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
-    case IR_VAR:   case IR_KEYWORD: case IR_VAR_FRAME: case IR_VAR_FRAME_REF: return 0;
-    case IR_FIELD_GET: return 1;
-    case IR_FIELD_SET: return 0;
-    case IR_SECTION: return 0;
-    case IR_LIST_BANG: return 0;
-    case IR_KEY_GEN: return 0;
-    case IR_CASE: return 0;
+    case IR_LIT_I: case IR_LIT_S: case IR_LIT_F:
+    case IR_VAR:   case IR_KEYWORD: return 0;
     case IR_ALT:   return 0;
-    case IR_REPALT: return 0;   /* |e — sub-expression is the lowerer-set operand[0], driven internally by flat_drive_repalt; result slot is REPALT's own (e's value copied in at yield) */
-    case IR_GATHER: return 0;
-    case IR_GEN_SCAN: return 0;
-    case IR_BINOP: case IR_TO: case IR_TO_BY: return 2;
-    case IR_LIMIT: return 0;   /* push LIMIT result (so a consumer wires its arg to us) without rewriting our lowerer-set operands [generator, count, gen-entry]; the generator stays on-spine */
-    case IR_CONJ:  return 0;   /* (e1;..;en) value = last conjunct's value; CONJ pushes its result (consumer wires to it) and keeps its lowerer-set operand [last-conjunct value-node]; slot aliased to that conjunct at emit */
-    case IR_IDX_SET: return 3;
-    case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
-    case IR_ASSIGN: case IR_ASSIGN_FRAME: case IR_ASSIGN_FRAME_REF: return 1;
+    case IR_BINOP: case IR_TO: return 2;
+    case IR_CONJ:  return 0;
+    case IR_NOT:   return 1;
+    case IR_UNOP:  return 1;
+    case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;
-    case IR_CALL_DEFINE: return 0;
-    case IR_SCAN_POS: case IR_SCAN_ANY: case IR_SCAN_MATCH: case IR_SCAN_MANY: case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL:
     case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
     case IR_CALL:  return n->n_operands;
     case IR_PROC_GEN: return 0;
-    case IR_GOTO_DYN:    return 0;
     default:       return -1;
     }
 }
@@ -619,9 +606,9 @@ static void descr_chain_operand_refs(IR_t *entry) {
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_OP_COUNT) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if (c->op == IR_OP_COUNT && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if (c->op == IR_OP_COUNT && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
         if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
     }
     for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) { int present = 0; for (int j = 0; j < ns; j++) if (seen[j] == chain[i]->ω.node) { present = 1; break; } if (!present && sv < 512) stkv[sv++] = chain[i]->ω.node; }
@@ -633,10 +620,10 @@ static void descr_chain_operand_refs(IR_t *entry) {
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_CALL_DEFINE) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if (c->op == IR_GATHER && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_OP_COUNT) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if (c->op == IR_OP_COUNT && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
+        if (c->op == IR_OP_COUNT && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
         if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
     }
     IR_t *stk[512]; int sp = 0;
@@ -651,7 +638,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
 }
 void resolve_call_kinds_descr(IR_graph_t *g) {
     if (!g) return;
-    for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; int iscall = (nd->op == IR_CALL || nd->op == IR_CALL_DEFINE || ir_is_call_kind(nd->op));
+    for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; int iscall = (nd->op == IR_CALL || nd->op == IR_OP_COUNT || ir_is_call_kind(nd->op));
         if (nd->op == IR_CALL) { const char *fn = IR_LIT(nd).sval;
             if (fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) nd->op = IR_PROC_GEN;
             else if (fn && fn[0] && rt_proc_is_registered(fn)) nd->op = IR_CALL_PROC_STAGED;

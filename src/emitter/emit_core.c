@@ -273,7 +273,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     IR_t *op_a = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
     g_emit.op_a_sval = op_a ? IR_LIT(op_a).sval : (const char *)0;
     g_emit.op_a_node_kind = op_a ? (int)ir_norm_call_kind(op_a->op) : -1;
-    g_emit.op_a_slot = (op_a && op_a->op != IR_LIT_NUL) ? bb_slot_get(op_a) : -1;
+    g_emit.op_a_slot = (op_a != (IR_t *)0) ? bb_slot_get(op_a) : -1;
     g_emit.op_a_counter = 0;
     g_emit.op_a_ival_sg = op_a ? IR_LIT(op_a).ival : 0;
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
@@ -281,20 +281,19 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     switch (nd->op) {
     case IR_LIT_I:
     case IR_LIT_S:
-    case IR_LIT_F:
-    case IR_LIT_NUL:              bb_emit_x86(bb_lit_scalar());         return 0;
+    case IR_LIT_F:               bb_emit_x86(bb_lit_scalar());         return 0;
     case IR_KEYWORD:              bb_emit_x86(bb_keyword());            return 0;
     case IR_VAR:                  { extern int is_global(const char *); if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword()); else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global()); else bb_emit_x86(bb_var()); } return 0;
     case IR_ASSIGN: {
-        extern int g_descr_flat_chain; if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP || op_a->op == IR_UNOP || op_a->op == IR_VAR || op_a->op == IR_CALL || ir_is_call_kind(op_a->op))) { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
+        extern int g_descr_flat_chain; if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP || op_a->op == IR_VAR || op_a->op == IR_CALL || ir_is_call_kind(op_a->op))) { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
     case IR_BINOP:
         switch (g_emit.op_binop_kind) {
-        case IR_BINOP_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
-        case IR_BINOP_CONCAT: bb_emit_x86(bb_binop_concat_slot()); return 0;
-        case IR_BINOP_ARITH:
+        case BINOP_CAT_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
+        case BINOP_CAT_CONCAT: bb_emit_x86(bb_binop_concat_slot()); return 0;
+        case BINOP_CAT_ARITH:
         default:              bb_emit_x86(bb_binop_arith());       return 0;
         }
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
@@ -309,11 +308,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         return 0;
     }
     case IR_FAIL:            bb_emit_x86(bb_fail());                            return 0;
-    case IR_SIZE:
-    case IR_NEG:
-    case IR_POS:
-    case IR_NONNULL:
-    case IR_NULL_TEST:
     case IR_UNOP:
     case IR_NOT:                  bb_emit_x86(bb_unop());           return 0;
     default:

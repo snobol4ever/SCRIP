@@ -13,7 +13,7 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline int bgc_bareint(int k) { return k == (int)IR_BINOP || k == (int)IR_LIT_I || k == (int)IR_UNOP; }
+static inline int bgc_bareint(int k) { return k == (int)IR_BINOP || k == (int)IR_LIT_I || k == (int)IR_OP_COUNT; }
 static inline int bgc_ok() { return g_gvar_flat_chain && _.op_off >= 0 && _.op_ival == BINOP_CONCAT && _.op_sa >= 0 && _.op_sb >= 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_gvar_concat() {

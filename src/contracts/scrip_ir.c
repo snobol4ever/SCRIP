@@ -8,18 +8,11 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_LIT_I] = "IR_LIT_I",
     [IR_LIT_S] = "IR_LIT_S",
     [IR_LIT_F] = "IR_LIT_F",
-    [IR_LIT_NUL] = "IR_LIT_NUL",
     [IR_VAR] = "IR_VAR",
     [IR_ASSIGN] = "IR_ASSIGN",
     [IR_BINOP] = "IR_BINOP",
-    [IR_BINOP_RELOP] = "IR_BINOP_RELOP",
-    [IR_BINOP_ARITH] = "IR_BINOP_ARITH",
-    [IR_BINOP_GVAR_ARITH] = "IR_BINOP_GVAR_ARITH",
-    [IR_UNOP_GVAR_SLOT] = "IR_UNOP_GVAR_SLOT",
-    [IR_BINOP_CONCAT] = "IR_BINOP_CONCAT",
     [IR_UNOP] = "IR_UNOP",
     [IR_CALL] = "IR_CALL",
-    [IR_CALL_DEFINE] = "IR_CALL_DEFINE",
     [IR_CALL_PROC_STAGED] = "IR_CALL_PROC_STAGED",
     [IR_CALL_USERPROC] = "IR_CALL_USERPROC",
     [IR_CALL_BYNAME] = "IR_CALL_BYNAME",
@@ -32,69 +25,12 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_RETURN] = "IR_RETURN",
     [IR_IF] = "IR_IF",
     [IR_CONJ] = "IR_CONJ",
-    [IR_TO_BY] = "IR_TO_BY",
     [IR_EVERY] = "IR_EVERY",
-    [IR_WHILE] = "IR_WHILE",
-    [IR_UNTIL] = "IR_UNTIL",
-    [IR_REPEAT] = "IR_REPEAT",
     [IR_ALT] = "IR_ALT",
-    [IR_SIZE] = "IR_SIZE",
-    [IR_CASE] = "IR_CASE",
-    [IR_CASE_ARM] = "IR_CASE_ARM",
-    [IR_LIMIT] = "IR_LIMIT",
-    [IR_SUSPEND] = "IR_SUSPEND",
-    [IR_PROC] = "IR_PROC",
-    [IR_NONNULL] = "IR_NONNULL",
-    [IR_INTERROGATE] = "IR_INTERROGATE",
     [IR_NOT] = "IR_NOT",
-    [IR_CALLEE_FRAME] = "IR_CALLEE_FRAME",
-    [IR_GOTO_DYN] = "IR_GOTO_DYN",
     [IR_TO] = "IR_TO",
-    [IR_UPTO] = "IR_UPTO",
-    [IR_ITERATE] = "IR_ITERATE",
-    [IR_GEN_ALT] = "IR_GEN_ALT",
-    [IR_TO_NESTED] = "IR_TO_NESTED",
     [IR_PROC_GEN] = "IR_PROC_GEN",
-    [IR_BREAK] = "IR_BREAK",
-    [IR_NEXT] = "IR_NEXT",
-    [IR_NULL_TEST] = "IR_NULL_TEST",
-    [IR_NEG] = "IR_NEG",
-    [IR_POS] = "IR_POS",
-    [IR_CSET_COMPL] = "IR_CSET_COMPL",
-    [IR_CSET_UNION] = "IR_CSET_UNION",
-    [IR_CSET_DIFF] = "IR_CSET_DIFF",
-    [IR_CSET_INTER] = "IR_CSET_INTER",
-    [IR_GEN_SCAN] = "IR_GEN_SCAN",
     [IR_KEYWORD] = "IR_KEYWORD",
-    [IR_IDX] = "IR_IDX",
-    [IR_SECTION] = "IR_SECTION",
-    [IR_LIST_BANG] = "IR_LIST_BANG",
-    [IR_RECORD_DEF] = "IR_RECORD_DEF",
-    [IR_FIELD_GET] = "IR_FIELD_GET",
-    [IR_FIELD_SET] = "IR_FIELD_SET",
-    [IR_IDX_SET] = "IR_IDX_SET",
-    [IR_KEY_GEN] = "IR_KEY_GEN",
-    [IR_SWAP] = "IR_SWAP",
-    [IR_RASGN] = "IR_RASGN",
-    [IR_SEQ_EXPR] = "IR_SEQ_EXPR",
-    [IR_INITIAL] = "IR_INITIAL",
-    [IR_LCONCAT] = "IR_LCONCAT",
-    [IR_FIND_GEN] = "IR_FIND_GEN",
-    [IR_SEQ_GEN] = "IR_SEQ_GEN",
-    [IR_GATHER] = "IR_GATHER",
-    [IR_SCAN_ANY] = "IR_SCAN_ANY",
-    [IR_SCAN_MANY] = "IR_SCAN_MANY",
-    [IR_SCAN_MATCH] = "IR_SCAN_MATCH",
-    [IR_SCAN_UPTO] = "IR_SCAN_UPTO",
-    [IR_SCAN_FIND] = "IR_SCAN_FIND",
-    [IR_SCAN_BAL] = "IR_SCAN_BAL",
-    [IR_SCAN_TAB] = "IR_SCAN_TAB",
-    [IR_SCAN_MOVE] = "IR_SCAN_MOVE",
-    [IR_SCAN_POS] = "IR_SCAN_POS",
-    [IR_VAR_FRAME] = "IR_VAR_FRAME",
-    [IR_ASSIGN_FRAME] = "IR_ASSIGN_FRAME",
-    [IR_VAR_FRAME_REF] = "IR_VAR_FRAME_REF",
-    [IR_ASSIGN_FRAME_REF] = "IR_ASSIGN_FRAME_REF",
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
@@ -211,7 +147,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_LIT_NUL || op == IR_VAR || op == IR_BINOP || op == IR_UNOP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_VAR || op == IR_BINOP || op == IR_UNOP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -227,7 +163,7 @@ void ir_tmp_slot_assign_flat(IR_graph_t * g) {
     g->nvalue_slots = n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int jcon_converted_producer(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_LIT_NUL || op == IR_KEYWORD; }
+static int jcon_converted_producer(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_KEYWORD; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_jcon_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -266,8 +202,6 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) 
         case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_BINOP: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_SEQ: fprintf(fp, " parts(sub-graphs)"); break;
-        case IR_FIELD_GET:
-        case IR_FIELD_SET: fprintf(fp, " field=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         default:
             if (IR_LIT(bb).sval) fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval);
             else if (IR_LIT(bb).ival) fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival);
@@ -313,14 +247,7 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
       if (xd2) for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         if (!bb) continue;
-        if (bb->op == IR_GEN_SCAN && IR_LIT(bb).dval == 1.0) {
-            IR_graph_t * ssg = (IR_graph_t *)0;
-            IR_graph_t * bsg = (IR_graph_t *) 0;
-            if (ssg) { fprintf(fp, "; X scansubj node=%d\n", i); bb_print(ssg, fp); }
-            if (bsg) { fprintf(fp, "; X scanbody node=%d\n", i); bb_print(bsg, fp); }
-            continue;
-        }
-        if (bb->op != IR_CALL && bb->op != IR_CALL_DEFINE) continue;
+        if (bb->op != IR_CALL) continue;
         if (IR_LIT(bb).dval != 2.0 && IR_LIT(bb).dval != 3.0 && IR_LIT(bb).dval != 5.0) continue;
         IR_graph_t ** blks = (IR_graph_t **)0;
         if (!blks) continue;

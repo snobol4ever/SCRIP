@@ -4,7 +4,7 @@
 #include "emit.h"
 IR_t * bb_child0(const IR_t *n);
 IR_t * bb_child1(const IR_t *n);
-IR_e   binop_slot_kind(IR_t *nd);
+int    binop_slot_kind(IR_t *nd);
 int    bb_call_write_route(IR_t *nd);
 int    descr_binop_opnd_slot(IR_t *o);
 int    binop_is_num_real(IR_graph_t *g, IR_t *nd);

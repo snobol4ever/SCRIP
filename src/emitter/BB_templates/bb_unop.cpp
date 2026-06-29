@@ -16,11 +16,6 @@ enum unop_op { UO_NEG, UO_POS, UO_SIZE, UO_NONNULL, UO_NULL_TEST, UO_NOT, UO_UNH
 /*--------------------------------------------------------------------------------------------------------------------*/
 static unop_op bb_unop_resolve(int kind, int64_t sub) {
     switch (kind) {
-    case IR_NEG:       return UO_NEG;
-    case IR_POS:       return UO_POS;
-    case IR_SIZE:      return UO_SIZE;
-    case IR_NONNULL:   return UO_NONNULL;
-    case IR_NULL_TEST: return UO_NULL_TEST;
     case IR_NOT:       return UO_NOT;
     case IR_UNOP:
         switch ((int)sub) {

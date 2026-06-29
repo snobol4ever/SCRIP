@@ -57,14 +57,14 @@ static std::string pas_sl_setup(const char * fn) {
 static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
     if (!lf) return x86_bomb("marshal_varparam_addr: null arg head");
     std::string s;
-    if (lf->op == IR_VAR_FRAME) {
+    if (lf->op == IR_OP_COUNT) {
         int hops = (int) IR_LIT(lf).dval;
         int voff = 16 + (int) IR_LIT(lf).ival * 16;
         if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM cell addr of frame slot=%d hops=%d -> [r12+%d]", idx, (int) IR_LIT(lf).ival, hops, aoff));
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
         s += x86_reg_disp32_lea64("rax", "rax", voff);
-    } else if (lf->op == IR_VAR_FRAME_REF) {
+    } else if (lf->op == IR_OP_COUNT) {
         int hops = (int) IR_LIT(lf).dval;
         int voff = 16 + (int) IR_LIT(lf).ival * 16;
         if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM forward cell addr from ref slot=%d hops=%d -> [r12+%d]", idx, (int) IR_LIT(lf).ival, hops, aoff));
@@ -127,9 +127,9 @@ static int lits_int_val(IR_t * nd, long long * out) {
 static int arith_kind_ok(IR_t * nd) {
     if (!nd) return 0;
     if (nd->op == IR_LIT_S) { long long _v; return lits_int_val(nd, &_v); }
-    if (nd->op == IR_LIT_I || nd->op == IR_VAR_FRAME || nd->op == IR_VAR_FRAME_REF) return 1;
+    if (nd->op == IR_LIT_I || nd->op == IR_OP_COUNT || nd->op == IR_OP_COUNT) return 1;
     if (nd->op == IR_VAR && IR_LIT(nd).sval) return 1;
-    if (nd->op == IR_CALL || nd->op == IR_CALL_DEFINE || ir_is_call_kind(nd->op)) return 1;
+    if (nd->op == IR_CALL || nd->op == IR_OP_COUNT || ir_is_call_kind(nd->op)) return 1;
     if (arith_is_arith_binop(nd)) return 1;
     return 0;
 }
@@ -151,11 +151,11 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(a).sval) : -1;
         if (k >= 0) s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rax", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1)) + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
         else s += slow;
-    } else if (a->op == IR_VAR_FRAME) {
+    } else if (a->op == IR_OP_COUNT) {
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
         s += x86_reg_disp32_load64("rax", "rax", 16 + (int) IR_LIT(a).ival * 16 + 8);
-    } else if (a->op == IR_VAR_FRAME_REF) {
+    } else if (a->op == IR_OP_COUNT) {
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
         s += x86_reg_disp32_load64("rax", "rax", 16 + (int) IR_LIT(a).ival * 16 + 8);
@@ -165,7 +165,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
     } else if (a->op == IR_LIT_S) {
         long long av = 0; if (!lits_int_val(a, &av)) return x86_bomb("marshal inline-arith: non-numeric string left operand");
         s += x86_movabs_r64("rax", (uint64_t)av);
-    } else if (a->op == IR_CALL || a->op == IR_CALL_DEFINE || ir_is_call_kind(a->op)) {
+    } else if (a->op == IR_CALL || a->op == IR_OP_COUNT || ir_is_call_kind(a->op)) {
         int sc = bb_slot_alloc16(a);
         s += marshal_single_call(a, sc, bb_node_id(a));
         s += x86_frame_load64("rax", sc + 8);
@@ -185,12 +185,12 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(b).sval) : -1;
         if (k >= 0) s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rcx", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1)) + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
         else s += slow;
-    } else if (b->op == IR_VAR_FRAME) {
+    } else if (b->op == IR_OP_COUNT) {
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
         s += x86_reg_disp32_load64("rax", "rax", 16 + (int) IR_LIT(b).ival * 16 + 8);
         s += x86("mov", "rcx", "rax");
-    } else if (b->op == IR_VAR_FRAME_REF) {
+    } else if (b->op == IR_OP_COUNT) {
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
         s += x86_reg_disp32_load64("rax", "rax", 16 + (int) IR_LIT(b).ival * 16 + 8);
@@ -201,7 +201,7 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
     } else if (b->op == IR_LIT_S) {
         long long bv = 0; if (!lits_int_val(b, &bv)) return x86_bomb("marshal inline-arith: non-numeric string right operand");
         s += x86_movabs_r64("rcx", (uint64_t)bv);
-    } else if (b->op == IR_CALL || b->op == IR_CALL_DEFINE || ir_is_call_kind(b->op)) {
+    } else if (b->op == IR_CALL || b->op == IR_OP_COUNT || ir_is_call_kind(b->op)) {
         int sc = bb_slot_alloc16(b);
         s += marshal_single_call(b, sc, bb_node_id(b));
         s += x86_frame_load64("rcx", sc + 8);
@@ -326,7 +326,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             s += x86_frame_store64(aoff + 8, "rax");
             return s;
         }
-        if (fin && fin->op == IR_UNOP && (IR_LIT(fin).ival == TT_MNS || IR_LIT(fin).ival == TT_PLS)) {
+        if (fin && fin->op == IR_OP_COUNT && (IR_LIT(fin).ival == TT_MNS || IR_LIT(fin).ival == TT_PLS)) {
             IR_t * ua = ir_pair_arg(fin, 0);
             if (!ua) { int na = 0; IR_t * const * aux = bb_operand_aux_get(sg, fin, &na); if (aux && na >= 1) ua = aux[0]; }
             if (ua && ua->op == IR_LIT_S && IR_LIT(ua).sval) {
@@ -473,7 +473,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_frame_store64(aoff + 8, "rax");
         return s;
     }
-    if (lf->op == IR_LIT_NUL) {
+    if (lf->op == IR_OP_COUNT) {
         std::string s;
         s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_NUL -> [r12+%d]", idx, aoff)));
         s += x86("mov", FRQ(aoff), (long)0);
@@ -492,7 +492,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_deflabel_id(nskip);
         return s;
     }
-    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_CALL_DEFINE || ir_is_call_kind(lf->op)) { int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_CALL_USERPROC || lf->op == IR_CALL_GVAR_USERPROC || lf->op == IR_PROC_GEN); if (owner && owner == _.node && staged && bb_slot_get(lf) >= 0) { int ps = bb_slot_get(lf); std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = spine call-result slot [r12+%d] -> [r12+%d]", idx, ps, aoff))); s += x86_frame_load64("rax", ps) + x86_frame_store64(aoff, "rax"); s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax"); return s; } return marshal_single_call(lf, aoff, bb_node_id(lf)); }
+    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_OP_COUNT || ir_is_call_kind(lf->op)) { int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_CALL_USERPROC || lf->op == IR_CALL_GVAR_USERPROC || lf->op == IR_PROC_GEN); if (owner && owner == _.node && staged && bb_slot_get(lf) >= 0) { int ps = bb_slot_get(lf); std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = spine call-result slot [r12+%d] -> [r12+%d]", idx, ps, aoff))); s += x86_frame_load64("rax", ps) + x86_frame_store64(aoff, "rax"); s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax"); return s; } return marshal_single_call(lf, aoff, bb_node_id(lf)); }
     if (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && is_global(IR_LIT(lf).sval)) {
         std::string s;
         if (MEDIUM_TEXT) {

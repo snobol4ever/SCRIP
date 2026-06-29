@@ -45,7 +45,7 @@ static void drive_unowned(IR_t *nd) {
 void emit_x86_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_unowned(nd); return; }
     switch (nd->op) {
-    case IR_LIT_S: case IR_LIT_I: case IR_LIT_F: case IR_LIT_NUL:
+    case IR_LIT_S: case IR_LIT_I: case IR_LIT_F:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -66,7 +66,7 @@ void emit_x86_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd); g_emit.op_binop_kind = (int)binop_slot_kind(nd);
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_UNOP: case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NULL_TEST: case IR_SIZE: case IR_NOT: {
+    case IR_UNOP: case IR_NOT: {
         int sa = descr_binop_opnd_slot(bb_child0(nd));
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;

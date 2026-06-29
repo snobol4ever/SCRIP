@@ -12,7 +12,7 @@ int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline int64_t bb_to_by() { return (_.op_node_kind == (int)IR_TO_BY && _.op_ival) ? _.op_ival : 1; }
+static inline int64_t bb_to_by() { return (_.op_node_kind == (int)IR_OP_COUNT && _.op_ival) ? _.op_ival : 1; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to() {
     x86_begin();

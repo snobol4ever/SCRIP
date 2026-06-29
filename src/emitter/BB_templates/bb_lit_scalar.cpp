@@ -46,14 +46,6 @@ std::string bb_lit_scalar() {
              + x86("def", "β")
              + x86("jmp", "ω")
              + x86_ro_seal_q(0, blsc_bits(_.op_dval));
-    if (live && _.op_node_kind == (int)IR_LIT_NUL && _.op_off >= 0)
-        return x86("comment", "IR_LIT_NUL")
-             + x86("label",   _.lbl_α)
-             + x86("mov",    FRQ(_.op_off), (long)DT_SNUL)
-             + x86("mov",    FRQ(_.op_off + 8), (long)0)
-             + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω");
     return x86("comment", "IR_LIT_scalar")
          + x86("label",   _.lbl_α)
          + x86("jmp", "γ")
