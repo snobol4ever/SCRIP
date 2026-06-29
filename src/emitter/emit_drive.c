@@ -41,7 +41,7 @@ static void drive_unowned(IR_t *nd) {
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void emit_drive_node(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_unowned(nd); return; }
     switch (nd->op) {
     case IR_LIT_S: case IR_LIT_I: case IR_LIT_F: case IR_LIT_NUL:
