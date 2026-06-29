@@ -126,7 +126,6 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp \
     $(SRC)/emitter/emit_bb.c \
     $(SRC)/emitter/emit_drive.c \
-    $(SRC)/emitter/emit_x86_drive.c \
     $(SRC)/opt/gva_collect.c \
     $(SRC)/opt/proc_collect.c \
     $(SRC)/opt/ir_query.c \
@@ -353,7 +352,6 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/ir_query.c -o $(OBJ)/ir_query.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_bb.c -o $(OBJ)/emit_bb.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_drive.c -o $(OBJ)/emit_drive.o
-	$(CC) $(CRT)   -c $(SRC)/emitter/emit_x86_drive.c -o $(OBJ)/emit_x86_drive.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
