@@ -2749,10 +2749,14 @@ int bb_call_write_route(IR_t *nd) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 int bb_call_route_classify(IR_t * nd) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int64_t narg = g_emit.op_ival; IR_t * a0 = ir_call_arg(nd, 0); double dv = g_emit.op_dval;
+    IR_e k = nd ? nd->op : IR_CALL;
+    /* op-field call-kind (resolved at pre-emit time from the proc/builtin name tables, no dval tag) wins first */
+    if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
+    if (g_descr_flat_chain && k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
+    if (g_gvar_flat_chain && k == IR_CALL_GVAR_USERPROC) return CALL_ROUTE_GVAR_USERPROC;
+    if (k == IR_CALL_BUILTIN && g_emit.op_write_route == 0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (g_descr_flat_chain && dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (g_descr_flat_chain && dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
-    /* Generators (find/seq/upto/…) and list mutators (push/put) are excluded from rt_builtin_is_known
-       but rt_call_arr handles them — route through BYNAME for dv==2.0 and dv==3.0 (subgraph mode). */
     /* A user-defined generator proc that happens to share a builtin name (e.g. `upto`) must route as a
        proc generator, not the builtin — registered+generator wins over rt_builtin_is_generator below. */
     if (g_descr_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
@@ -3724,14 +3728,11 @@ static void descr_chain_operand_refs(IR_t *entry) {
 void resolve_call_kinds_descr(IR_graph_t *g) {
     if (!g) return;
     for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; int iscall = (nd->op == IR_CALL || nd->op == IR_CALL_DEFINE || ir_is_call_kind(nd->op));
-        if (nd->op == IR_CALL) { const char *fn = IR_LIT(nd).sval; double dv = IR_LIT(nd).dval;
-            if (fn && fn[0] && dv == 3.0 && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) nd->op = IR_PROC_GEN;
-            else if (fn && fn[0] && dv == 3.0 && rt_proc_is_registered(fn)) nd->op = IR_CALL_PROC_STAGED;
-            else if (fn && fn[0] && dv != 2.0 && strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN;
-            /* Generators (find/seq/upto/…) and list mutators (push/put) stay dv==2.0 and are excluded
-               from rt_builtin_is_known, but rt_call_arr handles them — tag as BUILTIN so they get
-               the flat_drive_call_builtin path (arg-walk + EMIT_PAIR_FILL) instead of raw FILL. */
-            else if (fn && fn[0] && dv == 2.0 && rt_builtin_is_generator(fn)) nd->op = IR_CALL_BUILTIN; }
+        if (nd->op == IR_CALL) { const char *fn = IR_LIT(nd).sval;
+            if (fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) nd->op = IR_PROC_GEN;
+            else if (fn && fn[0] && rt_proc_is_registered(fn)) nd->op = IR_CALL_PROC_STAGED;
+            else if (fn && fn[0] && rt_builtin_is_generator(fn)) nd->op = IR_CALL_BUILTIN;
+            else if (fn && fn[0] && strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN; }
         if (iscall && (IR_LIT(nd).dval == 2.0 || IR_LIT(nd).dval == 3.0 || IR_LIT(nd).dval == 5.0)) { IR_graph_t **bk = (IR_graph_t **)0;
             if (bk) for (int j = 0; j < (int) IR_LIT(nd).ival; j++) if (bk[j]) resolve_call_kinds_descr(bk[j]); } }
 }
