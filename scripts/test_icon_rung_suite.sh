@@ -8,12 +8,12 @@
 # DEFAULT) every corpus program is run through all three engine paths against its .expected:
 #   interp  (Mode 2, --run)                 — reference oracle — HARD GATE (PASS must be >= previous).
 #   run     (Mode 3, --run, stackless native)  — TRACKED. A shape with no native template DECLINES LOUD
-#                                                 with the [SMX] banner -> counted EXCISED (NOT a FAIL).
+#                                                 with the [SMX] banner -> counted DECLINED (NOT a FAIL).
 #   compile (Mode 4, --compile --target=x86)   — emit .s -> as -> link out/libscrip_rt.so -> exec.
-#                                                 TRACKED, same [SMX] -> EXCISED rule.
-# A mode-3/4 run whose stderr carries the [SMX] excision banner is reported EXCISED (expected mid-Ground
+#                                                 TRACKED, same [SMX] -> DECLINED rule.
+# A mode-3/4 run whose stderr carries the [SMX] decline banner is reported DECLINED (expected mid-Ground
 # -Zero, NOT FAIL) and auto-resumes counting toward PASS the moment that box family gets a native template.
-# This is the Icon twin of test_prolog_rung_suite.sh; the [SMX]->EXCISED mechanism is identical.
+# This is the Icon twin of test_prolog_rung_suite.sh; the [SMX]->DECLINED mechanism is identical.
 # Pass --mode interp|run|compile to run a single mode. This is the THREE-MODE source of truth for the Icon
 # rung ladder (test_icon_all_rungs.sh remains the mode-2-only category-tally view).
 #
@@ -71,7 +71,7 @@ run_prog() {
         compile)
             s="$WORK/$name.s"; o="$WORK/$name.o"; bin="$WORK/${name}_bin"
             if ! timeout "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>"$errf"; then
-                return 1   # emit failed; a loud [SMX] banner in errf still wins (EXCISED) in run_corpus
+                return 1   # emit failed; a loud [SMX] banner in errf still wins (DECLINED) in run_corpus
             fi
             # a loud [SMX] decline prints to stderr and emits no usable .s — surface the banner, no asm step
             if grep -qE "$SMX_SIG" "$errf"; then return 0; fi
@@ -105,7 +105,7 @@ collect_files() {
 # run the whole collected set in one mode; sets MODE_FAIL=1 on any FAIL
 run_corpus() {
     local mode="$1"
-    local PASS=0 FAIL=0 XFAIL=0 EXCISED=0
+    local PASS=0 FAIL=0 XFAIL=0 DECLINED=0
     MODE_FAIL=0
     local icn base name exp got want errf rc
     errf="$WORK/err.txt"
@@ -120,10 +120,10 @@ run_corpus() {
         fi
         : > "$errf"
         got=$(run_prog "$mode" "$icn" 8 "$errf"); rc=$?
-        # loud-decline -> EXCISED (expected mid-Ground-Zero, NOT a FAIL). interp never declines.
+        # loud-decline -> DECLINED (expected mid-Ground-Zero, NOT a FAIL). interp never declines.
         if [ "$mode" != interp ] && grep -qE "$SMX_SIG" "$errf"; then
-            [ "$VERBOSE" = 1 ] && echo "EXCISED $name"
-            EXCISED=$((EXCISED+1)); continue
+            [ "$VERBOSE" = 1 ] && echo "DECLINED $name"
+            DECLINED=$((DECLINED+1)); continue
         fi
         # SUITE-HONESTY (GOAL-ICON-BB 2026-06-03): a nonzero exit without the [SMX] banner is a FAIL in
         # EVERY mode (m2 included), even when stdout happens to match .expected — kills the vacuous pass
@@ -145,8 +145,8 @@ run_corpus() {
             FAIL=$((FAIL+1)); MODE_FAIL=1
         fi
     done
-    if [ "$EXCISED" -gt 0 ]; then
-        echo "--- Icon ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL EXCISED=$EXCISED TOTAL=$((PASS+FAIL+XFAIL+EXCISED)) ---"
+    if [ "$DECLINED" -gt 0 ]; then
+        echo "--- Icon ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL DECLINED=$DECLINED TOTAL=$((PASS+FAIL+XFAIL+DECLINED)) ---"
     else
         echo "--- Icon ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
     fi

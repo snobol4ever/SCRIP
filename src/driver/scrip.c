@@ -332,11 +332,11 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
                     if (!arm || arm->op != IR_CASE_ARM || arm->n_operands < 1 || !arm->operands[0]) return 0;
                 }
             }
-            if (nd->op == IR_SUSPEND && (nd->n_operands < 1 || !nd->operands[0])) return 0; /* admit user-defined generator suspend only when the expr-value operand is present (the resume-spine: bb_suspend yields operand[0], β runs operand[1] do-body; native driver landed — pieces 1-5 of DESIGN-ICON-SUSPEND); a malformed suspend with no value operand still EXCISES */
-            if (0 && nd->op == IR_IDX_SET) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> clean EXCISE, never abort */
-            if (nd->op == IR_RASGN) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_RASGN + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> clean EXCISE, never silently wrong, until flat-chain rhs slotting is fixed */
+            if (nd->op == IR_SUSPEND && (nd->n_operands < 1 || !nd->operands[0])) return 0; /* admit user-defined generator suspend only when the expr-value operand is present (the resume-spine: bb_suspend yields operand[0], β runs operand[1] do-body; native driver landed — pieces 1-5 of DESIGN-ICON-SUSPEND); a malformed suspend with no value operand still REJECTED pre-emission */
+            if (0 && nd->op == IR_IDX_SET) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> pre-emission reject, never abort */
+            if (nd->op == IR_RASGN) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_RASGN + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> pre-emission reject, never silently wrong, until flat-chain rhs slotting is fixed */
             if (nd->op == IR_MAP || nd->op == IR_GREP) return 0;
-            if (nd->op == IR_FIELD_SET) { IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_GEN_SCAN) return 0; } /* generator-RHS field-set: rhs slot unfilled (bb_field_set bombs) -> clean EXCISE until generator-into-field value-flow built */
+            if (nd->op == IR_FIELD_SET) { IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_GEN_SCAN) return 0; } /* generator-RHS field-set: rhs slot unfilled (bb_field_set bombs) -> pre-emission reject until generator-into-field value-flow built */
             /* field-get→binop: FIXED — IR_FIELD_GET is now arity-1 in descr_chain_arity, so it consumes its object operand off the RPN stack and the binop reads the field-get result slot (not the leaked object var). veto removed. */
             if (nd->op == IR_SWAP) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0; }
@@ -353,7 +353,7 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
                   int lhs_global = is_global(IR_LIT(nd).sval);
                   if (lhs_global) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
                   else if (local_assign_rhs_ok_g(g, nd)) { /* wave-1 local assign: bb_assign_local (lit/var/binop rhs) */ }
-                  else return 0; /* other rhs shapes: native store arm not built -> clean EXCISE, never abort */
+                  else return 0; /* other rhs shapes: native store arm not built -> pre-emission reject, never abort */
               } }
             if (has_alt) {
                 if (!alt_safe_kind(nd->op)) return 0;
@@ -2767,7 +2767,7 @@ int main(int argc, char **argv)
             if (is_icon) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
-                                "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
+                                "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
@@ -3316,7 +3316,7 @@ int main(int argc, char **argv)
         }
     }
     if (mode_compile && target_name && strcmp(target_name, "x86") != 0) {
-        fprintf(stderr, "[SMX] --target=%s removed (Stack-Machine codegen excised).\n",
+        fprintf(stderr, "[SMX] --target=%s removed (Stack-Machine codegen removed).\n",
                 target_name ? target_name : "?");
         ast_tree_free(ast_prog); ast_prog = NULL;
         return 1;
@@ -3370,7 +3370,7 @@ int main(int argc, char **argv)
             if (is_icon) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
-                                "(a box has no MEDIUM_BINARY arm — Raku map/grep). EXCISED — native BB emission pending (no interpreter fallback).\n");
+                                "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -3475,7 +3475,7 @@ int main(int argc, char **argv)
         }
         {
             if (is_prolog) {
-                fprintf(stderr, "[SMX] FATAL: Stack Machine excised. Prolog mode-3 (--run) "
+                fprintf(stderr, "[SMX] FATAL: Stack Machine removed. Prolog mode-3 (--run) "
                                 "native execution is gone. This language has not yet crossed "
                                 "onto Byrd Boxes. Aborting (by design).\n");
                 (void)s2;
