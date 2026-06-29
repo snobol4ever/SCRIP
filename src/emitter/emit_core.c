@@ -358,7 +358,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;
     g_emit.op_counter = 0;
-    IR_t *op_a = (nd->op != IR_SCAN) ? ((nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0) : ((nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0);
+    IR_t *op_a = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
     g_emit.op_a_sval = op_a ? IR_LIT(op_a).sval : (const char *)0;
     g_emit.op_a_node_kind = op_a ? (int)ir_norm_call_kind(op_a->op) : -1;
     g_emit.op_a_slot = (op_a && op_a->op != IR_LIT_NUL) ? bb_slot_get(op_a) : -1;
@@ -367,104 +367,17 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
     { extern int arith_emits_descr(IR_t *nd); g_emit.op_a_descr = arith_emits_descr(op_a) ? 1 : 0; }
     switch (nd->op) {
-    case IR_MATCH_LIT:         bb_emit_x86(bb_lit());               return 0;
-    case IR_MATCH_ANY:         bb_emit_x86(bb_match_any());           return 0;
-    case IR_MATCH_NOTANY:      bb_emit_x86(bb_match_notany());        return 0;
-    case IR_MATCH_SPAN:        bb_emit_x86(bb_match_span());            return 0;
-    case IR_MATCH_BREAK:       bb_emit_x86(bb_match_break());           return 0;
-    case IR_MATCH_BREAKX:      bb_emit_x86(bb_match_breakx());          return 0;
-    case IR_MATCH_ARB:         bb_emit_x86(bb_match_arb());             return 0;
-    case IR_MATCH_CAT:         bb_emit_x86(bb_match_cat());             return 0;
-    case IR_MATCH_ALT:         bb_emit_x86(bb_match_alt());             return 0;
-    case IR_MATCH_LEN:         bb_emit_x86(bb_match_len());           return 0;
-    case IR_MATCH_POS:         bb_emit_x86(bb_match_pos());             return 0;
-    case IR_MATCH_TAB:         bb_emit_x86(bb_match_tab());             return 0;
-    case IR_MATCH_RTAB:        bb_emit_x86(bb_match_rtab());            return 0;
-    case IR_MATCH_SPAN_VAR:    bb_emit_x86(bb_match_span_var());        return 0;
-    case IR_MATCH_ATP:         bb_emit_x86(bb_match_atp());             return 0;
-    case IR_MATCH_REM:         bb_emit_x86(bb_match_rem());           return 0;
-    case IR_MATCH_FENCE:       bb_emit_x86(bb_match_fence());           return 0;
-    case IR_MATCH_ABORT:       bb_emit_x86(bb_match_abort());           return 0;
-    case IR_MATCH_ARBNO:       bb_emit_x86(bb_match_arbno());             return 0;
-    case IR_SUBJECT:         bb_emit_x86(bb_subject());             return 0;
-    case IR_MATCH_HEAD:    bb_emit_x86(bb_match_head());        return 0;
-    case IR_MATCH_RETRY:   bb_emit_x86(bb_match_retry());       return 0;
-    case IR_MATCH_ADVANCE: bb_emit_x86(bb_match_advance());     return 0;
-    case IR_PATTERN_LIT:     bb_emit_x86(bb_pattern_lit());                                                                                             return 0;
-    case IR_PATTERN_ANY:     bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_NOTANY:  bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_SPAN:    bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_BREAK:   bb_emit_x86(bb_pattern_break());                                                                                           return 0;
-    case IR_PATTERN_BREAKX:  bb_pattern_stub("bb_pattern_unary_s: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_LEN:     bb_emit_x86(bb_pattern_len());                                                                                             return 0;
-    case IR_PATTERN_POS:     bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_RPOS:    bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_TAB:     bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_RTAB:    bb_pattern_stub("bb_pattern_unary_i: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_ARB:     bb_pattern_stub("bb_pattern_arb: DT_P builder pending (DDS)");                                                             return 0;
-    case IR_PATTERN_BAL:     bb_pattern_stub("bb_pattern_bal: builder pending (B7b)");                    return 0;
-    case IR_PATTERN_ABORT:   bb_pattern_stub("bb_pattern_nullary: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_FENCE:   bb_pattern_stub("bb_pattern_nullary: DT_P builder pending (DDS)");                                                        return 0;
-    case IR_PATTERN_FAIL: case IR_PATTERN_REM: case IR_PATTERN_SUCCEED: bb_pattern_stub("bb_pattern_nullary: DT_P builder pending (DDS)");             return 0;
-    case IR_PATTERN_ARBNO:   bb_pattern_stub("bb_pattern_arbno: builder pending (B9)");                   return 0;
-    case IR_PATTERN_FENCE_P: bb_pattern_stub("bb_pattern_fence_p: builder pending (B9)");                 return 0;
-    case IR_PATTERN_CAT: {
-        if (g_emit.pat_via_dtp) {
-            bb_pattern_stub("bb_pattern_cat: non-frozen stored CAT shape (invariant CATs freeze upstream; structural-variance stitch pending)");
-            return 0;
-        }
-        bb_emit_x86(bb_pattern_cat());   /* chain-entry passthrough */
-        return 0;
-    }
-    case IR_REF_INVARIANT:   bb_emit_x86(bb_ref_invariant());                                                                                           return 0;
-    case IR_PATTERN_ALT:     bb_pattern_stub("bb_pattern_alt: DT_P builder pending (DDS)");                                                            return 0;
-    case IR_PATTERN_CAPTURE: bb_emit_x86(bb_pattern_capture());                                                                                         return 0;
-    case IR_PATTERN_DEFER:   bb_pattern_stub("bb_pattern_defer: builder pending (B10)");                  return 0;
-    case IR_DTP_ASSIGN:      { const char *vn = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; g_emit.bb_ls = vn; IR_t *child = (nd->n_operands > 0) ? nd->operands[0] : NULL; if (child) { g_emit.pat_via_dtp = 1; int rc = walk_bb_node(child, out); g_emit.pat_via_dtp = 0; return rc; } return 0; }
-    case IR_MATCH_ASSIGN_COND:
-    case IR_MATCH_ASSIGN_IMM:  bb_emit_x86(bb_match_capture());         return 0;
-    case IR_ARITH:           bb_prepare(nd); bb_emit_x86(bb_arith());           return 0;
     case IR_LIT_I:
     case IR_LIT_S:
     case IR_LIT_F:
     case IR_LIT_NUL:              bb_emit_x86(bb_lit_scalar());         return 0;
+    case IR_KEYWORD:              bb_emit_x86(bb_keyword());            return 0;
     case IR_VAR:                  { extern int is_global(const char *); if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword()); else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global()); else bb_emit_x86(bb_var()); } return 0;
     case IR_ASSIGN: {
-        extern int g_descr_flat_chain; if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP || op_a->op == IR_UNOP || op_a->op == IR_VAR || op_a->op == IR_VAR_FRAME || op_a->op == IR_VAR_FRAME_REF || op_a->op == IR_CALL || ir_is_call_kind(op_a->op) || op_a->op == IR_CALL_DEFINE || op_a->op == IR_IDX)) { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
+        extern int g_descr_flat_chain; if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP || op_a->op == IR_UNOP || op_a->op == IR_VAR || op_a->op == IR_CALL || ir_is_call_kind(op_a->op))) { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
-    case IR_ASSIGN_LIT_S: { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_lit_s()); return 0; }
-    case IR_INDIRECT_ASSIGN_LIT_S: { bb_prepare(nd); bb_emit_x86(bb_indirect_assign_lit_s()); return 0; }
-    case IR_INDIRECT_ASSIGN_VAR:   { bb_prepare(nd); bb_emit_x86(bb_indirect_assign_var());   return 0; }
-    case IR_ASSIGN_LIT_I: { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_lit_i()); return 0; }
-    case IR_ASSIGN_VAR:    { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_var());    return 0; }
-    case IR_ASSIGN_CONCAT: { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_concat()); return 0; }
-    case IR_ASSIGN_CALL:   { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_call());   return 0; }
-    case IR_ASSIGN_DESCR:  { bb_prepare(nd); bb_emit_x86(bb_gvar_assign_descr());  return 0; }
-    case IR_SCAN: { bb_emit_x86(bb_scan_stmt()); return 0; }
-    case IR_GEN_SCAN: { bb_emit_x86(bb_gen_scan()); return 0; }
-    case IR_KEYWORD: { bb_emit_x86(bb_keyword()); return 0; }
-    case IR_GOTO_DYN: { bb_emit_x86(bb_goto_dyn()); return 0; }
-    case IR_RETURN: { extern int g_descr_flat_chain; if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0; g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
-        fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
-    case IR_AUGOP:
-    case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
-    case IR_CALL: {
-        bb_emit_x86(bb_call(nd));
-        return 0;
-    }
-    case IR_CALL_DEFINE:          bb_emit_x86(bb_call_define());        return 0;
-    case IR_FIELD_GET:            { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_field_get()); return 0; } fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
-    case IR_FIELD_SET:            { extern int g_descr_flat_chain; if (g_descr_flat_chain) { IR_t *rhs_b = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; g_emit.op_sb = rhs_b ? bb_slot_get(rhs_b) : -1; bb_emit_x86(bb_field_set()); return 0; } fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
-    case IR_SECTION:              { extern int g_descr_flat_chain; if (g_descr_flat_chain) { g_emit.op_off = bb_slot_alloc16(nd); bb_emit_x86(bb_section()); return 0; } fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
-    case IR_CASE_ARM:            { bb_emit_x86(bb_case_arm()); return 0; }
-    case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
-    case IR_RASGN:                bb_emit_x86(bb_rasgn());          return 0;
-    case IR_VAR_FRAME:            { bb_prepare(nd); bb_emit_x86(bb_var_frame()); return 0; }
-    case IR_ASSIGN_FRAME:         bb_prepare(nd); { bb_emit_x86(bb_assign_frame()); } return 0;
-    case IR_VAR_FRAME_REF:        { bb_prepare(nd); bb_emit_x86(bb_var_frame_ref()); return 0; }
-    case IR_ASSIGN_FRAME_REF:     bb_prepare(nd); { bb_emit_x86(bb_assign_frame_ref()); } return 0;
     case IR_BINOP:
         switch (g_emit.op_binop_kind) {
         case IR_BINOP_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
@@ -472,85 +385,19 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         case IR_BINOP_ARITH:
         default:              bb_emit_x86(bb_binop_arith());       return 0;
         }
-    case IR_BINOP_RELOP:          bb_emit_x86(bb_binop_relop());       return 0;
-    case IR_BINOP_ARITH:          bb_emit_x86(bb_binop_arith());       return 0;
-    case IR_BINOP_GVAR_ARITH:     bb_emit_x86(bb_binop_gvar_arith());  return 0;
-    case IR_BINOP_GVAR_RELOP:     bb_emit_x86(bb_binop_gvar_relop());  return 0;
-    case IR_BINOP_GVAR_ARITH_SLOT: bb_emit_x86(bb_binop_gvar_arith_slot()); return 0;
-    case IR_UNOP_GVAR_SLOT:       bb_emit_x86(bb_unop_gvar_slot());    return 0;
-    case IR_BINOP_CONCAT:         bb_emit_x86(bb_binop_concat_slot()); return 0;
-    case IR_BINOP_GVAR_CONCAT:    bb_emit_x86(bb_binop_gvar_concat()); return 0;
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
     case IR_EVERY:                bb_emit_x86(bb_every());          return 0;
-    case IR_TO:
-    case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
-    case IR_LIMIT:               bb_emit_x86(bb_limit());          return 0;
-    case IR_SUSPEND:             bb_emit_x86(bb_suspend());        return 0;
-    case IR_INITIAL:             bb_emit_x86(bb_initial());        return 0;
-    case IR_LIST_BANG:            bb_emit_x86(bb_iterate(nd));      return 0;
-    case IR_KEY_GEN:              bb_emit_x86(bb_key_gen(nd));      return 0;
-    case IR_IDX:                  bb_emit_x86(bb_idx_get());        return 0;
-    case IR_IDX_SET:              bb_emit_x86(bb_idx_set());        return 0;
-    case IR_ALT:                  bb_prepare(nd); { bb_emit_x86(bb_alt()); } return 0;
-    case IR_SCAN_POS:             { bb_emit_x86(bb_scan_pos()); } return 0;
-    case IR_SCAN_ANY:             { bb_emit_x86(bb_scan_any()); } return 0;
-    case IR_SCAN_MATCH:           { bb_emit_x86(bb_scan_match()); } return 0;
-    case IR_SCAN_MANY:            { bb_emit_x86(bb_scan_many()); } return 0;
-    case IR_SCAN_TAB:             { bb_emit_x86(bb_scan_tab()); } return 0;
-    case IR_SCAN_MOVE:            { bb_emit_x86(bb_scan_move()); } return 0;
-    case IR_SCAN_UPTO:            { bb_emit_x86(bb_scan_upto()); } return 0;
-    case IR_SCAN_FIND:            { bb_emit_x86(bb_scan_find()); } return 0;
-    case IR_SCAN_BAL:             { bb_emit_x86(bb_scan_bal()); } return 0;
-    case IR_GATHER:               bb_prepare(nd); { bb_emit_x86(bb_gather());   } return 0;
-    case IR_MAP:
-    case IR_GREP:                 bb_prepare(nd); { bb_emit_x86(bb_mapgrep()); } return 0;
-    case IR_SIZE:                 bb_emit_x86(bb_unop());        return 0;
-    case IR_MATCH_DEFER:            bb_emit_x86(bb_match_defer());    return 0;
-    case IR_CUT:             bb_emit_x86(bb_cut());                                 return 0;
-    case IR_DISJ:          bb_emit_x86(bb_disj());                                 return 0;
-    case IR_GCONJ:          bb_emit_x86(bb_conj());                                 return 0;
-    case IR_CONJ:           bb_emit_x86(bb_conj());                                 return 0;
-    case IR_ITE:          bb_emit_x86(bb_ite());                                 return 0;
-    case IR_CATCH:        { fprintf(stderr, "emit_core: IR_CATCH survived GZ-ONLY lowering (unreachable)\n"); abort(); }
-    case IR_UNIFY:           bb_prepare(nd); bb_emit_x86(bb_unify());           return 0;
-    case IR_GOAL:            { fprintf(stderr, "emit_core: IR_GOAL survived GZ-ONLY lowering (unreachable)\n"); abort(); }
-    case IR_BUILTIN:         { fprintf(stderr, "emit_core: IR_BUILTIN '%s' survived GZ-ONLY lowering (unreachable)\n", IR_LIT(nd).sval ? IR_LIT(nd).sval : "?"); abort(); }
-    case IR_LOGICVAR:        bb_emit_x86(bb_logicvar(nd));                      return 0;
-    case IR_ATOM:            bb_prepare(nd); bb_emit_x86(bb_atom());            return 0;
-    case IR_CHOICE:          { fprintf(stderr, "emit_core: IR_CHOICE survived GZ-ONLY lowering (unreachable)\n"); abort(); }
-    case IR_QUERY_FRAME:     { bb_emit_x86(bb_query_frame()); return 0; }
-    case IR_DET_WRITE:       { bb_emit_x86(bb_det_write()); return 0; }
-    case IR_DET_NL:          { bb_emit_x86(bb_det_nl()); return 0; }
-    case IR_DET_IS:          { bb_prepare(nd); bb_emit_x86(bb_det_is()); return 0; }
-    case IR_DET_CMP:         { bb_prepare(nd); bb_emit_x86(bb_det_cmp()); return 0; }
-    case IR_DET_TYPE_TEST:   { bb_prepare(nd); bb_emit_x86(bb_det_type_test()); return 0; }
-    case IR_DET_FUNCTOR:     { bb_prepare(nd); bb_emit_x86(bb_det_functor()); return 0; }
-    case IR_DET_ARG:         { bb_prepare(nd); bb_emit_x86(bb_det_arg()); return 0; }
-    case IR_DET_UNIV:        { bb_prepare(nd); bb_emit_x86(bb_det_univ()); return 0; }
-    case IR_DET_FORMAT:      { bb_prepare(nd); bb_emit_x86(bb_det_format()); return 0; }
-    case IR_DET_SUCC_PLUS:   { bb_prepare(nd); bb_emit_x86(bb_det_succ_plus()); return 0; }
-    case IR_DET_ATOM_OP:     { bb_prepare(nd); bb_emit_x86(bb_det_atom_op()); return 0; }
-    case IR_DET_CHAR_TYPE:   { bb_prepare(nd); bb_emit_x86(bb_det_char_type()); return 0; }
-    case IR_DET_SORT:        { bb_prepare(nd); bb_emit_x86(bb_det_sort()); return 0; }
-    case IR_DET_NUMBERVARS:  { bb_prepare(nd); bb_emit_x86(bb_det_numbervars()); return 0; }
-    case IR_DET_TERM_STRING: { bb_prepare(nd); bb_emit_x86(bb_det_term_string()); return 0; }
-    case IR_DET_COPY_TERM:   { bb_prepare(nd); bb_emit_x86(bb_det_copy_term()); return 0; }
-    case IR_DET_NB_SETVAL:   { bb_prepare(nd); bb_emit_x86(bb_det_nb_setval()); return 0; }
-    case IR_DET_NB_GETVAL:   { bb_prepare(nd); bb_emit_x86(bb_det_nb_getval()); return 0; }
-    case IR_CELL_UNIFY:      { bb_prepare(nd); bb_emit_x86(bb_cell_unify()); return 0; }
-    case IR_CELL_CHOICE:     { bb_prepare(nd); bb_emit_x86(bb_cell_choice()); return 0; }
-    case IR_CELL_CALL:       { bb_prepare(nd); bb_emit_x86(bb_cell_call()); return 0; }
-    case IR_CALLEE_FRAME:    { bb_prepare(nd); bb_emit_x86(bb_callee_frame()); return 0; }
-    case IR_CELL_CUT:        { bb_emit_x86(bb_cell_cut()); return 0; }
-    case IR_CELL_ITE:        { bb_prepare(nd); bb_emit_x86(bb_cell_ite()); return 0; }
-    case IR_CELL_FINDALL:    { bb_prepare(nd); bb_emit_x86(bb_cell_findall()); return 0; }
-    case IR_DET_THROW:       { bb_prepare(nd); bb_emit_x86(bb_det_throw()); return 0; }
-    case IR_CELL_CATCH:      { bb_prepare(nd); bb_emit_x86(bb_cell_catch()); return 0; }
-    case IR_DET_RETRACT:     { bb_prepare(nd); bb_emit_x86(bb_det_retract()); return 0; }
-    case IR_DET_ABOLISH:     { bb_prepare(nd); bb_emit_x86(bb_det_abolish()); return 0; }
-    case IR_DET_ASSERTZ:     { bb_prepare(nd); bb_emit_x86(bb_det_assertz()); return 0; }
-    case IR_CELL_DYNITER:    { bb_prepare(nd); bb_emit_x86(bb_cell_dyniter()); return 0; }
+    case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
+    case IR_CONJ:                 bb_emit_x86(bb_conj());           return 0;
+    case IR_RETURN: { extern int g_descr_flat_chain; if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0; g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
+        fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
+    case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
+    case IR_CALL: {
+        bb_emit_x86(bb_call(nd));
+        return 0;
+    }
     case IR_FAIL:            bb_emit_x86(bb_fail());                            return 0;
+    case IR_SIZE:
     case IR_NEG:
     case IR_POS:
     case IR_NONNULL:
