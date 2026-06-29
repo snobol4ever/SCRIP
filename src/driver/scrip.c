@@ -54,49 +54,6 @@ extern int         Δ;
 #include "../tools/emit_per_kind_audit.h"
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static int node_arity(const IR_t *n) {
-    switch (n->op) {
-    case IR_LIT_I: case IR_LIT_S: case IR_LIT_F: case IR_LIT_NUL:
-    case IR_VAR:   case IR_KEYWORD: return 0;
-    case IR_BINOP: return 2;
-    case IR_TO:    case IR_TO_BY:     return 2;
-    case IR_UNOP:  case IR_NEG: case IR_POS: case IR_NONNULL: case IR_NOT: case IR_SIZE: return 1;
-    case IR_EVERY: return 1;
-    case IR_CALL:  return (int)IR_LIT(n).ival;
-    default:       return -1;
-    }
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-static IR_t * ring_to_tree(IR_graph_t *g) {
-    if (!g || !g->entry) return NULL;
-    IR_t *chain[256]; int nc = 0;
-    for (IR_t *cur = g->entry; cur && cur->op != IR_SUCCEED && cur->op != IR_FAIL && nc < 256; cur = cur->γ.node) chain[nc++] = cur;
-    if (nc == 0 || nc >= 256) return NULL;
-    for (int i = 0; i < nc; i++) if (chain[i]->op == IR_BINOP || chain[i]->op == IR_LIT_I || chain[i]->op == IR_LIT_S || chain[i]->op == IR_LIT_F || chain[i]->op == IR_LIT_NUL) return NULL;
-    IR_t *stk[256]; int sp = 0;
-    for (int i = 0; i < nc; i++) {
-        IR_t *n = chain[i];
-        int ar = node_arity(n);
-        if (ar < 0 || ar > sp) return NULL;
-        if (n->op == IR_CALL) {
-            if (ar != 1) return NULL;
-            n->n_operands = 0; if (!ir_operand_push(n, stk[sp - 1])) return NULL; sp -= 1;
-            IR_LIT(n).dval = 0.0;
-        } else if (ar == 2) {
-            n->n_operands = 0;
-            if (!ir_operand_push(n, stk[sp - 2])) return NULL;
-            if (!ir_operand_push(n, stk[sp - 1])) return NULL;
-            sp -= 2;
-        } else if (ar == 1) {
-            n->n_operands = 0;
-            if (!ir_operand_push(n, stk[sp - 1])) return NULL;
-            sp -= 1;
-        }
-        stk[sp++] = n;
-    }
-    if (sp != 1) return NULL;
-    return stk[0];
-}
 static int alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     int n = 0;
     IR_t * const * arms = bb_operand_aux_get(g, alt, &n);
@@ -2797,8 +2754,6 @@ int main(int argc, char **argv)
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern int descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
             extern int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname);
-            IR_t *root_node = ring_to_tree(bbg);
-            int use_chain = (root_node == NULL);
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
             g_frame_active = 1;
@@ -3086,8 +3041,7 @@ int main(int argc, char **argv)
                 int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 resolve_call_kinds_descr(bbg);
-                rc = use_chain ? descr_flat_chain_build_text(bbg->entry, stdout, "main")
-                               : codegen_flat_build(root_node, stdout, "main");
+                rc = descr_flat_chain_build_text(bbg->entry, stdout, "main");
                 g_descr_flat_chain = saved;
             }
             g_gva_active = 0;
@@ -3415,18 +3369,10 @@ int main(int argc, char **argv)
             }
             extern void *rt_frame(void);
             extern bb_box_fn descr_flat_chain_build(IR_t * entry);
-            IR_t *root_node = ring_to_tree(bbg);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
             resolve_call_kinds_descr(bbg);
-            if (root_node) {
-                extern int g_descr_flat_chain;
-                int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
-                fn = bb_build_flat(root_node);
-                g_descr_flat_chain = saved;
-            } else {
-                fn = descr_flat_chain_build(bbg->entry);
-            }
+            { extern int g_descr_flat_chain; int saved = g_descr_flat_chain; g_descr_flat_chain = 1; fn = descr_flat_chain_build(bbg->entry); g_descr_flat_chain = saved; }
             g_frame_active = 0;
             if (!fn) {
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: bb_build_flat returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");
