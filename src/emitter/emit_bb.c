@@ -141,9 +141,10 @@ int    g_flat_data_any    = 0;
 static int    g_flat_data_just_closed = 0;
 static char   g_flat_data_pending_lbl[160] = "";
 static char   g_flat_data_block_lbls[FLAT_DATA_LBL_MAX][96];
-static int    g_flat_data_block_nlbls = 0;void data_buf_reset(void) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "data_buf_reset"); abort(); }
+static int    g_flat_data_block_nlbls = 0;void data_buf_reset(void) { g_flat_data_len = 0; g_flat_data_active = 0; g_flat_data_any = 0; g_flat_data_just_closed = 0; g_flat_data_block_nlbls = 0; g_flat_data_pending_lbl[0] = '\0'; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/void data_buf_flush_pending_label(void) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "data_buf_flush_pending_label"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/static void data_buf_appendf(const char *fmt, ...) { if (g_flat_data_len >= FLAT_DATA_BUF_MAX) return; va_list ap; va_start(ap, fmt); int n = vsnprintf(g_flat_data_buf + g_flat_data_len, FLAT_DATA_BUF_MAX - g_flat_data_len, fmt, ap); va_end(ap); if (n > 0) { size_t left = FLAT_DATA_BUF_MAX - g_flat_data_len; g_flat_data_len += ((size_t)n < left) ? (size_t)n : left; } }
+/*--------------------------------------------------------------------------------------------------------------------*/void data_buf_flush_pending_label(void) { if (!g_flat_data_pending_lbl[0]) return; data_buf_appendf("%s\n", g_flat_data_pending_lbl); g_flat_data_pending_lbl[0] = '\0'; }
 #define SYM_SIGMA   "\xCE\xA3"
 #define SYM_SIGLEN  "\xCE\xA3""len"
 #define SYM_DELTA   "\xCE\x94"
@@ -164,7 +165,7 @@ void bb_flat_cursor_reserve(int upto) { if (upto > g_flat_slot_count) g_flat_slo
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
-static int        g_bb_alpha_seq = 0;void g_bb_alpha_seq_reset(void) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "g_bb_alpha_seq_reset"); abort(); }
+static int        g_bb_alpha_seq = 0;void g_bb_alpha_seq_reset(void) { g_bb_alpha_seq = 0; }
 void bb_fill_alpha(IR_t *nd) {
     extern int g_m4_dense_nid;
     bb_label_t *a = &g_α_ring[g_α_ring_i++ & 7];
@@ -1093,7 +1094,18 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
     bb_seal(buf, (size_t)nbytes);
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
-}int descr_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "descr_flat_chain_build_text"); abort(); }
+}int descr_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
+    if (!entry) return 1;
+    descr_chain_operand_refs(entry);
+    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_flat_chain_set_n = 0;
+    g_descr_flat_chain = 1;
+    emitter_init_text(out, TEXT_MODE_INVOCATION);
+    int rc = codegen_flat_chain_body(entry, prefix);
+    emitter_end();
+    g_descr_flat_chain = 0;
+    return rc;
+}
 bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
     if (!entry) return NULL;
     descr_chain_operand_refs(entry);
@@ -1113,7 +1125,22 @@ bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) 
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "descr_flat_chain_build_proc_text"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) {
+    if (!entry || !out || !pname) return 1;
+    descr_chain_operand_refs(entry);
+    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_descr_flat_chain = 1;
+    g_flat_slot_count = 16;
+    for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
+    char prefix[256];
+    snprintf(prefix, sizeof(prefix), "proc_%s", pname);
+    emitter_init_text(out, TEXT_MODE_INVOCATION);
+    fprintf(out, "  .globl %s_\316\261\n", prefix);
+    int rc = codegen_flat_chain_body(entry, prefix);
+    emitter_end();
+    g_descr_flat_chain = 0;
+    return rc;
+}
 /*====================================================================================================================*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/bb_box_fn gvar_flat_chain_build(IR_graph_t *g) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build"); abort(); }int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build_text"); abort(); }
