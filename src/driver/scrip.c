@@ -65,7 +65,7 @@ static int alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     return 1;
 }
 static int alt_safe_kind(IR_e t) {
-    return t == IR_ALT || t == IR_CALL || t == IR_EVERY || t == IR_FAIL || t == IR_OP_COUNT ||
+    return t == IR_ALT || t == IR_CALL || t == IR_OP_COUNT || t == IR_FAIL || t == IR_OP_COUNT ||
            t == IR_SUCCEED || t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_OP_COUNT;
 }
 static int graph_has_alt(const IR_graph_t *g) {
@@ -80,7 +80,7 @@ static int keyword_supported(const char *kw) {
 static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_OP_COUNT ||
-           t == IR_VAR || t == IR_KEYWORD || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_EVERY || t == IR_CONJ || t == IR_ASSIGN || t == IR_IF || t == IR_OP_COUNT || t == IR_OP_COUNT;
+           t == IR_VAR || t == IR_KEYWORD || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_OP_COUNT || t == IR_CONJ || t == IR_ASSIGN || t == IR_OP_COUNT || t == IR_OP_COUNT || t == IR_OP_COUNT;
 }
 static int sg_var_assigned(IR_graph_t *sg, const char *name) {
     if (!sg || !sg->all || !name) return 0;

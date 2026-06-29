@@ -360,13 +360,7 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * T = (t->n > 1) ? t->c[1] : NULL; const tree_t * E = (t->n > 2) ? t->c[2] : NULL;
-    IR_t * iff = build(cx, IR_IF, γ, ω);
-    IR_t * tval = NULL; IR_t * tentry = lower(cx, T, γ, ω, &tval);
-    IR_t * eentry = ω; if (E) { IR_t * eval = NULL; eentry = lower(cx, E, γ, ω, &eval); }
-    IR_t * cval = NULL; IR_t * centry = lower(cx, C, tentry, eentry, &cval);
-    ir_operand_push(iff, centry);
-    *res = iff; return centry;
+    (void) t; IR_t * f = build(cx, IR_FAIL, γ, ω); cx->beta = f; *res = f; return f;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
@@ -431,33 +425,7 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    const tree_t * GEN = (t->n > 0) ? t->c[0] : NULL; const tree_t * BODY = (t->n > 1) ? t->c[1] : NULL;
-    IR_t * E = build(cx, IR_EVERY, γ, ω);
-    IR_t * gen_entry; IR_t * gen_result; IR_t * gen_node; cx->conj_resumable = NULL;
-    if (GEN && GEN->t == TT_ASSIGN && GEN->c[0] && GEN->c[0]->t == TT_VAR) {
-        IR_t * asn = build(cx, IR_ASSIGN, NULL, E); IR_LIT(asn).sval = GEN->c[0]->v.sval;
-        IR_t * rr = NULL; gen_entry = lower(cx, GEN->c[1], asn, E, &rr);
-        ir_operand_push(asn, rr); gen_result = asn; gen_node = (cx->beta && cx->beta != E) ? cx->beta : rr;
-    } else {
-        IR_t * sg = cx->last_gen; cx->last_gen = NULL;
-        gen_entry = lower(cx, GEN, NULL, E, &gen_result);
-        gen_node = (cx->beta && cx->beta != E) ? cx->beta : (cx->last_gen ? cx->last_gen : gen_result);
-        cx->last_gen = sg;
-    }
-    IR_t * conj_rb = cx->conj_resumable;
-    if (!BODY) {
-        IR_t * loop_target = (gen_node && gen_node != gen_result && gen_node != ω && gen_node != E) ? gen_node : ((conj_rb && conj_rb != gen_result && conj_rb != ω && conj_rb != E) ? conj_rb : E);
-        γ_to(gen_result, loop_target);
-        ir_operand_push(E, gen_entry);
-        *res = E; return gen_entry;
-    }
-    IR_t * loop_back = gen_node;
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = γ; cx->loop_next = loop_back;
-    IR_t * bval = NULL; IR_t * body_entry = lower(cx, BODY, loop_back, loop_back, &bval);
-    cx->loop_exit = sle; cx->loop_next = sln;
-    γ_to(gen_result, body_entry);
-    ir_operand_push(E, gen_entry);
-    *res = E; return gen_entry;
+    (void) t; IR_t * f = build(cx, IR_FAIL, γ, ω); cx->beta = f; *res = f; return f;
 }
 /*====================================================================================================================================================================================================*/
 static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
