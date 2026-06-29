@@ -55,7 +55,7 @@ typedef enum {
     IR_CALL_GVAR_USERPROC,
     IR_CSET_LIT,
     IR_FIELD,
-    IR_SECTION,
+    IR_TERNOP,
     IR_SUBSCRIPT,
     IR_DEREF,
     IR_MAKE_LIST,
