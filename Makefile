@@ -137,6 +137,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/tree_to_sno.c \
     $(SRC)/lower/lower_icon.c \
     $(SRC)/lower/lower_noicon_stubs.c \
+    $(SRC)/lower/rt_noicon_stubs.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/builtins/resolution.c \
