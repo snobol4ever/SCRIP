@@ -71,7 +71,6 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/name_save.c \
     $(SRC)/runtime/core/stmt_exec.c \
     $(SRC)/runtime/runtime_eval.c \
-    $(SRC)/runtime/unification.c \
     $(SRC)/runtime/runtime_init.c \
     $(SRC)/runtime/io_format.c \
     $(SRC)/runtime/arithmetic.c \
@@ -85,151 +84,31 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/string_builtins.c \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit_core.cpp \
-    $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/emitter/emit_str.cpp \
-    $(SRC)/emitter/emit_term_build.cpp \
     $(SRC)/emitter/emit_globals.c \
     $(SRC)/emitter/emit_io.c \
-    $(SRC)/emitter/BB_templates/bb_match_defer.cpp \
     $(SRC)/emitter/BB_templates/bb_lit.cpp \
-    $(SRC)/emitter/BB_templates/bb_unify.cpp \
-    $(SRC)/emitter/BB_templates/bb_arith.cpp \
     $(SRC)/emitter/BB_templates/bb_conj.cpp \
-    $(SRC)/emitter/BB_templates/bb_disj.cpp \
-    $(SRC)/emitter/BB_templates/bb_ite.cpp \
-    $(SRC)/emitter/BB_templates/bb_cut.cpp \
-    $(SRC)/emitter/BB_templates/bb_atom.cpp \
-    $(SRC)/emitter/BB_templates/bb_logicvar.cpp \
     $(SRC)/emitter/BB_templates/bb_fail.cpp \
     $(SRC)/emitter/BB_templates/bb_lit_scalar.cpp \
     $(SRC)/emitter/BB_templates/bb_var.cpp \
     $(SRC)/emitter/BB_templates/bb_var_global.cpp \
     $(SRC)/emitter/BB_templates/bb_return.cpp \
     $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp \
-    $(SRC)/emitter/BB_templates/bb_var_frame.cpp \
-    $(SRC)/emitter/BB_templates/bb_assign_frame.cpp \
-    $(SRC)/emitter/BB_templates/bb_var_frame_ref.cpp \
-    $(SRC)/emitter/BB_templates/bb_assign_frame_ref.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_stmt.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_splice_empty.cpp \
-    $(SRC)/emitter/BB_templates/bb_pattern_len.cpp \
-    $(SRC)/emitter/BB_templates/bb_pattern_break.cpp \
-    $(SRC)/emitter/BB_templates/bb_pattern_capture.cpp \
-    $(SRC)/emitter/BB_templates/bb_pattern_cat.cpp \
-    $(SRC)/emitter/BB_templates/bb_ref_invariant.cpp \
-    $(SRC)/emitter/BB_templates/bb_pattern_lit.cpp \
-    $(SRC)/emitter/BB_templates/bb_gen_scan.cpp \
     $(SRC)/emitter/BB_templates/bb_keyword.cpp \
-    $(SRC)/emitter/BB_templates/bb_goto_dyn.cpp \
     $(SRC)/emitter/BB_templates/bb_unop.cpp \
     $(SRC)/emitter/BB_templates/bb_succeed.cpp \
     $(SRC)/emitter/BB_templates/bb_every.cpp \
     $(SRC)/emitter/BB_templates/bb_to.cpp \
-    $(SRC)/emitter/BB_templates/bb_limit.cpp \
-    $(SRC)/emitter/BB_templates/bb_repalt.cpp \
-    $(SRC)/emitter/BB_templates/bb_suspend.cpp \
-    $(SRC)/emitter/BB_templates/bb_initial.cpp \
-    $(SRC)/emitter/BB_templates/bb_idx_set.cpp \
-    $(SRC)/emitter/BB_templates/bb_idx_get.cpp \
-    $(SRC)/emitter/BB_templates/bb_alt.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_pos.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_any.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_match.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_many.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_tab.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_move.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_upto.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_find.cpp \
-    $(SRC)/emitter/BB_templates/bb_scan_bal.cpp \
-    $(SRC)/emitter/BB_templates/bb_iterate.cpp \
-    $(SRC)/emitter/BB_templates/bb_key_gen.cpp \
     $(SRC)/emitter/BB_templates/bb_call.cpp \
-    $(SRC)/emitter/BB_templates/bb_call_define.cpp \
     $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp \
     $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp \
     $(SRC)/emitter/BB_templates/bb_call_bool.cpp \
     $(SRC)/emitter/BB_templates/bb_call_fn.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_relop.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_arith.cpp \
-    $(SRC)/emitter/BB_templates/bb_binop_gvar_arith.cpp \
-    $(SRC)/emitter/BB_templates/bb_binop_gvar_relop.cpp \
-    $(SRC)/emitter/BB_templates/bb_binop_gvar_arith_slot.cpp \
-    $(SRC)/emitter/BB_templates/bb_unop_gvar_slot.cpp \
     $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp \
-    $(SRC)/emitter/BB_templates/bb_binop_gvar_concat.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_any.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_notany.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_span.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_break.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_breakx.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_rtab.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_span_var.cpp \
-    $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp \
-    $(SRC)/emitter/BB_templates/bb_indirect_assign_lit_s.cpp \
-    $(SRC)/emitter/BB_templates/bb_indirect_assign_var.cpp \
-    $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_i.cpp \
-    $(SRC)/emitter/BB_templates/bb_gvar_assign_var.cpp \
-    $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp \
-    $(SRC)/emitter/BB_templates/bb_gvar_assign_call.cpp \
-    $(SRC)/emitter/BB_templates/bb_gvar_assign_descr.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_pos.cpp \
-    $(SRC)/emitter/BB_templates/bb_query_frame.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_write.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_nl.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_is.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_cmp.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_type_test.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_functor.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_arg.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_univ.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_format.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_succ_plus.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_atom_op.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_char_type.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_sort.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_numbervars.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_term_string.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_copy_term.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_nb_setval.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_nb_getval.cpp \
-    $(SRC)/emitter/BB_templates/bb_cell_unify.cpp \
-    $(SRC)/emitter/BB_templates/bb_cell_choice.cpp \
-    $(SRC)/emitter/BB_templates/bb_cell_call.cpp \
-    $(SRC)/emitter/BB_templates/bb_callee_frame.cpp \
-    $(SRC)/emitter/BB_templates/bb_cell_cut.cpp \
-    $(SRC)/emitter/BB_templates/bb_cell_ite.cpp \
-    $(SRC)/emitter/BB_templates/bb_cell_findall.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_throw.cpp \
-    $(SRC)/emitter/BB_templates/bb_cell_catch.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_retract.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_abolish.cpp \
-    $(SRC)/emitter/BB_templates/bb_det_assertz.cpp \
-    $(SRC)/emitter/BB_templates/bb_cell_dyniter.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_tab.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_atp.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_len.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_rem.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_arb.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_arbno.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_abort.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_fence.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_alt.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_cat.cpp \
-    $(SRC)/emitter/BB_templates/bb_subject.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_head.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_retry.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_advance.cpp \
-    $(SRC)/emitter/BB_templates/bb_match_capture.cpp \
-    $(SRC)/emitter/BB_templates/bb_pattern_stub.cpp \
-    $(SRC)/emitter/BB_templates/bb_gather.cpp \
-    $(SRC)/emitter/BB_templates/bb_mapgrep.cpp \
     $(SRC)/emitter/BB_templates/bb_assign_local.cpp \
-    $(SRC)/emitter/BB_templates/bb_field_get.cpp \
-    $(SRC)/emitter/BB_templates/bb_field_set.cpp \
-    $(SRC)/emitter/BB_templates/bb_section.cpp \
-    $(SRC)/emitter/BB_templates/bb_swap.cpp \
-    $(SRC)/emitter/BB_templates/bb_rasgn.cpp \
-    $(SRC)/emitter/BB_templates/bb_case_arm.cpp \
     $(SRC)/emitter/XA_templates/xa_stubs.cpp \
     $(SRC)/emitter/XA_templates/xa_macro_library.cpp \
     $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp \
@@ -281,7 +160,6 @@ RT_PIC_SRCS := \
     $(SRC)/parser/icon/icon_driver.c \
     $(SRC)/parser/prolog/prolog_lex.c \
     $(SRC)/parser/prolog/prolog_parse.c \
-    $(SRC)/parser/prolog/prolog_lower.c \
     $(SRC)/parser/prolog/prolog_atom.c \
     $(SRC)/parser/prolog/prolog_builtin.c \
     $(SRC)/parser/prolog/prolog_unify.c \
@@ -295,7 +173,6 @@ RT_PIC_SRCS := \
     $(SRC)/parser/raku/re.c \
     $(SRC)/parser/rebus/rebus.tab.c \
     $(SRC)/parser/rebus/lex.rebus.c \
-    $(SRC)/parser/rebus/rebus_lower.c \
     $(SRC)/parser/pascal/pascal.tab.c \
     $(SRC)/parser/pascal/pascal.lex.c \
     $(SRC)/parser/pascal/pascal_driver.c
