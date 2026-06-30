@@ -437,7 +437,14 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    (void) t; IR_t * f = build(cx, IR_FAIL, γ, ω); cx->beta = f; *res = f; return f;
+    (void) γ;
+    const tree_t * E = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+    IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
+    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = ω; cx->loop_next = gen_beta;
+    IR_t * bval = NULL; (void) bval; IR_t * b_entry = lower(cx, B, gen_beta, gen_beta, &bval);
+    cx->loop_exit = sle; cx->loop_next = sln;
+    γ_to(eval, b_entry);
+    cx->beta = ω; *res = eval ? eval : e_entry; return e_entry;
 }
 /*====================================================================================================================================================================================================*/
 static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
