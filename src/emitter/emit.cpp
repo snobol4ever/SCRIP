@@ -770,11 +770,12 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global());
         else bb_emit_x86(bb_var()); } return 0;
     case IR_ASSIGN: {
-        extern int g_descr_flat_chain;
+        extern int g_descr_flat_chain; extern int is_global(const char *);
         if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a
             && (op_a->op == IR_LIT_STRING || op_a->op == IR_LIT_INTEGER || op_a->op == IR_LIT_REAL || op_a->op == IR_BINOP
                 || op_a->op == IR_VAR || op_a->op == IR_CALL || ir_is_call_kind(op_a->op)))
             { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
+        if (g_descr_flat_chain && IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) { bb_emit_x86(bb_assign_global()); return 0; }
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
@@ -857,7 +858,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         const char *vn = IR_LIT(nd).sval;
         if (vn && vn[0] == '&') { g_emit.op_sval = vn; g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); }
         else if (vn && is_global(vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
-        else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; if (voff >= 0) { g_emit.op_off = voff; if (bb_slot_get(nd) < 0) bb_slot_register(nd, voff); } else g_emit.op_off = -1; }
+        else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? drive_value_slot(nd) : -1; }
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -877,7 +878,11 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     }
     case IR_ASSIGN: {
         const char *vn = IR_LIT(nd).sval;
-        if (!vn || is_global(vn)) { drive_unowned(nd); break; }
+        if (!vn) { drive_unowned(nd); break; }
+        if (is_global(vn)) {
+            g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1;
+            g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        }
         g_emit.op_sb = bb_varslot(vn); g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_GVAR_USERPROC: {

@@ -157,5 +157,6 @@ void         bb_reset(IR_graph_t * cfg);
 /*--------------------------------------------------------------------------------------------------------------------*/
 void         IR_free(IR_graph_t * cfg);
 void         bb_print(const IR_graph_t * cfg, FILE * fp);
+void         bb_print_v(const IR_graph_t * cfg, FILE * fp, int verbose);
 const char * bb_op_name(IR_e k);
 #endif

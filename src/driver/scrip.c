@@ -396,6 +396,7 @@ int main(int argc, char **argv)
     int mode_compile       = 0;
     int dump_ast           = 0;
     int dump_ir            = 0;
+    int dump_ir_verbose    = 0;
     int dump_transpile     = 0;
     int opt_bench          = 0;
     const char * target_name = NULL;
@@ -405,6 +406,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile   = 1; if (!target_name) target_name = "x86"; argi++; }
         else if (strncmp(argv[argi], "--target=", 9)   == 0) { target_name = argv[argi] + 9; mode_compile = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ast")      == 0) { dump_ast       = 1; argi++; }
+        else if (strcmp(argv[argi], "--dump-ir-verbose") == 0) { dump_ir = 1; dump_ir_verbose = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ir")       == 0) { dump_ir        = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
@@ -428,7 +430,8 @@ int main(int argc, char **argv)
             "\n"
             "Diagnostic options:\n"
             "  --dump-ast       print AST after frontend\n"
-            "  --dump-ir        print IR/BB-graph for each proc\n"
+            "  --dump-ir        print IR/BB-graph for each proc (terse: slot/op refs only)\n"
+            "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"
             "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --bench          print wall-clock time after execution\n"
             "\n"
@@ -609,7 +612,8 @@ int main(int argc, char **argv)
         return 0;
     }
     if (dump_ir) {
-        extern void bb_print(const IR_graph_t * bbg, FILE * fp);
+        extern void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose);
+        extern void ir_drive_slot_assign(IR_graph_t * g);
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog);
@@ -627,8 +631,8 @@ int main(int argc, char **argv)
             if (dup) continue;
             seen_all[seen_n++] = (const IR_t *) all;
             fprintf(stdout, "; proc %s\n", pname);
-            ir_tmp_slot_assign(s2->bbp.table[idx]);
-            bb_print(s2->bbp.table[idx], stdout);
+            if (is_icon) ir_drive_slot_assign(s2->bbp.table[idx]); else ir_tmp_slot_assign(s2->bbp.table[idx]);
+            bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
         }
         free(seen_all);
         return 0;
