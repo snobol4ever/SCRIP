@@ -368,7 +368,11 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    (void) t; IR_t * f = build(cx, IR_FAIL, γ, ω); cx->beta = f; *res = f; return f;
+    const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
+    IR_t * then_val = NULL; IR_t * then_entry = lower(cx, TH, γ, ω, &then_val);
+    IR_t * else_val = NULL; IR_t * else_entry; if (EL) { else_entry = lower(cx, EL, γ, ω, &else_val); } else { else_entry = ω; else_val = NULL; }
+    IR_t * cond_val = NULL; IR_t * cond_entry = lower(cx, C, then_entry, else_entry, &cond_val); (void) cond_val;
+    cx->beta = ω; *res = then_val ? then_val : cond_entry; return cond_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
