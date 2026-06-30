@@ -8,7 +8,7 @@ void rt_gvar_assign_str(const char * name, const char * str);
 void rt_gvar_assign_var(const char * dst, const char * src);
 void rt_gvar_assign_int(const char * name, int64_t val);
 void rt_gvar_assign_descr(const char * name, int64_t lo, int64_t hi);
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/builtins/gen.h"
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

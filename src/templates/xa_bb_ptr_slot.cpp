@@ -1,9 +1,9 @@
 #include <string>
 #include "emit_str.h"
-#include "../BB_templates/x86_asm.h"
+#include "x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
-#include "../emit_bb.h"
+#include "../emitter/emit_bb.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_bb_ptr_slot_str(void) {

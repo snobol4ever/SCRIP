@@ -6,7 +6,7 @@ extern "C" {
 #include "SM.h"
 #include "ast.h"
 #include "descr.h"
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/builtins/gen.h"
 extern int g_descr_flat_chain;
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);

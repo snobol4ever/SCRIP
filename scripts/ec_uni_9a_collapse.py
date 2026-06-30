@@ -150,7 +150,7 @@ def process_file(path):
 def main():
     root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".")
     sm_dir = root / "src/emitter/SM_templates"
-    bb_dir = root / "src/emitter/BB_templates"
+    bb_dir = root / "src/templates"
 
     total_bin = 0
     total_text = 0

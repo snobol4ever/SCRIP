@@ -20,7 +20,7 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-DIR="$ROOT/src/emitter/BB_templates"
+DIR="$ROOT/src/templates"
 STRICT=0; [ "${1:-}" = "--strict" ] && STRICT=1
 
 # The ONLY bad pattern (FACT RULE): a FUNCTION that counts the bytes — b.size().

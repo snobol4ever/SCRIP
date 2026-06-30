@@ -17,7 +17,7 @@
 # running empty-count. As AGW-9 fills one template per commit, the count
 # decrements; the EMITTER half closes (and the D grade lifts) only at 0.
 set -u
-cd "$(dirname "$0")/../src/emitter/BB_templates" || exit 2
+cd "$(dirname "$0")/../src/templates" || exit 2
 
 TEMPLATES="bb_pl_seq bb_pl_call bb_pl_choice bb_pl_alt bb_pl_cut"
 # Tokens that prove the template actually emits something.

@@ -6,7 +6,7 @@ extern "C" {
 #include "SM.h"
 #include "ast.h"
 #include "descr.h"
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/builtins/gen.h"
 extern int g_gvar_flat_chain;
 extern int64_t rt_gvar_get_int(const char *name);
 extern DESCR_t rt_gvar_get_descr(const char *name);

@@ -12,14 +12,14 @@ BASELINE=21
 MAX="${MAX:-$BASELINE}"
 
 COUNT=$(grep -rnoE '\(uintptr_t\)[[:space:]]*&(pBB|a0)->(value|counter|state)' \
-        "${SRC}/emitter/BB_templates/" "${SRC}/emitter/emit_bb.c" \
+        "${SRC}/templates/" "${SRC}/emitter/emit_bb.c" \
         | grep -v _pl_ | wc -l | tr -d ' ')
 
 echo "=== ICON STACKLESS ONE-REGISTER FRAME gate ==="
 echo "absolute &pBB/a0->slot emissions on the Icon path: ${COUNT}  (baseline ${BASELINE}, MAX ${MAX})"
 echo "--- per box-family breakdown ---"
 grep -rnoE '\(uintptr_t\)[[:space:]]*&(pBB|a0)->(value|counter|state)' \
-    "${SRC}/emitter/BB_templates/" "${SRC}/emitter/emit_bb.c" \
+    "${SRC}/templates/" "${SRC}/emitter/emit_bb.c" \
     | grep -v _pl_ | sed -E 's,.*/([^/:]+):[0-9]+:.*,\1,' | sort | uniq -c | sort -rn
 
 if [ "${COUNT}" -gt "${MAX}" ]; then

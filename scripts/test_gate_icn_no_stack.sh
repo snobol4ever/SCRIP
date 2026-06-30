@@ -10,13 +10,13 @@ SRC="${HERE}/../src"
 BASELINE=127
 MAX="${MAX:-$BASELINE}"
 
-COUNT=$(grep -rnoE 'rt_(push|pop)_[a-z_]+' "${SRC}/emitter/BB_templates/" "${SRC}/emitter/emit_bb.c" \
+COUNT=$(grep -rnoE 'rt_(push|pop)_[a-z_]+' "${SRC}/templates/" "${SRC}/emitter/emit_bb.c" \
         | grep -v _pl_ | wc -l | tr -d ' ')
 
 echo "=== GROUND ZERO 3 — Icon no-value-stack gate ==="
 echo "rt_push_*/rt_pop_* value-stack emissions on the Icon path: ${COUNT}  (baseline ${BASELINE}, MAX ${MAX})"
 echo "--- per box-family breakdown ---"
-grep -rnoE 'rt_(push|pop)_[a-z_]+' "${SRC}/emitter/BB_templates/" "${SRC}/emitter/emit_bb.c" \
+grep -rnoE 'rt_(push|pop)_[a-z_]+' "${SRC}/templates/" "${SRC}/emitter/emit_bb.c" \
     | grep -v _pl_ | sed -E 's,.*/([^/:]+):[0-9]+:,\1  ,' | sort | uniq -c | sort -rn
 
 if [ "${COUNT}" -gt "${MAX}" ]; then

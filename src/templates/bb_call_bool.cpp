@@ -3,8 +3,8 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
-#include "../../runtime/rt/rt.h"
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/rt/rt.h"
+#include "../runtime/builtins/gen.h"
 int bb_slot_get(IR_t *nd);
 }
 #include "x86_asm.h"

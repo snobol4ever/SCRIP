@@ -7,7 +7,7 @@ extern "C" {
 #include "ast.h"
 #include "descr.h"
 #include "IR.h"
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/builtins/gen.h"
 extern int g_gvar_flat_chain;
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 }

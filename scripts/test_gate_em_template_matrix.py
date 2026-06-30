@@ -103,7 +103,7 @@ def main():
         sys.exit(2)
     root = pathlib.Path(sys.argv[1])
     sm_dir = root / "src/emitter/SM_templates"
-    bb_dir = root / "src/emitter/BB_templates"
+    bb_dir = root / "src/templates"
     if not sm_dir.is_dir() or not bb_dir.is_dir():
         print(f"FAIL  template dirs not found under {root}", file=sys.stderr)
         sys.exit(2)

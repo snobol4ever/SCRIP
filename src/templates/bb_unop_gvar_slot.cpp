@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "SM.h"
 #include "ast.h"
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/builtins/gen.h"
 extern int64_t rt_gvar_get_int(const char *name);
 }
 #include "x86_asm.h"

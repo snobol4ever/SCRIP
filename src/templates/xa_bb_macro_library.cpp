@@ -1,7 +1,7 @@
 #include <string>
 #include <cstdio>
 #include "emit_str.h"
-#include "../BB_templates/x86_asm.h"
+#include "x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
 }

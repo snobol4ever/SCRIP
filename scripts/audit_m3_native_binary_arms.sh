@@ -11,7 +11,7 @@ cd "$here" || exit 2
 TRIVIAL_OK="bb_eps.cpp bb_fail.cpp bb_match_fence.cpp bb_match_abort.cpp bb_seq.cpp bb_nfa.cpp"
 fail=0
 echo "=== M3-NATIVE BINARY-arm coverage ==="
-for f in src/emitter/BB_templates/*.cpp src/emitter/SM_templates/*.cpp src/emitter/XA_templates/*.cpp; do
+for f in src/templates/*.cpp src/emitter/SM_templates/*.cpp src/templates/*.cpp; do
   [ -f "$f" ] || continue
   name="$(basename "$f")"
   grep -q "MEDIUM_BINARY" "$f" || { printf "  %-30s NO-ARM\n" "$name"; continue; }

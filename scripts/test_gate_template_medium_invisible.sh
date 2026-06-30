@@ -7,7 +7,7 @@
 # Informational WIP baseline; --strict enforces zero.
 cd "$(dirname "$0")/.." || exit 2
 total=0; hits=""
-for f in src/emitter/BB_templates/*.cpp; do
+for f in src/templates/*.cpp; do
   code=$(perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$f")
   m=$(printf '%s' "$code" | grep -cE 'x86_Lrec|x86_Jrec|x86_Drec|x86_b1\(|x86_b2\(|x86_b3\(|\bbytes\(|\bu8\(|\bu32le|\bu64le|IF\(MEDIUM_BINARY|IF\(MEDIUM_MACRO_DEF')
   if [ "$m" -gt 0 ]; then total=$((total+m)); hits="$hits $(basename $f)($m)"; fi

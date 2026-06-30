@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "emit.h"
 #include "descr.h"
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/builtins/gen.h"
 extern int g_descr_flat_chain;
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
