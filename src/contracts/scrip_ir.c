@@ -186,11 +186,41 @@ void ir_jcon_slot_assign(IR_graph_t * g) {
     g->jcon_value_region = k * 16;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/* IR_TO is NOT claimed by ir_node_produces_value() (its result historically rode bb_slot_alloc16_or_get, a SEPARATE
+   emit-time-only allocator with zero knowledge of nd->tmp -- see GOAL-IR-IMMUTABLE-EMIT.md), but its emitted box
+   (bb_to.cpp) needs MORE than one flat 16-byte slot: 24 bytes for an integer generator (16-byte result + 8-byte
+   'current' scratch) or 32 bytes for a real generator (16-byte result + 16-byte 'current' scratch). Because LOWER's
+   tmp numbering (this pass) and the emitter's bump-allocator cursor (g_flat_slot_count, advanced independently by
+   bb_slot_alloc16_or_get/bb_slot_claim) are TWO SEPARATE COUNTERS over the SAME byte-offset space, any node whose
+   true footprint isn't visible to LOWER can have its emit-time-only extra bytes silently overlap whatever tmp LOWER
+   hands to the NEXT value-producer node in g->all[] (creation order) -- bisected+root-caused 2026-06-30 (Claude
+   Sonnet 4.6) against the every/TT_TO_BY regression introduced at feab99c7 (gdb-confirmed against
+   /tmp/repro_to.icn: a node following IR_TO in creation order received nd->tmp landing inside IR_TO's own
+   emit-time-only scratch field, so writing that node's result clobbers IR_TO's live loop counter -- this is why
+   every x:=A to B do write(x) prints the seed once (A==1) or hangs printing the seed forever (A!=1)). A prior
+   attempt at this fix (reserving extra space via a separate running counter, independent of nd->tmp) shifted WHICH
+   offsets collide without closing the gap, because the emitter's bb_slot_alloc16_or_get/bb_slot_claim path for
+   IR_TO still read the LIVE g_flat_slot_count cursor, not this pass's bookkeeping -- proven wrong by re-deriving
+   the post-fix .s and finding the collision had simply moved (gdb-confirmed). The CORRECT fix gives IR_TO a real
+   nd->tmp here, sized for its FULL footprint (k advances by 2 units instead of 1: one for the 16-byte result, one
+   for the worst-case 16-byte scratch -- safe for both the int and real arms, since 32 bytes covers the 24-byte int
+   case too), and changes IR_TO's own emit_drive arm (src/emitter/emit.cpp) to read this tmp via the SAME
+   drive_value_slot() every other value-producer uses, instead of the separate bb_slot_alloc16_or_get allocator --
+   drive_value_slot already calls bb_flat_cursor_reserve(nd->tmp+16) on every claim, which is the existing
+   synchronization primitive that keeps the emit-time cursor consistent with LOWER's tmp numbering; IR_TO's old
+   separate-allocator path bypassed that primitive entirely, which was the actual root cause both this fix and the
+   reverted attempt above were trying to patch around without addressing. See the matching change in emit.cpp's
+   `case IR_TO:` arm -- the two are a single coordinated fix and must be kept in sync. */
 void ir_drive_slot_assign(IR_graph_t * g) {
     if (!g) return;
     int base = 16 + (g->nparams > 0 ? g->nparams * 16 : 0);
     int k = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; } }
+    for (int i = 0; i < g->n; i++) {
+        IR_t * nd = g->all[i];
+        if (!nd) continue;
+        if (nd->op == IR_TO) { nd->tmp = base + k * 16; k += 2; continue; }
+        if (ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; }
+    }
     g->jcon_value_region = base + k * 16;
     g->nvalue_slots = k;
 }

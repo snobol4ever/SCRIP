@@ -891,8 +891,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         IR_t * byc = (nd->n_operands > 2) ? nd->operands[2] : NULL;
         g_emit.op_sc = byc ? bb_slot_get(byc) : -1;
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
-        int already = (bb_slot_get(nd) >= 0); g_emit.op_off = bb_slot_alloc16_or_get(nd);
-        if (!already) (void) bb_slot_claim(g_emit.op_num_real ? 16 : 8);
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 32);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CONJ:
