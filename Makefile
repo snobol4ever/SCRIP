@@ -112,6 +112,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_field_get.cpp \
     $(SRC)/templates/bb_field_set.cpp \
     $(SRC)/templates/bb_suspend.cpp \
+    $(SRC)/templates/bb_iterate.cpp \
     $(SRC)/templates/xa_stubs.cpp \
     $(SRC)/templates/xa_macro_library.cpp \
     $(SRC)/templates/xa_bb_macro_library.cpp \
