@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "SM.h"
 #include "ast.h"
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/builtins/gen.h"
 extern int64_t rt_gvar_arith(const char *a, const char *b, int op);
 extern int64_t rt_gvar_get_int(const char *name);
 void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi);

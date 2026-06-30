@@ -7,8 +7,8 @@
 #include "emit_io.h"
 #include "emit_str.h"
 #include "emit_str_builders.h"
-#include "BB_templates/x86_asm.h"
-#include "BB_templates/bb_templates.h"
+#include "templates/x86_asm.h"
+#include "templates/bb_templates.h"
 #endif
 #ifdef __cplusplus
 extern "C" {
@@ -20,8 +20,8 @@ extern "C" {
 #include <string>
 #include "emit_str.h"
 #include "stage2.h"
-#include "BB_templates/bb_templates.h"
-#include "XA_templates/xa_templates.h"
+#include "templates/bb_templates.h"
+#include "templates/xa_templates.h"
 #include "emit_form.h"
 #include <string.h>
 #include <stdlib.h>
@@ -388,7 +388,7 @@ void xa_emit_strtab_rodata(void)
 int bb_slot_get(IR_t *nd);
 #include "emit_bb.h"
 #include "emit_drive.h"
-#include "BB_templates/bb_templates.h"
+#include "templates/bb_templates.h"
 #include "emit_ir.h"
 #include "emit_form.h"
 #include "emit_templates.h"

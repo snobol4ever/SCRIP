@@ -20,7 +20,7 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-TPL="${1:-$ROOT/src/emitter/BB_templates}"
+TPL="${1:-$ROOT/src/templates}"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 CORPUS="${CORPUS:-/home/claude/corpus/programs/prolog}"
 SYMS='resolve_cp_current|rt_last_ok|rt_get_cut_flag|resolve_bb_env_[a-z_]*|rt_env_current|rt_choice_cut_[a-z_]*|rt_cp_save_caller_env'

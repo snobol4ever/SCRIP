@@ -5,8 +5,8 @@
 # bytes actually changed.
 #
 # Run on any session that touches codegen, i.e. any of:
-#   src/emitter/emit_bb.c, src/emitter/emit_core.c, src/emitter/BB_templates/*.cpp,
-#   src/emitter/XA_templates/*.cpp, src/emitter/x86_asm.h, src/lower/lower_snobol4.c,
+#   src/emitter/emit_bb.c, src/emitter/emit_core.c, src/templates/*.cpp,
+#   src/templates/*.cpp, src/emitter/x86_asm.h, src/lower/lower_snobol4.c,
 #   or the runtime sinks they call. (Sibling of util_regen_benchmark_s_artifacts.sh /
 #   util_regen_demo_s_artifacts.sh, which cover the corpus benchmark + demo trees.)
 #

@@ -86,43 +86,43 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_io.c \
-    $(SRC)/emitter/BB_templates/bb_lit.cpp \
-    $(SRC)/emitter/BB_templates/bb_conj.cpp \
-    $(SRC)/emitter/BB_templates/bb_fail.cpp \
-    $(SRC)/emitter/BB_templates/bb_lit_scalar.cpp \
-    $(SRC)/emitter/BB_templates/bb_var.cpp \
-    $(SRC)/emitter/BB_templates/bb_var_global.cpp \
-    $(SRC)/emitter/BB_templates/bb_return.cpp \
-    $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp \
-    $(SRC)/emitter/BB_templates/bb_keyword.cpp \
-    $(SRC)/emitter/BB_templates/bb_unop.cpp \
-    $(SRC)/emitter/BB_templates/bb_succeed.cpp \
-    $(SRC)/emitter/BB_templates/bb_every.cpp \
-    $(SRC)/emitter/BB_templates/bb_to.cpp \
-    $(SRC)/emitter/BB_templates/bb_call.cpp \
-    $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp \
-    $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp \
-    $(SRC)/emitter/BB_templates/bb_call_bool.cpp \
-    $(SRC)/emitter/BB_templates/bb_call_fn.cpp \
-    $(SRC)/emitter/BB_templates/bb_binop_relop.cpp \
-    $(SRC)/emitter/BB_templates/bb_binop_arith.cpp \
-    $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp \
-    $(SRC)/emitter/BB_templates/bb_assign_local.cpp \
-    $(SRC)/emitter/XA_templates/xa_stubs.cpp \
-    $(SRC)/emitter/XA_templates/xa_macro_library.cpp \
-    $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp \
-    $(SRC)/emitter/XA_templates/xa_exec_stmt_blob.cpp \
-    $(SRC)/emitter/XA_templates/xa_file_header.cpp \
-    $(SRC)/emitter/XA_templates/xa_bb_ptr_slot.cpp \
-    $(SRC)/emitter/XA_templates/xa_flat.cpp \
-    $(SRC)/emitter/XA_templates/xa_prologue.cpp \
-    $(SRC)/emitter/XA_templates/xa_epilogue.cpp \
-    $(SRC)/emitter/XA_templates/xa_wasm_main.cpp \
-    $(SRC)/emitter/XA_templates/xa_js_label_register.cpp \
-    $(SRC)/emitter/XA_templates/xa_expression_registry.cpp \
-    $(SRC)/emitter/XA_templates/xa_strtab_rodata.cpp \
-    $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp \
-    $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp \
+    $(SRC)/templates/bb_lit.cpp \
+    $(SRC)/templates/bb_conj.cpp \
+    $(SRC)/templates/bb_fail.cpp \
+    $(SRC)/templates/bb_lit_scalar.cpp \
+    $(SRC)/templates/bb_var.cpp \
+    $(SRC)/templates/bb_var_global.cpp \
+    $(SRC)/templates/bb_return.cpp \
+    $(SRC)/templates/bb_gvar_assign.cpp \
+    $(SRC)/templates/bb_keyword.cpp \
+    $(SRC)/templates/bb_unop.cpp \
+    $(SRC)/templates/bb_succeed.cpp \
+    $(SRC)/templates/bb_every.cpp \
+    $(SRC)/templates/bb_to.cpp \
+    $(SRC)/templates/bb_call.cpp \
+    $(SRC)/templates/bb_call_proc_staged.cpp \
+    $(SRC)/templates/bb_call_write_slot.cpp \
+    $(SRC)/templates/bb_call_bool.cpp \
+    $(SRC)/templates/bb_call_fn.cpp \
+    $(SRC)/templates/bb_binop_relop.cpp \
+    $(SRC)/templates/bb_binop_arith.cpp \
+    $(SRC)/templates/bb_binop_concat_slot.cpp \
+    $(SRC)/templates/bb_assign_local.cpp \
+    $(SRC)/templates/xa_stubs.cpp \
+    $(SRC)/templates/xa_macro_library.cpp \
+    $(SRC)/templates/xa_bb_macro_library.cpp \
+    $(SRC)/templates/xa_exec_stmt_blob.cpp \
+    $(SRC)/templates/xa_file_header.cpp \
+    $(SRC)/templates/xa_bb_ptr_slot.cpp \
+    $(SRC)/templates/xa_flat.cpp \
+    $(SRC)/templates/xa_prologue.cpp \
+    $(SRC)/templates/xa_epilogue.cpp \
+    $(SRC)/templates/xa_wasm_main.cpp \
+    $(SRC)/templates/xa_js_label_register.cpp \
+    $(SRC)/templates/xa_expression_registry.cpp \
+    $(SRC)/templates/xa_strtab_rodata.cpp \
+    $(SRC)/templates/xa_cap_fixup.cpp \
+    $(SRC)/templates/xa_pattern_blobs.cpp \
     $(SRC)/opt/gva_collect.c \
     $(SRC)/opt/proc_collect.c \
     $(SRC)/opt/ir_query.c \
@@ -223,88 +223,88 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit.cpp                   -o $(OBJ)/emit.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_lit.cpp        -o $(OBJ)/bb_lit.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_arith.cpp     -o $(OBJ)/bb_arith.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_conj.cpp       -o $(OBJ)/bb_conj.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_ite.cpp       -o $(OBJ)/bb_ite.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_atom.cpp      -o $(OBJ)/bb_atom.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_logicvar.cpp  -o $(OBJ)/bb_logicvar.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_fail.cpp      -o $(OBJ)/bb_fail.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_lit_scalar.cpp        -o $(OBJ)/bb_lit_scalar.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var.cpp               -o $(OBJ)/bb_var.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var_global.cpp        -o $(OBJ)/bb_var_global.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_return.cpp             -o $(OBJ)/bb_return.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign.cpp        -o $(OBJ)/bb_gvar_assign.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var_frame.cpp          -o $(OBJ)/bb_var_frame.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_frame.cpp       -o $(OBJ)/bb_assign_frame.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_var_frame_ref.cpp      -o $(OBJ)/bb_var_frame_ref.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_frame_ref.cpp   -o $(OBJ)/bb_assign_frame_ref.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gen_scan.cpp          -o $(OBJ)/bb_gen_scan.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_keyword.cpp           -o $(OBJ)/bb_keyword.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_goto_dyn.cpp          -o $(OBJ)/bb_goto_dyn.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_unop.cpp              -o $(OBJ)/bb_unop.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_succeed.cpp           -o $(OBJ)/bb_succeed.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_every.cpp        -o $(OBJ)/bb_every.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_to.cpp           -o $(OBJ)/bb_to.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_limit.cpp        -o $(OBJ)/bb_limit.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_suspend.cpp      -o $(OBJ)/bb_suspend.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_initial.cpp      -o $(OBJ)/bb_initial.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_idx_set.cpp      -o $(OBJ)/bb_idx_set.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_idx_get.cpp      -o $(OBJ)/bb_idx_get.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_alt.cpp          -o $(OBJ)/bb_alt.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_iterate.cpp      -o $(OBJ)/bb_iterate.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_key_gen.cpp      -o $(OBJ)/bb_key_gen.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call.cpp         -o $(OBJ)/bb_call.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_define.cpp   -o $(OBJ)/bb_call_define.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_proc_staged.cpp  -o $(OBJ)/bb_call_proc_staged.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_write_slot.cpp   -o $(OBJ)/bb_call_write_slot.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_bool.cpp      -o $(OBJ)/bb_call_bool.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_call_fn.cpp      -o $(OBJ)/bb_call_fn.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_relop.cpp       -o $(OBJ)/bb_binop_relop.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_arith.cpp       -o $(OBJ)/bb_binop_arith.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_arith.cpp  -o $(OBJ)/bb_binop_gvar_arith.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_relop.cpp  -o $(OBJ)/bb_binop_gvar_relop.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_arith_slot.cpp -o $(OBJ)/bb_binop_gvar_arith_slot.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_unop_gvar_slot.cpp -o $(OBJ)/bb_unop_gvar_slot.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_binop_gvar_concat.cpp -o $(OBJ)/bb_binop_gvar_concat.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_s.cpp -o $(OBJ)/bb_gvar_assign_lit_s.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_indirect_assign_lit_s.cpp -o $(OBJ)/bb_indirect_assign_lit_s.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_indirect_assign_var.cpp    -o $(OBJ)/bb_indirect_assign_var.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_lit_i.cpp -o $(OBJ)/bb_gvar_assign_lit_i.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_var.cpp    -o $(OBJ)/bb_gvar_assign_var.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_concat.cpp -o $(OBJ)/bb_gvar_assign_concat.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_call.cpp   -o $(OBJ)/bb_gvar_assign_call.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_gvar_assign_descr.cpp  -o $(OBJ)/bb_gvar_assign_descr.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_det_nl.cpp           -o $(OBJ)/bb_det_nl.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_cut.cpp         -o $(OBJ)/bb_cell_cut.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_cell_ite.cpp         -o $(OBJ)/bb_cell_ite.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_lit.cpp        -o $(OBJ)/bb_lit.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_arith.cpp     -o $(OBJ)/bb_arith.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_conj.cpp       -o $(OBJ)/bb_conj.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_ite.cpp       -o $(OBJ)/bb_ite.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_atom.cpp      -o $(OBJ)/bb_atom.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_logicvar.cpp  -o $(OBJ)/bb_logicvar.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_fail.cpp      -o $(OBJ)/bb_fail.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_lit_scalar.cpp        -o $(OBJ)/bb_lit_scalar.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var.cpp               -o $(OBJ)/bb_var.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_global.cpp        -o $(OBJ)/bb_var_global.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_return.cpp             -o $(OBJ)/bb_return.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign.cpp        -o $(OBJ)/bb_gvar_assign.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_frame.cpp          -o $(OBJ)/bb_var_frame.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_frame.cpp       -o $(OBJ)/bb_assign_frame.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_frame_ref.cpp      -o $(OBJ)/bb_var_frame_ref.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_frame_ref.cpp   -o $(OBJ)/bb_assign_frame_ref.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp          -o $(OBJ)/bb_gen_scan.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_keyword.cpp           -o $(OBJ)/bb_keyword.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_goto_dyn.cpp          -o $(OBJ)/bb_goto_dyn.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_unop.cpp              -o $(OBJ)/bb_unop.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_succeed.cpp           -o $(OBJ)/bb_succeed.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_every.cpp        -o $(OBJ)/bb_every.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_to.cpp           -o $(OBJ)/bb_to.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_limit.cpp        -o $(OBJ)/bb_limit.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_suspend.cpp      -o $(OBJ)/bb_suspend.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_initial.cpp      -o $(OBJ)/bb_initial.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_idx_set.cpp      -o $(OBJ)/bb_idx_set.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_idx_get.cpp      -o $(OBJ)/bb_idx_get.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_alt.cpp          -o $(OBJ)/bb_alt.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_iterate.cpp      -o $(OBJ)/bb_iterate.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_key_gen.cpp      -o $(OBJ)/bb_key_gen.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_call.cpp         -o $(OBJ)/bb_call.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_call_define.cpp   -o $(OBJ)/bb_call_define.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_call_proc_staged.cpp  -o $(OBJ)/bb_call_proc_staged.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_call_write_slot.cpp   -o $(OBJ)/bb_call_write_slot.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_call_bool.cpp      -o $(OBJ)/bb_call_bool.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_call_fn.cpp      -o $(OBJ)/bb_call_fn.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_relop.cpp       -o $(OBJ)/bb_binop_relop.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_arith.cpp       -o $(OBJ)/bb_binop_arith.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_arith.cpp  -o $(OBJ)/bb_binop_gvar_arith.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_relop.cpp  -o $(OBJ)/bb_binop_gvar_relop.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_arith_slot.cpp -o $(OBJ)/bb_binop_gvar_arith_slot.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_unop_gvar_slot.cpp -o $(OBJ)/bb_unop_gvar_slot.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_concat.cpp -o $(OBJ)/bb_binop_gvar_concat.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_lit_s.cpp -o $(OBJ)/bb_gvar_assign_lit_s.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_lit_s.cpp -o $(OBJ)/bb_indirect_assign_lit_s.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_var.cpp    -o $(OBJ)/bb_indirect_assign_var.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_lit_i.cpp -o $(OBJ)/bb_gvar_assign_lit_i.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_var.cpp    -o $(OBJ)/bb_gvar_assign_var.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_concat.cpp -o $(OBJ)/bb_gvar_assign_concat.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_call.cpp   -o $(OBJ)/bb_gvar_assign_call.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_descr.cpp  -o $(OBJ)/bb_gvar_assign_descr.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_det_nl.cpp           -o $(OBJ)/bb_det_nl.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cell_cut.cpp         -o $(OBJ)/bb_cell_cut.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cell_ite.cpp         -o $(OBJ)/bb_cell_ite.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_str.cpp                      -o $(OBJ)/emit_str.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_subject.cpp   -o $(OBJ)/bb_subject.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_ref_invariant.cpp -o $(OBJ)/bb_ref_invariant.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_field_set.cpp -o $(OBJ)/bb_field_set.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_section.cpp -o $(OBJ)/bb_section.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_swap.cpp -o $(OBJ)/bb_swap.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_rasgn.cpp -o $(OBJ)/bb_rasgn.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_case_arm.cpp -o $(OBJ)/bb_case_arm.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/emitter/XA_templates/xa_bb_macro_library.cpp -o $(OBJ)/xa_bb_macro_library.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/emitter/XA_templates/xa_exec_stmt_blob.cpp -o $(OBJ)/xa_exec_stmt_blob.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_file_header.cpp     -o $(OBJ)/xa_file_header.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_bb_ptr_slot.cpp      -o $(OBJ)/xa_bb_ptr_slot.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_flat.cpp             -o $(OBJ)/xa_flat.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_prologue.cpp         -o $(OBJ)/xa_prologue.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_epilogue.cpp         -o $(OBJ)/xa_epilogue.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_wasm_main.cpp        -o $(OBJ)/xa_wasm_main.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_js_label_register.cpp -o $(OBJ)/xa_js_label_register.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_expression_registry.cpp -o $(OBJ)/xa_expression_registry.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_strtab_rodata.cpp     -o $(OBJ)/xa_strtab_rodata.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
-	$(CXX) $(CRT)   -I$(SRC)/emitter/XA_templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_subject.cpp   -o $(OBJ)/bb_subject.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_ref_invariant.cpp -o $(OBJ)/bb_ref_invariant.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_set.cpp -o $(OBJ)/bb_field_set.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_section.cpp -o $(OBJ)/bb_section.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_swap.cpp -o $(OBJ)/bb_swap.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rasgn.cpp -o $(OBJ)/bb_rasgn.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_case_arm.cpp -o $(OBJ)/bb_case_arm.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/templates/xa_bb_macro_library.cpp -o $(OBJ)/xa_bb_macro_library.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/templates/xa_exec_stmt_blob.cpp -o $(OBJ)/xa_exec_stmt_blob.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_file_header.cpp     -o $(OBJ)/xa_file_header.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_bb_ptr_slot.cpp      -o $(OBJ)/xa_bb_ptr_slot.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_flat.cpp             -o $(OBJ)/xa_flat.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_prologue.cpp         -o $(OBJ)/xa_prologue.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_epilogue.cpp         -o $(OBJ)/xa_epilogue.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_wasm_main.cpp        -o $(OBJ)/xa_wasm_main.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_js_label_register.cpp -o $(OBJ)/xa_js_label_register.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_expression_registry.cpp -o $(OBJ)/xa_expression_registry.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_strtab_rodata.cpp     -o $(OBJ)/xa_strtab_rodata.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -DIR_DEFINE_NAMES \
 	    -c $(SRC)/contracts/ast_print.c -o $(OBJ)/ast_print.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/snocone/snocone_lex.c        -o $(OBJ)/snocone_lex.o

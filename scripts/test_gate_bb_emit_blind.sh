@@ -16,7 +16,7 @@ total_direct=0
 total_alias=0
 report_direct=""
 report_alias=""
-for f in src/emitter/BB_templates/bb_*.cpp; do
+for f in src/templates/bb_*.cpp; do
     [ -f "$f" ] || continue
     name="$(basename "$f")"
     direct=$(strip "$f" | grep -cE 'pBB->[αβγω]' || true)

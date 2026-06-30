@@ -31,9 +31,9 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 TPL_DIRS=(
-  "$ROOT/src/emitter/BB_templates"
+  "$ROOT/src/templates"
   "$ROOT/src/emitter/SM_templates"
-  "$ROOT/src/emitter/XA_templates"
+  "$ROOT/src/templates"
 )
 
 # Side-effecting emission calls. The `_str` twins and `s_*asm`/`s_directive`/

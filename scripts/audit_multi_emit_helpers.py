@@ -9,7 +9,7 @@ family >=2 times AND it is not a dispatch entry (a per-box bb_*_str function or 
 extern "C" box wrapper). Emission calls are counted on a comment/string-stripped skeleton
 so an x86( substring inside a literal or comment never inflates the count (verdict #7).
 Usage: python3 scripts/audit_multi_emit_helpers.py [--csv] [DIR]
-Default DIR: src/emitter/BB_templates relative to repo root inferred from this file.
+Default DIR: src/templates relative to repo root inferred from this file.
 """
 import os, re, sys, glob
 EMIT_RE = re.compile(r'\bx86[a-z0-9_]*\(')
@@ -94,7 +94,7 @@ def main():
             print(f"{c['emits']},{c['file']},{c['name']},{c['line']},{len(cs)}")
         return
     print('=' * 92)
-    print('FIX-8b MULTI-EMIT HELPER CENSUS  (src/emitter/BB_templates/*.cpp)')
+    print('FIX-8b MULTI-EMIT HELPER CENSUS  (src/templates/*.cpp)')
     print('  INLINE+DELETE candidate = helper with >=2 x86/x86_* emission calls, not a dispatch entry')
     print('=' * 92)
     print(f"{'EMITS':>6}  {'FILE':<34}{'HELPER':<32}{'@LINE':>6}  CALL-SITES")

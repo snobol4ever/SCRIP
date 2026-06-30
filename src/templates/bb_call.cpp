@@ -10,7 +10,7 @@ extern "C" {
 #include "emit.h"
 #include "emit_bb.h"
 #include "ast.h"
-#include "../../runtime/builtins/gen.h"
+#include "../runtime/builtins/gen.h"
 extern DESCR_t POWER_fn(DESCR_t, DESCR_t);
 extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
 void rt_write_any_nl(DESCR_t d);
