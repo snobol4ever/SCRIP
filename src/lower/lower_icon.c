@@ -207,8 +207,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower(cx, t->c[0], ret, cx->pfail ? cx->pfail : ω, &vr); ir_operand_push(ret, vr); *res = ret; return entry; }
         *res = ret; return ret; }
     case TT_PROC_FAIL: { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
-    case TT_LOOP_BREAK: { IR_t * lx = cx->loop_exit; IR_t * nd = build(cx, IR_FAIL, lx ? lx : γ, lx ? lx : ω); *res = nd; return nd; }
-    case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd = build(cx, IR_FAIL, ln ? ln : γ, ln ? ln : ω); *res = nd; return nd; }
+    case TT_LOOP_BREAK: { IR_t * lx = cx->loop_exit; IR_t * nd = lx ? build(cx, IR_CONJ, lx, lx) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
+    case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd = ln ? build(cx, IR_CONJ, ln, ln) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOCAL: case TT_STATIC_DECL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_INITIAL: { IR_t * ini = build(cx, IR_FAIL, γ, ω);
         if (t->n > 0 && t->c[0]) { IR_t * bsucc = build(cx, IR_SUCCEED, γ, ω); IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], bsucc, ω, &br); ir_operand_push(ini, be); }
@@ -341,12 +341,12 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * B = (t->n > 0) ? t->c[0] : NULL;
-    IR_t * R = build(cx, IR_FAIL, NULL, ω);
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = γ; cx->loop_next = R;
-    IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, R, R, &bval);
-    γ_to(R, b_entry); ir_operand_push(R, b_entry);
+    IR_t * H = build(cx, IR_CONJ, NULL, ω);
+    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = γ; cx->loop_next = H;
+    IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, H, H, &bval);
+    γ_to(H, b_entry); ω_to(H, b_entry); ir_operand_push(H, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln;
-    *res = R; return b_entry;
+    cx->beta = γ; *res = H; return H;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
