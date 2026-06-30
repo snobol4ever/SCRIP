@@ -131,6 +131,13 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     }
 }
 /*====================================================================================================================================================================================================*/
+static IR_t * lc_key(icx_t * cx, const char * kw, IR_t * γ, IR_t * ω, IR_t ** res) {
+    const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
+    if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = 0; *res = nd; return nd; }
+    if (id && !strcmp(id, "file")) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; *res = nd; return nd; }
+    IR_t * nd = build(cx, IR_KEYWORD, γ, ω); IR_LIT(nd).sval = (char *) kw; *res = nd; return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     cx->beta = ω;
@@ -155,8 +162,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_CSET: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = icn_cset_canon(t->v.sval); IR_LIT(nd).ival = 1; *res = nd; return nd; }
     case TT_NULL: { if (t->n > 0 && t->c[0]) { IR_t * op = build(cx, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); *res = op; return ea; } IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
-    case TT_VAR: { IR_t * nd = build(cx, (t->v.sval && t->v.sval[0] == '&') ? IR_KEYWORD : IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_KEYWORD: { IR_t * nd = build(cx, IR_KEYWORD, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
+    case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
+    case TT_KEYWORD: return lc_key(cx, t->v.sval, γ, ω, res);
     case TT_FIELD: { IR_t * nd = build(cx, IR_FAIL, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
