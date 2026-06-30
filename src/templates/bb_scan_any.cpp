@@ -5,14 +5,13 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_descr_flat_chain;
 const char * rt_nv_cstr(const char * name);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_any() {
     x86_begin();
-    if (PLATFORM_X86 && g_descr_flat_chain && _.op_off >= 0 && !_.op_name1 && _.op_name2 && _.op_sa >= 0) {
+    if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_name2 && _.op_sa >= 0) {
         return x86("comment", "IR_SCAN_ANY (var cset)")
              + x86("label",   _.lbl_α)
              + x86("mov",     "eax", "r14d")
@@ -34,7 +33,7 @@ std::string bb_scan_any() {
              + x86("def",     "β")
              + x86("jmp",     "ω");
     }
-    if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_any: unhandled (needs literal cset arg + descr flat-chain slot)");
+    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_any: unhandled (needs literal cset arg + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_ANY")
          + x86("label",   _.lbl_α)
          + x86("mov",     "eax", "r14d")

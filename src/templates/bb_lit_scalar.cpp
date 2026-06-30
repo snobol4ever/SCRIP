@@ -4,7 +4,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_descr_flat_chain;
 extern int g_gvar_callarg_live;
 }
 #include "x86_asm.h"
@@ -13,7 +12,7 @@ static uint64_t blsc_bits(double d) { uint64_t b; memcpy(&b, &d, 8); return b; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_lit_scalar() {
     if (!PLATFORM_X86) return std::string();
-    int live = g_descr_flat_chain || g_gvar_callarg_live;
+    int live = 1;
     if (live && _.op_node_kind == (int)IR_LIT_INTEGER && _.op_off >= 0)
         return x86("comment", "IR_LIT_INTEGER")
              + x86("label",   _.lbl_α)

@@ -4,7 +4,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -20,7 +19,7 @@ extern int g_descr_flat_chain;
 std::string bb_suspend() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (!(g_descr_flat_chain && _.op_sa >= 0 && _.lbl_t0))
+    if (!(_.op_sa >= 0 && _.lbl_t0))
         return x86_bomb("bb_suspend: unhandled (needs descr flat-chain, expr-value slot, do-body resume label)");
     return x86("comment", "IR_SUSPEND yield+resume")
          + x86("label", _.lbl_α)

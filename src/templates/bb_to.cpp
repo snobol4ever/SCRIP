@@ -5,7 +5,6 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
-extern int g_descr_flat_chain;
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 }
@@ -16,7 +15,7 @@ static inline int64_t bb_to_by() { return (_.op_node_kind == (int)IR_OP_COUNT &&
 std::string bb_to() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (!(g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && bb_to_by() != 0))
+    if (!(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && bb_to_by() != 0))
         return x86_bomb("bb_to: unhandled (needs static operands, nonzero by, descr flat-chain)");
     if (_.op_num_real) {
         int cmp_op = (bb_to_by() > 0) ? (int)BINOP_LE : (int)BINOP_GE;

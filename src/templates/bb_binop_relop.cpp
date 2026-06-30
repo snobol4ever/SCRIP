@@ -7,7 +7,6 @@ extern "C" {
 #include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
-extern int g_descr_flat_chain;
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 }
@@ -15,7 +14,7 @@ int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_relop() {
     if (PLATFORM_X86) {
-        return (g_descr_flat_chain && !_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
+        return (!_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
                  ? x86("label", _.lbl_α)
                  + x86("comment", "IR_BINOP_RELOP")
                  + x86("mov", "eax", FR(_.op_sa))
@@ -49,7 +48,7 @@ std::string bb_binop_relop() {
                  + x86("jmp", "γ")
                  + x86("def", "β")
                  + x86("jmp", "ω")
-             : (g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0
+             : (_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0
                 && ((_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE) || (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE)))
                  ? x86("label", _.lbl_α)
                  + x86("comment", "IR_BINOP_RELOP")

@@ -4,7 +4,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -17,7 +16,7 @@ extern int g_descr_flat_chain;
 std::string bb_limit() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (!(g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0 && _.lbl_t0))
+    if (!(_.op_off >= 0 && _.op_sa >= 0 && _.lbl_t0))
         return x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, literal count, gen-β)");
     long t = (long)_.op_ival;
     return x86("comment", "IR_LIMIT")

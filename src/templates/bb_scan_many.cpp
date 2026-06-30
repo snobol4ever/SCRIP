@@ -5,13 +5,12 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_many() {
     x86_begin();
-    if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_many: unhandled (needs literal cset arg + descr flat-chain slot)");
+    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_many: unhandled (needs literal cset arg + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_MANY")
          + x86("label",   _.lbl_α)
          + x86("mov",     "eax", "r14d")

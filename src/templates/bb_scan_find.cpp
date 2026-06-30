@@ -5,11 +5,10 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int find_admit() { return g_descr_flat_chain && _.op_off >= 0 && _.op_name1 && _.op_name1[0] && strlen(_.op_name1) <= 32; }
+static int find_admit() { return _.op_off >= 0 && _.op_name1 && _.op_name1[0] && strlen(_.op_name1) <= 32; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_find() {
     x86_begin();

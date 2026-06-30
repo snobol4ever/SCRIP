@@ -6,7 +6,6 @@ extern "C" {
 #include "descr.h"
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
-extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
