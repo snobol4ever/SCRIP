@@ -108,6 +108,7 @@ struct IR_graph_t {
     int            nslots;
     int            nvalue_slots;
     int            jcon_value_region;
+    int            nparams;
     IR_t         * body_root;
     #define AG_RING 16
     DESCR_t        ring[AG_RING];
