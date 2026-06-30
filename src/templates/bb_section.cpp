@@ -1,9 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 #include "descr.h"
 extern DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
 }

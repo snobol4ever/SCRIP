@@ -1,9 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 #include "descr.h"
 extern int g_descr_flat_chain;
 extern int g_gva_active;

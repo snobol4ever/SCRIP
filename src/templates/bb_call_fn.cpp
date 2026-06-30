@@ -1,11 +1,9 @@
 #include <string>
 #include <stdint.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "emit.h"
-#include "emit_bb.h"
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 int bb_slot_alloc16(IR_t * nd);
 int bb_slot_claim(int bytes);

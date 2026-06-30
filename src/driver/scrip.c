@@ -31,11 +31,8 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "sil_macros.h"
 #include "runtime_shim.h"
 #include "lower.h"
-#include "box_state.h"
-#include "bb_build.h"
 #include "emit.h"
-#include "emit_bb.h"
-#include "emit_core.h"
+#include "bb_build.h"
 #include "scrip_sm.h"
 extern DESCR_t pat_at_cursor(const char *varname);
 static void stmt_init(void) {}

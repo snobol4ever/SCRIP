@@ -1,10 +1,8 @@
 #include <string>
 #include <cstring>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
-#include "emit_bb.h"
 extern long rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
 }
 #include "x86_asm.h"

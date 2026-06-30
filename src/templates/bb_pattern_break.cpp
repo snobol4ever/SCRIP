@@ -1,8 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 void bb_build_break_blob(const char *name, const char *cset);
 }
 #include "x86_asm.h"

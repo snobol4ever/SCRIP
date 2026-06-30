@@ -1,9 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 void rt_gvar_assign_int(const char * name, int64_t val);
 }
 #include "x86_asm.h"

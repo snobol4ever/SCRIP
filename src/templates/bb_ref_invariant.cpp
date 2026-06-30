@@ -1,8 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 void rt_gvar_assign_pat(const char *name, void *head);
 }
 #include "x86_asm.h"

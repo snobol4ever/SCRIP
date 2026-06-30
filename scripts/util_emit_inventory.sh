@@ -8,12 +8,12 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SRC="$ROOT/src/emitter"
-FILES="emit_core.c emit_core.h emit_io.c emit_sm.c emit_bb.c emit_str.cpp emit_str.h"
+FILES="emit.cpp emit.h emit_io.c emit_str.cpp"
 
 echo "=== STRING-CONCAT-ALL SC-0 emit_* inventory ==="
 echo
 echo "## Already returning std::string (leaves — DONE in ER wave):"
-grep -hoE "std::string\s+(s_[a-z0-9_]+|emit_[a-z0-9_]+)" $SRC/emit_str.h 2>/dev/null \
+grep -hoE "std::string\s+(s_[a-z0-9_]+|emit_[a-z0-9_]+)" $SRC/emit.h 2>/dev/null \
   | sed -E 's/std::string\s+//' | sort -u | sed 's/^/  /'
 echo
 echo "## TEXT-BUILDER imperative (CONVERT — fprintf/fputs that build code text):"

@@ -1,9 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
-#include "emit_bb.h"
 }
 #include "bb_common.h"
 extern "C" int   rt_unify_terms(void *l, void *r);

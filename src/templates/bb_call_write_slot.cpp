@@ -1,11 +1,9 @@
 #include <string>
 #include <stdint.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "emit.h"
-#include "emit_bb.h"
 #include "../runtime/builtins/gen.h"
 void rt_write_any_nl(DESCR_t d);
 void rt_write_strz_nl(const char *s);

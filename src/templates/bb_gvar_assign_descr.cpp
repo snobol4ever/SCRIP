@@ -1,10 +1,9 @@
 #include <string>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "emit.h"
 #include "descr.h"
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 }

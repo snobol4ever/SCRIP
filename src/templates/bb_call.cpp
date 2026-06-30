@@ -3,12 +3,10 @@
 #include <stdint.h>
 #include <cstdio>
 #include <cstdlib>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "emit.h"
-#include "emit_bb.h"
 #include "ast.h"
 #include "../runtime/builtins/gen.h"
 extern DESCR_t POWER_fn(DESCR_t, DESCR_t);

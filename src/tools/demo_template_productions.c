@@ -1,6 +1,4 @@
 #include "emit.h"
-#include "emit_templates.h"
-#include "emit.h"
 #include <stdio.h>
 #include <stdlib.h>
 int main(void)

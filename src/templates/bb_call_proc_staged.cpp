@@ -1,11 +1,9 @@
 #include <string>
 #include <stdint.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "emit.h"
-#include "emit_bb.h"
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen(const char *name, int nargs);
 DESCR_t rt_proc_resume_gen(void);

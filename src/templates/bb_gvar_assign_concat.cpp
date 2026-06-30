@@ -1,9 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 void rt_gvar_assign_str(const char * name, const char * str);
 void rt_gvar_assign_concat_parts(const char * dst, void * parts, int n);
 }

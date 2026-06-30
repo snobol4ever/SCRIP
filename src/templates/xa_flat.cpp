@@ -1,11 +1,9 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 #include "x86_asm.h"
 extern "C" {
 #include "xa_template_common.h"
-#include "../emitter/emit_bb.h"
-#include "../emitter/emit_form.h"
-#include "../emitter/x86_opcodes.h"
+#include "../emitter/emit.h"
 }
 #define ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 /*--------------------------------------------------------------------------------------------------------------------*/

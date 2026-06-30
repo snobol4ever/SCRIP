@@ -1,10 +1,6 @@
 #pragma once
-#include "emit_core.h"
-#include "emit_globals.h"
-#include "emit_io.h"
-#include "emit_form.h"
+#include "emit.h"
 #include "emit_ir.h"
-#include "emit_bb.h"
 #include "XA.h"
 #include <stdio.h>
 #include <string.h>

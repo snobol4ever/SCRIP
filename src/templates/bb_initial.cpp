@@ -1,9 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 int64_t rt_initial_fire(int64_t site);
 }
 #include "x86_asm.h"

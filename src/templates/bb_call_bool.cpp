@@ -1,8 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 #include "../runtime/rt/rt.h"
 #include "../runtime/builtins/gen.h"
 int bb_slot_get(IR_t *nd);

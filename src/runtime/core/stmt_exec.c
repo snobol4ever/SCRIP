@@ -7,7 +7,7 @@
 #include "sil_macros.h"
 #include "bb_build.h"
 #include "bb_pool.h"
-#include "emit_bb.h"
+#include "emit.h"
 #include "lower.h"
 #include "ast.h"
 #include "bb_box.h"

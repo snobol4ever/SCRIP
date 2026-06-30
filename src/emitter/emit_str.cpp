@@ -1,14 +1,10 @@
-#include "emit_str.h"
+#include "emit.h"
 #include <cstdarg>
 #include <cstdint>
 #include <cstring>
 #include <deque>
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" {
-#include "emit_core.h"
-#include "emit_io.h"
-#include "emit.h"
-#include "emit_globals.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string emit_fmt(const char * f, ...) {

@@ -1,11 +1,10 @@
 #include <string>
 #include <cstring>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "emit.h"
 #include "descr.h"
 int  bb_slot_claim(int bytes);
 int  bb_slot_alloc16(IR_t * nd);

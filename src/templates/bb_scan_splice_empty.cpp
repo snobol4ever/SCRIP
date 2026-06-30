@@ -1,8 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 void rt_scan_splice_empty(const char *subj_name, int m_start, int m_end);
 }
 #include "x86_asm.h"

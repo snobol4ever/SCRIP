@@ -1,10 +1,9 @@
 extern "C" {
 #include "contracts/IR.h"
-#include "emitter/emit_bb.h"
-#include "emitter/emit_globals.h"
+#include "emitter/emit.h"
 #include "machine/bb_pool.h"
 }
-#include "box_state.h"   /* bb_match_kids_state_t — the IR_MATCH_CAT kids channel */
+#include "emit.h"   /* bb_match_kids_state_t — the IR_MATCH_CAT kids channel */
 extern "C" {
 extern int g_frame_active;
 void rt_gvar_assign_pat(const char *name, void *head);

@@ -1,9 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 void rt_indirect_assign_var(const char *holder, const char *val_name);
 }
 #include "x86_asm.h"
