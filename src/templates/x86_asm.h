@@ -3,17 +3,13 @@
 #include <string>
 #include <cstdint>
 #include <cstring>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
-#include "emit_core.h"
-#include "emit_globals.h"
-#include "emit_io.h"
 }
 #ifndef _
 #define _ g_emit
 #endif
 extern "C" {
-#include "emit_bb.h"
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 enum { X86P_ALPHA = 0, X86P_BETA = 1, X86P_GAMMA = 2, X86P_OMEGA = 3 };

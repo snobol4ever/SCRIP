@@ -1,8 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 #include "descr.h"
 extern DESCR_t dat_field_get(const char *fname, DESCR_t obj);
 }

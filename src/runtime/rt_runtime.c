@@ -1,4 +1,4 @@
-#include "box_state.h"
+#include "emit.h"
 #include "rt/rt.h"
 #include "lower.h"
 #include "../../emitter/sil_macros.h"

@@ -1,9 +1,8 @@
 #include <string>
 #include <stdio.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/

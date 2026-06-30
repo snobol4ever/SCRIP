@@ -1,6 +1,4 @@
 #include "emit.h"
-#include "emit_templates.h"
-#include "emit.h"
 #include <stdio.h>
 #include <string.h>
 static const unsigned char EXPECTED_BYTES[] = {

@@ -1,9 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 #include "descr.h"
 int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit);
 }

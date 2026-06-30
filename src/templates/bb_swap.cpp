@@ -1,8 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"

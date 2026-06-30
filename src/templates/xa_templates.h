@@ -1,6 +1,5 @@
 #pragma once
-#include "emit_core.h"
-#include "emit_globals.h"
+#include "emit.h"
 #include "XA.h"
 void xa_macro_library_open    (void);
 void xa_macro_library_close   (void);

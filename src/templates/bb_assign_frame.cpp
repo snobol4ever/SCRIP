@@ -1,10 +1,9 @@
 #include <string>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 extern int g_gvar_flat_chain;
-#include "emit.h"
 #include "descr.h"
 DESCR_t rt_gvar_get_descr(const char * name);
 }

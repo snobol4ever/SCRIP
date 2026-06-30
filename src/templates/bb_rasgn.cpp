@@ -1,9 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 #include "descr.h"
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);

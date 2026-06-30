@@ -1,11 +1,8 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
-#include "emit_bb.h"
 #include "IR.h"
-#include "box_state.h"
 }
 #include "x86_asm.h"
 extern "C" void *rt_pl_dyn_iter_begin(const char *name, long arity);

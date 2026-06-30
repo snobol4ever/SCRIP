@@ -1,9 +1,8 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "emit.h"
 }
 extern "C" int   rt_defer_match    (const char *varname, int ival_flag, int cur_delta);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);

@@ -1,5 +1,5 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "xa_template_common.h"
 }

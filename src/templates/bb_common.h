@@ -1,12 +1,9 @@
 #pragma once
 #include <string>
 #include <cstring>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
-#include "emit_bb.h"
-#include "emit_core.h"
 #include <stdio.h>
 extern void rt_write_atom(const char *s);
 extern void rt_pl_frame_sync_env(void *frame, int nslots);

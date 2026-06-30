@@ -1,10 +1,7 @@
 #include "emit_per_kind_audit.h"
 #include "IR.h"
-#include "box_state.h"
+#include "emit.h"
 #include "SM.h"
-#include "emit_bb.h"
-#include "emit_core.h"
-#include "emit_globals.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

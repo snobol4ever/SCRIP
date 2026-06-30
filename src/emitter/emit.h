@@ -1,10 +1,326 @@
-#ifndef EMIT_H
-#define EMIT_H
+#pragma once
+/*====================================================================================================================*/
+/* emit.h — CONSOLIDATED emitter interface. Merges former emit_core/emit_bb/emit/emit_form/emit_globals/emit_drive/   */
+/* emit_templates/emit_io/emit_str/emit_str_builders/x86_opcodes/box_state into ONE. (bb_regs.h + emit_defs.h were    */
+/* dead and dropped; sil_macros.h is a runtime header and stays separate.) Bodies preserved byte-for-byte in          */
+/* dependency order. Emitter decls carry C linkage (extern "C") so C callers in driver/lowerer/opt link unchanged.    */
+/* Note: 3 duplicate EmitStr inlines (js_escape/jvm_push_int2/jvm_emit_ldc *_str) dropped; globals in emit_str.cpp win.*/
+/*====================================================================================================================*/
+/*=== x86_opcodes.h ===*/
+#define REX_W            0x48
+#define REX_WR           0x4C
+#define REX_B            0x41
+#define REX_WB           0x49
+#define MOV_EAX_IMM32    0xB8
+#define MOV_ECX_IMM32    0xB9
+#define MOV_EDX_IMM32    0xBA
+#define MOV_ESI_IMM32    0xBE
+#define MOV_EDI_IMM32    0xBF
+#define MOV_RM_R         0x89
+#define MOV_R_RM         0x8B
+#define MODRM_ECX_EAX    0xC1
+#define MODRM_EAX_ECX    0xC8
+#define MODRM_RDI_RAX    0xC7
+#define MODRM_RBP_RSP    0xE5
+#define MODRM_RSP_RBP    0xEC
+#define MODRM_R10_INDIR  0x02
+#define MODRM_RCX_INDIR  0x01
+#define MODRM_R10D_EAX   0x02
+#define LEA              0x8D
+#define MODRM_RAX_RAXRCX 0x04
+#define SIB_RAX_RCX      0x08
+#define ESC              0x0F
+#define MOVZX_R_RM8      0xB6
+#define MODRM_EAX_EDI7   0x47
+#define MOVSXD_R_RM      0x63
+#define MODRM_RCX_R10    0x0A
+#define CMP_RM_IMM8      0x83
+#define CMP_RM_IMM32     0x81
+#define MODRM_CMP_ESI    0xFE
+#define CMP_EAX_IMM32    0x3D
+#define CMP_AL_IMM8      0x3C
+#define CMP_R_RM         0x3B
+#define CMP_RM_R         0x39
+#define MODRM_CMP_RSP    0xC4
+#define ADD_EAX_IMM32    0x05
+#define SUB_EAX_IMM32    0x2D
+#define XOR_RM_R         0x31
+#define MODRM_EAX_EAX    0xC0
+#define TEST_RM_R        0x85
+#define MODRM_RAX_RAX    0xC0
+#define INC_CALL_FF      0xFF
+#define MODRM_CALL_RAX   0xD0
+#define MODRM_INC_R13D   0x45
+#define REX_B_PUSH_R12   0x54
+#define REX_B_POP_R12    0x5C
+#define REX_B_PUSH_R10   0x52
+#define REX_B_POP_R10    0x5A
+#define PUSH_RBP         0x55
+#define POP_RBP          0x5D
+#define JMP_REL8         0xEB
+#define JMP_REL32        0xE9
+#define JL_REL8          0x7C
+#define JGE_REL8         0x7D
+#define JE_REL8          0x74
+#define JNE_REL8         0x75
+#define JNE_REL32_X      0x85
+#define JE_REL32_X       0x84
+#define JL_REL32_X       0x8C
+#define JGE_REL32_X      0x8D
+#define JG_REL32_X       0x8F
+#define RET              0xC3
+#define NOP              0x90
+/*=== emit_core.h ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "emit_core.h"
-#include "emit_bb.h"
+#define TEXT_MODE_INVOCATION  0
+#define TEXT_MODE_DEFINITION  1
+#include "bb_pool.h"
+#include "IR.h"
+#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdarg.h>
+typedef enum {
+    EMIT_TEXT             = 0,
+    EMIT_BINARY_WIRED     = 1,
+    EMIT_MACRO_DEF        = 3,
+    EMIT_TEXT_INLINE      = 4,
+    EMIT_JVM              = 5,
+    EMIT_JS               = 6,
+    EMIT_NET              = 7,
+    EMIT_WASM             = 8
+} bb_emit_mode_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+#define EMIT_BINARY     EMIT_BINARY_WIRED
+typedef enum {
+    BB_PLATFORM_X86  = 0,
+    BB_PLATFORM_JVM  = 1,
+    BB_PLATFORM_NET  = 2,
+    BB_PLATFORM_JS   = 3,
+    BB_PLATFORM_WASM = 4
+} bb_platform_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+typedef enum {
+    BB_MEDIUM_TEXT      = 0,
+    BB_MEDIUM_BINARY    = 1,
+    BB_MEDIUM_MACRO_DEF = 2
+} bb_medium_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern bb_platform_t   g_platform;
+extern bb_medium_t     g_medium;
+extern int             g_use_sm_macros;
+extern int             g_use_bb_macros;
+#define PLATFORM_X86   (g_platform == BB_PLATFORM_X86)
+#define PLATFORM_JVM   (g_platform == BB_PLATFORM_JVM)
+#define PLATFORM_NET   (g_platform == BB_PLATFORM_NET)
+#define PLATFORM_JS    (g_platform == BB_PLATFORM_JS)
+#define PLATFORM_WASM  (g_platform == BB_PLATFORM_WASM)
+#define MEDIUM_TEXT      (g_medium == BB_MEDIUM_TEXT)
+#define MEDIUM_BINARY    (g_medium == BB_MEDIUM_BINARY)
+#define MEDIUM_MACRO_DEF (g_medium == BB_MEDIUM_MACRO_DEF)
+#define USE_SM_MACROS  (g_use_sm_macros)
+#define USE_BB_MACROS  (g_use_bb_macros)
+#define BB_LABEL_NAME_MAX   80
+#define BB_LABEL_UNRESOLVED (-1)
+#define EMIT_UNRESOLVED     BB_LABEL_UNRESOLVED
+#define EMIT_LABEL_MAX      BB_LABEL_NAME_MAX
+typedef struct bb_label_t { char name[BB_LABEL_NAME_MAX]; int offset; } bb_label_t;
+#define bb_label_defined(lbl)  ((lbl)->offset != BB_LABEL_UNRESOLVED)
+#define emit_label_ok(l)       bb_label_defined(l)
+typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
+/* Per-proc forward-reference patch table for the in-process binary emitter.
+   Drained per-proc (bb_emit_end / bb_label_define resolve+remove entries), so this
+   bounds one proc's *simultaneously-pending* forward refs, which grows ~linearly with
+   proc length (chain γ/ω ports resolve only at proc end). 512 overflowed for large
+   procs (e.g. pcom chartypes peak=527, pint peak=587 → build returns NULL → proc fn
+   left unregistered → runtime FAILDESCR). 65536 sits far below the rel32-jump count
+   that can fit in FLAT_BUF_MAX (256KB / ~5B ≈ 52K) and costs ~1.5MB BSS. */
+#define BB_PATCH_MAX   65536
+#define EMIT_PATCH_MAX BB_PATCH_MAX
+typedef enum { PATCH_REL8, PATCH_REL32 } bb_patch_kind_t;
+typedef struct { int site; bb_label_t * label; bb_patch_kind_t kind; } bb_patch_t;
+typedef int emitter_t;
+extern bb_emit_mode_t  bb_emit_mode;
+extern int             g_sm_native_unsupported;
+extern FILE          * bb_emit_out;
+extern bb_buf_t        bb_emit_buf;
+extern int             bb_emit_pos;
+extern int             bb_emit_size;
+extern bb_patch_t      bb_patch_list[BB_PATCH_MAX];
+extern int             bb_patch_count;
+extern int             g_is_text;
+extern int             g_emit_text_mode;
+void     bb_emit_begin      (bb_buf_t buf, int size);
+int      bb_emit_end        (void);
+void     bb_emit_patch_rel32(bb_label_t * lbl);
+void     bb_emit_byte       (uint8_t b);
+void     bb_emit_u32        (uint32_t v);
+void     bb_emit_u64        (uint64_t v);
+void     bb_emit_i32        (int32_t v);
+FILE *   emit_outf             (void);
+void     fmt_body_append       (const char * instr, const char * operands);
+void     emit_label_initf      (bb_label_t * lbl, const char * fmt, ...);
+void     bb_label_define       (bb_label_t * lbl);
+bb_label_t * emit_label_alloc  (const char * fmt, ...);
+bb_label_t * emit_label_intern (const char * name);
+void         emit_label_pool_reset(void);
+void     emit_label_define_bb  (bb_label_t * lbl);
+void     emit_jmp_label        (bb_label_t * target, jmp_kind_t kind);
+struct IR_t;
+int walk_bb_node(struct IR_t * nd, FILE * out);
+void jvm_push_int2(FILE * out, long v);
+void jvm_emit_ldc_string(FILE * out, const char * s);
+void js_escape_string(FILE * out, const char * s);
+#include "XA.h"
+struct tree_t;
+void strtab_label(char *buf, size_t bufsz, const char *s);
+void xa_emit_strtab_rodata(void);
+void strtab_reset(void);
+int  strtab_intern(const char *s);
+void xa_dispatch(XA_op_t op);
+#ifdef __cplusplus
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+#endif
+/*=== box_state.h ===*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+#include "IR.h"
+#include <gc.h>
+/*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    DESCR_t value; int64_t counter; int state;
+    void   *resolve_cs;
+    int     ch_cur;
+    int     ch_mark;
+    void   *ch_saved_env;
+    void   *ch_last_body;
+    void   *ch_last_act;
+    void   *ch_cp;
+    void   *ch_cut_barrier;
+    void  **ch_body_snaps;
+    int     ch_nbodies;
+} bb_node_state_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct { IR_t * root; int succ_idx; int fail_idx; int is_terminal; } stmt_t;
+typedef struct { stmt_t * stmts; int n; int entry_idx; } prog_t;
+typedef struct { IR_t ** kids; int nkids; IR_graph_t * inner; int * pos_stack; int cap; int saved_delta; } bb_arbno_state_t;
+typedef struct { IR_t ** goals; int ngoals; } bb_conj_state_t;
+typedef struct { IR_t * cond; IR_t * then_; IR_t * else_; IR_t * then_root; IR_t * else_root; IR_t * cond_root; void * cp_mark; int committed; long seen_seq; } bb_ite_state_t;
+typedef struct { IR_graph_t * goal_g; IR_t * catcher; IR_graph_t * rec_g; } bb_catch_state_t;
+typedef struct { IR_graph_t ** bodies; int nbodies; int cur; int mark; void * saved_env;
+                 IR_graph_t * last_body; void * last_act;
+                 void * cp;
+                 void * cut_barrier;
+                 long * idx_key;
+                 int idx_ok;
+               } bb_choice_state_t;
+#define RESOLVE_IDX_VAR    0L
+#define RESOLVE_IDX_NOKEY  (-1L)
+#define RESOLVE_IDX_CLS_ATOM (1L << 60)
+#define RESOLVE_IDX_CLS_INT  (2L << 60)
+#define RESOLVE_IDX_CLS_FLT  (3L << 60)
+#define RESOLVE_IDX_CLS_CMP  (4L << 60)
+#define RESOLVE_IDX_PAYLOAD_MASK ((1L << 60) - 1L)
+#define RESOLVE_IDX_ATOM(id)        (RESOLVE_IDX_CLS_ATOM | ((long)(id) & RESOLVE_IDX_PAYLOAD_MASK))
+#define RESOLVE_IDX_INT(v)          (RESOLVE_IDX_CLS_INT  | ((long)(v)  & RESOLVE_IDX_PAYLOAD_MASK))
+#define RESOLVE_IDX_FLT             (RESOLVE_IDX_CLS_FLT)
+#define RESOLVE_IDX_CMP(fn,ar)      (RESOLVE_IDX_CLS_CMP  | ((((long)(fn) << 16) | ((long)(ar) & 0xFFFF)) & RESOLVE_IDX_PAYLOAD_MASK))
+typedef struct { IR_t ** args; int nargs; const char * callee; int arity; void * cs; } bb_goal_state_t;
+typedef struct { int nclauses; int arity; int mark_slot; IR_t ** args; IR_t ** consts; } pl_gz_choice_state_t;
+typedef struct { void * graph_key; int base; int arity; int nlocals; int mark_slot; IR_t * body_head; IR_t * frame_node; void * lblA; void * lblB; int nchild;
+                 int nclauses; IR_t ** clause_head; int body_emitted; } pl_gz_callee_t;
+typedef struct { pl_gz_callee_t * callee; int nargs; IR_t ** args; int child_slot; int det; } pl_gz_call_state_t;
+typedef struct { pl_gz_callee_t ** v; int n; int cap; } pl_gz_callee_vec_t;
+static inline pl_gz_callee_t * pl_gz_callees_push(pl_gz_callee_vec_t * cv, pl_gz_callee_t * ce) {
+    if (cv->n >= cv->cap) { int nc = cv->cap ? cv->cap * 2 : 8; pl_gz_callee_t ** nv = (pl_gz_callee_t **)GC_MALLOC(sizeof(pl_gz_callee_t *) * nc); if (!nv) return (pl_gz_callee_t *)0; for (int i = 0; i < cv->n; i++) nv[i] = cv->v[i]; cv->v = nv; cv->cap = nc; }
+    cv->v[cv->n++] = ce; return ce;
+}
+typedef struct { pl_gz_call_state_t * call; IR_t * tmpl; int result_slot; int acc_slot; int is_fail; int agg_mode; } pl_gz_findall_state_t;
+typedef struct { int functor_atom; const char * functor_name; int arity; int cursor_slot; int mark_slot; } pl_gz_dyniter_state_t;
+typedef struct { IR_t * cond_head; IR_t * then_head; IR_t * else_head; int gate_slot; } pl_gz_ite_state_t;
+typedef struct { IR_t * goal_head; IR_t * recovery_head; IR_t * catcher; int mark_slot; } pl_gz_catch_state_t;
+typedef struct { IR_graph_t * gcfg; IR_t * tmpl; IR_t * result; IR_t * goal_node; } bb_findall_state_t;
+typedef struct { IR_t ** kids; int nkids; } bb_match_kids_state_t;
+static inline int bb_match_nkids(const IR_t * nd) {
+    if (!nd) return 0;
+    bb_match_kids_state_t * zk = (bb_match_kids_state_t *)0;
+    return zk ? zk->nkids : 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static inline IR_t * bb_match_kid(const IR_t * nd, int i) {
+    if (!nd) return (IR_t *)0;
+    bb_match_kids_state_t * zk = (bb_match_kids_state_t *)0;
+    if (!zk || i < 0 || i >= zk->nkids) return (IR_t *)0;
+    return zk->kids[i];
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+bb_node_state_t * bb_snapshot_state(IR_graph_t * cfg);
+void              bb_restore_state(IR_graph_t * cfg, bb_node_state_t * snap);
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*=== emit_bb.h ===*/
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "bb_pool.h"
+#include "core.h"
+#include "bb_box.h"
+#include "IR.h"
+#include <stdio.h>
+bb_box_fn bb_build_flat    (IR_t * nd);
+int  bb_call_route_classify(IR_t * nd);
+void resolve_call_kinds_descr(IR_graph_t * g);
+void resolve_call_kinds_gvar(IR_graph_t * g);
+bb_box_fn descr_flat_chain_build(IR_t * entry);
+int  descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
+int  bb_varslot(const char * name);
+int  bb_varslot_peek(const char * name);
+extern int g_descr_flat_chain;
+extern int g_gvar_flat_chain;
+int  codegen_flat_build        (IR_t * nd, FILE * out, const char * prefix);
+void lower_flat_set_intern_str(const char * (*fn)(const char *));
+const char * emit_intern_str(const char * s);
+void lower_flat_reset        (void);
+void walk_bb_register_child_label(IR_t * nd, const char * alpha_label);
+extern int g_flat_node_id;
+void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+void resolve_call_block_label(char *dst, size_t dsz, const char *name, int arity);
+void sub_label(char *dst, size_t dsz, const char *name);
+void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const char *suffix);
+int resolve_emit_callee_block_body(const char *name, int arity, bb_label_t *bγ, bb_label_t *bω, bb_label_t *bβ);
+extern IR_t *resolve_bb_entry_node(const char *name, int arity);
+int  bb_kind_is_driver_owned(int t);
+void bb_prepare_capture_arbno(IR_t *nd, int imm);
+void bb_emit_limit_init(int limit_slot_off);
+void bb_emit_repalt_clear(int off);
+void bb_emit_repalt_yield(int off, int e_slot);
+void bb_emit_repalt_test(int off);
+const char * child_cache_get_lbl   (bb_box_fn fn);
+extern void (*g_cap_fixup_cb)      (void *cap_ptr, const char *child_alpha_label);
+extern char   g_flat_data_buf[];
+extern size_t g_flat_data_len;
+extern int    g_flat_data_any;
+void data_buf_flush_pending_label(void);
+void data_buf_reset(void);
+static inline bb_label_t bb_label_from_name(const char *name) {
+    bb_label_t lbl = { {0}, -1 };
+    if (name) { strncpy(lbl.name, name, BB_LABEL_NAME_MAX - 1); lbl.name[BB_LABEL_NAME_MAX - 1] = '\0'; }
+    return lbl;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+#define bb_build_flat_text(p,out,pfx)    codegen_flat_build(p,out,pfx)
+#define bb_flat_set_intern_str(fn)        lower_flat_set_intern_str(fn)
+#define bb_build_flat_text_reset()        lower_flat_reset()
+#ifdef __cplusplus
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+#endif
+/*=== emit.h ===*/
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "bb_pool.h"
 #include <stdio.h>
 #include <stdint.h>
@@ -46,4 +362,345 @@ inline void emit_comment (const std::string & line) { emit_comment(line.c_str())
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #endif
+/*=== emit_form.h (extern C wrapped) ===*/
+#ifdef __cplusplus
+extern "C" {
 #endif
+#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdarg.h>
+extern int g_is_text;
+extern int g_emit_text_mode;
+extern int g_emit_pos;
+typedef int emitter_t;
+void emitter_init_binary    (bb_buf_t buf, int size);
+void emitter_init_text      (FILE * out, int mode);
+FILE * emitter_text_out     (void);
+int    emitter_pos          (void);
+int    emitter_end          (void);
+void emit_label_define_bb    (bb_label_t * lbl);
+#ifdef __cplusplus
+}
+#endif
+/*=== emit_globals.h (extern C wrapped) ===*/
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "IR.h"
+enum { CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_RK_BOOL_COND = 2, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_GVAR_USERPROC = 4, CALL_ROUTE_PROC_STAGED = 5, CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_WRITE_SLOT = 7, CALL_ROUTE_WRITE_BINOP = 8, CALL_ROUTE_WRITE_LEGACY = 9, CALL_ROUTE_WRITE_EMPTY = 10, CALL_ROUTE_FN = 11 };
+struct SrcLines;
+typedef struct {
+    int                          backend;
+    int                          is_binary;
+    int                          i;
+    int                          n;
+    IR_t *                       node;
+    int                          sid;
+    int                          nid;
+    const char *                 op_sval;
+    const char *                 op_sval_lbl;
+    int64_t                      op_ival;
+    int                          op_node_kind;
+    double                       op_dval;
+    int64_t                      op_counter;
+    const char *                 op_a_sval;
+    int                          op_a_node_kind;
+    int                          op_a_slot;
+    int64_t                      op_a_counter;
+    int64_t                      op_a_ival_sg;
+    double                       op_a_dval;
+    int                          op_a_descr;
+    int                          op_arith_descr;
+    int                          op_parts_n;
+    int                          op_parts_tag[32];
+    const char *                 op_parts_str[32];
+    const char *                 op_parts_lbl[32];
+    int64_t                      op_parts_ival[32];
+    int64_t *                    gz_arg_slots;
+    int                          gz_arg_slots_cap;
+    int64_t                      op_scan_pat;
+    int64_t                      op_scan_subj;
+    int64_t                      op_scan_repl;
+    const char *                 op_scan_pat_lit;
+    const char *                 op_scan_subj_lit;
+    const char *                 op_scan_replace_lit;
+    int                          op_sa;
+    int                          op_sb;
+    int                          op_sc;
+    int                          op_off;
+    int                          op_phase;
+    int                          op_binop_kind;
+    int                          op_gva_k;
+    int                          op_gva_k1;
+    int                          op_gva_k2;
+    int                          op_proc_k;
+    int32_t                      op_stno;
+    int                          op_bounded;
+    int                          op_relop_descr;
+    int                          op_num_real;
+    int                          op_write_route;
+    int                          op_call_route;
+    const char *                 lbl_α;
+    const char *                 lbl_γ;
+    const char *                 lbl_ω;
+    const char *                 lbl_β;
+    const char *                 lbl_t0;
+    const char *                 lbl_t1;
+    struct bb_label_t *          lbl_α_p;
+    struct bb_label_t *          lbl_γ_p;
+    struct bb_label_t *          lbl_ω_p;
+    struct bb_label_t *          lbl_β_p;
+    struct bb_label_t *          lbl_t0_p;
+    struct bb_label_t *          lbl_t1_p;
+    void *                       child_fn;
+    const char *                 op_name1;
+    const char *                 op_name2;
+    const char *                 op_kind;
+    int                          resolve_choice_id;
+    int                          resolve_choice_n;
+    int                          in_body;
+    const char *                 in_my_method;
+    const int *                  pc_to_fn;
+    const char **                fn_names;
+    const int *                  fn_pcs;
+    int                          fn_count;
+    const struct SrcLines *      srclines;
+    int                          win_exec_pat_id;
+    int                          hdr_count;
+    int                          hdr_has_expr_reg;
+    int                          hdr_has_reg;
+    int                          reg_expr_count;
+    int                          reg_count;
+    char                         bb_ptr_slot_lbl[88];
+    int                          bb_cs_id;
+    void *                       bb_cs_zeta;
+    void *                       bb_rt_obj;
+    const char *                 bb_child_lbl;
+    void *                       bb_child_fn;
+    char                         bb_ls_buf[64];
+    char                         bb_rs_buf[64];
+    char                         bb_op_buf[64];
+    const char *                 bb_ls;
+    int                          pat_via_dtp;
+    const char *                 bb_rs;
+    const char *                 bb_op_lbl;
+    int                          bb_lk;
+    int64_t                      bb_li;
+    int                          bb_rk;
+    int64_t                      bb_ri;
+    void *                       bb_ln;
+    void *                       bb_rn;
+    void *                       bb_zn;
+    const char *                 flat_lbl_α_body;
+    const char *                 flat_lbl_β;
+    const char *                 flat_lbl_α;
+    const char *                 flat_lbl_γ;
+    const char *                 flat_lbl_ω;
+    int                          flat_text_externalise;
+    const char *                 enclosing_fname;
+    const char *                 prev_instr_name;
+    int                          flat_wired;
+    struct bb_label_t *          flat_succ_p;
+    struct bb_label_t *          flat_fail_p;
+    struct bb_label_t *          flat_β_p;
+    const char **                xa_label_names;
+    int *                        xa_label_pcs;
+    int                          xa_label_count;
+    const char **                xa_expr_names;
+    int *                        xa_expr_pcs;
+    int *                        xa_expr_str_idxs;
+    int                          xa_expr_count;
+    int                          xa_strtab_n;
+    const char **                xa_strtab_labels;
+    const char **                xa_strtab_escaped;
+    const char *                 xa_cap_dlbl;
+    const char *                 xa_cap_child_lbl;
+    int                          xa_cap_is_arbno;
+    int                          xa_cap_is_callcap;
+    const char *                 xa_cap_varname_lbl;
+    int                          xa_cap_immediate;
+    int                          xa_pat_blob_invariant_n;
+#define XA_BB_EMIT_PAIR_MAX 32
+    struct bb_label_t *          xa_bb_emit_pair_define[XA_BB_EMIT_PAIR_MAX];
+    struct bb_label_t *          xa_bb_emit_pair_jmp[XA_BB_EMIT_PAIR_MAX];
+    int                          xa_bb_emit_pair_n;
+    int                          x86_uid;
+    int                          x86_scratch_off;
+#define OP_ARG_SLOT_MAX 16
+    int                          op_arg_slot[OP_ARG_SLOT_MAX];
+    int                          op_arg_slot_n;
+} sm_emit_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern sm_emit_t g_emit;
+extern IR_graph_t * g_emit_cfg;
+extern const char *Σ;
+extern int         Σlen;
+extern int         Δ;
+#define TEMPLATE_ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
+#define TEMPLATE_ADDR_SIGLEN  ((uint64_t)(uintptr_t)&Σlen)
+#define TEMPLATE_ADDR_DELTA   ((uint64_t)(uintptr_t)&Δ)
+#ifdef __cplusplus
+}
+#endif
+/*=== emit_drive.h (extern C wrapped) ===*/
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "IR.h"
+IR_t * bb_child0(const IR_t *n);
+IR_t * bb_child1(const IR_t *n);
+int    binop_slot_kind(IR_t *nd);
+int    bb_call_write_route(IR_t *nd);
+int    descr_binop_opnd_slot(IR_t *o);
+int    binop_is_num_real(IR_graph_t *g, IR_t *nd);
+void   bb_fill_alpha(IR_t *nd);
+void   bb_flat_cursor_reserve(int upto);
+void   emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
+#ifdef __cplusplus
+}
+#endif
+/*=== emit_templates.h (extern C wrapped) ===*/
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "core.h"
+void emit_sm_halt           ();
+void emit_sm_push_lit_i     (int64_t val);
+void emit_sm_push_lit_s     (const char * str_lbl, uint64_t str_ptr, int len);
+void emit_sm_push_var       (const char * name_lbl, uint64_t name_ptr);
+void emit_sm_store_var      (const char * name_lbl, uint64_t name_ptr);
+void emit_sm_push_expression(uint64_t entry_ptr, int arity);
+void emit_sm_call_expression(const char * tgt_sym);
+void emit_sm_exec_stmt      (const char * subj_lbl, uint64_t subj_ptr, int has_repl);
+void emit_sm_call_fn        (const char * name_lbl, uint64_t name_ptr, int nargs);
+void emit_sm_define         ();         void emit_sm_define_entry   ();
+void emit_sm_jump           (int target_pc);
+void emit_sm_jump_s         (int target_pc);
+void emit_sm_jump_f         (int target_pc);
+void emit_sm_label          ();
+void emit_sm_return         ();
+void emit_sm_return_variant (int kind, int cond, int pc);
+void emit_sm_freturn        (int pc);   void emit_sm_nreturn        (int pc);
+void emit_sm_return_s       (int pc);   void emit_sm_return_f       (int pc);
+void emit_sm_freturn_s      (int pc);   void emit_sm_freturn_f      (int pc);
+void emit_sm_nreturn_s      (int pc);   void emit_sm_nreturn_f      (int pc);
+void emit_sm_suspend        ();         void emit_sm_suspend_value  ();
+void emit_sm_bb_pump        ();         void emit_sm_bb_once        ();
+void emit_sm_bb_pump_case   ();         void emit_sm_bb_pump_sm     ();
+void emit_sm_bb_pump_every  ();         void emit_sm_bb_pump_ast    ();
+void emit_sm_load_glocal    ();         void emit_sm_store_glocal   ();
+void emit_sm_icmp_gt        ();         void emit_sm_icmp_lt        ();
+void emit_sm_load_frame     ();         void emit_sm_store_frame    ();
+void emit_sm_pat_lit        (const char * name_lbl, uint64_t name_ptr);
+void emit_sm_pat_refname    (const char * name_lbl, uint64_t name_ptr);
+void emit_sm_pat_usercall   (const char * name_lbl, uint64_t name_ptr);
+void emit_sm_pat_capture        (const char * name_lbl, uint64_t name_ptr, int kind);
+void emit_sm_pat_usercall_args  (const char * name_lbl, uint64_t name_ptr, int nargs);
+void emit_sm_pat_capture_fn     (const char * fname_lbl, uint64_t fname_ptr, int is_imm,
+                                  const char * namelist_lbl, uint64_t namelist_ptr);
+void emit_sm_pat_capture_fn_args(const char * fname_lbl, uint64_t fname_ptr, int is_imm, int nargs);
+#ifdef __cplusplus
+}
+#endif
+/*=== emit_io.h ===*/
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include <stddef.h>
+#include <stdio.h>
+void emit_text_n(const char * s, size_t n);
+void emit_textf (const char * fmt, ...)
+                 __attribute__((format(printf, 1, 2)));
+void emit_1asm  (const char * a);
+void emit_2asm  (const char * a, const char * b);
+size_t emit_io_flush(FILE * out);
+void   emit_io_reset(void);
+void   emit_io_set_sink(FILE * out);
+FILE * emit_io_get_sink(void);
+#ifdef __cplusplus
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern "C++" {
+#include <string>
+inline void emit_1asm (const std::string & a)            { emit_1asm(a.c_str()); }
+inline void emit_2asm (const std::string & a, const std::string & b) { emit_2asm(a.c_str(), b.c_str()); }
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+#else
+#endif
+/*=== C++-only string builders: emit_str_builders.h (3 dup inlines removed) + emit_str.h ===*/
+#ifdef __cplusplus
+#include <string>
+#include <cstdio>
+#include <sstream>
+namespace EmitStr {
+template<typename... Args>
+inline std::string format_str(const char * fmt, Args... args) {
+    char buf[4096];
+    snprintf(buf, sizeof buf, fmt, args...);
+    return std::string(buf);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+inline std::string emit_comment_str(const char * line) {
+    return std::string(line) + "\n";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+inline std::string emit_directive_str(const char * line) {
+    return std::string(line) + "\n";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+using namespace EmitStr;
+#ifdef __cplusplus
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstdint>
+extern "C" {
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+std::string emit_fmt(const char * f, ...) __attribute__((format(printf, 1, 2)));
+std::string u8   (unsigned v);
+std::string u32le(uint32_t v);
+std::string u64le(uint64_t v);
+std::string bytes(size_t n, const char * lit);
+std::string bomb_text (const char * msg);
+std::string bomb_bytes(const char * msg);
+/*--------------------------------------------------------------------------------------------------------------------*/
+std::string jvm_push_int2_str(long v);
+std::string jvm_emit_ldc_string_str(const char * s);
+std::string js_escape_string_str(const char * s);
+std::string gas_escape_str(const char * s);
+std::string wasm_emit_data_segments_str(void);
+std::string jvm_class_hdr_str(const char * name);
+std::string jvm_init_ms_str_str(const char * name, const char * field);
+std::string jvm_init_ms_only_str(const char * name);
+std::string jvm_init_ms_int_str(const char * name, const char * field);
+std::string jvm_val_helper_str(const char * name);
+std::string net_escape_ldstr_str(const char * s);
+std::string net_class_hdr_str(int sid, int nid);
+std::string net_α_hdr_str();
+std::string net_β_hdr_str();
+std::string net_fail_ret_str();
+std::string net_cursor_load_str();
+std::string net_ms_length_str();
+std::string net_spec_of_str();
+std::string net_charset_class_str(int sid, int nid, const char * tag);
+std::string net_push_i4_str(int v);
+std::string net_ctor_none_str(int sid, int nid);
+std::string net_spec_zw_str();
+#define IF(c, ...) ((c) ? (__VA_ARGS__) : std::string())
+template<typename F>
+inline std::string FOR(int lo, int hi, F f) {
+    std::string r;
+    for (int i = lo; i < hi; i++) r += f(i);
+    return r;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+template<typename F>
+inline std::string emit_for(int lo, int hi, F f) { return FOR(lo, hi, f); }
+#endif
+#endif
+/*====================================================================================================================*/

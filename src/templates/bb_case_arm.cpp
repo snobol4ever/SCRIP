@@ -1,9 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 #include "descr.h"
 extern int rt_case_eq(const DESCR_t *sel, const DESCR_t *key);
 }

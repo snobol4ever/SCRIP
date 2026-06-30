@@ -1,9 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 }
 extern "C" void rt_at_cursor(const char *varname, int cur_delta);
 #include "x86_asm.h"

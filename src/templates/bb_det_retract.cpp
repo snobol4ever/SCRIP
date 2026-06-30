@@ -1,8 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 }
 #include "x86_asm.h"
 extern "C" int rt_pl_dyn_retract_cell(void *head_cell);

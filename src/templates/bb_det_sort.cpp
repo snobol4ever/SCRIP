@@ -1,8 +1,7 @@
 #include <string>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "emit.h"
 }
 #include "x86_asm.h"
 extern "C" int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell);

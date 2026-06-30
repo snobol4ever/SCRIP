@@ -1,11 +1,9 @@
 #include <string>
 #include <stdint.h>
-#include "emit_str.h"
+#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "emit.h"
-#include "emit_bb.h"
 DESCR_t rt_list_bang_at(DESCR_t obj, int64_t idx);
 }
 #include "x86_asm.h"
