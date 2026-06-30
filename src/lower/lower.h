@@ -18,6 +18,8 @@ extern int g_postfix_resume;
 /*====================================================================================================================*/
 void lc_γ_to(IR_t *nd, IR_t *t);
 void lc_ω_to(IR_t *nd, IR_t *t);
+void lc_γ_to_β(IR_t *nd, IR_t *t);
+void lc_ω_to_β(IR_t *nd, IR_t *t);
 IR_t *lc_build(IR_graph_t *g, IR_e op, IR_t *γ, IR_t *ω);
 const tree_t *lc_stmt_subj(const tree_t *s);
 /*====================================================================================================================*/
