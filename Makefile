@@ -252,7 +252,6 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_initial.cpp      -o $(OBJ)/bb_initial.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_idx_set.cpp      -o $(OBJ)/bb_idx_set.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_idx_get.cpp      -o $(OBJ)/bb_idx_get.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_alt.cpp          -o $(OBJ)/bb_alt.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_iterate.cpp      -o $(OBJ)/bb_iterate.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_key_gen.cpp      -o $(OBJ)/bb_key_gen.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_call.cpp         -o $(OBJ)/bb_call.o

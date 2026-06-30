@@ -358,13 +358,13 @@ static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    IR_t * node = build(cx, IR_ALT, γ, ω);
-    IR_t ** entry = (IR_t **) calloc((size_t) n, sizeof(IR_t *)); IR_t ** apply = (IR_t **) calloc((size_t) n, sizeof(IR_t *));
+    IR_t ** entry = (IR_t **) calloc((size_t) n, sizeof(IR_t *));
+    IR_t * last_beta = ω;
     for (int j = n - 1; j >= 0; j--) {
-        IR_t * ωj = (j + 1 < n) ? entry[j + 1] : ω; IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[j], node, ωj, &ar);
-        if (ar && !ar->γ.node) γ_to(ar, node); apply[j] = ar ? ar : ae; entry[j] = ae;
+        IR_t * ωj = (j + 1 < n) ? entry[j + 1] : ω; IR_t * ar = NULL; entry[j] = lower(cx, t->c[j], γ, ωj, &ar);
+        if (j == n - 1) last_beta = cx->beta;
     }
-    bb_operand_aux_set(cx->g, node, apply, n); cx->beta = node; *res = node; return entry[0];
+    cx->beta = last_beta; *res = entry[0]; return entry[0];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {

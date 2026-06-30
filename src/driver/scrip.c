@@ -51,24 +51,6 @@ extern int         Δ;
 #include "../tools/emit_per_kind_audit.h"
 /*====================================================================================================================*/
 /*====================================================================================================================*/
-static int alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
-    int n = 0;
-    IR_t * const * arms = bb_operand_aux_get(g, alt, &n);
-    if (!arms || n <= 0 || n > 5) return 0;
-    for (int i = 0; i < n; i++) {
-        if (!arms[i]) return 0;
-        if (arms[i]->op != IR_LIT_INTEGER && arms[i]->op != IR_LIT_STRING) return 0;
-    }
-    return 1;
-}
-static int alt_safe_kind(IR_e t) {
-    return t == IR_ALT || t == IR_CALL || t == IR_OP_COUNT || t == IR_FAIL || t == IR_OP_COUNT ||
-           t == IR_SUCCEED || t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_OP_COUNT;
-}
-static int graph_has_alt(const IR_graph_t *g) {
-    for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_ALT) return 1;
-    return 0;
-}
 static int keyword_supported(const char *kw) {
     if (!kw) return 0;
     if (kw[0] == '&') kw++;
@@ -272,7 +254,6 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
         if (!g || !g->all) continue;
-        int has_alt = graph_has_alt(g);
         int has_lassign = graph_has_local_assign(g);
         int has_binop = graph_has_binop(g);
         for (int ni = 0; ni < g->n; ni++) {
@@ -307,10 +288,6 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
                   else if (local_assign_rhs_ok_g(g, nd)) { /* wave-1 local assign: bb_assign_local (lit/var/binop rhs) */ }
                   else return 0; /* other rhs shapes: native store arm not built -> pre-emission reject, never abort */
               } }
-            if (has_alt) {
-                if (!alt_safe_kind(nd->op)) return 0;
-                if (nd->op == IR_ALT && !alt_arms_all_simple_lit(g, nd)) return 0;
-            }
         }
     }
     return 1;
