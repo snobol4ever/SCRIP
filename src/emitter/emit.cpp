@@ -479,7 +479,6 @@ int bb_varslot_peek(const char *name) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int g_proc_direct_active = 0;
-int g_descr_flat_chain = 0;
 int g_gvar_flat_chain = 0;
 int g_gva_active = 0;
 int g_gvar_callarg_live = 0;
@@ -693,7 +692,7 @@ static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
 int bb_call_write_route(IR_t *nd) {
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
-    if (g_descr_flat_chain && bb_slot_get(a0) >= 0) return 1;
+    if (bb_slot_get(a0) >= 0) return 1;
     int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_VAR || a0->op == IR_NOT || a0->op == IR_CALL || ir_is_call_kind(a0->op));
     if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
     if (wintexpr) return 4;
@@ -706,21 +705,21 @@ int bb_call_route_classify(IR_t * nd) {
     IR_e k = nd ? nd->op : IR_CALL;
     /* op-field call-kind (resolved at pre-emit time from the proc/builtin name tables, no dval tag) wins first */
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
-    if (g_descr_flat_chain && k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
+    if (k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
     if (g_gvar_flat_chain && k == IR_CALL_GVAR_USERPROC) return CALL_ROUTE_GVAR_USERPROC;
     if (k == IR_CALL_BUILTIN && g_emit.op_write_route == 0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
-    if (g_descr_flat_chain && dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
-    if (g_descr_flat_chain && dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
+    if (dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
+    if (dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
     /* A user-defined generator proc that happens to share a builtin name (e.g. `upto`) must route as a
        proc generator, not the builtin — registered+generator wins over rt_builtin_is_generator below. */
-    if (g_descr_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
-    if (g_descr_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
-    if (g_descr_flat_chain && dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
+    if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
+    if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
+    if (dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
     if (g_gvar_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_GVAR_USERPROC;
-    if (g_descr_flat_chain && fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_PROC_STAGED;
+    if (fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_PROC_STAGED;
     if (g_gvar_flat_chain && dv == 3.0 && fn[0] && !rt_proc_is_registered(fn)) return CALL_ROUTE_BYNAME;
     if (g_gvar_flat_chain && dv == 2.0 && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
-    if (g_descr_flat_chain && !strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
+    if (!strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
     switch (g_emit.op_write_route) {
     case 1: return CALL_ROUTE_WRITE_SLOT; case 2: case 3: return CALL_ROUTE_WRITE_BINOP;
     case 4: return CALL_ROUTE_WRITE_LEGACY; case 5: return CALL_ROUTE_WRITE_EMPTY; default: break; }
@@ -770,13 +769,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global());
         else bb_emit_x86(bb_var()); } return 0;
     case IR_ASSIGN: {
-        extern int g_descr_flat_chain; extern int is_global(const char *);
-        if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a
-            && (op_a->op == IR_LIT_STRING || op_a->op == IR_LIT_INTEGER || op_a->op == IR_LIT_REAL || op_a->op == IR_BINOP
-                || op_a->op == IR_VAR || op_a->op == IR_CALL || ir_is_call_kind(op_a->op)))
-            { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
-        if (g_descr_flat_chain && IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) { bb_emit_x86(bb_assign_global()); return 0; }
-        if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
+        extern int is_global(const char *);
+        if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) { bb_emit_x86(bb_assign_global()); return 0; }
+        if (IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
     case IR_BINOP_RELOP:         bb_emit_x86(bb_binop_relop());       return 0;
@@ -790,10 +785,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_CONJ:                 bb_emit_x86(bb_conj());           return 0;
-    case IR_RETURN: { extern int g_descr_flat_chain;
-        if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
-            g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
-        fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
+    case IR_RETURN: {
+        IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
+        g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
     case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
     case IR_CALL: {
         bb_emit_x86(bb_call(nd));
@@ -1098,11 +1092,9 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
     if (!buf) return NULL;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_flat_chain_set_n = 0;
-    g_descr_flat_chain = 1;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "pat_flat");
     int nbytes = emitter_end();
-    g_descr_flat_chain = 0;
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
     bb_seal(buf, (size_t)nbytes);
@@ -1113,11 +1105,9 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
     descr_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_flat_chain_set_n = 0;
-    g_descr_flat_chain = 1;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_flat_chain_body(entry, prefix);
     emitter_end();
-    g_descr_flat_chain = 0;
     return rc;
 }
 bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) {
@@ -1126,13 +1116,11 @@ bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) 
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_descr_flat_chain = 1;
     g_flat_slot_count = 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "proc_flat");
     int nbytes = emitter_end();
-    g_descr_flat_chain = 0;
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
     bb_seal(buf, (size_t)nbytes);
@@ -1144,7 +1132,6 @@ int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, F
     if (!entry || !out || !pname) return 1;
     descr_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_descr_flat_chain = 1;
     g_flat_slot_count = 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
     char prefix[256];
@@ -1153,7 +1140,6 @@ int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, F
     fprintf(out, "  .globl %s_\316\261\n", prefix);
     int rc = codegen_flat_chain_body(entry, prefix);
     emitter_end();
-    g_descr_flat_chain = 0;
     return rc;
 }
 /*====================================================================================================================*/

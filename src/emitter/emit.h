@@ -277,7 +277,6 @@ bb_box_fn descr_flat_chain_build(IR_t * entry);
 int  descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
 int  bb_varslot(const char * name);
 int  bb_varslot_peek(const char * name);
-extern int g_descr_flat_chain;
 extern int g_gvar_flat_chain;
 int  codegen_flat_build        (IR_t * nd, FILE * out, const char * prefix);
 void lower_flat_set_intern_str(const char * (*fn)(const char *));

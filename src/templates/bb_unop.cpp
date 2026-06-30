@@ -5,7 +5,6 @@ extern "C" {
 #include "bb_template_common.h"
 #include "ast.h"
 #include "descr.h"
-extern int g_descr_flat_chain;
 struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 struct DESCR_t rt_num_neg(struct DESCR_t a);
 struct DESCR_t rt_num_pos(struct DESCR_t a);
@@ -35,7 +34,7 @@ static inline unop_op uop() { return bb_unop_resolve(_.op_node_kind, _.op_ival);
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop() {
     if (PLATFORM_X86)
-        return !(g_descr_flat_chain && _.op_off >= 0) ? std::string() :
+        return !(_.op_off >= 0) ? std::string() :
                uop() == UO_UNHANDLED ? std::string() :
                uop() != UO_NOT && _.op_sa < 0 ? x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)") :
                uop() == UO_NOT ?

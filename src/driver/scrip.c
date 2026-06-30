@@ -965,12 +965,9 @@ int main(int argc, char **argv)
             printf("  ret\n");
             int rc;
             {
-                extern int g_descr_flat_chain;
-                int saved = g_descr_flat_chain; g_descr_flat_chain = 1;
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 resolve_call_kinds_descr(bbg);
                 rc = descr_flat_chain_build_text(bbg->entry, stdout, "main");
-                g_descr_flat_chain = saved;
             }
             g_gva_active = 0;
             g_frame_active = 0;
@@ -1242,7 +1239,7 @@ int main(int argc, char **argv)
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
             resolve_call_kinds_descr(bbg);
-            { extern int g_descr_flat_chain; int saved = g_descr_flat_chain; g_descr_flat_chain = 1; fn = descr_flat_chain_build(bbg->entry); g_descr_flat_chain = saved; }
+            fn = descr_flat_chain_build(bbg->entry);
             g_frame_active = 0;
             if (!fn) {
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: bb_build_flat returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");

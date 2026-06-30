@@ -7,12 +7,11 @@ extern "C" {
 #include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
-extern int g_descr_flat_chain;
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline int bcs_ok() { return g_descr_flat_chain && _.op_off >= 0 && _.op_ival == BINOP_CONCAT && _.op_sa >= 0 && _.op_sb >= 0; }
+static inline int bcs_ok() { return _.op_off >= 0 && _.op_ival == BINOP_CONCAT && _.op_sa >= 0 && _.op_sb >= 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
     return IF(PLATFORM_X86 && bcs_ok(),

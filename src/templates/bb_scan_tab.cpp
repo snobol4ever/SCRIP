@@ -5,11 +5,10 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
-extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int tab_admit() { return g_descr_flat_chain && _.op_off >= 0 && ((long)_.op_sb >= 1 || _.op_sa >= 0); }
+static int tab_admit() { return _.op_off >= 0 && ((long)_.op_sb >= 1 || _.op_sa >= 0); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_tab() {
     x86_begin();

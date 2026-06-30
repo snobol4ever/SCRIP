@@ -4,12 +4,11 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_return() {
-    if (!PLATFORM_X86 || !g_descr_flat_chain) return x86_bomb("bb_return: unhandled (needs descr flat-chain)");
+    if (!PLATFORM_X86) return x86_bomb("bb_return: unhandled (needs descr flat-chain)");
     return x86("comment", "IR_RETURN")
          + x86("label",  _.lbl_α)
          + IF(_.op_sa >= 0,

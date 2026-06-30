@@ -7,7 +7,6 @@ extern "C" {
 #include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
-extern int g_descr_flat_chain;
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 }
@@ -17,7 +16,7 @@ static inline long long bo() { return (long long)_.op_ival; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
     if (!PLATFORM_X86) return std::string();
-    if (g_descr_flat_chain && _.op_num_real && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0)
+    if (_.op_num_real && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0)
         return x86("label", _.lbl_α)
              + x86("comment", "IR_BINOP_ARITH_REAL")
              + x86("mov", "rdi", FRQ(_.op_sa))
@@ -33,7 +32,7 @@ std::string bb_binop_arith() {
              + x86("jmp", "γ")
              + x86("def", "β")
              + x86("jmp", "ω");
-    return IF(g_descr_flat_chain && _.op_off >= 0 && !_.op_num_real && (bo() == BINOP_ADD || bo() == BINOP_SUB || bo() == BINOP_MUL || bo() == BINOP_DIV || bo() == BINOP_MOD),
+    return IF(_.op_off >= 0 && !_.op_num_real && (bo() == BINOP_ADD || bo() == BINOP_SUB || bo() == BINOP_MUL || bo() == BINOP_DIV || bo() == BINOP_MOD),
            x86("label", _.lbl_α)
          + x86("comment", "IR_BINOP_ARITH")
          + x86("mov", "eax", FR(_.op_sa))

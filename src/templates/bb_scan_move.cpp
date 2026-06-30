@@ -5,13 +5,12 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
-extern int g_descr_flat_chain;
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_move() {
     x86_begin();
-    if (!PLATFORM_X86 || !(g_descr_flat_chain && _.op_off >= 0 && _.op_sa == 1)) return x86_bomb("bb_scan_move: unhandled (needs literal integer arg + descr flat-chain slot)");
+    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_sa == 1)) return x86_bomb("bb_scan_move: unhandled (needs literal integer arg + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_MOVE")
          + x86("label",   _.lbl_α)
          + x86("mov",     "rax", "r14")

@@ -40,7 +40,7 @@ std::string bb_var() {
              + x86("jmp",     "γ")
              + x86("def",     "β")
              + x86("jmp",     "ω") :
-               (g_descr_flat_chain && _.op_off >= 0 && _.op_sa >= 0) ?
+               (_.op_off >= 0 && _.op_sa >= 0) ?
                x86("comment", "IR_VAR")
              + x86("label",   _.lbl_α)
              + x86("mov",     "rax", FRQ(_.op_sa))
