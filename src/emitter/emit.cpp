@@ -787,6 +787,13 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUSPEND:              bb_emit_x86(bb_suspend());        return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_CONJ:                 bb_emit_x86(bb_conj());           return 0;
+    case IR_TERNOP:               bb_emit_x86(bb_section());        return 0;
+    case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
+    case IR_LIMIT:                bb_emit_x86(bb_limit());          return 0;
+    case IR_REPALT:               /* driven by flat_drive_repalt — no direct template call here */ return 0;
+    case IR_ITERATE:              bb_emit_x86(bb_iterate(nd));      return 0;
+    case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
+    case IR_SCAN:                 { g_emit.op_sb = 0; bb_emit_x86(bb_gen_scan()); }   return 0;
     case IR_RETURN: {
         IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
         g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
@@ -916,6 +923,22 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     }
     case IR_CONJ:
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
+        /* If CONJ has its own tmp slot AND an operand with a slot (case-result CONJ pattern),
+           emit a 2×8 copy from the operand slot to the CONJ slot so the consumer reads CONJ's slot.
+           When CONJ slot == operand slot (inherited), no copy needed. */
+        if (nd->tmp >= 0 && nd->n_operands > 0 && nd->operands[0]) {
+            int src = bb_slot_get(nd->operands[0]);
+            int dst = nd->tmp;
+            if (src >= 0 && dst >= 0 && src != dst) {
+                /* This CONJ is a case-result collector: copy arm value → CONJ slot */
+                /* We emit this as a text/binary inline via the CONJ's emit rather than a template */
+                g_emit.op_sa = src; g_emit.op_off = dst;
+            } else {
+                g_emit.op_sa = -1; g_emit.op_off = -1;
+            }
+        } else {
+            g_emit.op_sa = -1; g_emit.op_off = -1;
+        }
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUCCEED:
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -926,6 +949,87 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.lbl_t1_p = lbl_β;   /* this suspend's own β — needed by bb_suspend to store resume-ptr */
         g_emit.op_sb    = g_suspend_resume_slot;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_TERNOP: {
+        /* IR_TERNOP = s[i:j] / s[i+:n] / s[i-:n].  operands[0]=base, [1]=i1, [2]=i2.
+           op_a_slot = base DESCR slot; op_sa = i1 slot; op_sb = i2 slot; op_off = result slot.
+           op_ival = section variant (0=plain, 1=plus, 2=minus). */
+        IR_t * base = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        IR_t * i1   = nd->n_operands > 1 ? nd->operands[1] : NULL;
+        IR_t * i2   = nd->n_operands > 2 ? nd->operands[2] : NULL;
+        int sa = base ? bb_slot_get(base) : -1;
+        int sb = i1   ? bb_slot_get(i1)   : -1;
+        int sc = i2   ? bb_slot_get(i2)   : -1;
+        if (sa < 0 || sb < 0 || sc < 0) { drive_unowned(nd); break; }
+        g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_sb = sc;
+        g_emit.op_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SWAP: {
+        /* IR_SWAP = x:=:y.  operands[0]=x-var, [1]=y-var.  Both must be frame-slot variables. */
+        IR_t * xv = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        IR_t * yv = nd->n_operands > 1 ? nd->operands[1] : NULL;
+        int sa = xv ? bb_varslot_peek(IR_LIT(xv).sval) : -1;
+        int sb = yv ? bb_varslot_peek(IR_LIT(yv).sval) : -1;
+        if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_LIMIT: {
+        /* IR_LIMIT = e \ n.  operands[0]=generator node, operands[1]=count literal node.
+           op_sa = generator value slot (what LIMIT copies to consumer);
+           op_ival = count (from the literal node); lbl_t0 = generator β (for β-pump on resume).
+           op_off = LIMIT own slot (result copy at off, counter at off+16). */
+        IR_t * gen = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        IR_t * cnt = nd->n_operands > 1 ? nd->operands[1] : NULL;
+        int sa = gen ? bb_slot_get(gen) : -1;
+        int64_t count = (cnt && cnt->op == IR_LIT_INTEGER) ? IR_LIT(cnt).ival : 1;
+        if (sa < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sa; g_emit.op_ival = count;
+        /* g_limit_gen_beta is set by the BFS intercept above before emit_drive is called */
+        g_emit.lbl_t0   = g_limit_gen_beta ? g_limit_gen_beta->name : (lbl_β ? lbl_β->name : NULL);
+        g_emit.lbl_t0_p = g_limit_gen_beta ? g_limit_gen_beta : lbl_β;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 32);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_ITERATE: {
+        /* IR_ITERATE = !e  (list element generator).  operands[0]=list-value node.
+           op_sa = list DESCR slot; op_sb = counter slot (at op_off+16); op_off = result slot. */
+        IR_t * obj = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        int sa = obj ? bb_slot_get(obj) : -1;
+        if (sa < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sa;
+        g_emit.op_off = drive_value_slot(nd);
+        g_emit.op_sb  = g_emit.op_off + 16;   /* counter slot adjacent to result */
+        bb_flat_cursor_reserve(g_emit.op_off + 24);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_ENTER: {
+        /* IR_SCAN_ENTER: subject-string DESCR → rt_scan_enter → loads r13/r14/r15.
+           operand[0] = subject node; op_sa = subject DESCR slot; op_sb = 1 (enter flag for bb_gen_scan).
+           Saves old regs into frame slots op_off..op_off+23 (3×8 bytes). */
+        IR_t * subj = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        int sa = subj ? bb_slot_get(subj) : -1;
+        if (sa < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sa; g_emit.op_sb = 1;
+        g_emit.op_off = drive_value_slot(nd);   /* own slot = save area for old r13/r14/r15 */
+        bb_flat_cursor_reserve(g_emit.op_off + 24);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN: {
+        /* IR_SCAN (leave): restore r13/r14/r15 from frame slots.  op_sb = 0 (leave flag).
+           The save-area slot is stored in IR_LIT(nd).ival by the lower pass. */
+        g_emit.op_sb  = 0;
+        g_emit.op_off = (int)IR_LIT(nd).ival;   /* the enter-node's own slot (save area) */
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_REPALT: {
+        /* IR_REPALT is NOT driven inline here — it is handled by flat_drive_repalt() which
+           intercepts the node before emit_drive is called, drives the sub-expression e internally,
+           and emits bb_repalt_{clear/yield/test} around e's chain. This arm should never fire in
+           normal operation; if it does, it means flat_drive_repalt was not called. */
+        drive_unowned(nd); break;
     }
     case IR_FAIL:
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1063,12 +1167,56 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
+        /* Pre-propagate IR_CONJ slot: if the CONJ has operand[0] with a known tmp slot,
+           register it NOW so downstream nodes (e.g. write's arg-slot lookup) see it. */
+        if (nodes[i]->op == IR_CONJ && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
+            IR_t * op0 = nodes[i]->operands[0];
+            if (op0->tmp >= 0 && nodes[i]->tmp < 0) {
+                bb_slot_register(nodes[i], op0->tmp);
+            }
+        }
         g_limit_gen_beta = NULL;
         g_suspend_dobody_beta = NULL;
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
             IR_t *dobody = nodes[i]->operands[1];
             if (dobody->op == IR_FAIL) { g_suspend_dobody_beta = &lbl_ω; }
             else { for (int k = 0; k < n; k++) if (nodes[k] == dobody) { g_suspend_dobody_beta = lbls[k]; break; } }
+        }
+        /* IR_REPALT: intercept before emit_drive — drive sub-expression e internally.
+           JCON ir_a_RepAlt shape: restart→yielded:=0→e.start; e.success→yielded:=1→γ(yield);
+           β→e.β(pump); e.failure→if yielded→restart; else→ω.
+           operands[0]=e root (value node), operands[1]=e chain entry (may differ). */
+        if (nodes[i]->op == IR_REPALT) {
+            IR_t *e_root  = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
+            IR_t *e_entry = nodes[i]->n_operands > 1 ? nodes[i]->operands[1] : e_root;
+            /* Allocate slots: result at op_off, counter-flag at op_off+16 */
+            int off = drive_value_slot(nodes[i]);
+            bb_flat_cursor_reserve(off + 24);
+            int e_sa = e_root ? bb_slot_get(e_root) : -1;
+            if (e_sa < 0 && e_root) e_sa = drive_value_slot(e_root);
+            /* Find e chain entry's label in BFS */
+            bb_label_t *e_lbl   = node_ω;   /* default: e entry not found → ω */
+            bb_label_t *e_beta  = node_ω;
+            if (e_entry) for (int k = 0; k < n; k++) if (nodes[k] == e_entry) { e_lbl = lbls[k]; e_beta = betas[k]; break; }
+            if (e_root  && e_root != e_entry) for (int k = 0; k < n; k++) if (nodes[k] == e_root) { /* e_beta stays at e_entry's beta */ break; }
+            /* Emit: REPALT_α label + bb_repalt_clear (yielded:=0) */
+            emit_label_define_bb(lbls[i]);
+            g_emit.op_off = off; g_emit.op_sa = e_sa;
+            DRIVE_FILL(nodes[i], node_γ, node_ω, betas[i]);
+            bb_emit_x86(bb_repalt_clear());
+            /* jump to e's entry */
+            if (g_is_text) { char jt[64]; snprintf(jt, sizeof jt, "jmp %s\n", e_lbl->name); emit_text_n(jt, strlen(jt)); }
+            else { ef_b1(0xE9); bb_emit_patch_rel32(e_lbl); }
+            /* β (resume): pump e-β */
+            emit_label_define_bb(betas[i]);
+            if (g_is_text) { char jt[64]; snprintf(jt, sizeof jt, "jmp %s\n", e_beta->name); emit_text_n(jt, strlen(jt)); }
+            else { ef_b1(0xE9); bb_emit_patch_rel32(e_beta); }
+            continue;  /* skip normal emit_drive */
+        }
+        /* IR_LIMIT: set g_limit_gen_beta so emit_drive's IR_LIMIT arm sees the generator's β. */
+        if (nodes[i]->op == IR_LIMIT) {
+            IR_t *gen = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
+            if (gen) for (int k = 0; k < n; k++) if (nodes[k] == gen) { g_limit_gen_beta = betas[k]; break; }
         }
         emit_drive(nodes[i], node_γ, node_ω, betas[i]);
     }
