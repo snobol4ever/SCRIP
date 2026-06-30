@@ -113,6 +113,11 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_field_set.cpp \
     $(SRC)/templates/bb_suspend.cpp \
     $(SRC)/templates/bb_iterate.cpp \
+    $(SRC)/templates/bb_repalt.cpp \
+    $(SRC)/templates/bb_limit.cpp \
+    $(SRC)/templates/bb_section.cpp \
+    $(SRC)/templates/bb_swap.cpp \
+    $(SRC)/templates/bb_gen_scan.cpp \
     $(SRC)/templates/xa_stubs.cpp \
     $(SRC)/templates/xa_macro_library.cpp \
     $(SRC)/templates/xa_bb_macro_library.cpp \
@@ -291,6 +296,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_global.cpp -o $(OBJ)/bb_assign_global.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_set.cpp -o $(OBJ)/bb_field_set.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_repalt.cpp    -o $(OBJ)/bb_repalt.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp  -o $(OBJ)/bb_gen_scan.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_section.cpp -o $(OBJ)/bb_section.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_swap.cpp -o $(OBJ)/bb_swap.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rasgn.cpp -o $(OBJ)/bb_rasgn.o

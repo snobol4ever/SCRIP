@@ -63,6 +63,7 @@ int rt_builtin_is_known(const char *name)
         "callsame", "nextsame", "callwith",
         "__multi_call", "__param_check",
         "TIME", "DATE",
+        "IDENTICAL",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;

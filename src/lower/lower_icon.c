@@ -218,20 +218,53 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; IR_t * d_entry = lower(cx, t->c[1], γ, γ, &dv); ir_operand_push(sn, d_entry); }
         else ir_operand_push(sn, γ);
         *res = sn; return e_entry; }
-    case TT_CASE: { if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-        IR_t * cas = build(cx, IR_FAIL, γ, ω);
-        IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], cas, ω, &sr); ir_operand_push(cas, sr);
-        for (int i = 1; i < t->n; ) {
-            int remaining = t->n - i;
-            if (remaining == 1) {
-                IR_t * dk = build(cx, IR_FAIL, NULL, NULL); IR_t * dr = NULL; (void) lower(cx, t->c[i], γ, ω, &dr); ir_operand_push(dk, dr); ir_operand_push(cas, dk); i++;
-            } else {
-                IR_t * kn = NULL; (void) lower(cx, t->c[i], NULL, NULL, &kn);
-                IR_t * vn = NULL; (void) lower(cx, t->c[i+1], γ, ω, &vn);
-                IR_t * arm = build(cx, IR_FAIL, NULL, NULL); ir_operand_push(arm, kn); ir_operand_push(arm, vn); ir_operand_push(cas, arm); i += 2;
-            }
+    case TT_CASE: {
+        /* JCON ir_a_Case (bounded): eval subject once → chain === tests → body → p.success.
+           SCRIP: each arm body evaluates into IR_ASSIGN("__case_N") → IR_VAR("__case_N") as result.
+           All arms write to distinct local names but we return the FIRST arm's IR_VAR as *res.
+           Each arm's IR_ASSIGN writes to a synthetic local variable whose frame slot bb_varslot
+           allocates on first use. The outer consumer reads from *res (the first arm's var slot).
+           Since only one arm fires per case execution, the slot aliasing via a shared synthetic
+           local name is the cleanest: all arms assign to "__case_result", a single var slot. */
+        if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+        static const char * CVAR = "__case_result";
+        /* Shared result var: all arms assign into CVAR; cvar IR_VAR reads it back → γ.
+           Chain: subject → IDENTICAL → body → ASSIGN(CVAR, body_val) → cvar(IR_VAR) → γ
+           cvar sits AFTER all assigns; it copies CVAR's frame slot into its own tmp slot
+           (that's what bb_var does: op_sa=varslot → op_off=tmp). The outer consumer
+           reads cvar->tmp. All arms converge on the same cvar node, so only one slot needed. */
+        IR_t * cvar = build(cx, IR_VAR, γ, ω); IR_LIT(cvar).sval = (char *) CVAR;
+        /* lower subject (bounded) */
+        IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], NULL, ω, &sr);
+        int nc = t->n - 1;
+        if (nc <= 0) { cx->beta = ω; *res = cvar; return se; }
+        int npairs   = nc / 2;
+        int has_dflt = (nc % 2 == 1);
+        IR_t * chain_next = ω;
+        if (has_dflt) {
+            IR_t * dv = NULL; IR_t * de = lower(cx, t->c[t->n - 1], NULL, ω, &dv);
+            IR_t * dasn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(dasn).sval = (char *) CVAR;
+            if (dv) ir_operand_push(dasn, dv);
+            γ_to(dv ? dv : de, dasn);
+            chain_next = de;
         }
-        *res = cas; return se; }
+        for (int i = npairs - 1; i >= 0; i--) {
+            int ki = 1 + i * 2; int bi = ki + 1;
+            IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ω, &kn);
+            IR_t * bv = NULL; IR_t * be = lower(cx, t->c[bi], NULL, ω, &bv);
+            /* ASSIGN(CVAR, bv) → cvar (not γ directly; cvar does the final copy) */
+            IR_t * asn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(asn).sval = (char *) CVAR;
+            if (bv) ir_operand_push(asn, bv);
+            γ_to(bv ? bv : be, asn);
+            IR_t * idc = build(cx, IR_CALL_BUILTIN, be, chain_next);
+            IR_LIT(idc).sval = (char *) "IDENTICAL";
+            ir_operand_push(idc, sr);
+            ir_operand_push(idc, kn);
+            γ_to(kn, idc);
+            chain_next = ke ? ke : idc;
+        }
+        γ_to(sr, chain_next);
+        cx->beta = ω; *res = cvar; return se; }
     case TT_SEQ:
     case TT_SEQ_EXPR: {
         lc_vec Sv; lc_vec_init(&Sv, (int) sizeof(const tree_t *));
@@ -255,44 +288,112 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     }
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
         if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-        IR_t * sec = build(cx, IR_FAIL, γ, ω); IR_LIT(sec).ival = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
-        IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], sec, ω, &ar); ir_operand_push(sec, ar);
-        IR_t * br = NULL; lower(cx, t->c[1], sec, ω, &br); ir_operand_push(sec, br);
-        IR_t * cr = NULL; lower(cx, t->c[2], sec, ω, &cr); ir_operand_push(sec, cr);
+        /* JCON ir_a_Sectionop: val→left→right chain; right.success calls 3-arg opfn → p.ir.success.
+           SCRIP: IR_TERNOP carries op-variant in ival (0=plain, 1=plus, 2=minus), 3 operand nodes.
+           val.failure→p.failure; left.failure→val.resume; right.failure→left.resume. */
+        IR_t * sec = build(cx, IR_TERNOP, γ, ω);
+        IR_LIT(sec).ival = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
+        /* lower all three operands; wire them in serial: val→left→right→sec */
+        IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar);
+        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ω, &br); γ_to(ar, be);
+        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec, ω, &cr); γ_to(br, ce);
+        ir_operand_push(sec, ar); /* base string */
+        ir_operand_push(sec, br); /* i1 */
+        ir_operand_push(sec, cr); /* i2 */
         cx->beta = ω; *res = sec; return ae; }
     case TT_NOT: return lower_not(cx, t, γ, ω, res);
     case TT_ALTERNATE: return lower_alt(cx, t, γ, ω, res);
-    case TT_ITERATE: { IR_t * bang = build(cx, IR_FAIL, γ, ω);
-        IR_t * orr = NULL; (void) lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr); ir_operand_push(bang, orr);
-        cx->beta = bang; *res = bang; return bang; }
+    case TT_ITERATE: {
+        /* JCON: ! is ir_a_Unop with op="!" → ir_opfn(IR_ITERATE, 1, "rval") for lists.
+           SCRIP: IR_ITERATE operand[0]=object-node; needs own slot for index counter (op_sb=off+16).
+           bb_iterate: α inits counter to 0; loop calls rt_list_bang_at(obj,idx); β incs idx.
+           IR_ITERATE is a generator kind (resumable). */
+        IR_t * nd = build(cx, IR_ITERATE, γ, ω);
+        IR_t * orr = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr);
+        ir_operand_push(nd, orr);
+        γ_to(orr, nd);
+        cx->beta = nd; *res = nd; return ee; }
     case TT_IF: return lower_if(cx, t, γ, ω, res);
     case TT_WHILE: return lower_while(cx, t, γ, ω, res);
     case TT_UNTIL: return lower_until(cx, t, γ, ω, res);
     case TT_REPEAT: return lower_repeat(cx, t, γ, ω, res);
     case TT_TO: case TT_TO_BY: return lower_to(cx, t, γ, ω, res);
     case TT_EVERY: return lower_every(cx, t, γ, ω, res);
-    case TT_SCAN: { IR_t * gs = build(cx, IR_FAIL, γ, ω); IR_LIT(gs).dval = 1.0;
-        IR_graph_t * ssg = arg_block(cx, (t->n > 0) ? t->c[0] : NULL); IR_graph_t * bsg = arg_block(cx, (t->n > 1) ? t->c[1] : NULL);
-        icn_retag_scan_body(bsg, 0);
-        (void)(ssg); (void)(bsg); cx->beta = gs; *res = gs; return gs; }
+    case TT_SCAN: {
+        /* JCON ir_a_Scan: expr→ScanSwap(save)→:?(op)→body.start; body.success→ScanSwap(restore)→p.success;
+           body.failure→ScanSwap(restore)→expr.resume; expr.failure→p.failure.
+           SCRIP: Two nodes per scan:
+             IR_SCAN_ENTER (op_sb=1): loads the subject DESCR into r13/r14/r15 via rt_scan_enter,
+               saves old r13/r14/r15 into frame slots. operand[0]=subject-string-node.
+             IR_SCAN (leave, op_sb=0): restores r13/r14/r15 from frame slots via rt_scan_leave.
+           Body runs between enter and leave; uses scan builtins (upto/any/tab/move/etc.) that
+           read/write r13/r14/r15 directly. On body success/failure, call IR_SCAN to restore subject.
+           Both enter and leave use bb_gen_scan() — enter dispatches on op_sb==1, leave on op_sb!=1. */
+        if (t->n < 2 || !t->c[0] || !t->c[1]) {
+            /* No subject or no body: degenerate */
+            IR_t * gs = build(cx, IR_FAIL, γ, ω); *res = gs; return gs;
+        }
+        /* IR_SCAN_ENTER: subject evaluates, then enters scan context */
+        IR_t * enter = build(cx, IR_SCAN_ENTER, NULL, ω);
+        /* IR_SCAN leave-nodes: one for success path, one for failure path (both restore regs) */
+        IR_t * leave_succ = build(cx, IR_SCAN, γ, ω);
+        IR_t * leave_fail = build(cx, IR_SCAN, ω, ω);
+        /* Lower the body; body.success → leave_succ; body.failure → leave_fail */
+        IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], leave_succ, leave_fail, &bv);
+        /* Stitch: enter.γ → b_entry */
+        lc_γ_to(enter, b_entry);
+        /* Lower subject → enter; subject.failure → p.failure */
+        IR_t * sr = NULL; IR_t * s_entry = lower(cx, t->c[0], enter, ω, &sr);
+        ir_operand_push(enter, sr);  /* operand[0] = subject DESCR node */
+        cx->beta = ω; *res = enter; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_REPALT: { IR_t * nd = build(cx, IR_FAIL, γ, ω);
-        IR_t * er = NULL; (void) lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &er);
-        ir_operand_push(nd, er);
+    case TT_REPALT: {
+        /* JCON ir_a_RepAlt (unbounded): start→MoveLabel(t,ω)→e.start; e.success→MoveLabel(t,start)→p.success;
+           e.failure→IndirectGoto(t); p.resume→e.resume.
+           SCRIP IR_REPALT: operand[0]=e (the sub-expression). The flat chain driver (flat_drive_repalt in
+           emit.cpp) handles the 4-edge wiring internally using bb_repalt_{clear/yield/test}.
+           IR_REPALT is a generator kind; the BFS stamps the consumer's backtrack edge as β → REPALT β.
+           The β (= consumer asking for next value) pumps e-β directly (no MoveLabel needed at runtime,
+           since bb_repalt's test+restart logic encodes JCON's IndirectGoto). */
+        IR_t * nd = build(cx, IR_REPALT, γ, ω);
+        IR_t * er = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &er);
+        ir_operand_push(nd, er);   /* operand[0] = e root node */
+        ir_operand_push(nd, ee);   /* operand[1] = e entry point (may differ from root) */
         cx->beta = nd; *res = nd; return nd; }
-    case TT_LIMIT: { IR_t * nd = build(cx, IR_FAIL, γ, ω);
-        IR_t * er = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, nd, ω, &er);
+    case TT_LIMIT: {
+        /* JCON ir_a_Limitation: count gen, counter slot; generator is on-spine; limit node sits
+           AFTER the generator in the flat chain (generator.γ → LIMIT.α).
+           SCRIP: IR_LIMIT operand[0]=generator-node, operand[1]=count-lit-node (IR_LIT_INTEGER only
+           for now — static count; runtime count pending). The counter slot lives at op_off+16.
+           bb_limit: on each generator success (LIMIT.α): if counter>=limit→ω; else inc+copy+γ.
+           β: jmp generator-β (pump again). LIMIT.α is where the chain BFS puts this node. */
+        IR_t * lim = build(cx, IR_LIMIT, γ, ω);
+        /* lower the count expression (operand[1]) — must resolve to a static integer literal */
+        IR_t * lr = NULL; IR_t * ee = lower(cx, (t->n > 1) ? t->c[1] : NULL, lim, ω, &lr);
         IR_t * inner_beta = cx->beta;
-        IR_t * lr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, ω, &lr);
-        ir_operand_push(nd, er); ir_operand_push(nd, lr); ir_operand_push(nd, ee);
-        (void)inner_beta; cx->beta = nd;
-        *res = nd; return ee; }
-    case TT_LCONCAT: { IR_t * nd = build(cx, IR_FAIL, γ, ω);
-        IR_t * lr = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &lr); IR_t * lβ = cx->beta;
-        IR_t * rr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, lβ, &rr);
-        γ_to(lr, (rr && rr != nd) ? rr : nd); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, nd, ax, 2); }
-        *res = nd; return ee; }
-    case TT_SWAP: { IR_t * nd = build(cx, IR_FAIL, γ, ω);
+        /* lower the generator expression (operand[0]) — its γ flows into lim */
+        IR_t * er = NULL; IR_t * ge = lower(cx, (t->n > 0) ? t->c[0] : NULL, lim, ω, &er);
+        IR_t * gen_beta = cx->beta;
+        ir_operand_push(lim, er);  /* operand[0] = generator root */
+        ir_operand_push(lim, lr);  /* operand[1] = count literal */
+        (void)inner_beta; (void)ge; cx->beta = gen_beta;
+        *res = lim; return ee; }
+    case TT_LCONCAT: {
+        /* JCON: ||| is a_Binop("|||") → ir_OpFunction("|||", 2) → pure-value opfn, never fails.
+           SCRIP: route through IR_BINOP with BINOP_CONCAT (same as string ||); the runtime
+           rt_str_concat already handles list values as a concat by type dispatch in bb_binop_concat_slot.
+           Wire: left→right→op, left.failure→p.failure, right.failure→left.resume. */
+        if (t->n < 2 || !t->c[0] || !t->c[1]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = BINOP_CONCAT;
+        IR_t * lr = NULL; IR_t * ee = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
+        IR_t * rr = NULL; IR_t * re = lower(cx, t->c[1], op, lβ, &rr); γ_to(lr, re);
+        { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); }
+        *res = op; return ee; }
+    case TT_SWAP: {
+        /* JCON: := : is a_Binop(":=:") → ir_augmented_assignment path → ir_Assign(lv,tmp)+ir_Assign(rv,lv_orig).
+           SCRIP: IR_SWAP carries both var references as operands[0]/[1]; template bb_swap swaps them in x86.
+           Both lhs and rhs must be variables (lvalue operands); emit_drive reads their frame slots. */
+        IR_t * nd = build(cx, IR_SWAP, γ, ω);
         IR_t * lr = NULL; lower(cx, (t->n > 0) ? t->c[0] : NULL, nd, ω, &lr);
         IR_t * rr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, ω, &rr);
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
