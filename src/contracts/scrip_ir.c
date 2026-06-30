@@ -162,7 +162,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_SUBSCRIPT || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_SUBSCRIPT || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;

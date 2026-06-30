@@ -161,7 +161,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_NULL: { if (t->n > 0 && t->c[0]) { IR_t * op = build(cx, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); *res = op; return ea; } IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: return lc_key(cx, t->v.sval, γ, ω, res);
-    case TT_FIELD: { IR_t * nd = build(cx, IR_FAIL, γ, ω);
+    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
     case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL; const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?"; return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res); }
