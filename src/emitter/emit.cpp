@@ -492,6 +492,7 @@ static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
 static int   g_flat_chain_set_n = 0;
 static bb_label_t *g_limit_gen_beta = NULL;   /* chain hands flat_drive_limit its generator's resume β */
 static bb_label_t *g_suspend_dobody_beta = NULL; /* chain hands flat_drive_suspend its do-body resume label */
+static int          g_suspend_resume_slot = -1;        /* byte offset in gen-proc frame for indirect-goto resume pointer */
 int                 g_subject_slot       = -1;
 int                 g_match_start_slot   = -1;
 bb_label_t *        g_scan_seal_lbl      = NULL;
@@ -922,6 +923,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         IR_t * ev = bb_child0(nd); int sa = ev ? bb_slot_get(ev) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.lbl_t0 = g_suspend_dobody_beta ? g_suspend_dobody_beta->name : NULL; g_emit.lbl_t0_p = g_suspend_dobody_beta;
+        g_emit.lbl_t1_p = lbl_β;   /* this suspend's own β — needed by bb_suspend to store resume-ptr */
+        g_emit.op_sb    = g_suspend_resume_slot;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_FAIL:
@@ -995,10 +998,52 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
+    /* Allocate a resume-pointer slot for generator procs with IR_SUSPEND nodes.
+       We must place it ABOVE all value-producer slots (which use nd->tmp offsets).
+       Pre-scan all nodes for their tmp slots to find the high-water mark. */
+    g_suspend_resume_slot = -1;
+    if (g_gen_proc_active) {
+        for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) {
+            /* Find max tmp slot across all nodes */
+            int _max_slot = g_flat_slot_count;
+            for (int _ni = 0; _ni < n; _ni++) {
+                IR_t *_nd = nodes[_ni];
+                if (_nd && _nd->tmp >= 0 && _nd->tmp + 16 > _max_slot)
+                    _max_slot = _nd->tmp + 16;
+            }
+            /* Align to 16-byte boundary above all data slots */
+            _max_slot = (_max_slot + 15) & ~15;
+            g_suspend_resume_slot = _max_slot;
+            /* bump flat_slot_count so prologue allocates enough frame space */
+            if (_max_slot + 8 > g_flat_slot_count)
+                g_flat_slot_count = _max_slot + 8;
+            break;
+        }
+    }
+
     int id = g_flat_node_id++;
     for (int i = 0; i < n; i++) {
         lbls[i]  = emit_label_alloc("xchain%d_n%d_α", id, i);
         betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
+    }
+    /* Emit resume-slot initialization for generator procs: store first-suspend's β into resume slot.
+       This code lands in α_body (after the prologue) so it runs on the very first call. */
+    if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
+        for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) {
+            if (g_is_text) {
+                char _init[256];
+                snprintf(_init, sizeof _init,
+                    "lea rax, [rip + %s]\nmov qword ptr [r12 + %d], rax\n",
+                    betas[_si]->name, g_suspend_resume_slot);
+                emit_text_n(_init, strlen(_init));
+            } else {
+                /* BINARY: lea rax, [rip + beta]  →  48 8D 05 <rel32>
+                           mov [r12 + slot], rax  →  49 89 84 24 <slot_u32> */
+                ef_b3(0x48, 0x8D, 0x05); bb_emit_patch_rel32(betas[_si]);
+                ef_b4(0x49, 0x89, 0x84, 0x24); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot);
+            }
+            break;
+        }
     }
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(lbls[i]);
@@ -1022,14 +1067,27 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         g_suspend_dobody_beta = NULL;
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
             IR_t *dobody = nodes[i]->operands[1];
-            for (int k = 0; k < n; k++) if (nodes[k] == dobody) { g_suspend_dobody_beta = lbls[k]; break; }
+            if (dobody->op == IR_FAIL) { g_suspend_dobody_beta = &lbl_ω; }
+            else { for (int k = 0; k < n; k++) if (nodes[k] == dobody) { g_suspend_dobody_beta = lbls[k]; break; } }
         }
         emit_drive(nodes[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
-    { bb_label_t *resume_tgt = &lbl_ω;
-      for (int i = 0; i < n; i++) if (nodes[i]->op == IR_SUSPEND) { resume_tgt = betas[i]; break; }
-      emit_jmp_label(resume_tgt, JMP_JMP); }
+    if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
+        /* Indirect goto: jmp qword ptr [r12 + resume_slot] */
+        if (g_is_text) {
+            char _ind_jmp[64];
+            snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [r12 + %d]\n", g_suspend_resume_slot);
+            emit_text_n(_ind_jmp, strlen(_ind_jmp));
+        } else {
+            /* BINARY: jmp qword ptr [r12 + slot]  →  49 FF A4 24 <slot_u32> */
+            ef_b4(0x49, 0xFF, 0xA4, 0x24); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot);
+        }
+    } else {
+        bb_label_t *resume_tgt = &lbl_ω;
+        for (int i = 0; i < n; i++) if (nodes[i]->op == IR_SUSPEND) { resume_tgt = betas[i]; break; }
+        emit_jmp_label(resume_tgt, JMP_JMP);
+    }
     emit_label_define_bb(&lbl_γ);
     xa_dispatch(XA_FLAT_EPILOGUE);
     if (text_externalise && g_is_text) {
