@@ -135,7 +135,7 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
         γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr); *res = op; return ea;
     }
     if (t->t == TT_NAME && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
-        IR_t * nd = build(cx, IR_LIT_S, cont, nxt); IR_LIT(nd).sval = t->c[0]->v.sval; *res = nd; return nd; }
+        IR_t * nd = build(cx, IR_LIT_STRING, cont, nxt); IR_LIT(nd).sval = t->c[0]->v.sval; *res = nd; return nd; }
     if (sno_indirect_resolvable(t)) {
         const tree_t * in = t->c[0];
         if (in->t == TT_QLIT) { IR_t * nd = build(cx, IR_VAR, cont, nxt); IR_LIT(nd).sval = in->v.sval; *res = nd; return nd; }
@@ -149,9 +149,9 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
         ir_operand_push(op, orr); *res = op; return ea;
     }
     switch (t->t) {
-    case TT_ILIT:    { IR_t * nd = build(cx, IR_LIT_I,   cont, nxt); IR_LIT(nd).ival  = t->v.ival; *res = nd; return nd; }
-    case TT_FLIT:    { IR_t * nd = build(cx, IR_LIT_F,   cont, nxt); IR_LIT(nd).dval  = t->v.dval; *res = nd; return nd; }
-    case TT_QLIT:    { IR_t * nd = build(cx, IR_LIT_S,   cont, nxt); IR_LIT(nd).sval  = t->v.sval; *res = nd; return nd; }
+    case TT_ILIT:    { IR_t * nd = build(cx, IR_LIT_INTEGER,   cont, nxt); IR_LIT(nd).ival  = t->v.ival; *res = nd; return nd; }
+    case TT_FLIT:    { IR_t * nd = build(cx, IR_LIT_REAL,   cont, nxt); IR_LIT(nd).dval  = t->v.dval; *res = nd; return nd; }
+    case TT_QLIT:    { IR_t * nd = build(cx, IR_LIT_STRING,   cont, nxt); IR_LIT(nd).sval  = t->v.sval; *res = nd; return nd; }
     case TT_NUL:     { IR_t * nd = build(cx, IR_LIT_NUL, cont, nxt);                                *res = nd; return nd; }
     case TT_VAR:     { IR_t * nd = build(cx, IR_VAR,     cont, nxt); IR_LIT(nd).sval  = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: { IR_t * nd = build(cx, IR_KEYWORD, cont, nxt); IR_LIT(nd).sval  = t->v.sval; *res = nd; return nd; }
@@ -166,8 +166,8 @@ static IR_t * lower_expr(snx_t * cx, const tree_t * t, IR_t * cont, IR_t * nxt, 
             IR_t * idx = build(cx, IR_IDX, cont, nxt);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = t->c[0]->v.sval;
             IR_t * key_box;
-            if (t->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = t->c[1]->v.ival; }
-            else if (t->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = t->c[1]->v.sval ? t->c[1]->v.sval : ""; }
+            if (t->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(key_box).ival = t->c[1]->v.ival; }
+            else if (t->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(key_box).sval = t->c[1]->v.sval ? t->c[1]->v.sval : ""; }
             else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = t->c[1]->v.sval; }
             ir_operand_push(idx, base_box); ir_operand_push(idx, key_box);
             *res = idx; return idx;
@@ -477,7 +477,7 @@ static IR_graph_t * lower_subj_graph(const char * vname) {
 static IR_graph_t * lower_subj_graph_lit(const char * text) {
     IR_graph_t * sg = IR_alloc(32, IR_LANG_SNO);
     IR_t * fail = IR_node_alloc(sg, IR_FAIL);   /* [0] */
-    IR_t * lit  = IR_node_alloc(sg, IR_LIT_S);  /* [1] */
+    IR_t * lit  = IR_node_alloc(sg, IR_LIT_STRING);  /* [1] */
     ω_to(lit, fail); IR_LIT(lit).sval = (char *) text;
     sg->entry = lit;
     return sg;
@@ -486,7 +486,7 @@ static IR_graph_t * lower_subj_graph_lit(const char * text) {
 static IR_graph_t * lower_repl_graph(const tree_t * repl) {
     IR_graph_t * rg = IR_alloc(32, IR_LANG_SNO);
     IR_t * fail = IR_node_alloc(rg, IR_FAIL);   /* [0] */
-    IR_t * lit  = IR_node_alloc(rg, IR_LIT_S);  /* [1] */
+    IR_t * lit  = IR_node_alloc(rg, IR_LIT_STRING);  /* [1] */
     ω_to(lit, fail); IR_LIT(lit).sval = (repl && repl->v.sval) ? repl->v.sval : "";
     rg->entry = lit;
     return rg;
@@ -946,23 +946,23 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
     if (!rhs) {
         IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_S;
         IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_S, asn, ω); IR_LIT(lit).sval = "";
+        IR_t * lit = build(cx, IR_LIT_STRING, asn, ω); IR_LIT(lit).sval = "";
         return lit;
     }
     switch (rhs->t) {
     case TT_QLIT: {
         IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_S;
         IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_S, asn, ω); IR_LIT(lit).sval = rhs->v.sval;
+        IR_t * lit = build(cx, IR_LIT_STRING, asn, ω); IR_LIT(lit).sval = rhs->v.sval;
         return lit; }
     case TT_ILIT: {
         IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_I;
         IR_t * asn = build(cx, op, γ, ω); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_I, asn, ω); IR_LIT(lit).ival = rhs->v.ival;
+        IR_t * lit = build(cx, IR_LIT_INTEGER, asn, ω); IR_LIT(lit).ival = rhs->v.ival;
         return lit; }
     case TT_FLIT: {
         IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = (char *) lhs;
-        IR_t * lit = build(cx, IR_LIT_F, asn, ω); IR_LIT(lit).dval = rhs->v.dval;
+        IR_t * lit = build(cx, IR_LIT_REAL, asn, ω); IR_LIT(lit).dval = rhs->v.dval;
         return lit; }
     case TT_NUL: {
         IR_e op = is_kw ? IR_ASSIGN : IR_ASSIGN_LIT_S;
@@ -1012,7 +1012,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             for (int i = 0; i < nl; i++) if (leaves[i]->v.sval) total += (int)strlen(leaves[i]->v.sval);
             char * buf = (char *) malloc(total + 1); buf[0] = 0;
             for (int i = 0; i < nl; i++) if (leaves[i]->v.sval) strcat(buf, leaves[i]->v.sval);
-            IR_t * lit = build(cx, IR_LIT_S, asn, ω); IR_LIT(lit).sval = buf;
+            IR_t * lit = build(cx, IR_LIT_STRING, asn, ω); IR_LIT(lit).sval = buf;
             return lit;
         }
         IR_t * seq = build(cx, IR_SEQ, asn, ω); IR_LIT(seq).dval = 1.0;
@@ -1027,8 +1027,8 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
             IR_t * idx = build(cx, IR_IDX, asn, ω);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = rhs->c[0]->v.sval;
             IR_t * key_box;
-            if (rhs->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = rhs->c[1]->v.ival; }
-            else if (rhs->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = rhs->c[1]->v.sval ? rhs->c[1]->v.sval : ""; }
+            if (rhs->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(key_box).ival = rhs->c[1]->v.ival; }
+            else if (rhs->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(key_box).sval = rhs->c[1]->v.sval ? rhs->c[1]->v.sval : ""; }
             else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = rhs->c[1]->v.sval; }
             ir_operand_push(idx, base_box); ir_operand_push(idx, key_box); ir_operand_push(asn, idx);
             return idx;
@@ -1081,7 +1081,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             (void)(pg);
             ir_operand_push(scan, (IR_t *)(void *) sg);
             ir_operand_push(scan, (IR_t *)(void *) rg);
-            IR_t * lit = build(cx, IR_LIT_S, scan, ω_tgt);
+            IR_t * lit = build(cx, IR_LIT_STRING, scan, ω_tgt);
             IR_LIT(lit).sval = (repl && repl->v.sval) ? repl->v.sval : "";
             return lit;
         }
@@ -1091,13 +1091,13 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
         /* indirect assignment, runtime name held in a variable:  $V = 'lit'  → resolve V's value to a name then assign the string (SPITBOL Ch.7 indirect reference) */
         if (subj->t == TT_INDIRECT && subj->n == 1 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[0]->v.sval && repl && repl->t == TT_QLIT) {
             IR_t * asn = build(cx, IR_INDIRECT_ASSIGN_LIT_S, γ_tgt, ω_tgt); IR_LIT(asn).sval = (char *) subj->c[0]->v.sval;
-            IR_t * lit = build(cx, IR_LIT_S, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval ? repl->v.sval : "";
+            IR_t * lit = build(cx, IR_LIT_STRING, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval ? repl->v.sval : "";
             return lit;
         }
         /* indirect assignment, runtime name in var, runtime value in var:  $V = W  → rt_indirect_assign_var(V, W) */
         if (subj->t == TT_INDIRECT && subj->n == 1 && subj->c[0] && subj->c[0]->t == TT_VAR && subj->c[0]->v.sval && repl && repl->t == TT_VAR && repl->v.sval) {
             IR_t * asn = build(cx, IR_INDIRECT_ASSIGN_VAR, γ_tgt, ω_tgt); IR_LIT(asn).sval = (char *) subj->c[0]->v.sval; IR_LIT(asn).dval = 0.0;
-            IR_t * lit = build(cx, IR_LIT_S, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval;
+            IR_t * lit = build(cx, IR_LIT_STRING, asn, ω_tgt); IR_LIT(lit).sval = repl->v.sval;
             return lit;
         }
         /* table write with ARITH value:  T<k> = expr  (base=VAR, key=VAR|LIT_I, value=arith BINOP of materializable operands) → value box chained before IR_IDX_SET, read from its slot */
@@ -1106,7 +1106,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             && repl && lc_is_binop(repl->t) && sno_idx_operand_ok(repl->c[0]) && sno_idx_operand_ok(repl->c[1])) {
             IR_t * st = build(cx, IR_IDX_SET, γ_tgt, ω_tgt);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
-            IR_t * key_box; if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
+            IR_t * key_box; if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
             else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval; }
             IR_t * vr = NULL; IR_t * ventry = lower_expr(cx, repl, st, ω_tgt, &vr);
             ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, vr);
@@ -1119,14 +1119,14 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_t * st = build(cx, IR_IDX_SET, γ_tgt, ω_tgt);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
             IR_t * key_box;
-            if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
-            else if (subj->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval ? subj->c[1]->v.sval : ""; }
-            else if (subj->c[1]->t == TT_FLIT) { key_box = build(cx, IR_LIT_F, NULL, NULL); IR_LIT(key_box).dval = subj->c[1]->v.dval; }
+            if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
+            else if (subj->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval ? subj->c[1]->v.sval : ""; }
+            else if (subj->c[1]->t == TT_FLIT) { key_box = build(cx, IR_LIT_REAL, NULL, NULL); IR_LIT(key_box).dval = subj->c[1]->v.dval; }
             else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval; }
             IR_t * val_box;
-            if (repl->t == TT_ILIT) { val_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(val_box).ival = repl->v.ival; }
-            else if (repl->t == TT_QLIT) { val_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval ? repl->v.sval : ""; }
-            else if (repl->t == TT_FLIT) { val_box = build(cx, IR_LIT_F, NULL, NULL); IR_LIT(val_box).dval = repl->v.dval; }
+            if (repl->t == TT_ILIT) { val_box = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(val_box).ival = repl->v.ival; }
+            else if (repl->t == TT_QLIT) { val_box = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval ? repl->v.sval : ""; }
+            else if (repl->t == TT_FLIT) { val_box = build(cx, IR_LIT_REAL, NULL, NULL); IR_LIT(val_box).dval = repl->v.dval; }
             else { val_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval; }
             ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, val_box);
             return st;
@@ -1136,11 +1136,11 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             && repl && (repl->t == TT_ILIT || repl->t == TT_VAR || repl->t == TT_QLIT || repl->t == TT_FLIT)) {
             IR_t * st = build(cx, IR_IDX_SET, γ_tgt, ω_tgt);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
-            IR_t * key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = subj->v.sval;
+            IR_t * key_box = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(key_box).sval = subj->v.sval;
             IR_t * val_box;
-            if (repl->t == TT_ILIT) { val_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(val_box).ival = repl->v.ival; }
-            else if (repl->t == TT_QLIT) { val_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval ? repl->v.sval : ""; }
-            else if (repl->t == TT_FLIT) { val_box = build(cx, IR_LIT_F, NULL, NULL); IR_LIT(val_box).dval = repl->v.dval; }
+            if (repl->t == TT_ILIT) { val_box = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(val_box).ival = repl->v.ival; }
+            else if (repl->t == TT_QLIT) { val_box = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval ? repl->v.sval : ""; }
+            else if (repl->t == TT_FLIT) { val_box = build(cx, IR_LIT_REAL, NULL, NULL); IR_LIT(val_box).dval = repl->v.dval; }
             else { val_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(val_box).sval = repl->v.sval; }
             ir_operand_push(st, base_box); ir_operand_push(st, key_box); ir_operand_push(st, val_box);
             return st;
@@ -1187,7 +1187,7 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_t * scan = build(cx, IR_SCAN, γ_tgt, ω_tgt);
             (void)(pg);
             ir_operand_push(scan, (IR_t *)(void *) sg);
-            IR_t * lit = build(cx, IR_LIT_S, scan, ω_tgt);
+            IR_t * lit = build(cx, IR_LIT_STRING, scan, ω_tgt);
             IR_LIT(lit).sval = sv->v.sval;
             return lit; }
         /* allocate sub-graphs */
@@ -1209,8 +1209,8 @@ static IR_t * lower_stmt_body(snx_t * cx, const tree_t * s, IR_t * γ_tgt, IR_t 
             IR_t * idx = build(cx, IR_IDX, γ_tgt, ω_tgt);
             IR_t * base_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(base_box).sval = subj->c[0]->v.sval;
             IR_t * key_box;
-            if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
-            else if (subj->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_S, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval ? subj->c[1]->v.sval : ""; }
+            if (subj->c[1]->t == TT_ILIT) { key_box = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(key_box).ival = subj->c[1]->v.ival; }
+            else if (subj->c[1]->t == TT_QLIT) { key_box = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval ? subj->c[1]->v.sval : ""; }
             else { key_box = build(cx, IR_VAR, NULL, NULL); IR_LIT(key_box).sval = subj->c[1]->v.sval; }
             ir_operand_push(idx, base_box); ir_operand_push(idx, key_box);
             return idx; }

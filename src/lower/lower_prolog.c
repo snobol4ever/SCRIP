@@ -43,8 +43,8 @@ static IR_t * term(lcx_t * cx, const tree_t * t) {
     if (!t) return NULL;
     switch (t->t) {
     case TT_QLIT: { IR_t * nd = build(cx, IR_ATOM, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval; return nd; }
-    case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_I, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
-    case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, NULL, cx->tω); IR_LIT(nd).dval = t->v.dval; return nd; }
+    case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
+    case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, NULL, cx->tω); IR_LIT(nd).dval = t->v.dval; return nd; }
     case TT_VAR:  { IR_t * nd = build(cx, IR_LOGICVAR, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
     case TT_MAKELIST: {
         int bar = (t->v.ival == 1 && t->n > 0);

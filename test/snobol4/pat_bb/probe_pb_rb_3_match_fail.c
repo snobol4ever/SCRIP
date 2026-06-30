@@ -31,7 +31,7 @@ static int run_match(const char *subj_s, const char *lit_s) {
     IR_t *succ = IR_node_alloc(g, IR_SUCCEED);
     IR_t *fail = IR_node_alloc(g, IR_FAIL);
     IR_t *subj = IR_node_alloc(g, IR_SUBJECT);
-    IR_t *subj_lit = IR_node_alloc(g, IR_LIT_S);
+    IR_t *subj_lit = IR_node_alloc(g, IR_LIT_STRING);
     subj_lit->sval = subj_s;
     subj->α = subj_lit;
     IR_t *elem = IR_node_alloc(g, IR_MATCH_LIT);

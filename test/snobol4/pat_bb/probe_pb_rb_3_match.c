@@ -26,7 +26,7 @@ int main(void) {
 
     /* SUBJECT('abc') — loads Σ base + Σlen into its ζ-slot */
     IR_t *subj = IR_node_alloc(g, IR_SUBJECT);
-    IR_t *subj_lit = IR_node_alloc(g, IR_LIT_S);
+    IR_t *subj_lit = IR_node_alloc(g, IR_LIT_STRING);
     subj_lit->sval = "abc";
     subj->α = subj_lit;
 

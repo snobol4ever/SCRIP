@@ -19,8 +19,8 @@ void *rt_node_to_term(int kind, long ival, const char *sval, double dval)
     switch (kind) {
     case IR_LOGICVAR: { int slot = (int)ival; return term_new_var(slot); }
     case IR_ATOM:  return term_new_atom(prolog_atom_intern(sval ? sval : "[]"));
-    case IR_LIT_F: return term_new_float(dval);
-    case IR_LIT_I: return term_new_int(ival);
+    case IR_LIT_REAL: return term_new_float(dval);
+    case IR_LIT_INTEGER: return term_new_int(ival);
     default:       return term_new_int(ival);
     }
 }
@@ -81,7 +81,7 @@ int rt_pl_unify_cell_const(void *cell, int kind, long ival, const char *sval)
     pl_cell_t w;
     switch (kind) {
     case IR_ATOM:  w = pl_make_atom(prolog_atom_intern(sval ? sval : "[]")); break;
-    case IR_LIT_I: w = pl_make_int(ival); break;
+    case IR_LIT_INTEGER: w = pl_make_int(ival); break;
     default:       w = pl_make_int(ival); break;
     }
     int mark = pl_trail_mark(&g_pl_trail);
@@ -105,8 +105,8 @@ void *rt_pl_lit_cell(int kind, long ival, const char *sval, double dval)
     pl_cell_t *c = (pl_cell_t *)GC_MALLOC(sizeof(pl_cell_t));
     switch (kind) {
     case IR_ATOM:  *c = pl_make_atom(prolog_atom_intern(sval ? sval : "[]")); break;
-    case IR_LIT_I: *c = pl_make_int(ival); break;
-    case IR_LIT_F: *c = pl_make_float(dval); break;
+    case IR_LIT_INTEGER: *c = pl_make_int(ival); break;
+    case IR_LIT_REAL: *c = pl_make_float(dval); break;
     default:       *c = pl_make_int(ival); break;
     }
     return c;

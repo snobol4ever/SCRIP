@@ -20,9 +20,9 @@ static bb_match_kids_state_t g_audit_kids2;
 static bb_match_kids_state_t g_audit_kids3;
 typedef struct { IR_e kind; const char *name; } kind_entry_t;
 static const kind_entry_t g_kinds[] = {
-    { IR_LIT_I,           "IR_LIT_I" },
-    { IR_LIT_S,           "IR_LIT_S" },
-    { IR_LIT_F,           "IR_LIT_F" },
+    { IR_LIT_INTEGER,           "IR_LIT_INTEGER" },
+    { IR_LIT_STRING,           "IR_LIT_STRING" },
+    { IR_LIT_REAL,           "IR_LIT_REAL" },
     { IR_LIT_NUL,         "IR_LIT_NUL" },
     { IR_VAR,             "IR_VAR" },
     { IR_ASSIGN,          "IR_ASSIGN" },
@@ -231,11 +231,11 @@ static void prime_child_nodes(void) {
     memset(&g_audit_child_lit_i, 0, sizeof g_audit_child_lit_i);
     memset(&g_audit_child_lit_s, 0, sizeof g_audit_child_lit_s);
     memset(&g_audit_child_var,   0, sizeof g_audit_child_var);
-    g_audit_child_lit_i.op = IR_LIT_I;
+    g_audit_child_lit_i.op = IR_LIT_INTEGER;
     g_audit_child_lit_i.ival = 42;
     g_audit_child_lit_i.α = &g_audit_child_lit_i;
     g_audit_child_lit_i.β = &g_audit_child_lit_i;
-    g_audit_child_lit_s.op = IR_LIT_S;
+    g_audit_child_lit_s.op = IR_LIT_STRING;
     g_audit_child_lit_s.sval = "audit_str";
     g_audit_child_lit_s.α = &g_audit_child_lit_s;
     g_audit_child_lit_s.β = &g_audit_child_lit_s;
@@ -261,9 +261,9 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     nd->γ.node = NULL;
     nd->ω.node = NULL;
     switch (kind) {
-    case IR_LIT_I:        nd->ival = 42; break;
-    case IR_LIT_F:        nd->dval = 3.14; break;
-    case IR_LIT_S:        nd->sval = "audit_lit"; break;
+    case IR_LIT_INTEGER:        nd->ival = 42; break;
+    case IR_LIT_REAL:        nd->dval = 3.14; break;
+    case IR_LIT_STRING:        nd->sval = "audit_lit"; break;
     case IR_VAR:          nd->sval = "audit_var"; break;
     case IR_ASSIGN:       nd->sval = "audit_dst"; nd->α = g_audit_child2[0]; nd->β = g_audit_child2[1]; break;
     case IR_MATCH_LIT:      nd->sval = "audit"; break;

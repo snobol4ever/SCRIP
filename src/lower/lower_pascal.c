@@ -117,8 +117,8 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
 static IR_t * pas_mat(pcx_t * cx, const tree_t * e, IR_t * ω, IR_t ** v_out, IR_t ** at_out, IR_t ** af_out) {
     char * nm = (char *) malloc(16);
     snprintf(nm, 16, "__pbt%d", cx->npbt++);
-    IR_t * n1 = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(n1).ival = 1;
-    IR_t * n0 = build(cx, IR_LIT_I, NULL, NULL); IR_LIT(n0).ival = 0;
+    IR_t * n1 = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(n1).ival = 1;
+    IR_t * n0 = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(n0).ival = 0;
     IR_t * at = build(cx, IR_ASSIGN, NULL, ω); IR_LIT(at).sval = nm;
     IR_t * af = build(cx, IR_ASSIGN, NULL, ω); IR_LIT(af).sval = nm;
     γ_to(n1, at); γ_to(n0, af);
@@ -168,7 +168,7 @@ static IR_t * lower_unop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         IR_t * op = build(cx, IR_BINOP, γ, ω);
         IR_LIT(op).ival = lc_binop_code(TT_SUB);
         int lmark = cx->g->n;
-        IR_t * le = build(cx, IR_LIT_I, NULL, ω); IR_LIT(le).ival = 0;
+        IR_t * le = build(cx, IR_LIT_INTEGER, NULL, ω); IR_LIT(le).ival = 0;
         int rmark = cx->g->n;
         IR_t * re = lower(cx, (t->n > 0) ? t->c[0] : NULL, op, ω);
         IR_t * lres = (cx->g->n > lmark) ? cx->g->all[lmark] : le;
@@ -258,9 +258,9 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (rhs && is_relop(rhs->t)) {
         IR_t * nd = build(cx, IR_IF, γ, ω);
         IR_t * th = lower_assign_var(cx, vname, γ, ω);
-        IR_t * tlit = build(cx, IR_LIT_I, th, ω); IR_LIT(tlit).ival = 1; γ_to(th, tlit);
+        IR_t * tlit = build(cx, IR_LIT_INTEGER, th, ω); IR_LIT(tlit).ival = 1; γ_to(th, tlit);
         IR_t * el = lower_assign_var(cx, vname, γ, ω);
-        IR_t * elit = build(cx, IR_LIT_I, el, ω); IR_LIT(elit).ival = 0; γ_to(el, elit);
+        IR_t * elit = build(cx, IR_LIT_INTEGER, el, ω); IR_LIT(elit).ival = 0; γ_to(el, elit);
         IR_t * cond_entry = lower(cx, rhs, tlit, el);
         if (cond_entry) ir_operand_push(nd, cond_entry);
         return nd;
@@ -285,7 +285,7 @@ static IR_t * lower_if(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     } else {
         IR_t * ne = build(cx, IR_BINOP, te, ee); IR_LIT(ne).ival = 10;
         IR_t * expr = lower(cx, cond, ne, ee);
-        IR_t * lit0 = build(cx, IR_LIT_I, ne, ee); IR_LIT(lit0).ival = 0;
+        IR_t * lit0 = build(cx, IR_LIT_INTEGER, ne, ee); IR_LIT(lit0).ival = 0;
         γ_to(expr, lit0);
         cond_entry = expr;
     }
@@ -308,7 +308,7 @@ static IR_t * lower_while(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     } else {
         ne = build(cx, IR_BINOP, NULL, wnd); IR_LIT(ne).ival = 10;
         IR_t * expr = lower(cx, cond_inner, ne, wnd);
-        IR_t * lit0 = build(cx, IR_LIT_I, ne, wnd); IR_LIT(lit0).ival = 0;
+        IR_t * lit0 = build(cx, IR_LIT_INTEGER, ne, wnd); IR_LIT(lit0).ival = 0;
         γ_to(expr, lit0);
         cond_entry = expr;
     }
@@ -341,7 +341,7 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     { IR_t * ax[2]; ax[0] = lim_var; ax[1] = to_res; bb_operand_aux_set(cx->g, lim_cmp, ax, 2); }
     IR_t * inc_assign = lower_assign_var(cx, vname, lim_var, ω);
     IR_t * inc_var    = lower_var(cx, vname, NULL, ω);
-    IR_t * inc_lit1   = build(cx, IR_LIT_I, NULL, ω); IR_LIT(inc_lit1).ival = 1;
+    IR_t * inc_lit1   = build(cx, IR_LIT_INTEGER, NULL, ω); IR_LIT(inc_lit1).ival = 1;
     IR_t * inc_binop  = build(cx, IR_BINOP, inc_assign, ω); IR_LIT(inc_binop).ival = inc_op;
     γ_to(inc_var, inc_lit1); γ_to(inc_lit1, inc_binop);
     IR_t * body_entry = lower(cx, body, inc_var, inc_var);
@@ -363,7 +363,7 @@ static IR_t * lower_repeat(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     } else {
         IR_t * ne = build(cx, IR_BINOP, γ, NULL); IR_LIT(ne).ival = 10;
         IR_t * expr = lower(cx, cond, ne, NULL);
-        IR_t * lit0 = build(cx, IR_LIT_I, ne, NULL); IR_LIT(lit0).ival = 0;
+        IR_t * lit0 = build(cx, IR_LIT_INTEGER, ne, NULL); IR_LIT(lit0).ival = 0;
         γ_to(expr, lit0); cond_entry = expr; cond_res = ne;
     }
     IR_t * body_entry = lower(cx, body, cond_entry, ω);
@@ -448,9 +448,9 @@ static void scan_labels(pcx_t * cx, const tree_t * t, IR_t * fail) {
 static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (!t) return build(cx, IR_SUCCEED, γ, ω);
     switch (t->t) {
-    case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_I, γ, ω); IR_LIT(nd).ival = t->v.ival; return nd; }
-    case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_F, γ, ω); IR_LIT(nd).dval = t->v.dval; return nd; }
-    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_S, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
+    case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; return nd; }
+    case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; return nd; }
+    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_VAR:  return lower_var(cx, t->v.sval, γ, ω);
     case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW:
     case TT_LT:  case TT_LE:  case TT_GT:  case TT_GE:  case TT_EQ:  case TT_NE:

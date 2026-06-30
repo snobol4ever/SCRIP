@@ -5,9 +5,9 @@
 #include <string.h>
 #include <stdio.h>
 static const char * kind_names[IR_OP_COUNT] = {
-    [IR_LIT_I] = "IR_LIT_I",
-    [IR_LIT_S] = "IR_LIT_S",
-    [IR_LIT_F] = "IR_LIT_F",
+    [IR_LIT_INTEGER] = "IR_LIT_INTEGER",
+    [IR_LIT_STRING] = "IR_LIT_STRING",
+    [IR_LIT_REAL] = "IR_LIT_REAL",
     [IR_VAR] = "IR_VAR",
     [IR_ASSIGN] = "IR_ASSIGN",
     [IR_BINOP] = "IR_BINOP",
@@ -22,7 +22,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CALL_BYNAME] = "IR_CALL_BYNAME",
     [IR_CALL_BUILTIN] = "IR_CALL_BUILTIN",
     [IR_CALL_GVAR_USERPROC] = "IR_CALL_GVAR_USERPROC",
-    [IR_SEQ] = "IR_SEQ",
     [IR_FAIL] = "IR_FAIL",
     [IR_SUCCEED] = "IR_SUCCEED",
     [IR_GOTO] = "IR_GOTO",
@@ -33,7 +32,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_TO] = "IR_TO",
     [IR_PROC_GEN] = "IR_PROC_GEN",
     [IR_KEYWORD] = "IR_KEYWORD",
-    [IR_CSET_LIT] = "IR_CSET_LIT",
+    [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_FIELD] = "IR_FIELD",
     [IR_TERNOP] = "IR_TERNOP",
     [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
@@ -164,13 +163,12 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_SUBSCRIPT || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_SUBSCRIPT || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
     int cursor = 0;
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = cursor; cursor += 16; } }
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)0; IR_graph_t * R = (IR_graph_t *) 0; if (L) ir_tmp_slot_assign(L); if (R) ir_tmp_slot_assign(R); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign_flat(IR_graph_t * g) {
@@ -180,7 +178,7 @@ void ir_tmp_slot_assign_flat(IR_graph_t * g) {
     g->nvalue_slots = n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int jcon_converted_producer(IR_e op) { return op == IR_LIT_I || op == IR_LIT_S || op == IR_LIT_F || op == IR_KEYWORD; }
+static int jcon_converted_producer(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_KEYWORD; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_jcon_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -195,7 +193,6 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && ir_node_produces_value(nd->op)) { nd->tmp = 16 + k * 16; k++; } }
     g->jcon_value_region = 16 + k * 16;
     g->nvalue_slots = k;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || nd->op != IR_SEQ || IR_LIT(nd).dval != 1.0) continue; IR_graph_t * L = (IR_graph_t *)0; IR_graph_t * R = (IR_graph_t *) 0; if (L) ir_drive_slot_assign(L); if (R) ir_drive_slot_assign(R); }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) {
@@ -213,12 +210,11 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i) 
     if (bb->tmp >= 0) fprintf(fp, " tmp=%d", bb->tmp);
     if (bb->op == IR_SUCCEED && IR_LIT(bb).ival != 0) fprintf(fp, " stno=%d", (int)IR_LIT(bb).ival);
     switch (bb->op) {
-        case IR_LIT_I: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
-        case IR_LIT_F: fprintf(fp, " dval=%g", IR_LIT(bb).dval); break;
-        case IR_LIT_S: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_LIT_INTEGER: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
+        case IR_LIT_REAL: fprintf(fp, " dval=%g", IR_LIT(bb).dval); break;
+        case IR_LIT_STRING: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_BINOP: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
-        case IR_SEQ: fprintf(fp, " parts(sub-graphs)"); break;
         default:
             if (IR_LIT(bb).sval) fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval);
             else if (IR_LIT(bb).ival) fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival);
@@ -246,14 +242,6 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
         if (any_unreached) for (int i = 0; i < nn; i++) if (!vis[i] && bbg->all[i]) bb_print_node_line(bbg, fp, -1, i);
     } else { for (int i = 0; i < nn; i++) bb_print_node_line(bbg, fp, i, i); }
     free(vis); free(order);
-    for (int i = 0; i < nn; i++) {                              /* recurse only true sub-graph nodes (leaf-SEQ/scan) */
-        const IR_t * bb = bbg->all[i];
-        if (!bb || bb->op != IR_SEQ || IR_LIT(bb).dval != 1.0) continue;
-        IR_graph_t * L = (IR_graph_t *)0;
-        IR_graph_t * R = (IR_graph_t *) 0;
-        if (L) { fprintf(fp, "; SEQ[%d] part0:\n", i); bb_print(L, fp); }
-        if (R) { fprintf(fp, "; SEQ[%d] part1:\n", i); bb_print(R, fp); }
-    }
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         IR_graph_t * pg = (IR_graph_t *)0;

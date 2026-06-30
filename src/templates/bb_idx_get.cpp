@@ -12,10 +12,10 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 std::string bb_idx_get() {
     if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1 && _.op_parts_lbl[0] && _.op_sa >= 0))
         return x86_bomb("bb_idx_get: unhandled (needs base name + result/scratch slots)");
-    if (!(_.bb_lk == (int)IR_LIT_I || _.bb_lk == (int)IR_LIT_S || (_.bb_lk == (int)IR_VAR && _.op_name2 && _.op_parts_lbl[1])))
+    if (!(_.bb_lk == (int)IR_LIT_INTEGER || _.bb_lk == (int)IR_LIT_STRING || (_.bb_lk == (int)IR_VAR && _.op_name2 && _.op_parts_lbl[1])))
         return x86_bomb("bb_idx_get: unhandled key kind (LIT_I immediate, LIT_S literal, or VAR by-name only)");
     x86_begin();
-    if (_.bb_lk == (int)IR_LIT_S) {
+    if (_.bb_lk == (int)IR_LIT_STRING) {
         return x86("label", _.lbl_α)
              + x86("comment", "IR_IDX: string-literal key — table-only, subscript_get")
              + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])

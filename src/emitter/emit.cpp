@@ -605,7 +605,7 @@ void bb_prepare(IR_t *nd) {
 /*======================================== IR OPERAND / ARITHMETIC PREDICATES ========================================*/
 static int bb_arith_dyn_kind(IR_t *o) { return o && (o->op == IR_CALL || ir_is_call_kind(o->op)); }
 static int bb_arith_materializable(IR_t *o) {
-    return o && (o->op == IR_CALL || ir_is_call_kind(o->op) || o->op == IR_LIT_I || (o->op == IR_VAR && IR_LIT(o).sval));
+    return o && (o->op == IR_CALL || ir_is_call_kind(o->op) || o->op == IR_LIT_INTEGER || (o->op == IR_VAR && IR_LIT(o).sval));
 }
 int bb_arith_is_dynamic(IR_t *nd) {
     if (!nd || nd->op != IR_BINOP) return 0;
@@ -636,7 +636,7 @@ int binop_slot_kind(IR_t *nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int descr_binop_opnd_slot(IR_t *o) {
-    return (o && o->op != IR_LIT_F) ? bb_slot_get(o) : -1;
+    return (o && o->op != IR_LIT_REAL) ? bb_slot_get(o) : -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth);
@@ -652,7 +652,7 @@ static int var_assigned_real_static(IR_graph_t *g, const char *name, int depth) 
 }
 static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth) {
     if (!o || depth > 8) return 0;
-    if (o->op == IR_LIT_F) return 1;
+    if (o->op == IR_LIT_REAL) return 1;
     if (o->op == IR_VAR && IR_LIT(o).sval) return var_assigned_real_static(g, IR_LIT(o).sval, depth);
     if (o->op == IR_BINOP) {
         IR_t *c0 = bb_child0(o), *c1 = bb_child1(o);
@@ -699,10 +699,10 @@ int bb_call_write_route(IR_t *nd) {
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
     if (g_descr_flat_chain && bb_slot_get(a0) >= 0) return 1;
-    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_ALT || a0->op == IR_VAR || a0->op == IR_NOT || a0->op == IR_CALL || ir_is_call_kind(a0->op));
+    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_ALT || a0->op == IR_VAR || a0->op == IR_NOT || a0->op == IR_CALL || ir_is_call_kind(a0->op));
     if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
     if (wintexpr) return 4;
-    if (a0->op == IR_LIT_S && IR_LIT(a0).sval) return 5;
+    if (a0->op == IR_LIT_STRING && IR_LIT(a0).sval) return 5;
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -778,9 +778,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
     { extern int arith_emits_descr(IR_t *nd); g_emit.op_a_descr = arith_emits_descr(op_a) ? 1 : 0; }
     switch (nd->op) {
-    case IR_LIT_I:
-    case IR_LIT_S:
-    case IR_LIT_F:               bb_emit_x86(bb_lit_scalar());         return 0;
+    case IR_LIT_INTEGER:
+    case IR_LIT_STRING:
+    case IR_LIT_REAL:               bb_emit_x86(bb_lit_scalar());         return 0;
     case IR_KEYWORD:              bb_emit_x86(bb_keyword());            return 0;
     case IR_VAR:                  { extern int is_global(const char *);
         if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword());
@@ -789,7 +789,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ASSIGN: {
         extern int g_descr_flat_chain;
         if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a
-            && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP
+            && (op_a->op == IR_LIT_STRING || op_a->op == IR_LIT_INTEGER || op_a->op == IR_LIT_REAL || op_a->op == IR_BINOP
                 || op_a->op == IR_VAR || op_a->op == IR_CALL || ir_is_call_kind(op_a->op)))
             { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
@@ -862,7 +862,7 @@ static void drive_unowned(IR_t *nd) {
 void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_unowned(nd); return; }
     switch (nd->op) {
-    case IR_LIT_S: case IR_LIT_I: case IR_LIT_F:
+    case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1031,7 +1031,7 @@ static int g_in_prebuild = 0;
 /*============================================== CHAIN OPERAND PRE-WALK ==============================================*/
 static int descr_chain_arity(const IR_t *n) {
     switch (n->op) {
-    case IR_LIT_I: case IR_LIT_S: case IR_LIT_F:
+    case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:
     case IR_VAR:   case IR_KEYWORD: return 0;
     case IR_ALT:   return 0;
     case IR_BINOP: case IR_TO: return 2;
