@@ -428,16 +428,16 @@ static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    int by = (t->t == TT_TO_BY) ? 1 : 0; int varby = 0;
-    IR_t * to = build(cx, by ? IR_FAIL : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
-    if (by && t->n > 2 && t->c[2]) {
-        int64_t bits = 1; int isr = 0;
-        if (icn_const_step(t->c[2], &bits, &isr)) { IR_LIT(to).ival = bits; if (isr) IR_LIT(to).sval = (char *) "ar"; } else varby = 1;
-    }
+    int by = (t->t == TT_TO_BY && t->n > 2 && t->c[2]) ? 1 : 0;
+    IR_t * to = build(cx, IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
     IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
-    IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], to, lβ, &mr); γ_to(lr, em);
+    IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr); γ_to(lr, em);
     ir_operand_push(to, lr); ir_operand_push(to, mr);
-    if (varby) { IR_t * mβ = cx->beta; IR_t * br = NULL; IR_t * eb = lower(cx, t->c[2], to, mβ, &br); γ_to(mr, eb); ir_operand_push(to, br); }
+    if (by) {
+        IR_t * mβ = cx->beta; IR_t * br = NULL; IR_t * eb = lower(cx, t->c[2], to, mβ, &br); γ_to(mr, eb); (void) eb;
+        if (br && ir_is_generator_kind(to->op)) lc_γ_to(br, to);
+        ir_operand_push(to, br);
+    } else if (mr && ir_is_generator_kind(to->op)) lc_γ_to(mr, to);
     cx->beta = to; *res = to; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -446,7 +446,9 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     const tree_t * E = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = ω; cx->loop_next = gen_beta;
-    IR_t * bval = NULL; (void) bval; IR_t * b_entry = lower(cx, B, gen_beta, gen_beta, &bval);
+    IR_t * bval = NULL; (void) bval; IR_t * b_entry;
+    if (B) { b_entry = lower(cx, B, gen_beta, gen_beta, &bval); }
+    else { b_entry = build(cx, IR_CONJ, gen_beta, gen_beta); ir_operand_push(b_entry, gen_beta); }
     cx->loop_exit = sle; cx->loop_next = sln;
     γ_to(eval, b_entry);
     cx->beta = ω; *res = eval ? eval : e_entry; return e_entry;

@@ -888,6 +888,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     case IR_TO: {
         if (!bb_child0(nd) || !bb_child1(nd)) { drive_unowned(nd); break; }
         g_emit.op_sa = bb_slot_get(bb_child0(nd)); g_emit.op_sb = bb_slot_get(bb_child1(nd));
+        IR_t * byc = (nd->n_operands > 2) ? nd->operands[2] : NULL;
+        g_emit.op_sc = byc ? bb_slot_get(byc) : -1;
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
         int already = (bb_slot_get(nd) >= 0); g_emit.op_off = bb_slot_alloc16_or_get(nd);
         if (!already) (void) bb_slot_claim(g_emit.op_num_real ? 16 : 8);
