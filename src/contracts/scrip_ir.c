@@ -244,9 +244,9 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) {
     free(vis); free(order);
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
+        if (!bb) continue;
         IR_graph_t * pg = (IR_graph_t *)0;
         if (pg) bb_print(pg, fp);
-        for (int j = 0; j < bb->n_operands; j++) if (bb->operands[j]) bb_print((IR_graph_t *)(void *) bb->operands[j], fp);
     }
     { static int xd2 = -1; if (xd2 < 0) { const char * e = getenv("SCRIP_DUMP_X"); xd2 = (e && e[0] == '1') ? 1 : 0; }
       if (xd2) for (int i = 0; i < bbg->n; i++) {
