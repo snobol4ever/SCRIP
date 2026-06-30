@@ -29,8 +29,8 @@ std::string gzu_build(const IR_t *nd) {
     if (!nd) return x86("xor", "eax", "eax");
     if (nd->op == IR_LOGICVAR) { int slot = (int)IR_LIT(nd).ival; return (slot < 0) ? x86("xor", "eax", "eax") : x86("lea", "rax", FR(GZ_CELL_OFF(slot))); }
     if (nd->op == IR_ATOM)  return gzu_lit_atom(IR_LIT(nd).sval);
-    if (nd->op == IR_LIT_I) return x86("mov32", "edi", (long)IR_LIT_I) + x86("mov", "rsi", (long)IR_LIT(nd).ival) + x86("xor", "edx", "edx") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
-    if (nd->op == IR_LIT_F) return x86("mov32", "edi", (long)IR_LIT_F) + x86("xor", "rsi", "rsi") + x86("xor", "edx", "edx") + x86("movsd", "xmm0", F64(IR_LIT(nd).dval)) + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
+    if (nd->op == IR_LIT_INTEGER) return x86("mov32", "edi", (long)IR_LIT_INTEGER) + x86("mov", "rsi", (long)IR_LIT(nd).ival) + x86("xor", "edx", "edx") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
+    if (nd->op == IR_LIT_REAL) return x86("mov32", "edi", (long)IR_LIT_REAL) + x86("xor", "rsi", "rsi") + x86("xor", "edx", "edx") + x86("movsd", "xmm0", F64(IR_LIT(nd).dval)) + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
     if (nd->op == IR_STRUCT || nd->op == IR_ARITH) {
         int arity = (int)IR_LIT(nd).ival;
         if (arity <= 0 || !ir_call_arg(nd, 0)) return gzu_lit_atom(IR_LIT(nd).sval);

@@ -5,7 +5,7 @@
 #include <math.h>
 int gz_arith_const_eval(const IR_t *nd, long *out) {
     if (!nd) return 0;
-    if (nd->op == IR_LIT_I) { *out = (long)IR_LIT(nd).ival; return 1; }
+    if (nd->op == IR_LIT_INTEGER) { *out = (long)IR_LIT(nd).ival; return 1; }
     const IR_t *a0 = ir_pair_arg(nd, 0), *a1 = ir_pair_arg(nd, 1);
     if (nd->op != IR_ARITH || !a0) return 0;
     const char *op = IR_LIT(nd).sval ? IR_LIT(nd).sval : "+";
@@ -42,15 +42,15 @@ int gz_arith_const_eval(const IR_t *nd, long *out) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 int sno_arith_lit_coerce(const IR_t *nd, long *out) {
     if (!nd) return 0;
-    if (nd->op == IR_LIT_I) { *out = (long)IR_LIT(nd).ival; return 1; }
-    if (nd->op == IR_LIT_S) { const char *s = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; while (*s == ' ') s++; const char *p = s; if (*p == '+' || *p == '-') p++; const char *d = p; while (*d >= '0' && *d <= '9') d++; const char *e = d; while (*e == ' ') e++; if (*e == '\0') { *out = (d > p) ? strtol(s, (char **)0, 10) : 0L; return 1; } return 0; }
+    if (nd->op == IR_LIT_INTEGER) { *out = (long)IR_LIT(nd).ival; return 1; }
+    if (nd->op == IR_LIT_STRING) { const char *s = IR_LIT(nd).sval ? IR_LIT(nd).sval : ""; while (*s == ' ') s++; const char *p = s; if (*p == '+' || *p == '-') p++; const char *d = p; while (*d >= '0' && *d <= '9') d++; const char *e = d; while (*e == ' ') e++; if (*e == '\0') { *out = (d > p) ? strtol(s, (char **)0, 10) : 0L; return 1; } return 0; }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int gz_arith_float_eval(const IR_t *nd, double *out) {
     if (!nd) return 0;
-    if (nd->op == IR_LIT_F) { *out = IR_LIT(nd).dval; return 1; }
-    if (nd->op == IR_LIT_I) { *out = (double)IR_LIT(nd).ival; return 1; }
+    if (nd->op == IR_LIT_REAL) { *out = IR_LIT(nd).dval; return 1; }
+    if (nd->op == IR_LIT_INTEGER) { *out = (double)IR_LIT(nd).ival; return 1; }
     if (nd->op == IR_ATOM && IR_LIT(nd).sval) { const char *a = IR_LIT(nd).sval; if (strcmp(a,"pi")==0) { *out = 3.141592653589793; return 1; } if (strcmp(a,"e")==0) { *out = 2.718281828459045; return 1; } if (strcmp(a,"inf")==0||strcmp(a,"infinity")==0) { *out = 1.0/0.0; return 1; } return 0; }
     if (nd->op != IR_ARITH || !IR_LIT(nd).sval) return 0;
     const char *op = IR_LIT(nd).sval;
@@ -102,7 +102,7 @@ int gz_arith_var_plus_const(const IR_t *nd, int *var_slot, const char **op_out, 
     const char *op = IR_LIT(nd).sval;
     if (strcmp(op,"+")==0||strcmp(op,"-")==0||strcmp(op,"*")==0||strcmp(op,"mod")==0||strcmp(op,"rem")==0||
         strcmp(op,"/\\")==0||strcmp(op,"\\/")==0||strcmp(op,"xor")==0||strcmp(op,">>")==0||strcmp(op,"<<")==0||strcmp(op,"//")==0||strcmp(op,"div")==0||strcmp(op,"/")==0) {
-        if (p0->op == IR_LOGICVAR && p1->op == IR_LIT_I) {
+        if (p0->op == IR_LOGICVAR && p1->op == IR_LIT_INTEGER) {
             *var_slot = (int)IR_LIT(p0).ival; *op_out = op; *c_out = (long)IR_LIT(p1).ival; return 1;
         }
     }

@@ -12,7 +12,7 @@ extern "C" int  rt_pl_unify_cell_const(void *cell_term, int kind, long ival, con
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int cc_consts_match(const IR_t *a, const IR_t *c) {
     if (!a || !c || a->op != c->op) return 0;
-    if (a->op == IR_LIT_I) return IR_LIT(a).ival == IR_LIT(c).ival;
+    if (a->op == IR_LIT_INTEGER) return IR_LIT(a).ival == IR_LIT(c).ival;
     if (a->op == IR_ATOM)  return IR_LIT(a).sval && IR_LIT(c).sval && strcmp(IR_LIT(a).sval, IR_LIT(c).sval) == 0;
     return 0;
 }
@@ -34,7 +34,7 @@ static std::string bcch_arg_unify(const IR_t *a, const IR_t *c, int lk, int ro_i
     if (a->op != IR_LOGICVAR) return std::string();
     return x86("lea", "rdi", FR(GZ_CELL_OFF((int)IR_LIT(a).ival)))
          + x86("mov", "esi", (long)c->op)
-         + x86("mov", "rdx", (c->op == IR_LIT_I) ? (long)IR_LIT(c).ival : 0L)
+         + x86("mov", "rdx", (c->op == IR_LIT_INTEGER) ? (long)IR_LIT(c).ival : 0L)
          + (c->op == IR_ATOM ? x86_ro_load_q("rcx", ro_id) : x86("mov", "ecx", (long)0))
          + x86("call", "rt_pl_unify_cell_const", (uint64_t)(uintptr_t)(void *)rt_pl_unify_cell_const)
          + x86("test", "eax", "eax")

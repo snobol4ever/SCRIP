@@ -16,14 +16,14 @@ std::string bb_gvar_assign() {
     if (PLATFORM_X86)
         return x86("label", _.lbl_α)
              + x86("comment", "IR_ASSIGN")
-             + (_.op_a_node_kind == (int)IR_LIT_S ?
+             + (_.op_a_node_kind == (int)IR_LIT_STRING ?
                     x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)
                   + x86("lea",  "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_a_sval ? _.op_a_sval : ""), _.bb_rs)
                   + x86("call", "rt_gvar_assign_str", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, const char *))rt_gvar_assign_str)
                   + x86("jmp",  "γ")
                   + x86("def",  "β")
                   + x86("jmp",  "ω")
-             : _.op_a_node_kind == (int)IR_LIT_I ?
+             : _.op_a_node_kind == (int)IR_LIT_INTEGER ?
                     (_.op_gva_k >= 0 ?
                     (x86("movabs", "rax", (uint64_t)_.op_a_ival_sg)
                    + x86("mov",    RDQ("rbx", _.op_gva_k * 16),     (long)DT_I)
@@ -35,7 +35,7 @@ std::string bb_gvar_assign() {
                    + x86("jmp",    "γ")
                    + x86("def",    "β")
                    + x86("jmp",    "ω")))
-             : _.op_a_node_kind == (int)IR_LIT_F ?
+             : _.op_a_node_kind == (int)IR_LIT_REAL ?
                     (_.op_gva_k >= 0 ?
                     (x86("movabs", "rax", _bits_f)
                    + x86("mov",    RDQ("rbx", _.op_gva_k * 16),     (long)7)

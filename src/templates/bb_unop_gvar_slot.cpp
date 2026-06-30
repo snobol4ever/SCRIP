@@ -13,13 +13,13 @@ extern int64_t rt_gvar_get_int(const char *name);
 std::string bb_unop_gvar_slot() {
     if (PLATFORM_X86) return IF(_.op_off >= 0
                               && (_.op_ival == TT_MNS || _.op_ival == TT_PLS)
-                              && (_.bb_lk == (int)IR_LIT_I || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0),
+                              && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0),
                             x86("label", _.lbl_α)
                           + x86("comment", "IR_UNOP_GVAR_SLOT")
-                          + IF(_.bb_lk == (int)IR_LIT_I, x86("mov", "rax", (long)_.bb_li))
+                          + IF(_.bb_lk == (int)IR_LIT_INTEGER, x86("mov", "rax", (long)_.bb_li))
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0]))
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int))
-                          + IF(!(_.bb_lk == (int)IR_LIT_I) && !(_.bb_lk == (int)IR_VAR && _.op_name1 != 0),
+                          + IF(!(_.bb_lk == (int)IR_LIT_INTEGER) && !(_.bb_lk == (int)IR_VAR && _.op_name1 != 0),
                             x86("mov", "rax", FRQ(_.op_sa + ((_.bb_lk == (int)IR_CALL || _.bb_lk == (int)IR_OP_COUNT || _.bb_lk == (int)IR_OP_COUNT) ? 8 : 0))))
                           + IF(_.op_ival == TT_MNS, x86("neg", "rax"))
                           + x86("mov", FRQ(_.op_off), "rax")
@@ -28,7 +28,7 @@ std::string bb_unop_gvar_slot() {
                           + x86("jmp", "ω"))
                           + IF(!(_.op_off >= 0
                               && (_.op_ival == TT_MNS || _.op_ival == TT_PLS)
-                              && (_.bb_lk == (int)IR_LIT_I || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)),
+                              && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)),
                             x86_bomb("bb_unop_gvar_slot: shape mismatch (dispatch chose this arm but predicate failed)"));
     return std::string();
 }

@@ -37,11 +37,11 @@ static tree_t * rkfnc(const char * name, tree_t * a0, tree_t * a1, tree_t * a2) 
 static int idx_of(IR_graph_t * g, IR_t * n) { if (!n) return -1; for (int i = 0; i < g->n; i++) if (g->all[i] == n) return i; return -2; }
 static const char * kname(IR_e t) {
     switch (t) {
-    case IR_LIT_I: return "LIT_I"; case IR_BINOP: return "BINOP"; case IR_TO: return "TO"; case IR_TO_BY: return "TO_BY"; case IR_VAR: return "VAR";
+    case IR_LIT_INTEGER: return "LIT_I"; case IR_BINOP: return "BINOP"; case IR_TO: return "TO"; case IR_TO_BY: return "TO_BY"; case IR_VAR: return "VAR";
     case IR_UNOP: return "UNOP"; case IR_IF: return "IF"; case IR_SUCCEED: return "PSUCC"; case IR_FAIL: return "PFAIL";
     case IR_CONJ: return "CONJ"; case IR_ALT: return "ALT"; case IR_EVERY: return "EVERY"; case IR_WHILE: return "WHILE";
     case IR_UNTIL: return "UNTIL"; case IR_REPEAT: return "REPEAT"; case IR_NOT: return "NOT";
-    case IR_ASSIGN: return "ASGN"; case IR_CALL: return "CALL"; case IR_LIT_S: return "LIT_S";
+    case IR_ASSIGN: return "ASGN"; case IR_CALL: return "CALL"; case IR_LIT_STRING: return "LIT_S";
     case IR_ASSIGN_LIT_S: return "ASGN_LS"; case IR_ASSIGN_LIT_I: return "ASGN_LI";
     case IR_ASSIGN_VAR: return "ASGN_V"; case IR_ASSIGN_CONCAT: return "ASGN_C"; case IR_ASSIGN_CALL: return "ASGN_K";
     case IR_MATCH_LIT: return "PLIT"; case IR_MATCH_REM: return "PREM"; case IR_MATCH_ARB: return "PARB";

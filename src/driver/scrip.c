@@ -57,13 +57,13 @@ static int alt_arms_all_simple_lit(const IR_graph_t *g, IR_t *alt) {
     if (!arms || n <= 0 || n > 5) return 0;
     for (int i = 0; i < n; i++) {
         if (!arms[i]) return 0;
-        if (arms[i]->op != IR_LIT_I && arms[i]->op != IR_LIT_S) return 0;
+        if (arms[i]->op != IR_LIT_INTEGER && arms[i]->op != IR_LIT_STRING) return 0;
     }
     return 1;
 }
 static int alt_safe_kind(IR_e t) {
     return t == IR_ALT || t == IR_CALL || t == IR_OP_COUNT || t == IR_FAIL || t == IR_OP_COUNT ||
-           t == IR_SUCCEED || t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_OP_COUNT;
+           t == IR_SUCCEED || t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_OP_COUNT;
 }
 static int graph_has_alt(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_ALT) return 1;
@@ -76,7 +76,7 @@ static int keyword_supported(const char *kw) {
 }
 static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
-           t == IR_LIT_I || t == IR_LIT_S || t == IR_LIT_F || t == IR_OP_COUNT ||
+           t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_OP_COUNT ||
            t == IR_VAR || t == IR_KEYWORD || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_OP_COUNT || t == IR_CONJ || t == IR_ASSIGN || t == IR_OP_COUNT || t == IR_OP_COUNT || t == IR_OP_COUNT;
 }
 static int sg_var_assigned(IR_graph_t *sg, const char *name) {
@@ -96,7 +96,7 @@ static int scan_fn_lit_arg(IR_t *nd, IR_e want) {
 }
 static int scan_fn_cset_arg(IR_t *nd) {
     extern const char *kw_cset_const_str(const char *kw);
-    if (scan_lit_entry(nd, IR_LIT_S) != (IR_t *)0) return 1;
+    if (scan_lit_entry(nd, IR_LIT_STRING) != (IR_t *)0) return 1;
     IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae || ae->op != IR_KEYWORD) return 0;
@@ -116,9 +116,9 @@ static int scan_tab_arg_ok(IR_t *nd) {
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae) return 0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
-    if (ae->op == IR_LIT_I && IR_LIT(ae).ival >= 1) return 1;
+    if (ae->op == IR_LIT_INTEGER && IR_LIT(ae).ival >= 1) return 1;
     if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval && (!strcmp(IR_LIT(ae).sval, "any") || !strcmp(IR_LIT(ae).sval, "many") || !strcmp(IR_LIT(ae).sval, "upto")) && scan_fn_cset_arg(ae)) return 1;
-    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval && (!strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && scan_fn_lit_arg(ae, IR_LIT_S)) return 1;
+    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval && (!strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && scan_fn_lit_arg(ae, IR_LIT_STRING)) return 1;
     return 0;
 }
 static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
@@ -138,12 +138,12 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
             if (!IR_LIT(nd).sval) return 0;
             if (!strcmp(IR_LIT(nd).sval, "any")) { if (!(IR_LIT(nd).dval == 3.0 && (scan_fn_cset_arg(nd) || scan_any_cset_var_ok(s2, gi, g, nd)))) return 0; }
             else if (!strcmp(IR_LIT(nd).sval, "many") || !strcmp(IR_LIT(nd).sval, "upto")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_cset_arg(nd))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "match")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_S))) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "match")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_STRING))) return 0; }
             else if (!strcmp(IR_LIT(nd).sval, "tab")) { if (!(IR_LIT(nd).dval == 3.0 && scan_tab_arg_ok(nd))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "move")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_I))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "pos")) { IR_t *pe = scan_lit_entry(nd, IR_LIT_I); if (!(IR_LIT(nd).dval == 3.0 && pe && IR_LIT(pe).ival >= 1)) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "find")) { IR_t *fe = scan_lit_entry(nd, IR_LIT_S); if (!(IR_LIT(nd).dval == 3.0 && fe && IR_LIT(fe).sval && IR_LIT(fe).sval[0] && strlen(IR_LIT(fe).sval) <= 32)) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "bal")) { IR_t *be = scan_lit_entry(nd, IR_LIT_S); if (!(IR_LIT(nd).dval == 3.0 && be && IR_LIT(be).sval && IR_LIT(be).sval[0] && !strchr(IR_LIT(be).sval, 40) && !strchr(IR_LIT(be).sval, 41))) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "move")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_INTEGER))) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "pos")) { IR_t *pe = scan_lit_entry(nd, IR_LIT_INTEGER); if (!(IR_LIT(nd).dval == 3.0 && pe && IR_LIT(pe).ival >= 1)) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "find")) { IR_t *fe = scan_lit_entry(nd, IR_LIT_STRING); if (!(IR_LIT(nd).dval == 3.0 && fe && IR_LIT(fe).sval && IR_LIT(fe).sval[0] && strlen(IR_LIT(fe).sval) <= 32)) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "bal")) { IR_t *be = scan_lit_entry(nd, IR_LIT_STRING); if (!(IR_LIT(nd).dval == 3.0 && be && IR_LIT(be).sval && IR_LIT(be).sval[0] && !strchr(IR_LIT(be).sval, 40) && !strchr(IR_LIT(be).sval, 41))) return 0; }
             else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
         }
         if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE); if (bc != BINOP_CONCAT && !is_rel) return 0; }
@@ -176,14 +176,14 @@ static int gen_scan_body_slotful(IR_t *r) {
     IR_t *bt = bsg ? bsg->entry : (IR_t *)0;
     int gd = 0;
     while (bt && bt->γ.node && bt->γ.node->op != IR_SUCCEED && bt->γ.node->op != IR_FAIL && gd++ < 512) bt = bt->γ.node;
-    if (bt && (bt->op == IR_LIT_I || bt->op == IR_LIT_S)) return 1;
+    if (bt && (bt->op == IR_LIT_INTEGER || bt->op == IR_LIT_STRING)) return 1;
     if (bt && bt->op == IR_VAR && IR_LIT(bt).sval && IR_LIT(bt).sval[0] != '&') return 1;
     if (bt && (bt->op == IR_CALL || ir_is_scan_kind(bt->op)) && IR_LIT(bt).dval == 3.0 && IR_LIT(bt).sval && (!strcmp(IR_LIT(bt).sval, "tab") || !strcmp(IR_LIT(bt).sval, "move") || !strcmp(IR_LIT(bt).sval, "pos") || !strcmp(IR_LIT(bt).sval, "any") || !strcmp(IR_LIT(bt).sval, "match") || !strcmp(IR_LIT(bt).sval, "many") || !strcmp(IR_LIT(bt).sval, "upto") || !strcmp(IR_LIT(bt).sval, "find") || !strcmp(IR_LIT(bt).sval, "bal"))) return 1;
     return 0;
 }
 static int rhs_kind_ok(IR_t *r) {
     if (!r) return 0;
-    if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_OP_COUNT || r->op == IR_LIT_F) return 1;
+    if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_OP_COUNT || r->op == IR_LIT_REAL) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT)) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
@@ -206,12 +206,12 @@ static int graph_has_binop(const IR_graph_t *g);
 static int local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
     IR_t *rhs = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
     if (!rhs) for (int i = 0; i < g->n; i++) { IR_t *p = g->all[i]; if (p && p->γ.node == nd) { rhs = p; break; } }
-    if (rhs && rhs->op == IR_LIT_F) return 1;
+    if (rhs && rhs->op == IR_LIT_REAL) return 1;
     return rhs_kind_ok(rhs);
 }
 static int arith_operand_ok(IR_t *r) {
     if (!r) return 0;
-    if (r->op == IR_LIT_I) return 1;
+    if (r->op == IR_LIT_INTEGER) return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD)) return 1;
     return 0;
 }
@@ -220,7 +220,7 @@ static int is_jct_call(IR_t *r) {
 }
 static int jct_marshallable(IR_t *r) {
     if (!r) return 0;
-    if (r->op == IR_LIT_I || r->op == IR_LIT_S || r->op == IR_LIT_F || r->op == IR_OP_COUNT) return 1;
+    if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_CALL && (IR_LIT(r).dval == 2.0 || IR_LIT(r).dval == 3.0 || IR_LIT(r).dval == 5.0)) return 1;
     return 0;
@@ -231,7 +231,7 @@ static int bool_truthy_emittable(IR_t *nd) {
     IR_graph_t *cond = blks ? blks[0] : (IR_graph_t *)0;
     if (!cond || !cond->entry) return 0;
     IR_t *e = cond->entry;
-    return (e->op == IR_LIT_I || e->op == IR_LIT_S || (e->op == IR_VAR && IR_LIT(e).sval && IR_LIT(e).sval[0] != '&'));
+    return (e->op == IR_LIT_INTEGER || e->op == IR_LIT_STRING || (e->op == IR_VAR && IR_LIT(e).sval && IR_LIT(e).sval[0] != '&'));
 }
 static int bool_cond_emittable(IR_t *nd) {
     if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval, "__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;

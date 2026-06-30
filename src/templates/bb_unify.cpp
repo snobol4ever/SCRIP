@@ -16,7 +16,7 @@ static std::string u_tail() {
          + x86("jmp",  "ω");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int u_const_kind(int k) { return k == IR_ATOM || k == IR_LIT_I; }
+static int u_const_kind(int k) { return k == IR_ATOM || k == IR_LIT_INTEGER; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int u_compound_kind(int k) { return k == IR_STRUCT || k == IR_ARITH; }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -25,8 +25,8 @@ static std::string u_build_scalar(int kind, long ival, double dval, const char *
          + x86("mov",   "rsi", ival)
          + IF(lbl != NULL, x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)lbl, lbl))
          + IF(lbl == NULL, x86("mov", "edx", (long)0))
-         + IF(kind == IR_LIT_F, x86("movsd", "xmm0", F64(dval)))
-         + IF(kind != IR_LIT_F, x86("xorps", "xmm0", "xmm0"))
+         + IF(kind == IR_LIT_REAL, x86("movsd", "xmm0", F64(dval)))
+         + IF(kind != IR_LIT_REAL, x86("xorps", "xmm0", "xmm0"))
          + x86("call",  "rt_node_to_term", (uint64_t)(uintptr_t)(void*)rt_node_to_term);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
