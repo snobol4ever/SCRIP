@@ -660,9 +660,6 @@ static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth) {
         if (aux && na >= 2) { c0 = aux[0]; c1 = aux[1]; }
         return binop_operand_real_static(g, c0, depth + 1) || binop_operand_real_static(g, c1, depth + 1);
     }
-    if (o->op == IR_ALT) {
-        for (int k = 0; k < o->n_operands; k++) if (binop_operand_real_static(g, o->operands[k], depth + 1)) return 1;
-    }
     return 0;
 }
 int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
@@ -699,7 +696,7 @@ int bb_call_write_route(IR_t *nd) {
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
     if (g_descr_flat_chain && bb_slot_get(a0) >= 0) return 1;
-    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_ALT || a0->op == IR_VAR || a0->op == IR_NOT || a0->op == IR_CALL || ir_is_call_kind(a0->op));
+    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_VAR || a0->op == IR_NOT || a0->op == IR_CALL || ir_is_call_kind(a0->op));
     if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
     if (wintexpr) return 4;
     if (a0->op == IR_LIT_STRING && IR_LIT(a0).sval) return 5;
@@ -736,12 +733,12 @@ int bb_call_route_classify(IR_t * nd) {
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_node_is_alt_arm(IR_t *nd) {
-    if (!nd || !g_emit_cfg) return 0;
-    if (!(nd->γ.node && nd->γ.node->op == IR_ALT)) return 0;
-    int na = 0;
-    IR_t * const * arms = bb_operand_aux_get(g_emit_cfg, nd->γ.node, &na);
-    for (int i = 0; i < na && arms; i++) if (arms[i] == nd) return 1;
-    return 0;
+    /* IR_ALT deleted 2026-06-30 (not a valid JCON-derived IR code -- ir.icn has no ir_Alt record;
+       alternation is pure Goto threading among arms, never a node -- see lower_alt). No node's gamma
+       can ever point at an IR_ALT kind anymore, so this predicate is permanently false. Kept (not
+       deleted outright) because ir_skip_alt_arms and 13 BFS call sites below still call it; collapsing
+       it here makes both a correctness-preserving no-op without touching the BFS wiring itself. */
+    (void) nd; return 0;
 }
 static IR_t *ir_skip_alt_arms(IR_t *entry) {
     int guard = 0;
@@ -1033,7 +1030,6 @@ static int descr_chain_arity(const IR_t *n) {
     switch (n->op) {
     case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:
     case IR_VAR:   case IR_KEYWORD: return 0;
-    case IR_ALT:   return 0;
     case IR_BINOP: case IR_TO: return 2;
     case IR_CONJ:  return 0;
     case IR_NOT:   return 1;

@@ -27,7 +27,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_GOTO] = "IR_GOTO",
     [IR_RETURN] = "IR_RETURN",
     [IR_CONJ] = "IR_CONJ",
-    [IR_ALT] = "IR_ALT",
     [IR_NOT] = "IR_NOT",
     [IR_TO] = "IR_TO",
     [IR_PROC_GEN] = "IR_PROC_GEN",
