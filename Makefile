@@ -108,6 +108,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_binop_arith.cpp \
     $(SRC)/templates/bb_binop_concat_slot.cpp \
     $(SRC)/templates/bb_assign_local.cpp \
+    $(SRC)/templates/bb_assign_global.cpp \
     $(SRC)/templates/xa_stubs.cpp \
     $(SRC)/templates/xa_macro_library.cpp \
     $(SRC)/templates/xa_bb_macro_library.cpp \
@@ -283,6 +284,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_subject.cpp   -o $(OBJ)/bb_subject.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_ref_invariant.cpp -o $(OBJ)/bb_ref_invariant.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_global.cpp -o $(OBJ)/bb_assign_global.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_set.cpp -o $(OBJ)/bb_field_set.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_section.cpp -o $(OBJ)/bb_section.o
