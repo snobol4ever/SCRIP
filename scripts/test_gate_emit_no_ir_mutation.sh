@@ -11,7 +11,7 @@ strip() { sed -E ':a;s@/\*[^*]*\*+([^/*][^*]*\*+)*/@@;ta'; }
 
 scan() {  # prints per-file breakdown to STDERR; echoes ONLY the numeric total to STDOUT
   local pat="$1" total=0 n f
-  for f in "$EMIT"/emit_drive.c "$EMIT"/emit_core.c "$EMIT"/emit_core.cpp \
+  for f in "$EMIT"/emit.cpp \
            "$EMIT"/BB_templates/*.cpp "$EMIT"/XA_templates/*.cpp; do
     [ -f "$f" ] || continue
     n=$(strip < "$f" | grep -aEc "$pat" 2>/dev/null); n=${n:-0}
@@ -20,7 +20,7 @@ scan() {  # prints per-file breakdown to STDERR; echoes ONLY the numeric total t
   done
   echo "$total"
 }
-scan_one() { strip < "$EMIT/emit_core.c" | grep -aEc "$1" 2>/dev/null; }
+scan_one() { strip < "$EMIT/emit.cpp" | grep -aEc "$1" 2>/dev/null; }
 
 echo "=== IRM-0: emitter IR-mutation gate ==="
 echo "[A] op writes ( ->op = ) across src/emitter:"

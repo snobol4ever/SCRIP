@@ -83,9 +83,8 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/aggregates.c \
     $(SRC)/runtime/string_builtins.c \
     $(SRC)/machine/bb_pool.c \
-    $(SRC)/emitter/emit_core.cpp \
+    $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
-    $(SRC)/emitter/emit_globals.c \
     $(SRC)/emitter/emit_io.c \
     $(SRC)/emitter/BB_templates/bb_lit.cpp \
     $(SRC)/emitter/BB_templates/bb_conj.cpp \
@@ -124,7 +123,6 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/XA_templates/xa_strtab_rodata.cpp \
     $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp \
     $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp \
-    $(SRC)/emitter/emit_drive.c \
     $(SRC)/opt/gva_collect.c \
     $(SRC)/opt/proc_collect.c \
     $(SRC)/opt/ir_query.c \
@@ -223,8 +221,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/aggregates.c                 -o $(OBJ)/aggregates.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/string_builtins.c           -o $(OBJ)/string_builtins.o
 	$(CC) $(CRT)   -c $(SRC)/machine/bb_pool.c                    -o $(OBJ)/bb_pool.o
-	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit_core.cpp              -o $(OBJ)/emit_core.o
-	$(CC) $(CRT)   -c $(SRC)/emitter/emit_globals.c            -o $(OBJ)/emit_globals.o
+	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit.cpp                   -o $(OBJ)/emit.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_lit.cpp        -o $(OBJ)/bb_lit.o
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/BB_templates/bb_arith.cpp     -o $(OBJ)/bb_arith.o
@@ -349,7 +346,6 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/gva_collect.c -o $(OBJ)/gva_collect.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/proc_collect.c -o $(OBJ)/proc_collect.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/ir_query.c -o $(OBJ)/ir_query.o
-	$(CC) $(CRT)   -c $(SRC)/emitter/emit_drive.c -o $(OBJ)/emit_drive.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
