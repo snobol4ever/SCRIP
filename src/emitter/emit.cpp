@@ -536,8 +536,6 @@ static const char *(*g_flat_intern_str)(const char *s) = NULL;
 const char *emit_intern_str(const char *s) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "emit_intern_str"); abort(); }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail);
-static int ir_node_is_alt_arm(IR_t *nd);
-static IR_t *ir_skip_alt_arms(IR_t *entry);
 static void descr_chain_operand_refs(IR_t *entry);
 static void gvar_stmt_operand_refs(IR_t *head);
 static int gvar_prewalk_idx_operand(IR_t *idx, bb_label_t *lbl_ω);
@@ -732,19 +730,6 @@ int bb_call_route_classify(IR_t * nd) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static int ir_node_is_alt_arm(IR_t *nd) {
-    /* IR_ALT deleted 2026-06-30 (not a valid JCON-derived IR code -- ir.icn has no ir_Alt record;
-       alternation is pure Goto threading among arms, never a node -- see lower_alt). No node's gamma
-       can ever point at an IR_ALT kind anymore, so this predicate is permanently false. Kept (not
-       deleted outright) because ir_skip_alt_arms and 13 BFS call sites below still call it; collapsing
-       it here makes both a correctness-preserving no-op without touching the BFS wiring itself. */
-    (void) nd; return 0;
-}
-static IR_t *ir_skip_alt_arms(IR_t *entry) {
-    int guard = 0;
-    while (entry && ir_node_is_alt_arm(entry) && guard++ < 512) entry = entry->γ.node;
-    return entry;
-}
 /*===================== TEMPLATE DISPATCH  -  walk_bb_node (the one per-node template selector) ======================*/
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
@@ -945,18 +930,17 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
-    entry = ir_skip_alt_arms(entry);
+    entry = entry;
     queue[qt++] = entry;
     while (qh < qt) {
         IR_t *c = queue[qh++];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        if (ir_node_is_alt_arm(c)) continue;
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        if (c->γ.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->γ.node);
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_RELOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
+        if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_RELOP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
@@ -965,13 +949,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     while (qh < qt) {
         IR_t *c = queue[qh++];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        if (ir_node_is_alt_arm(c)) continue;
         int dup = 0; for (int i = 0; i < n; i++) if (nodes[i] == c) { dup = 1; break; }
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        if (c->γ.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->γ.node);
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_RELOP) && c->ω.node && qt < CH_MAX) queue[qt++] = ir_skip_alt_arms(c->ω.node);
+        if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_RELOP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
     }
@@ -989,8 +972,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(lbls[i]);
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
-        IR_t *gtgt = ir_skip_alt_arms(nodes[i]->γ.node);
-        IR_t *otgt = ir_skip_alt_arms(nodes[i]->ω.node);
+        IR_t *gtgt = nodes[i]->γ.node;
+        IR_t *otgt = nodes[i]->ω.node;
         for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
             node_γ = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k];
             break;
@@ -1047,18 +1030,17 @@ static void descr_chain_operand_refs(IR_t *entry) {
     IR_t *seen[512]; int ns = 0;
     IR_t *stkv[512]; int sv = 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 512) entry = entry->γ.node; }
-    entry = ir_skip_alt_arms(entry);
+    entry = entry;
     stkv[sv++] = entry;
     while (sv > 0 && nc < 512) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        if (ir_node_is_alt_arm(c)) continue;
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
+        if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
+        if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }
     for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) {
         int present = 0; for (int j = 0; j < ns; j++) if (seen[j] == chain[i]->ω.node) { present = 1; break; }
@@ -1066,14 +1048,13 @@ static void descr_chain_operand_refs(IR_t *entry) {
     while (sv > 0 && nc < 512) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        if (ir_node_is_alt_arm(c)) continue;
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->ω.node);
+        if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
+        if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }
     IR_t *stk[512]; int sp = 0;
     for (int i = 0; i < nc; i++) {
