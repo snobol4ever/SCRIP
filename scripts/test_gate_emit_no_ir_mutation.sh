@@ -11,7 +11,7 @@ strip() { sed -E ':a;s@/\*[^*]*\*+([^/*][^*]*\*+)*/@@;ta'; }
 
 scan() {  # prints per-file breakdown to STDERR; echoes ONLY the numeric total to STDOUT
   local pat="$1" total=0 n f
-  for f in "$EMIT"/emit_bb.c "$EMIT"/emit_drive.c "$EMIT"/emit_core.c "$EMIT"/emit_core.cpp \
+  for f in "$EMIT"/emit_drive.c "$EMIT"/emit_core.c "$EMIT"/emit_core.cpp \
            "$EMIT"/BB_templates/*.cpp "$EMIT"/XA_templates/*.cpp; do
     [ -f "$f" ] || continue
     n=$(strip < "$f" | grep -aEc "$pat" 2>/dev/null); n=${n:-0}
@@ -20,7 +20,7 @@ scan() {  # prints per-file breakdown to STDERR; echoes ONLY the numeric total t
   done
   echo "$total"
 }
-scan_one() { strip < "$EMIT/emit_bb.c" | grep -aEc "$1" 2>/dev/null; }
+scan_one() { strip < "$EMIT/emit_core.c" | grep -aEc "$1" 2>/dev/null; }
 
 echo "=== IRM-0: emitter IR-mutation gate ==="
 echo "[A] op writes ( ->op = ) across src/emitter:"
@@ -32,7 +32,7 @@ C=$(scan_one 'rt_(proc_is_|builtin_is_)[a-z_]+[[:space:]]*\('); C=${C:-0}
 HARD=$((A + B))
 echo "-------------------------------------------"
 echo "A op-writes=$A   B field-writes=$B   ->  HARD TOTAL = $HARD   (target 0)"
-echo "[C informational] emit-time runtime-query refs in emit_bb.c = $C (review per IRM-4)"
+echo "[C informational] emit-time runtime-query refs in emit_core.c = $C (review per IRM-4)"
 if [ "$HARD" -eq 0 ]; then echo "PASS: the emitter never mutates IR."; exit 0; fi
 echo "FAIL: $HARD IR-mutation site(s) in src/emitter/ — see GOAL-IR-IMMUTABLE-EMIT.md IRM-1..IRM-6."
 exit 1

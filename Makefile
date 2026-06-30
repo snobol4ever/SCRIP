@@ -124,7 +124,6 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/XA_templates/xa_strtab_rodata.cpp \
     $(SRC)/emitter/XA_templates/xa_cap_fixup.cpp \
     $(SRC)/emitter/XA_templates/xa_pattern_blobs.cpp \
-    $(SRC)/emitter/emit_bb.c \
     $(SRC)/emitter/emit_drive.c \
     $(SRC)/opt/gva_collect.c \
     $(SRC)/opt/proc_collect.c \
@@ -350,7 +349,6 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/gva_collect.c -o $(OBJ)/gva_collect.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/proc_collect.c -o $(OBJ)/proc_collect.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/ir_query.c -o $(OBJ)/ir_query.o
-	$(CC) $(CRT)   -c $(SRC)/emitter/emit_bb.c -o $(OBJ)/emit_bb.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_drive.c -o $(OBJ)/emit_drive.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
