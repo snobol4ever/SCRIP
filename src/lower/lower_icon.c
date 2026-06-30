@@ -522,6 +522,7 @@ void lower_icon_stage2(const tree_t *prog) {
         int bb_idx = lower_icon_body(prog, proc);
         if (bb_idx >= 0) {
             g_stage2.proc_table[pi].bb_idx = bb_idx;
+            g_stage2.bbp.table[bb_idx]->nparams = g_stage2.proc_table[pi].nparams;
             const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
             int np = g_stage2.proc_table[pi].nparams;
             Scope *sc = &g_stage2.proc_table[pi].lower_sc;

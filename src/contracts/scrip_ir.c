@@ -188,9 +188,10 @@ void ir_jcon_slot_assign(IR_graph_t * g) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_drive_slot_assign(IR_graph_t * g) {
     if (!g) return;
+    int base = 16 + (g->nparams > 0 ? g->nparams * 16 : 0);
     int k = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = 16 + k * 16; k++; } }
-    g->jcon_value_region = 16 + k * 16;
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; } }
+    g->jcon_value_region = base + k * 16;
     g->nvalue_slots = k;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
