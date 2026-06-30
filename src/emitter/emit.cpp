@@ -832,6 +832,10 @@ static int drive_value_slot(IR_t *nd) {
     int e = bb_slot_get(nd);
     if (e >= 0) return e;
     if (nd && nd->tmp >= 0) { bb_slot_register(nd, nd->tmp); bb_flat_cursor_reserve(nd->tmp + 16); return nd->tmp; }
+    if (nd && ir_node_produces_value(nd->op)) {
+        fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no nd->tmp (ir_node_produces_value says yes, but LOWER's ir_tmp_slot_assign never reached it / it raced ahead of slot assignment). Legacy bb_slot_alloc16 fallback is REMOVED for value-producers; fix the tmp-assignment gap in LOWER, never patch it here. op=%d\n", (int)nd->op, (int)nd->op);
+        abort();
+    }
     return bb_slot_alloc16(nd);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
