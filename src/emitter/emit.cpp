@@ -255,9 +255,8 @@ void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
 /*--------------------------------------------------------------------------------------------------------------------*/
 #include "IR.h"
 #include "emit_ir.h"
-
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/extern "C" void bb_emit_limit_init(int limit_slot_off) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_emit_limit_init"); abort(); }
+extern "C" void bb_emit_limit_init(int limit_slot_off) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_emit_limit_init"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define WASM_STRTAB_MAX 4096
 #define WASM_STR_DATA_BASE 0x100000
@@ -385,7 +384,6 @@ void xa_emit_strtab_rodata(void)
     g_emit.xa_strtab_escaped = NULL;
     strtab_reset();
 }
-
 /*========================================= SLOT MACHINERY & IR NODE HELPERS =========================================*/
 int bb_slot_get(IR_t *nd);
 #include "emit_bb.h"
@@ -523,23 +521,32 @@ static int    g_flat_data_active = 0;
 #define CHILD_CACHE_MAX 64
 static struct { IR_t *key; bb_box_fn fn; char text_lbl[80]; } g_child_cache[CHILD_CACHE_MAX];
 static int g_child_cache_n = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/const char *child_cache_get_lbl(bb_box_fn fn) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "child_cache_get_lbl"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *child_cache_get_lbl(bb_box_fn fn) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "child_cache_get_lbl"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int    g_flat_data_any    = 0;
 static int    g_flat_data_just_closed = 0;
 static char   g_flat_data_pending_lbl[160] = "";
 static char   g_flat_data_block_lbls[FLAT_DATA_LBL_MAX][96];
-static int    g_flat_data_block_nlbls = 0;void data_buf_reset(void) { g_flat_data_len = 0; g_flat_data_active = 0; g_flat_data_any = 0; g_flat_data_just_closed = 0; g_flat_data_block_nlbls = 0; g_flat_data_pending_lbl[0] = '\0'; }
+static int    g_flat_data_block_nlbls = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/static void data_buf_appendf(const char *fmt, ...) { if (g_flat_data_len >= FLAT_DATA_BUF_MAX) return; va_list ap; va_start(ap, fmt); int n = vsnprintf(g_flat_data_buf + g_flat_data_len, FLAT_DATA_BUF_MAX - g_flat_data_len, fmt, ap); va_end(ap); if (n > 0) { size_t left = FLAT_DATA_BUF_MAX - g_flat_data_len; g_flat_data_len += ((size_t)n < left) ? (size_t)n : left; } }
-/*--------------------------------------------------------------------------------------------------------------------*/void data_buf_flush_pending_label(void) { if (!g_flat_data_pending_lbl[0]) return; data_buf_appendf("%s\n", g_flat_data_pending_lbl); g_flat_data_pending_lbl[0] = '\0'; }
+void data_buf_reset(void) { g_flat_data_len = 0; g_flat_data_active = 0; g_flat_data_any = 0; g_flat_data_just_closed = 0; g_flat_data_block_nlbls = 0; g_flat_data_pending_lbl[0] = '\0'; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void data_buf_appendf(const char *fmt, ...) {
+    if (g_flat_data_len >= FLAT_DATA_BUF_MAX) return; va_list ap; va_start(ap, fmt);
+    int n = vsnprintf(g_flat_data_buf + g_flat_data_len, FLAT_DATA_BUF_MAX - g_flat_data_len, fmt, ap); va_end(ap);
+    if (n > 0) { size_t left = FLAT_DATA_BUF_MAX - g_flat_data_len; g_flat_data_len += ((size_t)n < left) ? (size_t)n : left; } }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void data_buf_flush_pending_label(void) { if (!g_flat_data_pending_lbl[0]) return; data_buf_appendf("%s\n", g_flat_data_pending_lbl); g_flat_data_pending_lbl[0] = '\0'; }
 #define SYM_SIGMA   "\xCE\xA3"
 #define SYM_SIGLEN  "\xCE\xA3""len"
 #define SYM_DELTA   "\xCE\x94"
 #define ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 #define ADDR_SIGLEN  ((uint64_t)(uintptr_t)&Σlen)
 #define ADDR_DELTA   ((uint64_t)(uintptr_t)&Δ)
-static const char *(*g_flat_intern_str)(const char *s) = NULL;const char *emit_intern_str(const char *s) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "emit_intern_str"); abort(); }
+static const char *(*g_flat_intern_str)(const char *s) = NULL;
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *emit_intern_str(const char *s) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "emit_intern_str"); abort(); }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail);
 static int ir_node_is_alt_arm(IR_t *nd);
@@ -611,11 +618,14 @@ static void gz_emit_cell(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_
 /* catch box: α marks the trail then runs the goal chain; goal.γ -> catch success (next_γ);
  * goal.ω -> the ball-check handler (op_sa 1): no pending throw -> ω (plain failure); pending ->
  * unwind to mark, gzu_build the catcher, rt_pl_throw_match -> recovery chain on match, else ω
- * leaving the ball set so an outer catch re-catches. Recovery chain: γ->next_γ, ω->catch.ω. */static void gz_emit_catch(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_vec_t *cv) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gz_emit_catch"); abort(); }
+ * leaving the ball set so an outer catch re-catches. Recovery chain: γ->next_γ, ω->catch.ω. */
+static void gz_emit_catch(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_vec_t *cv) {
+    fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gz_emit_catch"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const char *suffix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "resolve_choice_clause_label"); abort(); }
+void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const char *suffix) {
+    fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "resolve_choice_clause_label"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/int bb_kind_is_driver_owned(int t) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_kind_is_driver_owned"); abort(); }
+int bb_kind_is_driver_owned(int t) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_kind_is_driver_owned"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare(IR_t *nd) {
     if (!PLATFORM_X86) return;
@@ -723,8 +733,8 @@ int bb_call_write_route(IR_t *nd) {
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
     if (g_descr_flat_chain && bb_slot_get(a0) >= 0) return 1;
-    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_OP_COUNT || a0->op == IR_ALT || a0->op == IR_VAR || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_NOT || a0->op == IR_OP_COUNT || a0->op == IR_CALL || ir_is_call_kind(a0->op) || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT || a0->op == IR_OP_COUNT);
-    if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_OP_COUNT)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
+    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_I || a0->op == IR_TO || a0->op == IR_ALT || a0->op == IR_VAR || a0->op == IR_NOT || a0->op == IR_CALL || ir_is_call_kind(a0->op));
+    if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
     if (wintexpr) return 4;
     if (a0->op == IR_LIT_S && IR_LIT(a0).sval) return 5;
     return 0;
@@ -750,11 +760,14 @@ int bb_call_route_classify(IR_t * nd) {
     if (g_gvar_flat_chain && dv == 3.0 && fn[0] && !rt_proc_is_registered(fn)) return CALL_ROUTE_BYNAME;
     if (g_gvar_flat_chain && dv == 2.0 && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (g_descr_flat_chain && !strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
-    switch (g_emit.op_write_route) { case 1: return CALL_ROUTE_WRITE_SLOT; case 2: case 3: return CALL_ROUTE_WRITE_BINOP; case 4: return CALL_ROUTE_WRITE_LEGACY; case 5: return CALL_ROUTE_WRITE_EMPTY; default: break; }
+    switch (g_emit.op_write_route) {
+    case 1: return CALL_ROUTE_WRITE_SLOT; case 2: case 3: return CALL_ROUTE_WRITE_BINOP;
+    case 4: return CALL_ROUTE_WRITE_LEGACY; case 5: return CALL_ROUTE_WRITE_EMPTY; default: break; }
     if (fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     return CALL_ROUTE_FATAL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int ir_node_is_alt_arm(IR_t *nd) {
     if (!nd || !g_emit_cfg) return 0;
@@ -783,7 +796,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.x86_uid = g_flat_node_id++;
     g_emit.op_sval = IR_LIT(nd).sval;
     { extern int g_gva_active; extern int gva_index_of(const char *); g_emit.op_gva_k = (g_gva_active && IR_LIT(nd).sval) ? gva_index_of(IR_LIT(nd).sval) : -1; }
-    { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *); g_emit.op_proc_k = (g_proc_direct_active && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
+    { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *);
+      g_emit.op_proc_k = (g_proc_direct_active && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
     g_emit.op_stno = (int32_t)IR_LIT(nd).ival;
     g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL) ? (int64_t)nd->n_operands : IR_LIT(nd).ival;
     g_emit.op_node_kind = (int)nd->op;
@@ -802,9 +816,16 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_LIT_S:
     case IR_LIT_F:               bb_emit_x86(bb_lit_scalar());         return 0;
     case IR_KEYWORD:              bb_emit_x86(bb_keyword());            return 0;
-    case IR_VAR:                  { extern int is_global(const char *); if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword()); else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global()); else bb_emit_x86(bb_var()); } return 0;
+    case IR_VAR:                  { extern int is_global(const char *);
+        if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword());
+        else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global());
+        else bb_emit_x86(bb_var()); } return 0;
     case IR_ASSIGN: {
-        extern int g_descr_flat_chain; if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP || op_a->op == IR_VAR || op_a->op == IR_CALL || ir_is_call_kind(op_a->op))) { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
+        extern int g_descr_flat_chain;
+        if (!g_descr_flat_chain && IR_LIT(nd).sval && op_a
+            && (op_a->op == IR_LIT_S || op_a->op == IR_LIT_I || op_a->op == IR_LIT_F || op_a->op == IR_BINOP
+                || op_a->op == IR_VAR || op_a->op == IR_CALL || ir_is_call_kind(op_a->op)))
+            { bb_prepare(nd); bb_emit_x86(bb_gvar_assign()); return 0; }
         if (g_descr_flat_chain && IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
@@ -819,7 +840,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_CONJ:                 bb_emit_x86(bb_conj());           return 0;
-    case IR_RETURN: { extern int g_descr_flat_chain; if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0; g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
+    case IR_RETURN: { extern int g_descr_flat_chain;
+        if (g_descr_flat_chain) { IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
+            g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1; }
     case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
     case IR_CALL: {
@@ -848,7 +871,6 @@ extern int           gva_index_of(const char *name);
 extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 /*====================================================================================================================*/
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define DRIVE_FILL(nd,s,f,b) do { \
     bb_fill_alpha(nd); \
     g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
@@ -866,7 +888,8 @@ static int drive_value_slot(IR_t *nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void drive_unowned(IR_t *nd) {
-    fprintf(stderr, "FATAL emit_drive: IR op=%d has no template in the universal driver. Every op must be handled; the driver never declines silently. Implement op=%d.\n", nd ? (int)nd->op : -1, nd ? (int)nd->op : -1);
+    fprintf(stderr, "FATAL emit_drive: IR op=%d has no template in the universal driver. Every op must be handled; the driver never declines silently. Implement op=%d.\n",
+            nd ? (int)nd->op : -1, nd ? (int)nd->op : -1);
     abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -931,11 +954,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         drive_unowned(nd); break;
     }
 }
-
 /*=============== FLAT CHAIN BODY  -  codegen_flat_chain_body (drives each chain node via emit_drive) ================*/
-/*--------------------------------------------------------------------------------------------------------------------*/
 /*====================================================================================================================*/
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -978,7 +998,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_OP_COUNT && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_OP_COUNT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
     }
-    for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) { int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; } if (!present && qt < CH_MAX) queue[qt++] = nodes[i]->ω.node; }
+    for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
+        int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; }
+        if (!present && qt < CH_MAX) queue[qt++] = nodes[i]->ω.node; }
     while (qh < qt) {
         IR_t *c = queue[qh++];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
@@ -994,7 +1016,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_OP_COUNT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = (IR_t *)c->operands[1];
     }
-    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i]; if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); if (c && c->op == IR_OP_COUNT && c->n_operands > 0 && c->operands[0] && c->operands[0]->op == IR_VAR && IR_LIT(c->operands[0]).sval && !is_global(IR_LIT(c->operands[0]).sval)) (void)bb_varslot(IR_LIT(c->operands[0]).sval); } }
+    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i];
+        if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval);
+        if (c && c->op == IR_OP_COUNT && c->n_operands > 0 && c->operands[0] && c->operands[0]->op == IR_VAR && IR_LIT(c->operands[0]).sval && !is_global(IR_LIT(c->operands[0]).sval))
+            (void)bb_varslot(IR_LIT(c->operands[0]).sval); } }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
@@ -1024,7 +1049,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int omega_resolved = 0; int omega_k = -1;
         for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k]; omega_resolved = 1; omega_k = k; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
-        if (omega_resolved && omega_k >= 0 && i > omega_k && !ir_is_generator_kind(nodes[omega_k]->op) && nodes[omega_k]->op == IR_BINOP) { IR_t *bw = nodes[omega_k]->ω.node; if (bw) for (int g = 0; g < n; g++) if (nodes[g] == bw && ir_is_generator_kind(nodes[g]->op) && i > g) { node_ω = betas[g]; break; } }
+        if (omega_resolved && omega_k >= 0 && i > omega_k && !ir_is_generator_kind(nodes[omega_k]->op) && nodes[omega_k]->op == IR_BINOP) {
+            IR_t *bw = nodes[omega_k]->ω.node;
+            if (bw) for (int g = 0; g < n; g++) if (nodes[g] == bw && ir_is_generator_kind(nodes[g]->op) && i > g) { node_ω = betas[g]; break; } }
         if (omega_resolved && nodes[i]->ω.node && nodes[i]->ω.node->op == IR_OP_COUNT) {
             if (ir_is_generator_kind(nodes[i]->op)) { node_ω = lbls[omega_k]; int bk = to_inner_gen_operand_k(nodes[i], nodes, n); if (bk >= 0) node_ω = betas[bk]; }
             else { for (int gk = 0; gk < n; gk++) if (ir_is_generator_kind(nodes[gk]->op)) node_ω = betas[gk]; }
@@ -1053,7 +1080,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
    chain (PAT_ALT with no operand_aux), drive all arms with cascading ω-labels. */
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int g_in_prebuild = 0;
-
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*============================================== CHAIN OPERAND PRE-WALK ==============================================*/
 static int descr_chain_arity(const IR_t *n) {
@@ -1093,7 +1119,9 @@ static void descr_chain_operand_refs(IR_t *entry) {
         if (c->op == IR_OP_COUNT && c->n_operands > 1 && c->operands[1] && sv < 512) stkv[sv++] = (IR_t *)c->operands[1];
         if (c->γ.node && sv < 512) stkv[sv++] = ir_skip_alt_arms(c->γ.node);
     }
-    for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) { int present = 0; for (int j = 0; j < ns; j++) if (seen[j] == chain[i]->ω.node) { present = 1; break; } if (!present && sv < 512) stkv[sv++] = chain[i]->ω.node; }
+    for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) {
+        int present = 0; for (int j = 0; j < ns; j++) if (seen[j] == chain[i]->ω.node) { present = 1; break; }
+        if (!present && sv < 512) stkv[sv++] = chain[i]->ω.node; }
     while (sv > 0 && nc < 512) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
@@ -1179,7 +1207,8 @@ bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) 
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) {
+/*--------------------------------------------------------------------------------------------------------------------*/
+int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) {
     if (!entry || !out || !pname) return 1;
     descr_chain_operand_refs(entry);
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
@@ -1196,24 +1225,31 @@ bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) 
     return rc;
 }
 /*====================================================================================================================*/
+bb_box_fn gvar_flat_chain_build(IR_graph_t *g) {
+    fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/bb_box_fn gvar_flat_chain_build(IR_graph_t *g) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build"); abort(); }int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build_text"); abort(); }
-/*--------------------------------------------------------------------------------------------------------------------*/bb_box_fn gvar_flat_chain_build_at(IR_graph_t *g, IR_t *entry_node, const char *prefix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build_at"); abort(); }
-/*--------------------------------------------------------------------------------------------------------------------*/void gva_collect_graph(IR_graph_t *g) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gva_collect_graph"); abort(); }
+int gvar_flat_chain_build_text(IR_graph_t *g, FILE *out, const char *prefix) {
+    fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build_text"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+bb_box_fn gvar_flat_chain_build_at(IR_graph_t *g, IR_t *entry_node, const char *prefix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build_at"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void gva_collect_graph(IR_graph_t *g) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gva_collect_graph"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void gva_collect_icon_globals(void) {
     extern const char *global_names[]; extern int global_count;
     for (int i = 0; i < global_count; i++) if (global_names[i]) (void)gva_collect_var(global_names[i]);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/int gvar_flat_chain_build_text_at(IR_graph_t *g, IR_t *entry_node, FILE *out, const char *prefix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build_text_at"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/bb_box_fn bb_build_flat(IR_t *nd) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_build_flat"); abort(); }
-/*--------------------------------------------------------------------------------------------------------------------*/int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "codegen_flat_build"); abort(); }
+int gvar_flat_chain_build_text_at(IR_graph_t *g, IR_t *entry_node, FILE *out, const char *prefix) {
+    fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gvar_flat_chain_build_text_at"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+bb_box_fn bb_build_flat(IR_t *nd) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_build_flat"); abort(); }
+/*--------------------------------------------------------------------------------------------------------------------*/
+int codegen_flat_build(IR_t *nd, FILE *out, const char *prefix) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "codegen_flat_build"); abort(); }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define PL_CATCH_MAX 64
 static IR_t *g_pl_catch_nodes[PL_CATCH_MAX];
 static int   g_pl_catch_n = 0;
-
 #ifdef __cplusplus
 }
 #endif
