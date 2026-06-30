@@ -95,21 +95,22 @@ static int icn_arg_is_scan_fn(const tree_t * a) { if (!a) return 0; if (a->t == 
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (name && !strcmp(name, "seq")) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "key") && nargs == 1) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
-    IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name;
+    IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
     if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { if (is_cursor_mover && icn_arg_is_scan_fn(t->c[argbase + k])) continue; chains = 1; break; } }
-    IR_t * prev = NULL; IR_t * entry = call; IR_t * aω = ω;
+    IR_t * prev = NULL; IR_t * entry = call; IR_t * aω = ω; IR_t * last_ar = NULL;
     for (int k = 0; k < nargs; k++) {
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL;
         IR_t * ae = lower(cx, a, (k == nargs - 1) ? call : NULL, aω, &ar); aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) γ_to(prev, ae);
         prev = ar;
-        if (ar) ir_operand_push(call, ar);
+        if (ar) { ir_operand_push(call, ar); last_ar = ar; }
     }
-    cx->beta = g_postfix_resume ? aω : ω;
+    if (icn_proc_is_generator(name) && last_ar) lc_γ_to(last_ar, call);
+    cx->beta = icn_proc_is_generator(name) ? call : (g_postfix_resume ? aω : ω);
     return entry;
 }
 /*====================================================================================================================================================================================================*/
@@ -179,7 +180,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             *res = set; return entry;
         }
         if (lhs && lhs->t == TT_FIELD) {
-            IR_t * set = build(cx, IR_FAIL, γ, ω);
+            IR_t * set = build(cx, IR_FIELD_SET, γ, ω);
             IR_LIT(set).sval = (lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval;
             IR_t * vr = NULL; IR_t * rhs_entry = lower(cx, rhs, set, ω, &vr);
             IR_t * br = NULL; IR_t * obj_entry = lower(cx, lhs->c[0], rhs_entry, ω, &br);
@@ -210,7 +211,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_INITIAL: { IR_t * ini = build(cx, IR_FAIL, γ, ω);
         if (t->n > 0 && t->c[0]) { IR_t * bsucc = build(cx, IR_SUCCEED, γ, ω); IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], bsucc, ω, &br); ir_operand_push(ini, be); }
         *res = ini; return ini; }
-    case TT_SUSPEND: { IR_t * sn = build(cx, IR_FAIL, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
+    case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
         IR_t * ev = NULL; IR_t * e_entry = sn;
         if (t->n > 0 && t->c[0]) { e_entry = lower(cx, t->c[0], sn, cx->pfail ? cx->pfail : ω, &ev); }
         ir_operand_push(sn, ev);

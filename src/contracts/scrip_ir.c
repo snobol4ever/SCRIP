@@ -23,7 +23,8 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CALL_BUILTIN] = "IR_CALL_BUILTIN",
     [IR_CALL_GVAR_USERPROC] = "IR_CALL_GVAR_USERPROC",
     [IR_FAIL] = "IR_FAIL",
-    [IR_SUCCEED] = "IR_SUCCEED",
+    [IR_SUCCEED]   = "IR_SUCCEED",
+    [IR_SUSPEND]   = "IR_SUSPEND",
     [IR_GOTO] = "IR_GOTO",
     [IR_RETURN] = "IR_RETURN",
     [IR_CONJ] = "IR_CONJ",
@@ -33,6 +34,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_KEYWORD] = "IR_KEYWORD",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_FIELD] = "IR_FIELD",
+    [IR_FIELD_SET] = "IR_FIELD_SET",
     [IR_TERNOP] = "IR_TERNOP",
     [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
     [IR_DEREF] = "IR_DEREF",
@@ -162,7 +164,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_SUBSCRIPT || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;

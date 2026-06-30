@@ -18,6 +18,8 @@ std::string bb_field_set() {
          + x86("mov",     "rcx", FRQ(_.op_sb))
          + x86("mov",     "r8",  FRQ(_.op_sb + 8))
          + x86("call",    "dat_field_set", (uint64_t)(uintptr_t)(void *)dat_field_set)
+         + x86("cmp",     "eax", "99")
+         + x86("je",      "ω")
          + x86("jmp", "γ")
          + x86("def", "β")
          + x86("jmp", "ω")

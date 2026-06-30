@@ -16,6 +16,8 @@ std::string bb_field_get() {
          + x86("mov",     "rsi", FRQ(_.op_a_slot))
          + x86("mov",     "rdx", FRQ(_.op_a_slot + 8))
          + x86("call",    "dat_field_get", (uint64_t)(uintptr_t)(void *)dat_field_get)
+         + x86("cmp",     "eax", "99")
+         + x86("je",      "ω")
          + x86("mov",     FRQ(_.op_off),     "rax")
          + x86("mov",     FRQ(_.op_off + 8), "rdx")
          + x86("jmp", "γ")
