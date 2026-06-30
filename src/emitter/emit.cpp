@@ -974,14 +974,17 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_label_t *node_ω = &lbl_ω;
         IR_t *gtgt = nodes[i]->γ.node;
         IR_t *otgt = nodes[i]->ω.node;
+        int gamma_is_beta = (nodes[i]->γ.sz[0] == (char)0xce && (unsigned char)nodes[i]->γ.sz[1] == 0xb2); /* "β" UTF-8 = CE B2 */
+        int omega_is_beta = (nodes[i]->ω.sz[0] == (char)0xce && (unsigned char)nodes[i]->ω.sz[1] == 0xb2);
         for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
-            node_γ = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k];
+            /* edge carries its own port: β (resume) reads the stamp; α falls back to the positional generator rule */
+            node_γ = gamma_is_beta ? betas[k] : ((i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k]);
             break;
         }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0; int omega_k = -1;
-        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k]; omega_resolved = 1; omega_k = k; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = omega_is_beta ? betas[k] : ((i > k && ir_is_generator_kind(nodes[k]->op)) ? betas[k] : lbls[k]); omega_resolved = 1; omega_k = k; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
         if (omega_resolved && omega_k >= 0 && i > omega_k && !ir_is_generator_kind(nodes[omega_k]->op) && nodes[omega_k]->op == IR_BINOP) {
             IR_t *bw = nodes[omega_k]->ω.node;
