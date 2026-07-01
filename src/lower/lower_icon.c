@@ -386,6 +386,38 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(enter, sr);  /* operand[0] = subject DESCR node (AFTER leave nodes push enter) */
         cx->beta = ω; *res = enter; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_CREATE: {
+        /* JCON ir_a_Create (irgen.icn:1035-1058), read against refs/jcon-master directly, 2026-07-01:
+             p.ir.start:  ir_Create(target, p.expr.ir.start); Goto p.ir.success
+                          -- `create EXPR` itself SUCCEEDS IMMEDIATELY, returning a co-expression VALUE.
+                             p.expr is NOT entered here; only its entry LABEL is captured.
+             p.ir.resume (bounded): Goto p.ir.failure -- asking `create`'s own result for a 2nd value fails.
+             p.expr.ir.success: ir_CoRet(t, p.expr.ir.resume) -- body yields a value + remembers where
+                                 to continue if the coexpression is resumed again (@t elsewhere).
+             p.expr.ir.failure: ir_CoFail() -- body exhausted; coexpression is now permanently dead.
+           SCRIP: IR_CREATE/IR_CORET/IR_COFAIL already reserved in IR.h (unused until this commit).
+           Two-node shape, same as TT_SCAN's enter/leave: IR_CORET and IR_COFAIL do NOT sit on the outer
+           γ/ω at all (create's own success is unconditional and immediate, independent of the body ever
+           running) -- they are the body's OWN success/failure targets, exactly as TT_SCAN's leave_succ/
+           leave_fail are the scan-body's success/failure targets, not the enter node's.
+           operand[0] on IR_CREATE = the body's entry node (so the runtime knows where a coswitch() into
+           this coexpression should land on its first resume -- see bb_create.cpp/runtime design, not yet
+           written as of this commit; this LOWER change alone does not make `create` executable).
+           CORRECTION found this session (verified against rswitch.c in refs/icon-master/src/common/,
+           not assumed): the reference C runtime's actual coswitch() is pthread+semaphore based (one OS
+           thread per live coexpression, semaphore pair per switch), NOT ucontext.h and not hand-rolled
+           assembly stack-switching as GOAL-IR-IMMUTABLE-EMIT.md's prior punch-list entry guessed -- see
+           that file's own correction, same date. LOWER here is written against the IR contract only and
+           is agnostic to which switching strategy the runtime ultimately uses underneath it. */
+        IR_t * nd = build(cx, IR_CREATE, γ, ω);
+        IR_t * coret = build(cx, IR_CORET, NULL, NULL);   /* body.success target; own γ/ω unused by driver */
+        IR_t * cofail = build(cx, IR_COFAIL, NULL, NULL); /* body.failure target; own γ/ω unused by driver */
+        IR_t * bv = NULL; IR_t * b_entry = lower(cx, (t->n > 0) ? t->c[0] : NULL, coret, cofail, &bv);
+        ir_operand_push(coret, bv);      /* coret.operand[0] = the value the body just produced */
+        ir_operand_push(nd, b_entry);    /* create.operand[0] = body's entry node (coswitch target) */
+        /* bounded resume (asking the CREATE EXPRESSION's own result for a 2nd value) always fails --
+           unconditional ω, mirroring JCON's `/bounded & Goto p.ir.failure`. */
+        cx->beta = ω; *res = nd; return nd; }
     case TT_REPALT: {
         /* JCON ir_a_RepAlt (unbounded): start→MoveLabel(t,ω)→e.start; e.success→MoveLabel(t,start)→p.success;
            e.failure→IndirectGoto(t); p.resume→e.resume.
