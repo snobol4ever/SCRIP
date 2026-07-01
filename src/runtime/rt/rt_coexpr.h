@@ -26,10 +26,17 @@ typedef struct scrip_coctx_t {
     int       alive;         /* set to 0 to signal the thread should exit rather than resume, mirrors rswitch.c's old->alive check */
     void    (*entry_fn)(void *arg);  /* the function this coexpression's thread should run, once first switched to */
     void     *entry_arg;
+    struct scrip_coctx_t *activator;  /* RUNG 4: who resumed this coexpression -- coret/cofail switch BACK here (mirrors k_current's activator chain). Set by RUNG 5's `@` before it switches in; NULL until then, so coret/cofail are correct-by-construction but unexercised until `@` lands (matches RUNG 1/2/3's built-not-yet-reachable rhythm). */
+    void     *resume_addr;   /* RUNG 4: where the body resumes on the NEXT `@` -- coret LEAs its resumeLabel here (JCON's p.expr.ir.resume). RUNG 5 reads it to know where to re-enter. */
+    int       dead;          /* RUNG 4: cofail sets this permanently; RUNG 5's `@` reads it to fail immediately on a resume of an exhausted coexpression (JCON's vCoexp exhaustion). */
+    uint64_t  xmit[2];       /* RUNG 4: the 16-byte DESCR the body just produced -- coret stores it here so the activator's `@`-expression can read the transmitted value (JCON stores it in the coexpr object). */
 } scrip_coctx_t;
 
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
+extern scrip_coctx_t *scrip_co_current;  /* RUNG 4: the coexpression whose body is currently executing (JCON's k_current, one layer above the switch primitive per rt_coexpr.c's own header note). Set by the trampoline before it jumps into a body; read by scrip_coret/scrip_cofail. */
+void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr);  /* RUNG 4: body yields the DESCR {d0,d1}, remembers resume_addr, switches back to scrip_co_current->activator. */
+void scrip_cofail(void);  /* RUNG 4: body exhausted -- mark scrip_co_current dead, switch back to its activator. */
 
 /* RUNG 3 (Claude Sonnet, 2026-07-01): allocates+wires a scrip_coctx_t for one `create EXPR` site.
    body_entry_addr = the resolved mid-chain label's runtime address (bb_create.cpp's LEA result).

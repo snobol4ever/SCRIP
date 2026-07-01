@@ -7,6 +7,7 @@ extern "C" {
 #include "../runtime/rt/rt_coexpr.h"
 }
 #include "x86_asm.h"
+std::string xa_coexpr_body_lea(const char * dst);
 /*--------------------------------------------------------------------------------------------------------------------
  * bb_create -- IR_CREATE template (RUNG 3, Claude Sonnet 2026-07-01, GOAL-IR-IMMUTABLE-EMIT.md).
  *
@@ -45,7 +46,7 @@ std::string bb_create() {
     x86_begin();
     if (!PLATFORM_X86) return x86_bomb("bb_create: no x86 platform");
     if (_.op_off < 0) return x86_bomb("bb_create: op_off < 0 (no slot assigned -- IR_CREATE missing from ir_node_produces_value?)");
-    if (!_.op_sval_lbl) return x86_bomb("bb_create: op_sval_lbl is NULL (body-entry label not resolved by the BFS pre-pass -- operand[0] not found in this chain's nodes[]?)");
+    if (!_.lbl_t0) return x86_bomb("bb_create: body-entry target (t0 port) is NULL -- codegen_flat_chain_body's IR_CREATE resolution did not thread g_create_body_entry (operand[0] not found in this chain's nodes[]? the BFS operand[0] enqueue may be missing)");
 
     /* op_off2: a second, independent slot region for the six-register scratch array, reserved
        immediately after op_off's 16 bytes. Not obtained via drive_value_slot (that's for THIS node's
@@ -62,29 +63,12 @@ std::string bb_create() {
        temporarily so the scratch-fill loop below can treat all 6 register writes uniformly; the
        address itself travels to scrip_coexpr_create as a SEPARATE first argument (rdi), not through
        the regs[6] array -- rax here is just a landing spot before the call marshals it into rdi.
-       Mirrors the EXACT lea-then-store idiom already used for generator resume (see emit.cpp's
-       g_suspend_resume_slot init block: "lea rax, [rip + beta]" then "mov [r12+slot], rax" --
-       this is that same idiom, target is op_sval_lbl instead of a suspend's β). */
-    if (MEDIUM_TEXT) {
-        s += std::string(" lea rax, [rip + ") + _.op_sval_lbl + "]\n";
-    }
-    /* BINARY mode (--run) is an honest, correctly-diagnosed bomb below, NOT a guess. The blocker is
-       specific and was verified this session, not assumed: emitting a binary-mode RIP-relative LEA
-       against op_sval_lbl requires turning that label's STRING NAME into a bb_label_t* that
-       bb_emit_patch_rel32 can patch. The patch machinery itself IS reachable from templates
-       (bb_emit_patch_rel32 is declared in emit.h and x86_asm.h's bb_emit_x86 already invokes it via
-       the 'J' tag) -- but x86_label_for, the only bridge from a template's tagged-bytecode to a
-       bb_label_t*, resolves ONLY port-label ids (α/β/γ/ω/t0/t1) and template-internal labels; it has
-       NO path from an arbitrary externally-resolved label NAME (a const char*, which is exactly what
-       op_sval_lbl is). Bridging that gap correctly means either (a) exporting a "patch-rel32 against a
-       label looked up by name" helper from emit.cpp, or (b) threading body_entry as a t0/t1-style port
-       (the mechanism IR_LIMIT already uses for its generator-β via lbl_t0_p -- likely the cleaner path,
-       and a genuine candidate for the follow-up rung). Rather than hand-roll an unverified byte sequence
-       from inside this template file -- the precise "silent corruption if it drifts from emit.cpp's own
-       patch application" risk this feature's own notes warn about, and untestable this session without a
-       live disassemble/run cycle -- RUNG 3 ships TEXT mode (--compile) working and BINARY mode loudly
-       bombing. This is a real, intentional, correctly-attributed scope boundary. */
-    if (!MEDIUM_TEXT) return x86_bomb("bb_create: BINARY mode (--run) not yet wired -- op_sval_lbl (a label NAME string) has no bridge to bb_label_t* through x86_label_for, which only resolves port/internal label ids. Candidate fix: thread body-entry as a t0/t1-style port like IR_LIMIT's lbl_t0_p. TEXT mode (--compile) works. See this file's own comment.");
+       The LEA is emitted by the XA bridge xa_coexpr_body_lea (xa_coexpr_entry.cpp), which closes RUNG-3's
+       LIMITATION 2: it works in BOTH mediums by LEAing the t0 port (the body-entry α-label threaded via
+       g_create_body_entry -> lbl_t0_p by codegen_flat_chain_body, exactly as IR_LIMIT threads its
+       generator-β). No MEDIUM_* gating and no hand-encoded bytes here -- all encoding lives in
+       x86_lea_tgt inside x86_asm.h, per TEMPLATE-ONLY EMISSION. */
+    s += xa_coexpr_body_lea("rax");
 
     s += x86("mov", "qword ptr [r12 + " + std::to_string(op_off2 + 40) + "]", "rax");
 
@@ -100,7 +84,7 @@ std::string bb_create() {
 
     s += x86("mov",  "rdi", "qword ptr [r12 + " + std::to_string(op_off2 + 40) + "]")   /* body_entry_addr */
        + x86_frame_lea("rsi", op_off2)                                                   /* &regs[6] */
-       + x86("call", "scrip_coexpr_create@PLT")
+       + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
        + x86("mov",  "qword ptr [r12 + " + std::to_string(_.op_off) + "]", "rax")
        + x86("jmp",  "γ")
        + x86("def",  "β")

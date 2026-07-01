@@ -491,6 +491,7 @@ int g_scan_regs_live = 0;
 static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
 static int   g_flat_chain_set_n = 0;
 static bb_label_t *g_limit_gen_beta = NULL;   /* chain hands flat_drive_limit its generator's resume β */
+static bb_label_t *g_create_body_entry = NULL; /* RUNG 3b: chain hands bb_create its coexpression body-entry α-label as a bb_label_t* (threaded through the t0 port so binary-mode's LEA is rel32-patchable — LIMITATION 2's fix, mirroring g_limit_gen_beta) */
 static bb_label_t *g_suspend_dobody_beta = NULL; /* chain hands flat_drive_suspend its do-body resume label */
 static int          g_suspend_resume_slot = -1;        /* byte offset in gen-proc frame for indirect-goto resume pointer */
 int                 g_subject_slot       = -1;
@@ -533,7 +534,7 @@ void data_buf_flush_pending_label(void) { if (!g_flat_data_pending_lbl[0]) retur
 #define ADDR_DELTA   ((uint64_t)(uintptr_t)&Δ)
 static const char *(*g_flat_intern_str)(const char *s) = NULL;
 /*--------------------------------------------------------------------------------------------------------------------*/
-const char *emit_intern_str(const char *s) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "emit_intern_str"); abort(); }
+const char *emit_intern_str(const char *s) { (void)s; return NULL; }
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);
 static void flat_emit_arg_subchain(IR_t *entry, bb_label_t *succ, bb_label_t *fail);
 static void descr_chain_operand_refs(IR_t *entry);
@@ -796,6 +797,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_ENTER_INIT:           bb_emit_x86(bb_enter_init());     return 0;
     case IR_CREATE:                bb_emit_x86(bb_create());        return 0;
+    case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
+    case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_SCAN:                 { g_emit.op_sb = 0; bb_emit_x86(bb_gen_scan()); }   return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
@@ -1043,6 +1046,27 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
            pre-pass's scan didn't find operand[0] in nodes[] — shouldn't happen per RUNG 1's own
            lowering, but bb_create.cpp's own guard bombs loudly on NULL rather than emit a bad LEA. */
         g_emit.op_off = drive_value_slot(nd);
+        g_emit.lbl_t0   = g_create_body_entry ? g_create_body_entry->name : NULL;
+        g_emit.lbl_t0_p = g_create_body_entry;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_CORET: {
+        /* IR_CORET (RUNG 4) — the body of a `create` yields a value and hands control to the activator.
+           operand[0] = the produced value node; op_sa = its 16-byte DESCR slot (bb_coret loads {rdi,rsi}
+           from it and passes them to scrip_coret). IR_CORET produces no value of its OWN (excluded from
+           ir_node_produces_value — it is a body-internal control terminal, not a general value-producer).
+           γ/ω are NULL from RUNG 1's lowering and resolve to the chain defaults here; that post-yield
+           continuation is a placeholder refined by RUNG 5's resume wiring (see bb_coret.cpp). */
+        IR_t * pv = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        int sa = pv ? bb_slot_get(pv) : -1;
+        if (sa < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sa;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_COFAIL: {
+        /* IR_COFAIL (RUNG 4) — the body of a `create` exhausted; mark the coexpression dead and hand control
+           back to the activator. No operands, no value slot; bb_cofail calls scrip_cofail then jmp ω (which
+           is unreachable, since scrip_cofail never returns). Emit-complete-but-unexercised until RUNG 5. */
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ITERATE: {
@@ -1226,6 +1250,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c->op == IR_BINOP || c->op == IR_BINOP_RELOP) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
+        if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
         int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; }
@@ -1242,6 +1267,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
+        if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
     }
     { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i];
         if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); } }
@@ -1322,6 +1348,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             }
         }
         g_limit_gen_beta = NULL;
+        g_create_body_entry = NULL;
         g_suspend_dobody_beta = NULL;
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
             IR_t *dobody = nodes[i]->operands[1];
@@ -1343,7 +1370,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_CREATE && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t *body_entry = nodes[i]->operands[0];
             g_emit.op_sval_lbl = NULL;
-            for (int k = 0; k < n; k++) if (nodes[k] == body_entry) { g_emit.op_sval_lbl = lbls[k]->name; break; }
+            g_create_body_entry = NULL;
+            for (int k = 0; k < n; k++) if (nodes[k] == body_entry) { g_emit.op_sval_lbl = lbls[k]->name; g_create_body_entry = lbls[k]; break; }
         }
         /* IR_REPALT: intercept before emit_drive — drive sub-expression e internally.
            JCON ir_a_RepAlt shape: restart→yielded:=0→e.start; e.success→yielded:=1→γ(yield);
