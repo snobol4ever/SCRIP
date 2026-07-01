@@ -151,7 +151,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     if (lc_is_binop(t->t)) {
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
         int64_t bcode = lc_binop_code(t->t); int is_relop = (bcode >= BINOP_LT && bcode <= BINOP_NE) || (bcode >= BINOP_SLT && bcode <= BINOP_SNE);
-        IR_t * op = build(cx, is_relop ? IR_BINOP_RELOP : IR_BINOP, γ, ω); IR_LIT(op).ival = bcode;
+        IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = bcode;
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], op, lβ, &rr);
         IR_t * rβ = cx->beta;
         IR_t * opfail = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : NULL);
@@ -161,7 +161,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = op; return ea; }
     if (is_unop_tt(t->t)) {
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr)) { if (fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = fb; *res = nd; return nd; } }
-        IR_t * op = build(cx, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) t->t; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; }
+        IR_e uop_kind = (t->t == TT_NONNULL) ? IR_UNOP_TEST : IR_UNOP;
+        IR_t * op = build(cx, uop_kind, γ, ω); IR_LIT(op).ival = (long long) t->t; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; }
     switch (t->t) {
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
@@ -169,7 +170,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     /* CORRECTED (Claude Sonnet 4.6, 2026-06-30): IR_LIT_STRING+ival=1 clobbered sval (union) → crash in bb_scan_any.
        Fix: IR_LIT_CHARSET opcode; only sval set; emit_drive sets op_ival=1 for bb_lit_scalar's cset/slen=-1 path. */
     case TT_CSET: { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(t->v.sval); *res = nd; return nd; }
-    case TT_NULL: { if (t->n > 0 && t->c[0]) { IR_t * op = build(cx, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; } IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
+    case TT_NULL: { if (t->n > 0 && t->c[0]) { IR_t * op = build(cx, IR_UNOP_TEST, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; } IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: return lc_key(cx, t->v.sval, γ, ω, res);
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD, γ, ω);
@@ -317,9 +318,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
         if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
         /* JCON ir_a_Sectionop: val→left→right chain; right.success calls 3-arg opfn → p.ir.success.
-           SCRIP: IR_TERNOP carries op-variant in ival (0=plain, 1=plus, 2=minus), 3 operand nodes.
+           SCRIP: IR_SECTION carries op-variant in ival (0=plain, 1=plus, 2=minus), 3 operand nodes.
            val.failure→p.failure; left.failure→val.resume; right.failure→left.resume. */
-        IR_t * sec = build(cx, IR_TERNOP, γ, ω);
+        IR_t * sec = build(cx, IR_SECTION, γ, ω);
         IR_LIT(sec).ival = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
         /* lower all three operands; wire them in serial: val→left→right→sec */
         IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar);
@@ -547,10 +548,14 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    IR_t * nt = build(cx, IR_NOT, γ, ω);
-    IR_t * cr = NULL; IR_t * ce = lower(cx, (t->n > 0) ? t->c[0] : NULL, ω, nt, &cr);
-    ir_operand_push(nt, cr);
-    cx->beta = ω; *res = nt; return ce;
+    /* JCON ir_a_Not: no operator node -- pure ir_Goto success/failure port-swap around the child, plus a
+       generic ir_Key(target,"null",&null) on the (swapped) success arm. Mirrored exactly: no IR_NOT opcode;
+       "&null" is IR_VAR with sval="&null" -- the SAME live keyword-read path used elsewhere (e.g. the
+       parser's elided-call-arg fill-in), not a NOT-specific construct. child.success(γ)->my.ω (fail);
+       child.failure(ω)->the &null-producing node, whose own γ is my γ (succeed with &null). */
+    IR_t * nullv = build(cx, IR_VAR, γ, ω); IR_LIT(nullv).sval = (char *) "&null";
+    IR_t * cr = NULL; IR_t * ce = lower(cx, (t->n > 0) ? t->c[0] : NULL, ω, nullv, &cr);
+    cx->beta = ω; *res = nullv; return ce;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {

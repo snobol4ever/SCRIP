@@ -11,19 +11,17 @@ struct DESCR_t rt_num_pos(struct DESCR_t a);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-enum unop_op { UO_NEG, UO_POS, UO_SIZE, UO_NONNULL, UO_NULL_TEST, UO_NOT, UO_UNHANDLED };
+enum unop_op { UO_NEG, UO_POS, UO_SIZE, UO_NONNULL, UO_NULL_TEST, UO_UNHANDLED };
 /*--------------------------------------------------------------------------------------------------------------------*/
 static unop_op bb_unop_resolve(int kind, int64_t sub) {
     switch (kind) {
-    case IR_NOT:       return UO_NOT;
-    case IR_UNOP:
+    case IR_UNOP: case IR_UNOP_TEST:
         switch ((int)sub) {
         case TT_MNS:     return UO_NEG;
         case TT_PLS:     return UO_POS;
         case TT_SIZE:    return UO_SIZE;
         case TT_NONNULL: return UO_NONNULL;
         case TT_NULL:    return UO_NULL_TEST;
-        case TT_NOT:     return UO_NOT;
         default:         return UO_UNHANDLED;
         }
     default: return UO_UNHANDLED;
@@ -36,15 +34,7 @@ std::string bb_unop() {
     if (PLATFORM_X86)
         return !(_.op_off >= 0) ? std::string() :
                uop() == UO_UNHANDLED ? std::string() :
-               uop() != UO_NOT && _.op_sa < 0 ? x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)") :
-               uop() == UO_NOT ?
-               x86("comment", "IR_NOT")
-             + x86("label",   _.lbl_α)
-             + x86("mov", FRQ(_.op_off),     (long)0)
-             + x86("mov", FRQ(_.op_off + 8), (long)0)
-             + x86("jmp", "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω") :
+               _.op_sa < 0 ? x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)") :
                uop() == UO_NONNULL ?
                x86("comment", "IR_UNOP")
              + x86("label",   _.lbl_α)

@@ -11,8 +11,9 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_VAR] = "IR_VAR",
     [IR_ASSIGN] = "IR_ASSIGN",
     [IR_BINOP] = "IR_BINOP",
-    [IR_BINOP_RELOP] = "IR_BINOP_RELOP",
+    [IR_BINOP_TEST] = "IR_BINOP_TEST",
     [IR_UNOP] = "IR_UNOP",
+    [IR_UNOP_TEST] = "IR_UNOP_TEST",
     [IR_CALL] = "IR_CALL",
     [IR_CALL_PROC_STAGED] = "IR_CALL_PROC_STAGED",
     [IR_CALL_USERPROC] = "IR_CALL_USERPROC",
@@ -24,14 +25,13 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_SUSPEND]   = "IR_SUSPEND",
     [IR_RETURN] = "IR_RETURN",
     [IR_CONJ] = "IR_CONJ",
-    [IR_NOT] = "IR_NOT",
     [IR_TO] = "IR_TO",
     [IR_PROC_GEN] = "IR_PROC_GEN",
     [IR_KEYWORD] = "IR_KEYWORD",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_FIELD] = "IR_FIELD",
     [IR_FIELD_SET] = "IR_FIELD_SET",
-    [IR_TERNOP] = "IR_TERNOP",
+    [IR_SECTION] = "IR_SECTION",
     [IR_LIMIT]  = "IR_LIMIT",
     [IR_REPALT] = "IR_REPALT",
     [IR_SCAN]       = "IR_SCAN",
@@ -47,7 +47,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_SCAN_TAB]   = "IR_SCAN_TAB",
     [IR_SCAN_UPTO]  = "IR_SCAN_UPTO",
     [IR_SWAP]   = "IR_SWAP",
-    [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
     [IR_DEREF] = "IR_DEREF",
     [IR_MAKE_LIST] = "IR_MAKE_LIST",
     [IR_ENTER_INIT] = "IR_ENTER_INIT",
@@ -174,7 +173,9 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* IR_NOT produces &null (DT_SNUL) on success — JCON ir_a_Not: expr.failure → ir_Key(target,"null") → p.success */
+/* not(x) produces &null (DT_SNUL) on success via plain IR_VAR sval="&null" -- no IR_NOT opcode (deleted;
+   mirrors JCON ir_a_Not exactly: no operator built, just a Goto success/failure port-swap around the
+   child plus a generic keyword-write on the swapped success arm -- see lower_not in lower_icon.c). */
 /* IR_CREATE produces a co-expression VALUE (RUNG 1's own lowering comment, GOAL-IR-IMMUTABLE-EMIT.md:
    "`create EXPR` itself SUCCEEDS IMMEDIATELY, returning a co-expression VALUE") — added RUNG 3 (Claude
    Sonnet, 2026-07-01). Without this, nd->tmp is never assigned by ir_tmp_slot_assign and bb_create.cpp's
@@ -183,7 +184,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
    IR_CORET/IR_COFAIL deliberately stay OUT of this set — they are body-internal success/failure targets,
    not general value-producers; their own operand[0] (the produced value, for CORET) rides a DIFFERENT
    node's slot, per RUNG 1's lowering (coret.operand[0] = the body's own value node). */
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_UNOP || op == IR_TERNOP || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_NOT || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SECTION || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -300,7 +301,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
         case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_ASSIGN: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_KEYWORD: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-        case IR_BINOP: case IR_BINOP_RELOP: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
+        case IR_BINOP: case IR_BINOP_TEST: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_SUCCEED: if (IR_LIT(bb).ival != 0) fprintf(fp, " stno=%d", (int)IR_LIT(bb).ival); break;
         case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
             fprintf(fp, " fn=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;

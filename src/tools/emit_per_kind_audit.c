@@ -49,7 +49,6 @@ static const kind_entry_t g_kinds[] = {
     { IR_SCAN,            "IR_SCAN" },
     { IR_NONNULL,         "IR_NONNULL" },
     { IR_INTERROGATE,     "IR_INTERROGATE" },
-    { IR_NOT,             "IR_NOT" },
     { IR_MATCH_LIT,         "IR_MATCH_LIT" },
     { IR_MATCH_ANY,         "IR_MATCH_ANY" },
     { IR_MATCH_SPAN,        "IR_MATCH_SPAN" },
@@ -103,7 +102,7 @@ static const kind_entry_t g_kinds[] = {
     { IR_GEN_SCAN,        "IR_GEN_SCAN" },
     { IR_KEYWORD,     "IR_KEYWORD" },
     { IR_IDX,         "IR_IDX" },
-    { IR_TERNOP,      "IR_TERNOP" },
+    { IR_SECTION,     "IR_SECTION" },
     { IR_LIST_BANG,   "IR_LIST_BANG" },
     { IR_RECORD_DEF,  "IR_RECORD_DEF" },
     { IR_FIELD_GET,   "IR_FIELD_GET" },
@@ -304,7 +303,7 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     case IR_FIELD_SET:
         nd->sval = "f"; nd->α = g_audit_child2[0]; nd->β = g_audit_child2[1];
         break;
-    case IR_TERNOP:
+    case IR_SECTION:
         nd->ival = 0;
         nd->α = g_audit_child3[0]; nd->β = g_audit_child3[1]; nd->γ.node = g_audit_child3[2]; memcpy(nd->γ.sz, "α", 3);
         break;

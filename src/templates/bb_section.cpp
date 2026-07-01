@@ -12,7 +12,7 @@ std::string bb_section() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0) return x86_bomb("bb_section: needs own slot + base/i1/i2 operand slots");
     if (_.op_ival != 0) return x86_bomb("bb_section: only plain s[i:j] has a native arm (s[i+:n]/s[i-:n] pending)");
-    return x86("comment", "IR_TERNOP section")
+    return x86("comment", "IR_SECTION section")
          + x86("label",   _.lbl_α)
          + x86("mov",     "rdi", FRQ(_.op_a_slot))
          + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))

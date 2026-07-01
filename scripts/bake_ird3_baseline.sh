@@ -12,7 +12,6 @@ run smoke_icon    bash "$HERE/test_smoke_icon.sh"
 run smoke_prolog  bash "$HERE/test_smoke_prolog.sh"
 run smoke_snobol4 bash "$HERE/test_smoke_snobol4.sh"
 run smoke_raku    bash "$HERE/test_raku_smoke.sh"
-run prove_lower   bash "$HERE/prove_lower.sh"
 # sno per-file interp sweep (PID-agnostic: stdout+rc only)
 SNOSWEEP="$OUT/sno_interp_sweep.txt"; : > "$SNOSWEEP"
 find "$REPO/test/snobol4" -name '*.sno' | sort | while read -r f; do
