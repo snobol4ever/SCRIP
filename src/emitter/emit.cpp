@@ -887,6 +887,26 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         int sa = -1, sb = -1;
         if (binop_is_num_real(g_emit_cfg, nd)) { int ra = bb_slot_get(bb_child0(nd)), rb = bb_slot_get(bb_child1(nd)); if (ra >= 0 && rb >= 0) { sa = ra; sb = rb; g_emit.op_num_real = 1; } }
         if (!g_emit.op_num_real) { sa = descr_binop_opnd_slot(bb_child0(nd)); sb = descr_binop_opnd_slot(bb_child1(nd)); }
+        /* LOOP-CARRIED LOCAL-VAR READ FIX (loop-carried-read class, every+augop family, 2026-07-01):
+           a bare-VAR operand's producer slot (bb_slot_get) is written ONCE at that VAR node's own α and
+           never revisited on generator resume (the chain-BFS routes resume straight at the generator,
+           per DIVISION RULE), so a chain like `sum+:=gen` reads a frozen pre-loop snapshot every pass
+           even though IR_ASSIGN keeps sum's real varslot current. JCON's ir_a_Binop/ir_augmented_assignment
+           never hit this because an Ident operand is re-read at the point of use, not cached from a
+           one-time evaluation. bb_varslot_peek(name) IS that live point-of-use read for SCRIP locals (the
+           same persistent name-keyed cell IR_ASSIGN's own driver arm writes via bb_varslot) — reading it
+           here instead of the VAR node's copy-once slot costs nothing in the non-generator case (identical
+           value, nothing else runs between the VAR node's copy and this read) and fixes the generator case.
+           Globals need their own NV_GET-fresh-read arm (not this table lookup) — deliberately out of scope
+           here; falls through to the pre-existing (buggy for this one shape) path. See GOAL-IR-IMMUTABLE-EMIT.md
+           watermark for the full trace this fix is based on. */
+        { IR_t *c0 = bb_child0(nd);
+          if (c0 && c0->op == IR_VAR && IR_LIT(c0).sval && IR_LIT(c0).sval[0] != '&' && !is_global(IR_LIT(c0).sval)) {
+              int voff = bb_varslot_peek(IR_LIT(c0).sval); if (voff >= 0) sa = voff; }
+          IR_t *c1 = bb_child1(nd);
+          if (c1 && c1->op == IR_VAR && IR_LIT(c1).sval && IR_LIT(c1).sval[0] != '&' && !is_global(IR_LIT(c1).sval)) {
+              int voff = bb_varslot_peek(IR_LIT(c1).sval); if (voff >= 0) sb = voff; }
+        }
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd); g_emit.op_binop_kind = (int)binop_slot_kind(nd);
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
