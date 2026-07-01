@@ -236,6 +236,11 @@ inline std::string x86_call_tgt(int t) {
     return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(t))
                          : (std::string(" call ") + nm + "\n");
 }
+inline std::string x86_lea_tgt(const char * dst, int t) {
+    const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
+    if (MEDIUM_BINARY) { int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x04; code += (char)rex; code += (char)0x8D; code += (char)(0x05 | ((m & 7) << 3)); return x86_Lrec(code) + x86_Jrec(t); }
+    return std::string(" lea ") + dst + ", [rip + " + nm + "]\n";
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define X86_INTERNAL_BASE 6
 #define X86_INTERNAL_MAX  16

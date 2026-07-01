@@ -49,6 +49,7 @@
 static int inited = 0;
 static pthread_attr_t attribs;
 static long g_coexp_stksize = 1024 * 1024; /* 1MB default; TODO RUNG 3+: no corpus program has yet needed this configurable, matches rswitch.c's `stksize` (COEXPSIZE) in spirit but not wired to a user-facing knob */
+scrip_coctx_t *scrip_co_current = NULL; /* RUNG 4: the coexpression whose body is running now (JCON k_current). NULL when the main/root context is running -- coret/cofail are only ever reached from INSIDE a body, so a NULL here at coret/cofail time is a RUNG-5 wiring bug, guarded below. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_uerror(const char *msg) {
     perror(msg);
@@ -71,6 +72,7 @@ static void scrip_co_makesem(scrip_coctx_t *ctx) {
 static void *scrip_co_trampoline(void *arg) {
     scrip_coctx_t *self = (scrip_coctx_t *)arg;
     while (sem_wait(self->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in trampoline");
+    scrip_co_current = self;
     self->entry_fn(self->entry_arg);
     fprintf(stderr, "scrip_coexpr: FATAL entry_fn returned to trampoline instead of switching away -- RUNG 3/4 bug\n");
     abort();
@@ -122,6 +124,44 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     sem_post(ctx->semp);
     pthread_join(ctx->thread, NULL);
     sem_destroy(ctx->semp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*
+ * scrip_coret -- RUNG 4. Called from generated body code (bb_coret.cpp) when the body produces a value.
+ * Stores the produced 16-byte DESCR {d0,d1} into the running coexpression's xmit slot (so the activator's
+ * `@`-expression can read it once RUNG 5 is wired), records where the body should resume on the NEXT `@`,
+ * then switches control BACK to whoever activated this coexpression. Mirrors JCON's coret: transmit value +
+ * remember resume point + hand control to the activator. The activator pointer is populated by RUNG 5's `@`
+ * before it ever switches INTO this body; until RUNG 5 lands the body is never entered (create does not run
+ * it -- only `@` does), so a NULL scrip_co_current or NULL activator here means `@` reached this path without
+ * setting up the activator chain, which is a RUNG-5 bug and is failed loud rather than silently corrupting.
+ */
+void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
+    if (!scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_coret with no current coexpression (RUNG 5 `@` wiring bug -- body entered without setting scrip_co_current)");
+    scrip_co_current->xmit[0] = d0;
+    scrip_co_current->xmit[1] = d1;
+    scrip_co_current->resume_addr = resume_addr;
+    scrip_coctx_t *me = scrip_co_current;
+    scrip_coctx_t *back = me->activator;
+    if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set scrip_co_current->activator before switching in)");
+    scrip_co_current = back;
+    scrip_coswitch(me, back, 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*
+ * scrip_cofail -- RUNG 4. Called from generated body code (bb_cofail.cpp) when the body exhausts (its final
+ * failure edge). Marks this coexpression permanently dead (RUNG 5's `@` reads `dead` to fail immediately on
+ * any later resume), then switches control back to the activator, signaling exhaustion. Same activator-chain
+ * preconditions as scrip_coret -- unexercised until RUNG 5, correct by construction for when it lands.
+ */
+void scrip_cofail(void) {
+    if (!scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_cofail with no current coexpression (RUNG 5 `@` wiring bug)");
+    scrip_coctx_t *me = scrip_co_current;
+    me->dead = 1;
+    scrip_coctx_t *back = me->activator;
+    if (!back) scrip_co_uerror("scrip_coexpr: scrip_cofail with no activator (RUNG 5 `@` did not set the activator chain)");
+    scrip_co_current = back;
+    scrip_coswitch(me, back, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*
