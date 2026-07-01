@@ -492,6 +492,7 @@ static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
 static int   g_flat_chain_set_n = 0;
 static bb_label_t *g_limit_gen_beta = NULL;   /* chain hands flat_drive_limit its generator's resume β */
 static bb_label_t *g_create_body_entry = NULL; /* RUNG 3b: chain hands bb_create its coexpression body-entry α-label as a bb_label_t* (threaded through the t0 port so binary-mode's LEA is rel32-patchable — LIMITATION 2's fix, mirroring g_limit_gen_beta) */
+static bb_label_t *g_move_label_tgt = NULL; /* unbounded alternation: chain hands bb_move_label the arm's resume-point label (β of the arm's generator when IR_LIT(ml).ival==1, α of the arm's failure continuation when 0 — JCON eList[i].resume decoded), threaded through the t0 port exactly like g_create_body_entry */
 static bb_label_t *g_suspend_dobody_beta = NULL; /* chain hands flat_drive_suspend its do-body resume label */
 static int          g_suspend_resume_slot = -1;        /* byte offset in gen-proc frame for indirect-goto resume pointer */
 int                 g_subject_slot       = -1;
@@ -800,6 +801,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ACTIVATE:              bb_emit_x86(bb_activate());      return 0;
     case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
+    case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
+    case IR_INDIRECT_GOTO:         bb_emit_x86(bb_indirect_goto()); return 0;
     case IR_SCAN:                 { g_emit.op_sb = 0; bb_emit_x86(bb_gen_scan()); }   return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
@@ -1085,6 +1088,33 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
            is unreachable, since scrip_cofail never returns). Emit-complete-but-unexercised until RUNG 5. */
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
+    case IR_MOVE_LABEL: {
+        /* IR_MOVE_LABEL (unbounded alternation, JCON ir_MoveLabel + the shared-target value copy) — operands:
+           [0]=the arm's resume-point node (resolved to a chain label by the pre-drive block into
+           g_move_label_tgt, β vs α per this node's ival — the varying-α/β-per-circumstance case), [1]=the
+           sibling IR_INDIRECT_GOTO (owner of the shared 32-byte cell: value DESCR at +0, label variable t at
+           +16), [2]=the arm's own value node (op_sa; may be slotless for pure-control arms — template skips
+           the copy). op_off = the shared cell; reserve +24 so the frame prologue covers the label word. */
+        IR_t * ig = nd->n_operands > 1 ? nd->operands[1] : NULL;
+        IR_t * av = nd->n_operands > 2 ? nd->operands[2] : NULL;
+        int off = ig ? drive_value_slot(ig) : -1;
+        if (off >= 0) bb_flat_cursor_reserve(off + 24);
+        g_emit.op_off = off;
+        g_emit.op_sa = av ? bb_slot_get(av) : -1;
+        g_emit.lbl_t0 = g_move_label_tgt ? g_move_label_tgt->name : NULL;
+        g_emit.lbl_t0_p = g_move_label_tgt;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_INDIRECT_GOTO: {
+        /* IR_INDIRECT_GOTO (unbounded alternation, JCON ir_IndirectGoto at the alt's resume) — owns the shared
+           cell (tmp, coordinated k+=2 in ir_drive_slot_assign): value DESCR at [tmp+0..15] (what lower_alt's
+           *res hands every consumer), label variable t at [tmp+16..23] (what this node's α jumps through).
+           No operands consumed here; every MoveLabel sibling writes both halves before this can execute. */
+        int off = drive_value_slot(nd);
+        if (off >= 0) bb_flat_cursor_reserve(off + 24);
+        g_emit.op_off = off;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
     case IR_ITERATE: {
         /* IR_ITERATE = !e  (list element generator).  operands[0]=list-value node.
            op_sa = list DESCR slot; op_sb = counter slot (at op_off+16); op_off = result slot. */
@@ -1267,6 +1297,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
         int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; }
@@ -1284,6 +1316,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
     }
     { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i];
         if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); } }
@@ -1365,6 +1399,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         g_limit_gen_beta = NULL;
         g_create_body_entry = NULL;
+        g_move_label_tgt = NULL;
         g_suspend_dobody_beta = NULL;
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
             IR_t *dobody = nodes[i]->operands[1];
@@ -1388,6 +1423,33 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             g_emit.op_sval_lbl = NULL;
             g_create_body_entry = NULL;
             for (int k = 0; k < n; k++) if (nodes[k] == body_entry) { g_emit.op_sval_lbl = lbls[k]->name; g_create_body_entry = lbls[k]; break; }
+        }
+        /* IR_MOVE_LABEL (unbounded alternation): operand[0] = the arm's resume-point node, captured by lower_alt
+           as post-arm cx->beta (or the arm's ωj when the arm is non-resumable). ival=1 means the resume enters
+           the target's β (a real generator inside the arm produces its next value); ival=0 means the target's α
+           (JCON's "a non-generator's resume IS its failure" — spent arm cascades to the next arm's fresh entry,
+           or to the alternation's ω). Sentinel targets map to the chain exits exactly as the gtgt/otgt edge
+           resolution above does (IR_FAIL→lbl_ω, IR_SUCCEED→lbl_γ). Same lbls[]/betas[]-are-local-to-this-function
+           constraint the IR_CREATE block documents; same t0-port threading. */
+        if (nodes[i]->op == IR_MOVE_LABEL && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
+            IR_t *rtgt = nodes[i]->operands[0];
+            int wantb = (int) IR_LIT(nodes[i]).ival;
+            if (rtgt->op == IR_FAIL) g_move_label_tgt = &lbl_ω;
+            else if (rtgt->op == IR_SUCCEED) g_move_label_tgt = &lbl_γ;
+            else for (int k = 0; k < n; k++) if (nodes[k] == rtgt) { g_move_label_tgt = wantb ? betas[k] : lbls[k]; break; }
+        }
+        /* IR_MOVE_LABEL success rides THROUGH the sibling IR_INDIRECT_GOTO's γ — that edge is JCON's
+           p.ir.success, the ONE label a caller re-points when it wires the alternation's value node onward
+           (the wire-later pattern: lower left with γ=NULL, γ_to(*res, next) afterward — *res is ig, so ig.γ
+           holds the final continuation; each ml's own γ was frozen at lower time and may be NULL/stale).
+           Emit-time READ of the finished graph, never a write; same stamp + sentinel logic as gtgt above. */
+        if (nodes[i]->op == IR_MOVE_LABEL && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
+            IR_t *igp = nodes[i]->operands[1];
+            IR_t *sg = igp->γ.node;
+            int sg_is_beta = (igp->γ.sz[0] == (char)0xce && (unsigned char)igp->γ.sz[1] == 0xb2);
+            if (sg == NULL || sg->op == IR_SUCCEED) node_γ = &lbl_γ;
+            else if (sg->op == IR_FAIL) node_γ = &lbl_ω;
+            else for (int k = 0; k < n; k++) if (nodes[k] == sg) { node_γ = sg_is_beta ? betas[k] : lbls[k]; break; }
         }
         /* IR_REPALT: intercept before emit_drive — drive sub-expression e internally.
            JCON ir_a_RepAlt shape: restart→yielded:=0→e.start; e.success→yielded:=1→γ(yield);

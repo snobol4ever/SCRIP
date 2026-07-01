@@ -592,13 +592,31 @@ static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    /* JCON ir_a_Alt, /bounded (unbounded) arm, decoded from irgen.icn:166-199 per the CENTRAL ISOMORPHISM:
+       one label variable t per alternation (ir_tmploc → the IR_INDIRECT_GOTO node's own tmp cell, +16);
+       p.ir.resume = ir_IndirectGoto(t) → the ig node below, which lower_alt hands out as cx->beta so EVERY
+       consumer backtrack edge lands on it (jmp *t → whichever arm last fired's resume — the data-dependent
+       target the punch list proved no static edge can express);
+       each arm's success = ir_MoveLabel(t, eList[i].resume); Goto p.ir.success → the per-arm ml node below
+       (which ALSO copies the arm's value into ig's shared cell — JCON gets convergence from its per-arm
+       shared `target` param; SCRIP's lhs⇄tmp equivalent is one node/one slot, *res = ig);
+       eList[i].resume decoded: post-arm cx->beta when the arm holds a real resumable (β edge, ival=1) —
+       resume produces the arm's next value; otherwise the arm's ωj (α edge, ival=0) — JCON's "a
+       non-generator's resume IS its failure": spent arm re-enters the next arm fresh (or the alt's ω).
+       cx->beta is force-reset to ωj before each arm lower (literal lowers do not touch it — stale-beta leak
+       otherwise); arm cascade (eList[i].failure → eList[i+1].start, last → p.ir.failure) unchanged. */
+    IR_t * ig = build(cx, IR_INDIRECT_GOTO, γ, ω);
     IR_t ** entry = (IR_t **) calloc((size_t) n, sizeof(IR_t *));
-    IR_t * last_beta = ω;
     for (int j = n - 1; j >= 0; j--) {
-        IR_t * ωj = (j + 1 < n) ? entry[j + 1] : ω; IR_t * ar = NULL; entry[j] = lower(cx, t->c[j], γ, ωj, &ar);
-        if (j == n - 1) last_beta = cx->beta;
+        IR_t * ωj = (j + 1 < n) ? entry[j + 1] : ω;
+        IR_t * ml = build(cx, IR_MOVE_LABEL, γ, ω);
+        cx->beta = ωj;
+        IR_t * ar = NULL; entry[j] = lower(cx, t->c[j], ml, ωj, &ar);
+        IR_t * ab = cx->beta ? cx->beta : ωj;
+        IR_LIT(ml).ival = (ab && ir_is_generator_kind(ab->op)) ? 1 : 0;
+        ir_operand_push(ml, ab); ir_operand_push(ml, ig); ir_operand_push(ml, ar);
     }
-    cx->beta = last_beta; *res = entry[0]; return entry[0];
+    cx->beta = ig; *res = ig; return entry[0];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {

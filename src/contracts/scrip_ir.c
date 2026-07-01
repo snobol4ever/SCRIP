@@ -57,6 +57,8 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CORET] = "IR_CORET",
     [IR_COFAIL] = "IR_COFAIL",
     [IR_MOVE] = "IR_MOVE",
+    [IR_MOVE_LABEL] = "IR_MOVE_LABEL",
+    [IR_INDIRECT_GOTO] = "IR_INDIRECT_GOTO",
     [IR_RESUME_VALUE] = "IR_RESUME_VALUE",
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -259,6 +261,14 @@ void ir_drive_slot_assign(IR_graph_t * g) {
            IR_TO tmps LOWER already placed there, silently truncating accumulation to the generator's last value.
            Fix: give IR_ASSIGN a real coordinated tmp here, same 16-byte single-DESCR shape as IR_ENTER_INIT. */
         if (nd->op == IR_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
+        /* IR_INDIRECT_GOTO (unbounded alternation, JCON ir_a_Alt /bounded arm) owns TWO cells: [+0..+15] the
+           alternation's SHARED value DESCR (every arm's IR_MOVE_LABEL copies its arm's value here, so ONE slot
+           serves every consumer -- the lhs<->tmp doctrine's answer to JCON's per-arm shared `target` param) and
+           [+16..+23] the label variable t itself (JCON ir_tmploc: the code address of whichever arm last fired's
+           resume point, written by each MoveLabel, consumed by this node's own `jmp qword ptr [r12+tmp+16]`).
+           NOT in ir_node_produces_value (it is the alt's RESUME position, control not value) -- but lower_alt
+           sets *res to this node, so consumers read [tmp+0..15] via the ordinary bb_slot_get path. k+=2. */
+        if (nd->op == IR_INDIRECT_GOTO) { nd->tmp = base + k * 16; k += 2; continue; }
         if (ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; }
     }
     g->jcon_value_region = base + k * 16;
