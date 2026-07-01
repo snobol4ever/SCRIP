@@ -49,6 +49,19 @@ void scrip_cofail(void);  /* RUNG 4: body exhausted -- mark scrip_co_current dea
    separate events, RUNG 1/RUNG 2's own established semantics. */
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]);
 
+/* RUNG 5 (`@`, 2026-07-01): activate `target`, transmitting the 16-byte DESCR {x0,x1} (the xmit slot is a
+   single mailbox — activate writes the transmitted-IN value there, the body's coret overwrites it with the
+   produced value, activate reads it back out on return). Lazily owns a static root context for the main
+   program (mirrors rcoexpr.r: the main program IS a co-expression; scrip_coswitch's !inited branch
+   initializes whichever ctx is first passed as `old`, so the root needs no explicit setup call). Sets
+   target->activator = self before switching in (the exact precondition scrip_coret/scrip_cofail's guards
+   document as RUNG 5's job), switches, and on control's return: dead → 0 (the `@`-expression FAILS —
+   covers both a body that cofail'd during THIS activation and a re-activation of an already-dead
+   coexpression); alive → writes the coret'd DESCR into out2[0..1], returns 1. `first` for scrip_coswitch
+   is derived from target->alive (0 until the first==0 branch's pthread_create flips it — same lifecycle
+   rswitch.c's callers track by hand). */
+int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2);
+
 #ifdef __cplusplus
 }
 #endif

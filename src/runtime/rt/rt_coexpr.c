@@ -256,5 +256,56 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     ctx->entry_arg = pkg;
     ctx->alive = 0;   /* not yet started; scrip_coswitch's first==0 branch sets this to 1 on first switch */
     ctx->semp  = NULL;
+    ctx->activator   = NULL;  /* RUNG 4/5 fields -- RUNG 3 originally left these as malloc garbage; a nonzero
+                                 garbage `dead` made the FIRST activation fail instantly (gdb-confirmed
+                                 target->dead = -140494048 on the first live `@`, RUNG 5 bring-up 2026-07-01). */
+    ctx->resume_addr = NULL;
+    ctx->dead        = 0;
+    ctx->xmit[0]     = 0;
+    ctx->xmit[1]     = 0;
     return ctx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*
+ * scrip_coexpr_activate -- RUNG 5 (`@`). The C-side helper bb_activate.cpp's template calls; the missing
+ * half whose absence every guard above documents ("Set by RUNG 5's `@` before it switches in"). Faithful
+ * to rcoexpr.r's co_chng division of labor: THIS layer owns identity (who is current, who activated whom,
+ * what value crossed) and calls the deliberately-dumb scrip_coswitch to perform the switch.
+ *
+ * The main program is itself a co-expression (rcoexpr.r: &main): g_root_ctx below is its scrip_coctx_t,
+ * static and zero-initialized -- scrip_coswitch's !inited branch fully initializes whichever ctx is FIRST
+ * passed as `old` (sema + thread + alive), which on the first-ever `@` is exactly this root, so no separate
+ * root-setup entry point is needed. scrip_co_current stays NULL-means-root by convention (the header's own
+ * contract); prev is saved/restored around the switch rather than trusting coret/cofail's own restore,
+ * because those restore to the ACTIVATOR ctx pointer (correct for nesting) while this frame must restore
+ * the caller's literal prior value (NULL when root) -- both writes are consistent, one thread runs at a
+ * time, the later one (this frame's, after sem_wait returns) is the one that must win, and does.
+ *
+ * xmit as a single mailbox: transmitted-IN value written before the switch; body's coret overwrites it
+ * with the produced value; read back OUT after the switch. A body that never reads the transmitted value
+ * (every compiler-generated body today -- coret/cofail are the only suspension points LOWER emits) simply
+ * leaves it until overwritten, which is exactly Icon's "transmitted value is discarded unless the
+ * activated coexpression's own suspended activation consumes it" semantics for this rung's scope.
+ *
+ * Return contract for the template: 1 = out2[0..1] holds the coret'd DESCR (jump γ); 0 = the activation
+ * FAILED (target dead -- either cofail'd during this very activation, or was already dead: re-activating
+ * an exhausted coexpression fails forever, JCON vCoexp exhaustion / rcoexpr.r co_chng A_Cofail) (jump ω).
+ */
+static scrip_coctx_t g_root_ctx;
+int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2) {
+    if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
+    if (target->dead) return 0;
+    scrip_coctx_t *self = scrip_co_current ? scrip_co_current : &g_root_ctx;
+    scrip_coctx_t *prev = scrip_co_current;
+    int first = target->alive ? 1 : 0;
+    target->activator = self;
+    target->xmit[0] = x0;
+    target->xmit[1] = x1;
+    scrip_co_current = target;
+    scrip_coswitch(self, target, first);
+    scrip_co_current = prev;
+    if (target->dead) return 0;
+    out2[0] = target->xmit[0];
+    out2[1] = target->xmit[1];
+    return 1;
 }

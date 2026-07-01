@@ -25,6 +25,7 @@
 #define IR_LANG_RKU  6
 #define IR_LANG_PAS  7
 typedef enum {
+    IR_ACTIVATE,
     IR_ASSIGN,
     IR_BINOP,
     IR_BINOP_TEST,

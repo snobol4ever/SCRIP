@@ -266,6 +266,7 @@ static tree_t *parse_unary(IcnParser *p) {
     if (check(p, TK_SLASH))     { advance(p); return e_unary(TT_NULL,       parse_unary(p)); }
     if (check(p, TK_NOT))       { advance(p); return e_unary(TT_NOT,        parse_unary(p)); }
     if (check(p, TK_QMARK))     { advance(p); return e_unary(TT_RANDOM,     parse_unary(p)); }
+    if (check(p, TK_AT))        { advance(p); return e_unary(TT_ACTIVATE,   parse_unary(p)); }
     if (check(p, TK_TILDE))     { advance(p); return e_unary(TT_CSET_COMPL, parse_unary(p)); }
     if (check(p, TK_EQ)) { advance(p); tree_t *arg = parse_unary(p);
         tree_t *mfn = ast_node_new(TT_FNC); push_child(mfn, e_leaf_sval(TT_VAR, "match", -1)); push_child(mfn, arg);
@@ -434,8 +435,18 @@ static int is_augop(IcnTkKind k) {
            k==TK_AUGSLT   || k==TK_AUGSLE  || k==TK_AUGSGT || k==TK_AUGSGE || k==TK_AUGSNE;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static tree_t *parse_assign(IcnParser *p) {
+static tree_t *parse_activate(IcnParser *p) {
     tree_t *n = parse_alt(p);
+    if (!n) return NULL;
+    while (check(p, TK_AT)) {
+        advance(p);
+        n = e_binary(TT_ACTIVATE, n, parse_alt(p));
+    }
+    return n;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *parse_assign(IcnParser *p) {
+    tree_t *n = parse_activate(p);
     if (!n) return NULL;
     if (check(p, TK_ASSIGN)) {
         advance(p);
