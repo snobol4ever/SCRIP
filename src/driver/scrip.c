@@ -167,6 +167,10 @@ static int rhs_kind_ok(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_OP_COUNT || r->op == IR_LIT_REAL) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
+    /* not(x): now IR_VAR sval="&null" (no IR_NOT opcode -- see lower_not). Always the fixed null DESCR,
+       same safe-known-value guarantee the deleted IR_NOT case gave this gate; accept narrowly, not via
+       a blanket keyword exception (other keywords are dynamic runtime state, deliberately still excluded). */
+    if (r->op == IR_VAR && IR_LIT(r).sval && !strcmp(IR_LIT(r).sval, "&null")) return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT)) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
@@ -180,7 +184,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
     if (r->op == IR_OP_COUNT) { int64_t u = IR_LIT(r).ival; if (u == TT_MNS || u == TT_PLS || u == TT_SIZE || u == TT_NONNULL || u == TT_NULL || u == TT_NOT) return 1; }
-    if (r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_NOT) return 1;
+    if (r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_OP_COUNT) return gen_scan_body_slotful(r);
     return 0;
 }

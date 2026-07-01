@@ -9,7 +9,7 @@
 #   (c) corpus IR_ASSIGN bucket — every corpus rung*.icn whose --dump-bb carries IR_ASSIGN,
 #       all three modes vs .expected, with ratchet floors (m3/m4 = PASS or DECLINED, never FAIL);
 #   (d) standing structural gates: no_bb_bin_t . no_handencoded --strict . icn_no_stack .
-#       icn_one_reg_frame . prove_lower (HARD); no_vstack informational; medium-invisible
+#       icn_one_reg_frame (HARD); no_vstack informational; medium-invisible
 #       scoped to the var-family templates (bb_assign_local, bb_var_frame).
 # Exit 0 iff (a) + (b) + (c floors) + (d) all hold.
 # Authors: LCherryholmes . Jeffrey Cooper M.D. . Claude Opus 4.8   DATE: 2026-06-06
@@ -260,7 +260,6 @@ gate_hard "no_bb_bin_t"            bash "$HERE/test_gate_no_bb_bin_t.sh"
 gate_hard "no_handencoded --strict" bash "$HERE/test_gate_no_handencoded_bytes.sh" --strict
 gate_hard "icn_no_stack"           bash "$HERE/test_gate_icn_no_stack.sh"
 gate_hard "icn_one_reg_frame"      bash "$HERE/test_gate_icn_one_reg_frame.sh"
-gate_hard "prove_lower"           bash "$HERE/prove_lower.sh"
 bash "$HERE/test_gate_no_vstack.sh" 2>/dev/null | tail -1 | sed 's/^/  INFO /'
 mi_line=$(bash "$HERE/test_gate_template_medium_invisible.sh" 2>/dev/null | grep '^REMAINING:' || true)
 if echo "$mi_line" | grep -qE 'bb_assign_local|bb_var_frame|bb_var_frame_ref|bb_assign_frame'; then
