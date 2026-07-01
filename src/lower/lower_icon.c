@@ -216,8 +216,26 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_LOOP_BREAK: { IR_t * lx = cx->loop_exit; IR_t * nd = lx ? build(cx, IR_CONJ, lx, lx) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd = ln ? build(cx, IR_CONJ, ln, ln) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOCAL: case TT_STATIC_DECL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_INITIAL: { IR_t * ini = build(cx, IR_FAIL, γ, ω);
-        if (t->n > 0 && t->c[0]) { IR_t * bsucc = build(cx, IR_SUCCEED, γ, ω); IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], bsucc, ω, &br); ir_operand_push(ini, be); }
+    case TT_INITIAL: {
+        /* JCON ir_a_Initial:
+           ir.start → expr.start; ir.success = p.ir.success (both body.success AND body.failure go there).
+           ir.resume → unreachable (initial blocks never resume).
+           SCRIP: IR_ENTER_INIT node gates the body:
+             γ = body entry (first call: flag was 0 → set flag=1, jump into body)
+             ω = skip path (subsequent calls: flag is 1, jump directly to outer continuation γ)
+           body.success → outer γ  (= IR_ENTER_INIT.ω target)
+           body.failure → outer γ  (same; initial block always "succeeds" from caller's POV)
+           slot: IR_ENTER_INIT.tmp (16 bytes: [+0..+7] DESCR padding, [+8..+15] int64 done-flag init to 0) */
+        IR_t * ini = build(cx, IR_ENTER_INIT, NULL, γ);   /* ω = outer γ = "already done" skip path */
+        if (t->n > 0 && t->c[0]) {
+            /* Lower body; both body.success and body.failure → outer γ (= ini.ω target) */
+            IR_t * br = NULL;
+            IR_t * be = lower(cx, t->c[0], γ, γ, &br);   /* body.success=γ, body.failure=γ */
+            lc_γ_to(ini, be);                              /* ini.γ → body entry */
+            ir_operand_push(ini, br);                      /* operand[0] = body result (unused, for completeness) */
+        } else {
+            lc_γ_to(ini, γ);  /* no body: ini.γ → outer γ directly */
+        }
         *res = ini; return ini; }
     case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
         IR_t * ev = NULL; IR_t * e_entry = sn;
@@ -332,20 +350,26 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
            body.failure→ScanSwap(restore)→expr.resume; expr.failure→p.failure.
            SCRIP: Two nodes per scan:
              IR_SCAN_ENTER (op_sb=1): loads the subject DESCR into r13/r14/r15 via rt_scan_enter,
-               saves old r13/r14/r15 into frame slots. operand[0]=subject-string-node.
-             IR_SCAN (leave, op_sb=0): restores r13/r14/r15 from frame slots via rt_scan_leave.
-           Body runs between enter and leave; uses scan builtins (upto/any/tab/move/etc.) that
-           read/write r13/r14/r15 directly. On body success/failure, call IR_SCAN to restore subject.
-           Both enter and leave use bb_gen_scan() — enter dispatches on op_sb==1, leave on op_sb!=1. */
+               saves old r13/r14/r15 into frame slots at enter->tmp..enter->tmp+23.
+               operand[0]=subject-string-node.
+             IR_SCAN (leave, op_sb=0): restores r13/r14/r15 from frame slots.
+               operand[0]=enter node (so emit_drive reads enter->tmp for save-area offset at slot-assign time).
+           SLOT LINKAGE: IR_SCAN_ENTER gets nd->tmp from ir_drive_slot_assign (k+=2, 32 bytes, covers 24-byte need).
+           IR_SCAN leave emit_drive: op_off = operands[0]->tmp (the enter node's own slot).
+           This replaces the old IR_LIT(nd).ival approach, which had to write the offset at lower time
+           before slots were assigned -- an ordering impossibility. */
         if (t->n < 2 || !t->c[0] || !t->c[1]) {
             /* No subject or no body: degenerate */
             IR_t * gs = build(cx, IR_FAIL, γ, ω); *res = gs; return gs;
         }
         /* IR_SCAN_ENTER: subject evaluates, then enters scan context */
         IR_t * enter = build(cx, IR_SCAN_ENTER, NULL, ω);
-        /* IR_SCAN leave-nodes: one for success path, one for failure path (both restore regs) */
+        /* IR_SCAN leave-nodes: one for success path, one for failure path (both restore regs).
+           operand[0] on each leave node = the enter node, so emit_drive can read enter->tmp. */
         IR_t * leave_succ = build(cx, IR_SCAN, γ, ω);
         IR_t * leave_fail = build(cx, IR_SCAN, ω, ω);
+        ir_operand_push(leave_succ, enter);   /* leave_succ.operand[0] = enter (for slot offset) */
+        ir_operand_push(leave_fail, enter);   /* leave_fail.operand[0] = enter (for slot offset) */
         /* Lower the body; body.success → leave_succ; body.failure → leave_fail */
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], leave_succ, leave_fail, &bv);
         /* Retag IR_CALL nodes for scan builtins (tab/move/upto/etc) inside the body */
@@ -354,7 +378,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         lc_γ_to(enter, b_entry);
         /* Lower subject → enter; subject.failure → p.failure */
         IR_t * sr = NULL; IR_t * s_entry = lower(cx, t->c[0], enter, ω, &sr);
-        ir_operand_push(enter, sr);  /* operand[0] = subject DESCR node */
+        ir_operand_push(enter, sr);  /* operand[0] = subject DESCR node (AFTER leave nodes push enter) */
         cx->beta = ω; *res = enter; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_REPALT: {

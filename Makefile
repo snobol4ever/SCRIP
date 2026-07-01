@@ -117,6 +117,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_limit.cpp \
     $(SRC)/templates/bb_section.cpp \
     $(SRC)/templates/bb_swap.cpp \
+    $(SRC)/templates/bb_enter_init.cpp \
     $(SRC)/templates/bb_gen_scan.cpp \
     $(SRC)/templates/bb_scan_tab.cpp \
     $(SRC)/templates/bb_scan_move.cpp \
@@ -306,6 +307,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_set.cpp -o $(OBJ)/bb_field_set.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_repalt.cpp    -o $(OBJ)/bb_repalt.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_enter_init.cpp -o $(OBJ)/bb_enter_init.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp  -o $(OBJ)/bb_gen_scan.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_section.cpp -o $(OBJ)/bb_section.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_swap.cpp -o $(OBJ)/bb_swap.o

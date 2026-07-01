@@ -793,6 +793,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_REPALT:               /* driven by flat_drive_repalt — no direct template call here */ return 0;
     case IR_ITERATE:              bb_emit_x86(bb_iterate(nd));      return 0;
     case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
+    case IR_ENTER_INIT:           bb_emit_x86(bb_enter_init());     return 0;
     case IR_SCAN:                 { g_emit.op_sb = 0; bb_emit_x86(bb_gen_scan()); }   return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
@@ -1014,23 +1015,38 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         bb_flat_cursor_reserve(g_emit.op_off + 24);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
+    case IR_ENTER_INIT: {
+        /* IR_ENTER_INIT: JCON ir_EnterInit analog — "run this block only on the first call."
+           nd->tmp is assigned by ir_drive_slot_assign (k+=1, 16 bytes).
+           op_off = nd->tmp: [r12+op_off+8] holds the int64 done-flag (0=not run, 1=ran).
+           γ = body entry (first call path), ω = skip-body path (subsequent calls + body exit). */
+        g_emit.op_off = nd->tmp;
+        if (g_emit.op_off < 0) { drive_unowned(nd); break; }
+        bb_flat_cursor_reserve(g_emit.op_off + 16);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
     case IR_SCAN_ENTER: {
         /* IR_SCAN_ENTER: subject-string DESCR → rt_scan_enter → loads r13/r14/r15.
            operand[0] = subject node; op_sa = subject DESCR slot; op_sb = 1 (enter flag for bb_gen_scan).
-           Saves old regs into frame slots op_off..op_off+23 (3×8 bytes). */
+           Saves old regs into frame slots nd->tmp..nd->tmp+23 (3×8 bytes).
+           nd->tmp is assigned by ir_drive_slot_assign (k+=2 = 32 bytes, covers 24-byte need). */
         IR_t * subj = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = subj ? bb_slot_get(subj) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = 1;
-        g_emit.op_off = drive_value_slot(nd);   /* own slot = save area for old r13/r14/r15 */
+        g_emit.op_off = drive_value_slot(nd);   /* nd->tmp = save area for old r13/r14/r15 */
         bb_flat_cursor_reserve(g_emit.op_off + 24);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN: {
         /* IR_SCAN (leave): restore r13/r14/r15 from frame slots.  op_sb = 0 (leave flag).
-           The save-area slot is stored in IR_LIT(nd).ival by the lower pass. */
+           operand[0] = the enter node; op_off = enter->tmp (the save-area slot).
+           This replaces the old IR_LIT(nd).ival approach (which required knowing the slot at lower
+           time, before slot assignment). */
         g_emit.op_sb  = 0;
-        g_emit.op_off = (int)IR_LIT(nd).ival;   /* the enter-node's own slot (save area) */
+        IR_t * enter_nd = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = (enter_nd && enter_nd->tmp >= 0) ? enter_nd->tmp : -1;
+        if (g_emit.op_off < 0) { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_TAB: {
