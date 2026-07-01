@@ -795,6 +795,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ITERATE:              bb_emit_x86(bb_iterate(nd));      return 0;
     case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_ENTER_INIT:           bb_emit_x86(bb_enter_init());     return 0;
+    case IR_CREATE:                bb_emit_x86(bb_create());        return 0;
     case IR_SCAN:                 { g_emit.op_sb = 0; bb_emit_x86(bb_gen_scan()); }   return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
@@ -1025,6 +1026,23 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.lbl_t0_p = g_limit_gen_beta ? g_limit_gen_beta : lbl_β;
         g_emit.op_off = drive_value_slot(nd);
         bb_flat_cursor_reserve(g_emit.op_off + 32);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_CREATE: {
+        /* IR_CREATE = `create EXPR` (RUNG 3, Claude Sonnet 2026-07-01).  operand[0]=body's entry node.
+           create ALWAYS succeeds immediately (RUNG 1: "create EXPR itself SUCCEEDS IMMEDIATELY") —
+           bb_create.cpp's α is unconditional success; there is no failure path from create itself
+           (matches JCON's ir_a_Create: `Goto p.ir.success` unconditionally, no failure edge at all).
+           op_off = this create-site's OWN slot (holds a heap-allocated scrip_coctx_t* — see
+           bb_create.cpp; 16 bytes granted, only 8 used, same stride as every other value-producer).
+           op_sval_lbl = the body's entry label STRING, resolved by the BFS pre-pass above (the
+           nodes[i]->op == IR_CREATE block, same file, ~80 lines up) — NOT recomputed here, since by
+           the time emit_drive runs for THIS node the pre-pass has already run for every node in this
+           chain (codegen_flat_chain_body is two-phase: full BFS discovery + label allocation BEFORE
+           any node is driven — see that function's own structure). If op_sval_lbl is NULL here, the
+           pre-pass's scan didn't find operand[0] in nodes[] — shouldn't happen per RUNG 1's own
+           lowering, but bb_create.cpp's own guard bombs loudly on NULL rather than emit a bad LEA. */
+        g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ITERATE: {
@@ -1309,6 +1327,23 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             IR_t *dobody = nodes[i]->operands[1];
             if (dobody->op == IR_FAIL) { g_suspend_dobody_beta = &lbl_ω; }
             else { for (int k = 0; k < n; k++) if (nodes[k] == dobody) { g_suspend_dobody_beta = lbls[k]; break; } }
+        }
+        /* IR_CREATE (RUNG 3, Claude Sonnet 2026-07-01): operand[0] = the coexpression body's entry node
+           (RUNG 1's lowering: "create.operand[0] = body's entry node (coswitch target)"). No existing
+           mechanism maps an arbitrary IR_t* to its own α-label from a DIFFERENT node's driver case — the
+           label arrays (lbls[]/betas[]) are local to this function, indexed by nodes[]-position, only
+           ever resolved via linear scan at the point a node's OWN edges are stitched (see the gtgt/otgt
+           scans above and IR_REPALT's e_entry scan below, which this follows exactly). Resolve here,
+           store the label STRING (not the bb_label_t*, since bb_create.cpp's TU doesn't have bb_label_t
+           in scope) into g_emit.op_sval_lbl (declared, previously unused anywhere) for the template to
+           LEA against. If operand[0] isn't found in this chain's nodes[] (shouldn't happen per RUNG 1's
+           own lowering, which always sets it — but this scan degrades safely to NULL rather than a wild
+           pointer if it ever does), the template's own guard (op_sval_lbl == NULL) bombs loudly rather
+           than emitting a bad LEA target. */
+        if (nodes[i]->op == IR_CREATE && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
+            IR_t *body_entry = nodes[i]->operands[0];
+            g_emit.op_sval_lbl = NULL;
+            for (int k = 0; k < n; k++) if (nodes[k] == body_entry) { g_emit.op_sval_lbl = lbls[k]->name; break; }
         }
         /* IR_REPALT: intercept before emit_drive — drive sub-expression e internally.
            JCON ir_a_RepAlt shape: restart→yielded:=0→e.start; e.success→yielded:=1→γ(yield);
