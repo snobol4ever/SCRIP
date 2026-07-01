@@ -118,6 +118,15 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_section.cpp \
     $(SRC)/templates/bb_swap.cpp \
     $(SRC)/templates/bb_gen_scan.cpp \
+    $(SRC)/templates/bb_scan_tab.cpp \
+    $(SRC)/templates/bb_scan_move.cpp \
+    $(SRC)/templates/bb_scan_upto.cpp \
+    $(SRC)/templates/bb_scan_any.cpp \
+    $(SRC)/templates/bb_scan_many.cpp \
+    $(SRC)/templates/bb_scan_find.cpp \
+    $(SRC)/templates/bb_scan_match.cpp \
+    $(SRC)/templates/bb_scan_pos.cpp \
+    $(SRC)/templates/bb_scan_bal.cpp \
     $(SRC)/templates/xa_stubs.cpp \
     $(SRC)/templates/xa_macro_library.cpp \
     $(SRC)/templates/xa_bb_macro_library.cpp \
@@ -300,6 +309,15 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp  -o $(OBJ)/bb_gen_scan.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_section.cpp -o $(OBJ)/bb_section.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_swap.cpp -o $(OBJ)/bb_swap.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_tab.cpp   -o $(OBJ)/bb_scan_tab.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_move.cpp  -o $(OBJ)/bb_scan_move.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_upto.cpp  -o $(OBJ)/bb_scan_upto.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_any.cpp   -o $(OBJ)/bb_scan_any.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_many.cpp  -o $(OBJ)/bb_scan_many.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_find.cpp  -o $(OBJ)/bb_scan_find.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_match.cpp -o $(OBJ)/bb_scan_match.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_pos.cpp   -o $(OBJ)/bb_scan_pos.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_bal.cpp   -o $(OBJ)/bb_scan_bal.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rasgn.cpp -o $(OBJ)/bb_rasgn.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_case_arm.cpp -o $(OBJ)/bb_case_arm.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o

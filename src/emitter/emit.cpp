@@ -794,6 +794,15 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_ITERATE:              bb_emit_x86(bb_iterate(nd));      return 0;
     case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN:                 { g_emit.op_sb = 0; bb_emit_x86(bb_gen_scan()); }   return 0;
+    case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
+    case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
+    case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;
+    case IR_SCAN_ANY:             bb_emit_x86(bb_scan_any());    return 0;
+    case IR_SCAN_MANY:            bb_emit_x86(bb_scan_many());   return 0;
+    case IR_SCAN_FIND:            bb_emit_x86(bb_scan_find());   return 0;
+    case IR_SCAN_MATCH:           bb_emit_x86(bb_scan_match());  return 0;
+    case IR_SCAN_POS:             bb_emit_x86(bb_scan_pos());    return 0;
+    case IR_SCAN_BAL:             bb_emit_x86(bb_scan_bal());    return 0;
     case IR_RETURN: {
         IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
         g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
@@ -1022,6 +1031,85 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
            The save-area slot is stored in IR_LIT(nd).ival by the lower pass. */
         g_emit.op_sb  = 0;
         g_emit.op_off = (int)IR_LIT(nd).ival;   /* the enter-node's own slot (save area) */
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_TAB: {
+        /* tab(n): op_off=own 24-byte slot; op_sb=literal n (>0) or -1; op_sa=var slot (-1 if literal) */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 24);
+        if (a0 && a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
+        else if (a0) { int sl = bb_slot_get(a0); g_emit.op_sa = (sl >= 0) ? sl : -1; g_emit.op_sb = 0; }
+        else { g_emit.op_sb = 0; g_emit.op_sa = -1; }
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_MOVE: {
+        /* move(n): op_off=own 24-byte slot; op_sa=1 (flag); op_sb=literal n */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 24);
+        g_emit.op_sa = 1;
+        g_emit.op_sb = (a0 && a0->op == IR_LIT_INTEGER) ? (int)IR_LIT(a0).ival : 1;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_POS: {
+        /* pos(n): op_off=own 16-byte slot; op_sb=literal n */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 16);
+        g_emit.op_sb = (a0 && a0->op == IR_LIT_INTEGER) ? (int)IR_LIT(a0).ival : 1;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_UPTO: {
+        /* upto(cset): op_off=own 24-byte slot; op_name1=literal cset C-string */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 24);
+        g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_ANY: {
+        /* any(cset): op_off=own 16-byte slot; op_name1=literal cset OR op_sa=var slot + op_name2 */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 16);
+        if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
+            g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1; g_emit.op_name2 = NULL;
+        } else if (a0) {
+            int sl = bb_slot_get(a0); g_emit.op_sa = sl; g_emit.op_name1 = NULL; g_emit.op_name2 = "?";
+        } else { g_emit.op_name1 = NULL; g_emit.op_sa = -1; g_emit.op_name2 = NULL; }
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_MANY: {
+        /* many(cset): op_off=own 16-byte slot; op_name1=literal cset */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 16);
+        g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_FIND: {
+        /* find(needle): op_off=own 24-byte slot; op_name1=literal needle */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 24);
+        g_emit.op_name1 = (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_MATCH: {
+        /* match(s): op_off=own 16-byte slot; op_name1=literal string */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 16);
+        g_emit.op_name1 = (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SCAN_BAL: {
+        /* bal(cset): op_off=own 32-byte slot; op_name1=literal cset */
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 32);
+        g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REPALT: {
@@ -1265,6 +1353,9 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
     case IR_CALL:  return n->n_operands;
     case IR_PROC_GEN: return 0;
+    case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_POS:
+    case IR_SCAN_UPTO: case IR_SCAN_ANY: case IR_SCAN_MANY:
+    case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL: return 0;
     default:       return -1;
     }
 }

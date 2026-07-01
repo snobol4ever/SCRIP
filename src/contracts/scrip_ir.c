@@ -41,6 +41,15 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_SCAN]       = "IR_SCAN",
     [IR_SCAN_ENTER] = "IR_SCAN_ENTER",
     [IR_SCAN_SWAP] = "IR_SCAN_SWAP",
+    [IR_SCAN_ANY]   = "IR_SCAN_ANY",
+    [IR_SCAN_BAL]   = "IR_SCAN_BAL",
+    [IR_SCAN_FIND]  = "IR_SCAN_FIND",
+    [IR_SCAN_MANY]  = "IR_SCAN_MANY",
+    [IR_SCAN_MATCH] = "IR_SCAN_MATCH",
+    [IR_SCAN_MOVE]  = "IR_SCAN_MOVE",
+    [IR_SCAN_POS]   = "IR_SCAN_POS",
+    [IR_SCAN_TAB]   = "IR_SCAN_TAB",
+    [IR_SCAN_UPTO]  = "IR_SCAN_UPTO",
     [IR_SWAP]   = "IR_SWAP",
     [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
     [IR_DEREF] = "IR_DEREF",
@@ -170,7 +179,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;

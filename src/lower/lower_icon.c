@@ -116,6 +116,15 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
 /*====================================================================================================================================================================================================*/
 static int icn_scan_kind_for(const char * s) {
     if (!s) return 0;
+    if (!strcmp(s,"tab"))   return (int)IR_SCAN_TAB;
+    if (!strcmp(s,"move"))  return (int)IR_SCAN_MOVE;
+    if (!strcmp(s,"upto"))  return (int)IR_SCAN_UPTO;
+    if (!strcmp(s,"any"))   return (int)IR_SCAN_ANY;
+    if (!strcmp(s,"many"))  return (int)IR_SCAN_MANY;
+    if (!strcmp(s,"find"))  return (int)IR_SCAN_FIND;
+    if (!strcmp(s,"match")) return (int)IR_SCAN_MATCH;
+    if (!strcmp(s,"pos"))   return (int)IR_SCAN_POS;
+    if (!strcmp(s,"bal"))   return (int)IR_SCAN_BAL;
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -124,8 +133,7 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        if (nd->op == IR_CALL && IR_LIT(nd).dval == 3.0 && IR_LIT(nd).sval) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) { nd->op = (IR_e) k; IR_graph_t ** blks = (IR_graph_t **)0; if (blks) for (int a = 0; a < (int) IR_LIT(nd).ival; a++) icn_retag_scan_body(blks[a], depth + 1); } }
-        else if (nd->op == IR_OP_COUNT) { icn_retag_scan_body((IR_graph_t *)0, depth + 1); icn_retag_scan_body((IR_graph_t *) 0, depth + 1); }
+        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN) && IR_LIT(nd).sval) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
     }
 }
 /*====================================================================================================================================================================================================*/
@@ -340,6 +348,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * leave_fail = build(cx, IR_SCAN, ω, ω);
         /* Lower the body; body.success → leave_succ; body.failure → leave_fail */
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], leave_succ, leave_fail, &bv);
+        /* Retag IR_CALL nodes for scan builtins (tab/move/upto/etc) inside the body */
+        icn_retag_scan_body(cx->g, 0);
         /* Stitch: enter.γ → b_entry */
         lc_γ_to(enter, b_entry);
         /* Lower subject → enter; subject.failure → p.failure */
