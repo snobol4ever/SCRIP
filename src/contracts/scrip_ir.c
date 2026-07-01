@@ -256,6 +256,11 @@ void ir_drive_slot_assign(IR_graph_t * g) {
            fell through to the produces-value k+=1 grant, so the NEXT node's tmp landed exactly on the
            counter — the count literal's DT tag (6) overwrote it, gate read 6>=t, instant ω, empty output. */
         if (nd->op == IR_LIMIT) { nd->tmp = base + k * 16; k += 2; continue; }
+        /* IR_REPALT needs 24 bytes: 16-byte yielded-value copy + 8-byte int64 `yielded` flag at [+16].
+           k+=2, same pattern as IR_LIMIT. Before this (repalt rung, 2026-07-01) it fell through and ALIASED
+           onto its e_root's slot — with e=TO the flag landed exactly on TO's counter, so TO's own α write
+           (counter:=from) set the flag, the exhausted-test read it as yielded, and |(1 to 0) restarted forever. */
+        if (nd->op == IR_REPALT) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_ASSIGN is deliberately NOT in ir_node_produces_value (assignment is a statement, not a general
            value-producer for most consumers) but bb_assign_local/bb_assign_global DO stage a 16-byte own-result
            copy (needed when an assign is used as a sub-expression, e.g. x := (y := 5)) via drive_value_slot's

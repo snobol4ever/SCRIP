@@ -305,12 +305,17 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t ** val = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t * succ = CONJ;
         if (t->t == TT_SEQ_EXPR) {
             IR_t * failt = ω; IR_t * last_beta = ω; IR_t * rb = NULL;
-            for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, failt, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; succ = ent[i]; failt = ent[i]; }
+            /* A statement's success into the NEXT statement is a PRODUCE edge — α role, even when the next entry is
+               generator-kind (build()'s auto-stamp marks it β, which enters the resume pump with a cold frame; the
+               2026-07-01 REPALT symptom: every |1 printed 0 because assign.γ → REPALT.β skipped the fresh α clear).
+               Same rule as LIMIT's er→lim restamp: role lives on the EDGE, not the target's kind.  Guarded on the
+               edge actually targeting succ — constructs like every re-aim their γ internally and must not be rewired. */
+            for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, failt, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ); succ = ent[i]; failt = ent[i]; }
             if (val[k - 1]) ir_operand_push(CONJ, val[k - 1]);
             cx->conj_resumable = rb; cx->beta = last_beta; *res = CONJ; return ent[0];
         }
         IR_t * last_beta = ω; IR_t * rb = NULL;
-        for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, ω, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; succ = ent[i]; }
+        for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, ω, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ); succ = ent[i]; }
         int lr = -1; for (int i = 0; i < k; i++) { if (lr >= 0) ω_to(val[i], val[lr]); if (is_resumable(S[i])) lr = i; }
         if (val[k - 1]) ir_operand_push(CONJ, val[k - 1]);
         cx->conj_resumable = rb; cx->beta = last_beta; *res = CONJ; return ent[0];
@@ -460,6 +465,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
            The β (= consumer asking for next value) pumps e-β directly (no MoveLabel needed at runtime,
            since bb_repalt's test+restart logic encodes JCON's IndirectGoto). */
         IR_t * nd = build(cx, IR_REPALT, γ, ω);
+        lc_γ_to(nd, γ);   /* REPALT.γ (the yield's target) is a PRODUCE edge — α even into a generator-kind consumer (LIMIT); build()'s auto-β sent the yield into LIMIT.β's pump → infinite spin on |(1 to 0)\3 */
         IR_t * er = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &er);
         ir_operand_push(nd, er);   /* operand[0] = e root node */
         ir_operand_push(nd, ee);   /* operand[1] = e entry point (may differ from root) */
@@ -485,6 +491,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
            generator successes (expr.success -> p.ir.success rides through the gate).  Wire-later,
            same idiom as TT_LCONCAT below. */
         γ_to(lr, ge);
+        if (lr && lr->γ.node == ge) lc_γ_to(lr, ge);   /* count→generator-entry is a fresh PRODUCE edge — α even when ge is itself generator-kind (|e as the limited expr; a TO's entry is a literal so this only bites REPALT) */
         /* The generator's SUCCESS edge into the gate is a PRODUCE edge — it must enter LIMIT.α (the
            check-inc-copy gate), never LIMIT.β (the resume pump). build()/γ_to's kind-based auto-stamp
            marked it β because IR_LIMIT is (correctly) generator-kind for CONSUMER-backtrack routing;
@@ -720,7 +727,8 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_t * succ = icn_subtree_has_suspend(body) ? PFAIL : PSUCC; IR_t * fail = PFAIL;
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
-        IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); succ = entry; fail = entry;
+        /* statement-spine PRODUCE edge is α-role even into a generator-kind entry — same guarded restamp as TT_SEQ/TT_SEQ_EXPR (see the comment there; REPALT every|1 symptom, 2026-07-01) */
+        IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ); succ = entry; fail = entry;
     }
     g->entry = succ; return g;
 }

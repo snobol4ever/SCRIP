@@ -675,8 +675,9 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
 /* Emit e's value-operands (e.g. the from/to bounds of an IR_TO) so they get frame slots before e itself is walked.
    For a single-node value producer (literal, var) e has no operands and this is a no-op.  Mirrors case_slot_binop_operands. */
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* IR_OP_COUNT — Icon repeated alternation `|e`.  The sub-expression e is the lowerer-set operand[0], driven INTERNALLY
-   here (it is NOT on the main spine), so flat_drive_repalt owns all four of e's edges.  Modelled on JCON ir_a_RepAlt:
+/* IR_REPALT — Icon repeated alternation `|e`.  The sub-expression e is the lowerer-set operand[0]; its chain nodes are
+   BFS-discovered and emitted in the main loop, but flat_drive_repalt owns all four of e's EDGES (e_root's γ/ω are
+   redirected to the yield/test stubs below at edge-resolution time).  Modelled on JCON ir_a_RepAlt:
    a one-bit `yielded` flag (frame slot at off+16, like bb_limit's counter) toggles JCON's MoveLabel/IndirectGoto.
      restart (= REPALT α / fresh start): yielded:=0; (re-)evaluate e's bounds; run e.
      e succeeds:  copy e's value into the REPALT slot; yielded:=1; jmp γ (yield).
@@ -865,6 +866,38 @@ static int drive_value_slot(IR_t *nd) {
         abort();
     }
     return bb_slot_alloc16(nd);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* flat_drive_repalt — the function emit.cpp's REPALT comments cite as owning e's four edges (previously a phantom: cited, never defined — 2026-07-01 wholesale audit).  Layout per the IR_REPALT design
+   note above + JCON ir_a_RepAlt (refs/jcon-master/tran/irgen.icn:206-229): α(lbls[i]) clear→jmp-e ≡ MoveLabel(t,fail);Goto e.start · yield(ra_y) copy+flag:=1→jmp-γ ≡ MoveLabel(t,start);Goto success ·
+   test(ra_t) flag==1?je-α:jmp-ω ≡ IndirectGoto(t) · β jmp e-β when e_root is generator_kind else jmp-test (a non-generator's resume IS its failure — the ml ival=0 rule).  e_root's γ/ω edges are
+   redirected onto ra_y/ra_t by the edge-resolution scan in the main loop; this function only emits the four stubs. */
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **ra_y, bb_label_t **ra_t, bb_label_t *node_γ, bb_label_t *node_ω) {
+    IR_t *e_root  = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
+    IR_t *e_entry = (nodes[i]->n_operands > 1 && nodes[i]->operands[1]) ? nodes[i]->operands[1] : e_root;
+    int off = drive_value_slot(nodes[i]);
+    bb_flat_cursor_reserve(off + 24);
+    int e_sa = e_root ? bb_slot_get(e_root) : -1;
+    if (e_sa < 0 && e_root) e_sa = drive_value_slot(e_root);
+    bb_label_t *e_lbl = node_ω; bb_label_t *e_beta = ra_t[i];
+    if (e_entry) for (int k = 0; k < n; k++) if (nodes[k] == e_entry) { e_lbl = lbls[k]; break; }
+    if (e_root && ir_is_generator_kind(e_root->op)) for (int k = 0; k < n; k++) if (nodes[k] == e_root) { e_beta = betas[k]; break; }
+    g_emit.op_off = off; g_emit.op_sa = e_sa;
+    DRIVE_FILL(nodes[i], node_γ, node_ω, betas[i]);
+    bb_emit_x86(bb_repalt_clear());
+    emit_jmp_label(e_lbl, JMP_JMP);
+    emit_label_define_bb(ra_y[i]);
+    g_emit.op_off = off; g_emit.op_sa = e_sa;
+    bb_emit_x86(bb_repalt_yield());
+    emit_jmp_label(node_γ, JMP_JMP);
+    emit_label_define_bb(ra_t[i]);
+    g_emit.op_off = off;
+    bb_emit_x86(bb_repalt_test());
+    emit_jmp_label(lbls[i], JMP_JE);
+    emit_jmp_label(node_ω, JMP_JMP);
+    emit_label_define_bb(betas[i]);
+    emit_jmp_label(e_beta, JMP_JMP);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void drive_unowned(IR_t *nd) {
@@ -1336,6 +1369,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); } }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **ra_y  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **ra_t  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
     /* Allocate a resume-pointer slot for generator procs with IR_SUSPEND nodes.
        We must place it ABOVE all value-producer slots (which use nd->tmp offsets).
@@ -1364,6 +1399,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     for (int i = 0; i < n; i++) {
         lbls[i]  = emit_label_alloc("xchain%d_n%d_α", id, i);
         betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
+        ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_ry", id, i) : NULL;
+        ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_rt", id, i) : NULL;
     }
     /* Emit resume-slot initialization for generator procs: store first-suspend's β into resume slot.
        This code lands in α_body (after the prologue) so it runs on the very first call. */
@@ -1411,6 +1448,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
         if (!omega_resolved) node_ω = &lbl_ω;
+        /* flat_drive_repalt edge ownership: if THIS node is some REPALT's e_root (operand[0]), its success is the yield stub (copy value, yielded:=1, jmp repalt-γ) and its failure is the exhausted-test
+           stub (yielded ? restart : repalt-ω) — JCON ir_a_RepAlt's e.success/e.failure chunks (irgen.icn:215-219).  Lower left e_root's γ NULL (would mis-default to lbl_γ) and ω at the enclosing target
+           (would skip the test); the redirect happens HERE, at edge-resolution time, never by writing the graph. */
+        for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0 && nodes[r]->operands[0] == nodes[i]) { node_γ = ra_y[r]; node_ω = ra_t[r]; break; }
         /* Pre-propagate IR_CONJ slot: if the CONJ has operand[0] with a known tmp slot,
            register it NOW so downstream nodes (e.g. write's arg-slot lookup) see it. */
         if (nodes[i]->op == IR_CONJ && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
@@ -1473,35 +1514,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             else if (sg->op == IR_FAIL) node_γ = &lbl_ω;
             else for (int k = 0; k < n; k++) if (nodes[k] == sg) { node_γ = sg_is_beta ? betas[k] : lbls[k]; break; }
         }
-        /* IR_REPALT: intercept before emit_drive — drive sub-expression e internally.
-           JCON ir_a_RepAlt shape: restart→yielded:=0→e.start; e.success→yielded:=1→γ(yield);
-           β→e.β(pump); e.failure→if yielded→restart; else→ω.
-           operands[0]=e root (value node), operands[1]=e chain entry (may differ). */
+        /* IR_REPALT: intercept before emit_drive — flat_drive_repalt (defined above drive_unowned) emits the four
+           stubs (α clear+jmp-e / yield / exhausted-test / β pump); e_root's γ/ω were redirected onto ra_y/ra_t by
+           the edge-resolution scan above.  JCON ir_a_RepAlt, irgen.icn:206-229. */
         if (nodes[i]->op == IR_REPALT) {
-            IR_t *e_root  = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
-            IR_t *e_entry = nodes[i]->n_operands > 1 ? nodes[i]->operands[1] : e_root;
-            /* Allocate slots: result at op_off, counter-flag at op_off+16 */
-            int off = drive_value_slot(nodes[i]);
-            bb_flat_cursor_reserve(off + 24);
-            int e_sa = e_root ? bb_slot_get(e_root) : -1;
-            if (e_sa < 0 && e_root) e_sa = drive_value_slot(e_root);
-            /* Find e chain entry's label in BFS */
-            bb_label_t *e_lbl   = node_ω;   /* default: e entry not found → ω */
-            bb_label_t *e_beta  = node_ω;
-            if (e_entry) for (int k = 0; k < n; k++) if (nodes[k] == e_entry) { e_lbl = lbls[k]; e_beta = betas[k]; break; }
-            if (e_root  && e_root != e_entry) for (int k = 0; k < n; k++) if (nodes[k] == e_root) { /* e_beta stays at e_entry's beta */ break; }
-            /* Emit: REPALT_α label + bb_repalt_clear (yielded:=0) */
-            emit_label_define_bb(lbls[i]);
-            g_emit.op_off = off; g_emit.op_sa = e_sa;
-            DRIVE_FILL(nodes[i], node_γ, node_ω, betas[i]);
-            bb_emit_x86(bb_repalt_clear());
-            /* jump to e's entry */
-            if (g_is_text) { char jt[64]; snprintf(jt, sizeof jt, "jmp %s\n", e_lbl->name); emit_text_n(jt, strlen(jt)); }
-            else { ef_b1(0xE9); bb_emit_patch_rel32(e_lbl); }
-            /* β (resume): pump e-β */
-            emit_label_define_bb(betas[i]);
-            if (g_is_text) { char jt[64]; snprintf(jt, sizeof jt, "jmp %s\n", e_beta->name); emit_text_n(jt, strlen(jt)); }
-            else { ef_b1(0xE9); bb_emit_patch_rel32(e_beta); }
+            flat_drive_repalt(nodes, n, i, lbls, betas, ra_y, ra_t, node_γ, node_ω);
             continue;  /* skip normal emit_drive */
         }
         /* IR_LIMIT: set g_limit_gen_beta so emit_drive's IR_LIMIT arm sees the generator's β. */
