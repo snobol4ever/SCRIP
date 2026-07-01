@@ -251,6 +251,11 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         /* IR_ITERATE needs 24 bytes: 16-byte result DESCR + 8-byte int64 counter at [+16].
            k+=2 gives 32 bytes, same safe-oversize pattern as IR_TO/IR_SCAN_ENTER. */
         if (nd->op == IR_ITERATE) { nd->tmp = base + k * 16; k += 2; continue; }
+        /* IR_LIMIT needs 24 bytes: 16-byte limited-result copy + 8-byte int64 counter at [+16].
+           k+=2 gives 32 bytes, same pattern as IR_ITERATE. Before this (2026-07-01 wholesale audit) it
+           fell through to the produces-value k+=1 grant, so the NEXT node's tmp landed exactly on the
+           counter — the count literal's DT tag (6) overwrote it, gate read 6>=t, instant ω, empty output. */
+        if (nd->op == IR_LIMIT) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_ASSIGN is deliberately NOT in ir_node_produces_value (assignment is a statement, not a general
            value-producer for most consumers) but bb_assign_local/bb_assign_global DO stage a 16-byte own-result
            copy (needed when an assign is used as a sub-expression, e.g. x := (y := 5)) via drive_value_slot's

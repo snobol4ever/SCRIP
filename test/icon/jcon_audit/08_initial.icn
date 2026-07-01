@@ -1,0 +1,2 @@
+procedure f(); initial write("init"); write("body"); end
+procedure main(); f(); f(); end

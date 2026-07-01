@@ -1,0 +1,1 @@
+procedure main(); if not (1 = 2) then write("y"); end

@@ -1,0 +1,1 @@
+procedure main(); s := "wxyz"; write(s[3]); end

@@ -1,0 +1,1 @@
+procedure main(); write(2 + 3 * 4); end

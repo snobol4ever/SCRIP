@@ -744,13 +744,14 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
-    g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_KEYWORD || nd->op == IR_FIELD || nd->op == IR_FIELD_SET || nd->op == IR_PROC_GEN || ir_norm_call_kind(nd->op) == IR_CALL) ? IR_LIT(nd).sval : (const char *)0;
+    g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET || nd->op == IR_KEYWORD || nd->op == IR_FIELD || nd->op == IR_FIELD_SET || nd->op == IR_PROC_GEN || ir_norm_call_kind(nd->op) == IR_CALL) ? IR_LIT(nd).sval : (const char *)0;
     { extern int g_gva_active; extern int gva_index_of(const char *); int nm_op = (nd->op == IR_VAR || nd->op == IR_ASSIGN);
       g_emit.op_gva_k = (g_gva_active && nm_op && IR_LIT(nd).sval) ? gva_index_of(IR_LIT(nd).sval) : -1; }
     { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *); int nm_op = (ir_norm_call_kind(nd->op) == IR_CALL);
       g_emit.op_proc_k = (g_proc_direct_active && nm_op && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
     g_emit.op_stno = (int32_t)IR_LIT(nd).ival;
     g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : IR_LIT(nd).ival;
+    if (nd->op == IR_LIMIT && nd->n_operands > 1 && nd->operands[1] && nd->operands[1]->op == IR_LIT_INTEGER) g_emit.op_ival = IR_LIT(nd->operands[1]).ival;
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;
     g_emit.op_counter = 0;
@@ -955,9 +956,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     }
     case IR_TO: {
         if (!bb_child0(nd) || !bb_child1(nd)) { drive_unowned(nd); break; }
-        g_emit.op_sa = bb_slot_get(bb_child0(nd)); g_emit.op_sb = bb_slot_get(bb_child1(nd));
+        g_emit.op_sa = drive_value_slot(bb_child0(nd)); g_emit.op_sb = drive_value_slot(bb_child1(nd));   /* tmp-doctrine: order-independent */
         IR_t * byc = (nd->n_operands > 2) ? nd->operands[2] : NULL;
-        g_emit.op_sc = byc ? bb_slot_get(byc) : -1;
+        g_emit.op_sc = byc ? drive_value_slot(byc) : -1;
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
         g_emit.op_off = drive_value_slot(nd);
         bb_flat_cursor_reserve(g_emit.op_off + 32);
@@ -1024,7 +1025,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
            op_off = LIMIT own slot (result copy at off, counter at off+16). */
         IR_t * gen = nd->n_operands > 0 ? nd->operands[0] : NULL;
         IR_t * cnt = nd->n_operands > 1 ? nd->operands[1] : NULL;
-        int sa = gen ? bb_slot_get(gen) : -1;
+        int sa = gen ? drive_value_slot(gen) : -1;   /* tmp-doctrine: slot = gen->tmp even if gen is later in chain order */
         int64_t count = (cnt && cnt->op == IR_LIT_INTEGER) ? IR_LIT(cnt).ival : 1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_ival = count;
@@ -1148,6 +1149,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa = sa; g_emit.op_sb = 1;
         g_emit.op_off = drive_value_slot(nd);   /* nd->tmp = save area for old r13/r14/r15 */
         bb_flat_cursor_reserve(g_emit.op_off + 24);
+        { extern int g_scan_regs_live; g_scan_regs_live++; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN: {
@@ -1156,6 +1158,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
            This replaces the old IR_LIT(nd).ival approach (which required knowing the slot at lower
            time, before slot assignment). */
         g_emit.op_sb  = 0;
+        { extern int g_scan_regs_live; if (g_scan_regs_live > 0) g_scan_regs_live--; }
         IR_t * enter_nd = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = (enter_nd && enter_nd->tmp >= 0) ? enter_nd->tmp : -1;
         if (g_emit.op_off < 0) { drive_unowned(nd); break; }
@@ -1370,6 +1373,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             }
             break;
         }
+    }
+    /* LIMIT counter init: bb_limit's counter at [op_off+16] is check-BEFORE-yield from 0; the frame is
+       NOT zeroed, so zero it once per chain α-entry, before the spine runs. This is the "chain pre-pass"
+       bb_limit_init's own header comment promised — it had ZERO call sites until now (found by the
+       2026-07-01 wholesale audit; empty-output symptom was garbage counter >= t at first gate entry). */
+    for (int _li = 0; _li < n; _li++) if (nodes[_li]->op == IR_LIMIT) {
+        g_emit.op_off = drive_value_slot(nodes[_li]);
+        bb_flat_cursor_reserve(g_emit.op_off + 32);
+        bb_emit_x86(bb_limit_init());
     }
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(lbls[i]);

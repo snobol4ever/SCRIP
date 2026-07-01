@@ -1,0 +1,2 @@
+global g
+procedure main(); g := 5; write(g); end
