@@ -27,7 +27,6 @@
 typedef enum {
     IR_ASSIGN,
     IR_BINOP,
-    IR_BINOP_GENERIC,
     IR_BINOP_RELOP,
     IR_CALL,
     IR_CALL_BUILTIN,
@@ -77,8 +76,6 @@ typedef enum {
     IR_TERNOP,
     IR_TO,
     IR_UNOP,
-    IR_UNOP_GENERIC,
-    IR_UNOP_TEST,
     IR_UNREACHABLE,
     IR_VAR,
     IR_OP_COUNT

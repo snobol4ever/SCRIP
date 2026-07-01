@@ -267,7 +267,10 @@ static tree_t *parse_unary(IcnParser *p) {
     if (check(p, TK_NOT))       { advance(p); return e_unary(TT_NOT,        parse_unary(p)); }
     if (check(p, TK_QMARK))     { advance(p); return e_unary(TT_RANDOM,     parse_unary(p)); }
     if (check(p, TK_TILDE))     { advance(p); return e_unary(TT_CSET_COMPL, parse_unary(p)); }
-    if (check(p, TK_EQ)) { advance(p); return e_unary(TT_MATCH_UNARY, parse_unary(p)); }
+    if (check(p, TK_EQ)) { advance(p); tree_t *arg = parse_unary(p);
+        tree_t *mfn = ast_node_new(TT_FNC); push_child(mfn, e_leaf_sval(TT_VAR, "match", -1)); push_child(mfn, arg);
+        tree_t *tfn = ast_node_new(TT_FNC); push_child(tfn, e_leaf_sval(TT_VAR, "tab", -1)); push_child(tfn, mfn);
+        return tfn; }
     return parse_limit(p);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
