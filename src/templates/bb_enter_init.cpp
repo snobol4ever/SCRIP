@@ -30,9 +30,10 @@ std::string bb_enter_init() {
     if (!PLATFORM_X86) return x86_bomb("bb_enter_init: no x86 platform");
     if (_.op_off < 0) return x86_bomb("bb_enter_init: op_off < 0 (no slot assigned)");
     return x86("comment", "IR_ENTER_INIT")
-         + x86("cmp",  "qword", FRQ(_.op_off + 8), (long)0)
+         + x86("mov",  "rax", FRQ(_.op_off + 8))
+         + x86("cmp",  "rax", (long)0)
          + x86("jne",  "ω")
-         + x86("mov",  "qword", FRQ(_.op_off + 8), (long)1)
+         + x86("mov",  FRQ(_.op_off + 8), (long)1)
          + x86("jmp",  "γ")
          + x86("def",  "β")
          + x86("jmp",  "ω");
