@@ -12,10 +12,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_ASSIGN] = "IR_ASSIGN",
     [IR_BINOP] = "IR_BINOP",
     [IR_BINOP_RELOP] = "IR_BINOP_RELOP",
-    [IR_BINOP_GENERIC] = "IR_BINOP_GENERIC",
     [IR_UNOP] = "IR_UNOP",
-    [IR_UNOP_TEST] = "IR_UNOP_TEST",
-    [IR_UNOP_GENERIC] = "IR_UNOP_GENERIC",
     [IR_CALL] = "IR_CALL",
     [IR_CALL_PROC_STAGED] = "IR_CALL_PROC_STAGED",
     [IR_CALL_USERPROC] = "IR_CALL_USERPROC",
@@ -186,7 +183,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
    IR_CORET/IR_COFAIL deliberately stay OUT of this set — they are body-internal success/failure targets,
    not general value-producers; their own operand[0] (the produced value, for CORET) rides a DIFFERENT
    node's slot, per RUNG 1's lowering (coret.operand[0] = the body's own value node). */
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_NOT || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_UNOP || op == IR_TERNOP || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_NOT || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -303,7 +300,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
         case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_ASSIGN: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_KEYWORD: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-        case IR_BINOP: case IR_BINOP_RELOP: case IR_BINOP_GENERIC: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
+        case IR_BINOP: case IR_BINOP_RELOP: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_SUCCEED: if (IR_LIT(bb).ival != 0) fprintf(fp, " stno=%d", (int)IR_LIT(bb).ival); break;
         case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
             fprintf(fp, " fn=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
