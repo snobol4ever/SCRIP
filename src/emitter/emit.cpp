@@ -797,6 +797,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_ENTER_INIT:           bb_emit_x86(bb_enter_init());     return 0;
     case IR_CREATE:                bb_emit_x86(bb_create());        return 0;
+    case IR_ACTIVATE:              bb_emit_x86(bb_activate());      return 0;
     case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_SCAN:                 { g_emit.op_sb = 0; bb_emit_x86(bb_gen_scan()); }   return 0;
@@ -1050,6 +1051,21 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.lbl_t0_p = g_create_body_entry;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
+    case IR_ACTIVATE: {
+        /* IR_ACTIVATE (RUNG 5) — `e1 @ e2` / `@e`. operand[0] = the coexpression value node (its slot holds
+           the scrip_coctx_t* bb_create stored at DESCR d0); operand[1] = the transmitted value node, ABSENT
+           for the unary form (op_sb = -1 → bb_activate transmits &null {DT_SNUL,0} inline). op_off = this
+           node's own 16-byte DESCR slot; bb_activate passes its ADDRESS as scrip_coexpr_activate's out-param
+           so the coret'd value lands directly in the tmp with no post-copy. Read-only on nd (FACT RULE). */
+        IR_t * ce = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        IR_t * xv = nd->n_operands > 1 ? nd->operands[1] : NULL;
+        int sa = ce ? bb_slot_get(ce) : -1;
+        if (sa < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sa;
+        g_emit.op_sb = xv ? bb_slot_get(xv) : -1;
+        g_emit.op_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
     case IR_CORET: {
         /* IR_CORET (RUNG 4) — the body of a `create` yields a value and hands control to the activator.
            operand[0] = the produced value node; op_sa = its 16-byte DESCR slot (bb_coret loads {rdi,rsi}
@@ -1248,7 +1264,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
     }
@@ -1264,7 +1280,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];

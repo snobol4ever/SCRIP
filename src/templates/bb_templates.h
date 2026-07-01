@@ -92,6 +92,7 @@ std::string bb_to();
 std::string bb_limit();
 std::string bb_suspend();
 std::string bb_enter_init();
+std::string bb_activate();
 std::string bb_create();
 std::string bb_coret();
 std::string bb_cofail();

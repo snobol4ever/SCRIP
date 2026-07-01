@@ -100,6 +100,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_succeed.cpp \
     $(SRC)/templates/bb_every.cpp \
     $(SRC)/templates/bb_to.cpp \
+    $(SRC)/templates/bb_activate.cpp \
     $(SRC)/templates/bb_create.cpp \
     $(SRC)/templates/bb_coret.cpp \
     $(SRC)/templates/bb_cofail.cpp \
@@ -275,6 +276,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_succeed.cpp           -o $(OBJ)/bb_succeed.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_every.cpp        -o $(OBJ)/bb_every.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_to.cpp           -o $(OBJ)/bb_to.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_activate.cpp     -o $(OBJ)/bb_activate.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_create.cpp       -o $(OBJ)/bb_create.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_coret.cpp        -o $(OBJ)/bb_coret.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cofail.cpp       -o $(OBJ)/bb_cofail.o

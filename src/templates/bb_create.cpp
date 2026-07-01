@@ -59,21 +59,13 @@ std::string bb_create() {
     std::string s = x86("comment", "IR_CREATE")
                    + x86("label", _.lbl_α);
 
-    /* Capture the body-entry address: rax = &body_entry_label (RIP-relative), stored to op_off2+40
-       temporarily so the scratch-fill loop below can treat all 6 register writes uniformly; the
-       address itself travels to scrip_coexpr_create as a SEPARATE first argument (rdi), not through
-       the regs[6] array -- rax here is just a landing spot before the call marshals it into rdi.
-       The LEA is emitted by the XA bridge xa_coexpr_body_lea (xa_coexpr_entry.cpp), which closes RUNG-3's
-       LIMITATION 2: it works in BOTH mediums by LEAing the t0 port (the body-entry α-label threaded via
-       g_create_body_entry -> lbl_t0_p by codegen_flat_chain_body, exactly as IR_LIMIT threads its
-       generator-β). No MEDIUM_* gating and no hand-encoded bytes here -- all encoding lives in
-       x86_lea_tgt inside x86_asm.h, per TEMPLATE-ONLY EMISSION. */
-    s += xa_coexpr_body_lea("rax");
-
-    s += x86("mov", "qword ptr [r12 + " + std::to_string(op_off2 + 40) + "]", "rax");
-
-    /* Fill the regs[6] scratch array: {r12,r13,r14,r15,rbx,rbp} at create-time, per this file's own
-       top-of-file comment on why all six (not just r12) are captured. */
+    /* Fill the regs[6] scratch array FIRST: {r12,r13,r14,r15,rbx,rbp} at create-time, per this file's own
+       top-of-file comment on why all six (not just r12) are captured. ORDER MATTERS (RUNG 5 bring-up fix,
+       gdb-bracketed 2026-07-01): the original RUNG 3 code staged the body-entry address at op_off2+40
+       BEFORE this loop -- whose k=5 iteration stores rbp at exactly op_off2+40, clobbering the address --
+       so the trampoline's `jmp *body_entry_addr` landed on the creator's RBP (a stack address, thread-2
+       SIGSEGV at 0x7fffffffe950). Latent since RUNG 3: nothing executed a body until RUNG 5's `@`. The
+       staging slot is deleted outright -- the LEA goes straight into rdi AFTER the loop. */
     static const char *contract_regs[6] = {"r12", "r13", "r14", "r15", "rbx", "rbp"};
     for (int k = 0; k < 6; k++) {
         s += x86("mov", "qword ptr [r12 + " + std::to_string(op_off2 + k * 8) + "]", contract_regs[k]);
@@ -82,8 +74,15 @@ std::string bb_create() {
        register for addressing, which is unaffected by the fact that r12's own value is also part of the
        data being written; this is the same non-issue as `mov [r12+8], r12` on any x86 assembler. */
 
-    s += x86("mov",  "rdi", "qword ptr [r12 + " + std::to_string(op_off2 + 40) + "]")   /* body_entry_addr */
-       + x86_frame_lea("rsi", op_off2)                                                   /* &regs[6] */
+    /* Capture the body-entry address directly into the call's first argument: rdi = &body_entry_label
+       (RIP-relative). The LEA is emitted by the XA bridge xa_coexpr_body_lea (xa_coexpr_entry.cpp), which
+       closes RUNG-3's LIMITATION 2: it works in BOTH mediums by LEAing the t0 port (the body-entry α-label
+       threaded via g_create_body_entry -> lbl_t0_p by codegen_flat_chain_body, exactly as IR_LIMIT threads
+       its generator-β). No MEDIUM_* gating and no hand-encoded bytes here -- all encoding lives in
+       x86_lea_tgt inside x86_asm.h, per TEMPLATE-ONLY EMISSION. */
+    s += xa_coexpr_body_lea("rdi");
+
+    s += x86_frame_lea("rsi", op_off2)                                                   /* &regs[6] */
        + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
        + x86("mov",  "qword ptr [r12 + " + std::to_string(_.op_off) + "]", "rax")
        + x86("jmp",  "γ")

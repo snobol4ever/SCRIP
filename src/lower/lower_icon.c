@@ -414,11 +414,43 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * coret = build(cx, IR_CORET, NULL, NULL);   /* body.success target; own γ/ω unused by driver */
         IR_t * cofail = build(cx, IR_COFAIL, NULL, NULL); /* body.failure target; own γ/ω unused by driver */
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, (t->n > 0) ? t->c[0] : NULL, coret, cofail, &bv);
+        /* JCON ir_CoRet(t, p.expr.ir.resume): the coret's continuation is the BODY'S OWN RESUME POINT --
+           on the next `@`, scrip_coret's sem_wait returns and bb_coret's post-call jmp must re-enter the
+           body generator at its β (yielding the NEXT value), or, for a non-generator body, the body's
+           failure path (-> cofail -> dead: a second activation of a 1-value body fails). cx->beta right
+           after the body lower IS that resume point (the γ_to wrapper auto-stamps "β" when the target is
+           generator-kind, so the emitter resolves this edge to betas[k], the generator's resume label).
+           Without this edge, bb_coret's jmp γ fell to the CHAIN DEFAULT γ-exit -- the resumed body thread
+           ran off into the main chain's code (RUNG 5 bring-up segv on the SECOND `@`, gdb-bracketed
+           2026-07-01; RUNG 4's own comment had flagged the placeholder as "refined by RUNG 5"). */
+        IR_t * body_beta = cx->beta;
+        if (body_beta) γ_to(coret, body_beta);
         ir_operand_push(coret, bv);      /* coret.operand[0] = the value the body just produced */
         ir_operand_push(nd, b_entry);    /* create.operand[0] = body's entry node (coswitch target) */
         /* bounded resume (asking the CREATE EXPRESSION's own result for a 2nd value) always fails --
            unconditional ω, mirroring JCON's `/bounded & Goto p.ir.failure`. */
         cx->beta = ω; *res = nd; return nd; }
+    case TT_ACTIVATE: {
+        /* JCON: unary `@x` desugars to `&null @ x` (irgen.icn:516) and BOTH forms route through the GENERIC
+           binary-operator machinery (ir_binary, irgen.icn:430-445) — evaluation order left(xmit) then
+           right(coexpr), each sub-expression's failure → p.ir.failure, then ONE op node; the only
+           @-specific arm in that shared JCON path is argument order `args := [rv, lv]` (coexpr FIRST,
+           irgen.icn:433-434), mirrored here as operand[0]=coexpr, operand[1]=xmit. Activation is BOUNDED
+           (a resumed `@`-expression fails: one result per activation — reference semantics, and JCON's
+           vDescriptor "Activate" is a 1-shot 2-arg operator per interfacegen.icn:105), so cx->beta = ω
+           exactly as TT_CREATE. The parser's unary form arrives with n==1 (coexpr only): the xmit operand
+           is simply ABSENT; emit_drive passes op_sb=-1 and bb_activate transmits &null {DT_SNUL,0} inline —
+           behaviorally identical to JCON's synthesized a_Key("null") without fabricating an AST node.
+           IR_ACTIVATE is in ir_node_produces_value (its tmp receives the DESCR the body coret'd back);
+           it is NOT a generator kind — resuming re-activation is `|@c`, ordinary REPALT around this node. */
+        IR_t * nd = build(cx, IR_ACTIVATE, γ, ω);
+        const tree_t * xt = (t->n > 1) ? t->c[0] : NULL;
+        const tree_t * ct = (t->n > 1) ? t->c[1] : t->c[0];
+        IR_t * cr = NULL; IR_t * c_entry = lower(cx, ct, nd, ω, &cr);
+        IR_t * entry = c_entry;
+        ir_operand_push(nd, cr);
+        if (xt) { IR_t * xr = NULL; entry = lower(cx, xt, c_entry, ω, &xr); ir_operand_push(nd, xr); }
+        cx->beta = ω; *res = nd; return entry; }
     case TT_REPALT: {
         /* JCON ir_a_RepAlt (unbounded): start→MoveLabel(t,ω)→e.start; e.success→MoveLabel(t,start)→p.success;
            e.failure→IndirectGoto(t); p.resume→e.resume.
