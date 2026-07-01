@@ -166,7 +166,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_CSET: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = icn_cset_canon(t->v.sval); IR_LIT(nd).ival = 1; *res = nd; return nd; }
+    /* CORRECTED (Claude Sonnet 4.6, 2026-06-30): IR_LIT_STRING+ival=1 clobbered sval (union) → crash in bb_scan_any.
+       Fix: IR_LIT_CHARSET opcode; only sval set; emit_drive sets op_ival=1 for bb_lit_scalar's cset/slen=-1 path. */
+    case TT_CSET: { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(t->v.sval); *res = nd; return nd; }
     case TT_NULL: { if (t->n > 0 && t->c[0]) { IR_t * op = build(cx, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; } IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: return lc_key(cx, t->v.sval, γ, ω, res);
@@ -330,14 +332,17 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_NOT: return lower_not(cx, t, γ, ω, res);
     case TT_ALTERNATE: return lower_alt(cx, t, γ, ω, res);
     case TT_ITERATE: {
-        /* JCON: ! is ir_a_Unop with op="!" → ir_opfn(IR_ITERATE, 1, "rval") for lists.
+        /* JCON: ! is ir_a_Unop with op="!" → ir_opfn(IR_ITERATE, 1, "rval") for lists/strings/tables.
            SCRIP: IR_ITERATE operand[0]=object-node; needs own slot for index counter (op_sb=off+16).
            bb_iterate: α inits counter to 0; loop calls rt_list_bang_at(obj,idx); β incs idx.
-           IR_ITERATE is a generator kind (resumable). */
+           IR_ITERATE is a generator kind (resumable).
+           CORRECTED (Claude Sonnet 4.6, 2026-06-30): γ_to(orr,nd) auto-stamps β (because IR_ITERATE
+           is generator_kind) → first entry landed at β (resume/inc), skipping α's counter=0 init,
+           so iteration always started at element 1 not 0. Fix: lc_γ_to (unconditional α-stamp). */
         IR_t * nd = build(cx, IR_ITERATE, γ, ω);
         IR_t * orr = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr);
         ir_operand_push(nd, orr);
-        γ_to(orr, nd);
+        lc_γ_to(orr, nd);   /* forward operand-feed MUST be α-stamped, same fix as lower_to */
         cx->beta = nd; *res = nd; return ee; }
     case TT_IF: return lower_if(cx, t, γ, ω, res);
     case TT_WHILE: return lower_while(cx, t, γ, ω, res);
@@ -444,6 +449,28 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * lr = NULL; lower(cx, lhs, nd, ω, &lr);
         IR_t * rr = NULL; lower(cx, rhs, nd, ω, &rr);
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
+    /* ir_a_Record: pure declaration — register record type via record_register(spec) at lower time, no IR node.
+       JCON: returns ir_Record(coord, name, fields[]) consumed by bc_records() outside the ir_a_* flow.
+       SCRIP: build spec string "name(f1,f2,...)" and call record_register(spec) during lowering.
+       TT_RECORD AST: e->v.sval = name; children = field TT_VAR nodes (e->c[k]->v.sval = field name). */
+    case TT_RECORD: {
+        extern void record_register(const char *spec);
+        const char * rname = t->v.sval;
+        if (rname) {
+            char spec[2048]; int pos = 0;
+            pos += snprintf(spec + pos, sizeof spec - pos, "%s(", rname);
+            for (int k = 0; k < t->n; k++) {
+                if (k) pos += snprintf(spec + pos, sizeof spec - pos, ",");
+                if (t->c[k] && t->c[k]->v.sval) pos += snprintf(spec + pos, sizeof spec - pos, "%s", t->c[k]->v.sval);
+            }
+            snprintf(spec + pos, sizeof spec - pos, ")");
+            record_register(spec);
+        }
+        IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    /* ir_a_Invocable: declares procedures invocable by name — pure annotation, no IR node needed. */
+    case TT_INVOCABLE:
+    /* ir_a_Link: link declaration — handled at parse/compile level, not at IR lowering. */
+    case TT_LINK:
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
 }

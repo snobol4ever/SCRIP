@@ -34,6 +34,20 @@ std::string bb_lit_scalar() {
              + x86("def", "β")
              + x86("jmp", "ω")
              + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+    /* IR_LIT_CHARSET: cset literal → DT_S with slen=0xFFFFFFFF (-1) = IS_CSET_fn sentinel (DT_S && slen==-1).
+       CORRECTED (Claude Sonnet 4.6, 2026-06-30): previously TT_CSET used IR_LIT_STRING+ival=1 which clobbered
+       sval (same union) → bb_scan_any received op_name1=0x1 and crashed. Fix: use IR_LIT_CHARSET opcode. */
+    if (live && _.op_node_kind == (int)IR_LIT_CHARSET && _.op_off >= 0)
+        return x86("comment", "IR_LIT_CHARSET")
+             + x86("label",   _.lbl_α)
+             + x86("mov",    FRQ(_.op_off), (long)DT_S)
+             + x86("mov",    FR(_.op_off + 4), (long)-1)
+             + x86_ro_load_q("rax", 0)
+             + x86("mov",    FRQ(_.op_off + 8), "rax")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω")
+             + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
     if (live && _.op_node_kind == (int)IR_LIT_REAL && _.op_off >= 0)
         return x86("comment", "IR_LIT_REAL")
              + x86("label",   _.lbl_α)
