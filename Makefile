@@ -148,9 +148,9 @@ RT_PIC_SRCS := \
     $(SRC)/templates/xa_strtab_rodata.cpp \
     $(SRC)/templates/xa_cap_fixup.cpp \
     $(SRC)/templates/xa_pattern_blobs.cpp \
-    $(SRC)/opt/gva_collect.c \
-    $(SRC)/opt/proc_collect.c \
-    $(SRC)/opt/ir_query.c \
+    $(SRC)/optimizer/gva_collect.c \
+    $(SRC)/optimizer/proc_collect.c \
+    $(SRC)/optimizer/ir_query.c \
     \
     $(SRC)/machine/sm_prog.c \
     $(SRC)/lower/lower_common.c \
@@ -387,9 +387,9 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_prolog.c  -o $(OBJ)/lower_prolog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_raku.c    -o $(OBJ)/lower_raku.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_pascal.c  -o $(OBJ)/lower_pascal.o
-	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/gva_collect.c -o $(OBJ)/gva_collect.o
-	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/proc_collect.c -o $(OBJ)/proc_collect.o
-	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/ir_query.c -o $(OBJ)/ir_query.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/gva_collect.c -o $(OBJ)/gva_collect.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/proc_collect.c -o $(OBJ)/proc_collect.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/ir_query.c -o $(OBJ)/ir_query.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
