@@ -33,7 +33,6 @@ static const kind_entry_t g_kinds[] = {
     { IR_SEQ,             "IR_SEQ" },
     { IR_FAIL,            "IR_FAIL" },
     { IR_SUCCEED,         "IR_SUCCEED" },
-    { IR_GOTO,            "IR_GOTO" },
     { IR_RETURN,          "IR_RETURN" },
     { IR_IF,              "IR_IF" },
     { IR_TO_BY,           "IR_TO_BY" },
