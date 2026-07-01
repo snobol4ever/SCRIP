@@ -244,6 +244,16 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         /* IR_ITERATE needs 24 bytes: 16-byte result DESCR + 8-byte int64 counter at [+16].
            k+=2 gives 32 bytes, same safe-oversize pattern as IR_TO/IR_SCAN_ENTER. */
         if (nd->op == IR_ITERATE) { nd->tmp = base + k * 16; k += 2; continue; }
+        /* IR_ASSIGN is deliberately NOT in ir_node_produces_value (assignment is a statement, not a general
+           value-producer for most consumers) but bb_assign_local/bb_assign_global DO stage a 16-byte own-result
+           copy (needed when an assign is used as a sub-expression, e.g. x := (y := 5)) via drive_value_slot's
+           op_off. Before this fix that fell through to the LEGACY bb_slot_alloc16() emit-time cursor
+           (g_flat_slot_count), which starts back at `base` independently of THIS k-based numbering -- same
+           collision disease as the fixed IR_TO regression, just on IR_ASSIGN: two ASSIGNs in a loop body (e.g.
+           `every sum +:= (1 to N)`, desugared to assign-of-binop) would grab slots 16/32, stomping the VAR/BINOP/
+           IR_TO tmps LOWER already placed there, silently truncating accumulation to the generator's last value.
+           Fix: give IR_ASSIGN a real coordinated tmp here, same 16-byte single-DESCR shape as IR_ENTER_INIT. */
+        if (nd->op == IR_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
         if (ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; }
     }
     g->jcon_value_region = base + k * 16;
