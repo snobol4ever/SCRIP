@@ -763,6 +763,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     switch (nd->op) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
+    case IR_LIT_CHARSET:
     case IR_LIT_REAL:               bb_emit_x86(bb_lit_scalar());         return 0;
     case IR_KEYWORD:              bb_emit_x86(bb_keyword());            return 0;
     case IR_VAR:                  { extern int is_global(const char *);
@@ -868,6 +869,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     switch (nd->op) {
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_LIT_CHARSET:
+        /* op_ival=1 signals bb_lit_scalar to emit slen=-1 (0xFFFFFFFF) → IS_CSET_fn-true DT_S descriptor */
+        g_emit.op_ival = 1; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR: {
