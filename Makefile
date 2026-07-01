@@ -151,6 +151,9 @@ RT_PIC_SRCS := \
     $(SRC)/optimizer/gva_collect.c \
     $(SRC)/optimizer/proc_collect.c \
     $(SRC)/optimizer/ir_query.c \
+    $(SRC)/optimizer/branch_chain.c \
+    $(SRC)/optimizer/copy_prop.c \
+    $(SRC)/optimizer/optimizer.c \
     \
     $(SRC)/machine/sm_prog.c \
     $(SRC)/lower/lower_common.c \
@@ -390,6 +393,9 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/gva_collect.c -o $(OBJ)/gva_collect.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/proc_collect.c -o $(OBJ)/proc_collect.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/ir_query.c -o $(OBJ)/ir_query.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/branch_chain.c -o $(OBJ)/branch_chain.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/copy_prop.c -o $(OBJ)/copy_prop.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/optimizer.c -o $(OBJ)/optimizer.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
