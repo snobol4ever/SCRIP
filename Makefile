@@ -33,7 +33,7 @@ CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/inc
 WARN    := -w
 CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 CRT     := $(CBASE) -DDYN_ENGINE_LINKED
-LIBS    := -lgc -lm
+LIBS    := -lgc -lm -lpthread
 
 # Runner defaults
 SNO          ?= $(error SNO is required — e.g. make run SNO=prog.sno)
@@ -66,6 +66,7 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt.c \
     $(RT)/rt/rt_protected.c \
     $(RT)/rt/pat_pool.c \
+    $(RT)/rt/rt_coexpr.c \
     $(SRC)/runtime/core/core.c \
     $(SRC)/runtime/core/argval.c \
     $(SRC)/runtime/core/name_save.c \
@@ -201,7 +202,7 @@ out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES \
 	    $(RT_PIC_SRCS) \
-	    -lgc -lm -lstdc++ \
+	    -lgc -lm -lstdc++ -lpthread \
 	    -o out/libscrip_rt.so
 	@echo "Built: out/libscrip_rt.so"
 
@@ -381,6 +382,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_coexpr.c -o $(OBJ)/rt_coexpr.o
 	$(CC) $(CRT)   -c $(SRC)/driver/driver_globals.c -o $(OBJ)/driver_globals.o
 	$(CC) $(CRT)   -c $(SRC)/driver/driver_label.c   -o $(OBJ)/driver_label.o
 	$(CC) $(CRT)   -c $(SRC)/driver/driver_hooks.c   -o $(OBJ)/driver_hooks.o
