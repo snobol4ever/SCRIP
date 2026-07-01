@@ -137,9 +137,9 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     }
 }
 /*====================================================================================================================================================================================================*/
-static IR_t * lc_key(icx_t * cx, const char * kw, IR_t * γ, IR_t * ω, IR_t ** res) {
+static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, IR_t * ω, IR_t ** res) {
     const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
-    if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = 0; *res = nd; return nd; }
+    if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = (t && t->line > 0) ? t->line : 0; *res = nd; return nd; }
     if (id && !strcmp(id, "file")) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; *res = nd; return nd; }
     IR_t * nd = build(cx, IR_KEYWORD, γ, ω); IR_LIT(nd).sval = (char *) kw; *res = nd; return nd;
 }
@@ -171,8 +171,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
        Fix: IR_LIT_CHARSET opcode; only sval set; emit_drive sets op_ival=1 for bb_lit_scalar's cset/slen=-1 path. */
     case TT_CSET: { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(t->v.sval); *res = nd; return nd; }
     case TT_NULL: { if (t->n > 0 && t->c[0]) { IR_t * op = build(cx, IR_UNOP_TEST, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; } IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
-    case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_KEYWORD: return lc_key(cx, t->v.sval, γ, ω, res);
+    case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
+    case TT_KEYWORD: return lc_key(cx, t, t->v.sval, γ, ω, res);
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
@@ -480,7 +480,19 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * gen_beta = cx->beta;
         ir_operand_push(lim, er);  /* operand[0] = generator root */
         ir_operand_push(lim, lr);  /* operand[1] = count literal */
-        (void)inner_beta; (void)ge; cx->beta = gen_beta;
+        /* JCON ir_a_Limitation: limit.success -> expr.ir.start (irgen.icn:137 `Goto p.expr.ir.start`).
+           The count's success must enter the GENERATOR, not the gate; gate (LIMIT.a) fires only on
+           generator successes (expr.success -> p.ir.success rides through the gate).  Wire-later,
+           same idiom as TT_LCONCAT below. */
+        γ_to(lr, ge);
+        /* The generator's SUCCESS edge into the gate is a PRODUCE edge — it must enter LIMIT.α (the
+           check-inc-copy gate), never LIMIT.β (the resume pump). build()/γ_to's kind-based auto-stamp
+           marked it β because IR_LIMIT is (correctly) generator-kind for CONSUMER-backtrack routing;
+           the role lives on the EDGE, not the target's kind. Re-stamp α here (JCON irgen.icn:133,
+           expr.success → p.ir.success, which rides through the gate). 2026-07-01 wholesale audit:
+           symptom was TO.γ → LIMIT.β → TO.β silent spin to exhaustion, empty output. */
+        if (er) lc_γ_to(er, lim);
+        (void)inner_beta; cx->beta = gen_beta;
         *res = lim; return ee; }
     case TT_LCONCAT: {
         /* JCON: ||| is a_Binop("|||") → ir_OpFunction("|||", 2) → pure-value opfn, never fails.

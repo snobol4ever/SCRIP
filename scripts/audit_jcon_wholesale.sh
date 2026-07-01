@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# audit_jcon_wholesale.sh — WHOLESALE from-scratch verification of every JCON ir_a_* construct in SCRIP Icon.
+#
+# WHY: GOAL-IR-IMMUTABLE-EMIT.md (Lon directive 2026-07-01): "do not trust any of it. We need to start the
+# list from scratch and run through a one by one verification step." This script IS that list, executable.
+#
+# WHAT: for each probe in test/icon/jcon_audit/NN_name.icn (one per JCON ir_a_* + SCRIP TT extras):
+#   ORC  — canonical icont/iconx oracle output (refs upload build), if ICONT is set/found. Ground truth.
+#   EXP  — the hand-derived .expected beside the probe. If ORC disagrees with EXP, the PROBE is wrong.
+#   M3   — scrip --run      (in-process native x86)
+#   M4   — scrip --compile  (x86 text asm -> gcc -no-pie + libscrip_rt.so -> run)
+# Verdict: OK (M3==M4==truth) | M3-BAD | M4-BAD | BOTH-BAD | HANG3/HANG4 | CRASH3/CRASH4 | PROBE-BAD.
+#   truth = ORC when the oracle both exists and compiled the probe; else EXP.
+#
+# USAGE: bash scripts/audit_jcon_wholesale.sh [name-filter]
+#   ICONT=/path/to/icon-master/bin/icont (auto-probed at refs-src + refs locations)
+# Timeouts per RULES.md: 8s unit probes.
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
+SCRIP="$ROOT/scrip"; RT="$ROOT/out"; DIR="$ROOT/test/icon/jcon_audit"
+FILTER="${1:-}"
+ICONT="${ICONT:-}"
+if [ -z "$ICONT" ]; then for c in /home/claude/workspace/refs-src/icon-master/bin/icont "$ROOT/refs/icon-master/bin/icont"; do [ -x "$c" ] && ICONT="$c" && break; done; fi
+[ -n "$ICONT" ] && export PATH="$(dirname "$ICONT"):$PATH"
+W=/tmp/jcon_audit_work; rm -rf "$W"; mkdir -p "$W"
+pass=0; fail=0; probebad=0; skip=0
+printf "%-22s %-9s %-9s %-9s %s\n" "PROBE" "ORACLE" "MODE3" "MODE4" "VERDICT"
+printf "%-22s %-9s %-9s %-9s %s\n" "-----" "------" "-----" "-----" "-------"
+for f in "$DIR"/[0-9][0-9]_*.icn; do
+  name="$(basename "$f" .icn)"
+  case "$name" in *"$FILTER"*) ;; *) continue;; esac
+  exp="$(cat "${f%.icn}.expected")"
+  # oracle
+  orc_status="-"; truth="$exp"
+  if [ -n "$ICONT" ]; then
+    if "$ICONT" -s -o "$W/$name.orc" "$f" >/dev/null 2>&1; then
+      orc="$(timeout 8 "$W/$name.orc" </dev/null 2>/dev/null)"; orc_rc=$?
+      if [ $orc_rc -eq 124 ]; then orc_status="HANG"
+      elif [ "$orc" = "${exp%$'\n'}" ] || [ "$orc"$'\n' = "$exp" ]; then orc_status="=exp"; truth="$exp"
+      else orc_status="DIFF"; truth="$orc"$'\n'; fi
+    else orc_status="NOCOMP"; fi
+  fi
+  # mode 3
+  m3="$(timeout 8 "$SCRIP" --run "$f" </dev/null 2>/dev/null)"; rc3=$?
+  # mode 4
+  m4=""; rc4=1
+  if timeout 8 "$SCRIP" --compile "$f" >"$W/$name.s" 2>/dev/null </dev/null && [ -s "$W/$name.s" ]; then
+    if gcc -no-pie "$W/$name.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -o "$W/$name.bin" 2>/dev/null; then
+      m4="$(timeout 8 "$W/$name.bin" </dev/null 2>/dev/null)"; rc4=$?
+    else rc4=200; fi
+  else rc4=201; fi
+  st3="ok"; st4="ok"; t="${truth%$'\n'}"
+  if   [ $rc3 -eq 124 ]; then st3="HANG"
+  elif [ $rc3 -ge 128 ]; then st3="CRASH"
+  elif [ "$m3" != "$t" ]; then st3="BAD"; fi
+  if   [ $rc4 -eq 124 ]; then st4="HANG"
+  elif [ $rc4 -eq 200 ]; then st4="NOASM"
+  elif [ $rc4 -eq 201 ]; then st4="NOCC"
+  elif [ $rc4 -ge 128 ]; then st4="CRASH"
+  elif [ "$m4" != "$t" ]; then st4="BAD"; fi
+  if [ "$orc_status" = "DIFF" ]; then v="PROBE-EXP-WRONG(oracle rules)"; fi
+  if [ "$st3" = "ok" ] && [ "$st4" = "ok" ]; then v="OK"; pass=$((pass+1));
+  else v="$st3/$st4"; fail=$((fail+1)); fi
+  [ "$orc_status" = "NOCOMP" ] && { v="$v (probe not std Icon?)"; }
+  printf "%-22s %-9s %-9s %-9s %s\n" "$name" "$orc_status" "$st3" "$st4" "$v"
+done
+echo "----"
+echo "PASS(both modes match truth)=$pass  FAIL=$fail"

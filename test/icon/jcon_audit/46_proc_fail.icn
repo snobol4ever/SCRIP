@@ -1,0 +1,2 @@
+procedure f(); fail; end
+procedure main(); write(f() | "failed"); end

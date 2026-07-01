@@ -1,0 +1,1 @@
+procedure main(); write(3.5); end

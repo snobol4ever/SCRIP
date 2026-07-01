@@ -82,7 +82,7 @@ static tree_t *parse_primary(IcnParser *p) {
     }
     if (t.kind == TK_IDENT) {
         advance(p);
-        return e_leaf_sval(TT_VAR, t.val.sval.data, (int)t.val.sval.len);
+        tree_t *ev = e_leaf_sval(TT_VAR, t.val.sval.data, (int)t.val.sval.len); ev->line = t.line; return ev;
     }
     if (t.kind == TK_AND) {
         advance(p);
@@ -99,7 +99,7 @@ static tree_t *parse_primary(IcnParser *p) {
         if (!kwname) { parser_error(p, "expected keyword name after &"); return NULL; }
         char name[256]; snprintf(name, sizeof(name), "&%s", kwname);
         advance(p);
-        return e_leaf_sval(TT_VAR, name, -1);
+        tree_t *ek = e_leaf_sval(TT_VAR, name, -1); ek->line = t.line; return ek;
     }
     if (t.kind == TK_LPAREN) {
         advance(p);
