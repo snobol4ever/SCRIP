@@ -96,6 +96,8 @@ std::string bb_activate();
 std::string bb_create();
 std::string bb_coret();
 std::string bb_cofail();
+std::string bb_move_label();
+std::string bb_indirect_goto();
 std::string xa_coexpr_body_lea(const char * dst);
 std::string bb_initial();
 std::string bb_limit_init();

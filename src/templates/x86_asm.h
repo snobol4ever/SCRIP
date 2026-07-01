@@ -374,6 +374,10 @@ inline std::string x86_frame_store64(int off, const char * reg) {
     if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
 }
+inline std::string x86_jmp_frame64(int off) {
+    if (MEDIUM_BINARY) { std::string c; c += (char)0x49; c += (char)0xFF; c += x86_r12_modrm(4, off); return x86_Lrec(c); }
+    return std::string(" jmp qword ptr ") + x86_frame_text_mem(off) + "\n";
+}
 inline std::string x86_frame_mov_imm64(int off, long imm) {
     if (MEDIUM_BINARY) { std::string c; c += (char)0x49; c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
@@ -563,6 +567,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "jmp")) {
         if (a.kind == XK_PORT) return x86_jmp(a.port);
         if (a.kind == XK_ILBL) return x86_jmp_id(a.lbl);
+        if (a.kind == XK_FR64) return x86_jmp_frame64(a.off);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" jmp ") + a.sym + "\n";
         return std::string();
     }

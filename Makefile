@@ -104,6 +104,8 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_create.cpp \
     $(SRC)/templates/bb_coret.cpp \
     $(SRC)/templates/bb_cofail.cpp \
+    $(SRC)/templates/bb_move_label.cpp \
+    $(SRC)/templates/bb_indirect_goto.cpp \
     $(SRC)/templates/xa_coexpr_entry.cpp \
     $(SRC)/templates/bb_call.cpp \
     $(SRC)/templates/bb_call_proc_staged.cpp \
@@ -280,6 +282,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_create.cpp       -o $(OBJ)/bb_create.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_coret.cpp        -o $(OBJ)/bb_coret.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cofail.cpp       -o $(OBJ)/bb_cofail.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_move_label.cpp    -o $(OBJ)/bb_move_label.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_goto.cpp -o $(OBJ)/bb_indirect_goto.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/xa_coexpr_entry.cpp -o $(OBJ)/xa_coexpr_entry.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_limit.cpp        -o $(OBJ)/bb_limit.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_suspend.cpp      -o $(OBJ)/bb_suspend.o
