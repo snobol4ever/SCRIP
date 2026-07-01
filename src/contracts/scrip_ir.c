@@ -180,7 +180,15 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* IR_NOT produces &null (DT_SNUL) on success — JCON ir_a_Not: expr.failure → ir_Key(target,"null") → p.success */
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_NOT || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL; }
+/* IR_CREATE produces a co-expression VALUE (RUNG 1's own lowering comment, GOAL-IR-IMMUTABLE-EMIT.md:
+   "`create EXPR` itself SUCCEEDS IMMEDIATELY, returning a co-expression VALUE") — added RUNG 3 (Claude
+   Sonnet, 2026-07-01). Without this, nd->tmp is never assigned by ir_tmp_slot_assign and bb_create.cpp's
+   drive_value_slot(nd) call hits the op_off<0 guard → drive_unowned() → abort. The 16-byte slot this
+   grants holds ONE pointer: the heap-allocated scrip_coctx_t* this create-site owns (see bb_create.cpp).
+   IR_CORET/IR_COFAIL deliberately stay OUT of this set — they are body-internal success/failure targets,
+   not general value-producers; their own operand[0] (the produced value, for CORET) rides a DIFFERENT
+   node's slot, per RUNG 1's lowering (coret.operand[0] = the body's own value node). */
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_RELOP || op == IR_BINOP_GENERIC || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_UNOP_GENERIC || op == IR_TERNOP || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_NOT || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
