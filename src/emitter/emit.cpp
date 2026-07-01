@@ -1302,6 +1302,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
+        /* IR_REPALT operands ([0]=e root, [1]=e chain entry) — same latent hole the ml enqueue closed for
+           alternation (2026-07-01 wholesale audit): without this the repeated expression is never BFS-
+           discovered, the intercept's e_entry scan misses, e_lbl degrades to node_ω, REPALT fails instantly. */
+        if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
         int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; }
@@ -1321,6 +1326,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
+        /* IR_REPALT operands ([0]=e root, [1]=e chain entry) — same latent hole the ml enqueue closed for
+           alternation (2026-07-01 wholesale audit): without this the repeated expression is never BFS-
+           discovered, the intercept's e_entry scan misses, e_lbl degrades to node_ω, REPALT fails instantly. */
+        if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
     }
     { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i];
         if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); } }

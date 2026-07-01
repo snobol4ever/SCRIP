@@ -6,11 +6,33 @@
 #include <stdlib.h>
 #include <string.h>
 /*====================================================================================================================*/
+static int so_is_list(DESCR_t v) {
+    if (v.v != DT_DATA || !v.u) return 0;
+    DESCR_t t = FIELD_GET_fn(v, "gen_type");
+    return t.v == DT_S && t.s && !strcmp(t.s, "list");
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
     if (IS_NULL_fn(a)) return b;
     if (IS_NULL_fn(b)) return a;
+    if (so_is_list(a) && so_is_list(b)) {
+        /* list ||| list (canonical olist.r lconcat): NEW list, a's elements then b's. Found by the
+           2026-07-01 wholesale audit: TT_LCONCAT routed here claiming type dispatch existed; it did not —
+           both operands were stringified. Non-list operands keep falling through to string concat. */
+        static int so_list_reg = 0;
+        if (!so_list_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); so_list_reg = 1; }
+        int64_t an = FIELD_GET_fn(a, "frame_size").i, bn = FIELD_GET_fn(b, "frame_size").i;
+        DESCR_t *ae = (DESCR_t *)FIELD_GET_fn(a, "frame_elems").ptr;
+        DESCR_t *be = (DESCR_t *)FIELD_GET_fn(b, "frame_elems").ptr;
+        int64_t n = an + bn;
+        DESCR_t *ne = (DESCR_t *)GC_malloc((size_t)((n > 0 ? n : 1) * (int64_t)sizeof(DESCR_t)));
+        for (int64_t i = 0; i < an; i++) ne[i] = ae ? ae[i] : NULVCL;
+        for (int64_t i = 0; i < bn; i++) ne[an + i] = be ? be[i] : NULVCL;
+        DESCR_t ep; ep.v = DT_DATA; ep.slen = 0; ep.ptr = (void *)ne;
+        return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"));
+    }
     const char *asp, *bsp;
     if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); asp = (as.v == DT_S || as.v == DT_SNUL) ? VARVAL_fn(as) : NULL; }
     if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); bsp = (bs.v == DT_S || bs.v == DT_SNUL) ? VARVAL_fn(bs) : NULL; }
