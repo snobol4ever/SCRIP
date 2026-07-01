@@ -127,12 +127,12 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
-    case TT_NUL: return build(cx, IR_LIT_NUL, γ, ω);
+    case TT_NUL: return build(cx, IR_OP_COUNT, γ, ω);
     case TT_VAR: { if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; } IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_FIELD: { const char * fname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "field_get_pub"; IR_LIT(nd).ival = 2; IR_LIT(nd).dval = 1.0;
         IR_t * r = NULL; IR_t * nl = build(cx, IR_LIT_STRING, nd, ω); IR_LIT(nl).sval = fname; IR_t * eo = lower_rv(cx, t->c[0], nl, ω, &r); return eo; }
-    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = IR_node_alloc(cx->g, IR_VAR); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); return nd; }
+    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = IR_node_alloc(cx->g, IR_VAR); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); return nd; }
     case TT_ADD: return lower_binop(cx, t, "+", γ, ω);
     case TT_SUB: return lower_binop(cx, t, "-", γ, ω);
     case TT_MUL: return lower_binop(cx, t, "*", γ, ω);
@@ -150,10 +150,10 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_NOT: return lower_unop(cx, t, "not", γ, ω);
     case TT_CAT: return lower_binop(cx, t, "~", γ, ω);
     case TT_FNC: return lower_nary(cx, t, IR_CALL, γ, ω);
-    case TT_ARR_GET: return lower_nary(cx, t, IR_IDX, γ, ω);
-    case TT_ARR_SET: return lower_nary(cx, t, IR_IDX_SET, γ, ω);
-    case TT_HASH_GET: return lower_nary(cx, t, IR_IDX, γ, ω);
-    case TT_HASH_SET: return lower_nary(cx, t, IR_IDX_SET, γ, ω);
+    case TT_ARR_GET: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_ARR_SET: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_HASH_GET: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_HASH_SET: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
     case TT_HASH_EXISTS: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "exists"; return nd; }
     case TT_HASH_DELETE: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "delete"; return nd; }
     case TT_METHCALL: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "meth_call"; return nd; }
@@ -161,32 +161,32 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_ASSIGN: return lower_nary(cx, t, IR_ASSIGN, γ, ω);
     case TT_TO: return lower_nary(cx, t, IR_TO, γ, ω);
     case TT_ITERATE: return lower_nary(cx, t, IR_ITERATE, γ, ω);
-    case TT_EVERY: return lower_nary(cx, t, IR_EVERY, γ, ω);
-    case TT_MAP: return lower_nary(cx, t, IR_MAP, γ, ω);
-    case TT_GREP: return lower_nary(cx, t, IR_GREP, γ, ω);
+    case TT_EVERY: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_MAP: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_GREP: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
     case TT_SORT: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "sort"; return nd; }
-    case TT_GATHER: return lower_nary(cx, t, IR_GATHER, γ, ω);
-    case TT_ALT: return lower_nary(cx, t, IR_ALT, γ, ω);
-    case TT_SEQ_EXPR: return lower_nary(cx, t, IR_SEQ_EXPR, γ, ω);
+    case TT_GATHER: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_ALT: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_SEQ_EXPR: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
     case TT_SAY: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "say"; return nd; }
     case TT_SAY_FH: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "say"; return nd; }
     case TT_PRINT: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "print"; return nd; }
     case TT_PRINT_FH: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "print"; return nd; }
-    case TT_IF: return lower_nary(cx, t, IR_IF, γ, ω);
-    case TT_UNLESS: return lower_nary(cx, t, IR_IF, γ, ω);
-    case TT_WHILE: return lower_nary(cx, t, IR_WHILE, γ, ω);
-    case TT_UNTIL: return lower_nary(cx, t, IR_UNTIL, γ, ω);
-    case TT_REPEAT: return lower_nary(cx, t, IR_REPEAT, γ, ω);
-    case TT_FOR_RANGE: return lower_nary(cx, t, IR_EVERY, γ, ω);
-    case TT_CASE: return lower_nary(cx, t, IR_CASE, γ, ω);
+    case TT_IF: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_UNLESS: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_WHILE: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_UNTIL: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_REPEAT: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_FOR_RANGE: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_CASE: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
     case TT_SUSPEND: return lower_nary(cx, t, IR_SUSPEND, γ, ω);
     case TT_RETURN: return lower_nary(cx, t, IR_RETURN, γ, ω);
-    case TT_TRY: return lower_nary(cx, t, IR_CATCH, γ, ω);
+    case TT_TRY: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
     case TT_DIE: { IR_t * nd = lower_nary(cx, t, IR_CALL, γ, ω); IR_LIT(nd).sval = "die"; return nd; }
-    case TT_SMATCH: return lower_nary(cx, t, IR_MATCH, γ, ω);
-    case TT_CAPTURE: return lower_nary(cx, t, IR_PATTERN_CAPTURE, γ, ω);
-    case TT_NAMED_CAPTURE: return lower_nary(cx, t, IR_PATTERN_CAPTURE, γ, ω);
-    case TT_FH_CAPTURE: return lower_nary(cx, t, IR_PATTERN_CAPTURE, γ, ω);
+    case TT_SMATCH: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_CAPTURE: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_NAMED_CAPTURE: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
+    case TT_FH_CAPTURE: return lower_nary(cx, t, IR_OP_COUNT, γ, ω);
     case TT_REGEX_DECL: { IR_t * nd = build(cx, IR_SUCCEED, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_GRAMMAR_DECL: { IR_t * nd = build(cx, IR_SUCCEED, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_DECL: return build(cx, IR_SUCCEED, γ, ω);
@@ -216,10 +216,10 @@ static IR_t * lower_block(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 /*====================================================================================================================================================================================================*/
 static IR_t * lower_decl(rcx_t * cx, const tree_t * t) {
     switch (t->t) {
-    case TT_SUB_DECL: { IR_t * nd = IR_node_alloc(cx->g, IR_PROC); IR_LIT(nd).sval = t->v.sval;
+    case TT_SUB_DECL: { IR_t * nd = IR_node_alloc(cx->g, IR_OP_COUNT); IR_LIT(nd).sval = t->v.sval;
         IR_t * body = (t->n > 2) ? lower_block(cx, t->c[2], NULL, NULL) : build(cx, IR_SUCCEED, NULL, NULL);
         ir_operand_push(nd, body); return nd; }
-    case TT_CLASS_DECL: { IR_t * nd = IR_node_alloc(cx->g, IR_RECORD_DEF);
+    case TT_CLASS_DECL: { IR_t * nd = IR_node_alloc(cx->g, IR_OP_COUNT);
         const char * cname = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : "";
         char spec[512]; int pos = 0;
         pos += snprintf(spec + pos, sizeof(spec) - pos, "%s(", cname);
@@ -251,7 +251,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_NUL: { IR_t * nd = build(cx, IR_LIT_NUL, γ, ω); *res = nd; return nd; }
+    case TT_NUL: { IR_t * nd = build(cx, IR_OP_COUNT, γ, ω); *res = nd; return nd; }
     case TT_VAR: { if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; } IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_ASSIGN: if (t->n > 1 && t->c[0] && (t->c[0]->t == TT_FIELD || t->c[0]->t == TT_TWIGIL_FIELD)) {
         const tree_t * lhs = t->c[0];
@@ -353,7 +353,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             int ntk = 0;
             if (gb && gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) if (gb->c[i] && gb->c[i]->t == TT_SUSPEND) ntk++; }
             else if (gb && gb->t == TT_SUSPEND) ntk = 1;
-            IR_t * ga = build(cx, IR_GATHER, va, γ); IR_LIT(ga).ival = ntk ? ntk : ((gb) ? gb->n : 0);
+            IR_t * ga = build(cx, IR_OP_COUNT, va, γ); IR_LIT(ga).ival = ntk ? ntk : ((gb) ? gb->n : 0);
             if (ntk > 0) { IR_graph_t ** subs = (IR_graph_t **) calloc((size_t) ntk, sizeof(IR_graph_t *));
                 if (subs) { int k = 0;
                     if (gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) { const tree_t * s = gb->c[i];
@@ -375,7 +375,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         *res = gen; return gen; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_WHILE: {
-        IR_t * nd = build(cx, IR_WHILE, γ, ω);
+        IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
         IR_t * r = NULL; IR_t * centry = lower_rv(cx, t->c[0], NULL, NULL, &r);
         IR_t * conj = build(cx, IR_CONJ, centry, centry);
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], conj, centry) : conj;
@@ -421,7 +421,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         int ntk = 0;
         if (gb && gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) if (gb->c[i] && gb->c[i]->t == TT_SUSPEND) ntk++; }
         else if (gb && gb->t == TT_SUSPEND) ntk = 1;
-        IR_t * ga = build(cx, IR_GATHER, NULL, ω); IR_LIT(ga).ival = ntk ? ntk : (gb ? gb->n : 0);
+        IR_t * ga = build(cx, IR_OP_COUNT, NULL, ω); IR_LIT(ga).ival = ntk ? ntk : (gb ? gb->n : 0);
         if (ntk > 0) { IR_graph_t ** subs = (IR_graph_t **) calloc((size_t) ntk, sizeof(IR_graph_t *));
             if (subs) { int k = 0;
                 if (gb->t == TT_SEQ_EXPR) { for (int i = 0; i < gb->n; i++) { const tree_t * s = gb->c[i];
@@ -430,12 +430,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 (void)(subs); } }
         *res = ga; return ga; }
     case TT_SORT: return lower_rcall(cx, t, "array_sort", 0, 0, γ, ω, res);
-    case TT_MAP: if (t->n > 1) { IR_t * nd = build(cx, IR_MAP, γ, ω);
+    case TT_MAP: if (t->n > 1) { IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
         IR_graph_t * bg = rk_arg_block(cx, t->c[0]); (void)(bg);
         IR_graph_t * sg = rk_arg_block(cx, t->c[1]); (void)(sg);
         *res = nd; return nd; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_GREP: if (t->n > 1) { IR_t * nd = build(cx, IR_GREP, γ, ω);
+    case TT_GREP: if (t->n > 1) { IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
         IR_graph_t * bg = rk_arg_block(cx, t->c[0]); (void)(bg);
         IR_graph_t * sg = rk_arg_block(cx, t->c[1]); (void)(sg);
         *res = nd; return nd; }
@@ -445,7 +445,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_SEQ: case TT_PROGRAM: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
     case TT_METHCALL: return lower_rcall(cx, t, "meth_call", 0, 1, γ, ω, res);
     case TT_NEW: return lower_rcall(cx, t, "obj_new", 0, 1, γ, ω, res);
-    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv; }
+    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv; }
     case TT_FIELD: { const char * fname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "field_get_pub"; IR_LIT(nd).ival = 2; IR_LIT(nd).dval = 1.0;
         IR_t * r = NULL; IR_t * nl = build(cx, IR_LIT_STRING, nd, ω); IR_LIT(nl).sval = fname; IR_t * eo = lower_rv(cx, t->c[0], nl, ω, &r); *res = nd; return eo; }

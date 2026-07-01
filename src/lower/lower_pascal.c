@@ -75,13 +75,13 @@ static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     int hops = 0;
     for (const pas_scope_t * s = &cx->sc; s && s != found_sc; s = s->outer) hops++;
     if (isref) {
-        IR_t * nd = build(cx, IR_VAR_FRAME_REF, γ, ω);
+        IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
     }
     if (!use_frame) {
         IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
     }
-    IR_t * nd = build(cx, IR_VAR_FRAME, γ, ω);
+    IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
     IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -104,13 +104,13 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
     int hops = 0;
     for (const pas_scope_t * s = &cx->sc; s && s != found_sc; s = s->outer) hops++;
     if (isref) {
-        IR_t * nd = build(cx, IR_ASSIGN_FRAME_REF, γ, ω);
+        IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
     }
     if (!use_frame) {
         IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
     }
-    IR_t * nd = build(cx, IR_ASSIGN_FRAME, γ, ω);
+    IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
     IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
 }
 /*====================================================================================================================================================================================================*/
@@ -256,7 +256,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (lhs && lhs->t == TT_VAR) vname = lhs->v.sval;
     else if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0]) vname = lhs->c[0]->v.sval;
     if (rhs && is_relop(rhs->t)) {
-        IR_t * nd = build(cx, IR_IF, γ, ω);
+        IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
         IR_t * th = lower_assign_var(cx, vname, γ, ω);
         IR_t * tlit = build(cx, IR_LIT_INTEGER, th, ω); IR_LIT(tlit).ival = 1; γ_to(th, tlit);
         IR_t * el = lower_assign_var(cx, vname, γ, ω);
@@ -274,7 +274,7 @@ static IR_t * lower_if(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * cond   = (t->n > 0) ? t->c[0] : NULL;
     const tree_t * then_t = (t->n > 1) ? t->c[1] : NULL;
     const tree_t * els_t  = (t->n > 2) ? t->c[2] : NULL;
-    IR_t * nd = build(cx, IR_IF, γ, ω);
+    IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
     IR_t * then_entry = lower(cx, then_t, γ, ω);
     IR_t * else_entry = els_t ? lower(cx, els_t, γ, ω) : build(cx, IR_SUCCEED, γ, ω);
     IR_t * te = then_entry ? then_entry : γ;
@@ -296,7 +296,7 @@ static IR_t * lower_if(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 static IR_t * lower_while(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * cond = (t->n > 0) ? t->c[0] : NULL;
     const tree_t * body = (t->n > 1) ? t->c[1] : NULL;
-    IR_t * wnd = build(cx, IR_WHILE, γ, ω);
+    IR_t * wnd = build(cx, IR_OP_COUNT, γ, ω);
     const tree_t * cond_inner = (cond && cond->t == TT_NOT && cond->n > 0) ? cond->c[0] : cond;
     IR_t * cond_entry;
     IR_t * cond_res = NULL;

@@ -383,7 +383,10 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_common.c -o $(OBJ)/lower_common.o
 	$(CC) $(CRT)   -c $(SRC)/lower/tree_to_sno.c       -o $(OBJ)/tree_to_sno.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_icon.c    -o $(OBJ)/lower_icon.o
-	$(CC) $(CRT)   -c $(SRC)/lower/lower_noicon_stubs.c -o $(OBJ)/lower_noicon_stubs.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_snobol4.c -o $(OBJ)/lower_snobol4.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_prolog.c  -o $(OBJ)/lower_prolog.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_raku.c    -o $(OBJ)/lower_raku.o
+	$(CC) $(CRT)   -c $(SRC)/lower/lower_pascal.c  -o $(OBJ)/lower_pascal.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/gva_collect.c -o $(OBJ)/gva_collect.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/proc_collect.c -o $(OBJ)/proc_collect.o
 	$(CC) $(CRT)   -I$(SRC)/opt -c $(SRC)/opt/ir_query.c -o $(OBJ)/ir_query.o
