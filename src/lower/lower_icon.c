@@ -302,8 +302,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const tree_t ** S = (const tree_t **) Sv.data; int k = Sv.n;
         if (k == 0) { IR_t * su = build(cx, IR_SUCCEED, γ, ω); *res = su; return su; }
         if (k == 1) return lower(cx, S[0], γ, ω, res);
-        IR_t * CONJ = build(cx, IR_CONJ, γ, ω);
-        IR_t ** val = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t * succ = CONJ;
+        IR_t * SEQX = build(cx, IR_SEQ_EXPR, γ, ω);
+        IR_t ** val = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t * succ = SEQX;
         if (t->t == TT_SEQ_EXPR) {
             IR_t * failt = ω; IR_t * last_beta = ω; IR_t * rb = NULL;
             /* A statement's success into the NEXT statement is a PRODUCE edge — α role, even when the next entry is
@@ -312,14 +312,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                Same rule as LIMIT's er→lim restamp: role lives on the EDGE, not the target's kind.  Guarded on the
                edge actually targeting succ — constructs like every re-aim their γ internally and must not be rewired. */
             for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, failt, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ); succ = ent[i]; failt = ent[i]; }
-            if (val[k - 1]) ir_operand_push(CONJ, val[k - 1]);
-            cx->conj_resumable = rb; cx->beta = last_beta; *res = CONJ; return ent[0];
+            if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
+            cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
         }
         IR_t * last_beta = ω; IR_t * rb = NULL;
         for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, ω, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ); succ = ent[i]; }
         int lr = -1; for (int i = 0; i < k; i++) { if (lr >= 0) ω_to(val[i], val[lr]); if (is_resumable(S[i])) lr = i; }
-        if (val[k - 1]) ir_operand_push(CONJ, val[k - 1]);
-        cx->conj_resumable = rb; cx->beta = last_beta; *res = CONJ; return ent[0];
+        if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
+        cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
     }
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
         if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }

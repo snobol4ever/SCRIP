@@ -88,7 +88,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_io.c \
     $(SRC)/templates/bb_lit.cpp \
-    $(SRC)/templates/bb_conj.cpp \
+    $(SRC)/templates/bb_seq_expr.cpp \
     $(SRC)/templates/bb_goto.cpp \
     $(SRC)/templates/bb_fail.cpp \
     $(SRC)/templates/bb_lit_scalar.cpp \
@@ -260,7 +260,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_lit.cpp        -o $(OBJ)/bb_lit.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_arith.cpp     -o $(OBJ)/bb_arith.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_conj.cpp       -o $(OBJ)/bb_conj.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_seq_expr.cpp       -o $(OBJ)/bb_seq_expr.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_goto.cpp       -o $(OBJ)/bb_goto.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_ite.cpp       -o $(OBJ)/bb_ite.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
