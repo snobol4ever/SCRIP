@@ -723,6 +723,63 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_random_var(DESCR_t base) {
+    extern long g_random;
+    DESCR_t bvar = base;
+    if (base.v == DT_V) base = rt_deref(base);
+    g_random = (1103515245L * g_random + 453816694L) & 0x7FFFFFFFL; double rval = 4.65661286e-10 * (double)g_random;
+    if (base.v == DT_S && base.slen == 0xFFFFFFFFu) {
+        const char *cp; int clen; if (!cset_resolve(base, &cp, &clen) || clen <= 0) return FAILDESCR;
+        long i = (long)(rval * (double)clen); char *one = GC_malloc(2); one[0] = cp[i]; one[1] = 0;
+        return (DESCR_t){ .v = DT_S, .slen = 1, .s = one };
+    }
+    if ((base.v == DT_S || base.v == DT_SNUL) && bvar.v == DT_V) {
+        const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
+        if (slen <= 0) return FAILDESCR;
+        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = (long)(rval * (double)slen) + 1; vc->len = 1;
+        return (DESCR_t){ .v = DT_V, .p = vc };
+    }
+    if (base.v == DT_S || base.v == DT_SNUL) {
+        const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
+        if (slen <= 0) return FAILDESCR;
+        long i = (long)(rval * (double)slen); char *one = GC_malloc(2); one[0] = sp[i]; one[1] = 0;
+        return (DESCR_t){ .v = DT_S, .slen = 1, .s = one };
+    }
+    if (base.v == DT_DATA) {
+        DESCR_t tag = FIELD_GET_fn(base, "gen_type");
+        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
+            int n = (int)FIELD_GET_fn(base, "frame_size").i;
+            DESCR_t ea = FIELD_GET_fn(base, "frame_elems");
+            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+            if (!elems || n <= 0) return FAILDESCR;
+            long i = (long)(rval * (double)n);
+            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &elems[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            return (DESCR_t){ .v = DT_V, .p = vc };
+        }
+        if (base.u && base.u->type && base.u->type->nfields > 0) {
+            int nf = base.u->type->nfields;
+            long i = (long)(rval * (double)nf);
+            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &base.u->fields[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            return (DESCR_t){ .v = DT_V, .p = vc };
+        }
+        return FAILDESCR;
+    }
+    if (base.v == DT_T && base.tbl) {
+        TBBLK_t *tbl = base.tbl; if (tbl->size <= 0) return FAILDESCR;
+        long n = (long)(rval * (double)tbl->size) + 1; long seen = 0;
+        for (int b = 0; b < TABLE_BUCKETS; b++)
+            for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next)
+                if (++seen == n) { VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = GC_strdup(ep->key); vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0; return (DESCR_t){ .v = DT_V, .p = vc }; }
+        return FAILDESCR;
+    }
+    if (base.v == DT_I) {
+        int64_t v = base.i; if (v < 0) return FAILDESCR;
+        if (v == 0) return REALVAL(rval);
+        return INTVAL((int64_t)(rval * (double)v) + 1);
+    }
+    return FAILDESCR;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
     DESCR_t bvar = base;
     if (base.v == DT_V) base = rt_deref(base);

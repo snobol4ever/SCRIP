@@ -176,6 +176,7 @@ int  rt_idx_get(void);
 int  rt_idx_set(void);
 DESCR_t rt_list_bang_at(DESCR_t obj, int64_t idx);
 DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx);
+DESCR_t rt_random_var(DESCR_t base);
 int  rt_limit_begin(DESCR_t *max_slot, int64_t *count_slot);
 int  rt_limit_more(DESCR_t *max_slot, int64_t *count_slot);
 int  rt_limit_inc(int64_t *count_slot);

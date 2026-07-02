@@ -53,7 +53,7 @@ static tree_e icn_augop_binop_tt(int a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_unop_tt(tree_e tt) {
     switch (tt) {
-    case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_CSET_COMPL: case TT_RANDOM: case TT_INTERROGATE: return 1;
+    case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_CSET_COMPL: case TT_INTERROGATE: return 1;
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -208,6 +208,19 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
     case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL; const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?"; return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res); }
+    case TT_RANDOM: {
+        /* ASSIGN-LV LV-3a: ?x — classify-by-name (JCON collapses to opfn u_random/"Select"; SCRIP splits per the JCON-ALIGNMENT directive). operator{0,1}: single-shot, no β. rt_random_var rolls the
+           canonical LCG once (RandA/RandC/RanScale, oref.r:216; state = g_random, the &random keyword's cell) and mints the LV VCELL family (string-under-variable tvsubs len=1 / list cell / record field /
+           table nth-pair lazy trap) or a plain value (cset char, string-value char, ?n int in [1,n], ?0 real). Identifier base → IR_VAR_REF (string tvsubs needs the variable, lower_idx_var parity); rvalue
+           = IR_DEREF partner (identity on non-DT_V); the TT_ASSIGN/TT_AUGOP lv arms consume the variable directly. */
+        IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
+        const tree_t * b0 = (t->n > 0) ? t->c[0] : NULL; if (!b0) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
+        IR_t * ar = NULL; IR_t * ae;
+        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+        else ae = lower(cx, b0, NULL, ω, &ar);
+        lc_γ_to(ar, rn); ir_operand_push(rn, ar);
+        IR_t * drf = build(cx, IR_DEREF, γ, ω); lc_γ_to(rn, drf); ir_operand_push(drf, rn);
+        *res = drf; return ae; }
     case TT_IDX: {
         /* IDX-UNIFY rvalue: variable-producing IR_SUBSCRIPT chain + IR_DEREF partner replaces lower_call("[]") — see lower_idx_var. */
         IR_t * vr = NULL; IR_t * e = lower_idx_var(cx, t, ω, &vr);
@@ -266,6 +279,20 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(asn, it); ir_operand_push(asn, rr);
             *res = asn; return ae;
         }
+        if (lhs && lhs->t == TT_RANDOM && lhs->n > 0 && lhs->c[0]) {
+            /* ASSIGN-LV LV-3a: ?x := v — single-shot random-element VARIABLE producer (operator{0,1}, no β wiring) into the existing IR_ASSIGN_VAR write-through; the LV-2 recipe minus the generator plumbing. */
+            IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
+            const tree_t * b0 = lhs->c[0];
+            IR_t * ar = NULL; IR_t * ae;
+            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+            else ae = lower(cx, b0, NULL, ω, &ar);
+            lc_γ_to(ar, rn); ir_operand_push(rn, ar);
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
+            lc_γ_to(rn, re);
+            ir_operand_push(asn, rn); ir_operand_push(asn, rr);
+            *res = asn; return ae;
+        }
         if (lhs && lhs->t == TT_FIELD) {
             IR_t * set = build(cx, IR_FIELD_SET, γ, ω);
             IR_LIT(set).sval = (lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval;
@@ -305,6 +332,26 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             lc_γ_to(dr, re);
             ir_operand_push(op, dr); ir_operand_push(op, rr);
             ir_operand_push(asn, it); ir_operand_push(asn, op);
+            *res = asn; return ae;
+        }
+        if (lhs && lhs->t == TT_RANDOM && lhs->n > 0 && lhs->c[0] && rhs) {
+            /* ASSIGN-LV LV-3a augop rider: ?x OP:= v — the once-evaluated-variable form (LV-3b shape minus β): IR_RANDOM rolls ONCE; IR_DEREF reads the old value through it, IR_BINOP folds rhs,
+               IR_ASSIGN_VAR writes back through the SAME VCELL (operands[0]=rn — deref and write-back both read rn->tmp). */
+            IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
+            const tree_t * b0 = lhs->c[0];
+            IR_t * ar = NULL; IR_t * ae;
+            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+            else ae = lower(cx, b0, NULL, ω, &ar);
+            lc_γ_to(ar, rn); ir_operand_push(rn, ar);
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
+            IR_t * dr = build(cx, IR_DEREF, NULL, ω);
+            ir_operand_push(dr, rn);
+            lc_γ_to(rn, dr);
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, ω, &rr);
+            lc_γ_to(dr, re);
+            ir_operand_push(op, dr); ir_operand_push(op, rr);
+            ir_operand_push(asn, rn); ir_operand_push(asn, op);
             *res = asn; return ae;
         }
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = bc; IR_t * lr = NULL, * rr = NULL;
