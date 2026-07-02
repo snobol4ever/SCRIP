@@ -137,7 +137,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                     nbf = bn;
                 }
             }
-            bb_operand_aux_set(cx->g, nd, arms, t->n);
+            for (int _k = 0; _k < t->n; _k++) ir_operand_push(nd, arms[_k]);
             free(arms);
             if (entry_out) *entry_out = bentry;
             return nd;

@@ -656,8 +656,6 @@ static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth) {
     if (o->op == IR_VAR && IR_LIT(o).sval) return var_assigned_real_static(g, IR_LIT(o).sval, depth);
     if (o->op == IR_BINOP) {
         IR_t *c0 = bb_child0(o), *c1 = bb_child1(o);
-        int na = 0; IR_t * const *aux = (g && !c0) ? bb_operand_aux_get(g, o, &na) : (IR_t * const *)0;
-        if (aux && na >= 2) { c0 = aux[0]; c1 = aux[1]; }
         return binop_operand_real_static(g, c0, depth + 1) || binop_operand_real_static(g, c1, depth + 1);
     }
     return 0;
@@ -792,7 +790,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUSPEND:              bb_emit_x86(bb_suspend());        return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_CONJ:                 bb_emit_x86(bb_conj());           return 0;
-    case IR_SECTION:              bb_emit_x86(bb_section());        return 0;
+    case IR_SUBSCRIPT:              bb_emit_x86(bb_section());        return 0;
+    case IR_REV_ASSIGN:                bb_emit_x86(bb_rasgn());          return 0;
     case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
     case IR_LIMIT:                bb_emit_x86(bb_limit());          return 0;
     case IR_REPALT:               /* driven by flat_drive_repalt — no direct template call here */ return 0;
@@ -997,6 +996,21 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         bb_flat_cursor_reserve(g_emit.op_off + 32);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
+    case IR_REV_ASSIGN: {
+        /* x <- v (reversible assign). operands[0]=rhs producer, [1]=lhs IR_VAR name carrier.
+           op_sb = destination varslot; op_off = own value slot; op_sc = save area (off+16, inside the
+           k+=2 grant); rhs source = op_a_slot, which walk_bb_node's preamble re-derives from operands[0]
+           AFTER this case runs (clobber pattern — the operand order in LOWER exists to make that
+           re-derivation correct; do not stage op_a_slot here, walk owns it). */
+        IR_t * lv = nd->n_operands > 1 ? nd->operands[1] : NULL;
+        const char * vn = lv ? IR_LIT(lv).sval : NULL;
+        if (!vn || nd->n_operands < 1 || !nd->operands[0]) { drive_unowned(nd); break; }
+        g_emit.op_sb  = bb_varslot(vn);
+        g_emit.op_off = drive_value_slot(nd);
+        g_emit.op_sc  = g_emit.op_off + 16;
+        bb_flat_cursor_reserve(g_emit.op_off + 32);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
     case IR_CONJ:
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
         /* If CONJ has its own tmp slot AND an operand with a slot (case-result CONJ pattern),
@@ -1026,8 +1040,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sb    = g_suspend_resume_slot;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_SECTION: {
-        /* IR_SECTION = s[i:j] / s[i+:n] / s[i-:n].  operands[0]=base, [1]=i1, [2]=i2.
+    case IR_SUBSCRIPT: {
+        /* IR_SUBSCRIPT = s[i:j] / s[i+:n] / s[i-:n].  operands[0]=base, [1]=i1, [2]=i2.
            op_a_slot = base DESCR slot; op_sa = i1 slot; op_sb = i2 slot; op_off = result slot.
            op_ival = section variant (0=plain, 1=plus, 2=minus). */
         IR_t * base = nd->n_operands > 0 ? nd->operands[0] : NULL;

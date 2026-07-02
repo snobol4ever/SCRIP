@@ -144,7 +144,7 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         IR_t * lres = (cx->g->n > lmark) ? cx->g->all[lmark] : le;
         IR_t * rres = (cx->g->n > rmark) ? cx->g->all[rmark] : re;
         γ_to(lres, re);
-        { IR_t * ax[2]; ax[0] = lres; ax[1] = rres; bb_operand_aux_set(cx->g, op, ax, 2); }
+        ir_operand_push(op, lres); ir_operand_push(op, rres);
         return le;
     }
     IR_t * vL = NULL, * atL = NULL, * afL = NULL, * vR = NULL, * atR = NULL, * afR = NULL;
@@ -159,7 +159,7 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (lm && rm)      { entry = eL; γ_to(atL, eR);    γ_to(afL, eR);    γ_to(atR, vL); γ_to(afR, vL); γ_to(vL, vR); γ_to(vR, op); }
     else if (lm)       { entry = eL; γ_to(atL, vL);    γ_to(afL, vL);    γ_to(vL, pR); }
     else               { entry = eR; γ_to(atR, pL);    γ_to(afR, pL);    γ_to(lres, vR); γ_to(vR, op); }
-    { IR_t * ax[2]; ax[0] = lres; ax[1] = rres; bb_operand_aux_set(cx->g, op, ax, 2); }
+    ir_operand_push(op, lres); ir_operand_push(op, rres);
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -174,7 +174,7 @@ static IR_t * lower_unop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         IR_t * lres = (cx->g->n > lmark) ? cx->g->all[lmark] : le;
         IR_t * rres = (cx->g->n > rmark) ? cx->g->all[rmark] : re;
         γ_to(lres, re);
-        { IR_t * ax[2]; ax[0] = lres; ax[1] = rres; bb_operand_aux_set(cx->g, op, ax, 2); }
+        ir_operand_push(op, lres); ir_operand_push(op, rres);
         return le;
     }
     IR_t * op = build(cx, IR_UNOP, γ, ω);
@@ -338,7 +338,7 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     IR_t * to_entry = lower(cx, to, lim_var, ω);
     IR_t * to_res   = (cx->g->n > to_mark) ? cx->g->all[to_mark] : to_entry;
     if (!to_entry) { to_entry = lim_var; to_res = lim_var; }
-    { IR_t * ax[2]; ax[0] = lim_var; ax[1] = to_res; bb_operand_aux_set(cx->g, lim_cmp, ax, 2); }
+    ir_operand_push(lim_cmp, lim_var); ir_operand_push(lim_cmp, to_res);
     IR_t * inc_assign = lower_assign_var(cx, vname, lim_var, ω);
     IR_t * inc_var    = lower_var(cx, vname, NULL, ω);
     IR_t * inc_lit1   = build(cx, IR_LIT_INTEGER, NULL, ω); IR_LIT(inc_lit1).ival = 1;

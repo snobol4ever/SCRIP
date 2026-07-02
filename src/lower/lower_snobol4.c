@@ -862,7 +862,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
         if (sno_leaf_buildable(rhs)) {
             IR_t * head = sno_freeze_pat_graph_entry(cx->g, rhs);
             IR_t * ref = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(ref).sval = (char *) lhs;
-            bb_operand_aux_set(cx->g, ref, &head, 1);
+            ir_operand_push(ref, head);
             fz5_note_frozen(lhs, head);
             return ref;
         }
@@ -873,7 +873,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
     if (rhs && rhs->t == TT_SEQ && sno_has_pat(rhs) && sno_pat_kind(rhs) == 1 && !sno_seq_buildable(rhs)) {
         IR_t * head = sno_freeze_pat_graph_entry(cx->g, rhs);
         IR_t * ref = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(ref).sval = (char *) lhs;
-        bb_operand_aux_set(cx->g, ref, &head, 1);
+        ir_operand_push(ref, head);
         fz5_note_frozen(lhs, head);
         return ref;
     }
@@ -895,7 +895,7 @@ static IR_t * lower_assign(snx_t * cx, const char * lhs, const tree_t * rhs, IR_
                 const char * cset = l0->c[0]->c[0]->v.sval; const char * capvar = l0->c[1] ? l0->c[1]->v.sval : ""; const char * lit = l1->v.sval;
                 IR_t * cat = sno_freeze_break_cap_lit_ir(cx, cset, capvar, lit);
                 IR_t * ref = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(ref).sval = (char *) lhs;
-                bb_operand_aux_set(cx->g, ref, &cat, 1);
+                ir_operand_push(ref, cat);
                 fz5_note_frozen(lhs, cat);
                 return ref;
             }

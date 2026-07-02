@@ -63,7 +63,7 @@ static int is_resumable(const tree_t * t) {
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_ASSIGN) { return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
     switch (t->t) {
-    case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: return 1;
+    case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: return 1;
     default: return 0; }
 }
 /*====================================================================================================================================================================================================*/
@@ -156,7 +156,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * rβ = cx->beta;
         IR_t * opfail = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : NULL);
         if ((IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) && opfail) ω_to(op, opfail);
-        γ_to(lr, eb); { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); }
+        γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
         cx->beta = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : ω);
         *res = op; return ea; }
     if (is_unop_tt(t->t)) {
@@ -327,10 +327,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
            plus/minus; sect) — i is evaluated ONCE, i2 := i1 ± n via an ordinary add/sub, then the SAME sect
            op as s[i:j]. SCRIP mirrors that: variant 1/2 inserts a synthetic IR_BINOP(ADD/SUB) whose left
            operand is i1's own producer node (the dup — value read twice, evaluated once) and whose right is
-           n; IR_SECTION is then always emitted PLAIN (ival=0), so bb_section's one native arm serves all
+           n; IR_SUBSCRIPT is then always emitted PLAIN (ival=0), so bb_section's one native arm serves all
            three source forms. val.failure→p.failure; left.failure→val.resume; right.failure→left.resume. */
         int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
-        IR_t * sec = build(cx, IR_SECTION, γ, ω);
+        IR_t * sec = build(cx, IR_SUBSCRIPT, γ, ω);
         IR_LIT(sec).ival = 0;
         /* lower all three operands; wire them in serial: val→left→right[→binop]→sec */
         IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar);
@@ -338,7 +338,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ω, &cr); γ_to(br, ce);
         if (sec_variant) {
             IR_t * op = build(cx, IR_BINOP, sec, ω); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB;
-            { IR_t * ax[2]; ax[0] = br; ax[1] = cr; bb_operand_aux_set(cx->g, op, ax, 2); }
+            ir_operand_push(op, br); ir_operand_push(op, cr);
             γ_to(cr, op); cr = op;
         }
         ir_operand_push(sec, ar); /* base string */
@@ -520,7 +520,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = BINOP_CONCAT;
         IR_t * lr = NULL; IR_t * ee = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
         IR_t * rr = NULL; IR_t * re = lower(cx, t->c[1], op, lβ, &rr); γ_to(lr, re);
-        { IR_t * ax[2]; ax[0] = lr; ax[1] = rr; bb_operand_aux_set(cx->g, op, ax, 2); }
+        ir_operand_push(op, lr); ir_operand_push(op, rr);
         *res = op; return ee; }
     case TT_SWAP: {
         /* JCON: := : is a_Binop(":=:") → ir_augmented_assignment path → ir_Assign(lv,tmp)+ir_Assign(rv,lv_orig).
@@ -538,6 +538,26 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             for (int k = 1; k < lhs->n; k++) { IR_t * ir = NULL; lower(cx, lhs->c[k], nd, ω, &ir); ir_operand_push(nd, ir); }
             IR_t * vr = NULL; lower(cx, rhs, nd, ω, &vr); ir_operand_push(nd, vr);
             *res = nd; return entry;
+        }
+        /* Simple-variable lvalue: x <- v — canonical rasgn (oasgn.r:142-162): save old x, GeneralAsgn(x,v),
+           suspend x; on resume GeneralAsgn(x, saved_x) then fail. IR_REV_ASSIGN is GENERATOR-KIND (the resume IS
+           the construct); α saves+assigns+produces→γ, β restores→ω (bb_rasgn.cpp, pre-existing template).
+           OPERAND ORDER IS LOAD-BEARING (clobber-pattern alignment): operands[0] = RHS value producer —
+           walk_bb_node's preamble re-derives op_a_slot = bb_slot_get(operands[0]) AFTER emit_drive, so the
+           template's rhs-source field is only correct if the rhs IS operand[0] (the historic scrip.c BENCH-F2
+           failure was exactly this collision, dest varslot landing in op_a_slot). operands[1] = lhs IR_VAR as
+           NAME CARRIER (IR_SWAP idiom; driver reads IR_LIT(operands[1]).sval → bb_varslot).
+           Chain le→re→nd with lc_γ_to α-restamp on the rhs→RASGN PRODUCE edge (EXPORTABLE WIRING RULE —
+           build/γ_to auto-β into a generator-kind target is only right for backtrack edges). */
+        if (lhs && lhs->t == TT_VAR) {
+            IR_t * nd = build(cx, IR_REV_ASSIGN, γ, ω);
+            IR_t * lr = NULL; IR_t * le = lower(cx, lhs, NULL, ω, &lr);
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, ω, &rr);
+            γ_to(lr, re);
+            lc_γ_to(rr, nd);
+            ir_operand_push(nd, rr);  /* [0] = rhs (walk's op_a_slot re-derivation reads this) */
+            ir_operand_push(nd, lr);  /* [1] = lhs var node (name carrier) */
+            cx->beta = nd; *res = nd; return le;
         }
         IR_t * nd = build(cx, IR_FAIL, γ, ω);
         IR_t * lr = NULL; lower(cx, lhs, nd, ω, &lr);

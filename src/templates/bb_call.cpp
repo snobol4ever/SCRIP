@@ -104,7 +104,6 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void arith_operands(IR_graph_t * sg, IR_t * nd, IR_t ** a, IR_t ** b) {
     *a = ir_pair_arg(nd, 0); *b = ir_pair_arg(nd, 1);
-    if (nd && (!*a || !*b) && sg) { int n = 0; IR_t * const * aux = bb_operand_aux_get(sg, nd, &n); if (aux && n >= 2) { *a = aux[0]; *b = aux[1]; } }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int arith_is_arith_binop(IR_t * nd) {
@@ -314,7 +313,6 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         }
         if (fin && fin->op == IR_OP_COUNT && (IR_LIT(fin).ival == TT_MNS || IR_LIT(fin).ival == TT_PLS)) {
             IR_t * ua = ir_pair_arg(fin, 0);
-            if (!ua) { int na = 0; IR_t * const * aux = bb_operand_aux_get(sg, fin, &na); if (aux && na >= 1) ua = aux[0]; }
             if (ua && ua->op == IR_LIT_STRING && IR_LIT(ua).sval) {
                 const char * p = IR_LIT(ua).sval; while (*p == ' ' || *p == '\t') p++;
                 const char * e = p + strlen(p); while (e > p && (e[-1] == ' ' || e[-1] == '\t')) e--;

@@ -32,9 +32,10 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_FIELD] = "IR_FIELD",
     [IR_FIELD_SET] = "IR_FIELD_SET",
-    [IR_SECTION] = "IR_SECTION",
+    [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
     [IR_LIMIT]  = "IR_LIMIT",
     [IR_REPALT] = "IR_REPALT",
+    [IR_REV_ASSIGN] = "IR_REV_ASSIGN",
     [IR_SCAN]       = "IR_SCAN",
     [IR_SCAN_ENTER] = "IR_SCAN_ENTER",
     [IR_SCAN_SWAP] = "IR_SCAN_SWAP",
@@ -100,26 +101,6 @@ int ir_operand_push(IR_t * nd, IR_t * child) {
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n) {
-    (void) bbg;
-    if (!bb) return -1;
-    if (bb->operands) { free(bb->operands); bb->operands = NULL; bb->n_operands = 0; }
-    if (n <= 0) return 0;
-    bb->operands = (IR_t **)calloc((size_t)n, sizeof(IR_t *));
-    if (!bb->operands) return -1;
-    if (src) for (int i = 0; i < n; i++) bb->operands[i] = src[i];
-    bb->n_operands = n;
-    return 0;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
-IR_t * const * bb_operand_aux_get(const IR_graph_t * bbg, const IR_t * bb, int * out_n) {
-    (void) bbg;
-    if (out_n) *out_n = 0;
-    if (!bb) return NULL;
-    if (out_n) *out_n = bb->n_operands;
-    return bb->operands;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 void IR_free(IR_graph_t * bbg) {
     if (!bbg) return;
     for (int i = 0; i < bbg->n; i++) {
@@ -172,7 +153,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     bb_emit_order_visit(bbg, nd->γ.node, vis, order, norder);
     bb_emit_order_visit(bbg, nd->ω.node, vis, order, norder);
     int na = 0; IR_t * const * ops = NULL;
-    if (nd->n_operands > 0) { na = nd->n_operands; ops = nd->operands; } else { ops = bb_operand_aux_get((IR_graph_t *)bbg, (IR_t *)nd, &na); }
+    na = nd->n_operands; ops = nd->operands;
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -187,7 +168,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
    IR_CORET/IR_COFAIL deliberately stay OUT of this set — they are body-internal success/failure targets,
    not general value-producers; their own operand[0] (the produced value, for CORET) rides a DIFFERENT
    node's slot, per RUNG 1's lowering (coret.operand[0] = the body's own value node). */
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SECTION || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -261,6 +242,9 @@ void ir_drive_slot_assign(IR_graph_t * g) {
            onto its e_root's slot — with e=TO the flag landed exactly on TO's counter, so TO's own α write
            (counter:=from) set the flag, the exhausted-test read it as yielded, and |(1 to 0) restarted forever. */
         if (nd->op == IR_REPALT) { nd->tmp = base + k * 16; k += 2; continue; }
+        /* IR_REV_ASSIGN needs 32 bytes: 16-byte produced value + 16-byte saved-old-DESCR at [+16] (bb_rasgn's
+           op_sc = op_off+16 restore area). k+=2, same pattern as IR_LIMIT/IR_REPALT. */
+        if (nd->op == IR_REV_ASSIGN) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_ASSIGN is deliberately NOT in ir_node_produces_value (assignment is a statement, not a general
            value-producer for most consumers) but bb_assign_local/bb_assign_global DO stage a 16-byte own-result
            copy (needed when an assign is used as a sub-expression, e.g. x := (y := 5)) via drive_value_slot's
@@ -302,7 +286,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
     bb_ref_fmt(bbg, bb->γ.node, gp, sizeof gp);
     bb_ref_fmt(bbg, bb->ω.node, wp, sizeof wp);
     int na = 0; IR_t * const * ops = NULL;
-    if (bb->n_operands > 0) { na = bb->n_operands; ops = bb->operands; } else { ops = bb_operand_aux_get((IR_graph_t *)bbg, (IR_t *)bb, &na); }
+    na = bb->n_operands; ops = bb->operands;
     char ob[160]; size_t op = 0; ob[0] = 0;
     for (int j = 0; j < na && op < sizeof ob - 4; j++) {
         char r[12]; bb_ref_fmt(bbg, ops ? ops[j] : NULL, r, sizeof r);

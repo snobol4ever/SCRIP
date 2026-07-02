@@ -228,7 +228,6 @@ static int bool_cond_emittable(IR_t *nd) {
     while (p && gd++ < 256) { if (p->op == IR_BINOP && IR_LIT(p).ival >= BINOP_LT && IR_LIT(p).ival <= BINOP_NE) { rel = p; break; } if (!p->γ.node) break; p = p->γ.node; }
     if (!rel) return 0;
     IR_t *ra = ir_pair_arg(rel, 0); IR_t *rb = ir_pair_arg(rel, 1);
-    if (!ra || !rb) { int n = 0; IR_t * const *aux = bb_operand_aux_get(cond, rel, &n); if (aux && n >= 2) { ra = aux[0]; rb = aux[1]; } }
     if ((is_jct_call(ra) || is_jct_call(rb)) && jct_marshallable(ra) && jct_marshallable(rb)) return 1;
     return arith_operand_ok(ra) && arith_operand_ok(rb);
 }

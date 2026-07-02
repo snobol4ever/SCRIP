@@ -124,6 +124,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_repalt.cpp \
     $(SRC)/templates/bb_limit.cpp \
     $(SRC)/templates/bb_section.cpp \
+    $(SRC)/templates/bb_rasgn.cpp \
     $(SRC)/templates/bb_swap.cpp \
     $(SRC)/templates/bb_enter_init.cpp \
     $(SRC)/templates/bb_gen_scan.cpp \
