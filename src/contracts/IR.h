@@ -54,7 +54,6 @@ typedef enum {
     IR_LIT_REAL,
     IR_LIT_STRING,
     IR_MAKE_LIST,
-    IR_MOVE,
     IR_MOVE_LABEL,
     IR_PROC_GEN,
     IR_RETURN,

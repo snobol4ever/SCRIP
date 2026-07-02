@@ -59,7 +59,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CORET] = "IR_CORET",
     [IR_COFAIL] = "IR_COFAIL",
     [IR_CONJUNCTION] = "IR_CONJUNCTION",
-    [IR_MOVE] = "IR_MOVE",
     [IR_MOVE_LABEL] = "IR_MOVE_LABEL",
     [IR_INDIRECT_GOTO] = "IR_INDIRECT_GOTO",
 };
