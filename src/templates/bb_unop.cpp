@@ -9,6 +9,7 @@ struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 struct DESCR_t rt_num_neg(struct DESCR_t a);
 struct DESCR_t rt_num_pos(struct DESCR_t a);
 struct DESCR_t rt_cset_compl(struct DESCR_t a);
+struct DESCR_t rt_deref(struct DESCR_t d);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -35,6 +36,27 @@ static inline unop_op uop() { return bb_unop_resolve(_.op_node_kind, _.op_ival);
 std::string bb_unop() {
     if (PLATFORM_X86)
         return !(_.op_off >= 0) ? std::string() :
+               _.op_node_kind == IR_NULLTEST_VAR ?
+               (_.op_sa < 0 ? x86_bomb("bb_unop lv: operand slot unresolved") :
+               x86("comment", "IR_UNOP_TEST lv")
+             + x86("label",   _.lbl_α)
+             + x86("mov", "eax", FR(_.op_sa))
+             + x86("cmp", "eax", (long)99)
+             + x86("je",  "ω")
+             + x86("mov", "rdi", FRQ(_.op_sa))
+             + x86("mov", "rsi", FRQ(_.op_sa + 8))
+             + x86("call", "rt_deref", (uint64_t)(uintptr_t)(void *)rt_deref)
+             + x86("cmp", "eax", (long)99)
+             + x86("je",  "ω")
+             + x86("cmp", "eax", (long)0)
+             + (_.op_sval && !strcmp(_.op_sval, "nonnull") ? x86("je", "ω") : x86("jne", "ω"))
+             + x86("mov", "rax", FRQ(_.op_sa))
+             + x86("mov", FRQ(_.op_off),     "rax")
+             + x86("mov", "rax", FRQ(_.op_sa + 8))
+             + x86("mov", FRQ(_.op_off + 8), "rax")
+             + x86("jmp", "γ")
+             + x86("def",  "β")
+             + x86("jmp",  "ω")) :
                uop() == UO_UNHANDLED ? std::string() :
                _.op_sa < 0 ? x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)") :
                uop() == UO_NONNULL ?

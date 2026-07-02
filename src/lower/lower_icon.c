@@ -193,6 +193,25 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         ir_operand_push(sec, ar); ir_operand_push(sec, br); ir_operand_push(sec, cr);
         *var_res = sec; return ae;
     }
+    if (t->t == TT_FIELD && t->n > 0 && t->c[0]) {
+        /* LVALUE-COLLAPSE increment 2: a.f field-VARIABLE producer — IR_FIELD_GET ival=1 selects bb_field_get's lv arm; rt_field_var (the rt_subscript_var record-arm sibling, data_field_ptr
+           name→cell) mints the VCELL over the field cell. Base lowers as a value (record descr is a reference; rt_field_var derefs a DT_V base internally, rt_subscript_var parity). */
+        IR_t * fg = build(cx, IR_FIELD_VAR, NULL, ω);
+        IR_LIT(fg).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
+        IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], NULL, ω, &br);
+        lc_γ_to(br, fg); ir_operand_push(fg, br);
+        *var_res = fg; return be;
+    }
+    if ((t->t == TT_NULL || t->t == TT_NONNULL) && t->n > 0 && t->c[0]) {
+        /* LVALUE-COLLAPSE increment 2: /x and \x are variable-transparent (canonical ir_rval, irgen.icn:463-466 — '/' '\' arity-1 INHERIT parent rval-ness; onull.r yields the VARIABLE on
+           success). The child lowers through this same front; IR_UNOP_TEST sval="lv" selects bb_unop's lv arm — rt_deref for the test, the VARIABLE forwarded on success. Single-shot glue;
+           a resumable child (bang) keeps its own β via cx->beta. */
+        IR_t * clv = NULL; IR_t * ce = lower_lvalue_var(cx, t->c[0], ω, &clv);
+        if (!ce || !clv) return NULL;
+        IR_t * ut = build(cx, IR_NULLTEST_VAR, NULL, ω); IR_LIT(ut).sval = (t->t == TT_NONNULL) ? "nonnull" : "null";
+        ir_operand_push(ut, clv); lc_γ_to(clv, ut);
+        *var_res = ut; return ce;
+    }
     return NULL;
 }
 /*====================================================================================================================================================================================================*/
@@ -302,95 +321,20 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
         if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval;
             IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, asn, ω, &vr); ir_operand_push(asn, vr); *res = asn; return entry; }
-        if (lhs && lhs->t == TT_IDX) {
-            /* IDX-UNIFY write path: x[i] := v — lhs chain yields the VARIABLE, rhs the value, IR_ASSIGN_VAR writes through (lists: cell store; tables: lazy trap insert — canonical tvtbl).
-               operands[0]=variable (walk preamble op_a_slot re-derivation, the IR_REV_ASSIGN lesson), [1]=value; lhs-then-rhs evaluation per canonical asgn; beta inherits rhs (TT_VAR-assign parity). */
-            IR_t * vr = NULL; IR_t * entry = lower_idx_var(cx, lhs, ω, &vr);
+        { IR_t * b4 = cx->beta;
+          IR_t * lv = NULL; IR_t * lve = lhs ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
+          if (lve && lv) {
+            /* LVALUE-COLLAPSE increment 2: ONE generic write path — lower_lvalue_var (TOTAL: identifier/IDX/section/bang/random/field/nulltest) yields the VARIABLE; rhs; IR_ASSIGN_VAR writes
+               through (operands[0]=variable, [1]=value; lhs-then-rhs per canonical asgn). β-delta: a resumable lv (bang) sets cx->beta inside the front — rhs ω aims there so a failing rhs
+               re-pumps the generator (the deleted LV-2 arm's wiring, now inherited); non-resumable lvalues keep ω. Replaces the six per-kind arms (IDX / LV-1 section / LV-2 iterate /
+               LV-3a random / NULLTEST-LV / FIELD_SET) this case carried. */
+            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
-            lc_γ_to(vr, re);
-            ir_operand_push(asn, vr); ir_operand_push(asn, rr);
-            *res = asn; return entry;
-        }
-        if (lhs && (lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS) && lhs->n >= 3 && lhs->c[0] && lhs->c[1] && lhs->c[2]) {
-            /* ASSIGN-LV LV-1: s[i:j] := v — lhs lowers as a section-VARIABLE producer (sval="lv" selects bb_section's lv arm; rt_section_var mints the tvsubs trap; +:/-: desugared to the synthetic
-               BINOP exactly as the rvalue arm) feeding the existing IR_ASSIGN_VAR write-through (rt_assign_var's canonical splice). Identifier base → IR_VAR_REF (lower_idx_var parity); other bases
-               lower as values and rt_section_var FAILs → ω (strings-under-VALUE stay non-assignable, the probe-63 doctrine). Wiring mirrors the rvalue TT_SECTION arm; rhs lowered last, β inherits. */
-            int sec_variant = (lhs->t == TT_SECTION_PLUS) ? 1 : (lhs->t == TT_SECTION_MINUS) ? 2 : 0;
-            IR_t * sec = build(cx, IR_SUBSCRIPT, NULL, ω); IR_LIT(sec).ival = 0; IR_LIT(sec).sval = "lv";
-            IR_t * ar = NULL; IR_t * ae; const tree_t * b0 = lhs->c[0];
-            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-            else ae = lower(cx, b0, NULL, ω, &ar);
-            IR_t * br = NULL; IR_t * be = lower(cx, lhs->c[1], NULL, ω, &br); γ_to(ar, be);
-            IR_t * cr = NULL; IR_t * ce = lower(cx, lhs->c[2], sec_variant ? NULL : sec, ω, &cr); γ_to(br, ce);
-            if (sec_variant) { IR_t * op = build(cx, IR_BINOP, sec, ω); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB; ir_operand_push(op, br); ir_operand_push(op, cr); γ_to(cr, op); cr = op; }
-            ir_operand_push(sec, ar); ir_operand_push(sec, br); ir_operand_push(sec, cr);
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
-            γ_to(sec, re);
-            ir_operand_push(asn, sec); ir_operand_push(asn, rr);
-            *res = asn; return ae;
-        }
-        if (lhs && lhs->t == TT_ITERATE && lhs->n > 0 && lhs->c[0]) {
-            /* ASSIGN-LV LV-2: !x := v — the iterate lowers as an element-VARIABLE producer (sval="lv" selects bb_iterate's lv arm; rt_list_bang_var_at mints the VCELL — list cell, record field, table
-               pair-val, string tvsubs through the underlying variable) feeding the existing IR_ASSIGN_VAR write-through. Identifier base → IR_VAR_REF (strings need the variable, lower_idx_var parity);
-               heap bases lower as values. IR_ITERATE stays generator-kind: cx->beta = it (set BEFORE rhs so a resumable rhs overrides — it is the more recent generator), rhs ω → it auto-β (canonical
-               backtrack chain), it → rhs entry lc_γ_to α-stamped (EXPORTABLE RULE: a producer's SUCCESS edge enters fresh). */
-            IR_t * it = build(cx, IR_ITERATE, NULL, ω); IR_LIT(it).ival = 0; IR_LIT(it).sval = "lv";
-            const tree_t * b0 = lhs->c[0];
-            IR_t * ar = NULL; IR_t * ae;
-            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-            else ae = lower(cx, b0, NULL, ω, &ar);
-            lc_γ_to(ar, it);
-            ir_operand_push(it, ar);
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            cx->beta = it;
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, it, &rr);
-            lc_γ_to(it, re);
-            ir_operand_push(asn, it); ir_operand_push(asn, rr);
-            *res = asn; return ae;
-        }
-        if (lhs && lhs->t == TT_RANDOM && lhs->n > 0 && lhs->c[0]) {
-            /* ASSIGN-LV LV-3a: ?x := v — single-shot random-element VARIABLE producer (operator{0,1}, no β wiring) into the existing IR_ASSIGN_VAR write-through; the LV-2 recipe minus the generator plumbing. */
-            IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
-            const tree_t * b0 = lhs->c[0];
-            IR_t * ar = NULL; IR_t * ae;
-            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-            else ae = lower(cx, b0, NULL, ω, &ar);
-            lc_γ_to(ar, rn); ir_operand_push(rn, ar);
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
-            lc_γ_to(rn, re);
-            ir_operand_push(asn, rn); ir_operand_push(asn, rr);
-            *res = asn; return ae;
-        }
-        if (lhs && (lhs->t == TT_NULL || lhs->t == TT_NONNULL) && lhs->n > 0 && lhs->c[0] && rhs) {
-            /* NULLTEST-LV: /x := v (assign-iff-null) and \x := v (assign-iff-nonnull) — canonical onull.r: the unary yields the VARIABLE on success. SCRIP: lvalue-producer over the child
-               (lower_lvalue_var: identifier/IDX/section) → IR_DEREF reads the current value through it (table traps deref-without-insert, canonical tvtbl) → IR_UNOP_TEST tests → rhs →
-               IR_ASSIGN_VAR writes back through the SAME variable. A failing test fails the whole assign (ω). Single-shot, no β (operator{0,1}, the LV-3a shape). */
-            IR_t * lv = NULL; IR_t * lve = lower_lvalue_var(cx, lhs->c[0], ω, &lv);
-            if (lve && lv) {
-                IR_t * dr = build(cx, IR_DEREF, NULL, ω);
-                ir_operand_push(dr, lv);
-                lc_γ_to(lv, dr);
-                IR_t * ut = build(cx, IR_UNOP_TEST, NULL, ω); IR_LIT(ut).ival = (long long) lhs->t;
-                ir_operand_push(ut, dr);
-                lc_γ_to(dr, ut);
-                IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-                IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
-                lc_γ_to(ut, re);
-                ir_operand_push(asn, lv); ir_operand_push(asn, rr);
-                *res = asn; return lve;
-            }
-        }
-        if (lhs && lhs->t == TT_FIELD) {
-            IR_t * set = build(cx, IR_FIELD_SET, γ, ω);
-            IR_LIT(set).sval = (lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval;
-            IR_t * vr = NULL; IR_t * rhs_entry = lower(cx, rhs, set, ω, &vr);
-            IR_t * br = NULL; IR_t * obj_entry = lower(cx, lhs->c[0], rhs_entry, ω, &br);
-            ir_operand_push(set, br); ir_operand_push(set, vr);
-            *res = set; return obj_entry;
-        }
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, lvbeta ? lvbeta : ω, &rr);
+            lc_γ_to(lv, re);
+            ir_operand_push(asn, lv); ir_operand_push(asn, rr);
+            *res = asn; return lve;
+          } }
         IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_t * lr = NULL, * rr = NULL;
         IR_t * eb = lower(cx, rhs, asn, ω, &rr); IR_t * ea = lower(cx, lhs, eb, ω, &lr);
         ir_operand_push(asn, rr); ir_operand_push(asn, lr); *res = asn; return ea;
@@ -402,63 +346,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, bo);
             return lower(cx, as, γ, ω, res);
         }
-        if (lhs && lhs->t == TT_ITERATE && lhs->n > 0 && lhs->c[0]) {
-            /* ASSIGN-LV LV-3b: !x OP:= v — the once-evaluated-variable form (a naive desugar would double-lower the generator): the iterate yields the element VCELL ONCE per pump; IR_DEREF reads the
-               old value through it, IR_BINOP folds rhs, IR_ASSIGN_VAR writes back through the SAME VCELL (operands[0]=it — deref and write-back both read it->tmp fresh on every β-resume). */
-            IR_t * it = build(cx, IR_ITERATE, NULL, ω); IR_LIT(it).ival = 0; IR_LIT(it).sval = "lv";
-            const tree_t * b0 = lhs->c[0];
-            IR_t * ar = NULL; IR_t * ae;
-            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-            else ae = lower(cx, b0, NULL, ω, &ar);
-            lc_γ_to(ar, it);
-            ir_operand_push(it, ar);
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
-            IR_t * dr = build(cx, IR_DEREF, NULL, ω);
-            ir_operand_push(dr, it);
-            lc_γ_to(it, dr);
-            cx->beta = it;
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, it, &rr);
-            lc_γ_to(dr, re);
-            ir_operand_push(op, dr); ir_operand_push(op, rr);
-            ir_operand_push(asn, it); ir_operand_push(asn, op);
-            *res = asn; return ae;
-        }
-        if (lhs && lhs->t == TT_RANDOM && lhs->n > 0 && lhs->c[0] && rhs) {
-            /* ASSIGN-LV LV-3a augop rider: ?x OP:= v — the once-evaluated-variable form (LV-3b shape minus β): IR_RANDOM rolls ONCE; IR_DEREF reads the old value through it, IR_BINOP folds rhs,
-               IR_ASSIGN_VAR writes back through the SAME VCELL (operands[0]=rn — deref and write-back both read rn->tmp). */
-            IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
-            const tree_t * b0 = lhs->c[0];
-            IR_t * ar = NULL; IR_t * ae;
-            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-            else ae = lower(cx, b0, NULL, ω, &ar);
-            lc_γ_to(ar, rn); ir_operand_push(rn, ar);
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
-            IR_t * dr = build(cx, IR_DEREF, NULL, ω);
-            ir_operand_push(dr, rn);
-            lc_γ_to(rn, dr);
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, ω, &rr);
-            lc_γ_to(dr, re);
-            ir_operand_push(op, dr); ir_operand_push(op, rr);
-            ir_operand_push(asn, rn); ir_operand_push(asn, op);
-            *res = asn; return ae;
-        }
-        if (lhs && lhs->t == TT_FIELD && lhs->n > 0 && lhs->c[0] && rhs) {
-            /* FIELD-AUGOP: a.f OP:= v — base evaluated ONCE (JCON ir_augmented_assignment: lv is the variable, op(lv,rv)→tmp, :=(lv,tmp)); SCRIP has no field-VARIABLE producer yet, so the once-eval
-               is realized by SHARING the base result node between IR_FIELD_GET (read old) and IR_FIELD_SET (write back) — same rider order as LV-3a (producer → deref/get → rhs → BINOP → write). */
-            const char * fname = (lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval;
-            IR_t * br = NULL; IR_t * be = lower(cx, lhs->c[0], NULL, ω, &br);
-            IR_t * fg = build(cx, IR_FIELD_GET, NULL, ω); IR_LIT(fg).sval = (char *) fname; ir_operand_push(fg, br); lc_γ_to(br, fg);
-            IR_t * fs = build(cx, IR_FIELD_SET, γ, ω); IR_LIT(fs).sval = (char *) fname;
-            IR_t * op = build(cx, IR_BINOP, fs, ω); IR_LIT(op).ival = bc;
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, ω, &rr);
-            lc_γ_to(fg, re);
-            ir_operand_push(op, fg); ir_operand_push(op, rr);
-            ir_operand_push(fs, br); ir_operand_push(fs, op);
-            *res = fs; return be;
-        }
-        { IR_t * lv = NULL; IR_t * lve = (lhs && rhs) ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
+        { IR_t * b4 = cx->beta;
+          IR_t * lv = NULL; IR_t * lve = (lhs && rhs) ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
           if (lve && lv) {
             /* LVALUE-AUGOP: x[i] OP:= v / s[i:j] OP:= v — the LV-3a once-evaluated rider shape verbatim on the shared lower_lvalue_var front (variable-producer → IR_DEREF reads old →
                IR_BINOP folds rhs → IR_ASSIGN_VAR writes back through the SAME variable; deref and write-back both read lv->tmp). Kills the operand-less IR_BINOP mint-and-abandon fallthrough
@@ -468,7 +357,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * dr = build(cx, IR_DEREF, NULL, ω);
             ir_operand_push(dr, lv);
             lc_γ_to(lv, dr);
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, ω, &rr);
+            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, lvbeta ? lvbeta : ω, &rr);
             lc_γ_to(dr, re);
             ir_operand_push(op, dr); ir_operand_push(op, rr);
             ir_operand_push(asn, lv); ir_operand_push(asn, op);
