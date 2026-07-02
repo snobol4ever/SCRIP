@@ -8,7 +8,9 @@ extern "C" {
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* IR_LIMIT — the Icon `\` limit operator.  Generator is ON-SPINE (a chain node whose γ flows into LIMIT_α); the
-   count is a compile-time literal carried in _.op_ival; the generator's resume entry is carried in _.lbl_t0.  The
+   count DESCR lives in the slot _.op_sc and is read at RUNTIME (int64 at +8 — literal and variable counts ride the
+   same path; the old compile-time op_ival immediate was dead staging, clobber audit 2026-07-02); the generator's
+   resume entry is carried in _.lbl_t0.  The
    per-result counter lives at [r12 + op_off + 16] and is pre-initialised to 0 once (bb_limit_init) before the
    generator first runs.  Result DESCR of the limited value is copied into the LIMIT slot at [r12 + op_off] so the
    consumer reads it.  check-BEFORE-yield (c starts at 0): on each generator success, if c >= t fail, else c++,
@@ -16,13 +18,13 @@ extern "C" {
 std::string bb_limit() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (!(_.op_off >= 0 && _.op_sa >= 0 && _.lbl_t0))
-        return x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, literal count, gen-β)");
-    long t = (long)_.op_ival;
+    if (!(_.op_off >= 0 && _.op_sa >= 0 && _.op_sc >= 0 && _.lbl_t0))
+        return x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, count slot, gen-β)");
     return x86("comment", "IR_LIMIT")
          + x86("label", _.lbl_α)
          + x86("mov",   "rax", FRQ(_.op_off + 16))
-         + x86("cmp",   "rax", t)
+         + x86("mov",   "rcx", FRQ(_.op_sc + 8))
+         + x86("cmp",   "rax", "rcx")
          + x86("jge",   "ω")
          + x86("inc",   FRQ(_.op_off + 16))
          + x86("mov",   "rax", FRQ(_.op_sa))

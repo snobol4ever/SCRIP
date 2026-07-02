@@ -750,7 +750,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
       g_emit.op_proc_k = (g_proc_direct_active && nm_op && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
     g_emit.op_stno = (int32_t)IR_LIT(nd).ival;
     g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : IR_LIT(nd).ival;
-    if (nd->op == IR_LIMIT && nd->n_operands > 1 && nd->operands[1] && nd->operands[1]->op == IR_LIT_INTEGER) g_emit.op_ival = IR_LIT(nd->operands[1]).ival;
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;
     g_emit.op_counter = 0;
@@ -916,8 +915,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_CHARSET:
-        /* op_ival=1 signals bb_lit_scalar to emit slen=-1 (0xFFFFFFFF) → IS_CSET_fn-true DT_S descriptor */
-        g_emit.op_ival = 1; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        /* bb_lit_scalar's CHARSET arm keys on op_node_kind and emits the slen=-1 IS_CSET_fn sentinel itself; walk's preamble owns op_ival (the old op_ival=1 staging here was dead — clobber audit 2026-07-02) */
+        g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR: {
@@ -1073,7 +1072,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
             IR_t * vb = nd->operands[0]; IR_t * vi = nd->operands[1];
             int va = vb ? drive_value_slot(vb) : -1; int vs = vi ? drive_value_slot(vi) : -1;
             if (va < 0 || vs < 0) { drive_unowned(nd); break; }
-            g_emit.op_a_slot = va; g_emit.op_sa = vs; g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = 0;
+            g_emit.op_a_slot = va; g_emit.op_sa = vs; g_emit.op_off = drive_value_slot(nd);
             DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
         }
         IR_t * base = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1115,16 +1114,17 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_LIMIT: {
-        /* IR_LIMIT = e \ n.  operands[0]=generator node, operands[1]=count literal node.
+        /* IR_LIMIT = e \ n.  operands[0]=generator node, operands[1]=count expr (an on-spine value-producer).
            op_sa = generator value slot (what LIMIT copies to consumer);
-           op_ival = count (from the literal node); lbl_t0 = generator β (for β-pump on resume).
-           op_off = LIMIT own slot (result copy at off, counter at off+16). */
+           op_sc = count value slot (runtime read — literal and variable counts ride the same slot path; the old
+           op_ival immediate staging was DEAD, discarded by walk's preamble re-derivation — clobber audit 2026-07-02);
+           lbl_t0 = generator β (for β-pump on resume). op_off = LIMIT own slot (result copy at off, counter at off+16). */
         IR_t * gen = nd->n_operands > 0 ? nd->operands[0] : NULL;
         IR_t * cnt = nd->n_operands > 1 ? nd->operands[1] : NULL;
         int sa = gen ? drive_value_slot(gen) : -1;   /* tmp-doctrine: slot = gen->tmp even if gen is later in chain order */
-        int64_t count = (cnt && cnt->op == IR_LIT_INTEGER) ? IR_LIT(cnt).ival : 1;
-        if (sa < 0) { drive_unowned(nd); break; }
-        g_emit.op_sa = sa; g_emit.op_ival = count;
+        int sc = cnt ? drive_value_slot(cnt) : -1;
+        if (sa < 0 || sc < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sa; g_emit.op_sc = sc;
         /* g_limit_gen_beta is set by the BFS intercept above before emit_drive is called */
         g_emit.lbl_t0   = g_limit_gen_beta ? g_limit_gen_beta->name : (lbl_β ? lbl_β->name : NULL);
         g_emit.lbl_t0_p = g_limit_gen_beta ? g_limit_gen_beta : lbl_β;
