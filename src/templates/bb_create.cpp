@@ -54,7 +54,6 @@ std::string bb_create() {
        hand exactly as IR_LIMIT/IR_ITERATE size their own adjacent counter slots at op_off+16 (see
        those cases in emit.cpp's emit_drive switch, same pattern, same file). */
     int op_off2 = _.op_off + 16;
-    bb_flat_cursor_reserve(op_off2 + 48);  /* 6 * 8 bytes */
 
     std::string s = x86("comment", "IR_CREATE")
                    + x86("label", _.lbl_α);

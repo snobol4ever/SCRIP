@@ -422,22 +422,6 @@ static void bb_slotmap_push(IR_t *nd, int off) {
     }
     g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++;
 }
-int bb_slot_alloc16(IR_t *nd) {
-    int off = g_flat_slot_count;
-    g_flat_slot_count += 16;
-    bb_slotmap_push(nd, off);
-    return off;
-}
-/* Like bb_slot_alloc16 but returns the existing slot if the node already has one.
-   Used when a node may be walked twice (chain pre-walk + generator re-walk). */
-int bb_slot_alloc16_or_get(IR_t *nd) {
-    int existing = bb_slot_get(nd);
-    if (existing >= 0) return existing;
-    int off = g_flat_slot_count;
-    g_flat_slot_count += 16;
-    bb_slotmap_push(nd, off);
-    return off;
-}
 int bb_slot_get(IR_t *nd) {
     for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
     return -1;
@@ -446,11 +430,6 @@ void bb_slot_register(IR_t *nd, int off) {
     bb_slotmap_push(nd, off);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-int bb_slot_claim(int bytes) {
-    int off = g_flat_slot_count;
-    g_flat_slot_count += bytes;
-    return off;
-}
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int off; } bb_varslot_ent_t;
 static bb_varslot_ent_t *g_bb_varslot = NULL;
@@ -543,7 +522,6 @@ static void gvar_stmt_operand_refs(IR_t *head);
 static int gvar_prewalk_idx_operand(IR_t *idx, bb_label_t *lbl_ω);
 IR_t * bb_child0(const IR_t *n) { return (n && n->n_operands > 0) ? n->operands[0] : NULL; }
 IR_t * bb_child1(const IR_t *n) { return (n && n->n_operands > 1) ? n->operands[1] : NULL; }
-void bb_flat_cursor_reserve(int upto) { if (upto > g_flat_slot_count) g_flat_slot_count = upto; }
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
@@ -736,7 +714,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
     extern int  bb_slot_get(IR_t *nd);
-    extern int  bb_slot_alloc16(IR_t *nd);
     if (!nd) return 1;
     g_emit.node = nd;
     emit_io_set_sink(out);
@@ -843,9 +820,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
 /*=============== THE ONE EMITTER DRIVER  -  emit_drive (reads IR, owns slots/edges, never mutates IR) ===============*/
 extern int           bb_slot_get(IR_t *nd);
 extern void          bb_slot_register(IR_t *nd, int off);
-extern int           bb_slot_alloc16(IR_t *nd);
-extern int           bb_slot_alloc16_or_get(IR_t *nd);
-extern int           bb_slot_claim(int bytes);
 extern int           bb_varslot(const char *name);
 extern int           bb_varslot_peek(const char *name);
 extern int           is_global(const char *name);
@@ -865,12 +839,13 @@ extern IR_graph_t *  g_emit_cfg;
 static int drive_value_slot(IR_t *nd) {
     int e = bb_slot_get(nd);
     if (e >= 0) return e;
-    if (nd && nd->tmp >= 0) { bb_slot_register(nd, nd->tmp); bb_flat_cursor_reserve(nd->tmp + 16); return nd->tmp; }
+    if (nd && nd->tmp >= 0) { bb_slot_register(nd, nd->tmp); return nd->tmp; }
     if (nd && ir_node_produces_value(nd->op)) {
-        fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no nd->tmp (ir_node_produces_value says yes, but LOWER's ir_tmp_slot_assign never reached it / it raced ahead of slot assignment). Legacy bb_slot_alloc16 fallback is REMOVED for value-producers; fix the tmp-assignment gap in LOWER, never patch it here. op=%d\n", (int)nd->op, (int)nd->op);
+        fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no nd->tmp — ir_drive_slot_assign never granted it. Emit-time allocation is ERADICATED (TMP-ERADICATE); add the grant in LOWER, never patch it here. op=%d\n", (int)nd->op, (int)nd->op);
         abort();
     }
-    return bb_slot_alloc16(nd);
+    fprintf(stderr, "[TE] GOUGE drive_value_slot(op=%d): non-value-producer asked for a slot with no LOWER grant — emit-time allocation is ERADICATED (TMP-ERADICATE); add an ir_drive_slot_assign grant for this op\n", nd ? (int)nd->op : -1);
+    abort();
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* flat_drive_repalt — the function emit.cpp's REPALT comments cite as owning e's four edges (previously a phantom: cited, never defined — 2026-07-01 wholesale audit).  Layout per the IR_REPALT design
@@ -882,7 +857,6 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
     IR_t *e_root  = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
     IR_t *e_entry = (nodes[i]->n_operands > 1 && nodes[i]->operands[1]) ? nodes[i]->operands[1] : e_root;
     int off = drive_value_slot(nodes[i]);
-    bb_flat_cursor_reserve(off + 24);
     int e_sa = e_root ? bb_slot_get(e_root) : -1;
     if (e_sa < 0 && e_root) e_sa = drive_value_slot(e_root);
     bb_label_t *e_lbl = node_ω; bb_label_t *e_beta = ra_t[i];
@@ -1005,7 +979,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sc = -1;   /* IR_TO = 2-operand form, implicit by=1 (TO-SPLIT); by lives on IR_TO_BY */
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 32);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TO_BY: {
@@ -1014,7 +987,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sc = drive_value_slot(nd->operands[2]);   /* by producer's slot; sign checked at runtime in bb_to_by */
         g_emit.op_num_real = 0;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 32);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MAKE_LIST: {
@@ -1023,7 +995,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         for (int i = 0; i < na; i++) { IR_t * a = nd->operands[i]; g_emit.op_arg_slot[i] = a ? drive_value_slot(a) : -1; }
         g_emit.op_arg_slot_n = na;
         g_emit.op_off = drive_value_slot(nd);   /* result DESCR at tmp; argv scratch at tmp+16 (slot-grant, scrip_ir.c) */
-        bb_flat_cursor_reserve(g_emit.op_off + 16 + na * 16);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REV_ASSIGN: {
@@ -1038,7 +1009,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sb  = bb_varslot(vn);
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
-        bb_flat_cursor_reserve(g_emit.op_off + 32);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REV_ASSIGN_VAR: {
@@ -1054,7 +1024,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa  = sb;
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
-        bb_flat_cursor_reserve(g_emit.op_off + 32);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_GOTO:
@@ -1154,7 +1123,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.lbl_t0   = g_limit_gen_beta ? g_limit_gen_beta->name : (lbl_β ? lbl_β->name : NULL);
         g_emit.lbl_t0_p = g_limit_gen_beta ? g_limit_gen_beta : lbl_β;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 32);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CREATE: {
@@ -1220,7 +1188,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         IR_t * ig = nd->n_operands > 1 ? nd->operands[1] : NULL;
         IR_t * av = nd->n_operands > 2 ? nd->operands[2] : NULL;
         int off = ig ? drive_value_slot(ig) : -1;
-        if (off >= 0) bb_flat_cursor_reserve(off + 24);
         g_emit.op_off = off;
         g_emit.op_sa = av ? bb_slot_get(av) : -1;
         g_emit.lbl_t0 = g_move_label_tgt ? g_move_label_tgt->name : NULL;
@@ -1233,7 +1200,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
            *res hands every consumer), label variable t at [tmp+16..23] (what this node's α jumps through).
            No operands consumed here; every MoveLabel sibling writes both halves before this can execute. */
         int off = drive_value_slot(nd);
-        if (off >= 0) bb_flat_cursor_reserve(off + 24);
         g_emit.op_off = off;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1246,7 +1212,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa = sa;
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sb  = g_emit.op_off + 16;   /* counter slot adjacent to result */
-        bb_flat_cursor_reserve(g_emit.op_off + 24);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_INITIAL: {
@@ -1256,7 +1221,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
            γ = body entry (first call path), ω = skip-body path (subsequent calls + body exit). */
         g_emit.op_off = nd->tmp;
         if (g_emit.op_off < 0) { drive_unowned(nd); break; }
-        bb_flat_cursor_reserve(g_emit.op_off + 16);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_ENTER: {
@@ -1269,7 +1233,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = 1;
         g_emit.op_off = drive_value_slot(nd);   /* nd->tmp = save area for old r13/r14/r15 */
-        bb_flat_cursor_reserve(g_emit.op_off + 24);
         { extern int g_scan_regs_live; g_scan_regs_live++; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1289,7 +1252,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* tab(n): op_off=own 24-byte slot; op_sb=literal n (>0) or -1; op_sa=var slot (-1 if literal) */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 24);
         if (a0 && a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
         else if (a0) { int sl = bb_slot_get(a0); g_emit.op_sa = (sl >= 0) ? sl : -1; g_emit.op_sb = 0; }
         else { g_emit.op_sb = 0; g_emit.op_sa = -1; }
@@ -1299,7 +1261,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* move(n): op_off=own 24-byte slot; op_sa=1 (flag); op_sb=literal n */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 24);
         g_emit.op_sa = 1;
         g_emit.op_sb = (a0 && a0->op == IR_LIT_INTEGER) ? (int)IR_LIT(a0).ival : 1;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1308,7 +1269,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* pos(n): op_off=own 16-byte slot; op_sb=literal n */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 16);
         g_emit.op_sb = (a0 && a0->op == IR_LIT_INTEGER) ? (int)IR_LIT(a0).ival : 1;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1316,7 +1276,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* upto(cset): op_off=own 24-byte slot; op_name1=literal cset C-string */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 24);
         g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1324,7 +1283,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* any(cset): op_off=own 16-byte slot; op_name1=literal cset OR op_sa=var slot + op_name2 */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 16);
         if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
             g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1; g_emit.op_name2 = NULL;
         } else if (a0) {
@@ -1336,7 +1294,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* many(cset): op_off=own 16-byte slot; op_name1=literal cset */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 16);
         g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1344,7 +1301,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* find(needle): op_off=own 24-byte slot; op_name1=literal needle */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 24);
         g_emit.op_name1 = (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1352,7 +1308,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* match(s): op_off=own 16-byte slot; op_name1=literal string */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 16);
         g_emit.op_name1 = (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1360,7 +1315,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* bal(cset): op_off=own 32-byte slot; op_name1=literal cset */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        bb_flat_cursor_reserve(g_emit.op_off + 32);
         g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1517,7 +1471,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
        2026-07-01 wholesale audit; empty-output symptom was garbage counter >= t at first gate entry). */
     for (int _li = 0; _li < n; _li++) if (nodes[_li]->op == IR_LIMIT) {
         g_emit.op_off = drive_value_slot(nodes[_li]);
-        bb_flat_cursor_reserve(g_emit.op_off + 32);
         bb_emit_x86(bb_limit_init());
     }
     for (int i = 0; i < n; i++) {

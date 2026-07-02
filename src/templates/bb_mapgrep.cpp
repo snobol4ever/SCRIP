@@ -6,8 +6,6 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 #include "descr.h"
-int  bb_slot_claim(int bytes);
-int  bb_slot_alloc16(IR_t * nd);
 void    bb_reset(IR_graph_t * bbg);
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 }
