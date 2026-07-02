@@ -599,7 +599,7 @@ static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
     cx->loop_next = centry;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, centry, centry, &bval);
-    γ_to(cval, b_entry); ir_operand_push(W, centry);
+    lc_γ_to(cval, b_entry); ir_operand_push(W, centry);
     cx->loop_exit = sle; cx->loop_next = sln;
     *res = W; return centry;
 }
@@ -613,7 +613,7 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, NULL, &cval);
     cx->loop_next = centry;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, centry, centry, &bval);
-    ω_to(cval, b_entry); ir_operand_push(U, centry);
+    lc_ω_to(cval, b_entry); ir_operand_push(U, centry);
     cx->loop_exit = sle; cx->loop_next = sln;
     *res = U; return centry;
 }
@@ -623,7 +623,7 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     IR_t * H = build(cx, IR_CONJ, NULL, ω);
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = γ; cx->loop_next = H;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, H, H, &bval);
-    γ_to(H, b_entry); ω_to(H, b_entry); ir_operand_push(H, b_entry);
+    lc_γ_to(H, b_entry); lc_ω_to(H, b_entry); ir_operand_push(H, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln;
     cx->beta = γ; *res = H; return H;
 }
