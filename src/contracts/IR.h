@@ -77,6 +77,7 @@ typedef enum {
     IR_SUCCEED,
     IR_SUSPEND,
     IR_SWAP,
+    IR_SWAP_VAR,
     IR_TO,
     IR_TO_BY,
     IR_UNOP,

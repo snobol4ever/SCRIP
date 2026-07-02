@@ -135,6 +135,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_section.cpp \
     $(SRC)/templates/bb_rasgn.cpp \
     $(SRC)/templates/bb_swap.cpp \
+    $(SRC)/templates/bb_swap_var.cpp \
     $(SRC)/templates/bb_enter_init.cpp \
     $(SRC)/templates/bb_gen_scan.cpp \
     $(SRC)/templates/bb_scan_tab.cpp \
@@ -347,6 +348,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp  -o $(OBJ)/bb_gen_scan.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_section.cpp -o $(OBJ)/bb_section.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_swap.cpp -o $(OBJ)/bb_swap.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_swap_var.cpp -o $(OBJ)/bb_swap_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_tab.cpp   -o $(OBJ)/bb_scan_tab.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_move.cpp  -o $(OBJ)/bb_scan_move.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_upto.cpp  -o $(OBJ)/bb_scan_upto.o

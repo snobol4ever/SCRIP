@@ -850,3 +850,28 @@ DESCR_t rt_assign_var(DESCR_t var, DESCR_t val) {
     }
     return FAILDESCR;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+static VCELL_t * vcell_ultimate(DESCR_t d) {
+    while (d.v == DT_V) { VCELL_t *vc = (VCELL_t *)d.p; if (!vc) return 0; if (vc->sv.v == DT_V) { d = vc->sv; continue; } return vc; }
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
+    if (va.v != DT_V || vb.v != DT_V) return FAILDESCR;
+    VCELL_t *xc = (VCELL_t *)va.p, *yc = (VCELL_t *)vb.p; if (!xc || !yc) return FAILDESCR;
+    DESCR_t dx = rt_deref(va), dy = rt_deref(vb);
+    if (dx.v == DT_FAIL || dy.v == DT_FAIL) return FAILDESCR;
+    long adj1 = 0, adj2 = 0;
+    if (xc->sv.v == DT_V && yc->sv.v == DT_V) {
+        VCELL_t *ux = vcell_ultimate(xc->sv), *uy = vcell_ultimate(yc->sv);
+        if (ux && uy && ((ux->cellp && ux->cellp == uy->cellp) || (ux->tbl && ux->tbl == uy->tbl && ux->key && uy->key && !strcmp(ux->key, uy->key)))) {
+            if (xc->pos > yc->pos) adj1 = xc->len - yc->len;
+            else if (yc->pos > xc->pos) adj2 = yc->len - xc->len;
+        }
+    }
+    if (rt_assign_var(va, dy).v == DT_FAIL) return FAILDESCR;
+    if (adj2 != 0) yc->pos += adj2;
+    if (rt_assign_var(vb, dx).v == DT_FAIL) return FAILDESCR;
+    if (adj1 != 0) xc->pos += adj1;
+    return rt_deref(va);
+}
