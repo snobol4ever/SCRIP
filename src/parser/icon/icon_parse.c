@@ -222,8 +222,9 @@ static tree_t *parse_postfix(IcnParser *p) {
                 push_child(sec, n); push_child(sec, idx); push_child(sec, len);
                 n = sec;
             } else {
-                expect(p, TK_RBRACK, "subscript");
                 n = e_binary(TT_IDX, n, idx);
+                while (check(p, TK_COMMA)) { advance(p); push_child(n, parse_expr(p)); }   /* x[i,j,...] ≡ x[i][j]... — lower_idx_var's SUBSCRIPT/DEREF chain desugars (IDX-UNIFY r3, 2026-07-02) */
+                expect(p, TK_RBRACK, "subscript");
             }
         } else if (check(p, TK_DOT)) {
             advance(p);
