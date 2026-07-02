@@ -91,6 +91,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_conjunction.cpp \
     $(SRC)/templates/bb_subscript.cpp \
     $(SRC)/templates/bb_deref.cpp \
+    $(SRC)/templates/bb_random.cpp \
     $(SRC)/templates/bb_assign_var.cpp \
     $(SRC)/templates/bb_rev_assign_var.cpp \
     $(SRC)/templates/bb_var_ref.cpp \
@@ -267,6 +268,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_conjunction.cpp       -o $(OBJ)/bb_conjunction.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_subscript.cpp       -o $(OBJ)/bb_subscript.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_deref.cpp       -o $(OBJ)/bb_deref.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_random.cpp      -o $(OBJ)/bb_random.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_var.cpp       -o $(OBJ)/bb_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rev_assign_var.cpp       -o $(OBJ)/bb_rev_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_ref.cpp       -o $(OBJ)/bb_var_ref.o

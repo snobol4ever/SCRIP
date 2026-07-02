@@ -56,6 +56,7 @@ typedef enum {
     IR_MAKE_LIST,
     IR_MOVE_LABEL,
     IR_PROC_GEN,
+    IR_RANDOM,
     IR_RETURN,
     IR_LIMIT,
     IR_REPALT,

@@ -30,6 +30,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_TO] = "IR_TO",
     [IR_TO_BY] = "IR_TO_BY",
     [IR_PROC_GEN] = "IR_PROC_GEN",
+    [IR_RANDOM] = "IR_RANDOM",
     [IR_KEYWORD] = "IR_KEYWORD",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_FIELD_GET] = "IR_FIELD_GET",
@@ -172,7 +173,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
    IR_CORET/IR_COFAIL deliberately stay OUT of this set — they are body-internal success/failure targets,
    not general value-producers; their own operand[0] (the produced value, for CORET) rides a DIFFERENT
    node's slot, per RUNG 1's lowering (coret.operand[0] = the body's own value node). */
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD_GET || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_RANDOM || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD_GET || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -274,7 +275,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         /* TMP-ERADICATE non-producer slot-takers (named empirically by the drive_value_slot gouge):
            IR_DEREF materializes a value copy; IR_ASSIGN_VAR stages result=value (sub-expression use, the
            IR_ASSIGN precedent above); IR_KEYWORD stages its keyword value. One DESCR each. */
-        if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_KEYWORD) { nd->tmp = base + k * 16; k += 1; continue; }
+        if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_KEYWORD || nd->op == IR_RANDOM) { nd->tmp = base + k * 16; k += 1; continue; }
         /* IR_CREATE: 16-byte co-expression DESCR + 48-byte regs[6] create-time scratch at tmp+16 (bb_create's
            former hand-reserve, now a real grant). k+=4 = 64 bytes. */
         if (nd->op == IR_CREATE) { nd->tmp = base + k * 16; k += 4; continue; }
