@@ -335,10 +335,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return e; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); return sub ? lower_rv(cx, sub, γ, ω, res) : (build(cx, IR_SUCCEED, γ, ω)); }
     case TT_IF: {
-        IR_t * tconj = build(cx, IR_CONJ, γ, ω);
+        IR_t * tconj = build(cx, IR_SEQ_EXPR, γ, ω);
         IR_t * tentry = (t->n > 1) ? lower_rblock(cx, t->c[1], tconj, ω) : tconj;
         IR_t * eentry = γ;
-        if (t->n > 2 && t->c[2]) { IR_t * econj = build(cx, IR_CONJ, γ, ω); eentry = lower_rblock(cx, t->c[2], econj, ω); }
+        if (t->n > 2 && t->c[2]) { IR_t * econj = build(cx, IR_SEQ_EXPR, γ, ω); eentry = lower_rblock(cx, t->c[2], econj, ω); }
         IR_t * bk = IR_node_alloc(cx->g, IR_CALL); IR_LIT(bk).sval = "__rk_bool"; IR_LIT(bk).ival = 1; IR_LIT(bk).dval = 2.0;
         bk->γ.node = tentry; bk->ω.node = eentry;
         IR_graph_t * cblk = rk_arg_block(cx, t->c[0]);
@@ -360,7 +360,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                         if (!s || s->t != TT_SUSPEND || s->n < 1 || !s->c[0]) continue; subs[k++] = rk_arg_block(cx, s->c[0]); } }
                     else if (gb->n >= 1 && gb->c[0]) subs[k++] = rk_arg_block(cx, gb->c[0]);
                     (void)(subs); } }
-            IR_t * gconj = build(cx, IR_CONJ, ga, ga);
+            IR_t * gconj = build(cx, IR_SEQ_EXPR, ga, ga);
             IR_t * gbentry = lower_rblock(cx, t->c[1], gconj, ga);
             γ_to(va, gbentry); *res = ga; return ga; }
         IR_t * src_nd = lower_rv(cx, t->c[0]->c[0], NULL, γ, NULL);
@@ -369,7 +369,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (va) IR_LIT(va).sval = lbvar;
         IR_t * gen = src_nd;
         γ_to(gen, va ? va : NULL);
-        IR_t * gconj = build(cx, IR_CONJ, gen, gen);
+        IR_t * gconj = build(cx, IR_SEQ_EXPR, gen, gen);
         IR_t * bentry = lower_rblock(cx, t->c[1], gconj, gen);
         if (va) γ_to(va, bentry);
         *res = gen; return gen; }
@@ -377,7 +377,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_WHILE: {
         IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
         IR_t * r = NULL; IR_t * centry = lower_rv(cx, t->c[0], NULL, NULL, &r);
-        IR_t * conj = build(cx, IR_CONJ, centry, centry);
+        IR_t * conj = build(cx, IR_SEQ_EXPR, centry, centry);
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], conj, centry) : conj;
         IR_t * bk = rk_cond_wrap(cx, r, bentry, nd);
         γ_to(r, bk); ir_operand_push(nd, centry); *res = nd; return centry; }
@@ -388,7 +388,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * elo = lower_rv(cx, t->c[1], NULL, γ, &rlo);
         IR_t * ehi = lower_rv(cx, t->c[2], to, γ, &rhi);
         γ_to(rlo, ehi); ir_operand_push(to, elo); ir_operand_push(to, ehi);
-        IR_t * conj = build(cx, IR_CONJ, to, to);
+        IR_t * conj = build(cx, IR_SEQ_EXPR, to, to);
         IR_t * bentry = lower_rblock(cx, t->c[3], conj, to);
         γ_to(va, bentry); *res = to; return elo; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
