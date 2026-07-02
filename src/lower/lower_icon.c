@@ -116,14 +116,23 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
 }
 /*====================================================================================================================================================================================================*/
 static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
-    /* IDX-UNIFY (GOAL-IR-IMMUTABLE-EMIT, RECON 2): x[i] / x[i,j,...] as a chain of 2-operand IR_SUBSCRIPT VARIABLE producers (operands[0]=base, [1]=index) with IR_DEREF between levels
-       (a[i,j] desugars a[i][j], canonical). The rval/lval MODE that JCON rides ON the "[]" operator (irgen.icn:494-499) is classified BY NAME here: IR_SUBSCRIPT yields the variable, the CALLER
-       decides — rvalue wraps the final node in IR_DEREF, assignment feeds it to IR_ASSIGN_VAR. Lists: genuine cell pointer. Tables: lazy {tbl,key} trap (canonical tvtbl — a read NEVER inserts,
-       assignment does; rt_subscript_var/rt_deref/rt_assign_var, pattern_match.c). Strings/records return a plain VALUE inside rt_subscript_var and IR_DEREF is identity on non-DT_V (probe 63;
-       canonical tvsubs = its own later rung). Wiring mirrors TT_SECTION: serial γ_to operand chain, every ω to the construct ω, cx->beta=ω (resume-fails parity with the retired lower_call("[]")
-       route). BETA: inherited from the last-lowered operand (the index) — the resume path an index generator leaves behind (every write(s[1 to 3])) must survive, exactly as lower_call's postfix arg machinery preserves it; clobbering cx->beta=ω here killed generator-index resumption (rung16_subscript_sub_every). Final node's γ is re-aimed by the caller (build with NULL γ then γ_to, the TT_SECTION operand precedent). */
+    /* IDX-UNIFY (GOAL-IR-IMMUTABLE-EMIT, RECON 2 + r1 tvsubs): x[i] / x[i,j,...] as a chain of 2-operand IR_SUBSCRIPT VARIABLE producers (operands[0]=base, [1]=index). The rval/lval MODE that
+       JCON rides ON the "[]" operator (irgen.icn:494-499) is classified BY NAME here: IR_SUBSCRIPT yields the variable, the CALLER decides — rvalue wraps the final node in IR_DEREF, assignment
+       feeds it to IR_ASSIGN_VAR. An identifier base produces IR_VAR_REF (DT_V over the variable's own cell — ζ varslot or GVA slot), and DT_V flows THROUGH the chain: rt_subscript_var derefs a
+       DT_V base internally (canonical subsc, oref.r:710-758 — operate on the value, keep the variable), so the between-level IR_DEREF nodes of phase 1 are retired. Lists: genuine cell pointer.
+       Tables: lazy {tbl,key} trap (canonical tvtbl — a read NEVER inserts, assignment does). Strings under a variable base: tvsubs trap {ssvar,pos,len} — assignment splices prefix+src+suffix and
+       writes back RECURSIVELY through ssvar (subs_asgn, oasgn.r:345+; the recursive rt_assign_var collapses canonical's type_case, so t["k"][2]:=v lazily re-derefs the tvtbl beneath); trap len
+       updates on assign so revassign's β-restore reuses the same trap (canonical rasgn). Strings under a VALUE base stay plain value reads (probe 63). rt_subscript_var/rt_deref/rt_assign_var,
+       pattern_match.c. Wiring mirrors TT_SECTION: serial γ_to operand chain, every ω to the construct ω.
+       BETA: inherited from the last-lowered operand (the index) — the resume path an index generator leaves behind (every write(s[1 to 3])) must survive, exactly as lower_call's postfix arg machinery preserves it; clobbering cx->beta=ω here killed generator-index resumption (rung16_subscript_sub_every). Final node's γ is re-aimed by the caller (build with NULL γ then γ_to, the TT_SECTION operand precedent). */
     if (t->n < 2 || !t->c[0]) { IR_t * su = build(cx, IR_SUCCEED, NULL, ω); *var_res = su; return su; }
-    IR_t * br = NULL; IR_t * entry = lower(cx, t->c[0], NULL, ω, &br);
+    IR_t * br = NULL; IR_t * entry;
+    const tree_t * b0 = t->c[0];
+    if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') {
+        IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; br = vr; entry = vr;
+    } else if (b0->t == TT_IDX) {
+        entry = lower_idx_var(cx, b0, ω, &br);
+    } else entry = lower(cx, b0, NULL, ω, &br);
     IR_t * cur = br; IR_t * hook = br;
     for (int k = 1; k < t->n; k++) {
         IR_t * ir = NULL; IR_t * ie = lower(cx, t->c[k], NULL, ω, &ir);
@@ -132,7 +141,6 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
         γ_to(ir, sub);
         ir_operand_push(sub, cur); ir_operand_push(sub, ir);
         cur = sub; hook = sub;
-        if (k < t->n - 1) { IR_t * drf = build(cx, IR_DEREF, NULL, ω); γ_to(sub, drf); ir_operand_push(drf, sub); cur = drf; hook = drf; }
     }
     *var_res = cur; return entry;
 }

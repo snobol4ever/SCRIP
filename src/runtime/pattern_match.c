@@ -641,11 +641,13 @@ void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
+    DESCR_t bvar = base;
+    if (base.v == DT_V) base = rt_deref(base);
     if (base.v == DT_A) {
         ARBLK_t *a = base.arr; if (!a) return FAILDESCR;
         int i = (int)to_int(idx); int off = i - a->lo;
         if (off < 0 || off >= (a->hi - a->lo + 1)) return FAILDESCR;
-        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx;
+        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return (DESCR_t){ .v = DT_V, .p = vc };
     }
     if (base.v == DT_T) {
@@ -654,7 +656,7 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
         if (IS_INT_fn(idx))       { snprintf(kb, sizeof kb, "%lld", (long long)idx.i); ks = kb; }
         else if (IS_REAL_fn(idx)) { snprintf(kb, sizeof kb, "%g", idx.r); ks = kb; }
         else                      { ks = VARVAL_fn(idx); if (!ks) ks = ""; }
-        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = GC_strdup(ks); vc->key_d = idx;
+        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = GC_strdup(ks); vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return (DESCR_t){ .v = DT_V, .p = vc };
     }
     if (base.v == DT_DATA) {
@@ -666,28 +668,73 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
-            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx;
+            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return (DESCR_t){ .v = DT_V, .p = vc };
         }
         return subscript_get(base, idx);
     }
+    if ((base.v == DT_S || base.v == DT_SNUL) && bvar.v == DT_V) {
+        const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
+        long i = (long)to_int(idx);
+        if (i <= 0) i = slen + 1 + i;
+        if (i < 1 || i > slen) return FAILDESCR;
+        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = bvar; vc->pos = i; vc->len = 1;
+        return (DESCR_t){ .v = DT_V, .p = vc };
+    }
     return subscript_get(base, idx);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
+    VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = cellp; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+    return (DESCR_t){ .v = DT_V, .p = vc };
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_deref(DESCR_t d) {
     if (d.v != DT_V) return d;
     VCELL_t *vc = (VCELL_t *)d.p; if (!vc) return FAILDESCR;
-    if (!vc->tbl) return vc->cellp ? *vc->cellp : FAILDESCR;
-    int found; DESCR_t hit = table_get_found(vc->tbl, vc->key, &found);
-    if (found) return hit;
-    if (vc->tbl->dflt.v != DT_FAIL && vc->tbl->dflt.v != 0) return vc->tbl->dflt;
-    return NULVCL;
+    if (vc->tbl) {
+        int found; DESCR_t hit = table_get_found(vc->tbl, vc->key, &found);
+        if (found) return hit;
+        if (vc->tbl->dflt.v != DT_FAIL && vc->tbl->dflt.v != 0) return vc->tbl->dflt;
+        return NULVCL;
+    }
+    if (vc->cellp) return *vc->cellp;
+    if (vc->sv.v == DT_V) {
+        DESCR_t sd = rt_deref(vc->sv);
+        if (sd.v != DT_S && sd.v != DT_SNUL) return FAILDESCR;
+        const char *sp = sd.s ? sd.s : ""; long slen = sd.slen ? (long)sd.slen : (long)strlen(sp);
+        if (vc->pos + vc->len - 1 > slen) return FAILDESCR;
+        char *out = GC_malloc((size_t)vc->len + 1); memcpy(out, sp + vc->pos - 1, (size_t)vc->len); out[vc->len] = 0;
+        return (DESCR_t){ .v = DT_S, .slen = (uint32_t)vc->len, .s = out };
+    }
+    return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_assign_var(DESCR_t var, DESCR_t val) {
     if (var.v != DT_V) { fprintf(stderr, "[IDX] BOMB rt_assign_var: lvalue is not a variable (dtype=%d) — string/record subscript assignment is the tvsubs rung (GOAL-IR-IMMUTABLE-EMIT IDX-UNIFY)\n", (int)var.v); abort(); }
     VCELL_t *vc = (VCELL_t *)var.p; if (!vc) return FAILDESCR;
     if (vc->tbl) { table_set_descr(vc->tbl, vc->key, vc->key_d, val); return val; }
-    if (!vc->cellp) return FAILDESCR;
-    *vc->cellp = val; return val;
+    if (vc->cellp) { *vc->cellp = val; return val; }
+    if (vc->sv.v == DT_V) {
+        char nb[64]; const char *src; long srclen;
+        if (val.v == DT_S || val.v == DT_SNUL) { src = val.s ? val.s : ""; srclen = val.slen ? (long)val.slen : (long)strlen(src); }
+        else if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); src = nb; srclen = (long)strlen(nb); }
+        else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); src = nb; srclen = (long)strlen(nb); }
+        else { fprintf(stderr, "[IDX] tvsubs assign: value not string-convertible (dtype=%d)\n", (int)val.v); return FAILDESCR; }
+        DESCR_t sd = rt_deref(vc->sv);
+        if (sd.v != DT_S && sd.v != DT_SNUL) return FAILDESCR;
+        const char *sp = sd.s ? sd.s : ""; long slen = sd.slen ? (long)sd.slen : (long)strlen(sp);
+        long prelen = vc->pos - 1, poststrt = prelen + vc->len;
+        if (poststrt > slen) return FAILDESCR;
+        long nlen = prelen + srclen + (slen - poststrt);
+        char *ns = GC_malloc((size_t)nlen + 1);
+        memcpy(ns, sp, (size_t)prelen); memcpy(ns + prelen, src, (size_t)srclen); memcpy(ns + prelen + srclen, sp + poststrt, (size_t)(slen - poststrt)); ns[nlen] = 0;
+        DESCR_t nsd = (DESCR_t){ .v = DT_S, .slen = (uint32_t)nlen, .s = ns };
+        DESCR_t wr = rt_assign_var(vc->sv, nsd);
+        if (wr.v == DT_FAIL) return FAILDESCR;
+        vc->len = srclen;
+        char *rs = GC_malloc((size_t)srclen + 1); memcpy(rs, src, (size_t)srclen); rs[srclen] = 0;
+        return (DESCR_t){ .v = DT_S, .slen = (uint32_t)srclen, .s = rs };
+    }
+    return FAILDESCR;
 }
