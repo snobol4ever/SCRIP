@@ -596,7 +596,11 @@ int binop_slot_kind(IR_t *nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int descr_binop_opnd_slot(IR_t *o) {
-    return (o && o->op != IR_LIT_REAL) ? bb_slot_get(o) : -1;
+    /* TMP DOCTRINE: the drive-order slotmap is a memo, not the truth — LOWER's grant (o->tmp) is. A consumer BFS-ordered before its operand's drive (ipxref: BINOP before CALL_BUILTIN) missed the
+       memo and aborted despite a valid grant; drive_value_slot registers off==tmp for every converted node, so the fallback is the same offset, order-independent. */
+    if (!o || o->op == IR_LIT_REAL) return -1;
+    int s = bb_slot_get(o); if (s >= 0) return s;
+    return (o->tmp >= 0) ? o->tmp : -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth);
