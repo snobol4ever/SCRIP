@@ -39,6 +39,7 @@ std::string bb_match_capture();
 std::string bb_unify();
 std::string bb_arith();
 std::string bb_conj();
+std::string bb_goto();
 std::string bb_disj();
 std::string bb_ite();
 std::string bb_cut();
