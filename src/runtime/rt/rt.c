@@ -255,6 +255,20 @@ int rt_proc_is_registered(const char *name)
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_nparams(const char *name, int nparams)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    if (p) p->nparams = nparams;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_nparams(const char *name)
+{
+    if (!name) return -1;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].nparams;
+    return -1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_has_native_fn(const char *name)
 {
     if (!name) return 0;

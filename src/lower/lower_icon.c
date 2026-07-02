@@ -6,7 +6,9 @@
 int g_postfix_resume = 0;
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
 /*====================================================================================================================================================================================================*/
-typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; IR_t * conj_resumable; } icx_t;
+typedef struct { IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln; IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; IR_t * conj_resumable; } icx_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -235,7 +237,27 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
-    case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL; const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?"; return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res); }
+    case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
+        /* PROC-VALUE by-value invoke: a callee that is a DECLARED local (p := sin; p(x)) or any non-identifier
+           expression cannot be a by-NAME call — it is a runtime procedure/string/integer VALUE (canonical invoke,
+           oref.r) — lower the callee as a value producer and mint IR_CALL_VALUE (operands[0]=callee, [1..]=args;
+           rt_call_value resolves proc-value / string-name / integer-selection). Identifier callees NOT declared
+           local stay the by-name lower_call route (the resolve pass classifies proc/builtin as before). */
+        if (!fn || (fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval))) {
+            const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
+            return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
+        }
+        IR_t * cr = NULL; IR_t * ce = lower(cx, fn, NULL, ω, &cr);
+        IR_t * nd = build(cx, IR_CALL_VALUE, γ, ω);
+        IR_t * prev = cr;
+        ir_operand_push(nd, cr);
+        for (int i = 1; i < t->n; i++) {
+            IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[i], NULL, ω, &ar);
+            lc_γ_to(prev, ae); prev = ar;
+            ir_operand_push(nd, ar);
+        }
+        lc_γ_to(prev, nd);
+        *res = nd; return ce; }
     case TT_RANDOM: {
         /* ASSIGN-LV LV-3a: ?x — classify-by-name (JCON collapses to opfn u_random/"Select"; SCRIP splits per the JCON-ALIGNMENT directive). operator{0,1}: single-shot, no β. rt_random_var rolls the
            canonical LCG once (RandA/RandC/RanScale, oref.r:216; state = g_random, the &random keyword's cell) and mints the LV VCELL family (string-under-variable tvsubs len=1 / list cell / record field /
@@ -1013,6 +1035,21 @@ static void fill_pnames(const tree_t * prog, lc_vec * pn) {
 IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     static lc_vec pnv; lc_vec_init(&pnv, (int) sizeof(const char *)); fill_pnames(prog, &pnv);
     icx_t cx; memset(&cx, 0, sizeof cx); cx.pn = (const char **) pnv.data; cx.npn = pnv.n;
+    /* PROC-VALUE: the per-proc DECLARED-name set (params + `local`/`static` idents) — the lexical truth TT_FNC
+       needs to route a computed callee (p(x) where p is a declared local) by VALUE instead of by NAME, and the
+       resolve pass needs to keep a declared local named after a builtin out of IR_PROC_VALUE classification. */
+    static lc_vec lnv; lc_vec_init(&lnv, (int) sizeof(const char *)); lnv.n = 0;
+    if (pd) {
+        const tree_t * plist = (pd->n > 1) ? pd->c[1] : NULL;
+        for (int i = 0; plist && i < plist->n; i++) if (plist->c[i] && plist->c[i]->v.sval) lc_vec_push(&lnv, &plist->c[i]->v.sval);
+        const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
+        for (int i = 0; body && i < body->n; i++) {
+            const tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
+            if (st && (st->t == TT_LOCAL || st->t == TT_STATIC_DECL))
+                for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) lc_vec_push(&lnv, &st->c[k]->v.sval);
+        }
+    }
+    cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
     if (pd && pd->n > 2 && pd->c[2]) return lower_proc_body(&cx, pd->c[2]);
     IR_graph_t * g = IR_alloc(64, IR_LANG_ICN); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
 }
@@ -1102,6 +1139,7 @@ static int icn_callable_proc_index(const char * fn) {
 void lower_icon_resolve_call_kinds(void) {
     extern int rt_builtin_is_generator(const char *);
     extern int rt_builtin_is_known(const char *);
+    extern int is_global(const char *);
     for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
         IR_graph_t * g = g_stage2.bbp.table[gi];
         if (!g) continue;
@@ -1115,6 +1153,29 @@ void lower_icon_resolve_call_kinds(void) {
             else if (pi >= 0) nd->op = IR_CALL_PROC_STAGED;
             else if (rt_builtin_is_generator(fn)) nd->op = IR_CALL_BUILTIN;
             else if (strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN;
+        }
+        /* PROC-VALUE classification (LOWER-side, the IRM->0 doctrine — every specialization decided here, never
+           in the emitter): an IR_VAR in VALUE position whose name (a) is not a param, (b) is never assigned in
+           this graph (the exact set ir_drive_slot_assign interns as locals), (c) is not a declared global, and
+           (d) IS a known user proc or builtin, denotes the PROCEDURE VALUE (canonical: builtin/proc names are
+           pre-bound globals) -> retag to the IR_PROC_VALUE leaf (rt_proc_value mints DT_E{sentinel,name}). */
+        for (int i = 0; i < g->n; i++) {
+            IR_t * nd = g->all[i];
+            if (!nd || nd->op != IR_VAR) continue;
+            const char * vn = IR_LIT(nd).sval;
+            if (!vn || !vn[0] || vn[0] == '&') continue;
+            if (is_global(vn)) continue;
+            int skip = 0;
+            for (int k = 0; !skip && g->pnames && k < g->nparams; k++) if (g->pnames[k] && !strcmp(g->pnames[k], vn)) skip = 1;
+            for (int k = 0; !skip && k < g->n; k++) {
+                IR_t * a = g->all[k]; if (!a) continue;
+                if (a->op == IR_ASSIGN && IR_LIT(a).sval && !strcmp(IR_LIT(a).sval, vn)) skip = 1;
+                if (a->op == IR_REV_ASSIGN && a->n_operands > 1 && a->operands[1] && IR_LIT(a->operands[1]).sval && !strcmp(IR_LIT(a->operands[1]).sval, vn)) skip = 1;
+            }
+            if (skip) continue;
+            int isproc = 0;
+            for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, vn)) { isproc = 1; break; }
+            if (isproc || rt_builtin_is_known(vn) || rt_builtin_is_generator(vn) || !strcmp(vn, "push") || !strcmp(vn, "put")) nd->op = IR_PROC_VALUE;
         }
     }
 }

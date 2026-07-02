@@ -698,6 +698,7 @@ int main(int argc, char **argv)
             int n_procs = 0;
             int _pnbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             const char **proc_names_buf = (const char **)malloc((size_t)_pnbcap * sizeof(const char *));
+            int *proc_nparams_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -714,6 +715,7 @@ int main(int argc, char **argv)
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 descr_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
+                proc_nparams_buf[n_procs] = np;
                 proc_names_buf[n_procs++] = pname;
                 free(pn);
             }
@@ -940,11 +942,14 @@ int main(int argc, char **argv)
                     printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                     printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", proc_names_buf[i]);
                     printf("  call rt_proc_set_fn@PLT\n");
+                    printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    printf("  mov esi, %d\n", proc_nparams_buf[i]);
+                    printf("  call rt_proc_set_nparams@PLT\n");
                 }
                 printf("  pop rbp\n");
                 printf("  ret\n");
             }
-            free(proc_names_buf);
+            free(proc_names_buf); free(proc_nparams_buf);
             if (n_gva_icn > 0) {
                 printf("  .section .rodata\n");
                 for (int k = 0; k < n_gva_icn; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));

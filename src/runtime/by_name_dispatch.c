@@ -522,6 +522,37 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_value(const char *name) {
+    DESCR_t d; d.v = DT_E; d.slen = 0xFFFFFFFEu; d.s = (char *)name; return d;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static const char * procval_name(DESCR_t v) {
+    if (v.v != DT_E) return 0;
+    if (v.slen == 0xFFFFFFFEu) return v.s;
+    for (int i = 0; i < g_stage2.proc_count; i++)
+        if (g_stage2.proc_table[i].entry_pc == (int)v.i) return g_stage2.proc_table[i].name;
+    return 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+extern int rt_proc_is_registered(const char *name);
+extern int rt_proc_nparams(const char *name);
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
+    if (IS_INT_fn(callee)) { long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
+    const char *nm = procval_name(callee);
+    if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
+    if (!nm) return FAILDESCR;
+    if (rt_proc_is_registered(nm) || !strcmp(nm, "main")) {
+        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k];
+        return rt_call_proc_descr(nm, n);
+    }
+    return rt_call_arr(nm, argv, n);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (!strcmp(fn, "__multi_call") && nargs >= 1) {
@@ -2125,6 +2156,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             t = (tag.v==DT_S && tag.s) ? tag.s : "record";
         }
         else if (IS_CSET_fn(av)) t="cset";
+        else if (av.v==DT_E)     t="procedure";
         else if (av.v==DT_SNUL)  t="null";
         else t="string";
         *out = STRVAL(t); return 1;
@@ -2134,6 +2166,16 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if (!strcmp(fn,"args") && nargs == 1) {
         DESCR_t a = args[0];
+        if (a.v == DT_E && a.slen == 0xFFFFFFFEu) {
+            int np = rt_proc_nparams(a.s);
+            if (np < 0 && a.s && !strcmp(a.s, "main")) {
+                np = 0;
+                for (int i = 0; i < g_stage2.proc_count; i++)
+                    if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, "main")) { np = g_stage2.proc_table[i].nparams; break; }
+            }
+            if (np >= 0) { *out = INTVAL(np); return 1; }
+            *out = INTVAL(-1); return 1;
+        }
         if (a.v == DT_E) {
             for (int i=0;i<g_stage2.proc_count;i++) {
                 if (g_stage2.proc_table[i].entry_pc == (int)a.i) {
@@ -2180,6 +2222,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             outs[1+clen] = '\'';
             outs[2+clen] = '\0';
             *out = STRVAL(outs); return 1;
+        }
+        if (av.v == DT_E) {
+            const char *nm = procval_name(av);
+            if (!nm) nm = "?";
+            snprintf(buf,256, (rt_proc_is_registered(nm) || !strcmp(nm, "main")) ? "procedure %s" : "function %s", nm);
+            *out = STRVAL(buf); return 1;
         }
         if (IS_FH_fn(av)) {
             int idx = (int)av.i;
