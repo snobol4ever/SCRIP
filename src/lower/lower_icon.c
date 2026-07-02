@@ -228,6 +228,25 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(asn, vr); ir_operand_push(asn, rr);
             *res = asn; return entry;
         }
+        if (lhs && (lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS) && lhs->n >= 3 && lhs->c[0] && lhs->c[1] && lhs->c[2]) {
+            /* ASSIGN-LV LV-1: s[i:j] := v — lhs lowers as a section-VARIABLE producer (sval="lv" selects bb_section's lv arm; rt_section_var mints the tvsubs trap; +:/-: desugared to the synthetic
+               BINOP exactly as the rvalue arm) feeding the existing IR_ASSIGN_VAR write-through (rt_assign_var's canonical splice). Identifier base → IR_VAR_REF (lower_idx_var parity); other bases
+               lower as values and rt_section_var FAILs → ω (strings-under-VALUE stay non-assignable, the probe-63 doctrine). Wiring mirrors the rvalue TT_SECTION arm; rhs lowered last, β inherits. */
+            int sec_variant = (lhs->t == TT_SECTION_PLUS) ? 1 : (lhs->t == TT_SECTION_MINUS) ? 2 : 0;
+            IR_t * sec = build(cx, IR_SUBSCRIPT, NULL, ω); IR_LIT(sec).ival = 0; IR_LIT(sec).sval = "lv";
+            IR_t * ar = NULL; IR_t * ae; const tree_t * b0 = lhs->c[0];
+            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+            else ae = lower(cx, b0, NULL, ω, &ar);
+            IR_t * br = NULL; IR_t * be = lower(cx, lhs->c[1], NULL, ω, &br); γ_to(ar, be);
+            IR_t * cr = NULL; IR_t * ce = lower(cx, lhs->c[2], sec_variant ? NULL : sec, ω, &cr); γ_to(br, ce);
+            if (sec_variant) { IR_t * op = build(cx, IR_BINOP, sec, ω); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB; ir_operand_push(op, br); ir_operand_push(op, cr); γ_to(cr, op); cr = op; }
+            ir_operand_push(sec, ar); ir_operand_push(sec, br); ir_operand_push(sec, cr);
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
+            γ_to(sec, re);
+            ir_operand_push(asn, sec); ir_operand_push(asn, rr);
+            *res = asn; return ae;
+        }
         if (lhs && lhs->t == TT_FIELD) {
             IR_t * set = build(cx, IR_FIELD_SET, γ, ω);
             IR_LIT(set).sval = (lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval;
