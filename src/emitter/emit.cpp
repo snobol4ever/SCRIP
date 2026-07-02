@@ -1679,6 +1679,11 @@ bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) 
     g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_flat_slot_count = 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
+    /* LOCALS live ABOVE the tmp region: ir_drive_slot_assign numbers tmps from base=16+nparams*16, the exact
+       cursor position after param interning, so a proc's first local varslot ALIASED the first value-producer
+       tmp (relop result-write clobbered the local: while i<=n loops read i==n after one test — sum(1..4)=8
+       not 10, rung03 suspend yielded only the last value). Params stay at their ABI-fixed 16*(k+1). */
+    if (g_emit_cfg && g_emit_cfg->jcon_value_region > g_flat_slot_count) g_flat_slot_count = g_emit_cfg->jcon_value_region;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "proc_flat");
     int nbytes = emitter_end();
@@ -1695,6 +1700,8 @@ int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, F
     g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
     g_flat_slot_count = 16;
     for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
+    /* LOCALS above the tmp region — same fix as descr_flat_chain_build_proc; see the comment there. */
+    if (g_emit_cfg && g_emit_cfg->jcon_value_region > g_flat_slot_count) g_flat_slot_count = g_emit_cfg->jcon_value_region;
     char prefix[256];
     snprintf(prefix, sizeof(prefix), "proc_%s", pname);
     emitter_init_text(out, TEXT_MODE_INVOCATION);
