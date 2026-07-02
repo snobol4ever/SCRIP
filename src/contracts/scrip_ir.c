@@ -30,7 +30,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_PROC_GEN] = "IR_PROC_GEN",
     [IR_KEYWORD] = "IR_KEYWORD",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
-    [IR_FIELD] = "IR_FIELD",
+    [IR_FIELD_GET] = "IR_FIELD_GET",
     [IR_FIELD_SET] = "IR_FIELD_SET",
     [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
     [IR_LIMIT]  = "IR_LIMIT",
@@ -51,7 +51,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_SWAP]   = "IR_SWAP",
     [IR_DEREF] = "IR_DEREF",
     [IR_MAKE_LIST] = "IR_MAKE_LIST",
-    [IR_ENTER_INIT] = "IR_ENTER_INIT",
+    [IR_INITIAL] = "IR_INITIAL",
     [IR_ITERATE] = "IR_ITERATE",
     [IR_UNREACHABLE] = "IR_UNREACHABLE",
     [IR_CREATE] = "IR_CREATE",
@@ -168,7 +168,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
    IR_CORET/IR_COFAIL deliberately stay OUT of this set — they are body-internal success/failure targets,
    not general value-producers; their own operand[0] (the produced value, for CORET) rides a DIFFERENT
    node's slot, per RUNG 1's lowering (coret.operand[0] = the body's own value node). */
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD_GET || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -227,8 +227,8 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         if (nd->op == IR_TO) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_SCAN_ENTER needs 24 bytes: 3×8 for saving old r13/r14/r15.  k+=2 gives 32 bytes (safe). */
         if (nd->op == IR_SCAN_ENTER) { nd->tmp = base + k * 16; k += 2; continue; }
-        /* IR_ENTER_INIT: [+0..+7] DESCR pad, [+8..+15] int64 done-flag (0=not yet run, 1=ran). */
-        if (nd->op == IR_ENTER_INIT) { nd->tmp = base + k * 16; k += 1; continue; }
+        /* IR_INITIAL: [+0..+7] DESCR pad, [+8..+15] int64 done-flag (0=not yet run, 1=ran). */
+        if (nd->op == IR_INITIAL) { nd->tmp = base + k * 16; k += 1; continue; }
         /* IR_ITERATE needs 24 bytes: 16-byte result DESCR + 8-byte int64 counter at [+16].
            k+=2 gives 32 bytes, same safe-oversize pattern as IR_TO/IR_SCAN_ENTER. */
         if (nd->op == IR_ITERATE) { nd->tmp = base + k * 16; k += 2; continue; }
@@ -253,7 +253,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
            collision disease as the fixed IR_TO regression, just on IR_ASSIGN: two ASSIGNs in a loop body (e.g.
            `every sum +:= (1 to N)`, desugared to assign-of-binop) would grab slots 16/32, stomping the VAR/BINOP/
            IR_TO tmps LOWER already placed there, silently truncating accumulation to the generator's last value.
-           Fix: give IR_ASSIGN a real coordinated tmp here, same 16-byte single-DESCR shape as IR_ENTER_INIT. */
+           Fix: give IR_ASSIGN a real coordinated tmp here, same 16-byte single-DESCR shape as IR_INITIAL. */
         if (nd->op == IR_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
         /* IR_INDIRECT_GOTO (unbounded alternation, JCON ir_a_Alt /bounded arm) owns TWO cells: [+0..+15] the
            alternation's SHARED value DESCR (every arm's IR_MOVE_LABEL copies its arm's value here, so ONE slot
