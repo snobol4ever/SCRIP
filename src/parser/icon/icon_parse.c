@@ -384,13 +384,13 @@ static tree_t *parse_and(IcnParser *p) {
     tree_t *n = parse_assign(p);
     if (!n) return NULL;
     if (!check(p, TK_AND)) return n;
-    tree_t *seq = ast_node_new(TT_SEQ);
-    push_child(seq, n);
+    tree_t *conj = ast_node_new(TT_CONJ);
+    push_child(conj, n);
     while (check(p, TK_AND)) {
         advance(p);
-        push_child(seq, parse_assign(p));
+        push_child(conj, parse_assign(p));
     }
-    return seq;
+    return conj;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_to(IcnParser *p) {

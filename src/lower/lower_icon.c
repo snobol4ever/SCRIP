@@ -295,7 +295,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         }
         γ_to(sr, chain_next);
         cx->beta = ω; *res = cvar; return se; }
-    case TT_SEQ:
+    case TT_CONJ:
     case TT_SEQ_EXPR: {
         lc_vec Sv; lc_vec_init(&Sv, (int) sizeof(const tree_t *));
         for (int i = 0; i < t->n; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) lc_vec_push(&Sv, &s); }
@@ -793,7 +793,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_t * succ = icn_subtree_has_suspend(body) ? PFAIL : PSUCC; IR_t * fail = PFAIL;
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
-        /* statement-spine PRODUCE edge is α-role even into a generator-kind entry — same guarded restamp as TT_SEQ/TT_SEQ_EXPR (see the comment there; REPALT every|1 symptom, 2026-07-01) */
+        /* statement-spine PRODUCE edge is α-role even into a generator-kind entry — same guarded restamp as TT_CONJ/TT_SEQ_EXPR (see the comment there; REPALT every|1 symptom, 2026-07-01) */
         IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ); succ = entry; fail = entry;
     }
     g->entry = succ; return g;
