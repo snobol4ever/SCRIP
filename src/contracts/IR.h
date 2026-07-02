@@ -27,6 +27,7 @@
 typedef enum {
     IR_ACTIVATE,
     IR_ASSIGN,
+    IR_ASSIGN_VAR,
     IR_BINOP,
     IR_BINOP_TEST,
     IR_CALL,

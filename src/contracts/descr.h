@@ -17,6 +17,7 @@ typedef enum {
     DT_FH   = 12,
     DT_PLVAR = 13,
     DT_PLREF = 14,
+    DT_V    = 15,
     DT_FAIL = 99,
     DT_DATA = 100,
 } DTYPE_t;
@@ -38,6 +39,8 @@ typedef struct DESCR_t {
         void              *ptr;
     };
 } DESCR_t;
+/*--------------------------------------------------------------------------------------------------------------------*/
+typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; } VCELL_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 static inline int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }

@@ -11,6 +11,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_VAR] = "IR_VAR",
     [IR_ACTIVATE] = "IR_ACTIVATE",
     [IR_ASSIGN] = "IR_ASSIGN",
+    [IR_ASSIGN_VAR] = "IR_ASSIGN_VAR",
     [IR_BINOP] = "IR_BINOP",
     [IR_BINOP_TEST] = "IR_BINOP_TEST",
     [IR_UNOP] = "IR_UNOP",

@@ -793,7 +793,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MAKE_LIST:            bb_emit_x86(bb_make_list());      return 0;
     case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;
     case IR_GOTO:                 bb_emit_x86(bb_goto());           return 0;
-    case IR_SUBSCRIPT:              bb_emit_x86(bb_section());        return 0;
+    case IR_SUBSCRIPT:            bb_emit_x86(nd->n_operands == 2 ? bb_subscript() : bb_section()); return 0;
+    case IR_DEREF:                bb_emit_x86(bb_deref());          return 0;
+    case IR_ASSIGN_VAR:           bb_emit_x86(bb_assign_var());     return 0;
     case IR_REV_ASSIGN:                bb_emit_x86(bb_rasgn());          return 0;
     case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
     case IR_LIMIT:                bb_emit_x86(bb_limit());          return 0;
@@ -1066,6 +1068,14 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         /* IR_SUBSCRIPT = s[i:j] / s[i+:n] / s[i-:n].  operands[0]=base, [1]=i1, [2]=i2.
            op_a_slot = base DESCR slot; op_sa = i1 slot; op_sb = i2 slot; op_off = result slot.
            op_ival = section variant (0=plain, 1=plus, 2=minus). */
+        if (nd->n_operands == 2) {
+            /* IDX-UNIFY 2-operand form: x[i] variable producer. operands[0]=base, [1]=index; op_a_slot=base, op_sa=index, op_off=result (DT_V variable or pass-through value). */
+            IR_t * vb = nd->operands[0]; IR_t * vi = nd->operands[1];
+            int va = vb ? drive_value_slot(vb) : -1; int vs = vi ? drive_value_slot(vi) : -1;
+            if (va < 0 || vs < 0) { drive_unowned(nd); break; }
+            g_emit.op_a_slot = va; g_emit.op_sa = vs; g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = 0;
+            DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        }
         IR_t * base = nd->n_operands > 0 ? nd->operands[0] : NULL;
         IR_t * i1   = nd->n_operands > 1 ? nd->operands[1] : NULL;
         IR_t * i2   = nd->n_operands > 2 ? nd->operands[2] : NULL;
@@ -1075,6 +1085,23 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (sa < 0 || sb < 0 || sc < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_sb = sc;
         g_emit.op_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_DEREF: {
+        /* IDX-UNIFY: materialize the value of a variable (identity on non-DT_V). operands[0]=variable node. */
+        IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        int sa = v ? drive_value_slot(v) : -1;
+        if (sa < 0) { drive_unowned(nd); break; }
+        g_emit.op_a_slot = sa; g_emit.op_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_ASSIGN_VAR: {
+        /* IDX-UNIFY: assign through an operand-carried variable. operands[0]=variable, [1]=value; result = value. */
+        IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        IR_t * r = nd->n_operands > 1 ? nd->operands[1] : NULL;
+        int sa = v ? drive_value_slot(v) : -1; int sb = r ? drive_value_slot(r) : -1;
+        if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
+        g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SWAP: {
@@ -1367,6 +1394,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;   /* IDX-UNIFY: failure edges (je ω) must reach the walk — else/fail blocks were unemitted (rung16_subscript_sub_fail) */
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
@@ -1390,6 +1418,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;   /* IDX-UNIFY: failure edges (je ω) must reach the walk — else/fail blocks were unemitted (rung16_subscript_sub_fail) */
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
@@ -1631,6 +1660,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }
     for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) {
@@ -1644,6 +1674,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }
