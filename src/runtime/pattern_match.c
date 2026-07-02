@@ -684,6 +684,45 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
     return subscript_get(base, idx);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
+    DESCR_t bvar = obj;
+    if (obj.v == DT_V) obj = rt_deref(obj);
+    if (obj.v == DT_DATA) {
+        DESCR_t tag = FIELD_GET_fn(obj, "gen_type");
+        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
+            int n = (int)FIELD_GET_fn(obj, "frame_size").i;
+            DESCR_t ea = FIELD_GET_fn(obj, "frame_elems");
+            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+            if (!elems || idx < 0 || idx >= n) return FAILDESCR;
+            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &elems[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            return (DESCR_t){ .v = DT_V, .p = vc };
+        }
+        if (obj.u && obj.u->type && obj.u->type->nfields > 0) {
+            int nf = obj.u->type->nfields;
+            if (idx < 0 || idx >= nf) return FAILDESCR;
+            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &obj.u->fields[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            return (DESCR_t){ .v = DT_V, .p = vc };
+        }
+        return FAILDESCR;
+    }
+    if (obj.v == DT_T && obj.tbl) {
+        TBBLK_t *tbl = obj.tbl; int64_t seen = 0;
+        for (int b = 0; b < TABLE_BUCKETS; b++)
+            for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
+                if (seen == idx) { VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &ep->val; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0; return (DESCR_t){ .v = DT_V, .p = vc }; }
+                seen++;
+            }
+        return FAILDESCR;
+    }
+    if ((obj.v == DT_S || obj.v == DT_SNUL) && bvar.v == DT_V) {
+        const char *sp = obj.s ? obj.s : ""; long slen = obj.slen ? (long)obj.slen : (long)strlen(sp);
+        if (idx < 0 || idx >= slen) return FAILDESCR;
+        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = idx + 1; vc->len = 1;
+        return (DESCR_t){ .v = DT_V, .p = vc };
+    }
+    return FAILDESCR;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
     DESCR_t bvar = base;
     if (base.v == DT_V) base = rt_deref(base);
