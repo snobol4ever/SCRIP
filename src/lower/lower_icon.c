@@ -74,6 +74,7 @@ static int icn_subtree_has_suspend(const tree_t *n);
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
@@ -178,7 +179,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
     case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL; const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?"; return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res); }
     case TT_IDX: return lower_call(cx, "[]", t, 0, t->n, γ, ω, res);
-    case TT_MAKELIST: case TT_VLIST: return lower_call(cx, "MAKELIST", t, 0, t->n, γ, ω, res);
+    case TT_MAKELIST: case TT_VLIST: return lower_make_list(cx, t, γ, ω, res);
     case TT_ASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
         if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval;
@@ -740,6 +741,22 @@ static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
     IR_t * kg = build(cx, IR_FAIL, γ, ω);
     IR_t * orr = NULL; (void) lower(cx, t->c[argbase], NULL, ω, &orr); ir_operand_push(kg, orr);
     cx->beta = kg; *res = kg; return kg;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * ml = build(cx, IR_MAKE_LIST, γ, ω);
+    if (res) *res = ml;
+    IR_t * prev = NULL; IR_t * entry = ml; IR_t * aω = ω;
+    for (int k = 0; k < t->n; k++) {
+        const tree_t * a = t->c[k]; IR_t * ar = NULL;
+        IR_t * ae = lower(cx, a, (k == t->n - 1) ? ml : NULL, aω, &ar); aω = cx->beta;
+        if (k == 0) entry = ae;
+        if (prev) γ_to(prev, ae);
+        prev = ar;
+        if (ar) ir_operand_push(ml, ar);
+    }
+    cx->beta = g_postfix_resume ? aω : ω;
+    return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {

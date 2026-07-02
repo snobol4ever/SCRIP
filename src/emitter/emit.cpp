@@ -790,6 +790,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUSPEND:              bb_emit_x86(bb_suspend());        return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
+    case IR_MAKE_LIST:            bb_emit_x86(bb_make_list());      return 0;
     case IR_CONJ:                 bb_emit_x86(bb_conj());           return 0;
     case IR_SUBSCRIPT:              bb_emit_x86(bb_section());        return 0;
     case IR_REV_ASSIGN:                bb_emit_x86(bb_rasgn());          return 0;
@@ -1003,6 +1004,15 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_num_real = 0;
         g_emit.op_off = drive_value_slot(nd);
         bb_flat_cursor_reserve(g_emit.op_off + 32);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MAKE_LIST: {
+        int na = nd->n_operands;
+        if (na > OP_ARG_SLOT_MAX) { drive_unowned(nd); break; }   /* >16-element literal: fall LOUD, never truncate */
+        for (int i = 0; i < na; i++) { IR_t * a = nd->operands[i]; g_emit.op_arg_slot[i] = a ? drive_value_slot(a) : -1; }
+        g_emit.op_arg_slot_n = na;
+        g_emit.op_off = drive_value_slot(nd);   /* result DESCR at tmp; argv scratch at tmp+16 (slot-grant, scrip_ir.c) */
+        bb_flat_cursor_reserve(g_emit.op_off + 16 + na * 16);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REV_ASSIGN: {
@@ -1589,6 +1599,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_VAR:   case IR_KEYWORD: return 0;
     case IR_BINOP: case IR_TO: return 2;
     case IR_TO_BY: return 3;
+    case IR_MAKE_LIST: return n->n_operands;
     case IR_CONJ:  return 0;
     case IR_UNOP: case IR_UNOP_TEST: return 1;
     case IR_ASSIGN: return 1;
