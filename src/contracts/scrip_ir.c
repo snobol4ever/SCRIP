@@ -38,6 +38,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_LIMIT]  = "IR_LIMIT",
     [IR_REPALT] = "IR_REPALT",
     [IR_REV_ASSIGN] = "IR_REV_ASSIGN",
+    [IR_REV_ASSIGN_VAR] = "IR_REV_ASSIGN_VAR",
     [IR_SCAN]       = "IR_SCAN",
     [IR_SCAN_ENTER] = "IR_SCAN_ENTER",
     [IR_SCAN_ANY]   = "IR_SCAN_ANY",
@@ -168,7 +169,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
    IR_CORET/IR_COFAIL deliberately stay OUT of this set — they are body-internal success/failure targets,
    not general value-producers; their own operand[0] (the produced value, for CORET) rides a DIFFERENT
    node's slot, per RUNG 1's lowering (coret.operand[0] = the body's own value node). */
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD_GET || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN; }
+int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_LIMIT || op == IR_SWAP || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_FIELD_GET || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -246,8 +247,9 @@ void ir_drive_slot_assign(IR_graph_t * g) {
            (counter:=from) set the flag, the exhausted-test read it as yielded, and |(1 to 0) restarted forever. */
         if (nd->op == IR_REPALT) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_REV_ASSIGN needs 32 bytes: 16-byte produced value + 16-byte saved-old-DESCR at [+16] (bb_rasgn's
-           op_sc = op_off+16 restore area). k+=2, same pattern as IR_LIMIT/IR_REPALT. */
-        if (nd->op == IR_REV_ASSIGN) { nd->tmp = base + k * 16; k += 2; continue; }
+           op_sc = op_off+16 restore area). k+=2, same pattern as IR_LIMIT/IR_REPALT. IR_REV_ASSIGN_VAR (the
+           IDX-UNIFY through-variable sibling, bb_rev_assign_var) has the identical value+saved-old shape. */
+        if (nd->op == IR_REV_ASSIGN || nd->op == IR_REV_ASSIGN_VAR) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_ASSIGN is deliberately NOT in ir_node_produces_value (assignment is a statement, not a general
            value-producer for most consumers) but bb_assign_local/bb_assign_global DO stage a 16-byte own-result
            copy (needed when an assign is used as a sub-expression, e.g. x := (y := 5)) via drive_value_slot's

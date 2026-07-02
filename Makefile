@@ -92,6 +92,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_subscript.cpp \
     $(SRC)/templates/bb_deref.cpp \
     $(SRC)/templates/bb_assign_var.cpp \
+    $(SRC)/templates/bb_rev_assign_var.cpp \
     $(SRC)/templates/bb_goto.cpp \
     $(SRC)/templates/bb_fail.cpp \
     $(SRC)/templates/bb_lit_scalar.cpp \
@@ -267,6 +268,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_subscript.cpp       -o $(OBJ)/bb_subscript.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_deref.cpp       -o $(OBJ)/bb_deref.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_var.cpp       -o $(OBJ)/bb_assign_var.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rev_assign_var.cpp       -o $(OBJ)/bb_rev_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_goto.cpp       -o $(OBJ)/bb_goto.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_ite.cpp       -o $(OBJ)/bb_ite.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
