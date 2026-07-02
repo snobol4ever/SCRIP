@@ -61,7 +61,7 @@ static int is_resumable(const tree_t * t) {
     if (!t) return 0; if (t->t == TT_STMT) t = stmt_subj(t); if (!t) return 0;
     if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; return icn_call_allow_gen(nm); }
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
-    if (t->t == TT_ASSIGN) { return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
+    if (t->t == TT_ASSIGN) { if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ITERATE) return 1; return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
     switch (t->t) {
     case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: return 1;
     default: return 0; }
@@ -245,6 +245,25 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
             γ_to(sec, re);
             ir_operand_push(asn, sec); ir_operand_push(asn, rr);
+            *res = asn; return ae;
+        }
+        if (lhs && lhs->t == TT_ITERATE && lhs->n > 0 && lhs->c[0]) {
+            /* ASSIGN-LV LV-2: !x := v — the iterate lowers as an element-VARIABLE producer (sval="lv" selects bb_iterate's lv arm; rt_list_bang_var_at mints the VCELL — list cell, record field, table
+               pair-val, string tvsubs through the underlying variable) feeding the existing IR_ASSIGN_VAR write-through. Identifier base → IR_VAR_REF (strings need the variable, lower_idx_var parity);
+               heap bases lower as values. IR_ITERATE stays generator-kind: cx->beta = it (set BEFORE rhs so a resumable rhs overrides — it is the more recent generator), rhs ω → it auto-β (canonical
+               backtrack chain), it → rhs entry lc_γ_to α-stamped (EXPORTABLE RULE: a producer's SUCCESS edge enters fresh). */
+            IR_t * it = build(cx, IR_ITERATE, NULL, ω); IR_LIT(it).ival = 0; IR_LIT(it).sval = "lv";
+            const tree_t * b0 = lhs->c[0];
+            IR_t * ar = NULL; IR_t * ae;
+            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+            else ae = lower(cx, b0, NULL, ω, &ar);
+            lc_γ_to(ar, it);
+            ir_operand_push(it, ar);
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            cx->beta = it;
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, it, &rr);
+            lc_γ_to(it, re);
+            ir_operand_push(asn, it); ir_operand_push(asn, rr);
             *res = asn; return ae;
         }
         if (lhs && lhs->t == TT_FIELD) {
