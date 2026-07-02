@@ -407,7 +407,6 @@ void (*g_cap_fixup_cb)(void *cap_ptr, const char *child_α_label) = NULL;
 const char *child_cache_get_lbl(bb_box_fn fn);
 #define FLAT_BUF_MAX  (256 * 1024)
 int g_flat_node_id   = 0;
-static int g_flat_slot_count = 0;
 int g_last_flat_frame_bytes = 0;
 typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
 static bb_slotmap_ent_t *g_bb_slotmap = NULL;
@@ -431,30 +430,13 @@ void bb_slot_register(IR_t *nd, int off) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char *name; int off; } bb_varslot_ent_t;
-static bb_varslot_ent_t *g_bb_varslot = NULL;
-static int g_bb_varslot_n = 0;
-static int g_bb_varslot_max = 0;
-int bb_varslot(const char *name) {
-    if (!name) name = "";
-    for (int i = 0; i < g_bb_varslot_n; i++)
-        if (g_bb_varslot[i].name && strcmp(g_bb_varslot[i].name, name) == 0) return g_bb_varslot[i].off;
-    int off = g_flat_slot_count;
-    g_flat_slot_count += 16;
-    if (g_bb_varslot_n >= g_bb_varslot_max) {
-        int new_max = g_bb_varslot_max ? g_bb_varslot_max * 2 : 256;
-        bb_varslot_ent_t *g = (bb_varslot_ent_t *)realloc(g_bb_varslot, (size_t)new_max * sizeof(bb_varslot_ent_t));
-        if (!g) return off;
-        g_bb_varslot = g; g_bb_varslot_max = new_max;
-    }
-    g_bb_varslot[g_bb_varslot_n].name = name; g_bb_varslot[g_bb_varslot_n].off = off; g_bb_varslot_n++;
-    return off;
-}
+/* TE-4 VARSLOT ABSORPTION (Lon directive 2026-07-02): the emit-time name→slot bump allocator is DELETED —
+   LOWER's ir_drive_slot_assign interns every param + local + the gen-proc resume cell into the graph's vslots
+   table (identical layout: params ABI-fixed, locals above the tmp region), and this peek is a pure READ of
+   that table through g_emit_cfg. A local with no LOWER-granted slot is a LOWER gap: the IR_ASSIGN /
+   IR_REV_ASSIGN drive arms abort loud, never allocate here (the drive_value_slot doctrine). */
 int bb_varslot_peek(const char *name) {
-    if (!name) name = "";
-    for (int i = 0; i < g_bb_varslot_n; i++)
-        if (g_bb_varslot[i].name && strcmp(g_bb_varslot[i].name, name) == 0) return g_bb_varslot[i].off;
-    return -1;
+    return ir_varslot_of(g_emit_cfg, name);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int g_proc_direct_active = 0;
@@ -820,7 +802,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
 /*=============== THE ONE EMITTER DRIVER  -  emit_drive (reads IR, owns slots/edges, never mutates IR) ===============*/
 extern int           bb_slot_get(IR_t *nd);
 extern void          bb_slot_register(IR_t *nd, int off);
-extern int           bb_varslot(const char *name);
 extern int           bb_varslot_peek(const char *name);
 extern int           is_global(const char *name);
 extern int           gva_index_of(const char *name);
@@ -965,7 +946,10 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
             g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1;
             g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
         }
-        g_emit.op_sb = bb_varslot(vn); g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        { int voff = bb_varslot_peek(vn);
+          if (voff < 0) { fprintf(stderr, "[TE-4] IR_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort(); }
+          g_emit.op_sb = voff; }
+        g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_GVAR_USERPROC: case IR_PROC_GEN: {
         int na = nd->n_operands; if (na > OP_ARG_SLOT_MAX) na = OP_ARG_SLOT_MAX;
@@ -1006,7 +990,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         IR_t * lv = nd->n_operands > 1 ? nd->operands[1] : NULL;
         const char * vn = lv ? IR_LIT(lv).sval : NULL;
         if (!vn || nd->n_operands < 1 || !nd->operands[0]) { drive_unowned(nd); break; }
-        g_emit.op_sb  = bb_varslot(vn);
+        { int voff = bb_varslot_peek(vn);
+          if (voff < 0) { fprintf(stderr, "[TE-4] IR_REV_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort(); }
+          g_emit.op_sb = voff; }
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1409,35 +1395,18 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
     }
-    { extern int is_global(const char *); for (int i = 0; i < n; i++) { IR_t *c = nodes[i];
-        if (c && (c->op == IR_ASSIGN) && IR_LIT(c).sval && !is_global(IR_LIT(c).sval)) (void)bb_varslot(IR_LIT(c).sval); } }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **ra_y  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **ra_t  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
-    /* Allocate a resume-pointer slot for generator procs with IR_SUSPEND nodes.
-       We must place it ABOVE all value-producer slots (which use nd->tmp offsets).
-       Pre-scan all nodes for their tmp slots to find the high-water mark. */
+    /* TE-4: the resume-pointer slot for generator procs with IR_SUSPEND is a LOWER GRANT (graph->resume_slot,
+       placed by ir_drive_slot_assign at the 16-aligned tmp high-water mark — the identical position the old
+       emit-time carve computed from the cursor). Per-chain gating preserved: set only for chains that contain
+       an IR_SUSPEND, only when g_gen_proc_active. */
     g_suspend_resume_slot = -1;
-    if (g_gen_proc_active) {
-        for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) {
-            /* Find max tmp slot across all nodes */
-            int _max_slot = g_flat_slot_count;
-            for (int _ni = 0; _ni < n; _ni++) {
-                IR_t *_nd = nodes[_ni];
-                if (_nd && _nd->tmp >= 0 && _nd->tmp + 16 > _max_slot)
-                    _max_slot = _nd->tmp + 16;
-            }
-            /* Align to 16-byte boundary above all data slots */
-            _max_slot = (_max_slot + 15) & ~15;
-            g_suspend_resume_slot = _max_slot;
-            /* bump flat_slot_count so prologue allocates enough frame space */
-            if (_max_slot + 8 > g_flat_slot_count)
-                g_flat_slot_count = _max_slot + 8;
-            break;
-        }
-    }
+    if (g_gen_proc_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
+        for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { g_suspend_resume_slot = g_emit_cfg->resume_slot; break; }
 
     int id = g_flat_node_id++;
     for (int i = 0; i < n; i++) {
@@ -1684,7 +1653,7 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
     descr_chain_operand_refs(entry);
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
-    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_flat_node_id = 0; g_bb_slotmap_n = 0;
     g_flat_chain_set_n = 0;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "pat_flat");
@@ -1697,7 +1666,7 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
 }int descr_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return 1;
     descr_chain_operand_refs(entry);
-    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
+    g_bb_slotmap_n = 0;
     g_flat_chain_set_n = 0;
     emitter_init_text(out, TEXT_MODE_INVOCATION);
     int rc = codegen_flat_chain_body(entry, prefix);
@@ -1709,14 +1678,12 @@ bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) 
     descr_chain_operand_refs(entry);
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;
-    g_flat_slot_count = 0; g_flat_node_id = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_flat_slot_count = 16;
-    for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
-    /* LOCALS live ABOVE the tmp region: ir_drive_slot_assign numbers tmps from base=16+nparams*16, the exact
-       cursor position after param interning, so a proc's first local varslot ALIASED the first value-producer
-       tmp (relop result-write clobbered the local: while i<=n loops read i==n after one test — sum(1..4)=8
-       not 10, rung03 suspend yielded only the last value). Params stay at their ABI-fixed 16*(k+1). */
-    if (g_emit_cfg && g_emit_cfg->jcon_value_region > g_flat_slot_count) g_flat_slot_count = g_emit_cfg->jcon_value_region;
+    g_flat_node_id = 0; g_bb_slotmap_n = 0;
+    (void)pnames; (void)np;
+    /* TE-4: params + locals + resume are LOWER grants in the graph's vslots table (ir_drive_slot_assign) —
+       the entry-point intern loop and the cursor seed die with the allocator. LOWER's total IS the frame:
+       published for rt_proc_set_frame_bytes (raises the runtime arena default when a proc outgrows it). */
+    g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, "proc_flat");
     int nbytes = emitter_end();
@@ -1730,11 +1697,10 @@ bb_box_fn descr_flat_chain_build_proc(IR_t *entry, const char **pnames, int np) 
 int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname) {
     if (!entry || !out || !pname) return 1;
     descr_chain_operand_refs(entry);
-    g_flat_slot_count = 0; g_bb_slotmap_n = 0; g_bb_varslot_n = 0;
-    g_flat_slot_count = 16;
-    for (int i = 0; i < np && pnames; i++) if (pnames[i]) (void)bb_varslot(pnames[i]);
-    /* LOCALS above the tmp region — same fix as descr_flat_chain_build_proc; see the comment there. */
-    if (g_emit_cfg && g_emit_cfg->jcon_value_region > g_flat_slot_count) g_flat_slot_count = g_emit_cfg->jcon_value_region;
+    g_bb_slotmap_n = 0;
+    (void)pnames; (void)np;
+    /* TE-4: grants in the graph's vslots table — same as descr_flat_chain_build_proc; see the comment there. */
+    g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     char prefix[256];
     snprintf(prefix, sizeof(prefix), "proc_%s", pname);
     emitter_init_text(out, TEXT_MODE_INVOCATION);

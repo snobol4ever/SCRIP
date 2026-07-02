@@ -912,6 +912,13 @@ void lower_icon_stage2(const tree_t *prog) {
                 sc->e[sc->n].slot = sc->n;
                 sc->n++;
             }
+            /* TE-4 VARSLOT ABSORPTION: stamp param names onto the graph (same source scrip.c's build sites
+               extract from lower_sc) so ir_drive_slot_assign interns params at their ABI-fixed 16*(i+1) slots
+               — the emitter's own param-interning loop is deleted with the allocator. */
+            if (np > 0) {
+                const char ** _pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                if (_pn) { for (int k = 0; k < np && k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
+            }
         }
     }
 }
