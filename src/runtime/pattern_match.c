@@ -684,6 +684,22 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
     return subscript_get(base, idx);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
+    DESCR_t bvar = base;
+    if (base.v == DT_V) base = rt_deref(base);
+    if ((base.v == DT_S || base.v == DT_SNUL) && bvar.v == DT_V) {
+        const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
+        long ii = (long)to_int(i1d), jj = (long)to_int(i2d);
+        if (ii == 0) ii = slen + 1; else if (ii < 0) ii = slen + ii + 1;
+        if (jj == 0) jj = slen + 1; else if (jj < 0) jj = slen + jj + 1;
+        if (ii < 1) ii = 1; if (jj > slen + 1) jj = slen + 1;
+        if (ii > jj) { long t = ii; ii = jj; jj = t; }
+        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = i1d; vc->sv = bvar; vc->pos = ii; vc->len = jj - ii;
+        return (DESCR_t){ .v = DT_V, .p = vc };
+    }
+    return FAILDESCR;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
     VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = cellp; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
     return (DESCR_t){ .v = DT_V, .p = vc };
