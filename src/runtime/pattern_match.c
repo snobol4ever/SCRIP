@@ -277,6 +277,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
             if (ii == 0) ii = n + 1; else if (ii < 0) ii = n + ii + 1;
             if (jj == 0) jj = n + 1; else if (jj < 0) jj = n + jj + 1;
             if (ii < 1) ii = 1; if (jj > n+1) jj = n+1;
+            if (ii > jj) { int t = ii; ii = jj; jj = t; }   /* canonical sect: positions in either order (oref.r:509-513) */
             int rlen = jj - ii;
             if (rlen <= 0) {
                 static int list_empty_reg = 0;
@@ -299,7 +300,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         if (ii < 0) ii = slen + 1 + ii + 1;
         if (jj < 0) jj = slen + 1 + jj + 1;
         if (ii < 1) ii = 1; if (jj > slen+1) jj = slen+1;
-        if (ii > jj) { char *e=GC_malloc(1); e[0]='\0'; return STRVAL(e); }
+        if (ii > jj) { int t = ii; ii = jj; jj = t; }   /* canonical sect: positions in either order (oref.r:509-513) */
         int len = jj - ii;
         char *buf = GC_malloc(len+1); memcpy(buf, s+ii-1, len); buf[len]='\0';
         return STRVAL(buf);
