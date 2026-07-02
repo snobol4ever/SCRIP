@@ -173,7 +173,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_NULL: { if (t->n > 0 && t->c[0]) { IR_t * op = build(cx, IR_UNOP_TEST, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; } IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: return lc_key(cx, t, t->v.sval, γ, ω, res);
-    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD, γ, ω);
+    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
     case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL; const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?"; return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res); }
@@ -223,13 +223,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         /* JCON ir_a_Initial:
            ir.start → expr.start; ir.success = p.ir.success (both body.success AND body.failure go there).
            ir.resume → unreachable (initial blocks never resume).
-           SCRIP: IR_ENTER_INIT node gates the body:
+           SCRIP: IR_INITIAL node gates the body:
              γ = body entry (first call: flag was 0 → set flag=1, jump into body)
              ω = skip path (subsequent calls: flag is 1, jump directly to outer continuation γ)
-           body.success → outer γ  (= IR_ENTER_INIT.ω target)
+           body.success → outer γ  (= IR_INITIAL.ω target)
            body.failure → outer γ  (same; initial block always "succeeds" from caller's POV)
-           slot: IR_ENTER_INIT.tmp (16 bytes: [+0..+7] DESCR padding, [+8..+15] int64 done-flag init to 0) */
-        IR_t * ini = build(cx, IR_ENTER_INIT, NULL, γ);   /* ω = outer γ = "already done" skip path */
+           slot: IR_INITIAL.tmp (16 bytes: [+0..+7] DESCR padding, [+8..+15] int64 done-flag init to 0) */
+        IR_t * ini = build(cx, IR_INITIAL, NULL, γ);   /* ω = outer γ = "already done" skip path */
         if (t->n > 0 && t->c[0]) {
             /* Lower body; both body.success and body.failure → outer γ (= ini.ω target) */
             IR_t * br = NULL;

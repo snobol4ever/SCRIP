@@ -743,7 +743,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
-    g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET || nd->op == IR_KEYWORD || nd->op == IR_FIELD || nd->op == IR_FIELD_SET || nd->op == IR_PROC_GEN || ir_norm_call_kind(nd->op) == IR_CALL) ? IR_LIT(nd).sval : (const char *)0;
+    g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET || nd->op == IR_KEYWORD || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_SET || nd->op == IR_PROC_GEN || ir_norm_call_kind(nd->op) == IR_CALL) ? IR_LIT(nd).sval : (const char *)0;
     { extern int g_gva_active; extern int gva_index_of(const char *); int nm_op = (nd->op == IR_VAR || nd->op == IR_ASSIGN);
       g_emit.op_gva_k = (g_gva_active && nm_op && IR_LIT(nd).sval) ? gva_index_of(IR_LIT(nd).sval) : -1; }
     { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *); int nm_op = (ir_norm_call_kind(nd->op) == IR_CALL);
@@ -797,7 +797,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_REPALT:               /* driven by flat_drive_repalt — no direct template call here */ return 0;
     case IR_ITERATE:              bb_emit_x86(bb_iterate(nd));      return 0;
     case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
-    case IR_ENTER_INIT:           bb_emit_x86(bb_enter_init());     return 0;
+    case IR_INITIAL:           bb_emit_x86(bb_enter_init());     return 0;
     case IR_CREATE:                bb_emit_x86(bb_create());        return 0;
     case IR_ACTIVATE:              bb_emit_x86(bb_activate());      return 0;
     case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
@@ -826,7 +826,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_FAIL:            bb_emit_x86(bb_fail());                            return 0;
     case IR_UNOP:
     case IR_UNOP_TEST:            bb_emit_x86(bb_unop());           return 0;
-    case IR_FIELD:                bb_emit_x86(bb_field_get());      return 0;
+    case IR_FIELD_GET:                bb_emit_x86(bb_field_get());      return 0;
     case IR_FIELD_SET:            bb_emit_x86(bb_field_set());      return 0;
     default:
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op);
@@ -957,7 +957,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_FIELD: {
+    case IR_FIELD_GET: {
         IR_t * obj = bb_child0(nd);
         int sa = obj ? descr_binop_opnd_slot(obj) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
@@ -1175,8 +1175,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         bb_flat_cursor_reserve(g_emit.op_off + 24);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_ENTER_INIT: {
-        /* IR_ENTER_INIT: JCON ir_EnterInit analog — "run this block only on the first call."
+    case IR_INITIAL: {
+        /* IR_INITIAL: JCON ir_EnterInit analog — "run this block only on the first call."
            nd->tmp is assigned by ir_drive_slot_assign (k+=1, 16 bytes).
            op_off = nd->tmp: [r12+op_off+8] holds the int64 done-flag (0=not run, 1=ran).
            γ = body entry (first call path), ω = skip-body path (subsequent calls + body exit). */
