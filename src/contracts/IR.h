@@ -62,7 +62,6 @@ typedef enum {
     IR_REV_ASSIGN,
     IR_SCAN,
     IR_SCAN_ENTER,
-    IR_SCAN_SWAP,
     IR_SCAN_ANY,
     IR_SCAN_BAL,
     IR_SCAN_FIND,
@@ -79,7 +78,6 @@ typedef enum {
     IR_TO,
     IR_UNOP,
     IR_UNOP_TEST,
-    IR_UNREACHABLE,
     IR_VAR,
     IR_OP_COUNT
 } IR_e;
@@ -106,7 +104,6 @@ struct IR_t {
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define IR_LIT(nd)  (*(nd))
-#define IR_EXEC(nd) (*(nd))
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     const char * sval;
