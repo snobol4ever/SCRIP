@@ -224,6 +224,9 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
         if (nd->op == IR_TO || nd->op == IR_TO_BY) { nd->tmp = base + k * 16; k += 2; continue; }
+        /* IR_MAKE_LIST: 16-byte result DESCR at tmp + contiguous argv scratch (n_operands DESCRs) at tmp+16 --
+           the template marshals each element's slot into the scratch, then one rt_make_list(ptr,n) call. */
+        if (nd->op == IR_MAKE_LIST) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
         /* IR_SCAN_ENTER needs 24 bytes: 3×8 for saving old r13/r14/r15.  k+=2 gives 32 bytes (safe). */
         if (nd->op == IR_SCAN_ENTER) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_INITIAL: [+0..+7] DESCR pad, [+8..+15] int64 done-flag (0=not yet run, 1=ran). */

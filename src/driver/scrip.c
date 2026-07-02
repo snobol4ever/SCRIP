@@ -178,6 +178,7 @@ static int rhs_kind_ok(IR_t *r) {
     { extern int rt_builtin_is_known(const char *name); const char *bn = IR_LIT(r).sval; if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && bn && rt_builtin_is_known(bn)) return 1; }
     if (r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_TO || r->op == IR_TO_BY || r->op == IR_PROC_GEN || r->op == IR_OP_COUNT) return 1;
+    if (r->op == IR_MAKE_LIST) return 1;
     if (r->op == IR_CONJ) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
     { extern int is_global(const char *); if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) { IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0; } }
     if (r->op == IR_OP_COUNT) return 1;

@@ -1740,6 +1740,15 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     return out;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_make_list(DESCR_t *args, int nargs) {
+    static int list_reg3 = 0;
+    if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_reg3 = 1; }
+    DESCR_t *elems = GC_malloc((nargs>0?nargs:1)*sizeof(DESCR_t));
+    for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
+    DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
+    return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
@@ -3022,12 +3031,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn,"MAKELIST")) {
-        static int list_reg3 = 0;
-        if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_reg3 = 1; }
-        DESCR_t *elems = GC_malloc((nargs>0?nargs:1)*sizeof(DESCR_t));
-        for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
-        DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
-        *out = DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list")); return 1;
+        extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
+        *out = rt_make_list(args, nargs); return 1;
     }
     if (!strcmp(fn,"RECORD_REGISTER") && nargs >= 1) {
         extern void record_register(const char *spec);
