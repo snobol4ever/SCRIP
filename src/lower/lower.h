@@ -23,7 +23,6 @@ void lc_ω_to_β(IR_t *nd, IR_t *t);
 IR_t *lc_build(IR_graph_t *g, IR_e op, IR_t *γ, IR_t *ω);
 const tree_t *lc_stmt_subj(const tree_t *s);
 /*====================================================================================================================*/
-extern int bb_operand_aux_set(IR_graph_t * bbg, IR_t * bb, IR_t * const * src, int n);
 int lp_s_int(const tree_t *s, const char *tag);
 tree_t *lp_s_expr(const tree_t *s, const char *tag);
 const char *lp_strdup(const char *s);

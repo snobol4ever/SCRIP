@@ -9,7 +9,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR_RASGN — Icon reversible assignment `x <- v` (canonical oasgn.r: GeneralAsgn(x,v); suspend x; on resume
+/* IR_REV_ASSIGN — Icon reversible assignment `x <- v` (canonical oasgn.r: GeneralAsgn(x,v); suspend x; on resume
    GeneralAsgn(x,saved); fail).  Two shapes, selected by op_ival.  op_ival==0: simple variable lvalue — the
    value lives in a frame slot; save old (op_sb->op_sc), write new (op_a_slot->op_sb), yield, restore on β.
    op_ival==1: SUBSCRIPT lvalue arr[i] — base/key/value slots in op_a_slot/op_sb/op_sc, save slot op_off.  α:
@@ -20,7 +20,7 @@ static std::string bb_rasgn_subs() {
         return x86_bomb("bb_rasgn: arr[i]<-v needs base/key/value/save slots");
     x86_begin();
     return x86("label", _.lbl_α)
-         + x86("comment", "IR_RASGN arr[i]<-v: save old elem, set new, suspend; restore on resume")
+         + x86("comment", "IR_REV_ASSIGN arr[i]<-v: save old elem, set new, suspend; restore on resume")
          + x86("mov", "rdi", FRQ(_.op_a_slot))
          + x86("mov", "rsi", FRQ(_.op_a_slot + 8))
          + x86("mov", "rdx", FRQ(_.op_sb))
@@ -53,7 +53,7 @@ std::string bb_rasgn() {
     return IF(!(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0), x86_bomb("bb_rasgn: x<-v needs varslot + rhs slot + save slot + own slot"))
                            + IF(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0,
                              x86("label", _.lbl_α)
-                           + x86("comment", "IR_RASGN x<-v")
+                           + x86("comment", "IR_REV_ASSIGN x<-v")
                            + x86("mov", "rax", FRQ(_.op_sb))
                            + x86("mov", "rdx", FRQ(_.op_sb + 8))
                            + x86("mov", FRQ(_.op_sc), "rax")
