@@ -5,19 +5,16 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
-int bb_slot_alloc16(IR_t * nd);
-int bb_slot_claim(int bytes);
 int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
-void bb_flat_cursor_reserve(int want);
 int bb_varslot(const char * name);
 }
 #include "x86_asm.h"
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcfn_result_slot(IR_t * nd) {
-    if (nd && nd->tmp >= 0) { if (bb_slot_get(nd) < 0) { bb_slot_register(nd, nd->tmp); bb_flat_cursor_reserve(nd->tmp + 16); } return nd->tmp; }
-    return bb_slot_alloc16(nd);
+    if (nd && nd->tmp >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, nd->tmp); return nd->tmp; }
+    return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_fn_str(IR_t * pBB) {
@@ -25,7 +22,9 @@ std::string bb_call_fn_str(IR_t * pBB) {
     const char * fn = _.op_sval ? _.op_sval : "";
     int nargs = (int) _.op_ival;
     int resoff = bcfn_result_slot(pBB);
-    int argbase = (nargs > 0) ? bb_slot_claim(nargs * 16) : resoff;
+    if (resoff < 0) return x86_bomb("bb_call_fn: no LOWER slot grant (TMP-ERADICATE)");
+    if (_.node && nargs > _.node->n_operands) return x86_bomb("bb_call_fn: arg count exceeds LOWER grant (TMP-ERADICATE)");
+    int argbase = resoff + 16;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     std::string s = x86("label", _.lbl_α)
                   + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr [operand-marshal, FAIL->ω]", fn));

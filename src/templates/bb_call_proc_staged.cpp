@@ -11,9 +11,7 @@ int  rt_proc_is_generator(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 int  rt_proc_is_registered(const char *name);
 int  bb_slot_get(IR_t * nd);
-int  bb_slot_alloc16(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
-void bb_flat_cursor_reserve(int want);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -37,11 +35,11 @@ static int bcps_arg_slot(IR_t * call, IR_graph_t ** argblks, int i) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int bcps_result_slot() {
     IR_t * nd = _.node;
-    if (nd && nd->tmp >= 0) { int e = bb_slot_get(nd); if (e < 0) { bb_slot_register(nd, nd->tmp); bb_flat_cursor_reserve(nd->tmp + 16); } return nd->tmp; }
-    return bb_slot_alloc16(nd);
+    if (nd && nd->tmp >= 0) { int e = bb_slot_get(nd); if (e < 0) bb_slot_register(nd, nd->tmp); return nd->tmp; }
+    return -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_bin_arm() { int off = bcps_result_slot(); bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter; uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+static std::string bcps_bin_arm() { int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)"); bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter; uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     return FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp); })
          + x86("mov", "rdi", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""))
          + x86("mov32", "esi", (long)_.op_ival)
@@ -55,7 +53,7 @@ static std::string bcps_bin_arm() { int off = bcps_result_slot(); bb_label_t * b
          + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_txt_arm() { int off = bcps_result_slot(); bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
+static std::string bcps_txt_arm() { int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)"); bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     return x86("label", _.lbl_α)
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
@@ -79,7 +77,7 @@ static std::string bcps_txt_arm() { int off = bcps_result_slot(); bb_label_t * b
    allocates a PERSISTENT activation frame (survives the suspend-return) and pushes it; β re-enters that same
    activation via rt_proc_resume_gen (which calls the proc slab with entry=1, so the slab's prologue jumps to its
    suspend resume β). Both store the yielded value to the node slot and route type==99 (FAILDESCR) -> ω, else -> γ. */
-static std::string bcps_bin_gen_arm() { int off = bcps_result_slot(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter; uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t callg_fp; { DESCR_t (*fp)(const char *, int) = rt_proc_call_gen; callg_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t resumeg_fp; { DESCR_t (*fp)(void) = rt_proc_resume_gen; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
+static std::string bcps_bin_gen_arm() { int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)"); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter; uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t callg_fp; { DESCR_t (*fp)(const char *, int) = rt_proc_call_gen; callg_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t resumeg_fp; { DESCR_t (*fp)(void) = rt_proc_resume_gen; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     return FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp); })
          + x86("mov", "rdi", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""))
          + x86("mov32", "esi", (long)_.op_ival)
@@ -98,7 +96,7 @@ static std::string bcps_bin_gen_arm() { int off = bcps_result_slot(); IR_graph_t
          + x86("jmp", "γ");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_txt_gen_arm() { int off = bcps_result_slot(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
+static std::string bcps_txt_gen_arm() { int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)"); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     return x86("label", _.lbl_α)
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")

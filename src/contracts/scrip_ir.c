@@ -250,6 +250,16 @@ void ir_drive_slot_assign(IR_graph_t * g) {
            op_sc = op_off+16 restore area). k+=2, same pattern as IR_LIMIT/IR_REPALT. IR_REV_ASSIGN_VAR (the
            IDX-UNIFY through-variable sibling, bb_rev_assign_var) has the identical value+saved-old shape. */
         if (nd->op == IR_REV_ASSIGN || nd->op == IR_REV_ASSIGN_VAR) { nd->tmp = base + k * 16; k += 2; continue; }
+        /* TMP-ERADICATE (Lon, 2026-07-02): the call family owns 16-byte result + contiguous per-arg argv
+           scratch at tmp+16 (the IR_MAKE_LIST shape) -- retiring bb_slot_alloc16/bb_slot_claim in bb_call*. */
+        if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
+        /* TMP-ERADICATE non-producer slot-takers (named empirically by the drive_value_slot gouge):
+           IR_DEREF materializes a value copy; IR_ASSIGN_VAR stages result=value (sub-expression use, the
+           IR_ASSIGN precedent above); IR_KEYWORD stages its keyword value. One DESCR each. */
+        if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_KEYWORD) { nd->tmp = base + k * 16; k += 1; continue; }
+        /* IR_CREATE: 16-byte co-expression DESCR + 48-byte regs[6] create-time scratch at tmp+16 (bb_create's
+           former hand-reserve, now a real grant). k+=4 = 64 bytes. */
+        if (nd->op == IR_CREATE) { nd->tmp = base + k * 16; k += 4; continue; }
         /* IR_ASSIGN is deliberately NOT in ir_node_produces_value (assignment is a statement, not a general
            value-producer for most consumers) but bb_assign_local/bb_assign_global DO stage a 16-byte own-result
            copy (needed when an assign is used as a sub-expression, e.g. x := (y := 5)) via drive_value_slot's

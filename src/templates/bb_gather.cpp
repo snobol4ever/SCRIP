@@ -5,8 +5,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-int  bb_slot_claim(int bytes);
-int  bb_slot_alloc16(IR_t * nd);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -67,6 +65,7 @@ extern "C" void bb_gather_prepare(IR_t *nd) {
     s_gather_n        = n;
     s_gather_vals_ptr = (uint64_t)(uintptr_t)(const void *)s_gather_vals;
     snprintf(s_gather_lbl, sizeof s_gather_lbl, ".Lgather%d_vals", _.nid);
-    s_gather_resoff  = bb_slot_alloc16(nd);
-    s_gather_cursoff = bb_slot_claim(8);
+    (void)nd;
+    fprintf(stderr, "[TE] GOUGE bb_gather_prepare: emit-time slot allocation is ERADICATED (TMP-ERADICATE) — gather awaits its Raku GZ#5 rebuild grant\n");
+    abort();
 }
