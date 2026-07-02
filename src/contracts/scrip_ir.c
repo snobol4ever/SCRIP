@@ -59,7 +59,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_MOVE] = "IR_MOVE",
     [IR_MOVE_LABEL] = "IR_MOVE_LABEL",
     [IR_INDIRECT_GOTO] = "IR_INDIRECT_GOTO",
-    [IR_RESUME_VALUE] = "IR_RESUME_VALUE",
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
