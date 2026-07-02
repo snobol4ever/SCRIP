@@ -191,7 +191,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     /* CORRECTED (Claude Sonnet 4.6, 2026-06-30): IR_LIT_STRING+ival=1 clobbered sval (union) → crash in bb_scan_any.
-       Fix: IR_LIT_CHARSET opcode; only sval set; emit_drive sets op_ival=1 for bb_lit_scalar's cset/slen=-1 path. */
+       Fix: IR_LIT_CHARSET opcode; only sval set; bb_lit_scalar's CHARSET arm (keyed on op_node_kind) emits the slen=-1 IS_CSET sentinel itself (the old op_ival=1 drive staging was dead — clobber audit 2026-07-02). */
     case TT_CSET: { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(t->v.sval); *res = nd; return nd; }
     case TT_NULL: { if (t->n > 0 && t->c[0]) { IR_t * op = build(cx, IR_UNOP_TEST, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; } IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
@@ -513,8 +513,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_LIMIT: {
         /* JCON ir_a_Limitation: count gen, counter slot; generator is on-spine; limit node sits
            AFTER the generator in the flat chain (generator.γ → LIMIT.α).
-           SCRIP: IR_LIMIT operand[0]=generator-node, operand[1]=count-lit-node (IR_LIT_INTEGER only
-           for now — static count; runtime count pending). The counter slot lives at op_off+16.
+           SCRIP: IR_LIMIT operand[0]=generator-node, operand[1]=count expr — an on-spine value-producer
+           whose slot bb_limit reads at RUNTIME (op_sc); literal and variable counts ride the same path
+           (clobber audit 2026-07-02). The counter slot lives at op_off+16.
            bb_limit: on each generator success (LIMIT.α): if counter>=limit→ω; else inc+copy+γ.
            β: jmp generator-β (pump again). LIMIT.α is where the chain BFS puts this node. */
         IR_t * lim = build(cx, IR_LIMIT, γ, ω);
