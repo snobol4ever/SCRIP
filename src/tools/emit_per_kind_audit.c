@@ -110,7 +110,7 @@ static const kind_entry_t g_kinds[] = {
     { IR_IDX_SET,     "IR_IDX_SET" },
     { IR_KEY_GEN,     "IR_KEY_GEN" },
     { IR_SWAP,            "IR_SWAP" },
-    { IR_SEQ_EXPR,        "IR_SEQ_EXPR" },
+    { IR_CONJUNCTION,        "IR_CONJUNCTION" },
     { IR_INITIAL,         "IR_INITIAL" },
     { IR_LCONCAT,     "IR_LCONCAT" },
     { IR_FIND_GEN,    "IR_FIND_GEN" },

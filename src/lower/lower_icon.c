@@ -302,7 +302,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const tree_t ** S = (const tree_t **) Sv.data; int k = Sv.n;
         if (k == 0) { IR_t * su = build(cx, IR_SUCCEED, γ, ω); *res = su; return su; }
         if (k == 1) return lower(cx, S[0], γ, ω, res);
-        IR_t * SEQX = build(cx, IR_SEQ_EXPR, γ, ω);
+        IR_t * SEQX = build(cx, IR_CONJUNCTION, γ, ω);
         IR_t ** val = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t * succ = SEQX;
         if (t->t == TT_SEQ_EXPR) {
             IR_t * failt = ω; IR_t * last_beta = ω; IR_t * rb = NULL;

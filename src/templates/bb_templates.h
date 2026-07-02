@@ -38,7 +38,7 @@ std::string bb_match_advance();
 std::string bb_match_capture();
 std::string bb_unify();
 std::string bb_arith();
-std::string bb_seq_expr();
+std::string bb_conjunction();
 std::string bb_goto();
 std::string bb_disj();
 std::string bb_ite();
