@@ -64,8 +64,9 @@ static int is_resumable(const tree_t * t) {
     if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; return icn_call_allow_gen(nm); }
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_ASSIGN) { if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ITERATE) return 1; return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
+    if (t->t == TT_SWAP) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     switch (t->t) {
-    case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: return 1;
+    case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: case TT_ITERATE: return 1;
     default: return 0; }
 }
 /*====================================================================================================================================================================================================*/
@@ -160,6 +161,26 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = t->v.sval; *var_res = vr; return vr;
     }
     if (t->t == TT_IDX) return lower_idx_var(cx, t, ω, var_res);
+    if (t->t == TT_ITERATE && t->n > 0 && t->c[0]) {
+        /* !x element-VARIABLE producer (the LV-2 mint, relocated into the shared front — LVALUE-COLLAPSE increment 1): generator-kind, cx->beta = it per the LV-2 rule (a later-lowered resumable
+           overrides — most-recent-generator wins, canonical resume order). Consumers get bang-lvalues free: swap (shuffle's `every !x :=: ?x`), augop generic arm, nulltest arm. */
+        IR_t * it = build(cx, IR_ITERATE, NULL, ω); IR_LIT(it).ival = 0; IR_LIT(it).sval = "lv";
+        const tree_t * b0 = t->c[0]; IR_t * ar = NULL; IR_t * ae;
+        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+        else ae = lower(cx, b0, NULL, ω, &ar);
+        lc_γ_to(ar, it); ir_operand_push(it, ar);
+        cx->beta = it;
+        *var_res = it; return ae;
+    }
+    if (t->t == TT_RANDOM && t->n > 0 && t->c[0]) {
+        /* ?x random-element VARIABLE producer (the LV-3a mint, relocated — operator{0,1}, single-shot: beta deliberately NOT written, so a sibling bang's resume survives). */
+        IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
+        const tree_t * b0 = t->c[0]; IR_t * ar = NULL; IR_t * ae;
+        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+        else ae = lower(cx, b0, NULL, ω, &ar);
+        lc_γ_to(ar, rn); ir_operand_push(rn, ar);
+        *var_res = rn; return ae;
+    }
     if ((t->t == TT_SECTION || t->t == TT_SECTION_PLUS || t->t == TT_SECTION_MINUS) && t->n >= 3 && t->c[0] && t->c[1] && t->c[2]) {
         int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
         IR_t * sec = build(cx, IR_SUBSCRIPT, NULL, ω); IR_LIT(sec).ival = 0; IR_LIT(sec).sval = "lv";
@@ -343,6 +364,25 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(asn, rn); ir_operand_push(asn, rr);
             *res = asn; return ae;
         }
+        if (lhs && (lhs->t == TT_NULL || lhs->t == TT_NONNULL) && lhs->n > 0 && lhs->c[0] && rhs) {
+            /* NULLTEST-LV: /x := v (assign-iff-null) and \x := v (assign-iff-nonnull) — canonical onull.r: the unary yields the VARIABLE on success. SCRIP: lvalue-producer over the child
+               (lower_lvalue_var: identifier/IDX/section) → IR_DEREF reads the current value through it (table traps deref-without-insert, canonical tvtbl) → IR_UNOP_TEST tests → rhs →
+               IR_ASSIGN_VAR writes back through the SAME variable. A failing test fails the whole assign (ω). Single-shot, no β (operator{0,1}, the LV-3a shape). */
+            IR_t * lv = NULL; IR_t * lve = lower_lvalue_var(cx, lhs->c[0], ω, &lv);
+            if (lve && lv) {
+                IR_t * dr = build(cx, IR_DEREF, NULL, ω);
+                ir_operand_push(dr, lv);
+                lc_γ_to(lv, dr);
+                IR_t * ut = build(cx, IR_UNOP_TEST, NULL, ω); IR_LIT(ut).ival = (long long) lhs->t;
+                ir_operand_push(ut, dr);
+                lc_γ_to(dr, ut);
+                IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+                IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
+                lc_γ_to(ut, re);
+                ir_operand_push(asn, lv); ir_operand_push(asn, rr);
+                *res = asn; return lve;
+            }
+        }
         if (lhs && lhs->t == TT_FIELD) {
             IR_t * set = build(cx, IR_FIELD_SET, γ, ω);
             IR_LIT(set).sval = (lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval;
@@ -403,6 +443,37 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(op, dr); ir_operand_push(op, rr);
             ir_operand_push(asn, rn); ir_operand_push(asn, op);
             *res = asn; return ae;
+        }
+        if (lhs && lhs->t == TT_FIELD && lhs->n > 0 && lhs->c[0] && rhs) {
+            /* FIELD-AUGOP: a.f OP:= v — base evaluated ONCE (JCON ir_augmented_assignment: lv is the variable, op(lv,rv)→tmp, :=(lv,tmp)); SCRIP has no field-VARIABLE producer yet, so the once-eval
+               is realized by SHARING the base result node between IR_FIELD_GET (read old) and IR_FIELD_SET (write back) — same rider order as LV-3a (producer → deref/get → rhs → BINOP → write). */
+            const char * fname = (lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval;
+            IR_t * br = NULL; IR_t * be = lower(cx, lhs->c[0], NULL, ω, &br);
+            IR_t * fg = build(cx, IR_FIELD_GET, NULL, ω); IR_LIT(fg).sval = (char *) fname; ir_operand_push(fg, br); lc_γ_to(br, fg);
+            IR_t * fs = build(cx, IR_FIELD_SET, γ, ω); IR_LIT(fs).sval = (char *) fname;
+            IR_t * op = build(cx, IR_BINOP, fs, ω); IR_LIT(op).ival = bc;
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, ω, &rr);
+            lc_γ_to(fg, re);
+            ir_operand_push(op, fg); ir_operand_push(op, rr);
+            ir_operand_push(fs, br); ir_operand_push(fs, op);
+            *res = fs; return be;
+        }
+        { IR_t * lv = NULL; IR_t * lve = (lhs && rhs) ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
+          if (lve && lv) {
+            /* LVALUE-AUGOP: x[i] OP:= v / s[i:j] OP:= v — the LV-3a once-evaluated rider shape verbatim on the shared lower_lvalue_var front (variable-producer → IR_DEREF reads old →
+               IR_BINOP folds rhs → IR_ASSIGN_VAR writes back through the SAME variable; deref and write-back both read lv->tmp). Kills the operand-less IR_BINOP mint-and-abandon fallthrough
+               for every lvalue kind lower_lvalue_var serves. */
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
+            IR_t * dr = build(cx, IR_DEREF, NULL, ω);
+            ir_operand_push(dr, lv);
+            lc_γ_to(lv, dr);
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, ω, &rr);
+            lc_γ_to(dr, re);
+            ir_operand_push(op, dr); ir_operand_push(op, rr);
+            ir_operand_push(asn, lv); ir_operand_push(asn, op);
+            *res = asn; return lve;
+          }
         }
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = bc; IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower(cx, lhs, NULL, ω, &lr); IR_t * eb = lower(cx, rhs, op, ω, &rr); γ_to(lr, eb); *res = op; return ea;
@@ -510,8 +581,16 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
         }
         IR_t * last_beta = ω; IR_t * rb = NULL;
-        for (int i = k - 1; i >= 0; i--) { val[i] = NULL; ent[i] = lower(cx, S[i], succ, ω, &val[i]); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ); succ = ent[i]; }
-        int lr = -1; for (int i = 0; i < k; i++) { if (lr >= 0) ω_to(val[i], val[lr]); if (is_resumable(S[i])) lr = i; }
+        IR_t ** bet = (IR_t **) calloc((size_t) k, sizeof(IR_t *));
+        IR_t ** jn = (IR_t **) calloc((size_t) k, sizeof(IR_t *));
+        /* CONJ FAIL-CHAIN VIA JUNCTIONS (mindfa cross-product fix): the old post-hoc ω_to(val[i], val[lr]) only rewired the conjunct's RESULT node's ω — a bare generator conjunct works (val IS
+           the generator) but a wrapping conjunct like `q := !Q` leaves the inner ITERATE's exhaust edge aimed at outer ω, so `every q := !Q & a := !S` never re-pumped the left. Fix: each conjunct
+           i>0 is LOWERED WITH a pre-minted IR_GOTO junction as its ω, so EVERY fail edge inside it lands there naturally; the junction is then patched to the nearest resumable LEFT conjunct's
+           actual RESUME node (bet[lr] = cx->beta sampled per conjunct — the generator itself, auto-β via γ_to; the ASSIGN's α would re-enter cold). Conjunct 0's failure keeps outer ω (fails the conj). */
+        for (int i = k - 1; i >= 0; i--) { val[i] = NULL; cx->beta = ω;
+            IR_t * failt = ω; if (i > 0) { jn[i] = build(cx, IR_GOTO, ω, ω); failt = jn[i]; }
+            ent[i] = lower(cx, S[i], succ, failt, &val[i]); bet[i] = cx->beta; if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta; if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ); succ = ent[i]; }
+        int lr = -1; for (int i = 0; i < k; i++) { if (i > 0 && jn[i]) { IR_t * tgt = ω; if (lr >= 0) tgt = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr]; γ_to(jn[i], tgt); ω_to(jn[i], tgt); } if (is_resumable(S[i])) lr = i; }
         if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
         cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
     }
