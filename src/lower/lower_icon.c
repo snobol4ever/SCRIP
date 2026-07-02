@@ -323,17 +323,27 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
         if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
         /* JCON ir_a_Sectionop: val→left→right chain; right.success calls 3-arg opfn → p.ir.success.
-           SCRIP: IR_SECTION carries op-variant in ival (0=plain, 1=plus, 2=minus), 3 operand nodes.
-           val.failure→p.failure; left.failure→val.resume; right.failure→left.resume. */
+           Canonical icont DESUGARS +:/-: at translation time (tcode.c:591-600: traverse i; dup; traverse n;
+           plus/minus; sect) — i is evaluated ONCE, i2 := i1 ± n via an ordinary add/sub, then the SAME sect
+           op as s[i:j]. SCRIP mirrors that: variant 1/2 inserts a synthetic IR_BINOP(ADD/SUB) whose left
+           operand is i1's own producer node (the dup — value read twice, evaluated once) and whose right is
+           n; IR_SECTION is then always emitted PLAIN (ival=0), so bb_section's one native arm serves all
+           three source forms. val.failure→p.failure; left.failure→val.resume; right.failure→left.resume. */
+        int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
         IR_t * sec = build(cx, IR_SECTION, γ, ω);
-        IR_LIT(sec).ival = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
-        /* lower all three operands; wire them in serial: val→left→right→sec */
+        IR_LIT(sec).ival = 0;
+        /* lower all three operands; wire them in serial: val→left→right[→binop]→sec */
         IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar);
         IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ω, &br); γ_to(ar, be);
-        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec, ω, &cr); γ_to(br, ce);
+        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ω, &cr); γ_to(br, ce);
+        if (sec_variant) {
+            IR_t * op = build(cx, IR_BINOP, sec, ω); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB;
+            { IR_t * ax[2]; ax[0] = br; ax[1] = cr; bb_operand_aux_set(cx->g, op, ax, 2); }
+            γ_to(cr, op); cr = op;
+        }
         ir_operand_push(sec, ar); /* base string */
         ir_operand_push(sec, br); /* i1 */
-        ir_operand_push(sec, cr); /* i2 */
+        ir_operand_push(sec, cr); /* i2 (plain: n; +:/-:: the synthetic i1±n binop) */
         cx->beta = ω; *res = sec; return ae; }
     case TT_NOT: return lower_not(cx, t, γ, ω, res);
     case TT_ALTERNATE: return lower_alt(cx, t, γ, ω, res);

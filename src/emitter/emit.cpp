@@ -1033,9 +1033,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         IR_t * base = nd->n_operands > 0 ? nd->operands[0] : NULL;
         IR_t * i1   = nd->n_operands > 1 ? nd->operands[1] : NULL;
         IR_t * i2   = nd->n_operands > 2 ? nd->operands[2] : NULL;
-        int sa = base ? bb_slot_get(base) : -1;
-        int sb = i1   ? bb_slot_get(i1)   : -1;
-        int sc = i2   ? bb_slot_get(i2)   : -1;
+        int sa = base ? drive_value_slot(base) : -1;   /* tmp doctrine: order-independent (0f4f105b fix class) */
+        int sb = i1   ? drive_value_slot(i1)   : -1;
+        int sc = i2   ? drive_value_slot(i2)   : -1;
         if (sa < 0 || sb < 0 || sc < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_sb = sc;
         g_emit.op_off = drive_value_slot(nd);
