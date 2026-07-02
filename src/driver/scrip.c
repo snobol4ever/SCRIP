@@ -711,7 +711,6 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                resolve_call_kinds_descr(s2->bbp.table[idx]);
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 descr_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -971,7 +970,6 @@ int main(int argc, char **argv)
             int rc;
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
-                resolve_call_kinds_descr(bbg);
                 rc = descr_flat_chain_build_text(bbg->entry, stdout, "main");
             }
             g_gva_active = 0;
@@ -1213,7 +1211,6 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                resolve_call_kinds_descr(s2->bbp.table[idx]);
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 bb_box_fn pfn = descr_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
@@ -1244,7 +1241,6 @@ int main(int argc, char **argv)
             extern bb_box_fn descr_flat_chain_build(IR_t * entry);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
-            resolve_call_kinds_descr(bbg);
             fn = descr_flat_chain_build(bbg->entry);
             g_frame_active = 0;
             if (!fn) {
