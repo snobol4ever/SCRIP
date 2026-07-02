@@ -48,17 +48,15 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 if      (g_emit_frame_caller_dl == 1) disp = bytes(2, "\x41\x55") + bytes(3, "\x4D\x89\xE5") + bytes(4, "\x48\x83\xEC\x08");
                 else if (g_emit_frame_caller_dl == 2) disp = bytes(2, "\x41\x56") + bytes(3, "\x4D\x89\xE6") + bytes(4, "\x48\x83\xEC\x08");
                 else if (g_emit_frame_caller_dl == 3) disp = bytes(2, "\x41\x57") + bytes(3, "\x4D\x89\xE7") + bytes(4, "\x48\x83\xEC\x08");
-                out_site = 20 + (int)disp.size(); out_lbl = g_emit.flat_β_p; out_def = false;
+                out_site = 10 + (int)disp.size(); out_lbl = g_emit.flat_β_p; out_def = false;
                 return bytes(2, "\x41\x54")
                      + bytes(3, "\x49\x89\xFC")
                      + disp
-                     + bytes(2, "\x49\xBA") + u64le(TEMPLATE_ADDR_DELTA)
                      + bytes(3, "\x83\xFE\x00")
                      + bytes(2, "\x0F\x85") + u32le(0);
             }
-            out_site = 19; out_lbl = g_emit.flat_β_p; out_def = false;
+            out_site = 9; out_lbl = g_emit.flat_β_p; out_def = false;
             return bytes(4, "\x48\x83\xEC\x08")
-                 + bytes(2, "\x49\xBA") + u64le(TEMPLATE_ADDR_DELTA)
                  + bytes(3, "\x83\xFE\x00")
                  + bytes(2, "\x0F\x85") + u32le(0);
         }
@@ -81,14 +79,13 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 extern int g_emit_frame_caller_dl;
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
                 std::string disp = dreg ? (std::string("  push ") + dreg + "\n  mov " + dreg + ", r12\n  sub rsp, 8\n") : std::string();
-                std::string pro = banner + "push r12\n  mov r12, rdi\n" + disp + "  lea r10, [rip + Δ]\n";
+                std::string pro = banner + "push r12\n  mov r12, rdi\n" + disp;
                 if (g_gen_proc_active)
                     pro += std::string("  cmp esi, 0\n")
                          + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
                 return pro;
             }
             return banner
-                 + "lea r10, [rip + Δ]\n"
                  + "  cmp esi, 0\n"
                  + "  je "  + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
                  + "  jmp " + (g_emit.flat_lbl_β      ? g_emit.flat_lbl_β      : "?") + "\n";
