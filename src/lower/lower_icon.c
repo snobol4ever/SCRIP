@@ -285,6 +285,28 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, bo);
             return lower(cx, as, γ, ω, res);
         }
+        if (lhs && lhs->t == TT_ITERATE && lhs->n > 0 && lhs->c[0]) {
+            /* ASSIGN-LV LV-3b: !x OP:= v — the once-evaluated-variable form (a naive desugar would double-lower the generator): the iterate yields the element VCELL ONCE per pump; IR_DEREF reads the
+               old value through it, IR_BINOP folds rhs, IR_ASSIGN_VAR writes back through the SAME VCELL (operands[0]=it — deref and write-back both read it->tmp fresh on every β-resume). */
+            IR_t * it = build(cx, IR_ITERATE, NULL, ω); IR_LIT(it).ival = 0; IR_LIT(it).sval = "lv";
+            const tree_t * b0 = lhs->c[0];
+            IR_t * ar = NULL; IR_t * ae;
+            if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+            else ae = lower(cx, b0, NULL, ω, &ar);
+            lc_γ_to(ar, it);
+            ir_operand_push(it, ar);
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
+            IR_t * dr = build(cx, IR_DEREF, NULL, ω);
+            ir_operand_push(dr, it);
+            lc_γ_to(it, dr);
+            cx->beta = it;
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, it, &rr);
+            lc_γ_to(dr, re);
+            ir_operand_push(op, dr); ir_operand_push(op, rr);
+            ir_operand_push(asn, it); ir_operand_push(asn, op);
+            *res = asn; return ae;
+        }
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = bc; IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower(cx, lhs, NULL, ω, &lr); IR_t * eb = lower(cx, rhs, op, ω, &rr); γ_to(lr, eb); *res = op; return ea;
     }
