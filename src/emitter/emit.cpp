@@ -791,7 +791,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_MAKE_LIST:            bb_emit_x86(bb_make_list());      return 0;
-    case IR_SEQ_EXPR:                 bb_emit_x86(bb_seq_expr());           return 0;
+    case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;
     case IR_GOTO:                 bb_emit_x86(bb_goto());           return 0;
     case IR_SUBSCRIPT:              bb_emit_x86(bb_section());        return 0;
     case IR_REV_ASSIGN:                bb_emit_x86(bb_rasgn());          return 0;
@@ -1033,7 +1033,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     }
     case IR_GOTO:
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_SEQ_EXPR:
+    case IR_CONJUNCTION:
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
         /* If the SEQ_EXPR join has its own tmp slot AND an operand with a slot (value-forward pattern),
            emit a 2×8 copy from the operand slot to the join's slot so the consumer reads the join's slot.
@@ -1488,9 +1488,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
            stub (yielded ? restart : repalt-ω) — JCON ir_a_RepAlt's e.success/e.failure chunks (irgen.icn:215-219).  Lower left e_root's γ NULL (would mis-default to lbl_γ) and ω at the enclosing target
            (would skip the test); the redirect happens HERE, at edge-resolution time, never by writing the graph. */
         for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0 && nodes[r]->operands[0] == nodes[i]) { node_γ = ra_y[r]; node_ω = ra_t[r]; break; }
-        /* Pre-propagate IR_SEQ_EXPR slot: if the join has operand[0] with a known tmp slot,
+        /* Pre-propagate IR_CONJUNCTION slot: if the join has operand[0] with a known tmp slot,
            register it NOW so downstream nodes (e.g. write's arg-slot lookup) see it. */
-        if (nodes[i]->op == IR_SEQ_EXPR && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
+        if (nodes[i]->op == IR_CONJUNCTION && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t * op0 = nodes[i]->operands[0];
             if (op0->tmp >= 0 && nodes[i]->tmp < 0) {
                 bb_slot_register(nodes[i], op0->tmp);
@@ -1603,7 +1603,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_BINOP: case IR_TO: return 2;
     case IR_TO_BY: return 3;
     case IR_MAKE_LIST: return n->n_operands;
-    case IR_SEQ_EXPR: case IR_GOTO: return 0;
+    case IR_CONJUNCTION: case IR_GOTO: return 0;
     case IR_UNOP: case IR_UNOP_TEST: return 1;
     case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;

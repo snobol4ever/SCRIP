@@ -59,7 +59,7 @@ static int keyword_supported(const char *kw) {
 static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_OP_COUNT ||
-           t == IR_VAR || t == IR_KEYWORD || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_OP_COUNT || t == IR_SEQ_EXPR || t == IR_ASSIGN || t == IR_OP_COUNT || t == IR_OP_COUNT || t == IR_OP_COUNT;
+           t == IR_VAR || t == IR_KEYWORD || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_OP_COUNT || t == IR_CONJUNCTION || t == IR_ASSIGN || t == IR_OP_COUNT || t == IR_OP_COUNT || t == IR_OP_COUNT;
 }
 static int sg_var_assigned(IR_graph_t *sg, const char *name) {
     if (!sg || !sg->all || !name) return 0;
@@ -179,7 +179,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_TO || r->op == IR_TO_BY || r->op == IR_PROC_GEN || r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_MAKE_LIST) return 1;
-    if (r->op == IR_SEQ_EXPR) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
+    if (r->op == IR_CONJUNCTION) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
     { extern int is_global(const char *); if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) { IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0; } }
     if (r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_OP_COUNT) return 1;

@@ -381,7 +381,7 @@ static void seq_flatten(const tree_t * t, lc_vec * out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
-    IR_t * conj = build(cx, IR_SEQ_EXPR, γ, ω);
+    IR_t * conj = build(cx, IR_CONJUNCTION, γ, ω);
     lc_vec stv; lc_vec_init(&stv, (int) sizeof(const tree_t *));
     seq_flatten(t, &stv);
     const tree_t ** st = (const tree_t **) stv.data; int k = stv.n;
