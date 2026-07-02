@@ -214,6 +214,19 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_cset_compl(DESCR_t a) {
+    extern const char *real_str(double r, char *buf, int bufsz);
+    char _cbuf[64]; const char *raw;
+    if (IS_FAIL_fn(a)) return FAILDESCR;
+    if (IS_CSET_fn(a)) raw = a.s ? a.s : "";
+    else if (IS_INT_fn(a))  { snprintf(_cbuf, sizeof _cbuf, "%lld", (long long)a.i); raw = _cbuf; }
+    else if (IS_REAL_fn(a)) { real_str(a.r, _cbuf, sizeof _cbuf); raw = _cbuf; }
+    else { raw = VARVAL_fn(a); if (!raw) raw = ""; }
+    unsigned char in[256] = {0}; for (const unsigned char *p = (const unsigned char *)raw; *p; p++) in[*p] = 1;
+    char *outs = GC_malloc(256); int n = 0; for (int c = 1; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
+    return CSETVAL(cset_canonical(outs));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_neg(DESCR_t a) {
     if (IS_REAL_fn(a)) return REALVAL(-to_real(a));
     return INTVAL(-to_int(a));

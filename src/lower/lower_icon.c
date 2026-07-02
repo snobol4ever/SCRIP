@@ -53,7 +53,7 @@ static tree_e icn_augop_binop_tt(int a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_unop_tt(tree_e tt) {
     switch (tt) {
-    case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_RANDOM: case TT_INTERROGATE: return 1;
+    case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_CSET_COMPL: case TT_RANDOM: case TT_INTERROGATE: return 1;
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
