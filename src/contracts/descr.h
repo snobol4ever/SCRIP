@@ -40,7 +40,7 @@ typedef struct DESCR_t {
     };
 } DESCR_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
-typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; } VCELL_t;
+typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; DESCR_t sv; long pos; long len; } VCELL_t;
 /*--------------------------------------------------------------------------------------------------------------------*/
 #define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 static inline int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
