@@ -640,10 +640,29 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
-    IR_t * then_val = NULL; IR_t * then_entry = lower(cx, TH, γ, ω, &then_val);
-    IR_t * else_val = NULL; IR_t * else_entry; if (EL) { else_entry = lower(cx, EL, γ, ω, &else_val); } else { else_entry = ω; else_val = NULL; }
+    /* JCON ir_a_If, /bounded arm (irgen.icn:583-610) — the SAME label-variable + shared-target mechanism as lower_alt above, two arms selected by the condition instead of a failure cascade:
+       ig owns the shared 32-byte cell (*res = ig — one slot serves both branches, the value-convergence fix; the old `*res = then_val` read only then's slot, else's value was never seen);
+       per branch an ml copies that branch's value into ig's cell and stores the branch's resume into t (operand[0] = post-branch cx->beta when a real generator lives in the branch — β edge,
+       ival=1 — else the if's ω: a spent branch resumes to the WHOLE if's failure, JCON `thenexpr.ir.resume`≡its failure≡p.ir.failure, the condition is bounded and never re-driven);
+       cx->beta force-reset to ω before each branch lower (stale-leak guard, the lower_alt idiom); absent else = JCON's a_Key("fail") default = else_entry = ω, no ml. */
+    IR_t * ig = build(cx, IR_INDIRECT_GOTO, γ, ω);
+    IR_t * ml_th = build(cx, IR_MOVE_LABEL, γ, ω);
+    cx->beta = ω;
+    IR_t * then_val = NULL; IR_t * then_entry = lower(cx, TH, ml_th, ω, &then_val);
+    IR_t * ab_th = cx->beta ? cx->beta : ω;
+    IR_LIT(ml_th).ival = (ab_th && ir_is_generator_kind(ab_th->op)) ? 1 : 0;
+    ir_operand_push(ml_th, ab_th); ir_operand_push(ml_th, ig); ir_operand_push(ml_th, then_val);
+    IR_t * else_entry;
+    if (EL) {
+        IR_t * ml_el = build(cx, IR_MOVE_LABEL, γ, ω);
+        cx->beta = ω;
+        IR_t * else_val = NULL; else_entry = lower(cx, EL, ml_el, ω, &else_val);
+        IR_t * ab_el = cx->beta ? cx->beta : ω;
+        IR_LIT(ml_el).ival = (ab_el && ir_is_generator_kind(ab_el->op)) ? 1 : 0;
+        ir_operand_push(ml_el, ab_el); ir_operand_push(ml_el, ig); ir_operand_push(ml_el, else_val);
+    } else { else_entry = ω; }
     IR_t * cond_val = NULL; IR_t * cond_entry = lower(cx, C, then_entry, else_entry, &cond_val); (void) cond_val;
-    cx->beta = ω; *res = then_val ? then_val : cond_entry; return cond_entry;
+    cx->beta = ig; *res = ig; return cond_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
