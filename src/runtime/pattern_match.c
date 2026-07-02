@@ -684,6 +684,16 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
     return subscript_get(base, idx);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
+    extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
+    if (obj.v == DT_V) obj = rt_deref(obj);
+    if (obj.v != DT_DATA || !obj.u) return FAILDESCR;
+    DESCR_t *cell = data_field_ptr(fname ? fname : "", obj);
+    if (!cell) return FAILDESCR;
+    VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = cell; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+    return (DESCR_t){ .v = DT_V, .p = vc };
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
     DESCR_t bvar = obj;
     if (obj.v == DT_V) obj = rt_deref(obj);
