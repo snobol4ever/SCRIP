@@ -17,7 +17,7 @@ int  rt_builtin_is_known(const char *name);
 int  rt_builtin_is_generator(const char *name);
 int  bb_slot_get(IR_t * nd);
 int  bb_node_id(IR_t * nd);
-int  bb_varslot(const char * name);
+int  bb_varslot_peek(const char * name);
 int  is_global(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 int64_t rt_gvar_get_int(const char * name);
@@ -480,7 +480,8 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         }
     }
     {
-        int voff = bb_varslot(IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
+        int voff = bb_varslot_peek(IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
+        if (voff < 0) return x86_bomb("bb_call marshal: IR_VAR arg names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
         std::string s;
         s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = varslot [r12+%d] -> [r12+%d]", idx, voff, aoff)));
         s += x86_frame_load64("rax", voff)     + x86_frame_store64(aoff, "rax");
@@ -685,7 +686,8 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     } else if (e->op == IR_LIT_STRING) {
         s += x86("mov32", "edi", (long)1) + x86_ro_load_q("rsi", 0) + x86_jmp_id(1) + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "") + x86_deflabel_id(1);
     } else if (e->op == IR_VAR && IR_LIT(e).sval) {
-        int voff = bb_varslot(IR_LIT(e).sval);
+        int voff = bb_varslot_peek(IR_LIT(e).sval);
+        if (voff < 0) return x86_bomb("bb_call_bool_truthy: IR_VAR cond names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
         s += x86_frame_load64("rdi", voff) + x86_frame_load64("rsi", voff + 8);
     } else {
         return x86_bomb("bb_call_bool_truthy: unhandled cond entry kind");

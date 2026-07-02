@@ -78,6 +78,7 @@ IR_graph_t * IR_alloc(int max_nodes, int lang) {
     bbg->max  = max_nodes;
     bbg->lang = lang;
     bbg->entry = NULL;
+    bbg->resume_slot = -1;
     return bbg;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -110,6 +111,8 @@ void IR_free(IR_graph_t * bbg) {
         free(bb);
     }
     free(bbg->all);
+    free(bbg->vslots);
+    free((void *)bbg->pnames);
     free(bbg);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -177,13 +180,6 @@ void ir_tmp_slot_assign(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = cursor; cursor += 16; } }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void ir_tmp_slot_assign_flat(IR_graph_t * g) {
-    if (!g) return;
-    int n = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op != IR_VAR && nd->op != IR_VAR_REF && ir_node_produces_value(nd->op)) { nd->tmp = n * 16; n++; } }
-    g->nvalue_slots = n;
-}
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int jcon_converted_producer(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_KEYWORD; }
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_jcon_slot_assign(IR_graph_t * g) {
@@ -218,10 +214,32 @@ void ir_jcon_slot_assign(IR_graph_t * g) {
    separate-allocator path bypassed that primitive entirely, which was the actual root cause both this fix and the
    reverted attempt above were trying to patch around without addressing. See the matching change in emit.cpp's
    `case IR_TO:` arm -- the two are a single coordinated fix and must be kept in sync. */
+/* TE-4 VARSLOT ABSORPTION (Lon directive 2026-07-02): LOWER owns the ENTIRE ζ-frame layout. The emit-time
+   name→slot bump allocator (bb_varslot, the THIRD counter over the one offset space — the a0b3f410 collision
+   family) is DELETED from the emitter; THIS pass interns every param (ABI-fixed 16*(i+1), unchanged) and every
+   IR_ASSIGN/IR_REV_ASSIGN local (ABOVE the tmp region, the exact position the cursor produced) into the graph's
+   vslots table, plus the gen-proc suspend-resume cell (formerly emit.cpp's per-chain high-water carve). The
+   emitter reads via ir_varslot_of through g_emit_cfg and NEVER writes. */
+static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {
+    if (!name) return;
+    for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name && strcmp(g->vslots[i].name, name) == 0) return;
+    { void * nv = realloc(g->vslots, (size_t)(g->n_vslots + 1) * sizeof(g->vslots[0])); if (!nv) return; g->vslots = nv; }
+    g->vslots[g->n_vslots].name = name; g->vslots[g->n_vslots].off = off; g->n_vslots++;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+int ir_varslot_of(const IR_graph_t * g, const char * name) {
+    if (!g || !name) return -1;
+    for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name && strcmp(g->vslots[i].name, name) == 0) return g->vslots[i].off;
+    return -1;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 void ir_drive_slot_assign(IR_graph_t * g) {
     if (!g) return;
+    extern int is_global(const char *);
     int base = 16 + (g->nparams > 0 ? g->nparams * 16 : 0);
     int k = 0;
+    g->n_vslots = 0;
+    for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) drv_vslot_push(g, g->pnames[i], 16 + i * 16);
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
@@ -279,6 +297,26 @@ void ir_drive_slot_assign(IR_graph_t * g) {
            sets *res to this node, so consumers read [tmp+0..15] via the ordinary bb_slot_get path. k+=2. */
         if (nd->op == IR_INDIRECT_GOTO) { nd->tmp = base + k * 16; k += 2; continue; }
         if (ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; }
+    }
+    /* TE-4 resume grant: the gen-proc suspend-resume cell (8 bytes used, 16 granted) sits exactly where the
+       old emit-time carve placed it — the 16-aligned tmp high-water mark == base + k*16, since every tmp is
+       base-relative and 16-strided. Granted whenever the graph contains IR_SUSPEND; the emitter still gates
+       USE on g_gen_proc_active per chain, so a non-generator graph's grant is 16 inert bytes. */
+    g->resume_slot = -1;
+    for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) { g->resume_slot = base + k * 16; k += 1; break; }
+    /* TE-4 local interning: every IR_ASSIGN (name on the node) and IR_REV_ASSIGN (name on operands[1], the
+       lhs IR_VAR carrier) whose name is non-global gets its persistent name-keyed cell ABOVE the tmp region —
+       the same locals-above-tmps layout the a0b3f410 fix established, now numbered by the ONE counter. */
+    for (int i = 0; i < g->n; i++) {
+        IR_t * nd = g->all[i];
+        if (!nd) continue;
+        const char * vn = (const char *)0;
+        if (nd->op == IR_ASSIGN) vn = IR_LIT(nd).sval;
+        else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vn = IR_LIT(nd->operands[1]).sval;
+        if (!vn || is_global(vn)) continue;
+        if (ir_varslot_of(g, vn) >= 0) continue;
+        drv_vslot_push(g, vn, base + k * 16);
+        k++;
     }
     g->jcon_value_region = base + k * 16;
     g->nvalue_slots = k;

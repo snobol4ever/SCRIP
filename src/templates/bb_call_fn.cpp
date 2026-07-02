@@ -7,7 +7,6 @@ extern "C" {
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
-int bb_varslot(const char * name);
 }
 #include "x86_asm.h"
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);

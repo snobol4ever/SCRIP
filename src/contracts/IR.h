@@ -124,6 +124,10 @@ struct IR_graph_t {
     int            nvalue_slots;
     int            jcon_value_region;
     int            nparams;
+    const char  ** pnames;
+    struct IR_vslot_t { const char * name; int off; } * vslots;
+    int            n_vslots;
+    int            resume_slot;
     IR_t         * body_root;
     #define AG_RING 16
     DESCR_t        ring[AG_RING];
@@ -132,6 +136,8 @@ struct IR_graph_t {
 };
 /*--------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * IR_alloc(int max_nodes, int lang);
+/*--------------------------------------------------------------------------------------------------------------------*/
+int ir_varslot_of(const IR_graph_t * g, const char * name);
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t * ir_call_arg(const IR_t * nd, int j) {
     if (!nd || j < 0) return NULL;
@@ -165,7 +171,6 @@ IR_t       * IR_node_alloc(IR_graph_t * cfg, IR_e t);
 int          ir_operand_push(IR_t * nd, IR_t * child);
 int  ir_node_produces_value(IR_e op);
 void ir_tmp_slot_assign(IR_graph_t * g);
-void ir_tmp_slot_assign_flat(IR_graph_t * g);
 void ir_jcon_slot_assign(IR_graph_t * g);
 void         bb_reset(IR_graph_t * cfg);
 /*--------------------------------------------------------------------------------------------------------------------*/
