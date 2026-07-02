@@ -534,6 +534,7 @@ inline void x86_parse(const xop & x, opnd & o) {
         if (n >= 3 && s[n - 1] == ']') {
             size_t bl = n - 2; if (bl > 7) bl = 7;
             memcpy(o.base, s + 1, bl); o.base[bl] = 0;
+            if (!x86_is_reg(o.base)) { fprintf(stderr, "FATAL x86_parse: memory operand '%s' has non-register base '%s' — no parse arm owns this form; templates must speak a canonical operand (FRQ/ROQ/RDQ/RSP), never a hand-built bracket string\n", s, o.base); abort(); }
             o.kind = XK_MEMIND; return;
         }
     }

@@ -868,6 +868,15 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
     emit_jmp_label(e_beta, JMP_JMP);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void drive_arg_slots_reserve(int n) {
+    if (n <= g_emit.op_arg_slot_cap) return;
+    int cap = g_emit.op_arg_slot_cap > 0 ? g_emit.op_arg_slot_cap : 16;
+    while (cap < n) cap *= 2;
+    int *grown = (int *)realloc(g_emit.op_arg_slot, (size_t)cap * sizeof(int));
+    if (!grown) { fprintf(stderr, "FATAL emit_drive: arg-slot staging realloc to %d failed\n", cap); abort(); }
+    g_emit.op_arg_slot = grown; g_emit.op_arg_slot_cap = cap;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static void drive_unowned(IR_t *nd) {
     fprintf(stderr, "FATAL emit_drive: IR op=%d has no template in the universal driver. Every op must be handled; the driver never declines silently. Implement op=%d. NOTE: this is also the guard sink inside existing cases — if op=N plainly has a case, the BACKTRACE LINE (not this message) names the failing guard.\n",
             nd ? (int)nd->op : -1, nd ? (int)nd->op : -1);
@@ -960,7 +969,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_GVAR_USERPROC: case IR_PROC_GEN: {
-        int na = nd->n_operands; if (na > OP_ARG_SLOT_MAX) na = OP_ARG_SLOT_MAX;
+        int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = (a && a->tmp >= 0) ? a->tmp : -1; }
         g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -982,8 +991,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MAKE_LIST: {
-        int na = nd->n_operands;
-        if (na > OP_ARG_SLOT_MAX) { drive_unowned(nd); break; }   /* >16-element literal: fall LOUD, never truncate */
+        int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = nd->operands[i]; g_emit.op_arg_slot[i] = a ? drive_value_slot(a) : -1; }
         g_emit.op_arg_slot_n = na;
         g_emit.op_off = drive_value_slot(nd);   /* result DESCR at tmp; argv scratch at tmp+16 (slot-grant, scrip_ir.c) */
@@ -1120,7 +1128,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         IR_t * cal = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sc = cal ? drive_value_slot(cal) : -1;
         int na2 = nd->n_operands - 1;
-        if (sc < 0 || na2 < 0 || na2 > OP_ARG_SLOT_MAX) { drive_unowned(nd); break; }
+        if (sc < 0 || na2 < 0) { drive_unowned(nd); break; }
+        drive_arg_slots_reserve(na2);
         for (int i = 0; i < na2; i++) { IR_t * a = nd->operands[i + 1]; g_emit.op_arg_slot[i] = a ? drive_value_slot(a) : -1; }
         g_emit.op_arg_slot_n = na2;
         g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd);
