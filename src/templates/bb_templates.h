@@ -89,6 +89,7 @@ std::string bb_case_arm();
 std::string bb_var_frame();
 std::string bb_var_frame_ref();
 std::string bb_to();
+std::string bb_to_by();
 std::string bb_limit();
 std::string bb_suspend();
 std::string bb_enter_init();

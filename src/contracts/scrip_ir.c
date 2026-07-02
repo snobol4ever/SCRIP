@@ -27,6 +27,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_RETURN] = "IR_RETURN",
     [IR_CONJ] = "IR_CONJ",
     [IR_TO] = "IR_TO",
+    [IR_TO_BY] = "IR_TO_BY",
     [IR_PROC_GEN] = "IR_PROC_GEN",
     [IR_KEYWORD] = "IR_KEYWORD",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
@@ -222,7 +223,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        if (nd->op == IR_TO) { nd->tmp = base + k * 16; k += 2; continue; }
+        if (nd->op == IR_TO || nd->op == IR_TO_BY) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_SCAN_ENTER needs 24 bytes: 3×8 for saving old r13/r14/r15.  k+=2 gives 32 bytes (safe). */
         if (nd->op == IR_SCAN_ENTER) { nd->tmp = base + k * 16; k += 2; continue; }
         /* IR_INITIAL: [+0..+7] DESCR pad, [+8..+15] int64 done-flag (0=not yet run, 1=ran). */

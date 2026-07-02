@@ -744,7 +744,7 @@ static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int by = (t->t == TT_TO_BY && t->n > 2 && t->c[2]) ? 1 : 0;
-    IR_t * to = build(cx, IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
+    IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
     IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
     IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr); γ_to(lr, em);
     ir_operand_push(to, lr); ir_operand_push(to, mr);

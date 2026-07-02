@@ -685,7 +685,7 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
     int bk = -1;
-    if (gi->op != IR_TO) return -1;
+    if (gi->op != IR_TO && gi->op != IR_TO_BY) return -1;
     for (int oi = 0; oi < gi->n_operands; oi++) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)gi->operands[oi] && ir_is_generator_kind(nodes[k]->op) && k > bk) bk = k;
     return bk;
 }
@@ -695,8 +695,8 @@ int bb_call_write_route(IR_t *nd) {
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
     if (bb_slot_get(a0) >= 0) return 1;
-    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_VAR || a0->op == IR_CALL || ir_is_call_kind(a0->op));
-    if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
+    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_VAR || a0->op == IR_CALL || ir_is_call_kind(a0->op));
+    if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_TO_BY)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
     if (wintexpr) return 4;
     if (a0->op == IR_LIT_STRING && IR_LIT(a0).sval) return 5;
     return 0;
@@ -789,6 +789,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
     case IR_SUSPEND:              bb_emit_x86(bb_suspend());        return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
+    case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_CONJ:                 bb_emit_x86(bb_conj());           return 0;
     case IR_SUBSCRIPT:              bb_emit_x86(bb_section());        return 0;
     case IR_REV_ASSIGN:                bb_emit_x86(bb_rasgn());          return 0;
@@ -989,9 +990,17 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     case IR_TO: {
         if (!bb_child0(nd) || !bb_child1(nd)) { drive_unowned(nd); break; }
         g_emit.op_sa = drive_value_slot(bb_child0(nd)); g_emit.op_sb = drive_value_slot(bb_child1(nd));   /* tmp-doctrine: order-independent */
-        IR_t * byc = (nd->n_operands > 2) ? nd->operands[2] : NULL;
-        g_emit.op_sc = byc ? drive_value_slot(byc) : -1;
+        g_emit.op_sc = -1;   /* IR_TO = 2-operand form, implicit by=1 (TO-SPLIT); by lives on IR_TO_BY */
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
+        g_emit.op_off = drive_value_slot(nd);
+        bb_flat_cursor_reserve(g_emit.op_off + 32);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_TO_BY: {
+        if (!bb_child0(nd) || !bb_child1(nd) || nd->n_operands < 3 || !nd->operands[2]) { drive_unowned(nd); break; }
+        g_emit.op_sa = drive_value_slot(bb_child0(nd)); g_emit.op_sb = drive_value_slot(bb_child1(nd));   /* tmp-doctrine: order-independent */
+        g_emit.op_sc = drive_value_slot(nd->operands[2]);   /* by producer's slot; sign checked at runtime in bb_to_by */
+        g_emit.op_num_real = 0;
         g_emit.op_off = drive_value_slot(nd);
         bb_flat_cursor_reserve(g_emit.op_off + 32);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1579,6 +1588,7 @@ static int descr_chain_arity(const IR_t *n) {
     case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:
     case IR_VAR:   case IR_KEYWORD: return 0;
     case IR_BINOP: case IR_TO: return 2;
+    case IR_TO_BY: return 3;
     case IR_CONJ:  return 0;
     case IR_UNOP: case IR_UNOP_TEST: return 1;
     case IR_ASSIGN: return 1;
