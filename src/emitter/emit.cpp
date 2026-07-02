@@ -796,6 +796,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_DEREF:                bb_emit_x86(bb_deref());          return 0;
     case IR_ASSIGN_VAR:           bb_emit_x86(bb_assign_var());     return 0;
     case IR_REV_ASSIGN:                bb_emit_x86(bb_rasgn());          return 0;
+    case IR_REV_ASSIGN_VAR:            bb_emit_x86(bb_rev_assign_var()); return 0;
     case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
     case IR_LIMIT:                bb_emit_x86(bb_limit());          return 0;
     case IR_REPALT:               /* driven by flat_drive_repalt — no direct template call here */ return 0;
@@ -1027,6 +1028,22 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         const char * vn = lv ? IR_LIT(lv).sval : NULL;
         if (!vn || nd->n_operands < 1 || !nd->operands[0]) { drive_unowned(nd); break; }
         g_emit.op_sb  = bb_varslot(vn);
+        g_emit.op_off = drive_value_slot(nd);
+        g_emit.op_sc  = g_emit.op_off + 16;
+        bb_flat_cursor_reserve(g_emit.op_off + 32);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_REV_ASSIGN_VAR: {
+        /* x[i] <- v (reversible assign through an operand-carried variable — the IDX-UNIFY sibling of
+           IR_REV_ASSIGN, IR_ASSIGN_VAR's operand order). operands[0]=variable producer (walk_bb_node's
+           preamble re-derives op_a_slot from it — do not stage op_a_slot here, walk owns it; the
+           drive_value_slot call below REGISTERS the slot the preamble re-derives), [1]=rhs value.
+           op_sa = value slot; op_off = own value slot; op_sc = save area (off+16, inside the k+=2 grant). */
+        IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        IR_t * r = nd->n_operands > 1 ? nd->operands[1] : NULL;
+        int sa = v ? drive_value_slot(v) : -1; int sb = r ? drive_value_slot(r) : -1;
+        if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa  = sb;
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
         bb_flat_cursor_reserve(g_emit.op_off + 32);
@@ -1394,7 +1411,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;   /* IDX-UNIFY: failure edges (je ω) must reach the walk — else/fail blocks were unemitted (rung16_subscript_sub_fail) */
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;   /* IDX-UNIFY: failure edges (je ω) must reach the walk — else/fail blocks were unemitted (rung16_subscript_sub_fail) */
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
@@ -1418,7 +1435,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;   /* IDX-UNIFY: failure edges (je ω) must reach the walk — else/fail blocks were unemitted (rung16_subscript_sub_fail) */
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;   /* IDX-UNIFY: failure edges (je ω) must reach the walk — else/fail blocks were unemitted (rung16_subscript_sub_fail) */
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
@@ -1660,7 +1677,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }
     for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) {
@@ -1674,7 +1691,7 @@ static void descr_chain_operand_refs(IR_t *entry) {
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
     }

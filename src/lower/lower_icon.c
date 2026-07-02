@@ -563,12 +563,19 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
     case TT_REVASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
+        /* Subscript lvalue: x[i] <- v — IDX-UNIFY: the lhs chain yields the VARIABLE (lower_idx_var), IR_REV_ASSIGN_VAR deref-saves the old value, writes through, suspends the value, restores on β
+           (canonical rasgn, oasgn.r:142-162, with the trapped-variable arms served by rt_deref/rt_assign_var exactly as IR_ASSIGN_VAR). The by-NAME sibling arm below stays IR_REV_ASSIGN — classify-by-name,
+           one template each (JCON-alignment directive). operands[0]=variable (walk preamble op_a_slot re-derivation, IR_ASSIGN_VAR parity), [1]=value (driver stages op_sa). lhs-then-rhs evaluation per
+           canonical asgn; rhs→nd PRODUCE edge lc_γ_to α-restamped (EXPORTABLE WIRING RULE — auto-β into a generator-kind target is only right for backtrack edges); cx->beta = nd (the resume IS the construct). */
         if (lhs && lhs->t == TT_IDX) {
-            IR_t * nd = build(cx, IR_FAIL, γ, ω); IR_LIT(nd).ival = 1;
-            IR_t * br = NULL; IR_t * entry = lower(cx, lhs->c[0], nd, ω, &br); ir_operand_push(nd, br);
-            for (int k = 1; k < lhs->n; k++) { IR_t * ir = NULL; lower(cx, lhs->c[k], nd, ω, &ir); ir_operand_push(nd, ir); }
-            IR_t * vr = NULL; lower(cx, rhs, nd, ω, &vr); ir_operand_push(nd, vr);
-            *res = nd; return entry;
+            IR_t * vr = NULL; IR_t * entry = lower_idx_var(cx, lhs, ω, &vr);
+            IR_t * nd = build(cx, IR_REV_ASSIGN_VAR, γ, ω);
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, ω, &rr);
+            lc_γ_to(vr, re);
+            lc_γ_to(rr, nd);
+            ir_operand_push(nd, vr);  /* [0] = variable (walk's op_a_slot re-derivation reads this) */
+            ir_operand_push(nd, rr);  /* [1] = rhs value (driver stages op_sa) */
+            cx->beta = nd; *res = nd; return entry;
         }
         /* Simple-variable lvalue: x <- v — canonical rasgn (oasgn.r:142-162): save old x, GeneralAsgn(x,v),
            suspend x; on resume GeneralAsgn(x, saved_x) then fail. IR_REV_ASSIGN is GENERATOR-KIND (the resume IS

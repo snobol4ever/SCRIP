@@ -42,6 +42,7 @@ std::string bb_conjunction();
 std::string bb_subscript();
 std::string bb_deref();
 std::string bb_assign_var();
+std::string bb_rev_assign_var();
 std::string bb_goto();
 std::string bb_disj();
 std::string bb_ite();
