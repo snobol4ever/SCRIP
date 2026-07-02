@@ -44,6 +44,7 @@ typedef enum {
     IR_FAIL,
     IR_FIELD_GET,
     IR_FIELD_SET,
+    IR_GOTO,
     IR_INDIRECT_GOTO,
     IR_ITERATE,
     IR_KEYWORD,
