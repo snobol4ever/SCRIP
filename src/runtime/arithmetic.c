@@ -207,9 +207,24 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
         case BINOP_DIV: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(ld / rd); if (ri == 0) return FAILDESCR; return (li % ri == 0) ? INTVAL(li / ri) : REALVAL((double)li / (double)ri);
         case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
         case BINOP_POW: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_descr(li, ri);
-        case BINOP_CUNION: return CSETVAL(cset_canonical(cset_union(a.s ? a.s : "", b.s ? b.s : "")));
-        case BINOP_CDIFF:  return CSETVAL(cset_canonical(cset_diff(a.s ? a.s : "", b.s ? b.s : "")));
-        case BINOP_CINTER: return CSETVAL(cset_canonical(cset_inter(a.s ? a.s : "", b.s ? b.s : "")));
+        case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
+            /* Cset-op operands COERCE like rt_cset_compl (canonical cnv:tcset): a DT_I/DT_R here previously
+               flowed its raw union bits into cset_* as a char* — the pointer-hole family's cset face
+               (numeric.icn `100 -- 4` segfault, gdb-bracketed cset_diff(a=0x64,b=0x4)). */
+            extern const char *real_str(double r, char *buf, int bufsz);
+            char _ab[64], _bb[64]; const char *as, *bs;
+            if (IS_CSET_fn(a) || a.v == DT_S || a.v == DT_SNUL) as = a.s ? a.s : "";
+            else if (IS_INT_fn(a))  { snprintf(_ab, sizeof _ab, "%lld", (long long)a.i); as = _ab; }
+            else if (IS_REAL_fn(a)) { real_str(a.r, _ab, sizeof _ab); as = _ab; }
+            else { as = VARVAL_fn(a); if (!as) as = ""; }
+            if (IS_CSET_fn(b) || b.v == DT_S || b.v == DT_SNUL) bs = b.s ? b.s : "";
+            else if (IS_INT_fn(b))  { snprintf(_bb, sizeof _bb, "%lld", (long long)b.i); bs = _bb; }
+            else if (IS_REAL_fn(b)) { real_str(b.r, _bb, sizeof _bb); bs = _bb; }
+            else { bs = VARVAL_fn(b); if (!bs) bs = ""; }
+            if (op == BINOP_CUNION) return CSETVAL(cset_canonical(cset_union(as, bs)));
+            if (op == BINOP_CDIFF)  return CSETVAL(cset_canonical(cset_diff(as, bs)));
+            return CSETVAL(cset_canonical(cset_inter(as, bs)));
+        }
         default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
     }
 }
