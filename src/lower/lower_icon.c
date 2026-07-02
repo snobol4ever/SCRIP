@@ -115,6 +115,28 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     return entry;
 }
 /*====================================================================================================================================================================================================*/
+static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
+    /* IDX-UNIFY (GOAL-IR-IMMUTABLE-EMIT, RECON 2): x[i] / x[i,j,...] as a chain of 2-operand IR_SUBSCRIPT VARIABLE producers (operands[0]=base, [1]=index) with IR_DEREF between levels
+       (a[i,j] desugars a[i][j], canonical). The rval/lval MODE that JCON rides ON the "[]" operator (irgen.icn:494-499) is classified BY NAME here: IR_SUBSCRIPT yields the variable, the CALLER
+       decides — rvalue wraps the final node in IR_DEREF, assignment feeds it to IR_ASSIGN_VAR. Lists: genuine cell pointer. Tables: lazy {tbl,key} trap (canonical tvtbl — a read NEVER inserts,
+       assignment does; rt_subscript_var/rt_deref/rt_assign_var, pattern_match.c). Strings/records return a plain VALUE inside rt_subscript_var and IR_DEREF is identity on non-DT_V (probe 63;
+       canonical tvsubs = its own later rung). Wiring mirrors TT_SECTION: serial γ_to operand chain, every ω to the construct ω, cx->beta=ω (resume-fails parity with the retired lower_call("[]")
+       route). BETA: inherited from the last-lowered operand (the index) — the resume path an index generator leaves behind (every write(s[1 to 3])) must survive, exactly as lower_call's postfix arg machinery preserves it; clobbering cx->beta=ω here killed generator-index resumption (rung16_subscript_sub_every). Final node's γ is re-aimed by the caller (build with NULL γ then γ_to, the TT_SECTION operand precedent). */
+    if (t->n < 2 || !t->c[0]) { IR_t * su = build(cx, IR_SUCCEED, NULL, ω); *var_res = su; return su; }
+    IR_t * br = NULL; IR_t * entry = lower(cx, t->c[0], NULL, ω, &br);
+    IR_t * cur = br; IR_t * hook = br;
+    for (int k = 1; k < t->n; k++) {
+        IR_t * ir = NULL; IR_t * ie = lower(cx, t->c[k], NULL, ω, &ir);
+        γ_to(hook, ie);
+        IR_t * sub = build(cx, IR_SUBSCRIPT, NULL, ω);
+        γ_to(ir, sub);
+        ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+        cur = sub; hook = sub;
+        if (k < t->n - 1) { IR_t * drf = build(cx, IR_DEREF, NULL, ω); γ_to(sub, drf); ir_operand_push(drf, sub); cur = drf; hook = drf; }
+    }
+    *var_res = cur; return entry;
+}
+/*====================================================================================================================================================================================================*/
 static int icn_scan_kind_for(const char * s) {
     if (!s) return 0;
     if (!strcmp(s,"tab"))   return (int)IR_SCAN_TAB;
@@ -178,18 +200,25 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
     case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL; const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?"; return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res); }
-    case TT_IDX: return lower_call(cx, "[]", t, 0, t->n, γ, ω, res);
+    case TT_IDX: {
+        /* IDX-UNIFY rvalue: variable-producing IR_SUBSCRIPT chain + IR_DEREF partner replaces lower_call("[]") — see lower_idx_var. */
+        IR_t * vr = NULL; IR_t * e = lower_idx_var(cx, t, ω, &vr);
+        IR_t * drf = build(cx, IR_DEREF, γ, ω); lc_γ_to(vr, drf); ir_operand_push(drf, vr);
+        *res = drf; return e; }
     case TT_MAKELIST: case TT_VLIST: return lower_make_list(cx, t, γ, ω, res);
     case TT_ASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
         if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval;
             IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, asn, ω, &vr); ir_operand_push(asn, vr); *res = asn; return entry; }
         if (lhs && lhs->t == TT_IDX) {
-            IR_t * set = build(cx, IR_FAIL, γ, ω);
-            IR_t * br = NULL; IR_t * entry = lower(cx, lhs->c[0], set, ω, &br); ir_operand_push(set, br);
-            for (int k = 1; k < lhs->n; k++) { IR_t * ir = NULL; lower(cx, lhs->c[k], set, ω, &ir); ir_operand_push(set, ir); }
-            IR_t * vr = NULL; lower(cx, rhs, set, ω, &vr); ir_operand_push(set, vr);
-            *res = set; return entry;
+            /* IDX-UNIFY write path: x[i] := v — lhs chain yields the VARIABLE, rhs the value, IR_ASSIGN_VAR writes through (lists: cell store; tables: lazy trap insert — canonical tvtbl).
+               operands[0]=variable (walk preamble op_a_slot re-derivation, the IR_REV_ASSIGN lesson), [1]=value; lhs-then-rhs evaluation per canonical asgn; beta inherits rhs (TT_VAR-assign parity). */
+            IR_t * vr = NULL; IR_t * entry = lower_idx_var(cx, lhs, ω, &vr);
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, ω, &rr);
+            lc_γ_to(vr, re);
+            ir_operand_push(asn, vr); ir_operand_push(asn, rr);
+            *res = asn; return entry;
         }
         if (lhs && lhs->t == TT_FIELD) {
             IR_t * set = build(cx, IR_FIELD_SET, γ, ω);

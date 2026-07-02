@@ -297,6 +297,9 @@ DESCR_t pat_assign_callcap_named_imm(DESCR_t child, const char *fnc_name,
 DESCR_t var_as_pattern(DESCR_t v);
 DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
+DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
+DESCR_t rt_deref(DESCR_t d);
+DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t *NV_PTR_fn(const char *name);
 int NV_bind_gva(const char *name, DESCR_t *cell);
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);

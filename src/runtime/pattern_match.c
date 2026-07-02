@@ -639,3 +639,55 @@ void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
     if (val.v == DT_P && val.p) return val.p;
     return NULL;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
+    if (base.v == DT_A) {
+        ARBLK_t *a = base.arr; if (!a) return FAILDESCR;
+        int i = (int)to_int(idx); int off = i - a->lo;
+        if (off < 0 || off >= (a->hi - a->lo + 1)) return FAILDESCR;
+        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx;
+        return (DESCR_t){ .v = DT_V, .p = vc };
+    }
+    if (base.v == DT_T) {
+        TBBLK_t *tb = base.tbl; if (!tb) return FAILDESCR;
+        char kb[64]; const char *ks;
+        if (IS_INT_fn(idx))       { snprintf(kb, sizeof kb, "%lld", (long long)idx.i); ks = kb; }
+        else if (IS_REAL_fn(idx)) { snprintf(kb, sizeof kb, "%g", idx.r); ks = kb; }
+        else                      { ks = VARVAL_fn(idx); if (!ks) ks = ""; }
+        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = GC_strdup(ks); vc->key_d = idx;
+        return (DESCR_t){ .v = DT_V, .p = vc };
+    }
+    if (base.v == DT_DATA) {
+        DESCR_t tag = FIELD_GET_fn(base, "gen_type");
+        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
+            int n = (int)FIELD_GET_fn(base, "frame_size").i;
+            DESCR_t ea = FIELD_GET_fn(base, "frame_elems");
+            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+            int i = (int)to_int(idx);
+            if (i < 0) i = n + i + 1;
+            if (!elems || i < 1 || i > n) return FAILDESCR;
+            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx;
+            return (DESCR_t){ .v = DT_V, .p = vc };
+        }
+        return subscript_get(base, idx);
+    }
+    return subscript_get(base, idx);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_deref(DESCR_t d) {
+    if (d.v != DT_V) return d;
+    VCELL_t *vc = (VCELL_t *)d.p; if (!vc) return FAILDESCR;
+    if (!vc->tbl) return vc->cellp ? *vc->cellp : FAILDESCR;
+    int found; DESCR_t hit = table_get_found(vc->tbl, vc->key, &found);
+    if (found) return hit;
+    if (vc->tbl->dflt.v != DT_FAIL && vc->tbl->dflt.v != 0) return vc->tbl->dflt;
+    return NULVCL;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_assign_var(DESCR_t var, DESCR_t val) {
+    if (var.v != DT_V) { fprintf(stderr, "[IDX] BOMB rt_assign_var: lvalue is not a variable (dtype=%d) — string/record subscript assignment is the tvsubs rung (GOAL-IR-IMMUTABLE-EMIT IDX-UNIFY)\n", (int)var.v); abort(); }
+    VCELL_t *vc = (VCELL_t *)var.p; if (!vc) return FAILDESCR;
+    if (vc->tbl) { table_set_descr(vc->tbl, vc->key, vc->key_d, val); return val; }
+    if (!vc->cellp) return FAILDESCR;
+    *vc->cellp = val; return val;
+}
