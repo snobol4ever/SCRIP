@@ -887,6 +887,7 @@ static int lower_icon_body(const tree_t *prog, const tree_t *proc) {
     return bb_program_add(&g_stage2.bbp, ng);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void lower_icon_resolve_call_kinds(void);
 void lower_icon_stage2(const tree_t *prog) {
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
@@ -919,6 +920,49 @@ void lower_icon_stage2(const tree_t *prog) {
                 const char ** _pn = (const char **)calloc((size_t)np, sizeof(const char *));
                 if (_pn) { for (int k = 0; k < np && k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
             }
+        }
+    }
+    lower_icon_resolve_call_kinds();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* IRM→0 (Lon directive 2026-07-02): call-kind resolution moves HERE from the emitter — the last four ->op
+   writes in src/emitter (resolve_call_kinds_descr, deleted) violated both the FACT RULE (emitter never
+   mutates IR) and the DO-NOT (never decide a call kind from rt_* at emit time). The decision is compile-time:
+   user-proc truth is g_stage2.proc_table (icn_callable_proc_index mirrors the driver's rt_proc_register
+   declare-set EXACTLY: named, not main, lowered graph with entry — so registered ≡ table-callable), the
+   generator bit is proc_table[pi].is_generator (the same value the driver stamps into rt), and the builtin
+   sets are the static name lists in by_name_dispatch.c (rt_builtin_is_known's internal registered-guard is
+   reachability-equivalent here: a table-callable name took branch 1/2 before branch 4). Ladder + the
+   write/writes exclusion are the old pass verbatim. Runs after both stage2 loops, so every call resolves
+   with complete knowledge — identical inputs, identical retags, now BEFORE the IR reaches the emitter. */
+static int icn_callable_proc_index(const char * fn) {
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const char * pname = g_stage2.proc_table[pi].name;
+        if (!pname || strcmp(pname, fn) != 0) continue;
+        if (strcmp(pname, "main") == 0) return -1;
+        int idx = g_stage2.proc_table[pi].bb_idx;
+        if (idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) return -1;
+        return pi;
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void lower_icon_resolve_call_kinds(void) {
+    extern int rt_builtin_is_generator(const char *);
+    extern int rt_builtin_is_known(const char *);
+    for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
+        IR_graph_t * g = g_stage2.bbp.table[gi];
+        if (!g) continue;
+        for (int i = 0; i < g->n; i++) {
+            IR_t * nd = g->all[i];
+            if (!nd || nd->op != IR_CALL) continue;
+            const char * fn = IR_LIT(nd).sval;
+            if (!fn || !fn[0]) continue;
+            int pi = icn_callable_proc_index(fn);
+            if (pi >= 0 && g_stage2.proc_table[pi].is_generator) nd->op = IR_PROC_GEN;
+            else if (pi >= 0) nd->op = IR_CALL_PROC_STAGED;
+            else if (rt_builtin_is_generator(fn)) nd->op = IR_CALL_BUILTIN;
+            else if (strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN;
         }
     }
 }
