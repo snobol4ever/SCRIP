@@ -145,6 +145,34 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
     *var_res = cur; return entry;
 }
 /*====================================================================================================================================================================================================*/
+static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
+    /* SWAP-LV: lower ANY supported lvalue tree to a VARIABLE producer (DT_V VCELL), the shared front for
+       constructs that need BOTH operands underef (canonical swap's `underef x -> dx` signature, oasgn.r:267).
+       Covers the three lvalue kinds the TT_ASSIGN arms already serve individually: identifier → IR_VAR_REF;
+       x[i...] → lower_idx_var chain; s[i:j] / s[i+:n] / s[i-:n] → the 3-operand IR_SUBSCRIPT sval="lv" section
+       variable (rt_section_var tvsubs trap), the LV-1 shape verbatim incl. the synthetic-BINOP desugar.
+       Returns entry, *var_res = the variable node (γ left NULL — caller aims it). NULL = unsupported kind
+       (keywords &pos/&subject, fields — own future rungs); caller falls back or bombs loud. */
+    if (!t) return NULL;
+    if (t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') {
+        IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = t->v.sval; *var_res = vr; return vr;
+    }
+    if (t->t == TT_IDX) return lower_idx_var(cx, t, ω, var_res);
+    if ((t->t == TT_SECTION || t->t == TT_SECTION_PLUS || t->t == TT_SECTION_MINUS) && t->n >= 3 && t->c[0] && t->c[1] && t->c[2]) {
+        int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
+        IR_t * sec = build(cx, IR_SUBSCRIPT, NULL, ω); IR_LIT(sec).ival = 0; IR_LIT(sec).sval = "lv";
+        IR_t * ar = NULL; IR_t * ae; const tree_t * b0 = t->c[0];
+        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+        else ae = lower(cx, b0, NULL, ω, &ar);
+        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ω, &br); γ_to(ar, be);
+        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ω, &cr); γ_to(br, ce);
+        if (sec_variant) { IR_t * op = build(cx, IR_BINOP, sec, ω); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB; ir_operand_push(op, br); ir_operand_push(op, cr); γ_to(cr, op); cr = op; }
+        ir_operand_push(sec, ar); ir_operand_push(sec, br); ir_operand_push(sec, cr);
+        *var_res = sec; return ae;
+    }
+    return NULL;
+}
+/*====================================================================================================================================================================================================*/
 static int icn_scan_kind_for(const char * s) {
     if (!s) return 0;
     if (!strcmp(s,"tab"))   return (int)IR_SCAN_TAB;
@@ -670,11 +698,28 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = op; return ee; }
     case TT_SWAP: {
         /* JCON: := : is a_Binop(":=:") → ir_augmented_assignment path → ir_Assign(lv,tmp)+ir_Assign(rv,lv_orig).
-           SCRIP: IR_SWAP carries both var references as operands[0]/[1]; template bb_swap swaps them in x86.
-           Both lhs and rhs must be variables (lvalue operands); emit_drive reads their frame slots. */
+           SCRIP plain×plain: IR_SWAP carries both var references as operands[0]/[1]; template bb_swap swaps frame slots.
+           SWAP-LV (either side subscript/section): both sides lower as VARIABLE producers (lower_lvalue_var —
+           canonical swap takes both operands UNDEREF, oasgn.r:267) chained x-then-y per canonical eval order,
+           into IR_SWAP_VAR (operands[0]=x-var, [1]=y-var; rt_swap_var does the two writes + same-string tvsubs
+           pos adjustment and returns the fresh x deref). operator{0,1}: single-shot, no β wiring (the LV-3a shape). */
+        const tree_t * lt = (t->n > 0) ? t->c[0] : NULL; const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
+        int plain_l = lt && lt->t == TT_VAR && lt->v.sval && lt->v.sval[0] != '&';
+        int plain_r = rt2 && rt2->t == TT_VAR && rt2->v.sval && rt2->v.sval[0] != '&';
+        if (!(plain_l && plain_r)) {
+            IR_t * xr = NULL; IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);
+            IR_t * yr = NULL; IR_t * ye = xe ? lower_lvalue_var(cx, rt2, ω, &yr) : NULL;
+            if (xe && ye) {
+                lc_γ_to(xr, ye);
+                IR_t * nd = build(cx, IR_SWAP_VAR, γ, ω);
+                lc_γ_to(yr, nd);
+                ir_operand_push(nd, xr); ir_operand_push(nd, yr);
+                *res = nd; return xe;
+            }
+        }
         IR_t * nd = build(cx, IR_SWAP, γ, ω);
-        IR_t * lr = NULL; lower(cx, (t->n > 0) ? t->c[0] : NULL, nd, ω, &lr);
-        IR_t * rr = NULL; lower(cx, (t->n > 1) ? t->c[1] : NULL, nd, ω, &rr);
+        IR_t * lr = NULL; lower(cx, lt, nd, ω, &lr);
+        IR_t * rr = NULL; lower(cx, rt2, nd, ω, &rr);
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
     case TT_REVASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
