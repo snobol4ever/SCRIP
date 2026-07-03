@@ -600,8 +600,8 @@ inline void emit_2asm (const std::string & a, const std::string & b) { emit_2asm
 #include <cstdio>
 #include <sstream>
 namespace EmitStr {
-template<typename... Args>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+template<typename... Args>
 inline std::string format_str(const char * fmt, Args... args) {
     char buf[4096];
     snprintf(buf, sizeof buf, fmt, args...);
@@ -654,15 +654,15 @@ std::string net_push_i4_str(int v);
 std::string net_ctor_none_str(int sid, int nid);
 std::string net_spec_zw_str();
 #define IF(c, ...) ((c) ? (__VA_ARGS__) : std::string())
-template<typename F>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+template<typename F>
 inline std::string FOR(int lo, int hi, F f) {
     std::string r;
     for (int i = lo; i < hi; i++) r += f(i);
     return r;
 }
-template<typename F>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+template<typename F>
 inline std::string emit_for(int lo, int hi, F f) { return FOR(lo, hi, f); }
 #endif
 #endif

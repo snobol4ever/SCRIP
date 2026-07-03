@@ -20,6 +20,7 @@ static inline int           s_int(const tree_t *s, const char *tag) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline tree_t        *s_expr(const tree_t *s, const char *tag) {
     return stmt_attr_expr(stmt_attr_find(s, tag)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint32_t polyglot_lang_mask(const tree_t *prog)
 {
     uint32_t mask = 0;
@@ -36,6 +37,7 @@ uint32_t polyglot_lang_mask(const tree_t *prog)
 }
 int g_fi8_gen_init_count = 0;
 int g_fi8_pl_init_count  = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
 {
     if (!prog) return;
@@ -153,6 +155,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
     }
 }
 extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *parse_scrip_polyglot(const char *src, const char *filename)
 {
     tree_t *result = calloc(1, sizeof(tree_t));

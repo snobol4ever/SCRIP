@@ -360,6 +360,7 @@ static void m3_enter_with_rbx(bb_box_fn fn, void *frame, int entry, void *gva_ba
     register void *r_bx asm("rbx") = gva_base;
     __asm__ volatile("call *%[f]" : : [f]"r"(fn), "r"(r_di), "r"(r_si), "r"(r_bx) : "rax","rcx","rdx","r8","r9","r10","r11","memory","cc");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {

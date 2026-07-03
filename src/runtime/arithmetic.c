@@ -147,6 +147,7 @@ int ge(DESCR_t a, DESCR_t b) {
     if (IS_INT(a) && IS_INT(b)) return a.i >= b.i;
     return to_real(a) >= to_real(b);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_arith(int lk, long li, const char *ls,
                   int rk, long ri, const char *rs, const char *op)
 {

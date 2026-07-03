@@ -91,6 +91,7 @@ static int csn_nv_snapshot(CsnNvPair **out_pairs, int *out_count) {
     *out_pairs = pairs; *out_count = n; return n;
 }
 int snobol4_main(int argc, char *argv[]);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int csnobol4_run_steps(const char *core_path, int step_limit,
                        CsnNvPair **out_pairs, int *out_count) {
     *out_pairs = NULL; *out_count = 0;

@@ -18,8 +18,10 @@ int  csnobol4_run_steps(const char *core_path, int step_limit,
 void csn_nv_snapshot_free(CsnNvPair *pairs, int n);
 #else
 typedef struct { char *name; char *val_str; } CsnNvPair;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int  csnobol4_run_steps(const char *p, int n, CsnNvPair **o, int *c)
     { (void)p;(void)n; *o=NULL;*c=0; return -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void csn_nv_snapshot_free(CsnNvPair *pairs, int n)
     { (void)pairs;(void)n; }
 #endif
@@ -143,6 +145,7 @@ static void label_path_print(const char *tag, const ExecSnapshot *s) {
     if (!printed) fprintf(stderr, " (no labels reached)");
     fprintf(stderr, "\n");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int snap_diff(const ExecSnapshot *a, const char *a_name,
                      const ExecSnapshot *b, const char *b_name,
                      int verbose) {

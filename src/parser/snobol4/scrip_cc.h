@@ -76,6 +76,7 @@ void     c_emit(CODE_t *prog, FILE *out);
 tree_t       *stmt_to_ast(const STMT_t *s);
 tree_t       *code_to_ast(const CODE_t *prog);
 tree_t       *stmt_attr_find(const tree_t *stmt, const char *tag);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline tree_t *stmt_goto_find(const tree_t *stmt, tree_e kind)
 {
     for (int i = 0; i < stmt->n; i++) {
@@ -84,6 +85,7 @@ static inline tree_t *stmt_goto_find(const tree_t *stmt, tree_e kind)
     }
     return NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char *goto_node_str(const tree_t *gnode)
 {
     if (!gnode || gnode->n == 0) return NULL;
@@ -91,6 +93,7 @@ static inline const char *goto_node_str(const tree_t *gnode)
     if (ch && ch->t == TT_QLIT) return ch->v.sval;
     return NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline tree_t *goto_node_expr(const tree_t *gnode)
 {
     if (!gnode || gnode->n == 0) return NULL;

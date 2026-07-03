@@ -79,6 +79,7 @@ __asm__(
 "  ret\n"
 );
 void rt_eval_run(eval_chain_fn fn, void *zeta);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_build_chain(const char *s)
 {
     if (!s || !*s) return NULL;
@@ -130,12 +131,14 @@ DESCR_t eval_string_transient(const char *s) {
     else bb_pool_release(mark);
     return result;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_node(tree_t *e)
 {
     (void)e;
     fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n");
     abort();
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_expr(const char *src)
 {
     if (!src || !*src) return NULVCL;
@@ -143,6 +146,7 @@ DESCR_t eval_expr(const char *src)
     if (!tree) return FAILDESCR;
     return eval_node(tree);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn code_build_chain(const char *s)
 {
     if (!s || !*s) return NULL;
@@ -154,6 +158,7 @@ static eval_chain_fn code_build_chain(const char *s)
     if (!g) return NULL;
     return gvar_flat_chain_build(g);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code(const char *src)
 {
     if (!src || !*src) return FAILDESCR;
@@ -165,6 +170,7 @@ DESCR_t code(const char *src)
     d.ptr  = (void *)fn;
     return d;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void run_code_chain(eval_chain_fn fn)
 {
     if (!fn) return;
@@ -172,12 +178,14 @@ static void run_code_chain(eval_chain_fn fn)
     memset(code_frame, 0, sizeof code_frame);
     rt_eval_run(fn, (void *)code_frame);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_goto_dyn(const char *name)
 {
     if (!name || !*name) return;
     DESCR_t d = NV_GET_fn(name);
     if (d.v == DT_C && d.slen == 3) run_code_chain((eval_chain_fn)d.ptr);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t EXPVAL_fn(DESCR_t expr_d)
 {
     if (expr_d.v == DT_E) {
@@ -229,6 +237,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
     if (!s || !*s) return NULVCL;
     return eval_expr(s);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t CONVE_fn(DESCR_t str_d)
 {
     const char *s = VARVAL_fn(str_d);
