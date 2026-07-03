@@ -9,6 +9,7 @@ extern int g_scan_regs_live;
 struct DESCR_t rt_keyword_subject(void);
 struct DESCR_t rt_keyword_pos(void);
 DESCR_t rt_keyword_read(const char *sval);
+DESCR_t rt_keyword_gen(const char *sval, long idx);
 }
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -59,6 +60,28 @@ std::string bb_keyword() {
              + x86("jmp", "ω")
              + x86("def", "β")
              + x86("jmp", "ω");
+    if (!strcmp(kw, "features") || !strcmp(kw, "regions") || !strcmp(kw, "storage") || !strcmp(kw, "collections"))
+        return x86("comment", "IR_KEYWORD_gen")
+             + x86("label",   _.lbl_α)
+             + x86("mov",     FRQ(_.op_off + 16), (long)0)
+             + x86("def",     L(1))
+             + x86("mov",     "rdi", ROQ(0))
+             + x86("mov",     "rsi", FRQ(_.op_off + 16))
+             + x86("call",    "rt_keyword_gen", (uint64_t)(uintptr_t)(void *)rt_keyword_gen)
+             + x86("cmp",     "eax", (long)DT_FAIL)
+             + x86("je",      "ω")
+             + x86("mov",     FRQ(_.op_off),     "rax")
+             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86("mov",     "rax", FRQ(_.op_off + 16))
+             + x86("add",     "rax", (long)1)
+             + x86("mov",     FRQ(_.op_off + 16), "rax")
+             + x86("jmp",     "γ")
+             + x86("def",     "β")
+             + x86("jmp",     L(1))
+             + x86("def",     L(0))
+             + x86(".quad",   LS(0), _.op_sval)
+             + x86("label",   LS(0))
+             + x86(".string", _.op_sval);
     return x86("comment", "IR_KEYWORD_read")
          + x86("label",   _.lbl_α)
          + x86("mov",     "rdi", ROQ(0))

@@ -277,10 +277,17 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         /* TMP-ERADICATE (Lon, 2026-07-02): the call family owns 16-byte result + contiguous per-arg argv
            scratch at tmp+16 (the IR_MAKE_LIST shape) -- retiring bb_slot_alloc16/bb_slot_claim in bb_call*. */
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
+        /* IR_KEYWORD needs 24 bytes: 16-byte staged value DESCR + 8-byte int64 generator index at [+16].
+           The generator keywords (&features/&regions/&storage/&collections) are resumable — bb_keyword's
+           generator arm keys resumption off this counter (mirrors canonical keyword.r's suspend-sequence:
+           features suspends each feature string; regions/storage/collections suspend N region integers).
+           k+=2 = 32 bytes, same safe-oversize pattern as IR_ITERATE/IR_LIMIT; the single-value keyword arms
+           (subject/pos/null/fail/read) leave [+16] untouched and are unaffected. */
+        if (nd->op == IR_KEYWORD) { nd->tmp = base + k * 16; k += 2; continue; }
         /* TMP-ERADICATE non-producer slot-takers (named empirically by the drive_value_slot gouge):
            IR_DEREF materializes a value copy; IR_ASSIGN_VAR stages result=value (sub-expression use, the
-           IR_ASSIGN precedent above); IR_KEYWORD stages its keyword value. One DESCR each. */
-        if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_KEYWORD || nd->op == IR_RANDOM || nd->op == IR_SWAP_VAR) { nd->tmp = base + k * 16; k += 1; continue; }
+           IR_ASSIGN precedent above). One DESCR each. */
+        if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_RANDOM || nd->op == IR_SWAP_VAR) { nd->tmp = base + k * 16; k += 1; continue; }
         /* IR_CREATE: 16-byte co-expression DESCR + 48-byte regs[6] create-time scratch at tmp+16 (bb_create's
            former hand-reserve, now a real grant). k+=4 = 64 bytes. */
         if (nd->op == IR_CREATE) { nd->tmp = base + k * 16; k += 4; continue; }

@@ -2,6 +2,7 @@
 #include "sil_macros.h"
 #include "keywords.h"
 #include <time.h>
+#include <unistd.h>
 const char  *cset_canonical(const char *cs);
 extern const char  *scan_subj;
 extern int           scan_pos;
@@ -157,6 +158,7 @@ DESCR_t kw_read(const char *kw) {
       }
     }
     if (!strcmp(kw,"version")) return STRVAL("Jcon Version 2.2");
+    if (!strcmp(kw,"host")) { static char hbuf[256]; if (!hbuf[0]) { if (gethostname(hbuf,sizeof(hbuf)-1) != 0 || !hbuf[0]) strcpy(hbuf,"scrip"); } return STRVAL(hbuf); }
     return FAILDESCR;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -166,4 +168,35 @@ DESCR_t rt_keyword_read(const char *sval) {
     DESCR_t kv = kw_read(kw);
     if (!IS_FAIL(kv)) return kv;
     return NV_GET_fn(sval);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_gen(const char *sval, long idx) {
+    if (!sval) return FAILDESCR;
+    const char *kw = sval[0] == '&' ? sval + 1 : sval;
+    if (!strcmp(kw,"features")) {
+        static const char *feats[] = { "UNIX", "ASCII", "co-expressions", "large integers", "string invocation", "native execution" };
+        int n = (int)(sizeof(feats) / sizeof(feats[0]));
+        if (idx < 0 || idx >= n) return FAILDESCR;
+        return STRVAL(feats[idx]);
+    }
+    if (!strcmp(kw,"regions")) {
+        if (idx == 0) return INTVAL(0);
+        if (idx == 1 || idx == 2) return INTVAL((long)GC_get_heap_size());
+        return FAILDESCR;
+    }
+    if (!strcmp(kw,"storage")) {
+        long used = (long)(GC_get_heap_size() - GC_get_free_bytes());
+        if (idx == 0) return INTVAL(0);
+        if (idx == 1 || idx == 2) return INTVAL(used);
+        return FAILDESCR;
+    }
+    if (!strcmp(kw,"collections")) {
+        long g = (long)GC_get_gc_no();
+        if (idx == 0) return INTVAL(g);
+        if (idx == 1) return INTVAL(0);
+        if (idx == 2) return INTVAL(g);
+        if (idx == 3) return INTVAL(0);
+        return FAILDESCR;
+    }
+    return FAILDESCR;
 }
