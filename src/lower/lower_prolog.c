@@ -158,7 +158,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm;
             bb_findall_state_t * fs = (bb_findall_state_t *) calloc(1, sizeof *fs);
             fs->tmpl = term(cx, t->c[0]);
-            IR_graph_t * sub = IR_alloc(256, IR_LANG_PL);
+            IR_graph_t * sub = IR_alloc(256);
             lcx_t scx; scx.g = sub; scx.tω = NULL;
             IR_t * ssucc = build(&scx, IR_SUCCEED, NULL, NULL);
             IR_t * sfail = build(&scx, IR_FAIL, NULL, NULL);
@@ -176,7 +176,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "catch") && t->n == 3) {
             IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail);
             bb_catch_state_t * zc = (bb_catch_state_t *) calloc(1, sizeof *zc);
-            IR_graph_t * sub = IR_alloc(256, IR_LANG_PL);
+            IR_graph_t * sub = IR_alloc(256);
             lcx_t scx; scx.g = sub; scx.tω = NULL;
             IR_t * ssucc = build(&scx, IR_SUCCEED, NULL, NULL);
             IR_t * sfail = build(&scx, IR_FAIL, NULL, NULL);
@@ -189,7 +189,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * cnode = term(cx, t->c[1]);
             zc->catcher = cnode;
             ir_operand_push(nd, cnode);
-            IR_graph_t * rsub = IR_alloc(256, IR_LANG_PL);
+            IR_graph_t * rsub = IR_alloc(256);
             lcx_t rcx; rcx.g = rsub; rcx.tω = NULL;
             IR_t * rsucc = build(&rcx, IR_SUCCEED, NULL, NULL);
             IR_t * rfail = build(&rcx, IR_FAIL, NULL, NULL);
@@ -206,7 +206,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm;
             bb_findall_state_t * fs = (bb_findall_state_t *) calloc(1, sizeof *fs);
             fs->tmpl = term(cx, t->c[0]);
-            IR_graph_t * sub = IR_alloc(256, IR_LANG_PL);
+            IR_graph_t * sub = IR_alloc(256);
             lcx_t scx; scx.g = sub; scx.tω = NULL;
             IR_t * ssucc = build(&scx, IR_SUCCEED, NULL, NULL);
             IR_t * sfail = build(&scx, IR_FAIL, NULL, NULL);
@@ -306,7 +306,7 @@ static int max_var_slot(const tree_t * t, int mx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_prolog_clause(const tree_t * clause) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
-    IR_graph_t * g = IR_alloc(256, IR_LANG_PL);
+    IR_graph_t * g = IR_alloc(256);
     lcx_t cx; cx.g = g; cx.tω = NULL;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
@@ -373,7 +373,7 @@ static int lower_pl_choice_graph(const tree_t *choice) {
         if (bodies[ci]) any = 1;
     }
     if (!any) return -1;
-    IR_graph_t *g = IR_alloc(8, IR_LANG_PL);
+    IR_graph_t *g = IR_alloc(8);
     if (!g) return -1;
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
@@ -444,7 +444,7 @@ static void pl_dyn_mark_prepass(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_pl_dyniter_graph(const char *name, int arity) {
-    IR_graph_t *g = IR_alloc(8, IR_LANG_PL);
+    IR_graph_t *g = IR_alloc(8);
     if (!g) return -1;
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);

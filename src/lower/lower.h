@@ -34,7 +34,7 @@ void * lc_vec_at(const lc_vec * v, int i);
 int lc_binop_code(tree_e tt);
 int lc_is_binop(tree_e tt);
 typedef IR_t * (*lc_lower_fn)(void * cx, const tree_t * a, IR_t * F);
-IR_graph_t * lc_arg_block(IR_graph_t ** gslot, int lang, lc_lower_fn fn, void * cx, const tree_t * a);
+IR_graph_t * lc_arg_block(IR_graph_t ** gslot, lc_lower_fn fn, void * cx, const tree_t * a);
 typedef IR_graph_t * (*lc_argblk_fn)(void * cx, const tree_t * a);
 void lc_call_argblks(IR_t * call, double dv, int nargs, lc_argblk_fn mk, void * cx, const tree_t * const * args);
 stage2_t *lower_stage2(const tree_t *prog);

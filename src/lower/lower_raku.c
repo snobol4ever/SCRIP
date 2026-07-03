@@ -94,7 +94,7 @@ static IR_t * lower_unop(rcx_t * cx, const tree_t * t, const char * opn, IR_t * 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_arg_lower(void * vcx, const tree_t * a, IR_t * F) { IR_t * r = NULL; return lower_rv((rcx_t *) vcx, a, NULL, F, &r); }
-static IR_graph_t * rk_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((rcx_t *) vcx)->g, IR_LANG_RKU, rk_arg_lower, vcx, a); }
+static IR_graph_t * rk_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((rcx_t *) vcx)->g, rk_arg_lower, vcx, a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, int visible, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n - from;
@@ -307,12 +307,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_graph_t ** blks2 = (IR_graph_t **) calloc((size_t) na, sizeof(IR_graph_t *));
         if (blks2) {
             IR_graph_t * saved = cx->g;
-            IR_graph_t * g0 = IR_alloc(256, IR_LANG_RKU); cx->g = g0;
+            IR_graph_t * g0 = IR_alloc(256); cx->g = g0;
             IR_t * F0 = IR_node_alloc(g0, IR_FAIL); IR_t * S0 = IR_node_alloc(g0, IR_SUCCEED);
             IR_t * e0 = (t->n > 0 && t->c[0]) ? lower_rblock(cx, t->c[0], S0, F0) : S0;
             g0->entry = e0; blks2[0] = g0;
             if (has_catch) {
-                IR_graph_t * g1 = IR_alloc(256, IR_LANG_RKU); cx->g = g1;
+                IR_graph_t * g1 = IR_alloc(256); cx->g = g1;
                 IR_t * F1 = IR_node_alloc(g1, IR_FAIL); IR_t * S1 = IR_node_alloc(g1, IR_SUCCEED);
                 IR_t * e1 = lower_rblock(cx, t->c[1], S1, F1);
                 g1->entry = e1; blks2[1] = g1;
@@ -662,7 +662,7 @@ static void rk_discover_procs(const tree_t * prog) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
-    IR_graph_t * g = IR_alloc(8192, IR_LANG_RKU); rcx_t cx; cx.g = g;
+    IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g;
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * sentry = succ; IR_t * entry = succ;
     for (int i = (pd ? pd->n : 0) - 1; i >= 1; i--) {
@@ -746,7 +746,7 @@ void lower_raku_stage2(const tree_t *prog) {
     for (int pi = 0; pi < g_stage2.proc_count; pi++)
         if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) { has_main = 1; break; }
     if (!has_main) {
-        IR_graph_t * tg = IR_alloc(8192, IR_LANG_RKU); rcx_t tcx; tcx.g = tg;
+        IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.g = tg;
         IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
         IR_t * sentry = succ; IR_t * entry = succ;
         for (int i = prog->n - 1; i >= 0; i--) {

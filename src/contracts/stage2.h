@@ -59,7 +59,6 @@ typedef struct stage2_t {
     int                  proc_cap;
     Resolve_PredTable         resolve_pred_table;
     ScripModuleRegistry  module_registry;
-    int                  lang;
     const char          *pl_dyn_name[64];
     int                  pl_dyn_arity[64];
     int                  pl_dyn_n;

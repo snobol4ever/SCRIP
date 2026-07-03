@@ -20,7 +20,6 @@ void stage2_reset(void)
     memset(&g_stage2.resolve_pred_table,   0, sizeof g_stage2.resolve_pred_table);
     memset(&g_stage2.module_registry, 0, sizeof g_stage2.module_registry);
     g_stage2.module_registry.main_mod = -1;
-    g_stage2.lang = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_delete_all(stage2_t *s2)

@@ -71,14 +71,13 @@ const char * bb_op_name(IR_e k) {
     return "IR_UNKNOWN";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * IR_alloc(int max_nodes, int lang) {
+IR_graph_t * IR_alloc(int max_nodes) {
     IR_graph_t * bbg = calloc(1, sizeof(IR_graph_t));
     if (!bbg) return NULL;
     bbg->all  = calloc((size_t)max_nodes, sizeof(IR_t *));
     if (!bbg->all) { free(bbg); return NULL; }
     bbg->n    = 0;
     bbg->max  = max_nodes;
-    bbg->lang = lang;
     bbg->entry = NULL;
     bbg->resume_slot = -1;
     return bbg;
@@ -293,10 +292,8 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) { bb_print_v(bbg, fp, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
     if (!bbg) { fprintf(fp, "(null IR_graph_t)\n"); return; }
-    static const char * lang_names[] = { "?", "SNO", "SCO", "REB", "ICN", "PL", "RKU" };
-    const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
     char ent[12]; bb_ref_fmt(bbg, bbg->entry, ent, sizeof ent);
-    fprintf(fp, "IR_graph_t lang=%s n=%d entry=%s nslots=%d\n", lname, bbg->n, ent, bbg->nslots);
+    fprintf(fp, "IR_graph_t n=%d entry=%s nslots=%d\n", bbg->n, ent, bbg->nslots);
     if (verbose)
         fprintf(fp, ";  seq self     γ    ω  kind                   [operands]  payload   (self/γ/ω/operands: sN=value slot N, nN=node id N "
                     "when no slot; linear emit order: γ-spine DFS from entry, then ω, then operands)\n");

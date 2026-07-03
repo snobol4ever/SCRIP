@@ -17,13 +17,6 @@
 #ifndef STRVAL
 #  define STRVAL(s_)   ((DESCR_t){ .v = DT_S, .slen = 0, .s = (s_) })
 #endif
-#define IR_LANG_SNO  1
-#define IR_LANG_SCO  2
-#define IR_LANG_REB  3
-#define IR_LANG_ICN  4
-#define IR_LANG_PL   5
-#define IR_LANG_RKU  6
-#define IR_LANG_PAS  7
 typedef enum {
     IR_ACTIVATE,
     IR_ASSIGN,
@@ -118,7 +111,6 @@ struct IR_graph_t {
     IR_t   ** all;
     int            n;
     int            max;
-    int            lang;
     int            nslots;
     int            nvalue_slots;
     int            jcon_value_region;
@@ -133,7 +125,7 @@ struct IR_graph_t {
     int            ring_head;
     int            ring_depth;
 };
-IR_graph_t * IR_alloc(int max_nodes, int lang);
+IR_graph_t * IR_alloc(int max_nodes);
 int ir_varslot_of(const IR_graph_t * g, const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t * ir_call_arg(const IR_t * nd, int j) {

@@ -205,9 +205,9 @@ int lc_is_binop(tree_e tt) {
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * lc_arg_block(IR_graph_t ** gslot, int lang, lc_lower_fn fn, void * cx, const tree_t * a) {
+IR_graph_t * lc_arg_block(IR_graph_t ** gslot, lc_lower_fn fn, void * cx, const tree_t * a) {
     IR_graph_t * saved = *gslot;
-    IR_graph_t * g2 = IR_alloc(256, lang); *gslot = g2;
+    IR_graph_t * g2 = IR_alloc(256); *gslot = g2;
     IR_t * F = IR_node_alloc(g2, IR_FAIL);
     IR_t * e = fn(cx, a, F);
     g2->entry = e;
@@ -235,10 +235,9 @@ stage2_t *lower_stage2(const tree_t *prog) {
     uint32_t mask = polyglot_lang_mask(prog);
     polyglot_init(&g_stage2, prog, mask);
     if (mask & (1u << LANG_SNO)) (void) lower_sno_stage2(prog);
-    if (mask & (1u << LANG_PASCAL)) { lower_pascal_stage2(prog); g_stage2.lang = IR_LANG_PAS; return &g_stage2; }
-    if (mask & (1u << LANG_ICN))    { lower_icon_stage2(prog);   g_stage2.lang = IR_LANG_ICN; return &g_stage2; }
-    if (mask & (1u << LANG_PL))     { lower_pl_stage2(prog);     g_stage2.lang = IR_LANG_PL;  return &g_stage2; }
-    if (mask & (1u << LANG_RAKU))   { lower_raku_stage2(prog);   g_stage2.lang = IR_LANG_RKU; return &g_stage2; }
-    g_stage2.lang = IR_LANG_SNO;
+    if (mask & (1u << LANG_PASCAL)) { lower_pascal_stage2(prog); return &g_stage2; }
+    if (mask & (1u << LANG_ICN))    { lower_icon_stage2(prog);   return &g_stage2; }
+    if (mask & (1u << LANG_PL))     { lower_pl_stage2(prog);     return &g_stage2; }
+    if (mask & (1u << LANG_RAKU))   { lower_raku_stage2(prog);   return &g_stage2; }
     return &g_stage2;
 }

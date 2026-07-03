@@ -95,7 +95,7 @@ static IR_t * icn_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_graph_t * arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((icx_t *) vcx)->g, IR_LANG_ICN, icn_arg_lower, vcx, a); }
+static IR_graph_t * arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((icx_t *) vcx)->g, icn_arg_lower, vcx, a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_arg_is_scan_fn(const tree_t * a) {
     if (!a) return 0; if (a->t == TT_STMT) a = stmt_subj(a); if (!a || a->t != TT_FNC) return 0; const char * nm = (a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR) ? a->c[0]->v.sval : NULL;
@@ -791,7 +791,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
-    IR_graph_t * g = IR_alloc(8192, IR_LANG_ICN); cx->g = g;
+    IR_graph_t * g = IR_alloc(8192); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->psucc = PSUCC; cx->pfail = PFAIL;
     IR_t * succ = icn_subtree_has_suspend(body) ? PFAIL : PSUCC; IR_t * fail = PFAIL;
@@ -831,7 +831,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     }
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
     if (pd && pd->n > 2 && pd->c[2]) return lower_proc_body(&cx, pd->c[2]);
-    IR_graph_t * g = IR_alloc(64, IR_LANG_ICN); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
+    IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
 }
 #include "bb_program.h"
 #include "emit.h"

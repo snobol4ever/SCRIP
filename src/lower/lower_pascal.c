@@ -47,7 +47,7 @@ static int is_relop(tree_e tt) {
 static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_arg_lower(void * vcx, const tree_t * a, IR_t * F) { return lower((pcx_t *) vcx, a, NULL, F); }
-static IR_graph_t * pas_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((pcx_t *) vcx)->g, IR_LANG_PAS, pas_arg_lower, vcx, a); }
+static IR_graph_t * pas_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((pcx_t *) vcx)->g, pas_arg_lower, vcx, a); }
 static void pas_call_blocks(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs) { lc_call_argblks(call, dv, nargs, pas_arg_block, cx, args); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
@@ -597,7 +597,7 @@ static pas_scope_t * build_scope_chain(const tree_t * pd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
-    IR_graph_t * g = IR_alloc(8192, IR_LANG_PAS); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; lc_vec_init(&cx.labels, (int) sizeof(pas_label_t));
+    IR_graph_t * g = IR_alloc(8192); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; lc_vec_init(&cx.labels, (int) sizeof(pas_label_t));
     scan_labels(&cx, pd, NULL);
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     for (int li = 0; li < cx.labels.n; li++) ω_to(LC_AT(&cx.labels, pas_label_t, li).node, fail);
