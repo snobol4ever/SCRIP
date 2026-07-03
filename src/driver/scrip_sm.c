@@ -28,10 +28,6 @@ stage2_t *sm_preamble(const tree_t *ast_prog){
         fprintf(stderr, "scrip: sm_lower failed\n");
         return NULL;
     }
-    if (polyglot_lang_mask(ast_prog) & (1u << LANG_ICN)) {
-        extern int g_lang;
-        g_lang = LANG_ICN;
-    }
     sm_resolve_proc_entry_pcs(s2);
     return s2;
 }

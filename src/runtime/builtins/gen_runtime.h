@@ -54,7 +54,6 @@ static inline IR_t *bb_proc_entry(const ProcEntry *e)
     if (e->proc_entry_node) return e->proc_entry_node;
     return g->entry;
 }
-extern int          g_lang;
 extern tree_t      *g_root;
 extern GenFrame     frame_stack[FRAME_STACK_MAX];
 extern int          frame_depth;
@@ -92,11 +91,4 @@ const char *cset_diff(const char *a, const char *b);
 const char *cset_inter(const char *a, const char *b);
 const char *cset_canonical(const char *cs);
 #include "../keywords.h"
-extern int g_sm_dispatch_active;
-extern int g_ast_pump_active;
-#define NO_AST_WALK_GUARD(fn_name) \
-    do { if (g_sm_dispatch_active && !g_ast_pump_active && g_lang == LANG_ICN) { \
-        fprintf(stderr, "FATAL: " fn_name " reached from SM dispatch (Icon BB incomplete)\n"); \
-        abort(); \
-    } } while (0)
 #endif

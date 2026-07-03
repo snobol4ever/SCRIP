@@ -13,7 +13,7 @@ void lc_ω_to(IR_t *nd, IR_t *t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_build_len_blob(const char *name, int I) {
     bb_pool_init();
-    IR_graph_t *g = IR_alloc(8, 0);
+    IR_graph_t *g = IR_alloc(8);
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t *nd    = IR_node_alloc(g, IR_MATCH_LEN);
@@ -33,7 +33,7 @@ extern "C" void bb_build_len_blob(const char *name, int I) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_build_break_blob(const char *name, const char *cset) {
     bb_pool_init();
-    IR_graph_t *g = IR_alloc(8, 0);
+    IR_graph_t *g = IR_alloc(8);
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t *nd    = IR_node_alloc(g, IR_MATCH_BREAK);

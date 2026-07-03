@@ -58,7 +58,6 @@ int shadow_has(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
 {
-    NO_AST_WALK_GUARD("call_user_function");
     if (call_depth >= CALL_STACK_MAX) return FAILDESCR;
     int np = FUNC_NPARAMS_fn(fname);
     int nl = FUNC_NLOCALS_fn(fname);

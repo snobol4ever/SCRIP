@@ -10,16 +10,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <gc/gc.h>
-#define NO_AST_WALK_GUARD(fn_name) \
-    do { if (g_sm_dispatch_active && !g_ast_pump_active && g_lang == LANG_ICN) { \
-        fprintf(stderr, "FATAL: " fn_name " reached from SM dispatch (Icon BB incomplete)\n"); \
-        abort(); \
-    } } while (0)
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
-int          g_lang         = 0;
 tree_t      *g_root     = NULL;
-int g_sm_dispatch_active = 0;
-int g_ast_pump_active = 0;
 unsigned long bb_rnd_seed = 12345UL;
 GenFrame frame_stack[FRAME_STACK_MAX];
 int      frame_depth = 0;

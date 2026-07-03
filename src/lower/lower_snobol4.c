@@ -129,7 +129,7 @@ int lower_sno_stage2(const tree_t * prog) {
     if (nst == 0) return 0;
     const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
-    IR_graph_t * g = IR_alloc(nst * 16 + 256, IR_LANG_SNO);
+    IR_graph_t * g = IR_alloc(nst * 16 + 256);
     scx_t cx; cx.g = g;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));

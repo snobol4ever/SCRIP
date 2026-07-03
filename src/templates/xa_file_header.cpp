@@ -11,10 +11,7 @@ static std::string xa_file_header_str(void) {
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FILE_HEADER");
         if (MEDIUM_BINARY)    return std::string();
         if (MEDIUM_TEXT) {
-            extern int g_lang;
-            char buf[64]; snprintf(buf, sizeof(buf), "mov edi, %d\ncall rt_set_lang@PLT\n", g_lang);
             return std::string(".intel_syntax noprefix\n.globl main\n.type main, @function\nmain: push rbp\nmov rbp, rsp\ncall rt_gc_init@PLT\n")
-                + std::string(buf)
                 + (g_emit.hdr_has_expr_reg
                     ? std::string("lea rdi, [rip + .Lexpression_registry]\ncall rt_register_expressions@PLT\n")
                     : std::string("xor edi, edi\ncall rt_register_expressions@PLT\n"));
