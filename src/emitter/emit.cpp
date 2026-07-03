@@ -1288,12 +1288,16 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_TAB: {
-        /* tab(n): op_off=own 24-byte slot; op_sb=literal n (>0) or -1; op_sa=var slot (-1 if literal) */
+        /* tab(n): op_off=own 24-byte slot. Delivery contract read by bb_scan_tab:
+             op_sa >= 0 => runtime n in producer slot op_sa;
+             op_sa <  0 => literal n = op_sb (ANY value; tab(0)/tab(-k) cvpos-normalized in the box).
+           The literal branch owns op_sb for every integer value, so a slot-less runtime operand can
+           no longer masquerade as literal 0 — it loud-aborts here instead of silently tabbing-to-end. */
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        if (a0 && a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
-        else if (a0) { int sl = bb_slot_get(a0); g_emit.op_sa = (sl >= 0) ? sl : -1; g_emit.op_sb = 0; }
-        else { g_emit.op_sb = 0; g_emit.op_sa = -1; }
+        if (!a0) { drive_unowned(nd); break; }
+        if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_MOVE: {
