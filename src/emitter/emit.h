@@ -246,14 +246,10 @@ extern "C" {
 #include "bb_box.h"
 #include "IR.h"
 #include <stdio.h>
-bb_box_fn bb_build_flat    (IR_t * nd);
 int  bb_call_route_classify(IR_t * nd);
-void resolve_call_kinds_gvar(IR_graph_t * g);
-bb_box_fn descr_flat_chain_build(IR_t * entry);
-int  descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
+bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
 int  bb_varslot_peek(const char * name);
 extern int g_gvar_flat_chain;
-int  codegen_flat_build        (IR_t * nd, FILE * out, const char * prefix);
 void lower_flat_set_intern_str(const char * (*fn)(const char *));
 const char * emit_intern_str(const char * s);
 void lower_flat_reset        (void);
@@ -284,9 +280,7 @@ static inline bb_label_t bb_label_from_name(const char *name) {
     if (name) { strncpy(lbl.name, name, BB_LABEL_NAME_MAX - 1); lbl.name[BB_LABEL_NAME_MAX - 1] = '\0'; }
     return lbl;
 }
-#define bb_build_flat_text(p,out,pfx)    codegen_flat_build(p,out,pfx)
 #define bb_flat_set_intern_str(fn)        lower_flat_set_intern_str(fn)
-#define bb_build_flat_text_reset()        lower_flat_reset()
 #ifdef __cplusplus
 }
 #endif
@@ -522,7 +516,7 @@ IR_t * bb_child0(const IR_t *n);
 IR_t * bb_child1(const IR_t *n);
 int    binop_slot_kind(IR_t *nd);
 int    bb_call_write_route(IR_t *nd);
-int    descr_binop_opnd_slot(IR_t *o);
+int    emit_binop_opnd_slot(IR_t *o);
 int    binop_is_num_real(IR_graph_t *g, IR_t *nd);
 void   bb_fill_alpha(IR_t *nd);
 void   emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);

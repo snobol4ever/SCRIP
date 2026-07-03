@@ -468,7 +468,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         return s;
     }
     if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_OP_COUNT || ir_is_call_kind(lf->op)) {
-        int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_CALL_USERPROC || lf->op == IR_CALL_GVAR_USERPROC || lf->op == IR_PROC_GEN);
+        int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_PROC_GEN);
         if (owner && owner == _.node && staged && bb_slot_get(lf) >= 0) {
             int ps = bb_slot_get(lf); std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = spine call-result slot [r12+%d] -> [r12+%d]", idx, ps, aoff)));
             s += x86_frame_load64("rax", ps) + x86_frame_store64(aoff, "rax"); s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax"); return s;

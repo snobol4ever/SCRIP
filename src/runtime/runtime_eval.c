@@ -5,6 +5,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "../parser/snobol4/scrip_cc.h"
+#include "IR.h"
 extern int exec_stmt(const char  *subj_name,
                           DESCR_t     *subj_var,
                           DESCR_t      pat,
@@ -15,7 +16,7 @@ extern int         Ω;
 extern int         Δ;
 typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void          *lower_snobol4(const tree_t *prog);
-extern eval_chain_fn  gvar_flat_chain_build(void *g);
+extern eval_chain_fn  emit_chain(void *entry, void *out, const char *prefix);
 extern void           rt_eval_run(eval_chain_fn fn, void *zeta);
 extern void           ast_tree_free_dyn(tree_t *p);
 extern void           IR_free_dyn(void *g);
@@ -103,7 +104,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     ast_push(prog, st);
     void *g = lower_snobol4(prog);
     if (!g) { ast_tree_free_dyn(prog); return NULL; }
-    eval_chain_fn fn = gvar_flat_chain_build(g);
+    eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
     IR_free_dyn(g);
     ast_tree_free_dyn(prog);
     return fn;
@@ -156,7 +157,7 @@ static eval_chain_fn code_build_chain(const char *s)
     if (!prog || prog->n == 0) return NULL;
     void *g = lower_snobol4(prog);
     if (!g) return NULL;
-    return gvar_flat_chain_build(g);
+    return emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code(const char *src)
