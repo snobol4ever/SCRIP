@@ -10,7 +10,6 @@ void    bb_reset(IR_graph_t * bbg);
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define MAPGREP_MAX 4096
 static int64_t  s_mg_vals[MAPGREP_MAX];
 static int      s_mg_n;

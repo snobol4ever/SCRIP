@@ -5,14 +5,15 @@
 #include <stdbool.h>
 #include "descr.h"
 #include "name_t.h"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t descr_match_span(const char * σ, int δ) { DESCR_t d; d.v = DT_S; d.slen = (uint32_t)δ; d.s = (char *)σ; return d; }
 static inline DESCR_t descr_match     (const char * σ, int δ) { return descr_match_span(σ, δ); }
 static inline DESCR_t descr_match_cat (DESCR_t x, DESCR_t y)  { DESCR_t d; d.v = DT_S; d.slen = x.slen + y.slen; d.s = x.s; return d; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t descr_bool(int ok) {
     if (ok) { DESCR_t d; d.v = DT_SNUL; d.slen = 0; d.s = (char *)""; return d; }
     return FAILDESCR;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const int α = 0;
 static const int β = 1;
 #define BB_ALPHA_DEFINED 1
@@ -20,6 +21,7 @@ extern const char * Σ;
 extern int          Δ;
 extern int          Ω;
 extern int          Σlen;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void * bb_enter(void ** ζζ, size_t size) {
     void * ζ = *ζζ;
     if (size) {
@@ -28,7 +30,6 @@ static inline void * bb_enter(void ** ζζ, size_t size) {
     }
     return ζ;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define BB_ENTER(ref, T)  ((T *)bb_enter((void **)(ref), sizeof(T)))
 typedef DESCR_t (*bb_box_fn)(void * zeta, int entry);
 typedef struct { bb_box_fn fn; void * ζ; size_t ζ_size; } bb_node_t;
@@ -53,7 +54,6 @@ typedef struct cap_s {
     int        registered;
     int        cap_start;
 } cap_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern cap_t  * bb_cap_new(bb_box_fn child_fn, void * child_state, const char * varname, DESCR_t * var_ptr, int immediate);
 extern cap_t  * bb_cap_new_call(bb_box_fn child_fn, void * child_state,
                                 const char * fnc_name,

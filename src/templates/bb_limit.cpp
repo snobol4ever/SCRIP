@@ -6,15 +6,7 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* IR_LIMIT — the Icon `\` limit operator.  Generator is ON-SPINE (a chain node whose γ flows into LIMIT_α); the
-   count DESCR lives in the slot _.op_sc and is read at RUNTIME (int64 at +8 — literal and variable counts ride the
-   same path; the old compile-time op_ival immediate was dead staging, clobber audit 2026-07-02); the generator's
-   resume entry is carried in _.lbl_t0.  The
-   per-result counter lives at [r12 + op_off + 16] and is pre-initialised to 0 once (bb_limit_init) before the
-   generator first runs.  Result DESCR of the limited value is copied into the LIMIT slot at [r12 + op_off] so the
-   consumer reads it.  check-BEFORE-yield (c starts at 0): on each generator success, if c >= t fail, else c++,
-   copy, yield; on resume, pump the generator (jmp gen-β).  This naturally yields exactly t values and 0 for `\0`. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_limit() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
@@ -35,8 +27,7 @@ std::string bb_limit() {
          + x86("def",   "β")
          + x86_jmp_tgt(X86T_TGT0);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* One-shot counter initialiser, emitted once in the chain pre-pass before the spine runs (the frame is not zeroed). */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_limit_init() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();

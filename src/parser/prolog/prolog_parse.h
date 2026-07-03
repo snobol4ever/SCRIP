@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef PL_PARSE_H
 #define PL_PARSE_H
 #include "term.h"
@@ -16,14 +17,12 @@ struct PlClause {
     Term    **var_terms;
     int       nvar;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     PlClause *head;
     PlClause *tail;
     int       nclauses;
     int       nerrors;
 } PlProgram;
-/*--------------------------------------------------------------------------------------------------------------------*/
 PlProgram *prolog_parse(const char *src, const char *filename);
 void prolog_program_free(PlProgram *prog);
 #endif

@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef STAGE2_H
 #define STAGE2_H
 #include <stdint.h>
@@ -13,7 +14,6 @@ typedef struct LabelEntry {
     const char    *name;
     const tree_t  *stmt;
 } LabelEntry;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct ScopeEnt { const char *name; int slot; } ScopeEnt;
 typedef struct Scope    { ScopeEnt e[STAGE2_FRAME_SLOT_MAX]; int n; } Scope;
 struct IR_graph_t;
@@ -29,12 +29,10 @@ typedef struct ProcEntry {
     int                 decl_level;
     IR_t *              proc_entry_node;
 } ProcEntry;
-/*--------------------------------------------------------------------------------------------------------------------*/
 struct Resolve_PredEntry_t;
 typedef struct Resolve_PredTable {
     struct Resolve_PredEntry_t *buckets[STAGE2_PL_PRED_TABLE_SIZE];
 } Resolve_PredTable;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct ScripModule {
     int           lang;
     const char   *name;
@@ -46,13 +44,11 @@ typedef struct ScripModule {
     int           proc_start;
     int           nprocs;
 } ScripModule;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct ScripModuleRegistry {
     ScripModule mods[STAGE2_MOD_MAX];
     int         nmod;
     int         main_mod;
 } ScripModuleRegistry;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct stage2_t {
     bb_program_t         bbp;
     LabelEntry          *label_table;
@@ -68,7 +64,6 @@ typedef struct stage2_t {
     int                  pl_dyn_arity[64];
     int                  pl_dyn_n;
 } stage2_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern stage2_t g_stage2;
 void stage2_reset(void);
 void ir_delete_all(stage2_t *s2);

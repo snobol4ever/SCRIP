@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "rt_coexpr.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int inited = 0;
 static pthread_attr_t attribs;
 static long g_coexp_stksize = 1024 * 1024;
@@ -85,7 +84,6 @@ void scrip_cofail(void) {
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct scrip_coexpr_entry_pkg_t {
     void    *body_entry_addr;
     uint64_t r12, r13, r14, r15, rbx, rbp;
@@ -136,8 +134,8 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     ctx->xmit[1]     = 0;
     return ctx;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static scrip_coctx_t g_root_ctx;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2) {
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
     if (target->dead) return 0;

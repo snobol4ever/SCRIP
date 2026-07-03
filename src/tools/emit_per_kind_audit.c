@@ -116,7 +116,6 @@ static const kind_entry_t g_kinds[] = {
     { IR_FIND_GEN,    "IR_FIND_GEN" },
     { IR_SEQ_GEN,     "IR_SEQ_GEN" },
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const int g_kind_count = (int)(sizeof(g_kinds) / sizeof(g_kinds[0]));
 typedef struct { SM_op_t op; const char *name; } sm_entry_t;
 typedef struct {
@@ -124,7 +123,6 @@ typedef struct {
     const char    *name;
     const char    *ext;
 } backend_entry_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const sm_entry_t g_sm_ops[] = {
     { SM_LABEL,                 "SM_LABEL" },
     { SM_PUSH_LIT_I,            "SM_PUSH_LIT_I" },
@@ -200,7 +198,6 @@ static const sm_entry_t g_sm_ops[] = {
     { SM_PAT_USERCALL_ARGS,     "SM_PAT_USERCALL_ARGS" },
     { SM_EXEC_STMT,             "SM_EXEC_STMT" },
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const int g_sm_count = (int)(sizeof(g_sm_ops) / sizeof(g_sm_ops[0]));
 static const backend_entry_t g_sm_backends[] = {
     { EMIT_TEXT,             "x86/text",       "s"   },
@@ -210,7 +207,6 @@ static const backend_entry_t g_sm_backends[] = {
     { EMIT_NET,              "net/text",       "il"  },
     { EMIT_WASM,             "wasm/text",      "wat" },
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const int g_sm_backend_count =
     (int)(sizeof(g_sm_backends) / sizeof(g_sm_backends[0]));
 static SM_t g_audit_sm[SM_OPCODE_COUNT];
@@ -223,8 +219,8 @@ static const backend_entry_t g_backends[] = {
     { EMIT_NET,              "net/text",        "il"  },
     { EMIT_WASM,             "wasm/text",       "wat" },
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const int g_backend_count = (int)(sizeof(g_backends) / sizeof(g_backends[0]));
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void prime_child_nodes(void) {
     memset(&g_audit_child_lit_i, 0, sizeof g_audit_child_lit_i);
     memset(&g_audit_child_lit_s, 0, sizeof g_audit_child_lit_s);
@@ -250,7 +246,7 @@ static void prime_child_nodes(void) {
     g_audit_kids2.kids = g_audit_child2; g_audit_kids2.nkids = 2;
     g_audit_kids3.kids = g_audit_child3; g_audit_kids3.nkids = 3;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     memset(nd, 0, sizeof *nd);
     nd->op = kind;
@@ -321,7 +317,7 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
         break;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int mkdir_p(const char *path) {
     char tmp[1024];
     snprintf(tmp, sizeof tmp, "%s", path);
@@ -338,7 +334,6 @@ static int mkdir_p(const char *path) {
     if (mkdir(tmp, 0755) != 0 && errno != EEXIST) return -1;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int emit_one_cell(const char *out_dir,
                          const backend_entry_t *be,
                          const kind_entry_t   *ke,
@@ -407,7 +402,7 @@ static int emit_one_cell(const char *out_dir,
     if (stat(file_path, &st) == 0 && st.st_size == 0) (*out_zero_bytes)++;
     return rc;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void prime_sm_for_op(SM_t *ins, SM_op_t op) {
     memset(ins, 0, sizeof *ins);
     ins->op = op;
@@ -462,7 +457,6 @@ static void prime_sm_for_op(SM_t *ins, SM_op_t op) {
         break;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int emit_one_sm_cell(const char *out_dir,
                             const backend_entry_t *be,
                             const sm_entry_t      *oe,
@@ -500,7 +494,7 @@ static int emit_one_sm_cell(const char *out_dir,
     fclose(out);
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_per_kind_audit_run(const char *out_dir) {
     if (!out_dir || !*out_dir) {
         fprintf(stderr, "audit: --audit-per-kind requires a directory argument\n");

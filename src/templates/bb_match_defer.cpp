@@ -8,7 +8,7 @@ extern "C" int   rt_defer_match    (const char *varname, int ival_flag, int cur_
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" void *rt_frame          (void);
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
     bool inl = (_.bb_child_fn != (void *)0) || (_.bb_child_lbl && _.bb_child_lbl[0]);

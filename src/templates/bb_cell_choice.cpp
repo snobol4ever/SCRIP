@@ -9,19 +9,20 @@ extern "C" {
 extern "C" int  rt_trail_mark(void);
 extern "C" void rt_trail_unwind(int mark);
 extern "C" int  rt_pl_unify_cell_const(void *cell_term, int kind, long ival, const char *sval);
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cc_consts_match(const IR_t *a, const IR_t *c) {
     if (!a || !c || a->op != c->op) return 0;
     if (a->op == IR_LIT_INTEGER) return IR_LIT(a).ival == IR_LIT(c).ival;
     if (a->op == IR_ATOM)  return IR_LIT(a).sval && IR_LIT(c).sval && strcmp(IR_LIT(a).sval, IR_LIT(c).sval) == 0;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const pl_gz_choice_state_t *bcch_st() { const IR_t *nd = (const IR_t *)_.bb_zn; return nd ? (const pl_gz_choice_state_t *)(intptr_t)IR_LIT(nd).ival : (const pl_gz_choice_state_t *)0; }
 static int bcch_N() { return bcch_st()->nclauses; }
 static int bcch_A() { return bcch_st()->arity; }
 static int bcch_mark_off() { return GZ_CELL_OFF(bcch_st()->mark_slot); }
 static int bcch_cur_off()  { return GZ_CELL_OFF(bcch_st()->mark_slot + 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcch_clause_dead(int k) {
     for (int j = 0; j < bcch_A(); j++) {
         const IR_t *a = bcch_st()->args[j], *c = bcch_st()->consts[k * bcch_A() + j];
@@ -29,7 +30,7 @@ static int bcch_clause_dead(int k) {
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_arg_unify(const IR_t *a, const IR_t *c, int lk, int ro_id) {
     if (a->op != IR_LOGICVAR) return std::string();
     return x86("lea", "rdi", FR(GZ_CELL_OFF((int)IR_LIT(a).ival)))
@@ -40,7 +41,7 @@ static std::string bcch_arg_unify(const IR_t *a, const IR_t *c, int lk, int ro_i
          + x86("test", "eax", "eax")
          + x86("je", L(lk));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_clause(int k, int *ro_id, std::string *seals) {
     if (bcch_clause_dead(k)) return x86("jmp", L(k));
     std::string out;
@@ -52,6 +53,7 @@ static std::string bcch_clause(int k, int *ro_id, std::string *seals) {
     }
     return out + x86("jmp", "γ");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_clause_tail(int k) {
     if (k + 1 < bcch_N())
         return x86("def", L(k))
@@ -63,11 +65,13 @@ static std::string bcch_clause_tail(int k) {
          + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
          + x86("jmp", "ω");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_beta_dispatch() {
     return FOR(0, bcch_N() - 1, [&](int k) {
         return x86("mov", "eax", FR(bcch_cur_off())) + x86("cmp", "eax", (long)(k + 1)) + x86("je", L(k));
     }) + x86("jmp", L(bcch_N() - 1));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_build() {
     std::string seals;
     int ro_id = bcch_N();
@@ -82,7 +86,7 @@ static std::string bcch_build() {
         + bcch_beta_dispatch();
     return s + seals;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cell_choice() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();

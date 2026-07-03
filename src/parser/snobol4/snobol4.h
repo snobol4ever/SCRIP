@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SNOBOL4_H
 #define SNOBOL4_H
 #include <stdio.h>
@@ -8,7 +9,6 @@ typedef struct {
     double      dval;
     int         lineno;
 } Token;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct Lex {
     int    lineno;
     Token  peek;
@@ -16,7 +16,6 @@ typedef struct Lex {
     void  *_scanner;
     void  *_extra;
 } Lex;
-/*--------------------------------------------------------------------------------------------------------------------*/
 void  lex_open_str(Lex *lx, const char *s, int len, int lineno);
 void  lex_open_str_initial(Lex *lx, const char *s, int len, int lineno);
 Token lex_next    (Lex *lx);
@@ -30,6 +29,5 @@ void  flex_lex_destroy(Lex *lx);
 typedef struct SnoLine {
     char *label; char *body; char *goto_str; int lineno; int is_end;
 } SnoLine;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { SnoLine *a; int n, cap; } LineArray;
 #endif

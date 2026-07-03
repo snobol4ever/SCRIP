@@ -6,12 +6,12 @@ extern "C" {
 }
 #include "x86_asm.h"
 extern "C" void * rt_enter(void **slot, int nslots);
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *bcc_areg(int i) { static const char * t[4] = { "rsi", "rdx", "rcx", "r8" }; return t[i]; }
 static const char *bcc_rdiq(int off) { static char b[8][48]; static int i; i = (i + 1) & 7; snprintf(b[i], 48, "qword ptr [rdi + %d]", off); return b[i]; }
 static bool bcc_sh() { return _.op_parts_n > 0 && _.op_parts_ival[0] >= 0 && _.op_parts_ival[1] >= 0 && _.op_parts_ival[2] >= 0; }
 static bool bcc_ar() { for (int i = 0; i < (int)_.op_parts_ival[1]; i++) if (_.gz_arg_slots[i] == -2) return false; return true; }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cell_call() {
     x86_begin();
     if (PLATFORM_X86) return IF(!bcc_sh(), x86_bomb("bb_cell_call: unadmitted call shape reached the emitter"))

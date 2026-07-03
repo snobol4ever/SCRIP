@@ -6,16 +6,11 @@
 #include "../contracts/IR.h"
 #include <stdio.h>
 #include <unistd.h>
-/* PL-DESCR-2 sub-flip 2: the inline 16-byte cell IS the value at each [r12+GZ_CELL_OFF(slot)]. Hot helpers go
- * native on pl_cell.h; deep builtins are wrapped via the cell<->Term bridge (pl_cell_conv.h). */
 #include "../parser/prolog/pl_cell.h"
 #define PL_CELL_ALLOC(n) GC_MALLOC(n)
 #include "../parser/prolog/pl_cell_conv.h"
-/*====================================================================================================================*/
 void *rt_node_to_term(int kind, long ival, const char *sval, double dval)
 {
-    /* env-free (the shadow env array is deleted): IR_LOGICVAR materialises a fresh Term var view of the slot. On the GZ
-     * path this is reached only by the legacy literal/atom builders; logic-var operands are read inline. */
     switch (kind) {
     case IR_LOGICVAR: { int slot = (int)ival; return term_new_var(slot); }
     case IR_ATOM:  return term_new_atom(prolog_atom_intern(sval ? sval : "[]"));
@@ -24,9 +19,6 @@ void *rt_node_to_term(int kind, long ival, const char *sval, double dval)
     default:       return term_new_int(ival);
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rt_unify_terms now takes two cell ADDRESSES (the GZ operand-build returns addresses). pl_unify trails each
- * binding into g_pl_trail; on failure unwind to the entry mark. */
 int rt_unify_terms(void *l, void *r)
 {
     extern pl_trail_t g_pl_trail;
@@ -36,44 +28,31 @@ int rt_unify_terms(void *l, void *r)
     if (!pl_unify(a, b, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Legacy slot-indexed unifiers (the non-cell bb_unify box). DEAD on the GZ path (uses IR_CELL_UNIFY); gutted so the
- * shadow env array can be deleted. */
 int rt_unify_const(int slot, int kind, long ival, const char *sval, double dval)
 {
     (void)slot; (void)kind; (void)ival; (void)sval; (void)dval; return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_unify_var_var(int lslot, int rslot)
 {
     (void)lslot; (void)rslot; return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rt_pl_env_ensure DELETED (the shadow env is gone). */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_cells_init(void **cells, int n)
 {
-    /* callee local-cell init: each non-arg local slot becomes an unbound inline var cell (self-ref). */
     char *base = (char *)cells;
     for (int i = 0; i < n; i++) pl_init_var((pl_cell_t *)(base + (size_t)16 * (size_t)i), i);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_gz_init(void *frame, int nslots)
 {
-    /* main/gz frame init: leading 8 bytes are the frame header; slot i's inline cell at base+8+16*i. */
     prolog_atom_init();
     char *base = (char *)frame;
     for (int i = 0; i < nslots; i++) pl_init_var((pl_cell_t *)(base + 8 + (size_t)16 * (size_t)i), i);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_enter(void **slot, int nslots)
 {
     extern void *GC_malloc(size_t);
     if (!*slot) *slot = GC_malloc((size_t)(8 + 16 * (nslots > 0 ? nslots : 1)));
     return *slot;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* unify a constant into the destination cell (native: build the const word, pl_unify into the cell). */
 int rt_pl_unify_cell_const(void *cell, int kind, long ival, const char *sval)
 {
     extern pl_trail_t g_pl_trail;
@@ -88,7 +67,6 @@ int rt_pl_unify_cell_const(void *cell, int kind, long ival, const char *sval)
     if (!pl_unify(c, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unify_cell_float(void *cell, double dval)
 {
     extern pl_trail_t g_pl_trail;
@@ -98,8 +76,6 @@ int rt_pl_unify_cell_float(void *cell, double dval)
     if (!pl_unify(c, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* materialise a literal/atom/compound operand into its own heap cell, return its ADDRESS (for unify/compound). */
 void *rt_pl_lit_cell(int kind, long ival, const char *sval, double dval)
 {
     pl_cell_t *c = (pl_cell_t *)GC_MALLOC(sizeof(pl_cell_t));
@@ -111,9 +87,6 @@ void *rt_pl_lit_cell(int kind, long ival, const char *sval, double dval)
     }
     return c;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* build a compound cell from an array of 16-byte arg WORDS; returns the compound cell's ADDRESS. A self-ref var
- * word copied in becomes a ref to the caller's var cell (the structure shares the caller's logic var). */
 void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words)
 {
     pl_cell_t *src = (pl_cell_t *)arg_words;
@@ -124,14 +97,6 @@ void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words)
     *out = pl_make_compound(fid, arity, blk);
     return out;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-DESCR read/write-fused head match: unify a destination cell (a clause-head arg slot) against a structure pattern
- * whose arity 16-byte arg WORDS the caller built on the stack. deref dst: if UNBOUND (DT_PLVAR) -> WRITE mode, build the
- * arg block once and bind dst to a DT_PLREF sharing it (one GC_MALLOC, no separate header — strictly fewer allocs than
- * build-then-unify); if a BOUND compound (DT_PLREF) of matching functor-id<<16|arity -> READ mode, unify each existing
- * arg cell in place against the corresponding pattern word (ZERO top-level allocation, the throwaway-cons elimination);
- * any other tag -> fail. Behavior is identical to rt_pl_compound_cell + rt_unify_terms: in read mode pl_unify(blk[i],
- * src[i]) is exactly the recursion the general unify would have run after building the discarded compound. */
 int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg_words)
 {
     extern pl_trail_t g_pl_trail;
@@ -151,60 +116,46 @@ int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell)
 {
     extern void pl_write(Term *);
     pl_write(pl_cell_to_term((pl_cell_t *)cell));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
 {
     extern void pl_writeq(Term *);
     pl_writeq(pl_cell_to_term((pl_cell_t *)cell));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_canonical_cell(void *cell)
 {
     extern void pl_write_canonical(Term *);
     pl_write_canonical(pl_cell_to_term((pl_cell_t *)cell));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_trail_mark(void)
 {
     extern pl_trail_t g_pl_trail;
     return pl_trail_mark(&g_pl_trail);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trail_unwind(int mark)
 {
     extern pl_trail_t g_pl_trail;
     pl_trail_unwind(&g_pl_trail, mark);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-AREAS-3 — the ENVIRONMENT-area entry points (E / R15). rt_e_bump allocates one callee frame off the mmap region;
- * rt_e_mark/rt_e_reset are the O(1) reclamation primitives (the choice box saves the mark at α and resets on retry;
- * a bounded callee pops at γ). The int-offset mark mirrors rt_trail_mark's int-index ABI so the emitted code stores it
- * in a 32-bit frame cell exactly like the trail mark. Lazy-mmap on first bump. NOT YET WIRED (the live rt_enter switch
- * is the next sub-step; these are the allocator the goal file's PL-AREAS-3 touch-point list names). */
 void *rt_e_bump(int nbytes)
 {
     extern pl_area_t g_pl_env_area;
     return pl_env_bump(&g_pl_env_area, nbytes);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_e_mark(void)
 {
     extern pl_area_t g_pl_env_area;
     return pl_env_mark(&g_pl_env_area);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_e_reset(int off)
 {
     extern pl_area_t g_pl_env_area;
     pl_env_reset(&g_pl_env_area, off);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_MARK_STACK_MAX 32
 static int g_resolve_mark_stack[RT_MARK_STACK_MAX];
 static int g_resolve_mark_top = 0;
@@ -214,7 +165,6 @@ void rt_trail_mark_push(void)
     int m = pl_trail_mark(&g_pl_trail);
     if (g_resolve_mark_top < RT_MARK_STACK_MAX) g_resolve_mark_stack[g_resolve_mark_top++] = m;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trail_unwind_top(void)
 {
     extern pl_trail_t g_pl_trail;
@@ -222,11 +172,9 @@ void rt_trail_unwind_top(void)
     int m = g_resolve_mark_stack[g_resolve_mark_top - 1];
     pl_trail_unwind(&g_pl_trail, m);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; long arity; void *alpha; void *redo; } pl_pred_row_t;
 static pl_pred_row_t *g_pl_pred_table = (pl_pred_row_t *)0;
 static long           g_pl_pred_n     = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char *prolog_atom_name(int id);
 extern int    rt_last_ok(void);
 extern long   rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
@@ -239,18 +187,14 @@ typedef struct meta_fr {
 } meta_fr;
 typedef struct { meta_fr *fr; Term **E; } meta_root;
 static const char *g_meta_builtins[] = { "is", "=:=", "=\\=", "<", ">", "=<", ">=", "=", "\\=", (const char *)0 };
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int meta_solve(meta_fr *f, Term **E);
 static int meta_redo(meta_fr *f, Term **E);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static meta_root *g_meta_compat = (meta_root *)0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_type_test_cell(void *cell_term, const char *fn)
 {
     extern int rt_type_test_term(const char *fn, void *t0);
     return rt_type_test_term(fn, pl_cell_to_term((pl_cell_t *)cell_term));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
 {
     extern int rt_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
@@ -284,7 +228,6 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)t0_cell, built, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -297,7 +240,6 @@ int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)arg_cell, tT->compound.args[n - 1], &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_univ_cell(void *t0_cell, void *list_cell)
 {
     extern int ATOM_DOT;
@@ -345,7 +287,6 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)t0_cell, built, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -377,7 +318,6 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *atom_op_text(Term *t, char *buf, size_t bufsz)
 {
     t = t ? term_deref(t) : (Term *)0;
@@ -387,7 +327,6 @@ static const char *atom_op_text(Term *t, char *buf, size_t bufsz)
     if (t->tag == TERM_FLOAT) { snprintf(buf, bufsz, "%g", t->fval);   return buf; }
     return (const char *)0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -526,7 +465,6 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     (void)t2;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
     extern void pl_write(Term *);
@@ -549,7 +487,6 @@ void rt_pl_format_cell(const char *fmt, void *list_cell)
         } else { putchar(*p); }
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -627,7 +564,6 @@ static int rt_pl_term_compare(Term *a, Term *b) {
     default: return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -658,7 +594,6 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long pl_numbervars_walk(pl_cell_t *c, long counter, int var_id, pl_trail_t *trail)
 {
     pl_cell_t *d = pl_deref(c);
@@ -674,6 +609,7 @@ static long pl_numbervars_walk(pl_cell_t *c, long counter, int var_id, pl_trail_
     }
     return counter;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell) {
     extern pl_trail_t g_pl_trail;
     Term *st = pl_cell_to_term((pl_cell_t *)start_cell);
@@ -685,7 +621,6 @@ int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell) {
     if (!pl_unify_term_into_cell((pl_cell_t *)end_cell, term_new_int(counter), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_string_cell(void *term_cell, void *str_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -707,7 +642,6 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)str_cell, term_new_atom(atom_id), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *copy_term_deep(Term *t, Term **var_map, int *var_cap, int *var_n)
 {
     if (!t) return NULL;
@@ -729,10 +663,6 @@ static Term *copy_term_deep(Term *t, Term **var_map, int *var_cap, int *var_n)
     }
     return t;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* cell-native deep copy: walk the inline-cell graph, fresh-renaming each unbound var BUT memoizing by the
- * deref'd cell ADDRESS so repeated occurrences of one variable map to ONE fresh var (copy_term(f(X,X),C) ⇒
- * C=f(Y,Y)). Going through pl_cell_to_term would mint a new Term var per visit and lose that sharing. */
 static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap)
 {
     pl_cell_t *d = pl_deref(c);
@@ -765,7 +695,6 @@ int rt_pl_copy_term_cell(void *term_cell, void *copy_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)copy_cell, copy, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { Term **items; int n; int cap; } pl_findall_acc;
 void * rt_pl_findall_begin(void)
 {
@@ -810,7 +739,6 @@ int rt_pl_agg_count_finish(void *acc_v, void *result_term)
     if (!pl_unify_term_into_cell((pl_cell_t *)result_term, term_new_int(a ? a->n : 0), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int agg_num(Term *t, long *iv, double *dv, int *isf)
 {
     t = t ? term_deref(t) : (Term *)0;
@@ -819,7 +747,6 @@ static int agg_num(Term *t, long *iv, double *dv, int *isf)
     if (t->tag == TERM_FLOAT) { *dv = t->fval; *isf = 1; return 1; }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_agg_sum_finish(void *acc_v, void *result_term)
 {
     extern pl_trail_t g_pl_trail;
@@ -836,7 +763,6 @@ int rt_pl_agg_sum_finish(void *acc_v, void *result_term)
     if (!pl_unify_term_into_cell((pl_cell_t *)result_term, r, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_agg_minmax_finish(void *acc_v, void *result_term, int want_max)
 {
     extern pl_trail_t g_pl_trail;
@@ -858,9 +784,7 @@ static int rt_pl_agg_minmax_finish(void *acc_v, void *result_term, int want_max)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_agg_max_finish(void *acc_v, void *result_term) { return rt_pl_agg_minmax_finish(acc_v, result_term, 1); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_agg_min_finish(void *acc_v, void *result_term) { return rt_pl_agg_minmax_finish(acc_v, result_term, 0); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term **g_rt_pl_nb = (Term **)0;
 static int g_rt_pl_nb_n = 0;
 static int rt_pl_nb_ensure(int id)
@@ -876,15 +800,11 @@ static int rt_pl_nb_ensure(int id)
     }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-DESCR-3 incr.2: slot helpers — the nb value-work (SWI deep-copy on store / deep-copy+unify on fetch) lives here */
-/* once; both the [rbx+k*16] GVA arm (compile-time slot) and the by-name fallback below reach the global through these. */
 void *rt_pl_nb_copy_persist(void *val_cell)
 {
     Term *var_map[256]; int var_cap = 256, var_n = 0;
     return (void *)copy_term_deep(pl_cell_to_term((pl_cell_t *)val_cell), var_map, &var_cap, &var_n);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_getval_ptr(void *stored_cell, void *val_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -897,7 +817,6 @@ int rt_pl_nb_getval_ptr(void *stored_cell, void *val_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)val_cell, fresh, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_setval_cell(void *key_cell, void *val_cell)
 {
     Term *k = pl_cell_to_term((pl_cell_t *)key_cell);
@@ -907,7 +826,6 @@ int rt_pl_nb_setval_cell(void *key_cell, void *val_cell)
     g_rt_pl_nb[id] = (Term *)rt_pl_nb_copy_persist(val_cell);
     return g_rt_pl_nb[id] ? 1 : 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
 {
     Term *k = pl_cell_to_term((pl_cell_t *)key_cell);
@@ -916,19 +834,16 @@ int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
     Term *val = (id >= 0 && id < g_rt_pl_nb_n) ? g_rt_pl_nb[id] : (Term *)0;
     return rt_pl_nb_getval_ptr((void *)val, val_cell);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct dyn_clause { Term *head; Term *body; struct dyn_clause *next; } dyn_clause_t;
 typedef struct { const char *name; long arity; dyn_clause_t *head; dyn_clause_t *tail; } dyn_pred_row_t;
 static dyn_pred_row_t *g_pl_dyn_pred_table = (dyn_pred_row_t *)0;
 static long            g_pl_dyn_pred_n     = 0;
 static long            g_pl_dyn_pred_cap   = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static dyn_pred_row_t *dyn_pred_find(const char *name, long arity)
 {
     for (long i = 0; i < g_pl_dyn_pred_n; i++) if (g_pl_dyn_pred_table[i].name && !strcmp(g_pl_dyn_pred_table[i].name, name) && g_pl_dyn_pred_table[i].arity == arity) return &g_pl_dyn_pred_table[i];
     return (dyn_pred_row_t *)0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dyn_term_key(Term *t, const char **name_out, long *arity_out)
 {
     Term *d = t ? term_deref(t) : (Term *)0;
@@ -936,7 +851,6 @@ static void dyn_term_key(Term *t, const char **name_out, long *arity_out)
     if (d && d->tag == TERM_ATOM) { *name_out = prolog_atom_name(d->atom_id); *arity_out = 0; return; }
     *name_out = (const char *)0; *arity_out = 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_abolish_cell(void *fn_cell, void *ar_cell)
 {
     Term *fn = pl_cell_to_term((pl_cell_t *)fn_cell);
@@ -948,7 +862,6 @@ int rt_pl_dyn_abolish_cell(void *fn_cell, void *ar_cell)
     if (row) { row->head = (dyn_clause_t *)0; row->tail = (dyn_clause_t *)0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_retract_cell(void *head_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -972,7 +885,6 @@ int rt_pl_dyn_retract_cell(void *head_cell)
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static dyn_pred_row_t *dyn_pred_intern(const char *name, long arity)
 {
     dyn_pred_row_t *r = dyn_pred_find(name, arity);
@@ -985,7 +897,6 @@ static dyn_pred_row_t *dyn_pred_intern(const char *name, long arity)
     r->name = name; r->arity = arity; r->head = (dyn_clause_t *)0; r->tail = (dyn_clause_t *)0;
     return r;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_assertz_cell(void *clause_cell, int prepend)
 {
     Term *cl = pl_cell_to_term((pl_cell_t *)clause_cell);
@@ -1007,9 +918,7 @@ int rt_pl_dyn_assertz_cell(void *clause_cell, int prepend)
     else { if (row->tail) row->tail->next = node; else row->head = node; row->tail = node; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { dyn_clause_t *next; } dyn_cursor_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_dyn_iter_begin(const char *name, long arity)
 {
     dyn_pred_row_t *row = name ? dyn_pred_find(name, arity) : (dyn_pred_row_t *)0;
@@ -1017,7 +926,6 @@ void *rt_pl_dyn_iter_begin(const char *name, long arity)
     cur->next = row ? row->head : (dyn_clause_t *)0;
     return cur;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity)
 {
     extern pl_trail_t g_pl_trail;
@@ -1042,11 +950,6 @@ int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity)
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* THROW/CATCH — the single in-flight thrown term (a value, like errno; NOT a control/frame stack:
- * the catch FRAMES are box frame cells, only the ball-in-flight needs to cross C-call returns). The
- * GZ model: throw() copies the ball here + the box fails; failure rides the existing ω/return wiring
- * up to the nearest catch box, which checks this ball on its goal's failure edge. */
 static Term *g_pl_throw_ball = (Term *)0;
 void rt_pl_throw_set(void *ball_cell)
 {
@@ -1056,9 +959,6 @@ void rt_pl_throw_set(void *ball_cell)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_throw_pending(void) { return g_pl_throw_ball != (Term *)0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* unify the catcher cell with the in-flight ball; on success the ball is consumed (cleared) and its
- * bindings remain so the recovery can read them; on mismatch the ball stays pending (re-throw). */
 int rt_pl_throw_match(void *catcher_cell)
 {
     extern pl_trail_t g_pl_trail;

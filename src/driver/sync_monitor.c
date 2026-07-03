@@ -23,6 +23,7 @@ static int  csnobol4_run_steps(const char *p, int n, CsnNvPair **o, int *c)
 static void csn_nv_snapshot_free(CsnNvPair *pairs, int n)
     { (void)pairs;(void)n; }
 #endif
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_take(ExecSnapshot *s) {
     if (!s) return;
     s->nv_count = nv_snapshot(&s->nv_pairs);
@@ -91,7 +92,7 @@ void exec_snapshot_take(ExecSnapshot *s) {
     }
     s->last_ok = -1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_restore(const ExecSnapshot *s) {
     if (!s) return;
     nv_restore(s->nv_pairs, s->nv_count);
@@ -101,7 +102,7 @@ void exec_snapshot_restore(const ExecSnapshot *s) {
     frame_depth = 0;
     trail_unwind(&g_resolve_trail, s->resolve_trail_mark);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_free(ExecSnapshot *s) {
     if (!s) return;
     s->nv_pairs = NULL;
@@ -121,7 +122,7 @@ void exec_snapshot_free(ExecSnapshot *s) {
     s->resolve_locals       = NULL;
     s->resolve_locals_count = 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void label_path_append(ExecSnapshot *s, const char *lbl) {
     if (s->label_path_n >= s->label_path_cap) {
         int newcap = s->label_path_cap ? s->label_path_cap * 2 : 16;
@@ -130,7 +131,7 @@ static void label_path_append(ExecSnapshot *s, const char *lbl) {
     }
     s->label_path[s->label_path_n++] = lbl;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void label_path_print(const char *tag, const ExecSnapshot *s) {
     fprintf(stderr, "  %-4s path:", tag);
     int printed = 0;
@@ -142,7 +143,6 @@ static void label_path_print(const char *tag, const ExecSnapshot *s) {
     if (!printed) fprintf(stderr, " (no labels reached)");
     fprintf(stderr, "\n");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int snap_diff(const ExecSnapshot *a, const char *a_name,
                      const ExecSnapshot *b, const char *b_name,
                      int verbose) {
@@ -187,7 +187,7 @@ static int snap_diff(const ExecSnapshot *a, const char *a_name,
     }
     return ndiff;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sync_monitor_run(const tree_t *prog, int verbose, const char *core_path) {
     (void)prog; (void)verbose; (void)core_path;
     fprintf(stderr, "[NO-SM-BB] sync_monitor: codegen deleted (FACT RULE); unavailable\n");

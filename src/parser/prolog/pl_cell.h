@@ -1,6 +1,5 @@
 #ifndef PL_CELL_H
 #define PL_CELL_H
-/*--------------------------------------------------------------------------------------------------------------------*/
 #include "descr.h"
 #include "pl_area.h"
 #include <stdint.h>

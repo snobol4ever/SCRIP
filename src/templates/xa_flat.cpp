@@ -6,7 +6,7 @@ extern "C" {
 #include "../emitter/emit.h"
 }
 #define ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
@@ -20,12 +20,13 @@ static std::string xa_entry_dispatch_str(void) {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define BB_BANNER_RULE_LEN 119
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_wired_base(void) {
     std::string s(g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "");
     return s.size() > 3 ? s.substr(0, s.size() - 3) : s;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void xa_emit_one(const std::string & out, int site, bb_label_t * lbl, bool is_def) {
     if (!MEDIUM_BINARY) { if (!out.empty()) emit_text_n(out.data(), out.size()); return; }
     int pos = 0;
@@ -36,6 +37,7 @@ static void xa_emit_one(const std::string & out, int site, bb_label_t * lbl, boo
     }
     for (; pos < (int)out.size(); pos++) bb_emit_byte((uint8_t)(unsigned char)out[pos]);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
     out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
@@ -93,7 +95,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
     out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
@@ -175,7 +177,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_data_section_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_DATA_SECTION");
@@ -189,7 +191,7 @@ static std::string xa_flat_data_section_str(void) {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_entry_dispatch(void)    { auto s = xa_entry_dispatch_str();    if (!s.empty()) emit_text_n(s.data(), s.size()); }
 extern "C" void xa_flat_prologue(void)     { int st; bb_label_t * lb; bool df; auto s = xa_flat_prologue_str(st, lb, df); xa_emit_one(s, st, lb, df); }
 extern "C" void xa_flat_epilogue(void)     { int st; bb_label_t * lb; bool df; auto s = xa_flat_epilogue_str(st, lb, df); xa_emit_one(s, st, lb, df); }

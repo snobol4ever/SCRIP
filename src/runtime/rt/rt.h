@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef RT_H
 #define RT_H
 #include <stdint.h>
@@ -88,7 +89,6 @@ typedef struct {
     const char *name;
     void       *fn;
 } rt_expression_entry;
-/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_register_expressions(const rt_expression_entry *tbl);
 void rt_write_atom(const char *s);
 void rt_cut_set(void);
@@ -106,7 +106,6 @@ void  rt_trail_unwind(int mark);
 void  rt_trail_mark_push(void);
 void  rt_trail_unwind_top(void);
 void  rt_trail_mark_pop(void);
-/* PL-AREAS-3 — environment-area allocator/reclamation (E / R15); int-offset mark mirrors the trail's int-index ABI. */
 void *rt_e_bump(int nbytes);
 int   rt_e_mark(void);
 void  rt_e_reset(int off);
@@ -127,7 +126,6 @@ typedef struct {
     int  (*get_last_ok)(void);
     void (*set_last_ok)(int x);
 } rt_vstack_ops_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 #include "bb_box.h"
 void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
@@ -186,7 +184,6 @@ void rt_cap_assign(const char *varname, const char *base, int len);
 void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm);
 void rt_subject_load_nv(const char *name, void *slot);
 int  rt_defer_match(const char *varname, int ival_flag, int cur_delta);
-/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_is(int dst_slot, const char *op, int lk, long li, int rk, long ri);
 int rt_atom_length(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_upcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
@@ -232,7 +229,6 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
 long size_value(DESCR_t v, int *failed);
 #ifdef __cplusplus
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #endif
 #endif
 void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n);

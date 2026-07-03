@@ -5,7 +5,6 @@
 extern "C" {
 #include "xa_template_common.h"
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static std::string bm_line(const char *lbl, const char *act, const char *got)
 {
     std::string line = emit_fmt("%-24s%-16s %s", lbl ? lbl : "", act ? act : "", got ? got : "");
@@ -17,9 +16,11 @@ static std::string bm_macro(const char *name, const char *args)
     std::string decl = (args && args[0]) ? emit_fmt("%s %s", name, args) : std::string(name);
     return bm_line("", ".macro", decl.c_str());
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bm_endm (void)                          { return bm_line("", ".endm", ""); }
 static std::string bm_op   (const char *mn, const char *a) { return bm_line("", mn, a ? a : ""); }
 static std::string bm_jmp  (const char *cond, const char *tgt) { return bm_line("", cond, emit_fmt("\\%s", tgt).c_str()); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_bb_macro_library_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_BB_MACRO_LIBRARY (it IS the bb macro-def pass)");
@@ -47,7 +48,7 @@ static std::string xa_bb_macro_library_str(void) {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_bb_macro_library(void) {
     auto s = xa_bb_macro_library_str();
     if (s.empty()) return;

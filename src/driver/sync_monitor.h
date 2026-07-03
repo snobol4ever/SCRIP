@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SYNC_MONITOR_H
 #define SYNC_MONITOR_H
 #include "core.h"
@@ -23,7 +24,6 @@ typedef struct {
     } *resolve_locals;
     int      resolve_locals_count;
 } ExecSnapshot;
-/*--------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_take(ExecSnapshot *s);
 void exec_snapshot_restore(const ExecSnapshot *s);
 void exec_snapshot_free(ExecSnapshot *s);

@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SNOCONE_LEX_H
 #define SNOCONE_LEX_H
 #include <stddef.h>
@@ -9,7 +10,6 @@ typedef struct LexCtx {
     char        strbuf[65536];
     int         strpos;
 } LexCtx;
-/*--------------------------------------------------------------------------------------------------------------------*/
 int         sc_kind_is_value   (int kind);
 int         sc_kind_has_payload(int kind);
 const char *sc2_kind_name      (int kind);

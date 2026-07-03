@@ -6,25 +6,7 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------
- * bb_enter_init -- JCON ir_EnterInit analog.
- *
- * Ports: α = procedure entry (every call lands here)
- *        β = no resume (initial blocks don't resume; β → ω = skip)
- *        γ = body entry (taken on FIRST call: flag was 0)
- *        ω = skip-body path (taken on SUBSEQUENT calls: flag already 1)
- *
- * Frame layout at [r12+op_off]:
- *   [r12+op_off+0 .. +7]  : DESCR_t padding (keep 16-byte alignment)
- *   [r12+op_off+8 .. +15] : int64 "done" flag (0=not yet run, 1=already ran)
- *
- * x86 logic:
- *   α:  cmp qword [r12+op_off+8], 0   ; check done-flag
- *       jne  →ω                        ; already done → skip init body
- *       mov  qword [r12+op_off+8], 1   ; mark done
- *       jmp  →γ                        ; enter init body
- *   β:  jmp  →ω                        ; no resume
- *--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_enter_init() {
     x86_begin();
     if (!PLATFORM_X86) return x86_bomb("bb_enter_init: no x86 platform");

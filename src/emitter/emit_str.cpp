@@ -3,10 +3,9 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" {
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string emit_fmt(const char * f, ...) {
     va_list ap; va_start(ap, f);
     va_list ap2; va_copy(ap2, ap);
@@ -16,19 +15,19 @@ std::string emit_fmt(const char * f, ...) {
     vsnprintf(buf.data(), buf.size(), f, ap2); va_end(ap2);
     return std::string(buf.data(), (size_t)n);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string u8(unsigned v) { char c = (char)(uint8_t)v; return std::string(&c, 1); }
 std::string u32le(uint32_t v) { char b[4] = { (char)(uint8_t)v, (char)(uint8_t)(v>>8), (char)(uint8_t)(v>>16), (char)(uint8_t)(v>>24) }; return std::string(b, 4); }
 std::string u64le(uint64_t v) { return u32le((uint32_t)v) + u32le((uint32_t)(v>>32)); }
 std::string bytes(size_t n, const char * lit) { return std::string(lit, n); }
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_bomb(const char * msg);
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * bomb_intern(const char * msg) {
     static std::deque<std::string> pool;
     pool.emplace_back(msg ? msg : "(no message)");
     return pool.back().c_str();
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bomb_text(const char * msg) {
     const char * m = msg ? msg : "(unimplemented arm)";
     static int seq = 0;
@@ -43,6 +42,7 @@ std::string bomb_text(const char * msg) {
          + " call rt_bomb@PLT\n"
          + " ud2\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bomb_bytes(const char * msg) {
     const char * m   = bomb_intern(msg ? msg : "(unimplemented arm)");
     return bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)m)
@@ -50,10 +50,7 @@ std::string bomb_bytes(const char * msg) {
          + bytes(2, "\xFF\xD0")
          + bytes(2, "\x0F\x0B");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_push_int2_str(long v) {
     if (v == -1) return "    iconst_m1\n";
     if (v >= 0 && v <= 5) return emit_fmt("    iconst_%ld\n", v);
@@ -61,6 +58,7 @@ std::string jvm_push_int2_str(long v) {
     if (v >= -32768 && v <= 32767) return emit_fmt("    sipush %ld\n", v);
     return emit_fmt("    ldc %ld\n", v);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_emit_ldc_string_str(const char * s) {
     std::string result = "    ldc \"";
     if (s) {
@@ -75,12 +73,14 @@ std::string jvm_emit_ldc_string_str(const char * s) {
     result += "\"\n";
     return result;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_class_hdr_str(const char * name) {
     return emit_fmt(".class public bb/bb_%s\n"
         ".super bb/bb_box\n"
         ".inner class public static final spec inner bb/bb_box$Spec outer bb/bb_box\n"
         ".inner class public static final matchstate inner bb/bb_box$MatchState outer bb/bb_box\n", name);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_init_ms_str_str(const char * name, const char * field) {
     return emit_fmt(".method public <init>(Lbb/bb_box$MatchState;Ljava/lang/String;)V\n"
         "    .limit stack 3\n"
@@ -94,6 +94,7 @@ std::string jvm_init_ms_str_str(const char * name, const char * field) {
         "    return\n"
         ".end method\n", name, field);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_init_ms_only_str(const char * name) {
     (void)name;
     return ".method public <init>(Lbb/bb_box$MatchState;)V\n"
@@ -105,6 +106,7 @@ std::string jvm_init_ms_only_str(const char * name) {
         "    return\n"
         ".end method\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_init_ms_int_str(const char * name, const char * field) {
     return emit_fmt(".method public <init>(Lbb/bb_box$MatchState;I)V\n"
         "    .limit stack 3\n"
@@ -121,6 +123,7 @@ std::string jvm_init_ms_int_str(const char * name, const char * field) {
         "    return\n"
         ".end method\n", name, field, name);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_val_helper_str(const char * name) {
     return emit_fmt(".method private val()I\n"
         "    .limit stack 2\n"
@@ -138,7 +141,7 @@ std::string jvm_val_helper_str(const char * name) {
         "    ireturn\n"
         ".end method\n", name, name, name, name, name);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string gas_escape_str(const char * s) {
     std::string result = "\"";
     for (const char * cp = s ? s : ""; *cp; cp++) {
@@ -150,6 +153,7 @@ std::string gas_escape_str(const char * s) {
     result += '"';
     return result;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string js_escape_string_str(const char * s) {
     std::string result = "\"";
     if (s) {
@@ -166,7 +170,7 @@ std::string js_escape_string_str(const char * s) {
     result += "\"";
     return result;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_escape_ldstr_str(const char * s) {
     std::string result = "    ldstr      \"";
     if (s) {
@@ -179,6 +183,7 @@ std::string net_escape_ldstr_str(const char * s) {
     result += "\"\n";
     return result;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_class_hdr_str(int sid, int nid) {
     return emit_fmt(".class nested public auto ansi beforefieldinit pat_%d_%d\n       extends [mscorlib]System.Object\n       implements [boxes]Snobol4.Runtime.Boxes.IByrdBox\n{\n", sid, nid);
 }
@@ -188,18 +193,23 @@ std::string net_α_hdr_str() {
 std::string net_β_hdr_str() {
     return "  .method public virtual instance valuetype [boxes]Snobol4.Runtime.Boxes.Spec\n          Beta(class [boxes]Snobol4.Runtime.Boxes.MatchState ms) cil managed\n  {\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_fail_ret_str() {
     return "    ldsfld     valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::Fail\n    ret\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_cursor_load_str() {
     return "    ldarg.1\n    ldfld      int32 [boxes]Snobol4.Runtime.Boxes.MatchState::Cursor\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_ms_length_str() {
     return "    callvirt   instance int32 [boxes]Snobol4.Runtime.Boxes.MatchState::get_Length()\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_spec_of_str() {
     return "    call       valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::Of(int32, int32)\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_charset_class_str(int sid, int nid, const char * tag) {
     return net_class_hdr_str(sid, nid) +
            "  .field private string _chars\n" +
@@ -211,12 +221,14 @@ std::string net_charset_class_str(int sid, int nid, const char * tag) {
            emit_fmt("  %s_%d_%d_NN:\n", tag, sid, nid) +
            emit_fmt("    stfld      string pat_%d_%d::_chars\n    ret\n  }\n", sid, nid);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_push_i4_str(int v) {
     if (v >= 0 && v <= 8)          return emit_fmt("    ldc.i4.%d\n", v);
     else if (v == -1)               return "    ldc.i4.m1\n";
     else if (v >= -128 && v <= 127) return emit_fmt("    ldc.i4.s   %d\n", v);
     else                            return emit_fmt("    ldc.i4     %d\n", v);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_ctor_none_str(int sid, int nid) {
     (void)sid; (void)nid;
     return "  .method public specialname rtspecialname instance void .ctor() cil managed\n"
@@ -227,6 +239,7 @@ std::string net_ctor_none_str(int sid, int nid) {
         "    ret\n"
         "  }\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_spec_zw_str() {
     return "    call       valuetype [boxes]Snobol4.Runtime.Boxes.Spec [boxes]Snobol4.Runtime.Boxes.Spec::ZeroWidth(int32)\n";
 }

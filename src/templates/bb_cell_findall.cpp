@@ -23,6 +23,7 @@ static int bcfa_result() { return (int)_.op_parts_ival[6]; }
 static int bcfa_acc() { return (int)_.op_parts_ival[7]; }
 static int bcfa_is_fail() { return (int)_.op_parts_ival[8]; }
 static int bcfa_agg() { return (int)_.op_parts_ival[10]; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfa_finish_call() {
     switch (bcfa_agg()) {
     case 1: return x86("call", "rt_pl_agg_count_finish", (uint64_t)(uintptr_t)(void *)rt_pl_agg_count_finish);
@@ -32,6 +33,7 @@ static std::string bcfa_finish_call() {
     default: return x86("call", "rt_pl_findall_finish",  (uint64_t)(uintptr_t)(void *)rt_pl_findall_finish);
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfa_finish() {
     return x86("mov", "rdi", FRQ(GZ_CELL_OFF(bcfa_acc())))
          + x86("lea", "rsi", FR(GZ_CELL_OFF(bcfa_result())))

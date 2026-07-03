@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <gc/gc.h>
 #include "descr.h"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline size_t descr_slen(DESCR_t d) {
     if (d.v == DT_S) {
         if (d.slen) return (size_t)d.slen;
@@ -14,7 +15,6 @@ static inline size_t descr_slen(DESCR_t d) {
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define NULVCL    ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
 #define STRVAL(s_) ((DESCR_t){ .v = DT_S,  .slen = 0, .s = (s_) })
 #define BSTRVAL(s_, len_) ((DESCR_t){ .v = DT_S, .slen = (uint32_t)(len_), .s = (s_) })
@@ -24,6 +24,7 @@ static inline size_t descr_slen(DESCR_t d) {
 #define NAMEPTR(dp_) ((DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void*)(dp_) })
 #define NAMEVAL(s_)  ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
 #define STYPE(v_)    ((v_).v)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int IS_NULL_fn(DESCR_t v)  { return v.v == DT_SNUL || (v.v == DT_S && v.slen != 0xFFFFFFFFu && (!v.s || !*v.s)); }
 static inline int IS_STR_fn(DESCR_t v)   { return v.v == DT_S || v.v == DT_SNUL; }
 static inline int IS_INT_fn(DESCR_t v)   { return v.v == DT_I; }
@@ -52,21 +53,21 @@ typedef struct _TREEBLK_t {
     int     cap;
     struct _TREEBLK_t **c;
 } TREEBLK_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 TREEBLK_t *expr_new(const char *tag, DESCR_t val);
 TREEBLK_t *tree_new0(const char *tag);
 void  tree_append(TREEBLK_t *x, TREEBLK_t *y);
 void  tree_prepend(TREEBLK_t *x, TREEBLK_t *y);
 void  tree_insert(TREEBLK_t *x, TREEBLK_t *y, int place);
 TREEBLK_t *tree_remove(TREEBLK_t *x, int place);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char *t(TREEBLK_t *x) { return x ? x->tag : ""; }
 static inline DESCR_t      v(TREEBLK_t *x) { return x ? x->val  : NULVCL; }
 static inline int         n(TREEBLK_t *x) { return x ? x->n    : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline TREEBLK_t       *c_i(TREEBLK_t *x, int i) {
     if (!x || i < 1 || i > x->n) return NULL;
     return x->c[i-1];
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct _ARBLK_t {
     int     lo, hi;
     int     ndim;
@@ -74,7 +75,6 @@ typedef struct _ARBLK_t {
     int     proto_bare;
     DESCR_t *data;
 } ARBLK_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi);
 ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2);
 DESCR_t    array_get(ARBLK_t *a, int i);
@@ -87,7 +87,6 @@ typedef struct _TBBLK_tEntry {
     DESCR_t  val;
     struct _TBBLK_tEntry *next;
 } TBPAIR_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define TABLE_BUCKETS 256
 typedef struct _TBBLK_t {
     TBPAIR_t *buckets[TABLE_BUCKETS];
@@ -95,7 +94,6 @@ typedef struct _TBBLK_t {
     int            init, inc;
     DESCR_t        dflt;
 } TBBLK_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new(void);
 TBBLK_t *table_new_args(int init, int inc);
 DESCR_t    table_get(TBBLK_t *tbl, const char *key);
@@ -110,12 +108,10 @@ typedef struct _DATINST_tType {
     char  **fields;
     struct _DATINST_tType *next;
 } DATBLK_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct _DATINST_t {
     DATBLK_t *type;
     DESCR_t   *fields;
 } DATINST_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 void DEFDAT_fn(const char *spec);
 DESCR_t DATCON_fn(const char *type_name, ...);
 DESCR_t FIELD_GET_fn(DESCR_t obj, const char *field);
@@ -142,7 +138,6 @@ typedef struct NAME_ctx_s {
     int                top;
     struct NAME_ctx_s *parent;
 } NAME_ctx_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 void    NAME_ctx_enter(NAME_ctx_t *ctx);
 void    NAME_ctx_leave(void);
 void    NPUSH_fn(void);
@@ -238,6 +233,7 @@ extern int g_kw_ctx;
 extern jmp_buf g_core_err_jmp;
 extern int     g_core_err_active;
 extern int     g_core_err_stmt;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int core_err_is_terminal(int code) {
     switch (code) {
         case 20: case 21: case 22: case 23:
@@ -247,7 +243,7 @@ static inline int core_err_is_terminal(int code) {
         default: return 0;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int core_err_is_fatal(int code) {
     switch (code) {
         case 19: case 24: case 25: case 35:
@@ -255,7 +251,6 @@ static inline int core_err_is_fatal(int code) {
         default: return 0;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern char ucase[27];
 extern char lcase[27];
 extern char alphabet[257];
@@ -321,6 +316,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d);
 DESCR_t CONVE_fn(DESCR_t str_d);
 DESCR_t CODE_fn(DESCR_t str_d);
 DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t opsyn2(DESCR_t a, DESCR_t b) { return opsyn(a, b, NULVCL); }
 DESCR_t sort_fn(DESCR_t arr);
 DESCR_t rsort_fn(DESCR_t arr);

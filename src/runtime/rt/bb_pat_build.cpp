@@ -3,14 +3,14 @@ extern "C" {
 #include "emitter/emit.h"
 #include "machine/bb_pool.h"
 }
-#include "emit.h"   /* bb_match_kids_state_t — the IR_MATCH_CAT kids channel */
+#include "emit.h"
 extern "C" {
 extern int g_frame_active;
 void rt_gvar_assign_pat(const char *name, void *head);
 void lc_γ_to(IR_t *nd, IR_t *t);
 void lc_ω_to(IR_t *nd, IR_t *t);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_build_len_blob(const char *name, int I) {
     bb_pool_init();
     IR_graph_t *g = IR_alloc(8, 0);
@@ -30,7 +30,7 @@ extern "C" void bb_build_len_blob(const char *name, int I) {
     IR_free(g);
     if (fn) rt_gvar_assign_pat(name, (void *)fn);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_build_break_blob(const char *name, const char *cset) {
     bb_pool_init();
     IR_graph_t *g = IR_alloc(8, 0);
