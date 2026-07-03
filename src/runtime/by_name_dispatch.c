@@ -264,31 +264,80 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = ""; size_t n = strlen(s);
     if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
     if (!strcmp(meth, "uc")) { char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "lc") || !strcmp(meth, "fc")) { char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "lc") || !strcmp(meth, "fc")) {
+        char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1;
+    }
     if (!strcmp(meth, "tc")) { char *r = (char *)GC_malloc(n + 1); memcpy(r, s, n + 1); if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "tclc")) { char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "tclc")) {
+        char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; if (n > 0) r[0] = (char)toupper((unsigned char)r[0]);
+        *out = STRVAL(r); return 1;
+    }
     if (!strcmp(meth, "flip")) { char *r = (char *)GC_malloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; r[n] = '\0'; *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "trim")) { size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)GC_malloc(b - a + 1); memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "trim")) {
+        size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)GC_malloc(b - a + 1);
+        memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1;
+    }
     if (!strcmp(meth, "Str")) { *out = STRVAL(GC_strdup(s)); return 1; }
     if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
-    if (!strcmp(meth, "index") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; const char *hit = strstr(s, nd); *out = hit ? INTVAL((long)(hit - s)) : NULVCL; return 1; }
-    if (!strcmp(meth, "substr") && nmargs >= 1) { long from = IS_INT_fn(margs[0]) ? (long)margs[0].i : atol(to_cstring(margs[0], sb, sizeof sb)); long ln = (nmargs >= 2) ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : atol(to_cstring(margs[1], sb, sizeof sb))) : (long)utf8_strlen(s) - from; if (from < 0) from = 0; if (ln < 0) ln = 0; *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln)); return 1; }
+    if (!strcmp(meth, "index") && nmargs >= 1) {
+        char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; const char *hit = strstr(s, nd); *out = hit ? INTVAL((long)(hit - s)) : NULVCL; return 1;
+    }
+    if (!strcmp(meth, "substr") && nmargs >= 1) {
+        long from = IS_INT_fn(margs[0]) ? (long)margs[0].i : atol(to_cstring(margs[0], sb, sizeof sb));
+        long ln = (nmargs >= 2) ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : atol(to_cstring(margs[1], sb, sizeof sb))) : (long)utf8_strlen(s) - from; if (from < 0) from = 0; if (ln < 0) ln = 0;
+        *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln)); return 1;
+    }
     if (!strcmp(meth, "abs")) { if (IS_INT_fn(recv)) { long v = (long)recv.i; *out = INTVAL(v < 0 ? -v : v); } else { *out = REALVAL(fabs(to_real(recv))); } return 1; }
     if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
     if (!strcmp(meth, "round")) { *out = INTVAL((long)floor(to_real(recv) + 0.5)); return 1; }
-    if (!strcmp(meth, "Bool") || !strcmp(meth, "so") || !strcmp(meth, "not")) { int truthy; if (IS_INT_fn(recv)) truthy = (recv.i != 0); else if (IS_REAL_fn(recv)) truthy = (recv.r != 0.0); else truthy = (n > 0); *out = INTVAL(!strcmp(meth, "not") ? (truthy ? 0 : 1) : (truthy ? 1 : 0)); return 1; }
+    if (!strcmp(meth, "Bool") || !strcmp(meth, "so") || !strcmp(meth, "not")) {
+        int truthy; if (IS_INT_fn(recv)) truthy = (recv.i != 0); else if (IS_REAL_fn(recv)) truthy = (recv.r != 0.0); else truthy = (n > 0);
+        *out = INTVAL(!strcmp(meth, "not") ? (truthy ? 0 : 1) : (truthy ? 1 : 0)); return 1;
+    }
     if (!strcmp(meth, "defined")) { *out = INTVAL(recv.v != DT_SNUL ? 1 : 0); return 1; }
-    if ((!strcmp(meth, "succ") || !strcmp(meth, "pred")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { int d = !strcmp(meth, "succ") ? 1 : -1; if (IS_INT_fn(recv)) *out = INTVAL((long)recv.i + d); else *out = REALVAL(recv.r + d); return 1; }
-    if (!strcmp(meth, "words")) { char *r = (char *)GC_malloc(n + 1); int op = 0, first = 1; size_t i = 0; while (i < n) { while (i < n && isspace((unsigned char)s[i])) i++; if (i >= n) break; if (!first) r[op++] = SOH; first = 0; while (i < n && !isspace((unsigned char)s[i])) r[op++] = s[i++]; } r[op] = '\0'; *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "comb")) { char *r = (char *)GC_malloc(2 * n + 1); int op = 0; for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; } r[op] = '\0'; *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "split") && nmargs >= 1) { char sept[64]; const char *sep = to_cstring(margs[0], sept, sizeof sept); if (!sep) sep = ""; size_t sl = strlen(sep); char *r = (char *)GC_malloc(2 * n + 2); int op = 0; if (sl == 0) { for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; } } else { const char *p = s, *hit; while ((hit = strstr(p, sep)) != NULL) { size_t sg = (size_t)(hit - p); memcpy(r + op, p, sg); op += (int)sg; r[op++] = SOH; p = hit + sl; } size_t tl = strlen(p); memcpy(r + op, p, tl); op += (int)tl; } r[op] = '\0'; *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "chomp")) { size_t b = n; if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)GC_malloc(b + 1); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "wordcase")) { char *r = (char *)GC_malloc(n + 1); memcpy(r, s, n + 1); int start = 1; for (size_t i = 0; i < n; i++) { if (isspace((unsigned char)r[i])) start = 1; else { if (start) r[i] = (char)toupper((unsigned char)r[i]); start = 0; } } *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "lines")) { char *r = (char *)GC_malloc(2 * n + 1); int op = 0, first = 1; size_t i = 0; while (i < n) { if (!first) r[op++] = SOH; first = 0; while (i < n && s[i] != '\n') { if (s[i] != '\r') r[op++] = s[i]; i++; } if (i < n) i++; } r[op] = '\0'; *out = STRVAL(r); return 1; }
+    if ((!strcmp(meth, "succ") || !strcmp(meth, "pred")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) {
+        int d = !strcmp(meth, "succ") ? 1 : -1; if (IS_INT_fn(recv)) *out = INTVAL((long)recv.i + d); else *out = REALVAL(recv.r + d); return 1;
+    }
+    if (!strcmp(meth, "words")) {
+        char *r = (char *)GC_malloc(n + 1); int op = 0, first = 1; size_t i = 0;
+        while (i < n) {
+            while (i < n && isspace((unsigned char)s[i])) i++; if (i >= n) break; if (!first) r[op++] = SOH; first = 0; while (i < n && !isspace((unsigned char)s[i])) r[op++] = s[i++];
+        } r[op] = '\0';
+        *out = STRVAL(r); return 1;
+    }
+    if (!strcmp(meth, "comb")) {
+        char *r = (char *)GC_malloc(2 * n + 1); int op = 0;
+        for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; } r[op] = '\0'; *out = STRVAL(r);
+        return 1;
+    }
+    if (!strcmp(meth, "split") && nmargs >= 1) {
+        char sept[64]; const char *sep = to_cstring(margs[0], sept, sizeof sept); if (!sep) sep = ""; size_t sl = strlen(sep); char *r = (char *)GC_malloc(2 * n + 2); int op = 0;
+        if (sl == 0) {
+            for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; }
+        } else { const char *p = s, *hit;
+        while ((hit = strstr(p, sep)) != NULL) { size_t sg = (size_t)(hit - p); memcpy(r + op, p, sg); op += (int)sg; r[op++] = SOH; p = hit + sl; } size_t tl = strlen(p); memcpy(r + op, p, tl);
+        op += (int)tl; } r[op] = '\0';
+        *out = STRVAL(r); return 1;
+    }
+    if (!strcmp(meth, "chomp")) {
+        size_t b = n; if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)GC_malloc(b + 1); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
+    }
+    if (!strcmp(meth, "wordcase")) {
+        char *r = (char *)GC_malloc(n + 1); memcpy(r, s, n + 1); int start = 1;
+        for (size_t i = 0; i < n; i++) { if (isspace((unsigned char)r[i])) start = 1; else { if (start) r[i] = (char)toupper((unsigned char)r[i]); start = 0; } } *out = STRVAL(r); return 1;
+    }
+    if (!strcmp(meth, "lines")) {
+        char *r = (char *)GC_malloc(2 * n + 1); int op = 0, first = 1; size_t i = 0;
+        while (i < n) { if (!first) r[op++] = SOH; first = 0; while (i < n && s[i] != '\n') { if (s[i] != '\r') r[op++] = s[i]; i++; } if (i < n) i++; } r[op] = '\0'; *out = STRVAL(r); return 1;
+    }
     if (!strcmp(meth, "elems")) { if (n == 0) { *out = INTVAL(0); return 1; } int c = 1; for (size_t i = 0; i < n; i++) if (s[i] == SOH) c++; *out = INTVAL(c); return 1; }
-    if (!strcmp(meth, "join")) { const char *sep = ""; char jb[64]; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } size_t sl = strlen(sep); int nsep = 0; for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)GC_malloc(n + (size_t)nsep * sl + 1); int op = 0; for (size_t i = 0; i < n; i++) { if (s[i] == SOH) { memcpy(r + op, sep, sl); op += (int)sl; } else r[op++] = s[i]; } r[op] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "join")) {
+        const char *sep = ""; char jb[64]; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } size_t sl = strlen(sep); int nsep = 0;
+        for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)GC_malloc(n + (size_t)nsep * sl + 1); int op = 0;
+        for (size_t i = 0; i < n; i++) { if (s[i] == SOH) { memcpy(r + op, sep, sl); op += (int)sl; } else r[op++] = s[i]; } r[op] = '\0'; *out = STRVAL(r); return 1;
+    }
     return 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -411,11 +460,15 @@ static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *
     long want = (ei + 1 > nsub) ? ei + 1 : nsub;
     const char **elems = (const char **)GC_malloc((size_t)want * sizeof(char *));
     const char *p = field; long ix = 0;
-    for (;;) { const char *nx = strchr(p, '\x05'); size_t el = nx ? (size_t)(nx - p) : strlen(p); char *e = GC_malloc(el + 1); memcpy(e, p, el); e[el] = '\0'; if (ix < want) elems[ix] = e; ix++; if (!nx) break; p = nx + 1; }
+    for (;;) {
+        const char *nx = strchr(p, '\x05'); size_t el = nx ? (size_t)(nx - p) : strlen(p); char *e = GC_malloc(el + 1); memcpy(e, p, el); e[el] = '\0'; if (ix < want) elems[ix] = e; ix++;
+        if (!nx) break; p = nx + 1;
+    }
     for (long j = nsub; j < want; j++) elems[j] = "0";
     elems[ei] = val;
     size_t newflen = 0; for (long j = 0; j < want; j++) newflen += strlen(elems[j]); newflen += (size_t)(want - 1);
-    char *newf = GC_malloc(newflen + 1); size_t fp = 0; for (long j = 0; j < want; j++) { if (j) newf[fp++] = '\x05'; size_t L = strlen(elems[j]); memcpy(newf + fp, elems[j], L); fp += L; } newf[fp] = '\0';
+    char *newf = GC_malloc(newflen + 1); size_t fp = 0;
+    for (long j = 0; j < want; j++) { if (j) newf[fp++] = '\x05'; size_t L = strlen(elems[j]); memcpy(newf + fp, elems[j], L); fp += L; } newf[fp] = '\0';
     size_t pre = (size_t)(fstart - cur); size_t post = fend ? strlen(fend) : 0;
     char *o = GC_malloc(pre + fp + post + 1); memcpy(o, cur, pre); memcpy(o + pre, newf, fp); if (fend) memcpy(o + pre + fp, fend, post); o[pre + fp + post] = '\0';
     return o;
@@ -503,7 +556,10 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
             const char *p = pn + pl; const char *e = strchr(p, '$');
             int arity = atoi(p); if (arity != nm) continue;
             int nt = 0; const char *q = e ? e + 1 : (const char *)0;
-            while (q && nt < 8) { const char *nx = strchr(q, '$'); int len = nx ? (int)(nx - q) : (int)strlen(q); if (len > 31) len = 31; memcpy(acc_types[nacc][nt], q, (size_t)len); acc_types[nacc][nt][len] = 0; nt++; if (!nx) break; q = nx + 1; }
+            while (q && nt < 8) {
+                const char *nx = strchr(q, '$'); int len = nx ? (int)(nx - q) : (int)strlen(q); if (len > 31) len = 31; memcpy(acc_types[nacc][nt], q, (size_t)len); acc_types[nacc][nt][len] = 0;
+                nt++; if (!nx) break; q = nx + 1;
+            }
             int ok = 1; for (int i = 0; i < nm && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], ma[i])) { ok = 0; break; }
             if (!ok) continue;
             int dup = 0; for (int k = 0; k < nacc; k++) if (!strcmp(acc_names[k], pn)) { dup = 1; break; }
@@ -568,12 +624,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *p = pn + pl; const char *e = strchr(p, '$');
             int arity = atoi(p); if (arity != na) continue;
             int nt = 0; const char *q = e ? e + 1 : (const char *)0;
-            while (q && nt < 8) { const char *nx = strchr(q, '$'); int len = nx ? (int)(nx - q) : (int)strlen(q); if (len > 31) len = 31; memcpy(acc_types[nacc][nt], q, (size_t)len); acc_types[nacc][nt][len] = 0; nt++; if (!nx) break; q = nx + 1; }
+            while (q && nt < 8) {
+                const char *nx = strchr(q, '$'); int len = nx ? (int)(nx - q) : (int)strlen(q); if (len > 31) len = 31; memcpy(acc_types[nacc][nt], q, (size_t)len); acc_types[nacc][nt][len] = 0;
+                nt++; if (!nx) break; q = nx + 1;
+            }
             int ok = 1; for (int i = 0; i < na && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], aa[i])) { ok = 0; break; }
             if (!ok) continue;
             acc_idx[nacc] = pi; snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn); nacc++;
         }
-        if (nacc == 0) { extern void rt_script_die_surface(const char *msg); char m[256]; snprintf(m, sizeof m, "Cannot resolve caller %s(...); no candidate matches the argument types", base); rt_script_die_surface(m); *out = FAILDESCR; return 1; }
+        if (nacc == 0) {
+            extern void rt_script_die_surface(const char *msg); char m[256]; snprintf(m, sizeof m, "Cannot resolve caller %s(...); no candidate matches the argument types", base);
+            rt_script_die_surface(m); *out = FAILDESCR; return 1;
+        }
         int win = -1;
         for (int i = 0; i < nacc; i++) { int beaten = 0;
             for (int j = 0; j < nacc; j++) { if (i == j) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], na)) { beaten = 1; break; } }
@@ -633,7 +695,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (;;) { const char *nx = strchr(s, SOH); if (k == fidx) { fstart = s; fend = nx; break; } if (!nx) { fstart = NULL; break; } s = nx + 1; k++; }
         if (!fstart) { *out = args[3]; return 1; }
         size_t flen = fend ? (size_t)(fend - fstart) : strlen(fstart);
-        unsigned char ch; if (IS_INT_fn(args[3])) { long cv = args[3].i; if (cv < 0) cv = 0; if (cv > 255) cv = 255; ch = (unsigned char)cv; } else { const char *vs = VARVAL_fn(args[3]); ch = (unsigned char)((vs && vs[0]) ? vs[0] : ' '); }
+        unsigned char ch;
+        if (IS_INT_fn(args[3])) {
+            long cv = args[3].i; if (cv < 0) cv = 0; if (cv > 255) cv = 255; ch = (unsigned char)cv;
+        } else { const char *vs = VARVAL_fn(args[3]); ch = (unsigned char)((vs && vs[0]) ? vs[0] : ' '); }
         size_t nflen = ((size_t)eidx > flen) ? (size_t)eidx : flen; char *nfb = GC_malloc(nflen + 1);
         for (size_t j = 0; j < nflen; j++) nfb[j] = (j < flen) ? fstart[j] : ' '; nfb[eidx - 1] = (char)ch; nfb[nflen] = '\0';
         size_t pre = (size_t)(fstart - cur); size_t post = fend ? strlen(fend) : 0;
@@ -661,7 +726,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!fstart) { *out = INTVAL(0); return 1; }
         size_t flen = fend ? (size_t)(fend - fstart) : strlen(fstart);
         const char *p = fstart; const char *pend = fstart + flen; long ix = 0;
-        for (;;) { const char *nx = (const char *)memchr(p, '\x05', (size_t)(pend - p)); const char *eend = nx ? nx : pend; if (ix == ei) { *out = elem_to_descr(p, (size_t)(eend - p)); return 1; } if (!nx) { *out = INTVAL(0); return 1; } p = nx + 1; ix++; }
+        for (;;) {
+            const char *nx = (const char *)memchr(p, '\x05', (size_t)(pend - p)); const char *eend = nx ? nx : pend;
+            if (ix == ei) { *out = elem_to_descr(p, (size_t)(eend - p)); return 1; } if (!nx) { *out = INTVAL(0); return 1; } p = nx + 1; ix++;
+        }
     }
     if (!strcmp(fn, "__pas_nrec_update") && nargs == 4) {
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
@@ -892,9 +960,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = STRVAL(buf); return 1;
     }
-    if (!strcmp(fn, "arr_make") && nargs == 1) { long long hi = IS_INT_fn(args[0]) ? args[0].i : 0; long long n = hi + 1; if (n < 1) n = 1; ARBLK_t *b = (ARBLK_t *) GC_malloc(sizeof(ARBLK_t)); b->lo = 0; b->hi = (int) hi; b->ndim = 1; b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) GC_malloc(sizeof(DESCR_t) * (size_t) n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1; }
+    if (!strcmp(fn, "arr_make") && nargs == 1) {
+        long long hi = IS_INT_fn(args[0]) ? args[0].i : 0; long long n = hi + 1; if (n < 1) n = 1; ARBLK_t *b = (ARBLK_t *) GC_malloc(sizeof(ARBLK_t)); b->lo = 0; b->hi = (int) hi; b->ndim = 1;
+        b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) GC_malloc(sizeof(DESCR_t) * (size_t) n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
+        d.slen = 0; d.arr = b; *out = d; return 1;
+    }
     if (!strcmp(fn, "arr_get") && nargs == 2) {
-        if (args[0].v == DT_A && args[0].arr) { ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; } *out = b->data[i - b->lo]; return 1; }
+        if (args[0].v == DT_A && args[0].arr) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; } *out = b->data[i - b->lo]; return 1;
+        }
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         if (idx < 0 || !*cur) { *out = FAILDESCR; return 1; }
@@ -1538,7 +1612,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = STRVAL(acc); return 1;
     }
     if (!strcmp(fn, "arr_set_pure") && nargs >= 3) {
-        if (args[0].v == DT_A && args[0].arr) { ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; } b->data[i - b->lo] = args[2]; *out = args[0]; return 1; }
+        if (args[0].v == DT_A && args[0].arr) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; } b->data[i - b->lo] = args[2];
+            *out = args[0]; return 1;
+        }
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb);
@@ -1849,7 +1926,9 @@ DESCR_t proc_as_value(const char *name) {
         }
     }
     static const char *builtins[] = {
-        "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin","__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite","__pas_reset","__pas_fclose","write","writes","read","reads","close","open","remove","flush",
+        "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin",
+        "__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite","__pas_reset","__pas_fclose","write","writes","read","reads","close","open","remove",
+        "flush",
         "put","get","pull","push","pop","list","image","proc","type","copy",
         "string","integer","real","numeric","ord","char","reverse","sort","sortf",
         "find","match","many","any","upto","bal","move","tab","pos",

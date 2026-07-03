@@ -92,7 +92,9 @@ typedef enum {
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_scan_kind(IR_e t) { (void) t; return 0; }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static inline int ir_is_call_kind(IR_e t) { return t == IR_CALL_PROC_STAGED || t == IR_CALL_USERPROC || t == IR_CALL_BYNAME || t == IR_CALL_BUILTIN || t == IR_CALL_GVAR_USERPROC || t == IR_CALL_VALUE; }
+static inline int ir_is_call_kind(IR_e t) {
+    return t == IR_CALL_PROC_STAGED || t == IR_CALL_USERPROC || t == IR_CALL_BYNAME || t == IR_CALL_BUILTIN || t == IR_CALL_GVAR_USERPROC || t == IR_CALL_VALUE;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
 /*--------------------------------------------------------------------------------------------------------------------*/

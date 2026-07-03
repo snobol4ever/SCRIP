@@ -1,13 +1,13 @@
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "branch_chain.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bc_is_passthrough(IR_e op) { return op == IR_SUCCEED || op == IR_GOTO; }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bc_index_of(IR_graph_t *g, IR_t *p) { for (int i = 0; i < g->n; i++) if (g->all[i] == p) return i; return -1; }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * bc_build_protect(IR_graph_t *g) {
     char *prot = (char *)calloc((size_t)(g->n > 0 ? g->n : 1), 1);
     if (!prot) return prot;
@@ -19,7 +19,7 @@ static char * bc_build_protect(IR_graph_t *g) {
     }
     return prot;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * bc_chase(IR_graph_t *g, const char *prot, IR_t *node, char sz[4]) {
     IR_t *seen[512]; int ns = 0; int guard = 0;
     while (node && bc_is_passthrough(node->op) && node->γ.node && guard++ < 512) {
@@ -33,7 +33,7 @@ IR_t * bc_chase(IR_graph_t *g, const char *prot, IR_t *node, char sz[4]) {
     }
     return node;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bc_run(IR_graph_t *g) {
     int total = 0; int trace = getenv("SCRIP_OPT_TRACE") ? 1 : 0;
     char *prot = bc_build_protect(g);
@@ -41,8 +41,20 @@ int bc_run(IR_graph_t *g) {
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
-        if (nd->γ.node) { char sz[4]; memcpy(sz, nd->γ.sz, 4); IR_t *t = bc_chase(g, prot, nd->γ.node, sz); if (t != nd->γ.node) { if (trace) fprintf(stderr, "[bc] %p(op=%d).γ %p(op=%d) -> %p(op=%d) sz=%s\n", (void *)nd, (int)nd->op, (void *)nd->γ.node, (int)nd->γ.node->op, (void *)t, (int)t->op, sz); nd->γ.node = t; memcpy(nd->γ.sz, sz, 4); total++; } }
-        if (nd->ω.node) { char sz[4]; memcpy(sz, nd->ω.sz, 4); IR_t *t = bc_chase(g, prot, nd->ω.node, sz); if (t != nd->ω.node) { if (trace) fprintf(stderr, "[bc] %p(op=%d).ω %p(op=%d) -> %p(op=%d) sz=%s\n", (void *)nd, (int)nd->op, (void *)nd->ω.node, (int)nd->ω.node->op, (void *)t, (int)t->op, sz); nd->ω.node = t; memcpy(nd->ω.sz, sz, 4); total++; } }
+        if (nd->γ.node) {
+            char sz[4]; memcpy(sz, nd->γ.sz, 4); IR_t *t = bc_chase(g, prot, nd->γ.node, sz);
+            if (t != nd->γ.node) {
+                if (trace) fprintf(stderr, "[bc] %p(op=%d).γ %p(op=%d) -> %p(op=%d) sz=%s\n", (void *)nd, (int)nd->op, (void *)nd->γ.node, (int)nd->γ.node->op, (void *)t, (int)t->op, sz);
+                nd->γ.node = t; memcpy(nd->γ.sz, sz, 4); total++;
+            }
+        }
+        if (nd->ω.node) {
+            char sz[4]; memcpy(sz, nd->ω.sz, 4); IR_t *t = bc_chase(g, prot, nd->ω.node, sz);
+            if (t != nd->ω.node) {
+                if (trace) fprintf(stderr, "[bc] %p(op=%d).ω %p(op=%d) -> %p(op=%d) sz=%s\n", (void *)nd, (int)nd->op, (void *)nd->ω.node, (int)nd->ω.node->op, (void *)t, (int)t->op, sz);
+                nd->ω.node = t; memcpy(nd->ω.sz, sz, 4); total++;
+            }
+        }
     }
     if (g->entry) { char sz[4] = { 0 }; IR_t *t = bc_chase(g, prot, g->entry, sz); if (t != g->entry) { g->entry = t; total++; } }
     if (g->body_root) { char sz[4] = { 0 }; IR_t *t = bc_chase(g, prot, g->body_root, sz); if (t != g->body_root) { g->body_root = t; total++; } }

@@ -9,11 +9,6 @@ extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR_REV_ASSIGN_VAR — Icon reversible assignment through an operand-carried VARIABLE: x[i] <- v (canonical rasgn, oasgn.r:142-162: underef x -> saved_x = rt_deref BEFORE the write; GeneralAsgn(x,y) =
-   rt_assign_var; suspend; on resume GeneralAsgn(x,saved_x) then fail).  GENERATOR-KIND (the resume IS the construct).  The IDX-UNIFY sibling of the by-NAME IR_REV_ASSIGN (bb_rasgn.cpp), exactly as
-   IR_ASSIGN_VAR is the sibling of IR_ASSIGN — classify-by-name, one template each (JCON-alignment directive).  op_a_slot = variable DESCR (walk preamble derives from operands[0]); op_sa = value slot
-   (driver-staged); op_off = own result slot (result = the assigned value, IR_ASSIGN_VAR parity); op_sc = saved-old DESCR at op_off+16 inside the k+=2 grant (bb_rasgn parity).  α: deref-save, assign,
-   je ω on DT_FAIL (dead vcell), value → own slot, jmp γ.  β: restore via rt_assign_var(var, saved) — a table trap re-inserts the saved value, the canonical tvtbl behavior — then jmp ω. */
 std::string bb_rev_assign_var() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sc < 0) return x86_bomb("bb_rev_assign_var: needs own slot + variable/value operand slots + save slot");

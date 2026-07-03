@@ -17,7 +17,6 @@ std::string bb_binop_gvar_arith() {
     x86_begin();
     union { int64_t q; uint64_t u; } _ufl; _ufl.q = _.bb_li; uint64_t _powl = _ufl.u;
     union { int64_t q; uint64_t u; } _ufr; _ufr.q = _.bb_ri; uint64_t _powr = _ufr.u;
-    /* GVA-3a coercion fix: a direct cell read at [rbx+k*16+8] yields the raw value field, which for a DT_S or DT_R operand is a pointer or double-bits, not an integer; guard on the type tag and fall to rt_gvar_get_int (which coerces string to int via strtoll) when the cell is not DT_I, so the integer hot path stays call-free while string operands like WORD plus 0 coerce correctly */
     auto gva_ld = [&](const char *reg, int k, const char *nm, const char *pl, int lb) -> std::string {
         return x86("mov", "rdx", RDQ("rbx", k * 16))
              + x86("cmp", "edx", (long)DT_I)

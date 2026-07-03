@@ -9,7 +9,6 @@ extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" void *rt_frame          (void);
 #include "x86_asm.h"
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* FZ-5b: when the match site references a once-assigned invariant pattern variable (proven by FZ-5a, staged by the IR_MATCH_DEFER flat_drive into bb_child_fn/bb_child_lbl via child_cache), bake the sealed matcher head directly into rax with the RIPSEAL lea form and SKIP the per-match rt_defer_get_pat_fn fetch (runs 500k× in string_pattern/pattern_bt). The sealed head is always non-NULL so the tail's jz-L0 falls through to the head call; the L0 rt_defer_match fallback stays for the non-inlined fetch path. */
 std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
     bool inl = (_.bb_child_fn != (void *)0) || (_.bb_child_lbl && _.bb_child_lbl[0]);

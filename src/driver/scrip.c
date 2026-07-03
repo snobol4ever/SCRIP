@@ -50,22 +50,25 @@ extern int         Δ;
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
 /*====================================================================================================================*/
-/*====================================================================================================================*/
 static int keyword_supported(const char *kw) {
     if (!kw) return 0;
     if (kw[0] == '&') kw++;
     return !strcmp(kw, "subject") || !strcmp(kw, "pos") || !strcmp(kw, "null") || !strcmp(kw, "fail");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_OP_COUNT ||
-           t == IR_VAR || t == IR_KEYWORD || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_OP_COUNT || t == IR_CONJUNCTION || t == IR_ASSIGN || t == IR_OP_COUNT || t == IR_OP_COUNT || t == IR_OP_COUNT;
+           t == IR_VAR || t == IR_KEYWORD || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP
+        || t == IR_OP_COUNT || t == IR_CONJUNCTION || t == IR_ASSIGN || t == IR_OP_COUNT || t == IR_OP_COUNT || t == IR_OP_COUNT;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sg_var_assigned(IR_graph_t *sg, const char *name) {
     if (!sg || !sg->all || !name) return 0;
     for (int i = 0; i < sg->n; i++) { IR_t *m = sg->all[i]; if (m && m->op == IR_ASSIGN && IR_LIT(m).sval && !strcmp(IR_LIT(m).sval, name)) return 1; }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t *scan_lit_entry(IR_t *nd, IR_e want) {
     IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
@@ -73,9 +76,11 @@ static IR_t *scan_lit_entry(IR_t *nd, IR_e want) {
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return (IR_t *)0;
     return ae;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_fn_lit_arg(IR_t *nd, IR_e want) {
     return scan_lit_entry(nd, want) != (IR_t *)0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_fn_cset_arg(IR_t *nd) {
     extern const char *kw_cset_const_str(const char *kw);
     if (scan_lit_entry(nd, IR_LIT_STRING) != (IR_t *)0) return 1;
@@ -86,6 +91,7 @@ static int scan_fn_cset_arg(IR_t *nd) {
     return kw_cset_const_str(IR_LIT(ae).sval) != (const char *)0;
 }
 static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_any_cset_var_ok(stage2_t *s2, int gi, IR_graph_t *g, IR_t *nd) {
     IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
@@ -93,17 +99,23 @@ static int scan_any_cset_var_ok(stage2_t *s2, int gi, IR_graph_t *g, IR_t *nd) {
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
     return graph_var_assigned_or_param(s2, gi, g, IR_LIT(ae).sval);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_tab_arg_ok(IR_t *nd) {
     IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
     if (!ae) return 0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
     if (ae->op == IR_LIT_INTEGER && IR_LIT(ae).ival >= 1) return 1;
-    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval && (!strcmp(IR_LIT(ae).sval, "any") || !strcmp(IR_LIT(ae).sval, "many") || !strcmp(IR_LIT(ae).sval, "upto")) && scan_fn_cset_arg(ae)) return 1;
-    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval && (!strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && scan_fn_lit_arg(ae, IR_LIT_STRING)) return 1;
+    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval
+        && (!strcmp(IR_LIT(ae).sval, "any") || !strcmp(IR_LIT(ae).sval, "many") || !strcmp(IR_LIT(ae).sval, "upto")) && scan_fn_cset_arg(ae))
+        return 1;
+    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval
+        && (!strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && scan_fn_lit_arg(ae, IR_LIT_STRING))
+        return 1;
     return 0;
 }
 static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *sg, int depth) {
     if (!sg || !sg->all || sg->n <= 0 || depth > 16) return 0;
     for (int i = 0; i < sg->n; i++) {
@@ -124,8 +136,13 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
             else if (!strcmp(IR_LIT(nd).sval, "tab")) { if (!(IR_LIT(nd).dval == 3.0 && scan_tab_arg_ok(nd))) return 0; }
             else if (!strcmp(IR_LIT(nd).sval, "move")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_INTEGER))) return 0; }
             else if (!strcmp(IR_LIT(nd).sval, "pos")) { IR_t *pe = scan_lit_entry(nd, IR_LIT_INTEGER); if (!(IR_LIT(nd).dval == 3.0 && pe && IR_LIT(pe).ival >= 1)) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "find")) { IR_t *fe = scan_lit_entry(nd, IR_LIT_STRING); if (!(IR_LIT(nd).dval == 3.0 && fe && IR_LIT(fe).sval && IR_LIT(fe).sval[0] && strlen(IR_LIT(fe).sval) <= 32)) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "bal")) { IR_t *be = scan_lit_entry(nd, IR_LIT_STRING); if (!(IR_LIT(nd).dval == 3.0 && be && IR_LIT(be).sval && IR_LIT(be).sval[0] && !strchr(IR_LIT(be).sval, 40) && !strchr(IR_LIT(be).sval, 41))) return 0; }
+            else if (!strcmp(IR_LIT(nd).sval, "find")) {
+                IR_t *fe = scan_lit_entry(nd, IR_LIT_STRING); if (!(IR_LIT(nd).dval == 3.0 && fe && IR_LIT(fe).sval && IR_LIT(fe).sval[0] && strlen(IR_LIT(fe).sval) <= 32)) return 0;
+            }
+            else if (!strcmp(IR_LIT(nd).sval, "bal")) {
+                IR_t *be = scan_lit_entry(nd, IR_LIT_STRING);
+                if (!(IR_LIT(nd).dval == 3.0 && be && IR_LIT(be).sval && IR_LIT(be).sval[0] && !strchr(IR_LIT(be).sval, 40) && !strchr(IR_LIT(be).sval, 41))) return 0;
+            }
             else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
         }
         if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE); if (bc != BINOP_CONCAT && !is_rel) return 0; }
@@ -139,6 +156,7 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
 }
 static int graph_native_emittable_mode(stage2_t *s2, int for_run);
 static int graph_native_emittable(stage2_t *s2) { return graph_native_emittable_mode(s2, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_register_record_types(stage2_t *s2) {
     extern void *dat_register(const char *spec);
     extern void *dat_find_type(const char *name);
@@ -152,6 +170,7 @@ static void icn_register_record_types(stage2_t *s2) {
         }
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gen_scan_body_slotful(IR_t *r) {
     if (!r || r->op != IR_OP_COUNT || IR_LIT(r).dval != 1.0) return 0;
     IR_graph_t *bsg = (IR_graph_t *) 0;
@@ -160,18 +179,21 @@ static int gen_scan_body_slotful(IR_t *r) {
     while (bt && bt->γ.node && bt->γ.node->op != IR_SUCCEED && bt->γ.node->op != IR_FAIL && gd++ < 512) bt = bt->γ.node;
     if (bt && (bt->op == IR_LIT_INTEGER || bt->op == IR_LIT_STRING)) return 1;
     if (bt && bt->op == IR_VAR && IR_LIT(bt).sval && IR_LIT(bt).sval[0] != '&') return 1;
-    if (bt && (bt->op == IR_CALL || ir_is_scan_kind(bt->op)) && IR_LIT(bt).dval == 3.0 && IR_LIT(bt).sval && (!strcmp(IR_LIT(bt).sval, "tab") || !strcmp(IR_LIT(bt).sval, "move") || !strcmp(IR_LIT(bt).sval, "pos") || !strcmp(IR_LIT(bt).sval, "any") || !strcmp(IR_LIT(bt).sval, "match") || !strcmp(IR_LIT(bt).sval, "many") || !strcmp(IR_LIT(bt).sval, "upto") || !strcmp(IR_LIT(bt).sval, "find") || !strcmp(IR_LIT(bt).sval, "bal"))) return 1;
+    if (bt && (bt->op == IR_CALL || ir_is_scan_kind(bt->op)) && IR_LIT(bt).dval == 3.0 && IR_LIT(bt).sval
+        && (!strcmp(IR_LIT(bt).sval, "tab") || !strcmp(IR_LIT(bt).sval, "move") || !strcmp(IR_LIT(bt).sval, "pos") || !strcmp(IR_LIT(bt).sval, "any")
+            || !strcmp(IR_LIT(bt).sval, "match") || !strcmp(IR_LIT(bt).sval, "many") || !strcmp(IR_LIT(bt).sval, "upto") || !strcmp(IR_LIT(bt).sval, "find") || !strcmp(IR_LIT(bt).sval, "bal")))
+        return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rhs_kind_ok(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_OP_COUNT || r->op == IR_LIT_REAL) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
-    /* not(x): now IR_VAR sval="&null" (no IR_NOT opcode -- see lower_not). Always the fixed null DESCR,
-       same safe-known-value guarantee the deleted IR_NOT case gave this gate; accept narrowly, not via
-       a blanket keyword exception (other keywords are dynamic runtime state, deliberately still excluded). */
     if (r->op == IR_VAR && IR_LIT(r).sval && !strcmp(IR_LIT(r).sval, "&null")) return 1;
-    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT)) return 1;
+    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL
+                               || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT))
+        return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     { extern void *dat_find_type(const char *name); if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && IR_LIT(r).sval && dat_find_type(IR_LIT(r).sval)) return 1; }
@@ -180,7 +202,12 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_TO || r->op == IR_TO_BY || r->op == IR_PROC_GEN || r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_MAKE_LIST) return 1;
     if (r->op == IR_CONJUNCTION) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
-    { extern int is_global(const char *); if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) { IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0; } }
+    {
+        extern int is_global(const char *);
+        if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) {
+            IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0;
+        }
+    }
     if (r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_OP_COUNT) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
@@ -190,21 +217,25 @@ static int rhs_kind_ok(IR_t *r) {
     return 0;
 }
 static int graph_has_binop(const IR_graph_t *g);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
     IR_t *rhs = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
     if (!rhs) for (int i = 0; i < g->n; i++) { IR_t *p = g->all[i]; if (p && p->γ.node == nd) { rhs = p; break; } }
     if (rhs && rhs->op == IR_LIT_REAL) return 1;
     return rhs_kind_ok(rhs);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int arith_operand_ok(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_INTEGER) return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD)) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_jct_call(IR_t *r) {
     return r && r->op == IR_CALL && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int jct_marshallable(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_OP_COUNT) return 1;
@@ -212,6 +243,7 @@ static int jct_marshallable(IR_t *r) {
     if (r->op == IR_CALL && (IR_LIT(r).dval == 2.0 || IR_LIT(r).dval == 3.0 || IR_LIT(r).dval == 5.0)) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bool_truthy_emittable(IR_t *nd) {
     if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval,"__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
     IR_graph_t **blks = (IR_graph_t **)0;
@@ -220,6 +252,7 @@ static int bool_truthy_emittable(IR_t *nd) {
     IR_t *e = cond->entry;
     return (e->op == IR_LIT_INTEGER || e->op == IR_LIT_STRING || (e->op == IR_VAR && IR_LIT(e).sval && IR_LIT(e).sval[0] != '&'));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bool_cond_emittable(IR_t *nd) {
     if (!nd || nd->op != IR_CALL || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval, "__rk_bool") || IR_LIT(nd).dval != 2.0) return 0;
     IR_graph_t **blks = (IR_graph_t **)0;
@@ -232,6 +265,7 @@ static int bool_cond_emittable(IR_t *nd) {
     if ((is_jct_call(ra) || is_jct_call(rb)) && jct_marshallable(ra) && jct_marshallable(rb)) return 1;
     return arith_operand_ok(ra) && arith_operand_ok(rb);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_has_local_assign(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) {
         IR_t *nd = g->all[ni];
@@ -239,10 +273,12 @@ static int graph_has_local_assign(const IR_graph_t *g) {
     }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_has_binop(const IR_graph_t *g) {
     for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_BINOP) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name) {
     for (int i = 0; i < g->n; i++) { IR_t *m = g->all[i]; if (m && m->op == IR_ASSIGN && IR_LIT(m).sval && !strcmp(IR_LIT(m).sval, name)) return 1; }
     for (int p = 0; p < s2->proc_count; p++) {
@@ -252,6 +288,7 @@ static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, cons
     }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
     extern int rt_builtin_is_known(const char *name);
     if (!s2) return 0;
@@ -263,7 +300,8 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
-            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval)) return 0;
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval))
+                return 0;
             if (nd->op == IR_OP_COUNT) {
                 if (nd->n_operands < 1 || !nd->operands[0]) return 0;
                 for (int aj = 1; aj < nd->n_operands; aj++) {
@@ -271,12 +309,18 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
                     if (!arm || arm->op != IR_OP_COUNT || arm->n_operands < 1 || !arm->operands[0]) return 0;
                 }
             }
-            if (nd->op == IR_OP_COUNT && (nd->n_operands < 1 || !nd->operands[0])) return 0; /* admit user-defined generator suspend only when the expr-value operand is present (the resume-spine: bb_suspend yields operand[0], β runs operand[1] do-body; native driver landed — pieces 1-5 of DESIGN-ICON-SUSPEND); a malformed suspend with no value operand still REJECTED pre-emission */
-            if (0 && nd->op == IR_OP_COUNT) return 0; /* BENCH-F1 native list-element-assign arm in progress: scaffolding present (bb_idx_set + flat_drive_idx_set), but LIT-operand slotting (m3) + global-list value flow unfinished -> pre-emission reject, never abort */
-            if (nd->op == IR_OP_COUNT) return 0; /* BENCH-F2 reversible-assign <- : full scaffolding landed (IR_OP_COUNT + lower TT_REVASSIGN + bb_rasgn template + flat_drive_rasgn + dispatch), but rhs-var resolves to wrong frame slot in the conjunction's chain (op_a_slot collides with dest varslot) -> pre-emission reject, never silently wrong, until flat-chain rhs slotting is fixed */            if (nd->op == IR_OP_COUNT) { IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_OP_COUNT) return 0; } /* generator-RHS field-set: rhs slot unfilled -> pre-emission reject until generator-into-field value-flow built */
-            /* field-get→binop: FIXED — IR_OP_COUNT is now arity-1 in descr_chain_arity, so it consumes its object operand off the RPN stack and the binop reads the field-get result slot (not the leaked object var). veto removed. */
-            if (nd->op == IR_OP_COUNT) { IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0; }
-            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) { if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0; }
+            if (nd->op == IR_OP_COUNT && (nd->n_operands < 1 || !nd->operands[0])) return 0;
+            if (0 && nd->op == IR_OP_COUNT) return 0;
+            if (nd->op == IR_OP_COUNT) return 0;             if (nd->op == IR_OP_COUNT) {
+                IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_OP_COUNT) return 0;
+            }
+            if (nd->op == IR_OP_COUNT) {
+                IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
+                if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0;
+            }
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) {
+                if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0;
+            }
             if (nd->op == IR_OP_COUNT) {
                 if (IR_LIT(nd).dval != 1.0) return 0;
                 IR_graph_t *ssg = (IR_graph_t *)0;
@@ -288,91 +332,20 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
               if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
               if (nd->op == IR_ASSIGN && IR_LIT(nd).sval) {
                   int lhs_global = is_global(IR_LIT(nd).sval);
-                  if (lhs_global) { /* nv global assign: bb_gvar_assign_icn (BUILT) */ }
-                  else if (local_assign_rhs_ok_g(g, nd)) { /* wave-1 local assign: bb_assign_local (lit/var/binop rhs) */ }
-                  else return 0; /* other rhs shapes: native store arm not built -> pre-emission reject, never abort */
+                  if (lhs_global) {  }
+                  else if (local_assign_rhs_ok_g(g, nd)) {  }
+                  else return 0;
               } }
         }
     }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* GROUND ZERO #5: Prolog pl_gz and pl_findall codegen subsystem deleted (Icon-only reset). */
-/* THE DIRECTIVE (Lon 2026-06-24): every BB-local collection grows geometrically (×2) — NO fixed [N]
-   ceiling, NO `> N` overflow fence. Start cap 0 (NULL buf); first push allocates 8. GC-managed, so a
-   stale buffer after a grow is reclaimed automatically. Used for the GZ admit goal/claim buffers. */
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* PL-GZ-5c: a callee whose graph entry is a CHOICE over 2..4 RULE clauses (facts = empty-body rules).
- * Validation recurses through clause bodies; the visiting list breaks self/mutual recursion cycles
- * (a graph already on the list is being validated up-stack — assume ok here; a real failure
- * surfaces at the outer frame). */
 static IR_graph_t **g_gz_visiting = NULL; static int g_gz_nvisiting = 0; static int g_gz_visiting_cap = 0;
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* PL-BB-1 (LOWER half) — sound conservative callee-determinacy marker for the bounded-call rung. A call is `det`
- * (bounded) when the callee yields AT MOST ONE solution, so its retained-closure beta resume is dead and a later
- * increment can pop the E-area frame at gamma; this layer proves only the unambiguously-sound core: a SINGLE-clause
- * callee (entry not IR_CHOICE) whose body holds no surviving choice point — every body node is a det builtin / unify
- * / cut / arith / struct / leaf, or an IR_GOAL to a callee that is itself det (recursed; cycle-broken — a graph
- * already on the determinacy stack is single-clause self/mutual recursion, which adds no choice point, so det for
- * the cycle). ANY nested IR_CHOICE / IR_DISJ / IR_ITE / IR_CATCH / IR_CELL_* makes the clause NON-det (under-marking
- * is safe — marking too FEW calls only forgoes optimization; marking too MANY would drop solutions, so this errs to
- * 0). Multi-clause determinacy via first-arg indexing + cut-commit (the fib/tak shape) is the harder NEXT layer. */
 static IR_graph_t **g_gz_det_visiting = NULL; static int g_gz_det_nvisiting = 0; static int g_gz_det_visiting_cap = 0;
-/* scan one clause body graph: returns 1 iff choicepoint-free (every node a det builtin / unify / cut / arith /
- * struct / leaf, or an IR_GOAL to a det callee); sets *has_cut if any IR_CUT node is present. ANY nested
- * IR_CHOICE / IR_DISJ / IR_ITE / IR_CATCH / IR_CELL_* is a surviving choice point — not choicepoint-free. */
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* PL-BB-1 (LOWER half) — sound conservative callee-determinacy marker for the bounded-call rung. A call is `det`
- * (bounded) when the callee yields AT MOST ONE solution, so its retained-closure beta resume is dead and the emitter
- * elides it (bb_cell_call). SINGLE-clause callee: det iff its body is choicepoint-free. MULTI-clause callee (entry
- * IR_CHOICE): det iff Condition A holds — every NON-last clause contains a cut (so if it reaches a solution it has
- * committed away the later clauses + sibling CPs) AND every clause body is choicepoint-free (the last clause needs no
- * cut — nothing follows it). Recursion is cycle-broken: a graph already on the determinacy stack is self/mutual
- * recursion, which adds no choice point (it only deepens), so det for the cycle. Under-marking is safe (forgoes
- * optimization); over-marking would drop solutions, so every ambiguous shape resolves to NOT-det. Condition A marks
- * the cut-guarded recursion idiom (fib: clauses fib(0,_):-! and fib(1,_):-! cut, the last fib(N,_) clause has a det
- * body); complementary-guard determinism (tak's X=<Y / X>Y) is a further layer not claimed here. */
-/* A comparison/arith operand admissible by the GZ det path: a bare var, an integer/float literal,
- * or any (possibly nested) arith expression over var/lit leaves using flat-supported ops.  Flattened
- * bottom-up into IR_DET_IS steps at build time, so `X > Y*A+N` and `X =\= (Y-N)*2` are admitted. */
-/* PL-BB-2 soft-cut disjunction in a callee body: ( Cond, !, Then ; Else ) is the explicit-cut form of
- * ( Cond -> Then ; Else ).  Admit ONLY when arm0 is a conjunction whose pre-cut Cond is choicepoint-free
- * (semidet builtins / unifications, no user calls), so the cut is a free commit — then map to the IR_ITE
- * cell by splitting arm0 at the cut and attaching the synthesised bb_ite_state_t on the DISJ node, so the
- * count/build passes read it with no graph access.  Any other disjunction shape is rejected (broken=0).  */
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* PL-GZ-5c: graph slot s of one clause → frame slot.  Head slots 0..ar-1 are shared (the args);
- * each clause's locals live in its own frame range starting at lbase (single-clause lbase==ar ⇒ identity). */
-/* Synth temps a comparison goal needs: enough to flatten each arith-expr operand into IR_DET_IS
- * steps before the IR_DET_CMP.  Bare var/lit operands need none. */
-/* PL-GZ nested-arith: ops the flat IR_DET_IS emitter arms (var-op-lit / var-op-var) accept.  Any
- * arith node using one of these can be evaluated by a single flat IS over slot/lit operands; a
- * nested expression is flattened bottom-up into a chain of such steps via fresh synth slots. */
-/* A var/lit leaf, or a binary tree of supported ops over such leaves. */
-/* Number of IR_ARITH nodes in an expression (used to bound synth-slot demand for flattening:
- * a safe upper bound is 2 * this, allowing one slot per node plus one lit-materialisation each). */
-/* Emit a flat IR_DET_IS computing dstslot = op(L,R) onto head/tail.  L,R are each a slot var or a
- * literal.  The emitter handles lit/lit (const), var/lit, var/var — not lit/var, so materialise a
- * literal L into a slot when R is a var. */
-/* Flatten a (possibly nested) arith expression into a chain of flat IS steps appended to head/tail;
- * returns the leaf for nd (a slot-mapped var, a literal, or a fresh synth-slot var holding an
- * internal sub-expression's value).  Slot mapping is via pl_gz_slot_map(ar,lbase) — pass ar=0,lbase=0
- * for the generic (already-final-slot) path. */
-/* PL-GZ-5c: multi-clause RULE callee — the seed's path/2.  ONE frame: [args | clause-0 locals+synth |
- * clause-1 locals+synth | … | child slots].  mark at [ζ+0], cursor at [ζ+4]; per-clause body chains;
- * the SHELL-FIRST memo makes self/mutual recursion terminate at admit time exactly as in 5b. */
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* build a flat goal chain from a sub-graph entry (follow γ until the sub-graph's IR_SUCCEED/IR_FAIL
- * terminator) — used for catch's goal/recovery sub-graphs, which are NOT GCONJ-wrapped at lower time. */
 /*--------------------------------------------------------------------------------------------------------------------*/
 static int g_gz_no_struct_ptr = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
@@ -767,7 +740,10 @@ int main(int argc, char **argv)
                           printf("  .section .rodata\n");
                           printf("  .Ldefcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
                           printf("  .Ldeffld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          if (dv.v == DT_S) { const char *sv = dv.s ? dv.s : ""; printf("  .Ldefstr%d_%d: .byte ", ci, fj); for (const char *p = sv; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n"); }
+                          if (dv.v == DT_S) {
+                              const char *sv = dv.s ? dv.s : ""; printf("  .Ldefstr%d_%d: .byte ", ci, fj); for (const char *p = sv; *p; p++) printf("%d, ", (int)(unsigned char)*p);
+                              printf("0\n");
+                          }
                           else if (dv.v == DT_R) { union { double d; unsigned long long q; } u; u.d = dv.r; printf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q); }
                           printf("  .section .text\n  .intel_syntax noprefix\n");
                           printf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
@@ -862,7 +838,8 @@ int main(int argc, char **argv)
                           printf("  call dat_add_method@PLT\n");
                       }
                   } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_has_build(int); extern int dat_type_nbuild_keys(int); extern const char *dat_type_build_key_at(int, int);
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_has_build(int);
+                  extern int dat_type_nbuild_keys(int); extern const char *dat_type_build_key_at(int, int);
                   int n_cls = dat_type_count();
                   for (int ci = 0; ci < n_cls; ci++) {
                       const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
@@ -885,7 +862,8 @@ int main(int argc, char **argv)
                           printf("  call dat_set_build_key@PLT\n");
                       }
                   } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nhandles(int); extern const char *dat_type_handles_meth_at(int, int); extern const char *dat_type_handles_fld_at(int, int);
+                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nhandles(int);
+                  extern const char *dat_type_handles_meth_at(int, int); extern const char *dat_type_handles_fld_at(int, int);
                   int n_cls = dat_type_count();
                   for (int ci = 0; ci < n_cls; ci++) {
                       const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
@@ -967,7 +945,9 @@ int main(int argc, char **argv)
             if (n_gva_icn > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_icn);
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
-            if (bbg->nparams >= 1) printf("  push rdi\n  sub rsp, 8\n  xor edi, edi\n  xor esi, esi\n  call rt_make_list@PLT\n  add rsp, 8\n  pop rdi\n  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
+            if (bbg->nparams >= 1)
+                printf("  push rdi\n  sub rsp, 8\n  xor edi, edi\n  xor esi, esi\n  call rt_make_list@PLT\n  add rsp, 8\n  pop rdi\n"
+                       "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             printf("  xor esi, esi\n");
             printf("  call main_\xce\xb1\n");
             printf("  xor eax, eax\n");
@@ -1026,7 +1006,10 @@ int main(int argc, char **argv)
                 if (is_dup) continue;
                 int np = s2->proc_table[_pi].nparams;
                 const char **pn = NULL;
-                if (np > 0) { pn = (const char **)calloc((size_t)np, sizeof(const char *)); for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name; }
+                if (np > 0) {
+                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+                }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
@@ -1034,7 +1017,10 @@ int main(int argc, char **argv)
             }
             { extern int g_proc_direct_active; extern void proc_collect_reset(void); extern void proc_collect_graph(IR_graph_t *); extern int proc_slot_count(void);
               proc_collect_reset(); proc_collect_graph(sbbg);
-              for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *pn2 = s2->proc_table[_pi].name; if (!pn2 || strcmp(pn2, "main") == 0) continue; int idx2 = s2->proc_table[_pi].bb_idx; if (idx2 < 0 || idx2 >= s2->bbp.count || !s2->bbp.table[idx2] || !s2->bbp.table[idx2]->entry) continue; proc_collect_graph(s2->bbp.table[idx2]); }
+              for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                  const char *pn2 = s2->proc_table[_pi].name; if (!pn2 || strcmp(pn2, "main") == 0) continue; int idx2 = s2->proc_table[_pi].bb_idx;
+                  if (idx2 < 0 || idx2 >= s2->bbp.count || !s2->bbp.table[idx2] || !s2->bbp.table[idx2]->entry) continue; proc_collect_graph(s2->bbp.table[idx2]);
+              }
               g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
             int _pbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             int *pidx_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
@@ -1132,7 +1118,9 @@ int main(int argc, char **argv)
             if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva);
             printf("  call rt_frame@PLT\n  mov rdi, rax\n");
-            if (sbbg->nparams >= 1) printf("  push rdi\n  sub rsp, 8\n  xor edi, edi\n  xor esi, esi\n  call rt_make_list@PLT\n  add rsp, 8\n  pop rdi\n  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
+            if (sbbg->nparams >= 1)
+                printf("  push rdi\n  sub rsp, 8\n  xor edi, edi\n  xor esi, esi\n  call rt_make_list@PLT\n  add rsp, 8\n  pop rdi\n"
+                       "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             printf("  xor esi, esi\n");
             printf("  call flat_\xce\xb1\n");
             printf("  xor eax, eax\n  pop rbp\n  ret\n");
@@ -1303,7 +1291,10 @@ int main(int argc, char **argv)
                 if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
                 int np = s2->proc_table[_pi].nparams;
                 const char **pn = NULL;
-                if (np > 0) { pn = (const char **)calloc((size_t)np, sizeof(const char *)); for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name; }
+                if (np > 0) {
+                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+                }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
@@ -1338,7 +1329,10 @@ int main(int argc, char **argv)
                 bb_box_fn fn = gvar_flat_chain_build(sbbg);
                 g_frame_active = 0;
                 ir_delete_all(s2);
-                if (fn) { extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, rt_frame(), 0, m3_gva_arena); else (void)fn(rt_frame(), 0); { extern int g_gva_active; g_gva_active = 0; } goto run_done; }
+                if (fn) {
+                    extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, rt_frame(), 0, m3_gva_arena); else (void)fn(rt_frame(), 0);
+                    { extern int g_gva_active; g_gva_active = 0; } goto run_done;
+                }
             }
             fprintf(stderr, "[SBB] mode-3: SNOBOL4 statement shape not yet flat-emittable (a box lacks a "
                             "MEDIUM_BINARY arm); soft fall — no output for this shape. No abort.\n");

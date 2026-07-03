@@ -134,17 +134,22 @@ static int arith_is_relop(IR_t * nd) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static const char * relop_fail_mnem(IR_t * nd) {
-    return IR_LIT(nd).ival == BINOP_LT ? "jge" : IR_LIT(nd).ival == BINOP_LE ? "jg" : IR_LIT(nd).ival == BINOP_GT ? "jle" : IR_LIT(nd).ival == BINOP_GE ? "jl" : IR_LIT(nd).ival == BINOP_EQ ? "jne" : "je";
+    return IR_LIT(nd).ival == BINOP_LT ? "jge" : IR_LIT(nd).ival == BINOP_LE ? "jg" : IR_LIT(nd).ival == BINOP_GT ? "jle"
+         : IR_LIT(nd).ival == BINOP_GE ? "jl"  : IR_LIT(nd).ival == BINOP_EQ ? "jne" : "je";
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
     std::string s;
     if (a->op == IR_VAR && IR_LIT(a).sval) {
         std::string slow;
-        if (MEDIUM_TEXT) { char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); slow = x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT"); }
+        if (MEDIUM_TEXT) {
+            char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); slow = x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT");
+        }
         else { slow = x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(a).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(a).sval) : -1;
-        if (k >= 0) s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rax", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1)) + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
+        if (k >= 0)
+            s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rax", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1))
+               + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
         else s += slow;
     } else if (a->op == IR_OP_COUNT) {
         s += x86_frame_lea("rax", 0);
@@ -175,11 +180,15 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
     std::string s;
     if (b->op == IR_VAR && IR_LIT(b).sval) {
         std::string slow;
-        if (MEDIUM_TEXT) { char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); slow = x86("directive", (std::string(" lea rdi, [rip + ") + b2 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT"); }
+        if (MEDIUM_TEXT) {
+            char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); slow = x86("directive", (std::string(" lea rdi, [rip + ") + b2 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT");
+        }
         else { slow = x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(b).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
         slow += x86("mov", "rcx", "rax");
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(b).sval) : -1;
-        if (k >= 0) s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rcx", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1)) + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
+        if (k >= 0)
+            s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rcx", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1))
+               + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
         else s += slow;
     } else if (b->op == IR_OP_COUNT) {
         s += x86_frame_lea("rax", 0);
@@ -269,7 +278,6 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
     }
     return s;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
@@ -366,7 +374,14 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             }
         }
         IR_t * relnd = NULL;
-        { IR_t * rp = lf; int rg = 0; while (rp && rg++ < 256) { if (arith_is_relop(rp)) { relnd = rp; break; } if (!rp->γ.node || rp->γ.node->op == IR_SUCCEED || rp->γ.node->op == IR_FAIL) break; rp = rp->γ.node; } }
+        {
+            IR_t * rp = lf; int rg = 0;
+            while (rp && rg++ < 256) {
+                if (arith_is_relop(rp)) { relnd = rp; break; }
+                if (!rp->γ.node || rp->γ.node->op == IR_SUCCEED || rp->γ.node->op == IR_FAIL) break;
+                rp = rp->γ.node;
+            }
+        }
         if (relnd && fin && fin->op == IR_LIT_INTEGER && IR_LIT(fin).ival == 1 && relnd->ω.node && relnd->ω.node->op == IR_LIT_INTEGER && IR_LIT(relnd->ω.node).ival == 0) {
             IR_t * ra = NULL, * rb = NULL;
             arith_operands(sg, relnd, &ra, &rb);
@@ -454,7 +469,13 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_deflabel_id(nskip);
         return s;
     }
-    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_OP_COUNT || ir_is_call_kind(lf->op)) { int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_CALL_USERPROC || lf->op == IR_CALL_GVAR_USERPROC || lf->op == IR_PROC_GEN); if (owner && owner == _.node && staged && bb_slot_get(lf) >= 0) { int ps = bb_slot_get(lf); std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = spine call-result slot [r12+%d] -> [r12+%d]", idx, ps, aoff))); s += x86_frame_load64("rax", ps) + x86_frame_store64(aoff, "rax"); s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax"); return s; } return marshal_single_call(lf, aoff, bb_node_id(lf)); }
+    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_OP_COUNT || ir_is_call_kind(lf->op)) {
+        int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_CALL_USERPROC || lf->op == IR_CALL_GVAR_USERPROC || lf->op == IR_PROC_GEN);
+        if (owner && owner == _.node && staged && bb_slot_get(lf) >= 0) {
+            int ps = bb_slot_get(lf); std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = spine call-result slot [r12+%d] -> [r12+%d]", idx, ps, aoff)));
+            s += x86_frame_load64("rax", ps) + x86_frame_store64(aoff, "rax"); s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax"); return s;
+        } return marshal_single_call(lf, aoff, bb_node_id(lf));
+    }
     if (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && is_global(IR_LIT(lf).sval)) {
         std::string s;
         if (MEDIUM_TEXT) {

@@ -39,8 +39,15 @@ static int bcps_result_slot() {
     return -1;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_bin_arm() { int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)"); bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter; uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp); })
+static std::string bcps_bin_arm() {
+    int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
+    bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
+    uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    return FOR(0, (int)_.op_ival, [&](int i) {
+        int slot = bcps_arg_slot(_.node, argblks, i);
+        return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp);
+    })
          + x86("mov", "rdi", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""))
          + x86("mov32", "esi", (long)_.op_ival)
          + x86("call", "rt_call_proc_descr", fptr)
@@ -53,13 +60,18 @@ static std::string bcps_bin_arm() { int off = bcps_result_slot(); if (off < 0) r
          + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_txt_arm() { int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)"); bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
+static std::string bcps_txt_arm() {
+    int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
+    bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     return x86("label", _.lbl_α)
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")
          + x86("directive", ".intel_syntax noprefix")
-         + FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("mov", "edi", std::to_string(i)) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage@PLT"); })
+         + FOR(0, (int)_.op_ival, [&](int i) {
+             int slot = bcps_arg_slot(_.node, argblks, i);
+             return x86("mov", "edi", std::to_string(i)) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage@PLT");
+         })
          + x86("directive", (std::string(" lea rdi, [rip + .Lcall") + std::to_string(_.nid) + "_pname]").c_str())
          + x86("mov", "esi", std::to_string((int)_.op_ival))
          + x86("call", "rt_call_proc_descr@PLT")
@@ -72,13 +84,16 @@ static std::string bcps_txt_arm() { int off = bcps_result_slot(); if (off < 0) r
          + x86("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* GENERATOR-PROC CALL (Icon user-defined `suspend` generator). α stages the args and calls rt_proc_call_gen, which
-   allocates a PERSISTENT activation frame (survives the suspend-return) and pushes it; β re-enters that same
-   activation via rt_proc_resume_gen (which calls the proc slab with entry=1, so the slab's prologue jumps to its
-   suspend resume β). Both store the yielded value to the node slot and route type==99 (FAILDESCR) -> ω, else -> γ. */
-static std::string bcps_bin_gen_arm() { int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)"); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter; uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t callg_fp; { DESCR_t (*fp)(const char *, int) = rt_proc_call_gen; callg_fp = (uint64_t)(uintptr_t)(void*)fp; } uint64_t resumeg_fp; { DESCR_t (*fp)(void) = rt_proc_resume_gen; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    return FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp); })
+static std::string bcps_bin_gen_arm() {
+    int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
+    IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
+    uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t callg_fp; { DESCR_t (*fp)(const char *, int) = rt_proc_call_gen; callg_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t resumeg_fp; { DESCR_t (*fp)(void) = rt_proc_resume_gen; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    return FOR(0, (int)_.op_ival, [&](int i) {
+        int slot = bcps_arg_slot(_.node, argblks, i);
+        return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp);
+    })
          + x86("mov", "rdi", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""))
          + x86("mov32", "esi", (long)_.op_ival)
          + x86("call", "rt_proc_call_gen", callg_fp)
@@ -96,13 +111,18 @@ static std::string bcps_bin_gen_arm() { int off = bcps_result_slot(); if (off < 
          + x86("jmp", "γ");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_txt_gen_arm() { int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)"); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
+static std::string bcps_txt_gen_arm() {
+    int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
+    IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     return x86("label", _.lbl_α)
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")
          + x86("directive", ".intel_syntax noprefix")
-         + FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("mov", "edi", std::to_string(i)) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage@PLT"); })
+         + FOR(0, (int)_.op_ival, [&](int i) {
+             int slot = bcps_arg_slot(_.node, argblks, i);
+             return x86("mov", "edi", std::to_string(i)) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage@PLT");
+         })
          + x86("directive", (std::string(" lea rdi, [rip + .Lcall") + std::to_string(_.nid) + "_pname]").c_str())
          + x86("mov", "esi", std::to_string((int)_.op_ival))
          + x86("call", "rt_proc_call_gen@PLT")

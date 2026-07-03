@@ -67,7 +67,10 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
             }
         }
     }
-    if (FNCEX_fn(name)) { DESCR_t _r = rt_call_named_proc(name, args, nargs); if (!IS_FAIL_fn(_r)) return _r; const char *_ent = FUNC_ENTRY_fn(name); if (_ent && strcmp(_ent, name) != 0) { _r = rt_call_named_proc(_ent, args, nargs); if (!IS_FAIL_fn(_r)) return _r; } }
+    if (FNCEX_fn(name)) {
+        DESCR_t _r = rt_call_named_proc(name, args, nargs); if (!IS_FAIL_fn(_r)) return _r; const char *_ent = FUNC_ENTRY_fn(name);
+        if (_ent && strcmp(_ent, name) != 0) { _r = rt_call_named_proc(_ent, args, nargs); if (!IS_FAIL_fn(_r)) return _r; }
+    }
     return call_user_function(name, args, nargs);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

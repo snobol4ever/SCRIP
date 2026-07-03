@@ -1,12 +1,5 @@
 #pragma once
 /*====================================================================================================================*/
-/* emit.h — CONSOLIDATED emitter interface. Merges former emit_core/emit_bb/emit/emit_form/emit_globals/emit_drive/   */
-/* emit_templates/emit_io/emit_str/emit_str_builders/x86_opcodes/box_state into ONE. (bb_regs.h + emit_defs.h were    */
-/* dead and dropped; sil_macros.h is a runtime header and stays separate.) Bodies preserved byte-for-byte in          */
-/* dependency order. Emitter decls carry C linkage (extern "C") so C callers in driver/lowerer/opt link unchanged.    */
-/* Note: 3 duplicate EmitStr inlines (js_escape/jvm_push_int2/jvm_emit_ldc *_str) dropped; globals in emit_str.cpp win.*/
-/*====================================================================================================================*/
-/*=== x86_opcodes.h ===*/
 #define REX_W            0x48
 #define REX_WR           0x4C
 #define REX_B            0x41
@@ -70,7 +63,6 @@
 #define JG_REL32_X       0x8F
 #define RET              0xC3
 #define NOP              0x90
-/*=== emit_core.h ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -130,13 +122,6 @@ typedef struct bb_label_t { char name[BB_LABEL_NAME_MAX]; int offset; } bb_label
 #define bb_label_defined(lbl)  ((lbl)->offset != BB_LABEL_UNRESOLVED)
 #define emit_label_ok(l)       bb_label_defined(l)
 typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
-/* Per-proc forward-reference patch table for the in-process binary emitter.
-   Drained per-proc (bb_emit_end / bb_label_define resolve+remove entries), so this
-   bounds one proc's *simultaneously-pending* forward refs, which grows ~linearly with
-   proc length (chain γ/ω ports resolve only at proc end). 512 overflowed for large
-   procs (e.g. pcom chartypes peak=527, pint peak=587 → build returns NULL → proc fn
-   left unregistered → runtime FAILDESCR). 65536 sits far below the rel32-jump count
-   that can fit in FLAT_BUF_MAX (256KB / ~5B ≈ 52K) and costs ~1.5MB BSS. */
 #define BB_PATCH_MAX   65536
 #define EMIT_PATCH_MAX BB_PATCH_MAX
 typedef enum { PATCH_REL8, PATCH_REL32 } bb_patch_kind_t;
@@ -184,7 +169,6 @@ void xa_dispatch(XA_op_t op);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #endif
-/*=== box_state.h ===*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 #include "IR.h"
 #include <gc.h>
@@ -202,7 +186,6 @@ typedef struct {
     void  **ch_body_snaps;
     int     ch_nbodies;
 } bb_node_state_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_t * root; int succ_idx; int fail_idx; int is_terminal; } stmt_t;
 typedef struct { stmt_t * stmts; int n; int entry_idx; } prog_t;
@@ -235,7 +218,10 @@ typedef struct { void * graph_key; int base; int arity; int nlocals; int mark_sl
 typedef struct { pl_gz_callee_t * callee; int nargs; IR_t ** args; int child_slot; int det; } pl_gz_call_state_t;
 typedef struct { pl_gz_callee_t ** v; int n; int cap; } pl_gz_callee_vec_t;
 static inline pl_gz_callee_t * pl_gz_callees_push(pl_gz_callee_vec_t * cv, pl_gz_callee_t * ce) {
-    if (cv->n >= cv->cap) { int nc = cv->cap ? cv->cap * 2 : 8; pl_gz_callee_t ** nv = (pl_gz_callee_t **)GC_MALLOC(sizeof(pl_gz_callee_t *) * nc); if (!nv) return (pl_gz_callee_t *)0; for (int i = 0; i < cv->n; i++) nv[i] = cv->v[i]; cv->v = nv; cv->cap = nc; }
+    if (cv->n >= cv->cap) {
+        int nc = cv->cap ? cv->cap * 2 : 8; pl_gz_callee_t ** nv = (pl_gz_callee_t **)GC_MALLOC(sizeof(pl_gz_callee_t *) * nc); if (!nv) return (pl_gz_callee_t *)0;
+        for (int i = 0; i < cv->n; i++) nv[i] = cv->v[i]; cv->v = nv; cv->cap = nc;
+    }
     cv->v[cv->n++] = ce; return ce;
 }
 typedef struct { pl_gz_call_state_t * call; IR_t * tmpl; int result_slot; int acc_slot; int is_fail; int agg_mode; } pl_gz_findall_state_t;
@@ -260,7 +246,6 @@ static inline IR_t * bb_match_kid(const IR_t * nd, int i) {
 bb_node_state_t * bb_snapshot_state(IR_graph_t * cfg);
 void              bb_restore_state(IR_graph_t * cfg, bb_node_state_t * snap);
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*=== emit_bb.h ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -314,7 +299,6 @@ static inline bb_label_t bb_label_from_name(const char *name) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #endif
-/*=== emit.h ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -359,7 +343,6 @@ inline void emit_comment (const std::string & line) { emit_comment(line.c_str())
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 #endif
-/*=== emit_form.h (extern C wrapped) ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -380,12 +363,14 @@ void emit_label_define_bb    (bb_label_t * lbl);
 #ifdef __cplusplus
 }
 #endif
-/*=== emit_globals.h (extern C wrapped) ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
 #include "IR.h"
-enum { CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_RK_BOOL_COND = 2, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_GVAR_USERPROC = 4, CALL_ROUTE_PROC_STAGED = 5, CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_WRITE_SLOT = 7, CALL_ROUTE_WRITE_BINOP = 8, CALL_ROUTE_WRITE_LEGACY = 9, CALL_ROUTE_WRITE_EMPTY = 10, CALL_ROUTE_FN = 11 };
+enum {
+    CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_RK_BOOL_COND = 2, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_GVAR_USERPROC = 4, CALL_ROUTE_PROC_STAGED = 5,
+    CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_WRITE_SLOT = 7, CALL_ROUTE_WRITE_BINOP = 8, CALL_ROUTE_WRITE_LEGACY = 9, CALL_ROUTE_WRITE_EMPTY = 10, CALL_ROUTE_FN = 11
+};
 struct SrcLines;
 typedef struct {
     int                          backend;
@@ -540,7 +525,6 @@ extern int         Δ;
 #ifdef __cplusplus
 }
 #endif
-/*=== emit_drive.h (extern C wrapped) ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -556,7 +540,6 @@ void   emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
 #ifdef __cplusplus
 }
 #endif
-/*=== emit_templates.h (extern C wrapped) ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -599,7 +582,6 @@ void emit_sm_pat_capture_fn_args(const char * fname_lbl, uint64_t fname_ptr, int
 #ifdef __cplusplus
 }
 #endif
-/*=== emit_io.h ===*/
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -625,7 +607,6 @@ inline void emit_2asm (const std::string & a, const std::string & b) { emit_2asm
 /*--------------------------------------------------------------------------------------------------------------------*/
 #else
 #endif
-/*=== C++-only string builders: emit_str_builders.h (3 dup inlines removed) + emit_str.h ===*/
 #ifdef __cplusplus
 #include <string>
 #include <cstdio>

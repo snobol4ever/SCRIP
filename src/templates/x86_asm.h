@@ -169,8 +169,12 @@ inline std::string x86_store_cursor_mirror() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x45, 0x89, 0x32)) : std::string(" mov [r10], r14d\n");
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_push(const char * r) { int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x50 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" push ") + r + "\n"); }
-inline std::string x86_pop (const char * r) { int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x58 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" pop ")  + r + "\n"); }
+inline std::string x86_push(const char * r) {
+    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x50 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" push ") + r + "\n");
+}
+inline std::string x86_pop (const char * r) {
+    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x58 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" pop ")  + r + "\n");
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movimm(const char * dst, long imm) {
     int m = x86_rnum(dst);
@@ -184,7 +188,9 @@ inline std::string x86_movimm32(const char * dst, long imm) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_load_ro(const char * dst, const char * label, uint64_t ptr) {
-    if (MEDIUM_BINARY) { int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le(ptr); return x86_Lrec(code); }
+    if (MEDIUM_BINARY) {
+        int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le(ptr); return x86_Lrec(code);
+    }
     return std::string(" lea ") + dst + ", [rip + " + (label ? label : "??") + "]\n";
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -238,7 +244,10 @@ inline std::string x86_call_tgt(int t) {
 }
 inline std::string x86_lea_tgt(const char * dst, int t) {
     const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
-    if (MEDIUM_BINARY) { int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x04; code += (char)rex; code += (char)0x8D; code += (char)(0x05 | ((m & 7) << 3)); return x86_Lrec(code) + x86_Jrec(t); }
+    if (MEDIUM_BINARY) {
+        int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x04; code += (char)rex; code += (char)0x8D; code += (char)(0x05 | ((m & 7) << 3));
+        return x86_Lrec(code) + x86_Jrec(t);
+    }
     return std::string(" lea ") + dst + ", [rip + " + nm + "]\n";
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -388,22 +397,34 @@ inline const char * RDQ(const char * base, int off) { static char b[8][40]; stat
 /*--------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_load64(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
     return std::string(" mov ") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
 }
 inline std::string x86_reg_disp32_store64(const char * base, int disp, const char * src) {
     int g = x86_rnum(src), b = x86_rnum(base);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x89; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x89; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
     return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
 }
 inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long imm) {
     int b = x86_rnum(base);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xC7; c += (char)(0x80 | (b & 7)); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xC7; c += (char)(0x80 | (b & 7)); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
+        return x86_Lrec(c);
+    }
     return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8D; c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); c += u32le((uint32_t)disp); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8D; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
     return std::string(" lea ") + dst + ", [" + base + " + " + std::to_string(disp) + "]\n";
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -513,7 +534,9 @@ inline void x86_parse(const xop & x, opnd & o) {
       if (!strcmp(ns, "[r13+rcx]")) { o.kind = XK_R13RCX; return; }
       if (!strcmp(ns, "[r10]"))     { o.kind = XK_R10MIR; return; } }
     if (!strcmp(s, "[rip + __]"))              { o.kind = XK_RIPSEAL; return; }
-    if (!strncmp(s, "f64:", 4))                { o.kind = XK_IMM; o.imm = 0; o.txt = s; { unsigned long long bb = strtoull(s + 4, 0, 10); memcpy(&o.imm, &bb, sizeof(long) < 8 ? sizeof(long) : 8); } o.off = 1; return; }
+    if (!strncmp(s, "f64:", 4))                {
+        o.kind = XK_IMM; o.imm = 0; o.txt = s; { unsigned long long bb = strtoull(s + 4, 0, 10); memcpy(&o.imm, &bb, sizeof(long) < 8 ? sizeof(long) : 8); } o.off = 1; return;
+    }
     if (s[0] == '[') {
         const char * star = strstr(s, "*8]");
         if (star) {
@@ -534,7 +557,11 @@ inline void x86_parse(const xop & x, opnd & o) {
         if (n >= 3 && s[n - 1] == ']') {
             size_t bl = n - 2; if (bl > 7) bl = 7;
             memcpy(o.base, s + 1, bl); o.base[bl] = 0;
-            if (!x86_is_reg(o.base)) { fprintf(stderr, "FATAL x86_parse: memory operand '%s' has non-register base '%s' — no parse arm owns this form; templates must speak a canonical operand (FRQ/ROQ/RDQ/RSP), never a hand-built bracket string\n", s, o.base); abort(); }
+            if (!x86_is_reg(o.base)) {
+                fprintf(stderr, "FATAL x86_parse: memory operand '%s' has non-register base '%s' — no parse arm owns this form; "
+                        "templates must speak a canonical operand (FRQ/ROQ/RDQ/RSP), never a hand-built bracket string\n", s, o.base);
+                abort();
+            }
             o.kind = XK_MEMIND; return;
         }
     }
@@ -551,7 +578,6 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "comment"))   return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
-
     if (!strcmp(mnem, ".quad")) {
         if (xa.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xa.u)) : (std::string(" .quad ") + std::to_string((unsigned long long)xa.u) + "\n");
         if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
@@ -583,7 +609,10 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
                                                     : (std::string(" call ") + x86_portname(a.port) + "\n");
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" call ") + a.sym + "\n";
-        if (a.kind == XK_REG) { int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40; return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n"); }
+        if (a.kind == XK_REG) {
+            int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
+            return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n");
+        }
         return std::string();
     }
     if (!strcmp(mnem, "push")) return x86_push(a.txt);
