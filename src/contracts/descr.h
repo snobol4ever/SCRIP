@@ -20,7 +20,6 @@ typedef enum {
     DT_FAIL = 99,
     DT_DATA = 100,
 } DTYPE_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;
@@ -38,13 +37,13 @@ typedef struct DESCR_t {
         void              *ptr;
     };
 } DESCR_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; DESCR_t sv; long pos; long len; } VCELL_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 #define NAMETRAP(vc_) ((DESCR_t){ .v = DT_N, .slen = 2, .p = (void *)(vc_) })
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
 static inline int IS_NAMETRAP_fn(DESCR_t v) { return v.v == DT_N && v.slen == 2; }
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int IS_FH_fn(DESCR_t v) { return v.v == DT_FH; }
 #endif

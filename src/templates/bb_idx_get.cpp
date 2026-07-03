@@ -8,7 +8,7 @@ DESCR_t NV_GET_fn(const char * name);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_idx_get() {
     if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1 && _.op_parts_lbl[0] && _.op_sa >= 0))
         return x86_bomb("bb_idx_get: unhandled (needs base name + result/scratch slots)");

@@ -35,6 +35,7 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "bb_build.h"
 #include "scrip_sm.h"
 extern DESCR_t pat_at_cursor(const char *varname);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void stmt_init(void) {}
 extern DESCR_t      eval_expr(const char *src);
 extern int exec_stmt(const char *subj_name,
@@ -49,7 +50,7 @@ extern int         Δ;
 #include "../runtime/builtins/resolution.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
-/*====================================================================================================================*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int keyword_supported(const char *kw) {
     if (!kw) return 0;
     if (kw[0] == '&') kw++;
@@ -155,6 +156,7 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
     return 1;
 }
 static int graph_native_emittable_mode(stage2_t *s2, int for_run);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_native_emittable(stage2_t *s2) { return graph_native_emittable_mode(s2, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_register_record_types(stage2_t *s2) {
@@ -340,13 +342,9 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
     }
     return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t **g_gz_visiting = NULL; static int g_gz_nvisiting = 0; static int g_gz_visiting_cap = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t **g_gz_det_visiting = NULL; static int g_gz_det_nvisiting = 0; static int g_gz_det_visiting_cap = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int g_gz_no_struct_ptr = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
@@ -355,14 +353,13 @@ extern IR_graph_t *resolve_bb_graph_at(int idx);
 extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
-/*====================================================================================================================*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void m3_enter_with_rbx(bb_box_fn fn, void *frame, int entry, void *gva_base) {
     register void *r_di asm("rdi") = frame;
     register long  r_si asm("rsi") = (long)entry;
     register void *r_bx asm("rbx") = gva_base;
     __asm__ volatile("call *%[f]" : : [f]"r"(fn), "r"(r_di), "r"(r_si), "r"(r_bx) : "rax","rcx","rdx","r8","r9","r10","r11","memory","cc");
 }
-/*====================================================================================================================*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {

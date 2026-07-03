@@ -4,7 +4,7 @@
 extern "C" {
 #include "xa_template_common.h"
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_macro_library_open_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_MACRO_LIBRARY_OPEN (it IS the macro-def pass)");
@@ -16,6 +16,7 @@ static std::string xa_macro_library_open_str(void) {
     }
     return std::string();
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_macro_library_close_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_MACRO_LIBRARY_CLOSE");
@@ -24,6 +25,6 @@ static std::string xa_macro_library_close_str(void) {
     }
     return std::string();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_macro_library_open(void)  { auto s = xa_macro_library_open_str();  if (!s.empty()) emit_text_n(s.data(), s.size()); }
 extern "C" void xa_macro_library_close(void) { auto s = xa_macro_library_close_str(); if (!s.empty()) emit_text_n(s.data(), s.size()); }

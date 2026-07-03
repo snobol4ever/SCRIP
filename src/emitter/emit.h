@@ -1,5 +1,4 @@
 #pragma once
-/*====================================================================================================================*/
 #define REX_W            0x48
 #define REX_WR           0x4C
 #define REX_B            0x41
@@ -84,7 +83,6 @@ typedef enum {
     EMIT_NET              = 7,
     EMIT_WASM             = 8
 } bb_emit_mode_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define EMIT_BINARY     EMIT_BINARY_WIRED
 typedef enum {
     BB_PLATFORM_X86  = 0,
@@ -93,13 +91,11 @@ typedef enum {
     BB_PLATFORM_JS   = 3,
     BB_PLATFORM_WASM = 4
 } bb_platform_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef enum {
     BB_MEDIUM_TEXT      = 0,
     BB_MEDIUM_BINARY    = 1,
     BB_MEDIUM_MACRO_DEF = 2
 } bb_medium_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern bb_platform_t   g_platform;
 extern bb_medium_t     g_medium;
 extern int             g_use_sm_macros;
@@ -167,12 +163,9 @@ int  strtab_intern(const char *s);
 void xa_dispatch(XA_op_t op);
 #ifdef __cplusplus
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #endif
-/*--------------------------------------------------------------------------------------------------------------------*/
 #include "IR.h"
 #include <gc.h>
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     DESCR_t value; int64_t counter; int state;
     void   *resolve_cs;
@@ -186,7 +179,6 @@ typedef struct {
     void  **ch_body_snaps;
     int     ch_nbodies;
 } bb_node_state_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_t * root; int succ_idx; int fail_idx; int is_terminal; } stmt_t;
 typedef struct { stmt_t * stmts; int n; int entry_idx; } prog_t;
 typedef struct { IR_t ** kids; int nkids; IR_graph_t * inner; int * pos_stack; int cap; int saved_delta; } bb_arbno_state_t;
@@ -217,6 +209,7 @@ typedef struct { void * graph_key; int base; int arity; int nlocals; int mark_sl
                  int nclauses; IR_t ** clause_head; int body_emitted; } pl_gz_callee_t;
 typedef struct { pl_gz_callee_t * callee; int nargs; IR_t ** args; int child_slot; int det; } pl_gz_call_state_t;
 typedef struct { pl_gz_callee_t ** v; int n; int cap; } pl_gz_callee_vec_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline pl_gz_callee_t * pl_gz_callees_push(pl_gz_callee_vec_t * cv, pl_gz_callee_t * ce) {
     if (cv->n >= cv->cap) {
         int nc = cv->cap ? cv->cap * 2 : 8; pl_gz_callee_t ** nv = (pl_gz_callee_t **)GC_MALLOC(sizeof(pl_gz_callee_t *) * nc); if (!nv) return (pl_gz_callee_t *)0;
@@ -230,22 +223,21 @@ typedef struct { IR_t * cond_head; IR_t * then_head; IR_t * else_head; int gate_
 typedef struct { IR_t * goal_head; IR_t * recovery_head; IR_t * catcher; int mark_slot; } pl_gz_catch_state_t;
 typedef struct { IR_graph_t * gcfg; IR_t * tmpl; IR_t * result; IR_t * goal_node; } bb_findall_state_t;
 typedef struct { IR_t ** kids; int nkids; } bb_match_kids_state_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int bb_match_nkids(const IR_t * nd) {
     if (!nd) return 0;
     bb_match_kids_state_t * zk = (bb_match_kids_state_t *)0;
     return zk ? zk->nkids : 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t * bb_match_kid(const IR_t * nd, int i) {
     if (!nd) return (IR_t *)0;
     bb_match_kids_state_t * zk = (bb_match_kids_state_t *)0;
     if (!zk || i < 0 || i >= zk->nkids) return (IR_t *)0;
     return zk->kids[i];
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 bb_node_state_t * bb_snapshot_state(IR_graph_t * cfg);
 void              bb_restore_state(IR_graph_t * cfg, bb_node_state_t * snap);
-/*--------------------------------------------------------------------------------------------------------------------*/
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -286,18 +278,17 @@ extern size_t g_flat_data_len;
 extern int    g_flat_data_any;
 void data_buf_flush_pending_label(void);
 void data_buf_reset(void);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bb_label_t bb_label_from_name(const char *name) {
     bb_label_t lbl = { {0}, -1 };
     if (name) { strncpy(lbl.name, name, BB_LABEL_NAME_MAX - 1); lbl.name[BB_LABEL_NAME_MAX - 1] = '\0'; }
     return lbl;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define bb_build_flat_text(p,out,pfx)    codegen_flat_build(p,out,pfx)
 #define bb_flat_set_intern_str(fn)        lower_flat_set_intern_str(fn)
 #define bb_build_flat_text_reset()        lower_flat_reset()
 #ifdef __cplusplus
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #endif
 #ifdef __cplusplus
 extern "C" {
@@ -336,12 +327,11 @@ void emit_pc_label            (int pc);
 void emit_section             (const char * name);
 #ifdef __cplusplus
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C++" {
 #include <string>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void emit_comment (const std::string & line) { emit_comment(line.c_str()); }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #endif
 #ifdef __cplusplus
 extern "C" {
@@ -513,7 +503,6 @@ typedef struct {
     int                          op_arg_slot_cap;
     int                          op_arg_slot_n;
 } sm_emit_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern sm_emit_t g_emit;
 extern IR_graph_t * g_emit_cfg;
 extern const char *Σ;
@@ -598,13 +587,12 @@ void   emit_io_set_sink(FILE * out);
 FILE * emit_io_get_sink(void);
 #ifdef __cplusplus
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern "C++" {
 #include <string>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void emit_1asm (const std::string & a)            { emit_1asm(a.c_str()); }
 inline void emit_2asm (const std::string & a, const std::string & b) { emit_2asm(a.c_str(), b.c_str()); }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #else
 #endif
 #ifdef __cplusplus
@@ -613,22 +601,21 @@ inline void emit_2asm (const std::string & a, const std::string & b) { emit_2asm
 #include <sstream>
 namespace EmitStr {
 template<typename... Args>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string format_str(const char * fmt, Args... args) {
     char buf[4096];
     snprintf(buf, sizeof buf, fmt, args...);
     return std::string(buf);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string emit_comment_str(const char * line) {
     return std::string(line) + "\n";
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string emit_directive_str(const char * line) {
     return std::string(line) + "\n";
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 using namespace EmitStr;
 #ifdef __cplusplus
 #include <string>
@@ -637,7 +624,6 @@ using namespace EmitStr;
 #include <cstdint>
 extern "C" {
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 std::string emit_fmt(const char * f, ...) __attribute__((format(printf, 1, 2)));
 std::string u8   (unsigned v);
 std::string u32le(uint32_t v);
@@ -645,7 +631,6 @@ std::string u64le(uint64_t v);
 std::string bytes(size_t n, const char * lit);
 std::string bomb_text (const char * msg);
 std::string bomb_bytes(const char * msg);
-/*--------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_push_int2_str(long v);
 std::string jvm_emit_ldc_string_str(const char * s);
 std::string js_escape_string_str(const char * s);
@@ -670,14 +655,14 @@ std::string net_ctor_none_str(int sid, int nid);
 std::string net_spec_zw_str();
 #define IF(c, ...) ((c) ? (__VA_ARGS__) : std::string())
 template<typename F>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string FOR(int lo, int hi, F f) {
     std::string r;
     for (int i = lo; i < hi; i++) r += f(i);
     return r;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 template<typename F>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string emit_for(int lo, int hi, F f) { return FOR(lo, hi, f); }
 #endif
 #endif
-/*====================================================================================================================*/

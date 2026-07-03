@@ -7,7 +7,6 @@ extern "C" {
 #include "bb_templates.h"
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GATHER_MAX_TAKES 256
 static int64_t  s_gather_vals[GATHER_MAX_TAKES];
 static int      s_gather_n;

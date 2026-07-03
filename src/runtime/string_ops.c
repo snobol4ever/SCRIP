@@ -5,22 +5,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-/*====================================================================================================================*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int so_is_list(DESCR_t v) {
     if (v.v != DT_DATA || !v.u) return 0;
     DESCR_t t = FIELD_GET_fn(v, "gen_type");
     return t.v == DT_S && t.s && !strcmp(t.s, "list");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
     if (IS_NULL_fn(a)) return b;
     if (IS_NULL_fn(b)) return a;
     if (so_is_list(a) && so_is_list(b)) {
-        /* list ||| list (canonical olist.r lconcat): NEW list, a's elements then b's. Found by the
-           2026-07-01 wholesale audit: TT_LCONCAT routed here claiming type dispatch existed; it did not —
-           both operands were stringified. Non-list operands keep falling through to string concat. */
         static int so_list_reg = 0;
         if (!so_list_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); so_list_reg = 1; }
         int64_t an = FIELD_GET_fn(a, "frame_size").i, bn = FIELD_GET_fn(b, "frame_size").i;
@@ -45,7 +42,7 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     buf[al + bl] = '\0';
     return STRVAL(buf);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *real_str(double r, char *buf, int bufsz) {
     for (int p = 15; p <= 17; p++) {
         snprintf(buf, bufsz, "%.*g", p, r);

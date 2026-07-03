@@ -27,9 +27,9 @@ typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
 static int               g_eval_cache_cap = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned long eval_cache_hash(const char *s) { unsigned long h = 1469598103934665603UL; while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211UL; } return h; }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_cache_get(const char *s) {
     if (g_eval_cache_cap == 0) return NULL;
     unsigned long m = (unsigned long)g_eval_cache_cap - 1;
@@ -37,14 +37,14 @@ static eval_chain_fn eval_cache_get(const char *s) {
         if (!g_eval_cache[i].key) return NULL; else if (strcmp(g_eval_cache[i].key, s) == 0) return g_eval_cache[i].fn;
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eval_chain_fn fn) {
     unsigned long m = (unsigned long)cap - 1;
     unsigned long i = eval_cache_hash(key) & m;
     while (tab[i].key) i = (i + 1) & m;
     tab[i].key = key; tab[i].fn = fn;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_cache_put(const char *s, eval_chain_fn fn) {
     if (g_eval_cache_cap == 0 || (g_eval_cache_n + 1) * 2 > g_eval_cache_cap) {
         int ncap = g_eval_cache_cap ? g_eval_cache_cap * 2 : 16;
@@ -58,7 +58,6 @@ static void eval_cache_put(const char *s, eval_chain_fn fn) {
     eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn);
     g_eval_cache_n++;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 __asm__(
 ".text\n"
 ".globl rt_eval_run\n"
@@ -80,7 +79,6 @@ __asm__(
 "  ret\n"
 );
 void rt_eval_run(eval_chain_fn fn, void *zeta);
-/*--------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_build_chain(const char *s)
 {
     if (!s || !*s) return NULL;
@@ -109,7 +107,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     ast_tree_free_dyn(prog);
     return fn;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_chain_run_capture(eval_chain_fn fn) {
     int64_t eval_frame[512];
     memset(eval_frame, 0, sizeof eval_frame);
@@ -119,7 +117,7 @@ static DESCR_t eval_chain_run_capture(eval_chain_fn fn) {
     NV_SET_fn(EVAL_TMP, saved);
     return result;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
     eval_chain_fn cached = eval_cache_get(s);
@@ -132,14 +130,12 @@ DESCR_t eval_string_transient(const char *s) {
     else bb_pool_release(mark);
     return result;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_node(tree_t *e)
 {
     (void)e;
     fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n");
     abort();
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_expr(const char *src)
 {
     if (!src || !*src) return NULVCL;
@@ -147,7 +143,6 @@ DESCR_t eval_expr(const char *src)
     if (!tree) return FAILDESCR;
     return eval_node(tree);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn code_build_chain(const char *s)
 {
     if (!s || !*s) return NULL;
@@ -159,7 +154,6 @@ static eval_chain_fn code_build_chain(const char *s)
     if (!g) return NULL;
     return gvar_flat_chain_build(g);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code(const char *src)
 {
     if (!src || !*src) return FAILDESCR;
@@ -171,7 +165,6 @@ DESCR_t code(const char *src)
     d.ptr  = (void *)fn;
     return d;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void run_code_chain(eval_chain_fn fn)
 {
     if (!fn) return;
@@ -179,14 +172,12 @@ static void run_code_chain(eval_chain_fn fn)
     memset(code_frame, 0, sizeof code_frame);
     rt_eval_run(fn, (void *)code_frame);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 void rt_goto_dyn(const char *name)
 {
     if (!name || !*name) return;
     DESCR_t d = NV_GET_fn(name);
     if (d.v == DT_C && d.slen == 3) run_code_chain((eval_chain_fn)d.ptr);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t EXPVAL_fn(DESCR_t expr_d)
 {
     if (expr_d.v == DT_E) {
@@ -238,7 +229,6 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
     if (!s || !*s) return NULVCL;
     return eval_expr(s);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t CONVE_fn(DESCR_t str_d)
 {
     const char *s = VARVAL_fn(str_d);

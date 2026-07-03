@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "driver_private.h"
 void label_table_build(stage2_t *s2, const tree_t *prog)
 {
@@ -14,7 +15,6 @@ void label_table_build(stage2_t *s2, const tree_t *prog)
         }
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 const tree_t *label_lookup(const char *name)
 {
     if (!name || !*name) return NULL;
@@ -23,7 +23,6 @@ const tree_t *label_lookup(const char *name)
             return g_stage2.label_table[i].stmt;
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 const char *define_spec_from_expr(tree_t *subj)
 {
     if (!subj || subj->t != TT_FNC) return NULL;
@@ -49,7 +48,6 @@ const char *define_spec_from_expr(tree_t *subj)
     }
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 const char *define_entry_from_expr(tree_t *subj)
 {
     if (!subj || subj->t != TT_FNC) return NULL;
@@ -68,7 +66,6 @@ const char *define_entry_from_expr(tree_t *subj)
     if (arg2->t == TT_QLIT && arg2->v.sval) return arg2->v.sval;
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 void prescan_defines(const tree_t *prog)
 {
     if (!prog) return;

@@ -9,7 +9,7 @@ extern "C" void rt_write_int(long v);
 extern "C" void rt_pl_write_cell(void * cell_term);
 extern "C" void rt_pl_writeq_cell(void * cell_term);
 extern "C" void rt_pl_write_canonical_cell(void * cell_term);
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_det_write() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();

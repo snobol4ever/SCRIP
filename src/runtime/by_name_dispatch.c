@@ -14,9 +14,6 @@
 #include <ctype.h>
 #include <gc/gc.h>
 #include <math.h>
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* Public: generator builtins (multi-shot / scan-context) + list mutators that need
-   rt_call_arr byname routing rather than the deterministic-only known-builtin path. */
 int rt_builtin_is_generator(const char *name)
 {
     if (!name) return 0;
@@ -25,8 +22,9 @@ int rt_builtin_is_generator(const char *name)
         || !strcmp(name, "seq")
         || !strcmp(name, "push") || !strcmp(name, "put");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int builtin_is_generator(const char *name) { return rt_builtin_is_generator(name); }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_is_truthy(DESCR_t v) {
     if (IS_FAIL_fn(v)) return 0;
     if (IS_INT_fn(v))  return v.i != 0;
@@ -35,7 +33,6 @@ int rt_is_truthy(DESCR_t v) {
     const char *s = v.s ? v.s : "";
     return s[0] != '\0' && !(s[0] == '0' && s[1] == '\0');
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_known(const char *name)
 {
     if (!name) return 0;
@@ -72,8 +69,8 @@ int rt_builtin_is_known(const char *name)
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define SOH '\x01'
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *itos(long long v, char *buf, size_t cap) {
     if (cap < 2) { buf[0] = '\0'; return buf; }
     if (v == 0) { buf[0] = '0'; buf[1] = '\0'; return buf; }
@@ -85,17 +82,17 @@ static char *itos(long long v, char *buf, size_t cap) {
     for (size_t i = 0; i < len; i++) buf[i] = tmp[len - 1 - i];
     buf[len] = '\0'; return buf;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *rtos(double r, char *buf, size_t cap) {
     gcvt(r, 14, buf); (void)cap; return buf;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *to_cstring(DESCR_t v, char *scratch, size_t scap) {
     if (IS_INT_fn(v))  { return itos((long long)v.i, scratch, scap); }
     if (IS_REAL_fn(v)) { return rtos(v.r, scratch, scap); }
     const char *s = VARVAL_fn(v); return s ? s : "";
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t elem_to_descr(const char *s, size_t slen) {
     char *buf = GC_malloc(slen + 1);
     memcpy(buf, s, slen); buf[slen] = '\0';
@@ -103,24 +100,24 @@ static DESCR_t elem_to_descr(const char *s, size_t slen) {
     if (*ep == '\0' && ep > buf) return INTVAL(iv);
     return STRVAL(buf);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int junction_is(DESCR_t v) {
     return (IS_STR_fn(v) || v.v == DT_SNUL) && v.s && v.s[0] == '\x03';
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int jct_one_cmp_num(double a, double b, int op) {
     switch (op) { case TT_EQ: return a == b; case TT_NE: return a != b; case TT_LT: return a < b;
                   case TT_LE: return a <= b; case TT_GT: return a > b; case TT_GE: return a >= b;
                   default: return a == b; }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int jct_one_cmp_str(const char *a, const char *b, int op) {
     int c = strcmp(a, b);
     switch (op) { case TT_EQ: return c == 0; case TT_NE: return c != 0; case TT_LT: return c < 0;
                   case TT_LE: return c <= 0; case TT_GT: return c > 0; case TT_GE: return c >= 0;
                   default: return c == 0; }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
     const char *s = jct.s; if (!s || s[0] != '\x03' || !s[1]) return 0;
     char flav = s[1];
@@ -148,25 +145,25 @@ int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
     switch (flav) { case 'a': return hits >= 1; case 'l': return total > 0 && hits == total;
                     case 'o': return hits == 1; case 'n': return hits == 0; default: return 0; }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define GRAMMAR_MAX 128
 static struct { const char *qname; const char *body; int flavor; } gram_reg[GRAMMAR_MAX];
 static int gram_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gram_set(const char *qname, const char *body, int flavor) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) { gram_reg[i].body = GC_strdup(body); gram_reg[i].flavor = flavor; return; }
     if (gram_n < GRAMMAR_MAX) { gram_reg[gram_n].qname = GC_strdup(qname); gram_reg[gram_n].body = GC_strdup(body); gram_reg[gram_n].flavor = flavor; gram_n++; }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gram_get_flavor(const char *qname) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) return gram_reg[i].flavor;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *gram_get(const char *qname) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) return gram_reg[i].body;
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_grammar_builtin_class(const char *nm) {
     if (!nm) return NULL;
     if (!strcmp(nm, "digit"))  return "[0-9]";
@@ -179,7 +176,7 @@ static const char *rk_grammar_builtin_class(const char *nm) {
     if (!strcmp(nm, "xdigit")) return "[0-9a-fA-F]";
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gram_expand(const char *gname, const char *body, int flavor, char *out, int outsz, int depth) {
     int op = 0, n = (int)strlen(body);
     for (int i = 0; i < n && op < outsz - 1; ) {
@@ -230,19 +227,14 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
     }
     out[op] = '\0';
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_grammar_register(const char *qname, const char *body, int flavor) { if (qname && body) gram_set(qname, body, flavor); }
-/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_grammar_count(void) { return gram_n; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 const char *rt_grammar_qname(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].qname : NULL; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 const char *rt_grammar_body(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].body : NULL; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].flavor : 0; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname); return gram_get(qn) != NULL; }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out) {
     if (!gname) gname = ""; if (!subj) subj = "";
     char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname);
@@ -258,7 +250,7 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     int ok = m.matched && m.full_start == 0 && m.full_end == slen;
     *out = ok ? STRVAL(GC_strdup(subj)) : NULVCL; return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
     char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = ""; size_t n = strlen(s);
@@ -340,9 +332,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static long g_pas_heap_ctr = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *resolve_method_chain(const char *cls, const char *mname, char *buf, int bufsz, int *pfound) {
     extern int dat_mro(const char *name, const char **out, int max);
     extern int dat_roles(const char *name, const char **out, int max);
@@ -368,7 +359,7 @@ static const char *resolve_method_chain(const char *cls, const char *mname, char
     snprintf(buf, bufsz, "%s__%s", cls, mname);
     return buf;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int meth_is_user_proc(const char *procname) {
     extern int rt_proc_has_native_fn(const char *name);
     if (procname && rt_proc_has_native_fn(procname)) return 1;
@@ -376,11 +367,10 @@ static int meth_is_user_proc(const char *procname) {
         if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, procname)) return 1;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { DESCR_t self; char mname[128]; const char *mro[64]; int mro_len; int found_idx; DESCR_t args[16]; int nargs; } RedispFrame;
 static RedispFrame g_redisp[64];
 static int g_redisp_top = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int total) {
     int pi;
     for (pi = 0; pi < g_stage2.proc_count; pi++)
@@ -401,7 +391,7 @@ static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int t
     }
     return proc_table_call(pi, callargs, total);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
     extern int dat_mro(const char *name, const char **out, int max);
     extern int rt_proc_has_native_fn(const char *name);
@@ -420,7 +410,7 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
         }
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) {
     extern int dat_mro(const char *name, const char **out, int max);
     extern int dat_class_has_build(const char *cls);
@@ -448,7 +438,7 @@ void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) 
         }
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *val) {
     if (!cur) cur = ""; if (!val) val = ""; if (fi < 0) return GC_strdup(cur); if (ei < 0) ei = 0;
     const char *s = cur; long k = 0; const char *fstart = NULL; const char *fend = NULL;
@@ -473,7 +463,7 @@ static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *
     char *o = GC_malloc(pre + fp + post + 1); memcpy(o, cur, pre); memcpy(o + pre, newf, fp); if (fend) memcpy(o + pre + fp, fend, post); o[pre + fp + post] = '\0';
     return o;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rt_mc_type_name(DESCR_t d) {
     switch (d.v) {
     case DT_I: return "Int";
@@ -483,7 +473,7 @@ static const char *rt_mc_type_name(DESCR_t d) {
     default: return "Any";
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_mc_is_subtype(const char *a, const char *b) {
     if (!a || !b) return 0;
     if (!strcmp(b, "Any") || !strcmp(b, "Mu") || !strcmp(b, "Cool")) return 1;
@@ -494,7 +484,7 @@ static int rt_mc_is_subtype(const char *a, const char *b) {
       for (int i = 0; i < n; i++) if (mro[i] && !strcmp(mro[i], b)) return 1; }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_mc_accepts(const char *ptype, DESCR_t arg) {
     if (!ptype || !strcmp(ptype, "Any") || !strcmp(ptype, "Mu")) return 1;
     int require_def = 0, require_undef = 0;
@@ -516,7 +506,7 @@ static int rt_mc_accepts(const char *ptype, DESCR_t arg) {
     if (!strcmp(base, "Any") || !strcmp(base, "Mu") || !strcmp(base, "Cool")) return 1;
     return rt_mc_is_subtype(rt_mc_type_name(arg), base);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_mc_narrower(char (*ta)[32], char (*tb)[32], int na) {
     int narrower = 0, tied = 0;
     for (int i = 0; i < na; i++) {
@@ -538,7 +528,7 @@ static int rt_mc_narrower(char (*ta)[32], char (*tb)[32], int na) {
     }
     return narrower > 0 && (narrower + tied == na);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!cname || !mname) return 0;
     int nm = nargs - 2; if (nm < 0) return 0; DESCR_t *ma = &args[2];
@@ -577,14 +567,12 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     ca[0] = args[0]; for (int k = 0; k < nm; k++) ca[1 + k] = ma[k];
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_value(const char *name) {
     DESCR_t d; d.v = DT_E; d.slen = 0xFFFFFFFEu; d.s = (char *)name; return d;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * procval_name(DESCR_t v) {
     if (v.v != DT_E) return 0;
     if (v.slen == 0xFFFFFFFEu) return v.s;
@@ -592,10 +580,9 @@ static const char * procval_name(DESCR_t v) {
         if (g_stage2.proc_table[i].entry_pc == (int)v.i) return g_stage2.proc_table[i].name;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern int rt_proc_is_registered(const char *name);
 extern int rt_proc_nparams(const char *name);
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (IS_INT_fn(callee)) { long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
@@ -608,7 +595,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     }
     return rt_call_arr(nm, argv, n);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (!strcmp(fn, "__multi_call") && nargs >= 1) {
@@ -1681,8 +1668,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (script_try_hash_builtin(fn, args, nargs, out)) return 1;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define STX '\x02'
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *hash_find(const char *h, const char *key, const char **p_pair_start) {
     if (!h || !key) return NULL;
     size_t klen = strlen(key);
@@ -1703,7 +1690,7 @@ static const char *hash_find(const char *h, const char *key, const char **p_pair
     }
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *script_hash_set_str(const char *h, const char *key, const char *val) {
     if (!h) h = "";
     size_t klen = strlen(key), vlen = strlen(val);
@@ -1733,7 +1720,7 @@ char *script_hash_set_str(const char *h, const char *key, const char *val) {
     memcpy(o + hlen + (need_sep ? 1 : 0) + klen + 1, val, vlen);
     o[total] = '\0'; return o;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *script_hash_delete_str(const char *h, const char *key) {
     if (!h || !*h) return GC_strdup("");
     const char *pair_start = NULL;
@@ -1751,7 +1738,7 @@ char *script_hash_delete_str(const char *h, const char *key) {
     else if (nx) memcpy(o, nx, post);
     o[total] = '\0'; return o;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn || nargs < 1) return 0;
     if (args[0].v != DT_S && args[0].v != DT_SNUL) return 0;
@@ -1848,10 +1835,9 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #undef STX
 #undef SOH
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     if (!fn) return out;
@@ -1859,7 +1845,7 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     out = APPLY_fn(fn, args, nargs);
     return out;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_reg3 = 1; }
@@ -1868,9 +1854,9 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
     return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     int lj = junction_is(lhs), rj = junction_is(rhs);
     int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT || op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
@@ -1903,7 +1889,7 @@ int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
                     case BINOP_GT: case BINOP_SGT: return c>0;  case BINOP_GE: case BINOP_SGE: return c>=0; }
       return 0; }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_real_str(double r, char *buf, int bufsz, int prec) {
     if (prec < 1) prec = 1; if (prec > 16) prec = 16;
     char tmp[64]; snprintf(tmp, sizeof tmp, "%.*E", prec, r);
@@ -1914,7 +1900,7 @@ static void pas_real_str(double r, char *buf, int bufsz, int prec) {
     if (ndig < 3) snprintf(buf, bufsz, "%sE%c%0*d", mant, sign, 3, atoi(digits));
     else snprintf(buf, bufsz, "%s", tmp);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t proc_as_value(const char *name) {
     if (!name || name[0] == '&') return FAILDESCR;
     for (int i = 0; i < g_stage2.proc_count; i++) {
@@ -1943,7 +1929,7 @@ DESCR_t proc_as_value(const char *name) {
     for (int i = 0; builtins[i]; i++) if (strcmp(builtins[i], name) == 0) return STRVAL(name);
     return FAILDESCR;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void out_write_str(FILE *dest, const char *s) {
     if (!s || !*s) return;
     if (s[0] == '\x03') {
@@ -1980,7 +1966,7 @@ void out_write_str(FILE *dest, const char *s) {
     }
     fputs(s, dest);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     if (d.v == DT_DATA && d.u && d.u->type && d.u->type->name) {
         const char *mname = use_gist ? "gist" : "Str";
@@ -1989,7 +1975,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     }
     const char *s = VARVAL_fn(d); return s ? s : "";
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); return; }
@@ -1997,7 +1983,6 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (!fn || !out) return 0;
@@ -3436,4 +3421,3 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if (script_try_call_builtin_by_name(fn, args, nargs, out)) return 1;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/

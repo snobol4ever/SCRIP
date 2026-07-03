@@ -9,7 +9,7 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t de
 void rt_scan_leave(uint64_t *out3);
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_gen_scan() {
     x86_begin();
     if (!PLATFORM_X86) return x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)");

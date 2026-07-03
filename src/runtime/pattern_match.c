@@ -12,7 +12,6 @@
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
          abort(); } while (0)
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_lit(const char *s) {
@@ -277,7 +276,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
             if (ii == 0) ii = n + 1; else if (ii < 0) ii = n + ii + 1;
             if (jj == 0) jj = n + 1; else if (jj < 0) jj = n + jj + 1;
             if (ii < 1) ii = 1; if (jj > n+1) jj = n+1;
-            if (ii > jj) { int t = ii; ii = jj; jj = t; }   /* canonical sect: positions in either order (oref.r:509-513) */
+            if (ii > jj) { int t = ii; ii = jj; jj = t; }
             int rlen = jj - ii;
             if (rlen <= 0) {
                 static int list_empty_reg = 0;
@@ -300,7 +299,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         if (ii < 0) ii = slen + 1 + ii + 1;
         if (jj < 0) jj = slen + 1 + jj + 1;
         if (ii < 1) ii = 1; if (jj > slen+1) jj = slen+1;
-        if (ii > jj) { int t = ii; ii = jj; jj = t; }   /* canonical sect: positions in either order (oref.r:509-513) */
+        if (ii > jj) { int t = ii; ii = jj; jj = t; }
         int len = jj - ii;
         char *buf = GC_malloc(len+1); memcpy(buf, s+ii-1, len); buf[len]='\0';
         return STRVAL(buf);
@@ -482,6 +481,7 @@ typedef struct { const char *varname; const char *base; int len; } rt_dcap_t;
 static rt_dcap_t g_rt_dcap[RT_DCAP_MAX];
 static int       g_rt_dcap_n = 0;
 int              g_rt_dcap_active = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_dcap_record(const char *vname, const char *base, int len) {
     if (!vname || !*vname) return;
     for (int i = 0; i < g_rt_dcap_n; i++) {
@@ -507,10 +507,10 @@ void rt_dcap_flush(void) {
     }
     g_rt_dcap_n = 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_begin(void) { g_rt_dcap_active = 1; g_rt_dcap_n = 0; }
 void rt_dcap_end_fail(void) { g_rt_dcap_n = 0; g_rt_dcap_active = 0; }
 void rt_dcap_end_ok(void) { rt_dcap_flush(); g_rt_dcap_active = 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
     (void)is_imm;
@@ -524,7 +524,6 @@ void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, i
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
     NV_SET_fn(varname, matched);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char *Σ;
 extern int Σlen;
 void rt_subject_load_nv(const char *name, void *slot)
@@ -538,16 +537,14 @@ void rt_subject_load_nv(const char *name, void *slot)
     *(int *)((char *)slot + 8) = len;
     Σ = s; Σlen = len;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_subject_load_lit(const char *s, void *slot)
 {
     if (!s) s = "";
     int len = (int)strlen(s);
     ((const char **)slot)[0] = s;
     *(int *)((char *)slot + 8) = len;
-    Σ = s; Σlen = len;          /* capture base for rt_cap_assign_cursor — must mirror the NV arm */
+    Σ = s; Σlen = len;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_concat_parts_d(void *parts, int n)
 {
     struct part_t { int tag; int pad; const char *s; } *p = (struct part_t *)parts;
@@ -571,25 +568,21 @@ DESCR_t rt_concat_parts_d(void *parts, int n)
     DESCR_t d = { .v = DT_S, .slen = (uint32_t)total, .s = buf };
     return d;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
 {
     DESCR_t d = rt_concat_parts_d(parts, n);
     NV_SET_fn(dst ? dst : "", d);
     if (g_monitor_bin) mon_emit_value_bin(dst ? dst : "", d);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_at_cursor(const char *varname, int cur_delta)
 {
     if (!varname || !*varname) return;
     DESCR_t pos = { .v = DT_I, .i = (int64_t)cur_delta };
     NV_SET_fn(varname, pos);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int exec_stmt(const char *sname, DESCR_t *sv, DESCR_t pat, DESCR_t *repl, int has_repl);
 extern const char *Σ;
 extern int Σlen;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
 {
     DESCR_t val = NV_GET_fn(varname ? varname : "");
@@ -628,7 +621,6 @@ int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
 int cset_has(const char *cv, int clen, unsigned char ch) {
     return cv && clen > 0 && memchr(cv, ch, (size_t)clen) != NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
 {
     DESCR_t val = NV_GET_fn(varname ? varname : "");

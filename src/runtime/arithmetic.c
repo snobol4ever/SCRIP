@@ -13,7 +13,7 @@
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
          abort(); } while (0)
-/*====================================================================================================================*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t coerce_numeric(DESCR_t v) {
     if (IS_STR(v)) {
         const char *s = v.s ? v.s : "";
@@ -127,6 +127,7 @@ DESCR_t pos(DESCR_t a) {
     if (IS_REAL(a))  return a;
     return INTVAL(to_int(a));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lt(DESCR_t a, DESCR_t b) {
     if (IS_INT(a) && IS_INT(b)) return a.i < b.i;
     return to_real(a) < to_real(b);
@@ -146,13 +147,9 @@ int ge(DESCR_t a, DESCR_t b) {
     if (IS_INT(a) && IS_INT(b)) return a.i >= b.i;
     return to_real(a) >= to_real(b);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_arith(int lk, long li, const char *ls,
                   int rk, long ri, const char *rs, const char *op)
 {
-    /* PL-DESCR-2 sub-flip 2: the Term-pointer shadow env array is DELETED. rt_arith is reached only by the
-     * legacy non-cell boxes (IR_ARITH-by-slot); the GZ path uses rt_pl_is_cell_arith on inline cells. With the
-     * shadow gone, a logicvar operand simply falls through to its literal default (lv=li / rv=ri). */
     (void)ls; (void)rs; (void)lk; (void)rk;
     long lv = li;
     long rv = ri;
@@ -209,9 +206,6 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
         case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
         case BINOP_POW: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_descr(li, ri);
         case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
-            /* Cset-op operands COERCE like rt_cset_compl (canonical cnv:tcset): a DT_I/DT_R here previously
-               flowed its raw union bits into cset_* as a char* — the pointer-hole family's cset face
-               (numeric.icn `100 -- 4` segfault, gdb-bracketed cset_diff(a=0x64,b=0x4)). */
             extern const char *real_str(double r, char *buf, int bufsz);
             char _ab[64], _bb[64]; const char *as, *bs;
             if (IS_CSET_fn(a) || a.v == DT_S || a.v == DT_SNUL) as = a.s ? a.s : "";

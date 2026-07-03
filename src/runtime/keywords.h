@@ -1,13 +1,12 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef KEYWORDS_H
 #define KEYWORDS_H
 #include "../contracts/descr.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern long g_error;
 extern long g_trace;
 extern long g_dump;
 extern long g_random;
 extern int  g_jcon;
-/*--------------------------------------------------------------------------------------------------------------------*/
 int         kw_assign(const char *kw, DESCR_t val);
 int         kw_can_assign(const char *kw, DESCR_t val);
 DESCR_t     kw_read(const char *kw);

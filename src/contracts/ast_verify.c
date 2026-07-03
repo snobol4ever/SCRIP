@@ -32,13 +32,13 @@ static const KindSpec kind_spec[TT_KIND_COUNT] = {
     [TT_UNIFY]           = EXACT(2),    [TT_CLAUSE]        = MIN(1),     [TT_CHOICE]      = MIN(1),
     [TT_CUT]             = EXACT(0),    [TT_TRAIL_MARK]    = EXACT(0),   [TT_TRAIL_UNWIND]= EXACT(0),
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int count; FILE * f; } VerifyState;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void violation(VerifyState * vs, const char * path, const char * msg) {
     if (vs->f) fprintf(vs->f, "ast_verify: %s: %s\n", path, msg);
     vs->count++;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void verify_node(const tree_t * e, const char * path, VerifyState * vs, int depth) {
     char child_path[512];
     char msg[128];
@@ -71,13 +71,13 @@ static void verify_node(const tree_t * e, const char * path, VerifyState * vs, i
         else          verify_node(e->c[i], child_path, vs, depth + 1);
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ir_verify_node(const tree_t * e, const char * path, FILE * err) {
     VerifyState vs = { 0, err ? err : stderr };
     verify_node(e, path ? path : "root", &vs, 0);
     return vs.count;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ir_verify_program(const CODE_t * prog, FILE * err) {
     VerifyState vs;
     const STMT_t * s;
@@ -93,12 +93,13 @@ int ir_verify_program(const CODE_t * prog, FILE * err) {
     }
     return vs.count;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #ifdef AST_VERIFY_TEST
 #include <stdlib.h>
 #include <assert.h>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * mk(tree_e k)                            { tree_t * e = calloc(1, sizeof *e); e->t = k; return e; }
 static void add_child(tree_t * parent, tree_t * child)  { parent->c = realloc(parent->c, (size_t)(parent->n + 1) * sizeof(tree_t *)); parent->c[parent->n++] = child; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
     int failures = 0;
     { tree_t *a=mk(TT_ASSIGN), *v=mk(TT_VAR), *n=mk(TT_ILIT); v->v.sval="x"; n->v.ival=1; add_child(a,v); add_child(a,n);
@@ -118,5 +119,4 @@ int main(void) {
     fprintf(stderr, "\n%s — %d failure(s)\n", failures==0?"ALL PASS":"FAILURES PRESENT", failures);
     return failures ? 1 : 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #endif

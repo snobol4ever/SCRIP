@@ -16,7 +16,6 @@
 #include <ctype.h>
 #include <gc/gc.h>
 #include <setjmp.h>
-/* PL-DESCR-2 sub-flip 2: hot is/cmp helpers read inline cells natively (no term_new_* on the scalar hot path). */
 #include "../../parser/prolog/pl_cell.h"
 #define PL_CELL_ALLOC(n) GC_MALLOC(n)
 #include "../../parser/prolog/pl_cell_conv.h"
@@ -57,12 +56,10 @@ static const char * g_cur_func = NULL;
 #define RESOLVE_NB_SIZE 64
 typedef struct { int atom_id; Term *val; } PlNbSlot;
 static PlNbSlot g_resolve_nb[RESOLVE_NB_SIZE];
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * g_current_cfg = NULL;
 static IR_graph_t * g_resolve_tail_redirect_cfg   = NULL;
 static IR_t       * g_resolve_tail_redirect_entry = NULL;
 int g_resolve_b3_call_mark = -1;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_t * node; DESCR_t * items; int count; int cap; } seq_cache_t;
 #define SEQ_CACHE_MAX 64
 static seq_cache_t g_seq_cache[SEQ_CACHE_MAX];
@@ -71,8 +68,8 @@ typedef struct { IR_t * node; DESCR_t * items; int count; } susp_gen_cache_t;
 #define SUSP_GEN_CACHE_MAX 64
 static susp_gen_cache_t g_susp_gen_cache[SUSP_GEN_CACHE_MAX];
 static int g_susp_gen_cache_n = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit) {
     const char * subj_str = ""; int subj_len = 0;
     if (subj_name && subj_name[0]) {
@@ -101,11 +98,10 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
     }
     return matched ? 1 : 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e);
 static void resolve_format_float(char *buf, size_t bufsz, double d);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { Term *orig; Term *copy; } BBCopyMap;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *bb_copy_term_rec(Term *t, BBCopyMap *map, int *nmap) {
     t = t ? term_deref(t) : NULL;
     if (!t) return term_new_atom(prolog_atom_intern("[]"));
@@ -127,6 +123,7 @@ static Term *bb_copy_term_rec(Term *t, BBCopyMap *map, int *nmap) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *bb_copy_term(Term *t) { BBCopyMap map[256]; int n=0; return bb_copy_term_rec(t,map,&n); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int resolve_term_class(Term *t) {
     switch (t->tag) {
     case TERM_VAR: return 0;
@@ -166,7 +163,6 @@ static int resolve_term_compare(Term *a, Term *b) {
     default: return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
  static int resolve_term_is_ground(Term *t) {
     t = t ? term_deref(t) : NULL;
     if (!t) return 0;
@@ -191,7 +187,6 @@ static int resolve_term_is_proper_list(Term *t) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_body_has_live_choice(IR_graph_t *bbg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int type_test_common(const char *fn, Term *t) {
@@ -248,7 +243,7 @@ int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void
         if ((int)t->v == DT_I) { ra = (long)t->i; } else if ((int)t->v == DT_R) { r = t->r; ri_int = 0; } else return 0;
     }
     char c0 = op[0], c1 = op[1];
-    int cmp;  /* -2 LT, -1 LE, 0 EQ, 1 GE, 2 GT, 3 NE */
+    int cmp;
     if (c0 == '<') cmp = (c1 == '=') ? -1 : -2;
     else if (c0 == '>') cmp = (c1 == '=') ? 1 : 2;
     else if (c0 == '=') { if (c1 == '<') cmp = -1; else if (c1 == ':') cmp = 0; else if (c1 == '\\') cmp = 3; else return 0; }
@@ -362,11 +357,6 @@ void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
     return term_new_compound(fid, arity, args);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Materialize a cell graph to a Term graph while preserving VARIABLE IDENTITY across BOTH operands of a
- * comparison: a shared memo (deref'd cell address -> one Term var) guarantees that the same logic variable
- * appearing in t0 and t1 maps to the SAME Term* — which is what resolve_term_compare's pointer-identity var
- * test (a==b) needs. Going through plain pl_cell_to_term mints a fresh Term var per visit, so X==Y after X=Y
- * would wrongly compare two distinct vars as unequal ("diff"). */
 static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap) {
     pl_cell_t *d = pl_deref(c);
     int t = (int)d->v;
@@ -388,10 +378,9 @@ static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **
     }
     return term_new_var(-1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_term_cmp_terms(const char *op, void *t0, void *t1) {
     if (!op) return 0;
-    /* @</==/\\== etc on the GZ path receive cell ADDRESSES; compare on Term views (standard order of terms),
-     * sharing one var memo across both operands so identical variables compare identical. */
     pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
     Term *T0 = rt_cmp_cell_to_term_shared((pl_cell_t *)t0, vaddr, vterm, &vn, 256);
     Term *T1 = rt_cmp_cell_to_term_shared((pl_cell_t *)t1, vaddr, vterm, &vn, 256);
@@ -455,7 +444,6 @@ static int univ_common(Term *t0, Term *t1) {
 int rt_univ_term_term(void *t0, void *t1) {
     return univ_common((Term *)t0, (Term *)t1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_pl_yield_seq = 1;
 typedef struct { Term **callee_env; Term **saved_env; int trail_mark; int nslots;
                  bb_node_state_t *act; void *cp_floor; int disj_hint; } PlCallSt;
@@ -520,7 +508,6 @@ DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) {
     (void)upi; (void)args; (void)nargs;
     fprintf(stderr, "[NO-IR-INTERP] ir_call_proc: IR interpreter deleted (walked IR via IR_interp_pump); native BB proc-call pending\n"); return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char *Σ;
 extern int Σlen;
 void rt_scan_splice_empty(const char *subj_name, int m_start, int m_end)

@@ -7,9 +7,6 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR_REV_ASSIGN — Icon reversible assignment through a NAMED variable `x <- v` (canonical oasgn.r rasgn: GeneralAsgn(x,v); suspend x; on resume GeneralAsgn(x,saved); fail).  ONE shape: the value
-   lives in a frame slot; save old (op_sb->op_sc), write new (op_a_slot->op_sb), yield, restore on β.  The SUBSCRIPT lvalue form `x[i] <- v` is IR_REV_ASSIGN_VAR (bb_rev_assign_var.cpp) — the
-   IDX-UNIFY through-variable sibling, exactly as IR_ASSIGN_VAR sibling-of-IR_ASSIGN; the DORMANT pre-variable-doctrine subscript arm formerly here (LOWER never produced its selector) is deleted. */
 std::string bb_rasgn() {
     if (!PLATFORM_X86) return std::string();
     return IF(!(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0), x86_bomb("bb_rasgn: x<-v needs varslot + rhs slot + save slot + own slot"))

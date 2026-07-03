@@ -13,8 +13,6 @@ extern "C" int  rt_pl_throw_match(void *catcher_cell);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcc_mark_off() { return GZ_CELL_OFF((int)_.op_parts_ival[0]); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR_CELL_CATCH — three aspects wired by gz_emit_catch (op_sa 0/1/2). TGT0 is the per-aspect target:
- * aspect 0 -> goal chain entry; aspect 1 -> recovery chain entry (or catch.ω if no recovery). */
 std::string bb_cell_catch() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();

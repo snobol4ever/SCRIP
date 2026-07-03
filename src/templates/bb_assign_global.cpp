@@ -8,7 +8,7 @@ extern int g_gva_active;
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_global() {
     if (!(PLATFORM_X86 && _.op_a_slot >= 0 && _.op_off >= 0)) return x86_bomb("bb_assign_global: unhandled (needs descr flat-chain + rhs slot + own slot)");
     if (g_gva_active && _.op_gva_k >= 0)

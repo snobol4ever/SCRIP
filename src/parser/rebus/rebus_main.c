@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 void rebus_emit(tree_t *prog, FILE *out);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char *argv[]) {
     const char *outfile = NULL;
     const char *infile  = NULL;

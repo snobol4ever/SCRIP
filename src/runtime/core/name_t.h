@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef NAME_T_H
 #define NAME_T_H
 #include "descr.h"
@@ -7,7 +8,6 @@ typedef enum {
     NM_IDX  = 2,
     NM_CALL = 3
 } NameKind_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct NAME_s {
     NameKind_t   kind;
     const char  *var_name;
@@ -19,7 +19,6 @@ typedef struct NAME_s {
     char       **fnc_arg_names;
     int          fnc_n_arg_names;
 } NAME_t;
-/*--------------------------------------------------------------------------------------------------------------------*/
 int  name_commit_value(const NAME_t *nm, DESCR_t value);
 void name_init_as_var (NAME_t *nm, const char *var_name);
 void name_init_as_ptr (NAME_t *nm, DESCR_t *var_ptr);

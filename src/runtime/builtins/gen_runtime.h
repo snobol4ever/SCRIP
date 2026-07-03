@@ -1,3 +1,4 @@
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef GEN_RUNTIME_H
 #define GEN_RUNTIME_H
 #include "ast.h"
@@ -38,7 +39,6 @@ struct GenFrame {
     GenFrame     *static_link;
     int           level;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e)
 {
     if (!e) return NULL;
@@ -46,7 +46,6 @@ static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e)
         return g_stage2.bbp.table[e->bb_idx];
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t *bb_proc_entry(const ProcEntry *e)
 {
     IR_graph_t *g = bb_graph_of_proc(e);
@@ -54,7 +53,6 @@ static inline IR_t *bb_proc_entry(const ProcEntry *e)
     if (e->proc_entry_node) return e->proc_entry_node;
     return g->entry;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern int          g_lang;
 extern tree_t      *g_root;
 extern GenFrame     frame_stack[FRAME_STACK_MAX];

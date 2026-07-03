@@ -7,14 +7,14 @@ extern int g_gvar_flat_chain;
 #include "descr.h"
 }
 #include "x86_asm.h"
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string frame_reach(const char * reg, int hops) {
     extern int g_emit_frame_caller_dl;
     int target = g_emit_frame_caller_dl - hops;
     const char * dreg = (hops >= 1 && target >= 1 && target <= 3) ? (target == 1 ? "r13" : target == 2 ? "r14" : "r15") : (const char *) 0;
     return dreg ? x86("mov", reg, dreg) : x86("lea", reg, FRQ(0)) + FOR(0, hops, [&](int h) { (void) h; return x86("mov", reg, RDQ(reg, 0)); });
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_frame_ref() {
     if (PLATFORM_X86)
         return !(g_gvar_flat_chain && _.op_off >= 0) ? x86_bomb("bb_var_frame_ref: needs gvar flat-chain + own slot") :
