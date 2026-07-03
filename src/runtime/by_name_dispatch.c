@@ -63,7 +63,7 @@ int rt_builtin_is_known(const char *name)
         "callsame", "nextsame", "callwith",
         "__multi_call", "__param_check",
         "TIME", "DATE",
-        "IDENTICAL",
+        "IDENTICAL", "getenv", "open", "where", "close",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -1090,6 +1090,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         FILE *fp = fh_get(idx);
         if (fp) { fclose(fp); fh_free(idx); }
         *out = INTVAL(0); return 1;
+    }
+    if (!strcmp(fn, "where") && nargs == 1) {
+        extern void  fh_ensure_init(void);
+        extern FILE *fh_get(int);
+        if (!IS_INT_fn(args[0]) && !IS_FH_fn(args[0])) { *out = FAILDESCR; return 1; }
+        fh_ensure_init();
+        FILE *fp = fh_get((int)args[0].i);
+        if (!fp) { *out = FAILDESCR; return 1; }
+        long pos = ftell(fp);
+        if (pos < 0) { *out = FAILDESCR; return 1; }
+        *out = INTVAL(pos + 1);
+        return 1;
     }
     if (!strcmp(fn, "slurp") && nargs == 1) {
         extern void  fh_ensure_init(void);
@@ -2386,6 +2398,14 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         int sl=(int)strlen(s);
         while (sl > 0 && strchr(cset, s[sl-1])) sl--;
         char *buf=GC_malloc(sl+1); memcpy(buf,s,sl); buf[sl]='\0';
+        *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn,"getenv") && nargs == 1) {
+        const char *name = VARVAL_fn(args[0]);
+        if (!name) { *out = FAILDESCR; return 1; }
+        const char *val = getenv(name);
+        if (!val) { *out = FAILDESCR; return 1; }
+        size_t vl = strlen(val); char *buf = GC_malloc(vl+1); memcpy(buf, val, vl); buf[vl] = '\0';
         *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn,"left") && nargs >= 1) {
