@@ -63,6 +63,8 @@ int rt_builtin_is_known(const char *name)
         "__multi_call", "__param_check",
         "TIME", "DATE",
         "IDENTICAL", "getenv", "open", "where", "close",
+        "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
+        "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -3284,6 +3286,54 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         const char *_ls=VARVAL_fn(_l); if(!_ls)_ls=""; \
         const char *_rs=VARVAL_fn(_r); if(!_rs)_rs=""; \
         int _cmp=strcmp(_ls,_rs); *out=(_cmp op 0)?_r:FAILDESCR; return 1; } while(0)
+#define _SNOCOERCE(d) do { \
+        if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
+            const char *_s9 = VARVAL_fn(d); \
+            if (!_s9 || !*_s9) { (d) = INTVAL(0); } else { _OPCOERCE(d); } } } while(0)
+    if (!strcmp(fn,"IDENT") || !strcmp(fn,"DIFFER")) {
+        extern int descr_identical(DESCR_t, DESCR_t);
+        DESCR_t a = nargs > 0 ? args[0] : NULVCL, b = nargs > 1 ? args[1] : NULVCL;
+        int same = descr_identical(a, b);
+        *out = (!strcmp(fn,"IDENT") ? same : !same) ? NULVCL : FAILDESCR; return 1;
+    }
+    if (!strcmp(fn,"TRIM") && nargs == 1) {
+        const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
+        size_t n = strlen(sv); while (n > 0 && sv[n-1] == ' ') n--;
+        char *buf = (char *)GC_malloc(n + 1); memcpy(buf, sv, n); buf[n] = 0;
+        *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn,"DUPL") && nargs == 2) {
+        const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
+        DESCR_t nn = args[1]; _SNOCOERCE(nn);
+        long long k = IS_REAL_fn(nn) ? (long long)nn.r : nn.i;
+        if (k < 0) { *out = FAILDESCR; return 1; }
+        size_t sl = strlen(sv); char *buf = (char *)GC_malloc(sl * (size_t)k + 1);
+        for (long long i = 0; i < k; i++) memcpy(buf + (size_t)i * sl, sv, sl);
+        buf[sl * (size_t)k] = 0; *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn,"REPLACE") && nargs == 3) {
+        const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
+        const char *fv = VARVAL_fn(args[1]); if (!fv) fv = "";
+        const char *tv = VARVAL_fn(args[2]); if (!tv) tv = "";
+        if (strlen(fv) != strlen(tv) || !*fv) { *out = FAILDESCR; return 1; }
+        char map[256]; for (int i = 0; i < 256; i++) map[i] = (char)i;
+        for (const char *f2 = fv, *t2 = tv; *f2; f2++, t2++) map[(unsigned char)*f2] = *t2;
+        size_t n = strlen(sv); char *buf = (char *)GC_malloc(n + 1);
+        for (size_t i = 0; i < n; i++) buf[i] = map[(unsigned char)sv[i]];
+        buf[n] = 0; *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn,"REMDR") && nargs == 2) {
+        DESCR_t a = args[0], b = args[1]; _SNOCOERCE(a); _SNOCOERCE(b);
+        long long ai = IS_REAL_fn(a) ? (long long)a.r : a.i, bi = IS_REAL_fn(b) ? (long long)b.r : b.i;
+        if (bi == 0) { *out = FAILDESCR; return 1; }
+        *out = INTVAL(ai % bi); return 1;
+    }
+    if (!strcmp(fn,"SNO$NAME") && nargs == 1) {
+        const char *sv = VARVAL_fn(args[0]);
+        if (!sv || !*sv) { *out = FAILDESCR; return 1; }
+        DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = GC_strdup(sv);
+        *out = d; return 1;
+    }
     if (nargs == 1) {
         DESCR_t a = args[0];
         if (IS_FAIL_fn(a)) { *out = FAILDESCR; return 1; }
@@ -3374,7 +3424,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!strcmp(fn,"=="))  _STRREL(==);
         if (!strcmp(fn,"~==")) _STRREL(!=);
         if (!strcmp(fn,"EQ")||!strcmp(fn,"NE")||!strcmp(fn,"LT")||!strcmp(fn,"LE")||!strcmp(fn,"GT")||!strcmp(fn,"GE")) {
-            DESCR_t _l=args[0],_r=args[1]; _OPCOERCE(_l); _OPCOERCE(_r);
+            DESCR_t _l=args[0],_r=args[1]; _SNOCOERCE(_l); _SNOCOERCE(_r);
             double a=IS_REAL_fn(_l)?_l.r:(double)_l.i, b=IS_REAL_fn(_r)?_r.r:(double)_r.i;
             int ok = !strcmp(fn,"EQ")?(a==b):!strcmp(fn,"NE")?(a!=b):!strcmp(fn,"LT")?(a<b)
                    : !strcmp(fn,"LE")?(a<=b):!strcmp(fn,"GT")?(a>b):(a>=b);

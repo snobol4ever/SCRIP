@@ -25,6 +25,12 @@ void bb_label_registry_add(const char * name, IR_t * landing) {
     lc_vec_push(&g_bb_labels, &e);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t * bb_label_landing(const char * name) {
+    if (!name) return NULL;
+    for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i); if (e->name && !strcmp(e->name, name)) return e->landing; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lp_s_int(const tree_t *s, const char *tag) { const char *v = stmt_attr_str(stmt_attr_find(s, tag)); return v ? atoi(v) : 0; }
 tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt_attr_find(s, tag)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
