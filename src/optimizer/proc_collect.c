@@ -36,7 +36,7 @@ void proc_collect_graph(IR_graph_t *g) {
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i]; if (!nd || !IR_LIT(nd).sval) continue;
         switch (nd->op) {
-        case IR_CALL: case IR_CALL_GVAR_USERPROC: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_PROC_STAGED:
+        case IR_CALL: case IR_CALL_PROC_STAGED:
             if (proc_direct_eligible(IR_LIT(nd).sval)) (void)proc_collect_add(IR_LIT(nd).sval); break;
         default: break;
         }

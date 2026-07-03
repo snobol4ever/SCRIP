@@ -613,7 +613,6 @@ int main(int argc, char **argv)
         return 0;
     }
     if (mode_compile_x86) {
-        extern int codegen_flat_build(IR_t * nd, FILE * out, const char * prefix);
         extern int g_frame_active;
         if (is_icon || is_raku) {
             extern int g_postfix_resume;
@@ -656,8 +655,7 @@ int main(int argc, char **argv)
                 return 1;
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
-            extern int descr_flat_chain_build_text(IR_t * entry, FILE * out, const char * prefix);
-            extern int descr_flat_chain_build_proc_text(IR_t *entry, const char **pnames, int np, FILE *out, const char *pname);
+            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             printf("  .intel_syntax noprefix\n");
             printf("  .text\n");
             g_frame_active = 1;
@@ -684,7 +682,7 @@ int main(int argc, char **argv)
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                descr_flat_chain_build_proc_text(s2->bbp.table[idx]->entry, pn, np, stdout, pname);
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", pname); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 proc_nparams_buf[n_procs] = np;
                 proc_names_buf[n_procs++] = pname;
@@ -954,7 +952,7 @@ int main(int argc, char **argv)
             int rc;
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
-                rc = descr_flat_chain_build_text(bbg->entry, stdout, "main");
+                rc = emit_chain(bbg->entry, stdout, "main") ? 0 : 1;
             }
             g_gva_active = 0;
             g_frame_active = 0;
@@ -969,8 +967,7 @@ int main(int argc, char **argv)
             return 1;
         }
         {
-            extern int gvar_flat_chain_build_text(IR_graph_t * g, FILE * out, const char * prefix);
-            extern int gvar_flat_chain_build_text_at(IR_graph_t * g, IR_t * entry_node, FILE * out, const char * prefix);
+            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             extern void xa_emit_strtab_rodata(void);
             extern int g_frame_active;
             extern void rt_proc_reset(void);
@@ -1044,7 +1041,7 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                gvar_flat_chain_build_text_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_node, stdout, pname);
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", pname); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, stdout, _pfx); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
                 pidx_buf[n_procs++] = _pi;
@@ -1123,7 +1120,7 @@ int main(int argc, char **argv)
             printf("  call flat_\xce\xb1\n");
             printf("  xor eax, eax\n  pop rbp\n  ret\n");
             g_gva_active = (n_gva > 0) ? 1 : 0;
-            int rc = gvar_flat_chain_build_text(sbbg, stdout, "flat");
+            int rc = emit_chain(sbbg->entry, stdout, "flat") ? 0 : 1;
             g_gva_active = 0;
             g_proc_direct_active = 0;
             g_frame_active = 0;
@@ -1148,7 +1145,7 @@ int main(int argc, char **argv)
         if (is_icon || is_raku) {
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
-            extern bb_box_fn descr_flat_chain_build_proc(IR_t * entry, const char ** pnames, int np);
+            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
             int main_bb_idx = -1;
@@ -1207,7 +1204,7 @@ int main(int argc, char **argv)
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                bb_box_fn pfn = descr_flat_chain_build_proc(s2->bbp.table[idx]->entry, pn, np);
+                bb_box_fn pfn = emit_chain(s2->bbp.table[idx]->entry, NULL, "proc_flat");
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
@@ -1232,13 +1229,13 @@ int main(int argc, char **argv)
                 abort();
             }
             extern void *rt_frame(void);
-            extern bb_box_fn descr_flat_chain_build(IR_t * entry);
+            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
-            fn = descr_flat_chain_build(bbg->entry);
+            fn = emit_chain(bbg->entry, NULL, "pat_flat");
             g_frame_active = 0;
             if (!fn) {
-                fprintf(stderr, "[IBB] FATAL: mode-3 driver: bb_build_flat returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");
+                fprintf(stderr, "[IBB] FATAL: mode-3 driver: emit_chain returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");
                 abort();
             }
             ir_delete_all(s2);
@@ -1255,8 +1252,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "GROUND ZERO #5: Prolog backend deleted (Icon-only reset; Prolog rebuilds later).\n");
                 return 1;
             }
-            extern bb_box_fn gvar_flat_chain_build(IR_graph_t * g);
-            extern bb_box_fn gvar_flat_chain_build_at(IR_graph_t * g, IR_t * entry_node, const char * prefix);
+            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             extern void *rt_frame(void);
             extern int g_frame_active;
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
@@ -1315,7 +1311,7 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                bb_box_fn pfn = gvar_flat_chain_build_at(s2->bbp.table[idx], s2->proc_table[_pi].proc_entry_node, pname);
+                bb_box_fn pfn = emit_chain(s2->proc_table[_pi].proc_entry_node, NULL, "proc_flat");
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
@@ -1324,7 +1320,7 @@ int main(int argc, char **argv)
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
             if (sbbg && sbbg->entry) {
                 g_frame_active = 1;
-                bb_box_fn fn = gvar_flat_chain_build(sbbg);
+                bb_box_fn fn = emit_chain(sbbg->entry, NULL, "pat_flat");
                 g_frame_active = 0;
                 ir_delete_all(s2);
                 if (fn) {

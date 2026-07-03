@@ -19,10 +19,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_UNOP_TEST] = "IR_UNOP_TEST",
     [IR_CALL] = "IR_CALL",
     [IR_CALL_PROC_STAGED] = "IR_CALL_PROC_STAGED",
-    [IR_CALL_USERPROC] = "IR_CALL_USERPROC",
-    [IR_CALL_BYNAME] = "IR_CALL_BYNAME",
     [IR_CALL_BUILTIN] = "IR_CALL_BUILTIN",
-    [IR_CALL_GVAR_USERPROC] = "IR_CALL_GVAR_USERPROC",
     [IR_FAIL] = "IR_FAIL",
     [IR_SUCCEED]   = "IR_SUCCEED",
     [IR_SUSPEND]   = "IR_SUSPEND",
@@ -285,7 +282,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
         case IR_KEYWORD: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_BINOP: case IR_BINOP_TEST: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_SUCCEED: if (IR_LIT(bb).ival != 0) fprintf(fp, " stno=%d", (int)IR_LIT(bb).ival); break;
-        case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_USERPROC: case IR_CALL_BYNAME: case IR_CALL_BUILTIN: case IR_CALL_GVAR_USERPROC:
+        case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN:
             fprintf(fp, " fn=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         default: break;
     }
