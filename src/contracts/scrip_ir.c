@@ -166,18 +166,14 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
     if (ops) for (int j = 0; j < na; j++) if (ops[j]) bb_emit_order_visit(bbg, ops[j], vis, order, norder);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* not(x) produces &null (DT_SNUL) on success via plain IR_VAR sval="&null" -- no IR_NOT opcode (deleted;
-   mirrors JCON ir_a_Not exactly: no operator built, just a Goto success/failure port-swap around the
-   child plus a generic keyword-write on the swapped success arm -- see lower_not in lower_icon.c). */
-/* IR_CREATE produces a co-expression VALUE (RUNG 1's own lowering comment, GOAL-IR-IMMUTABLE-EMIT.md:
-   "`create EXPR` itself SUCCEEDS IMMEDIATELY, returning a co-expression VALUE") — added RUNG 3 (Claude
-   Sonnet, 2026-07-01). Without this, nd->tmp is never assigned by ir_tmp_slot_assign and bb_create.cpp's
-   drive_value_slot(nd) call hits the op_off<0 guard → drive_unowned() → abort. The 16-byte slot this
-   grants holds ONE pointer: the heap-allocated scrip_coctx_t* this create-site owns (see bb_create.cpp).
-   IR_CORET/IR_COFAIL deliberately stay OUT of this set — they are body-internal success/failure targets,
-   not general value-producers; their own operand[0] (the produced value, for CORET) rides a DIFFERENT
-   node's slot, per RUNG 1's lowering (coret.operand[0] = the body's own value node). */
-int ir_node_produces_value(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_RANDOM || op == IR_LIMIT || op == IR_SWAP || op == IR_SWAP_VAR || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_PROC_VALUE || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR; }
+int ir_node_produces_value(IR_e op) {
+    return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_VAR_REF
+        || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_RANDOM || op == IR_LIMIT
+        || op == IR_SWAP || op == IR_SWAP_VAR || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_PROC_VALUE
+        || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH
+        || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL
+        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -194,37 +190,6 @@ void ir_jcon_slot_assign(IR_graph_t * g) {
     g->jcon_value_region = k * 16;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* IR_TO is NOT claimed by ir_node_produces_value() (its result historically rode bb_slot_alloc16_or_get, a SEPARATE
-   emit-time-only allocator with zero knowledge of nd->tmp -- see GOAL-IR-IMMUTABLE-EMIT.md), but its emitted box
-   (bb_to.cpp) needs MORE than one flat 16-byte slot: 24 bytes for an integer generator (16-byte result + 8-byte
-   'current' scratch) or 32 bytes for a real generator (16-byte result + 16-byte 'current' scratch). Because LOWER's
-   tmp numbering (this pass) and the emitter's bump-allocator cursor (g_flat_slot_count, advanced independently by
-   bb_slot_alloc16_or_get/bb_slot_claim) are TWO SEPARATE COUNTERS over the SAME byte-offset space, any node whose
-   true footprint isn't visible to LOWER can have its emit-time-only extra bytes silently overlap whatever tmp LOWER
-   hands to the NEXT value-producer node in g->all[] (creation order) -- bisected+root-caused 2026-06-30 (Claude
-   Sonnet 4.6) against the every/TT_TO_BY regression introduced at feab99c7 (gdb-confirmed against
-   /tmp/repro_to.icn: a node following IR_TO in creation order received nd->tmp landing inside IR_TO's own
-   emit-time-only scratch field, so writing that node's result clobbers IR_TO's live loop counter -- this is why
-   every x:=A to B do write(x) prints the seed once (A==1) or hangs printing the seed forever (A!=1)). A prior
-   attempt at this fix (reserving extra space via a separate running counter, independent of nd->tmp) shifted WHICH
-   offsets collide without closing the gap, because the emitter's bb_slot_alloc16_or_get/bb_slot_claim path for
-   IR_TO still read the LIVE g_flat_slot_count cursor, not this pass's bookkeeping -- proven wrong by re-deriving
-   the post-fix .s and finding the collision had simply moved (gdb-confirmed). The CORRECT fix gives IR_TO a real
-   nd->tmp here, sized for its FULL footprint (k advances by 2 units instead of 1: one for the 16-byte result, one
-   for the worst-case 16-byte scratch -- safe for both the int and real arms, since 32 bytes covers the 24-byte int
-   case too), and changes IR_TO's own emit_drive arm (src/emitter/emit.cpp) to read this tmp via the SAME
-   drive_value_slot() every other value-producer uses, instead of the separate bb_slot_alloc16_or_get allocator --
-   drive_value_slot already calls bb_flat_cursor_reserve(nd->tmp+16) on every claim, which is the existing
-   synchronization primitive that keeps the emit-time cursor consistent with LOWER's tmp numbering; IR_TO's old
-   separate-allocator path bypassed that primitive entirely, which was the actual root cause both this fix and the
-   reverted attempt above were trying to patch around without addressing. See the matching change in emit.cpp's
-   `case IR_TO:` arm -- the two are a single coordinated fix and must be kept in sync. */
-/* TE-4 VARSLOT ABSORPTION (Lon directive 2026-07-02): LOWER owns the ENTIRE ζ-frame layout. The emit-time
-   name→slot bump allocator (bb_varslot, the THIRD counter over the one offset space — the a0b3f410 collision
-   family) is DELETED from the emitter; THIS pass interns every param (ABI-fixed 16*(i+1), unchanged) and every
-   IR_ASSIGN/IR_REV_ASSIGN local (ABOVE the tmp region, the exact position the cursor produced) into the graph's
-   vslots table, plus the gen-proc suspend-resume cell (formerly emit.cpp's per-chain high-water carve). The
-   emitter reads via ir_varslot_of through g_emit_cfg and NEVER writes. */
 static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {
     if (!name) return;
     for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name && strcmp(g->vslots[i].name, name) == 0) return;
@@ -249,76 +214,23 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
         if (nd->op == IR_TO || nd->op == IR_TO_BY) { nd->tmp = base + k * 16; k += 2; continue; }
-        /* IR_MAKE_LIST: 16-byte result DESCR at tmp + contiguous argv scratch (n_operands DESCRs) at tmp+16 --
-           the template marshals each element's slot into the scratch, then one rt_make_list(ptr,n) call. */
         if (nd->op == IR_MAKE_LIST) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
-        /* IR_SCAN_ENTER needs 24 bytes: 3×8 for saving old r13/r14/r15.  k+=2 gives 32 bytes (safe). */
         if (nd->op == IR_SCAN_ENTER) { nd->tmp = base + k * 16; k += 2; continue; }
-        /* IR_INITIAL: [+0..+7] DESCR pad, [+8..+15] int64 done-flag (0=not yet run, 1=ran). */
         if (nd->op == IR_INITIAL) { nd->tmp = base + k * 16; k += 1; continue; }
-        /* IR_ITERATE needs 24 bytes: 16-byte result DESCR + 8-byte int64 counter at [+16].
-           k+=2 gives 32 bytes, same safe-oversize pattern as IR_TO/IR_SCAN_ENTER. */
         if (nd->op == IR_ITERATE) { nd->tmp = base + k * 16; k += 2; continue; }
-        /* IR_LIMIT needs 24 bytes: 16-byte limited-result copy + 8-byte int64 counter at [+16].
-           k+=2 gives 32 bytes, same pattern as IR_ITERATE. Before this (2026-07-01 wholesale audit) it
-           fell through to the produces-value k+=1 grant, so the NEXT node's tmp landed exactly on the
-           counter — the count literal's DT tag (6) overwrote it, gate read 6>=t, instant ω, empty output. */
         if (nd->op == IR_LIMIT) { nd->tmp = base + k * 16; k += 2; continue; }
-        /* IR_REPALT needs 24 bytes: 16-byte yielded-value copy + 8-byte int64 `yielded` flag at [+16].
-           k+=2, same pattern as IR_LIMIT. Before this (repalt rung, 2026-07-01) it fell through and ALIASED
-           onto its e_root's slot — with e=TO the flag landed exactly on TO's counter, so TO's own α write
-           (counter:=from) set the flag, the exhausted-test read it as yielded, and |(1 to 0) restarted forever. */
         if (nd->op == IR_REPALT) { nd->tmp = base + k * 16; k += 2; continue; }
-        /* IR_REV_ASSIGN needs 32 bytes: 16-byte produced value + 16-byte saved-old-DESCR at [+16] (bb_rasgn's
-           op_sc = op_off+16 restore area). k+=2, same pattern as IR_LIMIT/IR_REPALT. IR_REV_ASSIGN_VAR (the
-           IDX-UNIFY through-variable sibling, bb_rev_assign_var) has the identical value+saved-old shape. */
         if (nd->op == IR_REV_ASSIGN || nd->op == IR_REV_ASSIGN_VAR) { nd->tmp = base + k * 16; k += 2; continue; }
-        /* TMP-ERADICATE (Lon, 2026-07-02): the call family owns 16-byte result + contiguous per-arg argv
-           scratch at tmp+16 (the IR_MAKE_LIST shape) -- retiring bb_slot_alloc16/bb_slot_claim in bb_call*. */
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
-        /* IR_KEYWORD needs 24 bytes: 16-byte staged value DESCR + 8-byte int64 generator index at [+16].
-           The generator keywords (&features/&regions/&storage/&collections) are resumable — bb_keyword's
-           generator arm keys resumption off this counter (mirrors canonical keyword.r's suspend-sequence:
-           features suspends each feature string; regions/storage/collections suspend N region integers).
-           k+=2 = 32 bytes, same safe-oversize pattern as IR_ITERATE/IR_LIMIT; the single-value keyword arms
-           (subject/pos/null/fail/read) leave [+16] untouched and are unaffected. */
         if (nd->op == IR_KEYWORD) { nd->tmp = base + k * 16; k += 2; continue; }
-        /* TMP-ERADICATE non-producer slot-takers (named empirically by the drive_value_slot gouge):
-           IR_DEREF materializes a value copy; IR_ASSIGN_VAR stages result=value (sub-expression use, the
-           IR_ASSIGN precedent above). One DESCR each. */
         if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_RANDOM || nd->op == IR_SWAP_VAR) { nd->tmp = base + k * 16; k += 1; continue; }
-        /* IR_CREATE: 16-byte co-expression DESCR + 48-byte regs[6] create-time scratch at tmp+16 (bb_create's
-           former hand-reserve, now a real grant). k+=4 = 64 bytes. */
         if (nd->op == IR_CREATE) { nd->tmp = base + k * 16; k += 4; continue; }
-        /* IR_ASSIGN is deliberately NOT in ir_node_produces_value (assignment is a statement, not a general
-           value-producer for most consumers) but bb_assign_local/bb_assign_global DO stage a 16-byte own-result
-           copy (needed when an assign is used as a sub-expression, e.g. x := (y := 5)) via drive_value_slot's
-           op_off. Before this fix that fell through to the LEGACY bb_slot_alloc16() emit-time cursor
-           (g_flat_slot_count), which starts back at `base` independently of THIS k-based numbering -- same
-           collision disease as the fixed IR_TO regression, just on IR_ASSIGN: two ASSIGNs in a loop body (e.g.
-           `every sum +:= (1 to N)`, desugared to assign-of-binop) would grab slots 16/32, stomping the VAR/BINOP/
-           IR_TO tmps LOWER already placed there, silently truncating accumulation to the generator's last value.
-           Fix: give IR_ASSIGN a real coordinated tmp here, same 16-byte single-DESCR shape as IR_INITIAL. */
         if (nd->op == IR_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
-        /* IR_INDIRECT_GOTO (unbounded alternation, JCON ir_a_Alt /bounded arm) owns TWO cells: [+0..+15] the
-           alternation's SHARED value DESCR (every arm's IR_MOVE_LABEL copies its arm's value here, so ONE slot
-           serves every consumer -- the lhs<->tmp doctrine's answer to JCON's per-arm shared `target` param) and
-           [+16..+23] the label variable t itself (JCON ir_tmploc: the code address of whichever arm last fired's
-           resume point, written by each MoveLabel, consumed by this node's own `jmp qword ptr [r12+tmp+16]`).
-           NOT in ir_node_produces_value (it is the alt's RESUME position, control not value) -- but lower_alt
-           sets *res to this node, so consumers read [tmp+0..15] via the ordinary bb_slot_get path. k+=2. */
         if (nd->op == IR_INDIRECT_GOTO) { nd->tmp = base + k * 16; k += 2; continue; }
         if (ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; }
     }
-    /* TE-4 resume grant: the gen-proc suspend-resume cell (8 bytes used, 16 granted) sits exactly where the
-       old emit-time carve placed it — the 16-aligned tmp high-water mark == base + k*16, since every tmp is
-       base-relative and 16-strided. Granted whenever the graph contains IR_SUSPEND; the emitter still gates
-       USE on g_gen_proc_active per chain, so a non-generator graph's grant is 16 inert bytes. */
     g->resume_slot = -1;
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) { g->resume_slot = base + k * 16; k += 1; break; }
-    /* TE-4 local interning: every IR_ASSIGN (name on the node) and IR_REV_ASSIGN (name on operands[1], the
-       lhs IR_VAR carrier) whose name is non-global gets its persistent name-keyed cell ABOVE the tmp region —
-       the same locals-above-tmps layout the a0b3f410 fix established, now numbered by the ONE counter. */
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
@@ -388,7 +300,9 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
     const char * lname = (bbg->lang >= 1 && bbg->lang <= 6) ? lang_names[bbg->lang] : "?";
     char ent[12]; bb_ref_fmt(bbg, bbg->entry, ent, sizeof ent);
     fprintf(fp, "IR_graph_t lang=%s n=%d entry=%s nslots=%d\n", lname, bbg->n, ent, bbg->nslots);
-    if (verbose) fprintf(fp, ";  seq self     γ    ω  kind                   [operands]  payload   (self/γ/ω/operands: sN=value slot N, nN=node id N when no slot; linear emit order: γ-spine DFS from entry, then ω, then operands)\n");
+    if (verbose)
+        fprintf(fp, ";  seq self     γ    ω  kind                   [operands]  payload   (self/γ/ω/operands: sN=value slot N, nN=node id N "
+                    "when no slot; linear emit order: γ-spine DFS from entry, then ω, then operands)\n");
     else         fprintf(fp, ";  seq self     γ    ω  kind                   [operands]  payload\n");
     int nn = bbg->n;
     char * vis = (char *) calloc(nn > 0 ? nn : 1, 1);

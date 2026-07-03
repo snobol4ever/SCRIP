@@ -165,4 +165,3 @@ std::string bb_det_nb_setval();
 std::string bb_det_nb_getval();
 }
 #endif
-

@@ -15,12 +15,13 @@ extern "C" void *rt_pl_lit_cell(int kind, long ival, const char *sval, double dv
 extern "C" void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words);
 extern "C" int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg_words);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string gzu_atom_lea(const char *dst, const char *s) { char b[64]; b[0] = 0; if (s) strtab_label(b, sizeof b, s); return x86("lea", dst, "[rip + __]", (uint64_t)(uintptr_t)(s ? s : ""), b); }
-/* gzu_build now returns rax = a cell ADDRESS (PL-DESCR-2): a logic-var slot yields lea [r12+off]; a literal/atom
- * is materialised into its own heap cell via rt_pl_lit_cell; a compound is built from its args' 16-byte cell
- * WORDS (copied through r11) into a fresh heap compound cell via rt_pl_compound_cell. Operands flow to unify by
- * address; a copied self-ref var word aliases the caller's logic var into the structure. */
-static std::string gzu_lit_atom(const char *sval) { return x86("mov32", "edi", (long)IR_ATOM) + x86("xor", "rsi", "rsi") + gzu_atom_lea("rdx", sval ? sval : "[]") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell); }
+static std::string gzu_atom_lea(const char *dst, const char *s) {
+    char b[64]; b[0] = 0; if (s) strtab_label(b, sizeof b, s); return x86("lea", dst, "[rip + __]", (uint64_t)(uintptr_t)(s ? s : ""), b);
+}
+static std::string gzu_lit_atom(const char *sval) {
+    return x86("mov32", "edi", (long)IR_ATOM) + x86("xor", "rsi", "rsi") + gzu_atom_lea("rdx", sval ? sval : "[]") + x86("xorps", "xmm0", "xmm0")
+         + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
+}
 static std::string gzu_word_copy(int dstoff) {
     return x86("mov", "r11", RDQ("rax", 0)) + x86("mov", RSP(dstoff), "r11")
          + x86("mov", "r11", RDQ("rax", 8)) + x86("mov", RSP(dstoff + 8), "r11");
@@ -29,8 +30,12 @@ std::string gzu_build(const IR_t *nd) {
     if (!nd) return x86("xor", "eax", "eax");
     if (nd->op == IR_LOGICVAR) { int slot = (int)IR_LIT(nd).ival; return (slot < 0) ? x86("xor", "eax", "eax") : x86("lea", "rax", FR(GZ_CELL_OFF(slot))); }
     if (nd->op == IR_ATOM)  return gzu_lit_atom(IR_LIT(nd).sval);
-    if (nd->op == IR_LIT_INTEGER) return x86("mov32", "edi", (long)IR_LIT_INTEGER) + x86("mov", "rsi", (long)IR_LIT(nd).ival) + x86("xor", "edx", "edx") + x86("xorps", "xmm0", "xmm0") + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
-    if (nd->op == IR_LIT_REAL) return x86("mov32", "edi", (long)IR_LIT_REAL) + x86("xor", "rsi", "rsi") + x86("xor", "edx", "edx") + x86("movsd", "xmm0", F64(IR_LIT(nd).dval)) + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
+    if (nd->op == IR_LIT_INTEGER)
+        return x86("mov32", "edi", (long)IR_LIT_INTEGER) + x86("mov", "rsi", (long)IR_LIT(nd).ival) + x86("xor", "edx", "edx") + x86("xorps", "xmm0", "xmm0")
+             + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
+    if (nd->op == IR_LIT_REAL)
+        return x86("mov32", "edi", (long)IR_LIT_REAL) + x86("xor", "rsi", "rsi") + x86("xor", "edx", "edx") + x86("movsd", "xmm0", F64(IR_LIT(nd).dval))
+             + x86("call", "rt_pl_lit_cell", (uint64_t)(uintptr_t)(void *)rt_pl_lit_cell);
     if (nd->op == IR_STRUCT || nd->op == IR_ARITH) {
         int arity = (int)IR_LIT(nd).ival;
         if (arity <= 0 || !ir_call_arg(nd, 0)) return gzu_lit_atom(IR_LIT(nd).sval);
@@ -50,18 +55,16 @@ static int bcu_sh() { return (int)_.op_parts_ival[0]; }
 static double bcu_fv() {
     double d; memcpy(&d, &_.op_parts_ival[2], 8); return d;
 }
-/* PL-DESCR read/write-fused head match (shape 0): when one operand is a clause-head arg slot (a logic var) and the
- * other is a structure pattern, emit a deref-then-decompose rather than build-the-whole-compound-then-unify. The arg
- * WORDS of the pattern are built on the stack exactly as gzu_build's IR_STRUCT case does (nested compounds still build,
- * unchanged); only the THROWAWAY top-level compound (rt_pl_compound_cell, 2 GC_MALLOC) is replaced by the fused
- * rt_pl_unify_struct, which decomposes a bound list in place (read mode, zero alloc) or binds an unbound var (write
- * mode, one alloc). Eligible only for IR_STRUCT (not IR_ARITH — arith-as-data stays on the general path). */
 static const IR_t *bcu_opL() { return (const IR_t *)(intptr_t)_.op_parts_ival[1]; }
 static const IR_t *bcu_opR() { return (const IR_t *)(intptr_t)_.op_parts_ival[2]; }
 static int bcu_isvar(const IR_t *n) { return n && n->op == IR_LOGICVAR && (int)IR_LIT(n).ival >= 0; }
 static int bcu_isstruct(const IR_t *n) { return n && n->op == IR_STRUCT; }
-static const IR_t *bcu_rm_dst() { if (bcu_isvar(bcu_opL()) && bcu_isstruct(bcu_opR())) return bcu_opL(); if (bcu_isvar(bcu_opR()) && bcu_isstruct(bcu_opL())) return bcu_opR(); return (const IR_t *)0; }
-static const IR_t *bcu_rm_pat() { if (bcu_isvar(bcu_opL()) && bcu_isstruct(bcu_opR())) return bcu_opR(); if (bcu_isvar(bcu_opR()) && bcu_isstruct(bcu_opL())) return bcu_opL(); return (const IR_t *)0; }
+static const IR_t *bcu_rm_dst() {
+    if (bcu_isvar(bcu_opL()) && bcu_isstruct(bcu_opR())) return bcu_opL(); if (bcu_isvar(bcu_opR()) && bcu_isstruct(bcu_opL())) return bcu_opR(); return (const IR_t *)0;
+}
+static const IR_t *bcu_rm_pat() {
+    if (bcu_isvar(bcu_opL()) && bcu_isstruct(bcu_opR())) return bcu_opR(); if (bcu_isvar(bcu_opR()) && bcu_isstruct(bcu_opL())) return bcu_opL(); return (const IR_t *)0;
+}
 static int bcu_rm_frm() { const IR_t *p = bcu_rm_pat(); int a = p ? (int)IR_LIT(p).ival : 0; return (a * 16 + 15) & ~15; }
 static std::string gzu_struct_args(const IR_t *nd) {
     int arity = (int)IR_LIT(nd).ival;

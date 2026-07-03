@@ -23,7 +23,11 @@ std::string bb_cell_call() {
                            + x86("mov32", "esi", (long)_.op_parts_ival[2])
                            + x86("call", "rt_enter", (uint64_t)(uintptr_t)(void *)rt_enter)
                            + x86("mov", "rdi", "rax")
-                           + FOR(4, (int)_.op_parts_ival[1], [&](int i) { int src = GZ_CELL_OFF((int)_.gz_arg_slots[i]); int dst = GZ_CELL_OFF(i); return x86("mov", "r11", FRQ(src)) + x86("mov", bcc_rdiq(dst), "r11") + x86("mov", "r11", FRQ(src + 8)) + x86("mov", bcc_rdiq(dst + 8), "r11"); })
+                           + FOR(4, (int)_.op_parts_ival[1], [&](int i) {
+                               int src = GZ_CELL_OFF((int)_.gz_arg_slots[i]); int dst = GZ_CELL_OFF(i);
+                               return x86("mov", "r11", FRQ(src)) + x86("mov", bcc_rdiq(dst), "r11")
+                                    + x86("mov", "r11", FRQ(src + 8)) + x86("mov", bcc_rdiq(dst + 8), "r11");
+                           })
                            + FOR(0, ((int)_.op_parts_ival[1] < 4 ? (int)_.op_parts_ival[1] : 4), [&](int i) { return x86("lea", bcc_areg(i), FR(GZ_CELL_OFF((int)_.gz_arg_slots[i]))); })
                            + x86_call_tgt(X86T_TGT0)
                            + x86("def", L(0))

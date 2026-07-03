@@ -21,11 +21,16 @@ static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (int i =
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_class_n; i++) if (!strcmp(g_rk_class_names[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_is_modeled_type(const char * ty) { if (!ty) return 0; static const char * k[] = { "Int", "Num", "Rat", "Str", "Numeric", "Real", "Cool", "Bool", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(ty, k[i])) return 1; return rk_is_class_name(ty); }
+static int rk_is_modeled_type(const char * ty) {
+    if (!ty) return 0; static const char * k[] = { "Int", "Num", "Rat", "Str", "Numeric", "Real", "Cool", "Bool", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(ty, k[i])) return 1;
+    return rk_is_class_name(ty);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_method_is_stub(const tree_t * m) { if (!m || m->t != TT_SUB_DECL) return 0; int bs = (int) m->v.ival; if (bs < 1) bs = 1; if (m->n - bs != 1) return 0; const tree_t * b = m->c[bs]; return b && b->t == TT_YADA; }
+static int rk_method_is_stub(const tree_t * m) {
+    if (!m || m->t != TT_SUB_DECL) return 0; int bs = (int) m->v.ival; if (bs < 1) bs = 1; if (m->n - bs != 1) return 0; const tree_t * b = m->c[bs]; return b && b->t == TT_YADA;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rk_fld_bare(const char * s) { return (s && (s[0] == '.' || s[0] == '!')) ? s + 1 : s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -61,7 +66,10 @@ static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*====================================================================================================================================================================================================*/
 static int rk_is_binop(tree_e tt) {
-    switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_CAT: case TT_LEQ: case TT_LNE: return 1; default: return 0; }
+    switch (tt) {
+        case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_CAT: case TT_LEQ: case TT_LNE: return 1;
+        default: return 0;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_relop(tree_e tt) {
@@ -128,11 +136,19 @@ static IR_t * lower(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_NUL: return build(cx, IR_OP_COUNT, γ, ω);
-    case TT_VAR: { if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; } IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd; }
+    case TT_VAR: {
+        if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) {
+            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; return nd;
+        }
+        IR_t * nd = build(cx, IR_VAR, γ, ω);
+        IR_LIT(nd).sval = t->v.sval; return nd;
+    }
     case TT_FIELD: { const char * fname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "field_get_pub"; IR_LIT(nd).ival = 2; IR_LIT(nd).dval = 1.0;
         IR_t * r = NULL; IR_t * nl = build(cx, IR_LIT_STRING, nd, ω); IR_LIT(nl).sval = fname; IR_t * eo = lower_rv(cx, t->c[0], nl, ω, &r); return eo; }
-    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = IR_node_alloc(cx->g, IR_VAR); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); return nd; }
+    case TT_TWIGIL_FIELD: {
+        IR_t * nd = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = IR_node_alloc(cx->g, IR_VAR); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); return nd;
+    }
     case TT_ADD: return lower_binop(cx, t, "+", γ, ω);
     case TT_SUB: return lower_binop(cx, t, "-", γ, ω);
     case TT_MUL: return lower_binop(cx, t, "*", γ, ω);
@@ -252,7 +268,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_NUL: { IR_t * nd = build(cx, IR_OP_COUNT, γ, ω); *res = nd; return nd; }
-    case TT_VAR: { if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; } IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
+    case TT_VAR: {
+        if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) {
+            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd;
+        } IR_t * nd = build(cx, IR_VAR, γ, ω);
+        IR_LIT(nd).sval = t->v.sval; *res = nd; return nd;
+    }
     case TT_ASSIGN: if (t->n > 1 && t->c[0] && (t->c[0]->t == TT_FIELD || t->c[0]->t == TT_TWIGIL_FIELD)) {
         const tree_t * lhs = t->c[0];
         const char * fname = (lhs->t == TT_TWIGIL_FIELD) ? lhs->v.sval : ((lhs->n > 1 && lhs->c[1]) ? lhs->c[1]->v.sval : lhs->v.sval);
@@ -445,11 +466,18 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_SEQ: case TT_PROGRAM: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
     case TT_METHCALL: return lower_rcall(cx, t, "meth_call", 0, 1, γ, ω, res);
     case TT_NEW: return lower_rcall(cx, t, "obj_new", 0, 1, γ, ω, res);
-    case TT_TWIGIL_FIELD: { IR_t * nd = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv; }
+    case TT_TWIGIL_FIELD: {
+        IR_t * nd = build(cx, IR_OP_COUNT, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv;
+    }
     case TT_FIELD: { const char * fname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "field_get_pub"; IR_LIT(nd).ival = 2; IR_LIT(nd).dval = 1.0;
         IR_t * r = NULL; IR_t * nl = build(cx, IR_LIT_STRING, nd, ω); IR_LIT(nl).sval = fname; IR_t * eo = lower_rv(cx, t->c[0], nl, ω, &r); *res = nd; return eo; }
-    case TT_RETURN: { if (t->n > 0 && t->c[0]) { IR_t * nd = build(cx, IR_RETURN, γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e; } IR_t * nd = build(cx, IR_RETURN, γ, ω); *res = nd; return nd; }
+    case TT_RETURN: {
+        if (t->n > 0 && t->c[0]) {
+            IR_t * nd = build(cx, IR_RETURN, γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e;
+        } IR_t * nd = build(cx, IR_RETURN, γ, ω);
+        *res = nd; return nd;
+    }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
 }
@@ -607,7 +635,9 @@ static void rk_register_classes(const tree_t * prog) {
                     if (!rm) continue;
                     int sat = rk_type_provides_real_method(cdecl, rm);
                     for (int rj = 0; rj < nr && !sat; rj++) { const tree_t * od = rk_find_type_decl(prog, rbuf[rj]); if (rk_type_provides_real_method(od, rm)) sat = 1; }
-                    if (!sat) { char _m[256]; snprintf(_m, sizeof _m, "Method '%s' must be implemented by class %s because it is required by role %s", rm, cname, rbuf[ri]); rt_script_die_surface(_m); }
+                    if (!sat) {
+                        char _m[256]; snprintf(_m, sizeof _m, "Method '%s' must be implemented by class %s because it is required by role %s", rm, cname, rbuf[ri]); rt_script_die_surface(_m);
+                    }
                 }
             }
         }

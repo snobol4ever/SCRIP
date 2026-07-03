@@ -39,7 +39,9 @@ int main(void) {
     pl_area_init(&b, 8u * 1024u * 1024u);
     unsigned char *first = (unsigned char *)b.top;
     size_t filled = 0;
-    for (int i = 0; i < 100000; i++) { unsigned char *blk = (unsigned char *)pl_area_bump(&b, 48); check(blk != (void *)0, "bump within large reservation"); blk[0] = 0x5A; blk[47] = 0xA5; filled += 48; }
+    for (int i = 0; i < 100000; i++) {
+        unsigned char *blk = (unsigned char *)pl_area_bump(&b, 48); check(blk != (void *)0, "bump within large reservation"); blk[0] = 0x5A; blk[47] = 0xA5; filled += 48;
+    }
     check(first[0] == 0x5A, "large-area first block intact");
     check(b.cap == 8u * 1024u * 1024u, "no growth needed within large reservation");
     check(pl_area_used(&b) == filled, "used matches 100000*48 aligned bumps");

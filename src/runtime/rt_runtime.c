@@ -57,12 +57,12 @@ static const char * g_cur_func = NULL;
 #define RESOLVE_NB_SIZE 64
 typedef struct { int atom_id; Term *val; } PlNbSlot;
 static PlNbSlot g_resolve_nb[RESOLVE_NB_SIZE];
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * g_current_cfg = NULL;
 static IR_graph_t * g_resolve_tail_redirect_cfg   = NULL;
 static IR_t       * g_resolve_tail_redirect_entry = NULL;
 int g_resolve_b3_call_mark = -1;
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_t * node; DESCR_t * items; int count; int cap; } seq_cache_t;
 #define SEQ_CACHE_MAX 64
 static seq_cache_t g_seq_cache[SEQ_CACHE_MAX];
@@ -71,7 +71,7 @@ typedef struct { IR_t * node; DESCR_t * items; int count; } susp_gen_cache_t;
 #define SUSP_GEN_CACHE_MAX 64
 static susp_gen_cache_t g_susp_gen_cache[SUSP_GEN_CACHE_MAX];
 static int g_susp_gen_cache_n = 0;
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
 int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit) {
     const char * subj_str = ""; int subj_len = 0;
@@ -101,10 +101,10 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
     }
     return matched ? 1 : 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_is_gen_node(IR_t * e);
 static void resolve_format_float(char *buf, size_t bufsz, double d);
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { Term *orig; Term *copy; } BBCopyMap;
 static Term *bb_copy_term_rec(Term *t, BBCopyMap *map, int *nmap) {
     t = t ? term_deref(t) : NULL;
@@ -125,7 +125,7 @@ static Term *bb_copy_term_rec(Term *t, BBCopyMap *map, int *nmap) {
     default: return term_new_atom(prolog_atom_intern("[]"));
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *bb_copy_term(Term *t) { BBCopyMap map[256]; int n=0; return bb_copy_term_rec(t,map,&n); }
 static int resolve_term_class(Term *t) {
     switch (t->tag) {
@@ -136,7 +136,7 @@ static int resolve_term_class(Term *t) {
     default: return 4;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int resolve_term_compare(Term *a, Term *b) {
     a = a ? term_deref(a) : NULL; b = b ? term_deref(b) : NULL;
     if (!a && !b) return 0; if (!a) return -1; if (!b) return 1;
@@ -166,7 +166,7 @@ static int resolve_term_compare(Term *a, Term *b) {
     default: return 0;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
  static int resolve_term_is_ground(Term *t) {
     t = t ? term_deref(t) : NULL;
     if (!t) return 0;
@@ -177,7 +177,7 @@ static int resolve_term_compare(Term *a, Term *b) {
     }
     return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int resolve_term_is_proper_list(Term *t) {
     extern int ATOM_DOT, ATOM_NIL;
     t = t ? term_deref(t) : NULL;
@@ -191,9 +191,9 @@ static int resolve_term_is_proper_list(Term *t) {
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_body_has_live_choice(IR_graph_t *bbg);
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int type_test_common(const char *fn, Term *t) {
     Term *d = t ? term_deref(t) : NULL;
     int isvar = (!d || d->tag == TERM_VAR);
@@ -211,11 +211,11 @@ static int type_test_common(const char *fn, Term *t) {
     if (strcmp(fn, "is_list")  == 0) return resolve_term_is_proper_list(d) ? 1 : 0;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_type_test_term(const char *fn, void *t0) {
     return type_test_common(fn, (Term *)t0);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_int(void *lhs_cell, long val) {
     extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
@@ -225,7 +225,7 @@ int rt_pl_is_cell_int(void *lhs_cell, long val) {
     if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_float(void *lhs_cell, double val) {
     extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
@@ -235,7 +235,7 @@ int rt_pl_is_cell_float(void *lhs_cell, double val) {
     if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void *rhs_cell, long rhs_ival) {
     if (!op) return 0;
     int li_int = 1, ri_int = 1; long la = lhs_ival, ra = rhs_ival; double l = 0.0, r = 0.0;
@@ -260,7 +260,7 @@ int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void
     switch (cmp) { case -2: return l< r; case -1: return l<=r; case 0: return l==r; case 1: return l>=r; case 2: return l> r; case 3: return l!=r; }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival) {
     extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
@@ -276,7 +276,10 @@ int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs
             case '+': res = lv + rhs_ival; break;
             case '-': res = lv - rhs_ival; break;
             case '*': res = lv * rhs_ival; break;
-            case '/': if (oc2 == '/') { if (!rhs_ival) return 0; res = lv / rhs_ival; } else { if (!rhs_ival) return 0; double q = (double)lv / (double)rhs_ival; w = ((double)(long)q == q) ? pl_make_int((int64_t)(long)q) : pl_make_float(q); goto bind; } break;
+            case '/':
+                if (oc2 == '/') { if (!rhs_ival) return 0; res = lv / rhs_ival; }
+                else { if (!rhs_ival) return 0; double q = (double)lv / (double)rhs_ival; w = ((double)(long)q == q) ? pl_make_int((int64_t)(long)q) : pl_make_float(q); goto bind; }
+                break;
             case 'm': if (!rhs_ival) return 0; res = lv % rhs_ival; break;
             case 'r': if (!rhs_ival) return 0; res = lv % rhs_ival; break;
             case 'd': if (!rhs_ival) return 0; res = lv / rhs_ival; break;
@@ -304,7 +307,7 @@ bind:;
     if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op) {
     extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
@@ -319,7 +322,10 @@ int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op
         case '+': res = a + b; break;
         case '-': res = a - b; break;
         case '*': res = a * b; break;
-        case '/': if (oc2 == '/') { if (!b) return 0; res = a / b; } else { if (!b) return 0; double q=(double)a/(double)b; w = ((double)(long)q==q)?pl_make_int((int64_t)(long)q):pl_make_float(q); goto bind; } break;
+        case '/':
+            if (oc2 == '/') { if (!b) return 0; res = a / b; }
+            else { if (!b) return 0; double q=(double)a/(double)b; w = ((double)(long)q==q)?pl_make_int((int64_t)(long)q):pl_make_float(q); goto bind; }
+            break;
         case 'm': case 'r': if (!b) return 0; res = a % b; break;
         case 'd': if (!b) return 0; res = a / b; break;
         default:  return 0;
@@ -347,7 +353,7 @@ bind:;
     if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
     Term **args_in = (Term **)args_ptr;
     Term **args = (Term **)GC_MALLOC(arity * sizeof(Term *));
@@ -355,7 +361,7 @@ void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
     int fid = prolog_atom_intern(functor_name ? functor_name : "");
     return term_new_compound(fid, arity, args);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Materialize a cell graph to a Term graph while preserving VARIABLE IDENTITY across BOTH operands of a
  * comparison: a shared memo (deref'd cell address -> one Term var) guarantees that the same logic variable
  * appearing in t0 and t1 maps to the SAME Term* — which is what resolve_term_compare's pointer-identity var
@@ -398,7 +404,7 @@ int rt_term_cmp_terms(const char *op, void *t0, void *t1) {
     if (strcmp(op, "@>=")  == 0) return (c >= 0) ? 1 : 0;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int univ_common(Term *t0, Term *t1) {
     extern int ATOM_DOT;
     extern Trail g_resolve_trail;
@@ -445,15 +451,15 @@ static int univ_common(Term *t0, Term *t1) {
     if (!unify(t0, built, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
     return 1;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_univ_term_term(void *t0, void *t1) {
     return univ_common((Term *)t0, (Term *)t1);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_pl_yield_seq = 1;
 typedef struct { Term **callee_env; Term **saved_env; int trail_mark; int nslots;
                  bb_node_state_t *act; void *cp_floor; int disj_hint; } PlCallSt;
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     if (obj.v == DT_DATA) {
         DESCR_t tag = FIELD_GET_fn(obj, "gen_type");
@@ -494,7 +500,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         return 1;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     if (obj.v == DT_T && obj.tbl) {
         TBBLK_t *tbl  = obj.tbl;
@@ -509,9 +515,12 @@ int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
-DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) { (void)upi; (void)args; (void)nargs; fprintf(stderr, "[NO-IR-INTERP] ir_call_proc: IR interpreter deleted (walked IR via IR_interp_pump); native BB proc-call pending\n"); return FAILDESCR; }
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) {
+    (void)upi; (void)args; (void)nargs;
+    fprintf(stderr, "[NO-IR-INTERP] ir_call_proc: IR interpreter deleted (walked IR via IR_interp_pump); native BB proc-call pending\n"); return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char *Σ;
 extern int Σlen;
 void rt_scan_splice_empty(const char *subj_name, int m_start, int m_end)

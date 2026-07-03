@@ -109,14 +109,23 @@ void class_inherit_multi(const char *child, const char **parents, int nparents) 
         DatType *p = dat_find_type(parents[pi]); if (!p) continue;
         for (int i = 0; i < p->nfields && m < 63; i++) {
             int dup = 0; for (int j = 0; j < m; j++) if (!strcmp(merged[j], p->fields[i])) { dup = 1; break; }
-            if (!dup) { strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; mrw[m] = p->rw[i]; msig[m] = p->sigil[i]; mprv[m] = p->priv[i]; m++; }
+            if (!dup) {
+                strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; mrw[m] = p->rw[i];
+                msig[m] = p->sigil[i]; mprv[m] = p->priv[i]; m++;
+            }
         }
     }
     for (int i = 0; i < c->nfields && m < 63; i++) {
         int dup = 0; for (int j = 0; j < m; j++) if (!strcmp(merged[j], c->fields[i])) { dup = 1; break; }
-        if (!dup) { strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; mreq[m] = c->required[i]; mrw[m] = c->rw[i]; msig[m] = c->sigil[i]; mprv[m] = c->priv[i]; m++; }
+        if (!dup) {
+            strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; mreq[m] = c->required[i]; mrw[m] = c->rw[i]; msig[m] = c->sigil[i];
+            mprv[m] = c->priv[i]; m++;
+        }
     }
-    for (int i = 0; i < m; i++) { strncpy(c->fields[i], merged[i], 63); c->fields[i][63] = '\0'; c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; c->rw[i] = mrw[i]; c->sigil[i] = msig[i]; c->priv[i] = mprv[i]; }
+    for (int i = 0; i < m; i++) {
+        strncpy(c->fields[i], merged[i], 63); c->fields[i][63] = '\0'; c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; c->rw[i] = mrw[i]; c->sigil[i] = msig[i];
+        c->priv[i] = mprv[i];
+    }
     c->nfields = m;
     c->nparents = 0;
     for (int pi = 0; pi < nparents && c->nparents < 8; pi++) { strncpy(c->parents[c->nparents], parents[pi], 63); c->parents[c->nparents][63] = '\0'; c->nparents++; }
@@ -135,12 +144,18 @@ void class_compose_role(const char *child, const char *role) {
         for (int pri = 0; pri < c->nroles; pri++) {
             DatType *rp = dat_find_type(c->roles[pri]); if (!rp) continue;
             int clash = 0; for (int k = 0; k < rp->nmethods; k++) if (!strcmp(rp->methods[k], m)) { clash = 1; break; }
-            if (clash) { extern void rt_script_die_surface(const char *msg); char _m[256]; snprintf(_m, sizeof _m, "Method '%s' must be resolved by class %s because it exists in multiple roles (%s, %s)", m, child, c->roles[pri], role); rt_script_die_surface(_m); return; }
+            if (clash) {
+                extern void rt_script_die_surface(const char *msg); char _m[256];
+                snprintf(_m, sizeof _m, "Method '%s' must be resolved by class %s because it exists in multiple roles (%s, %s)", m, child, c->roles[pri], role); rt_script_die_surface(_m); return;
+            }
         }
     }
     for (int i = 0; i < r->nfields && c->nfields < 63; i++) {
         int dup = 0; for (int j = 0; j < c->nfields; j++) if (!strcmp(c->fields[j], r->fields[i])) { dup = 1; break; }
-        if (!dup) { int k = c->nfields; strncpy(c->fields[k], r->fields[i], 63); c->fields[k][63] = '\0'; c->defaults[k] = r->defaults[i]; c->has_default[k] = r->has_default[i]; c->required[k] = r->required[i]; c->rw[k] = r->rw[i]; c->sigil[k] = r->sigil[i]; c->priv[k] = r->priv[i]; c->nfields++; }
+        if (!dup) {
+            int k = c->nfields; strncpy(c->fields[k], r->fields[i], 63); c->fields[k][63] = '\0'; c->defaults[k] = r->defaults[i]; c->has_default[k] = r->has_default[i];
+            c->required[k] = r->required[i]; c->rw[k] = r->rw[i]; c->sigil[k] = r->sigil[i]; c->priv[k] = r->priv[i]; c->nfields++;
+        }
     }
     int dupr = 0; for (int i = 0; i < c->nroles; i++) if (!strcmp(c->roles[i], role)) { dupr = 1; break; }
     if (!dupr && c->nroles < 8) { strncpy(c->roles[c->nroles], role, 63); c->roles[c->nroles][63] = '\0'; c->nroles++; }
@@ -176,7 +191,10 @@ int dat_build_keys(const char *cls, const char **out, int max) {
 void dat_add_handles(const char *cls, const char *meth, const char *field) {
     DatType *t = dat_find_type(cls); if (!t || !meth || !*meth || !field || !*field) return;
     for (int i = 0; i < t->nhandles; i++) if (!strcmp(t->handles_meth[i], meth)) return;
-    if (t->nhandles < 32) { strncpy(t->handles_meth[t->nhandles], meth, 63); t->handles_meth[t->nhandles][63] = '\0'; strncpy(t->handles_fld[t->nhandles], field, 63); t->handles_fld[t->nhandles][63] = '\0'; t->nhandles++; }
+    if (t->nhandles < 32) {
+        strncpy(t->handles_meth[t->nhandles], meth, 63); t->handles_meth[t->nhandles][63] = '\0'; strncpy(t->handles_fld[t->nhandles], field, 63); t->handles_fld[t->nhandles][63] = '\0';
+        t->nhandles++;
+    }
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 int dat_handles_field(const char *cls, const char *meth, char *out, int outsz) {
@@ -303,7 +321,9 @@ int dat_methods(const char *name, const char **out, int max) {
     for (int mi = 0; mi < mn; mi++) { DatType *c = dat_find_type(mro[mi]); if (!c) continue;
         for (int j = 0; j < c->nmethods && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], c->methods[j])) { dup = 1; break; } if (!dup) out[n++] = c->methods[j]; }
         for (int ri = 0; ri < c->nroles; ri++) { DatType *r = dat_find_type(c->roles[ri]); if (!r) continue;
-            for (int j = 0; j < r->nmethods && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], r->methods[j])) { dup = 1; break; } if (!dup) out[n++] = r->methods[j]; } } }
+            for (int j = 0; j < r->nmethods && n < max; j++) {
+                int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], r->methods[j])) { dup = 1; break; } if (!dup) out[n++] = r->methods[j];
+            } } }
     return n;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/

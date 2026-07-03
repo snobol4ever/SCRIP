@@ -8,7 +8,7 @@
 typedef struct pas_scope_s {
     const char *        names[PAS_MAX_SCOPE];
     int                 n;
-    int                 nparams;  /* number of param slots (0..nparams-1 are params) */
+    int                 nparams;
     long long           byref;
     int                 has_children;
     struct pas_scope_s * outer;
@@ -187,7 +187,10 @@ static tree_t * pas_lc_leaf(tree_e k, const char * s) { tree_t * e = ast_node_ne
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pas_lc_bin(tree_e k, tree_t * a, tree_t * b) { tree_t * e = ast_node_new(k); ast_push(e, a); ast_push(e, b); return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * pas_lc_clone(const tree_t * e) { if (!e) return NULL; tree_t * c = ast_node_new(e->t); c->v = e->v; if ((e->t == TT_VAR || e->t == TT_QLIT) && e->v.sval) c->v.sval = (char *) lp_strdup(e->v.sval); for (int i = 0; i < e->n; i++) ast_push(c, pas_lc_clone(e->c[i])); return c; }
+static tree_t * pas_lc_clone(const tree_t * e) {
+    if (!e) return NULL; tree_t * c = ast_node_new(e->t); c->v = e->v; if ((e->t == TT_VAR || e->t == TT_QLIT) && e->v.sval) c->v.sval = (char *) lp_strdup(e->v.sval);
+    for (int i = 0; i < e->n; i++) ast_push(c, pas_lc_clone(e->c[i])); return c;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t pas_callee_byref_mask(const char * name) {
     if (!name) return 0;
@@ -203,7 +206,10 @@ static tree_t * pas_vptmp_var(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * c0 = (t->n > 0) ? t->c[0] : NULL;
-    if (c0 && c0->v.sval && !strcmp(c0->v.sval, "arr_make")) { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_make"; IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0; pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0); return nd; }
+    if (c0 && c0->v.sval && !strcmp(c0->v.sval, "arr_make")) {
+        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_make"; IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0;
+        pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0); return nd;
+    }
     uint64_t brm = pas_callee_byref_mask(c0 ? c0->v.sval : NULL);
     if (brm) { int rw = 0; for (int i = 1; i < t->n; i++) { if (((brm >> (i - 1)) & 1ULL) && t->c[i] && t->c[i]->t == TT_IDX) { rw = 1; break; } }
         if (rw) {
@@ -245,7 +251,11 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         IR_t * asn = lower_assign_var(cx, bname, γ, ω);
         IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure"; IR_LIT(call).ival = lhs->n + 1;
-        { const tree_t ** av = (const tree_t **) calloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0; for (int k = 0; k < lhs->n; k++) av[an++] = lhs->c[k]; av[an++] = rhs; pas_call_blocks(cx, call, 2.0, av, an); }
+        {
+            const tree_t ** av = (const tree_t **) calloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
+            for (int k = 0; k < lhs->n; k++) av[an++] = lhs->c[k];
+            av[an++] = rhs; pas_call_blocks(cx, call, 2.0, av, an);
+        }
         return call;
     }
     if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0] && lhs->c[0]->v.sval && !strcmp(lhs->c[0]->v.sval, "__pas_deref")) {

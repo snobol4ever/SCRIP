@@ -498,12 +498,6 @@ static void lower_pl_register_all_preds(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* findall/aggregate_all lambda-lift (m3/m4 compound inner goal): when the GOAL of findall(T,G,L)
- * (or aggregate_all) is not a simple single call with all-logicvar args, hoist it into a fresh
- * predicate  '$faN'(SharedVars) :- G.  and rewrite the goal to a plain call '$faN'(SharedVars).
- * SharedVars = distinct vars of the TEMPLATE (their ORIGINAL slots become the call args so the
- * collected bindings flow back; the helper head renumbers them to 0..k-1). The single-callee
- * findall drive box then handles conjunction / list-arg / disjunction goals unchanged. */
 static int pl_ll_ctr = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_ll_collect_vars(const tree_t *t, int *order, int *norder, int cap) {
@@ -540,7 +534,7 @@ static void pl_ll_maybe_lift(tree_t *fa) {
     if (!need) return;
     int head_slots[8]; int nhead = 0;
     pl_ll_collect_vars(tmpl, head_slots, &nhead, 8);
-    if (nhead > 3) return;                       /* findall box passes <=3 callee args */
+    if (nhead > 3) return;
     int maxs = -1, tmp[256], nt = 0;
     pl_ll_collect_vars(tmpl, tmp, &nt, 256);
     for (int i = 0; i < nt; i++) if (tmp[i] > maxs) maxs = tmp[i];
@@ -561,7 +555,7 @@ static void pl_ll_maybe_lift(tree_t *fa) {
     ast_push(cl, pl_ll_copy_remap(g, remap, rn));
     free(remap);
     int bb_idx = lower_pl_clause_graph(cl);
-    if (bb_idx < 0) return;                      /* lift failed: leave original goal in place */
+    if (bb_idx < 0) return;
     resolve_bb_register(key, nhead, bb_idx);
     tree_t *call = ast_node_new(TT_FNC); call->v.sval = nm;
     for (int j = 0; j < nhead; j++) { tree_t *av = ast_node_new(TT_VAR); av->v.ival = head_slots[j]; ast_push(call, av); }

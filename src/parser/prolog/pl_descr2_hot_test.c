@@ -1,17 +1,9 @@
-/* PL-DESCR-2 sub-flip-2 HOT-HELPER isolated test — validates the is/cmp/unify-const logic that the READY doc
- * (PL-DESCR-2-SUBFLIP2-READY.md) pre-wrote, BEFORE it is pasted into rt_runtime.c/unification.c. The bodies below
- * are byte-faithful to the READY versions except the real-helper trail global is here a passed-in local trail and atoms are
- * given directly (no intern), so a green run here proves the cell-native arithmetic/comparison/unify SEMANTICS.
- * Build: gcc -I src/contracts -I src/parser/prolog -o /tmp/pl_descr2_hot_test src/parser/prolog/pl_descr2_hot_test.c && /tmp/pl_descr2_hot_test
- */
 #include "pl_cell.h"
 #include <stdio.h>
 #include <string.h>
-
 static int fails = 0;
 #define CHECK(cond, msg) do { if (!(cond)) { printf("  FAIL: %s\n", msg); fails++; } else { printf("  ok:   %s\n", msg); } } while (0)
-
-/*-- the READY-doc hot bodies, trail passed in (== the real-helper trail global) -------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int hot_is_int(pl_cell_t *lhs, long val, pl_trail_t *tr) {
     if (!lhs) return 0;
     pl_cell_t w = pl_make_int((int64_t)val);
@@ -19,6 +11,7 @@ static int hot_is_int(pl_cell_t *lhs, long val, pl_trail_t *tr) {
     if (!pl_unify(lhs, &w, tr)) { pl_trail_unwind(tr, m); return 0; }
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int hot_is_arith(pl_cell_t *lhs, pl_cell_t *rhs, const char *op, long rhs_ival, pl_trail_t *tr) {
     if (!lhs) return 0;
     double rv = (double)rhs_ival;
@@ -38,6 +31,7 @@ static int hot_is_arith(pl_cell_t *lhs, pl_cell_t *rhs, const char *op, long rhs
     if (!pl_unify(lhs, &w, tr)) { pl_trail_unwind(tr, m); return 0; }
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int hot_is_bivar(pl_cell_t *lhs, pl_cell_t *c1, pl_cell_t *c2, const char *op, pl_trail_t *tr) {
     if (!lhs || !c1 || !c2) return 0;
     pl_cell_t *t1 = pl_deref(c1), *t2 = pl_deref(c2);
@@ -54,6 +48,7 @@ static int hot_is_bivar(pl_cell_t *lhs, pl_cell_t *c1, pl_cell_t *c2, const char
     if (!pl_unify(lhs, &w, tr)) { pl_trail_unwind(tr, m); return 0; }
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int hot_cmp(const char *op, pl_cell_t *l, long li, pl_cell_t *r, long ri) {
     if (!op) return 0;
     double a=(double)li, b=(double)ri;
@@ -64,6 +59,7 @@ static int hot_cmp(const char *op, pl_cell_t *l, long li, pl_cell_t *r, long ri)
     if (!strcmp(op,"=<")||!strcmp(op,"<=")) return (a<=b); if (!strcmp(op,">=")) return (a>=b);
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int hot_unify_const(pl_cell_t *c, int is_atom, long ival, int atom_id, pl_trail_t *tr) {
     if (!c) return 0;
     pl_cell_t w = is_atom ? pl_make_atom(atom_id) : pl_make_int(ival);
@@ -71,60 +67,45 @@ static int hot_unify_const(pl_cell_t *c, int is_atom, long ival, int atom_id, pl
     if (!pl_unify(c, &w, tr)) { pl_trail_unwind(tr, m); return 0; }
     return 1;
 }
-
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
     printf("=== PL-DESCR-2 sub-flip-2 hot-helper test ===\n");
     pl_trail_t tr; pl_trail_init(&tr);
-
-    /* 1. is/2 binds an unbound var to the integer; unwind restores unbound */
     pl_cell_t V; pl_init_var(&V, 0);
     int m1 = pl_trail_mark(&tr);
     CHECK(hot_is_int(&V, 7, &tr), "X is 7  (X unbound) succeeds");
     CHECK(pl_is_int(&V) && pl_int_val(&V) == 7, "X bound to 7");
     pl_trail_unwind(&tr, m1);
     CHECK(pl_is_var(&V), "unwind restores X unbound");
-
-    /* 2. is/2 on a bound int cell: matching value succeeds, mismatch fails AND leaves no residue */
     pl_cell_t seven = pl_make_int(7);
     CHECK(hot_is_int(&seven, 7, &tr), "7 is 7 succeeds");
     int m2 = pl_trail_mark(&tr);
     CHECK(!hot_is_int(&seven, 8, &tr), "7 is 8 fails");
     CHECK(pl_trail_mark(&tr) == m2, "failed is/2 left the trail clean (partial-fail unwind)");
-
-    /* 3. is/2 over an arith expr: X is (5 + 3) -> 8 ; X is (5 * 2) -> 10 ; X is (17 // 5) -> 3 */
     pl_cell_t five = pl_make_int(5), Wp; pl_init_var(&Wp, 1);
     CHECK(hot_is_arith(&Wp, &five, "+", 3, &tr) && pl_int_val(&Wp) == 8, "X is 5+3 -> 8");
     pl_cell_t Wt; pl_init_var(&Wt, 2);
     CHECK(hot_is_arith(&Wt, &five, "*", 2, &tr) && pl_int_val(&Wt) == 10, "X is 5*2 -> 10");
     pl_cell_t sv = pl_make_int(17), Wd; pl_init_var(&Wd, 3);
     CHECK(hot_is_arith(&Wd, &sv, "//", 5, &tr) && pl_int_val(&Wd) == 3, "X is 17//5 -> 3");
-
-    /* 4. bivar: X is A + B over two bound cells */
     pl_cell_t A = pl_make_int(4), B = pl_make_int(9), Wb; pl_init_var(&Wb, 4);
     CHECK(hot_is_bivar(&Wb, &A, &B, "+", &tr) && pl_int_val(&Wb) == 13, "X is A+B (4+9) -> 13");
-
-    /* 5. comparisons, including int-vs-float coercion */
     pl_cell_t three = pl_make_int(3), threeF = pl_make_float(3.0), fiveF = pl_make_float(5.0);
     CHECK(hot_cmp("<", &three, 0, &five, 0), "3 < 5 true");
     CHECK(!hot_cmp("<", &five, 0, &three, 0), "5 < 3 false");
     CHECK(hot_cmp("=:=", &three, 0, &threeF, 0), "3 =:= 3.0 true (int/float)");
     CHECK(hot_cmp(">=", &fiveF, 0, &five, 0), "5.0 >= 5 true");
     CHECK(hot_cmp("=<", &three, 0, &three, 0), "3 =< 3 true");
-
-    /* 6. unify-const: an unbound var unifies with an atom, then with an int (after unwind) */
     pl_cell_t U; pl_init_var(&U, 5);
     int m6 = pl_trail_mark(&tr);
     CHECK(hot_unify_const(&U, 1, 0, 42, &tr), "X = atom#42 succeeds");
     CHECK(pl_is_atom(&U) && pl_atom_id(&U) == 42, "X bound to atom 42");
     pl_trail_unwind(&tr, m6);
     CHECK(hot_unify_const(&U, 0, 99, 0, &tr) && pl_is_int(&U) && pl_int_val(&U) == 99, "after unwind, X = 99");
-
-    /* 7. unify-const mismatch on a bound atom leaves trail clean */
     pl_cell_t a1 = pl_make_atom(10);
     int m7 = pl_trail_mark(&tr);
     CHECK(!hot_unify_const(&a1, 1, 0, 11, &tr), "atom#10 = atom#11 fails");
     CHECK(pl_trail_mark(&tr) == m7, "failed unify-const left the trail clean");
-
     printf("=== %s (%d failure%s) ===\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;
 }
