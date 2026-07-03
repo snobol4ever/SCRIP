@@ -8,8 +8,6 @@ static void noicon_abort(const char *sym) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * lower_snobol4(const tree_t * prog) { (void)prog; noicon_abort("lower_snobol4"); return 0; }
-int lower_sno_stage2(const tree_t * prog) { (void)prog; return 0; }
 void lower_pascal_stage2(const tree_t * prog) { (void)prog; noicon_abort("lower_pascal_stage2"); }
 void lower_pl_stage2(const tree_t * prog) { (void)prog; noicon_abort("lower_pl_stage2"); }
 void lower_raku_stage2(const tree_t * prog) { (void)prog; noicon_abort("lower_raku_stage2"); }

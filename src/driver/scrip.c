@@ -424,6 +424,7 @@ int main(int argc, char **argv)
     int is_icon = 0;
     int is_raku = 0;
     int is_pascal = 0;
+    int saw_sno = 0;
     for (int fi = argi; fi < argc; fi++) {
         const char *d = strrchr(argv[fi], '.');
         if (d && (strcmp(d,".pl")==0 || strcmp(d,".icn")==0 ||
@@ -434,7 +435,9 @@ int main(int argc, char **argv)
         if (d && strcmp(d,".icn")==0) is_icon = 1;
         if (d && strcmp(d,".raku")==0) is_raku = 1;
         if (d && strcmp(d,".pas")==0) is_pascal = 1;
+        if (!d || strcmp(d,".sno")==0) saw_sno = 1;
     }
+    int is_sno_bb = saw_sno && !has_non_sno && !is_pascal;
     tree_t  *ast_prog = NULL;
     #define MERGE_AST(sub_ast) do { \
         if (sub_ast) { \
@@ -606,7 +609,7 @@ int main(int argc, char **argv)
             if (dup) continue;
             seen_all[seen_n++] = (const IR_t *) all;
             fprintf(stdout, "; proc %s\n", pname);
-            if (is_icon) ir_drive_slot_assign(s2->bbp.table[idx]); else ir_tmp_slot_assign(s2->bbp.table[idx]);
+            if (is_icon || is_sno_bb) ir_drive_slot_assign(s2->bbp.table[idx]); else ir_tmp_slot_assign(s2->bbp.table[idx]);
             bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
         }
         free(seen_all);
@@ -614,7 +617,7 @@ int main(int argc, char **argv)
     }
     if (mode_compile_x86) {
         extern int g_frame_active;
-        if (is_icon || is_raku) {
+        if (is_icon || is_raku || is_sno_bb) {
             extern int g_postfix_resume;
             extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
             g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
@@ -623,8 +626,8 @@ int main(int argc, char **argv)
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_icon) icn_register_record_types(s2);
-            if (is_icon) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1142,7 +1145,7 @@ int main(int argc, char **argv)
         stage2_t *s2 = sm_preamble(ast_prog);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
-        if (is_icon || is_raku) {
+        if (is_icon || is_raku || is_sno_bb) {
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
@@ -1182,8 +1185,8 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
             }
             if (is_icon) icn_register_record_types(s2);
-            if (is_icon) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");

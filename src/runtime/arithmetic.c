@@ -195,6 +195,8 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
+    if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || !a.s[0])) a = INTVAL(0);
+    if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || !b.s[0])) b = INTVAL(0);
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf;
     double ld = to_real(a), rd = to_real(b);
