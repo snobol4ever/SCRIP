@@ -334,6 +334,7 @@ static int mkdir_p(const char *path) {
     if (mkdir(tmp, 0755) != 0 && errno != EEXIST) return -1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int emit_one_cell(const char *out_dir,
                          const backend_entry_t *be,
                          const kind_entry_t   *ke,
@@ -457,6 +458,7 @@ static void prime_sm_for_op(SM_t *ins, SM_op_t op) {
         break;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int emit_one_sm_cell(const char *out_dir,
                             const backend_entry_t *be,
                             const sm_entry_t      *oe,

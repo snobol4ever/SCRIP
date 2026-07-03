@@ -14,6 +14,7 @@
 #include <ctype.h>
 #include <gc/gc.h>
 #include <math.h>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_generator(const char *name)
 {
     if (!name) return 0;
@@ -33,6 +34,7 @@ int rt_is_truthy(DESCR_t v) {
     const char *s = v.s ? v.s : "";
     return s[0] != '\0' && !(s[0] == '0' && s[1] == '\0');
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_known(const char *name)
 {
     if (!name) return 0;
@@ -1983,6 +1985,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (!fn || !out) return 0;

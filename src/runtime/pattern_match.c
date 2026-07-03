@@ -511,6 +511,7 @@ void rt_dcap_flush(void) {
 void rt_dcap_begin(void) { g_rt_dcap_active = 1; g_rt_dcap_n = 0; }
 void rt_dcap_end_fail(void) { g_rt_dcap_n = 0; g_rt_dcap_active = 0; }
 void rt_dcap_end_ok(void) { rt_dcap_flush(); g_rt_dcap_active = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
     (void)is_imm;
@@ -526,6 +527,7 @@ void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, i
 }
 extern const char *Σ;
 extern int Σlen;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_subject_load_nv(const char *name, void *slot)
 {
     DESCR_t v = NV_GET_fn(name ? name : "");
@@ -537,6 +539,7 @@ void rt_subject_load_nv(const char *name, void *slot)
     *(int *)((char *)slot + 8) = len;
     Σ = s; Σlen = len;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_subject_load_lit(const char *s, void *slot)
 {
     if (!s) s = "";
@@ -545,6 +548,7 @@ void rt_subject_load_lit(const char *s, void *slot)
     *(int *)((char *)slot + 8) = len;
     Σ = s; Σlen = len;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_concat_parts_d(void *parts, int n)
 {
     struct part_t { int tag; int pad; const char *s; } *p = (struct part_t *)parts;
@@ -568,12 +572,14 @@ DESCR_t rt_concat_parts_d(void *parts, int n)
     DESCR_t d = { .v = DT_S, .slen = (uint32_t)total, .s = buf };
     return d;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
 {
     DESCR_t d = rt_concat_parts_d(parts, n);
     NV_SET_fn(dst ? dst : "", d);
     if (g_monitor_bin) mon_emit_value_bin(dst ? dst : "", d);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_at_cursor(const char *varname, int cur_delta)
 {
     if (!varname || !*varname) return;
@@ -583,6 +589,7 @@ void rt_at_cursor(const char *varname, int cur_delta)
 extern int exec_stmt(const char *sname, DESCR_t *sv, DESCR_t pat, DESCR_t *repl, int has_repl);
 extern const char *Σ;
 extern int Σlen;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
 {
     DESCR_t val = NV_GET_fn(varname ? varname : "");
@@ -621,6 +628,7 @@ int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
 int cset_has(const char *cv, int clen, unsigned char ch) {
     return cv && clen > 0 && memchr(cv, ch, (size_t)clen) != NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
 {
     DESCR_t val = NV_GET_fn(varname ? varname : "");

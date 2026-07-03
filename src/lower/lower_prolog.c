@@ -4,9 +4,9 @@
 #include "lower.h"
 #include "emit.h"
 typedef struct { IR_graph_t * g; IR_t * tω; } lcx_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 static const char * g_pl_nl_arith[] = { "*", "**", "+", "-", "/", "//", "/\\", "<<", ">>", "\\", "\\/", "^", "abs", "acos", "asin", "atan", "ceiling", "cos", "div", "exp", "float",
     "float_fractional_part", "float_integer_part", "floor", "gcd", "integer", "log", "max", "min", "mod", "msb", "rem", "round", "sign", "sin", "sqrt", "tan", "truncate", "xor", NULL };

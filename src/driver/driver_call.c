@@ -55,6 +55,7 @@ int shadow_has(const char *name) {
     }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
 {
     NO_AST_WALK_GUARD("call_user_function");

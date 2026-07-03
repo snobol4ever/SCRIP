@@ -10,6 +10,7 @@
 #include "driver_private.h"
 #include "polyglot.h"
 extern int g_core_err_active;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sm_resolve_proc_entry_pcs(stage2_t *s2)
 {
     for (int i = 0; i < s2->proc_count; i++)

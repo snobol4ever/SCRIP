@@ -751,6 +751,7 @@ static Term *dcg_call_nt(Term *nt, Term *s_in, Term *s_out) {
 }
 static int dcg_expand_body(Term *body, Term *s_in, Term *s_out,
                            VarScope *sc, Term **buf, int idx);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dcg_expand_body(Term *body, Term *s_in, Term *s_out,
                            VarScope *sc, Term **buf, int idx) {
     body = term_deref(body);

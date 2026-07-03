@@ -317,6 +317,7 @@ typedef struct {
     int ge[MAX_GROUPS];
 } Cap_snap;
 static Cap_snap g_snaps[MAX_STATES];
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ss_add(State_set *ss, Cap_snap *snaps, const Nfa *nfa, int id,
                    char *visited, int pos, int slen, const Cap_snap *cur_snap) {
     if (id==NFA_NULL||visited[id]) return;
@@ -345,6 +346,7 @@ static void ss_add(State_set *ss, Cap_snap *snaps, const Nfa *nfa, int id,
             ss->ids[ss->n++]=id; break;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eps_closure_into(State_set *ss, Cap_snap *snaps, const Nfa *nfa,
                               int start, int pos, int slen, const Cap_snap *snap) {
     char visited[MAX_STATES]; memset(visited,0,(size_t)nfa->n);

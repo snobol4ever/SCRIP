@@ -163,6 +163,7 @@ static int resolve_term_compare(Term *a, Term *b) {
     default: return 0;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
  static int resolve_term_is_ground(Term *t) {
     t = t ? term_deref(t) : NULL;
     if (!t) return 0;
@@ -510,6 +511,7 @@ DESCR_t ir_call_proc(int upi, DESCR_t *args, int nargs) {
 }
 extern const char *Σ;
 extern int Σlen;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_splice_empty(const char *subj_name, int m_start, int m_end)
 {
     if (!subj_name || !subj_name[0]) return;

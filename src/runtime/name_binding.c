@@ -31,6 +31,7 @@ static int static_proc_entry_pc(const char *proc_name) {
             return g_stage2.proc_table[i].entry_pc;
     return -1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int static_entry_matches(const static_ent_t *e, int epc,
                                 const char *pname, const char *vname) {
     if (!e->name || !vname || strcmp(e->name, vname) != 0) return 0;

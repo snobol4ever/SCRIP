@@ -34,11 +34,13 @@ int        bb_patch_count = 0;
 static bb_label_t ** g_label_pool      = NULL;
 static int           g_label_pool_n    = 0;
 static int           g_label_pool_max  = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_label_pool_reset(void)
 {
     for (int i = 0; i < g_label_pool_n; i++) free(g_label_pool[i]);
     g_label_pool_n = 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_label_t *emit_label_alloc(const char *fmt, ...)
 {
     if (g_label_pool_n >= g_label_pool_max) {
@@ -57,6 +59,7 @@ bb_label_t *emit_label_alloc(const char *fmt, ...)
     g_label_pool[g_label_pool_n++] = lbl;
     return lbl;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_label_t *emit_label_intern(const char *name)
 {
     if (!name) return NULL;
@@ -64,6 +67,7 @@ bb_label_t *emit_label_intern(const char *name)
         if (g_label_pool[i] && strcmp(g_label_pool[i]->name, name) == 0) return g_label_pool[i];
     return emit_label_alloc("%s", name);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_emit_begin(bb_buf_t buf, int size)
 {
     bb_emit_buf    = buf;
@@ -73,6 +77,7 @@ void bb_emit_begin(bb_buf_t buf, int size)
     emit_label_pool_reset();
 }
 extern int bb_emit_overflow;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_emit_end(void)
 {
     if (bb_emit_overflow) {
@@ -90,6 +95,7 @@ int bb_emit_end(void)
     }
     return bb_emit_pos;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_emit_patch_rel32(bb_label_t *lbl)
 {
     if (!MEDIUM_BINARY) {
@@ -115,6 +121,7 @@ void bb_emit_patch_rel32(bb_label_t *lbl)
     bb_emit_u32(0x00000000);
 }
 int bb_emit_overflow = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_emit_byte(uint8_t b)
 {
     if (bb_emit_mode != EMIT_BINARY_WIRED) {
@@ -137,6 +144,7 @@ void  bb_emit_i32(int32_t v)   { uint32_t u; memcpy(&u, &v, 4); bb_emit_u32(u); 
 int  g_is_text        = 0;
 int  g_emit_text_mode = TEXT_MODE_INVOCATION;
 int  g_emit_pos       = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emitter_init_binary(bb_buf_t buf, int size)
 {
     g_is_text = 0; g_emit_text_mode = TEXT_MODE_INVOCATION; g_emit_pos = 0;
@@ -145,6 +153,7 @@ void emitter_init_binary(bb_buf_t buf, int size)
     g_platform = BB_PLATFORM_X86; g_medium = BB_MEDIUM_BINARY;
     bb_emit_begin(buf, size);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emitter_init_text(FILE *out, int mode)
 {
     g_is_text = 1; g_emit_text_mode = mode; g_emit_pos = 0;
@@ -159,8 +168,10 @@ static void  ef_b1 (uint8_t a)                                   { bb_emit_byte(
 static void  ef_b2 (uint8_t a, uint8_t b)                        { bb_emit_byte(a); bb_emit_byte(b); }
 static void  ef_b3 (uint8_t a, uint8_t b, uint8_t c)             { bb_emit_byte(a); bb_emit_byte(b); bb_emit_byte(c); }
 static void  ef_b4 (uint8_t a, uint8_t b, uint8_t c, uint8_t d)  { bb_emit_byte(a); bb_emit_byte(b); bb_emit_byte(c); bb_emit_byte(d); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ef_t3c_jmp(const char *mnem, const char *target)
 { fprintf(bb_emit_out, "%s %s\n", mnem ? mnem : "", target ? target : ""); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_label_define_bb(bb_label_t *lbl)
 {
     if (g_is_text) {
@@ -172,6 +183,7 @@ void emit_label_define_bb(bb_label_t *lbl)
         bb_emit_mode = s;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_jmp_label(bb_label_t *target, jmp_kind_t kind)
 {
     static const char    *mn[]    = {"jmp","je","jne","jl","jge","jg"};
@@ -180,11 +192,13 @@ void emit_jmp_label(bb_label_t *target, jmp_kind_t kind)
     if (g_is_text) { ef_t3c_jmp(mn[k], target->name); g_emit_pos += 6; }
     else { if (k==0) ef_b1(0xE9); else ef_b2(ops[k][0], ops[k][1]); bb_emit_patch_rel32(target); }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_aligned_call_rt(const char *sym, void *addr)
 {
     if (g_is_text) { fprintf(bb_emit_out, " push rbx\n mov rbx, rsp\n and rsp, -16\n call %s@PLT\n mov rsp, rbx\n pop rbx\n", sym ? sym : ""); }
     else { ef_b1(0x53); ef_b3(0x48,0x89,0xE3); ef_b4(0x48,0x83,0xE4,0xF0); ef_b2(0x48,0xB8); bb_emit_u64((uint64_t)(uintptr_t)addr); ef_b2(0xFF,0xD0); ef_b3(0x48,0x89,0xDC); ef_b1(0x5B); }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_label_define(bb_label_t *lbl)
 {
     if (!MEDIUM_BINARY) {
@@ -220,6 +234,7 @@ void bb_label_define(bb_label_t *lbl)
         i--;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
 {
     va_list ap; va_start(ap, fmt);
@@ -278,6 +293,7 @@ int bb_node_id(IR_t * nd) {
     while (g_nid_key[h]) { if (g_nid_key[h] == nd) return g_nid_val[h]; h = (h + 1u) & 262143u; }
     g_nid_key[h] = nd; g_nid_val[h] = ++g_nid_count; return g_nid_val[h];
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void xa_dispatch(XA_op_t op)
 {
     switch (op) {
@@ -313,6 +329,7 @@ static struct { const char *s; int idx; } g_strtab[SMX_STRTAB_CAP];
 static int g_strtab_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void strtab_reset(void) { g_strtab_n = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int strtab_intern(const char *s)
 {
     if (!s) s = "";
@@ -323,12 +340,14 @@ int strtab_intern(const char *s)
     g_strtab[g_strtab_n].s = s; g_strtab[g_strtab_n].idx = idx; g_strtab_n++;
     return idx;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void strtab_label(char *buf, size_t bufsz, const char *s)
 {
     if (!s) s = "";
     int idx = strtab_intern(s);
     snprintf(buf, bufsz, ".S%d", idx);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void xa_emit_strtab_rodata(void)
 {
     if (g_strtab_n <= 0) { strtab_reset(); return; }
@@ -475,6 +494,7 @@ IR_t * bb_child1(const IR_t *n) { return (n && n->n_operands > 1) ? n->operands[
 extern int memcmp(const void *, const void *, size_t);
 static bb_label_t g_α_ring[8];
 static int        g_α_ring_i = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int        g_bb_alpha_seq = 0;void g_bb_alpha_seq_reset(void) { g_bb_alpha_seq = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_fill_alpha(IR_t *nd) {
@@ -1479,6 +1499,7 @@ bb_box_fn descr_flat_chain_build(IR_t *entry) {
     bb_seal(buf, (size_t)nbytes);
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 }int descr_flat_chain_build_text(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return 1;
     descr_chain_operand_refs(entry);

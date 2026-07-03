@@ -5,12 +5,14 @@
 extern "C" {
 #include "xa_template_common.h"
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bm_line(const char *lbl, const char *act, const char *got)
 {
     std::string line = emit_fmt("%-24s%-16s %s", lbl ? lbl : "", act ? act : "", got ? got : "");
     while (!line.empty() && (line.back() == ' ' || line.back() == '\t')) line.pop_back();
     return line + "\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bm_macro(const char *name, const char *args)
 {
     std::string decl = (args && args[0]) ? emit_fmt("%s %s", name, args) : std::string(name);

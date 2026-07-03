@@ -244,6 +244,7 @@ static uint8_t scrip_tag_to_wire(int v) {
         default:       return MWT_UNKNOWN;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
                          const void *value, uint32_t value_len) {
     if (monitor_fd < 0) return;

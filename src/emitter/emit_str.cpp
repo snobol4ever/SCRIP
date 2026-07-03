@@ -187,9 +187,11 @@ std::string net_escape_ldstr_str(const char * s) {
 std::string net_class_hdr_str(int sid, int nid) {
     return emit_fmt(".class nested public auto ansi beforefieldinit pat_%d_%d\n       extends [mscorlib]System.Object\n       implements [boxes]Snobol4.Runtime.Boxes.IByrdBox\n{\n", sid, nid);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_α_hdr_str() {
     return "  .method public virtual instance valuetype [boxes]Snobol4.Runtime.Boxes.Spec\n          Alpha(class [boxes]Snobol4.Runtime.Boxes.MatchState ms) cil managed\n  {\n";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_β_hdr_str() {
     return "  .method public virtual instance valuetype [boxes]Snobol4.Runtime.Boxes.Spec\n          Beta(class [boxes]Snobol4.Runtime.Boxes.MatchState ms) cil managed\n  {\n";
 }
