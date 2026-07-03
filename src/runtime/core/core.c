@@ -1853,7 +1853,8 @@ char *VARVAL_fn(DESCR_t v) {
             return GC_strdup(buf);
         }
         case DT_N:
-            if (v.s) return GC_strdup(v.s);
+            if (v.slen == 2 && v.ptr) { extern DESCR_t rt_deref(DESCR_t); return VARVAL_fn(rt_deref(v)); }
+            if (v.slen == 0 && v.s) return GC_strdup(v.s);
             if (v.ptr) {
                 const char *nm = NV_name_from_ptr((const DESCR_t *)v.ptr);
                 if (nm) return GC_strdup(nm);

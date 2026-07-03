@@ -11,6 +11,7 @@ DESCR_t VARVAL_d_fn(DESCR_t d)
     if (d.v == DT_N) {
         if (d.slen == 0 && d.s && *d.s) d = NV_GET_fn(d.s);
         else if (d.slen == 1 && d.ptr)  d = *(DESCR_t *)d.ptr;
+        else if (d.slen == 2 && d.ptr)  { extern DESCR_t rt_deref(DESCR_t); d = rt_deref(d); }
         else return NULVCL;
     }
     if (d.v == DT_K && d.s) d = NV_GET_fn(d.s);

@@ -1064,7 +1064,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
            op_a_slot = base DESCR slot; op_sa = i1 slot; op_sb = i2 slot; op_off = result slot.
            op_ival = section variant (0=plain, 1=plus, 2=minus). */
         if (nd->n_operands == 2) {
-            /* IDX-UNIFY 2-operand form: x[i] variable producer. operands[0]=base, [1]=index; op_a_slot=base, op_sa=index, op_off=result (DT_V variable or pass-through value). */
+            /* IDX-UNIFY 2-operand form: x[i] variable producer. operands[0]=base, [1]=index; op_a_slot=base, op_sa=index, op_off=result (DT_N-trap variable or pass-through value). */
             IR_t * vb = nd->operands[0]; IR_t * vi = nd->operands[1];
             int va = vb ? drive_value_slot(vb) : -1; int vs = vi ? drive_value_slot(vi) : -1;
             if (va < 0 || vs < 0) { drive_unowned(nd); break; }
@@ -1091,7 +1091,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_DEREF: {
-        /* IDX-UNIFY: materialize the value of a variable (identity on non-DT_V). operands[0]=variable node. */
+        /* IDX-UNIFY: materialize the value of a variable (identity on non-trap). operands[0]=variable node. */
         IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = v ? drive_value_slot(v) : -1;
         if (sa < 0) { drive_unowned(nd); break; }

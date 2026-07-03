@@ -121,8 +121,8 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
 static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
     /* IDX-UNIFY (GOAL-IR-IMMUTABLE-EMIT, RECON 2 + r1 tvsubs): x[i] / x[i,j,...] as a chain of 2-operand IR_SUBSCRIPT VARIABLE producers (operands[0]=base, [1]=index). The rval/lval MODE that
        JCON rides ON the "[]" operator (irgen.icn:494-499) is classified BY NAME here: IR_SUBSCRIPT yields the variable, the CALLER decides — rvalue wraps the final node in IR_DEREF, assignment
-       feeds it to IR_ASSIGN_VAR. An identifier base produces IR_VAR_REF (DT_V over the variable's own cell — ζ varslot or GVA slot), and DT_V flows THROUGH the chain: rt_subscript_var derefs a
-       DT_V base internally (canonical subsc, oref.r:710-758 — operate on the value, keep the variable), so the between-level IR_DEREF nodes of phase 1 are retired. Lists: genuine cell pointer.
+       feeds it to IR_ASSIGN_VAR. An identifier base produces IR_VAR_REF (DT_N trap over the variable's own cell — ζ varslot or GVA slot), and the DT_N trap flows THROUGH the chain: rt_subscript_var derefs a
+       DT_N-trap base internally (canonical subsc, oref.r:710-758 — operate on the value, keep the variable), so the between-level IR_DEREF nodes of phase 1 are retired. Lists: genuine cell pointer.
        Tables: lazy {tbl,key} trap (canonical tvtbl — a read NEVER inserts, assignment does). Strings under a variable base: tvsubs trap {ssvar,pos,len} — assignment splices prefix+src+suffix and
        writes back RECURSIVELY through ssvar (subs_asgn, oasgn.r:345+; the recursive rt_assign_var collapses canonical's type_case, so t["k"][2]:=v lazily re-derefs the tvtbl beneath); trap len
        updates on assign so revassign's β-restore reuses the same trap (canonical rasgn). Strings under a VALUE base stay plain value reads (probe 63). rt_subscript_var/rt_deref/rt_assign_var,
@@ -149,7 +149,7 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
 }
 /*====================================================================================================================================================================================================*/
 static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
-    /* SWAP-LV: lower ANY supported lvalue tree to a VARIABLE producer (DT_V VCELL), the shared front for
+    /* SWAP-LV: lower ANY supported lvalue tree to a VARIABLE producer (DT_N-trap VCELL), the shared front for
        constructs that need BOTH operands underef (canonical swap's `underef x -> dx` signature, oasgn.r:267).
        Covers the three lvalue kinds the TT_ASSIGN arms already serve individually: identifier → IR_VAR_REF;
        x[i...] → lower_idx_var chain; s[i:j] / s[i+:n] / s[i-:n] → the 3-operand IR_SUBSCRIPT sval="lv" section
@@ -195,7 +195,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
     }
     if (t->t == TT_FIELD && t->n > 0 && t->c[0]) {
         /* LVALUE-COLLAPSE increment 2: a.f field-VARIABLE producer — IR_FIELD_GET ival=1 selects bb_field_get's lv arm; rt_field_var (the rt_subscript_var record-arm sibling, data_field_ptr
-           name→cell) mints the VCELL over the field cell. Base lowers as a value (record descr is a reference; rt_field_var derefs a DT_V base internally, rt_subscript_var parity). */
+           name→cell) mints the VCELL over the field cell. Base lowers as a value (record descr is a reference; rt_field_var derefs a DT_N-trap base internally, rt_subscript_var parity). */
         IR_t * fg = build(cx, IR_FIELD_VAR, NULL, ω);
         IR_LIT(fg).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], NULL, ω, &br);
@@ -306,7 +306,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         /* ASSIGN-LV LV-3a: ?x — classify-by-name (JCON collapses to opfn u_random/"Select"; SCRIP splits per the JCON-ALIGNMENT directive). operator{0,1}: single-shot, no β. rt_random_var rolls the
            canonical LCG once (RandA/RandC/RanScale, oref.r:216; state = g_random, the &random keyword's cell) and mints the LV VCELL family (string-under-variable tvsubs len=1 / list cell / record field /
            table nth-pair lazy trap) or a plain value (cset char, string-value char, ?n int in [1,n], ?0 real). Identifier base → IR_VAR_REF (string tvsubs needs the variable, lower_idx_var parity); rvalue
-           = IR_DEREF partner (identity on non-DT_V); the TT_ASSIGN/TT_AUGOP lv arms consume the variable directly. */
+           = IR_DEREF partner (identity on non-trap); the TT_ASSIGN/TT_AUGOP lv arms consume the variable directly. */
         IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
         const tree_t * b0 = (t->n > 0) ? t->c[0] : NULL; if (!b0) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
         IR_t * ar = NULL; IR_t * ae;
