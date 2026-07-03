@@ -14,8 +14,6 @@ __gva: .space 16, 0
 main:
   push rbp
   mov rbp, rsp
-  call core_lib_init@PLT
-  call rt_proc_reset@PLT
   lea rdi, [rip + __gva_names]
   lea rsi, [rip + __gva]
   mov edx, 1
@@ -24,194 +22,233 @@ main:
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
-  call flat_α
+  call main_α
   xor eax, eax
   pop rbp
   ret
-flat_α:
+main_α:
 #=======================================================================================================================
-    .global flat_α
-    .global flat_β
-    .global flat_γ
-    .global flat_ω
+    .global main_α
+    .global main_β
+    .global main_γ
+    .global main_ω
 push r12
   mov r12, rdi
-  lea r10, [rip + Δ]
-flat_α_body:
-snoch0_n0_α:
-# IR_LIT_S
+main_α_body:
+xchain0_n0_α:
+# IR_LIT_STRING
 bb1_α:
- mov qword ptr [r12 + 16], 1
- mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [r12 + 24], rax
- jmp xgvarg1_done
- xgvarg1_β:
- jmp snoch0_n2_α
-.Lx2_0:
- .quad .Lx2_0_s
-.Lx2_0_s:
+ mov qword ptr [r12 + 48], 1
+ mov rax, qword ptr [rip + .Lx1_0]
+ mov qword ptr [r12 + 56], rax
+ jmp xchain0_n1_α
+ xchain0_n0_β:
+ jmp xchain0_n3_α
+.Lx1_0:
+ .quad .Lx1_0_s
+.Lx1_0_s:
  .string "abc"
-xgvarg1_done:
+xchain0_n1_α:
 bb2_α:
 # BOX IR_CALL integer(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+16] -> [r12+48]
- mov rax, qword ptr [r12 + 16]
- mov qword ptr [r12 + 48], rax
- mov rax, qword ptr [r12 + 24]
- mov qword ptr [r12 + 56], rax
-  .section .rodata
-  .Lrkfn4: .string "integer"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn4]
- lea rsi, [r12 + 48]
- mov edx, 1
- call rt_call_arr@PLT
+# marshal arg0 = producer-box slot [r12+48] -> [r12+32]
+ mov rax, qword ptr [r12 + 48]
  mov qword ptr [r12 + 32], rax
- mov qword ptr [r12 + 40], rdx
+ mov rax, qword ptr [r12 + 56]
+ mov qword ptr [r12 + 40], rax
+  .section .rodata
+  .Lrkfn3: .string "integer"
+  .section .text
+  .intel_syntax noprefix
+   lea rdi, [rip + .Lrkfn3]
+ lea rsi, [r12 + 32]
+ mov edx, 1
+ call rt_call_arr@PLT
+ mov qword ptr [r12 + 16], rax
+ mov qword ptr [r12 + 24], rdx
  cmp eax, 99
- je snoch0_n2_α
- jmp snoch0_n1_α
- snoch0_n0_β:
- jmp snoch0_n2_α
-snoch0_n1_α:
-# IR_LIT_scalar
+ je xchain0_n3_α
+ jmp xchain0_n2_α
+ xchain0_n1_β:
+ jmp xchain0_n3_α
+xchain0_n2_α:
+# IR_LIT_STRING
 bb3_α:
- jmp snoch0_n3_α
- snoch0_n1_β:
- jmp flat_γ
-snoch0_n2_α:
-# IR_LIT_I
+ mov qword ptr [r12 + 80], 1
+ mov rax, qword ptr [rip + .Lx4_0]
+ mov qword ptr [r12 + 88], rax
+ jmp xchain0_n4_α
+ xchain0_n2_β:
+ jmp main_ω
+.Lx4_0:
+ .quad .Lx4_0_s
+.Lx4_0_s:
+ .string "FAIL 913/001: integer(string) should fail"
+xchain0_n3_α:
+# IR_LIT_INTEGER
 bb4_α:
- mov qword ptr [r12 + 64], 6
- mov rax, qword ptr [rip + .Lx7_0]
- mov qword ptr [r12 + 72], rax
- jmp xgvarg6_done
- xgvarg6_β:
- jmp snoch0_n5_α
-.Lx7_0:
+ mov qword ptr [r12 + 128], 6
+ mov rax, qword ptr [rip + .Lx5_0]
+ mov qword ptr [r12 + 136], rax
+ jmp xchain0_n5_α
+ xchain0_n3_β:
+ jmp xchain0_n7_α
+.Lx5_0:
  .quad 12
-xgvarg6_done:
+xchain0_n4_α:
+# IR_ASSIGN gva
 bb5_α:
-# BOX IR_CALL integer(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+64] -> [r12+96]
- mov rax, qword ptr [r12 + 64]
- mov qword ptr [r12 + 96], rax
- mov rax, qword ptr [r12 + 72]
- mov qword ptr [r12 + 104], rax
-  .section .rodata
-  .Lrkfn9: .string "integer"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn9]
- lea rsi, [r12 + 96]
- mov edx, 1
- call rt_call_arr@PLT
- mov qword ptr [r12 + 80], rax
- mov qword ptr [r12 + 88], rdx
- cmp eax, 99
- je snoch0_n5_α
- jmp snoch0_n4_α
- snoch0_n2_β:
- jmp snoch0_n5_α
-snoch0_n3_α:
+ mov rax, qword ptr [r12 + 80]
+ mov rdx, qword ptr [r12 + 88]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rdx
+ mov qword ptr [r12 + 64], rax
+ mov qword ptr [r12 + 72], rdx
+ jmp main_γ
+ xchain0_n4_β:
+ jmp main_ω
+xchain0_n5_α:
 bb6_α:
-# IR_ASSIGN_LIT_S
- lea rdi, [rip + .S0]
- lea rsi, [rip + .S1]
- call rt_gvar_assign_str@PLT
- jmp flat_γ
- snoch0_n3_β:
- jmp flat_γ
-snoch0_n4_α:
-# IR_LIT_S
-bb7_α:
- mov qword ptr [r12 + 112], 1
- mov rax, qword ptr [rip + .Lx12_0]
- mov qword ptr [r12 + 120], rax
- jmp xgvarg11_done
- xgvarg11_β:
- jmp snoch0_n7_α
-.Lx12_0:
- .quad .Lx12_0_s
-.Lx12_0_s:
- .string "12"
-xgvarg11_done:
-bb8_α:
 # BOX IR_CALL integer(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+112] -> [r12+144]
- mov rax, qword ptr [r12 + 112]
- mov qword ptr [r12 + 144], rax
- mov rax, qword ptr [r12 + 120]
- mov qword ptr [r12 + 152], rax
+# marshal arg0 = producer-box slot [r12+128] -> [r12+112]
+ mov rax, qword ptr [r12 + 128]
+ mov qword ptr [r12 + 112], rax
+ mov rax, qword ptr [r12 + 136]
+ mov qword ptr [r12 + 120], rax
   .section .rodata
-  .Lrkfn14: .string "integer"
+  .Lrkfn8: .string "integer"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn14]
- lea rsi, [r12 + 144]
+   lea rdi, [rip + .Lrkfn8]
+ lea rsi, [r12 + 112]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
+ mov qword ptr [r12 + 96], rax
+ mov qword ptr [r12 + 104], rdx
  cmp eax, 99
- je snoch0_n7_α
- jmp snoch0_n6_α
- snoch0_n4_β:
- jmp snoch0_n7_α
-snoch0_n5_α:
-# IR_LIT_scalar
+ je xchain0_n7_α
+ jmp xchain0_n6_α
+ xchain0_n5_β:
+ jmp xchain0_n7_α
+xchain0_n6_α:
+# IR_LIT_STRING
+bb7_α:
+ mov qword ptr [r12 + 208], 1
+ mov rax, qword ptr [rip + .Lx9_0]
+ mov qword ptr [r12 + 216], rax
+ jmp xchain0_n8_α
+ xchain0_n6_β:
+ jmp xchain0_n11_α
+.Lx9_0:
+ .quad .Lx9_0_s
+.Lx9_0_s:
+ .string "12"
+xchain0_n7_α:
+# IR_LIT_STRING
+bb8_α:
+ mov qword ptr [r12 + 160], 1
+ mov rax, qword ptr [rip + .Lx10_0]
+ mov qword ptr [r12 + 168], rax
+ jmp xchain0_n9_α
+ xchain0_n7_β:
+ jmp main_ω
+.Lx10_0:
+ .quad .Lx10_0_s
+.Lx10_0_s:
+ .string "FAIL 913/002: integer(12) should succeed"
+xchain0_n8_α:
 bb9_α:
- jmp snoch0_n8_α
- snoch0_n5_β:
- jmp flat_γ
-snoch0_n6_α:
-# IR_LIT_scalar
+# BOX IR_CALL integer(...) -> rt_call_arr [operand-marshal, FAIL->ω]
+# marshal arg0 = producer-box slot [r12+208] -> [r12+192]
+ mov rax, qword ptr [r12 + 208]
+ mov qword ptr [r12 + 192], rax
+ mov rax, qword ptr [r12 + 216]
+ mov qword ptr [r12 + 200], rax
+  .section .rodata
+  .Lrkfn12: .string "integer"
+  .section .text
+  .intel_syntax noprefix
+   lea rdi, [rip + .Lrkfn12]
+ lea rsi, [r12 + 192]
+ mov edx, 1
+ call rt_call_arr@PLT
+ mov qword ptr [r12 + 176], rax
+ mov qword ptr [r12 + 184], rdx
+ cmp eax, 99
+ je xchain0_n11_α
+ jmp xchain0_n10_α
+ xchain0_n8_β:
+ jmp xchain0_n11_α
+xchain0_n9_α:
+# IR_ASSIGN gva
 bb10_α:
- jmp snoch0_n9_α
- snoch0_n6_β:
- jmp flat_γ
-snoch0_n7_α:
-# IR_LIT_scalar
+ mov rax, qword ptr [r12 + 160]
+ mov rdx, qword ptr [r12 + 168]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rdx
+ mov qword ptr [r12 + 144], rax
+ mov qword ptr [r12 + 152], rdx
+ jmp main_γ
+ xchain0_n9_β:
+ jmp main_ω
+xchain0_n10_α:
+# IR_LIT_STRING
 bb11_α:
- jmp snoch0_n10_α
- snoch0_n7_β:
- jmp flat_γ
-snoch0_n8_α:
+ mov qword ptr [r12 + 272], 1
+ mov rax, qword ptr [rip + .Lx14_0]
+ mov qword ptr [r12 + 280], rax
+ jmp xchain0_n12_α
+ xchain0_n10_β:
+ jmp main_ω
+.Lx14_0:
+ .quad .Lx14_0_s
+.Lx14_0_s:
+ .string "PASS 913_integer_pred (3/3)"
+xchain0_n11_α:
+# IR_LIT_STRING
 bb12_α:
-# IR_ASSIGN_LIT_S
- lea rdi, [rip + .S0]
- lea rsi, [rip + .S2]
- call rt_gvar_assign_str@PLT
- jmp flat_γ
- snoch0_n8_β:
- jmp flat_γ
-snoch0_n9_α:
+ mov qword ptr [r12 + 240], 1
+ mov rax, qword ptr [rip + .Lx15_0]
+ mov qword ptr [r12 + 248], rax
+ jmp xchain0_n13_α
+ xchain0_n11_β:
+ jmp main_ω
+.Lx15_0:
+ .quad .Lx15_0_s
+.Lx15_0_s:
+ .string "FAIL 913/003: integer(numeric-string) should succeed"
+xchain0_n12_α:
+# IR_ASSIGN gva
 bb13_α:
-# IR_ASSIGN_LIT_S
- lea rdi, [rip + .S0]
- lea rsi, [rip + .S3]
- call rt_gvar_assign_str@PLT
- jmp flat_γ
- snoch0_n9_β:
- jmp flat_γ
-snoch0_n10_α:
+ mov rax, qword ptr [r12 + 272]
+ mov rdx, qword ptr [r12 + 280]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rdx
+ mov qword ptr [r12 + 256], rax
+ mov qword ptr [r12 + 264], rdx
+ jmp main_γ
+ xchain0_n12_β:
+ jmp main_ω
+xchain0_n13_α:
+# IR_ASSIGN gva
 bb14_α:
-# IR_ASSIGN_LIT_S
- lea rdi, [rip + .S0]
- lea rsi, [rip + .S4]
- call rt_gvar_assign_str@PLT
- jmp flat_γ
- snoch0_n10_β:
- jmp flat_γ
-flat_β:
-jmp flat_ω
-flat_γ:
+ mov rax, qword ptr [r12 + 240]
+ mov rdx, qword ptr [r12 + 248]
+ mov qword ptr [rbx + 0], rax
+ mov qword ptr [rbx + 8], rdx
+ mov qword ptr [r12 + 224], rax
+ mov qword ptr [r12 + 232], rdx
+ jmp main_γ
+ xchain0_n13_β:
+ jmp main_ω
+main_β:
+jmp main_ω
+main_γ:
 mov eax, 1
 xor edx, edx
 pop r12
 ret
-flat_ω:
+main_ω:
 # GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
 mov dword ptr [r12+0], 99
 mov dword ptr [r12+4], 0
@@ -220,10 +257,3 @@ mov eax, 99
 xor edx, edx
 pop r12
 ret
-.section .rodata
-.S0: .string "output"
-.S1: .string "FAIL 913/001: integer(string) should fail"
-.S2: .string "FAIL 913/002: integer(12) should succeed"
-.S3: .string "PASS 913_integer_pred (3/3)"
-.S4: .string "FAIL 913/003: integer(numeric-string) should succeed"
-.text

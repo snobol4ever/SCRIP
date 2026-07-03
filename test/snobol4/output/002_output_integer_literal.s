@@ -4,48 +4,57 @@
 main:
   push rbp
   mov rbp, rsp
-  call core_lib_init@PLT
-  call rt_proc_reset@PLT
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
-  call flat_α
+  call main_α
   xor eax, eax
   pop rbp
   ret
-flat_α:
+main_α:
 #=======================================================================================================================
-    .global flat_α
-    .global flat_β
-    .global flat_γ
-    .global flat_ω
+    .global main_α
+    .global main_β
+    .global main_γ
+    .global main_ω
 push r12
   mov r12, rdi
-  lea r10, [rip + Δ]
-flat_α_body:
-snoch0_n0_α:
-# IR_LIT_scalar
+main_α_body:
+xchain0_n0_α:
+# IR_LIT_INTEGER
 bb1_α:
- jmp snoch0_n1_α
- snoch0_n0_β:
- jmp flat_γ
-snoch0_n1_α:
+ mov qword ptr [r12 + 32], 6
+ mov rax, qword ptr [rip + .Lx1_0]
+ mov qword ptr [r12 + 40], rax
+ jmp xchain0_n1_α
+ xchain0_n0_β:
+ jmp main_ω
+.Lx1_0:
+ .quad 42
+xchain0_n1_α:
+# IR_ASSIGN global
 bb2_α:
-# IR_ASSIGN_LIT_I
- lea rdi, [rip + .S0]
- movabs rsi, 42
- call rt_gvar_assign_int@PLT
- jmp flat_γ
- snoch0_n1_β:
- jmp flat_γ
-flat_β:
-jmp flat_ω
-flat_γ:
+ mov rsi, qword ptr [r12 + 32]
+ mov rdx, qword ptr [r12 + 40]
+ mov rdi, qword ptr [rip + .Lx2_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 16], rax
+ mov qword ptr [r12 + 24], rdx
+ jmp main_γ
+ xchain0_n1_β:
+ jmp main_ω
+.Lx2_0:
+ .quad .Lx2_0_s
+.Lx2_0_s:
+ .string "OUTPUT"
+main_β:
+jmp main_ω
+main_γ:
 mov eax, 1
 xor edx, edx
 pop r12
 ret
-flat_ω:
+main_ω:
 # GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
 mov dword ptr [r12+0], 99
 mov dword ptr [r12+4], 0
@@ -54,6 +63,3 @@ mov eax, 99
 xor edx, edx
 pop r12
 ret
-.section .rodata
-.S0: .string "OUTPUT"
-.text
