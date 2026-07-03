@@ -47,7 +47,6 @@ typedef enum {
     IR_FIELD_GET,
     IR_FIELD_VAR,
     IR_NULLTEST_VAR,
-    IR_FIELD_SET,
     IR_GOTO,
     IR_INDIRECT_GOTO,
     IR_ITERATE,

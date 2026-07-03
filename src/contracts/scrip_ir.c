@@ -36,7 +36,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_FIELD_GET] = "IR_FIELD_GET",
     [IR_FIELD_VAR] = "IR_FIELD_VAR",
     [IR_NULLTEST_VAR] = "IR_NULLTEST_VAR",
-    [IR_FIELD_SET] = "IR_FIELD_SET",
     [IR_GOTO] = "IR_GOTO",
     [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
     [IR_LIMIT]  = "IR_LIMIT",
