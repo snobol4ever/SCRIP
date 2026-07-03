@@ -706,7 +706,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
-    g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET || nd->op == IR_KEYWORD || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_FIELD_SET || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL) ? IR_LIT(nd).sval : (const char *)0;
+    g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET || nd->op == IR_KEYWORD || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL) ? IR_LIT(nd).sval : (const char *)0;
     { extern int g_gva_active; extern int gva_index_of(const char *); int nm_op = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN);
       g_emit.op_gva_k = (g_gva_active && nm_op && IR_LIT(nd).sval) ? gva_index_of(IR_LIT(nd).sval) : -1; }
     { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *); int nm_op = (ir_norm_call_kind(nd->op) == IR_CALL);
@@ -800,7 +800,6 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_UNOP:
     case IR_UNOP_TEST: case IR_NULLTEST_VAR: bb_emit_x86(bb_unop());   return 0;
     case IR_FIELD_GET: case IR_FIELD_VAR: bb_emit_x86(bb_field_get());   return 0;
-    case IR_FIELD_SET:            bb_emit_x86(bb_field_set());      return 0;
     default:
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op);
         return 1;
@@ -947,13 +946,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         int sa = obj ? descr_binop_opnd_slot(obj) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    }
-    case IR_FIELD_SET: {
-        IR_t * obj = bb_child0(nd); IR_t * val = bb_child1(nd);
-        int sa = obj ? bb_slot_get(obj) : -1; int sb = val ? bb_slot_get(val) : -1;
-        if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
-        g_emit.op_a_slot = sa; g_emit.op_sb = sb; g_emit.op_sval = IR_LIT(nd).sval;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ASSIGN: {

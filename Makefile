@@ -127,7 +127,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_assign_local.cpp \
     $(SRC)/templates/bb_assign_global.cpp \
     $(SRC)/templates/bb_field_get.cpp \
-    $(SRC)/templates/bb_field_set.cpp \
     $(SRC)/templates/bb_suspend.cpp \
     $(SRC)/templates/bb_iterate.cpp \
     $(SRC)/templates/bb_repalt.cpp \
@@ -344,7 +343,6 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_local.cpp -o $(OBJ)/bb_assign_local.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_global.cpp -o $(OBJ)/bb_assign_global.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_get.cpp -o $(OBJ)/bb_field_get.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_field_set.cpp -o $(OBJ)/bb_field_set.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_repalt.cpp    -o $(OBJ)/bb_repalt.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_enter_init.cpp -o $(OBJ)/bb_enter_init.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp  -o $(OBJ)/bb_gen_scan.o
