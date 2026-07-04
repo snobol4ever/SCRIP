@@ -66,7 +66,7 @@ int rt_builtin_is_known(const char *name)
         "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek",
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
-        "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER",
+        "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -2239,7 +2239,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         const char *s = VARVAL_fn(av); if (!s||!*s) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]); return 1;
     }
-    if (!strcmp(fn,"type") && nargs == 1) {
+    if ((!strcmp(fn,"type") || !strcmp(fn,"DATATYPE")) && nargs == 1) {
         DESCR_t av = args[0];
         const char *t;
         if (IS_INT_fn(av))       t="integer";
