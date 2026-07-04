@@ -222,6 +222,59 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int ir_is_generator_kind(IR_e t);
+static void sno_ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_pat_node(IR_graph_t * g, const tree_t * t, IR_t * succ, IR_t * fail) {
+    if (!t) return succ;
+    switch (t->t) {
+    case TT_LEN: {
+        IR_t * nd = lc_build(g, IR_MATCH_LEN, succ, NULL);
+        sno_ω_to(nd, fail);
+        long long n = 0;
+        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT) n = t->c[0]->v.ival;
+        else sno_fatal("LEN with a non-literal count is outside the SN4-PAT-2 subset", NULL);
+        IR_LIT(nd).ival = n;
+        return nd;
+    }
+    case TT_CAPT_COND_ASGN: {
+        const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
+        sno_reg_var(vn);
+        IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_COND, succ, NULL);
+        sno_ω_to(nd, fail);
+        IR_LIT(nd).sval = (char *) vn;
+        IR_t * pe = sno_pat_node(g, t->c[0], nd, fail);
+        ir_operand_push(nd, pe);
+        ir_operand_push(nd, fail);
+        return pe;
+    }
+    default:
+        sno_fatal("pattern element not in the SN4-PAT-2 subset (LEN(n) only)", NULL);
+    }
+    return succ;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_supported(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
+    if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, IR_t * sJ, IR_t * fJ) {
+    IR_graph_t * g = cx->g;
+    const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
+    const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
+    IR_t * head = lc_build(g, IR_MATCH_HEAD, NULL, fJ);
+    IR_t * pat_entry = sno_pat_node(g, ptt, sJ, head);
+    lc_γ_to(head, pat_entry);
+    IR_t * subjval = NULL;
+    IR_t * subj_entry = sx_lower(cx, svt, head, fJ, &subjval);
+    ir_operand_push(head, subjval);
+    return subj_entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
     scx_t cx; cx.g = g;
@@ -254,7 +307,15 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const tree_t * subj = lc_stmt_subj(s);
         const tree_t * pat  = sfind_expr(s, ":pat");
         int has_eq = sfind(s, ":eq") != NULL;
-        if (pat || (subj && subj->t == TT_SCAN)) sno_fatal("statement has a PATTERN field (stages 2/3/5 of the 5-stage model)", "unlowered until the IR_MATCH_* family lands");
+        if (pat) sno_fatal("statement has a separate :pat field (stored-pattern form) — SN4-PAT-2 handles TT_SCAN match subjects only", NULL);
+        if (subj && subj->t == TT_SCAN) {
+            if (has_eq) sno_fatal("SUBJECT PATTERN = REPL splice is outside the SN4-PAT-2 subset (match-only for now)", NULL);
+            const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
+            if (!sno_pat_supported(ptt)) sno_fatal("pattern shape outside the SN4-PAT-2 subset (LEN(n) only)", NULL);
+            IR_t * e = sno_lower_match(&cx, subj, sJ, fJ);
+            lc_γ_to(anchor[i], e);
+            continue;
+        }
         if (!subj) { lc_γ_to(anchor[i], sJ); continue; }
         if (!has_eq) {
             IR_t * r = NULL; IR_t * e = sx_lower(&cx, subj, sJ, fJ, &r);

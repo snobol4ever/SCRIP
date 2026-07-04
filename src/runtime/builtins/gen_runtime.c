@@ -50,6 +50,23 @@ void rt_scan_leave(uint64_t *out3) {
     } else if (out3) { out3[0] = 0; out3[1] = 0; out3[2] = 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi) {
+    extern const char *Σ; extern int Σlen;
+    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
+    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
+    if (!s) s = "";
+    Σ = s; Σlen = (int)strlen(s);
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char *var) {
+    DESCR_t sub = rt_substr((const char *)(uintptr_t)sigma, start, end);
+    if (var && var[0]) NV_SET_fn(var, sub);
+    return sub;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b) {
     if (!sigma) sigma = "";
     int64_t lo = a < b ? a : b;

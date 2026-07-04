@@ -110,6 +110,8 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_every.cpp \
     $(SRC)/templates/bb_to.cpp \
     $(SRC)/templates/bb_match_len.cpp \
+    $(SRC)/templates/bb_match_head.cpp \
+    $(SRC)/templates/bb_match_capture.cpp \
     $(SRC)/templates/bb_to_by.cpp \
     $(SRC)/templates/bb_make_list.cpp \
     $(SRC)/templates/bb_activate.cpp \
@@ -306,6 +308,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_every.cpp        -o $(OBJ)/bb_every.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_to.cpp           -o $(OBJ)/bb_to.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_len.cpp    -o $(OBJ)/bb_match_len.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_head.cpp   -o $(OBJ)/bb_match_head.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_to_by.cpp        -o $(OBJ)/bb_to_by.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_make_list.cpp     -o $(OBJ)/bb_make_list.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_activate.cpp     -o $(OBJ)/bb_activate.o
