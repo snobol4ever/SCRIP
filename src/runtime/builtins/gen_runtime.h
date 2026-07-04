@@ -64,6 +64,8 @@ typedef struct { const char *subj; int pos; uint64_t sigma; uint64_t delta; uint
 extern ScanEntry scan_stack[SCAN_STACK_MAX];
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta);
+ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
+DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char *var);
 void rt_scan_leave(uint64_t *out3);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 extern int          scan_depth;
