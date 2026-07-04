@@ -66,6 +66,7 @@ int rt_builtin_is_known(const char *name)
         "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek",
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
+        "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -3335,6 +3336,28 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         size_t n = strlen(sv); char *buf = (char *)GC_malloc(n + 1);
         for (size_t i = 0; i < n; i++) buf[i] = map[(unsigned char)sv[i]];
         buf[n] = 0; *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn,"SUBSTR") && (nargs == 2 || nargs == 3)) {
+        *out = SUBSTR_fn(args[0], args[1], (nargs == 3) ? args[2] : INTVAL(1000000000)); return 1;
+    }
+    if (!strcmp(fn,"REVERSE") && nargs == 1) { *out = REVERS_fn(args[0]); return 1; }
+    if (!strcmp(fn,"LPAD") && (nargs == 2 || nargs == 3)) {
+        *out = lpad_fn(args[0], args[1], (nargs == 3) ? args[2] : STRVAL(" ")); return 1;
+    }
+    if (!strcmp(fn,"RPAD") && (nargs == 2 || nargs == 3)) {
+        *out = rpad_fn(args[0], args[1], (nargs == 3) ? args[2] : STRVAL(" ")); return 1;
+    }
+    if (!strcmp(fn,"INTEGER") && nargs == 1) {
+        DESCR_t av = args[0];
+        if (IS_INT_fn(av))  { *out = NULVCL; return 1; }
+        if (IS_REAL_fn(av)) { *out = FAILDESCR; return 1; }
+        const char *sv = VARVAL_fn(av); if (!sv) sv = "";
+        const char *p = sv; while (*p == ' ' || *p == '\t') p++;
+        if (*p == '\0') { *out = NULVCL; return 1; }
+        if (*p == '+' || *p == '-') p++;
+        const char *d = p; while (*p >= '0' && *p <= '9') p++;
+        const char *e = p; while (*e == ' ' || *e == '\t') e++;
+        *out = (p != d && *e == '\0') ? NULVCL : FAILDESCR; return 1;
     }
     if (!strcmp(fn,"REMDR") && nargs == 2) {
         DESCR_t a = args[0], b = args[1]; _SNOCOERCE(a); _SNOCOERCE(b);
