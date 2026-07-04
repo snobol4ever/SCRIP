@@ -63,5 +63,23 @@ DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_subject(void) { return scan_subj ? STRVAL(scan_subj) : NULVCL; }
 DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long cvpos_of(DESCR_t v, long len, int *ok) {
+    long i; *ok = 1;
+    if (v.v == DT_I) i = (long)v.i;
+    else if (v.v == DT_R) i = (long)v.r;
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) { *ok = 0; return 0; } i = t; }
+    else { *ok = 0; return 0; }
+    if (i < -len || i > len + 1) { *ok = 0; return 0; }
+    return (i > 0) ? i : (len + i + 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int64_t rt_cvpos_pos(DESCR_t v, int64_t len) { int ok; long p = cvpos_of(v, (long)len, &ok); return ok ? (int64_t)p : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_pos_set(DESCR_t v) {
+    long len = scan_subj ? (long)strlen(scan_subj) : 0; int ok; long p = cvpos_of(v, len, &ok);
+    if (!ok) return FAILDESCR;
+    scan_pos = (int)p; return INTVAL((int64_t)p);
+}
 #include "../../driver/driver_private.h"
 #include <time.h>
