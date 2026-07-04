@@ -67,6 +67,7 @@ static int is_resumable(const tree_t * t) {
     if (!t) return 0; if (t->t == TT_STMT) t = stmt_subj(t); if (!t) return 0;
     if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; return icn_call_allow_gen(nm); }
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
+    if (t->t == TT_IDX) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_ASSIGN) { if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ITERATE) return 1; return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
     if (t->t == TT_SWAP) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     switch (t->t) {
@@ -590,9 +591,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_REVASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
         if (lhs && lhs->t == TT_IDX) {
+            IR_t * b4 = cx->beta;
             IR_t * vr = NULL; IR_t * entry = lower_idx_var(cx, lhs, ω, &vr);
-            IR_t * nd = build(cx, IR_REV_ASSIGN_VAR, γ, ω);
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, ω, &rr);
+            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
+            IR_t * nd = build(cx, IR_REV_ASSIGN_VAR, γ, lvbeta ? lvbeta : ω);
+            IR_t * b5 = cx->beta;
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, lvbeta ? lvbeta : ω, &rr);
+            IR_t * rbeta = (cx->beta != b5) ? cx->beta : NULL;
+            if (rbeta) ω_to(nd, rbeta);
             lc_γ_to(vr, re);
             lc_γ_to(rr, nd);
             ir_operand_push(nd, vr);
@@ -602,7 +608,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (lhs && lhs->t == TT_VAR) {
             IR_t * nd = build(cx, IR_REV_ASSIGN, γ, ω);
             IR_t * lr = NULL; IR_t * le = lower(cx, lhs, NULL, ω, &lr);
+            IR_t * b4 = cx->beta;
             IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, ω, &rr);
+            IR_t * rbeta = (cx->beta != b4) ? cx->beta : NULL;
+            if (rbeta) ω_to(nd, rbeta);
             γ_to(lr, re);
             lc_γ_to(rr, nd);
             ir_operand_push(nd, rr);
