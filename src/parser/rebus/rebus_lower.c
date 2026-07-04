@@ -446,11 +446,8 @@ void rebus_compile(const char *src, const char *filename, tree_t **out_ast) {
     }
     CODE_t *prog = rebus_lower(rp);
     if (!prog) return;
-    for (STMT_t *st = prog->head; st; st = st->next)
-        st->lang = LANG_REB;
     STMT_t *call_st = calloc(1, sizeof(STMT_t));
     call_st->subject = make_fnc("MAIN", 0);
-    call_st->lang    = LANG_REB;
     if (!prog->head) prog->head = prog->tail = call_st;
     else           { prog->tail->next = call_st; prog->tail = call_st; }
     prog->nstmts++;

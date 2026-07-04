@@ -567,7 +567,27 @@ static void pl_ll_prepass(void) {
         }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void lower_pl_stage2(const tree_t *prog) {
+static void pl_register_program(stage2_t * s2, const tree_t * prog) {
+    extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
+    extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
+    int mod_idx = -1;
+    for (int _ci = 0; _ci < prog->n; _ci++) {
+        const tree_t * s = prog->c[_ci];
+        if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;
+        if (mod_idx < 0) mod_idx = polyglot_module_open(s2, s);
+        polyglot_module_extend(s2, mod_idx, s);
+        tree_t * sub = lp_s_expr(s, ":subj");
+        if (!sub) continue;
+        if ((sub->t == TT_CHOICE || sub->t == TT_CLAUSE) && sub->v.sval) {
+            resolve_pred_table_insert(&s2->resolve_pred_table, sub->v.sval, sub);
+            g_resolve_active = 1;
+            if (strcmp(sub->v.sval, "main/0") == 0 && s2->module_registry.main_mod < 0) s2->module_registry.main_mod = mod_idx;
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+stage2_t *lower_pl_stage2(const tree_t *prog) {
+    pl_register_program(&g_stage2, prog);
     pl_ll_prepass();
     pl_dyn_mark_prepass();
     const char *goal_key = NULL;
@@ -575,7 +595,6 @@ void lower_pl_stage2(const tree_t *prog) {
     for (int i = 0; i < prog->n; i++) {
         const tree_t *s = prog->c[i];
         if (!s || s->t != TT_STMT) continue;
-        if (lp_s_int(s, ":lang") != LANG_PL) continue;
         const tree_t *subj = lp_s_expr(s, ":subj");
         if (!subj) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "initialization") && subj->n >= 1) {
@@ -608,4 +627,5 @@ void lower_pl_stage2(const tree_t *prog) {
         }
     }
     lower_pl_register_all_preds();
+    return &g_stage2;
 }

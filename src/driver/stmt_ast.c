@@ -80,8 +80,6 @@ tree_t *stmt_to_ast(const STMT_t *s)
     tree_t *node = sa_new(TT_STMT);
     if (s->label && s->label[0])
         sa_add(node, attr_leaf(":lbl",  s->label));
-    if (s->lang != 0)
-        sa_add(node, attr_int(":lang", s->lang));
     sa_add(node, attr_int(":line", s->lineno));
     sa_add(node, attr_int(":stno", s->stno));
     if (s->subject)

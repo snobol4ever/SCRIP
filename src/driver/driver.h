@@ -8,8 +8,9 @@
 extern int g_opt_dump_bb;
 extern int g_polyglot;
 #define SCRIP_MOD_MAX STAGE2_MOD_MAX
-void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask);
-uint32_t polyglot_lang_mask(const tree_t *prog);
+void polyglot_init(stage2_t *s2, const tree_t *prog);
+int  polyglot_module_open(stage2_t *s2, const tree_t *s);
+void polyglot_module_extend(stage2_t *s2, int mod_idx, const tree_t *s);
 void record_register(const char *spec);
 void    label_table_build(stage2_t *s2, const tree_t *prog);
 const tree_t *label_lookup(const char *name);

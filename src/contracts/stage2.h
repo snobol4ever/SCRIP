@@ -34,7 +34,6 @@ typedef struct Resolve_PredTable {
     struct Resolve_PredEntry_t *buckets[STAGE2_PL_PRED_TABLE_SIZE];
 } Resolve_PredTable;
 typedef struct ScripModule {
-    int           lang;
     const char   *name;
     const tree_t *first;
     const tree_t *last;
@@ -63,6 +62,8 @@ typedef struct stage2_t {
     int                  pl_dyn_arity[64];
     int                  pl_dyn_n;
 } stage2_t;
+typedef stage2_t *(*lower_entry_fn)(const tree_t *prog);
+typedef struct { const tree_t *prog; lower_entry_fn fn; } lower_seg_t;
 extern stage2_t g_stage2;
 void stage2_reset(void);
 void ir_delete_all(stage2_t *s2);

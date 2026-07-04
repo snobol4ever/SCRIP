@@ -122,12 +122,28 @@ static IR_t * sno_resolve_label(const char * nm) {
     return l;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int lower_sno_stage2(const tree_t * prog) {
-    if (!prog || prog->t != TT_PROGRAM) return 0;
-    { extern uint32_t polyglot_lang_mask(const tree_t * prog); uint32_t m = polyglot_lang_mask(prog); if (m & ~(1u << LANG_SNO)) return 0; }
+static void sno_register_program(stage2_t * s2, const tree_t * prog) {
+    extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
+    extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
+    int mod_idx = -1;
+    for (int _ci = 0; _ci < prog->n; _ci++) {
+        const tree_t * s = prog->c[_ci];
+        if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;
+        if (mod_idx < 0) mod_idx = polyglot_module_open(s2, s);
+        polyglot_module_extend(s2, mod_idx, s);
+        const tree_t * subj = stmt_attr_expr(stmt_attr_find(s, ":subj"));
+        if (!subj) continue;
+        const char * lbl = stmt_attr_str(stmt_attr_find(s, ":lbl"));
+        if (mod_idx >= 0 && lbl && *lbl) s2->module_registry.mods[mod_idx].core_label_count++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+stage2_t * lower_sno_stage2(const tree_t * prog) {
+    if (!prog || prog->t != TT_PROGRAM) return NULL;
+    sno_register_program(&g_stage2, prog);
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
-    if (nst == 0) return 0;
+    if (nst == 0) return &g_stage2;
     const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
@@ -192,7 +208,7 @@ int lower_sno_stage2(const tree_t * prog) {
     g_stage2.proc_table[pi].nparams = 0;
     g_stage2.proc_table[pi].is_generator = 0;
     g_stage2.proc_table[pi].bb_idx = bb_program_add(&g_stage2.bbp, g);
-    return 1;
+    return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_snobol4(const tree_t * prog) {

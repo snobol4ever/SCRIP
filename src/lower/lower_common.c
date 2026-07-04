@@ -12,8 +12,6 @@
 #include <gc/gc.h>
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
-extern uint32_t polyglot_lang_mask(const tree_t * prog);
-extern void polyglot_init(stage2_t * s2, const tree_t * prog, uint32_t lang_mask);
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
 static lc_vec g_bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -222,22 +220,4 @@ void lc_call_argblks(IR_t * call, double dv, int nargs, lc_argblk_fn mk, void * 
     if (!blks) return;
     for (int k = 0; k < nargs; k++) blks[k] = mk(cx, args[k]);
     (void)(blks);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-stage2_t *lower_stage2(const tree_t *prog) {
-    if (!prog || prog->t != TT_PROGRAM) return NULL;
-    extern int  lower_sno_stage2(const tree_t *prog);
-    extern void lower_pascal_stage2(const tree_t *prog);
-    extern void lower_icon_stage2(const tree_t *prog);
-    extern void lower_pl_stage2(const tree_t *prog);
-    extern void lower_raku_stage2(const tree_t *prog);
-    stage2_reset();
-    uint32_t mask = polyglot_lang_mask(prog);
-    polyglot_init(&g_stage2, prog, mask);
-    if (mask & (1u << LANG_SNO)) (void) lower_sno_stage2(prog);
-    if (mask & (1u << LANG_PASCAL)) { lower_pascal_stage2(prog); return &g_stage2; }
-    if (mask & (1u << LANG_ICN))    { lower_icon_stage2(prog);   return &g_stage2; }
-    if (mask & (1u << LANG_PL))     { lower_pl_stage2(prog);     return &g_stage2; }
-    if (mask & (1u << LANG_RAKU))   { lower_raku_stage2(prog);   return &g_stage2; }
-    return &g_stage2;
 }

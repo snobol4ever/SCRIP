@@ -9,13 +9,6 @@
 #define expr_right(e)    ((e) && (e)->n >= 2 ? (e)->c[1] : NULL)
 #define expr_arg(e, i)   ((e) && (i) >= 0 && (i) < (e)->n ? (e)->c[(i)] : NULL)
 #define expr_nargs(e)    ((e) ? (e)->n : 0)
-#define LANG_SNO   0
-#define LANG_ICN   1
-#define LANG_PL    2
-#define LANG_RAKU  3
-#define LANG_SCRIP 4
-#define LANG_REB   5
-#define LANG_PASCAL 6
 typedef struct STMT_t STMT_t;
 struct STMT_t {
     char    *label;
@@ -24,7 +17,7 @@ struct STMT_t {
     tree_t  *replacement;
     char    *goto_s, *goto_f, *goto_u;
     tree_t  *goto_s_expr, *goto_f_expr, *goto_u_expr;
-    int      lineno, stno, is_end, has_eq, lang;
+    int      lineno, stno, is_end, has_eq;
     STMT_t  *next;
 };
 typedef struct ExportEntry {

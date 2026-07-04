@@ -168,7 +168,6 @@ static tree_t *mk_set_ctor(PNodeList *elems) {
 }
 static void emit_proc(PNodeList *procs, tree_t *proc) {
     tree_t *st = ast_stmt_new(TT_STMT);
-    ast_push(st, ast_attr_int(":lang", LANG_PASCAL));
     ast_push(st, ast_attr_int(":line", 0));
     ast_push(st, ast_attr_int(":stno", 0));
     ast_push(st, ast_attr_expr(":subj", proc));
