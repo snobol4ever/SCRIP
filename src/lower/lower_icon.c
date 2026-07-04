@@ -251,7 +251,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * rβ = cx->beta;
         IR_t * opfail = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : NULL);
         if ((IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) && opfail) ω_to(op, opfail);
-        γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
+        lc_γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
         cx->beta = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : ω);
         *res = op; return ea; }
     if (is_unop_tt(t->t)) {
@@ -277,6 +277,18 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             return ea;
         } IR_t * nd = build(cx, IR_FAIL, γ, ω);
         *res = nd; return nd;
+    }
+    case TT_BANG_BINARY: {
+        const tree_t * lhs = (t->n > 0) ? t->c[0] : NULL;
+        const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
+        tree_t * callee;
+        if (lhs && lhs->t == TT_VAR && lhs->v.sval && lhs->v.sval[0] != '&' && !icn_is_local(cx, lhs->v.sval)) {
+            callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval;
+        } else callee = (tree_t *) lhs;
+        tree_t * fn = ast_node_new(TT_VAR); fn->v.sval = (char *) "__apply__";
+        tree_t * call = ast_node_new(TT_FNC);
+        ast_push(call, fn); ast_push(call, callee); if (rhs) ast_push(call, (tree_t *) rhs);
+        return lower(cx, call, γ, ω, res);
     }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: return lc_key(cx, t, t->v.sval, γ, ω, res);
@@ -833,6 +845,45 @@ static void fill_pnames(const tree_t * prog, lc_vec * pn) {
     for (int i = 0; i < ps.n; i++) if (LC_AT(&ps, const tree_t *, i)->v.sval) lc_vec_push(pn, &LC_AT(&ps, const tree_t *, i)->v.sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_rename_statics_walk(tree_t * n, const char ** names, char ** mangled, int cnt) {
+    if (!n) return;
+    if (n->t == TT_PROC_DECL || n->t == TT_STATIC_DECL) return;
+    if (n->t == TT_VAR && n->v.sval) { for (int k = 0; k < cnt; k++) if (!strcmp(n->v.sval, names[k])) { n->v.sval = mangled[k]; return; } }
+    for (int i = 0; i < n->n; i++) icn_rename_statics_walk(n->c[i], names, mangled, cnt);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_statics_prepass(tree_t * body, const char * pname) {
+    if (!body) return;
+    const char * names[64]; char * mangled[64]; int cnt = 0; int inits = 0;
+    for (int i = 0; i < body->n; i++) {
+        tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st);
+        if (st && st->t == TT_STATIC_DECL)
+            for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval && cnt < 64) {
+                names[cnt] = st->c[k]->v.sval;
+                char * m = malloc(strlen(pname) + strlen(names[cnt]) + 12); sprintf(m, "%s__STATIC__%s", pname, names[cnt]);
+                { extern void global_register(const char *); global_register(m); }
+                mangled[cnt] = m; cnt++;
+            }
+    }
+    if (cnt) icn_rename_statics_walk(body, names, mangled, cnt);
+    for (int i = 0; i < body->n; i++) {
+        tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st);
+        if (st && st->t == TT_INITIAL) {
+            char * f = malloc(strlen(pname) + 20); sprintf(f, "%s__INITFLAG__%d", pname, inits++);
+            { extern void global_register(const char *); global_register(f); }
+            tree_t * fv = ast_node_new(TT_VAR); fv->v.sval = f;
+            tree_t * nz = ast_node_new(TT_NULL); ast_push(nz, fv);
+            tree_t * one = ast_node_new(TT_ILIT); one->v.ival = 1;
+            tree_t * asn = ast_node_new(TT_ASSIGN); ast_push(asn, nz); ast_push(asn, one);
+            tree_t * child = (st->n > 0) ? st->c[0] : NULL;
+            st->t = TT_IF; st->n = 0;
+            ast_push(st, asn);
+            if (child) ast_push(st, child); else { tree_t * s1 = ast_node_new(TT_ILIT); s1->v.ival = 1; ast_push(st, s1); }
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     static lc_vec pnv; lc_vec_init(&pnv, (int) sizeof(const char *)); fill_pnames(prog, &pnv);
     icx_t cx; memset(&cx, 0, sizeof cx); cx.pn = (const char **) pnv.data; cx.npn = pnv.n;
@@ -841,9 +892,10 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
         const tree_t * plist = (pd->n > 1) ? pd->c[1] : NULL;
         for (int i = 0; plist && i < plist->n; i++) if (plist->c[i] && plist->c[i]->v.sval) lc_vec_push(&lnv, &plist->c[i]->v.sval);
         const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
+        icn_statics_prepass((tree_t *) body, pd->v.sval ? pd->v.sval : "anon");
         for (int i = 0; body && i < body->n; i++) {
             const tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
-            if (st && (st->t == TT_LOCAL || st->t == TT_STATIC_DECL))
+            if (st && st->t == TT_LOCAL)
                 for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) lc_vec_push(&lnv, &st->c[k]->v.sval);
         }
     }
