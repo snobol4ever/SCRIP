@@ -387,7 +387,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     }
     char *fb = (char *)&proc_arena()[g_proc_depth * PROC_FRAME_QWORDS];
     g_proc_depth++;
-    *(DESCR_t *)(fb + 0) = NULVCL;
+    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < PROC_FRAME_QWORDS / 2; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     (void)p->fn((void *)fb, 0);
@@ -419,7 +419,7 @@ DESCR_t rt_proc_call_gen(const char *name, int nargs)
     if (!p || !p->fn) { fprintf(stderr, "[SUSP] rt_proc_call_gen: generator '%s' has no stackless slab\n", name ? name : "(null)"); abort(); }
     if (g_gen_act_top >= RT_GEN_ACT_MAX) { fprintf(stderr, "[SUSP] rt_proc_call_gen: generator activation depth exceeded (%d)\n", RT_GEN_ACT_MAX); abort(); }
     char *fb = (char *)&g_gen_arena[g_gen_act_top * PROC_FRAME_QWORDS];
-    *(DESCR_t *)(fb + 0) = NULVCL;
+    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < PROC_FRAME_QWORDS / 2; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     g_gen_act[g_gen_act_top].frame = fb;
