@@ -4,174 +4,189 @@
 main:
   push rbp
   mov rbp, rsp
-  call core_lib_init@PLT
-  call rt_proc_reset@PLT
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
-  call flat_α
+  call main_α
   xor eax, eax
   pop rbp
   ret
-flat_α:
+main_α:
 #=======================================================================================================================
-    .global flat_α
-    .global flat_β
-    .global flat_γ
-    .global flat_ω
+    .global main_α
+    .global main_β
+    .global main_γ
+    .global main_ω
 push r12
   mov r12, rdi
-  lea r10, [rip + Δ]
-flat_α_body:
-snoch0_n0_α:
+main_α_body:
+xchain0_n0_α:
 # IR_KEYWORD_read
 bb1_α:
- mov rdi, qword ptr [rip + .Lx2_0]
+ mov rdi, qword ptr [rip + .Lx1_0]
  call rt_keyword_read@PLT
- mov qword ptr [r12 + 16], rax
- mov qword ptr [r12 + 24], rdx
- jmp xgvarg1_done
- xgvarg1_β:
- jmp snoch0_n2_α
-.Lx2_0:
- .quad .Lx2_0_s
-.Lx2_0_s:
+ mov qword ptr [r12 + 64], rax
+ mov qword ptr [r12 + 72], rdx
+ jmp xchain0_n1_α
+ xchain0_n0_β:
+ jmp xchain0_n3_α
+.Lx1_0:
+ .quad .Lx1_0_s
+.Lx1_0_s:
  .string "ALPHABET"
-xgvarg1_done:
+xchain0_n1_α:
 bb2_α:
-# BOX IR_CALL SIZE(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+16] -> [r12+48]
- mov rax, qword ptr [r12 + 16]
+# BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
+# marshal arg0 = producer-box slot [r12+64] -> [r12+48]
+ mov rax, qword ptr [r12 + 64]
  mov qword ptr [r12 + 48], rax
- mov rax, qword ptr [r12 + 24]
+ mov rax, qword ptr [r12 + 72]
  mov qword ptr [r12 + 56], rax
   .section .rodata
-  .Lbynamefn4: .string "SIZE"
+  .Lrkfn3: .string "SIZE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn4]
+   lea rdi, [rip + .Lrkfn3]
  lea rsi, [r12 + 48]
  mov edx, 1
  call rt_call_arr@PLT
  mov qword ptr [r12 + 32], rax
  mov qword ptr [r12 + 40], rdx
  cmp eax, 99
- je snoch0_n2_α
- jmp snoch0_n1_α
-snoch0_n0_β:
- jmp snoch0_n2_α
-snoch0_n1_α:
+ je xchain0_n3_α
+ jmp xchain0_n2_α
+ xchain0_n1_β:
+ jmp xchain0_n3_α
+xchain0_n2_α:
+# IR_ASSIGN global
 bb3_α:
-# IR_ASSIGN_CALL
- lea rdi, [rip + .S0]
  mov rsi, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
- call rt_gvar_assign_descr@PLT
- jmp snoch0_n2_α
- snoch0_n1_β:
- jmp snoch0_n2_α
-snoch0_n2_α:
+ mov rdi, qword ptr [rip + .Lx4_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 16], rax
+ mov qword ptr [r12 + 24], rdx
+ jmp xchain0_n3_α
+ xchain0_n2_β:
+ jmp xchain0_n3_α
+.Lx4_0:
+ .quad .Lx4_0_s
+.Lx4_0_s:
+ .string "OUTPUT"
+xchain0_n3_α:
 # IR_KEYWORD_read
 bb4_α:
- mov rdi, qword ptr [rip + .Lx7_0]
+ mov rdi, qword ptr [rip + .Lx5_0]
  call rt_keyword_read@PLT
- mov qword ptr [r12 + 64], rax
- mov qword ptr [r12 + 72], rdx
- jmp xgvarg6_done
- xgvarg6_β:
- jmp snoch0_n4_α
-.Lx7_0:
- .quad .Lx7_0_s
-.Lx7_0_s:
+ mov qword ptr [r12 + 144], rax
+ mov qword ptr [r12 + 152], rdx
+ jmp xchain0_n4_α
+ xchain0_n3_β:
+ jmp xchain0_n6_α
+.Lx5_0:
+ .quad .Lx5_0_s
+.Lx5_0_s:
  .string "UCASE"
-xgvarg6_done:
+xchain0_n4_α:
 bb5_α:
-# BOX IR_CALL SIZE(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+64] -> [r12+96]
- mov rax, qword ptr [r12 + 64]
- mov qword ptr [r12 + 96], rax
- mov rax, qword ptr [r12 + 72]
- mov qword ptr [r12 + 104], rax
+# BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
+# marshal arg0 = producer-box slot [r12+144] -> [r12+128]
+ mov rax, qword ptr [r12 + 144]
+ mov qword ptr [r12 + 128], rax
+ mov rax, qword ptr [r12 + 152]
+ mov qword ptr [r12 + 136], rax
   .section .rodata
-  .Lbynamefn9: .string "SIZE"
+  .Lrkfn7: .string "SIZE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn9]
- lea rsi, [r12 + 96]
+   lea rdi, [rip + .Lrkfn7]
+ lea rsi, [r12 + 128]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 80], rax
- mov qword ptr [r12 + 88], rdx
- cmp eax, 99
- je snoch0_n4_α
- jmp snoch0_n3_α
-snoch0_n2_β:
- jmp snoch0_n4_α
-snoch0_n3_α:
-bb6_α:
-# IR_ASSIGN_CALL
- lea rdi, [rip + .S0]
- mov rsi, qword ptr [r12 + 80]
- mov rdx, qword ptr [r12 + 88]
- call rt_gvar_assign_descr@PLT
- jmp snoch0_n4_α
- snoch0_n3_β:
- jmp snoch0_n4_α
-snoch0_n4_α:
-# IR_KEYWORD_read
-bb7_α:
- mov rdi, qword ptr [rip + .Lx12_0]
- call rt_keyword_read@PLT
  mov qword ptr [r12 + 112], rax
  mov qword ptr [r12 + 120], rdx
- jmp xgvarg11_done
- xgvarg11_β:
- jmp flat_γ
+ cmp eax, 99
+ je xchain0_n6_α
+ jmp xchain0_n5_α
+ xchain0_n4_β:
+ jmp xchain0_n6_α
+xchain0_n5_α:
+# IR_ASSIGN global
+bb6_α:
+ mov rsi, qword ptr [r12 + 112]
+ mov rdx, qword ptr [r12 + 120]
+ mov rdi, qword ptr [rip + .Lx8_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 96], rax
+ mov qword ptr [r12 + 104], rdx
+ jmp xchain0_n6_α
+ xchain0_n5_β:
+ jmp xchain0_n6_α
+.Lx8_0:
+ .quad .Lx8_0_s
+.Lx8_0_s:
+ .string "OUTPUT"
+xchain0_n6_α:
+# IR_KEYWORD_read
+bb7_α:
+ mov rdi, qword ptr [rip + .Lx9_0]
+ call rt_keyword_read@PLT
+ mov qword ptr [r12 + 224], rax
+ mov qword ptr [r12 + 232], rdx
+ jmp xchain0_n7_α
+ xchain0_n6_β:
+ jmp main_ω
+.Lx9_0:
+ .quad .Lx9_0_s
+.Lx9_0_s:
+ .string "LCASE"
+xchain0_n7_α:
+bb8_α:
+# BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
+# marshal arg0 = producer-box slot [r12+224] -> [r12+208]
+ mov rax, qword ptr [r12 + 224]
+ mov qword ptr [r12 + 208], rax
+ mov rax, qword ptr [r12 + 232]
+ mov qword ptr [r12 + 216], rax
+  .section .rodata
+  .Lrkfn11: .string "SIZE"
+  .section .text
+  .intel_syntax noprefix
+   lea rdi, [rip + .Lrkfn11]
+ lea rsi, [r12 + 208]
+ mov edx, 1
+ call rt_call_arr@PLT
+ mov qword ptr [r12 + 192], rax
+ mov qword ptr [r12 + 200], rdx
+ cmp eax, 99
+ je main_ω
+ jmp xchain0_n8_α
+ xchain0_n7_β:
+ jmp main_ω
+xchain0_n8_α:
+# IR_ASSIGN global
+bb9_α:
+ mov rsi, qword ptr [r12 + 192]
+ mov rdx, qword ptr [r12 + 200]
+ mov rdi, qword ptr [rip + .Lx12_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 176], rax
+ mov qword ptr [r12 + 184], rdx
+ jmp main_γ
+ xchain0_n8_β:
+ jmp main_ω
 .Lx12_0:
  .quad .Lx12_0_s
 .Lx12_0_s:
- .string "LCASE"
-xgvarg11_done:
-bb8_α:
-# BOX IR_CALL SIZE(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+112] -> [r12+144]
- mov rax, qword ptr [r12 + 112]
- mov qword ptr [r12 + 144], rax
- mov rax, qword ptr [r12 + 120]
- mov qword ptr [r12 + 152], rax
-  .section .rodata
-  .Lbynamefn14: .string "SIZE"
-  .section .text
-  .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn14]
- lea rsi, [r12 + 144]
- mov edx, 1
- call rt_call_arr@PLT
- mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
- cmp eax, 99
- je flat_γ
- jmp snoch0_n5_α
-snoch0_n4_β:
- jmp flat_γ
-snoch0_n5_α:
-bb9_α:
-# IR_ASSIGN_CALL
- lea rdi, [rip + .S0]
- mov rsi, qword ptr [r12 + 128]
- mov rdx, qword ptr [r12 + 136]
- call rt_gvar_assign_descr@PLT
- jmp flat_γ
- snoch0_n5_β:
- jmp flat_γ
-flat_β:
-jmp flat_ω
-flat_γ:
+ .string "OUTPUT"
+main_β:
+jmp main_ω
+main_γ:
 mov eax, 1
 xor edx, edx
 pop r12
 ret
-flat_ω:
+main_ω:
 # GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
 mov dword ptr [r12+0], 99
 mov dword ptr [r12+4], 0
@@ -180,6 +195,3 @@ mov eax, 99
 xor edx, edx
 pop r12
 ret
-.section .rodata
-.S0: .string "OUTPUT"
-.text
