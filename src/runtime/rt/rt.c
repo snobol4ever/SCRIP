@@ -205,7 +205,7 @@ static int        g_rt_frame_depth = 0;
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
-    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name;
+    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic;
 } rt_proc_t;
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
@@ -232,7 +232,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0;
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_result_name(const char *name, const char *rname)
@@ -306,6 +306,13 @@ void rt_proc_set_generator(const char *name, int is_gen)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_variadic(const char *name, int is_var)
+{
+    if (!name) return;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].is_variadic = is_var ? 1 : 0; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_generator(const char *name)
 {
     if (!name) return 0;
@@ -323,7 +330,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0;
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
@@ -349,6 +356,21 @@ static int     g_proc_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
+{
+    extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
+    int npc = p->nparams; if (npc > CALL_ARGS_MAX) npc = CALL_ARGS_MAX;
+    if (p->is_variadic && npc > 0) {
+        int fixed = npc - 1;
+        for (int i = 0; i < fixed; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = (i < nargs) ? g_call_args[i] : NULVCL;
+        int rest = nargs - fixed; if (rest < 0) rest = 0;
+        *(DESCR_t *)(fb + 16 * (fixed + 1)) = rt_make_list(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest);
+        return;
+    }
+    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
+    for (int i = nargs; i < npc; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = (rt_proc_t *)0;
@@ -367,9 +389,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     g_proc_depth++;
     *(DESCR_t *)(fb + 0) = NULVCL;
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
-    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
-    { int npc = p->nparams; if (npc > CALL_ARGS_MAX) npc = CALL_ARGS_MAX;
-      for (int i = nargs; i < npc; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = NULVCL; }
+    rt_frame_bind_args(fb, p, nargs);
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
     g_proc_depth--;
@@ -401,7 +421,7 @@ DESCR_t rt_proc_call_gen(const char *name, int nargs)
     char *fb = (char *)&g_gen_arena[g_gen_act_top * PROC_FRAME_QWORDS];
     *(DESCR_t *)(fb + 0) = NULVCL;
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
-    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
+    rt_frame_bind_args(fb, p, nargs);
     g_gen_act[g_gen_act_top].frame = fb;
     g_gen_act[g_gen_act_top].fn    = p->fn;
     g_gen_act_top++;

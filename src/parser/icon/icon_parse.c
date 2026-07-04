@@ -783,14 +783,14 @@ static tree_t *parse_proc(IcnParser *p) {
     expect(p, TK_PROCEDURE, "procedure");
     if (p->cur.kind != TK_IDENT) { parser_error(p, "expected procedure name"); return NULL; }
     IcnToken name_tok = p->cur; advance(p);
-    tree_t **params = NULL; int nparams = 0, pcap = 0;
+    tree_t **params = NULL; int nparams = 0, pcap = 0; int is_variadic = 0;
     expect(p, TK_LPAREN, "procedure params");
     while (!check(p, TK_RPAREN) && !check(p, TK_EOF)) {
         if (p->cur.kind == TK_IDENT) {
             if (nparams+1 > pcap) { pcap = pcap ? pcap*2 : 4; params = realloc(params, pcap*sizeof(tree_t*)); }
             params[nparams++] = e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len);
             advance(p);
-            if (check(p, TK_LBRACK)) { advance(p); match(p, TK_RBRACK); break; }
+            if (check(p, TK_LBRACK)) { advance(p); match(p, TK_RBRACK); is_variadic = 1; break; }
         }
         if (!match(p, TK_COMMA)) break;
     }
@@ -807,6 +807,7 @@ static tree_t *parse_proc(IcnParser *p) {
     expect(p, TK_END, "end of procedure");
     const char *procname = intern_n(name_tok.val.sval.data, (int)name_tok.val.sval.len);
     tree_t *vlist = ast_node_new(TT_VLIST);
+    vlist->v.ival = is_variadic;
     for (int i = 0; i < nparams; i++) ast_push(vlist, params[i]);
     tree_t *body = ast_node_new(TT_PROGRAM);
     for (int i = 0; i < nstmts; i++) ast_push(body, stmts[i]);

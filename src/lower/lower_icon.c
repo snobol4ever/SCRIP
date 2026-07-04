@@ -976,6 +976,7 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
                 s2->proc_table[_pi].entry_pc = -1;
                 s2->proc_table[_pi].bb_idx   = -1;
                 s2->proc_table[_pi].nparams  = (proc->t == TT_PROC_DECL && proc->n >= 2 ? proc->c[1]->n : 0);
+                s2->proc_table[_pi].is_variadic = (proc->t == TT_PROC_DECL && proc->n >= 2 && proc->c[1] ? (int)proc->c[1]->v.ival : 0);
                 s2->proc_table[_pi].byref_mask = 0;
                 if (mod_idx >= 0) s2->module_registry.mods[mod_idx].nprocs++;
                 if (strcmp(name, "main") == 0 && s2->module_registry.main_mod < 0) s2->module_registry.main_mod = mod_idx;
