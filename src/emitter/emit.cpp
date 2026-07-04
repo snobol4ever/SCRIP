@@ -671,7 +671,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET
-                       || nd->op == IR_KEYWORD || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
+                       || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
                        || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL)
                     ? IR_LIT(nd).sval : (const char *)0;
     { extern int g_gva_active; extern int gva_index_of(const char *); int nm_op = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN);
@@ -696,9 +696,10 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_LIT_STRING:
     case IR_LIT_CHARSET:
     case IR_LIT_REAL:               bb_emit_x86(bb_lit_scalar());         return 0;
-    case IR_KEYWORD:              bb_emit_x86(bb_keyword());            return 0;
+    case IR_KEYWORD_ICON:         bb_emit_x86(bb_keyword_icon());       return 0;
+    case IR_KEYWORD_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
     case IR_VAR:                  { extern int is_global(const char *);
-        if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword());
+        if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword_icon());
         else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global());
         else bb_emit_x86(bb_var()); } return 0;
     case IR_VAR_REF:              bb_emit_x86(bb_var_ref());        return 0;
@@ -852,7 +853,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_CHARSET:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_KEYWORD:
+    case IR_KEYWORD_ICON:
+    case IR_KEYWORD_SNOBOL4:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR: {
         const char *vn = IR_LIT(nd).sval;
@@ -1412,7 +1414,7 @@ static int g_in_prebuild = 0;
 static int emit_chain_arity(const IR_t *n) {
     switch (n->op) {
     case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:
-    case IR_VAR:   case IR_KEYWORD: return 0;
+    case IR_VAR:   case IR_KEYWORD_ICON: case IR_KEYWORD_SNOBOL4: return 0;
     case IR_BINOP: case IR_TO: return 2;
     case IR_TO_BY: return 3;
     case IR_MAKE_LIST: return n->n_operands;

@@ -57,10 +57,10 @@ bb2_α:
  xchain0_n1_β:
  jmp xchain0_n3_α
 xchain0_n2_α:
-# IR_KEYWORD_read
+# IR_KEYWORD_SNOBOL4_read
 bb3_α:
  mov rdi, qword ptr [rip + .Lx4_0]
- call rt_keyword_read@PLT
+ call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 144], rax
  mov qword ptr [r12 + 152], rdx
  jmp xchain0_n4_α
@@ -73,21 +73,21 @@ bb3_α:
 xchain0_n3_α:
 # IR_LIT_INTEGER
 bb4_α:
- mov qword ptr [r12 + 320], 6
+ mov qword ptr [r12 + 288], 6
  mov rax, qword ptr [rip + .Lx5_0]
- mov qword ptr [r12 + 328], rax
+ mov qword ptr [r12 + 296], rax
  jmp xchain0_n5_α
  xchain0_n3_β:
  jmp xchain0_n8_α
 .Lx5_0:
  .quad 42
 xchain0_n4_α:
-# IR_KEYWORD_read
+# IR_KEYWORD_SNOBOL4_read
 bb5_α:
  mov rdi, qword ptr [rip + .Lx6_0]
- call rt_keyword_read@PLT
- mov qword ptr [r12 + 176], rax
- mov qword ptr [r12 + 184], rdx
+ call rt_keyword_read_snobol4@PLT
+ mov qword ptr [r12 + 160], rax
+ mov qword ptr [r12 + 168], rdx
  jmp xchain0_n6_α
  xchain0_n4_β:
  jmp xchain0_n3_α
@@ -98,21 +98,21 @@ bb5_α:
 xchain0_n5_α:
 bb6_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+320] -> [r12+304]
- mov rax, qword ptr [r12 + 320]
- mov qword ptr [r12 + 304], rax
- mov rax, qword ptr [r12 + 328]
- mov qword ptr [r12 + 312], rax
+# marshal arg0 = producer-box slot [r12+288] -> [r12+272]
+ mov rax, qword ptr [r12 + 288]
+ mov qword ptr [r12 + 272], rax
+ mov rax, qword ptr [r12 + 296]
+ mov qword ptr [r12 + 280], rax
   .section .rodata
   .Lrkfn8: .string "DATATYPE"
   .section .text
   .intel_syntax noprefix
    lea rdi, [rip + .Lrkfn8]
- lea rsi, [r12 + 304]
+ lea rsi, [r12 + 272]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 288], rax
- mov qword ptr [r12 + 296], rdx
+ mov qword ptr [r12 + 256], rax
+ mov qword ptr [r12 + 264], rdx
  cmp eax, 99
  je xchain0_n8_α
  jmp xchain0_n7_α
@@ -131,10 +131,10 @@ bb7_α:
  mov qword ptr [r12 + 64], rax
  mov rax, qword ptr [r12 + 152]
  mov qword ptr [r12 + 72], rax
-# marshal arg2 = producer-box slot [r12+176] -> [r12+80]
- mov rax, qword ptr [r12 + 176]
+# marshal arg2 = producer-box slot [r12+160] -> [r12+80]
+ mov rax, qword ptr [r12 + 160]
  mov qword ptr [r12 + 80], rax
- mov rax, qword ptr [r12 + 184]
+ mov rax, qword ptr [r12 + 168]
  mov qword ptr [r12 + 88], rax
   .section .rodata
   .Lrkfn10: .string "REPLACE"
@@ -152,12 +152,12 @@ bb7_α:
  xchain0_n6_β:
  jmp xchain0_n3_α
 xchain0_n7_α:
-# IR_KEYWORD_read
+# IR_KEYWORD_SNOBOL4_read
 bb8_α:
  mov rdi, qword ptr [rip + .Lx11_0]
- call rt_keyword_read@PLT
- mov qword ptr [r12 + 336], rax
- mov qword ptr [r12 + 344], rdx
+ call rt_keyword_read_snobol4@PLT
+ mov qword ptr [r12 + 304], rax
+ mov qword ptr [r12 + 312], rdx
  jmp xchain0_n10_α
  xchain0_n7_β:
  jmp xchain0_n8_α
@@ -168,9 +168,9 @@ bb8_α:
 xchain0_n8_α:
 # IR_LIT_REAL
 bb9_α:
- mov qword ptr [r12 + 512], 7
+ mov qword ptr [r12 + 448], 7
  mov rax, qword ptr [rip + .Lx12_0]
- mov qword ptr [r12 + 520], rax
+ mov qword ptr [r12 + 456], rax
  jmp xchain0_n11_α
  xchain0_n8_β:
  jmp main_ω
@@ -193,12 +193,12 @@ bb10_α:
 .Lx13_0_s:
  .string "OUTPUT"
 xchain0_n10_α:
-# IR_KEYWORD_read
+# IR_KEYWORD_SNOBOL4_read
 bb11_α:
  mov rdi, qword ptr [rip + .Lx14_0]
- call rt_keyword_read@PLT
- mov qword ptr [r12 + 368], rax
- mov qword ptr [r12 + 376], rdx
+ call rt_keyword_read_snobol4@PLT
+ mov qword ptr [r12 + 320], rax
+ mov qword ptr [r12 + 328], rdx
  jmp xchain0_n12_α
  xchain0_n10_β:
  jmp xchain0_n8_α
@@ -209,21 +209,21 @@ bb11_α:
 xchain0_n11_α:
 bb12_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+512] -> [r12+496]
- mov rax, qword ptr [r12 + 512]
- mov qword ptr [r12 + 496], rax
- mov rax, qword ptr [r12 + 520]
- mov qword ptr [r12 + 504], rax
+# marshal arg0 = producer-box slot [r12+448] -> [r12+432]
+ mov rax, qword ptr [r12 + 448]
+ mov qword ptr [r12 + 432], rax
+ mov rax, qword ptr [r12 + 456]
+ mov qword ptr [r12 + 440], rax
   .section .rodata
   .Lrkfn16: .string "DATATYPE"
   .section .text
   .intel_syntax noprefix
    lea rdi, [rip + .Lrkfn16]
- lea rsi, [r12 + 496]
+ lea rsi, [r12 + 432]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 480], rax
- mov qword ptr [r12 + 488], rdx
+ mov qword ptr [r12 + 416], rax
+ mov qword ptr [r12 + 424], rdx
  cmp eax, 99
  je main_ω
  jmp xchain0_n13_α
@@ -232,43 +232,43 @@ bb12_α:
 xchain0_n12_α:
 bb13_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+288] -> [r12+240]
- mov rax, qword ptr [r12 + 288]
+# marshal arg0 = producer-box slot [r12+256] -> [r12+208]
+ mov rax, qword ptr [r12 + 256]
+ mov qword ptr [r12 + 208], rax
+ mov rax, qword ptr [r12 + 264]
+ mov qword ptr [r12 + 216], rax
+# marshal arg1 = producer-box slot [r12+304] -> [r12+224]
+ mov rax, qword ptr [r12 + 304]
+ mov qword ptr [r12 + 224], rax
+ mov rax, qword ptr [r12 + 312]
+ mov qword ptr [r12 + 232], rax
+# marshal arg2 = producer-box slot [r12+320] -> [r12+240]
+ mov rax, qword ptr [r12 + 320]
  mov qword ptr [r12 + 240], rax
- mov rax, qword ptr [r12 + 296]
+ mov rax, qword ptr [r12 + 328]
  mov qword ptr [r12 + 248], rax
-# marshal arg1 = producer-box slot [r12+336] -> [r12+256]
- mov rax, qword ptr [r12 + 336]
- mov qword ptr [r12 + 256], rax
- mov rax, qword ptr [r12 + 344]
- mov qword ptr [r12 + 264], rax
-# marshal arg2 = producer-box slot [r12+368] -> [r12+272]
- mov rax, qword ptr [r12 + 368]
- mov qword ptr [r12 + 272], rax
- mov rax, qword ptr [r12 + 376]
- mov qword ptr [r12 + 280], rax
   .section .rodata
   .Lrkfn18: .string "REPLACE"
   .section .text
   .intel_syntax noprefix
    lea rdi, [rip + .Lrkfn18]
- lea rsi, [r12 + 240]
+ lea rsi, [r12 + 208]
  mov edx, 3
  call rt_call_arr@PLT
- mov qword ptr [r12 + 224], rax
- mov qword ptr [r12 + 232], rdx
+ mov qword ptr [r12 + 192], rax
+ mov qword ptr [r12 + 200], rdx
  cmp eax, 99
  je xchain0_n8_α
  jmp xchain0_n14_α
  xchain0_n12_β:
  jmp xchain0_n8_α
 xchain0_n13_α:
-# IR_KEYWORD_read
+# IR_KEYWORD_SNOBOL4_read
 bb14_α:
  mov rdi, qword ptr [rip + .Lx19_0]
- call rt_keyword_read@PLT
- mov qword ptr [r12 + 528], rax
- mov qword ptr [r12 + 536], rdx
+ call rt_keyword_read_snobol4@PLT
+ mov qword ptr [r12 + 464], rax
+ mov qword ptr [r12 + 472], rdx
  jmp xchain0_n15_α
  xchain0_n13_β:
  jmp main_ω
@@ -279,12 +279,12 @@ bb14_α:
 xchain0_n14_α:
 # IR_ASSIGN global
 bb15_α:
- mov rsi, qword ptr [r12 + 224]
- mov rdx, qword ptr [r12 + 232]
+ mov rsi, qword ptr [r12 + 192]
+ mov rdx, qword ptr [r12 + 200]
  mov rdi, qword ptr [rip + .Lx20_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 208], rax
- mov qword ptr [r12 + 216], rdx
+ mov qword ptr [r12 + 176], rax
+ mov qword ptr [r12 + 184], rdx
  jmp xchain0_n8_α
  xchain0_n14_β:
  jmp xchain0_n8_α
@@ -293,12 +293,12 @@ bb15_α:
 .Lx20_0_s:
  .string "OUTPUT"
 xchain0_n15_α:
-# IR_KEYWORD_read
+# IR_KEYWORD_SNOBOL4_read
 bb16_α:
  mov rdi, qword ptr [rip + .Lx21_0]
- call rt_keyword_read@PLT
- mov qword ptr [r12 + 560], rax
- mov qword ptr [r12 + 568], rdx
+ call rt_keyword_read_snobol4@PLT
+ mov qword ptr [r12 + 480], rax
+ mov qword ptr [r12 + 488], rdx
  jmp xchain0_n16_α
  xchain0_n15_β:
  jmp main_ω
@@ -309,31 +309,31 @@ bb16_α:
 xchain0_n16_α:
 bb17_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+480] -> [r12+432]
+# marshal arg0 = producer-box slot [r12+416] -> [r12+368]
+ mov rax, qword ptr [r12 + 416]
+ mov qword ptr [r12 + 368], rax
+ mov rax, qword ptr [r12 + 424]
+ mov qword ptr [r12 + 376], rax
+# marshal arg1 = producer-box slot [r12+464] -> [r12+384]
+ mov rax, qword ptr [r12 + 464]
+ mov qword ptr [r12 + 384], rax
+ mov rax, qword ptr [r12 + 472]
+ mov qword ptr [r12 + 392], rax
+# marshal arg2 = producer-box slot [r12+480] -> [r12+400]
  mov rax, qword ptr [r12 + 480]
- mov qword ptr [r12 + 432], rax
+ mov qword ptr [r12 + 400], rax
  mov rax, qword ptr [r12 + 488]
- mov qword ptr [r12 + 440], rax
-# marshal arg1 = producer-box slot [r12+528] -> [r12+448]
- mov rax, qword ptr [r12 + 528]
- mov qword ptr [r12 + 448], rax
- mov rax, qword ptr [r12 + 536]
- mov qword ptr [r12 + 456], rax
-# marshal arg2 = producer-box slot [r12+560] -> [r12+464]
- mov rax, qword ptr [r12 + 560]
- mov qword ptr [r12 + 464], rax
- mov rax, qword ptr [r12 + 568]
- mov qword ptr [r12 + 472], rax
+ mov qword ptr [r12 + 408], rax
   .section .rodata
   .Lrkfn23: .string "REPLACE"
   .section .text
   .intel_syntax noprefix
    lea rdi, [rip + .Lrkfn23]
- lea rsi, [r12 + 432]
+ lea rsi, [r12 + 368]
  mov edx, 3
  call rt_call_arr@PLT
- mov qword ptr [r12 + 416], rax
- mov qword ptr [r12 + 424], rdx
+ mov qword ptr [r12 + 352], rax
+ mov qword ptr [r12 + 360], rdx
  cmp eax, 99
  je main_ω
  jmp xchain0_n17_α
@@ -342,12 +342,12 @@ bb17_α:
 xchain0_n17_α:
 # IR_ASSIGN global
 bb18_α:
- mov rsi, qword ptr [r12 + 416]
- mov rdx, qword ptr [r12 + 424]
+ mov rsi, qword ptr [r12 + 352]
+ mov rdx, qword ptr [r12 + 360]
  mov rdi, qword ptr [rip + .Lx24_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 400], rax
- mov qword ptr [r12 + 408], rdx
+ mov qword ptr [r12 + 336], rax
+ mov qword ptr [r12 + 344], rdx
  jmp main_γ
  xchain0_n17_β:
  jmp main_ω

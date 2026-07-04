@@ -172,6 +172,17 @@ DESCR_t rt_keyword_read(const char *sval) {
     if (!IS_FAIL(kv)) return kv;
     return NV_GET_fn(sval);
 }
+/*--- snobol4 keyword reader: own entry over the shared kw table; uppercase-fold handles &ALPHABET etc. ---*/
+DESCR_t rt_keyword_read_snobol4(const char *sval) {
+    if (!sval) return NULVCL;
+    const char *kw = sval[0] == '&' ? sval + 1 : sval;
+    char lk[64]; size_t li = 0;
+    for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
+    lk[li] = '\0';
+    DESCR_t kv = kw_read(lk);
+    if (!IS_FAIL(kv)) return kv;
+    return NV_GET_fn(sval);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;

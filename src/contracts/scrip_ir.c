@@ -28,7 +28,8 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_TO_BY] = "IR_TO_BY",
     [IR_PROC_GEN] = "IR_PROC_GEN",
     [IR_RANDOM] = "IR_RANDOM",
-    [IR_KEYWORD] = "IR_KEYWORD",
+    [IR_KEYWORD_ICON] = "IR_KEYWORD_ICON",
+    [IR_KEYWORD_SNOBOL4] = "IR_KEYWORD_SNOBOL4",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_FIELD_GET] = "IR_FIELD_GET",
     [IR_FIELD_VAR] = "IR_FIELD_VAR",
@@ -177,7 +178,7 @@ void ir_tmp_slot_assign(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = cursor; cursor += 16; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int jcon_converted_producer(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_KEYWORD; }
+static int jcon_converted_producer(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_KEYWORD_ICON || op == IR_KEYWORD_SNOBOL4; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_jcon_slot_assign(IR_graph_t * g) {
     if (!g) return;
@@ -218,7 +219,8 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         if (nd->op == IR_REPALT) { nd->tmp = base + k * 16; k += 2; continue; }
         if (nd->op == IR_REV_ASSIGN || nd->op == IR_REV_ASSIGN_VAR) { nd->tmp = base + k * 16; k += 2; continue; }
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
-        if (nd->op == IR_KEYWORD) { nd->tmp = base + k * 16; k += 2; continue; }
+        if (nd->op == IR_KEYWORD_ICON) { nd->tmp = base + k * 16; k += 2; continue; }
+        if (nd->op == IR_KEYWORD_SNOBOL4) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_RANDOM || nd->op == IR_SWAP_VAR) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_CREATE) { nd->tmp = base + k * 16; k += 4; continue; }
         if (nd->op == IR_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
@@ -279,7 +281,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
         case IR_LIT_CHARSET: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_ASSIGN: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-        case IR_KEYWORD: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_KEYWORD_ICON: case IR_KEYWORD_SNOBOL4: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_BINOP: case IR_BINOP_TEST: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_SUCCEED: if (IR_LIT(bb).ival != 0) fprintf(fp, " stno=%d", (int)IR_LIT(bb).ival); break;
         case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN:

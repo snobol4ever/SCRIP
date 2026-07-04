@@ -43,7 +43,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
     if (!prog) return;
     label_table_build(s2, prog);
     prescan_defines(prog);
-    if (lang_mask & ((1u << LANG_ICN) | (1u << LANG_RAKU) | (1u << LANG_PASCAL))) {
+    { /* init-all (Lon 2026-07-04): Icon/Raku/Pascal frame+scan state is set up UNCONDITIONALLY so every language is ready to run simultaneously — no language test gates initialization */
         g_fi8_gen_init_count++;
         s2->proc_count = 0; global_count = 0;
         frame_depth = 0;
@@ -51,7 +51,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
         scan_subj = ""; scan_pos = 1; scan_depth = 0;
         g_root = NULL;
     }
-    if (lang_mask & (1u << LANG_PL)) {
+    { /* init-all: Prolog atom/trail/resolve state set up UNCONDITIONALLY too */
         g_fi8_pl_init_count++;
         prolog_atom_init();
         memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);

@@ -21,10 +21,10 @@ push r12
   mov r12, rdi
 main_α_body:
 xchain0_n0_α:
-# IR_KEYWORD_read
+# IR_KEYWORD_SNOBOL4_read
 bb1_α:
  mov rdi, qword ptr [rip + .Lx1_0]
- call rt_keyword_read@PLT
+ call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 32], rax
  mov qword ptr [r12 + 40], rdx
  jmp xchain0_n1_α
