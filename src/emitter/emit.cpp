@@ -625,8 +625,10 @@ static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_call_write_route(IR_t *nd) {
+    extern int g_icon_write_reassignable;
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
+    if (g_icon_write_reassignable) return 0;
     if (bb_slot_get(a0) >= 0) return 1;
     int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_VAR || a0->op == IR_CALL || ir_is_call_kind(a0->op));
     if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_TO_BY)) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT) ? 2 : 3;
@@ -701,14 +703,18 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_KEYWORD_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
     case IR_KEYWORD_ASSIGN:       bb_emit_x86(bb_keyword_assign());     return 0;
     case IR_VAR:                  { extern int is_global(const char *);
-        if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') bb_emit_x86(bb_keyword_icon());
-        else if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) bb_emit_x86(bb_var_global());
+        const char * _vn = IR_LIT(nd).sval;
+        int _vn_reassignable_builtin = _vn && (!strcmp(_vn, "write") || !strcmp(_vn, "writes"));
+        if (_vn && _vn[0] == '&') bb_emit_x86(bb_keyword_icon());
+        else if (_vn && (is_global(_vn) || _vn_reassignable_builtin)) bb_emit_x86(bb_var_global());
         else bb_emit_x86(bb_var()); } return 0;
     case IR_VAR_REF:              bb_emit_x86(bb_var_ref());        return 0;
     case IR_ASSIGN: {
         extern int is_global(const char *);
-        if (IR_LIT(nd).sval && is_global(IR_LIT(nd).sval)) { bb_emit_x86(bb_assign_global()); return 0; }
-        if (IR_LIT(nd).sval) { bb_emit_x86(bb_assign_local()); return 0; }
+        const char * _an = IR_LIT(nd).sval;
+        int _an_reassignable_builtin = _an && (!strcmp(_an, "write") || !strcmp(_an, "writes"));
+        if (_an && (is_global(_an) || _an_reassignable_builtin)) { bb_emit_x86(bb_assign_global()); return 0; }
+        if (_an) { bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
     case IR_BINOP_TEST:          bb_emit_x86(bb_binop_relop());       return 0;

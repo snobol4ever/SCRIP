@@ -2133,6 +2133,8 @@ DESCR_t NV_GET_fn(const char *name) {
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
         if (strcmp(e->name, name) == 0) return e->is_gva ? *e->cell : e->val;
+    { extern DESCR_t rt_proc_value(const char *);
+      if (name && (!strcmp(name, "write") || !strcmp(name, "writes"))) return rt_proc_value(name); }
     return NULVCL;
 }
 int g_protected_pat_vars_armed = 0;
