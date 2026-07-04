@@ -14,6 +14,8 @@ __gva: .space 16, 0
 main:
   push rbp
   mov rbp, rsp
+  push rdi
+  push rsi
   lea rdi, [rip + __gva_names]
   lea rsi, [rip + __gva]
   mov edx, 1
@@ -24,6 +26,7 @@ main:
   xor esi, esi
   call main_α
   xor eax, eax
+  mov rsp, rbp
   pop rbp
   ret
 main_α:
@@ -142,7 +145,7 @@ bb8_α:
  mov qword ptr [r12 + 184], rax
  jmp xchain0_n9_α
  xchain0_n7_β:
- jmp main_ω
+ jmp main_γ
 .Lx9_0:
  .quad .Lx9_0_s
 .Lx9_0_s:
@@ -155,7 +158,7 @@ bb9_α:
  mov qword ptr [r12 + 216], rax
  jmp xchain0_n10_α
  xchain0_n8_β:
- jmp main_ω
+ jmp main_γ
 .Lx10_0:
  .quad .Lx10_0_s
 .Lx10_0_s:
@@ -171,7 +174,7 @@ bb10_α:
  mov qword ptr [r12 + 168], rdx
  jmp main_γ
  xchain0_n9_β:
- jmp main_ω
+ jmp main_γ
 .Lx11_0:
  .quad .Lx11_0_s
 .Lx11_0_s:
@@ -187,7 +190,7 @@ bb11_α:
  mov qword ptr [r12 + 200], rdx
  jmp main_γ
  xchain0_n10_β:
- jmp main_ω
+ jmp main_γ
 .Lx12_0:
  .quad .Lx12_0_s
 .Lx12_0_s:

@@ -4,11 +4,14 @@
 main:
   push rbp
   mov rbp, rsp
+  push rdi
+  push rsi
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
   call main_α
   xor eax, eax
+  mov rsp, rbp
   pop rbp
   ret
 main_α:
@@ -1170,7 +1173,7 @@ bb68_α:
  mov qword ptr [r12 + 1160], rax
  jmp xchain0_n69_α
  xchain0_n67_β:
- jmp main_ω
+ jmp main_γ
 .Lx68_0:
  .quad 1
 xchain0_n68_α:
@@ -1228,7 +1231,7 @@ bb70_α:
  mov qword ptr [r12 + 1192], rax
  jmp xchain0_n71_α
  xchain0_n69_β:
- jmp main_ω
+ jmp main_γ
 .Lx70_0:
  .quad 2
 xchain0_n70_α:
@@ -1255,7 +1258,7 @@ bb72_α:
  mov qword ptr [r12 + 1208], rax
  jmp xchain0_n72_α
  xchain0_n71_β:
- jmp main_ω
+ jmp main_γ
 .Lx72_0:
  .quad 3
 xchain0_n72_α:
@@ -1298,13 +1301,13 @@ bb73_α:
  mov r8d, 2
  call rt_num_arith@PLT
  cmp eax, 99
- je main_ω
+ je main_γ
  mov qword ptr [r12 + 1168], rax
  mov qword ptr [r12 + 1176], rdx
 .Lx73_3:
  jmp xchain0_n73_α
  xchain0_n72_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n73_α:
 bb74_α:
 # IR_BINOP_ARITH
@@ -1345,13 +1348,13 @@ bb74_α:
  mov r8d, 0
  call rt_num_arith@PLT
  cmp eax, 99
- je main_ω
+ je main_γ
  mov qword ptr [r12 + 1136], rax
  mov qword ptr [r12 + 1144], rdx
 .Lx74_3:
  jmp xchain0_n74_α
  xchain0_n73_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n74_α:
 # IR_ASSIGN global
 bb75_α:
@@ -1363,7 +1366,7 @@ bb75_α:
  mov qword ptr [r12 + 1128], rdx
  jmp main_γ
  xchain0_n74_β:
- jmp main_ω
+ jmp main_γ
 .Lx75_0:
  .quad .Lx75_0_s
 .Lx75_0_s:

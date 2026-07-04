@@ -4,11 +4,14 @@
 main:
   push rbp
   mov rbp, rsp
+  push rdi
+  push rsi
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
   call main_α
   xor eax, eax
+  mov rsp, rbp
   pop rbp
   ret
 main_α:
@@ -173,7 +176,7 @@ bb9_α:
  mov qword ptr [r12 + 456], rax
  jmp xchain0_n11_α
  xchain0_n8_β:
- jmp main_ω
+ jmp main_γ
 .Lx12_0:
  .quad 4614253070214989087
 xchain0_n9_α:
@@ -225,10 +228,10 @@ bb12_α:
  mov qword ptr [r12 + 416], rax
  mov qword ptr [r12 + 424], rdx
  cmp eax, 99
- je main_ω
+ je main_γ
  jmp xchain0_n13_α
  xchain0_n11_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n12_α:
 bb13_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
@@ -271,7 +274,7 @@ bb14_α:
  mov qword ptr [r12 + 472], rdx
  jmp xchain0_n15_α
  xchain0_n13_β:
- jmp main_ω
+ jmp main_γ
 .Lx19_0:
  .quad .Lx19_0_s
 .Lx19_0_s:
@@ -301,7 +304,7 @@ bb16_α:
  mov qword ptr [r12 + 488], rdx
  jmp xchain0_n16_α
  xchain0_n15_β:
- jmp main_ω
+ jmp main_γ
 .Lx21_0:
  .quad .Lx21_0_s
 .Lx21_0_s:
@@ -335,10 +338,10 @@ bb17_α:
  mov qword ptr [r12 + 352], rax
  mov qword ptr [r12 + 360], rdx
  cmp eax, 99
- je main_ω
+ je main_γ
  jmp xchain0_n17_α
  xchain0_n16_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n17_α:
 # IR_ASSIGN global
 bb18_α:
@@ -350,7 +353,7 @@ bb18_α:
  mov qword ptr [r12 + 344], rdx
  jmp main_γ
  xchain0_n17_β:
- jmp main_ω
+ jmp main_γ
 .Lx24_0:
  .quad .Lx24_0_s
 .Lx24_0_s:

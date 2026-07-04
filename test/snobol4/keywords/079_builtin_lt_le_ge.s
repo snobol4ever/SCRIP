@@ -4,11 +4,14 @@
 main:
   push rbp
   mov rbp, rsp
+  push rdi
+  push rsi
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
   call main_α
   xor eax, eax
+  mov rsp, rbp
   pop rbp
   ret
 main_α:
@@ -28,7 +31,7 @@ bb1_α:
  mov qword ptr [r12 + 72], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
- jmp main_ω
+ jmp main_γ
 .Lx1_0:
  .quad 3
 xchain0_n1_α:
@@ -39,7 +42,7 @@ bb2_α:
  mov qword ptr [r12 + 88], rax
  jmp xchain0_n2_α
  xchain0_n1_β:
- jmp main_ω
+ jmp main_γ
 .Lx2_0:
  .quad 5
 xchain0_n2_α:
@@ -66,10 +69,10 @@ bb3_α:
  mov qword ptr [r12 + 16], rax
  mov qword ptr [r12 + 24], rdx
  cmp eax, 99
- je main_ω
+ je main_γ
  jmp xchain0_n3_α
  xchain0_n2_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n3_α:
 # IR_LIT_STRING
 bb4_α:
@@ -107,7 +110,7 @@ bb6_α:
  mov qword ptr [r12 + 184], rax
  jmp xchain0_n6_α
  xchain0_n5_β:
- jmp main_ω
+ jmp main_γ
 .Lx7_0:
  .quad 5
 xchain0_n6_α:
@@ -118,7 +121,7 @@ bb7_α:
  mov qword ptr [r12 + 200], rax
  jmp xchain0_n7_α
  xchain0_n6_β:
- jmp main_ω
+ jmp main_γ
 .Lx8_0:
  .quad 5
 xchain0_n7_α:
@@ -145,10 +148,10 @@ bb8_α:
  mov qword ptr [r12 + 128], rax
  mov qword ptr [r12 + 136], rdx
  cmp eax, 99
- je main_ω
+ je main_γ
  jmp xchain0_n8_α
  xchain0_n7_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n8_α:
 # IR_LIT_STRING
 bb9_α:
@@ -186,7 +189,7 @@ bb11_α:
  mov qword ptr [r12 + 296], rax
  jmp xchain0_n11_α
  xchain0_n10_β:
- jmp main_ω
+ jmp main_γ
 .Lx13_0:
  .quad 7
 xchain0_n11_α:
@@ -197,7 +200,7 @@ bb12_α:
  mov qword ptr [r12 + 312], rax
  jmp xchain0_n12_α
  xchain0_n11_β:
- jmp main_ω
+ jmp main_γ
 .Lx14_0:
  .quad 5
 xchain0_n12_α:
@@ -224,10 +227,10 @@ bb13_α:
  mov qword ptr [r12 + 240], rax
  mov qword ptr [r12 + 248], rdx
  cmp eax, 99
- je main_ω
+ je main_γ
  jmp xchain0_n13_α
  xchain0_n12_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n13_α:
 # IR_LIT_STRING
 bb14_α:
@@ -236,7 +239,7 @@ bb14_α:
  mov qword ptr [r12 + 344], rax
  jmp xchain0_n14_α
  xchain0_n13_β:
- jmp main_ω
+ jmp main_γ
 .Lx17_0:
  .quad .Lx17_0_s
 .Lx17_0_s:
@@ -252,7 +255,7 @@ bb15_α:
  mov qword ptr [r12 + 328], rdx
  jmp main_γ
  xchain0_n14_β:
- jmp main_ω
+ jmp main_γ
 .Lx18_0:
  .quad .Lx18_0_s
 .Lx18_0_s:
