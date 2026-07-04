@@ -66,6 +66,7 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"ucase"))   return make_kw_cset("ABCDEFGHIJKLMNOPQRSTUVWXYZ","&ucase");
     if (!strcmp(kw,"letters")) return make_kw_cset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz","&letters");
     if (!strcmp(kw,"digits"))  return make_kw_cset("0123456789","&digits");
+    if (!strcmp(kw,"alphabet")) return kw_read("cset");
     if (!strcmp(kw,"ascii")) {
         static const char *cs = NULL;
         if (!cs) {
@@ -164,7 +165,10 @@ DESCR_t kw_read(const char *kw) {
 DESCR_t rt_keyword_read(const char *sval) {
     if (!sval) return NULVCL;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
-    DESCR_t kv = kw_read(kw);
+    char lk[64]; size_t li = 0;
+    for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
+    lk[li] = '\0';
+    DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
     return NV_GET_fn(sval);
 }
