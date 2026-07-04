@@ -577,7 +577,9 @@ int binop_slot_kind(IR_t *nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_binop_opnd_slot(IR_t *o) {
-    if (!o || o->op == IR_LIT_REAL) return -1;
+    if (!o) return -1;
+    extern int is_global(const char *);
+    if (o->op == IR_VAR && IR_LIT(o).sval && IR_LIT(o).sval[0] != '&' && !is_global(IR_LIT(o).sval)) { int voff = bb_varslot_peek(IR_LIT(o).sval); if (voff >= 0) return voff; }
     int s = bb_slot_get(o); if (s >= 0) return s;
     return (o->tmp >= 0) ? o->tmp : -1;
 }
@@ -872,13 +874,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         int sa = -1, sb = -1;
         if (binop_is_num_real(g_emit_cfg, nd)) { int ra = bb_slot_get(bb_child0(nd)), rb = bb_slot_get(bb_child1(nd)); if (ra >= 0 && rb >= 0) { sa = ra; sb = rb; g_emit.op_num_real = 1; } }
         if (!g_emit.op_num_real) { sa = emit_binop_opnd_slot(bb_child0(nd)); sb = emit_binop_opnd_slot(bb_child1(nd)); }
-        { IR_t *c0 = bb_child0(nd);
-          if (c0 && c0->op == IR_VAR && IR_LIT(c0).sval && IR_LIT(c0).sval[0] != '&' && !is_global(IR_LIT(c0).sval)) {
-              int voff = bb_varslot_peek(IR_LIT(c0).sval); if (voff >= 0) sa = voff; }
-          IR_t *c1 = bb_child1(nd);
-          if (c1 && c1->op == IR_VAR && IR_LIT(c1).sval && IR_LIT(c1).sval[0] != '&' && !is_global(IR_LIT(c1).sval)) {
-              int voff = bb_varslot_peek(IR_LIT(c1).sval); if (voff >= 0) sb = voff; }
-        }
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd); g_emit.op_binop_kind = (int)binop_slot_kind(nd);
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
