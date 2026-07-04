@@ -41,6 +41,7 @@ typedef enum {
     IR_INDIRECT_GOTO,
     IR_ITERATE,
     IR_KEYWORD,
+    IR_KEYWORD_ASSIGN,
     IR_LIT_CHARSET,
     IR_LIT_INTEGER,
     IR_LIT_REAL,
