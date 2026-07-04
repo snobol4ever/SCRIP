@@ -205,7 +205,7 @@ static int        g_rt_frame_depth = 0;
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
-    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator;
+    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name;
 } rt_proc_t;
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
@@ -232,7 +232,29 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0;
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_result_name(const char *name, const char *rname)
+{
+    if (!name) return;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].result_name = rname; g_rt_gen_procs[i].cells_done = 0; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_dyn_scope(const char *name, int v)
+{
+    if (!name) return;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].dyn_scope = v ? 1 : 0; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_dyn_scope(const char *name)
+{
+    if (!name) return 0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].dyn_scope;
+    return 0;
 }
 static rt_proc_t *rt_proc_find(const char *name);
 void rt_proc_cache_clear(void);
@@ -301,7 +323,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0;
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
@@ -325,6 +347,8 @@ static int64_t *proc_arena(void) {
 }
 static int     g_proc_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = (rt_proc_t *)0;
@@ -334,6 +358,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         abort();
     }
+    if (p->dyn_scope) return rt_call_named_proc(name, g_call_args, nargs > CALL_ARGS_MAX ? CALL_ARGS_MAX : nargs);
     if (g_proc_depth >= PROC_FRAME_DEPTH) {
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: recursion depth exceeded (%d)\n", PROC_FRAME_DEPTH);
         abort();
@@ -433,7 +458,8 @@ static void rt_proc_resolve_cells(rt_proc_t *p)
         p->pcells = (DESCR_t **)malloc((size_t)np * sizeof(DESCR_t *));
         if (p->pcells) for (int k = 0; k < np; k++) { const char *nm = pn[k]; p->pcells[k] = (nm && !rt_name_side_effecting(nm)) ? NV_PTR_fn(nm) : (DESCR_t *)0; }
     }
-    p->rcell = (p->name && !rt_name_side_effecting(p->name)) ? NV_PTR_fn(p->name) : (DESCR_t *)0;
+    { const char *rn = p->result_name ? p->result_name : p->name;
+      p->rcell = (rn && !rt_name_side_effecting(rn)) ? NV_PTR_fn(rn) : (DESCR_t *)0; }
     p->cells_done = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -506,8 +532,11 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     long fqw = (long)(((fbytes + 15) & ~15) / 8);
     if (g_proc_frame_cursor_qw + fqw > PROC_FRAME_ARENA_QWORDS) return FAILDESCR;
+    const char *rname = p->result_name ? p->result_name : name;
     int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
-    rt_name_save_push(&name, &p->rcell, (DESCR_t *)0, 0, 1);
+    { int rn_shadow = 0;
+      for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
+      if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     void *fb = (void *)&proc_nest_arena()[g_proc_frame_cursor_qw];
     long save_cursor = g_proc_frame_cursor_qw;
     g_proc_frame_cursor_qw += fqw;
@@ -518,7 +547,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     Σ = save_Σ; Σlen = save_Σlen;
     g_proc_frame_nest_depth--;
     g_proc_frame_cursor_qw = save_cursor;
-    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
+    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
     return result;
@@ -538,8 +567,11 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     long fqw = (long)(((fbytes + 15) & ~15) / 8);
     if (g_proc_frame_cursor_qw + fqw > PROC_FRAME_ARENA_QWORDS) return FAILDESCR;
+    const char *rname = p->result_name ? p->result_name : name;
     int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
-    rt_name_save_push(&name, &p->rcell, (DESCR_t *)0, 0, 1);
+    { int rn_shadow = 0;
+      for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
+      if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     void *fb = (void *)&proc_nest_arena()[g_proc_frame_cursor_qw];
     long save_cursor = g_proc_frame_cursor_qw;
     g_proc_frame_cursor_qw += fqw;
@@ -550,7 +582,7 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     Σ = save_Σ; Σlen = save_Σlen;
     g_proc_frame_nest_depth--;
     g_proc_frame_cursor_qw = save_cursor;
-    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
+    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
     return result;

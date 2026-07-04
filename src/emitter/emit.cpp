@@ -1354,6 +1354,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_label_t *node_ω = &lbl_ω;
         IR_t *gtgt = nodes[i]->γ.node;
         IR_t *otgt = nodes[i]->ω.node;
+        { int _gg = 0; while (gtgt && gtgt->op == IR_GOTO && _gg++ < 128) gtgt = gtgt->γ.node; }
+        { int _gg = 0; while (otgt && otgt->op == IR_GOTO && _gg++ < 128) otgt = otgt->γ.node; }
         int gamma_is_beta = (nodes[i]->γ.sz[0] == (char)0xce && (unsigned char)nodes[i]->γ.sz[1] == 0xb2);
         int omega_is_beta = (nodes[i]->ω.sz[0] == (char)0xce && (unsigned char)nodes[i]->ω.sz[1] == 0xb2);
         for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
@@ -1364,7 +1366,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
-        if (!omega_resolved) node_ω = &lbl_ω;
+        if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0 && nodes[r]->operands[0] == nodes[i]) { node_γ = ra_y[r]; node_ω = ra_t[r]; break; }
         if (nodes[i]->op == IR_CONJUNCTION && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t * op0 = nodes[i]->operands[0];

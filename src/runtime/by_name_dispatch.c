@@ -68,12 +68,15 @@ int rt_builtin_is_known(const char *name)
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
+        "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     {
         if (dat_find_type(name)) return 1;
     }
+    { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
+    { extern const char *rt_builtin_synonym(const char *); if (rt_builtin_synonym(name)) return 1; }
     return 0;
 }
 #define SOH '\x01'
@@ -2012,6 +2015,13 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
+    if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
+        DATBLK_t *idb = args[0].u->type;
+        for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && !strcmp(idb->fields[fi], fn)) {
+            extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+            *out = dat_field_get(fn, args[0]); return 1;
+        }
+    }
     if (!fn || !out) return 0;
     if (!strcmp(fn, "FAIL"))    { *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "SUCCEED")) { *out = NULVCL;    return 1; }
@@ -2256,7 +2266,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         else if (av.v==DT_A)     t="list";
         else if (av.v==DT_DATA)  {
             DESCR_t tag = FIELD_GET_fn(av,"gen_type");
-            t = (tag.v==DT_S && tag.s) ? tag.s : "record";
+            if (tag.v==DT_S && tag.s) t = tag.s;
+            else { DATINST_t *di = (DATINST_t *)av.u; t = (di && di->type && di->type->name) ? di->type->name : "record"; }
         }
         else if (IS_CSET_fn(av)) t="cset";
         else if (av.v==DT_E)     t="procedure";
@@ -3425,6 +3436,85 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = GC_strdup(sv);
         *out = d; return 1;
     }
+    if (!strcmp(fn,"ARRAY") && nargs >= 1) {
+        extern DESCR_t sno_array_from_proto(const char *proto, DESCR_t init);
+        DESCR_t init = (nargs >= 2) ? args[1] : NULVCL;
+        char pb[64]; const char *proto;
+        if (IS_INT_fn(args[0])) { snprintf(pb, sizeof pb, "%lld", (long long)args[0].i); proto = pb; }
+        else { proto = VARVAL_fn(args[0]); if (!proto || !*proto) { *out = FAILDESCR; return 1; } }
+        DESCR_t r = sno_array_from_proto(proto, init);
+        if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = GC_strdup(proto);
+        *out = r; return 1;
+    }
+    if (!strcmp(fn,"TABLE") && nargs <= 3) {
+        TBBLK_t *tb = table_new();
+        DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_T; d.slen = 0; d.tbl = tb;
+        *out = d; return 1;
+    }
+    if (!strcmp(fn,"ITEM") && nargs >= 2) {
+        extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx); extern DESCR_t rt_deref(DESCR_t v);
+        DESCR_t cur = args[0];
+        for (int k = 1; k < nargs; k++) { cur = rt_subscript_var(cur, args[k]); if (IS_FAIL_fn(cur)) { *out = FAILDESCR; return 1; } }
+        *out = rt_deref(cur); return 1;
+    }
+    if (!strcmp(fn,"PROTOTYPE") && nargs == 1) {
+        if (args[0].v == DT_A && args[0].arr) {
+            ARBLK_t *a = (ARBLK_t *)args[0].arr;
+            if (a->proto) { *out = STRVAL(GC_strdup(a->proto)); return 1; }
+            char pb[64]; if (a->lo == 1) snprintf(pb, sizeof pb, "%d", a->hi); else snprintf(pb, sizeof pb, "%d:%d", a->lo, a->hi);
+            *out = STRVAL(GC_strdup(pb)); return 1;
+        }
+        *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn,"CONVERT") && nargs == 2) {
+        char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
+        char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
+        DESCR_t a = args[0];
+        if (!strcmp(tu,"INTEGER")) {
+            if (IS_INT_fn(a)) { *out = a; return 1; }
+            if (IS_REAL_fn(a)) { *out = INTVAL((long long)a.r); return 1; }
+            const char *sv = VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
+            char *e = NULL; long long iv = strtoll(sv, &e, 10); if (e && *e == '\0' && e != sv) { *out = INTVAL(iv); return 1; }
+            double dv = strtod(sv, &e); if (e && *e == '\0' && e != sv) { *out = INTVAL((long long)dv); return 1; }
+            *out = FAILDESCR; return 1;
+        }
+        if (!strcmp(tu,"REAL")) {
+            if (IS_REAL_fn(a)) { *out = a; return 1; }
+            if (IS_INT_fn(a)) { *out = REALVAL((double)a.i); return 1; }
+            const char *sv = VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
+            char *e = NULL; double dv = strtod(sv, &e); if (e && *e == '\0' && e != sv) { *out = REALVAL(dv); return 1; }
+            *out = FAILDESCR; return 1;
+        }
+        if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(GC_strdup(sv ? sv : "")); return 1; }
+        *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn,"DATA") && nargs == 1) {
+        extern DatType *dat_register(const char *spec);
+        const char *sp = VARVAL_fn(args[0]); if (!sp || !*sp) { *out = FAILDESCR; return 1; }
+        char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
+        if (!dat_find_type(nb)) dat_register(sp);
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn,"OPSYN") && nargs >= 2) { *out = NULVCL; return 1; }
+    if (!strcmp(fn,"SNO$KWSET") && nargs == 2) {
+        extern void rt_keyword_write_snobol4(const char *sval, DESCR_t v);
+        char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
+        rt_keyword_write_snobol4(kn ? kn : "", args[1]);
+        *out = args[1]; return 1;
+    }
+    if (!strcmp(fn,"VALUE") && nargs == 1) {
+        extern DESCR_t NV_GET_fn(const char *); extern DESCR_t rt_deref(DESCR_t);
+        if (args[0].v == DT_N) { *out = rt_deref(args[0]); return 1; }
+        const char *nm = VARVAL_fn(args[0]); if (!nm || !*nm) { *out = FAILDESCR; return 1; }
+        *out = NV_GET_fn(nm); return 1;
+    }
+    if (!strcmp(fn,"APPLY") && nargs >= 1) {
+        const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
+        if (!pn || !*pn) { *out = FAILDESCR; return 1; }
+        extern int rt_proc_is_registered(const char *); extern DESCR_t rt_call_proc_descr(const char *, int); extern DESCR_t g_call_args[];
+        if (rt_proc_is_registered(pn)) { int na = nargs - 1; if (na > 64) na = 64; for (int k = 0; k < na; k++) g_call_args[k] = args[k + 1]; *out = rt_call_proc_descr(pn, na); return 1; }
+        return try_call_builtin_by_name(pn, args + 1, nargs - 1, out);
+    }
     if (nargs == 1) {
         DESCR_t a = args[0];
         if (IS_FAIL_fn(a)) { *out = FAILDESCR; return 1; }
@@ -3563,5 +3653,61 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (_rdt) { *out = dat_construct(_rdt, args, nargs); return 1; }
     }
     if (script_try_call_builtin_by_name(fn, args, nargs, out)) return 1;
+    { DatType *dt = dat_find_type(fn);
+      if (dt && nargs <= dt->nfields) {
+          DESCR_t fv[64]; int nf = dt->nfields > 64 ? 64 : dt->nfields;
+          for (int i = 0; i < nf; i++) fv[i] = (i < nargs) ? args[i] : NULVCL;
+          *out = dat_construct(dt, fv, nf); return 1;
+      } }
+    { extern int rt_dat_field_of_any(const char *);
+      if (nargs == 1 && args[0].v == DT_DATA && rt_dat_field_of_any(fn)) {
+          extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+          *out = dat_field_get(fn, args[0]); return 1;
+      } }
+    { extern const char *rt_builtin_synonym(const char *);
+      const char *syn = rt_builtin_synonym(fn);
+      if (syn) return try_call_builtin_by_name(syn, args, nargs, out); }
     return 0;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_dat_field_of_any(const char *name) {
+    extern int dat_type_count(void); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+    if (!name || !name[0]) return 0;
+    for (int c = 0; c < dat_type_count(); c++) for (int f = 0; f < dat_type_nfields(c); f++) { const char *fn2 = dat_type_field(c, f); if (fn2 && !strcmp(fn2, name)) return 1; }
+    return 0;
+}
+#define RT_SYN_MAX 64
+static const char *g_rt_syn_new[RT_SYN_MAX]; static const char *g_rt_syn_old[RT_SYN_MAX]; static int g_rt_syn_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_builtin_synonym_add(const char *newname, const char *oldname) {
+    if (!newname || !oldname || g_rt_syn_n >= RT_SYN_MAX) return;
+    for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(g_rt_syn_new[i], newname)) { g_rt_syn_old[i] = oldname; return; }
+    g_rt_syn_new[g_rt_syn_n] = newname; g_rt_syn_old[g_rt_syn_n] = oldname; g_rt_syn_n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_builtin_synonym(const char *name) {
+    if (!name) return (const char *)0;
+    for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(g_rt_syn_new[i], name)) return g_rt_syn_old[i];
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t sno_array_from_proto(const char *proto, DESCR_t init) {
+    extern ARBLK_t *array_new(int lo, int hi);
+    if (!proto || !*proto) return FAILDESCR;
+    char buf[128]; int bn = 0;
+    for (const char *q = proto; *q && *q != ',' && bn < 127; q++) buf[bn++] = *q;
+    buf[bn] = 0;
+    const char *rest = proto[bn] == ',' ? proto + bn + 1 : (const char *)0;
+    long lo = 1, hi;
+    char *colon = strchr(buf, ':');
+    if (colon) { *colon = 0; lo = strtol(buf, (char **)0, 10); hi = strtol(colon + 1, (char **)0, 10); }
+    else hi = strtol(buf, (char **)0, 10);
+    if (hi < lo) return FAILDESCR;
+    ARBLK_t *a = array_new((int)lo, (int)hi);
+    if (!a) return FAILDESCR;
+    int n = (int)(hi - lo + 1);
+    for (int k = 0; k < n; k++) a->data[k] = rest ? sno_array_from_proto(rest, init) : init;
+    DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_A; d.slen = 0; d.arr = a;
+    return d;
 }
