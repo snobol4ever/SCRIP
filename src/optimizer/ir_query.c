@@ -5,6 +5,7 @@ int ir_is_generator_kind(IR_e t) {
         case IR_TO: case IR_TO_BY: case IR_PROC_GEN: case IR_REPALT: case IR_LIMIT: case IR_ITERATE: case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR:
         case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MANY: case IR_SCAN_BAL:
         case IR_MATCH_HEAD:
+        case IR_MATCH_ARB:
         case IR_KEYWORD_ICON:
             return 1;
         default: return 0;

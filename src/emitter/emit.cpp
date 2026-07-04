@@ -674,7 +674,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.x86_uid = g_flat_node_id++;
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET
                        || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
-                       || nd->op == IR_MATCH_ASSIGN_COND
+                       || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
+                       || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_POS
                        || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL)
                     ? IR_LIT(nd).sval : (const char *)0;
     { extern int g_gva_active; extern int gva_index_of(const char *); int nm_op = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN);
@@ -729,6 +730,17 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUSPEND:              bb_emit_x86(bb_suspend());        return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_MATCH_LEN:            { bb_prepare(nd); bb_emit_x86(bb_match_len()); } return 0;   /* SN4-PAT-1 */
+    case IR_MATCH_LIT:            { bb_prepare(nd); bb_emit_x86(bb_match_lit()); } return 0;   /* SN4-PAT-3 */
+    case IR_MATCH_ANY:            { bb_prepare(nd); bb_emit_x86(bb_match_any()); } return 0;   /* SN4-PAT-3 */
+    case IR_MATCH_NOTANY:         { bb_prepare(nd); bb_emit_x86(bb_match_notany()); } return 0; /* SN4-PAT-3 */
+    case IR_MATCH_SPAN:           { bb_prepare(nd); bb_emit_x86(bb_match_span()); } return 0;   /* SN4-PAT-3 */
+    case IR_MATCH_BREAK:          { bb_prepare(nd); bb_emit_x86(bb_match_break()); } return 0;   /* SN4-PAT-3 */
+    case IR_MATCH_BREAKX:         { bb_prepare(nd); bb_emit_x86(bb_match_breakx()); } return 0;  /* SN4-PAT-3 */
+    case IR_MATCH_TAB:            { bb_prepare(nd); bb_emit_x86(bb_match_tab()); } return 0;     /* SN4-PAT-3 */
+    case IR_MATCH_RTAB:           { bb_prepare(nd); bb_emit_x86(bb_match_rtab()); } return 0;    /* SN4-PAT-3 */
+    case IR_MATCH_POS:            { bb_prepare(nd); bb_emit_x86(bb_match_pos()); } return 0;     /* SN4-PAT-3 */
+    case IR_MATCH_REM:            { bb_prepare(nd); bb_emit_x86(bb_match_rem()); } return 0;     /* SN4-PAT-3 */
+    case IR_MATCH_ARB:            { bb_prepare(nd); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
@@ -940,6 +952,34 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     }
     case IR_MATCH_LEN: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_LIT: {
+        g_emit.op_sa = -1; g_emit.op_off = -1;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_ANY: case IR_MATCH_NOTANY: {
+        g_emit.op_sa = -1; g_emit.op_off = -1;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_SPAN: {
+        g_emit.x86_scratch_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_BREAK: case IR_MATCH_BREAKX: {
+        g_emit.x86_scratch_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_POS: {
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        g_emit.op_off = -1;
+        if (!a0) { drive_unowned(nd); break; }
+        if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_REM: case IR_MATCH_ARB: {
+        g_emit.x86_scratch_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TO: {
