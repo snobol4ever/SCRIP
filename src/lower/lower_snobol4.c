@@ -6,7 +6,7 @@
 #include "bb_program.h"
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
-typedef struct { IR_graph_t * g; } scx_t;
+typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; } scx_t;
 #define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; } sno_def_t;
@@ -157,6 +157,28 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!strcmp(name, "DEFINE")) sno_fatal("DEFINE in expression position is outside the landed subset (statement-level literal DEFINE only)", NULL);
         if (!strcmp(name, "EVAL") || !strcmp(name, "CODE")) sno_fatal("outside subset", name);
         return sx_call_named(cx, name, t, argbase, γ, ω, res);
+    }
+    case TT_WHILE: case TT_UNTIL: {
+        const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+        if (!C) sno_fatal("loop with no condition", NULL);
+        int is_until = (t->t == TT_UNTIL);
+        IR_t * cr = NULL;
+        IR_t * ce = is_until ? sx_lower(cx, C, γ, NULL, &cr) : sx_lower(cx, C, NULL, γ, &cr);
+        IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
+        cx->loop_exit = γ; cx->loop_next = ce;
+        IR_t * be = B ? sco_branch(cx, B, ce, ω) : ce;
+        cx->loop_exit = sv_exit; cx->loop_next = sv_next;
+        if (cr) { if (is_until) { if (!cr->ω.node) lc_ω_to(cr, be); } else { if (!cr->γ.node) lc_γ_to(cr, be); } }
+        if (res) *res = NULL;
+        return ce;
+    }
+    case TT_LOOP_BREAK: case TT_LOOP_NEXT: {
+        if (t->n > 0 && t->c[0]) sno_fatal("labeled break/next outside the SCO-CF-3 subset", NULL);
+        IR_t * tgt = (t->t == TT_LOOP_BREAK) ? cx->loop_exit : cx->loop_next;
+        if (!tgt) sno_fatal("break/next outside any loop", NULL);
+        IR_t * j = lc_build(cx->g, IR_GOTO, tgt, NULL);
+        if (res) *res = NULL;
+        return j;
     }
     case TT_ASSIGN: {
         const tree_t * L = (t->n > 0) ? t->c[0] : NULL; const tree_t * R = (t->n > 1) ? t->c[1] : NULL;
@@ -384,7 +406,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, IR_t * sJ, IR_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
-    scx_t cx; cx.g = g;
+    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
